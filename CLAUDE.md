@@ -77,7 +77,7 @@ sync, not for authenticating a person:
 **Files involved (the entirety of the "auth-ish" surface):**
 - `sync.js` — the shared sync client used by `index.html`, `finance.html`,
   `entertainment.html`, `projects.html`.
-- `gym.html` (inline `<script>`, ~line 3260–3450) — its own separate,
+- `gym.html` (inline `<script>`, ~line 2190–2386) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
 - `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
   independent Supabase push that used to run when the water "+1" button was
@@ -171,7 +171,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders`, `nw_currency`, `nw:activity`, `nw:history`, `nw:*` |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` |
    | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
-   | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done`, `po_coach_weights`, `po_coach_photos` |
+   | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -240,7 +240,7 @@ between this app and either data loss or a wide-open write target:
    plumbing.** Specifically, do not modify unless explicitly asked:
    - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
      `finance.html`, `entertainment.html`, `projects.html`).
-   - The inline Supabase sync block in `gym.html` (~line 3260–3450,
+   - The inline Supabase sync block in `gym.html` (~line 2190–2386,
      `APP_KEY = 'po-coach'`).
    - The inline Supabase push in `topbar.js`
      (`pushWaterMergedToSupabase`, `TOPBAR_SUPABASE_URL`/`_KEY`).
@@ -322,3 +322,53 @@ between this app and either data loss or a wide-open write target:
   - No auth was added — there is none in this app (see §2) — so "make it
     the post-login landing page" was a no-op: `index.html` was already the
     home page.
+
+- **Gym page (`gym.html`) rebuilt around manual routines/schedule instead of
+  auto-rotation.** The prior version auto-selected "today's split" from a
+  rotating day sequence and separately bundled body-weight tracking with a
+  weigh-in chart/streak, progress photos (with in-browser camera capture and
+  before/after compare), and body-composition estimates — none of that was
+  part of the new spec, so it was removed wholesale rather than kept
+  alongside the rebuild. What replaced it, all still under `po_coach_v1`
+  (routines/schedule/logs/notes/settings) and `po_coach_workout_done`
+  (completed-workout log), same `localStorage` keys and shapes close enough
+  that no migration was needed for the parts that carried over:
+  - **Weekday → routine schedule**, editable anytime via the day pill at the
+    top (opens a Mon–Sun editor; any day can be set to Rest).
+  - **Routines** with full CRUD, each holding an ordered list of exercises
+    (name, rep range, weight increment, starting weight, optional
+    bodyweight-only flag) — also full CRUD, addable inline from "Today's
+    workout" or from the routine editor.
+  - **Today's workout** view driven purely by the weekday schedule (with a
+    manual "log anyway" override on rest days): a logging form pre-filled
+    from a purely-local prescription engine (last logged set + rep-range
+    threshold → hold/add-weight/deload suggestion — no external data, no
+    health devices, explicitly not AI), a running list of today's logged
+    sets, an optional per-workout note, and a "mark workout complete" toggle.
+  - Completing a workout calls `checkOffRelatedHabit()`, a best-effort
+    heuristic that checks off a same-day Goals-page habit
+    (`goals:habits` / `goals:habit-log:<date>`) if its text matches the
+    routine name or a generic keyword (gym/workout/exercise/lift) — same
+    data shape `index.html`'s habit system already uses, and it dispatches
+    the same `goals-changed`/`storage` events so an open Goals tab updates
+    live.
+  - **Workout history** (completed sessions from `po_coach_workout_done`,
+    expandable per-session set detail) and a **per-exercise progress chart**
+    (weight or volume over time, toggleable) — both hand-rolled inline SVG
+    matching this file's existing sparkline/chart pattern, not a charting
+    library import, consistent with "no build step" for this repo.
+  - **Compare view** — pick a routine with 2+ completed sessions and two of
+    its session dates, see a per-exercise volume/top-set delta table.
+  - The inline Supabase sync block (`APP_KEY = 'po-coach'`) was kept exactly
+    as wired, just with its synced-key list trimmed from
+    `['po_coach_v1', 'po_coach_workout_done', 'po_coach_weights',
+    'po_coach_photos']` to `['po_coach_v1', 'po_coach_workout_done']` since
+    the weigh-in/photo keys no longer exist — the `key='po-coach'` row in
+    Supabase itself was left alone (old `po_coach_weights`/`po_coach_photos`
+    fields in that row are now orphaned, not cleaned up, same treatment as
+    the `health` row from the Stack/Water removal above). `topbar.js`'s
+    `MODAL_SELECTORS` still lists `.wt-overlay`/`.wt-viewer`/`.wt-cam` from
+    the removed photo viewer/camera modals — left in place as unreachable
+    dead code rather than deleted, since removing them wasn't explicitly
+    asked for (same call as `pushWaterMergedToSupabase` above). The §4 data
+    table above was updated to match the trimmed key list.
