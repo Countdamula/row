@@ -195,6 +195,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">FINANCE</span>
   </a>
+  <a href="entertainment.html" class="topbar-pill" id="topbarEntertainment">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">MEDIA</span>
+  </a>
 </header>
 `;
 
