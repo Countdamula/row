@@ -26,19 +26,20 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `index.html` | Goals (home page) |
-| `health.html` | Stack (supplements) tracker |
-| `po-water.html` | Water tracker (standalone — see §5 discrepancy note) |
 | `gym.html` | Gym / progressive-overload tracker |
 | `finance.html` | Finance |
 | `entertainment.html` | Media (Entertainment) |
 | `projects.html` | Projects |
 
+Stack (`health.html`) and Water (`po-water.html`) were removed — see the
+changelog note at the bottom of this file.
+
 **Shared, non-page files:**
-- `topbar.js` — injects the shared top nav bar (pills + water quick-add) into
-  every page that includes `<script src="topbar.js" defer></script>`. Not a
-  framework component; it's a self-invoking function that builds a `<style>`
-  and `<header>` string and appends them to `document.head`/`document.body`
-  on `DOMContentLoaded`.
+- `topbar.js` — injects the shared top nav bar (pills) into every page that
+  includes `<script src="topbar.js" defer></script>`. Not a framework
+  component; it's a self-invoking function that builds a `<style>` and
+  `<header>` string and appends them to `document.head`/`document.body` on
+  `DOMContentLoaded`.
 - `sync.js` — shared cloud-sync helper (see §4). Exposes one global,
   `window.initCloudSync(config)`.
 
@@ -74,13 +75,17 @@ sync, not for authenticating a person:
   intentional for a single-user tool, not an oversight to "fix" silently.
 
 **Files involved (the entirety of the "auth-ish" surface):**
-- `sync.js` — the shared sync client used by `index.html`, `health.html`,
-  `po-water.html`, `finance.html`, `entertainment.html`, `projects.html`.
+- `sync.js` — the shared sync client used by `index.html`, `finance.html`,
+  `entertainment.html`, `projects.html`.
 - `gym.html` (inline `<script>`, ~line 3260–3450) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
-- `topbar.js` — has its own small independent Supabase push
-  (`pushWaterMergedToSupabase`) for the water "+1" button, so a water log
-  syncs even from pages other than `health.html`.
+- `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
+  independent Supabase push that used to run when the water "+1" button was
+  tapped from any page. **The Water page and the topbar's water button were
+  removed** (see changelog), but this function is named explicitly in this
+  file's DO NOT MODIFY list, so it was left in place rather than deleted —
+  it is now unreachable dead code (nothing calls it). If you want it deleted
+  too, that needs an explicit ask, same as anything else in that list.
 
 ## 3. Design system
 
@@ -109,11 +114,7 @@ color anywhere in the codebase — see the discrepancy note in §6.
 | `--warn` / `--warning` | `#fbbf24` / `#F2C063` | amber — "in progress"/warning |
 | `--bad` / `--danger` | `#ff8a8a` / `#FF6B6B` | red-coral — error/delete |
 | `--info` | `#7dd3fc` / `#7DD3FC` | light blue — informational accent |
-| `--accent` | `#E07658` (finance/entertainment/projects) or `#1D9E75` (health.html) or `#ffffff` (gym.html) | one warm/brand accent, **inconsistent per file** |
-
-The one place a *dark red* tint appears at all is `health.html`'s
-`--warning-bg: rgba(163, 45, 45, 0.10)` — a translucent red used only as a
-warning-state background tint, not a brand color.
+| `--accent` | `#E07658` (finance/entertainment/projects) or `#ffffff` (gym.html) | one warm/brand accent, **inconsistent per file** |
 
 **Fonts (consistent everywhere):**
 - `--font`: `-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif`
@@ -127,23 +128,22 @@ newest, most consistent pages) do define `--radius-sm: 8px`, `--radius-md: 12px`
 **Shared UI components** (by convention/copy-paste, not by import — every
 page's CSS is self-contained in its own `<style>` block):
 - **Top nav bar** — the only *actually* shared component (via `topbar.js`
-  injecting real markup at runtime): `.topbar`, `.topbar-pill`,
-  `.topbar-water-pill`, `.topbar-water-add`.
+  injecting real markup at runtime): `.topbar`, `.topbar-pill`.
 - **Buttons** — `.btn-primary` / `.btn-secondary` (white-gradient primary,
   subtle-bordered secondary) in `entertainment.html` and `projects.html`;
-  `gym.html`/`po-water.html` use `.po-btn-primary` / `.po-btn-secondary`
-  (same look, different class names); `finance.html` uses page-specific names
+  `gym.html` uses `.po-btn-primary` / `.po-btn-secondary` (same look,
+  different class names); `finance.html` uses page-specific names
   (`.quick-add-btn`, `.wish-add-btn`, `.ord-add-btn`) with the same visual
   recipe. **Not unified — copy the closest existing pattern, don't invent a
   fourth naming scheme.**
-- **Modals** — `.modal-bg` / `.modal` (entertainment.html, projects.html,
-  po-water.html) vs `.po-modal-bg` / `.po-modal` (gym.html). `topbar.js`
-  injects shared CSS that treats **both** naming conventions as "a modal" for
-  mobile full-screen behavior and body-scroll locking (see the
-  `MODAL_SELECTORS` array in `topbar.js`, `startModalLock()`). If you add a
-  new modal, add its class to that array too, or scroll-lock won't apply.
-  `projects.html` also has a full-screen, non-floating "page" overlay,
-  `.project-page-bg`, already added to `MODAL_SELECTORS`.
+- **Modals** — `.modal-bg` / `.modal` (entertainment.html, projects.html) vs
+  `.po-modal-bg` / `.po-modal` (gym.html). `topbar.js` injects shared CSS
+  that treats **both** naming conventions as "a modal" for mobile
+  full-screen behavior and body-scroll locking (see the `MODAL_SELECTORS`
+  array in `topbar.js`, `startModalLock()`). If you add a new modal, add its
+  class to that array too, or scroll-lock won't apply. `projects.html` also
+  has a full-screen, non-floating "page" overlay, `.project-page-bg`,
+  already added to `MODAL_SELECTORS`.
 - **Cards / gallery grid** — `.ent-card`, `.ent-cover`, `.ent-grid`, `.tag`,
   `.chip` are *literally identical* class names/CSS copied between
   `entertainment.html` and `projects.html` (the two Notion-gallery-style
@@ -154,10 +154,10 @@ page's CSS is self-contained in its own `<style>` block):
 **No database, no ORM, no server.** Two storage mechanisms, layered:
 
 1. **`localStorage`** is the primary store — every page reads/writes plain
-   JSON under its own keys (e.g. `goals:<date>`, `stack:items`, `po_water_v1`,
-   `subs`, `ent:cards`, `proj:cards`, `proj:statuses`, `proj:groups`, etc.).
-   This is the only store that matters when offline; everything works with
-   zero network access.
+   JSON under its own keys (e.g. `goals:<date>`, `subs`, `ent:cards`,
+   `proj:cards`, `proj:statuses`, `proj:groups`, etc.). This is the only
+   store that matters when offline; everything works with zero network
+   access.
 
 2. **Supabase Postgres, one generic table (`public.app_state`)** — used
    purely as a sync relay, not a relational schema. Row shape:
@@ -168,18 +168,23 @@ page's CSS is self-contained in its own `<style>` block):
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
    | `goals` | `index.html` | everything prefixed `goals:` |
-   | `health` | `health.html`, `po-water.html` | `stack:items`, `stack:version`, `stack:low`, `stack:taken:*`, `po_water_v1` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders`, `nw_currency`, `nw:activity`, `nw:history`, `nw:*` |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` |
    | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done`, `po_coach_weights`, `po_coach_photos` |
+
+   `health` (previously owned by `health.html`/`po-water.html`, syncing
+   `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
+   writes it anymore since those pages were deleted (see changelog). It was
+   left alone in Supabase itself; this doc only tracks code, not database
+   cleanup.
 
    There are no other tables, no foreign keys, no migrations directory.
    Uploaded images (progress photos, project/media covers) are stored as
    base64 data URLs *inside* these JSON blobs (client-side downscaled via
    `<canvas>` first) — not in Supabase Storage.
 
-**Sync mechanism (`sync.js`, used by 6 of 7 pages):** `initCloudSync({appKey, syncedKeys, syncedPrefixes, onApplied})`
+**Sync mechanism (`sync.js`, used by 4 of 5 pages):** `initCloudSync({appKey, syncedKeys, syncedPrefixes, onApplied})`
 monkey-patches `localStorage.setItem`/`removeItem` to detect relevant writes,
 debounce-pushes them to Supabase, pulls the current remote row on load
 (applying it if newer/present), and subscribes to a Postgres Realtime channel
@@ -192,15 +197,15 @@ using `sync.js`.
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
 | Goals | `GOALS` → `index.html` | `index.html` |
-| Stack | `STACK` → `health.html` | `health.html` |
-| Water | `WATER` pill + `+` button → `health.html#water` | `po-water.html` (see discrepancy below); water quick-add itself lives in `topbar.js`, not a page |
 | Gym | `GYM` → `gym.html` | `gym.html` |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` |
 | Projects | `PROJECTS` → `projects.html` | `projects.html` |
 
+Stack and Water were removed — see changelog at the bottom of this file.
+
 Nav pill markup lives in one place: the `html` template string inside
-`topbar.js` (~line 170–204). There is no separate "nav config" file.
+`topbar.js`. There is no separate "nav config" file.
 
 ## 6. Discrepancies worth flagging before further work
 
@@ -218,13 +223,10 @@ documents what's actually here:
   green/amber/red-coral/blue accents (full table in §3).
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
-- `topbar.js`'s WATER pill links to `health.html#water`, but `health.html`
-  has no element with `id="water"` and no water UI of its own — the water
-  tracker's actual full UI lives in the standalone `po-water.html`, which
-  currently has **no nav entry pointing to it** anywhere in `topbar.js`.
-  Worth confirming whether that's intentional (water is meant to be driven
-  entirely from the topbar's quick-add `+` button) or a broken link left
-  over from a refactor.
+
+*(The original WATER-pill-links-to-a-nonexistent-anchor discrepancy noted
+here has since been resolved by removing the Water page and pill entirely —
+see changelog.)*
 
 ## DO NOT MODIFY
 
@@ -237,8 +239,7 @@ between this app and either data loss or a wide-open write target:
 1. **Never rewrite, weaken, or bypass the existing sync/access-control
    plumbing.** Specifically, do not modify unless explicitly asked:
    - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
-     `health.html`, `po-water.html`, `finance.html`, `entertainment.html`,
-     `projects.html`).
+     `finance.html`, `entertainment.html`, `projects.html`).
    - The inline Supabase sync block in `gym.html` (~line 3260–3450,
      `APP_KEY = 'po-coach'`).
    - The inline Supabase push in `topbar.js`
@@ -267,10 +268,24 @@ between this app and either data loss or a wide-open write target:
      to preserve, because none exists; don't introduce one unless asked.
    - Reuse existing component patterns before inventing new class names:
      `.btn-primary`/`.btn-secondary` (or `.po-btn-primary`/`.po-btn-secondary`
-     in gym/po-water), `.modal-bg`/`.modal` (or `.po-modal-bg`/`.po-modal`)
+     in gym.html), `.modal-bg`/`.modal` (or `.po-modal-bg`/`.po-modal`)
      — and register any new modal-like overlay in `topbar.js`'s
      `MODAL_SELECTORS` — `.chip`, `.tag`, `.ent-card`/`.ent-cover`/`.ent-grid`
      for gallery-style pages.
    - `topbar.js`'s injected markup/CSS (`.topbar`, `.topbar-pill`, etc.) is
      shared at runtime across every page — don't fork it per-page; edit it
      once in `topbar.js` if the nav itself needs to change.
+
+## Changelog
+
+- **Stack and Water pages removed.** Deleted `health.html` (Stack) and
+  `po-water.html` (Water) entirely, along with their `STACK`/`WATER` nav
+  pills and the water quick-add `+` button in `topbar.js` (CSS, injected
+  HTML, and the `getStackProgress`/`getWaterProgress`/`calendarDateKey`/
+  `defaultWaterState`/`addWater` functions). `pushWaterMergedToSupabase` and
+  the `TOPBAR_SUPABASE_URL`/`TOPBAR_SUPABASE_KEY` constants were **left in
+  `topbar.js` untouched** per the DO NOT MODIFY rule above (they're now
+  unreachable dead code, not deleted, since removing them wasn't explicitly
+  asked for). The Supabase `app_state` row under `key = 'health'` was left
+  alone in the database — it's now orphaned, not cleaned up. `README.md`'s
+  file table was updated to match.

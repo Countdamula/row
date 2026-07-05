@@ -15,11 +15,12 @@ Open any `.html` file directly in your browser — no build step, no install.
 | File | What it is |
 |---|---|
 | [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
-| [health.html](health.html) | Supplement / daily stack tracker |
-| [po-water.html](po-water.html) | Water intake tracker |
 | [finance.html](finance.html) | Finances |
 | [gym.html](gym.html) | Progressive overload gym tracker |
+| [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
+| [projects.html](projects.html) | Projects — grouped project tracker |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
+| [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 
 Each app stores its own state in browser `localStorage`. No accounts, no server.
 
