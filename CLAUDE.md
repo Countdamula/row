@@ -225,14 +225,18 @@ documents what's actually here:
 - No dark-red/pink palette — the real palette is near-black + off-white with
   green/amber/red-coral/blue accents (full table in §3). Two deliberate,
   explicit exceptions exist, both because the request was a literal,
-  specific visual instruction rather than generic "themed to a palette"
-  boilerplate: (1) `entertainment.html` (the Media page) got a thin-red
-  tile border + a genuinely new pink accent color on hover; (2)
-  `braindump.html` (Brain Dump) is a **fully light-themed page** — its own
-  self-contained cream/off-white/charcoal tokens, no dark background at
-  all — because the request was "make it exactly like this photo" of a
-  light Notion template. Both are scoped to their own file's `:root`; no
-  other page's tokens changed. See each page's changelog entry.
+  specific visual instruction (a reference photo) rather than generic
+  "themed to a palette" boilerplate: (1) `entertainment.html` (the Media
+  page) got a thin-red tile border + a genuinely new pink accent color on
+  hover; (2) `braindump.html` (Brain Dump) has its own self-contained
+  dark forest-green/black + gold/copper theme (deep green radial-gradient
+  background, gold serif-italic display type, a CSS sunburst emblem) —
+  **not** the app's near-black/off-white/green-amber-red-blue palette,
+  and also not its own original light-cream theme (see its changelog:
+  it was built light first, then explicitly re-themed dark to match a
+  second reference photo). Both exceptions are scoped to their own
+  file's `:root`; no other page's tokens changed. See each page's
+  changelog entry.
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
 
@@ -619,26 +623,49 @@ between this app and either data loss or a wide-open write target:
   (`appKey: 'braindump'`, `syncedKeys: ['braindump:entries']`, wired via
   the standard shared `initCloudSync` — same call pattern as finance/
   entertainment/projects, nothing new invented).
-  - **Fully light-themed**, deliberately — see the §6 exception note
-    above. Own `:root` tokens (cream banner gradient, off-white body,
-    charcoal text), not shared with any other page.
   - **Data model**: `braindump:entries` — array of
     `{ id, date, thoughts, emotions, createdAt }`. A "Today" entry is
     auto-created (and auto-saved back) on every load if one doesn't
     already exist for the current date, so there's always something to
-    write into immediately, matching the reference photo's always-open
-    "Today" toggle.
-  - **UI**: decorative banner (dashed-circle doodles, italic serif
-    "brain dump" title, squiggle row, 🚮 icon — all pure CSS, no images)
-    above a content area with an expandable "how to use this template"
-    blurb, a "🚮 Dump o'clock" button that reveals a date picker for
-    backfilling a past-dated entry (the April 17 2023-style entries in
-    the reference photo), and a list of collapsible per-date toggles
-    (newest first) each containing two callout-style blocks — Thoughts
-    and Emotions — as autosaving `<textarea>`s in an italic serif font,
-    matching the photo's styling. Decorative six-dot "drag handle" marks
-    (`⠿`) next to each callout on wider viewports are cosmetic only, for
-    visual fidelity to Notion's block-hover handles — not functional.
-  - Entries are deletable (a ✕ that fades in on hover of the date row) —
-    not visible in the reference photo, but necessary for a page that's
-    actually going to accumulate real entries over time.
+    write into immediately, matching the original reference photo's
+    always-open "Today" toggle.
+  - **UI structure**: an expandable "how to use this template" blurb, a
+    pill button that reveals a date picker for backfilling a past-dated
+    entry (the April 17 2023-style entries in the original reference
+    photo), and a list of collapsible per-date toggles (newest first)
+    each containing two callout-style blocks — Thoughts and Emotions —
+    as autosaving `<textarea>`s. Decorative six-dot "drag handle" marks
+    (`⠿`) next to each callout on wider viewports are cosmetic only —
+    not functional. Entries are deletable (a ✕ that fades in on hover of
+    the date row) — not part of either reference photo, but necessary
+    for a page that's actually going to accumulate real entries.
+  - **Re-themed dark, in a follow-up request, to match a second reference
+    photo** (a mystical "Awaken your Soul" landing page — deep forest-
+    green/black background, gold/copper accents, elegant serif italic
+    display type, a circular sunburst emblem). Only the CSS and the
+    banner's markup changed for this — all the JS logic (entry CRUD,
+    autosave, migration-free data model) was untouched. Concretely:
+    - `:root` tokens replaced wholesale: cream/off-white tokens →
+      `--bd-bg-deep`/`--bd-bg` (near-black-green), `--bd-gold` (the one
+      accent color, used for titles, labels, borders, and buttons),
+      warm cream `--bd-text` for body copy on the dark background.
+    - The page background is a fixed radial-gradient vignette
+      (`body::before`) suggesting a dark forest, since there's no actual
+      photo asset available to drop in — the mood/palette was recreated
+      in CSS rather than an image being fabricated or hotlinked.
+    - The banner gained a CSS-only sunburst emblem (`.bd-emblem`): a
+      `repeating-conic-gradient` ring of thin gold rays behind a bordered
+      circle, mimicking the reference photo's circular rayed monogram.
+      The old dashed-circle "doodles" and 🚮 banner icon were removed
+      (they were specific to the first, Notion-themed pass).
+    - Small tracked-out gold caps subtext ("Daily Ritual / Mental
+      Clarity / Emotional Release") replaced the old squiggle row,
+      echoing the reference photo's "ENERGY HEALING / SPIRITUAL
+      ACTIVATION / INTUITIVE GUIDANCE" subheading style.
+    - Added a gold-outlined pill CTA in the banner ("Begin Today's
+      Dump") that smooth-scrolls to and focuses today's entry — a
+      functional echo of the reference photo's "BEGIN YOUR JOURNEY"
+      button, not just decorative.
+    - A thin sunburst-line `.bd-divider` was added above the content
+      heading as a section-break ornament, echoing the compass/radiating-
+      line motifs used between sections in the reference photo.
