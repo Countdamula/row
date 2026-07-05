@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Projects</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<style>
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #E07658;
+  --good: #6ee7b7;
+  --warn: #fbbf24;
+  --bad: #ff8a8a;
+  --info: #7dd3fc;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -2;
+  background:
+    radial-gradient(60% 45% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 55%),
+    radial-gradient(55% 45% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+
+.shell {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+}
+
+/* ===== Back to dashboard ===== */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 8px 10px;
+  margin: 0 0 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.back-btn:hover, .back-btn:active {
+  background: rgba(255,255,255,0.07);
+  color: var(--text-primary);
+}
+.back-btn svg { display: block; }
+
+/* ===== Header ===== */
+.ent-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; gap: 12px;
+}
+.ent-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.btn-add {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: 1px solid rgba(255,255,255,0.85);
+  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
+  color: #0a0a0b; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(0,0,0,0.40);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-add:hover { transform: translateY(-1px); }
+.btn-add:active { transform: translateY(0) scale(0.97); }
+
+/* ===== Toolbar: filter chips + search ===== */
+.proj-toolbar {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.search-input {
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  border-radius: 999px;
+  font-family: inherit; font-size: 12.5px;
+  min-width: 180px; flex: 1 1 180px; max-width: 280px;
+}
+.search-input:focus { outline: none; border-color: rgba(255,255,255,0.30); }
+
+/* ===== Chips (filter row + status picker) ===== */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.chip.active {
+  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
+  color: #0a0a0b; border-color: transparent; font-weight: 800;
+}
+.chip.dashed { border-style: dashed; }
+
+/* ===== Gallery grid ===== */
+.ent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.ent-empty {
+  color: var(--text-tertiary); font-size: 13px;
+  padding: 40px 10px; text-align: center;
+}
+.ent-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.ent-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.16); }
+.ent-cover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: rgba(255,255,255,0.04);
+  overflow: hidden;
+}
+.ent-cover-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; z-index: 1;
+}
+.ent-cover-fallback {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 34px; font-weight: 700;
+  color: var(--text-secondary);
+  opacity: 0.25; z-index: 0;
+}
+.badge {
+  position: absolute; top: 7px; left: 7px; z-index: 2;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+}
+.card-actions {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  display: flex; gap: 4px;
+}
+.icon-btn-sm {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #fff; border-radius: 8px;
+  font-size: 12px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
+.card-body {
+  padding: 10px 12px 12px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.card-title {
+  font-size: 13.5px; font-weight: 600; line-height: 1.3;
+  color: var(--text-primary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.5em;
+}
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  display: inline-flex; align-self: flex-start;
+  align-items: center; gap: 5px;
+  font-size: 10px; padding: 3px 9px;
+  border-radius: 999px; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(255,255,255,0.06); color: var(--text-secondary);
+  font-family: var(--font-mono); text-transform: uppercase;
+}
+.card-notes-preview {
+  font-size: 11.5px; line-height: 1.4; color: var(--text-tertiary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ===== Modal ===== */
+.modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 100; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.modal-bg.show { display: flex; }
+.modal {
+  width: 100%; max-width: 480px;
+  background: #111113;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  padding: 22px; max-height: 88vh; overflow-y: auto;
+}
+.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; }
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.field > label {
+  font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.field input[type="text"], .field input[type="url"], .field textarea {
+  padding: 12px; border: 1px solid var(--border);
+  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  border-radius: 10px; font-family: inherit; font-size: 14px;
+}
+.field textarea {
+  resize: vertical; min-height: 120px; line-height: 1.5;
+}
+.field input:focus, .field textarea:focus {
+  outline: none; border-color: rgba(255,255,255,0.40);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+.newcat-row { display: flex; gap: 8px; margin-top: 8px; }
+.newcat-row[hidden] { display: none; }
+.newcat-row input { flex: 1; min-width: 0; }
+.cover-edit-row { display: flex; gap: 12px; align-items: flex-start; }
+.cover-preview {
+  width: 84px; height: 60px; border-radius: 10px;
+  object-fit: cover; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border); flex-shrink: 0; display: none;
+}
+.cover-edit-controls { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.upload-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  text-align: center; cursor: pointer;
+}
+
+/* Tag editor (multi-value chips + input) */
+.tag-editor {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px; border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0,0,0,0.28);
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.08); color: var(--text-primary);
+  font-size: 11.5px; font-weight: 600;
+  padding: 4px 6px 4px 10px; border-radius: 999px;
+  white-space: nowrap;
+}
+.tag-chip-remove {
+  background: transparent; border: none; color: var(--text-tertiary);
+  cursor: pointer; font-size: 10px; padding: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.tag-chip-remove:hover { color: var(--bad); }
+.tag-editor-input {
+  flex: 1 1 80px; min-width: 80px;
+  background: transparent; border: none; outline: none;
+  color: var(--text-primary); font-family: inherit; font-size: 13px;
+  padding: 4px;
+}
+
+.btn-primary {
+  width: 100%; padding: 13px;
+  border: 1px solid rgba(255,255,255,0.85);
+  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
+  color: #0a0a0b; border-radius: 12px;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(0,0,0,0.40);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0) scale(0.98); }
+.btn-secondary {
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.modal-actions button { flex: 1; }
+.delete-link {
+  display: block; text-align: center; margin-top: 12px;
+  font-size: 12px; color: var(--bad); cursor: pointer;
+  text-decoration: underline; padding: 6px;
+}
+
+@media (max-width: 480px) {
+  .ent-title { font-size: 20px; }
+  .ent-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .card-title { font-size: 12.5px; }
+  .search-input { max-width: none; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <a href="index.html" class="back-btn" aria-label="Back to dashboard">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Dashboard
+  </a>
+
+  <div class="ent-header">
+    <h1 class="ent-title">Projects</h1>
+    <button class="btn-add" id="projAddBtn" type="button">+ Add</button>
+  </div>
+
+  <div class="proj-toolbar">
+    <div class="chip-row" id="projFilterRow"></div>
+    <input type="text" id="projSearch" class="search-input" placeholder="Search titles…">
+  </div>
+
+  <div class="ent-grid" id="projGrid"></div>
+  <p class="ent-empty" id="projEmpty" hidden>No projects yet — tap "+ Add" to start your first one.</p>
+
+</div>
+
+<!-- Add / Edit / Detail Modal -->
+<div class="modal-bg" id="projModalBg">
+  <div class="modal" id="projModal">
+    <h3 id="projModalTitle">Add project</h3>
+
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="projTitle" placeholder="Project title">
+    </div>
+
+    <div class="field">
+      <label>Cover</label>
+      <div class="cover-edit-row">
+        <img id="projCoverPreview" class="cover-preview" alt="">
+        <div class="cover-edit-controls">
+          <input type="url" id="projCoverUrlInput" placeholder="Paste image URL">
+          <label class="btn-secondary upload-btn">
+            Upload cover
+            <input type="file" id="projCoverFile" accept="image/*" hidden>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Status</label>
+      <div class="chip-row" id="projStatusRow"></div>
+      <div class="newcat-row" id="projNewStatusRow" hidden>
+        <input type="text" id="projNewStatusInput" placeholder="New status name">
+        <button type="button" class="btn-secondary" id="projNewStatusAdd">Add</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tags</label>
+      <div class="tag-editor" id="projTagEditor"></div>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="projNotes" placeholder="Notes about this project…" rows="7"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="projModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="projModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="projDelete" style="display:none">Delete this project</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CARDS_KEY = 'proj:cards';
+  var STATUSES_KEY = 'proj:statuses';
+  var DEFAULT_STATUSES = ['Idea', 'In Progress', 'Done'];
+
+  var statuses = [];
+  var cards = [];
+  var activeFilter = 'All';
+  var searchQuery = '';
+  var editingId = null;
+  var editingCard = null;
+  var currentCover = '';
+  var selectedStatus = null;
+  var currentTags = [];
+
+  function $(id) { return document.getElementById(id); }
+
+  function genId() {
+    return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  // -------- storage --------
+  function loadStatuses() {
+    var st = [];
+    try { st = JSON.parse(localStorage.getItem(STATUSES_KEY)) || []; } catch (e) {}
+    if (!Array.isArray(st) || st.length === 0) {
+      st = DEFAULT_STATUSES.slice();
+      saveStatuses(st);
+    }
+    return st;
+  }
+  function saveStatuses(st) {
+    try { localStorage.setItem(STATUSES_KEY, JSON.stringify(st)); } catch (e) {}
+  }
+  function loadCards() {
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(CARDS_KEY)) || []; } catch (e) {}
+    return Array.isArray(arr) ? arr : [];
+  }
+  function saveCards(arr) {
+    try { localStorage.setItem(CARDS_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  function statusColor(status) {
+    var s = (status || '').toLowerCase();
+    if (s === 'done') return '#6ee7b7';
+    if (s === 'in progress') return '#fbbf24';
+    if (s === 'idea') return '#7dd3fc';
+    return '#B8B6B0';
+  }
+
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 480;
+    quality = quality == null ? 0.82 : quality;
+    return new Promise((resolve) => {
+      var img = new Image();
+      img.onload = () => {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  // -------- chip helper --------
+  function makeChip(label, active, onClick, dashed) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (active ? ' active' : '') + (dashed ? ' dashed' : '');
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // -------- filter bar --------
+  function renderFilterBar() {
+    var row = $('projFilterRow');
+    row.innerHTML = '';
+    row.appendChild(makeChip('All', activeFilter === 'All', function () {
+      activeFilter = 'All'; renderFilterBar(); renderGrid();
+    }));
+    statuses.forEach(function (st) {
+      row.appendChild(makeChip(st, activeFilter === st, function () {
+        activeFilter = st; renderFilterBar(); renderGrid();
+      }));
+    });
+  }
+
+  function getFilteredCards() {
+    return cards.filter(function (c) {
+      if (activeFilter !== 'All' && c.status !== activeFilter) return false;
+      if (searchQuery && (c.title || '').toLowerCase().indexOf(searchQuery) === -1) return false;
+      return true;
+    });
+  }
+
+  // -------- gallery grid --------
+  function buildCardEl(card) {
+    var el = document.createElement('div');
+    el.className = 'ent-card';
+    el.dataset.id = card.id;
+
+    var cover = document.createElement('div');
+    cover.className = 'ent-cover';
+
+    if (card.cover) {
+      var img = document.createElement('img');
+      img.className = 'ent-cover-img';
+      img.loading = 'lazy';
+      img.alt = '';
+      img.src = card.cover;
+      img.addEventListener('error', function () { img.style.display = 'none'; });
+      cover.appendChild(img);
+    }
+    var fallback = document.createElement('span');
+    fallback.className = 'ent-cover-fallback';
+    fallback.textContent = (card.title || '?').trim().charAt(0).toUpperCase() || '?';
+    cover.appendChild(fallback);
+
+    var badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.style.color = statusColor(card.status);
+    badge.textContent = card.status || 'No status';
+    cover.appendChild(badge);
+
+    var actions = document.createElement('div');
+    actions.className = 'card-actions';
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'icon-btn-sm'; delBtn.dataset.action = 'delete';
+    delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '✕';
+    actions.appendChild(delBtn);
+    cover.appendChild(actions);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+    var title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = card.title;
+    body.appendChild(title);
+
+    if (card.tags && card.tags.length) {
+      var tagsRow = document.createElement('div');
+      tagsRow.className = 'card-tags';
+      card.tags.forEach(function (t) {
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = t;
+        tagsRow.appendChild(tag);
+      });
+      body.appendChild(tagsRow);
+    }
+
+    if (card.notes) {
+      var preview = document.createElement('div');
+      preview.className = 'card-notes-preview';
+      preview.textContent = card.notes;
+      body.appendChild(preview);
+    }
+
+    el.appendChild(cover); el.appendChild(body);
+    return el;
+  }
+
+  function renderGrid() {
+    var grid = $('projGrid');
+    var empty = $('projEmpty');
+    grid.innerHTML = '';
+    var list = getFilteredCards();
+    empty.hidden = list.length !== 0;
+    list.forEach(function (card) { grid.appendChild(buildCardEl(card)); });
+  }
+
+  function deleteCard(id) {
+    cards = cards.filter(function (c) { return c.id !== id; });
+    saveCards(cards);
+    renderGrid();
+  }
+
+  // -------- modal --------
+  function updateCoverPreview() {
+    var img = $('projCoverPreview');
+    if (currentCover) { img.src = currentCover; img.style.display = 'block'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; }
+  }
+  function renderStatusChips() {
+    var row = $('projStatusRow');
+    row.innerHTML = '';
+    statuses.forEach(function (st) {
+      row.appendChild(makeChip(st, selectedStatus === st, function () {
+        selectedStatus = st; renderStatusChips();
+      }));
+    });
+    row.appendChild(makeChip('+ New', false, function () {
+      $('projNewStatusRow').hidden = false;
+      $('projNewStatusInput').focus();
+    }, true));
+  }
+  function addNewStatus() {
+    var input = $('projNewStatusInput');
+    var name = input.value.trim();
+    if (!name) return;
+    var existing = statuses.filter(function (s) { return s.toLowerCase() === name.toLowerCase(); })[0];
+    if (!existing) { statuses.push(name); saveStatuses(statuses); renderFilterBar(); }
+    selectedStatus = existing || name;
+    input.value = '';
+    $('projNewStatusRow').hidden = true;
+    renderStatusChips();
+  }
+
+  function renderTagEditor() {
+    var wrap = $('projTagEditor');
+    wrap.innerHTML = '';
+    currentTags.forEach(function (tag, idx) {
+      var chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      var txt = document.createElement('span');
+      txt.textContent = tag;
+      var rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'tag-chip-remove'; rm.textContent = '✕';
+      rm.setAttribute('aria-label', 'Remove tag');
+      rm.addEventListener('click', function () { currentTags.splice(idx, 1); renderTagEditor(); });
+      chip.appendChild(txt); chip.appendChild(rm);
+      wrap.appendChild(chip);
+    });
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tag-editor-input';
+    input.placeholder = currentTags.length ? 'Add tag…' : 'Add tags (press Enter)';
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        var v = input.value.trim().replace(/,+$/, '');
+        if (v && currentTags.indexOf(v) === -1) { currentTags.push(v); renderTagEditor(); }
+        else input.value = '';
+      } else if (e.key === 'Backspace' && !input.value && currentTags.length) {
+        currentTags.pop(); renderTagEditor();
+      }
+    });
+    wrap.appendChild(input);
+  }
+
+  function openModal(card) {
+    editingCard = card || null;
+    editingId = card ? card.id : null;
+    $('projModalTitle').textContent = card ? 'Project details' : 'Add project';
+    $('projTitle').value = card ? card.title : '';
+    $('projCoverUrlInput').value = '';
+    $('projNewStatusRow').hidden = true;
+    $('projNotes').value = card ? (card.notes || '') : '';
+    currentCover = card ? (card.cover || '') : '';
+    updateCoverPreview();
+    selectedStatus = card ? card.status : (statuses[0] || null);
+    renderStatusChips();
+    currentTags = card && Array.isArray(card.tags) ? card.tags.slice() : [];
+    renderTagEditor();
+    $('projDelete').style.display = card ? 'block' : 'none';
+    $('projModalBg').classList.add('show');
+  }
+  function closeModal() {
+    $('projModalBg').classList.remove('show');
+    editingCard = null; editingId = null;
+  }
+
+  function wireModal() {
+    $('projAddBtn').addEventListener('click', function () { openModal(null); });
+    $('projModalCancel').addEventListener('click', closeModal);
+    $('projModalBg').addEventListener('click', function (e) { if (e.target.id === 'projModalBg') closeModal(); });
+
+    $('projNewStatusAdd').addEventListener('click', addNewStatus);
+    $('projNewStatusInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); addNewStatus(); }
+    });
+
+    $('projCoverUrlInput').addEventListener('change', function () {
+      var v = $('projCoverUrlInput').value.trim();
+      if (v) { currentCover = v; updateCoverPreview(); }
+    });
+    $('projCoverFile').addEventListener('change', function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = async function () {
+        var compressed = await compressImageDataUrl(String(reader.result), 480, 0.82);
+        currentCover = compressed;
+        updateCoverPreview();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    $('projModalSave').addEventListener('click', function () {
+      var title = $('projTitle').value.trim();
+      if (!title) { $('projTitle').focus(); return; }
+      var card = {
+        id: editingId || genId(),
+        title: title,
+        cover: currentCover || '',
+        status: selectedStatus || (statuses[0] || ''),
+        tags: currentTags.slice(),
+        notes: $('projNotes').value.trim(),
+        createdAt: editingCard ? editingCard.createdAt : Date.now()
+      };
+      if (editingId) {
+        cards = cards.map(function (c) { return c.id === editingId ? card : c; });
+      } else {
+        cards.unshift(card);
+      }
+      saveCards(cards);
+      closeModal();
+      renderGrid();
+    });
+
+    $('projDelete').addEventListener('click', function () {
+      if (!editingId) return;
+      if (!confirm('Delete this project?')) return;
+      deleteCard(editingId);
+      closeModal();
+    });
+
+    $('projSearch').addEventListener('input', function () {
+      searchQuery = $('projSearch').value.trim().toLowerCase();
+      renderGrid();
+    });
+
+    $('projGrid').addEventListener('click', function (e) {
+      var actionBtn = e.target.closest('[data-action]');
+      var cardEl = e.target.closest('.ent-card');
+      if (!cardEl) return;
+      var id = cardEl.dataset.id;
+      var card = cards.filter(function (c) { return c.id === id; })[0];
+      if (!card) return;
+      if (actionBtn) {
+        e.stopPropagation();
+        if (actionBtn.dataset.action === 'delete') {
+          if (confirm('Delete "' + card.title + '"?')) deleteCard(id);
+        }
+        return;
+      }
+      openModal(card);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    statuses = loadStatuses();
+    cards = loadCards();
+    renderFilterBar();
+    renderGrid();
+    wireModal();
+
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'projects',
+        syncedKeys: ['proj:cards', 'proj:statuses'],
+        onApplied: function () {
+          statuses = loadStatuses();
+          cards = loadCards();
+          renderFilterBar();
+          renderGrid();
+        }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

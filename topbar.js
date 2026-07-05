@@ -199,6 +199,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">MEDIA</span>
   </a>
+  <a href="projects.html" class="topbar-pill" id="topbarProjects">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">PROJECTS</span>
+  </a>
 </header>
 `;
 
