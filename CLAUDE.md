@@ -27,7 +27,7 @@ Vercel's static server) — see README.md.
 |---|---|
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
 | `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
-| `finance.html` | Finance |
+| `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media (Entertainment) |
 | `projects.html` | Projects |
 
@@ -168,7 +168,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
    | `goals` | `index.html` | everything prefixed `goals:` |
-   | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders`, `nw_currency`, `nw:activity`, `nw:history`, `nw:*` |
+   | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` |
    | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
@@ -413,3 +413,83 @@ between this app and either data loss or a wide-open write target:
     unchecked again the next time that routine comes around — a deliberate
     choice (confirmed with the user) over storing the flag on the exercise
     template itself, which would have no natural way to reset.
+
+- **Finance page (`finance.html`) rebuilt as a personal finance dashboard.**
+  The prior page was a net-worth tracker (4 fixed asset categories, a
+  Subscriptions list, a Wishlist, and Incoming Orders) — not a
+  transactions/budgets/dashboard. Per an explicit decision with the user,
+  Wishlist and Incoming Orders (out of the new scope) were **folded into**
+  the new model rather than kept as separate tabs or dropped outright:
+  - **Accounts** = the existing net-worth engine, kept verbatim (same 4
+    categories — bank/stocks/crypto/other — same `nw:*` keys, same
+    activity log, same CHF-base + live-exchange-rate + `entered_amount`/
+    `entered_currency` display pattern). Nothing about how balances are
+    edited changed; the tab was just relabeled "Accounts" and the net-worth
+    line chart + allocation donut were moved out into the new Trends tab
+    (same element ids, same `renderNetWorthChart`/`renderAllocationDonut`
+    functions — physically relocated, not reimplemented).
+  - **Transactions** (new, `finance:transactions`) — add/edit income and
+    expense entries (date, amount, category, optional linked account,
+    note), filterable by month/category/account. A transaction dated in
+    the future is automatically "planned" (shows under a Planned/Upcoming
+    list, visually reusing the old `.ord-card` styling) until a "Mark
+    arrived" action realizes it — this is exactly the old Incoming
+    Orders → deduct-chooser flow, reframed. **Incoming Orders were
+    migrated in**: each existing order became a transaction (already-
+    deducted orders → realized/historical record only, not re-deducted;
+    still-pending orders → planned, so they keep showing until marked
+    arrived). Editing a transaction is "prefill the add form + remove the
+    original" rather than a separate inline-edit form — one code path for
+    add and edit.
+  - **Budgets** (new, `finance:budgets`) — one monthly CHF limit per
+    expense category, progress bar vs. this month's realized spend in
+    that category, over-budget note in the danger color once spend
+    exceeds the limit.
+  - **Trends** (new) = the relocated net-worth chart/donut, **plus** a new
+    spending-by-category donut (this month, reusing the exact
+    `donutArcPath` arc-slice function already used for the allocation
+    donut) and a new income-vs-expenses bar chart (last 6 months, plain
+    inline SVG-free divs, no charting library — consistent with "no build
+    step" for this repo).
+  - **Recurring bills** = the existing Subscriptions feature, kept intact
+    (same auto-deduct-on-renewal logic, same `subs` key), relabeled from
+    "Subs"/"Active Subscriptions" to "Bills"/"Recurring Bills", with a new
+    "Upcoming" mini-list at the top (next 5 renewals, reusing the existing
+    `nextRenewalDate` helper). Auto-deducted renewals now **also** push a
+    `finance:transactions` record (category "Bills & utilities",
+    `source: 'sub'`) so recurring bills flow into Budgets/Trends without
+    double-entry.
+  - **Notes** (new) = a freeform autosaved textarea (`finance:notes`)
+    **plus** Savings Goals, which is the old Wishlist migrated in verbatim
+    (same %-of-net-worth hero, same add/delete UX, same `.wish-*` CSS
+    classes reused under new ids) — storage moved from `wishlist` to
+    `finance:goals`.
+  - **Summary tiles** (net worth, this-month income, this-month spend,
+    savings rate) sit above the tab bar's sections, always visible
+    regardless of active tab, computed from realized (non-planned)
+    transactions for the current calendar month.
+  - **Palette**: the user's request mentioned a "dark-red/pink palette"
+    for the Trends charts; per §6 above, no such palette exists anywhere
+    in this codebase. Reused this file's actual existing tokens instead
+    (`--accent` coral, `--success`/`--warning`/`--danger` green/amber/red,
+    plus the same fixed category hex set already used for NW slices/
+    `ord-card` borders) rather than inventing a new one.
+  - **Migration is one-time and non-destructive**: guarded by
+    `finance:migrated_v2`, it reads `incoming_orders`/`wishlist` once and
+    writes `finance:transactions`/`finance:goals` — the original
+    `incoming_orders`/`wishlist` keys (and their `syncedKeys` entries) are
+    left in place afterward, orphaned but untouched, same treatment as
+    other removed-feature data elsewhere in this file (the `health` row,
+    `po_coach_weights`/`po_coach_photos`).
+  - `initCloudSync`'s config gained `'finance:'` in `syncedPrefixes`
+    (alongside the existing `'nw:'`) so every new `finance:*` key syncs
+    automatically — no new sync mechanism, same call, same `appKey`.
+  - A real ordering bug surfaced and was fixed during this rebuild: a
+    `const` (category-icon lookup) was initially declared physically
+    inside the new Transactions code, but `renderSubs()`'s very first
+    call — which now cascades into the new transactions-refresh path —
+    runs earlier in the script than that point, which would have thrown a
+    temporal-dead-zone `ReferenceError` on load. Fixed by hoisting that
+    `const` next to the other early-declared lookup tables, mirroring
+    this file's own pre-existing `ORD_FROM_META` pattern/comment for the
+    same reason.
