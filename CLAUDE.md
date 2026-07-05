@@ -223,8 +223,8 @@ documents what's actually here:
   design, per README.md).
 - No Tailwind / CSS framework — hand-written CSS custom properties per file.
 - No dark-red/pink palette — the real palette is near-black + off-white with
-  green/amber/red-coral/blue accents (full table in §3). Two deliberate,
-  explicit exceptions exist, both because the request was a literal,
+  green/amber/red-coral/blue accents (full table in §3). Three deliberate,
+  explicit exceptions exist, each because the request was a literal,
   specific visual instruction (a reference photo) rather than generic
   "themed to a palette" boilerplate: (1) `entertainment.html` (the Media
   page) got a thin-red tile border + a genuinely new pink accent color on
@@ -234,9 +234,16 @@ documents what's actually here:
   **not** the app's near-black/off-white/green-amber-red-blue palette,
   and also not its own original light-cream theme (see its changelog:
   it was built light first, then explicitly re-themed dark to match a
-  second reference photo). Both exceptions are scoped to their own
-  file's `:root`; no other page's tokens changed. See each page's
-  changelog entry.
+  second reference photo); (3) `gym.html` (Fitness Studio) had its
+  primary-action accent (buttons, active chips/toggles) re-graded from
+  white to a deep crimson gradient (`--crimson`/`--crimson-bright`), and
+  gained a fixed abstract background — a red glow rising from the
+  bottom edge into near-black at the top, a grain texture, and a thin
+  red circular arc — matching a reference photo's color grading. All
+  three exceptions are scoped to their own file's `:root`; no other
+  page's tokens changed, and `--good`/`--warn`/`--bad`'s semantic
+  meaning (success/warning/danger) was left alone in all three. See
+  each page's changelog entry.
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
 
@@ -669,3 +676,35 @@ between this app and either data loss or a wide-open write target:
     - A thin sunburst-line `.bd-divider` was added above the content
       heading as a section-break ornament, echoing the compass/radiating-
       line motifs used between sections in the reference photo.
+
+- **Fitness Studio (`gym.html`) color grading re-matched to a reference
+  photo** — a dark, desaturated fan-page hero with a blood-red glow
+  rising from the bottom edge into near-black/gray at the top, plus a
+  thin red circular arc accent on one side. Explicitly "abstract, not
+  the photo's actual imagery" per the request, so this is a CSS-only
+  reinterpretation, not an image asset: no HTML/JS changed, only
+  `:root` tokens and the values that referenced them.
+  - New tokens: `--crimson` (deep) / `--crimson-bright` (lighter,
+    used for gradient tops) / `--crimson-text` (near-white, for
+    legibility on the crimson gradient).
+  - `html, body`'s background gained a bottom-anchored red radial glow
+    layered under the existing near-black top gradient — this is the
+    "red rising from the bottom" read from the reference photo.
+  - Added `body::before` (the same 3px dotted grain-texture technique
+    finance.html/entertainment.html/projects.html already use — reused
+    verbatim, not reinvented) and `body::after` (a large, mostly
+    off-screen circle whose right edge peeks in on the left side of the
+    viewport as a thin red arc, `position: fixed` so it reads as page
+    chrome rather than scrolling content).
+  - Every surface that used the old "white gradient = primary/active"
+    look (`.po-btn-primary`, `.po-reps-pill.active`,
+    `.po-chart-toggle button.active`, `.po-modal-seg button.active`,
+    `.po-tw-done-btn`) was re-graded to the crimson gradient with
+    `--crimson-text` instead of near-black text, so the color grading
+    reads through the actual UI, not just the backdrop.
+  - Left untouched, deliberately: `--good`/`--warn`/`--bad` (still
+    green/amber/red-coral — they carry done/warning/danger meaning,
+    not brand accent, so recoloring them would have made status colors
+    harder to read, not more on-theme), the day-of-week tag palette
+    (`--day-*`, unrelated pastel system), and the rest-day/scheduled-day
+    indicator colors on the day pill.
