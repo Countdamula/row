@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
-<title>Progressive Overload Coach</title>
+<title>Fitness Studio</title>
 <script src="topbar.js" defer></script>
 
 <!-- =============================================================
@@ -16,7 +16,7 @@
      ============================================================= -->
 <script>
 const CONFIG = {
-  appTitle: "Progressive Overload Coach",
+  appTitle: "Fitness Studio",
 
   // Weight unit shown everywhere. "kg" or "lb".
   units: "kg",
@@ -72,6 +72,15 @@ const CONFIG = {
   --good: #6ee7b7;
   --warn: #fbbf24;
   --bad: #ff8a8a;
+  /* Weekday tags — 7 evenly-spaced hues (360/7) at the same pastel
+     s/l as --good/--warn/--bad/--info so they read as one family. */
+  --day-sun: hsl(0, 82%, 78%);
+  --day-mon: hsl(51, 82%, 74%);
+  --day-tue: hsl(103, 55%, 70%);
+  --day-wed: hsl(154, 60%, 68%);
+  --day-thu: hsl(206, 85%, 76%);
+  --day-fri: hsl(257, 62%, 80%);
+  --day-sat: hsl(309, 55%, 76%);
   --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace;
 }
@@ -736,6 +745,65 @@ img, video, canvas, svg { max-width: 100%; }
 .cmp-delta.down { color: var(--bad); font-weight: 700; }
 .cmp-delta.flat { color: var(--text-3); }
 
+/* ----- Day-of-week chips (derived from the weekly schedule) ----- */
+.day-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.day-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 6px; color: #0a0a0b;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.day-chip-empty {
+  background: transparent; border: 1px dashed var(--border-strong);
+  color: var(--text-3); font-weight: 600; padding: 0 8px;
+}
+
+/* ----- Exercise checklist (Today's workout — full routine overview) ----- */
+.exchk-row {
+  padding: 10px 12px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.exchk-row.is-done { border-color: rgba(110,231,183,0.30); background: rgba(110,231,183,0.06); }
+.exchk-row-main { display: flex; align-items: center; gap: 10px; }
+.exchk-check {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: rgba(0,0,0,0.28);
+  color: var(--good); cursor: pointer; font-size: 15px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.exchk-check.checked { background: rgba(110,231,183,0.18); border-color: rgba(110,231,183,0.4); }
+.exchk-body { flex: 1; min-width: 0; cursor: pointer; }
+.exchk-name { font-size: 13.5px; font-weight: 700; color: var(--text-1); }
+.exchk-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap; }
+.exchk-setsreps {
+  font-size: 11.5px; color: var(--text-2); font-family: var(--font-mono);
+}
+.exchk-expand {
+  flex-shrink: 0; background: transparent; border: none; color: var(--text-3);
+  font-size: 13px; cursor: pointer; padding: 4px 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+.exchk-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.exchk-row.is-open .exchk-detail { display: block; }
+.exchk-row.is-open .exchk-expand { transform: rotate(90deg); }
+.exchk-notes { font-size: 12.5px; color: var(--text-2); line-height: 1.5; white-space: pre-wrap; }
+
+/* ----- Reference media (exercise photos/videos) ----- */
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin-top: 8px; }
+.media-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: rgba(0,0,0,0.3); }
+.media-thumb img, .media-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-thumb-del {
+  position: absolute; top: 3px; right: 3px; width: 20px; height: 20px;
+  border-radius: 6px; border: none; background: rgba(0,0,0,0.65); color: #fff;
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.media-empty { font-size: 11.5px; color: var(--text-3); font-style: italic; padding: 4px 0; }
+
 .hidden { display: none !important; }
 
 @media (max-width: 480px) {
@@ -820,6 +888,12 @@ img, video, canvas, svg { max-width: 100%; }
     </div>
 
     <div id="workoutBody">
+      <!-- Exercise checklist -->
+      <div class="po-sub-section">
+        <div class="po-sub-title">Exercise checklist</div>
+        <div id="exChecklist"></div>
+      </div>
+
       <!-- Exercise -->
       <div class="po-sub-section">
         <div class="po-sub-title">Exercise</div>
@@ -1002,6 +1076,10 @@ img, video, canvas, svg { max-width: 100%; }
   <div class="po-modal">
     <h3 id="exModalTitle">Add exercise</h3>
     <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Scheduled day</label>
+      <div class="day-chip-row" id="exDayTags"></div>
+    </div>
+    <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Name</label>
       <input type="text" id="exName" placeholder="e.g. Incline DB press">
     </div>
@@ -1026,6 +1104,20 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-field" id="exStepField">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Increment</label>
       <input type="number" id="exStep" step="0.5" value="2.5">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Sets × reps note</label>
+      <input type="text" id="exSetsReps" placeholder="e.g. 3 × 8–12">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Notes</label>
+      <textarea class="po-tw-note" id="exNotes" placeholder="Form cues, reference notes…" style="min-height:60px"></textarea>
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reference media</label>
+      <div class="media-grid" id="exMediaGrid"></div>
+      <button type="button" class="po-add-row-btn" id="exMediaAddBtn">+ Add photo / video</button>
+      <input type="file" id="exMediaFile" accept="image/*,video/*" multiple style="display:none">
     </div>
     <div class="po-modal-actions">
       <button class="po-btn-secondary" id="exModalCancel">Cancel</button>
@@ -1132,6 +1224,83 @@ img, video, canvas, svg { max-width: 100%; }
     }[c]));
   }
 
+  // ============================================================
+  // Reference media (exercise photos/videos) — stored as base64 data
+  // URLs inside the same JSON blob, same convention as cover images
+  // elsewhere in this app. Images are canvas-downscaled; video can't
+  // be transcoded client-side, so it's just size-capped instead.
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 640;
+    quality = quality == null ? 0.75 : quality;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+  const MEDIA_MAX_VIDEO_BYTES = 8 * 1024 * 1024;
+  function addMediaFiles(fileList, mediaArr, onDone) {
+    Array.from(fileList || []).forEach(file => {
+      const isVideo = file.type.indexOf('video/') === 0;
+      if (isVideo && file.size > MEDIA_MAX_VIDEO_BYTES) {
+        alert('Video "' + file.name + '" is larger than 8MB and was skipped — trim it or use a shorter clip (this data is stored inline, no video transcoding is done).');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const raw = String(reader.result);
+        if (isVideo) {
+          mediaArr.push({ id: uid(), type: 'video', dataUrl: raw, name: file.name });
+          onDone();
+        } else {
+          compressImageDataUrl(raw, 640, 0.75).then(compressed => {
+            mediaArr.push({ id: uid(), type: 'image', dataUrl: compressed, name: file.name });
+            onDone();
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderMediaGrid(container, mediaArr) {
+    container.innerHTML = '';
+    if (!mediaArr || !mediaArr.length) { container.innerHTML = '<div class="media-empty">No media yet.</div>'; return; }
+    mediaArr.forEach((m, idx) => {
+      const div = document.createElement('div');
+      div.className = 'media-thumb';
+      div.innerHTML =
+        (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline></video>' : '<img src="' + m.dataUrl + '" alt="">') +
+        '<button type="button" class="media-thumb-del" aria-label="Remove media">✕</button>';
+      div.querySelector('.media-thumb-del').addEventListener('click', () => {
+        mediaArr.splice(idx, 1);
+        renderMediaGrid(container, mediaArr);
+      });
+      container.appendChild(div);
+    });
+  }
+  function renderMediaGridReadonly(container, mediaArr) {
+    container.innerHTML = '';
+    if (!mediaArr || !mediaArr.length) return;
+    mediaArr.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'media-thumb';
+      div.innerHTML = (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline controls></video>' : '<img src="' + m.dataUrl + '" alt="">');
+      container.appendChild(div);
+    });
+  }
+
   function buildDefaultRoutines() {
     return (CONFIG.defaultRoutines || []).map(r => ({
       id: r.id || uid(),
@@ -1142,9 +1311,19 @@ img, video, canvas, svg { max-width: 100%; }
         name: ex.name,
         repMin: ex.repMin, repMax: ex.repMax,
         step: ex.step, startWeight: ex.startWeight,
-        bw: !!ex.bw
+        bw: !!ex.bw,
+        setsReps: ex.setsReps || ('3 × ' + ex.repMin + '–' + ex.repMax),
+        notes: ex.notes || '',
+        media: []
       }))
     }));
+  }
+
+  function normalizeExercise(ex) {
+    if (typeof ex.setsReps !== 'string') ex.setsReps = ex.repMin != null ? ('3 × ' + ex.repMin + '–' + ex.repMax) : '';
+    if (typeof ex.notes !== 'string') ex.notes = '';
+    if (!Array.isArray(ex.media)) ex.media = [];
+    return ex;
   }
 
   function loadState() {
@@ -1163,16 +1342,19 @@ img, video, canvas, svg { max-width: 100%; }
         schedule: Object.assign({ sun: null, mon: null, tue: null, wed: null, thu: null, fri: null, sat: null }, CONFIG.defaultSchedule || {}),
         logs: {},
         workoutNotes: {},
+        exerciseDone: {},
         currentRoutineId: null,
         currentEx: null
       };
     }
     if (!Array.isArray(s.gyms)) s.gyms = (CONFIG.gyms || []).map(g => ({ id: g.id, name: g.name }));
     if (!Array.isArray(s.routines)) s.routines = [];
+    s.routines.forEach(r => { (r.exercises || []).forEach(normalizeExercise); });
     if (!s.schedule || typeof s.schedule !== 'object') s.schedule = {};
     WEEKDAY_KEYS.forEach(k => { if (s.schedule[k] === undefined) s.schedule[k] = null; });
     if (!s.logs || typeof s.logs !== 'object') s.logs = {};
     if (!s.workoutNotes || typeof s.workoutNotes !== 'object') s.workoutNotes = {};
+    if (!s.exerciseDone || typeof s.exerciseDone !== 'object') s.exerciseDone = {};
     if (!s.units) s.units = 'kg';
     return s;
   }
@@ -1225,6 +1407,26 @@ img, video, canvas, svg { max-width: 100%; }
   function todaysRoutine() {
     const id = state.schedule[todayWeekdayKey()];
     return id ? getRoutine(id) : null;
+  }
+
+  // ============================================================
+  // DAY-OF-WEEK COLOR TAGS — derived, not stored. A routine's day tag
+  // is whichever weekday(s) the schedule currently assigns it to; an
+  // exercise inherits its parent routine's tag(s). Colors are a fixed
+  // 7-hue set (evenly spaced around the wheel, same pastel-on-dark
+  // recipe as --good/--warn/--bad/--info) defined once in :root.
+  // ============================================================
+  const DAY_SHORT = { sun: 'Su', mon: 'Mo', tue: 'Tu', wed: 'We', thu: 'Th', fri: 'Fr', sat: 'Sa' };
+  function scheduledDaysForRoutine(routineId) {
+    if (!routineId) return [];
+    return WEEKDAY_ORDER
+      .map(i => WEEKDAY_KEYS[i])
+      .filter(k => state.schedule[k] === routineId);
+  }
+  function dayTagsHtml(routineId) {
+    const days = routineId ? scheduledDaysForRoutine(routineId) : [];
+    if (!days.length) return '<span class="day-chip day-chip-empty">Unscheduled</span>';
+    return days.map(k => '<span class="day-chip" style="background:var(--day-' + k + ')">' + DAY_SHORT[k] + '</span>').join('');
   }
 
   // ============================================================
@@ -1493,6 +1695,68 @@ img, video, canvas, svg { max-width: 100%; }
     });
   }
 
+  // ============================================================
+  // EXERCISE CHECKLIST (Today's workout — full routine overview with
+  // a per-exercise, per-day "done" checkbox; resets automatically
+  // each day since it's keyed by today's date, not stored on the
+  // exercise itself).
+  // ============================================================
+  function renderExerciseChecklist() {
+    const wrap = $('exChecklist');
+    const r = currentRoutine();
+    wrap.innerHTML = '';
+    if (!r || !r.exercises.length) {
+      wrap.innerHTML = '<div class="po-empty">No exercises in this routine yet.</div>';
+      return;
+    }
+    const dateKey = todayDateKey();
+    const doneMap = state.exerciseDone[dateKey] || {};
+    const dayTags = dayTagsHtml(r.id);
+    r.exercises.forEach(ex => {
+      const isDone = !!doneMap[ex.id];
+      const hasDetail = !!(ex.notes || (ex.media && ex.media.length));
+      const row = document.createElement('div');
+      row.className = 'exchk-row' + (isDone ? ' is-done' : '');
+      row.innerHTML =
+        '<div class="exchk-row-main">' +
+          '<button type="button" class="exchk-check' + (isDone ? ' checked' : '') + '" aria-label="Mark exercise done">' + (isDone ? '✓' : '') + '</button>' +
+          '<div class="exchk-body">' +
+            '<div class="exchk-name">' + escape(ex.name) + '</div>' +
+            '<div class="exchk-meta">' +
+              '<span class="day-chip-row">' + dayTags + '</span>' +
+              (ex.setsReps ? '<span class="exchk-setsreps">' + escape(ex.setsReps) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          (hasDetail ? '<button type="button" class="exchk-expand" aria-label="Toggle notes and media">▸</button>' : '') +
+        '</div>' +
+        (hasDetail ? '<div class="exchk-detail">' +
+          (ex.notes ? '<div class="exchk-notes">' + escape(ex.notes) + '</div>' : '') +
+          '<div class="media-grid"></div>' +
+        '</div>' : '');
+      row.querySelector('.exchk-check').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const map = state.exerciseDone[dateKey] || (state.exerciseDone[dateKey] = {});
+        if (map[ex.id]) delete map[ex.id]; else map[ex.id] = true;
+        saveState();
+        renderExerciseChecklist();
+      });
+      row.querySelector('.exchk-body').addEventListener('click', () => {
+        state.currentEx = ex.id;
+        saveState();
+        renderSelect();
+        renderAll();
+      });
+      if (hasDetail) {
+        row.querySelector('.exchk-expand').addEventListener('click', (e) => {
+          e.stopPropagation();
+          row.classList.toggle('is-open');
+        });
+        if (ex.media && ex.media.length) renderMediaGridReadonly(row.querySelector('.media-grid'), ex.media);
+      }
+      wrap.appendChild(row);
+    });
+  }
+
   function renderAll() {
     renderDayPill();
     renderForm();
@@ -1501,6 +1765,7 @@ img, video, canvas, svg { max-width: 100%; }
     renderStats();
     renderSparkline();
     renderHistory();
+    renderExerciseChecklist();
     renderTodaysWorkout();
     renderRoutineList();
     renderSessionHistory();
@@ -1593,6 +1858,7 @@ img, video, canvas, svg { max-width: 100%; }
           '<div class="rt-card-name">' + escape(r.name) + '</div>' +
           '<div class="rt-card-meta">' + r.exercises.length + ' exercise' + (r.exercises.length === 1 ? '' : 's') +
             (r.gym && r.gym !== 'both' ? ' · ' + escape(gymName(r.gym)) : '') + '</div>' +
+          '<div class="day-chip-row" style="margin-top:6px;">' + dayTagsHtml(r.id) + '</div>' +
         '</div>' +
         '<div class="rt-card-actions">' +
           '<button class="po-btn-icon" data-act="edit" aria-label="Edit routine">✎</button>' +
@@ -1645,10 +1911,13 @@ img, video, canvas, svg { max-width: 100%; }
   function renderRoutineExList() {
     const wrap = $('routineExList');
     wrap.innerHTML = '';
+    const dayTags = dayTagsHtml(routineEditingId);
     routineDraftExercises.forEach((ex, idx) => {
+      if (!Array.isArray(ex.media)) ex.media = [];
       const row = document.createElement('div');
       row.className = 'rex-row';
       row.innerHTML =
+        '<div class="day-chip-row" style="margin-bottom:8px;">' + dayTags + '</div>' +
         '<div class="rex-row-top">' +
           '<input type="text" placeholder="Exercise name" value="' + escape(ex.name || '') + '" data-f="name">' +
           '<button type="button" class="rex-del" aria-label="Remove exercise">✕</button>' +
@@ -1659,19 +1928,31 @@ img, video, canvas, svg { max-width: 100%; }
           '<div><label>Reps max</label><input type="number" data-f="repMax" value="' + (ex.repMax != null ? ex.repMax : 8) + '"></div>' +
           '<div><label>Increment</label><input type="number" step="0.5" data-f="step" value="' + (ex.step != null ? ex.step : 2.5) + '"></div>' +
           '<div><label>Start weight</label><input type="number" step="0.5" data-f="startWeight" value="' + (ex.startWeight != null ? ex.startWeight : 20) + '" ' + (ex.bw ? 'disabled' : '') + '></div>' +
-        '</div>';
+        '</div>' +
+        '<input type="text" style="margin-top:8px;width:100%;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:13px;" placeholder="Sets × reps note, e.g. 3 × 8–12" data-f="setsReps" value="' + escape(ex.setsReps || '') + '">' +
+        '<textarea style="margin-top:8px;width:100%;min-height:50px;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:12.5px;resize:vertical;" placeholder="Notes (form cues, reference)…" data-f="notes">' + escape(ex.notes || '') + '</textarea>' +
+        '<div class="media-grid" data-role="mediaGrid"></div>' +
+        '<button type="button" class="po-add-row-btn" data-role="mediaAdd" style="margin-top:8px;">+ Add photo / video</button>' +
+        '<input type="file" accept="image/*,video/*" multiple style="display:none" data-role="mediaFile">';
       row.querySelectorAll('[data-f]').forEach(input => {
         input.addEventListener('input', () => {
           const f = input.dataset.f;
           if (f === 'bw') {
             ex.bw = input.checked;
             row.querySelector('[data-f="startWeight"]').disabled = ex.bw;
-          } else if (f === 'name') {
-            ex.name = input.value;
+          } else if (f === 'name' || f === 'setsReps' || f === 'notes') {
+            ex[f] = input.value;
           } else {
             ex[f] = parseFloat(input.value);
           }
         });
+      });
+      const mediaGrid = row.querySelector('[data-role="mediaGrid"]');
+      renderMediaGrid(mediaGrid, ex.media);
+      row.querySelector('[data-role="mediaAdd"]').addEventListener('click', () => row.querySelector('[data-role="mediaFile"]').click());
+      row.querySelector('[data-role="mediaFile"]').addEventListener('change', (e) => {
+        addMediaFiles(e.target.files, ex.media, () => renderMediaGrid(mediaGrid, ex.media));
+        e.target.value = '';
       });
       row.querySelector('.rex-del').addEventListener('click', () => {
         routineDraftExercises.splice(idx, 1);
@@ -1682,7 +1963,7 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   $('routineAddExBtn').addEventListener('click', () => {
-    routineDraftExercises.push({ name: '', repMin: 6, repMax: 8, step: 2.5, startWeight: 20, bw: false });
+    routineDraftExercises.push({ name: '', repMin: 6, repMax: 8, step: 2.5, startWeight: 20, bw: false, setsReps: '', notes: '', media: [] });
     renderRoutineExList();
   });
 
@@ -1692,7 +1973,7 @@ img, video, canvas, svg { max-width: 100%; }
     $('routineNameInput').value = routine ? routine.name : '';
     renderRoutineGymSeg();
     selectRoutineGym(routine ? (routine.gym || 'both') : 'both');
-    routineDraftExercises = routine ? routine.exercises.map(ex => Object.assign({}, ex)) : [];
+    routineDraftExercises = routine ? routine.exercises.map(ex => Object.assign({}, ex, { media: (ex.media || []).map(m => Object.assign({}, m)) })) : [];
     renderRoutineExList();
     $('routineDelete').style.display = routine ? 'block' : 'none';
     $('routineModalBg').classList.add('show');
@@ -1717,7 +1998,10 @@ img, video, canvas, svg { max-width: 100%; }
         name: ex.name.trim(),
         repMin: ex.repMin || 6, repMax: ex.repMax || 8,
         step: ex.step || 2.5, startWeight: ex.bw ? 0 : (ex.startWeight || 0),
-        bw: !!ex.bw
+        bw: !!ex.bw,
+        setsReps: ex.setsReps || '',
+        notes: ex.notes || '',
+        media: Array.isArray(ex.media) ? ex.media : []
       }));
     if (routineEditingId) {
       const r = getRoutine(routineEditingId);
@@ -1746,6 +2030,7 @@ img, video, canvas, svg { max-width: 100%; }
   // ADD / EDIT EXERCISE modal (quick-add from Today's Workout)
   // ============================================================
   let exEditingId = null;
+  let exMediaDraft = [];
 
   function toggleBwFields() {
     const bw = $('exBw').checked;
@@ -1762,6 +2047,12 @@ img, video, canvas, svg { max-width: 100%; }
     $('exRepMin').value = ex ? ex.repMin : 6;
     $('exRepMax').value = ex ? ex.repMax : 8;
     $('exStep').value = ex ? ex.step : 2.5;
+    $('exSetsReps').value = ex ? (ex.setsReps || '') : '';
+    $('exNotes').value = ex ? (ex.notes || '') : '';
+    const r = currentRoutine();
+    $('exDayTags').innerHTML = dayTagsHtml(r ? r.id : null);
+    exMediaDraft = ex ? (ex.media || []).map(m => Object.assign({}, m)) : [];
+    renderMediaGrid($('exMediaGrid'), exMediaDraft);
     toggleBwFields();
     $('exDelete').style.display = mode === 'edit' ? 'block' : 'none';
     $('exModalBg').classList.add('show');
@@ -1771,6 +2062,11 @@ img, video, canvas, svg { max-width: 100%; }
   $('addExBtn').addEventListener('click', () => { if (currentRoutine()) openExModal('add', null); });
   $('exModalCancel').addEventListener('click', closeExModal);
   $('exModalBg').addEventListener('click', (e) => { if (e.target.id === 'exModalBg') closeExModal(); });
+  $('exMediaAddBtn').addEventListener('click', () => $('exMediaFile').click());
+  $('exMediaFile').addEventListener('change', (e) => {
+    addMediaFiles(e.target.files, exMediaDraft, () => renderMediaGrid($('exMediaGrid'), exMediaDraft));
+    e.target.value = '';
+  });
 
   $('exModalSave').addEventListener('click', () => {
     const r = currentRoutine();
@@ -1784,7 +2080,10 @@ img, video, canvas, svg { max-width: 100%; }
       repMax: parseInt($('exRepMax').value, 10) || 8,
       step: parseFloat($('exStep').value) || 2.5,
       startWeight: bw ? 0 : (parseFloat($('exStartWeight').value) || 0),
-      bw
+      bw,
+      setsReps: $('exSetsReps').value,
+      notes: $('exNotes').value,
+      media: exMediaDraft
     };
     if (exEditingId) {
       const ex = r.exercises.find(e => e.id === exEditingId);

@@ -133,7 +133,7 @@ body.topbar-modal-open {
   </a>
   <a href="gym.html" class="topbar-pill" id="topbarGym">
     <span class="topbar-pill-dot"></span>
-    <span class="topbar-pill-label">GYM</span>
+    <span class="topbar-pill-label">STUDIO</span>
   </a>
   <a href="finance.html" class="topbar-pill" id="topbarFinance">
     <span class="topbar-pill-dot"></span>

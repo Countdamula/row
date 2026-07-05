@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
-| `gym.html` | Gym / progressive-overload tracker |
+| `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance |
 | `entertainment.html` | Media (Entertainment) |
 | `projects.html` | Projects |
@@ -197,7 +197,7 @@ using `sync.js`.
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
 | Goals | `GOALS` → `index.html` | `index.html` (rebuilt as a command center — see changelog) |
-| Gym | `GYM` → `gym.html` | `gym.html` |
+| Fitness Studio | `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` |
 | Projects | `PROJECTS` → `projects.html` | `projects.html` |
@@ -372,3 +372,44 @@ between this app and either data loss or a wide-open write target:
     dead code rather than deleted, since removing them wasn't explicitly
     asked for (same call as `pushWaterMergedToSupabase` above). The §4 data
     table above was updated to match the trimmed key list.
+
+- **Gym page renamed "Fitness Studio" + richer per-exercise properties.**
+  Follow-up to the rebuild above, same `gym.html` file, same `po_coach_v1`/
+  `po_coach_workout_done` keys and `key='po-coach'` Supabase row — no sync
+  changes. The in-page `<title>`/heading and `CONFIG.appTitle` changed from
+  "Progressive Overload Coach" to "Fitness Studio"; `topbar.js`'s shared nav
+  pill label changed from `GYM` to `STUDIO` (same `href="gym.html"`, same
+  `id="topbarGym"` — only the visible label moved, not the wiring).
+  - **Weekday color tags** — 7 new `:root` custom properties,
+    `--day-sun`…`--day-sat`, evenly-spaced hues at the same pastel s/l as
+    the existing `--good`/`--warn`/`--bad`/`--info` accents (a derived,
+    formulaic extension of the existing palette, not an arbitrary new
+    color set — done because this rebuild explicitly asked for day-coded
+    tags, which nothing in the existing 4-color semantic set could cover).
+    A routine's day tag(s) are **derived, not stored** — computed on every
+    render by reverse-scanning `state.schedule` for weekdays pointing at
+    that routine's id (`scheduledDaysForRoutine()` in `gym.html`) — so
+    editing the schedule immediately relabels every exercise that inherits
+    it, with nothing to desync.
+  - **Exercise objects gained three persistent fields**: `setsReps` (free
+    text, e.g. "3 × 8–12", editable independent of the numeric
+    `repMin`/`repMax`/`step` used by the prescription engine and stats),
+    `notes` (free text form cues/reference), and `media` (array of
+    `{id, type: 'image'|'video', dataUrl, name}`). Images are canvas-
+    downscaled before storage using the exact `compressImageDataUrl`
+    recipe already used for cover images in `projects.html`/
+    `entertainment.html` (max dimension 640px, JPEG quality 0.75); video
+    can't be transcoded client-side, so it's just size-capped at 8MB with
+    an alert on rejection instead. All three fields are edited from both
+    exercise-entry points — the quick "Add exercise" modal opened from
+    Today's Workout, and the inline per-exercise rows inside the Routine
+    editor — and migrate in via `normalizeExercise()` so pre-existing
+    exercises get sane empty defaults instead of `undefined`.
+  - **Per-exercise "done" checkbox is per-session, not permanent** — a new
+    state slice, `state.exerciseDone[dateKey][exerciseId]`, checked off
+    from a new "Exercise checklist" block in Today's Workout (lists every
+    exercise in today's routine with its day tag(s), sets×reps note, and
+    an expandable notes/media detail). It's keyed by date so it starts
+    unchecked again the next time that routine comes around — a deliberate
+    choice (confirmed with the user) over storing the flag on the exercise
+    template itself, which would have no natural way to reset.
