@@ -173,11 +173,28 @@ body.topbar-modal-open {
   }
   // -------- Read progress from localStorage --------
   function getGoalsProgress() {
-    const key = 'goals:' + activeDateKey();
+    const dateStr = activeDateKey();
     let goals = [];
-    try { goals = JSON.parse(localStorage.getItem(key)) || []; } catch (e) {}
-    const total = Array.isArray(goals) ? goals.length : 0;
-    const done = total ? goals.filter(g => g && g.done).length : 0;
+    try { goals = JSON.parse(localStorage.getItem('goals:' + dateStr)) || []; } catch (e) {}
+    let total = Array.isArray(goals) ? goals.length : 0;
+    let done = total ? goals.filter(g => g && g.done).length : 0;
+
+    // Also fold in today's scheduled recurring habits (goals:habits +
+    // goals:habit-log:<date>), so the pill reflects the full day, not just
+    // the freeform checklist.
+    try {
+      const habits = JSON.parse(localStorage.getItem('goals:habits')) || [];
+      if (Array.isArray(habits) && habits.length) {
+        const dow = new Date(dateStr + 'T00:00:00').getDay();
+        const scheduled = habits.filter(h => Array.isArray(h.weekdays) && h.weekdays.indexOf(dow) !== -1);
+        if (scheduled.length) {
+          const log = JSON.parse(localStorage.getItem('goals:habit-log:' + dateStr)) || {};
+          total += scheduled.length;
+          done += scheduled.filter(h => log[h.id]).length;
+        }
+      }
+    } catch (e) {}
+
     return { done, total };
   }
 

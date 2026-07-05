@@ -25,7 +25,7 @@ Vercel's static server) — see README.md.
 **Files, one per page:**
 | File | Page |
 |---|---|
-| `index.html` | Goals (home page) |
+| `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
 | `gym.html` | Gym / progressive-overload tracker |
 | `finance.html` | Finance |
 | `entertainment.html` | Media (Entertainment) |
@@ -196,7 +196,7 @@ using `sync.js`.
 
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
-| Goals | `GOALS` → `index.html` | `index.html` |
+| Goals | `GOALS` → `index.html` | `index.html` (rebuilt as a command center — see changelog) |
 | Gym | `GYM` → `gym.html` | `gym.html` |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` |
@@ -289,3 +289,36 @@ between this app and either data loss or a wide-open write target:
   asked for). The Supabase `app_state` row under `key = 'health'` was left
   alone in the database — it's now orphaned, not cleaned up. `README.md`'s
   file table was updated to match.
+
+- **Goals page (`index.html`) rebuilt as a command center.** Retired the
+  Day Ring (time-of-day widget) and the crossfading Goal Ticker — neither
+  was part of the new spec, and the new Today-header summary row supersedes
+  the ticker's role. Kept the existing freeform daily checklist (Today /
+  Plan Tomorrow cards, drag reorder, inline edit, queue, ✨ Polish, the
+  `goal_streak_v1` day-streak) verbatim, alongside two brand-new systems:
+  - **Recurring habits** (`goals:habits`, `goals:habit-log:<date>`) — each
+    habit has a weekday schedule editable inline, a checkbox that's disabled
+    on non-scheduled days, and a current/best streak (with the best streak's
+    date span) computed by walking day-by-day from the habit's creation date.
+  - **Monthly/yearly goals with an allocation engine** (`goals:goals`) —
+    a target + unit split evenly across the remaining periods of its scope
+    (yearly → months, monthly → weeks), stored as a per-period `allocation`
+    plan. On each load, any period that's fully in the past gets reconciled
+    against actual logged progress: a shortfall either rolls onto the next
+    period or gets redistributed evenly across all remaining periods,
+    depending on the goal's `rollover` setting. Editing a goal's target
+    recomputes only the current-and-future allocation, leaving past periods'
+    history untouched.
+  - A small daily **journal** note (`goals:journal:<date>`), autosaved.
+  - All of the above live under the `goals:` prefix, so they're already
+    covered by the existing `initCloudSync({ appKey: 'goals', syncedPrefixes:
+    ['goals:'] })` call — no sync.js or sync-config changes were needed.
+  - `topbar.js`'s `getGoalsProgress()` was extended (not replaced) to also
+    fold in today's scheduled habits into the shared GOALS pill's count,
+    and `storeSet()` in `index.html` now also dispatches a native `storage`
+    event so that pill updates immediately instead of waiting for the next
+    focus/visibility/30s-interval tick (previously true for the old freeform
+    checklist too — this was a pre-existing lag, not a regression).
+  - No auth was added — there is none in this app (see §2) — so "make it
+    the post-login landing page" was a no-op: `index.html` was already the
+    home page.
