@@ -29,7 +29,7 @@ Vercel's static server) — see README.md.
 | `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
-| `projects.html` | Projects |
+| `projects.html` | Projects — project list + per-project tasks (CRUD, contribution grid, velocity, burndown) (rebuilt — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file.
@@ -170,7 +170,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `goals` | `index.html` | everything prefixed `goals:` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
-   | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
+   | `projects` | `projects.html` | `proj:cards` (each card now also carries `startDate`, `deadline`, and a `tasks[]` array — no new top-level key needed), `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -200,7 +200,7 @@ using `sync.js`.
 | Fitness Studio | `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
-| Projects | `PROJECTS` → `projects.html` | `projects.html` |
+| Projects | `PROJECTS` → `projects.html` | `projects.html` (gained per-project tasks + charts — see changelog) |
 
 Stack and Water were removed — see changelog at the bottom of this file.
 
@@ -556,3 +556,50 @@ between this app and either data loss or a wide-open write target:
     `syncedPrefixes` (`appKey` stays `'entertainment'`, unchanged) so all
     four new gallery keys plus the active-gallery/migration-flag keys
     sync automatically — no new sync mechanism, same call site.
+
+- **Projects page (`projects.html`) gained full task CRUD + per-project
+  visualizations.** The prior page was project list/gallery + a per-project
+  full-page view (title/cover/status/group/tags/freeform content "blocks")
+  with **no task concept at all** — this rebuild adds one on top, without
+  touching the existing gallery/filter/search/status/group/tag/block code
+  (verified via diff: every change is a pure addition except one migration
+  comment line).
+  - **Tasks live on the project itself** — `card.tasks[]`, no new
+    top-level storage key, so they already ride along with `proj:cards`
+    through the existing sync wiring untouched. Each task: `title`,
+    `description`, `status` (`todo`/`in-progress`/`done`), `dueDate`,
+    `scheduledDate`, `estimate` (hours), plus a `completedAt` date stamped
+    automatically the moment status flips to `done` (and cleared if it
+    flips back) — this stamp is what every visualization below reads from.
+  - **Quick-add** is a plain text input at the top of the Tasks section on
+    the project page — type a title, hit Enter, done; no modal. Full
+    edit (description/status/dates/estimate) opens a proper modal
+    (`#taskModalBg`) — the **first real `.modal-bg`/`.modal` element this
+    file has ever had; it previously only used the full-page
+    `.project-page-bg` overlay pattern, so the base modal CSS didn't
+    exist yet and had to be added (copied from entertainment.html's
+    established recipe). This incidentally makes CLAUDE.md's existing
+    §3 claim that projects.html already used `.modal-bg`/`.modal` become
+    true for the first time — that line was stale/aspirational before.
+  - **Up Next** = non-done tasks sorted by scheduled-then-due date.
+    **Completed** = done tasks grouped by completion month, newest first.
+  - **Contribution grid**: GitHub-style, last 17 weeks, columns = weeks
+    (Sunday-aligned so full columns render correctly even mid-week),
+    colored by how many tasks completed that day.
+  - **Velocity chart**: tasks completed per month, last 6 months, plain
+    div bars (no charting library, consistent with "no build step").
+  - **Burndown chart**: needs a Start date and Deadline (two new fields
+    on the project, under a new "Timeline" section) — plots an ideal
+    straight-line pace (current total task count at start → 0 at
+    deadline) against the actual remaining-tasks curve computed from real
+    `completedAt` dates, drawn only up to today. Total task count is
+    current scope, not historical — there's no scope-change log, so this
+    is a deliberate simplification, not a bug.
+  - A small task-progress fraction (e.g. "3/10 tasks") was added to each
+    project's gallery card face as a low-cost "at a glance" addition.
+  - **AI planner explicitly skipped**, per the request's own instruction
+    to only build it if a Claude/LLM API key is already wired up. One
+    exists in spirit — `index.html`'s "✨ Polish" feature already has the
+    exact `fetch('https://api.anthropic.com/v1/messages', ...)` pattern
+    — but `ANTHROPIC_API_KEY` is currently an empty placeholder there, so
+    no key is actually active anywhere in this app. Not built.
