@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Entertainment</title>
+<title>Media</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
@@ -27,6 +27,13 @@
   --radius-lg: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* This page's own accent pair — explicitly requested (thin red tile
+     borders, pink accent on hover). --tile-border is a low-opacity tint
+     of the existing --bad red token; --pink-accent is the one genuinely
+     new color introduced anywhere in this codebase, added because it was
+     asked for directly, not "themed to a palette" boilerplate. */
+  --tile-border: rgba(255, 138, 138, 0.30);
+  --pink-accent: #ff4fa3;
   color-scheme: dark;
 }
 
@@ -118,7 +125,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .btn-add:active { transform: translateY(0) scale(0.97); }
 
 /* ===== Chips (filter row + category picker) ===== */
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .chip {
   padding: 7px 14px;
   border: 1px solid var(--border);
@@ -137,10 +144,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .chip.dashed { border-style: dashed; }
 
+/* Gallery-type switcher — the page's primary nav, uses the pink accent
+   for its active state so it reads as the "top level" choice, distinct
+   from the secondary status-filter chips below it. */
+.chip-row-gallery { margin-bottom: 10px; }
+.chip-gallery { font-size: 13.5px; padding: 9px 16px; }
+.chip-gallery.active {
+  background: linear-gradient(180deg, var(--pink-accent), #c93d80);
+  color: #fff; border-color: transparent;
+  box-shadow: 0 4px 14px rgba(255,79,163,0.35);
+}
+
 /* ===== Gallery grid ===== */
 .ent-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 14px;
 }
 .ent-empty {
@@ -149,13 +167,17 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .ent-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--tile-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.ent-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.16); }
+.ent-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--pink-accent);
+  box-shadow: 0 8px 22px rgba(255,79,163,0.16);
+}
 .ent-cover {
   position: relative;
   aspect-ratio: 16 / 10;
@@ -184,6 +206,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .badge.spotify { color: #6ee7b7; }
 .badge.youtube { color: #ff8a8a; }
 .badge.link { color: var(--text-secondary); }
+.badge.finished { color: var(--good); }
 .card-actions {
   position: absolute; top: 6px; right: 6px; z-index: 3;
   display: flex; gap: 4px;
@@ -201,7 +224,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
 .card-body {
   padding: 10px 12px 12px;
-  display: flex; flex-direction: column; gap: 7px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .card-title {
   font-size: 13.5px; font-weight: 600; line-height: 1.3;
@@ -209,6 +232,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.5em;
+}
+.card-author {
+  font-size: 11px; color: var(--text-tertiary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: -4px;
 }
 .tag {
   display: inline-flex; align-self: flex-start;
@@ -218,6 +246,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   background: rgba(255,255,255,0.06); color: var(--text-secondary);
   font-family: var(--font-mono); text-transform: uppercase;
 }
+.card-rating { font-size: 11px; color: var(--warn); letter-spacing: 1px; }
+.card-rating .off { color: rgba(255,255,255,0.14); }
 .ent-card-url {
   display: block;
   font-size: 10.5px;
@@ -239,7 +269,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .modal-bg.show { display: flex; }
 .modal {
-  width: 100%; max-width: 440px;
+  width: 100%; max-width: 460px;
   background: #111113;
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 16px;
@@ -251,18 +281,20 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase;
 }
-.field input[type="text"], .field input[type="url"] {
+.field input[type="text"], .field input[type="url"], .field textarea {
   padding: 12px; border: 1px solid var(--border);
   background: rgba(0,0,0,0.28); color: var(--text-primary);
   border-radius: 10px; font-family: inherit; font-size: 14px;
 }
-.field input:focus {
+.field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+.field input:focus, .field textarea:focus {
   outline: none; border-color: rgba(255,255,255,0.40);
   box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
 }
 .field-hint { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; min-height: 1.4em; }
 .url-row { display: flex; gap: 8px; }
 .url-row input { flex: 1; min-width: 0; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .newcat-row { display: flex; gap: 8px; margin-top: 8px; }
 .newcat-row[hidden] { display: none; }
 .newcat-row input { flex: 1; min-width: 0; }
@@ -276,6 +308,17 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .upload-btn {
   display: inline-flex; align-items: center; justify-content: center;
   text-align: center; cursor: pointer;
+}
+.rating-row { display: flex; gap: 6px; align-items: center; }
+.rating-star {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 22px; color: rgba(255,255,255,0.18); padding: 2px;
+  -webkit-tap-highlight-color: transparent; line-height: 1;
+}
+.rating-star.on { color: var(--warn); }
+.rating-clear {
+  font-size: 11px; color: var(--text-tertiary); cursor: pointer;
+  text-decoration: underline; margin-left: 4px;
 }
 
 .btn-primary {
@@ -312,6 +355,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   .ent-title { font-size: 20px; }
   .ent-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
   .card-title { font-size: 12.5px; }
+  .two-col { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -324,14 +368,16 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   </a>
 
   <div class="ent-header">
-    <h1 class="ent-title">Entertainment</h1>
+    <h1 class="ent-title">Media</h1>
     <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
   </div>
 
+  <div class="chip-row chip-row-gallery" id="galleryTabsRow"></div>
   <div class="chip-row" id="entFilterRow"></div>
+  <div class="chip-row" id="progressFilterRow" hidden></div>
 
   <div class="ent-grid" id="entGrid"></div>
-  <p class="ent-empty" id="entEmpty" hidden>No items yet — tap "+ Add" to save your first Spotify or YouTube link.</p>
+  <p class="ent-empty" id="entEmpty" hidden>No items yet — tap "+ Add" to save your first link.</p>
 
 </div>
 
@@ -349,18 +395,25 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       <div class="field-hint" id="entUrlHint"></div>
     </div>
 
-    <div class="field">
-      <label>Title</label>
-      <input type="text" id="entTitle" placeholder="Title">
+    <div class="two-col">
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="entTitle" placeholder="Title">
+      </div>
+      <div class="field">
+        <label>Author / creator</label>
+        <input type="text" id="entAuthor" placeholder="Author">
+      </div>
     </div>
 
     <div class="field">
-      <label>Category</label>
+      <label>Status</label>
       <div class="chip-row" id="entCatRow" style="margin-bottom:0"></div>
-      <div class="newcat-row" id="entNewCatRow" hidden>
-        <input type="text" id="entNewCatInput" placeholder="New category name">
-        <button type="button" class="btn-secondary" id="entNewCatAdd">Add</button>
-      </div>
+    </div>
+
+    <div class="field" id="entProgressField" hidden>
+      <label>Progress</label>
+      <div class="chip-row" id="entProgressRow" style="margin-bottom:0"></div>
     </div>
 
     <div class="field">
@@ -377,6 +430,32 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       </div>
     </div>
 
+    <div class="field">
+      <label>Description</label>
+      <textarea id="entDescription" placeholder="What is this?"></textarea>
+    </div>
+
+    <div class="two-col">
+      <div class="field">
+        <label>Length</label>
+        <input type="text" id="entLength" placeholder="e.g. 45 min">
+      </div>
+      <div class="field">
+        <label>Song / episode count</label>
+        <input type="text" id="entSongCount" placeholder="e.g. 24 songs">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Rating</label>
+      <div class="rating-row" id="entRatingRow"></div>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="entNotes" placeholder="Anything else worth remembering…"></textarea>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-secondary" id="entModalCancel" type="button">Cancel</button>
       <button class="btn-primary" id="entModalSave" type="button">Save</button>
@@ -389,45 +468,115 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 (function () {
   'use strict';
 
-  var CARDS_KEY = 'ent:cards';
-  var CATS_KEY = 'ent:categories';
-  var DEFAULT_CATS = ['Music', 'Horror Stories', 'Podcasts'];
+  // ============================================================
+  // GALLERIES — the page's four independent media collections. Each
+  // has its own storage key and its own fixed status vocabulary.
+  // Podcasts is the only gallery with a second filter dimension
+  // (Backlog/Finished) — confirmed with the user, not applied to the
+  // other three.
+  // ============================================================
+  var GALLERIES = [
+    { key: 'podcasts', label: 'Podcasts', icon: '🎙️', dataKey: 'media:podcasts', hasProgress: true,
+      statuses: ['Learning', 'Photography / Videography', 'True Crime'] },
+    { key: 'stories', label: 'Stories', icon: '📖', dataKey: 'media:stories', hasProgress: false,
+      statuses: ['Horror Stories', 'Spicy Stories / Immersive Experience'] },
+    { key: 'entertainment', label: 'Entertainment', icon: '🎬', dataKey: 'media:entertainment', hasProgress: false,
+      statuses: ['Funny', 'Gaming', 'Scary Videos', 'Vlog-Type', 'Other', 'Favorite Videos'] },
+    { key: 'playlists', label: 'Playlists', icon: '🎧', dataKey: 'media:playlists', hasProgress: false,
+      statuses: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy', 'Metal', 'ASMR'] }
+  ];
+  var ACTIVE_GALLERY_KEY = 'media:active_gallery';
 
-  var categories = [];
+  var activeGalleryKey = 'podcasts';
+  var activeStatus = 'All';
+  var activeProgress = 'All';
   var cards = [];
-  var activeFilter = 'All';
   var editingId = null;
   var editingCard = null;
   var currentThumbnail = '';
-  var selectedCategory = null;
+  var selectedStatus = null;
+  var selectedProgress = 'backlog';
+  var selectedRating = 0;
   var titleManuallyEdited = false;
 
   function $(id) { return document.getElementById(id); }
+  function galleryByKey(key) { return GALLERIES.filter(function (g) { return g.key === key; })[0] || GALLERIES[0]; }
+  function activeGallery() { return galleryByKey(activeGalleryKey); }
 
   function genId() {
     return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
 
-  // -------- storage --------
-  function loadCategories() {
-    var cats = [];
-    try { cats = JSON.parse(localStorage.getItem(CATS_KEY)) || []; } catch (e) {}
-    if (!Array.isArray(cats) || cats.length === 0) {
-      cats = DEFAULT_CATS.slice();
-      saveCategories(cats);
-    }
-    return cats;
-  }
-  function saveCategories(cats) {
-    try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch (e) {}
-  }
-  function loadCards() {
+  // -------- storage (per-gallery) --------
+  function loadCards(galleryKeyArg) {
+    var g = galleryByKey(galleryKeyArg || activeGalleryKey);
     var arr = [];
-    try { arr = JSON.parse(localStorage.getItem(CARDS_KEY)) || []; } catch (e) {}
+    try { arr = JSON.parse(localStorage.getItem(g.dataKey)) || []; } catch (e) {}
     return Array.isArray(arr) ? arr : [];
   }
-  function saveCards(arr) {
-    try { localStorage.setItem(CARDS_KEY, JSON.stringify(arr)); } catch (e) {}
+  function saveCards(arr, galleryKeyArg) {
+    var g = galleryByKey(galleryKeyArg || activeGalleryKey);
+    try { localStorage.setItem(g.dataKey, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  // ============================================================
+  // ONE-TIME MIGRATION — folds the old single flat gallery (`ent:cards`
+  // + freeform `ent:categories`) into the four new galleries. Runs once
+  // (guarded by media:migrated_v1); `ent:cards`/`ent:categories` are left
+  // untouched afterward (orphaned, same treatment as other removed
+  // features elsewhere in this app — see CLAUDE.md). The keyword match
+  // is best-effort: anything unrecognized lands in Entertainment → Other
+  // (an explicit catch-all status) with a note flagging its old category
+  // so it's easy to find and re-file by hand.
+  // ============================================================
+  function migrateLegacyMedia() {
+    if (localStorage.getItem('media:migrated_v1')) return;
+    var old = [];
+    try { old = JSON.parse(localStorage.getItem('ent:cards')) || []; } catch (e) {}
+    if (Array.isArray(old) && old.length) {
+      var buckets = { podcasts: [], stories: [], entertainment: [], playlists: [] };
+      old.forEach(function (c) {
+        var cat = String(c.category || '').toLowerCase();
+        var target = 'entertainment', status = 'Other';
+        if (cat.indexOf('podcast') !== -1) { target = 'podcasts'; status = 'Learning'; }
+        else if (cat.indexOf('horror') !== -1 && cat.indexOf('stor') !== -1) { target = 'stories'; status = 'Horror Stories'; }
+        else if (cat.indexOf('spicy') !== -1 || cat.indexOf('immersive') !== -1) { target = 'stories'; status = 'Spicy Stories / Immersive Experience'; }
+        else if (/music|playlist|chill|edm|electronic|metal|asmr|binaural|fantasy|gothic|romance/.test(cat)) {
+          target = 'playlists';
+          status = cat.indexOf('asmr') !== -1 ? 'ASMR'
+            : cat.indexOf('edm') !== -1 || cat.indexOf('electronic') !== -1 ? 'EDM / Electronic'
+            : cat.indexOf('metal') !== -1 ? 'Metal'
+            : cat.indexOf('binaural') !== -1 ? 'Binaural Beats'
+            : cat.indexOf('fantasy') !== -1 ? 'Fantasy'
+            : cat.indexOf('gothic') !== -1 || cat.indexOf('romance') !== -1 ? 'Dark / Gothic / Horror / Romance'
+            : 'Chill';
+        }
+        var card = {
+          id: 'mig_' + (c.id || genId()),
+          url: c.url || '', source: c.source || 'link',
+          title: c.title || 'Untitled', author: '',
+          thumbnail: c.thumbnail || '',
+          status: status,
+          progress: 'backlog',
+          description: '', length: '', songCount: '', rating: 0,
+          notes: c.category ? ('Migrated from old category "' + c.category + '".') : '',
+          createdAt: c.createdAt || Date.now()
+        };
+        buckets[target].push(card);
+      });
+      GALLERIES.forEach(function (g) {
+        if (buckets[g.key].length) {
+          var existing = loadCards(g.key);
+          saveCards(existing.concat(buckets[g.key]), g.key);
+        }
+      });
+    }
+    try { localStorage.setItem('media:migrated_v1', '1'); } catch (e) {}
   }
 
   // -------- link parsing / preview fetch --------
@@ -453,7 +602,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     return null;
   }
   async function fetchPreview(url, source) {
-    var result = { title: '', thumbnail: '' };
+    var result = { title: '', thumbnail: '', author: '' };
     if (source === 'youtube') {
       var id = getYouTubeId(url);
       if (id) result.thumbnail = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
@@ -463,6 +612,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
           var data = await res.json();
           if (data.title) result.title = data.title;
           if (data.thumbnail_url) result.thumbnail = data.thumbnail_url;
+          if (data.author_name) result.author = data.author_name;
         }
       } catch (e) {}
       return result;
@@ -503,31 +653,72 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   }
 
   // -------- chip helper --------
-  function makeChip(label, active, onClick, dashed) {
+  function makeChip(label, active, onClick, dashed, extraClass) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'chip' + (active ? ' active' : '') + (dashed ? ' dashed' : '');
+    b.className = 'chip' + (active ? ' active' : '') + (dashed ? ' dashed' : '') + (extraClass ? ' ' + extraClass : '');
     b.textContent = label;
     b.addEventListener('click', onClick);
     return b;
   }
 
-  // -------- filter bar --------
+  // -------- gallery-type switcher --------
+  function renderGalleryTabs() {
+    var row = $('galleryTabsRow');
+    row.innerHTML = '';
+    GALLERIES.forEach(function (g) {
+      row.appendChild(makeChip(g.icon + ' ' + g.label, g.key === activeGalleryKey, function () {
+        activeGalleryKey = g.key;
+        activeStatus = 'All';
+        activeProgress = 'All';
+        try { localStorage.setItem(ACTIVE_GALLERY_KEY, activeGalleryKey); } catch (e) {}
+        cards = loadCards();
+        renderGalleryTabs();
+        renderFilterBar();
+        renderProgressFilterBar();
+        renderGrid();
+      }, false, 'chip-gallery'));
+    });
+  }
+
+  // -------- status filter bar (scoped to the active gallery) --------
   function renderFilterBar() {
     var row = $('entFilterRow');
     row.innerHTML = '';
-    row.appendChild(makeChip('All', activeFilter === 'All', function () {
-      activeFilter = 'All'; renderFilterBar(); renderGrid();
+    var g = activeGallery();
+    row.appendChild(makeChip('All', activeStatus === 'All', function () {
+      activeStatus = 'All'; renderFilterBar(); renderGrid();
     }));
-    categories.forEach(function (cat) {
-      row.appendChild(makeChip(cat, activeFilter === cat, function () {
-        activeFilter = cat; renderFilterBar(); renderGrid();
+    g.statuses.forEach(function (status) {
+      row.appendChild(makeChip(status, activeStatus === status, function () {
+        activeStatus = status; renderFilterBar(); renderGrid();
+      }));
+    });
+  }
+  function renderProgressFilterBar() {
+    var row = $('progressFilterRow');
+    var g = activeGallery();
+    row.hidden = !g.hasProgress;
+    if (!g.hasProgress) return;
+    row.innerHTML = '';
+    [['All', 'All'], ['Backlog', 'backlog'], ['Finished', 'finished']].forEach(function (pair) {
+      row.appendChild(makeChip(pair[0], activeProgress === pair[1], function () {
+        activeProgress = pair[1]; renderProgressFilterBar(); renderGrid();
       }));
     });
   }
 
   // -------- gallery grid --------
+  function ratingHtml(rating) {
+    rating = Number(rating) || 0;
+    if (!rating) return '';
+    var out = '<div class="card-rating">';
+    for (var i = 1; i <= 5; i++) out += i <= rating ? '★' : '<span class="off">★</span>';
+    out += '</div>';
+    return out;
+  }
   function buildCardEl(card) {
+    var g = activeGallery();
     var el = document.createElement('div');
     el.className = 'ent-card';
     el.dataset.id = card.id;
@@ -546,12 +737,17 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     }
     var fallback = document.createElement('span');
     fallback.className = 'ent-cover-fallback';
-    fallback.textContent = card.source === 'spotify' ? '♫' : card.source === 'youtube' ? '▶' : '↗';
+    fallback.textContent = card.source === 'spotify' ? '♫' : card.source === 'youtube' ? '▶' : g.icon;
     cover.appendChild(fallback);
 
     var badge = document.createElement('span');
-    badge.className = 'badge ' + (card.source || 'link');
-    badge.textContent = card.source === 'spotify' ? 'Spotify' : card.source === 'youtube' ? 'YouTube' : 'Link';
+    if (g.hasProgress && card.progress === 'finished') {
+      badge.className = 'badge finished';
+      badge.textContent = 'Finished';
+    } else {
+      badge.className = 'badge ' + (card.source || 'link');
+      badge.textContent = card.source === 'spotify' ? 'Spotify' : card.source === 'youtube' ? 'YouTube' : 'Link';
+    }
     cover.appendChild(badge);
 
     var actions = document.createElement('div');
@@ -570,16 +766,29 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var title = document.createElement('div');
     title.className = 'card-title';
     title.textContent = card.title;
+    body.appendChild(title);
+    if (card.author) {
+      var author = document.createElement('div');
+      author.className = 'card-author';
+      author.textContent = card.author;
+      body.appendChild(author);
+    }
     var tag = document.createElement('span');
     tag.className = 'tag';
-    tag.textContent = card.category;
+    tag.textContent = card.status || '—';
+    body.appendChild(tag);
+    if (card.rating) {
+      var ratingEl = document.createElement('div');
+      ratingEl.innerHTML = ratingHtml(card.rating);
+      body.appendChild(ratingEl.firstChild);
+    }
     var link = document.createElement('a');
     link.className = 'ent-card-url';
     link.href = card.url;
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = card.url;
-    body.appendChild(title); body.appendChild(tag); body.appendChild(link);
+    body.appendChild(link);
 
     el.appendChild(cover); el.appendChild(body);
     return el;
@@ -588,8 +797,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function renderGrid() {
     var grid = $('entGrid');
     var empty = $('entEmpty');
+    var g = activeGallery();
     grid.innerHTML = '';
-    var list = activeFilter === 'All' ? cards : cards.filter(function (c) { return c.category === activeFilter; });
+    var list = cards.filter(function (c) {
+      if (activeStatus !== 'All' && c.status !== activeStatus) return false;
+      if (g.hasProgress && activeProgress !== 'All' && (c.progress || 'backlog') !== activeProgress) return false;
+      return true;
+    });
     empty.hidden = list.length !== 0;
     list.forEach(function (card) { grid.appendChild(buildCardEl(card)); });
   }
@@ -609,26 +823,43 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function renderCatChips() {
     var row = $('entCatRow');
     row.innerHTML = '';
-    categories.forEach(function (cat) {
-      row.appendChild(makeChip(cat, selectedCategory === cat, function () {
-        selectedCategory = cat; renderCatChips();
+    activeGallery().statuses.forEach(function (status) {
+      row.appendChild(makeChip(status, selectedStatus === status, function () {
+        selectedStatus = status; renderCatChips();
       }));
     });
-    row.appendChild(makeChip('+ New', false, function () {
-      $('entNewCatRow').hidden = false;
-      $('entNewCatInput').focus();
-    }, true));
   }
-  function addNewCategory() {
-    var input = $('entNewCatInput');
-    var name = input.value.trim();
-    if (!name) return;
-    var existing = categories.filter(function (c) { return c.toLowerCase() === name.toLowerCase(); })[0];
-    if (!existing) { categories.push(name); saveCategories(categories); renderFilterBar(); }
-    selectedCategory = existing || name;
-    input.value = '';
-    $('entNewCatRow').hidden = true;
-    renderCatChips();
+  function renderProgressChips() {
+    var g = activeGallery();
+    $('entProgressField').hidden = !g.hasProgress;
+    if (!g.hasProgress) return;
+    var row = $('entProgressRow');
+    row.innerHTML = '';
+    [['Backlog', 'backlog'], ['Finished', 'finished']].forEach(function (pair) {
+      row.appendChild(makeChip(pair[0], selectedProgress === pair[1], function () {
+        selectedProgress = pair[1]; renderProgressChips();
+      }));
+    });
+  }
+  function renderRatingRow() {
+    var row = $('entRatingRow');
+    row.innerHTML = '';
+    for (var i = 1; i <= 5; i++) {
+      (function (i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rating-star' + (i <= selectedRating ? ' on' : '');
+        b.textContent = '★';
+        b.setAttribute('aria-label', i + ' star' + (i === 1 ? '' : 's'));
+        b.addEventListener('click', function () { selectedRating = i; renderRatingRow(); });
+        row.appendChild(b);
+      })(i);
+    }
+    var clear = document.createElement('span');
+    clear.className = 'rating-clear';
+    clear.textContent = 'clear';
+    clear.addEventListener('click', function () { selectedRating = 0; renderRatingRow(); });
+    row.appendChild(clear);
   }
 
   function openModal(card) {
@@ -638,13 +869,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     $('entModalTitle').textContent = card ? 'Edit item' : 'Add item';
     $('entUrl').value = card ? card.url : '';
     $('entTitle').value = card ? card.title : '';
+    $('entAuthor').value = card ? (card.author || '') : '';
+    $('entDescription').value = card ? (card.description || '') : '';
+    $('entLength').value = card ? (card.length || '') : '';
+    $('entSongCount').value = card ? (card.songCount || '') : '';
+    $('entNotes').value = card ? (card.notes || '') : '';
     $('entCoverUrlInput').value = '';
     $('entUrlHint').textContent = '';
-    $('entNewCatRow').hidden = true;
     currentThumbnail = card ? (card.thumbnail || '') : '';
     updateCoverPreview();
-    selectedCategory = card ? card.category : (categories[0] || null);
+    selectedStatus = card ? card.status : (activeGallery().statuses[0] || null);
+    selectedProgress = card ? (card.progress || 'backlog') : 'backlog';
+    selectedRating = card ? (Number(card.rating) || 0) : 0;
     renderCatChips();
+    renderProgressChips();
+    renderRatingRow();
     $('entDelete').style.display = card ? 'block' : 'none';
     $('entModalBg').classList.add('show');
   }
@@ -665,6 +904,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     hint.textContent = 'Fetching preview…';
     var preview = await fetchPreview(url, source);
     if (!titleManuallyEdited && preview.title) $('entTitle').value = preview.title;
+    if (preview.author && !$('entAuthor').value.trim()) $('entAuthor').value = preview.author;
     if (preview.thumbnail) { currentThumbnail = preview.thumbnail; updateCoverPreview(); }
     hint.textContent = (preview.title || preview.thumbnail)
       ? ''
@@ -679,11 +919,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     $('entUrl').addEventListener('change', maybeAutoFetch);
     $('entFetchBtn').addEventListener('click', maybeAutoFetch);
     $('entTitle').addEventListener('input', function () { titleManuallyEdited = true; });
-
-    $('entNewCatAdd').addEventListener('click', addNewCategory);
-    $('entNewCatInput').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); addNewCategory(); }
-    });
 
     $('entCoverUrlInput').addEventListener('change', function () {
       var v = $('entCoverUrlInput').value.trim();
@@ -707,13 +942,20 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       var hint = $('entUrlHint');
       if (!url) { hint.textContent = 'Paste a link first.'; return; }
       if (!title) { hint.textContent = 'Give it a title.'; return; }
-      if (!selectedCategory) { hint.textContent = 'Pick or add a category.'; return; }
+      if (!selectedStatus) { hint.textContent = 'Pick a status.'; return; }
       var source = detectSource(url) || 'link';
       var card = {
         id: editingId || genId(),
         url: url, source: source, title: title,
+        author: $('entAuthor').value.trim(),
         thumbnail: currentThumbnail || '',
-        category: selectedCategory,
+        status: selectedStatus,
+        progress: activeGallery().hasProgress ? selectedProgress : undefined,
+        description: $('entDescription').value.trim(),
+        length: $('entLength').value.trim(),
+        songCount: $('entSongCount').value.trim(),
+        rating: selectedRating || 0,
+        notes: $('entNotes').value.trim(),
         createdAt: editingCard ? editingCard.createdAt : Date.now()
       };
       if (editingId) {
@@ -754,20 +996,24 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    categories = loadCategories();
+    migrateLegacyMedia();
+    var savedGallery = null;
+    try { savedGallery = localStorage.getItem(ACTIVE_GALLERY_KEY); } catch (e) {}
+    if (savedGallery && GALLERIES.some(function (g) { return g.key === savedGallery; })) activeGalleryKey = savedGallery;
     cards = loadCards();
+    renderGalleryTabs();
     renderFilterBar();
+    renderProgressFilterBar();
     renderGrid();
     wireModal();
 
     if (typeof initCloudSync === 'function') {
       initCloudSync({
         appKey: 'entertainment',
-        syncedKeys: ['ent:cards', 'ent:categories'],
+        syncedKeys: ['ent:cards', 'ent:categories', 'media:active_gallery', 'media:migrated_v1'],
+        syncedPrefixes: ['media:'],
         onApplied: function () {
-          categories = loadCategories();
           cards = loadCards();
-          renderFilterBar();
           renderGrid();
         }
       });

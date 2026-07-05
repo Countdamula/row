@@ -28,7 +28,7 @@ Vercel's static server) — see README.md.
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
 | `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
-| `entertainment.html` | Media (Entertainment) |
+| `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `projects.html` | Projects |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
@@ -169,7 +169,7 @@ page's CSS is self-contained in its own `<style>` block):
    |---|---|---|
    | `goals` | `index.html` | everything prefixed `goals:` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
-   | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` |
+   | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
    | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
 
@@ -199,7 +199,7 @@ using `sync.js`.
 | Goals | `GOALS` → `index.html` | `index.html` (rebuilt as a command center — see changelog) |
 | Fitness Studio | `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
-| Media | `MEDIA` → `entertainment.html` | `entertainment.html` |
+| Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Projects | `PROJECTS` → `projects.html` | `projects.html` |
 
 Stack and Water were removed — see changelog at the bottom of this file.
@@ -220,7 +220,11 @@ documents what's actually here:
   design, per README.md).
 - No Tailwind / CSS framework — hand-written CSS custom properties per file.
 - No dark-red/pink palette — the real palette is near-black + off-white with
-  green/amber/red-coral/blue accents (full table in §3).
+  green/amber/red-coral/blue accents (full table in §3). One deliberate,
+  explicit exception: `entertainment.html` (the Media page) got a thin-red
+  tile border + a genuinely new pink accent color on hover, because the
+  rebuild request for that page specifically asked for exactly that look
+  (not "themed to a palette" boilerplate) — see its changelog entry.
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
 
@@ -493,3 +497,62 @@ between this app and either data loss or a wide-open write target:
     `const` next to the other early-declared lookup tables, mirroring
     this file's own pre-existing `ORD_FROM_META` pattern/comment for the
     same reason.
+
+- **Media page (`entertainment.html`) rebuilt as a unified tracker over
+  four independent galleries.** The prior page was one flat card list with
+  a single freeform, user-extensible category tag (`ent:cards` +
+  `ent:categories`, defaults `['Music', 'Horror Stories', 'Podcasts']`).
+  The new page replaces that with four separate galleries, each with its
+  own storage key and its own **fixed** status vocabulary (no more
+  "+ New category"):
+  - **Podcasts** (`media:podcasts`) — statuses Learning / Photography ·
+    Videography / True Crime, **plus** a second filter dimension,
+    Backlog/Finished, unique to this gallery only (confirmed with the
+    user — the other three galleries have no completion-state filter).
+  - **Stories** (`media:stories`) — Horror Stories / Spicy Stories ·
+    Immersive Experience.
+  - **Entertainment** (`media:entertainment`) — Funny / Gaming / Scary
+    Videos / Vlog-Type / Other / Favorite Videos.
+  - **Playlists** (`media:playlists`) — Chill / Binaural Beats / Dark ·
+    Gothic · Horror · Romance / EDM · Electronic / Fantasy / Metal / ASMR.
+  - A new top-level gallery switcher (`.chip-gallery`, pink-accent active
+    state) sits above the existing per-gallery status-filter chip row
+    (unchanged `.chip` component); the "+ Add" button and its modal are
+    shared across all four, scoped to whichever gallery tab is active.
+  - **Every card, in every gallery, gained six fields**: author/creator
+    (auto-filled from YouTube's oEmbed `author_name` when available, same
+    as title/thumbnail already were), a free-text description, a free-text
+    "length" note, a free-text "song/episode count" note, an optional 1–5
+    star rating, and a general notes field — all editable from the same
+    add/edit modal, all stored directly on the card object.
+  - **Cover art** unchanged: still auto-fetches a thumbnail from Spotify/
+    YouTube oEmbed on paste, still supports pasting an image URL or
+    uploading a file (same `compressImageDataUrl` downscale-to-480px
+    pattern as before) — "auto-generated cover" in the request refers to
+    this existing auto-fetch-or-fallback-icon behavior, not a new
+    generated-placeholder-image system.
+  - **Palette exception, done deliberately and explicitly for this page
+    only**: thin tile borders now use a low-opacity tint of the existing
+    `--bad` red token (`--tile-border`), and card-hover uses one genuinely
+    new color, `--pink-accent: #ff4fa3`, plus the same pink on the new
+    gallery-switcher's active state. This is the one place in the app with
+    a color not derived from an existing token, because the request was a
+    specific, literal design instruction ("thin red borders on tiles, pink
+    accent on hover"), not the generic "themed to the dark-red/pink
+    palette" boilerplate seen (and deliberately not followed) in the
+    Finance rebuild request — see §6.
+  - **One-time, non-destructive migration** (guarded by
+    `media:migrated_v1`): every old `ent:cards` entry is keyword-matched
+    on its old freeform `category` string into one of the four new
+    galleries (e.g. "horror" → Stories/Horror Stories, "podcast" →
+    Podcasts/Learning, "chill"/"edm"/"asmr"/etc. → Playlists with a
+    best-guess status) — anything unrecognized lands in
+    Entertainment → Other (an explicit catch-all status), with a note on
+    the card recording its original category so mis-filed items are easy
+    to find and move by hand. `ent:cards`/`ent:categories` are left in
+    place afterward, orphaned but untouched, same treatment as other
+    removed-feature data elsewhere in this file.
+  - `initCloudSync`'s config gained a `'media:'` entry in
+    `syncedPrefixes` (`appKey` stays `'entertainment'`, unchanged) so all
+    four new gallery keys plus the active-gallery/migration-flag keys
+    sync automatically — no new sync mechanism, same call site.
