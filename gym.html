@@ -130,14 +130,16 @@ body::after {
   box-shadow: 0 0 90px 10px rgba(125, 36, 50, 0.10);
   pointer-events: none;
 }
-/* Gradient cover band — same near-black-to-crimson color scheme as the
-   rest of the page's re-graded background, just concentrated into a
-   banner at the very top instead of spread across the whole viewport. */
+/* Gradient cover / hero banner — same "website" structure as
+   braindump.html's banner (sunburst emblem, serif italic title, tracked
+   caps subtext, pill CTA), recolored to this page's own red/black
+   scheme instead of braindump's gold/green one. */
 .po-cover {
   position: relative;
   width: 100%;
-  height: 180px;
   overflow: hidden;
+  padding: 56px 24px 44px;
+  text-align: center;
   background:
     radial-gradient(120% 100% at 50% 100%, rgba(178, 58, 77, 0.40) 0%, transparent 68%),
     linear-gradient(180deg, #0a0a0b 0%, #170608 55%, var(--crimson) 145%);
@@ -146,9 +148,66 @@ body::after {
   content: '';
   position: absolute; inset: 0;
   background: linear-gradient(180deg, transparent 55%, #0a0a0b 100%);
+  pointer-events: none;
 }
+.po-cover-emblem { position: relative; z-index: 1; width: 64px; height: 64px; margin: 0 auto 20px; }
+.po-cover-emblem-rays {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 150px; height: 150px;
+  background: repeating-conic-gradient(rgba(178, 58, 77, 0.55) 0deg 0.7deg, transparent 0.7deg 15deg);
+  border-radius: 50%;
+  opacity: 0.9;
+}
+.po-cover-emblem-circle {
+  position: absolute; inset: 0;
+  border: 1px solid var(--crimson-bright);
+  border-radius: 50%;
+  background: #0a0a0b;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Georgia', 'Palatino Linotype', Palatino, serif;
+  font-style: italic; font-size: 20px; color: var(--crimson-bright);
+}
+.po-cover-title {
+  position: relative; z-index: 1;
+  font-family: 'Georgia', 'Palatino Linotype', Palatino, serif;
+  font-style: italic; font-weight: 400;
+  font-size: clamp(34px, 8vw, 52px);
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 28px rgba(0,0,0,0.6);
+}
+.po-cover-subtext {
+  position: relative; z-index: 1;
+  margin-top: 14px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--crimson-bright);
+  line-height: 2.1;
+}
+.po-cover-cta {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center;
+  margin-top: 20px; padding: 11px 26px;
+  border: 1px solid rgba(178, 58, 77, 0.6); border-radius: 999px;
+  background: transparent; color: var(--crimson-text);
+  font-family: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.po-cover-cta:hover { background: rgba(178, 58, 77, 0.14); border-color: var(--crimson-bright); }
 @media (max-width: 480px) {
-  .po-cover { height: 130px; }
+  .po-cover { padding: 44px 16px 34px; }
+}
+
+/* Thin radiating-line divider — same technique as braindump.html's
+   .bd-divider, recolored crimson, used as a section break under the cover. */
+.po-section-divider {
+  width: 100%; height: 30px; margin: 4px 0 18px;
+  background: repeating-conic-gradient(rgba(178, 58, 77, 0.35) 0deg 0.5deg, transparent 0.5deg 12deg);
+  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  opacity: 0.7;
 }
 .po-shell {
   width: 100%; max-width: min(720px, 100vw);
@@ -914,9 +973,18 @@ img, video, canvas, svg { max-width: 100%; }
 </head>
 <body>
 
-<div class="po-cover" aria-hidden="true"></div>
+<div class="po-cover">
+  <div class="po-cover-emblem">
+    <div class="po-cover-emblem-rays"></div>
+    <div class="po-cover-emblem-circle">F</div>
+  </div>
+  <div class="po-cover-title" id="coverTitle">Fitness Studio</div>
+  <div class="po-cover-subtext">Progressive Overload<br>Consistency<br>Discipline</div>
+  <button class="po-cover-cta" type="button" id="coverCtaBtn">Start Today's Workout</button>
+</div>
 
 <div class="po-shell">
+  <div class="po-section-divider" aria-hidden="true"></div>
   <button class="po-day-pill" type="button" id="dayPill" title="Tap to edit your weekly schedule">
     <span class="po-day-date" id="dayPillDate">—</span>
     <span class="po-day-sep">·</span>
@@ -931,7 +999,7 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 
   <!-- TODAY'S WORKOUT -->
-  <div class="card">
+  <div class="card" id="todaysWorkoutCard">
     <div class="po-sub-title">Today's workout</div>
     <div class="po-exercise-bar" style="margin-bottom:12px;">
       <select class="po-ex-select" id="routineSelect"></select>
@@ -2536,6 +2604,11 @@ img, video, canvas, svg { max-width: 100%; }
   // BOOT
   // ============================================================
   $('appTitle').textContent = CONFIG.appTitle || 'Progressive Overload Coach';
+  $('coverTitle').textContent = CONFIG.appTitle || 'Fitness Studio';
+  $('coverCtaBtn').addEventListener('click', () => {
+    const target = $('todaysWorkoutCard');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   renderRoutineSelect();
   renderSelect();
   renderAll();

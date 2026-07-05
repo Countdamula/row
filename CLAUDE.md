@@ -708,11 +708,25 @@ between this app and either data loss or a wide-open write target:
     harder to read, not more on-theme), the day-of-week tag palette
     (`--day-*`, unrelated pastel system), and the rest-day/scheduled-day
     indicator colors on the day pill.
-  - **Follow-up: a gradient cover band (`.po-cover`)** added full-bleed
-    at the very top of the page, above `.po-shell` — a 180px (130px on
-    mobile) banner using the same near-black → crimson gradient scheme,
-    concentrated into a hero-style strip rather than spread across the
-    whole viewport. Purely decorative (`aria-hidden="true"`), no new
-    tokens — reuses `--crimson` and the same near-black tones already
-    established. `.po-shell`'s existing content (day pill, title, etc.)
-    is unchanged and simply continues below it.
+  - **Follow-up: `.po-cover` upgraded from a plain gradient band into a
+    full "website-like" hero banner**, matching `braindump.html`'s
+    banner *structure* (sunburst emblem, serif-italic display title,
+    tracked-caps subtext, pill CTA, a radiating-line section divider
+    below it) while keeping this page's own red/black color scheme —
+    braindump's gold/green tokens were never touched or reused here.
+    Concretely: `.po-cover-emblem` (a `repeating-conic-gradient` sunburst
+    behind a bordered circle, same CSS technique as braindump's
+    `.bd-emblem`, recolored crimson), `.po-cover-title` ("Fitness
+    Studio", same italic serif stack as braindump's title, synced from
+    `CONFIG.appTitle` at boot alongside the existing `#appTitle`),
+    `.po-cover-subtext` ("Progressive Overload / Consistency /
+    Discipline", crimson tracked caps — this page's equivalent of
+    braindump's "Daily Ritual / Mental Clarity / Emotional Release"),
+    and `.po-cover-cta` ("Start Today's Workout", a crimson-outlined
+    pill that smooth-scrolls to a new `#todaysWorkoutCard` id on the
+    existing Today's Workout card — a functional echo of braindump's
+    "Begin Today's Dump" CTA, not just decorative). A `.po-section-divider`
+    (same masked-conic-gradient technique as braindump's `.bd-divider`,
+    recolored crimson) sits at the top of `.po-shell`, below the cover.
+    `.po-shell`'s existing content (day pill, title, cards, etc.) is
+    otherwise unchanged and simply continues below it.
