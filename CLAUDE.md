@@ -708,3 +708,11 @@ between this app and either data loss or a wide-open write target:
     harder to read, not more on-theme), the day-of-week tag palette
     (`--day-*`, unrelated pastel system), and the rest-day/scheduled-day
     indicator colors on the day pill.
+  - **Follow-up: a gradient cover band (`.po-cover`)** added full-bleed
+    at the very top of the page, above `.po-shell` — a 180px (130px on
+    mobile) banner using the same near-black → crimson gradient scheme,
+    concentrated into a hero-style strip rather than spread across the
+    whole viewport. Purely decorative (`aria-hidden="true"`), no new
+    tokens — reuses `--crimson` and the same near-black tones already
+    established. `.po-shell`'s existing content (day pill, title, etc.)
+    is unchanged and simply continues below it.
