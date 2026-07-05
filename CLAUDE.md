@@ -1,0 +1,276 @@
+# Personal Dashboard — Codebase Map
+
+This file documents what actually exists in this repository, as of the audit
+below. It was written by mapping the code directly (no assumptions carried
+over from any prior spec). Where the real codebase differs from what a typical
+web-app CLAUDE.md would describe, that's called out explicitly rather than
+papered over.
+
+## 1. Framework, language, routing
+
+**There is no framework.** This is a set of standalone static HTML files —
+plain HTML + CSS + vanilla JavaScript (ES6, no JSX, no TypeScript). There is
+no build step, no bundler, no package.json, no node_modules, no compiler.
+"Deploying" means Vercel serving the repo's static files as-is (zero-config
+static hosting — there's no `vercel.json` either).
+
+**Routing** is just files: each top-level page is its own `.html` file, and
+"navigation" is `<a href="other-page.html">` links plus the shared top nav bar
+(see below). There is no client-side router, no route table, no dynamic
+segments, no server-side rendering.
+
+Pages open by opening the file directly in a browser (`file://` or via
+Vercel's static server) — see README.md.
+
+**Files, one per page:**
+| File | Page |
+|---|---|
+| `index.html` | Goals (home page) |
+| `health.html` | Stack (supplements) tracker |
+| `po-water.html` | Water tracker (standalone — see §5 discrepancy note) |
+| `gym.html` | Gym / progressive-overload tracker |
+| `finance.html` | Finance |
+| `entertainment.html` | Media (Entertainment) |
+| `projects.html` | Projects |
+
+**Shared, non-page files:**
+- `topbar.js` — injects the shared top nav bar (pills + water quick-add) into
+  every page that includes `<script src="topbar.js" defer></script>`. Not a
+  framework component; it's a self-invoking function that builds a `<style>`
+  and `<header>` string and appends them to `document.head`/`document.body`
+  on `DOMContentLoaded`.
+- `sync.js` — shared cloud-sync helper (see §4). Exposes one global,
+  `window.initCloudSync(config)`.
+
+## 2. Auth / security
+
+**There is no authentication or authorization system in this codebase.**
+No login, no sessions, no cookies, no JWTs, no middleware, no route guards,
+no RBAC, no user accounts of any kind. README.md says this outright: *"No
+accounts, no server."* This is a single-user personal tool, not a multi-tenant
+app.
+
+The only access-control-adjacent thing that exists is **Supabase's anon
+("publishable") key + Row Level Security policies**, used purely for data
+sync, not for authenticating a person:
+
+- Every page that syncs loads the Supabase JS SDK from a CDN
+  (`<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">`)
+  and calls Supabase's REST API against one table, `public.app_state`
+  (columns used: `key`, `data` (jsonb), `updated_at`) — described in
+  README.md as user-supplied; **the actual `CREATE TABLE` / RLS policy SQL is
+  not checked into this repo**, only referenced from memory/prior
+  conversation as "anon select/insert/update" policies. If you need the exact
+  policy SQL, it must be pulled from the live Supabase project or asked of
+  the user — don't invent it.
+- The Supabase URL and publishable key are hardcoded (not env vars, since
+  there's no build step to inject them) in three places: `sync.js`,
+  `topbar.js`, and `gym.html` (gym.html has its own independent, older sync
+  implementation predating `sync.js` — see §4).
+- A Supabase "publishable" key is explicitly designed to be public/embeddable
+  in client code (like a Firebase config) — it is not a secret, and RLS is
+  what would enforce any real restriction. Currently RLS is permissive
+  (anon can read/write the single shared row per `key`), which is
+  intentional for a single-user tool, not an oversight to "fix" silently.
+
+**Files involved (the entirety of the "auth-ish" surface):**
+- `sync.js` — the shared sync client used by `index.html`, `health.html`,
+  `po-water.html`, `finance.html`, `entertainment.html`, `projects.html`.
+- `gym.html` (inline `<script>`, ~line 3260–3450) — its own separate,
+  hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
+- `topbar.js` — has its own small independent Supabase push
+  (`pushWaterMergedToSupabase`) for the water "+1" button, so a water log
+  syncs even from pages other than `health.html`.
+
+## 3. Design system
+
+There is **no Tailwind, no CSS-in-JS, no central theme file**. Each page has
+its own `<style>` block in its `<head>` with its own `:root` CSS custom
+properties. There is a strong *family resemblance* across pages (same near-
+black background, same off-white text, same font stack) because later pages
+were written by copying patterns from earlier ones, but the token *names*
+are not consistent file-to-file, and there is no single source of truth.
+
+**Actual palette (near-black / off-white — not dark-red/pink):**
+
+The base look everywhere is a near-black background with off-white text and
+a handful of semantic accent colors. There is no dark-red or dark-pink brand
+color anywhere in the codebase — see the discrepancy note in §6.
+
+| Token (varies by file) | Value | Meaning |
+|---|---|---|
+| `--bg` / `--bg-deep` | `#0A0A0B`, `#050506` | page background (near-black) |
+| `--bg-card` | `rgba(255,255,255,0.04)` | card/surface fill |
+| `--text-primary` / `--text-1` | `#FAFAFA` / `#ffffff` | primary text |
+| `--text-secondary` / `--text-2` | `#B8B6B0` / `rgba(255,255,255,0.6)` | secondary text |
+| `--text-tertiary` / `--text-3` | `#76746E` / `rgba(255,255,255,0.4)` | muted/label text |
+| `--border` | `rgba(255,255,255,0.06–0.08)` | hairline borders |
+| `--good` / `--success` | `#6ee7b7` / `#6BE3A4` | green — "done"/success |
+| `--warn` / `--warning` | `#fbbf24` / `#F2C063` | amber — "in progress"/warning |
+| `--bad` / `--danger` | `#ff8a8a` / `#FF6B6B` | red-coral — error/delete |
+| `--info` | `#7dd3fc` / `#7DD3FC` | light blue — informational accent |
+| `--accent` | `#E07658` (finance/entertainment/projects) or `#1D9E75` (health.html) or `#ffffff` (gym.html) | one warm/brand accent, **inconsistent per file** |
+
+The one place a *dark red* tint appears at all is `health.html`'s
+`--warning-bg: rgba(163, 45, 45, 0.10)` — a translucent red used only as a
+warning-state background tint, not a brand color.
+
+**Fonts (consistent everywhere):**
+- `--font`: `-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif`
+- `--font-mono`: `ui-monospace, "SF Mono", Menlo, Consolas, monospace` (used for labels, tags, numeric readouts)
+
+**Spacing / radius:** no shared scale variables in most files; ad hoc pixel
+values in each stylesheet. `entertainment.html`/`projects.html` (the two
+newest, most consistent pages) do define `--radius-sm: 8px`, `--radius-md: 12px`,
+`--radius-lg: 16px`.
+
+**Shared UI components** (by convention/copy-paste, not by import — every
+page's CSS is self-contained in its own `<style>` block):
+- **Top nav bar** — the only *actually* shared component (via `topbar.js`
+  injecting real markup at runtime): `.topbar`, `.topbar-pill`,
+  `.topbar-water-pill`, `.topbar-water-add`.
+- **Buttons** — `.btn-primary` / `.btn-secondary` (white-gradient primary,
+  subtle-bordered secondary) in `entertainment.html` and `projects.html`;
+  `gym.html`/`po-water.html` use `.po-btn-primary` / `.po-btn-secondary`
+  (same look, different class names); `finance.html` uses page-specific names
+  (`.quick-add-btn`, `.wish-add-btn`, `.ord-add-btn`) with the same visual
+  recipe. **Not unified — copy the closest existing pattern, don't invent a
+  fourth naming scheme.**
+- **Modals** — `.modal-bg` / `.modal` (entertainment.html, projects.html,
+  po-water.html) vs `.po-modal-bg` / `.po-modal` (gym.html). `topbar.js`
+  injects shared CSS that treats **both** naming conventions as "a modal" for
+  mobile full-screen behavior and body-scroll locking (see the
+  `MODAL_SELECTORS` array in `topbar.js`, `startModalLock()`). If you add a
+  new modal, add its class to that array too, or scroll-lock won't apply.
+  `projects.html` also has a full-screen, non-floating "page" overlay,
+  `.project-page-bg`, already added to `MODAL_SELECTORS`.
+- **Cards / gallery grid** — `.ent-card`, `.ent-cover`, `.ent-grid`, `.tag`,
+  `.chip` are *literally identical* class names/CSS copied between
+  `entertainment.html` and `projects.html` (the two Notion-gallery-style
+  pages). `finance.html` has its own separate `.card` / `.card-grid`.
+
+## 4. Data layer
+
+**No database, no ORM, no server.** Two storage mechanisms, layered:
+
+1. **`localStorage`** is the primary store — every page reads/writes plain
+   JSON under its own keys (e.g. `goals:<date>`, `stack:items`, `po_water_v1`,
+   `subs`, `ent:cards`, `proj:cards`, `proj:statuses`, `proj:groups`, etc.).
+   This is the only store that matters when offline; everything works with
+   zero network access.
+
+2. **Supabase Postgres, one generic table (`public.app_state`)** — used
+   purely as a sync relay, not a relational schema. Row shape:
+   `{ key: text, data: jsonb, updated_at: timestamptz }`. Each page (or
+   logical group of pages) claims one `key` and stuffs *all* of its
+   `localStorage` keys into that one row's `data` JSON blob:
+
+   | `key` value | Owning page(s) | `localStorage` keys synced |
+   |---|---|---|
+   | `goals` | `index.html` | everything prefixed `goals:` |
+   | `health` | `health.html`, `po-water.html` | `stack:items`, `stack:version`, `stack:low`, `stack:taken:*`, `po_water_v1` |
+   | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders`, `nw_currency`, `nw:activity`, `nw:history`, `nw:*` |
+   | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` |
+   | `projects` | `projects.html` | `proj:cards`, `proj:statuses`, `proj:groups` |
+   | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done`, `po_coach_weights`, `po_coach_photos` |
+
+   There are no other tables, no foreign keys, no migrations directory.
+   Uploaded images (progress photos, project/media covers) are stored as
+   base64 data URLs *inside* these JSON blobs (client-side downscaled via
+   `<canvas>` first) — not in Supabase Storage.
+
+**Sync mechanism (`sync.js`, used by 6 of 7 pages):** `initCloudSync({appKey, syncedKeys, syncedPrefixes, onApplied})`
+monkey-patches `localStorage.setItem`/`removeItem` to detect relevant writes,
+debounce-pushes them to Supabase, pulls the current remote row on load
+(applying it if newer/present), and subscribes to a Postgres Realtime channel
+filtered to that `key` so other devices' changes arrive live. `gym.html`
+duplicates a simpler, older version of this same pattern inline instead of
+using `sync.js`.
+
+## 5. Current pages
+
+| Page | Nav pill (topbar.js) | Files |
+|---|---|---|
+| Goals | `GOALS` → `index.html` | `index.html` |
+| Stack | `STACK` → `health.html` | `health.html` |
+| Water | `WATER` pill + `+` button → `health.html#water` | `po-water.html` (see discrepancy below); water quick-add itself lives in `topbar.js`, not a page |
+| Gym | `GYM` → `gym.html` | `gym.html` |
+| Finance | `FINANCE` → `finance.html` | `finance.html` |
+| Media | `MEDIA` → `entertainment.html` | `entertainment.html` |
+| Projects | `PROJECTS` → `projects.html` | `projects.html` |
+
+Nav pill markup lives in one place: the `html` template string inside
+`topbar.js` (~line 170–204). There is no separate "nav config" file.
+
+## 6. Discrepancies worth flagging before further work
+
+The original ask for this audit described things (framework + router,
+auth middleware/RBAC, Tailwind config, a dark-red/dark-pink/black palette,
+a DB/ORM with models/tables) that **do not exist in this repository**. Rather
+than force-fit the documentation to match that description, this file
+documents what's actually here:
+
+- No framework/bundler/router — static HTML files + vanilla JS.
+- No auth system at all (not "hidden" or "to find" — genuinely absent by
+  design, per README.md).
+- No Tailwind / CSS framework — hand-written CSS custom properties per file.
+- No dark-red/pink palette — the real palette is near-black + off-white with
+  green/amber/red-coral/blue accents (full table in §3).
+- No ORM/DB — `localStorage` + one generic Supabase table used as a sync
+  relay, no relational schema.
+- `topbar.js`'s WATER pill links to `health.html#water`, but `health.html`
+  has no element with `id="water"` and no water UI of its own — the water
+  tracker's actual full UI lives in the standalone `po-water.html`, which
+  currently has **no nav entry pointing to it** anywhere in `topbar.js`.
+  Worth confirming whether that's intentional (water is meant to be driven
+  entirely from the topbar's quick-add `+` button) or a broken link left
+  over from a refactor.
+
+## DO NOT MODIFY
+
+Since there is no auth/security layer to preserve, the rule below is scoped
+to what actually exists: the Supabase sync plumbing and RLS-backed access
+model. Treat it with the same "don't rewrite, weaken, or bypass" discipline
+you'd apply to real auth middleware, because it's the only thing standing
+between this app and either data loss or a wide-open write target:
+
+1. **Never rewrite, weaken, or bypass the existing sync/access-control
+   plumbing.** Specifically, do not modify unless explicitly asked:
+   - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
+     `health.html`, `po-water.html`, `finance.html`, `entertainment.html`,
+     `projects.html`).
+   - The inline Supabase sync block in `gym.html` (~line 3260–3450,
+     `APP_KEY = 'po-coach'`).
+   - The inline Supabase push in `topbar.js`
+     (`pushWaterMergedToSupabase`, `TOPBAR_SUPABASE_URL`/`_KEY`).
+   - The hardcoded `SUPABASE_URL` / `SUPABASE_KEY` values themselves (they
+     must stay in sync across `sync.js`, `topbar.js`, and `gym.html` — don't
+     let a rebuild introduce a fourth, different copy).
+   - The Supabase `app_state` table's `key` scheme (one key per page/tab —
+     see the table in §4). Don't repurpose an existing `key`, silently
+     rename one, or change what gets read/written under it without asking,
+     since that can desync a device mid-flight or clobber another tab's row.
+   - Rebuilding any page must reuse `initCloudSync(...)` (or, for `gym.html`,
+     its existing inline pattern) exactly as already wired — don't invent a
+     new sync mechanism, don't call Supabase directly from new code paths,
+     and don't loosen what's synced without being asked to.
+
+2. **All rebuilt UI must reuse the existing design tokens and shared
+   components — no new hard-coded colors.** Concretely:
+   - Reuse the existing `:root` custom properties in whichever file you're
+     editing (or the closest sibling page's, e.g. `entertainment.html`'s
+     tokens when building something gallery-like) instead of introducing new
+     hex values.
+   - Keep the existing near-black / off-white base look with the existing
+     green/amber/red-coral/blue accent roles (`--good`/`--warn`/`--bad`/
+     `--info` or that file's equivalent) — there is no dark-red/pink palette
+     to preserve, because none exists; don't introduce one unless asked.
+   - Reuse existing component patterns before inventing new class names:
+     `.btn-primary`/`.btn-secondary` (or `.po-btn-primary`/`.po-btn-secondary`
+     in gym/po-water), `.modal-bg`/`.modal` (or `.po-modal-bg`/`.po-modal`)
+     — and register any new modal-like overlay in `topbar.js`'s
+     `MODAL_SELECTORS` — `.chip`, `.tag`, `.ent-card`/`.ent-cover`/`.ent-grid`
+     for gallery-style pages.
+   - `topbar.js`'s injected markup/CSS (`.topbar`, `.topbar-pill`, etc.) is
+     shared at runtime across every page — don't fork it per-page; edit it
+     once in `topbar.js` if the nav itself needs to change.
