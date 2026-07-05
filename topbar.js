@@ -147,6 +147,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">PROJECTS</span>
   </a>
+  <a href="braindump.html" class="topbar-pill" id="topbarBrainDump">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">BRAIN DUMP</span>
+  </a>
 </header>
 `;
 

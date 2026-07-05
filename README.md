@@ -19,6 +19,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [gym.html](gym.html) | Progressive overload gym tracker |
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
 | [projects.html](projects.html) | Projects — grouped project tracker |
+| [braindump.html](braindump.html) | Brain Dump — freeform daily thoughts/emotions journal |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 

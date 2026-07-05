@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f4efe8">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Brain Dump</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<style>
+/* ============================================================
+   This page is a deliberate, explicit exception to the rest of the
+   app's near-black/off-white palette — the request was "make it
+   exactly like this photo" (a light Notion template), so it gets its
+   own self-contained light theme instead of the shared dark tokens.
+   The shared dark topbar (topbar.js) still sits on top of it, same as
+   every other page, for cross-page navigation.
+   ============================================================ */
+:root {
+  --bd-banner-1: #ece4da;
+  --bd-banner-2: #f6f0e8;
+  --bd-page-bg: #ffffff;
+  --bd-text: #2b2925;
+  --bd-text-soft: #6b6558;
+  --bd-text-faint: #9c9587;
+  --bd-callout-bg: #f7f5f2;
+  --bd-callout-border: rgba(43, 41, 37, 0.08);
+  --bd-border: rgba(43, 41, 37, 0.10);
+  --bd-pill-bg: #f1ede6;
+  --font-serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bd-page-bg);
+  color: var(--bd-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+/* ===== Decorative banner ===== */
+.bd-banner {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, var(--bd-banner-1) 0%, var(--bd-banner-2) 65%);
+  padding: 46px 24px 40px;
+  text-align: center;
+}
+.bd-banner::before, .bd-banner::after {
+  content: '';
+  position: absolute;
+  border: 1.5px dashed rgba(43,41,37,0.14);
+  border-radius: 50%;
+}
+.bd-banner::before { width: 150px; height: 150px; top: -60px; left: -50px; }
+.bd-banner::after { width: 90px; height: 90px; top: -30px; right: 6%; border-style: solid; border-width: 1.5px; border-color: rgba(43,41,37,0.10); clip-path: inset(0 0 45% 0); }
+.bd-banner-swoosh {
+  position: absolute; top: 18px; right: -10px;
+  width: 120px; height: 60px;
+  border: 1.5px solid rgba(43,41,37,0.10);
+  border-radius: 50%;
+  transform: rotate(-18deg);
+  clip-path: inset(0 0 55% 0);
+}
+.bd-title {
+  position: relative; z-index: 1;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(40px, 9vw, 64px);
+  color: #47443d;
+  letter-spacing: -0.01em;
+}
+.bd-squiggles {
+  position: relative; z-index: 1;
+  margin-top: 10px;
+  font-size: 13px;
+  letter-spacing: 0.5em;
+  color: rgba(43,41,37,0.28);
+}
+.bd-banner-icon {
+  position: relative; z-index: 1;
+  font-size: 26px;
+  margin-top: 8px;
+}
+
+/* ===== Content ===== */
+.bd-shell { max-width: 760px; margin: 0 auto; padding: 28px 20px 100px; }
+.bd-heading {
+  font-size: 27px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--bd-text); margin-bottom: 10px;
+}
+.bd-howto {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 13.5px; color: var(--bd-text-soft);
+  padding: 2px 0; margin-bottom: 18px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bd-howto:hover { color: var(--bd-text); text-decoration: underline; }
+.bd-howto-body {
+  display: none; font-size: 13.5px; line-height: 1.6; color: var(--bd-text-soft);
+  background: var(--bd-callout-bg); border: 1px solid var(--bd-callout-border);
+  border-radius: 8px; padding: 14px 16px; margin: -8px 0 18px; max-width: 560px;
+}
+.bd-howto-body.show { display: block; }
+
+.bd-dump-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bd-pill-bg); border: 1px solid var(--bd-border);
+  border-radius: 6px; padding: 6px 12px 6px 8px;
+  font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--bd-text);
+  cursor: pointer; margin-bottom: 22px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
+}
+.bd-dump-btn:hover { background: #e9e4da; }
+.bd-add-row {
+  display: none; align-items: center; gap: 8px; margin: -12px 0 20px;
+}
+.bd-add-row.show { display: flex; }
+.bd-add-row input[type="date"] {
+  padding: 8px 10px; border: 1px solid var(--bd-border); border-radius: 6px;
+  font-family: inherit; font-size: 13px; background: #fff; color: var(--bd-text);
+}
+.bd-add-row button {
+  padding: 8px 14px; border: 1px solid var(--bd-border); border-radius: 6px;
+  background: var(--bd-text); color: #fff; font-family: inherit; font-size: 13px;
+  font-weight: 600; cursor: pointer;
+}
+
+/* ===== Entries (toggle blocks) ===== */
+.bd-entry { margin-bottom: 6px; }
+.bd-entry-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px; cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.bd-caret {
+  font-size: 10px; color: var(--bd-text-faint);
+  width: 14px; text-align: center; flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.bd-entry.collapsed .bd-caret { transform: rotate(-90deg); }
+.bd-entry-icon { font-size: 14px; flex-shrink: 0; }
+.bd-entry-date { font-size: 14px; color: var(--bd-text); font-weight: 500; flex: 1; }
+.bd-entry-date input {
+  border: none; background: transparent; font-family: inherit; font-size: 14px;
+  font-weight: 500; color: var(--bd-text); width: 100%; outline: none;
+}
+.bd-entry-del {
+  background: none; border: none; color: var(--bd-text-faint); cursor: pointer;
+  font-size: 12px; padding: 4px 6px; opacity: 0; transition: opacity 0.15s;
+}
+.bd-entry-head:hover .bd-entry-del { opacity: 1; }
+.bd-entry-body { display: flex; flex-direction: column; gap: 10px; padding: 2px 4px 18px 22px; position: relative; }
+.bd-entry.collapsed .bd-entry-body { display: none; }
+
+.bd-callout {
+  position: relative;
+  background: var(--bd-callout-bg);
+  border: 1px solid var(--bd-callout-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.bd-callout-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; font-weight: 700; font-style: italic;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--bd-text-soft); margin-bottom: 8px;
+}
+.bd-callout textarea {
+  width: 100%; border: none; background: transparent; outline: none;
+  resize: vertical; min-height: 56px;
+  font-family: var(--font-serif); font-style: italic; font-size: 14px;
+  line-height: 1.65; color: #4a473f;
+}
+.bd-callout textarea::placeholder { color: var(--bd-text-faint); font-style: italic; }
+.bd-drag-handle {
+  position: absolute; right: -26px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: var(--bd-text-faint); letter-spacing: 1px;
+  opacity: 0.5; display: none;
+}
+@media (min-width: 700px) { .bd-drag-handle { display: block; } }
+
+.bd-empty {
+  color: var(--bd-text-faint); font-size: 13.5px; padding: 30px 4px; text-align: center;
+}
+
+@media (max-width: 480px) {
+  .bd-banner { padding: 34px 16px 30px; }
+  .bd-heading { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="bd-banner">
+  <div class="bd-banner-swoosh"></div>
+  <div class="bd-title">brain dump</div>
+  <div class="bd-squiggles">^ ^ ^ ^ ^</div>
+  <div class="bd-banner-icon">🚮</div>
+</div>
+
+<div class="bd-shell">
+  <h1 class="bd-heading">brain dump</h1>
+  <button class="bd-howto" id="bdHowtoBtn" type="button">
+    <span aria-hidden="true">ⓘ</span> how to use this template
+  </button>
+  <p class="bd-howto-body" id="bdHowtoBody">
+    Come here whenever your brain feels too full. Write whatever's rattling around —
+    thoughts in one box, feelings in the other. No editing, no judging, just get it out.
+    Today's entry is always open and waiting; use "Dump o'clock" to add a note for another day.
+    Nobody's grading this — not even you.
+  </p>
+
+  <button class="bd-dump-btn" id="bdDumpBtn" type="button">
+    <span aria-hidden="true">🚮</span> Dump o'clock
+  </button>
+  <div class="bd-add-row" id="bdAddRow">
+    <input type="date" id="bdAddDate">
+    <button type="button" id="bdAddConfirm">+ Add</button>
+  </div>
+
+  <div id="bdEntries"></div>
+  <p class="bd-empty" id="bdEmpty" hidden>Nothing dumped yet.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var ENTRIES_KEY = 'braindump:entries';
+  var entries = [];
+  var collapsedIds = {};
+
+  function $(id) { return document.getElementById(id); }
+  function genId() { return 'bd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtDate(iso) {
+    if (iso === todayISO()) return 'Today';
+    var p = iso.split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+  }
+
+  // -------- storage --------
+  function loadEntries() {
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(ENTRIES_KEY)) || []; } catch (e) {}
+    if (!Array.isArray(arr)) arr = [];
+    if (!arr.some(function (e) { return e.date === todayISO(); })) {
+      arr.push({ id: genId(), date: todayISO(), thoughts: '', emotions: '', createdAt: Date.now() });
+    }
+    return arr;
+  }
+  function saveEntries(arr) {
+    try { localStorage.setItem(ENTRIES_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  // -------- render --------
+  function buildEntryEl(entry) {
+    var el = document.createElement('div');
+    el.className = 'bd-entry' + (collapsedIds[entry.id] ? ' collapsed' : '');
+    el.dataset.id = entry.id;
+
+    var head = document.createElement('div');
+    head.className = 'bd-entry-head';
+    head.dataset.action = 'toggle';
+
+    var caret = document.createElement('span');
+    caret.className = 'bd-caret';
+    caret.textContent = '▼';
+    head.appendChild(caret);
+
+    var icon = document.createElement('span');
+    icon.className = 'bd-entry-icon';
+    icon.textContent = '🚮';
+    head.appendChild(icon);
+
+    var dateEl = document.createElement('span');
+    dateEl.className = 'bd-entry-date';
+    dateEl.textContent = fmtDate(entry.date);
+    head.appendChild(dateEl);
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'bd-entry-del';
+    del.dataset.action = 'delete';
+    del.setAttribute('aria-label', 'Delete entry');
+    del.textContent = '✕';
+    head.appendChild(del);
+
+    el.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'bd-entry-body';
+
+    var thoughtsBox = document.createElement('div');
+    thoughtsBox.className = 'bd-callout';
+    thoughtsBox.innerHTML = '<div class="bd-callout-label">💭 Thoughts</div>';
+    var thoughtsTa = document.createElement('textarea');
+    thoughtsTa.placeholder = 'Just say anything…';
+    thoughtsTa.value = entry.thoughts || '';
+    thoughtsTa.dataset.field = 'thoughts';
+    thoughtsBox.appendChild(thoughtsTa);
+    var handle1 = document.createElement('span');
+    handle1.className = 'bd-drag-handle';
+    handle1.textContent = '⠿';
+    thoughtsBox.appendChild(handle1);
+    body.appendChild(thoughtsBox);
+
+    var emotionsBox = document.createElement('div');
+    emotionsBox.className = 'bd-callout';
+    emotionsBox.innerHTML = '<div class="bd-callout-label">😐 Emotions</div>';
+    var emotionsTa = document.createElement('textarea');
+    emotionsTa.placeholder = 'How are you really doing?';
+    emotionsTa.value = entry.emotions || '';
+    emotionsTa.dataset.field = 'emotions';
+    emotionsBox.appendChild(emotionsTa);
+    var handle2 = document.createElement('span');
+    handle2.className = 'bd-drag-handle';
+    handle2.textContent = '⠿';
+    emotionsBox.appendChild(handle2);
+    body.appendChild(emotionsBox);
+
+    [thoughtsTa, emotionsTa].forEach(function (ta) {
+      ta.addEventListener('input', function () {
+        entry[ta.dataset.field] = ta.value;
+        saveEntries(entries);
+      });
+    });
+
+    el.appendChild(body);
+    return el;
+  }
+
+  function renderEntries() {
+    var wrap = $('bdEntries');
+    var empty = $('bdEmpty');
+    wrap.innerHTML = '';
+    var sorted = entries.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
+    empty.hidden = sorted.length !== 0;
+    sorted.forEach(function (entry) { wrap.appendChild(buildEntryEl(entry)); });
+  }
+
+  function wire() {
+    $('bdHowtoBtn').addEventListener('click', function () {
+      $('bdHowtoBody').classList.toggle('show');
+    });
+    $('bdDumpBtn').addEventListener('click', function () {
+      var row = $('bdAddRow');
+      row.classList.toggle('show');
+      if (row.classList.contains('show')) $('bdAddDate').value = todayISO();
+    });
+    $('bdAddConfirm').addEventListener('click', function () {
+      var val = $('bdAddDate').value;
+      if (!val) return;
+      var existing = entries.filter(function (e) { return e.date === val; })[0];
+      if (!existing) {
+        entries.push({ id: genId(), date: val, thoughts: '', emotions: '', createdAt: Date.now() });
+        saveEntries(entries);
+      }
+      delete collapsedIds[existing ? existing.id : entries[entries.length - 1].id];
+      $('bdAddRow').classList.remove('show');
+      renderEntries();
+    });
+
+    $('bdEntries').addEventListener('click', function (e) {
+      var actionEl = e.target.closest('[data-action]');
+      var entryEl = e.target.closest('.bd-entry');
+      if (!entryEl || !actionEl) return;
+      var id = entryEl.dataset.id;
+      if (actionEl.dataset.action === 'toggle') {
+        collapsedIds[id] = !collapsedIds[id];
+        entryEl.classList.toggle('collapsed', !!collapsedIds[id]);
+        return;
+      }
+      if (actionEl.dataset.action === 'delete') {
+        var entry = entries.filter(function (x) { return x.id === id; })[0];
+        if (!entry) return;
+        if (!confirm('Delete this dump?')) return;
+        entries = entries.filter(function (x) { return x.id !== id; });
+        saveEntries(entries);
+        renderEntries();
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    entries = loadEntries();
+    saveEntries(entries);
+    renderEntries();
+    wire();
+
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'braindump',
+        syncedKeys: ['braindump:entries'],
+        onApplied: function () {
+          entries = loadEntries();
+          renderEntries();
+        }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>

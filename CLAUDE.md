@@ -30,6 +30,7 @@ Vercel's static server) — see README.md.
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `projects.html` | Projects — project list + per-project tasks (CRUD, contribution grid, velocity, burndown) (rebuilt — see changelog) |
+| `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file.
@@ -76,7 +77,7 @@ sync, not for authenticating a person:
 
 **Files involved (the entirety of the "auth-ish" surface):**
 - `sync.js` — the shared sync client used by `index.html`, `finance.html`,
-  `entertainment.html`, `projects.html`.
+  `entertainment.html`, `projects.html`, `braindump.html`.
 - `gym.html` (inline `<script>`, ~line 2190–2386) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
 - `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
@@ -172,6 +173,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
    | `projects` | `projects.html` | `proj:cards` (each card now also carries `startDate`, `deadline`, and a `tasks[]` array — no new top-level key needed), `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
+   | `braindump` | `braindump.html` (new) | `braindump:entries` |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -201,6 +203,7 @@ using `sync.js`.
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Projects | `PROJECTS` → `projects.html` | `projects.html` (gained per-project tasks + charts — see changelog) |
+| Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 
 Stack and Water were removed — see changelog at the bottom of this file.
 
@@ -220,11 +223,16 @@ documents what's actually here:
   design, per README.md).
 - No Tailwind / CSS framework — hand-written CSS custom properties per file.
 - No dark-red/pink palette — the real palette is near-black + off-white with
-  green/amber/red-coral/blue accents (full table in §3). One deliberate,
-  explicit exception: `entertainment.html` (the Media page) got a thin-red
-  tile border + a genuinely new pink accent color on hover, because the
-  rebuild request for that page specifically asked for exactly that look
-  (not "themed to a palette" boilerplate) — see its changelog entry.
+  green/amber/red-coral/blue accents (full table in §3). Two deliberate,
+  explicit exceptions exist, both because the request was a literal,
+  specific visual instruction rather than generic "themed to a palette"
+  boilerplate: (1) `entertainment.html` (the Media page) got a thin-red
+  tile border + a genuinely new pink accent color on hover; (2)
+  `braindump.html` (Brain Dump) is a **fully light-themed page** — its own
+  self-contained cream/off-white/charcoal tokens, no dark background at
+  all — because the request was "make it exactly like this photo" of a
+  light Notion template. Both are scoped to their own file's `:root`; no
+  other page's tokens changed. See each page's changelog entry.
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
 
@@ -603,3 +611,34 @@ between this app and either data loss or a wide-open write target:
     exact `fetch('https://api.anthropic.com/v1/messages', ...)` pattern
     — but `ANTHROPIC_API_KEY` is currently an empty placeholder there, so
     no key is actually active anywhere in this app. Not built.
+
+- **New page: `braindump.html` ("Brain Dump"), added to match a reference
+  screenshot of a light-themed Notion template.** Genuinely new file, new
+  nav pill (`BRAIN DUMP` → `braindump.html`, added to `topbar.js`'s
+  injected pill list — the only edit made to `topbar.js`), new sync key
+  (`appKey: 'braindump'`, `syncedKeys: ['braindump:entries']`, wired via
+  the standard shared `initCloudSync` — same call pattern as finance/
+  entertainment/projects, nothing new invented).
+  - **Fully light-themed**, deliberately — see the §6 exception note
+    above. Own `:root` tokens (cream banner gradient, off-white body,
+    charcoal text), not shared with any other page.
+  - **Data model**: `braindump:entries` — array of
+    `{ id, date, thoughts, emotions, createdAt }`. A "Today" entry is
+    auto-created (and auto-saved back) on every load if one doesn't
+    already exist for the current date, so there's always something to
+    write into immediately, matching the reference photo's always-open
+    "Today" toggle.
+  - **UI**: decorative banner (dashed-circle doodles, italic serif
+    "brain dump" title, squiggle row, 🚮 icon — all pure CSS, no images)
+    above a content area with an expandable "how to use this template"
+    blurb, a "🚮 Dump o'clock" button that reveals a date picker for
+    backfilling a past-dated entry (the April 17 2023-style entries in
+    the reference photo), and a list of collapsible per-date toggles
+    (newest first) each containing two callout-style blocks — Thoughts
+    and Emotions — as autosaving `<textarea>`s in an italic serif font,
+    matching the photo's styling. Decorative six-dot "drag handle" marks
+    (`⠿`) next to each callout on wider viewports are cosmetic only, for
+    visual fidelity to Notion's block-hover handles — not functional.
+  - Entries are deletable (a ✕ that fades in on hover of the date row) —
+    not visible in the reference photo, but necessary for a page that's
+    actually going to accumulate real entries over time.
