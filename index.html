@@ -245,12 +245,21 @@ body::after {
 .at-saved.show { opacity: 1; }
 
 /* ===== Morning Briefing ===== */
+.at-brief-gen-row { margin-bottom: 16px; }
+.at-brief-gen-btn {
+  border-color: var(--at-border); color: var(--at-gold); font-weight: 700;
+}
+.at-brief-gen-btn:hover { background: rgba(224,138,159,0.10); border-color: var(--at-gold); }
+.at-brief-list { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
 .at-brief { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 16px; padding: 20px 22px; }
-.at-brief-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.at-brief-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
+.at-brief-title-wrap { display: flex; flex-direction: column; gap: 2px; }
 .at-brief-title { font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: var(--at-gold); display: flex; align-items: center; gap: 9px; }
-.at-brief-actions { display: flex; gap: 12px; }
+.at-brief-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); }
+.at-brief-actions { display: flex; gap: 12px; flex-shrink: 0; }
 .at-brief-actions button { background: none; border: none; color: var(--text-tertiary); font-size: 15px; cursor: pointer; padding: 2px; }
 .at-brief-actions button:hover { color: var(--at-gold); }
+.at-brief-actions .at-brief-del:hover { color: var(--danger); }
 .at-brief-body.collapsed { display: none; }
 .at-brief-summary {
   width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
@@ -409,6 +418,10 @@ body::after {
   <!-- ============ TODAY ============ -->
   <div class="at-tabpanel" id="atPanelToday">
 
+    <div class="at-brief-gen-row">
+      <button type="button" class="at-mini-btn at-brief-gen-btn" id="atGenerateBriefBtn">✨ Generate Morning Briefing</button>
+    </div>
+
     <div class="at-tiles">
       <div class="at-tile">
         <div class="at-tile-top"><span class="at-tile-icon">✓</span><span class="at-tile-num at-tile-num-gold" id="atHabitsPct">0%</span><span class="at-tile-label">Habits</span></div>
@@ -482,42 +495,8 @@ body::after {
       </div>
     </div>
 
-    <div class="at-brief" id="atBrief">
-      <div class="at-brief-head">
-        <div class="at-brief-title">✨ Morning Briefing</div>
-        <div class="at-brief-actions">
-          <button type="button" id="atBriefReset" title="Reset to example text" aria-label="Reset to example text">↺</button>
-          <button type="button" id="atBriefToggle" title="Collapse" aria-label="Collapse">︿</button>
-        </div>
-      </div>
-      <div class="at-brief-body" id="atBriefBody">
-        <textarea class="at-brief-summary" id="atBriefSummary" rows="1"></textarea>
-        <div class="at-brief-grid1">
-          <div class="at-brief-block">
-            <div class="at-brief-label">Readiness</div>
-            <textarea id="atBriefReadiness" rows="1"></textarea>
-          </div>
-        </div>
-        <div class="at-brief-grid2">
-          <div class="at-brief-block">
-            <div class="at-brief-label">Habits</div>
-            <textarea id="atBriefHabits" rows="1"></textarea>
-          </div>
-          <div class="at-brief-block">
-            <div class="at-brief-label">Training</div>
-            <textarea id="atBriefTraining" rows="1"></textarea>
-          </div>
-        </div>
-        <div class="at-brief-block" style="margin-bottom:16px;">
-          <div class="at-brief-label">Today's Focus</div>
-          <textarea id="atBriefFocus" rows="1"></textarea>
-        </div>
-        <div class="at-brief-insight">
-          <div class="at-brief-label">Insight</div>
-          <textarea id="atBriefInsight" rows="1"></textarea>
-        </div>
-      </div>
-    </div>
+    <div class="at-brief-list" id="atBriefList"></div>
+    <div class="at-empty" id="atBriefEmpty" hidden>No briefings generated yet — tap "✨ Generate Morning Briefing" at the top.</div>
   </div>
 
   <!-- ============ WEEK ============ -->
@@ -1132,8 +1111,12 @@ body::after {
   // =====================================================================
   // Morning Briefing — a plain editable callout, pre-filled with the
   // reference photo's example copy. No AI generation is wired up (no
-  // Anthropic key configured anywhere in this app), so this is manual
-  // text, autosaved per day like the rest of the journal fields.
+  // Anthropic key configured anywhere in this app), so "Generate" just
+  // stamps out a fresh copy of the example template, autosaved per field
+  // like the rest of the journal fields. Tapping the button at the top
+  // appends a new one to the bottom of the list each time — this is a
+  // growing log, not a single per-day slot, so each card is independently
+  // editable, resettable, and deletable.
   // =====================================================================
   const DEFAULT_BRIEFING = {
     summary: "Rest day with strong habit momentum — focus on completing the core streaks and staying consistent after yesterday's travel.",
@@ -1143,56 +1126,159 @@ body::after {
     focus: "- Complete all 9 core habits today: Walk, Meditate, Read Book, Hydration, No Snoozing, Journal, Creative Work, 6+ Hour Sleep, Chess Puzzles\n- Rebuild Sauna and Cold Plunge streaks — both reset to 1 day after yesterday's miss. Fit them in today to restart momentum.\n- Journal about yesterday's day trip and today's rest — your journal streak is at 111 days and supports reflection on travel patterns.",
     insight: "Your HRV is up 11% from the 7-day average despite a travel day, and sleep quality remained strong (7.6 hours, 82 score). This suggests your body is recovering well from the lower-strain week (4.2 avg vs 10.6 prior week). Use today's rest day to lock in the habits you missed yesterday — Sauna and Cold Plunge are quick wins to rebuild those 7-day streaks and keep the recovery momentum going into the week."
   };
-  const BRIEF_FIELDS = [
-    ['summary', 'atBriefSummary'], ['readiness', 'atBriefReadiness'], ['habits', 'atBriefHabits'],
-    ['training', 'atBriefTraining'], ['focus', 'atBriefFocus'], ['insight', 'atBriefInsight']
-  ];
-  function briefingKey(dateStr) { return 'goals:briefing:' + dateStr; }
-  function loadBriefing(dateStr) {
-    const b = storeGet(briefingKey(dateStr));
-    return (b && typeof b === 'object') ? Object.assign({}, DEFAULT_BRIEFING, b) : Object.assign({}, DEFAULT_BRIEFING);
+  const BRIEFINGS_KEY = 'goals:briefings';
+  function loadBriefings() {
+    const b = storeGet(BRIEFINGS_KEY);
+    return Array.isArray(b) ? b : [];
   }
-  function saveBriefing(dateStr, briefing) { storeSet(briefingKey(dateStr), briefing); }
+  function saveBriefings(list) { storeSet(BRIEFINGS_KEY, list); }
+  function formatTimestamp(ms) {
+    const d = new Date(ms);
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; if (h === 0) h = 12;
+    return mo + ' ' + d.getDate() + ' · ' + h + ':' + pad2(d.getMinutes()) + ' ' + ampm;
+  }
+
+  function buildBriefingCard(briefing) {
+    const wrap = document.createElement('div');
+    wrap.className = 'at-brief';
+    wrap.dataset.id = briefing.id;
+
+    const head = document.createElement('div');
+    head.className = 'at-brief-head';
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'at-brief-title-wrap';
+    const title = document.createElement('div');
+    title.className = 'at-brief-title';
+    title.textContent = '✨ Morning Briefing';
+    titleWrap.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'at-brief-meta';
+    meta.textContent = 'Generated ' + formatTimestamp(briefing.createdAt);
+    titleWrap.appendChild(meta);
+    head.appendChild(titleWrap);
+
+    const actions = document.createElement('div');
+    actions.className = 'at-brief-actions';
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button'; resetBtn.title = 'Reset to example text'; resetBtn.setAttribute('aria-label', 'Reset to example text');
+    resetBtn.textContent = '↺';
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reset this Morning Briefing to the example text?')) return;
+      const list = loadBriefings();
+      const b = list.filter(x => x.id === briefing.id)[0];
+      if (!b) return;
+      Object.assign(b, DEFAULT_BRIEFING);
+      saveBriefings(list);
+      BRIEF_FIELD_NAMES.forEach(field => {
+        const ta = wrap.querySelector('[data-field="' + field + '"]');
+        ta.value = b[field];
+        autosize(ta);
+      });
+    });
+    actions.appendChild(resetBtn);
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'at-brief-del'; delBtn.title = 'Delete this briefing'; delBtn.setAttribute('aria-label', 'Delete this briefing');
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', () => {
+      if (!confirm('Delete this Morning Briefing?')) return;
+      saveBriefings(loadBriefings().filter(x => x.id !== briefing.id));
+      wrap.remove();
+      document.getElementById('atBriefEmpty').hidden = loadBriefings().length !== 0;
+    });
+    actions.appendChild(delBtn);
+    head.appendChild(actions);
+    wrap.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'at-brief-body';
+
+    function makeField(field, extraClass) {
+      const ta = document.createElement('textarea');
+      ta.className = extraClass || '';
+      ta.rows = 1;
+      ta.dataset.field = field;
+      ta.value = briefing[field] || '';
+      ta.addEventListener('input', () => {
+        autosize(ta);
+        const list = loadBriefings();
+        const b = list.filter(x => x.id === briefing.id)[0];
+        if (!b) return;
+        b[field] = ta.value;
+        saveBriefings(list);
+      });
+      return ta;
+    }
+    function makeLabel(text) {
+      const lbl = document.createElement('div');
+      lbl.className = 'at-brief-label';
+      lbl.textContent = text;
+      return lbl;
+    }
+
+    body.appendChild(makeField('summary', 'at-brief-summary'));
+
+    const grid1 = document.createElement('div');
+    grid1.className = 'at-brief-grid1';
+    const readinessBlock = document.createElement('div');
+    readinessBlock.className = 'at-brief-block';
+    readinessBlock.appendChild(makeLabel('Readiness'));
+    readinessBlock.appendChild(makeField('readiness'));
+    grid1.appendChild(readinessBlock);
+    body.appendChild(grid1);
+
+    const grid2 = document.createElement('div');
+    grid2.className = 'at-brief-grid2';
+    const habitsBlock = document.createElement('div');
+    habitsBlock.className = 'at-brief-block';
+    habitsBlock.appendChild(makeLabel('Habits'));
+    habitsBlock.appendChild(makeField('habits'));
+    const trainingBlock = document.createElement('div');
+    trainingBlock.className = 'at-brief-block';
+    trainingBlock.appendChild(makeLabel('Training'));
+    trainingBlock.appendChild(makeField('training'));
+    grid2.appendChild(habitsBlock);
+    grid2.appendChild(trainingBlock);
+    body.appendChild(grid2);
+
+    const focusBlock = document.createElement('div');
+    focusBlock.className = 'at-brief-block';
+    focusBlock.style.marginBottom = '16px';
+    focusBlock.appendChild(makeLabel("Today's Focus"));
+    focusBlock.appendChild(makeField('focus'));
+    body.appendChild(focusBlock);
+
+    const insightBox = document.createElement('div');
+    insightBox.className = 'at-brief-insight';
+    insightBox.appendChild(makeLabel('Insight'));
+    insightBox.appendChild(makeField('insight'));
+    body.appendChild(insightBox);
+
+    wrap.appendChild(body);
+    return wrap;
+  }
+  const BRIEF_FIELD_NAMES = ['summary', 'readiness', 'habits', 'training', 'focus', 'insight'];
+
+  function renderBriefingsList() {
+    const list = loadBriefings();
+    const wrap = document.getElementById('atBriefList');
+    wrap.innerHTML = '';
+    list.forEach(b => wrap.appendChild(buildBriefingCard(b)));
+    document.getElementById('atBriefEmpty').hidden = list.length !== 0;
+    wrap.querySelectorAll('textarea').forEach(autosize);
+  }
 
   function initMorningBriefing() {
-    const today = getActiveDateString();
-    let briefing = loadBriefing(today);
-    BRIEF_FIELDS.forEach(([field, id]) => {
-      const el = document.getElementById(id);
-      el.value = briefing[field] || '';
-      autosize(el);
-      el.addEventListener('input', () => {
-        autosize(el);
-        briefing[field] = el.value;
-        saveBriefing(today, briefing);
-      });
-    });
-
-    document.getElementById('atBriefReset').addEventListener('click', () => {
-      if (!confirm('Reset today\'s Morning Briefing to the example text?')) return;
-      briefing = Object.assign({}, DEFAULT_BRIEFING);
-      saveBriefing(today, briefing);
-      BRIEF_FIELDS.forEach(([field, id]) => {
-        const el = document.getElementById(id);
-        el.value = briefing[field];
-        autosize(el);
-      });
-    });
-
-    const collapsedKey = 'atBriefCollapsed';
-    const body = document.getElementById('atBriefBody');
-    const toggleBtn = document.getElementById('atBriefToggle');
-    function applyCollapsed(collapsed) {
-      body.classList.toggle('collapsed', collapsed);
-      toggleBtn.textContent = collapsed ? '︾' : '︿';
-      toggleBtn.title = collapsed ? 'Expand' : 'Collapse';
-    }
-    applyCollapsed(localStorage.getItem(collapsedKey) === '1');
-    toggleBtn.addEventListener('click', () => {
-      const nowCollapsed = !body.classList.contains('collapsed');
-      applyCollapsed(nowCollapsed);
-      try { localStorage.setItem(collapsedKey, nowCollapsed ? '1' : '0'); } catch (e) {}
-      if (!nowCollapsed) BRIEF_FIELDS.forEach(([, id]) => autosize(document.getElementById(id)));
+    renderBriefingsList();
+    document.getElementById('atGenerateBriefBtn').addEventListener('click', () => {
+      const list = loadBriefings();
+      const briefing = Object.assign({ id: genId('br'), createdAt: Date.now() }, DEFAULT_BRIEFING);
+      list.push(briefing);
+      saveBriefings(list);
+      renderBriefingsList();
+      const wrap = document.getElementById('atBriefList');
+      const newCard = wrap.querySelector('[data-id="' + briefing.id + '"]');
+      if (newCard) newCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
