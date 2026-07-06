@@ -232,6 +232,56 @@ body::before {
   font-size: 13px; color: var(--bd-gold-soft); letter-spacing: 1px;
   opacity: 0.6; display: none;
 }
+
+/* ===== Morning Briefing — same editable-callout template as the Main
+   tab's index.html, offered per-entry here as a clickable insert rather
+   than an always-visible fixture (this page has many dated entries, not
+   one persistent "today"). ===== */
+.bd-brief-add {
+  display: block; width: 100%; text-align: left;
+  background: var(--bd-callout-bg); border: 1px dashed var(--bd-callout-border);
+  border-radius: 6px; padding: 12px 16px;
+  font-family: inherit; font-size: 13px; font-weight: 600; font-style: italic;
+  color: var(--bd-gold); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bd-brief-add:hover { background: rgba(217,138,160,0.08); border-color: var(--bd-gold); border-style: solid; }
+.bd-brief {
+  position: relative;
+  background: var(--bd-callout-bg);
+  border: 1px solid var(--bd-callout-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.bd-brief-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.bd-brief-title {
+  font-size: 10.5px; font-weight: 700; font-style: italic;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--bd-gold);
+}
+.bd-brief-reset { background: none; border: none; color: var(--bd-text-faint); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.bd-brief-reset:hover { color: var(--bd-gold); }
+.bd-brief-summary {
+  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-size: 13.5px; color: var(--bd-gold);
+  line-height: 1.55; margin-bottom: 12px; display: block;
+}
+.bd-brief-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--bd-text-faint); margin: 10px 0 5px;
+}
+.bd-brief-label:first-of-type { margin-top: 0; }
+.bd-brief textarea {
+  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
+  font-family: inherit; font-size: 12.5px; line-height: 1.6; color: var(--bd-text-soft); display: block;
+}
+.bd-brief-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 520px) { .bd-brief-grid2 { grid-template-columns: 1fr; } }
+.bd-brief-insight {
+  background: rgba(217,138,160,0.06); border: 1px solid rgba(217,138,160,0.20);
+  border-radius: 6px; padding: 10px 12px; margin-top: 10px;
+}
+.bd-brief-insight textarea { color: var(--bd-text); }
 @media (min-width: 700px) { .bd-drag-handle { display: block; } }
 
 .bd-empty {
@@ -300,8 +350,22 @@ body::before {
     ta.style.height = ta.scrollHeight + 'px';
   }
   function autosizeVisibleTextareas() {
-    document.querySelectorAll('.bd-callout textarea').forEach(autosizeTextarea);
+    document.querySelectorAll('.bd-callout textarea, .bd-brief textarea').forEach(autosizeTextarea);
   }
+
+  // Same reference-photo example copy the Main tab's Morning Briefing
+  // pre-fills with — kept in sync by hand since this codebase has no
+  // shared JS module system (every page duplicates small helpers/data
+  // it needs, e.g. compressImageDataUrl across entertainment.html/
+  // gym.html/projects.html).
+  var DEFAULT_BRIEFING = {
+    summary: "Rest day with strong habit momentum — focus on completing the core streaks and staying consistent after yesterday's travel.",
+    readiness: "No biometric data available today, but yesterday's recovery was solid (66) with good sleep (7.6 hours) and HRV trending up 11% from your 7-day baseline, suggesting your body is adapting well. You're coming off a day trip to Quincy with 75% habit completion despite the disruption — momentum is there. Today is a rest day, so prioritize recovery habits and mental work.",
+    habits: "You missed Pull (Bicep), Sauna, and Cold Plunge yesterday during travel, breaking the 7-day streaks on Sauna and Cold Plunge. Both are now reset to 1 day. Your 114-day Creative Work, Hydration, and Meditate streaks remain active and strong. No Snoozing is at 29 days — protect that one today.",
+    training: "Rest day — no gym work scheduled. Use today to recover from yesterday's travel. If you feel the urge to move, a light walk counts toward your Walk streak (currently 45 days) and supports recovery without adding strain.",
+    focus: "- Complete all 9 core habits today: Walk, Meditate, Read Book, Hydration, No Snoozing, Journal, Creative Work, 6+ Hour Sleep, Chess Puzzles\n- Rebuild Sauna and Cold Plunge streaks — both reset to 1 day after yesterday's miss. Fit them in today to restart momentum.\n- Journal about yesterday's day trip and today's rest — your journal streak is at 111 days and supports reflection on travel patterns.",
+    insight: "Your HRV is up 11% from the 7-day average despite a travel day, and sleep quality remained strong (7.6 hours, 82 score). This suggests your body is recovering well from the lower-strain week (4.2 avg vs 10.6 prior week). Use today's rest day to lock in the habits you missed yesterday — Sauna and Cold Plunge are quick wins to rebuild those 7-day streaks and keep the recovery momentum going into the week."
+  };
   function pad2(n) { return String(n).padStart(2, '0'); }
   function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function escapeHtml(s) {
@@ -405,8 +469,89 @@ body::before {
       });
     });
 
+    if (entry.briefing) {
+      body.appendChild(buildBriefingEl(entry));
+    } else {
+      var addBriefBtn = document.createElement('button');
+      addBriefBtn.type = 'button';
+      addBriefBtn.className = 'bd-brief-add';
+      addBriefBtn.dataset.action = 'add-brief';
+      addBriefBtn.textContent = '✨ Add Morning Briefing';
+      body.appendChild(addBriefBtn);
+    }
+
     el.appendChild(body);
     return el;
+  }
+
+  function buildBriefingEl(entry) {
+    var wrap = document.createElement('div');
+    wrap.className = 'bd-brief';
+
+    var head = document.createElement('div');
+    head.className = 'bd-brief-head';
+    var title = document.createElement('span');
+    title.className = 'bd-brief-title';
+    title.textContent = '✨ Morning Briefing';
+    head.appendChild(title);
+    var reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'bd-brief-reset';
+    reset.dataset.action = 'reset-brief';
+    reset.title = 'Reset to example text';
+    reset.setAttribute('aria-label', 'Reset to example text');
+    reset.textContent = '↺';
+    head.appendChild(reset);
+    wrap.appendChild(head);
+
+    function makeField(field, extraClass) {
+      var ta = document.createElement('textarea');
+      ta.className = extraClass || '';
+      ta.dataset.field = field;
+      ta.value = entry.briefing[field] || '';
+      ta.rows = 1;
+      ta.addEventListener('input', function () {
+        entry.briefing[ta.dataset.field] = ta.value;
+        saveEntries(entries);
+        autosizeTextarea(ta);
+      });
+      return ta;
+    }
+    function makeLabel(text, flush) {
+      var lbl = document.createElement('div');
+      lbl.className = 'bd-brief-label';
+      lbl.textContent = text;
+      if (flush) lbl.style.marginTop = '0';
+      return lbl;
+    }
+
+    wrap.appendChild(makeField('summary', 'bd-brief-summary'));
+
+    wrap.appendChild(makeLabel('Readiness'));
+    wrap.appendChild(makeField('readiness'));
+
+    var grid2 = document.createElement('div');
+    grid2.className = 'bd-brief-grid2';
+    var habitsCol = document.createElement('div');
+    habitsCol.appendChild(makeLabel('Habits', true));
+    habitsCol.appendChild(makeField('habits'));
+    var trainingCol = document.createElement('div');
+    trainingCol.appendChild(makeLabel('Training', true));
+    trainingCol.appendChild(makeField('training'));
+    grid2.appendChild(habitsCol);
+    grid2.appendChild(trainingCol);
+    wrap.appendChild(grid2);
+
+    wrap.appendChild(makeLabel("Today's Focus"));
+    wrap.appendChild(makeField('focus'));
+
+    var insightBox = document.createElement('div');
+    insightBox.className = 'bd-brief-insight';
+    insightBox.appendChild(makeLabel('Insight', true));
+    insightBox.appendChild(makeField('insight'));
+    wrap.appendChild(insightBox);
+
+    return wrap;
   }
 
   function renderEntries() {
@@ -457,7 +602,7 @@ body::before {
         collapsedIds[id] = !collapsedIds[id];
         entryEl.classList.toggle('collapsed', !!collapsedIds[id]);
         if (!collapsedIds[id]) {
-          entryEl.querySelectorAll('.bd-callout textarea').forEach(autosizeTextarea);
+          entryEl.querySelectorAll('.bd-callout textarea, .bd-brief textarea').forEach(autosizeTextarea);
         }
         return;
       }
@@ -466,6 +611,23 @@ body::before {
         if (!entry) return;
         if (!confirm('Delete this dump?')) return;
         entries = entries.filter(function (x) { return x.id !== id; });
+        saveEntries(entries);
+        renderEntries();
+        return;
+      }
+      if (actionEl.dataset.action === 'add-brief') {
+        var addEntry = entries.filter(function (x) { return x.id === id; })[0];
+        if (!addEntry) return;
+        addEntry.briefing = Object.assign({}, DEFAULT_BRIEFING);
+        saveEntries(entries);
+        renderEntries();
+        return;
+      }
+      if (actionEl.dataset.action === 'reset-brief') {
+        var resetEntry = entries.filter(function (x) { return x.id === id; })[0];
+        if (!resetEntry) return;
+        if (!confirm("Reset this Morning Briefing to the example text?")) return;
+        resetEntry.briefing = Object.assign({}, DEFAULT_BRIEFING);
         saveEntries(entries);
         renderEntries();
       }
