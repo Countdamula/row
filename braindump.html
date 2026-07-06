@@ -222,7 +222,7 @@ body::before {
 }
 .bd-callout textarea {
   width: 100%; border: none; background: transparent; outline: none;
-  resize: vertical; min-height: 56px;
+  resize: none; overflow: hidden; min-height: 56px;
   font-family: var(--font-serif); font-style: italic; font-size: 14px;
   line-height: 1.65; color: var(--bd-text);
 }
@@ -291,6 +291,17 @@ body::before {
 
   function $(id) { return document.getElementById(id); }
   function genId() { return 'bd_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  // Thoughts/Emotions boxes should never need an internal scrollbar — grow
+  // the textarea to fit its content instead. No-op on hidden (collapsed)
+  // textareas since scrollHeight reads 0 while display:none.
+  function autosizeTextarea(ta) {
+    if (!ta || ta.offsetParent === null) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }
+  function autosizeVisibleTextareas() {
+    document.querySelectorAll('.bd-callout textarea').forEach(autosizeTextarea);
+  }
   function pad2(n) { return String(n).padStart(2, '0'); }
   function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function escapeHtml(s) {
@@ -390,6 +401,7 @@ body::before {
       ta.addEventListener('input', function () {
         entry[ta.dataset.field] = ta.value;
         saveEntries(entries);
+        autosizeTextarea(ta);
       });
     });
 
@@ -404,6 +416,7 @@ body::before {
     var sorted = entries.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
     empty.hidden = sorted.length !== 0;
     sorted.forEach(function (entry) { wrap.appendChild(buildEntryEl(entry)); });
+    autosizeVisibleTextareas();
   }
 
   function wire() {
@@ -420,6 +433,7 @@ body::before {
       var row = $('bdAddRow');
       row.classList.toggle('show');
       if (row.classList.contains('show')) $('bdAddDate').value = todayISO();
+      autosizeVisibleTextareas();
     });
     $('bdAddConfirm').addEventListener('click', function () {
       var val = $('bdAddDate').value;
@@ -442,6 +456,9 @@ body::before {
       if (actionEl.dataset.action === 'toggle') {
         collapsedIds[id] = !collapsedIds[id];
         entryEl.classList.toggle('collapsed', !!collapsedIds[id]);
+        if (!collapsedIds[id]) {
+          entryEl.querySelectorAll('.bd-callout textarea').forEach(autosizeTextarea);
+        }
         return;
       }
       if (actionEl.dataset.action === 'delete') {
