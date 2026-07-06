@@ -19,6 +19,25 @@
   --info: #7DD3FC;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* This page ("Main", formerly "Goals") was rebuilt to match a two-photo
+     reference: a dark habit-tracker/briefing dashboard called ATHENA
+     (Today/Week/Month/Year/Memories tabs, stat tiles, biometric sparkline
+     rows, a two-column Daily Tasks grid with streak flames and AUTO tags,
+     Due Today/Due Soon, a Journal column, and a "Morning Briefing" callout).
+     New tokens below are page-scoped, same "explicit literal reference
+     photo" exception already used elsewhere in this app (see CLAUDE.md §6).
+     Simplifications, since this app has no wearable/device integration:
+     Recovery/Strain/Sleep/RHR/TEMP/RESP are manually logged per day (click
+     to edit) rather than device-synced, and the Morning Briefing is a
+     plain editable callout pre-filled with the reference photo's example
+     copy, not an AI-generated summary. */
+  --at-gold: #cda86a;
+  --at-gold-dim: rgba(205, 168, 106, 0.35);
+  --at-purple: #a78bfa;
+  --at-indigo: #93a4f4;
+  --at-orange: #fb923c;
+  --at-teal: #2dd4bf;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
 }
 
 * { box-sizing: border-box; }
@@ -41,8 +60,8 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+    radial-gradient(circle at 82% 10%, rgba(205, 168, 106, 0.12), transparent 45%),
+    radial-gradient(circle at 16% 92%, rgba(167, 139, 250, 0.07), transparent 50%);
   filter: blur(40px);
   pointer-events: none;
   z-index: -2;
@@ -61,831 +80,510 @@ body::after {
   100% { transform: translate3d(-22px, 14px, 0); }
 }
 
-.page {
-  max-width: 1100px;
-  margin: 0 auto;
+.page { max-width: 1180px; margin: 0 auto; }
+
+/* ===== ATHENA sub-nav ===== */
+.at-subnav { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.at-subnav-inner { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.at-brand {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 19px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--at-gold);
+}
+.at-tabs { display: flex; gap: 22px; flex-wrap: wrap; }
+.at-tab {
+  background: none; border: none; padding: 6px 0; margin-bottom: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--text-tertiary); cursor: pointer; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.at-tab.active { color: var(--at-gold); }
+.at-tab.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 2px;
+  background: var(--at-gold);
+}
+.at-clock {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary);
+  margin-left: auto; font-variant-numeric: tabular-nums;
 }
 
-/* ===== Page title ===== */
-.dash-title {
-  margin: 0 0 14px;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.at-tabpanel { animation: at-fade 0.2s ease; }
+@keyframes at-fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* ===== Today header (top summary) ===== */
-.th-wrap { margin-bottom: 18px; }
-.th-date {
-  font-family: var(--font-mono);
-  font-size: 13px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 10px;
+/* ===== Stat tiles ===== */
+.at-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.at-tile {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px; padding: 14px 16px;
 }
-.th-stats { display: flex; flex-wrap: wrap; gap: 10px; }
-.th-stat {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+.at-tile-top { display: flex; align-items: baseline; gap: 9px; }
+.at-tile-icon { font-size: 15px; flex-shrink: 0; }
+.at-tile-num { font-family: var(--font-serif); font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.at-tile-num-gold { color: var(--at-gold); }
+.at-tile-num-green { color: var(--success); }
+.at-tile-num-purple { color: var(--at-purple); }
+.at-tile-num-indigo { color: var(--at-indigo); }
+.at-tile-label { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
+.at-tile-sub {
+  font-size: 11px; color: var(--text-tertiary); margin-top: 4px; min-height: 14px;
+  outline: none; border-radius: 4px; padding: 1px 3px; margin-left: -3px; cursor: text;
 }
-.th-stat-icon { font-size: 15px; }
-.th-stat-num {
-  font-family: var(--font-mono);
-  font-size: 16px; font-weight: 800;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-.th-stat-label {
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
+.at-tile-sub[contenteditable="true"] { background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.14); }
+.at-tile-sub:empty::before { content: 'tap to add details'; opacity: 0.6; font-style: italic; }
 
-/* ===== Journal / win of the day ===== */
-.jr-card {
-  background: rgba(255,255,255,0.04);
-  border-radius: 16px;
-  padding: 16px 20px;
-  margin-bottom: 18px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+/* ===== Biometric sparkline rows ===== */
+.at-metrics { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.at-metric-row {
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 9px 14px;
 }
-.jr-label {
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.14em; text-transform: uppercase;
+.at-metric-label {
+  width: 56px; flex-shrink: 0;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text-tertiary);
-  margin-bottom: 10px;
-  display: flex; align-items: center; justify-content: space-between;
 }
-.jr-saved { color: var(--success); opacity: 0; transition: opacity 0.3s; font-size: 10px; letter-spacing: 0.1em; }
-.jr-saved.show { opacity: 1; }
-.jr-textarea {
-  width: 100%; min-height: 56px; resize: vertical;
-  padding: 10px 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  background: rgba(0,0,0,0.28);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 13.5px; line-height: 1.5;
-  outline: none;
-  transition: border-color 0.2s;
+.at-metric-spark { flex: 1; height: 22px; min-width: 40px; }
+.at-metric-val {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
+  color: var(--text-primary); white-space: nowrap; cursor: pointer; outline: none;
+  border-radius: 4px; padding: 2px 4px;
 }
-.jr-textarea:focus { border-color: rgba(255,255,255,0.28); }
-.jr-textarea::placeholder { color: var(--text-tertiary); }
+.at-metric-val[contenteditable="true"] { background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.14); }
 
-/* ===== Section heading (shared) ===== */
-.section { margin-top: 8px; }
-.section-title {
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 12px;
+/* ===== 3-column layout ===== */
+.at-grid { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 20px; }
+@media (max-width: 900px) { .at-grid { grid-template-columns: 1fr; } }
+.at-col {
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px; padding: 18px 20px;
 }
-.section-title::before {
-  content: ''; width: 18px; height: 1px;
-  background: var(--text-tertiary); opacity: 0.6;
+.at-col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.at-col h2 { font-size: 15px; margin: 0; font-weight: 700; color: var(--text-primary); }
+.at-col h2.at-gold-h2 { color: var(--at-gold); font-size: 13px; margin-top: 18px; margin-bottom: 8px; }
+.at-col-actions { display: flex; gap: 6px; }
+.at-mini-btn {
+  padding: 6px 11px; border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  border-radius: 8px; font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
 }
-.section-title::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
-}
-.empty-state {
-  text-align: center;
-  font-size: 12px; font-style: italic;
-  color: var(--text-tertiary);
-  padding: 14px 0;
-}
+.at-mini-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.at-empty { font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 10px 2px; }
 
-/* ===== Habits ===== */
-.hb-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 14px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+/* Daily Tasks */
+.at-task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+@media (max-width: 520px) { .at-task-grid { grid-template-columns: 1fr; } }
+.at-task {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 8px 9px; border-radius: 10px;
+  background: rgba(255,255,255,0.02); border: 1px solid transparent;
 }
-.hb-row {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 12px 14px;
-  margin-bottom: 6px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
-}
-.hb-check {
-  appearance: none; -webkit-appearance: none;
-  width: 22px; height: 22px; flex-shrink: 0;
-  margin: 0;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.28);
-  border-radius: 7px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
-}
-.hb-check:checked {
-  background: #6BE3A4; border-color: #6BE3A4;
-  box-shadow: 0 0 12px rgba(107,227,164,0.40);
-}
-.hb-check:checked::after {
-  content: '';
-  position: absolute; left: 6px; top: 2px;
-  width: 6px; height: 11px;
-  border: solid #0A0A0B;
-  border-width: 0 2.5px 2.5px 0;
-  transform: rotate(45deg);
-}
-.hb-check:disabled { cursor: not-allowed; opacity: 0.3; }
-.hb-text {
-  flex: 1; min-width: 120px;
-  font-size: 14px; color: var(--text-primary);
-  cursor: text; outline: none; border-radius: 4px;
-  padding: 2px 4px; margin: -2px -4px;
-}
-.hb-text[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.28);
-}
-.hb-days { display: flex; gap: 3px; }
-.hb-day {
-  width: 22px; height: 22px;
+.at-task.at-task-pending { background: rgba(205,168,106,0.07); border-color: rgba(205,168,106,0.28); }
+.at-task-check {
+  width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  border: 1.5px solid rgba(255,255,255,0.22); background: transparent;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  color: var(--text-tertiary);
-  font-size: 9.5px; font-weight: 700;
-  cursor: pointer; user-select: none;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.hb-day.active {
-  background: rgba(107,227,164,0.16);
-  border-color: rgba(107,227,164,0.4);
-  color: #6BE3A4;
-}
-.hb-streak {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 700;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-.hb-streak.hb-streak-active { color: var(--warning); }
-.hb-delete {
-  border: 0; background: transparent;
-  color: var(--text-tertiary);
-  font-size: 18px; cursor: pointer;
-  padding: 0 4px; opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s;
-}
-.hb-row:hover .hb-delete { opacity: 1; }
-.hb-delete:hover { color: var(--danger); }
-.hb-add-row {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-.hb-add-input {
-  flex: 1; min-width: 140px;
-  padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(0,0,0,0.28);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.hb-add-input::placeholder { color: var(--text-tertiary); }
-.hb-add-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
-
-/* ===== gm- : freeform daily checklist (Today / Plan tomorrow) ===== */
-.gm-card {
-  position: relative;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 14px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: background 0.4s;
-  overflow: hidden;
-}
-.gm-card.gm-all-done::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(107,227,164,0.10), transparent 60%);
-  pointer-events: none;
-}
-.gm-card.gm-all-done .gm-progress-num,
-.gm-card.gm-all-done .gm-progress-label { color: var(--success); }
-
-.gm-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  flex-wrap: wrap; gap: 12px;
-  margin-bottom: 14px;
-  position: relative;
-}
-.gm-header-left { display: flex; flex-direction: column; }
-.gm-eyebrow {
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 6px;
-}
-.gm-progress-row { display: flex; align-items: baseline; gap: 6px; }
-.gm-progress-num {
-  font-size: 42px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.045em;
-  color: var(--text-primary);
-  line-height: 1;
-}
-.gm-progress-total {
-  font-family: var(--font-mono);
-  font-size: 18px;
-  color: var(--text-tertiary);
-}
-.gm-progress-label {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-left: 4px;
-}
-.gm-tomorrow-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
-.gm-tomorrow-count {
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.gm-card-tomorrow .gm-progress-row { display: none; }
-
-.gm-streak {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--text-tertiary);
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  transition: background 0.25s, color 0.25s, border-color 0.25s;
-}
-.gm-streak-icon { font-size: 13px; }
-.gm-streak-num {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.gm-streak.gm-streak-active {
-  background: rgba(242,192,99,0.10);
-  color: #F2C063;
-  border-color: rgba(242,192,99,0.32);
-}
-.gm-streak.gm-streak-active .gm-streak-icon {
-  filter: drop-shadow(0 0 6px rgba(242,192,99,0.6));
-}
-
-.gm-bar {
-  display: flex; gap: 4px;
-  height: 6px;
-  margin-bottom: 16px;
-}
-.gm-bar:empty { display: none; }
-.gm-bar-seg {
-  flex: 1;
-  background: rgba(255,255,255,0.06);
-  border-radius: 3px;
-  transition: background 0.3s, box-shadow 0.3s;
-}
-.gm-bar-seg-done {
-  background: #6BE3A4;
-  box-shadow: 0 0 6px rgba(107,227,164,0.40);
-}
-
-.goal-list { list-style: none; margin: 0; padding: 0; }
-
-.gm-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px;
-  margin-bottom: 6px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
-  transition: background 0.2s, opacity 0.3s;
-  position: relative;
-}
-.gm-row:hover { background: rgba(255,255,255,0.06); }
-.gm-row.gm-row-done {
-  opacity: 0.45;
-  background: rgba(107,227,164,0.04);
-}
-.gm-row.gm-row-done .gm-text {
-  text-decoration: line-through;
-  text-decoration-color: rgba(255,255,255,0.4);
-}
-.gm-row.gm-row-queued {
-  background: rgba(242,192,99,0.10);
-  box-shadow: inset 3px 0 0 0 #F2C063;
-}
-.gm-row.gm-row-queued .gm-text { color: #FFE2A8; }
-.gm-row.is-drag-over { border-top: 2px solid #6BE3A4; }
-.gm-row.is-queue-flashing { animation: gm-queue-flash 0.48s ease-out; }
-@keyframes gm-queue-flash {
-  0%   { background: rgba(255,255,255,0.035); transform: scale(1); }
-  40%  { background: rgba(242,192,99,0.32); transform: scale(1.015); }
-  100% { background: rgba(255,255,255,0.035); transform: scale(1); }
-}
-
-.gm-handle {
-  width: 14px; flex-shrink: 0;
-  color: var(--text-tertiary);
-  font-weight: 700; font-size: 14px;
-  letter-spacing: -2px;
-  cursor: grab;
-  opacity: 0;
-  transition: opacity 0.2s;
-  user-select: none;
-}
-.gm-row:hover .gm-handle { opacity: 1; }
-.gm-handle:active { cursor: grabbing; }
-
-.gm-check {
-  appearance: none; -webkit-appearance: none;
-  width: 22px; height: 22px; flex-shrink: 0;
-  margin: 0;
-  border: 1.5px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.28);
-  border-radius: 7px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
-}
-.gm-check:checked {
-  background: #6BE3A4;
-  border-color: #6BE3A4;
-  box-shadow: 0 0 12px rgba(107,227,164,0.40);
-}
-.gm-check:checked::after {
-  content: '';
-  position: absolute; left: 6px; top: 2px;
-  width: 6px; height: 11px;
-  border: solid #0A0A0B;
-  border-width: 0 2.5px 2.5px 0;
-  transform: rotate(45deg);
-  animation: gm-check-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes gm-check-pop {
-  from { transform: rotate(45deg) scale(0); }
-  to   { transform: rotate(45deg) scale(1); }
-}
-.gm-check:disabled { cursor: not-allowed; opacity: 0.55; }
-
-.gm-text {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-primary);
-  cursor: text;
-  outline: none;
-  border-radius: 4px;
-  padding: 2px 4px;
-  margin: -2px -4px;
-}
-.gm-text[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.28);
-}
-
-.gm-queue-btn {
-  border: 0; background: transparent;
-  color: var(--text-tertiary);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
-  opacity: 0.55;
-  transition: opacity 0.2s, color 0.2s, transform 0.1s;
-}
-.gm-queue-btn:hover { opacity: 1; }
-.gm-queue-btn.gm-queue-active {
-  color: #F2C063;
-  opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(242,192,99,0.65));
-}
-.gm-queue-btn:disabled { cursor: not-allowed; opacity: 0.3; }
-
-.goal-delete {
-  border: 0; background: transparent;
-  color: var(--text-tertiary);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0 4px;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s;
-}
-.gm-row:hover .goal-delete { opacity: 1; }
-.goal-delete:hover { color: var(--danger); }
-
-.gm-show-toggle {
-  width: 100%;
-  margin: 6px 0 0;
-  padding: 9px;
-  border: 1px dashed rgba(255,255,255,0.12);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-}
-.gm-show-toggle:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.22); }
-
-.gm-push-btn {
-  width: 100%;
-  margin-top: 14px;
-  padding: 11px;
-  border: 1px dashed rgba(255,255,255,0.16);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-.gm-push-btn:hover {
-  color: var(--text-primary);
-  border-color: rgba(255,255,255,0.30);
-  border-style: solid;
-  background: rgba(255,255,255,0.04);
-}
-
-.goal-input-wrap.gm-input-wrap {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-.gm-input {
-  flex: 1; min-width: 0;
-  padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(0,0,0,0.28);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.gm-input::placeholder { color: var(--text-tertiary); }
-.gm-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
-
-.gm-add {
-  padding: 11px 20px;
-  border: 0; border-radius: 12px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B;
-  font-family: inherit; font-size: 13px; font-weight: 700;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.9),
-    0 2px 8px rgba(0,0,0,0.35),
-    0 8px 22px rgba(0,0,0,0.25);
-  transition: transform 0.1s, filter 0.15s;
-}
-.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
-.gm-add:active { transform: translateY(0); }
-
-.gm-polish {
-  padding: 11px 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 13px; font-weight: 600;
-  cursor: pointer;
+  color: transparent; font-size: 11px; font-weight: 900; cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
-.gm-polish:hover {
-  background: rgba(255,255,255,0.07);
-  border-color: rgba(255,255,255,0.18);
+.at-task-check.done { background: var(--at-gold); border-color: var(--at-gold); color: #1a1206; }
+.at-task-body { flex: 1; min-width: 0; cursor: pointer; }
+.at-task-title { font-size: 13px; color: var(--text-primary); line-height: 1.3; }
+.at-task.at-task-done .at-task-title { color: var(--text-tertiary); text-decoration: line-through; }
+.at-task-note { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; }
+.at-task-meta { display: flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: auto; padding-top: 1px; }
+.at-task-streak { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); white-space: nowrap; }
+.at-task-auto {
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em;
+  padding: 2px 5px; border: 1px solid rgba(205,168,106,0.4);
+  color: var(--at-gold); border-radius: 5px; white-space: nowrap;
 }
 
-.gm-status {
-  flex-basis: 100%;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  min-height: 14px;
-  margin-top: 4px;
+/* Due Today / Due Soon */
+.at-due-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; margin-bottom: 7px;
+  background: rgba(255,255,255,0.03); border-left: 2px solid var(--at-gold); border-radius: 8px;
 }
-.gm-status.gm-status-error { color: var(--danger); }
+.at-due-check {
+  width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.22); background: transparent; cursor: pointer;
+}
+.at-due-title { flex: 1; font-size: 12.5px; color: var(--text-primary); }
+.at-due-date { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
+.at-due-del { background: none; border: none; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 0 2px; }
+.at-due-del:hover { color: var(--danger); }
+.at-due-add-row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.at-due-add-row input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 12px; outline: none; }
+.at-due-add-row input[type="text"] { flex: 1; min-width: 100px; }
+.at-due-add-row button {
+  padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer;
+  background: var(--at-gold); color: #1a1206; font-family: inherit; font-size: 12px; font-weight: 700;
+}
 
-/* ===== Goals (monthly / yearly targets) ===== */
-.gl-section-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.gl-add-btn {
-  padding: 9px 16px;
-  border: 1px solid rgba(255,255,255,0.85);
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border-radius: 999px;
-  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+/* Journal column */
+.at-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin: 14px 0 6px; }
+.at-field-label:first-of-type { margin-top: 0; }
+.at-input, .at-textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s;
 }
-.gl-add-btn:hover { filter: brightness(1.06); }
-.gl-scope-label {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 18px 0 10px;
-}
-.gl-scope-label:first-child { margin-top: 0; }
-.gl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-bottom: 6px; }
-.gl-card {
-  background: rgba(255,255,255,0.04);
-  border-radius: 16px;
-  padding: 18px 20px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-}
-.gl-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.gl-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.gl-sub { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
-.gl-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.gl-icon-btn {
-  width: 26px; height: 26px;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-tertiary);
-  border-radius: 8px; font-size: 12px; cursor: pointer;
-}
-.gl-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.09); }
-.gl-progress-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
-.gl-progress-num { font-size: 26px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.gl-progress-total { font-family: var(--font-mono); font-size: 14px; color: var(--text-tertiary); }
-.gl-bar-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; margin-bottom: 10px; }
-.gl-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--info), var(--success)); transition: width 0.4s ease; }
-.gl-period-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 12px; }
-.gl-period-status { font-weight: 700; flex-shrink: 0; }
-.gl-period-status.on-pace { color: var(--success); }
-.gl-period-status.behind { color: var(--warning); }
-.gl-log-row { display: flex; align-items: center; gap: 8px; }
-.gl-log-btn {
-  width: 30px; height: 30px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary);
-  border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
-}
-.gl-log-btn:hover { background: rgba(255,255,255,0.09); }
-.gl-empty { text-align: center; font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 20px 0; }
+.at-textarea { resize: none; overflow: hidden; min-height: 70px; line-height: 1.55; }
+.at-input:focus, .at-textarea:focus { border-color: rgba(255,255,255,0.28); }
+.at-input::placeholder, .at-textarea::placeholder { color: var(--text-tertiary); }
+.at-saved { display: inline-block; margin-left: 8px; font-size: 10px; color: var(--success); opacity: 0; transition: opacity 0.3s; }
+.at-saved.show { opacity: 1; }
 
-/* ===== Streaks ===== */
+/* ===== Morning Briefing ===== */
+.at-brief { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 20px 22px; }
+.at-brief-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.at-brief-title { font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: var(--at-gold); display: flex; align-items: center; gap: 9px; }
+.at-brief-actions { display: flex; gap: 12px; }
+.at-brief-actions button { background: none; border: none; color: var(--text-tertiary); font-size: 15px; cursor: pointer; padding: 2px; }
+.at-brief-actions button:hover { color: var(--at-gold); }
+.at-brief-body.collapsed { display: none; }
+.at-brief-summary {
+  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-size: 14.5px; color: var(--at-gold);
+  line-height: 1.55; margin-bottom: 18px; display: block;
+}
+.at-brief-grid1 { margin-bottom: 16px; }
+.at-brief-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 16px; }
+@media (max-width: 700px) { .at-brief-grid2 { grid-template-columns: 1fr; } }
+.at-brief-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; }
+.at-brief-block textarea {
+  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
+  font-family: inherit; font-size: 13px; line-height: 1.6; color: var(--text-secondary); display: block;
+}
+.at-brief-insight { background: rgba(205,168,106,0.06); border: 1px solid rgba(205,168,106,0.20); border-radius: 10px; padding: 12px 14px; }
+.at-brief-insight textarea {
+  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
+  font-family: inherit; font-size: 13px; line-height: 1.6; color: var(--text-primary); display: block;
+}
+
+/* ===== Week tab ===== */
+.at-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+@media (max-width: 700px) { .at-week-grid { grid-template-columns: repeat(4, 1fr); } }
+.at-week-day { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 8px; text-align: center; }
+.at-week-day.is-today { border-color: var(--at-gold-dim); }
+.at-week-day-name { font-size: 10px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.at-week-day-num { font-family: var(--font-serif); font-size: 19px; color: var(--text-primary); margin: 5px 0 3px; }
+.at-week-day-pct { font-size: 11px; color: var(--at-gold); font-weight: 700; }
+.at-week-day-win { font-size: 10px; color: var(--text-tertiary); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== Month tab ===== */
+.at-month-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.at-month-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.at-month-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+.at-month-dow span { font-size: 10px; text-align: center; color: var(--text-tertiary); font-weight: 700; }
+.at-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.at-month-cell {
+  aspect-ratio: 1; border-radius: 7px; background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-tertiary);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.at-month-cell.empty { background: transparent; border-color: transparent; }
+.at-month-cell.is-today { border-color: var(--at-gold); color: var(--text-primary); font-weight: 700; }
+
+/* ===== Year tab ===== */
+.at-year-bars { display: flex; align-items: flex-end; gap: 8px; height: 170px; margin-top: 10px; }
+.at-year-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; justify-content: flex-end; height: 100%; }
+.at-year-bar { width: 100%; max-width: 34px; background: linear-gradient(180deg, var(--at-gold), rgba(205,168,106,0.25)); border-radius: 4px 4px 0 0; min-height: 2px; }
+.at-year-bar-label { font-size: 9.5px; color: var(--text-tertiary); }
+.at-year-bar-pct { font-size: 9.5px; color: var(--at-gold); font-weight: 700; }
+
+/* ===== Memories tab ===== */
+.at-memory-card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.at-memory-date { font-family: var(--font-mono); font-size: 11px; color: var(--at-gold); font-weight: 700; margin-bottom: 6px; }
+.at-memory-win { font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
+.at-memory-journal { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
+
+/* Best streaks (Memories tab) */
 .sk-list { display: flex; flex-direction: column; gap: 8px; }
 .sk-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
+  padding: 14px 16px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
 }
 .sk-name { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 120px; }
-.sk-current { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--warning); white-space: nowrap; }
+.sk-current { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--at-gold); white-space: nowrap; }
 .sk-best { font-size: 11.5px; color: var(--text-tertiary); text-align: right; line-height: 1.4; }
 .sk-best-num { color: var(--text-secondary); font-weight: 700; }
+
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin: 22px 0 12px;
+}
+.section-title:first-child { margin-top: 0; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
 
 /* ===== Shared chip / modal / field / button kit (reused from entertainment.html / projects.html) ===== */
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  padding: 7px 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-secondary);
-  border-radius: 999px;
-  font-family: inherit; font-size: 12.5px; font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  padding: 7px 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+  color: var(--text-secondary); border-radius: 999px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.chip.active {
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border-color: transparent; font-weight: 800;
-}
+.chip.active { background: linear-gradient(180deg, var(--at-gold), #a9814a); color: #1a1206; border-color: transparent; font-weight: 800; }
 .modal-bg {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
-  z-index: 100; align-items: center; justify-content: center;
-  padding: 24px;
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 100; align-items: center; justify-content: center; padding: 24px;
 }
 .modal-bg.show { display: flex; }
-.modal {
-  width: 100%; max-width: 440px;
-  background: #111113;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 16px;
-  padding: 22px; max-height: 88vh; overflow-y: auto;
-}
+.modal { width: 100%; max-width: 460px; background: #111113; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
 .modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.field > label {
-  font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;
-  letter-spacing: 0.14em; text-transform: uppercase;
-}
+.field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 .field input[type="text"], .field input[type="number"] {
-  padding: 12px; border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  padding: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary);
   border-radius: 10px; font-family: inherit; font-size: 14px;
 }
-.field input:focus {
-  outline: none; border-color: rgba(255,255,255,0.40);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
-}
+.field input:focus { outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+.field-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary); }
 .btn-primary {
-  width: 100%; padding: 13px;
-  border: 1px solid rgba(255,255,255,0.85);
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border-radius: 12px;
-  font-family: inherit; font-size: 14px; font-weight: 700;
-  cursor: pointer;
+  width: 100%; padding: 13px; border: 1px solid rgba(205,168,106,0.85);
+  background: linear-gradient(180deg, var(--at-gold) 0%, #a9814a 100%);
+  color: #1a1206; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-primary:hover { transform: translateY(-1px); }
 .btn-secondary {
-  padding: 11px 16px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary); border-radius: 12px;
-  font-family: inherit; font-size: 13px; font-weight: 600;
-  cursor: pointer;
+  padding: 11px 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .btn-secondary:hover { background: rgba(255,255,255,0.10); }
 .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .modal-actions button { flex: 1; }
-.delete-link {
-  display: block; text-align: center; margin-top: 12px;
-  font-size: 12px; color: var(--danger); cursor: pointer;
-  text-decoration: underline; padding: 6px;
+.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 6px; }
+
+.hb-days { display: flex; gap: 3px; }
+.hb-day {
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-tertiary);
+  font-size: 9.5px; font-weight: 700; cursor: pointer; user-select: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
+.hb-day.active { background: rgba(205,168,106,0.16); border-color: rgba(205,168,106,0.4); color: var(--at-gold); }
+
+.manage-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.manage-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
+.manage-row-text { flex: 1; font-size: 13px; color: var(--text-primary); }
+.manage-row button { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.manage-row button:hover { color: var(--text-primary); }
+.manage-row .manage-del:hover { color: var(--danger); }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .gm-card, .hb-card { padding: 16px; }
-  .gm-progress-num { font-size: 36px; }
-  .th-stat { padding: 8px 12px; }
-  .th-stat-num { font-size: 14px; }
+  .at-col { padding: 14px; }
+  .at-brand { font-size: 16px; }
 }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <h1 class="dash-title">Damian's Dashboard</h1>
-
-  <div class="th-wrap">
-    <div class="th-date" id="thDate">—</div>
-    <div class="th-stats">
-      <div class="th-stat"><span class="th-stat-icon">🎯</span><span class="th-stat-num" id="thActiveGoals">0</span><span class="th-stat-label">Active&nbsp;Goals</span></div>
-      <div class="th-stat"><span class="th-stat-icon">📋</span><span class="th-stat-num" id="thTasksLeft">0</span><span class="th-stat-label">Tasks&nbsp;Left</span></div>
-      <div class="th-stat"><span class="th-stat-icon">⚡</span><span class="th-stat-num" id="thLongestStreak">0</span><span class="th-stat-label">Best&nbsp;Streak</span></div>
+  <div class="at-subnav">
+    <div class="at-subnav-inner">
+      <div class="at-brand">Athena</div>
+      <div class="at-tabs" id="atTabs">
+        <button type="button" class="at-tab active" data-tab="today">Today</button>
+        <button type="button" class="at-tab" data-tab="week">Week</button>
+        <button type="button" class="at-tab" data-tab="month">Month</button>
+        <button type="button" class="at-tab" data-tab="year">Year</button>
+        <button type="button" class="at-tab" data-tab="memories">Memories</button>
+      </div>
+      <div class="at-clock" id="atClock">--:--:-- --</div>
     </div>
   </div>
 
-  <div class="jr-card">
-    <div class="jr-label"><span>Win of the Day</span><span class="jr-saved" id="journalSaved">Saved</span></div>
-    <textarea id="journalText" class="jr-textarea" placeholder="One good thing about today…"></textarea>
-  </div>
+  <!-- ============ TODAY ============ -->
+  <div class="at-tabpanel" id="atPanelToday">
 
-  <div class="section">
-    <div class="section-title">Daily Tasks &amp; Habits</div>
-
-    <!-- RECURRING HABITS -->
-    <div class="hb-card">
-      <div id="habitList"></div>
-      <div id="habitEmpty" class="empty-state" style="display:none">No habits yet — add one below to start tracking streaks.</div>
-      <div class="hb-add-row">
-        <input id="habitInput" class="hb-add-input" type="text" placeholder="New habit…" autocomplete="off">
-        <div class="hb-days" id="habitAddDays"></div>
-        <button type="button" id="habitAddBtn" class="gm-add">+ Add</button>
+    <div class="at-tiles">
+      <div class="at-tile">
+        <div class="at-tile-top"><span class="at-tile-icon">✓</span><span class="at-tile-num at-tile-num-gold" id="atHabitsPct">0%</span><span class="at-tile-label">Habits</span></div>
+        <div class="at-tile-sub" id="atHabitsSub"></div>
+      </div>
+      <div class="at-tile">
+        <div class="at-tile-top"><span class="at-tile-icon">♥</span><span class="at-tile-num at-tile-num-green" id="atRecoveryVal">—</span><span class="at-tile-label">Recovery</span></div>
+        <div class="at-tile-sub" id="atRecoverySub" contenteditable="true" data-key="recoverySub"></div>
+      </div>
+      <div class="at-tile">
+        <div class="at-tile-top"><span class="at-tile-icon">⚡</span><span class="at-tile-num at-tile-num-purple" id="atStrainVal">—</span><span class="at-tile-label">Strain</span></div>
+        <div class="at-tile-sub" id="atStrainSub" contenteditable="true" data-key="strainSub"></div>
+      </div>
+      <div class="at-tile">
+        <div class="at-tile-top"><span class="at-tile-icon">☾</span><span class="at-tile-num at-tile-num-indigo" id="atSleepVal">—</span><span class="at-tile-label">Sleep</span></div>
+        <div class="at-tile-sub" id="atSleepSub" contenteditable="true" data-key="sleepSub"></div>
       </div>
     </div>
 
-    <!-- TODAY (freeform ad-hoc checklist) -->
-    <div class="gm-card" id="gmCardToday">
-      <div class="gm-header">
-        <div class="gm-header-left">
-          <div class="gm-eyebrow" id="todayLabel">Today —</div>
-          <div class="gm-progress-row">
-            <span class="gm-progress-num"   id="gmProgressNum">0</span>
-            <span class="gm-progress-total" id="gmProgressTotal">/ 0</span>
-            <span class="gm-progress-label" id="gmProgressLabel">no goals yet</span>
+    <div class="at-metrics">
+      <div class="at-metric-row">
+        <span class="at-metric-label">RHR</span>
+        <svg class="at-metric-spark" id="atSparkRhr" preserveAspectRatio="none"></svg>
+        <span class="at-metric-val" id="atValRhr" contenteditable="true" data-metric="rhr">—</span>
+      </div>
+      <div class="at-metric-row">
+        <span class="at-metric-label">TEMP</span>
+        <svg class="at-metric-spark" id="atSparkTemp" preserveAspectRatio="none"></svg>
+        <span class="at-metric-val" id="atValTemp" contenteditable="true" data-metric="temp">—</span>
+      </div>
+      <div class="at-metric-row">
+        <span class="at-metric-label">RESP</span>
+        <svg class="at-metric-spark" id="atSparkResp" preserveAspectRatio="none"></svg>
+        <span class="at-metric-val" id="atValResp" contenteditable="true" data-metric="resp">—</span>
+      </div>
+    </div>
+
+    <div class="at-grid">
+      <div class="at-col">
+        <div class="at-col-head">
+          <h2>Daily Tasks</h2>
+          <div class="at-col-actions">
+            <button type="button" class="at-mini-btn" id="atAddTaskBtn">+ Add Task</button>
+            <button type="button" class="at-mini-btn" id="atManageBtn">⚙ Manage</button>
           </div>
         </div>
-        <div class="gm-streak" id="gmStreak">
-          <span class="gm-streak-icon">⚡</span>
-          <span class="gm-streak-num" id="gmStreakNum">0</span>
-          <span>day streak</span>
+        <div class="at-task-grid" id="atTaskGrid"></div>
+        <div class="at-empty" id="atTaskEmpty" hidden>No tasks scheduled today — tap "+ Add Task" to start tracking streaks.</div>
+      </div>
+
+      <div class="at-col">
+        <h2>Due Today</h2>
+        <div id="atDueToday"></div>
+        <div class="at-empty" id="atDueTodayEmpty" hidden>Nothing due today.</div>
+        <h2 class="at-gold-h2">Due Soon (3 Days)</h2>
+        <div id="atDueSoon"></div>
+        <div class="at-empty" id="atDueSoonEmpty" hidden>No upcoming tasks.</div>
+        <div class="at-due-add-row">
+          <input type="text" id="atDueTitleInput" placeholder="New task…">
+          <input type="date" id="atDueDateInput">
+          <button type="button" id="atDueAddBtn">+ Add</button>
         </div>
       </div>
-      <div class="gm-bar" id="gmBar"></div>
-      <ul id="goalList" class="goal-list gm-list"></ul>
-      <div id="emptyState" class="empty-state">No goals for today yet — add one below.</div>
-      <button type="button" id="gmPushBtn" class="gm-push-btn" style="display:none;">Push remaining to tomorrow</button>
-      <div class="goal-input-wrap gm-input-wrap">
-        <input id="goalInput" class="gm-input" type="text" placeholder="Add a goal for today…" autocomplete="off">
-        <button type="button" id="goalAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="goalPolishBtn" class="gm-polish">✨ Polish</button>
-        <div class="gm-status" id="polishStatus"></div>
+
+      <div class="at-col">
+        <h2>Journal</h2>
+        <div class="at-field-label">Win of the Day <span class="at-saved" id="atWinSaved">Saved</span></div>
+        <input type="text" id="atWinInput" class="at-input" placeholder="What was your highlight?">
+        <div class="at-field-label">Journal <span class="at-saved" id="atJournalSaved">Saved</span></div>
+        <textarea id="atJournalTa" class="at-textarea" placeholder="Add an entry…"></textarea>
       </div>
     </div>
 
-    <!-- PLAN TOMORROW -->
-    <div class="gm-card gm-card-tomorrow" id="gmCardTomorrow">
-      <div class="gm-header">
-        <div class="gm-header-left">
-          <div class="gm-eyebrow" id="tomorrowLabel">Plan tomorrow —</div>
-          <div class="gm-tomorrow-sub">Write tonight, locked until 6 AM.</div>
+    <div class="at-brief" id="atBrief">
+      <div class="at-brief-head">
+        <div class="at-brief-title">✨ Morning Briefing</div>
+        <div class="at-brief-actions">
+          <button type="button" id="atBriefReset" title="Reset to example text" aria-label="Reset to example text">↺</button>
+          <button type="button" id="atBriefToggle" title="Collapse" aria-label="Collapse">︿</button>
         </div>
-        <div class="gm-tomorrow-count" id="gmTomorrowCount">0 planned</div>
       </div>
-      <ul id="tomorrowList" class="goal-list gm-list"></ul>
-      <div id="tomorrowEmpty" class="empty-state">Nothing planned for tomorrow yet</div>
-      <div class="goal-input-wrap gm-input-wrap">
-        <input id="tomorrowInput" class="gm-input" type="text" placeholder="Add a goal for tomorrow…" autocomplete="off">
-        <button type="button" id="tomorrowAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
-        <div class="gm-status" id="tomorrowStatus"></div>
+      <div class="at-brief-body" id="atBriefBody">
+        <textarea class="at-brief-summary" id="atBriefSummary" rows="1"></textarea>
+        <div class="at-brief-grid1">
+          <div class="at-brief-block">
+            <div class="at-brief-label">Readiness</div>
+            <textarea id="atBriefReadiness" rows="1"></textarea>
+          </div>
+        </div>
+        <div class="at-brief-grid2">
+          <div class="at-brief-block">
+            <div class="at-brief-label">Habits</div>
+            <textarea id="atBriefHabits" rows="1"></textarea>
+          </div>
+          <div class="at-brief-block">
+            <div class="at-brief-label">Training</div>
+            <textarea id="atBriefTraining" rows="1"></textarea>
+          </div>
+        </div>
+        <div class="at-brief-block" style="margin-bottom:16px;">
+          <div class="at-brief-label">Today's Focus</div>
+          <textarea id="atBriefFocus" rows="1"></textarea>
+        </div>
+        <div class="at-brief-insight">
+          <div class="at-brief-label">Insight</div>
+          <textarea id="atBriefInsight" rows="1"></textarea>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Goals</div>
-    <div class="gl-section-toolbar"><button type="button" class="gl-add-btn" id="goalAddBtn2">+ Add Goal</button></div>
-    <div id="goalsWrap"></div>
+  <!-- ============ WEEK ============ -->
+  <div class="at-tabpanel" id="atPanelWeek" hidden>
+    <div class="section-title">This Week</div>
+    <div class="at-week-grid" id="atWeekGrid"></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Streaks</div>
+  <!-- ============ MONTH ============ -->
+  <div class="at-tabpanel" id="atPanelMonth" hidden>
+    <div class="at-month-head">
+      <div class="at-month-title" id="atMonthTitle">—</div>
+    </div>
+    <div class="at-month-dow" id="atMonthDow"></div>
+    <div class="at-month-grid" id="atMonthGrid"></div>
+  </div>
+
+  <!-- ============ YEAR ============ -->
+  <div class="at-tabpanel" id="atPanelYear" hidden>
+    <div class="section-title" id="atYearTitle">This Year</div>
+    <div class="at-year-bars" id="atYearBars"></div>
+  </div>
+
+  <!-- ============ MEMORIES ============ -->
+  <div class="at-tabpanel" id="atPanelMemories" hidden>
+    <div class="section-title">Best Streaks</div>
     <div class="sk-list" id="streaksList"></div>
-    <div id="streaksEmpty" class="empty-state" style="display:none">Add a habit above to start tracking streaks.</div>
+    <div class="at-empty" id="streaksEmpty" hidden>Add a daily task to start tracking streaks.</div>
+
+    <div class="section-title">Journal Memories</div>
+    <div id="atMemoriesList"></div>
+    <div class="at-empty" id="atMemoriesEmpty" hidden>No journal entries yet.</div>
   </div>
 
 </div>
 
-<!-- Add / Edit Goal modal -->
-<div class="modal-bg" id="goalModalBg">
-  <div class="modal" id="goalModal">
-    <h3 id="goalModalTitle">Add goal</h3>
+<!-- Add / Edit Daily Task modal -->
+<div class="modal-bg" id="taskModalBg">
+  <div class="modal" id="taskModal">
+    <h3 id="taskModalTitle">Add task</h3>
     <div class="field">
       <label>Title</label>
-      <input type="text" id="goalTitleInput" placeholder="e.g. Read more books">
+      <input type="text" id="taskTitleInput" placeholder="e.g. Walk">
     </div>
     <div class="field">
-      <label>Target</label>
-      <input type="number" id="goalTargetInput" placeholder="12" step="any" min="0">
+      <label>Note (optional)</label>
+      <input type="text" id="taskNoteInput" placeholder="e.g. Page 53">
     </div>
     <div class="field">
-      <label>Unit</label>
-      <input type="text" id="goalUnitInput" placeholder="books">
+      <label>Scheduled days</label>
+      <div class="hb-days" id="taskDaysRow"></div>
     </div>
     <div class="field">
-      <label>Scope</label>
-      <div class="chip-row" id="goalScopeRow"></div>
-    </div>
-    <div class="field">
-      <label>If a period is missed</label>
-      <div class="chip-row" id="goalRolloverRow"></div>
+      <label class="field-check"><input type="checkbox" id="taskAutoInput"> Show AUTO badge</label>
     </div>
     <div class="modal-actions">
-      <button class="btn-secondary" id="goalModalCancel" type="button">Cancel</button>
-      <button class="btn-primary" id="goalModalSave" type="button">Save</button>
+      <button class="btn-secondary" id="taskModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="taskModalSave" type="button">Save</button>
     </div>
-    <span class="delete-link" id="goalModalDelete" style="display:none">Delete this goal</span>
+    <span class="delete-link" id="taskModalDelete" style="display:none">Delete this task</span>
+  </div>
+</div>
+
+<!-- Manage Daily Tasks modal -->
+<div class="modal-bg" id="manageModalBg">
+  <div class="modal" id="manageModal">
+    <h3>Manage Daily Tasks</h3>
+    <div class="manage-list" id="manageList"></div>
+    <button class="btn-secondary" type="button" id="manageAddBtn" style="width:100%;margin-bottom:8px;">+ Add Task</button>
+    <button class="btn-primary" type="button" id="manageCloseBtn">Done</button>
   </div>
 </div>
 
 <script>
 (function () {
   'use strict';
-
-  // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
-  const ANTHROPIC_API_KEY = '';
 
   // ---------- storage helpers ----------
   function storeGet(key) {
@@ -895,13 +593,9 @@ body::after {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     if (typeof key === 'string' && key.indexOf('goals:') === 0) {
       window.dispatchEvent(new CustomEvent('goals-changed'));
-      // Also nudge topbar.js's own 'storage' listener so the shared GOALS
-      // pill (which reads localStorage independently) refreshes immediately
-      // instead of waiting for the next focus/visibility/interval tick.
       window.dispatchEvent(new Event('storage'));
     }
   }
-  function storeDelete(key) { try { localStorage.removeItem(key); } catch (e) {} }
   function storeListKeys(prefix) {
     const out = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -932,92 +626,28 @@ body::after {
     }
     return dateToKey(now);
   }
-  function getTomorrowDateString() {
-    const now = new Date();
-    const d = new Date(now);
-    if (now.getHours() >= 6) d.setDate(d.getDate() + 1);
-    return dateToKey(d);
-  }
-  function formatDate(yyyy_mm_dd) {
-    const parts = yyyy_mm_dd.split('-').map(Number);
-    const d = new Date(parts[0], parts[1] - 1, parts[2]);
-    const wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    return wk + ', ' + mo + ' ' + d.getDate();
-  }
   function formatDateShort(yyyy_mm_dd) {
     const parts = yyyy_mm_dd.split('-').map(Number);
     const d = new Date(parts[0], parts[1] - 1, parts[2]);
     const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
     return mo + ' ' + d.getDate();
   }
-
-  function todayKey()    { return 'goals:' + getActiveDateString(); }
-  function tomorrowKey() { return 'goals:' + getTomorrowDateString(); }
-
-  function getGoals(key) {
-    const g = storeGet(key);
-    return Array.isArray(g) ? g : [];
-  }
-  function setGoals(key, list) { storeSet(key, list); }
-
   function genId(prefix) {
     return (prefix || 'x') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
-
-  // ---------- rollover: pull undone older goals into today ----------
-  function rollover() {
-    const todayDateStr = getActiveDateString();
-    const todayK = 'goals:' + todayDateStr;
-    let today = getGoals(todayK);
-    const texts = new Set(today.map(g => g.text));
-
-    storeListKeys('goals:').forEach(k => {
-      const rest = k.slice('goals:'.length);
-      // Only plain YYYY-MM-DD day buckets are eligible for rollover — skip
-      // habits/goal-target/journal/etc. keys that also live under 'goals:'.
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(rest)) return;
-      if (rest >= todayDateStr) return;
-      const old = getGoals(k);
-      old.forEach(g => {
-        if (!g.done && g.text && !texts.has(g.text)) {
-          today.push({ text: g.text, done: false });
-          texts.add(g.text);
-        }
-      });
-      storeDelete(k);
-    });
-    setGoals(todayK, today);
-  }
-
-  // ---------- freeform-checklist day streak (existing) ----------
-  function loadStreak() {
-    const s = storeGet('goal_streak_v1');
-    if (s && typeof s.count === 'number') return s;
-    return { count: 0, lastProcessedDate: '' };
-  }
-  function saveStreak(s) { storeSet('goal_streak_v1', s); }
-
-  function processStreak() {
-    const s = loadStreak();
-    const todayDateStr = getActiveDateString();
-    const keys = storeListKeys('goals:')
-      .map(k => k.slice('goals:'.length))
-      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayDateStr)
-      .sort();
-    keys.forEach(dateStr => {
-      if (s.lastProcessedDate && dateStr <= s.lastProcessedDate) return;
-      const list = getGoals('goals:' + dateStr);
-      if (list.length === 0) { /* don't break the streak on empty days */ }
-      else if (list.every(g => g.done)) s.count += 1;
-      else s.count = 0;
-      s.lastProcessedDate = dateStr;
-    });
-    saveStreak(s);
+  function autosize(ta) {
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
   }
 
   // =====================================================================
-  // Recurring Habits
+  // Daily Tasks — same recurring-habits engine this page already had
+  // (goals:habits / goals:habit-log:<date>, weekday schedule, streak
+  // computation), just relabeled "Daily Tasks" and extended with two new
+  // optional per-task fields: `note` and `auto` (a purely cosmetic "AUTO"
+  // badge — this app has no wearable/device signal to drive real
+  // auto-completion, so it stays a manual checkbox either way).
   // =====================================================================
   const HABITS_KEY = 'goals:habits';
   function loadHabits() {
@@ -1074,519 +704,643 @@ body::after {
     saveHabitLog(dateStr, log);
   }
 
-  let newHabitDays = [0, 1, 2, 3, 4, 5, 6];
+  function renderTaskGrid() {
+    const habits = loadHabits();
+    const today = getActiveDateString();
+    const dow = keyToDate(today).getDay();
+    const log = loadHabitLog(today);
+    const scheduled = habits.filter(h => isScheduled(h, dow));
+
+    const grid = document.getElementById('atTaskGrid');
+    const empty = document.getElementById('atTaskEmpty');
+    grid.innerHTML = '';
+    empty.hidden = scheduled.length !== 0;
+
+    scheduled.forEach(habit => {
+      const done = !!log[habit.id];
+      const el = document.createElement('div');
+      el.className = 'at-task' + (done ? ' at-task-done' : ' at-task-pending');
+
+      const check = document.createElement('button');
+      check.type = 'button';
+      check.className = 'at-task-check' + (done ? ' done' : '');
+      check.textContent = '✓';
+      check.setAttribute('aria-label', done ? 'Mark not done' : 'Mark done');
+      check.addEventListener('click', () => {
+        toggleHabitToday(habit.id);
+        renderTaskGrid();
+        renderStatTiles();
+      });
+      el.appendChild(check);
+
+      const body = document.createElement('div');
+      body.className = 'at-task-body';
+      const title = document.createElement('div');
+      title.className = 'at-task-title';
+      title.textContent = habit.text;
+      body.appendChild(title);
+      if (habit.note) {
+        const note = document.createElement('div');
+        note.className = 'at-task-note';
+        note.textContent = habit.note;
+        body.appendChild(note);
+      }
+      body.addEventListener('click', () => openTaskModal(habit));
+      el.appendChild(body);
+
+      const meta = document.createElement('div');
+      meta.className = 'at-task-meta';
+      const streakInfo = computeHabitStreaks(habit);
+      const streak = document.createElement('span');
+      streak.className = 'at-task-streak';
+      streak.textContent = '🔥 ' + streakInfo.current;
+      meta.appendChild(streak);
+      if (habit.auto) {
+        const auto = document.createElement('span');
+        auto.className = 'at-task-auto';
+        auto.textContent = 'AUTO';
+        meta.appendChild(auto);
+      }
+      el.appendChild(meta);
+
+      grid.appendChild(el);
+    });
+  }
+
+  // ---------- Add / Edit task modal ----------
+  let taskEditingId = null;
+  let taskSelectedDays = [0, 1, 2, 3, 4, 5, 6];
   const DAY_LABELS = ['S','M','T','W','T','F','S'];
   const DAY_NAMES  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  function renderHabitAddDays() {
-    const wrap = document.getElementById('habitAddDays');
+  function renderTaskDaysRow() {
+    const wrap = document.getElementById('taskDaysRow');
     wrap.innerHTML = '';
     DAY_LABELS.forEach((lbl, dow) => {
       const chip = document.createElement('span');
-      chip.className = 'hb-day' + (newHabitDays.indexOf(dow) !== -1 ? ' active' : '');
+      chip.className = 'hb-day' + (taskSelectedDays.indexOf(dow) !== -1 ? ' active' : '');
       chip.textContent = lbl;
       chip.title = DAY_NAMES[dow];
       chip.addEventListener('click', () => {
-        const i = newHabitDays.indexOf(dow);
-        if (i === -1) newHabitDays.push(dow); else newHabitDays.splice(i, 1);
-        renderHabitAddDays();
+        const i = taskSelectedDays.indexOf(dow);
+        if (i === -1) taskSelectedDays.push(dow); else taskSelectedDays.splice(i, 1);
+        renderTaskDaysRow();
       });
       wrap.appendChild(chip);
     });
   }
+  function openTaskModal(habit) {
+    taskEditingId = habit ? habit.id : null;
+    taskSelectedDays = habit ? (Array.isArray(habit.weekdays) ? habit.weekdays.slice() : []) : [0,1,2,3,4,5,6];
+    document.getElementById('taskModalTitle').textContent = habit ? 'Edit task' : 'Add task';
+    document.getElementById('taskTitleInput').value = habit ? habit.text : '';
+    document.getElementById('taskNoteInput').value = habit ? (habit.note || '') : '';
+    document.getElementById('taskAutoInput').checked = habit ? !!habit.auto : false;
+    renderTaskDaysRow();
+    document.getElementById('taskModalDelete').style.display = habit ? 'block' : 'none';
+    document.getElementById('taskModalBg').classList.add('show');
+  }
+  function closeTaskModal() {
+    document.getElementById('taskModalBg').classList.remove('show');
+    taskEditingId = null;
+  }
+  document.getElementById('atAddTaskBtn').addEventListener('click', () => openTaskModal(null));
+  document.getElementById('taskModalCancel').addEventListener('click', closeTaskModal);
+  document.getElementById('taskModalBg').addEventListener('click', (e) => { if (e.target.id === 'taskModalBg') closeTaskModal(); });
+  document.getElementById('taskModalSave').addEventListener('click', () => {
+    const text = document.getElementById('taskTitleInput').value.trim();
+    const note = document.getElementById('taskNoteInput').value.trim();
+    const auto = document.getElementById('taskAutoInput').checked;
+    if (!text || taskSelectedDays.length === 0) return;
+    const list = loadHabits();
+    if (taskEditingId) {
+      const h = list.filter(h2 => h2.id === taskEditingId)[0];
+      if (h) { h.text = text; h.note = note; h.auto = auto; h.weekdays = taskSelectedDays.slice(); }
+    } else {
+      list.push({ id: genId('h'), text, note, auto, weekdays: taskSelectedDays.slice(), createdAt: Date.now() });
+    }
+    saveHabits(list);
+    closeTaskModal();
+    renderTaskGrid();
+    renderStatTiles();
+    renderManageList();
+  });
+  document.getElementById('taskModalDelete').addEventListener('click', () => {
+    if (!taskEditingId) return;
+    if (!confirm('Delete this task?')) return;
+    saveHabits(loadHabits().filter(h => h.id !== taskEditingId));
+    closeTaskModal();
+    renderTaskGrid();
+    renderStatTiles();
+    renderManageList();
+  });
 
-  function renderHabits() {
+  // ---------- Manage modal ----------
+  function renderManageList() {
+    const wrap = document.getElementById('manageList');
+    wrap.innerHTML = '';
     const habits = loadHabits();
-    const list = document.getElementById('habitList');
-    const empty = document.getElementById('habitEmpty');
-    list.innerHTML = '';
-    empty.style.display = habits.length === 0 ? 'block' : 'none';
-    const today = getActiveDateString();
-    const todayDow = keyToDate(today).getDay();
-    const log = loadHabitLog(today);
-
-    habits.forEach((habit, idx) => {
+    habits.forEach(habit => {
       const row = document.createElement('div');
-      row.className = 'hb-row';
-      const scheduled = isScheduled(habit, todayDow);
-
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.className = 'hb-check';
-      cb.checked = scheduled ? !!log[habit.id] : false;
-      cb.disabled = !scheduled;
-      cb.title = scheduled ? '' : 'Not scheduled today';
-      cb.addEventListener('change', () => {
-        toggleHabitToday(habit.id);
-        renderHabits();
-        renderTopSummary();
-        renderStreaksSection();
-      });
-      row.appendChild(cb);
-
+      row.className = 'manage-row';
       const text = document.createElement('span');
-      text.className = 'hb-text';
+      text.className = 'manage-row-text';
       text.textContent = habit.text;
       row.appendChild(text);
-      text.addEventListener('click', () => {
-        if (text.getAttribute('contenteditable') === 'true') return;
-        const original = text.textContent;
-        text.setAttribute('contenteditable', 'true');
-        text.focus();
-        const range = document.createRange();
-        range.selectNodeContents(text);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges(); sel.addRange(range);
-        function commit() {
-          const next = text.textContent.trim();
-          text.removeAttribute('contenteditable');
-          if (next && next !== original) {
-            const list2 = loadHabits();
-            if (list2[idx]) { list2[idx].text = next; saveHabits(list2); }
-            renderHabits();
-            renderStreaksSection();
-          } else {
-            text.textContent = original;
-          }
-        }
-        function cancel() {
-          text.removeAttribute('contenteditable');
-          text.textContent = original;
-        }
-        text.addEventListener('blur', commit, { once: true });
-        text.addEventListener('keydown', function onKey(e) {
-          if (e.key === 'Enter') { e.preventDefault(); text.removeEventListener('keydown', onKey); text.blur(); }
-          else if (e.key === 'Escape') { e.preventDefault(); text.removeEventListener('keydown', onKey); cancel(); }
-        });
-      });
-
-      const days = document.createElement('div');
-      days.className = 'hb-days';
-      DAY_LABELS.forEach((lbl, dow) => {
-        const chip = document.createElement('span');
-        chip.className = 'hb-day' + (isScheduled(habit, dow) ? ' active' : '');
-        chip.textContent = lbl;
-        chip.title = DAY_NAMES[dow];
-        chip.addEventListener('click', () => {
-          const list2 = loadHabits();
-          const h2 = list2[idx];
-          if (!h2) return;
-          h2.weekdays = Array.isArray(h2.weekdays) ? h2.weekdays.slice() : [];
-          const i = h2.weekdays.indexOf(dow);
-          if (i === -1) h2.weekdays.push(dow); else h2.weekdays.splice(i, 1);
-          saveHabits(list2);
-          renderHabits();
-          renderTopSummary();
-        });
-        days.appendChild(chip);
-      });
-      row.appendChild(days);
-
-      const streakInfo = computeHabitStreaks(habit);
-      const streak = document.createElement('span');
-      streak.className = 'hb-streak' + (streakInfo.current > 0 ? ' hb-streak-active' : '');
-      streak.appendChild(document.createTextNode('⚡ ' + streakInfo.current));
-      row.appendChild(streak);
-
+      const edit = document.createElement('button');
+      edit.type = 'button'; edit.textContent = '✎';
+      edit.addEventListener('click', () => openTaskModal(habit));
+      row.appendChild(edit);
       const del = document.createElement('button');
-      del.type = 'button'; del.className = 'hb-delete'; del.textContent = '×';
-      del.setAttribute('aria-label', 'Delete habit');
+      del.type = 'button'; del.className = 'manage-del'; del.textContent = '✕';
       del.addEventListener('click', () => {
-        if (!confirm('Delete habit "' + habit.text + '"?')) return;
-        const list2 = loadHabits();
-        list2.splice(idx, 1);
-        saveHabits(list2);
-        renderHabits();
-        renderTopSummary();
-        renderStreaksSection();
+        if (!confirm('Delete task "' + habit.text + '"?')) return;
+        saveHabits(loadHabits().filter(h => h.id !== habit.id));
+        renderManageList();
+        renderTaskGrid();
+        renderStatTiles();
       });
       row.appendChild(del);
-
-      list.appendChild(row);
+      wrap.appendChild(row);
     });
   }
-
-  renderHabitAddDays();
-  document.getElementById('habitAddBtn').addEventListener('click', () => {
-    const input = document.getElementById('habitInput');
-    const text = input.value.trim();
-    if (!text || newHabitDays.length === 0) return;
-    const list = loadHabits();
-    list.push({ id: genId('h'), text, weekdays: newHabitDays.slice(), createdAt: Date.now() });
-    saveHabits(list);
-    input.value = '';
-    renderHabits();
-    renderTopSummary();
-    renderStreaksSection();
+  document.getElementById('atManageBtn').addEventListener('click', () => {
+    renderManageList();
+    document.getElementById('manageModalBg').classList.add('show');
   });
-  document.getElementById('habitInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('habitAddBtn').click(); }
+  document.getElementById('manageCloseBtn').addEventListener('click', () => {
+    document.getElementById('manageModalBg').classList.remove('show');
   });
+  document.getElementById('manageModalBg').addEventListener('click', (e) => {
+    if (e.target.id === 'manageModalBg') document.getElementById('manageModalBg').classList.remove('show');
+  });
+  document.getElementById('manageAddBtn').addEventListener('click', () => openTaskModal(null));
 
   // =====================================================================
-  // Goals (monthly / yearly targets, allocation engine)
+  // Due Today / Due Soon — one-off dated tasks (new; separate from the
+  // recurring Daily Tasks above).
   // =====================================================================
-  const GOAL_TARGETS_KEY = 'goals:goals';
-  function loadGoalTargets() {
-    const g = storeGet(GOAL_TARGETS_KEY);
-    return Array.isArray(g) ? g : [];
+  const DUE_TASKS_KEY = 'goals:duetasks';
+  function loadDueTasks() {
+    const t = storeGet(DUE_TASKS_KEY);
+    return Array.isArray(t) ? t : [];
   }
-  function saveGoalTargets(list) { storeSet(GOAL_TARGETS_KEY, list); }
+  function saveDueTasks(list) { storeSet(DUE_TASKS_KEY, list); }
 
-  function weeksInMonth(year, monthIdx0) {
-    const lastDate = new Date(year, monthIdx0 + 1, 0).getDate();
-    const firstDow = new Date(year, monthIdx0, 1).getDay();
-    return Math.ceil((lastDate + firstDow) / 7);
-  }
-  function weekOfMonth(d) {
-    const firstDow = new Date(d.getFullYear(), d.getMonth(), 1).getDay();
-    return Math.ceil((d.getDate() + firstDow) / 7);
-  }
-  function periodKeysForGoal(goal) {
-    if (goal.scope === 'yearly') {
-      const year = parseInt(goal.scopeStart, 10);
-      const out = [];
-      for (let m = 1; m <= 12; m++) out.push(year + '-' + pad2(m));
-      return out;
-    }
-    const parts = goal.scopeStart.split('-').map(Number);
-    const weeks = weeksInMonth(parts[0], parts[1] - 1);
-    const out = [];
-    for (let w = 1; w <= weeks; w++) out.push(goal.scopeStart + '-W' + w);
-    return out;
-  }
-  function currentPeriodKeyForGoal(goal) {
-    const now = new Date();
-    if (goal.scope === 'yearly') {
-      const year = parseInt(goal.scopeStart, 10);
-      if (now.getFullYear() !== year) return null;
-      return now.getFullYear() + '-' + pad2(now.getMonth() + 1);
-    }
-    const nowYm = now.getFullYear() + '-' + pad2(now.getMonth() + 1);
-    if (nowYm !== goal.scopeStart) return null;
-    return goal.scopeStart + '-W' + weekOfMonth(now);
-  }
-  function periodLabel(periodKey, goal) {
-    if (goal.scope === 'yearly') {
-      const m = parseInt(periodKey.split('-')[1], 10);
-      return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
-    }
-    return 'Week ' + periodKey.split('-W')[1];
-  }
-  function formatMonthLabel(ym) {
-    const parts = ym.split('-').map(Number);
-    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parts[1] - 1] + ' ' + parts[0];
-  }
-  function formatAmount(n) {
-    if (n == null || isNaN(n)) return '0';
-    const rounded = Math.round(n * 100) / 100;
-    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
-  }
-  function goalTotalProgress(goal) {
-    const pp = goal.periodProgress || {};
-    return Object.keys(pp).reduce((sum, k) => sum + (pp[k] || 0), 0);
-  }
-  function buildAllocation(goal, remainingTarget, fromPeriodKey) {
-    const periods = periodKeysForGoal(goal);
-    const idx = fromPeriodKey ? periods.indexOf(fromPeriodKey) : 0;
-    const relevant = idx >= 0 ? periods.slice(idx) : periods.slice();
-    const even = relevant.length ? remainingTarget / relevant.length : 0;
-    const allocation = Object.assign({}, goal.allocation || {});
-    relevant.forEach(p => { allocation[p] = even; });
-    return allocation;
-  }
-  function initAllocationPlan(goal) {
-    const periods = periodKeysForGoal(goal);
-    const current = currentPeriodKeyForGoal(goal);
-    goal.allocation = buildAllocation(goal, goal.targetTotal, current || periods[0]);
-    const idx = current ? periods.indexOf(current) : 0;
-    goal.lastReconciledPeriod = idx > 0 ? periods[idx - 1] : null;
-    return goal;
-  }
-  function reconcileGoal(goal) {
-    const periods = periodKeysForGoal(goal);
-    const current = currentPeriodKeyForGoal(goal);
-    if (!current) return goal;
-    const currentIdx = periods.indexOf(current);
-    if (currentIdx <= 0) return goal;
-
-    let startIdx = 0;
-    if (goal.lastReconciledPeriod) {
-      const lastIdx = periods.indexOf(goal.lastReconciledPeriod);
-      startIdx = lastIdx >= 0 ? lastIdx + 1 : 0;
-    }
-    goal.allocation = goal.allocation || {};
-    goal.periodProgress = goal.periodProgress || {};
-    for (let i = startIdx; i < currentIdx; i++) {
-      const p = periods[i];
-      const target = goal.allocation[p] || 0;
-      const actual = goal.periodProgress[p] || 0;
-      const shortfall = target - actual;
-      if (Math.abs(shortfall) > 1e-6) {
-        if (goal.rollover === 'rollover') {
-          const nextP = periods[i + 1];
-          if (nextP) goal.allocation[nextP] = (goal.allocation[nextP] || 0) + shortfall;
-        } else {
-          const remaining = periods.slice(i + 1);
-          if (remaining.length) {
-            const boost = shortfall / remaining.length;
-            remaining.forEach(rp => { goal.allocation[rp] = (goal.allocation[rp] || 0) + boost; });
-          }
-        }
-      }
-    }
-    goal.lastReconciledPeriod = periods[currentIdx - 1];
-    return goal;
-  }
-  function reconcileAllGoals() {
-    const goals = loadGoalTargets();
-    let changed = false;
-    goals.forEach(g => {
-      const before = JSON.stringify(g.allocation) + '|' + g.lastReconciledPeriod;
-      reconcileGoal(g);
-      if (JSON.stringify(g.allocation) + '|' + g.lastReconciledPeriod !== before) changed = true;
-    });
-    if (changed) saveGoalTargets(goals);
-    return goals;
-  }
-
-  function renderGoalCard(goal) {
+  function buildDueCard(task) {
     const el = document.createElement('div');
-    el.className = 'gl-card';
-
-    const head = document.createElement('div');
-    head.className = 'gl-card-head';
-    const left = document.createElement('div');
-    const title = document.createElement('div'); title.className = 'gl-title'; title.textContent = goal.title;
-    const sub = document.createElement('div'); sub.className = 'gl-sub';
-    sub.textContent = (goal.scope === 'yearly' ? ('Yearly · ' + goal.scopeStart) : ('Monthly · ' + formatMonthLabel(goal.scopeStart))) +
-      ' · ' + (goal.rollover === 'rollover' ? 'Rolls over' : 'Redistributes');
-    left.appendChild(title); left.appendChild(sub);
-    const actions = document.createElement('div'); actions.className = 'gl-actions';
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button'; editBtn.className = 'gl-icon-btn'; editBtn.textContent = '✎';
-    editBtn.setAttribute('aria-label', 'Edit goal');
-    editBtn.addEventListener('click', () => openGoalModal(goal));
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'gl-icon-btn'; delBtn.textContent = '✕';
-    delBtn.setAttribute('aria-label', 'Delete goal');
-    delBtn.addEventListener('click', () => {
-      if (!confirm('Delete goal "' + goal.title + '"?')) return;
-      saveGoalTargets(loadGoalTargets().filter(g => g.id !== goal.id));
-      renderGoalsSection();
-      renderTopSummary();
+    el.className = 'at-due-card';
+    const check = document.createElement('button');
+    check.type = 'button'; check.className = 'at-due-check';
+    check.setAttribute('aria-label', 'Mark done');
+    check.addEventListener('click', () => {
+      const list = loadDueTasks();
+      const t = list.filter(x => x.id === task.id)[0];
+      if (t) t.done = true;
+      saveDueTasks(list);
+      renderDueTasks();
     });
-    actions.appendChild(editBtn); actions.appendChild(delBtn);
-    head.appendChild(left); head.appendChild(actions);
-    el.appendChild(head);
-
-    const total = goalTotalProgress(goal);
-    const progressRow = document.createElement('div'); progressRow.className = 'gl-progress-row';
-    const num = document.createElement('span'); num.className = 'gl-progress-num'; num.textContent = formatAmount(total);
-    const totalEl = document.createElement('span'); totalEl.className = 'gl-progress-total';
-    totalEl.textContent = '/ ' + formatAmount(goal.targetTotal) + ' ' + goal.unit;
-    progressRow.appendChild(num); progressRow.appendChild(totalEl);
-    el.appendChild(progressRow);
-
-    const track = document.createElement('div'); track.className = 'gl-bar-track';
-    const fill = document.createElement('div'); fill.className = 'gl-bar-fill';
-    fill.style.width = Math.max(0, Math.min(100, (total / goal.targetTotal) * 100)) + '%';
-    track.appendChild(fill);
-    el.appendChild(track);
-
-    const current = currentPeriodKeyForGoal(goal);
-    const periodRow = document.createElement('div'); periodRow.className = 'gl-period-row';
-    if (current) {
-      const target = (goal.allocation || {})[current] || 0;
-      const actual = (goal.periodProgress || {})[current] || 0;
-      const label = document.createElement('span');
-      label.textContent = periodLabel(current, goal) + ': ' + formatAmount(actual) + ' / ' + formatAmount(target);
-      const status = document.createElement('span');
-      status.className = 'gl-period-status ' + (actual >= target ? 'on-pace' : 'behind');
-      status.textContent = actual >= target ? 'On pace' : 'Behind';
-      periodRow.appendChild(label); periodRow.appendChild(status);
-    } else {
-      const label = document.createElement('span'); label.textContent = 'Outside current period';
-      periodRow.appendChild(label);
-    }
-    el.appendChild(periodRow);
-
-    const logRow = document.createElement('div'); logRow.className = 'gl-log-row';
-    const minusBtn = document.createElement('button'); minusBtn.type = 'button'; minusBtn.className = 'gl-log-btn'; minusBtn.textContent = '−';
-    const plusBtn  = document.createElement('button'); plusBtn.type  = 'button'; plusBtn.className  = 'gl-log-btn'; plusBtn.textContent  = '+';
-    minusBtn.setAttribute('aria-label', 'Log -1 ' + goal.unit);
-    plusBtn.setAttribute('aria-label', 'Log +1 ' + goal.unit);
-    function logAmount(delta) {
-      const list = loadGoalTargets();
-      const g = list.filter(g2 => g2.id === goal.id)[0];
-      if (!g) return;
-      const cp = currentPeriodKeyForGoal(g);
-      if (!cp) return;
-      g.periodProgress = g.periodProgress || {};
-      g.periodProgress[cp] = Math.max(0, (g.periodProgress[cp] || 0) + delta);
-      saveGoalTargets(list);
-      renderGoalsSection();
-      renderTopSummary();
-    }
-    minusBtn.addEventListener('click', () => logAmount(-1));
-    plusBtn.addEventListener('click', () => logAmount(1));
-    logRow.appendChild(minusBtn); logRow.appendChild(plusBtn);
-    el.appendChild(logRow);
-
+    el.appendChild(check);
+    const title = document.createElement('span');
+    title.className = 'at-due-title';
+    title.textContent = task.title;
+    el.appendChild(title);
+    const date = document.createElement('span');
+    date.className = 'at-due-date';
+    date.textContent = formatDateShort(task.dueDate);
+    el.appendChild(date);
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'at-due-del'; del.textContent = '✕';
+    del.setAttribute('aria-label', 'Delete');
+    del.addEventListener('click', () => {
+      saveDueTasks(loadDueTasks().filter(x => x.id !== task.id));
+      renderDueTasks();
+    });
+    el.appendChild(del);
     return el;
   }
 
-  function renderGoalsSection() {
-    reconcileAllGoals();
-    const goals = loadGoalTargets();
-    const wrap = document.getElementById('goalsWrap');
-    wrap.innerHTML = '';
-    if (goals.length === 0) {
-      const empty = document.createElement('div'); empty.className = 'gl-empty';
-      empty.textContent = 'No goals yet — tap "+ Add Goal" to set a monthly or yearly target.';
-      wrap.appendChild(empty);
-      return;
-    }
-    const monthly = goals.filter(g => g.scope === 'monthly');
-    const yearly  = goals.filter(g => g.scope === 'yearly');
-    if (monthly.length) {
-      const lbl = document.createElement('div'); lbl.className = 'gl-scope-label'; lbl.textContent = 'Monthly';
-      wrap.appendChild(lbl);
-      const grid = document.createElement('div'); grid.className = 'gl-grid';
-      monthly.forEach(g => grid.appendChild(renderGoalCard(g)));
-      wrap.appendChild(grid);
-    }
-    if (yearly.length) {
-      const lbl = document.createElement('div'); lbl.className = 'gl-scope-label'; lbl.textContent = 'Yearly';
-      wrap.appendChild(lbl);
-      const grid = document.createElement('div'); grid.className = 'gl-grid';
-      yearly.forEach(g => grid.appendChild(renderGoalCard(g)));
-      wrap.appendChild(grid);
-    }
+  function renderDueTasks() {
+    const today = getActiveDateString();
+    const soonCutoff = addDaysToKey(today, 3);
+    const all = loadDueTasks().filter(t => !t.done);
+
+    const dueToday = all.filter(t => t.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const dueSoon  = all.filter(t => t.dueDate > today && t.dueDate <= soonCutoff).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+    const todayWrap = document.getElementById('atDueToday');
+    todayWrap.innerHTML = '';
+    dueToday.forEach(t => todayWrap.appendChild(buildDueCard(t)));
+    document.getElementById('atDueTodayEmpty').hidden = dueToday.length !== 0;
+
+    const soonWrap = document.getElementById('atDueSoon');
+    soonWrap.innerHTML = '';
+    dueSoon.forEach(t => soonWrap.appendChild(buildDueCard(t)));
+    document.getElementById('atDueSoonEmpty').hidden = dueSoon.length !== 0;
   }
 
-  // ---------- Goal add/edit modal ----------
-  let goalEditingId = null;
-  let goalSelectedScope = 'yearly';
-  let goalSelectedRollover = 'rollover';
-
-  function renderGoalScopeChips() {
-    const row = document.getElementById('goalScopeRow');
-    row.innerHTML = '';
-    [['monthly', 'Monthly'], ['yearly', 'Yearly']].forEach(([val, label]) => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip' + (goalSelectedScope === val ? ' active' : '');
-      b.textContent = label;
-      b.addEventListener('click', () => { goalSelectedScope = val; renderGoalScopeChips(); });
-      row.appendChild(b);
-    });
-  }
-  function renderGoalRolloverChips() {
-    const row = document.getElementById('goalRolloverRow');
-    row.innerHTML = '';
-    [['rollover', 'Roll into next'], ['redistribute', 'Redistribute']].forEach(([val, label]) => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip' + (goalSelectedRollover === val ? ' active' : '');
-      b.textContent = label;
-      b.addEventListener('click', () => { goalSelectedRollover = val; renderGoalRolloverChips(); });
-      row.appendChild(b);
-    });
-  }
-  function openGoalModal(goal) {
-    goalEditingId = goal ? goal.id : null;
-    document.getElementById('goalModalTitle').textContent = goal ? 'Edit goal' : 'Add goal';
-    document.getElementById('goalTitleInput').value = goal ? goal.title : '';
-    document.getElementById('goalTargetInput').value = goal ? goal.targetTotal : '';
-    document.getElementById('goalUnitInput').value = goal ? goal.unit : '';
-    goalSelectedScope = goal ? goal.scope : 'yearly';
-    goalSelectedRollover = goal ? goal.rollover : 'rollover';
-    renderGoalScopeChips();
-    renderGoalRolloverChips();
-    document.getElementById('goalModalDelete').style.display = goal ? 'block' : 'none';
-    document.getElementById('goalModalBg').classList.add('show');
-  }
-  function closeGoalModal() {
-    document.getElementById('goalModalBg').classList.remove('show');
-    goalEditingId = null;
-  }
-  document.getElementById('goalAddBtn2').addEventListener('click', () => openGoalModal(null));
-  document.getElementById('goalModalCancel').addEventListener('click', closeGoalModal);
-  document.getElementById('goalModalBg').addEventListener('click', (e) => {
-    if (e.target.id === 'goalModalBg') closeGoalModal();
+  document.getElementById('atDueAddBtn').addEventListener('click', () => {
+    const titleInput = document.getElementById('atDueTitleInput');
+    const dateInput = document.getElementById('atDueDateInput');
+    const title = titleInput.value.trim();
+    const dueDate = dateInput.value || getActiveDateString();
+    if (!title) return;
+    const list = loadDueTasks();
+    list.push({ id: genId('d'), title, dueDate, done: false, createdAt: Date.now() });
+    saveDueTasks(list);
+    titleInput.value = '';
+    dateInput.value = '';
+    renderDueTasks();
   });
-  document.getElementById('goalModalSave').addEventListener('click', () => {
-    const title = document.getElementById('goalTitleInput').value.trim();
-    const targetTotal = parseFloat(document.getElementById('goalTargetInput').value);
-    const unit = document.getElementById('goalUnitInput').value.trim();
-    if (!title || !unit || !targetTotal || targetTotal <= 0) return;
+  document.getElementById('atDueTitleInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('atDueAddBtn').click(); }
+  });
 
-    const list = loadGoalTargets();
-    if (goalEditingId) {
-      const g = list.filter(g2 => g2.id === goalEditingId)[0];
-      if (!g) return;
-      g.title = title; g.unit = unit;
-      const oldTarget = g.targetTotal;
-      g.targetTotal = targetTotal;
-      g.rollover = goalSelectedRollover;
-      if (g.scope !== goalSelectedScope) {
-        g.scope = goalSelectedScope;
-        const now = new Date();
-        g.scopeStart = goalSelectedScope === 'yearly'
-          ? String(now.getFullYear())
-          : (now.getFullYear() + '-' + pad2(now.getMonth() + 1));
-        g.periodProgress = {};
-        initAllocationPlan(g);
-      } else if (targetTotal !== oldTarget) {
-        const totalSoFar = goalTotalProgress(g);
-        const current = currentPeriodKeyForGoal(g);
-        if (current) g.allocation = buildAllocation(g, Math.max(0, targetTotal - totalSoFar), current);
+  // =====================================================================
+  // Journal / Win of the Day
+  // =====================================================================
+  function journalKey(dateStr) { return 'goals:journal:' + dateStr; }
+  function winKey(dateStr) { return 'goals:win:' + dateStr; }
+  function loadText(key) { const v = storeGet(key); return typeof v === 'string' ? v : ''; }
+  function saveText(key, text) { storeSet(key, text); }
+
+  function wireAutosave(el, key, savedIndicatorId) {
+    const savedEl = savedIndicatorId ? document.getElementById(savedIndicatorId) : null;
+    let timer = null;
+    el.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        saveText(key, el.value);
+        if (savedEl) {
+          savedEl.classList.add('show');
+          clearTimeout(savedEl._hideT);
+          savedEl._hideT = setTimeout(() => savedEl.classList.remove('show'), 1200);
+        }
+      }, 500);
+    });
+  }
+
+  function initJournalCol() {
+    const today = getActiveDateString();
+    const winEl = document.getElementById('atWinInput');
+    const journalEl = document.getElementById('atJournalTa');
+    winEl.value = loadText(winKey(today));
+    journalEl.value = loadText(journalKey(today));
+    autosize(journalEl);
+    journalEl.addEventListener('input', () => autosize(journalEl));
+    wireAutosave(winEl, winKey(today), 'atWinSaved');
+    wireAutosave(journalEl, journalKey(today), 'atJournalSaved');
+  }
+
+  // =====================================================================
+  // Manual biometrics (Recovery / Strain / Sleep / RHR / TEMP / RESP) —
+  // this app has no wearable device to sync from, so these are logged by
+  // hand each day (click a number to edit it) instead of auto-populated.
+  // =====================================================================
+  function biometricsKey(dateStr) { return 'goals:biometrics:' + dateStr; }
+  function loadBiometrics(dateStr) {
+    const b = storeGet(biometricsKey(dateStr));
+    return (b && typeof b === 'object') ? b : {};
+  }
+  function saveBiometricField(dateStr, field, value) {
+    const b = loadBiometrics(dateStr);
+    b[field] = value;
+    storeSet(biometricsKey(dateStr), b);
+  }
+  function recentBiometricValues(field, days) {
+    const keys = storeListKeys('goals:biometrics:').sort();
+    const out = [];
+    keys.forEach(k => {
+      const dateStr = k.slice('goals:biometrics:'.length);
+      const b = storeGet(k) || {};
+      if (b[field] != null && b[field] !== '') out.push({ date: dateStr, value: Number(b[field]) });
+    });
+    return out.slice(-days);
+  }
+
+  function renderSparkline(svgEl, points, color) {
+    svgEl.innerHTML = '';
+    if (points.length < 2) return;
+    const vals = points.map(p => p.value);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const range = max - min || 1;
+    const w = 100, h = 100;
+    const step = w / (points.length - 1);
+    const coords = points.map((p, i) => {
+      const x = i * step;
+      const y = h - ((p.value - min) / range) * h;
+      return x + ',' + y;
+    });
+    const ns = 'http://www.w3.org/2000/svg';
+    svgEl.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    const line = document.createElementNS(ns, 'polyline');
+    line.setAttribute('points', coords.join(' '));
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '3');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-linejoin', 'round');
+    svgEl.appendChild(line);
+  }
+
+  function initTileEdit(el, dateStr, field) {
+    let saveTimer = null;
+    el.addEventListener('input', () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => saveBiometricField(dateStr, field, el.textContent.trim()), 400);
+    });
+  }
+  function initMetricEdit(el, dateStr, field, unit, sparkColor, sparkEl) {
+    el.addEventListener('blur', () => {
+      const raw = el.textContent.replace(/[^0-9.\-]/g, '');
+      const num = raw === '' ? null : Number(raw);
+      saveBiometricField(dateStr, field, num);
+      el.textContent = num == null ? '—' : (num + unit);
+      renderSparkline(sparkEl, recentBiometricValues(field, 14), sparkColor);
+    });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+  }
+
+  function renderStatTiles() {
+    const today = getActiveDateString();
+    const habits = loadHabits();
+    const dow = keyToDate(today).getDay();
+    const log = loadHabitLog(today);
+    const scheduled = habits.filter(h => isScheduled(h, dow));
+    const done = scheduled.filter(h => log[h.id]).length;
+    const pct = scheduled.length ? Math.round((done / scheduled.length) * 100) : 0;
+    document.getElementById('atHabitsPct').textContent = pct + '%';
+    document.getElementById('atHabitsSub').textContent = scheduled.length
+      ? (done + '/' + scheduled.length + ' done · ' + (scheduled.length - done) + ' left')
+      : 'no tasks scheduled today';
+
+    const bio = loadBiometrics(today);
+    document.getElementById('atRecoveryVal').textContent = bio.recovery != null && bio.recovery !== '' ? bio.recovery + '%' : '—';
+    document.getElementById('atStrainVal').textContent = bio.strain != null && bio.strain !== '' ? bio.strain : '—';
+    document.getElementById('atSleepVal').textContent = bio.sleep != null && bio.sleep !== '' ? bio.sleep + '%' : '—';
+    ['recoverySub', 'strainSub', 'sleepSub'].forEach(field => {
+      const el = document.querySelector('[data-key="' + field + '"]');
+      if (document.activeElement !== el) el.textContent = bio[field] || '';
+    });
+
+    document.getElementById('atValRhr').textContent  = bio.rhr  != null && bio.rhr  !== '' ? bio.rhr  + ' bpm'    : '—';
+    document.getElementById('atValTemp').textContent = bio.temp != null && bio.temp !== '' ? bio.temp + '°'      : '—';
+    document.getElementById('atValResp').textContent = bio.resp != null && bio.resp !== '' ? bio.resp + ' br/min' : '—';
+    renderSparkline(document.getElementById('atSparkRhr'),  recentBiometricValues('rhr', 14),  'var(--danger)');
+    renderSparkline(document.getElementById('atSparkTemp'), recentBiometricValues('temp', 14), 'var(--at-orange)');
+    renderSparkline(document.getElementById('atSparkResp'), recentBiometricValues('resp', 14), 'var(--at-teal)');
+  }
+
+  function wireStatTileEditing() {
+    const today = getActiveDateString();
+    ['recoverySub', 'strainSub', 'sleepSub'].forEach(field => {
+      initTileEdit(document.querySelector('[data-key="' + field + '"]'), today, field);
+    });
+    document.getElementById('atRecoveryVal').addEventListener('click', () => {
+      const v = prompt('Recovery %', loadBiometrics(today).recovery || '');
+      if (v == null) return;
+      saveBiometricField(today, 'recovery', v.replace(/[^0-9.]/g, ''));
+      renderStatTiles();
+    });
+    document.getElementById('atStrainVal').addEventListener('click', () => {
+      const v = prompt('Strain', loadBiometrics(today).strain || '');
+      if (v == null) return;
+      saveBiometricField(today, 'strain', v.replace(/[^0-9.]/g, ''));
+      renderStatTiles();
+    });
+    document.getElementById('atSleepVal').addEventListener('click', () => {
+      const v = prompt('Sleep %', loadBiometrics(today).sleep || '');
+      if (v == null) return;
+      saveBiometricField(today, 'sleep', v.replace(/[^0-9.]/g, ''));
+      renderStatTiles();
+    });
+    initMetricEdit(document.getElementById('atValRhr'),  today, 'rhr',  ' bpm',    'var(--danger)',    document.getElementById('atSparkRhr'));
+    initMetricEdit(document.getElementById('atValTemp'), today, 'temp', '°',       'var(--at-orange)', document.getElementById('atSparkTemp'));
+    initMetricEdit(document.getElementById('atValResp'), today, 'resp', ' br/min', 'var(--at-teal)',   document.getElementById('atSparkResp'));
+  }
+
+  // =====================================================================
+  // Morning Briefing — a plain editable callout, pre-filled with the
+  // reference photo's example copy. No AI generation is wired up (no
+  // Anthropic key configured anywhere in this app), so this is manual
+  // text, autosaved per day like the rest of the journal fields.
+  // =====================================================================
+  const DEFAULT_BRIEFING = {
+    summary: "Rest day with strong habit momentum — focus on completing the core streaks and staying consistent after yesterday's travel.",
+    readiness: "No biometric data available today, but yesterday's recovery was solid (66) with good sleep (7.6 hours) and HRV trending up 11% from your 7-day baseline, suggesting your body is adapting well. You're coming off a day trip to Quincy with 75% habit completion despite the disruption — momentum is there. Today is a rest day, so prioritize recovery habits and mental work.",
+    habits: "You missed Pull (Bicep), Sauna, and Cold Plunge yesterday during travel, breaking the 7-day streaks on Sauna and Cold Plunge. Both are now reset to 1 day. Your 114-day Creative Work, Hydration, and Meditate streaks remain active and strong. No Snoozing is at 29 days — protect that one today.",
+    training: "Rest day — no gym work scheduled. Use today to recover from yesterday's travel. If you feel the urge to move, a light walk counts toward your Walk streak (currently 45 days) and supports recovery without adding strain.",
+    focus: "- Complete all 9 core habits today: Walk, Meditate, Read Book, Hydration, No Snoozing, Journal, Creative Work, 6+ Hour Sleep, Chess Puzzles\n- Rebuild Sauna and Cold Plunge streaks — both reset to 1 day after yesterday's miss. Fit them in today to restart momentum.\n- Journal about yesterday's day trip and today's rest — your journal streak is at 111 days and supports reflection on travel patterns.",
+    insight: "Your HRV is up 11% from the 7-day average despite a travel day, and sleep quality remained strong (7.6 hours, 82 score). This suggests your body is recovering well from the lower-strain week (4.2 avg vs 10.6 prior week). Use today's rest day to lock in the habits you missed yesterday — Sauna and Cold Plunge are quick wins to rebuild those 7-day streaks and keep the recovery momentum going into the week."
+  };
+  const BRIEF_FIELDS = [
+    ['summary', 'atBriefSummary'], ['readiness', 'atBriefReadiness'], ['habits', 'atBriefHabits'],
+    ['training', 'atBriefTraining'], ['focus', 'atBriefFocus'], ['insight', 'atBriefInsight']
+  ];
+  function briefingKey(dateStr) { return 'goals:briefing:' + dateStr; }
+  function loadBriefing(dateStr) {
+    const b = storeGet(briefingKey(dateStr));
+    return (b && typeof b === 'object') ? Object.assign({}, DEFAULT_BRIEFING, b) : Object.assign({}, DEFAULT_BRIEFING);
+  }
+  function saveBriefing(dateStr, briefing) { storeSet(briefingKey(dateStr), briefing); }
+
+  function initMorningBriefing() {
+    const today = getActiveDateString();
+    let briefing = loadBriefing(today);
+    BRIEF_FIELDS.forEach(([field, id]) => {
+      const el = document.getElementById(id);
+      el.value = briefing[field] || '';
+      autosize(el);
+      el.addEventListener('input', () => {
+        autosize(el);
+        briefing[field] = el.value;
+        saveBriefing(today, briefing);
+      });
+    });
+
+    document.getElementById('atBriefReset').addEventListener('click', () => {
+      if (!confirm('Reset today\'s Morning Briefing to the example text?')) return;
+      briefing = Object.assign({}, DEFAULT_BRIEFING);
+      saveBriefing(today, briefing);
+      BRIEF_FIELDS.forEach(([field, id]) => {
+        const el = document.getElementById(id);
+        el.value = briefing[field];
+        autosize(el);
+      });
+    });
+
+    const collapsedKey = 'atBriefCollapsed';
+    const body = document.getElementById('atBriefBody');
+    const toggleBtn = document.getElementById('atBriefToggle');
+    function applyCollapsed(collapsed) {
+      body.classList.toggle('collapsed', collapsed);
+      toggleBtn.textContent = collapsed ? '︾' : '︿';
+      toggleBtn.title = collapsed ? 'Expand' : 'Collapse';
+    }
+    applyCollapsed(localStorage.getItem(collapsedKey) === '1');
+    toggleBtn.addEventListener('click', () => {
+      const nowCollapsed = !body.classList.contains('collapsed');
+      applyCollapsed(nowCollapsed);
+      try { localStorage.setItem(collapsedKey, nowCollapsed ? '1' : '0'); } catch (e) {}
+      if (!nowCollapsed) BRIEF_FIELDS.forEach(([, id]) => autosize(document.getElementById(id)));
+    });
+  }
+
+  // =====================================================================
+  // Tabs
+  // =====================================================================
+  function switchTab(tab) {
+    document.querySelectorAll('.at-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    ['today', 'week', 'month', 'year', 'memories'].forEach(t => {
+      const panel = document.getElementById('atPanel' + t.charAt(0).toUpperCase() + t.slice(1));
+      panel.hidden = t !== tab;
+    });
+    if (tab === 'week') renderWeekTab();
+    else if (tab === 'month') renderMonthTab();
+    else if (tab === 'year') renderYearTab();
+    else if (tab === 'memories') renderMemoriesTab();
+  }
+  document.getElementById('atTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.at-tab');
+    if (btn) switchTab(btn.dataset.tab);
+  });
+
+  // ---------- Week tab ----------
+  function renderWeekTab() {
+    const today = getActiveDateString();
+    const habits = loadHabits();
+    const grid = document.getElementById('atWeekGrid');
+    grid.innerHTML = '';
+    let cursor = addDaysToKey(today, -6);
+    while (cursor <= today) {
+      const dow = keyToDate(cursor).getDay();
+      const scheduled = habits.filter(h => isScheduled(h, dow));
+      const log = loadHabitLog(cursor);
+      const done = scheduled.filter(h => log[h.id]).length;
+      const pct = scheduled.length ? Math.round((done / scheduled.length) * 100) : null;
+
+      const cell = document.createElement('div');
+      cell.className = 'at-week-day' + (cursor === today ? ' is-today' : '');
+      const name = document.createElement('div');
+      name.className = 'at-week-day-name';
+      name.textContent = DAY_NAMES[dow].slice(0, 3);
+      cell.appendChild(name);
+      const num = document.createElement('div');
+      num.className = 'at-week-day-num';
+      num.textContent = String(keyToDate(cursor).getDate());
+      cell.appendChild(num);
+      const pctEl = document.createElement('div');
+      pctEl.className = 'at-week-day-pct';
+      pctEl.textContent = pct == null ? '—' : (pct + '%');
+      cell.appendChild(pctEl);
+      const win = loadText(winKey(cursor));
+      if (win) {
+        const winEl = document.createElement('div');
+        winEl.className = 'at-week-day-win';
+        winEl.textContent = win;
+        winEl.title = win;
+        cell.appendChild(winEl);
       }
-    } else {
-      const now = new Date();
-      const goal = {
-        id: genId('g'),
-        title, unit, targetTotal,
-        scope: goalSelectedScope,
-        scopeStart: goalSelectedScope === 'yearly'
-          ? String(now.getFullYear())
-          : (now.getFullYear() + '-' + pad2(now.getMonth() + 1)),
-        rollover: goalSelectedRollover,
-        periodProgress: {},
-        createdAt: Date.now()
-      };
-      initAllocationPlan(goal);
-      list.push(goal);
+      grid.appendChild(cell);
+      cursor = addDaysToKey(cursor, 1);
     }
-    saveGoalTargets(list);
-    closeGoalModal();
-    renderGoalsSection();
-    renderTopSummary();
-  });
-  document.getElementById('goalModalDelete').addEventListener('click', () => {
-    if (!goalEditingId) return;
-    if (!confirm('Delete this goal?')) return;
-    saveGoalTargets(loadGoalTargets().filter(g => g.id !== goalEditingId));
-    closeGoalModal();
-    renderGoalsSection();
-    renderTopSummary();
-  });
+  }
 
-  // =====================================================================
-  // Streaks breakdown
-  // =====================================================================
-  function renderStreaksSection() {
+  // ---------- Month tab ----------
+  function renderMonthTab() {
+    const now = new Date();
+    const year = now.getFullYear(), month = now.getMonth();
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('atMonthTitle').textContent = monthNames[month] + ' ' + year;
+
+    const dowWrap = document.getElementById('atMonthDow');
+    dowWrap.innerHTML = '';
+    ['S','M','T','W','T','F','S'].forEach(l => { const s = document.createElement('span'); s.textContent = l; dowWrap.appendChild(s); });
+
+    const habits = loadHabits();
+    const today = getActiveDateString();
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const grid = document.getElementById('atMonthGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < firstDow; i++) {
+      const cell = document.createElement('div'); cell.className = 'at-month-cell empty'; grid.appendChild(cell);
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = year + '-' + pad2(month + 1) + '-' + pad2(day);
+      const cell = document.createElement('div');
+      cell.className = 'at-month-cell' + (dateStr === today ? ' is-today' : '');
+      const dow = new Date(year, month, day).getDay();
+      const scheduled = habits.filter(h => isScheduled(h, dow));
+      if (scheduled.length && dateStr <= today) {
+        const log = loadHabitLog(dateStr);
+        const done = scheduled.filter(h => log[h.id]).length;
+        const pct = done / scheduled.length;
+        cell.style.background = pct === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(205,168,106,' + (0.12 + pct * 0.5) + ')';
+      }
+      cell.textContent = String(day);
+      grid.appendChild(cell);
+    }
+  }
+
+  // ---------- Year tab ----------
+  function renderYearTab() {
+    const now = new Date();
+    const year = now.getFullYear();
+    document.getElementById('atYearTitle').textContent = year + ' Overview';
+    const habits = loadHabits();
+    const today = getActiveDateString();
+    const monthAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const wrap = document.getElementById('atYearBars');
+    wrap.innerHTML = '';
+    for (let m = 0; m < 12; m++) {
+      const daysInMonth = new Date(year, m + 1, 0).getDate();
+      let sumPct = 0, countedDays = 0;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = year + '-' + pad2(m + 1) + '-' + pad2(day);
+        if (dateStr > today) break;
+        const dow = new Date(year, m, day).getDay();
+        const scheduled = habits.filter(h => isScheduled(h, dow));
+        if (!scheduled.length) continue;
+        const log = loadHabitLog(dateStr);
+        const done = scheduled.filter(h => log[h.id]).length;
+        sumPct += done / scheduled.length;
+        countedDays++;
+      }
+      const avgPct = countedDays ? Math.round((sumPct / countedDays) * 100) : 0;
+      const barWrap = document.createElement('div');
+      barWrap.className = 'at-year-bar-wrap';
+      const pctLabel = document.createElement('div');
+      pctLabel.className = 'at-year-bar-pct';
+      pctLabel.textContent = countedDays ? avgPct + '%' : '';
+      barWrap.appendChild(pctLabel);
+      const bar = document.createElement('div');
+      bar.className = 'at-year-bar';
+      bar.style.height = Math.max(countedDays ? avgPct : 0, countedDays ? 4 : 0) + '%';
+      barWrap.appendChild(bar);
+      const label = document.createElement('div');
+      label.className = 'at-year-bar-label';
+      label.textContent = monthAbbr[m];
+      barWrap.appendChild(label);
+      wrap.appendChild(barWrap);
+    }
+  }
+
+  // ---------- Memories tab ----------
+  function renderMemoriesTab() {
     const habits = loadHabits();
     const list = document.getElementById('streaksList');
     const empty = document.getElementById('streaksEmpty');
     list.innerHTML = '';
-    empty.style.display = habits.length === 0 ? 'block' : 'none';
+    empty.hidden = habits.length !== 0;
     habits.forEach(habit => {
       const s = computeHabitStreaks(habit);
       const row = document.createElement('div'); row.className = 'sk-row';
       const name = document.createElement('div'); name.className = 'sk-name'; name.textContent = habit.text;
       const cur = document.createElement('div'); cur.className = 'sk-current';
-      cur.textContent = '⚡ ' + s.current + ' day' + (s.current === 1 ? '' : 's');
+      cur.textContent = '🔥 ' + s.current + ' day' + (s.current === 1 ? '' : 's');
       const best = document.createElement('div'); best.className = 'sk-best';
       if (s.best > 0) {
         best.innerHTML = 'Best: <span class="sk-best-num">' + s.best + '</span> day' + (s.best === 1 ? '' : 's') +
@@ -1597,400 +1351,62 @@ body::after {
       row.appendChild(name); row.appendChild(cur); row.appendChild(best);
       list.appendChild(row);
     });
+
+    const winKeys = storeListKeys('goals:win:');
+    const journalKeys = storeListKeys('goals:journal:');
+    const dates = new Set();
+    winKeys.forEach(k => dates.add(k.slice('goals:win:'.length)));
+    journalKeys.forEach(k => dates.add(k.slice('goals:journal:'.length)));
+    const sorted = Array.from(dates).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
+
+    const memWrap = document.getElementById('atMemoriesList');
+    const memEmpty = document.getElementById('atMemoriesEmpty');
+    memWrap.innerHTML = '';
+    let shown = 0;
+    sorted.forEach(dateStr => {
+      const win = loadText(winKey(dateStr));
+      const journal = loadText(journalKey(dateStr));
+      if (!win && !journal) return;
+      shown++;
+      const card = document.createElement('div');
+      card.className = 'at-memory-card';
+      const date = document.createElement('div'); date.className = 'at-memory-date'; date.textContent = formatDateShort(dateStr);
+      card.appendChild(date);
+      if (win) { const w = document.createElement('div'); w.className = 'at-memory-win'; w.textContent = '★ ' + win; card.appendChild(w); }
+      if (journal) { const j = document.createElement('div'); j.className = 'at-memory-journal'; j.textContent = journal; card.appendChild(j); }
+      memWrap.appendChild(card);
+    });
+    memEmpty.hidden = shown !== 0;
+  }
+
+  // ---------- Clock ----------
+  function tickClock() {
+    const el = document.getElementById('atClock');
+    const d = new Date();
+    let h = d.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    el.textContent = h + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + ' ' + ampm;
   }
 
   // =====================================================================
-  // Journal / win of the day
+  // Boot
   // =====================================================================
-  function journalKey(dateStr) { return 'goals:journal:' + dateStr; }
-  function loadJournalText(dateStr) {
-    const v = storeGet(journalKey(dateStr));
-    return typeof v === 'string' ? v : '';
-  }
-  function saveJournalText(dateStr, text) { storeSet(journalKey(dateStr), text); }
-
-  function initJournal() {
-    const ta = document.getElementById('journalText');
-    const savedIndicator = document.getElementById('journalSaved');
-    ta.value = loadJournalText(getActiveDateString());
-    let saveTimer = null;
-    ta.addEventListener('input', () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        saveJournalText(getActiveDateString(), ta.value);
-        savedIndicator.classList.add('show');
-        clearTimeout(savedIndicator._hideT);
-        savedIndicator._hideT = setTimeout(() => savedIndicator.classList.remove('show'), 1200);
-      }, 500);
-    });
-  }
-
-  // =====================================================================
-  // Top summary (Today header)
-  // =====================================================================
-  function renderTopSummary() {
-    document.getElementById('thDate').textContent = formatDate(getActiveDateString());
-
-    const goals = loadGoalTargets();
-    const activeGoals = goals.filter(g => goalTotalProgress(g) < g.targetTotal).length;
-
-    const habits = loadHabits();
-    const today = getActiveDateString();
-    const todayDow = keyToDate(today).getDay();
-    const log = loadHabitLog(today);
-    const scheduledToday = habits.filter(h => isScheduled(h, todayDow));
-    const habitsRemaining = scheduledToday.filter(h => !log[h.id]).length;
-
-    const freeform = getGoals(todayKey());
-    const freeformRemaining = freeform.filter(g => !g.done).length;
-
-    let longest = loadStreak().count;
-    habits.forEach(h => { longest = Math.max(longest, computeHabitStreaks(h).current); });
-
-    document.getElementById('thActiveGoals').textContent = activeGoals;
-    document.getElementById('thTasksLeft').textContent = habitsRemaining + freeformRemaining;
-    document.getElementById('thLongestStreak').textContent = longest;
-  }
-
-  // ---------- Row building (freeform checklist) ----------
-  function makeInlineEdit(textEl, goals, idx, key, reload) {
-    textEl.addEventListener('click', () => {
-      if (textEl.getAttribute('contenteditable') === 'true') return;
-      const original = textEl.textContent;
-      textEl.setAttribute('contenteditable', 'true');
-      textEl.focus();
-      const range = document.createRange();
-      range.selectNodeContents(textEl);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges(); sel.addRange(range);
-
-      function commit() {
-        const next = textEl.textContent.trim();
-        textEl.removeAttribute('contenteditable');
-        if (next && next !== original) {
-          const list = getGoals(key);
-          if (list[idx]) { list[idx].text = next; setGoals(key, list); }
-          reload();
-        } else {
-          textEl.textContent = original;
-        }
-      }
-      function cancel() {
-        textEl.removeAttribute('contenteditable');
-        textEl.textContent = original;
-      }
-      textEl.addEventListener('blur', commit, { once: true });
-      textEl.addEventListener('keydown', function onKey(e) {
-        if (e.key === 'Enter') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); textEl.blur(); }
-        else if (e.key === 'Escape') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); cancel(); }
-      });
-    });
-  }
-
-  function wireDragReorder(row, listEl, key, reload) {
-    row.setAttribute('draggable', 'true');
-    row.addEventListener('dragstart', (e) => {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', row.dataset.idx);
-    });
-    row.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      row.classList.add('is-drag-over');
-    });
-    row.addEventListener('dragleave', () => row.classList.remove('is-drag-over'));
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      row.classList.remove('is-drag-over');
-      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const to   = parseInt(row.dataset.idx, 10);
-      if (isNaN(from) || isNaN(to) || from === to) return;
-      const list = getGoals(key);
-      const moved = list.splice(from, 1)[0];
-      list.splice(to, 0, moved);
-      setGoals(key, list);
-      reload();
-    });
-  }
-
-  function buildGoalRow(goal, idx, key, readOnly, reload) {
-    const li = document.createElement('li');
-    li.className = 'gm-row';
-    li.dataset.idx = String(idx);
-    if (goal.done) li.classList.add('gm-row-done');
-    if (goal.queued) li.classList.add('gm-row-queued');
-
-    const handle = document.createElement('span');
-    handle.className = 'gm-handle';
-    handle.textContent = '⋮⋮';
-    li.appendChild(handle);
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'gm-check';
-    cb.checked = !!goal.done;
-    if (readOnly) { cb.disabled = true; cb.title = 'Activates at 6 AM tomorrow'; }
-    cb.addEventListener('change', () => {
-      const list = getGoals(key);
-      if (!list[idx]) return;
-      list[idx].done = cb.checked;
-      if (cb.checked) list[idx].doneAt = Date.now();
-      else delete list[idx].doneAt;
-      setGoals(key, list);
-      reload();
-    });
-    li.appendChild(cb);
-
-    const text = document.createElement('span');
-    text.className = 'gm-text';
-    text.textContent = goal.text;
-    li.appendChild(text);
-    makeInlineEdit(text, null, idx, key, reload);
-
-    const queueBtn = document.createElement('button');
-    queueBtn.type = 'button';
-    queueBtn.className = 'gm-queue-btn' + (goal.queued ? ' gm-queue-active' : '');
-    queueBtn.textContent = '⚡';
-    queueBtn.title = 'Queue for productivity window';
-    if (readOnly) queueBtn.disabled = true;
-    queueBtn.addEventListener('click', () => {
-      const list = getGoals(key);
-      if (!list[idx]) return;
-      list[idx].queued = !list[idx].queued;
-      setGoals(key, list);
-      li.classList.add('is-queue-flashing');
-      setTimeout(reload, 480);
-    });
-    li.appendChild(queueBtn);
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'goal-delete';
-    del.setAttribute('aria-label', 'Delete goal');
-    del.textContent = '×';
-    del.addEventListener('click', () => {
-      const list = getGoals(key);
-      list.splice(idx, 1);
-      setGoals(key, list);
-      reload();
-    });
-    li.appendChild(del);
-
-    wireDragReorder(li, null, key, reload);
-    return li;
-  }
-
-  // ---------- Renderers (freeform checklist) ----------
-  function renderTodayHeader() {
-    const goals = getGoals(todayKey());
-    const total = goals.length;
-    const done  = goals.filter(g => g.done).length;
-    document.getElementById('gmProgressNum').textContent   = done;
-    document.getElementById('gmProgressTotal').textContent = '/ ' + total;
-    const label = document.getElementById('gmProgressLabel');
-    if (total === 0)         label.textContent = 'no goals yet';
-    else if (done === total) label.textContent = 'all done — solid day';
-    else                      label.textContent = 'complete';
-
-    document.getElementById('todayLabel').textContent =
-      'Today — ' + formatDate(getActiveDateString());
-
-    const bar = document.getElementById('gmBar');
-    bar.innerHTML = '';
-    goals.forEach(g => {
-      const seg = document.createElement('div');
-      seg.className = 'gm-bar-seg' + (g.done ? ' gm-bar-seg-done' : '');
-      bar.appendChild(seg);
-    });
-
-    const card = document.getElementById('gmCardToday');
-    card.classList.toggle('gm-all-done', total > 0 && done === total);
-
-    const pushBtn = document.getElementById('gmPushBtn');
-    pushBtn.style.display = (total > 0 && done < total) ? 'block' : 'none';
-  }
-
-  function renderStreak() {
-    const s = loadStreak();
-    document.getElementById('gmStreakNum').textContent = s.count;
-    document.getElementById('gmStreak').classList.toggle('gm-streak-active', s.count > 0);
-  }
-
-  function renderTomorrowCount() {
-    const list = getGoals(tomorrowKey());
-    document.getElementById('gmTomorrowCount').textContent = list.length + ' planned';
-    document.getElementById('tomorrowLabel').textContent =
-      'Plan tomorrow — ' + formatDate(getTomorrowDateString());
-  }
-
-  function renderListInto(goals, listEl, emptyEl, key, readOnly) {
-    listEl.innerHTML = '';
-    emptyEl.style.display = goals.length === 0 ? 'block' : 'none';
-    const reload = () => (key === todayKey() ? loadToday() : loadTomorrow());
-
-    const visible = goals.length > 5 ? goals.slice(0, 5) : goals;
-    visible.forEach((g, i) => listEl.appendChild(buildGoalRow(g, i, key, readOnly, reload)));
-
-    if (goals.length > 5) {
-      let expanded = false;
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'gm-show-toggle';
-      const updateLabel = () => {
-        toggle.textContent = expanded ? 'Show less ▴' : ('Show ' + (goals.length - 5) + ' more ▾');
-      };
-      updateLabel();
-      toggle.addEventListener('click', () => {
-        expanded = !expanded;
-        if (expanded) {
-          goals.slice(5).forEach((g, i) => {
-            const row = buildGoalRow(g, i + 5, key, readOnly, reload);
-            listEl.insertBefore(row, toggle);
-          });
-        } else {
-          Array.from(listEl.querySelectorAll('.gm-row')).slice(5).forEach(r => r.remove());
-        }
-        updateLabel();
-      });
-      listEl.appendChild(toggle);
-    }
-
-    if (key === todayKey()) renderTodayHeader();
-    else                    renderTomorrowCount();
-  }
-
-  function loadToday() {
-    const goals = getGoals(todayKey());
-    renderListInto(goals, document.getElementById('goalList'), document.getElementById('emptyState'), todayKey(), false);
-  }
-  function loadTomorrow() {
-    const goals = getGoals(tomorrowKey());
-    renderListInto(goals, document.getElementById('tomorrowList'), document.getElementById('tomorrowEmpty'), tomorrowKey(), true);
-  }
-
-  // ---------- Push remaining ----------
-  document.getElementById('gmPushBtn').addEventListener('click', () => {
-    const today     = getGoals(todayKey());
-    const remaining = today.filter(g => !g.done);
-    if (remaining.length === 0) return;
-    if (!confirm('Move ' + remaining.length + ' unchecked goal' + (remaining.length === 1 ? '' : 's') + ' to tomorrow?')) return;
-    const tomorrow = getGoals(tomorrowKey());
-    const seen = new Set(tomorrow.map(g => g.text));
-    remaining.forEach(g => {
-      if (!seen.has(g.text)) { tomorrow.push({ text: g.text, done: false }); seen.add(g.text); }
-    });
-    setGoals(tomorrowKey(), tomorrow);
-    setGoals(todayKey(), today.filter(g => g.done));
-    loadToday(); loadTomorrow();
-  });
-
-  // ---------- Add + Polish handlers ----------
-  function showStatus(el, message, isError) {
-    el.textContent = message;
-    el.classList.toggle('gm-status-error', !!isError);
-    clearTimeout(el._t);
-    el._t = setTimeout(() => { el.textContent = ''; el.classList.remove('gm-status-error'); }, 3500);
-  }
-
-  async function polishOne(text) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content:
-            'Rewrite this single goal so it is concrete, action-oriented, and under 60 characters. ' +
-            'Return ONLY a JSON array with exactly one string, no preamble, no code fences.\n\nGoal: ' + text
-        }]
-      })
-    });
-    const data = await res.json();
-    const content = (data && data.content && data.content[0] && data.content[0].text) || '';
-    const arr = JSON.parse(content);
-    if (!Array.isArray(arr) || arr.length < 1 || typeof arr[0] !== 'string') throw new Error('bad response');
-    return arr[0].trim();
-  }
-
-  function makeAddHandlers(input, addBtn, polishBtn, key, statusEl, reload) {
-    function plainAdd(text) {
-      const list = getGoals(key);
-      list.push({ text, done: false });
-      setGoals(key, list);
-      input.value = '';
-      reload();
-    }
-    addBtn.addEventListener('click', () => {
-      const text = input.value.trim();
-      if (!text) return;
-      plainAdd(text);
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
-    });
-    polishBtn.addEventListener('click', async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      if (!ANTHROPIC_API_KEY) {
-        plainAdd(text);
-        showStatus(statusEl, 'Polish needs an Anthropic API key — added as-typed.', false);
-        return;
-      }
-      polishBtn.disabled = true;
-      try {
-        const polished = await polishOne(text);
-        plainAdd(polished);
-      } catch (e) {
-        plainAdd(text);
-        showStatus(statusEl, 'Polish failed — added as-typed.', true);
-      } finally {
-        polishBtn.disabled = false;
-      }
-    });
-  }
-
-  makeAddHandlers(
-    document.getElementById('goalInput'),
-    document.getElementById('goalAddBtn'),
-    document.getElementById('goalPolishBtn'),
-    todayKey(),
-    document.getElementById('polishStatus'),
-    loadToday
-  );
-  makeAddHandlers(
-    document.getElementById('tomorrowInput'),
-    document.getElementById('tomorrowAddBtn'),
-    document.getElementById('tomorrowPolishBtn'),
-    tomorrowKey(),
-    document.getElementById('tomorrowStatus'),
-    loadTomorrow
-  );
-
-  // ---------- Boot ----------
   function renderAll() {
-    loadToday(); loadTomorrow(); renderStreak();
-    renderHabits(); renderGoalsSection(); renderStreaksSection(); renderTopSummary();
+    renderTaskGrid();
+    renderStatTiles();
+    renderDueTasks();
   }
 
-  rollover();
-  processStreak();
-  loadToday(); loadTomorrow();
-  renderStreak();
-  renderHabits();
-  renderGoalsSection();
-  renderStreaksSection();
-  renderTopSummary();
-  initJournal();
+  renderTaskGrid();
+  renderStatTiles();
+  wireStatTileEditing();
+  renderDueTasks();
+  initJournalCol();
+  initMorningBriefing();
+  tickClock();
+  setInterval(tickClock, 1000);
 
-  // Re-render everything when storage changes locally (any 'goals:' write)
-  // or from another tab / a cloud-sync pull.
   window.addEventListener('goals-changed', renderAll);
   window.addEventListener('storage', renderAll);
 })();

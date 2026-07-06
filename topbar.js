@@ -128,7 +128,7 @@ body.topbar-modal-open {
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick stats">
   <a href="index.html" class="topbar-pill" id="topbarGoals">
     <span class="topbar-pill-dot"></span>
-    <span class="topbar-pill-label">GOALS</span>
+    <span class="topbar-pill-label">MAIN</span>
     <span class="topbar-pill-count" id="topbarGoalsCount">—/—</span>
   </a>
   <a href="gym.html" class="topbar-pill" id="topbarGym">
