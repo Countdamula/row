@@ -195,6 +195,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   margin-bottom: 16px; gap: 12px;
 }
 .ent-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.ent-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ent-header-actions .btn-secondary { padding: 10px 16px; white-space: nowrap; }
 .btn-add {
   flex-shrink: 0;
   padding: 10px 16px;
@@ -470,7 +472,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
   <div class="ent-header">
     <h1 class="ent-title">Media</h1>
-    <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
+    <div class="ent-header-actions">
+      <button class="btn-secondary" id="entSortBtn" type="button">Sort: A&rarr;Z</button>
+      <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
+    </div>
   </div>
 
   <div class="chip-row chip-row-gallery" id="galleryTabsRow"></div>
@@ -588,9 +593,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   ];
   var ACTIVE_GALLERY_KEY = 'media:active_gallery';
 
+  var SORT_DIR_KEY = 'media:sort_dir';
   var activeGalleryKey = 'podcasts';
   var activeStatus = 'All';
   var activeProgress = 'All';
+  var sortDir = 'asc';
   var cards = [];
   var editingId = null;
   var editingCard = null;
@@ -809,6 +816,19 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     });
   }
 
+  // -------- sort control (alphabetical by title, all galleries) --------
+  function updateSortBtn() {
+    $('entSortBtn').textContent = sortDir === 'asc' ? 'Sort: A→Z' : 'Sort: Z→A';
+  }
+  function wireSortBtn() {
+    $('entSortBtn').addEventListener('click', function () {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      try { localStorage.setItem(SORT_DIR_KEY, sortDir); } catch (e) {}
+      updateSortBtn();
+      renderGrid();
+    });
+  }
+
   // -------- gallery grid --------
   function ratingHtml(rating) {
     rating = Number(rating) || 0;
@@ -904,6 +924,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       if (activeStatus !== 'All' && c.status !== activeStatus) return false;
       if (g.hasProgress && activeProgress !== 'All' && (c.progress || 'backlog') !== activeProgress) return false;
       return true;
+    });
+    list.sort(function (a, b) {
+      var cmp = String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
     });
     empty.hidden = list.length !== 0;
     list.forEach(function (card) { grid.appendChild(buildCardEl(card)); });
@@ -1104,12 +1128,17 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var savedGallery = null;
     try { savedGallery = localStorage.getItem(ACTIVE_GALLERY_KEY); } catch (e) {}
     if (savedGallery && GALLERIES.some(function (g) { return g.key === savedGallery; })) activeGalleryKey = savedGallery;
+    var savedSortDir = null;
+    try { savedSortDir = localStorage.getItem(SORT_DIR_KEY); } catch (e) {}
+    if (savedSortDir === 'asc' || savedSortDir === 'desc') sortDir = savedSortDir;
     cards = loadCards();
     renderGalleryTabs();
     renderFilterBar();
     renderProgressFilterBar();
+    updateSortBtn();
     renderGrid();
     wireModal();
+    wireSortBtn();
 
     if (typeof initCloudSync === 'function') {
       initCloudSync({
