@@ -417,7 +417,31 @@ body::before {
 
     var dateEl = document.createElement('span');
     dateEl.className = 'bd-entry-date';
-    dateEl.textContent = fmtDate(entry.date);
+    dateEl.textContent = entry.title || fmtDate(entry.date);
+    dateEl.title = 'Click to rename';
+    dateEl.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (dateEl.querySelector('input')) return;
+      var current = entry.title || fmtDate(entry.date);
+      dateEl.textContent = '';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = current;
+      dateEl.appendChild(input);
+      input.focus();
+      input.select();
+      function commit() {
+        entry.title = input.value.trim();
+        saveEntries(entries);
+        dateEl.textContent = entry.title || fmtDate(entry.date);
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', function (ke) {
+        if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
+        if (ke.key === 'Escape') { ke.preventDefault(); input.value = current; input.blur(); }
+      });
+      input.addEventListener('click', function (ce) { ce.stopPropagation(); });
+    });
     head.appendChild(dateEl);
 
     var del = document.createElement('button');
