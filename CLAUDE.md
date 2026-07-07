@@ -31,6 +31,7 @@ Vercel's static server) — see README.md.
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `projects.html` | Projects — project list + per-project tasks (CRUD, contribution grid, velocity, burndown) (rebuilt — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
+| `study.html` | Study — subjects with topics, tracked by progress %; toggles between a grouped-list view and a cover-art gallery view (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file.
@@ -77,7 +78,7 @@ sync, not for authenticating a person:
 
 **Files involved (the entirety of the "auth-ish" surface):**
 - `sync.js` — the shared sync client used by `index.html`, `finance.html`,
-  `entertainment.html`, `projects.html`, `braindump.html`.
+  `entertainment.html`, `projects.html`, `braindump.html`, `study.html`.
 - `gym.html` (inline `<script>`, ~line 2190–2386) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
 - `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
@@ -174,6 +175,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `projects` | `projects.html` | `proj:cards` (each card now also carries `startDate`, `deadline`, and a `tasks[]` array — no new top-level key needed), `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
+   | `study` | `study.html` (new) | everything prefixed `study:` (`study:subjects`, `study:topics`, `study:view`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -204,6 +206,7 @@ using `sync.js`.
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Projects | `PROJECTS` → `projects.html` | `projects.html` (gained per-project tasks + charts — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
+| Study | `STUDY` → `study.html` | `study.html` (new — see changelog) |
 
 Stack and Water were removed — see changelog at the bottom of this file.
 
@@ -730,3 +733,60 @@ between this app and either data loss or a wide-open write target:
     recolored crimson) sits at the top of `.po-shell`, below the cover.
     `.po-shell`'s existing content (day pill, title, cards, etc.) is
     otherwise unchanged and simply continues below it.
+
+- **New page: `study.html` ("Study"), built by combining two reference
+  screenshots** — a Notion "Idea Bank" gallery/database (cover-art cards,
+  tag chips, a grouped table) and a Notion "Goals" dashboard (collapsible
+  grouped list with per-item progress bars). Both reference photos were
+  light-themed; per an explicit decision with the user, the page instead
+  reuses this app's existing near-black wine / dusty-rose palette (the
+  same shared aesthetic already established by `index.html`, `entertainment.html`,
+  and `braindump.html` — same `#170a12`/`#0b0509` background gradient, same
+  `#e08a9f` accent, same cream button gradient) rather than a new light
+  theme, so it reads as part of the dashboard rather than a one-off skin.
+  Genuinely new file; new nav pill (`STUDY` → `study.html`, added to
+  `topbar.js`'s injected pill list — the only edit made to `topbar.js`,
+  no count badge, same as Studio/Finance/Media/Projects); new sync key
+  (`appKey: 'study'`, `syncedPrefixes: ['study:']`, wired via the standard
+  shared `initCloudSync` — same call pattern as finance/entertainment/
+  projects/braindump, nothing new invented).
+  - **Data model**: `study:subjects` — array of `{ id, name, icon, createdAt }`
+    (user-created, e.g. "📘 Organic Chemistry"). `study:topics` — array of
+    `{ id, subjectId, title, category, status, priority, progress, nextStep,
+    notes, cover, createdAt }`, where `status` is `not-started`/`in-progress`/
+    `done`, `priority` is `Low`/`Medium`/`High`, and `progress` is a manual
+    0–100 slider (auto-set to 100 when a topic's status is switched to Done
+    from the modal). `study:view` persists which of the two views below was
+    last active. All three keys ride the existing `study:` sync prefix, no
+    per-key sync wiring needed.
+  - **Two toggleable views over the same subjects/topics data** — a
+    `chip-view` pair mirrors the gallery-type switcher already used on the
+    Media page:
+    - **By Subject** (the Goals reference): each subject renders as a
+      collapsible group (▼ caret, icon, name, topic count, and an averaged
+      progress % rolled up from its topics — not present in the reference
+      photo but a natural extension of it) with a "✎" to rename/re-icon or
+      delete the subject (cascades to delete its topics, confirmed). Under
+      it, one row per topic — a status dot, title, a `.std-bar` progress
+      bar + percentage (same `<div>`-with-inline-`width%` bar idiom already
+      used for budgets/wishlist/tasks in `finance.html`/`projects.html`,
+      not a charting library), and a priority pill. A "Quick-add a topic,
+      press Enter…" input sits at the bottom of each group, identical
+      interaction to `projects.html`'s task quick-add.
+    - **Gallery** (the Idea Bank reference): topics render as
+      `.ent-card`/`.ent-cover` cards — literally the same class names/CSS
+      as `entertainment.html`'s gallery, copied verbatim per this
+      codebase's existing convention of duplicating that component
+      per-file rather than importing it. Each card shows an optional cover
+      image (paste-a-URL or upload, downscaled via the same
+      `compressImageDataUrl` recipe used in `entertainment.html`/
+      `projects.html`/`gym.html`) or an icon fallback, a priority badge, a
+      status tag + optional category tag, and the same progress bar as the
+      list view. Subject and status filter chip rows (reusing `.chip`/
+      `.chip-row` verbatim) appear only in this view.
+  - Adding a topic requires at least one subject to exist first (a plain
+    `alert()` prompts to add one) — there's no "no subject" bucket, since
+    every topic belongs to exactly one subject by design.
+  - No AI/LLM involved, consistent with the rest of this app (see the
+    Projects entry above on `ANTHROPIC_API_KEY` being an inactive
+    placeholder).
