@@ -142,14 +142,6 @@ body::after {
 .placeholder-text { font-size: 13px; color: var(--text-tertiary); max-width: 440px; margin: 0 auto; line-height: 1.6; }
 .placeholder-panel-sm .placeholder-text { max-width: none; margin: 0; font-size: 12.5px; }
 
-/* Businesses: illustrative mock of the dynamic sub-tabs that will
-   appear here once the Business data model lands, not real UI yet. */
-.biz-subtabs-mock { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
-.biz-subtab-ghost {
-  padding: 6px 14px; border: 1px dashed var(--at-border); border-radius: 999px;
-  font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono);
-}
-
 /* ===== Wheel of Life summary ===== */
 .wheel-card {
   background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 16px;
@@ -447,6 +439,30 @@ body::after {
 .run-routine-field-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--at-gold); margin-bottom: 3px; }
 .run-routine-field-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 
+/* ===== Businesses ===== */
+.biz-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.biz-header-icon { font-size: 26px; flex-shrink: 0; }
+.biz-header-name { font-family: var(--font-serif); font-size: 20px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; }
+.biz-header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.biz-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px; white-space: pre-wrap; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.kpi-tile { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 12px 14px; position: relative; }
+.kpi-tile-label { font-size: 11px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; padding-right: 40px; }
+.kpi-tile-values { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-top: 8px; }
+.kpi-tile-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 3px; }
+.kpi-tile-actions button { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 11px; padding: 2px 3px; }
+.kpi-tile-actions button:hover { color: var(--text-primary); }
+
+.at-textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s;
+  resize: none; overflow: hidden; min-height: 70px; line-height: 1.55;
+}
+.at-textarea:focus { border-color: rgba(255,255,255,0.28); }
+.at-textarea::placeholder { color: var(--text-tertiary); }
+
 /* ===== Shared chip / modal / field / button kit ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
@@ -628,18 +644,16 @@ body::after {
     <div class="at-empty" id="habitListEmpty" hidden>No habits yet — add one to start tracking streaks.</div>
   </div>
 
+  <!-- ============ BUSINESSES ============ -->
   <div class="at-tabpanel" id="atPanelBusinesses" hidden>
-    <div class="at-col-head"><h2>Businesses</h2></div>
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">💼</div>
-      <div class="placeholder-title">Businesses coming soon</div>
-      <div class="placeholder-text">This section will hold one dynamic sub-tab per business, driven by the Business data model — each with its own tasks and notes. Goals can already optionally link to a business; the link will populate once this section exists.</div>
-      <div class="biz-subtabs-mock">
-        <span class="biz-subtab-ghost">💼 Business A</span>
-        <span class="biz-subtab-ghost">💼 Business B</span>
-        <span class="biz-subtab-ghost">+ Add business</span>
-      </div>
+    <div class="at-col-head">
+      <h2>Businesses</h2>
+      <div class="at-col-actions"><button type="button" class="at-mini-btn" id="atAddBizBtn">+ Add Business</button></div>
     </div>
+
+    <div class="chip-row" id="bizSubTabs"></div>
+
+    <div id="bizPanelBody"></div>
   </div>
 
   <div class="at-tabpanel" id="atPanelSelf" hidden>
@@ -911,6 +925,36 @@ body::after {
   </div>
 </div>
 
+<!-- Add / Edit Business modal -->
+<div class="modal-bg" id="bizModalBg">
+  <div class="modal">
+    <h3 id="bizModalTitle">Add Business</h3>
+    <div class="field"><label>Name</label><input type="text" id="bizNameInput" placeholder="e.g. Consulting LLC"></div>
+    <div class="field"><label>Icon</label><input type="text" id="bizIconInput" placeholder="💼" maxlength="4"></div>
+    <div class="field"><label>Description (optional)</label><textarea id="bizDescInput" placeholder="What is this business?"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="bizModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="bizModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bizModalDelete" style="display:none">Delete this business</span>
+  </div>
+</div>
+
+<!-- Add / Edit KPI modal -->
+<div class="modal-bg" id="kpiModalBg">
+  <div class="modal">
+    <h3 id="kpiModalTitle">Add KPI</h3>
+    <div class="field"><label>Label</label><input type="text" id="kpiLabelInput" placeholder="e.g. Monthly Revenue"></div>
+    <div class="field"><label>Current value</label><input type="number" id="kpiCurrentInput" placeholder="0"></div>
+    <div class="field"><label>Target value</label><input type="number" id="kpiTargetInput" placeholder="0"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="kpiModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="kpiModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="kpiModalDelete" style="display:none">Delete this KPI</span>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -964,6 +1008,7 @@ body::after {
     else if (tab === 'goals') renderGoalsSection();
     else if (tab === 'tasks') renderTaskSection();
     else if (tab === 'habits') renderHabitsSection();
+    else if (tab === 'businesses') renderBusinessesSection();
   }
   function switchTab(tab, opts) {
     if (TABS.indexOf(tab) === -1) tab = 'overview';
@@ -1385,11 +1430,13 @@ body::after {
   }
 
   // =====================================================================
-  // Businesses — main:businesses, read-only reference here (no UI to
-  // create one yet; the Businesses section builds that later). Empty
-  // until then, so a goal's Business selector/filter just shows none.
+  // Businesses — main:businesses = [{ id, name, icon, description, notes,
+  // kpis: [{id, label, current, target}], createdAt }]. loadBusinesses/
+  // businessById were already read here (Goals/Tasks selectors + filters);
+  // this section now owns writing it too.
   // =====================================================================
   function loadBusinesses() { var b = storeGet('main:businesses'); return Array.isArray(b) ? b : []; }
+  function saveBusinesses(list) { storeSet('main:businesses', list); }
   function businessById(id) { return loadBusinesses().filter(function (b) { return b.id === id; })[0] || null; }
 
   // Habits — main:habits = [{ id, name, lifeAreaId, cue, routine, reward,
@@ -1527,7 +1574,7 @@ body::after {
   }
 
   var goalEditingId = null;
-  function openGoalModal(goal) {
+  function openGoalModal(goal, presetBusinessId) {
     if (!goal && !loadAreas().length) { alert('Add a Life Area first — every goal needs one.'); return; }
     goalEditingId = goal ? goal.id : null;
     document.getElementById('goalModalTitle').textContent = goal ? 'Edit Goal' : 'Add Goal';
@@ -1535,7 +1582,7 @@ body::after {
     renderGoalAreaSelect();
     document.getElementById('goalAreaSelect').value = goal ? (goal.lifeAreaId || '') : '';
     renderGoalBizSelect();
-    document.getElementById('goalBizSelect').value = goal ? (goal.businessId || '') : '';
+    document.getElementById('goalBizSelect').value = goal ? (goal.businessId || '') : (presetBusinessId || '');
     document.getElementById('goalWhyInput').value = goal ? (goal.why || '') : '';
     document.getElementById('goalDescInput').value = goal ? (goal.description || '') : '';
     document.getElementById('goalCriteriaInput').value = goal ? (goal.successCriteria || '') : '';
@@ -2916,6 +2963,296 @@ body::after {
     renderRoutineList();
     renderHabitList();
   }
+
+  // =====================================================================
+  // Businesses — a filtered lens over Goals + Tasks, not a separate
+  // silo: "Its Goals"/"Its Tasks" below reuse buildGoalCard()/
+  // buildTaskRow() from the Goals/Tasks sections verbatim (same click-
+  // to-open-detail, same checkbox/edit behavior) rather than
+  // duplicating any goal/task rendering logic. One sub-tab per
+  // business, dynamic, driven by main:businesses.
+  // =====================================================================
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  var activeBizId = null;
+
+  function renderBizSubTabs(list) {
+    var wrap = document.getElementById('bizSubTabs');
+    wrap.innerHTML = '';
+    list.forEach(function (b) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (activeBizId === b.id ? ' active' : '');
+      chip.textContent = (b.icon || '💼') + ' ' + b.name;
+      chip.addEventListener('click', function () { activeBizId = b.id; renderBusinessesSection(); });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function buildKpiTile(biz, kpi) {
+    var tile = document.createElement('div'); tile.className = 'kpi-tile';
+    var label = document.createElement('div'); label.className = 'kpi-tile-label'; label.textContent = kpi.label;
+    tile.appendChild(label);
+
+    var current = Number(kpi.current) || 0, target = Number(kpi.target) || 0;
+    var pct = target ? Math.round(current / target * 100) : 0;
+    var color = pct >= 100 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--at-gold)';
+    var bar = document.createElement('div'); bar.className = 'std-bar';
+    var fill = document.createElement('div'); fill.className = 'std-bar-fill';
+    fill.style.width = Math.max(0, Math.min(100, pct)) + '%'; fill.style.background = color;
+    bar.appendChild(fill); tile.appendChild(bar);
+
+    var values = document.createElement('div'); values.className = 'kpi-tile-values';
+    var curSpan = document.createElement('span'); curSpan.style.color = color; curSpan.textContent = current;
+    values.appendChild(curSpan);
+    values.appendChild(document.createTextNode(' / ' + target));
+    tile.appendChild(values);
+
+    var actions = document.createElement('div'); actions.className = 'kpi-tile-actions';
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.textContent = '✎'; editBtn.setAttribute('aria-label', 'Edit KPI');
+    editBtn.addEventListener('click', function () { openKpiModal(biz, kpi); });
+    actions.appendChild(editBtn);
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete KPI');
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete this KPI?')) return;
+      var list = loadBusinesses();
+      var b = list.filter(function (x) { return x.id === biz.id; })[0];
+      if (b) b.kpis = (b.kpis || []).filter(function (k) { return k.id !== kpi.id; });
+      saveBusinesses(list);
+      renderBusinessesSection();
+    });
+    actions.appendChild(delBtn);
+    tile.appendChild(actions);
+    return tile;
+  }
+
+  function buildBizTaskQuickAdd(biz) {
+    var row = document.createElement('div'); row.className = 'at-due-add-row';
+    var titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.placeholder = 'Add a task…';
+    var dateInput = document.createElement('input'); dateInput.type = 'date';
+    var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = '+ Add';
+    function add() {
+      var title = titleInput.value.trim();
+      if (!title) return;
+      var list = loadTasks();
+      list.push({
+        id: genId('task'), title: title, note: '', status: 'todo', priority: 'medium',
+        dueDate: dateInput.value || '', lifeAreaId: null, goalId: null, milestoneId: null,
+        businessId: biz.id, habitId: null, estimateMinutes: null,
+        isDailyAction: false, recurrence: 'none', done: false, doneAt: null, createdAt: Date.now()
+      });
+      saveTasks(list);
+      titleInput.value = ''; dateInput.value = '';
+      renderBusinessesSection();
+    }
+    btn.addEventListener('click', add);
+    titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    row.appendChild(titleInput); row.appendChild(dateInput); row.appendChild(btn);
+    return row;
+  }
+
+  function buildBizNotesSection(biz) {
+    var wrap = document.createElement('div');
+    var title = document.createElement('div'); title.className = 'section-title'; title.textContent = 'Notes';
+    wrap.appendChild(title);
+    var ta = document.createElement('textarea'); ta.className = 'at-textarea'; ta.placeholder = 'Notes for this business…';
+    ta.value = biz.notes || '';
+    ta.addEventListener('input', function () { autosize(ta); });
+    ta.addEventListener('blur', function () {
+      var list = loadBusinesses();
+      var b = list.filter(function (x) { return x.id === biz.id; })[0];
+      if (b && b.notes !== ta.value) { b.notes = ta.value; saveBusinesses(list); }
+    });
+    wrap.appendChild(ta);
+    setTimeout(function () { autosize(ta); }, 0);
+    return wrap;
+  }
+
+  function renderBizPanelBody() {
+    var wrap = document.getElementById('bizPanelBody');
+    wrap.innerHTML = '';
+    var biz = activeBizId ? businessById(activeBizId) : null;
+    if (!biz) {
+      var empty = document.createElement('div'); empty.className = 'placeholder-panel';
+      empty.innerHTML = '<div class="placeholder-icon">💼</div><div class="placeholder-title">No businesses yet</div>'
+        + '<div class="placeholder-text">Tap "+ Add Business" to create your first one — each becomes its own tab here.</div>';
+      wrap.appendChild(empty);
+      return;
+    }
+
+    var header = document.createElement('div'); header.className = 'biz-header';
+    var icon = document.createElement('span'); icon.className = 'biz-header-icon'; icon.textContent = biz.icon || '💼';
+    header.appendChild(icon);
+    var name = document.createElement('span'); name.className = 'biz-header-name'; name.textContent = biz.name;
+    header.appendChild(name);
+    var actions = document.createElement('div'); actions.className = 'biz-header-actions';
+    var editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'at-mini-btn'; editBtn.textContent = '✎ Edit';
+    editBtn.addEventListener('click', function () { openBizModal(biz); });
+    actions.appendChild(editBtn);
+    var delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'at-mini-btn'; delBtn.textContent = '✕ Delete';
+    delBtn.addEventListener('click', function () { deleteBusinessWithConfirm(biz.id); });
+    actions.appendChild(delBtn);
+    header.appendChild(actions);
+    wrap.appendChild(header);
+
+    if (biz.description) {
+      var desc = document.createElement('div'); desc.className = 'biz-desc'; desc.textContent = biz.description;
+      wrap.appendChild(desc);
+    }
+
+    var kpiTitle = document.createElement('div'); kpiTitle.className = 'section-title';
+    kpiTitle.appendChild(document.createTextNode('KPIs'));
+    var addKpiBtn = document.createElement('button'); addKpiBtn.type = 'button'; addKpiBtn.className = 'at-mini-btn'; addKpiBtn.textContent = '+ Add KPI';
+    addKpiBtn.addEventListener('click', function () { openKpiModal(biz, null); });
+    kpiTitle.appendChild(addKpiBtn);
+    wrap.appendChild(kpiTitle);
+    var kpis = biz.kpis || [];
+    if (kpis.length) {
+      var kpiGrid = document.createElement('div'); kpiGrid.className = 'kpi-grid';
+      kpis.forEach(function (k) { kpiGrid.appendChild(buildKpiTile(biz, k)); });
+      wrap.appendChild(kpiGrid);
+    } else {
+      var kpiEmpty = document.createElement('div'); kpiEmpty.className = 'at-empty'; kpiEmpty.textContent = 'No KPIs yet.';
+      wrap.appendChild(kpiEmpty);
+    }
+
+    var goalsTitle = document.createElement('div'); goalsTitle.className = 'section-title';
+    goalsTitle.appendChild(document.createTextNode('Goals'));
+    var addGoalBtn = document.createElement('button'); addGoalBtn.type = 'button'; addGoalBtn.className = 'at-mini-btn'; addGoalBtn.textContent = '+ Add Goal';
+    addGoalBtn.addEventListener('click', function () { openGoalModal(null, biz.id); });
+    goalsTitle.appendChild(addGoalBtn);
+    wrap.appendChild(goalsTitle);
+    var bizGoals = loadGoals().filter(function (g) { return g.businessId === biz.id; });
+    if (bizGoals.length) {
+      bizGoals.forEach(function (g) { wrap.appendChild(buildGoalCard(g)); });
+    } else {
+      var goalsEmpty = document.createElement('div'); goalsEmpty.className = 'at-empty'; goalsEmpty.textContent = 'No goals linked to this business yet.';
+      wrap.appendChild(goalsEmpty);
+    }
+
+    var tasksTitle = document.createElement('div'); tasksTitle.className = 'section-title'; tasksTitle.textContent = 'Tasks';
+    wrap.appendChild(tasksTitle);
+    var bizTasks = loadTasks().filter(function (t) { return t.businessId === biz.id; })
+      .sort(function (a, b) { return (a.dueDate || '9999').localeCompare(b.dueDate || '9999'); });
+    if (bizTasks.length) {
+      bizTasks.forEach(function (t) { wrap.appendChild(buildTaskRow(t, renderBusinessesSection, { showTags: true, rich: true })); });
+    } else {
+      var tasksEmpty = document.createElement('div'); tasksEmpty.className = 'at-empty'; tasksEmpty.textContent = 'No tasks linked to this business yet.';
+      wrap.appendChild(tasksEmpty);
+    }
+    wrap.appendChild(buildBizTaskQuickAdd(biz));
+
+    wrap.appendChild(buildBizNotesSection(biz));
+  }
+
+  function renderBusinessesSection() {
+    var list = loadBusinesses();
+    if (!activeBizId || !list.some(function (b) { return b.id === activeBizId; })) {
+      activeBizId = list.length ? list[0].id : null;
+    }
+    renderBizSubTabs(list);
+    renderBizPanelBody();
+  }
+
+  function deleteBusinessWithConfirm(bizId) {
+    var biz = businessById(bizId);
+    if (!biz) return;
+    var linkedGoals = loadGoals().filter(function (g) { return g.businessId === bizId; }).length;
+    var linkedTasks = loadTasks().filter(function (t) { return t.businessId === bizId; }).length;
+    var msg = 'Delete "' + biz.name + '"?' + ((linkedGoals || linkedTasks)
+      ? (' ' + linkedGoals + ' goal(s) and ' + linkedTasks + ' task(s) will become unassigned, not deleted.')
+      : '');
+    if (!confirm(msg)) return;
+    saveBusinesses(loadBusinesses().filter(function (b) { return b.id !== bizId; }));
+    var goals = loadGoals(); goals.forEach(function (g) { if (g.businessId === bizId) g.businessId = null; }); saveGoals(goals);
+    var tasks = loadTasks(); tasks.forEach(function (t) { if (t.businessId === bizId) t.businessId = null; }); saveTasks(tasks);
+    if (activeBizId === bizId) activeBizId = null;
+    renderBusinessesSection();
+  }
+
+  var bizEditingId = null;
+  function openBizModal(biz) {
+    bizEditingId = biz ? biz.id : null;
+    document.getElementById('bizModalTitle').textContent = biz ? 'Edit Business' : 'Add Business';
+    document.getElementById('bizNameInput').value = biz ? biz.name : '';
+    document.getElementById('bizIconInput').value = biz ? (biz.icon || '') : '';
+    document.getElementById('bizDescInput').value = biz ? (biz.description || '') : '';
+    document.getElementById('bizModalDelete').style.display = biz ? 'block' : 'none';
+    document.getElementById('bizModalBg').classList.add('show');
+  }
+  document.getElementById('atAddBizBtn').addEventListener('click', function () { openBizModal(null); });
+  document.getElementById('bizModalCancel').addEventListener('click', function () { document.getElementById('bizModalBg').classList.remove('show'); });
+  document.getElementById('bizModalBg').addEventListener('click', function (e) { if (e.target.id === 'bizModalBg') document.getElementById('bizModalBg').classList.remove('show'); });
+  document.getElementById('bizModalSave').addEventListener('click', function () {
+    var name = document.getElementById('bizNameInput').value.trim();
+    if (!name) return;
+    var icon = document.getElementById('bizIconInput').value.trim() || '💼';
+    var description = document.getElementById('bizDescInput').value.trim();
+    var list = loadBusinesses();
+    var targetId = bizEditingId;
+    if (bizEditingId) {
+      var b = list.filter(function (x) { return x.id === bizEditingId; })[0];
+      if (b) { b.name = name; b.icon = icon; b.description = description; }
+    } else {
+      targetId = genId('biz');
+      list.push({ id: targetId, name: name, icon: icon, description: description, notes: '', kpis: [], createdAt: Date.now() });
+    }
+    saveBusinesses(list);
+    document.getElementById('bizModalBg').classList.remove('show');
+    activeBizId = targetId;
+    renderBusinessesSection();
+  });
+  document.getElementById('bizModalDelete').addEventListener('click', function () {
+    if (!bizEditingId) return;
+    document.getElementById('bizModalBg').classList.remove('show');
+    deleteBusinessWithConfirm(bizEditingId);
+  });
+
+  var kpiEditingBizId = null;
+  var kpiEditingId = null;
+  function openKpiModal(biz, kpi) {
+    kpiEditingBizId = biz.id;
+    kpiEditingId = kpi ? kpi.id : null;
+    document.getElementById('kpiModalTitle').textContent = kpi ? 'Edit KPI' : 'Add KPI';
+    document.getElementById('kpiLabelInput').value = kpi ? kpi.label : '';
+    document.getElementById('kpiCurrentInput').value = kpi ? kpi.current : '';
+    document.getElementById('kpiTargetInput').value = kpi ? kpi.target : '';
+    document.getElementById('kpiModalDelete').style.display = kpi ? 'block' : 'none';
+    document.getElementById('kpiModalBg').classList.add('show');
+  }
+  document.getElementById('kpiModalCancel').addEventListener('click', function () { document.getElementById('kpiModalBg').classList.remove('show'); });
+  document.getElementById('kpiModalBg').addEventListener('click', function (e) { if (e.target.id === 'kpiModalBg') document.getElementById('kpiModalBg').classList.remove('show'); });
+  document.getElementById('kpiModalSave').addEventListener('click', function () {
+    var label = document.getElementById('kpiLabelInput').value.trim();
+    if (!label || !kpiEditingBizId) return;
+    var current = Number(document.getElementById('kpiCurrentInput').value) || 0;
+    var target = Number(document.getElementById('kpiTargetInput').value) || 0;
+    var list = loadBusinesses();
+    var b = list.filter(function (x) { return x.id === kpiEditingBizId; })[0];
+    if (!b) return;
+    if (!b.kpis) b.kpis = [];
+    if (kpiEditingId) {
+      var k = b.kpis.filter(function (x) { return x.id === kpiEditingId; })[0];
+      if (k) { k.label = label; k.current = current; k.target = target; }
+    } else {
+      b.kpis.push({ id: genId('kpi'), label: label, current: current, target: target });
+    }
+    saveBusinesses(list);
+    document.getElementById('kpiModalBg').classList.remove('show');
+    renderBusinessesSection();
+  });
+  document.getElementById('kpiModalDelete').addEventListener('click', function () {
+    if (!kpiEditingId || !kpiEditingBizId) return;
+    if (!confirm('Delete this KPI?')) return;
+    var list = loadBusinesses();
+    var b = list.filter(function (x) { return x.id === kpiEditingBizId; })[0];
+    if (b) b.kpis = (b.kpis || []).filter(function (k) { return k.id !== kpiEditingId; });
+    saveBusinesses(list);
+    document.getElementById('kpiModalBg').classList.remove('show');
+    renderBusinessesSection();
+  });
 
   // =====================================================================
   // Clock + boot
