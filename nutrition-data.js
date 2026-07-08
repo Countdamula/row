@@ -186,9 +186,28 @@
     return { list: list, get: get, add: add, update: update, remove: remove };
   }
 
-  const Stores = makeCollection(KEYS.stores, storeModel);
   const GroceryItems = makeCollection(KEYS.groceryItems, groceryItemModel);
   const RecipeIngredients = makeCollection(KEYS.recipeIngredients, recipeIngredientModel);
+
+  // Stores.remove is wrapped to reassign that store's grocery items to
+  // "Unassigned" (storeId: null) rather than leaving them pointing at a
+  // dead store id — same cascade-on-delete convention as Recipes.remove
+  // below. (groceryItemsByStore() already falls back to Unassigned for an
+  // orphaned storeId defensively, but the persisted record should reflect
+  // reality rather than relying on that fallback forever.)
+  const StoresBase = makeCollection(KEYS.stores, storeModel);
+  const Stores = Object.assign({}, StoresBase, {
+    remove: function (id) {
+      const removed = StoresBase.remove(id);
+      if (removed) {
+        const items = GroceryItems.list();
+        let changed = false;
+        items.forEach(function (i) { if (i.storeId === id) { i.storeId = null; changed = true; } });
+        if (changed) storeSet(KEYS.groceryItems, items);
+      }
+      return removed;
+    }
+  });
 
   // Recipes.remove is wrapped to cascade-delete the recipe's own
   // ingredients, same "delete the parent, cascade to its children"
