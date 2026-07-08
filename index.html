@@ -22,16 +22,26 @@
   /* This page ("Main") merges the "Vision" and "Productivity" framing
      into one hub with six connected databases (Life Areas, Goals,
      Tasks, Habits & Routines, Businesses, Self-Discovery) plus an
-     Overview. This pass builds the shell/navigation only — every
-     section below renders a placeholder; the real per-section data
-     models and CRUD land in later prompts, reusing this same nav.
-     Same near-black wine background / dusty-rose accent tokens as the
-     rest of this app (unchanged from prior builds) — this is a
-     structural pass, not a re-theme. */
+     Overview, built section by section. This pass builds the Life
+     Areas database (the taxonomy everything else links to) inside the
+     "Life Areas" section; every other section still renders the
+     shell's placeholder. Same near-black wine background / dusty-rose
+     accent tokens as the rest of this app — this pass restores the
+     --at-purple/indigo/orange/teal identity accents (previously used
+     in an earlier Main build, stripped in the shell-only pass) as the
+     fixed, ordered palette Life Areas pick their color from. Reserved
+     status tokens (--success/--warning/--danger/--info) are
+     deliberately NOT offered as area colors — per this app's data-viz
+     conventions, status colors are reserved for state (done/warning/
+     danger), never reused as generic categorical identity. */
   --at-gold: #e08a9f;
   --at-gold-dim: rgba(224, 138, 159, 0.35);
   --at-border: rgba(224, 138, 159, 0.18);
   --at-cream: #f3e8da;
+  --at-purple: #a78bfa;
+  --at-indigo: #93a4f4;
+  --at-orange: #fb923c;
+  --at-teal: #2dd4bf;
   --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
 }
 
@@ -74,9 +84,7 @@ body::after {
 
 .page { max-width: 1180px; margin: 0 auto; }
 
-/* ===== Sub-nav (existing at-tabs pattern, reused verbatim from prior
-   Main builds — same classes topbar.js's mobile modal-lock etc. don't
-   need to know about, since this is plain in-page tab switching) ===== */
+/* ===== Sub-nav ===== */
 .at-subnav { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--at-border); }
 .at-subnav-inner { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
 .at-brand {
@@ -106,15 +114,32 @@ body::after {
 
 .at-col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .at-col-head h2 { font-size: 17px; margin: 0; font-weight: 700; color: var(--text-primary); font-family: var(--font-serif); }
+.at-col-actions { display: flex; gap: 6px; }
+.at-mini-btn {
+  padding: 6px 11px; border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  border-radius: 8px; font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.at-mini-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.at-empty { font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 10px 2px; }
+
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin: 22px 0 12px;
+}
+.section-title:first-child { margin-top: 0; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
 
 /* ===== Placeholder panel (shared shape for every not-yet-built section) ===== */
 .placeholder-panel {
   background: rgba(255,255,255,0.035); border: 1px dashed var(--at-border);
   border-radius: 16px; padding: 52px 24px; text-align: center;
 }
+.placeholder-panel-sm { padding: 20px; text-align: left; }
 .placeholder-icon { font-size: 30px; margin-bottom: 12px; }
 .placeholder-title { font-family: var(--font-serif); font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
 .placeholder-text { font-size: 13px; color: var(--text-tertiary); max-width: 440px; margin: 0 auto; line-height: 1.6; }
+.placeholder-panel-sm .placeholder-text { max-width: none; margin: 0; font-size: 12.5px; }
 
 /* Businesses: illustrative mock of the dynamic sub-tabs that will
    appear here once the Business data model lands, not real UI yet. */
@@ -123,6 +148,99 @@ body::after {
   padding: 6px 14px; border: 1px dashed var(--at-border); border-radius: 999px;
   font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono);
 }
+
+/* ===== Wheel of Life summary ===== */
+.wheel-card {
+  background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 16px;
+  padding: 20px; margin-bottom: 22px; display: flex; flex-direction: column; align-items: center;
+}
+.wheel-svg-wrap { width: 100%; max-width: 380px; }
+.wheel-svg-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
+.wheel-legend { display: flex; gap: 20px; margin-top: 12px; }
+.wheel-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.wheel-legend-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.wheel-legend-current { background: var(--at-gold); }
+.wheel-legend-target { background: transparent; border: 1.5px solid rgba(255,255,255,0.45); }
+
+/* ===== Life Areas grid ===== */
+.area-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.area-card {
+  background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 14px;
+  padding: 16px 18px; cursor: pointer; position: relative; transition: background 0.15s;
+}
+.area-card:hover { background: rgba(255,255,255,0.06); }
+.area-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.area-card-reorder { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.area-card-reorder button {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--text-tertiary);
+  width: 16px; height: 13px; border-radius: 3px; cursor: pointer; font-size: 8px; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.area-card-reorder button:hover:not(:disabled) { color: var(--text-primary); background: rgba(255,255,255,0.12); }
+.area-card-reorder button:disabled { opacity: 0.2; cursor: default; }
+.area-card-icon { font-size: 19px; flex-shrink: 0; }
+.area-card-name { font-family: var(--font-serif); font-size: 15px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.area-card-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.area-card-score-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.area-card-score { font-family: var(--font-serif); font-size: 21px; font-weight: 700; color: var(--text-primary); }
+.area-card-score-max { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.area-card-target-label { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.area-meter { position: relative; height: 8px; border-radius: 999px; background: rgba(224,138,159,0.12); margin-top: 9px; }
+.area-meter-fill { height: 100%; border-radius: 999px; background: var(--at-gold); }
+.area-meter-target { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--text-primary); opacity: 0.55; border-radius: 1px; }
+.area-card-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+.area-card:hover .area-card-actions { opacity: 1; }
+.area-card-actions button { background: rgba(0,0,0,0.35); border: none; color: var(--text-tertiary); width: 22px; height: 22px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.area-card-actions button:hover { color: var(--text-primary); }
+
+.color-chip-row { display: flex; flex-wrap: wrap; gap: 9px; }
+.color-chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.color-chip.active { border-color: var(--text-primary); }
+
+/* ===== Life Area detail (wide modal variant) ===== */
+.modal-wide { max-width: 640px; }
+.area-detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.area-detail-icon { font-size: 30px; flex-shrink: 0; }
+.area-detail-name-wrap { flex: 1; min-width: 0; }
+.area-detail-name-wrap h3 { margin: 0; }
+.area-detail-scoreline { font-family: var(--font-mono); font-size: 12px; color: var(--at-gold); margin-top: 2px; }
+.area-detail-head .at-mini-btn { flex-shrink: 0; }
+.area-detail-vision { font-family: var(--font-serif); font-style: italic; font-size: 15px; color: var(--at-gold); line-height: 1.6; margin-bottom: 14px; }
+.area-detail-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px; white-space: pre-wrap; }
+
+/* ===== Shared chip / modal / field / button kit ===== */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.modal-bg {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 100; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 460px; background: #111113; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
+.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.field input[type="text"], .field textarea, .field select {
+  padding: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary);
+  border-radius: 10px; font-family: inherit; font-size: 14px; width: 100%;
+}
+.field textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+.field input[type="range"] { accent-color: var(--at-gold); width: 100%; }
+.btn-primary {
+  width: 100%; padding: 13px; border: 1px solid rgba(243,232,218,0.85);
+  background: linear-gradient(180deg, var(--at-cream) 0%, #d9a0ae 100%);
+  color: #2a0d14; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
+}
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-secondary {
+  padding: 11px 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.modal-actions button { flex: 1; }
+.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 6px; }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
@@ -159,13 +277,25 @@ body::after {
     </div>
   </div>
 
+  <!-- ============ LIFE AREAS ============ -->
   <div class="at-tabpanel" id="atPanelAreas" hidden>
-    <div class="at-col-head"><h2>Life Areas</h2></div>
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">🌱</div>
-      <div class="placeholder-title">Life Areas coming soon</div>
-      <div class="placeholder-text">The Life Areas database — the top-level groupings your Goals connect to — will be built here in a later pass.</div>
+    <div class="at-col-head">
+      <h2>Life Areas</h2>
+      <div class="at-col-actions"><button type="button" class="at-mini-btn" id="atAddAreaBtn">+ Add Area</button></div>
     </div>
+
+    <div class="wheel-card" id="wheelCard">
+      <div class="wheel-svg-wrap"><svg id="wheelSvg" viewBox="0 0 340 340"></svg></div>
+      <div class="wheel-legend">
+        <span class="wheel-legend-item"><span class="wheel-legend-swatch wheel-legend-current"></span>Current</span>
+        <span class="wheel-legend-item"><span class="wheel-legend-swatch wheel-legend-target"></span>Target</span>
+      </div>
+    </div>
+    <div class="at-empty" id="wheelEmpty" hidden>Add at least 3 life areas to see the wheel-of-life summary.</div>
+
+    <div class="section-title">All Areas</div>
+    <div class="area-grid" id="areaGrid"></div>
+    <div class="at-empty" id="areaEmpty" hidden>No life areas yet — add one to start building your taxonomy.</div>
   </div>
 
   <div class="at-tabpanel" id="atPanelGoals" hidden>
@@ -220,10 +350,79 @@ body::after {
 
 </div>
 
+<!-- Add / Edit Life Area modal -->
+<div class="modal-bg" id="areaModalBg">
+  <div class="modal">
+    <h3 id="areaModalTitle">Add Life Area</h3>
+    <div class="field"><label>Name</label><input type="text" id="areaNameInput" placeholder="e.g. Health"></div>
+    <div class="field"><label>Icon</label><input type="text" id="areaIconInput" placeholder="🌱" maxlength="4"></div>
+    <div class="field"><label>Color</label><div class="color-chip-row" id="areaColorRow"></div></div>
+    <div class="field"><label>Vision statement</label><textarea id="areaVisionInput" placeholder="What does thriving in this area look like?"></textarea></div>
+    <div class="field"><label>Description (optional)</label><textarea id="areaDescInput" placeholder="Notes about this area…"></textarea></div>
+    <div class="field"><label>Current score (<span id="areaCurrentVal">5</span>/10)</label><input type="range" min="0" max="10" id="areaCurrentInput"></div>
+    <div class="field"><label>Target score (<span id="areaTargetVal">8</span>/10)</label><input type="range" min="0" max="10" id="areaTargetInput"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="areaModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="areaModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="areaModalDelete" style="display:none">Delete this area</span>
+  </div>
+</div>
+
+<!-- Life Area detail view -->
+<div class="modal-bg" id="areaDetailModalBg">
+  <div class="modal modal-wide">
+    <div class="area-detail-head">
+      <span class="area-detail-icon" id="adIcon"></span>
+      <div class="area-detail-name-wrap">
+        <h3 id="adName"></h3>
+        <div class="area-detail-scoreline" id="adScoreline"></div>
+      </div>
+      <button type="button" class="at-mini-btn" id="adEditBtn">✎ Edit</button>
+    </div>
+    <div class="area-detail-vision" id="adVision"></div>
+    <div class="area-detail-desc" id="adDesc"></div>
+
+    <div class="section-title">Linked Goals</div>
+    <div class="placeholder-panel placeholder-panel-sm">
+      <div class="placeholder-text">Goals will link here once the Goals database is built.</div>
+    </div>
+    <div class="section-title">Linked Habits</div>
+    <div class="placeholder-panel placeholder-panel-sm">
+      <div class="placeholder-text">Habits will link here once the Habits &amp; Routines database is built.</div>
+    </div>
+    <div class="section-title">Open Tasks</div>
+    <div class="placeholder-panel placeholder-panel-sm">
+      <div class="placeholder-text">Tasks will link here once the Tasks database is built.</div>
+    </div>
+
+    <div class="modal-actions"><button class="btn-secondary" type="button" id="adCloseBtn" style="flex:none; width:100%;">Close</button></div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
 
+  // ---------- storage helpers ----------
+  function storeGet(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
+  }
+  function storeSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    if (typeof key === 'string' && key.indexOf('main:') === 0) {
+      window.dispatchEvent(new CustomEvent('goals-changed'));
+      window.dispatchEvent(new Event('storage'));
+    }
+  }
+  function genId(prefix) {
+    return (prefix || 'x') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  // =====================================================================
+  // Tabs — URL-shareable via the hash (index.html#areas etc.)
+  // =====================================================================
   var TABS = ['overview', 'areas', 'goals', 'tasks', 'habits', 'businesses', 'self'];
   var PANEL_ID = {
     overview: 'atPanelOverview', areas: 'atPanelAreas', goals: 'atPanelGoals',
@@ -234,11 +433,9 @@ body::after {
     var h = (location.hash || '').replace('#', '').trim();
     return TABS.indexOf(h) !== -1 ? h : 'overview';
   }
-
-  // URL-shareable section state: the active section lives in the hash
-  // (index.html#tasks etc.) so a section is linkable/bookmarkable. This
-  // app has no router, so history.replaceState is used directly rather
-  // than reloading anything — same-page, no navigation.
+  function renderSection(tab) {
+    if (tab === 'areas') renderAreasSection();
+  }
   function switchTab(tab, opts) {
     if (TABS.indexOf(tab) === -1) tab = 'overview';
     document.querySelectorAll('.at-tab').forEach(function (b) {
@@ -247,6 +444,7 @@ body::after {
     TABS.forEach(function (t) {
       document.getElementById(PANEL_ID[t]).hidden = t !== tab;
     });
+    renderSection(tab);
     if (!opts || !opts.skipHash) {
       var newHash = '#' + tab;
       if (location.hash !== newHash) history.replaceState(null, '', newHash);
@@ -261,7 +459,343 @@ body::after {
     switchTab(tabFromHash(), { skipHash: true });
   });
 
-  function pad2(n) { return String(n).padStart(2, '0'); }
+  // =====================================================================
+  // Life Areas — the taxonomy database. main:areas = [{ id, name,
+  // description, visionStatement, currentScore, targetScore, color,
+  // icon, order, createdAt }]
+  // =====================================================================
+  var AREA_COLORS = [
+    { key: 'gold', v: '--at-gold' },
+    { key: 'purple', v: '--at-purple' },
+    { key: 'indigo', v: '--at-indigo' },
+    { key: 'orange', v: '--at-orange' },
+    { key: 'teal', v: '--at-teal' }
+  ];
+  function areaColorVar(key) {
+    var found = AREA_COLORS.filter(function (c) { return c.key === key; })[0];
+    return 'var(' + (found ? found.v : '--at-gold') + ')';
+  }
+  function loadAreas() {
+    var a = storeGet('main:areas');
+    var list = Array.isArray(a) ? a : [];
+    return list.slice().sort(function (x, y) { return (x.order || 0) - (y.order || 0); });
+  }
+  function saveAreas(list) { storeSet('main:areas', list); }
+  function areaById(id) { return loadAreas().filter(function (a) { return a.id === id; })[0] || null; }
+  function nextAreaOrder() {
+    var areas = loadAreas();
+    return areas.length ? Math.max.apply(null, areas.map(function (a) { return a.order || 0; })) + 1 : 0;
+  }
+
+  // ---------- Add / Edit modal ----------
+  var areaEditingId = null;
+  var areaSelectedColor = 'gold';
+  function renderAreaColorRow() {
+    var wrap = document.getElementById('areaColorRow');
+    wrap.innerHTML = '';
+    AREA_COLORS.forEach(function (c) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'color-chip' + (areaSelectedColor === c.key ? ' active' : '');
+      chip.style.background = 'var(' + c.v + ')';
+      chip.setAttribute('aria-label', c.key);
+      chip.addEventListener('click', function () { areaSelectedColor = c.key; renderAreaColorRow(); });
+      wrap.appendChild(chip);
+    });
+  }
+  function openAreaModal(area) {
+    areaEditingId = area ? area.id : null;
+    areaSelectedColor = area ? (area.color || 'gold') : 'gold';
+    document.getElementById('areaModalTitle').textContent = area ? 'Edit Life Area' : 'Add Life Area';
+    document.getElementById('areaNameInput').value = area ? area.name : '';
+    document.getElementById('areaIconInput').value = area ? (area.icon || '') : '';
+    document.getElementById('areaVisionInput').value = area ? (area.visionStatement || '') : '';
+    document.getElementById('areaDescInput').value = area ? (area.description || '') : '';
+    var current = area ? (area.currentScore != null ? area.currentScore : 5) : 5;
+    var target = area ? (area.targetScore != null ? area.targetScore : 8) : 8;
+    document.getElementById('areaCurrentInput').value = current;
+    document.getElementById('areaCurrentVal').textContent = current;
+    document.getElementById('areaTargetInput').value = target;
+    document.getElementById('areaTargetVal').textContent = target;
+    renderAreaColorRow();
+    document.getElementById('areaModalDelete').style.display = area ? 'block' : 'none';
+    document.getElementById('areaModalBg').classList.add('show');
+  }
+  function closeAreaModal() { document.getElementById('areaModalBg').classList.remove('show'); areaEditingId = null; }
+  document.getElementById('atAddAreaBtn').addEventListener('click', function () { openAreaModal(null); });
+  document.getElementById('areaModalCancel').addEventListener('click', closeAreaModal);
+  document.getElementById('areaModalBg').addEventListener('click', function (e) { if (e.target.id === 'areaModalBg') closeAreaModal(); });
+  document.getElementById('areaCurrentInput').addEventListener('input', function (e) { document.getElementById('areaCurrentVal').textContent = e.target.value; });
+  document.getElementById('areaTargetInput').addEventListener('input', function (e) { document.getElementById('areaTargetVal').textContent = e.target.value; });
+  document.getElementById('areaModalSave').addEventListener('click', function () {
+    var name = document.getElementById('areaNameInput').value.trim();
+    if (!name) return;
+    var icon = document.getElementById('areaIconInput').value.trim() || '🌱';
+    var visionStatement = document.getElementById('areaVisionInput').value.trim();
+    var description = document.getElementById('areaDescInput').value.trim();
+    var currentScore = Number(document.getElementById('areaCurrentInput').value) || 0;
+    var targetScore = Number(document.getElementById('areaTargetInput').value) || 0;
+    var list = loadAreas();
+    if (areaEditingId) {
+      var a = list.filter(function (x) { return x.id === areaEditingId; })[0];
+      if (a) {
+        a.name = name; a.icon = icon; a.color = areaSelectedColor;
+        a.visionStatement = visionStatement; a.description = description;
+        a.currentScore = currentScore; a.targetScore = targetScore;
+      }
+    } else {
+      list.push({
+        id: genId('area'), name: name, icon: icon, color: areaSelectedColor,
+        visionStatement: visionStatement, description: description,
+        currentScore: currentScore, targetScore: targetScore,
+        order: nextAreaOrder(), createdAt: Date.now()
+      });
+    }
+    saveAreas(list);
+    closeAreaModal();
+    renderAreasSection();
+  });
+  document.getElementById('areaModalDelete').addEventListener('click', function () {
+    if (!areaEditingId) return;
+    if (!confirm('Delete this life area?')) return;
+    saveAreas(loadAreas().filter(function (a) { return a.id !== areaEditingId; }));
+    closeAreaModal();
+    document.getElementById('areaDetailModalBg').classList.remove('show');
+    renderAreasSection();
+  });
+
+  // ---------- Detail view ----------
+  var detailAreaId = null;
+  function openAreaDetail(area) {
+    detailAreaId = area.id;
+    document.getElementById('adIcon').textContent = area.icon || '🌱';
+    document.getElementById('adName').textContent = area.name;
+    document.getElementById('adScoreline').textContent = 'Current ' + (area.currentScore || 0) + '/10 · Target ' + (area.targetScore != null ? area.targetScore : 10) + '/10';
+    var visionEl = document.getElementById('adVision');
+    if (area.visionStatement) { visionEl.textContent = '“' + area.visionStatement + '”'; visionEl.style.display = ''; }
+    else { visionEl.textContent = ''; visionEl.style.display = 'none'; }
+    var descEl = document.getElementById('adDesc');
+    descEl.textContent = area.description || '';
+    descEl.style.display = area.description ? '' : 'none';
+    document.getElementById('areaDetailModalBg').classList.add('show');
+  }
+  document.getElementById('adCloseBtn').addEventListener('click', function () {
+    document.getElementById('areaDetailModalBg').classList.remove('show');
+    detailAreaId = null;
+  });
+  document.getElementById('areaDetailModalBg').addEventListener('click', function (e) {
+    if (e.target.id === 'areaDetailModalBg') { document.getElementById('areaDetailModalBg').classList.remove('show'); detailAreaId = null; }
+  });
+  document.getElementById('adEditBtn').addEventListener('click', function () {
+    if (!detailAreaId) return;
+    var area = areaById(detailAreaId);
+    document.getElementById('areaDetailModalBg').classList.remove('show');
+    if (area) openAreaModal(area);
+  });
+
+  // ---------- Reordering ----------
+  function moveArea(id, dir) {
+    var ordered = loadAreas();
+    var idx = ordered.map(function (a) { return a.id; }).indexOf(id);
+    var swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= ordered.length) return;
+    var tmp = ordered[idx].order;
+    ordered[idx].order = ordered[swapIdx].order;
+    ordered[swapIdx].order = tmp;
+    saveAreas(ordered);
+    renderAreasSection();
+  }
+
+  // ---------- Grid render ----------
+  function buildAreaCard(area, index, total) {
+    var card = document.createElement('div');
+    card.className = 'area-card';
+    card.addEventListener('click', function () { openAreaDetail(area); });
+
+    var top = document.createElement('div');
+    top.className = 'area-card-top';
+
+    var reorder = document.createElement('div');
+    reorder.className = 'area-card-reorder';
+    var upBtn = document.createElement('button');
+    upBtn.type = 'button'; upBtn.textContent = '▲'; upBtn.setAttribute('aria-label', 'Move up');
+    upBtn.disabled = index === 0;
+    upBtn.addEventListener('click', function (e) { e.stopPropagation(); moveArea(area.id, -1); });
+    var downBtn = document.createElement('button');
+    downBtn.type = 'button'; downBtn.textContent = '▼'; downBtn.setAttribute('aria-label', 'Move down');
+    downBtn.disabled = index === total - 1;
+    downBtn.addEventListener('click', function (e) { e.stopPropagation(); moveArea(area.id, 1); });
+    reorder.appendChild(upBtn); reorder.appendChild(downBtn);
+    top.appendChild(reorder);
+
+    var icon = document.createElement('span');
+    icon.className = 'area-card-icon'; icon.textContent = area.icon || '🌱';
+    top.appendChild(icon);
+    var name = document.createElement('span');
+    name.className = 'area-card-name'; name.textContent = area.name;
+    top.appendChild(name);
+    var dot = document.createElement('span');
+    dot.className = 'area-card-dot'; dot.style.background = areaColorVar(area.color);
+    top.appendChild(dot);
+    card.appendChild(top);
+
+    var scoreRow = document.createElement('div');
+    scoreRow.className = 'area-card-score-row';
+    var scoreWrap = document.createElement('div');
+    var score = document.createElement('span');
+    score.className = 'area-card-score'; score.textContent = area.currentScore != null ? area.currentScore : 0;
+    scoreWrap.appendChild(score);
+    var scoreMax = document.createElement('span');
+    scoreMax.className = 'area-card-score-max'; scoreMax.textContent = ' / 10';
+    scoreWrap.appendChild(scoreMax);
+    scoreRow.appendChild(scoreWrap);
+    var targetLabel = document.createElement('span');
+    targetLabel.className = 'area-card-target-label';
+    targetLabel.textContent = 'target ' + (area.targetScore != null ? area.targetScore : 10);
+    scoreRow.appendChild(targetLabel);
+    card.appendChild(scoreRow);
+
+    var meter = document.createElement('div');
+    meter.className = 'area-meter';
+    var fill = document.createElement('div');
+    fill.className = 'area-meter-fill';
+    fill.style.width = (Math.max(0, Math.min(10, area.currentScore || 0)) / 10 * 100) + '%';
+    fill.style.background = areaColorVar(area.color);
+    meter.appendChild(fill);
+    if (area.targetScore != null) {
+      var tick = document.createElement('div');
+      tick.className = 'area-meter-target';
+      tick.style.left = (Math.max(0, Math.min(10, area.targetScore)) / 10 * 100) + '%';
+      meter.appendChild(tick);
+    }
+    card.appendChild(meter);
+
+    var actions = document.createElement('div');
+    actions.className = 'area-card-actions';
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.textContent = '✎'; editBtn.setAttribute('aria-label', 'Edit');
+    editBtn.addEventListener('click', function (e) { e.stopPropagation(); openAreaModal(area); });
+    actions.appendChild(editBtn);
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete');
+    delBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete "' + area.name + '"?')) return;
+      saveAreas(loadAreas().filter(function (a) { return a.id !== area.id; }));
+      renderAreasSection();
+    });
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+
+    return card;
+  }
+  function renderAreaGrid() {
+    var areas = loadAreas();
+    var grid = document.getElementById('areaGrid');
+    grid.innerHTML = '';
+    document.getElementById('areaEmpty').hidden = areas.length !== 0;
+    areas.forEach(function (area, i) { grid.appendChild(buildAreaCard(area, i, areas.length)); });
+  }
+
+  // ---------- Wheel of Life summary (inline SVG radar) ----------
+  var WHEEL_NS = 'http://www.w3.org/2000/svg';
+  function wheelPoint(cx, cy, maxR, scoreMax, i, n, value) {
+    var angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    var r = (Math.max(0, Math.min(scoreMax, value)) / scoreMax) * maxR;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), angle: angle };
+  }
+  function renderWheel() {
+    var areas = loadAreas();
+    var card = document.getElementById('wheelCard');
+    var empty = document.getElementById('wheelEmpty');
+    if (areas.length < 3) { card.hidden = true; empty.hidden = false; return; }
+    card.hidden = false; empty.hidden = true;
+
+    var svg = document.getElementById('wheelSvg');
+    svg.innerHTML = '';
+    var size = 340, cx = size / 2, cy = size / 2, maxR = 112, scoreMax = 10, n = areas.length;
+    svg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+
+    [2, 4, 6, 8, 10].forEach(function (v) {
+      var ring = document.createElementNS(WHEEL_NS, 'circle');
+      ring.setAttribute('cx', cx); ring.setAttribute('cy', cy);
+      ring.setAttribute('r', (v / scoreMax) * maxR);
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', 'rgba(255,255,255,0.07)');
+      ring.setAttribute('stroke-width', '1');
+      svg.appendChild(ring);
+    });
+
+    areas.forEach(function (area, i) {
+      var axis = wheelPoint(cx, cy, maxR, scoreMax, i, n, scoreMax);
+      var line = document.createElementNS(WHEEL_NS, 'line');
+      line.setAttribute('x1', cx); line.setAttribute('y1', cy);
+      line.setAttribute('x2', axis.x); line.setAttribute('y2', axis.y);
+      line.setAttribute('stroke', 'rgba(255,255,255,0.07)');
+      line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+
+      var labelR = maxR + 26;
+      var lx = cx + labelR * Math.cos(axis.angle), ly = cy + labelR * Math.sin(axis.angle);
+      var text = document.createElementNS(WHEEL_NS, 'text');
+      text.setAttribute('x', lx); text.setAttribute('y', ly);
+      var cos = Math.cos(axis.angle);
+      text.setAttribute('text-anchor', Math.abs(cos) < 0.2 ? 'middle' : (cos > 0 ? 'start' : 'end'));
+      text.setAttribute('dominant-baseline', 'middle');
+      text.setAttribute('fill', 'var(--text-secondary)');
+      text.setAttribute('font-size', '10.5');
+      text.setAttribute('font-family', 'var(--font)');
+      text.setAttribute('font-weight', '600');
+      text.textContent = (area.icon || '') + ' ' + area.name;
+      svg.appendChild(text);
+    });
+
+    var targetPts = areas.map(function (a, i) {
+      var p = wheelPoint(cx, cy, maxR, scoreMax, i, n, a.targetScore != null ? a.targetScore : scoreMax);
+      return p.x + ',' + p.y;
+    }).join(' ');
+    var targetPoly = document.createElementNS(WHEEL_NS, 'polygon');
+    targetPoly.setAttribute('points', targetPts);
+    targetPoly.setAttribute('fill', 'none');
+    targetPoly.setAttribute('stroke', 'rgba(255,255,255,0.4)');
+    targetPoly.setAttribute('stroke-width', '1.5');
+    targetPoly.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(targetPoly);
+
+    var currentPts = areas.map(function (a, i) {
+      var p = wheelPoint(cx, cy, maxR, scoreMax, i, n, a.currentScore || 0);
+      return p.x + ',' + p.y;
+    }).join(' ');
+    var currentPoly = document.createElementNS(WHEEL_NS, 'polygon');
+    currentPoly.setAttribute('points', currentPts);
+    currentPoly.setAttribute('fill', 'var(--at-gold)');
+    currentPoly.setAttribute('fill-opacity', '0.14');
+    currentPoly.setAttribute('stroke', 'var(--at-gold)');
+    currentPoly.setAttribute('stroke-width', '2');
+    currentPoly.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(currentPoly);
+
+    areas.forEach(function (area, i) {
+      var p = wheelPoint(cx, cy, maxR, scoreMax, i, n, area.currentScore || 0);
+      var haloRing = document.createElementNS(WHEEL_NS, 'circle');
+      haloRing.setAttribute('cx', p.x); haloRing.setAttribute('cy', p.y); haloRing.setAttribute('r', '6.5');
+      haloRing.setAttribute('fill', '#0b0509');
+      svg.appendChild(haloRing);
+      var dot = document.createElementNS(WHEEL_NS, 'circle');
+      dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y); dot.setAttribute('r', '4.5');
+      dot.setAttribute('fill', areaColorVar(area.color));
+      svg.appendChild(dot);
+    });
+  }
+
+  function renderAreasSection() {
+    renderWheel();
+    renderAreaGrid();
+  }
+
+  // =====================================================================
+  // Clock + boot
+  // =====================================================================
   function tickClock() {
     var el = document.getElementById('atClock');
     var d = new Date();
@@ -274,15 +808,14 @@ body::after {
   switchTab(tabFromHash(), { skipHash: true });
   tickClock();
   setInterval(tickClock, 1000);
+
+  window.addEventListener('goals-changed', function () { renderSection(tabFromHash()); });
+  window.addEventListener('storage', function () { renderSection(tabFromHash()); });
 })();
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
-  // No data keys are written yet in this shell-only pass — appKey/
-  // syncedPrefixes kept as-is (same Supabase row this page has always
-  // used) so the later prompts that add main:* data don't need to
-  // touch this wiring at all.
   initCloudSync({
     appKey: 'goals',
     syncedPrefixes: ['goals:', 'main:']
