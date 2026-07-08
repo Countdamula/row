@@ -19,36 +19,19 @@
   --info: #7DD3FC;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* This page ("Main", formerly "Goals") was rebuilt to match a two-photo
-     reference: a dark habit-tracker/briefing dashboard called ATHENA
-     (Today/Week/Month/Year/Memories tabs, stat tiles, biometric sparkline
-     rows, a two-column Daily Tasks grid with streak flames and AUTO tags,
-     Due Today/Due Soon, a Journal column, and a "Morning Briefing" callout).
-     Simplifications, since this app has no wearable/device integration:
-     Recovery/Strain/Sleep/RHR/TEMP/RESP are manually logged per day (click
-     to edit) rather than device-synced, and the Morning Briefing is a
-     plain editable callout pre-filled with the reference photo's example
-     copy, not an AI-generated summary.
-
-     Color grading below was then re-graded a second time to match this
-     app's own Brain Dump / Media pages exactly: same near-black wine
-     background (#0b0509/#170a12), same dusty-rose brand accent (#e08a9f,
-     kept under the name --at-gold per this codebase's existing convention
-     of retinting a token without renaming it — see braindump.html/
-     entertainment.html), same cream button gradient, and the same
-     rose-tinted card borders (--at-border) instead of plain white ones.
-     --at-purple/--at-indigo/--at-orange/--at-teal are untouched — they
-     distinguish Strain/Sleep/TEMP/RESP from each other and from the
-     brand accent, not brand chrome, matching the precedent elsewhere in
-     this app of leaving semantic/data colors alone during a re-grade. */
+  /* This page ("Main") merges the "Vision" and "Productivity" framing
+     into one hub with six connected databases (Life Areas, Goals,
+     Tasks, Habits & Routines, Businesses, Self-Discovery) plus an
+     Overview. This pass builds the shell/navigation only — every
+     section below renders a placeholder; the real per-section data
+     models and CRUD land in later prompts, reusing this same nav.
+     Same near-black wine background / dusty-rose accent tokens as the
+     rest of this app (unchanged from prior builds) — this is a
+     structural pass, not a re-theme. */
   --at-gold: #e08a9f;
   --at-gold-dim: rgba(224, 138, 159, 0.35);
   --at-border: rgba(224, 138, 159, 0.18);
   --at-cream: #f3e8da;
-  --at-purple: #a78bfa;
-  --at-indigo: #93a4f4;
-  --at-orange: #fb923c;
-  --at-teal: #2dd4bf;
   --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
 }
 
@@ -91,7 +74,9 @@ body::after {
 
 .page { max-width: 1180px; margin: 0 auto; }
 
-/* ===== ATHENA sub-nav ===== */
+/* ===== Sub-nav (existing at-tabs pattern, reused verbatim from prior
+   Main builds — same classes topbar.js's mobile modal-lock etc. don't
+   need to know about, since this is plain in-page tab switching) ===== */
 .at-subnav { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--at-border); }
 .at-subnav-inner { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
 .at-brand {
@@ -99,7 +84,7 @@ body::after {
   font-size: 19px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--at-gold);
 }
-.at-tabs { display: flex; gap: 22px; flex-wrap: wrap; }
+.at-tabs { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
 .at-tab {
   background: none; border: none; padding: 6px 0; margin-bottom: 8px;
   font-family: inherit; font-size: 14px; font-weight: 600;
@@ -119,282 +104,30 @@ body::after {
 .at-tabpanel { animation: at-fade 0.2s ease; }
 @keyframes at-fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* ===== Stat tiles ===== */
-.at-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.at-tile {
-  background: rgba(255,255,255,0.035); border: 1px solid var(--at-border);
-  border-radius: 14px; padding: 14px 16px;
-}
-.at-tile-top { display: flex; align-items: baseline; gap: 9px; }
-.at-tile-icon { font-size: 15px; flex-shrink: 0; }
-.at-tile-num { font-family: var(--font-serif); font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.at-tile-num-gold { color: var(--at-gold); }
-.at-tile-num-green { color: var(--success); }
-.at-tile-num-purple { color: var(--at-purple); }
-.at-tile-num-indigo { color: var(--at-indigo); }
-.at-tile-label { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
-.at-tile-sub {
-  font-size: 11px; color: var(--text-tertiary); margin-top: 4px; min-height: 14px;
-  outline: none; border-radius: 4px; padding: 1px 3px; margin-left: -3px; cursor: text;
-}
-.at-tile-sub[contenteditable="true"] { background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.14); }
-.at-tile-sub:empty::before { content: 'tap to add details'; opacity: 0.6; font-style: italic; }
+.at-col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.at-col-head h2 { font-size: 17px; margin: 0; font-weight: 700; color: var(--text-primary); font-family: var(--font-serif); }
 
-/* ===== Biometric sparkline rows ===== */
-.at-metrics { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-.at-metric-row {
-  display: flex; align-items: center; gap: 14px;
-  background: rgba(255,255,255,0.03); border: 1px solid var(--at-border);
-  border-radius: 10px; padding: 9px 14px;
+/* ===== Placeholder panel (shared shape for every not-yet-built section) ===== */
+.placeholder-panel {
+  background: rgba(255,255,255,0.035); border: 1px dashed var(--at-border);
+  border-radius: 16px; padding: 52px 24px; text-align: center;
 }
-.at-metric-label {
-  width: 56px; flex-shrink: 0;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.at-metric-spark { flex: 1; height: 22px; min-width: 40px; }
-.at-metric-val {
-  font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
-  color: var(--text-primary); white-space: nowrap; cursor: pointer; outline: none;
-  border-radius: 4px; padding: 2px 4px;
-}
-.at-metric-val[contenteditable="true"] { background: rgba(0,0,0,0.28); box-shadow: 0 0 0 1px rgba(255,255,255,0.14); }
+.placeholder-icon { font-size: 30px; margin-bottom: 12px; }
+.placeholder-title { font-family: var(--font-serif); font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.placeholder-text { font-size: 13px; color: var(--text-tertiary); max-width: 440px; margin: 0 auto; line-height: 1.6; }
 
-/* ===== 3-column layout ===== */
-.at-grid { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 20px; }
-@media (max-width: 900px) { .at-grid { grid-template-columns: 1fr; } }
-.at-col {
-  background: rgba(255,255,255,0.035); border: 1px solid var(--at-border);
-  border-radius: 16px; padding: 18px 20px;
+/* Businesses: illustrative mock of the dynamic sub-tabs that will
+   appear here once the Business data model lands, not real UI yet. */
+.biz-subtabs-mock { display: flex; gap: 8px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.biz-subtab-ghost {
+  padding: 6px 14px; border: 1px dashed var(--at-border); border-radius: 999px;
+  font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono);
 }
-.at-col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.at-col h2 { font-size: 15px; margin: 0; font-weight: 700; color: var(--text-primary); }
-.at-col h2.at-gold-h2 { color: var(--at-gold); font-size: 13px; margin-top: 18px; margin-bottom: 8px; }
-.at-col-actions { display: flex; gap: 6px; }
-.at-mini-btn {
-  padding: 6px 11px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
-  border-radius: 8px; font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
-}
-.at-mini-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.at-empty { font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 10px 2px; }
-
-/* Daily Tasks */
-.at-task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-@media (max-width: 520px) { .at-task-grid { grid-template-columns: 1fr; } }
-.at-task {
-  display: flex; align-items: flex-start; gap: 9px;
-  padding: 8px 9px; border-radius: 10px;
-  background: rgba(255,255,255,0.02); border: 1px solid transparent;
-}
-.at-task.at-task-pending { background: rgba(224, 138, 159,0.07); border-color: rgba(224, 138, 159,0.28); }
-.at-task-check {
-  width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
-  border: 1.5px solid rgba(255,255,255,0.22); background: transparent;
-  display: flex; align-items: center; justify-content: center;
-  color: transparent; font-size: 11px; font-weight: 900; cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-.at-task-check.done { background: var(--at-gold); border-color: var(--at-gold); color: #2a0d14; }
-.at-task-body { flex: 1; min-width: 0; cursor: pointer; }
-.at-task-title { font-size: 13px; color: var(--text-primary); line-height: 1.3; }
-.at-task.at-task-done .at-task-title { color: var(--text-tertiary); text-decoration: line-through; }
-.at-task-note { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; }
-.at-task-meta { display: flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: auto; padding-top: 1px; }
-.at-task-streak { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); white-space: nowrap; }
-.at-task-auto {
-  font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em;
-  padding: 2px 5px; border: 1px solid rgba(224, 138, 159,0.4);
-  color: var(--at-gold); border-radius: 5px; white-space: nowrap;
-}
-
-/* Due Today / Due Soon */
-.at-due-card {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 11px; margin-bottom: 7px;
-  background: rgba(255,255,255,0.03); border-left: 2px solid var(--at-gold); border-radius: 8px;
-}
-.at-due-check {
-  width: 17px; height: 17px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px solid rgba(255,255,255,0.22); background: transparent; cursor: pointer;
-}
-.at-due-title { flex: 1; font-size: 12.5px; color: var(--text-primary); }
-.at-due-date { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
-.at-due-del { background: none; border: none; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 0 2px; }
-.at-due-del:hover { color: var(--danger); }
-.at-due-add-row { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-.at-due-add-row input { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 12px; outline: none; }
-.at-due-add-row input[type="text"] { flex: 1; min-width: 100px; }
-.at-due-add-row button {
-  padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer;
-  background: var(--at-gold); color: #2a0d14; font-family: inherit; font-size: 12px; font-weight: 700;
-}
-
-/* Journal column */
-.at-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin: 14px 0 6px; }
-.at-field-label:first-of-type { margin-top: 0; }
-.at-input, .at-textarea {
-  width: 100%; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px; background: rgba(0,0,0,0.28); color: var(--text-primary);
-  font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s;
-}
-.at-textarea { resize: none; overflow: hidden; min-height: 70px; line-height: 1.55; }
-.at-input:focus, .at-textarea:focus { border-color: rgba(255,255,255,0.28); }
-.at-input::placeholder, .at-textarea::placeholder { color: var(--text-tertiary); }
-.at-saved { display: inline-block; margin-left: 8px; font-size: 10px; color: var(--success); opacity: 0; transition: opacity 0.3s; }
-.at-saved.show { opacity: 1; }
-
-/* ===== Morning Briefing ===== */
-.at-brief-gen-row { margin-bottom: 16px; }
-.at-brief-gen-btn {
-  border-color: var(--at-border); color: var(--at-gold); font-weight: 700;
-}
-.at-brief-gen-btn:hover { background: rgba(224,138,159,0.10); border-color: var(--at-gold); }
-.at-brief-list { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
-.at-brief { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 16px; padding: 20px 22px; }
-.at-brief-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; flex-wrap: wrap; }
-.at-brief-title-wrap { display: flex; flex-direction: column; gap: 2px; }
-.at-brief-title { font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: var(--at-gold); display: flex; align-items: center; gap: 9px; }
-.at-brief-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); }
-.at-brief-actions { display: flex; gap: 12px; flex-shrink: 0; }
-.at-brief-actions button { background: none; border: none; color: var(--text-tertiary); font-size: 15px; cursor: pointer; padding: 2px; }
-.at-brief-actions button:hover { color: var(--at-gold); }
-.at-brief-actions .at-brief-del:hover { color: var(--danger); }
-.at-brief-body.collapsed { display: none; }
-.at-brief-summary {
-  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
-  font-family: var(--font-serif); font-style: italic; font-size: 14.5px; color: var(--at-gold);
-  line-height: 1.55; margin-bottom: 18px; display: block;
-}
-.at-brief-grid1 { margin-bottom: 16px; }
-.at-brief-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 16px; }
-@media (max-width: 700px) { .at-brief-grid2 { grid-template-columns: 1fr; } }
-.at-brief-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; }
-.at-brief-block textarea {
-  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
-  font-family: inherit; font-size: 13px; line-height: 1.6; color: var(--text-secondary); display: block;
-}
-.at-brief-insight { background: rgba(224, 138, 159,0.06); border: 1px solid rgba(224, 138, 159,0.20); border-radius: 10px; padding: 12px 14px; }
-.at-brief-insight textarea {
-  width: 100%; border: none; background: transparent; outline: none; resize: none; overflow: hidden;
-  font-family: inherit; font-size: 13px; line-height: 1.6; color: var(--text-primary); display: block;
-}
-
-/* ===== Week tab ===== */
-.at-week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-@media (max-width: 700px) { .at-week-grid { grid-template-columns: repeat(4, 1fr); } }
-.at-week-day { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 12px 8px; text-align: center; }
-.at-week-day.is-today { border-color: var(--at-gold-dim); }
-.at-week-day-name { font-size: 10px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.at-week-day-num { font-family: var(--font-serif); font-size: 19px; color: var(--text-primary); margin: 5px 0 3px; }
-.at-week-day-pct { font-size: 11px; color: var(--at-gold); font-weight: 700; }
-.at-week-day-win { font-size: 10px; color: var(--text-tertiary); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ===== Month tab ===== */
-.at-month-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.at-month-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.at-month-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
-.at-month-dow span { font-size: 10px; text-align: center; color: var(--text-tertiary); font-weight: 700; }
-.at-month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.at-month-cell {
-  aspect-ratio: 1; border-radius: 7px; background: rgba(255,255,255,0.03);
-  display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-tertiary);
-  border: 1px solid rgba(255,255,255,0.05);
-}
-.at-month-cell.empty { background: transparent; border-color: transparent; }
-.at-month-cell.is-today { border-color: var(--at-gold); color: var(--text-primary); font-weight: 700; }
-
-/* ===== Year tab ===== */
-.at-year-bars { display: flex; align-items: flex-end; gap: 8px; height: 170px; margin-top: 10px; }
-.at-year-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; justify-content: flex-end; height: 100%; }
-.at-year-bar { width: 100%; max-width: 34px; background: linear-gradient(180deg, var(--at-gold), rgba(224, 138, 159,0.25)); border-radius: 4px 4px 0 0; min-height: 2px; }
-.at-year-bar-label { font-size: 9.5px; color: var(--text-tertiary); }
-.at-year-bar-pct { font-size: 9.5px; color: var(--at-gold); font-weight: 700; }
-
-/* ===== Memories tab ===== */
-.at-memory-card { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
-.at-memory-date { font-family: var(--font-mono); font-size: 11px; color: var(--at-gold); font-weight: 700; margin-bottom: 6px; }
-.at-memory-win { font-size: 13px; color: var(--text-primary); margin-bottom: 4px; }
-.at-memory-journal { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
-
-/* Best streaks (Memories tab) */
-.sk-list { display: flex; flex-direction: column; gap: 8px; }
-.sk-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 14px 16px; background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px;
-}
-.sk-name { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 120px; }
-.sk-current { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--at-gold); white-space: nowrap; }
-.sk-best { font-size: 11.5px; color: var(--text-tertiary); text-align: right; line-height: 1.4; }
-.sk-best-num { color: var(--text-secondary); font-weight: 700; }
-
-.section-title {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin: 22px 0 12px;
-}
-.section-title:first-child { margin-top: 0; }
-.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
-
-/* ===== Shared chip / modal / field / button kit (reused from entertainment.html / projects.html) ===== */
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip {
-  padding: 7px 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
-  color: var(--text-secondary); border-radius: 999px; font-family: inherit; font-size: 12.5px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.chip.active { background: linear-gradient(180deg, var(--at-cream) 0%, #d9a0ae 100%); color: #2a0d14; border-color: transparent; font-weight: 800; }
-.modal-bg {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
-  z-index: 100; align-items: center; justify-content: center; padding: 24px;
-}
-.modal-bg.show { display: flex; }
-.modal { width: 100%; max-width: 460px; background: #111113; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
-.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
-.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.field input[type="text"], .field input[type="number"] {
-  padding: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary);
-  border-radius: 10px; font-family: inherit; font-size: 14px;
-}
-.field input:focus { outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
-.field-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary); }
-.btn-primary {
-  width: 100%; padding: 13px; border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--at-cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
-}
-.btn-primary:hover { transform: translateY(-1px); }
-.btn-secondary {
-  padding: 11px 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
-  color: var(--text-primary); border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.btn-secondary:hover { background: rgba(255,255,255,0.10); }
-.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
-.modal-actions button { flex: 1; }
-.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 6px; }
-
-.hb-days { display: flex; gap: 3px; }
-.hb-day {
-  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-tertiary);
-  font-size: 9.5px; font-weight: 700; cursor: pointer; user-select: none;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.hb-day.active { background: rgba(224, 138, 159,0.16); border-color: rgba(224, 138, 159,0.4); color: var(--at-gold); }
-
-.manage-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-.manage-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; }
-.manage-row-text { flex: 1; font-size: 13px; color: var(--text-primary); }
-.manage-row button { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; padding: 2px 4px; }
-.manage-row button:hover { color: var(--text-primary); }
-.manage-row .manage-del:hover { color: var(--danger); }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .at-col { padding: 14px; }
   .at-brand { font-size: 16px; }
+  .placeholder-panel { padding: 40px 18px; }
 }
 </style>
 </head>
@@ -403,1120 +136,156 @@ body::after {
 
   <div class="at-subnav">
     <div class="at-subnav-inner">
-      <div class="at-brand">Athena</div>
+      <div class="at-brand">Main</div>
       <div class="at-tabs" id="atTabs">
-        <button type="button" class="at-tab active" data-tab="today">Today</button>
-        <button type="button" class="at-tab" data-tab="week">Week</button>
-        <button type="button" class="at-tab" data-tab="month">Month</button>
-        <button type="button" class="at-tab" data-tab="year">Year</button>
-        <button type="button" class="at-tab" data-tab="memories">Memories</button>
+        <button type="button" class="at-tab" data-tab="overview">Overview</button>
+        <button type="button" class="at-tab" data-tab="areas">Life Areas</button>
+        <button type="button" class="at-tab" data-tab="goals">Goals</button>
+        <button type="button" class="at-tab" data-tab="tasks">Tasks</button>
+        <button type="button" class="at-tab" data-tab="habits">Habits &amp; Routines</button>
+        <button type="button" class="at-tab" data-tab="businesses">Businesses</button>
+        <button type="button" class="at-tab" data-tab="self">Self-Discovery</button>
       </div>
       <div class="at-clock" id="atClock">--:--:-- --</div>
     </div>
   </div>
 
-  <!-- ============ TODAY ============ -->
-  <div class="at-tabpanel" id="atPanelToday">
-
-    <div class="at-brief-gen-row">
-      <button type="button" class="at-mini-btn at-brief-gen-btn" id="atGenerateBriefBtn">✨ Generate Morning Briefing</button>
+  <div class="at-tabpanel" id="atPanelOverview">
+    <div class="at-col-head"><h2>Overview</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🧭</div>
+      <div class="placeholder-title">Overview coming soon</div>
+      <div class="placeholder-text">A cross-database summary — today's habits, upcoming tasks, goal progress across Life Areas — will live here once those sections are wired up.</div>
     </div>
-
-    <div class="at-tiles">
-      <div class="at-tile">
-        <div class="at-tile-top"><span class="at-tile-icon">✓</span><span class="at-tile-num at-tile-num-gold" id="atHabitsPct">0%</span><span class="at-tile-label">Habits</span></div>
-        <div class="at-tile-sub" id="atHabitsSub"></div>
-      </div>
-      <div class="at-tile">
-        <div class="at-tile-top"><span class="at-tile-icon">♥</span><span class="at-tile-num at-tile-num-green" id="atRecoveryVal">—</span><span class="at-tile-label">Recovery</span></div>
-        <div class="at-tile-sub" id="atRecoverySub" contenteditable="true" data-key="recoverySub"></div>
-      </div>
-      <div class="at-tile">
-        <div class="at-tile-top"><span class="at-tile-icon">⚡</span><span class="at-tile-num at-tile-num-purple" id="atStrainVal">—</span><span class="at-tile-label">Strain</span></div>
-        <div class="at-tile-sub" id="atStrainSub" contenteditable="true" data-key="strainSub"></div>
-      </div>
-      <div class="at-tile">
-        <div class="at-tile-top"><span class="at-tile-icon">☾</span><span class="at-tile-num at-tile-num-indigo" id="atSleepVal">—</span><span class="at-tile-label">Sleep</span></div>
-        <div class="at-tile-sub" id="atSleepSub" contenteditable="true" data-key="sleepSub"></div>
-      </div>
-    </div>
-
-    <div class="at-metrics">
-      <div class="at-metric-row">
-        <span class="at-metric-label">RHR</span>
-        <svg class="at-metric-spark" id="atSparkRhr" preserveAspectRatio="none"></svg>
-        <span class="at-metric-val" id="atValRhr" contenteditable="true" data-metric="rhr">—</span>
-      </div>
-      <div class="at-metric-row">
-        <span class="at-metric-label">TEMP</span>
-        <svg class="at-metric-spark" id="atSparkTemp" preserveAspectRatio="none"></svg>
-        <span class="at-metric-val" id="atValTemp" contenteditable="true" data-metric="temp">—</span>
-      </div>
-      <div class="at-metric-row">
-        <span class="at-metric-label">RESP</span>
-        <svg class="at-metric-spark" id="atSparkResp" preserveAspectRatio="none"></svg>
-        <span class="at-metric-val" id="atValResp" contenteditable="true" data-metric="resp">—</span>
-      </div>
-    </div>
-
-    <div class="at-grid">
-      <div class="at-col">
-        <div class="at-col-head">
-          <h2>Daily Tasks</h2>
-          <div class="at-col-actions">
-            <button type="button" class="at-mini-btn" id="atAddTaskBtn">+ Add Task</button>
-            <button type="button" class="at-mini-btn" id="atManageBtn">⚙ Manage</button>
-          </div>
-        </div>
-        <div class="at-task-grid" id="atTaskGrid"></div>
-        <div class="at-empty" id="atTaskEmpty" hidden>No tasks scheduled today — tap "+ Add Task" to start tracking streaks.</div>
-      </div>
-
-      <div class="at-col">
-        <h2>Due Today</h2>
-        <div id="atDueToday"></div>
-        <div class="at-empty" id="atDueTodayEmpty" hidden>Nothing due today.</div>
-        <h2 class="at-gold-h2">Due Soon (3 Days)</h2>
-        <div id="atDueSoon"></div>
-        <div class="at-empty" id="atDueSoonEmpty" hidden>No upcoming tasks.</div>
-        <div class="at-due-add-row">
-          <input type="text" id="atDueTitleInput" placeholder="New task…">
-          <input type="date" id="atDueDateInput">
-          <button type="button" id="atDueAddBtn">+ Add</button>
-        </div>
-      </div>
-
-      <div class="at-col">
-        <h2>Journal</h2>
-        <div class="at-field-label">Win of the Day <span class="at-saved" id="atWinSaved">Saved</span></div>
-        <input type="text" id="atWinInput" class="at-input" placeholder="What was your highlight?">
-        <div class="at-field-label">Journal <span class="at-saved" id="atJournalSaved">Saved</span></div>
-        <textarea id="atJournalTa" class="at-textarea" placeholder="Add an entry…"></textarea>
-      </div>
-    </div>
-
-    <div class="at-brief-list" id="atBriefList"></div>
-    <div class="at-empty" id="atBriefEmpty" hidden>No briefings generated yet — tap "✨ Generate Morning Briefing" at the top.</div>
   </div>
 
-  <!-- ============ WEEK ============ -->
-  <div class="at-tabpanel" id="atPanelWeek" hidden>
-    <div class="section-title">This Week</div>
-    <div class="at-week-grid" id="atWeekGrid"></div>
+  <div class="at-tabpanel" id="atPanelAreas" hidden>
+    <div class="at-col-head"><h2>Life Areas</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🌱</div>
+      <div class="placeholder-title">Life Areas coming soon</div>
+      <div class="placeholder-text">The Life Areas database — the top-level groupings your Goals connect to — will be built here in a later pass.</div>
+    </div>
   </div>
 
-  <!-- ============ MONTH ============ -->
-  <div class="at-tabpanel" id="atPanelMonth" hidden>
-    <div class="at-month-head">
-      <div class="at-month-title" id="atMonthTitle">—</div>
+  <div class="at-tabpanel" id="atPanelGoals" hidden>
+    <div class="at-col-head"><h2>Goals</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🎯</div>
+      <div class="placeholder-title">Goals coming soon</div>
+      <div class="placeholder-text">Goals, grouped by Life Area with progress and target dates, will be built here in a later pass.</div>
     </div>
-    <div class="at-month-dow" id="atMonthDow"></div>
-    <div class="at-month-grid" id="atMonthGrid"></div>
   </div>
 
-  <!-- ============ YEAR ============ -->
-  <div class="at-tabpanel" id="atPanelYear" hidden>
-    <div class="section-title" id="atYearTitle">This Year</div>
-    <div class="at-year-bars" id="atYearBars"></div>
+  <div class="at-tabpanel" id="atPanelTasks" hidden>
+    <div class="at-col-head"><h2>Tasks</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">✅</div>
+      <div class="placeholder-title">Tasks coming soon</div>
+      <div class="placeholder-text">One-off tasks, optionally linked to a Goal or a Business, will be built here in a later pass.</div>
+    </div>
   </div>
 
-  <!-- ============ MEMORIES ============ -->
-  <div class="at-tabpanel" id="atPanelMemories" hidden>
-    <div class="section-title">Best Streaks</div>
-    <div class="sk-list" id="streaksList"></div>
-    <div class="at-empty" id="streaksEmpty" hidden>Add a daily task to start tracking streaks.</div>
-
-    <div class="section-title">Journal Memories</div>
-    <div id="atMemoriesList"></div>
-    <div class="at-empty" id="atMemoriesEmpty" hidden>No journal entries yet.</div>
+  <div class="at-tabpanel" id="atPanelHabits" hidden>
+    <div class="at-col-head"><h2>Habits &amp; Routines</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🔥</div>
+      <div class="placeholder-title">Habits &amp; Routines coming soon</div>
+      <div class="placeholder-text">Recurring habits with weekday schedules and streaks will be built here in a later pass.</div>
+    </div>
   </div>
 
-</div>
-
-<!-- Add / Edit Daily Task modal -->
-<div class="modal-bg" id="taskModalBg">
-  <div class="modal" id="taskModal">
-    <h3 id="taskModalTitle">Add task</h3>
-    <div class="field">
-      <label>Title</label>
-      <input type="text" id="taskTitleInput" placeholder="e.g. Walk">
+  <div class="at-tabpanel" id="atPanelBusinesses" hidden>
+    <div class="at-col-head"><h2>Businesses</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">💼</div>
+      <div class="placeholder-title">Businesses coming soon</div>
+      <div class="placeholder-text">This section will hold one dynamic sub-tab per business, driven by the Business data model — each with its own tasks and notes.</div>
+      <div class="biz-subtabs-mock">
+        <span class="biz-subtab-ghost">💼 Business A</span>
+        <span class="biz-subtab-ghost">💼 Business B</span>
+        <span class="biz-subtab-ghost">+ Add business</span>
+      </div>
     </div>
-    <div class="field">
-      <label>Note (optional)</label>
-      <input type="text" id="taskNoteInput" placeholder="e.g. Page 53">
-    </div>
-    <div class="field">
-      <label>Scheduled days</label>
-      <div class="hb-days" id="taskDaysRow"></div>
-    </div>
-    <div class="field">
-      <label class="field-check"><input type="checkbox" id="taskAutoInput"> Show AUTO badge</label>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="taskModalCancel" type="button">Cancel</button>
-      <button class="btn-primary" id="taskModalSave" type="button">Save</button>
-    </div>
-    <span class="delete-link" id="taskModalDelete" style="display:none">Delete this task</span>
   </div>
-</div>
 
-<!-- Manage Daily Tasks modal -->
-<div class="modal-bg" id="manageModalBg">
-  <div class="modal" id="manageModal">
-    <h3>Manage Daily Tasks</h3>
-    <div class="manage-list" id="manageList"></div>
-    <button class="btn-secondary" type="button" id="manageAddBtn" style="width:100%;margin-bottom:8px;">+ Add Task</button>
-    <button class="btn-primary" type="button" id="manageCloseBtn">Done</button>
+  <div class="at-tabpanel" id="atPanelSelf" hidden>
+    <div class="at-col-head"><h2>Self-Discovery</h2></div>
+    <div class="placeholder-panel">
+      <div class="placeholder-icon">🪞</div>
+      <div class="placeholder-title">Self-Discovery coming soon</div>
+      <div class="placeholder-text">Freeform reflective entries will be built here in a later pass.</div>
+    </div>
   </div>
+
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  // ---------- storage helpers ----------
-  function storeGet(key) {
-    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-  }
-  function storeSet(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
-      window.dispatchEvent(new CustomEvent('goals-changed'));
-      window.dispatchEvent(new Event('storage'));
-    }
-  }
-  function storeListKeys(prefix) {
-    const out = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.indexOf(prefix) === 0) out.push(k);
-    }
-    return out;
-  }
-
-  // ---------- date helpers ----------
-  function pad2(n) { return String(n).padStart(2, '0'); }
-  function dateToKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-  function keyToDate(k) {
-    const parts = k.split('-').map(Number);
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
-  function addDaysToKey(k, n) {
-    const d = keyToDate(k);
-    d.setDate(d.getDate() + n);
-    return dateToKey(d);
-  }
-  function getActiveDateString() {
-    const now = new Date();
-    if (now.getHours() < 6) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 1);
-      return dateToKey(d);
-    }
-    return dateToKey(now);
-  }
-  function formatDateShort(yyyy_mm_dd) {
-    const parts = yyyy_mm_dd.split('-').map(Number);
-    const d = new Date(parts[0], parts[1] - 1, parts[2]);
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    return mo + ' ' + d.getDate();
-  }
-  function genId(prefix) {
-    return (prefix || 'x') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  }
-  function autosize(ta) {
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = ta.scrollHeight + 'px';
-  }
-
-  // =====================================================================
-  // Daily Tasks — same recurring-habits engine this page already had
-  // (goals:habits / goals:habit-log:<date>, weekday schedule, streak
-  // computation), just relabeled "Daily Tasks" and extended with two new
-  // optional per-task fields: `note` and `auto` (a purely cosmetic "AUTO"
-  // badge — this app has no wearable/device signal to drive real
-  // auto-completion, so it stays a manual checkbox either way).
-  // =====================================================================
-  const HABITS_KEY = 'goals:habits';
-  function loadHabits() {
-    const h = storeGet(HABITS_KEY);
-    return Array.isArray(h) ? h : [];
-  }
-  function saveHabits(list) { storeSet(HABITS_KEY, list); }
-  function habitLogKey(dateStr) { return 'goals:habit-log:' + dateStr; }
-  function loadHabitLog(dateStr) {
-    const l = storeGet(habitLogKey(dateStr));
-    return (l && typeof l === 'object' && !Array.isArray(l)) ? l : {};
-  }
-  function saveHabitLog(dateStr, log) { storeSet(habitLogKey(dateStr), log); }
-  function isScheduled(habit, dow) { return Array.isArray(habit.weekdays) && habit.weekdays.indexOf(dow) !== -1; }
-
-  function habitStatusOnDate(habit, dateStr) {
-    const dow = keyToDate(dateStr).getDay();
-    if (!isScheduled(habit, dow)) return 'not-scheduled';
-    const log = loadHabitLog(dateStr);
-    return log[habit.id] ? 'done' : 'missed';
-  }
-
-  function computeHabitStreaks(habit) {
-    const today = getActiveDateString();
-    const startDateStr = habit.createdAt ? dateToKey(new Date(habit.createdAt)) : today;
-    let cursor = startDateStr > today ? today : startDateStr;
-    let current = 0, best = 0, bestStart = null, bestEnd = null, runStart = null;
-    let guard = 0;
-    while (cursor < today && guard < 3660) {
-      const status = habitStatusOnDate(habit, cursor);
-      if (status === 'done') {
-        if (current === 0) runStart = cursor;
-        current++;
-        if (current > best) { best = current; bestStart = runStart; bestEnd = cursor; }
-      } else if (status === 'missed') {
-        current = 0; runStart = null;
-      }
-      cursor = addDaysToKey(cursor, 1);
-      guard++;
-    }
-    const todayStatus = habitStatusOnDate(habit, today);
-    if (todayStatus === 'done') {
-      if (current === 0) runStart = today;
-      current++;
-      if (current > best) { best = current; bestStart = runStart; bestEnd = today; }
-    }
-    return { current, best, bestStart, bestEnd };
-  }
-
-  function toggleHabitToday(habitId) {
-    const dateStr = getActiveDateString();
-    const log = loadHabitLog(dateStr);
-    log[habitId] = !log[habitId];
-    saveHabitLog(dateStr, log);
-  }
-
-  function renderTaskGrid() {
-    const habits = loadHabits();
-    const today = getActiveDateString();
-    const dow = keyToDate(today).getDay();
-    const log = loadHabitLog(today);
-    const scheduled = habits.filter(h => isScheduled(h, dow));
-
-    const grid = document.getElementById('atTaskGrid');
-    const empty = document.getElementById('atTaskEmpty');
-    grid.innerHTML = '';
-    empty.hidden = scheduled.length !== 0;
-
-    scheduled.forEach(habit => {
-      const done = !!log[habit.id];
-      const el = document.createElement('div');
-      el.className = 'at-task' + (done ? ' at-task-done' : ' at-task-pending');
-
-      const check = document.createElement('button');
-      check.type = 'button';
-      check.className = 'at-task-check' + (done ? ' done' : '');
-      check.textContent = '✓';
-      check.setAttribute('aria-label', done ? 'Mark not done' : 'Mark done');
-      check.addEventListener('click', () => {
-        toggleHabitToday(habit.id);
-        renderTaskGrid();
-        renderStatTiles();
-      });
-      el.appendChild(check);
-
-      const body = document.createElement('div');
-      body.className = 'at-task-body';
-      const title = document.createElement('div');
-      title.className = 'at-task-title';
-      title.textContent = habit.text;
-      body.appendChild(title);
-      if (habit.note) {
-        const note = document.createElement('div');
-        note.className = 'at-task-note';
-        note.textContent = habit.note;
-        body.appendChild(note);
-      }
-      body.addEventListener('click', () => openTaskModal(habit));
-      el.appendChild(body);
-
-      const meta = document.createElement('div');
-      meta.className = 'at-task-meta';
-      const streakInfo = computeHabitStreaks(habit);
-      const streak = document.createElement('span');
-      streak.className = 'at-task-streak';
-      streak.textContent = '🔥 ' + streakInfo.current;
-      meta.appendChild(streak);
-      if (habit.auto) {
-        const auto = document.createElement('span');
-        auto.className = 'at-task-auto';
-        auto.textContent = 'AUTO';
-        meta.appendChild(auto);
-      }
-      el.appendChild(meta);
-
-      grid.appendChild(el);
-    });
-  }
-
-  // ---------- Add / Edit task modal ----------
-  let taskEditingId = null;
-  let taskSelectedDays = [0, 1, 2, 3, 4, 5, 6];
-  const DAY_LABELS = ['S','M','T','W','T','F','S'];
-  const DAY_NAMES  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-  function renderTaskDaysRow() {
-    const wrap = document.getElementById('taskDaysRow');
-    wrap.innerHTML = '';
-    DAY_LABELS.forEach((lbl, dow) => {
-      const chip = document.createElement('span');
-      chip.className = 'hb-day' + (taskSelectedDays.indexOf(dow) !== -1 ? ' active' : '');
-      chip.textContent = lbl;
-      chip.title = DAY_NAMES[dow];
-      chip.addEventListener('click', () => {
-        const i = taskSelectedDays.indexOf(dow);
-        if (i === -1) taskSelectedDays.push(dow); else taskSelectedDays.splice(i, 1);
-        renderTaskDaysRow();
-      });
-      wrap.appendChild(chip);
-    });
-  }
-  function openTaskModal(habit) {
-    taskEditingId = habit ? habit.id : null;
-    taskSelectedDays = habit ? (Array.isArray(habit.weekdays) ? habit.weekdays.slice() : []) : [0,1,2,3,4,5,6];
-    document.getElementById('taskModalTitle').textContent = habit ? 'Edit task' : 'Add task';
-    document.getElementById('taskTitleInput').value = habit ? habit.text : '';
-    document.getElementById('taskNoteInput').value = habit ? (habit.note || '') : '';
-    document.getElementById('taskAutoInput').checked = habit ? !!habit.auto : false;
-    renderTaskDaysRow();
-    document.getElementById('taskModalDelete').style.display = habit ? 'block' : 'none';
-    document.getElementById('taskModalBg').classList.add('show');
-  }
-  function closeTaskModal() {
-    document.getElementById('taskModalBg').classList.remove('show');
-    taskEditingId = null;
-  }
-  document.getElementById('atAddTaskBtn').addEventListener('click', () => openTaskModal(null));
-  document.getElementById('taskModalCancel').addEventListener('click', closeTaskModal);
-  document.getElementById('taskModalBg').addEventListener('click', (e) => { if (e.target.id === 'taskModalBg') closeTaskModal(); });
-  document.getElementById('taskModalSave').addEventListener('click', () => {
-    const text = document.getElementById('taskTitleInput').value.trim();
-    const note = document.getElementById('taskNoteInput').value.trim();
-    const auto = document.getElementById('taskAutoInput').checked;
-    if (!text || taskSelectedDays.length === 0) return;
-    const list = loadHabits();
-    if (taskEditingId) {
-      const h = list.filter(h2 => h2.id === taskEditingId)[0];
-      if (h) { h.text = text; h.note = note; h.auto = auto; h.weekdays = taskSelectedDays.slice(); }
-    } else {
-      list.push({ id: genId('h'), text, note, auto, weekdays: taskSelectedDays.slice(), createdAt: Date.now() });
-    }
-    saveHabits(list);
-    closeTaskModal();
-    renderTaskGrid();
-    renderStatTiles();
-    renderManageList();
-  });
-  document.getElementById('taskModalDelete').addEventListener('click', () => {
-    if (!taskEditingId) return;
-    if (!confirm('Delete this task?')) return;
-    saveHabits(loadHabits().filter(h => h.id !== taskEditingId));
-    closeTaskModal();
-    renderTaskGrid();
-    renderStatTiles();
-    renderManageList();
-  });
-
-  // ---------- Manage modal ----------
-  function renderManageList() {
-    const wrap = document.getElementById('manageList');
-    wrap.innerHTML = '';
-    const habits = loadHabits();
-    habits.forEach(habit => {
-      const row = document.createElement('div');
-      row.className = 'manage-row';
-      const text = document.createElement('span');
-      text.className = 'manage-row-text';
-      text.textContent = habit.text;
-      row.appendChild(text);
-      const edit = document.createElement('button');
-      edit.type = 'button'; edit.textContent = '✎';
-      edit.addEventListener('click', () => openTaskModal(habit));
-      row.appendChild(edit);
-      const del = document.createElement('button');
-      del.type = 'button'; del.className = 'manage-del'; del.textContent = '✕';
-      del.addEventListener('click', () => {
-        if (!confirm('Delete task "' + habit.text + '"?')) return;
-        saveHabits(loadHabits().filter(h => h.id !== habit.id));
-        renderManageList();
-        renderTaskGrid();
-        renderStatTiles();
-      });
-      row.appendChild(del);
-      wrap.appendChild(row);
-    });
-  }
-  document.getElementById('atManageBtn').addEventListener('click', () => {
-    renderManageList();
-    document.getElementById('manageModalBg').classList.add('show');
-  });
-  document.getElementById('manageCloseBtn').addEventListener('click', () => {
-    document.getElementById('manageModalBg').classList.remove('show');
-  });
-  document.getElementById('manageModalBg').addEventListener('click', (e) => {
-    if (e.target.id === 'manageModalBg') document.getElementById('manageModalBg').classList.remove('show');
-  });
-  document.getElementById('manageAddBtn').addEventListener('click', () => openTaskModal(null));
-
-  // =====================================================================
-  // Due Today / Due Soon — one-off dated tasks (new; separate from the
-  // recurring Daily Tasks above).
-  // =====================================================================
-  const DUE_TASKS_KEY = 'goals:duetasks';
-  function loadDueTasks() {
-    const t = storeGet(DUE_TASKS_KEY);
-    return Array.isArray(t) ? t : [];
-  }
-  function saveDueTasks(list) { storeSet(DUE_TASKS_KEY, list); }
-
-  function buildDueCard(task) {
-    const el = document.createElement('div');
-    el.className = 'at-due-card';
-    const check = document.createElement('button');
-    check.type = 'button'; check.className = 'at-due-check';
-    check.setAttribute('aria-label', 'Mark done');
-    check.addEventListener('click', () => {
-      const list = loadDueTasks();
-      const t = list.filter(x => x.id === task.id)[0];
-      if (t) t.done = true;
-      saveDueTasks(list);
-      renderDueTasks();
-    });
-    el.appendChild(check);
-    const title = document.createElement('span');
-    title.className = 'at-due-title';
-    title.textContent = task.title;
-    el.appendChild(title);
-    const date = document.createElement('span');
-    date.className = 'at-due-date';
-    date.textContent = formatDateShort(task.dueDate);
-    el.appendChild(date);
-    const del = document.createElement('button');
-    del.type = 'button'; del.className = 'at-due-del'; del.textContent = '✕';
-    del.setAttribute('aria-label', 'Delete');
-    del.addEventListener('click', () => {
-      saveDueTasks(loadDueTasks().filter(x => x.id !== task.id));
-      renderDueTasks();
-    });
-    el.appendChild(del);
-    return el;
-  }
-
-  function renderDueTasks() {
-    const today = getActiveDateString();
-    const soonCutoff = addDaysToKey(today, 3);
-    const all = loadDueTasks().filter(t => !t.done);
-
-    const dueToday = all.filter(t => t.dueDate <= today).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-    const dueSoon  = all.filter(t => t.dueDate > today && t.dueDate <= soonCutoff).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-
-    const todayWrap = document.getElementById('atDueToday');
-    todayWrap.innerHTML = '';
-    dueToday.forEach(t => todayWrap.appendChild(buildDueCard(t)));
-    document.getElementById('atDueTodayEmpty').hidden = dueToday.length !== 0;
-
-    const soonWrap = document.getElementById('atDueSoon');
-    soonWrap.innerHTML = '';
-    dueSoon.forEach(t => soonWrap.appendChild(buildDueCard(t)));
-    document.getElementById('atDueSoonEmpty').hidden = dueSoon.length !== 0;
-  }
-
-  document.getElementById('atDueAddBtn').addEventListener('click', () => {
-    const titleInput = document.getElementById('atDueTitleInput');
-    const dateInput = document.getElementById('atDueDateInput');
-    const title = titleInput.value.trim();
-    const dueDate = dateInput.value || getActiveDateString();
-    if (!title) return;
-    const list = loadDueTasks();
-    list.push({ id: genId('d'), title, dueDate, done: false, createdAt: Date.now() });
-    saveDueTasks(list);
-    titleInput.value = '';
-    dateInput.value = '';
-    renderDueTasks();
-  });
-  document.getElementById('atDueTitleInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('atDueAddBtn').click(); }
-  });
-
-  // =====================================================================
-  // Journal / Win of the Day
-  // =====================================================================
-  function journalKey(dateStr) { return 'goals:journal:' + dateStr; }
-  function winKey(dateStr) { return 'goals:win:' + dateStr; }
-  function loadText(key) { const v = storeGet(key); return typeof v === 'string' ? v : ''; }
-  function saveText(key, text) { storeSet(key, text); }
-
-  function wireAutosave(el, key, savedIndicatorId) {
-    const savedEl = savedIndicatorId ? document.getElementById(savedIndicatorId) : null;
-    let timer = null;
-    el.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        saveText(key, el.value);
-        if (savedEl) {
-          savedEl.classList.add('show');
-          clearTimeout(savedEl._hideT);
-          savedEl._hideT = setTimeout(() => savedEl.classList.remove('show'), 1200);
-        }
-      }, 500);
-    });
-  }
-
-  function initJournalCol() {
-    const today = getActiveDateString();
-    const winEl = document.getElementById('atWinInput');
-    const journalEl = document.getElementById('atJournalTa');
-    winEl.value = loadText(winKey(today));
-    journalEl.value = loadText(journalKey(today));
-    autosize(journalEl);
-    journalEl.addEventListener('input', () => autosize(journalEl));
-    wireAutosave(winEl, winKey(today), 'atWinSaved');
-    wireAutosave(journalEl, journalKey(today), 'atJournalSaved');
-  }
-
-  // =====================================================================
-  // Manual biometrics (Recovery / Strain / Sleep / RHR / TEMP / RESP) —
-  // this app has no wearable device to sync from, so these are logged by
-  // hand each day (click a number to edit it) instead of auto-populated.
-  // =====================================================================
-  function biometricsKey(dateStr) { return 'goals:biometrics:' + dateStr; }
-  function loadBiometrics(dateStr) {
-    const b = storeGet(biometricsKey(dateStr));
-    return (b && typeof b === 'object') ? b : {};
-  }
-  function saveBiometricField(dateStr, field, value) {
-    const b = loadBiometrics(dateStr);
-    b[field] = value;
-    storeSet(biometricsKey(dateStr), b);
-  }
-  function recentBiometricValues(field, days) {
-    const keys = storeListKeys('goals:biometrics:').sort();
-    const out = [];
-    keys.forEach(k => {
-      const dateStr = k.slice('goals:biometrics:'.length);
-      const b = storeGet(k) || {};
-      if (b[field] != null && b[field] !== '') out.push({ date: dateStr, value: Number(b[field]) });
-    });
-    return out.slice(-days);
-  }
-
-  function renderSparkline(svgEl, points, color) {
-    svgEl.innerHTML = '';
-    if (points.length < 2) return;
-    const vals = points.map(p => p.value);
-    const min = Math.min(...vals), max = Math.max(...vals);
-    const range = max - min || 1;
-    const w = 100, h = 100;
-    const step = w / (points.length - 1);
-    const coords = points.map((p, i) => {
-      const x = i * step;
-      const y = h - ((p.value - min) / range) * h;
-      return x + ',' + y;
-    });
-    const ns = 'http://www.w3.org/2000/svg';
-    svgEl.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-    const line = document.createElementNS(ns, 'polyline');
-    line.setAttribute('points', coords.join(' '));
-    line.setAttribute('fill', 'none');
-    line.setAttribute('stroke', color);
-    line.setAttribute('stroke-width', '3');
-    line.setAttribute('stroke-linecap', 'round');
-    line.setAttribute('stroke-linejoin', 'round');
-    svgEl.appendChild(line);
-  }
-
-  function initTileEdit(el, dateStr, field) {
-    let saveTimer = null;
-    el.addEventListener('input', () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => saveBiometricField(dateStr, field, el.textContent.trim()), 400);
-    });
-  }
-  function initMetricEdit(el, dateStr, field, unit, sparkColor, sparkEl) {
-    el.addEventListener('blur', () => {
-      const raw = el.textContent.replace(/[^0-9.\-]/g, '');
-      const num = raw === '' ? null : Number(raw);
-      saveBiometricField(dateStr, field, num);
-      el.textContent = num == null ? '—' : (num + unit);
-      renderSparkline(sparkEl, recentBiometricValues(field, 14), sparkColor);
-    });
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
-  }
-
-  function renderStatTiles() {
-    const today = getActiveDateString();
-    const habits = loadHabits();
-    const dow = keyToDate(today).getDay();
-    const log = loadHabitLog(today);
-    const scheduled = habits.filter(h => isScheduled(h, dow));
-    const done = scheduled.filter(h => log[h.id]).length;
-    const pct = scheduled.length ? Math.round((done / scheduled.length) * 100) : 0;
-    document.getElementById('atHabitsPct').textContent = pct + '%';
-    document.getElementById('atHabitsSub').textContent = scheduled.length
-      ? (done + '/' + scheduled.length + ' done · ' + (scheduled.length - done) + ' left')
-      : 'no tasks scheduled today';
-
-    const bio = loadBiometrics(today);
-    document.getElementById('atRecoveryVal').textContent = bio.recovery != null && bio.recovery !== '' ? bio.recovery + '%' : '—';
-    document.getElementById('atStrainVal').textContent = bio.strain != null && bio.strain !== '' ? bio.strain : '—';
-    document.getElementById('atSleepVal').textContent = bio.sleep != null && bio.sleep !== '' ? bio.sleep + '%' : '—';
-    ['recoverySub', 'strainSub', 'sleepSub'].forEach(field => {
-      const el = document.querySelector('[data-key="' + field + '"]');
-      if (document.activeElement !== el) el.textContent = bio[field] || '';
-    });
-
-    document.getElementById('atValRhr').textContent  = bio.rhr  != null && bio.rhr  !== '' ? bio.rhr  + ' bpm'    : '—';
-    document.getElementById('atValTemp').textContent = bio.temp != null && bio.temp !== '' ? bio.temp + '°'      : '—';
-    document.getElementById('atValResp').textContent = bio.resp != null && bio.resp !== '' ? bio.resp + ' br/min' : '—';
-    renderSparkline(document.getElementById('atSparkRhr'),  recentBiometricValues('rhr', 14),  'var(--danger)');
-    renderSparkline(document.getElementById('atSparkTemp'), recentBiometricValues('temp', 14), 'var(--at-orange)');
-    renderSparkline(document.getElementById('atSparkResp'), recentBiometricValues('resp', 14), 'var(--at-teal)');
-  }
-
-  function wireStatTileEditing() {
-    const today = getActiveDateString();
-    ['recoverySub', 'strainSub', 'sleepSub'].forEach(field => {
-      initTileEdit(document.querySelector('[data-key="' + field + '"]'), today, field);
-    });
-    document.getElementById('atRecoveryVal').addEventListener('click', () => {
-      const v = prompt('Recovery %', loadBiometrics(today).recovery || '');
-      if (v == null) return;
-      saveBiometricField(today, 'recovery', v.replace(/[^0-9.]/g, ''));
-      renderStatTiles();
-    });
-    document.getElementById('atStrainVal').addEventListener('click', () => {
-      const v = prompt('Strain', loadBiometrics(today).strain || '');
-      if (v == null) return;
-      saveBiometricField(today, 'strain', v.replace(/[^0-9.]/g, ''));
-      renderStatTiles();
-    });
-    document.getElementById('atSleepVal').addEventListener('click', () => {
-      const v = prompt('Sleep %', loadBiometrics(today).sleep || '');
-      if (v == null) return;
-      saveBiometricField(today, 'sleep', v.replace(/[^0-9.]/g, ''));
-      renderStatTiles();
-    });
-    initMetricEdit(document.getElementById('atValRhr'),  today, 'rhr',  ' bpm',    'var(--danger)',    document.getElementById('atSparkRhr'));
-    initMetricEdit(document.getElementById('atValTemp'), today, 'temp', '°',       'var(--at-orange)', document.getElementById('atSparkTemp'));
-    initMetricEdit(document.getElementById('atValResp'), today, 'resp', ' br/min', 'var(--at-teal)',   document.getElementById('atSparkResp'));
-  }
-
-  // =====================================================================
-  // Morning Briefing — a plain editable callout, pre-filled with the
-  // reference photo's example copy. No AI generation is wired up (no
-  // Anthropic key configured anywhere in this app), so "Generate" just
-  // stamps out a fresh copy of the example template, autosaved per field
-  // like the rest of the journal fields. Tapping the button at the top
-  // appends a new one to the bottom of the list each time — this is a
-  // growing log, not a single per-day slot, so each card is independently
-  // editable, resettable, and deletable.
-  // =====================================================================
-  const DEFAULT_BRIEFING = {
-    summary: "Rest day with strong habit momentum — focus on completing the core streaks and staying consistent after yesterday's travel.",
-    readiness: "No biometric data available today, but yesterday's recovery was solid (66) with good sleep (7.6 hours) and HRV trending up 11% from your 7-day baseline, suggesting your body is adapting well. You're coming off a day trip to Quincy with 75% habit completion despite the disruption — momentum is there. Today is a rest day, so prioritize recovery habits and mental work.",
-    habits: "You missed Pull (Bicep), Sauna, and Cold Plunge yesterday during travel, breaking the 7-day streaks on Sauna and Cold Plunge. Both are now reset to 1 day. Your 114-day Creative Work, Hydration, and Meditate streaks remain active and strong. No Snoozing is at 29 days — protect that one today.",
-    training: "Rest day — no gym work scheduled. Use today to recover from yesterday's travel. If you feel the urge to move, a light walk counts toward your Walk streak (currently 45 days) and supports recovery without adding strain.",
-    focus: "- Complete all 9 core habits today: Walk, Meditate, Read Book, Hydration, No Snoozing, Journal, Creative Work, 6+ Hour Sleep, Chess Puzzles\n- Rebuild Sauna and Cold Plunge streaks — both reset to 1 day after yesterday's miss. Fit them in today to restart momentum.\n- Journal about yesterday's day trip and today's rest — your journal streak is at 111 days and supports reflection on travel patterns.",
-    insight: "Your HRV is up 11% from the 7-day average despite a travel day, and sleep quality remained strong (7.6 hours, 82 score). This suggests your body is recovering well from the lower-strain week (4.2 avg vs 10.6 prior week). Use today's rest day to lock in the habits you missed yesterday — Sauna and Cold Plunge are quick wins to rebuild those 7-day streaks and keep the recovery momentum going into the week."
+  var TABS = ['overview', 'areas', 'goals', 'tasks', 'habits', 'businesses', 'self'];
+  var PANEL_ID = {
+    overview: 'atPanelOverview', areas: 'atPanelAreas', goals: 'atPanelGoals',
+    tasks: 'atPanelTasks', habits: 'atPanelHabits', businesses: 'atPanelBusinesses', self: 'atPanelSelf'
   };
-  const BRIEFINGS_KEY = 'goals:briefings';
-  function loadBriefings() {
-    const b = storeGet(BRIEFINGS_KEY);
-    return Array.isArray(b) ? b : [];
-  }
-  function saveBriefings(list) { storeSet(BRIEFINGS_KEY, list); }
-  function formatTimestamp(ms) {
-    const d = new Date(ms);
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    let h = d.getHours(); const ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12; if (h === 0) h = 12;
-    return mo + ' ' + d.getDate() + ' · ' + h + ':' + pad2(d.getMinutes()) + ' ' + ampm;
+
+  function tabFromHash() {
+    var h = (location.hash || '').replace('#', '').trim();
+    return TABS.indexOf(h) !== -1 ? h : 'overview';
   }
 
-  function buildBriefingCard(briefing) {
-    const wrap = document.createElement('div');
-    wrap.className = 'at-brief';
-    wrap.dataset.id = briefing.id;
-
-    const head = document.createElement('div');
-    head.className = 'at-brief-head';
-    const titleWrap = document.createElement('div');
-    titleWrap.className = 'at-brief-title-wrap';
-    const title = document.createElement('div');
-    title.className = 'at-brief-title';
-    title.textContent = '✨ Morning Briefing';
-    titleWrap.appendChild(title);
-    const meta = document.createElement('div');
-    meta.className = 'at-brief-meta';
-    meta.textContent = 'Generated ' + formatTimestamp(briefing.createdAt);
-    titleWrap.appendChild(meta);
-    head.appendChild(titleWrap);
-
-    const actions = document.createElement('div');
-    actions.className = 'at-brief-actions';
-    const resetBtn = document.createElement('button');
-    resetBtn.type = 'button'; resetBtn.title = 'Reset to example text'; resetBtn.setAttribute('aria-label', 'Reset to example text');
-    resetBtn.textContent = '↺';
-    resetBtn.addEventListener('click', () => {
-      if (!confirm('Reset this Morning Briefing to the example text?')) return;
-      const list = loadBriefings();
-      const b = list.filter(x => x.id === briefing.id)[0];
-      if (!b) return;
-      Object.assign(b, DEFAULT_BRIEFING);
-      saveBriefings(list);
-      BRIEF_FIELD_NAMES.forEach(field => {
-        const ta = wrap.querySelector('[data-field="' + field + '"]');
-        ta.value = b[field];
-        autosize(ta);
-      });
+  // URL-shareable section state: the active section lives in the hash
+  // (index.html#tasks etc.) so a section is linkable/bookmarkable. This
+  // app has no router, so history.replaceState is used directly rather
+  // than reloading anything — same-page, no navigation.
+  function switchTab(tab, opts) {
+    if (TABS.indexOf(tab) === -1) tab = 'overview';
+    document.querySelectorAll('.at-tab').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === tab);
     });
-    actions.appendChild(resetBtn);
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button'; delBtn.className = 'at-brief-del'; delBtn.title = 'Delete this briefing'; delBtn.setAttribute('aria-label', 'Delete this briefing');
-    delBtn.textContent = '✕';
-    delBtn.addEventListener('click', () => {
-      if (!confirm('Delete this Morning Briefing?')) return;
-      saveBriefings(loadBriefings().filter(x => x.id !== briefing.id));
-      wrap.remove();
-      document.getElementById('atBriefEmpty').hidden = loadBriefings().length !== 0;
+    TABS.forEach(function (t) {
+      document.getElementById(PANEL_ID[t]).hidden = t !== tab;
     });
-    actions.appendChild(delBtn);
-    head.appendChild(actions);
-    wrap.appendChild(head);
-
-    const body = document.createElement('div');
-    body.className = 'at-brief-body';
-
-    function makeField(field, extraClass) {
-      const ta = document.createElement('textarea');
-      ta.className = extraClass || '';
-      ta.rows = 1;
-      ta.dataset.field = field;
-      ta.value = briefing[field] || '';
-      ta.addEventListener('input', () => {
-        autosize(ta);
-        const list = loadBriefings();
-        const b = list.filter(x => x.id === briefing.id)[0];
-        if (!b) return;
-        b[field] = ta.value;
-        saveBriefings(list);
-      });
-      return ta;
+    if (!opts || !opts.skipHash) {
+      var newHash = '#' + tab;
+      if (location.hash !== newHash) history.replaceState(null, '', newHash);
     }
-    function makeLabel(text) {
-      const lbl = document.createElement('div');
-      lbl.className = 'at-brief-label';
-      lbl.textContent = text;
-      return lbl;
-    }
-
-    body.appendChild(makeField('summary', 'at-brief-summary'));
-
-    const grid1 = document.createElement('div');
-    grid1.className = 'at-brief-grid1';
-    const readinessBlock = document.createElement('div');
-    readinessBlock.className = 'at-brief-block';
-    readinessBlock.appendChild(makeLabel('Readiness'));
-    readinessBlock.appendChild(makeField('readiness'));
-    grid1.appendChild(readinessBlock);
-    body.appendChild(grid1);
-
-    const grid2 = document.createElement('div');
-    grid2.className = 'at-brief-grid2';
-    const habitsBlock = document.createElement('div');
-    habitsBlock.className = 'at-brief-block';
-    habitsBlock.appendChild(makeLabel('Habits'));
-    habitsBlock.appendChild(makeField('habits'));
-    const trainingBlock = document.createElement('div');
-    trainingBlock.className = 'at-brief-block';
-    trainingBlock.appendChild(makeLabel('Training'));
-    trainingBlock.appendChild(makeField('training'));
-    grid2.appendChild(habitsBlock);
-    grid2.appendChild(trainingBlock);
-    body.appendChild(grid2);
-
-    const focusBlock = document.createElement('div');
-    focusBlock.className = 'at-brief-block';
-    focusBlock.style.marginBottom = '16px';
-    focusBlock.appendChild(makeLabel("Today's Focus"));
-    focusBlock.appendChild(makeField('focus'));
-    body.appendChild(focusBlock);
-
-    const insightBox = document.createElement('div');
-    insightBox.className = 'at-brief-insight';
-    insightBox.appendChild(makeLabel('Insight'));
-    insightBox.appendChild(makeField('insight'));
-    body.appendChild(insightBox);
-
-    wrap.appendChild(body);
-    return wrap;
-  }
-  const BRIEF_FIELD_NAMES = ['summary', 'readiness', 'habits', 'training', 'focus', 'insight'];
-
-  function renderBriefingsList() {
-    const list = loadBriefings();
-    const wrap = document.getElementById('atBriefList');
-    wrap.innerHTML = '';
-    list.forEach(b => wrap.appendChild(buildBriefingCard(b)));
-    document.getElementById('atBriefEmpty').hidden = list.length !== 0;
-    wrap.querySelectorAll('textarea').forEach(autosize);
   }
 
-  function initMorningBriefing() {
-    renderBriefingsList();
-    document.getElementById('atGenerateBriefBtn').addEventListener('click', () => {
-      const list = loadBriefings();
-      const briefing = Object.assign({ id: genId('br'), createdAt: Date.now() }, DEFAULT_BRIEFING);
-      list.push(briefing);
-      saveBriefings(list);
-      renderBriefingsList();
-      const wrap = document.getElementById('atBriefList');
-      const newCard = wrap.querySelector('[data-id="' + briefing.id + '"]');
-      if (newCard) newCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
-
-  // =====================================================================
-  // Tabs
-  // =====================================================================
-  function switchTab(tab) {
-    document.querySelectorAll('.at-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    ['today', 'week', 'month', 'year', 'memories'].forEach(t => {
-      const panel = document.getElementById('atPanel' + t.charAt(0).toUpperCase() + t.slice(1));
-      panel.hidden = t !== tab;
-    });
-    if (tab === 'week') renderWeekTab();
-    else if (tab === 'month') renderMonthTab();
-    else if (tab === 'year') renderYearTab();
-    else if (tab === 'memories') renderMemoriesTab();
-  }
-  document.getElementById('atTabs').addEventListener('click', (e) => {
-    const btn = e.target.closest('.at-tab');
-    if (btn) switchTab(btn.dataset.tab);
+  document.getElementById('atTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('.at-tab');
+    if (btn && btn.dataset.tab) switchTab(btn.dataset.tab);
+  });
+  window.addEventListener('hashchange', function () {
+    switchTab(tabFromHash(), { skipHash: true });
   });
 
-  // ---------- Week tab ----------
-  function renderWeekTab() {
-    const today = getActiveDateString();
-    const habits = loadHabits();
-    const grid = document.getElementById('atWeekGrid');
-    grid.innerHTML = '';
-    let cursor = addDaysToKey(today, -6);
-    while (cursor <= today) {
-      const dow = keyToDate(cursor).getDay();
-      const scheduled = habits.filter(h => isScheduled(h, dow));
-      const log = loadHabitLog(cursor);
-      const done = scheduled.filter(h => log[h.id]).length;
-      const pct = scheduled.length ? Math.round((done / scheduled.length) * 100) : null;
-
-      const cell = document.createElement('div');
-      cell.className = 'at-week-day' + (cursor === today ? ' is-today' : '');
-      const name = document.createElement('div');
-      name.className = 'at-week-day-name';
-      name.textContent = DAY_NAMES[dow].slice(0, 3);
-      cell.appendChild(name);
-      const num = document.createElement('div');
-      num.className = 'at-week-day-num';
-      num.textContent = String(keyToDate(cursor).getDate());
-      cell.appendChild(num);
-      const pctEl = document.createElement('div');
-      pctEl.className = 'at-week-day-pct';
-      pctEl.textContent = pct == null ? '—' : (pct + '%');
-      cell.appendChild(pctEl);
-      const win = loadText(winKey(cursor));
-      if (win) {
-        const winEl = document.createElement('div');
-        winEl.className = 'at-week-day-win';
-        winEl.textContent = win;
-        winEl.title = win;
-        cell.appendChild(winEl);
-      }
-      grid.appendChild(cell);
-      cursor = addDaysToKey(cursor, 1);
-    }
-  }
-
-  // ---------- Month tab ----------
-  function renderMonthTab() {
-    const now = new Date();
-    const year = now.getFullYear(), month = now.getMonth();
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    document.getElementById('atMonthTitle').textContent = monthNames[month] + ' ' + year;
-
-    const dowWrap = document.getElementById('atMonthDow');
-    dowWrap.innerHTML = '';
-    ['S','M','T','W','T','F','S'].forEach(l => { const s = document.createElement('span'); s.textContent = l; dowWrap.appendChild(s); });
-
-    const habits = loadHabits();
-    const today = getActiveDateString();
-    const firstDow = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const grid = document.getElementById('atMonthGrid');
-    grid.innerHTML = '';
-    for (let i = 0; i < firstDow; i++) {
-      const cell = document.createElement('div'); cell.className = 'at-month-cell empty'; grid.appendChild(cell);
-    }
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = year + '-' + pad2(month + 1) + '-' + pad2(day);
-      const cell = document.createElement('div');
-      cell.className = 'at-month-cell' + (dateStr === today ? ' is-today' : '');
-      const dow = new Date(year, month, day).getDay();
-      const scheduled = habits.filter(h => isScheduled(h, dow));
-      if (scheduled.length && dateStr <= today) {
-        const log = loadHabitLog(dateStr);
-        const done = scheduled.filter(h => log[h.id]).length;
-        const pct = done / scheduled.length;
-        cell.style.background = pct === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(224, 138, 159,' + (0.12 + pct * 0.5) + ')';
-      }
-      cell.textContent = String(day);
-      grid.appendChild(cell);
-    }
-  }
-
-  // ---------- Year tab ----------
-  function renderYearTab() {
-    const now = new Date();
-    const year = now.getFullYear();
-    document.getElementById('atYearTitle').textContent = year + ' Overview';
-    const habits = loadHabits();
-    const today = getActiveDateString();
-    const monthAbbr = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-    const wrap = document.getElementById('atYearBars');
-    wrap.innerHTML = '';
-    for (let m = 0; m < 12; m++) {
-      const daysInMonth = new Date(year, m + 1, 0).getDate();
-      let sumPct = 0, countedDays = 0;
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = year + '-' + pad2(m + 1) + '-' + pad2(day);
-        if (dateStr > today) break;
-        const dow = new Date(year, m, day).getDay();
-        const scheduled = habits.filter(h => isScheduled(h, dow));
-        if (!scheduled.length) continue;
-        const log = loadHabitLog(dateStr);
-        const done = scheduled.filter(h => log[h.id]).length;
-        sumPct += done / scheduled.length;
-        countedDays++;
-      }
-      const avgPct = countedDays ? Math.round((sumPct / countedDays) * 100) : 0;
-      const barWrap = document.createElement('div');
-      barWrap.className = 'at-year-bar-wrap';
-      const pctLabel = document.createElement('div');
-      pctLabel.className = 'at-year-bar-pct';
-      pctLabel.textContent = countedDays ? avgPct + '%' : '';
-      barWrap.appendChild(pctLabel);
-      const bar = document.createElement('div');
-      bar.className = 'at-year-bar';
-      bar.style.height = Math.max(countedDays ? avgPct : 0, countedDays ? 4 : 0) + '%';
-      barWrap.appendChild(bar);
-      const label = document.createElement('div');
-      label.className = 'at-year-bar-label';
-      label.textContent = monthAbbr[m];
-      barWrap.appendChild(label);
-      wrap.appendChild(barWrap);
-    }
-  }
-
-  // ---------- Memories tab ----------
-  function renderMemoriesTab() {
-    const habits = loadHabits();
-    const list = document.getElementById('streaksList');
-    const empty = document.getElementById('streaksEmpty');
-    list.innerHTML = '';
-    empty.hidden = habits.length !== 0;
-    habits.forEach(habit => {
-      const s = computeHabitStreaks(habit);
-      const row = document.createElement('div'); row.className = 'sk-row';
-      const name = document.createElement('div'); name.className = 'sk-name'; name.textContent = habit.text;
-      const cur = document.createElement('div'); cur.className = 'sk-current';
-      cur.textContent = '🔥 ' + s.current + ' day' + (s.current === 1 ? '' : 's');
-      const best = document.createElement('div'); best.className = 'sk-best';
-      if (s.best > 0) {
-        best.innerHTML = 'Best: <span class="sk-best-num">' + s.best + '</span> day' + (s.best === 1 ? '' : 's') +
-          '<br>' + formatDateShort(s.bestStart) + ' – ' + formatDateShort(s.bestEnd);
-      } else {
-        best.textContent = 'No streak yet';
-      }
-      row.appendChild(name); row.appendChild(cur); row.appendChild(best);
-      list.appendChild(row);
-    });
-
-    const winKeys = storeListKeys('goals:win:');
-    const journalKeys = storeListKeys('goals:journal:');
-    const dates = new Set();
-    winKeys.forEach(k => dates.add(k.slice('goals:win:'.length)));
-    journalKeys.forEach(k => dates.add(k.slice('goals:journal:'.length)));
-    const sorted = Array.from(dates).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().reverse();
-
-    const memWrap = document.getElementById('atMemoriesList');
-    const memEmpty = document.getElementById('atMemoriesEmpty');
-    memWrap.innerHTML = '';
-    let shown = 0;
-    sorted.forEach(dateStr => {
-      const win = loadText(winKey(dateStr));
-      const journal = loadText(journalKey(dateStr));
-      if (!win && !journal) return;
-      shown++;
-      const card = document.createElement('div');
-      card.className = 'at-memory-card';
-      const date = document.createElement('div'); date.className = 'at-memory-date'; date.textContent = formatDateShort(dateStr);
-      card.appendChild(date);
-      if (win) { const w = document.createElement('div'); w.className = 'at-memory-win'; w.textContent = '★ ' + win; card.appendChild(w); }
-      if (journal) { const j = document.createElement('div'); j.className = 'at-memory-journal'; j.textContent = journal; card.appendChild(j); }
-      memWrap.appendChild(card);
-    });
-    memEmpty.hidden = shown !== 0;
-  }
-
-  // ---------- Clock ----------
+  function pad2(n) { return String(n).padStart(2, '0'); }
   function tickClock() {
-    const el = document.getElementById('atClock');
-    const d = new Date();
-    let h = d.getHours();
-    const ampm = h >= 12 ? 'PM' : 'AM';
+    var el = document.getElementById('atClock');
+    var d = new Date();
+    var h = d.getHours();
+    var ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12; if (h === 0) h = 12;
     el.textContent = h + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + ' ' + ampm;
   }
 
-  // =====================================================================
-  // Boot
-  // =====================================================================
-  function renderAll() {
-    renderTaskGrid();
-    renderStatTiles();
-    renderDueTasks();
-  }
-
-  renderTaskGrid();
-  renderStatTiles();
-  wireStatTileEditing();
-  renderDueTasks();
-  initJournalCol();
-  initMorningBriefing();
+  switchTab(tabFromHash(), { skipHash: true });
   tickClock();
   setInterval(tickClock, 1000);
-
-  window.addEventListener('goals-changed', renderAll);
-  window.addEventListener('storage', renderAll);
 })();
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
+  // No data keys are written yet in this shell-only pass — appKey/
+  // syncedPrefixes kept as-is (same Supabase row this page has always
+  // used) so the later prompts that add main:* data don't need to
+  // touch this wiring at all.
   initCloudSync({
     appKey: 'goals',
-    syncedPrefixes: ['goals:'],
-    onApplied: function () {
-      window.dispatchEvent(new CustomEvent('goals-changed'));
-      window.dispatchEvent(new Event('storage'));
-    }
+    syncedPrefixes: ['goals:', 'main:']
   });
 });
 </script>
