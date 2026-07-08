@@ -463,6 +463,25 @@ body::after {
 .at-textarea:focus { border-color: rgba(255,255,255,0.28); }
 .at-textarea::placeholder { color: var(--text-tertiary); }
 
+/* ===== Self-Discovery ===== */
+.entry-card { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
+.entry-card:hover { background: rgba(255,255,255,0.06); }
+.entry-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.entry-card-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; }
+.entry-card-date { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
+.entry-card-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.entry-card-del:hover { color: var(--danger); }
+.entry-card-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 6px; white-space: pre-wrap; }
+.entry-card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.value-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; margin-bottom: 8px; }
+.value-rank-num { font-family: var(--font-mono); color: var(--at-gold); font-weight: 700; font-size: 13px; padding-top: 2px; flex-shrink: 0; }
+.value-row-body { flex: 1; min-width: 0; cursor: pointer; }
+.value-row-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.value-row-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+.value-row-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.value-row-del:hover { color: var(--danger); }
+
 /* ===== Shared chip / modal / field / button kit ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
@@ -656,13 +675,23 @@ body::after {
     <div id="bizPanelBody"></div>
   </div>
 
+  <!-- ============ SELF-DISCOVERY ============ -->
   <div class="at-tabpanel" id="atPanelSelf" hidden>
-    <div class="at-col-head"><h2>Self-Discovery</h2></div>
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">🪞</div>
-      <div class="placeholder-title">Self-Discovery coming soon</div>
-      <div class="placeholder-text">Freeform reflective entries will be built here in a later pass.</div>
+    <div class="at-col-head">
+      <h2>Self-Discovery</h2>
+      <div class="at-col-actions"><button type="button" class="at-mini-btn" id="atAddEntryBtn">+ Add Entry</button></div>
     </div>
+
+    <div class="chip-row" id="selfViewChips">
+      <button type="button" class="chip active" data-view="all">All Entries</button>
+      <button type="button" class="chip" data-view="byArea">By Life Area</button>
+      <button type="button" class="chip" data-view="values">Values</button>
+      <button type="button" class="chip" data-view="reflections">Reflections</button>
+    </div>
+    <div class="chip-row" id="selfTypeFilterRow"></div>
+
+    <div id="selfViewBody"></div>
+    <div class="at-empty" id="selfEmpty" hidden></div>
   </div>
 
 </div>
@@ -955,6 +984,35 @@ body::after {
   </div>
 </div>
 
+<!-- Add / Edit Self-Discovery Entry modal -->
+<div class="modal-bg" id="entryModalBg">
+  <div class="modal">
+    <h3 id="entryModalTitle">Add Entry</h3>
+    <div class="field">
+      <label>Type</label>
+      <select id="entryTypeInput">
+        <option value="value">Value</option>
+        <option value="strength">Strength</option>
+        <option value="weakness">Weakness</option>
+        <option value="belief">Belief</option>
+        <option value="pattern">Pattern</option>
+        <option value="reflection">Reflection</option>
+        <option value="aspiration">Aspiration</option>
+        <option value="fear">Fear</option>
+      </select>
+    </div>
+    <div class="field"><label>Title</label><input type="text" id="entryTitleInput" placeholder="e.g. Honesty"></div>
+    <div class="field"><label>Body</label><textarea id="entryBodyInput" placeholder="Say more about it…"></textarea></div>
+    <div class="field"><label>Related Life Areas (optional)</label><div class="chip-row" id="entryAreaChipRow"></div></div>
+    <div class="field"><label>Related Goal (optional)</label><select id="entryGoalInput"></select></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="entryModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="entryModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="entryModalDelete" style="display:none">Delete this entry</span>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -1009,6 +1067,7 @@ body::after {
     else if (tab === 'tasks') renderTaskSection();
     else if (tab === 'habits') renderHabitsSection();
     else if (tab === 'businesses') renderBusinessesSection();
+    else if (tab === 'self') renderSelfSection();
   }
   function switchTab(tab, opts) {
     if (TABS.indexOf(tab) === -1) tab = 'overview';
@@ -3252,6 +3311,304 @@ body::after {
     saveBusinesses(list);
     document.getElementById('kpiModalBg').classList.remove('show');
     renderBusinessesSection();
+  });
+
+  // =====================================================================
+  // Self-Discovery — main:selfentries = [{ id, type, title, body,
+  // relatedLifeAreaIds: [areaId,...], relatedGoalId, rank (values only),
+  // createdAt }]. Four views over the same store: All Entries (filter/
+  // group by type), By Life Area (an entry with multiple
+  // relatedLifeAreaIds appears under each), Values (ranked,
+  // reorderable), Reflections (journal, sorted by date).
+  // =====================================================================
+  var ENTRY_TYPES = [
+    { key: 'value', label: 'Value', plural: 'Values' },
+    { key: 'strength', label: 'Strength', plural: 'Strengths' },
+    { key: 'weakness', label: 'Weakness', plural: 'Weaknesses' },
+    { key: 'belief', label: 'Belief', plural: 'Beliefs' },
+    { key: 'pattern', label: 'Pattern', plural: 'Patterns' },
+    { key: 'reflection', label: 'Reflection', plural: 'Reflections' },
+    { key: 'aspiration', label: 'Aspiration', plural: 'Aspirations' },
+    { key: 'fear', label: 'Fear', plural: 'Fears' }
+  ];
+  function entryTypeLabel(key) { var f = ENTRY_TYPES.filter(function (t) { return t.key === key; })[0]; return f ? f.label : key; }
+  function loadSelfEntries() { var e = storeGet('main:selfentries'); return Array.isArray(e) ? e : []; }
+  function saveSelfEntries(list) { storeSet('main:selfentries', list); }
+  function nextValueRank() {
+    var values = loadSelfEntries().filter(function (e) { return e.type === 'value'; });
+    return values.length ? Math.max.apply(null, values.map(function (e) { return e.rank || 0; })) + 1 : 0;
+  }
+
+  var selfView = 'all';
+  var selfTypeFilter = null;
+  var SELF_EMPTY_MESSAGES = {
+    all: 'No entries yet — tap "+ Add Entry" to start building your self-knowledge base.',
+    byArea: 'No entries linked to a life area yet.',
+    values: 'No values ranked yet — tap "+ Add Entry" to add your first one.',
+    reflections: 'No reflections yet — tap "+ Add Entry" to write your first one.'
+  };
+
+  function buildEntryCard(entry, opts) {
+    opts = opts || {};
+    var card = document.createElement('div'); card.className = 'entry-card';
+    card.addEventListener('click', function () { openEntryModal(entry); });
+
+    var head = document.createElement('div'); head.className = 'entry-card-head';
+    var badge = document.createElement('span'); badge.className = 'goal-card-tag'; badge.textContent = entryTypeLabel(entry.type);
+    head.appendChild(badge);
+    var title = document.createElement('span'); title.className = 'entry-card-title'; title.textContent = entry.title;
+    head.appendChild(title);
+    if (opts.showDate) {
+      var date = document.createElement('span'); date.className = 'entry-card-date';
+      date.textContent = formatDateShort(dateToKey(new Date(entry.createdAt || Date.now())));
+      head.appendChild(date);
+    }
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'entry-card-del'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete');
+    delBtn.addEventListener('click', function (e) { e.stopPropagation(); deleteEntryWithConfirm(entry.id); });
+    head.appendChild(delBtn);
+    card.appendChild(head);
+
+    if (entry.body) {
+      var body = document.createElement('div'); body.className = 'entry-card-body'; body.textContent = entry.body;
+      card.appendChild(body);
+    }
+
+    var tags = [];
+    (Array.isArray(entry.relatedLifeAreaIds) ? entry.relatedLifeAreaIds : []).forEach(function (aid) {
+      var a = areaById(aid);
+      if (a) tags.push((a.icon || '') + ' ' + a.name);
+    });
+    var goal = entry.relatedGoalId ? goalById(entry.relatedGoalId) : null;
+    if (goal) tags.push('🎯 ' + goal.title);
+    if (tags.length) {
+      var tagRow = document.createElement('div'); tagRow.className = 'entry-card-tags';
+      tags.forEach(function (t) { var pill = document.createElement('span'); pill.className = 'at-due-link'; pill.textContent = t; tagRow.appendChild(pill); });
+      card.appendChild(tagRow);
+    }
+    return card;
+  }
+
+  function deleteEntryWithConfirm(id) {
+    if (!confirm('Delete this entry?')) return;
+    saveSelfEntries(loadSelfEntries().filter(function (e) { return e.id !== id; }));
+    renderSelfSection();
+  }
+
+  function renderSelfTypeFilterRow() {
+    var wrap = document.getElementById('selfTypeFilterRow');
+    wrap.innerHTML = '';
+    wrap.style.display = selfView === 'all' ? '' : 'none';
+    if (selfView !== 'all') return;
+    var allChip = document.createElement('button');
+    allChip.type = 'button'; allChip.className = 'chip' + (!selfTypeFilter ? ' active' : ''); allChip.textContent = 'All Types';
+    allChip.addEventListener('click', function () { selfTypeFilter = null; renderSelfSection(); });
+    wrap.appendChild(allChip);
+    ENTRY_TYPES.forEach(function (t) {
+      var chip = document.createElement('button');
+      chip.type = 'button'; chip.className = 'chip' + (selfTypeFilter === t.key ? ' active' : ''); chip.textContent = t.plural;
+      chip.addEventListener('click', function () { selfTypeFilter = t.key; renderSelfSection(); });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function renderSelfAllView(wrap) {
+    var entries = loadSelfEntries();
+    if (selfTypeFilter) entries = entries.filter(function (e) { return e.type === selfTypeFilter; });
+    entries = entries.slice().sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    document.getElementById('selfEmpty').hidden = entries.length !== 0;
+    if (!entries.length) return;
+    if (selfTypeFilter) {
+      entries.forEach(function (e) { wrap.appendChild(buildEntryCard(e)); });
+    } else {
+      ENTRY_TYPES.forEach(function (t) {
+        var group = entries.filter(function (e) { return e.type === t.key; });
+        if (!group.length) return;
+        var header = document.createElement('div'); header.className = 'gp-subhead';
+        header.textContent = t.plural + ' (' + group.length + ')';
+        wrap.appendChild(header);
+        group.forEach(function (e) { wrap.appendChild(buildEntryCard(e)); });
+      });
+    }
+  }
+
+  function buildAreaEntryGroup(label, entries) {
+    var group = document.createElement('div'); group.className = 'std-group';
+    var head = document.createElement('div'); head.className = 'std-group-head';
+    head.addEventListener('click', function () { group.classList.toggle('collapsed'); });
+    var caret = document.createElement('span'); caret.className = 'std-caret'; caret.textContent = '▼';
+    head.appendChild(caret);
+    var name = document.createElement('span'); name.className = 'std-group-name'; name.textContent = label;
+    head.appendChild(name);
+    var count = document.createElement('span'); count.className = 'std-group-count'; count.textContent = entries.length;
+    head.appendChild(count);
+    var spacer = document.createElement('span'); spacer.className = 'std-group-spacer';
+    head.appendChild(spacer);
+    group.appendChild(head);
+    var body = document.createElement('div'); body.className = 'std-group-body';
+    entries.forEach(function (e) { body.appendChild(buildEntryCard(e)); });
+    group.appendChild(body);
+    return group;
+  }
+  function renderSelfByAreaView(wrap) {
+    var entries = loadSelfEntries();
+    document.getElementById('selfEmpty').hidden = entries.length !== 0;
+    if (!entries.length) return;
+    loadAreas().forEach(function (a) {
+      var group = entries.filter(function (e) { return Array.isArray(e.relatedLifeAreaIds) && e.relatedLifeAreaIds.indexOf(a.id) !== -1; });
+      if (group.length) wrap.appendChild(buildAreaEntryGroup((a.icon || '') + ' ' + a.name, group));
+    });
+    var unassigned = entries.filter(function (e) { return !Array.isArray(e.relatedLifeAreaIds) || !e.relatedLifeAreaIds.length; });
+    if (unassigned.length) wrap.appendChild(buildAreaEntryGroup('Unassigned', unassigned));
+  }
+
+  function moveValueRank(id, dir) {
+    var all = loadSelfEntries();
+    var values = all.filter(function (e) { return e.type === 'value'; }).sort(function (a, b) { return (a.rank || 0) - (b.rank || 0); });
+    var idx = values.map(function (v) { return v.id; }).indexOf(id);
+    var swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= values.length) return;
+    var tmp = values[idx].rank; values[idx].rank = values[swapIdx].rank; values[swapIdx].rank = tmp;
+    saveSelfEntries(all);
+    renderSelfSection();
+  }
+  function buildValueRow(entry, index, total) {
+    var row = document.createElement('div'); row.className = 'value-row';
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = index === 0;
+    up.addEventListener('click', function () { moveValueRank(entry.id, -1); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = index === total - 1;
+    down.addEventListener('click', function () { moveValueRank(entry.id, 1); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    row.appendChild(reorder);
+
+    var rankNum = document.createElement('span'); rankNum.className = 'value-rank-num'; rankNum.textContent = '#' + (index + 1);
+    row.appendChild(rankNum);
+
+    var body = document.createElement('div'); body.className = 'value-row-body';
+    body.addEventListener('click', function () { openEntryModal(entry); });
+    var title = document.createElement('div'); title.className = 'value-row-title'; title.textContent = entry.title;
+    body.appendChild(title);
+    if (entry.body) {
+      var desc = document.createElement('div'); desc.className = 'value-row-desc'; desc.textContent = entry.body;
+      body.appendChild(desc);
+    }
+    row.appendChild(body);
+
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'value-row-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete');
+    del.addEventListener('click', function (e) { e.stopPropagation(); deleteEntryWithConfirm(entry.id); });
+    row.appendChild(del);
+    return row;
+  }
+  function renderSelfValuesView(wrap) {
+    var values = loadSelfEntries().filter(function (e) { return e.type === 'value'; }).sort(function (a, b) { return (a.rank || 0) - (b.rank || 0); });
+    document.getElementById('selfEmpty').hidden = values.length !== 0;
+    values.forEach(function (v, i) { wrap.appendChild(buildValueRow(v, i, values.length)); });
+  }
+
+  function renderSelfReflectionsView(wrap) {
+    var entries = loadSelfEntries().filter(function (e) { return e.type === 'reflection'; })
+      .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    document.getElementById('selfEmpty').hidden = entries.length !== 0;
+    entries.forEach(function (e) { wrap.appendChild(buildEntryCard(e, { showDate: true })); });
+  }
+
+  function renderSelfSection() {
+    renderSelfTypeFilterRow();
+    document.getElementById('selfEmpty').textContent = SELF_EMPTY_MESSAGES[selfView] || 'No entries yet.';
+    var wrap = document.getElementById('selfViewBody');
+    wrap.innerHTML = '';
+    if (selfView === 'all') renderSelfAllView(wrap);
+    else if (selfView === 'byArea') renderSelfByAreaView(wrap);
+    else if (selfView === 'values') renderSelfValuesView(wrap);
+    else if (selfView === 'reflections') renderSelfReflectionsView(wrap);
+  }
+  document.getElementById('selfViewChips').addEventListener('click', function (e) {
+    var btn = e.target.closest('.chip');
+    if (!btn) return;
+    selfView = btn.dataset.view;
+    document.querySelectorAll('#selfViewChips .chip').forEach(function (c) { c.classList.toggle('active', c === btn); });
+    renderSelfSection();
+  });
+
+  var entryEditingId = null;
+  var entrySelectedAreaIds = [];
+  function renderEntryAreaChipRow() {
+    var wrap = document.getElementById('entryAreaChipRow');
+    wrap.innerHTML = '';
+    var areas = loadAreas();
+    if (!areas.length) {
+      var hint = document.createElement('span'); hint.className = 'at-empty'; hint.textContent = 'Add a Life Area to link entries to one.';
+      wrap.appendChild(hint);
+      return;
+    }
+    areas.forEach(function (a) {
+      var chip = document.createElement('button');
+      chip.type = 'button'; chip.className = 'chip' + (entrySelectedAreaIds.indexOf(a.id) !== -1 ? ' active' : '');
+      chip.textContent = (a.icon || '') + ' ' + a.name;
+      chip.addEventListener('click', function () {
+        var i = entrySelectedAreaIds.indexOf(a.id);
+        if (i === -1) entrySelectedAreaIds.push(a.id); else entrySelectedAreaIds.splice(i, 1);
+        renderEntryAreaChipRow();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+  function renderEntryGoalSelect() {
+    var sel = document.getElementById('entryGoalInput');
+    sel.innerHTML = '<option value="">— none —</option>';
+    loadGoals().forEach(function (g) { var o = document.createElement('option'); o.value = g.id; o.textContent = g.title; sel.appendChild(o); });
+  }
+  function openEntryModal(entry, presetType) {
+    entryEditingId = entry ? entry.id : null;
+    entrySelectedAreaIds = entry && Array.isArray(entry.relatedLifeAreaIds) ? entry.relatedLifeAreaIds.slice() : [];
+    document.getElementById('entryModalTitle').textContent = entry ? 'Edit Entry' : 'Add Entry';
+    document.getElementById('entryTypeInput').value = entry ? entry.type : (presetType || 'reflection');
+    document.getElementById('entryTitleInput').value = entry ? entry.title : '';
+    document.getElementById('entryBodyInput').value = entry ? (entry.body || '') : '';
+    renderEntryAreaChipRow();
+    renderEntryGoalSelect();
+    document.getElementById('entryGoalInput').value = entry ? (entry.relatedGoalId || '') : '';
+    document.getElementById('entryModalDelete').style.display = entry ? 'block' : 'none';
+    document.getElementById('entryModalBg').classList.add('show');
+  }
+  document.getElementById('atAddEntryBtn').addEventListener('click', function () {
+    var presetType = selfView === 'values' ? 'value' : selfView === 'reflections' ? 'reflection' : null;
+    openEntryModal(null, presetType);
+  });
+  document.getElementById('entryModalCancel').addEventListener('click', function () { document.getElementById('entryModalBg').classList.remove('show'); });
+  document.getElementById('entryModalBg').addEventListener('click', function (e) { if (e.target.id === 'entryModalBg') document.getElementById('entryModalBg').classList.remove('show'); });
+  document.getElementById('entryModalSave').addEventListener('click', function () {
+    var title = document.getElementById('entryTitleInput').value.trim();
+    if (!title) return;
+    var type = document.getElementById('entryTypeInput').value;
+    var body = document.getElementById('entryBodyInput').value.trim();
+    var relatedGoalId = document.getElementById('entryGoalInput').value || null;
+    var list = loadSelfEntries();
+    if (entryEditingId) {
+      var e = list.filter(function (x) { return x.id === entryEditingId; })[0];
+      if (e) {
+        e.type = type; e.title = title; e.body = body;
+        e.relatedLifeAreaIds = entrySelectedAreaIds.slice(); e.relatedGoalId = relatedGoalId;
+        if (type === 'value' && e.rank == null) e.rank = nextValueRank();
+      }
+    } else {
+      var fields = {
+        id: genId('entry'), type: type, title: title, body: body,
+        relatedLifeAreaIds: entrySelectedAreaIds.slice(), relatedGoalId: relatedGoalId, createdAt: Date.now()
+      };
+      if (type === 'value') fields.rank = nextValueRank();
+      list.push(fields);
+    }
+    saveSelfEntries(list);
+    document.getElementById('entryModalBg').classList.remove('show');
+    renderSelfSection();
+  });
+  document.getElementById('entryModalDelete').addEventListener('click', function () {
+    if (!entryEditingId) return;
+    document.getElementById('entryModalBg').classList.remove('show');
+    deleteEntryWithConfirm(entryEditingId);
   });
 
   // =====================================================================
