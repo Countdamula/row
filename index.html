@@ -346,6 +346,32 @@ body::after {
   background: var(--at-gold); color: #2a0d14; font-family: inherit; font-size: 12px; font-weight: 700;
 }
 
+/* ===== Tasks section ===== */
+.task-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.task-filter-select {
+  padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04); color: var(--text-secondary); font-family: inherit; font-size: 12px;
+}
+.task-row { margin-bottom: 10px; }
+.task-row .at-due-card { margin-bottom: 4px; }
+.task-tags-row { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 27px; margin-bottom: 2px; }
+.at-due-link {
+  font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+  background: rgba(224,138,159,0.12); color: var(--at-gold); white-space: nowrap;
+}
+.std-priority-pill { font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+.std-priority-pill.low { color: var(--info); background: rgba(125,211,252,0.12); }
+.std-priority-pill.medium { color: var(--warning); background: rgba(242,192,99,0.12); }
+.std-priority-pill.high { color: var(--danger); background: rgba(255,107,107,0.12); }
+.task-status-badge {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px;
+  background: rgba(242,192,99,0.14); color: var(--warning); white-space: nowrap; flex-shrink: 0;
+}
+.task-recur-badge {
+  font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+  background: rgba(255,255,255,0.06); color: var(--text-tertiary); white-space: nowrap; flex-shrink: 0;
+}
+
 /* ===== Shared chip / modal / field / button kit ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
@@ -356,7 +382,7 @@ body::after {
 .modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.field input[type="text"], .field input[type="date"], .field textarea, .field select {
+.field input[type="text"], .field input[type="date"], .field input[type="number"], .field textarea, .field select {
   padding: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary);
   border-radius: 10px; font-family: inherit; font-size: 14px; width: 100%;
 }
@@ -452,13 +478,56 @@ body::after {
     <div class="at-empty" id="goalListEmpty" hidden>No goals match this filter.</div>
   </div>
 
+  <!-- ============ TASKS ============ -->
   <div class="at-tabpanel" id="atPanelTasks" hidden>
-    <div class="at-col-head"><h2>Tasks</h2></div>
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">✅</div>
-      <div class="placeholder-title">Tasks coming soon</div>
-      <div class="placeholder-text">A dedicated Tasks view will be built here in a later pass — tasks spawned from Goals already live in the same store this view will read.</div>
+    <div class="at-col-head">
+      <h2>Tasks</h2>
+      <div class="at-col-actions"><button type="button" class="at-mini-btn" id="atAddTaskFullBtn">+ Add Task</button></div>
     </div>
+
+    <div class="chip-row" id="taskViewChips">
+      <button type="button" class="chip active" data-view="today">Today</button>
+      <button type="button" class="chip" data-view="all">All Tasks</button>
+    </div>
+
+    <div class="task-filter-bar">
+      <select class="task-filter-select" id="taskFilterArea"></select>
+      <select class="task-filter-select" id="taskFilterGoal"></select>
+      <select class="task-filter-select" id="taskFilterBiz"></select>
+      <select class="task-filter-select" id="taskFilterPriority">
+        <option value="">All Priorities</option>
+        <option value="high">High priority</option>
+        <option value="medium">Medium priority</option>
+        <option value="low">Low priority</option>
+      </select>
+      <select class="task-filter-select" id="taskFilterStatus">
+        <option value="">All Statuses</option>
+        <option value="todo">To do</option>
+        <option value="in-progress">In progress</option>
+        <option value="done">Done</option>
+      </select>
+      <select class="task-filter-select" id="taskGroupBy">
+        <option value="none">No grouping</option>
+        <option value="lifeAreaId">Group by Life Area</option>
+        <option value="goalId">Group by Goal</option>
+        <option value="businessId">Group by Business</option>
+        <option value="priority">Group by Priority</option>
+        <option value="status">Group by Status</option>
+      </select>
+      <select class="task-filter-select" id="taskSortBy">
+        <option value="due">Sort: Due date</option>
+        <option value="priority">Sort: Priority</option>
+      </select>
+    </div>
+
+    <div class="at-due-add-row" style="margin-top:0; margin-bottom:16px;">
+      <input type="text" id="taskQuickTitle" placeholder="Add a task…">
+      <input type="date" id="taskQuickDate">
+      <button type="button" id="taskQuickAddBtn">+ Add</button>
+    </div>
+
+    <div id="taskSectionList"></div>
+    <div class="at-empty" id="taskSectionEmpty" hidden>No tasks match this view/filter.</div>
   </div>
 
   <div class="at-tabpanel" id="atPanelHabits" hidden>
@@ -639,19 +708,49 @@ body::after {
   </div>
 </div>
 
-<!-- Edit Task modal (shared: goal-level tasks + milestone tasks) -->
+<!-- Add / Edit Task modal (shared: Tasks section + goal-level tasks + milestone tasks) -->
 <div class="modal-bg" id="gTaskModalBg">
   <div class="modal">
-    <h3>Edit Task</h3>
+    <h3 id="gTaskModalHeading">Edit Task</h3>
     <div class="field"><label>Title</label><input type="text" id="gTaskTitleInput"></div>
-    <div class="field"><label>Due date</label><input type="date" id="gTaskDateInput"></div>
     <div class="field"><label>Note (optional)</label><input type="text" id="gTaskNoteInput"></div>
+    <div class="field">
+      <label>Status</label>
+      <select id="gTaskStatusInput">
+        <option value="todo">To do</option>
+        <option value="in-progress">In progress</option>
+        <option value="done">Done</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Priority</label>
+      <select id="gTaskPriorityInput">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+    <div class="field"><label>Due date</label><input type="date" id="gTaskDateInput"></div>
+    <div class="field"><label>Life Area</label><select id="gTaskAreaInput"></select></div>
+    <div class="field"><label>Goal</label><select id="gTaskGoalInput"></select></div>
+    <div class="field"><label>Business</label><select id="gTaskBizInput"></select></div>
+    <div class="field"><label>Habit</label><select id="gTaskHabitInput"></select></div>
+    <div class="field"><label>Estimate (minutes)</label><input type="number" min="0" id="gTaskEstimateInput" placeholder="e.g. 30"></div>
     <div class="field"><label class="field-check"><input type="checkbox" id="gTaskDailyInput"> Daily action</label></div>
+    <div class="field">
+      <label>Recurrence</label>
+      <select id="gTaskRecurrenceInput">
+        <option value="none">None</option>
+        <option value="daily">Daily — regenerates the next day when completed</option>
+        <option value="weekly">Weekly — regenerates 7 days later when completed</option>
+      </select>
+    </div>
+    <div class="at-empty" id="gTaskMilestoneInfo" style="display:none;"></div>
     <div class="modal-actions">
       <button class="btn-secondary" type="button" id="gTaskModalCancel">Cancel</button>
       <button class="btn-primary" type="button" id="gTaskModalSave">Save</button>
     </div>
-    <span class="delete-link" id="gTaskModalDelete">Delete this task</span>
+    <span class="delete-link" id="gTaskModalDelete" style="display:none">Delete this task</span>
   </div>
 </div>
 
@@ -706,6 +805,7 @@ body::after {
   function renderSection(tab) {
     if (tab === 'areas') renderAreasSection();
     else if (tab === 'goals') renderGoalsSection();
+    else if (tab === 'tasks') renderTaskSection();
   }
   function switchTab(tab, opts) {
     if (TABS.indexOf(tab) === -1) tab = 'overview';
@@ -1101,17 +1201,58 @@ body::after {
   function loadBusinesses() { var b = storeGet('main:businesses'); return Array.isArray(b) ? b : []; }
   function businessById(id) { return loadBusinesses().filter(function (b) { return b.id === id; })[0] || null; }
 
+  // Habits — main:habits, read-only reference here (Habits & Routines
+  // section builds the writer later; empty until then, same
+  // forward-compatible treatment as Businesses above).
+  function loadHabits() { var h = storeGet('main:habits'); return Array.isArray(h) ? h : []; }
+  function habitById(id) { return loadHabits().filter(function (h) { return h.id === id; })[0] || null; }
+
   // =====================================================================
-  // Tasks — main:tasks = [{ id, title, note, dueDate, done, doneAt,
-  // goalId, milestoneId, businessId, isDailyAction, createdAt }]. This
-  // is the same store a future Tasks-section build reads/writes; goals
-  // spawn into it here with goalId (+ milestoneId when spawned under a
-  // milestone) already set.
+  // Tasks — main:tasks = [{ id, title, note, status, priority, dueDate,
+  // lifeAreaId, goalId, milestoneId, businessId, habitId, estimateMinutes,
+  // isDailyAction, recurrence, done, doneAt, createdAt }]. This is the
+  // same store the Goals engine reads/writes; goals spawn into it with
+  // goalId (+ milestoneId when spawned under a milestone) already set.
+  // `done`/`doneAt` stay in sync with `status` (status:'done' <=> done:true)
+  // so the existing Goals progress rollup, which only ever reads `done`,
+  // keeps working unchanged against tasks created from either section.
   // =====================================================================
   function loadTasks() { var t = storeGet('main:tasks'); return Array.isArray(t) ? t : []; }
   function saveTasks(list) { storeSet('main:tasks', list); }
   function tasksForGoal(goalId) { return loadTasks().filter(function (t) { return t.goalId === goalId; }); }
   function tasksForMilestone(msId) { return loadTasks().filter(function (t) { return t.milestoneId === msId; }); }
+  function taskStatusOf(t) { return t.status || (t.done ? 'done' : 'todo'); }
+  function formatMinutes(m) {
+    m = Number(m);
+    if (!m) return '';
+    if (m < 60) return m + 'm';
+    var h = Math.floor(m / 60), rem = m % 60;
+    return h + 'h' + (rem ? ' ' + rem + 'm' : '');
+  }
+  // Regenerates the next instance of a recurring task when it's completed.
+  // Limitation: this only fires reactively, on the completion action —
+  // there's no background scheduler in a static-HTML app, so a skipped
+  // occurrence doesn't auto-advance or catch up; it just sits overdue
+  // until you complete or delete it.
+  function spawnNextRecurrence(list, t) {
+    var baseDate = t.dueDate || getActiveDateString();
+    var nextDate = t.recurrence === 'weekly' ? addDaysToKey(baseDate, 7) : addDaysToKey(baseDate, 1);
+    list.push({
+      id: genId('task'), title: t.title, note: t.note || '', status: 'todo', priority: t.priority || 'medium',
+      dueDate: nextDate, lifeAreaId: t.lifeAreaId || null, goalId: t.goalId || null, milestoneId: t.milestoneId || null,
+      businessId: t.businessId || null, habitId: t.habitId || null, estimateMinutes: t.estimateMinutes != null ? t.estimateMinutes : null,
+      isDailyAction: !!t.isDailyAction, recurrence: t.recurrence, done: false, doneAt: null, createdAt: Date.now()
+    });
+  }
+  function setTaskDone(taskId, doneBool) {
+    var list = loadTasks();
+    var t = list.filter(function (x) { return x.id === taskId; })[0];
+    if (!t) return;
+    var wasDone = !!t.done;
+    t.done = doneBool; t.doneAt = doneBool ? Date.now() : null; t.status = doneBool ? 'done' : 'todo';
+    if (doneBool && !wasDone && t.recurrence && t.recurrence !== 'none') spawnNextRecurrence(list, t);
+    saveTasks(list);
+  }
 
   // =====================================================================
   // Milestones — main:milestones = [{ id, goalId, title, targetDate, createdAt }]
@@ -1571,33 +1712,66 @@ body::after {
     }
   }
 
-  // ---------- milestones + objectives + tasks (Break It Down) ----------
-  function buildTaskRow(task, rerenderFn) {
-    var el = document.createElement('div');
-    el.className = 'at-due-card' + (task.done ? ' is-done' : '');
+  // ---------- shared task row + modal (milestones/goals/Tasks section) ----------
+  function buildTaskTagsRow(task) {
+    var tags = [];
+    var area = task.lifeAreaId ? areaById(task.lifeAreaId) : null;
+    if (area) tags.push((area.icon || '') + ' ' + area.name);
+    var goal = task.goalId ? goalById(task.goalId) : null;
+    if (goal) tags.push('🎯 ' + goal.title);
+    var biz = task.businessId ? businessById(task.businessId) : null;
+    if (biz) tags.push((biz.icon || '💼') + ' ' + biz.name);
+    var habit = task.habitId ? habitById(task.habitId) : null;
+    if (habit) tags.push('🔥 ' + (habit.title || habit.text || 'Habit'));
+    if (task.estimateMinutes) tags.push('⏱ ' + formatMinutes(task.estimateMinutes));
+    if (!tags.length) return null;
+    var row = document.createElement('div');
+    row.className = 'task-tags-row';
+    tags.forEach(function (t) {
+      var pill = document.createElement('span'); pill.className = 'at-due-link'; pill.textContent = t;
+      row.appendChild(pill);
+    });
+    return row;
+  }
+  function buildTaskRow(task, rerenderFn, opts) {
+    opts = opts || {};
+    var main = document.createElement('div');
+    main.className = 'at-due-card' + (task.done ? ' is-done' : '');
     var check = document.createElement('button');
     check.type = 'button'; check.className = 'at-due-check' + (task.done ? ' done' : '');
     check.setAttribute('aria-label', task.done ? 'Mark not done' : 'Mark done');
     check.addEventListener('click', function () {
-      var list = loadTasks();
-      var t = list.filter(function (x) { return x.id === task.id; })[0];
-      if (t) { t.done = !t.done; t.doneAt = t.done ? Date.now() : null; }
-      saveTasks(list);
+      setTaskDone(task.id, !task.done);
       rerenderFn();
     });
-    el.appendChild(check);
+    main.appendChild(check);
     var title = document.createElement('span');
     title.className = 'at-due-title'; title.textContent = task.title;
-    title.addEventListener('click', function () { openTaskEditModal(task, rerenderFn); });
-    el.appendChild(title);
+    title.addEventListener('click', function () { openTaskModal(task, rerenderFn); });
+    main.appendChild(title);
+    if (opts.rich) {
+      var pri = document.createElement('span');
+      pri.className = 'std-priority-pill ' + (task.priority || 'medium');
+      pri.textContent = task.priority || 'medium';
+      main.appendChild(pri);
+    }
     if (task.isDailyAction) {
       var badge = document.createElement('span'); badge.className = 'gp-daily-badge'; badge.textContent = 'DAILY';
-      el.appendChild(badge);
+      main.appendChild(badge);
+    }
+    if (opts.rich && taskStatusOf(task) === 'in-progress') {
+      var statusBadge = document.createElement('span'); statusBadge.className = 'task-status-badge'; statusBadge.textContent = 'IN PROGRESS';
+      main.appendChild(statusBadge);
+    }
+    if (opts.rich && task.recurrence && task.recurrence !== 'none') {
+      var recurBadge = document.createElement('span'); recurBadge.className = 'task-recur-badge';
+      recurBadge.textContent = '↻ ' + (task.recurrence === 'weekly' ? 'Weekly' : 'Daily');
+      main.appendChild(recurBadge);
     }
     if (task.dueDate) {
       var date = document.createElement('span');
       date.className = 'at-due-date'; date.textContent = formatDateShort(task.dueDate);
-      el.appendChild(date);
+      main.appendChild(date);
     }
     var del = document.createElement('button');
     del.type = 'button'; del.className = 'at-due-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete');
@@ -1605,34 +1779,104 @@ body::after {
       saveTasks(loadTasks().filter(function (x) { return x.id !== task.id; }));
       rerenderFn();
     });
-    el.appendChild(del);
-    return el;
+    main.appendChild(del);
+
+    if (!opts.showTags) return main;
+    var wrap = document.createElement('div');
+    wrap.className = 'task-row';
+    wrap.appendChild(main);
+    var tagsRow = buildTaskTagsRow(task);
+    if (tagsRow) wrap.appendChild(tagsRow);
+    return wrap;
+  }
+
+  function renderTaskAreaSelect() {
+    var sel = document.getElementById('gTaskAreaInput');
+    sel.innerHTML = '<option value="">— none —</option>';
+    loadAreas().forEach(function (a) {
+      var o = document.createElement('option'); o.value = a.id; o.textContent = (a.icon || '') + ' ' + a.name; sel.appendChild(o);
+    });
+  }
+  function renderTaskGoalSelect() {
+    var sel = document.getElementById('gTaskGoalInput');
+    sel.innerHTML = '<option value="">— none —</option>';
+    loadGoals().forEach(function (g) {
+      var o = document.createElement('option'); o.value = g.id; o.textContent = g.title; sel.appendChild(o);
+    });
+  }
+  function renderTaskBizSelect() {
+    var sel = document.getElementById('gTaskBizInput');
+    sel.innerHTML = '<option value="">— none —</option>';
+    loadBusinesses().forEach(function (b) {
+      var o = document.createElement('option'); o.value = b.id; o.textContent = (b.icon || '💼') + ' ' + b.name; sel.appendChild(o);
+    });
+  }
+  function renderTaskHabitSelect() {
+    var sel = document.getElementById('gTaskHabitInput');
+    sel.innerHTML = '<option value="">— none —</option>';
+    loadHabits().forEach(function (h) {
+      var o = document.createElement('option'); o.value = h.id; o.textContent = (h.icon || '') + ' ' + (h.title || h.text || 'Habit'); sel.appendChild(o);
+    });
   }
 
   var teEditingId = null;
   var teRerender = function () {};
-  function openTaskEditModal(task, rerenderFn) {
-    teEditingId = task.id;
+  function openTaskModal(task, rerenderFn) {
+    teEditingId = task ? task.id : null;
     teRerender = rerenderFn;
-    document.getElementById('gTaskTitleInput').value = task.title;
-    document.getElementById('gTaskDateInput').value = task.dueDate || '';
-    document.getElementById('gTaskNoteInput').value = task.note || '';
-    document.getElementById('gTaskDailyInput').checked = !!task.isDailyAction;
+    document.getElementById('gTaskModalHeading').textContent = task ? 'Edit Task' : 'Add Task';
+    document.getElementById('gTaskTitleInput').value = task ? task.title : '';
+    document.getElementById('gTaskNoteInput').value = task ? (task.note || '') : '';
+    document.getElementById('gTaskStatusInput').value = task ? taskStatusOf(task) : 'todo';
+    document.getElementById('gTaskPriorityInput').value = task ? (task.priority || 'medium') : 'medium';
+    document.getElementById('gTaskDateInput').value = task ? (task.dueDate || '') : '';
+    renderTaskAreaSelect(); document.getElementById('gTaskAreaInput').value = task ? (task.lifeAreaId || '') : '';
+    renderTaskGoalSelect(); document.getElementById('gTaskGoalInput').value = task ? (task.goalId || '') : '';
+    renderTaskBizSelect(); document.getElementById('gTaskBizInput').value = task ? (task.businessId || '') : '';
+    renderTaskHabitSelect(); document.getElementById('gTaskHabitInput').value = task ? (task.habitId || '') : '';
+    document.getElementById('gTaskEstimateInput').value = task && task.estimateMinutes != null ? task.estimateMinutes : '';
+    document.getElementById('gTaskDailyInput').checked = task ? !!task.isDailyAction : false;
+    document.getElementById('gTaskRecurrenceInput').value = task ? (task.recurrence || 'none') : 'none';
+    var msInfo = document.getElementById('gTaskMilestoneInfo');
+    var ms = task && task.milestoneId ? milestoneById(task.milestoneId) : null;
+    if (ms) { msInfo.textContent = 'Linked to milestone: ' + ms.title + ' (not editable here).'; msInfo.style.display = ''; }
+    else { msInfo.style.display = 'none'; }
+    document.getElementById('gTaskModalDelete').style.display = task ? 'block' : 'none';
     document.getElementById('gTaskModalBg').classList.add('show');
   }
   document.getElementById('gTaskModalCancel').addEventListener('click', function () { document.getElementById('gTaskModalBg').classList.remove('show'); });
   document.getElementById('gTaskModalBg').addEventListener('click', function (e) { if (e.target.id === 'gTaskModalBg') document.getElementById('gTaskModalBg').classList.remove('show'); });
   document.getElementById('gTaskModalSave').addEventListener('click', function () {
-    if (!teEditingId) return;
     var title = document.getElementById('gTaskTitleInput').value.trim();
     if (!title) return;
+    var status = document.getElementById('gTaskStatusInput').value;
+    var fields = {
+      title: title,
+      note: document.getElementById('gTaskNoteInput').value.trim(),
+      status: status,
+      priority: document.getElementById('gTaskPriorityInput').value,
+      dueDate: document.getElementById('gTaskDateInput').value || '',
+      lifeAreaId: document.getElementById('gTaskAreaInput').value || null,
+      goalId: document.getElementById('gTaskGoalInput').value || null,
+      businessId: document.getElementById('gTaskBizInput').value || null,
+      habitId: document.getElementById('gTaskHabitInput').value || null,
+      estimateMinutes: document.getElementById('gTaskEstimateInput').value ? Number(document.getElementById('gTaskEstimateInput').value) : null,
+      isDailyAction: document.getElementById('gTaskDailyInput').checked,
+      recurrence: document.getElementById('gTaskRecurrenceInput').value,
+      done: status === 'done',
+      doneAt: status === 'done' ? Date.now() : null
+    };
     var list = loadTasks();
-    var t = list.filter(function (x) { return x.id === teEditingId; })[0];
-    if (t) {
-      t.title = title;
-      t.dueDate = document.getElementById('gTaskDateInput').value || '';
-      t.note = document.getElementById('gTaskNoteInput').value.trim();
-      t.isDailyAction = document.getElementById('gTaskDailyInput').checked;
+    var target, wasDone = false;
+    if (teEditingId) {
+      target = list.filter(function (x) { return x.id === teEditingId; })[0];
+      if (target) { wasDone = !!target.done; Object.assign(target, fields); }
+    } else {
+      target = Object.assign({ id: genId('task'), milestoneId: null, createdAt: Date.now() }, fields);
+      list.push(target);
+    }
+    if (target && fields.status === 'done' && !wasDone && target.recurrence && target.recurrence !== 'none') {
+      spawnNextRecurrence(list, target);
     }
     saveTasks(list);
     document.getElementById('gTaskModalBg').classList.remove('show');
@@ -1758,8 +2002,10 @@ body::after {
       if (!t) return;
       var list = loadTasks();
       list.push({
-        id: genId('task'), title: t, note: '', dueDate: taskDate.value || '', done: false, doneAt: null,
-        goalId: goal.id, milestoneId: m.id, businessId: goal.businessId || null, isDailyAction: dailyCheck.checked, createdAt: Date.now()
+        id: genId('task'), title: t, note: '', status: 'todo', priority: 'medium',
+        dueDate: taskDate.value || '', lifeAreaId: goal.lifeAreaId || null, goalId: goal.id, milestoneId: m.id,
+        businessId: goal.businessId || null, habitId: null, estimateMinutes: null,
+        isDailyAction: dailyCheck.checked, recurrence: 'none', done: false, doneAt: null, createdAt: Date.now()
       });
       saveTasks(list);
       taskInput.value = ''; taskDate.value = ''; dailyCheck.checked = false;
@@ -1851,9 +2097,10 @@ body::after {
     if (!title) return;
     var list = loadTasks();
     list.push({
-      id: genId('task'), title: title, note: '', dueDate: document.getElementById('gpTaskDateInput').value || '',
-      done: false, doneAt: null, goalId: currentGoalId, milestoneId: null,
-      businessId: goal && goal.businessId || null, isDailyAction: document.getElementById('gpTaskDailyInput').checked, createdAt: Date.now()
+      id: genId('task'), title: title, note: '', status: 'todo', priority: 'medium',
+      dueDate: document.getElementById('gpTaskDateInput').value || '', lifeAreaId: goal && goal.lifeAreaId || null,
+      goalId: currentGoalId, milestoneId: null, businessId: goal && goal.businessId || null, habitId: null, estimateMinutes: null,
+      isDailyAction: document.getElementById('gpTaskDailyInput').checked, recurrence: 'none', done: false, doneAt: null, createdAt: Date.now()
     });
     saveTasks(list);
     document.getElementById('gpTaskTitleInput').value = '';
@@ -1886,14 +2133,134 @@ body::after {
       milestones.push({ id: msId, goalId: goal.id, title: (i + 1) + '. ' + titles[i], targetDate: msDate, createdAt: Date.now() + i });
       var kickoffDate = addDaysToKey(today, Math.max(1, Math.round(totalDays * (i / count)) + 1));
       tasks.push({
-        id: genId('task'), title: 'Kick off: ' + titles[i], note: '', dueDate: kickoffDate, done: false, doneAt: null,
-        goalId: goal.id, milestoneId: msId, businessId: goal.businessId || null, isDailyAction: false, createdAt: Date.now() + i
+        id: genId('task'), title: 'Kick off: ' + titles[i], note: '', status: 'todo', priority: 'medium',
+        dueDate: kickoffDate, lifeAreaId: goal.lifeAreaId || null, goalId: goal.id, milestoneId: msId,
+        businessId: goal.businessId || null, habitId: null, estimateMinutes: null,
+        isDailyAction: false, recurrence: 'none', done: false, doneAt: null, createdAt: Date.now() + i
       });
     }
     saveMilestones(milestones);
     saveTasks(tasks);
     renderGoalPage(goal.id);
   });
+
+  // =====================================================================
+  // Tasks section — reads/writes the exact same main:tasks entities the
+  // Goals engine spawns tasks into above.
+  // =====================================================================
+  var taskSectionView = 'today';
+  var taskFilters = { areaId: null, goalId: null, businessId: null, priority: null, status: null };
+  var taskGroupBy = 'none';
+  var taskSortBy = 'due';
+  var PRIORITY_RANK = { high: 3, medium: 2, low: 1 };
+
+  function sortTasks(list, mode) {
+    return list.slice().sort(function (a, b) {
+      var byPriority = (PRIORITY_RANK[b.priority || 'medium'] || 2) - (PRIORITY_RANK[a.priority || 'medium'] || 2);
+      var byDate = (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99');
+      return mode === 'priority' ? (byPriority || byDate) : (byDate || byPriority);
+    });
+  }
+  function groupBuckets(dim, tasks) {
+    var defs;
+    if (dim === 'lifeAreaId') defs = loadAreas().map(function (a) { return { key: a.id, label: (a.icon || '') + ' ' + a.name }; }).concat([{ key: null, label: 'No Life Area' }]);
+    else if (dim === 'goalId') defs = loadGoals().map(function (g) { return { key: g.id, label: g.title }; }).concat([{ key: null, label: 'No Goal' }]);
+    else if (dim === 'businessId') defs = loadBusinesses().map(function (b) { return { key: b.id, label: (b.icon || '💼') + ' ' + b.name }; }).concat([{ key: null, label: 'No Business' }]);
+    else if (dim === 'priority') defs = [{ key: 'high', label: 'High priority' }, { key: 'medium', label: 'Medium priority' }, { key: 'low', label: 'Low priority' }];
+    else if (dim === 'status') defs = [{ key: 'todo', label: 'To do' }, { key: 'in-progress', label: 'In progress' }, { key: 'done', label: 'Done' }];
+    else return [{ key: null, label: '', tasks: tasks }];
+    return defs.map(function (d) {
+      var bucketTasks = tasks.filter(function (t) {
+        var v = dim === 'priority' ? (t.priority || 'medium') : dim === 'status' ? taskStatusOf(t) : (t[dim] || null);
+        return v === d.key;
+      });
+      return { key: d.key, label: d.label, tasks: bucketTasks };
+    });
+  }
+  function renderTaskFilterBar() {
+    var areaSel = document.getElementById('taskFilterArea');
+    var prevArea = areaSel.value;
+    areaSel.innerHTML = '<option value="">All Areas</option>';
+    loadAreas().forEach(function (a) { var o = document.createElement('option'); o.value = a.id; o.textContent = (a.icon || '') + ' ' + a.name; areaSel.appendChild(o); });
+    areaSel.value = prevArea;
+
+    var goalSel = document.getElementById('taskFilterGoal');
+    var prevGoal = goalSel.value;
+    goalSel.innerHTML = '<option value="">All Goals</option>';
+    loadGoals().forEach(function (g) { var o = document.createElement('option'); o.value = g.id; o.textContent = g.title; goalSel.appendChild(o); });
+    goalSel.value = prevGoal;
+
+    var bizSel = document.getElementById('taskFilterBiz');
+    var prevBiz = bizSel.value;
+    bizSel.innerHTML = '<option value="">All Businesses</option>';
+    loadBusinesses().forEach(function (b) { var o = document.createElement('option'); o.value = b.id; o.textContent = (b.icon || '💼') + ' ' + b.name; bizSel.appendChild(o); });
+    bizSel.value = prevBiz;
+  }
+  function renderTaskSection() {
+    renderTaskFilterBar();
+    var today = getActiveDateString();
+    var all = loadTasks();
+    var scoped = taskSectionView === 'today'
+      ? all.filter(function (t) { return t.isDailyAction || t.dueDate === today; })
+      : all.slice();
+    if (taskFilters.areaId) scoped = scoped.filter(function (t) { return t.lifeAreaId === taskFilters.areaId; });
+    if (taskFilters.goalId) scoped = scoped.filter(function (t) { return t.goalId === taskFilters.goalId; });
+    if (taskFilters.businessId) scoped = scoped.filter(function (t) { return t.businessId === taskFilters.businessId; });
+    if (taskFilters.priority) scoped = scoped.filter(function (t) { return (t.priority || 'medium') === taskFilters.priority; });
+    if (taskFilters.status) scoped = scoped.filter(function (t) { return taskStatusOf(t) === taskFilters.status; });
+    scoped = sortTasks(scoped, taskSortBy);
+
+    var wrap = document.getElementById('taskSectionList');
+    wrap.innerHTML = '';
+    document.getElementById('taskSectionEmpty').hidden = scoped.length !== 0;
+
+    function rowFor(t) { return buildTaskRow(t, renderTaskSection, { showTags: true, rich: true }); }
+    if (taskGroupBy === 'none') {
+      scoped.forEach(function (t) { wrap.appendChild(rowFor(t)); });
+    } else {
+      groupBuckets(taskGroupBy, scoped).forEach(function (bucket) {
+        if (!bucket.tasks.length) return;
+        var header = document.createElement('div');
+        header.className = 'gp-subhead';
+        header.textContent = bucket.label + ' (' + bucket.tasks.length + ')';
+        wrap.appendChild(header);
+        bucket.tasks.forEach(function (t) { wrap.appendChild(rowFor(t)); });
+      });
+    }
+  }
+
+  document.getElementById('atAddTaskFullBtn').addEventListener('click', function () { openTaskModal(null, renderTaskSection); });
+  document.getElementById('taskViewChips').addEventListener('click', function (e) {
+    var btn = e.target.closest('.chip');
+    if (!btn) return;
+    taskSectionView = btn.dataset.view;
+    document.querySelectorAll('#taskViewChips .chip').forEach(function (c) { c.classList.toggle('active', c === btn); });
+    renderTaskSection();
+  });
+  document.getElementById('taskFilterArea').addEventListener('change', function (e) { taskFilters.areaId = e.target.value || null; renderTaskSection(); });
+  document.getElementById('taskFilterGoal').addEventListener('change', function (e) { taskFilters.goalId = e.target.value || null; renderTaskSection(); });
+  document.getElementById('taskFilterBiz').addEventListener('change', function (e) { taskFilters.businessId = e.target.value || null; renderTaskSection(); });
+  document.getElementById('taskFilterPriority').addEventListener('change', function (e) { taskFilters.priority = e.target.value || null; renderTaskSection(); });
+  document.getElementById('taskFilterStatus').addEventListener('change', function (e) { taskFilters.status = e.target.value || null; renderTaskSection(); });
+  document.getElementById('taskGroupBy').addEventListener('change', function (e) { taskGroupBy = e.target.value; renderTaskSection(); });
+  document.getElementById('taskSortBy').addEventListener('change', function (e) { taskSortBy = e.target.value; renderTaskSection(); });
+  document.getElementById('taskQuickAddBtn').addEventListener('click', function () {
+    var titleInput = document.getElementById('taskQuickTitle');
+    var dateInput = document.getElementById('taskQuickDate');
+    var title = titleInput.value.trim();
+    if (!title) return;
+    var list = loadTasks();
+    list.push({
+      id: genId('task'), title: title, note: '', status: 'todo', priority: 'medium',
+      dueDate: dateInput.value || '', lifeAreaId: null, goalId: null, milestoneId: null,
+      businessId: null, habitId: null, estimateMinutes: null,
+      isDailyAction: false, recurrence: 'none', done: false, doneAt: null, createdAt: Date.now()
+    });
+    saveTasks(list);
+    titleInput.value = ''; dateInput.value = '';
+    renderTaskSection();
+  });
+  document.getElementById('taskQuickTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('taskQuickAddBtn').click(); } });
 
   // =====================================================================
   // Clock + boot
