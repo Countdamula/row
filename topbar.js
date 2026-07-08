@@ -155,6 +155,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">STUDY</span>
   </a>
+  <a href="nutrition.html" class="topbar-pill" id="topbarNutrition">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">NUTRITION</span>
+  </a>
 </header>
 `;
 

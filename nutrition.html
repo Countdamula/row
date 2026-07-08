@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0509">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Nutrition</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="nutrition-data.js" defer></script>
+<style>
+:root {
+  --bg: #170a12;
+  --bg-deep: #0b0509;
+  --bg-card: rgba(255, 255, 255, 0.035);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --border: rgba(224, 138, 159, 0.18);
+  --accent: #e08a9f;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --cream: #f3e8da;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  color-scheme: dark;
+}
+
+/* Reuses this app's shared near-black wine / dusty-rose aesthetic already
+   established by index.html (Main), entertainment.html (Media),
+   braindump.html (Brain Dump) and study.html (Study) — same base
+   gradient, same --accent hue, same cream button gradient — rather than
+   inventing a new palette for this new page. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(60% 45% at 82% 12%, rgba(232, 164, 99, 0.10) 0%, transparent 55%),
+    radial-gradient(55% 45% at 18% 90%, rgba(224, 138, 159, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #170a12 0%, #0b0509 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+
+.shell { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
+
+/* ===== Back to dashboard — same recipe as study.html/braindump.html ===== */
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px; margin: 0 0 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px; color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.back-btn:hover, .back-btn:active { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.back-btn svg { display: block; }
+
+/* ===== Header ===== */
+.nutr-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+.nutr-title { font-family: var(--font-serif); font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ===== Secondary nav — same tab/underline pattern as finance.html's
+   .fin-tab, restyled with this file's own tokens (My Kitchen / Grocery
+   List), plus a URL hash router so a section is directly linkable
+   (nutrition.html#kitchen, nutrition.html#grocery). ===== */
+.nutr-tabs { display: flex; gap: 22px; margin: 4px 0 22px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.nutr-tab {
+  background: none; border: none; padding: 6px 0 14px; margin-bottom: -1px;
+  font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
+  color: var(--text-tertiary); cursor: pointer; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.nutr-tab:hover { color: var(--text-secondary); }
+.nutr-tab.active { color: var(--accent); }
+.nutr-tab.active::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--accent); border-radius: 2px;
+}
+
+/* ===== Placeholder panel — shell-only sections; real content lands next. ===== */
+.nutr-placeholder {
+  background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-lg);
+  padding: 64px 24px; text-align: center; color: var(--text-tertiary);
+}
+.nutr-placeholder-icon { font-size: 34px; margin-bottom: 12px; opacity: 0.6; }
+.nutr-placeholder-title { font-family: var(--font-serif); font-size: 18px; color: var(--text-primary); margin-bottom: 6px; }
+.nutr-placeholder-sub { font-size: 13px; max-width: 360px; margin: 0 auto; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <a href="index.html" class="back-btn" aria-label="Back to dashboard">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    Dashboard
+  </a>
+
+  <div class="nutr-header">
+    <h1 class="nutr-title">Nutrition</h1>
+  </div>
+
+  <div class="nutr-tabs" id="nutrTabs" role="tablist" aria-label="Nutrition sections">
+    <button type="button" class="nutr-tab active" data-section="kitchen" role="tab" aria-selected="true">My Kitchen</button>
+    <button type="button" class="nutr-tab" data-section="grocery" role="tab" aria-selected="false">Grocery List</button>
+  </div>
+
+  <section class="section" data-section="kitchen">
+    <div class="nutr-placeholder">
+      <div class="nutr-placeholder-icon">🍳</div>
+      <div class="nutr-placeholder-title">My Kitchen</div>
+      <div class="nutr-placeholder-sub">Recipes and stores will live here. Coming soon.</div>
+    </div>
+  </section>
+
+  <section class="section" data-section="grocery" hidden>
+    <div class="nutr-placeholder">
+      <div class="nutr-placeholder-icon">🛒</div>
+      <div class="nutr-placeholder-title">Grocery List</div>
+      <div class="nutr-placeholder-sub">Your shopping list, grouped by store. Coming soon.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  // ============================================================
+  // STORAGE — same localStorage shim used by every other page.
+  // ============================================================
+  function storeGet(key) {
+    try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
+    catch (e) { return null; }
+  }
+  function storeSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  // ============================================================
+  // SECONDARY NAV — My Kitchen / Grocery List. Active section persists
+  // in localStorage AND is reflected in the URL hash so a section is
+  // directly linkable/bookmarkable (e.g. nutrition.html#grocery) — same
+  // pattern as finance.html's tab router.
+  // ============================================================
+  const SECTION_KEY = 'nutrition_active_section';
+  const VALID_SECTIONS = ['kitchen', 'grocery'];
+  const tabs = document.querySelectorAll('.nutr-tab');
+  const sections = document.querySelectorAll('.section[data-section]');
+
+  function setActiveSection(name, opts) {
+    if (VALID_SECTIONS.indexOf(name) === -1) name = 'kitchen';
+    tabs.forEach(function (b) {
+      const active = b.dataset.section === name;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    sections.forEach(function (s) {
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    storeSet(SECTION_KEY, name);
+    if (!opts || !opts.skipHash) {
+      history.replaceState(null, '', '#' + name);
+    }
+  }
+  tabs.forEach(function (b) { b.addEventListener('click', function () { setActiveSection(b.dataset.section); }); });
+
+  function sectionFromHash() {
+    const h = (location.hash || '').replace('#', '');
+    return VALID_SECTIONS.indexOf(h) !== -1 ? h : null;
+  }
+  // Back/forward between hash states, or a hash edited by hand.
+  window.addEventListener('hashchange', function () {
+    const h = sectionFromHash();
+    if (h) setActiveSection(h, { skipHash: true });
+  });
+
+  const savedSection = storeGet(SECTION_KEY);
+  const initialSection = sectionFromHash() || (VALID_SECTIONS.indexOf(savedSection) !== -1 ? savedSection : 'kitchen');
+  setActiveSection(initialSection);
+})();
+</script>
+
+<script>
+// initCloudSync/NutritionData are loaded with `defer` (sync.js,
+// nutrition-data.js), so this waits for DOMContentLoaded to guarantee
+// both have already run — same convention finance.html/study.html use.
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync === 'function') {
+    initCloudSync({ appKey: 'nutrition', syncedPrefixes: ['nutrition:'] });
+  }
+});
+</script>
+</body>
+</html>
