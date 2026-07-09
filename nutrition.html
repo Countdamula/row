@@ -127,16 +127,20 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; font-family: var(--font-serif); }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-.field input[type="text"], .field select {
+.field input[type="text"], .field input[type="url"], .field select, .field textarea {
   padding: 12px; border: 1px solid var(--border); background: rgba(0,0,0,0.28);
   color: var(--text-primary); border-radius: 10px; font-family: inherit; font-size: 14px;
 }
 .field select { appearance: none; -webkit-appearance: none; }
-.field input:focus, .field select:focus {
+.field textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus {
   outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
 }
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
+.url-row { display: flex; gap: 8px; }
+.url-row input { flex: 1; min-width: 0; }
+.cover-preview { max-width: 100%; max-height: 140px; border-radius: 10px; margin-top: 8px; object-fit: cover; display: none; }
 .btn-primary {
   width: 100%; padding: 13px; border: 1px solid rgba(243,232,218,0.85);
   background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
@@ -231,8 +235,143 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-add-store-row { display: flex; gap: 8px; margin-top: 14px; }
 .nutr-add-store-row input { flex: 1; min-width: 0; }
 
+/* ===== My Kitchen ===== */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip {
+  padding: 7px 14px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04); color: var(--text-secondary);
+  border-radius: 999px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.chip.active {
+  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
+  color: #2a0d14; border-color: transparent; font-weight: 800;
+}
+.nutr-kitchen-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 14px; }
+.nutr-search-input {
+  flex: 1 1 220px; min-width: 160px; padding: 10px 14px;
+  border: 1px solid var(--border); background: rgba(0,0,0,0.28);
+  color: var(--text-primary); border-radius: 999px; font-family: inherit; font-size: 13px;
+}
+.nutr-search-input:focus { outline: none; border-color: rgba(255,255,255,0.40); }
+.btn-add {
+  flex-shrink: 0; padding: 10px 16px;
+  border: 1px solid rgba(243,232,218,0.85);
+  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
+  color: #2a0d14; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-add:hover { transform: translateY(-1px); }
+.btn-add:active { transform: translateY(0) scale(0.97); }
+
+/* Gallery — same class names/CSS as study.html's/entertainment.html's
+   card grid, copied verbatim per this codebase's existing convention of
+   duplicating that component per-file rather than importing it. */
+.ent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.ent-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: hidden; cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ent-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 22px rgba(224,138,159,0.18); }
+.ent-cover { position: relative; aspect-ratio: 16 / 10; background: rgba(255,255,255,0.04); overflow: hidden; }
+.ent-cover::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, transparent 55%, rgba(11,5,9,0.55) 100%); pointer-events: none;
+}
+.ent-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.ent-cover-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; opacity: 0.3; z-index: 0; }
+.badge {
+  position: absolute; top: 7px; left: 7px; z-index: 2;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff;
+}
+.badge.favorite { color: var(--warning); }
+.card-actions { position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 4px; }
+.icon-btn-sm {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #fff; border-radius: 8px; font-size: 12px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
+.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 7px; }
+.card-title {
+  font-size: 13.5px; font-weight: 600; line-height: 1.3; color: var(--text-primary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em;
+}
+.card-author { font-size: 11px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -4px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.tag {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: 5px;
+  font-size: 10px; padding: 3px 9px; border-radius: 999px; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(255,255,255,0.06); color: var(--text-secondary);
+  font-family: var(--font-mono); text-transform: uppercase;
+}
+
+/* ===== Recipe detail modal ===== */
+#nutrRecipeDetailModal { max-width: 520px; }
+.nutr-detail-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.nutr-detail-title-row h3 { margin: 0; }
+.nutr-detail-star {
+  cursor: pointer; font-size: 20px; background: none; border: none; padding: 0; flex-shrink: 0;
+  color: var(--warning); -webkit-tap-highlight-color: transparent;
+}
+.nutr-detail-cover { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 12px; display: block; }
+.nutr-detail-meta { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 14px; font-size: 12.5px; color: var(--text-secondary); }
+.nutr-detail-meta strong { color: var(--text-primary); }
+.nutr-detail-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; }
+.nutr-detail-section-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 16px 0 8px; }
+.nutr-detail-ing-list { display: flex; flex-direction: column; }
+.nutr-detail-ing-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.nutr-detail-ing-row:last-child { border-bottom: none; }
+.nutr-detail-ing-row span:first-child { color: var(--text-primary); }
+.nutr-detail-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.nutr-detail-steps li { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+
+/* ===== Recipe add/edit modal — ingredient & step draft-list editors ===== */
+#nutrRecipeModal { max-width: 520px; }
+.nutr-draft-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; }
+.nutr-draft-row input[type="text"], .nutr-draft-row textarea {
+  padding: 8px 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.28);
+  color: var(--text-primary); border-radius: 8px; font-family: inherit; font-size: 12.5px;
+}
+.nutr-draft-row input:focus, .nutr-draft-row textarea:focus { outline: none; border-color: rgba(255,255,255,0.40); }
+.nutr-ing-name { flex: 2 1 100px; min-width: 70px; }
+.nutr-ing-amount { flex: 0 1 60px; min-width: 45px; }
+.nutr-ing-unit { flex: 0 1 70px; min-width: 50px; }
+.nutr-step-num { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); flex-shrink: 0; margin-top: 9px; }
+.nutr-step-text { flex: 1; min-width: 0; resize: vertical; min-height: 36px; }
+.nutr-draft-row-remove {
+  background: transparent; border: 1px solid rgba(255,255,255,0.10); color: var(--danger);
+  cursor: pointer; font-size: 13px; width: 30px; height: 30px; flex-shrink: 0; border-radius: 6px; font-family: inherit; align-self: flex-start;
+}
+.nutr-draft-row-remove:hover { background: rgba(255,107,107,0.10); }
+.nutr-reorder { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+.nutr-reorder button { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 9px; padding: 1px 3px; line-height: 1; }
+.nutr-reorder button:hover:not(:disabled) { color: var(--text-primary); }
+.nutr-reorder button:disabled { opacity: 0.2; cursor: default; }
+.nutr-add-row-btn {
+  padding: 8px 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 2px;
+}
+.nutr-add-row-btn:hover { background: rgba(255,255,255,0.10); }
+.nutr-fav-field {
+  display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer;
+}
+.nutr-fav-field input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
 @media (max-width: 480px) {
   .nutr-title { font-size: 21px; }
+  .ent-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .card-title { font-size: 12.5px; }
 }
 </style>
 </head>
@@ -254,11 +393,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   </div>
 
   <section class="section" data-section="kitchen">
-    <div class="nutr-placeholder">
-      <div class="nutr-placeholder-icon">🍳</div>
-      <div class="nutr-placeholder-title">My Kitchen</div>
-      <div class="nutr-placeholder-sub">Recipes and stores will live here. Coming soon.</div>
+    <div class="nutr-kitchen-toolbar">
+      <input type="text" id="nutrRecipeSearch" class="nutr-search-input" placeholder="Search title or ingredient…">
+      <button type="button" class="chip" id="nutrFavToggle">★ Favorites only</button>
+      <button type="button" class="btn-add" id="nutrAddRecipeBtn">+ Add Recipe</button>
     </div>
+    <div class="chip-row" id="nutrTagFilterRow" hidden></div>
+    <div class="ent-grid" id="nutrRecipeGrid"></div>
+    <p class="nutr-empty" id="nutrRecipeEmpty" hidden></p>
   </section>
 
   <section class="section" data-section="grocery" hidden>
@@ -326,6 +468,116 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div class="modal-actions">
       <button class="btn-secondary" id="nutrStoresCloseBtn" type="button">Close</button>
     </div>
+  </div>
+</div>
+
+<!-- Recipe Detail Modal (read-only) -->
+<div class="modal-bg" id="nutrRecipeDetailBg">
+  <div class="modal" id="nutrRecipeDetailModal">
+    <div class="nutr-detail-title-row">
+      <h3 id="nutrDetailTitle"></h3>
+      <button type="button" class="nutr-detail-star" id="nutrDetailFavBtn" aria-label="Toggle favorite">☆</button>
+    </div>
+    <img class="nutr-detail-cover" id="nutrDetailCover" alt="" hidden>
+    <div class="tag-row" id="nutrDetailTags" hidden></div>
+    <div class="nutr-detail-meta" id="nutrDetailMeta"></div>
+    <p class="nutr-detail-desc" id="nutrDetailDesc" hidden></p>
+
+    <div id="nutrDetailIngSection" hidden>
+      <div class="nutr-detail-section-title">Ingredients</div>
+      <div class="nutr-detail-ing-list" id="nutrDetailIngredients"></div>
+    </div>
+
+    <div id="nutrDetailStepsSection" hidden>
+      <div class="nutr-detail-section-title">Steps</div>
+      <ol class="nutr-detail-steps" id="nutrDetailSteps"></ol>
+    </div>
+
+    <div id="nutrDetailNotesSection" hidden>
+      <div class="nutr-detail-section-title">Notes</div>
+      <p class="nutr-detail-desc" id="nutrDetailNotes"></p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="nutrDetailCloseBtn" type="button">Close</button>
+      <button class="btn-primary" id="nutrDetailEditBtn" type="button">Edit</button>
+    </div>
+    <span class="delete-link" id="nutrDetailDeleteLink">Delete this recipe</span>
+  </div>
+</div>
+
+<!-- Add / Edit Recipe Modal -->
+<div class="modal-bg" id="nutrRecipeModalBg">
+  <div class="modal" id="nutrRecipeModal">
+    <h3 id="nutrRecipeModalTitle">Add recipe</h3>
+
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="nutrRecipeTitle" placeholder="e.g. Grilled Chicken & Rice Bowl">
+    </div>
+
+    <div class="field">
+      <label>Description</label>
+      <textarea id="nutrRecipeDescription" rows="2" placeholder="optional"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Servings</label>
+        <input type="text" id="nutrRecipeServings" inputmode="numeric" placeholder="2">
+      </div>
+      <div class="field">
+        <label>Prep (min)</label>
+        <input type="text" id="nutrRecipePrep" inputmode="numeric" placeholder="15">
+      </div>
+      <div class="field">
+        <label>Cook (min)</label>
+        <input type="text" id="nutrRecipeCook" inputmode="numeric" placeholder="25">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Tags (comma-separated)</label>
+      <input type="text" id="nutrRecipeTags" placeholder="dinner, high-protein">
+    </div>
+
+    <label class="nutr-fav-field">
+      <input type="checkbox" id="nutrRecipeFavorite">
+      ★ Mark as favorite
+    </label>
+
+    <div class="field">
+      <label>Cover image</label>
+      <div class="url-row">
+        <input type="url" id="nutrRecipeImageUrl" placeholder="Paste an image URL (optional)">
+        <button class="btn-secondary" id="nutrRecipeImageUploadBtn" type="button">Upload</button>
+      </div>
+      <input type="file" id="nutrRecipeImageFile" accept="image/*" hidden>
+      <img class="cover-preview" id="nutrRecipeImagePreview" alt="">
+    </div>
+
+    <div class="field">
+      <label>Ingredients</label>
+      <div id="nutrRecipeIngredientsList"></div>
+      <button type="button" class="nutr-add-row-btn" id="nutrAddIngredientBtn">+ Add ingredient</button>
+    </div>
+
+    <div class="field">
+      <label>Steps</label>
+      <div id="nutrRecipeStepsList"></div>
+      <button type="button" class="nutr-add-row-btn" id="nutrAddStepBtn">+ Add step</button>
+    </div>
+
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="nutrRecipeNotes" rows="2" placeholder="optional"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="nutrRecipeCancelBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="nutrRecipeSaveBtn" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="nutrRecipeDeleteLink" style="display:none">Delete this recipe</span>
   </div>
 </div>
 
@@ -717,14 +969,538 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // ---------- Boot ----------
   renderGroceryList();
+  // A remote sync pull dispatches a native 'storage' event (see the
+  // initCloudSync block at the bottom of this file) — re-render so
+  // changes made on another device show up here too.
+  window.addEventListener('storage', renderGroceryList);
+});
+</script>
 
-  if (typeof initCloudSync === 'function') {
-    initCloudSync({
-      appKey: 'nutrition',
-      syncedPrefixes: ['nutrition:'],
-      onApplied: function () { renderGroceryList(); }
+<script>
+// ============================================================
+// MY KITCHEN — recipe database, backed by nutrition-data.js
+// (window.NutritionData). Same DOMContentLoaded-gated, ND-only-mutation
+// convention as the Grocery List block above.
+// ============================================================
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof NutritionData === 'undefined') return;
+  var ND = NutritionData;
+
+  function showModal(bg) { bg.classList.add('show'); }
+  function hideModal(bg) { bg.classList.remove('show'); }
+
+  function makeChip(label, active, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (active ? ' active' : '');
+    b.textContent = label;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // Same canvas-downscale recipe used by study.html/entertainment.html/
+  // projects.html/gym.html for cover images — copied verbatim.
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 480;
+    quality = quality == null ? 0.82 : quality;
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
     });
   }
+
+  function formatMinutes(total) {
+    if (!total) return null;
+    if (total < 60) return total + ' min';
+    var h = Math.floor(total / 60), m = total % 60;
+    return h + 'h' + (m ? ' ' + m + 'm' : '');
+  }
+
+  // ---------- Filters ----------
+  var searchQuery = '';
+  var activeTagFilter = 'All';
+  var favoritesOnly = false;
+
+  function allTags() {
+    var set = {};
+    ND.Recipes.list().forEach(function (r) { (r.tags || []).forEach(function (t) { set[t] = true; }); });
+    return Object.keys(set).sort();
+  }
+
+  function recipeMatchesFilters(recipe) {
+    if (favoritesOnly && !recipe.isFavorite) return false;
+    if (activeTagFilter !== 'All' && (recipe.tags || []).indexOf(activeTagFilter) === -1) return false;
+    if (searchQuery) {
+      var q = searchQuery.toLowerCase();
+      var titleMatch = (recipe.title || '').toLowerCase().indexOf(q) !== -1;
+      var ingredientMatch = ND.ingredientsForRecipe(recipe.id).some(function (i) { return (i.name || '').toLowerCase().indexOf(q) !== -1; });
+      if (!titleMatch && !ingredientMatch) return false;
+    }
+    return true;
+  }
+
+  function renderTagFilterRow() {
+    var row = document.getElementById('nutrTagFilterRow');
+    var tags = allTags();
+    row.innerHTML = '';
+    if (!tags.length) { row.hidden = true; return; }
+    row.hidden = false;
+    row.appendChild(makeChip('All', activeTagFilter === 'All', function () { activeTagFilter = 'All'; renderKitchen(); }));
+    tags.forEach(function (t) {
+      row.appendChild(makeChip(t, activeTagFilter === t, function () { activeTagFilter = t; renderKitchen(); }));
+    });
+  }
+
+  // ---------- Grid ----------
+  var gridEl = document.getElementById('nutrRecipeGrid');
+  var gridEmptyEl = document.getElementById('nutrRecipeEmpty');
+  var favToggleBtn = document.getElementById('nutrFavToggle');
+
+  function buildRecipeCard(recipe) {
+    var el = document.createElement('div');
+    el.className = 'ent-card';
+    el.dataset.id = recipe.id;
+
+    var cover = document.createElement('div');
+    cover.className = 'ent-cover';
+    if (recipe.imageUrl) {
+      var img = document.createElement('img');
+      img.className = 'ent-cover-img'; img.loading = 'lazy'; img.alt = ''; img.src = recipe.imageUrl;
+      img.addEventListener('error', function () { img.style.display = 'none'; });
+      cover.appendChild(img);
+    }
+    var fallback = document.createElement('span');
+    fallback.className = 'ent-cover-fallback';
+    fallback.textContent = '🍳';
+    cover.appendChild(fallback);
+
+    if (recipe.isFavorite) {
+      var badge = document.createElement('span');
+      badge.className = 'badge favorite';
+      badge.textContent = '★ Favorite';
+      cover.appendChild(badge);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'card-actions';
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.className = 'icon-btn-sm'; editBtn.dataset.action = 'edit';
+    editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'icon-btn-sm'; delBtn.dataset.action = 'delete';
+    delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '✕';
+    actions.appendChild(editBtn); actions.appendChild(delBtn);
+    cover.appendChild(actions);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+    var title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = recipe.title;
+    body.appendChild(title);
+
+    var metaBits = [];
+    var totalTime = (Number(recipe.prepTimeMin) || 0) + (Number(recipe.cookTimeMin) || 0);
+    var timeStr = formatMinutes(totalTime);
+    if (timeStr) metaBits.push('⏱ ' + timeStr);
+    if (recipe.servings) metaBits.push('🍽 ' + recipe.servings);
+    if (metaBits.length) {
+      var meta = document.createElement('div');
+      meta.className = 'card-author';
+      meta.textContent = metaBits.join(' · ');
+      body.appendChild(meta);
+    }
+
+    if ((recipe.tags || []).length) {
+      var tagRow = document.createElement('div');
+      tagRow.className = 'tag-row';
+      recipe.tags.forEach(function (t) {
+        var tagEl = document.createElement('span');
+        tagEl.className = 'tag';
+        tagEl.textContent = t;
+        tagRow.appendChild(tagEl);
+      });
+      body.appendChild(tagRow);
+    }
+
+    el.appendChild(cover);
+    el.appendChild(body);
+    return el;
+  }
+
+  function renderKitchen() {
+    renderTagFilterRow();
+    favToggleBtn.classList.toggle('active', favoritesOnly);
+
+    var all = ND.Recipes.list();
+    var filtered = all.filter(recipeMatchesFilters);
+    gridEl.innerHTML = '';
+    if (!filtered.length) {
+      gridEmptyEl.hidden = false;
+      gridEmptyEl.textContent = all.length === 0
+        ? 'No recipes yet — add your first one.'
+        : 'No recipes match your search/filters.';
+      gridEl.hidden = true;
+    } else {
+      gridEmptyEl.hidden = true;
+      gridEl.hidden = false;
+      filtered.forEach(function (r) { gridEl.appendChild(buildRecipeCard(r)); });
+    }
+  }
+
+  document.getElementById('nutrRecipeSearch').addEventListener('input', function (e) {
+    searchQuery = e.target.value.trim();
+    renderKitchen();
+  });
+  favToggleBtn.addEventListener('click', function () {
+    favoritesOnly = !favoritesOnly;
+    renderKitchen();
+  });
+
+  gridEl.addEventListener('click', function (e) {
+    var actionBtn = e.target.closest('[data-action]');
+    var cardEl = e.target.closest('.ent-card');
+    if (!cardEl) return;
+    var recipe = ND.Recipes.get(cardEl.dataset.id);
+    if (!recipe) return;
+    if (actionBtn) {
+      e.stopPropagation();
+      if (actionBtn.dataset.action === 'edit') openRecipeModal(recipe);
+      else if (actionBtn.dataset.action === 'delete') {
+        if (confirm('Delete "' + recipe.title + '"? This also removes its ingredients.')) {
+          ND.Recipes.remove(recipe.id);
+          renderKitchen();
+        }
+      }
+      return;
+    }
+    openDetailModal(recipe);
+  });
+
+  // ---------- Detail modal (read-only) ----------
+  var detailModalBg = document.getElementById('nutrRecipeDetailBg');
+  var detailRecipeId = null;
+
+  function renderDetailFavStar() {
+    var recipe = ND.Recipes.get(detailRecipeId);
+    document.getElementById('nutrDetailFavBtn').textContent = recipe && recipe.isFavorite ? '★' : '☆';
+  }
+
+  function openDetailModal(recipe) {
+    detailRecipeId = recipe.id;
+    document.getElementById('nutrDetailTitle').textContent = recipe.title;
+    renderDetailFavStar();
+
+    var coverImg = document.getElementById('nutrDetailCover');
+    if (recipe.imageUrl) { coverImg.src = recipe.imageUrl; coverImg.hidden = false; }
+    else { coverImg.hidden = true; coverImg.removeAttribute('src'); }
+
+    var tagsEl = document.getElementById('nutrDetailTags');
+    tagsEl.innerHTML = '';
+    (recipe.tags || []).forEach(function (t) {
+      var tagEl = document.createElement('span'); tagEl.className = 'tag'; tagEl.textContent = t;
+      tagsEl.appendChild(tagEl);
+    });
+    tagsEl.hidden = !(recipe.tags || []).length;
+
+    var bits = [];
+    bits.push('<span><strong>' + (recipe.servings || 0) + '</strong> servings</span>');
+    if (recipe.prepTimeMin) bits.push('<span><strong>' + recipe.prepTimeMin + '</strong> min prep</span>');
+    if (recipe.cookTimeMin) bits.push('<span><strong>' + recipe.cookTimeMin + '</strong> min cook</span>');
+    document.getElementById('nutrDetailMeta').innerHTML = bits.join('');
+
+    var descEl = document.getElementById('nutrDetailDesc');
+    descEl.textContent = recipe.description || '';
+    descEl.hidden = !recipe.description;
+
+    var ingredients = ND.ingredientsForRecipe(recipe.id);
+    var ingListEl = document.getElementById('nutrDetailIngredients');
+    ingListEl.innerHTML = '';
+    ingredients.forEach(function (ing) {
+      var row = document.createElement('div');
+      row.className = 'nutr-detail-ing-row';
+      var nameSpan = document.createElement('span'); nameSpan.textContent = ing.name;
+      var amtSpan = document.createElement('span');
+      amtSpan.textContent = [ing.amount, ing.unit].filter(function (v) { return v !== '' && v != null; }).join(' ');
+      row.appendChild(nameSpan); row.appendChild(amtSpan);
+      ingListEl.appendChild(row);
+    });
+    document.getElementById('nutrDetailIngSection').hidden = ingredients.length === 0;
+
+    var steps = recipe.steps || [];
+    var stepsEl = document.getElementById('nutrDetailSteps');
+    stepsEl.innerHTML = '';
+    steps.forEach(function (s) {
+      var li = document.createElement('li');
+      li.textContent = s;
+      stepsEl.appendChild(li);
+    });
+    document.getElementById('nutrDetailStepsSection').hidden = steps.length === 0;
+
+    document.getElementById('nutrDetailNotes').textContent = recipe.notes || '';
+    document.getElementById('nutrDetailNotesSection').hidden = !recipe.notes;
+
+    showModal(detailModalBg);
+  }
+
+  document.getElementById('nutrDetailFavBtn').addEventListener('click', function () {
+    var recipe = ND.Recipes.get(detailRecipeId);
+    if (!recipe) return;
+    ND.Recipes.update(detailRecipeId, { isFavorite: !recipe.isFavorite });
+    renderDetailFavStar();
+    renderKitchen();
+  });
+  document.getElementById('nutrDetailCloseBtn').addEventListener('click', function () { hideModal(detailModalBg); });
+  detailModalBg.addEventListener('click', function (e) { if (e.target === detailModalBg) hideModal(detailModalBg); });
+  document.getElementById('nutrDetailEditBtn').addEventListener('click', function () {
+    var recipe = ND.Recipes.get(detailRecipeId);
+    hideModal(detailModalBg);
+    if (recipe) openRecipeModal(recipe);
+  });
+  document.getElementById('nutrDetailDeleteLink').addEventListener('click', function () {
+    var recipe = ND.Recipes.get(detailRecipeId);
+    if (!recipe) return;
+    if (!confirm('Delete "' + recipe.title + '"? This also removes its ingredients.')) return;
+    ND.Recipes.remove(detailRecipeId);
+    hideModal(detailModalBg);
+    renderKitchen();
+  });
+
+  // ---------- Add / Edit modal ----------
+  var recipeModalBg = document.getElementById('nutrRecipeModalBg');
+  var editingRecipeId = null;
+  var draftIngredients = []; // [{name, amount, unit}]
+  var draftSteps = []; // [text, ...]
+  var currentRecipeImage = '';
+
+  function swapDraft(arr, idx, dir) {
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= arr.length) return;
+    var tmp = arr[idx]; arr[idx] = arr[swapIdx]; arr[swapIdx] = tmp;
+  }
+
+  function renderIngredientsDraft() {
+    var wrap = document.getElementById('nutrRecipeIngredientsList');
+    wrap.innerHTML = '';
+    draftIngredients.forEach(function (ing, idx) {
+      var row = document.createElement('div');
+      row.className = 'nutr-draft-row';
+
+      var reorder = document.createElement('div');
+      reorder.className = 'nutr-reorder';
+      var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx === 0;
+      up.addEventListener('click', function () { swapDraft(draftIngredients, idx, -1); renderIngredientsDraft(); });
+      var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === draftIngredients.length - 1;
+      down.addEventListener('click', function () { swapDraft(draftIngredients, idx, 1); renderIngredientsDraft(); });
+      reorder.appendChild(up); reorder.appendChild(down);
+      row.appendChild(reorder);
+
+      var nameInput = document.createElement('input');
+      nameInput.type = 'text'; nameInput.className = 'nutr-ing-name'; nameInput.placeholder = 'Name'; nameInput.value = ing.name || '';
+      nameInput.addEventListener('input', function () { ing.name = nameInput.value; });
+      row.appendChild(nameInput);
+
+      var amtInput = document.createElement('input');
+      amtInput.type = 'text'; amtInput.className = 'nutr-ing-amount'; amtInput.placeholder = 'Amt'; amtInput.value = ing.amount == null ? '' : ing.amount;
+      amtInput.addEventListener('input', function () { ing.amount = amtInput.value; });
+      row.appendChild(amtInput);
+
+      var unitInput = document.createElement('input');
+      unitInput.type = 'text'; unitInput.className = 'nutr-ing-unit'; unitInput.placeholder = 'Unit'; unitInput.value = ing.unit || '';
+      unitInput.addEventListener('input', function () { ing.unit = unitInput.value; });
+      row.appendChild(unitInput);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button'; removeBtn.className = 'nutr-draft-row-remove'; removeBtn.textContent = '✕';
+      removeBtn.setAttribute('aria-label', 'Remove ingredient');
+      removeBtn.addEventListener('click', function () { draftIngredients.splice(idx, 1); renderIngredientsDraft(); });
+      row.appendChild(removeBtn);
+
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('nutrAddIngredientBtn').addEventListener('click', function () {
+    draftIngredients.push({ name: '', amount: '', unit: '' });
+    renderIngredientsDraft();
+  });
+
+  function renderStepsDraft() {
+    var wrap = document.getElementById('nutrRecipeStepsList');
+    wrap.innerHTML = '';
+    draftSteps.forEach(function (stepText, idx) {
+      var row = document.createElement('div');
+      row.className = 'nutr-draft-row';
+
+      var reorder = document.createElement('div');
+      reorder.className = 'nutr-reorder';
+      var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx === 0;
+      up.addEventListener('click', function () { swapDraft(draftSteps, idx, -1); renderStepsDraft(); });
+      var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === draftSteps.length - 1;
+      down.addEventListener('click', function () { swapDraft(draftSteps, idx, 1); renderStepsDraft(); });
+      reorder.appendChild(up); reorder.appendChild(down);
+      row.appendChild(reorder);
+
+      var stepNum = document.createElement('span');
+      stepNum.className = 'nutr-step-num';
+      stepNum.textContent = (idx + 1) + '.';
+      row.appendChild(stepNum);
+
+      var textInput = document.createElement('textarea');
+      textInput.className = 'nutr-step-text'; textInput.placeholder = 'Describe this step…'; textInput.rows = 2;
+      textInput.value = stepText || '';
+      textInput.addEventListener('input', function () { draftSteps[idx] = textInput.value; });
+      row.appendChild(textInput);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button'; removeBtn.className = 'nutr-draft-row-remove'; removeBtn.textContent = '✕';
+      removeBtn.setAttribute('aria-label', 'Remove step');
+      removeBtn.addEventListener('click', function () { draftSteps.splice(idx, 1); renderStepsDraft(); });
+      row.appendChild(removeBtn);
+
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('nutrAddStepBtn').addEventListener('click', function () {
+    draftSteps.push('');
+    renderStepsDraft();
+  });
+
+  function updateRecipeImagePreview() {
+    var img = document.getElementById('nutrRecipeImagePreview');
+    if (currentRecipeImage) { img.src = currentRecipeImage; img.style.display = 'block'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; }
+  }
+  document.getElementById('nutrRecipeImageUrl').addEventListener('change', function (e) {
+    var v = e.target.value.trim();
+    if (v) { currentRecipeImage = v; updateRecipeImagePreview(); }
+  });
+  document.getElementById('nutrRecipeImageUploadBtn').addEventListener('click', function () {
+    document.getElementById('nutrRecipeImageFile').click();
+  });
+  document.getElementById('nutrRecipeImageFile').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      compressImageDataUrl(String(reader.result), 480, 0.82).then(function (compressed) {
+        currentRecipeImage = compressed;
+        updateRecipeImagePreview();
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  function openRecipeModal(recipe) {
+    editingRecipeId = recipe ? recipe.id : null;
+    document.getElementById('nutrRecipeModalTitle').textContent = recipe ? 'Edit recipe' : 'Add recipe';
+    document.getElementById('nutrRecipeTitle').value = recipe ? recipe.title : '';
+    document.getElementById('nutrRecipeDescription').value = recipe ? recipe.description : '';
+    document.getElementById('nutrRecipeServings').value = recipe ? recipe.servings : '';
+    document.getElementById('nutrRecipePrep').value = recipe ? recipe.prepTimeMin : '';
+    document.getElementById('nutrRecipeCook').value = recipe ? recipe.cookTimeMin : '';
+    document.getElementById('nutrRecipeTags').value = recipe ? (recipe.tags || []).join(', ') : '';
+    document.getElementById('nutrRecipeFavorite').checked = recipe ? !!recipe.isFavorite : false;
+    document.getElementById('nutrRecipeNotes').value = recipe ? recipe.notes : '';
+    document.getElementById('nutrRecipeImageUrl').value = '';
+    currentRecipeImage = recipe ? (recipe.imageUrl || '') : '';
+    updateRecipeImagePreview();
+
+    draftIngredients = recipe ? ND.ingredientsForRecipe(recipe.id).map(function (i) { return { name: i.name, amount: i.amount, unit: i.unit }; }) : [];
+    draftSteps = recipe ? (recipe.steps || []).slice() : [];
+    renderIngredientsDraft();
+    renderStepsDraft();
+
+    document.getElementById('nutrRecipeDeleteLink').style.display = recipe ? 'block' : 'none';
+    showModal(recipeModalBg);
+  }
+  function closeRecipeModal() { hideModal(recipeModalBg); editingRecipeId = null; }
+
+  document.getElementById('nutrAddRecipeBtn').addEventListener('click', function () { openRecipeModal(null); });
+  document.getElementById('nutrRecipeCancelBtn').addEventListener('click', closeRecipeModal);
+  recipeModalBg.addEventListener('click', function (e) { if (e.target === recipeModalBg) closeRecipeModal(); });
+
+  function replaceIngredientsForRecipe(recipeId, list) {
+    ND.ingredientsForRecipe(recipeId).forEach(function (ing) { ND.RecipeIngredients.remove(ing.id); });
+    list.forEach(function (ing, idx) {
+      ND.RecipeIngredients.add({ recipeId: recipeId, name: ing.name.trim(), amount: ing.amount, unit: (ing.unit || '').trim(), order: idx });
+    });
+  }
+
+  document.getElementById('nutrRecipeSaveBtn').addEventListener('click', function () {
+    var title = document.getElementById('nutrRecipeTitle').value.trim();
+    if (!title) { document.getElementById('nutrRecipeTitle').focus(); return; }
+    var tags = document.getElementById('nutrRecipeTags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    var payload = {
+      title: title,
+      description: document.getElementById('nutrRecipeDescription').value.trim(),
+      servings: document.getElementById('nutrRecipeServings').value.trim() || 1,
+      prepTimeMin: document.getElementById('nutrRecipePrep').value.trim() || 0,
+      cookTimeMin: document.getElementById('nutrRecipeCook').value.trim() || 0,
+      tags: tags,
+      steps: draftSteps.map(function (s) { return s.trim(); }).filter(Boolean),
+      notes: document.getElementById('nutrRecipeNotes').value.trim(),
+      isFavorite: document.getElementById('nutrRecipeFavorite').checked,
+      imageUrl: currentRecipeImage || null
+    };
+
+    var recipeId;
+    if (editingRecipeId) {
+      ND.Recipes.update(editingRecipeId, payload);
+      recipeId = editingRecipeId;
+    } else {
+      recipeId = ND.Recipes.add(payload).id;
+    }
+
+    var cleanIngredients = draftIngredients.filter(function (i) { return (i.name || '').trim(); });
+    replaceIngredientsForRecipe(recipeId, cleanIngredients);
+
+    closeRecipeModal();
+    renderKitchen();
+  });
+
+  document.getElementById('nutrRecipeDeleteLink').addEventListener('click', function () {
+    if (!editingRecipeId) return;
+    if (!confirm('Delete this recipe? This also removes its ingredients.')) return;
+    ND.Recipes.remove(editingRecipeId);
+    closeRecipeModal();
+    renderKitchen();
+  });
+
+  // ---------- Boot ----------
+  renderKitchen();
+  // See the matching listener in the Grocery List block above.
+  window.addEventListener('storage', renderKitchen);
+});
+</script>
+
+<script>
+// initCloudSync/NutritionData are loaded with `defer` (sync.js,
+// nutrition-data.js), so this waits for DOMContentLoaded to guarantee
+// both have already run — same convention finance.html/study.html use.
+// A single sync call for the whole page (not one per section): onApplied
+// dispatches a native 'storage' event, same idiom finance.html uses, so
+// each section's own listener (registered above) picks up remote changes
+// without this block needing to know about either section's internals.
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync !== 'function') return;
+  initCloudSync({
+    appKey: 'nutrition',
+    syncedPrefixes: ['nutrition:'],
+    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+  });
 });
 </script>
 </body>
