@@ -712,34 +712,64 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .po-add-row-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-1); }
 
-/* Schedule editor rows (weekday -> routine) */
-.sch-row {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 8px; align-items: center;
-  padding: 8px 10px;
+/* This Week — weekly Mon-Sun template-assignment grid */
+.week-row {
+  padding: 10px 12px; margin-bottom: 8px;
   background: rgba(255,255,255,0.025);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 6px;
-  transition: border-color 0.15s, background 0.15s;
+  border-radius: 10px;
 }
-.sch-row.is-today {
+.week-row.is-today {
   background: linear-gradient(180deg, rgba(110,231,183,0.10), rgba(255,255,255,0.025));
   border-color: rgba(110,231,183,0.30);
 }
-.sch-row-label {
-  font-size: 11px; color: var(--text-3);
-  font-family: var(--font-mono); font-weight: 700;
-  letter-spacing: 0.04em;
+.week-row-top { display: flex; align-items: center; gap: 8px; }
+.week-row-day {
+  width: 36px; flex-shrink: 0;
+  font-size: 11px; font-family: var(--font-mono); font-weight: 700;
+  letter-spacing: 0.04em; color: var(--text-3);
 }
-.sch-row select {
-  width: 100%;
-  padding: 9px 10px;
+.week-label-input {
+  flex: 1; min-width: 0;
+  padding: 7px 9px; border: 1px solid transparent;
+  background: transparent; color: var(--text-1);
+  border-radius: 8px; font-family: inherit; font-size: 12.5px;
+}
+.week-label-input:hover, .week-label-input:focus { border-color: var(--border); background: rgba(0,0,0,0.2); }
+.week-row-chips {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 8px; cursor: pointer;
+}
+.week-tpl-chip {
+  font-size: 11.5px; font-family: var(--font-mono); font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); color: var(--text-1);
   border: 1px solid var(--border);
-  background: rgba(0,0,0,0.28);
-  color: var(--text-1); border-radius: 8px;
-  font-family: inherit; font-size: 13px;
+}
+.week-tpl-chip.week-tpl-rest { color: var(--text-3); background: transparent; border-style: dashed; }
+.week-tpl-plus { font-size: 11px; color: var(--text-4); }
+
+/* Day-edit modal: assigned-template rows with reorder/remove, reusing
+   the .rex-reorder arrow-button look already established for exercises. */
+.dayedit-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.dayedit-row-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text-1); }
+
+/* Day-view modal: one block per assigned template, exercises listed via
+   the same .rt-view-row look as the template read view. */
+.dayview-tpl-block { margin-bottom: 16px; }
+.dayview-tpl-name {
+  font-size: 13px; font-weight: 700; color: var(--text-1);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+}
+.dayview-tpl-view-link {
+  font-size: 11px; font-family: var(--font-mono); color: var(--crimson-bright);
+  cursor: pointer; text-decoration: underline;
 }
 
 /* Routine cards (management list) */
@@ -1189,7 +1219,7 @@ img, video, canvas, svg { max-width: 100%; }
 
 <div class="po-shell">
   <div class="po-section-divider" aria-hidden="true"></div>
-  <button class="po-day-pill" type="button" id="dayPill" title="Tap to edit your weekly schedule">
+  <button class="po-day-pill" type="button" id="dayPill" title="Tap to open This Week">
     <span class="po-day-date" id="dayPillDate">—</span>
     <span class="po-day-sep">·</span>
     <span class="po-day-split" id="dayPillSplit">—</span>
@@ -1225,6 +1255,14 @@ img, video, canvas, svg { max-width: 100%; }
     <button type="button" class="po-tab" data-tab="templates" role="tab">Templates</button>
     <button type="button" class="po-tab" data-tab="equipment" role="tab">Equipment</button>
     <button type="button" class="po-tab" data-tab="timer" role="tab">Timer</button>
+  </div>
+
+  <!-- THIS WEEK — editable Mon-Sun template assignment. Reading a day
+       (👁 or tapping its chips) opens the Day view modal; ✎ opens the Day
+       edit modal (assign/reorder templates, clear to Rest, per-day label). -->
+  <div class="card po-tab-panel active" data-panel="week" id="weekGridCard">
+    <div class="po-sub-title">This week</div>
+    <div id="weekGridList"></div>
   </div>
 
   <!-- TODAY'S WORKOUT -->
@@ -1599,17 +1637,46 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 </div>
 
-<!-- Schedule editor modal -->
-<div class="po-modal-bg" id="schModalBg">
+<!-- Day edit modal — assign one or more templates to a weekday, reorder
+     them, give the day an optional label, or clear it back to Rest. -->
+<div class="po-modal-bg" id="dayEditModalBg">
   <div class="po-modal">
-    <h3>Edit weekly schedule</h3>
-    <p style="font-size:12px;color:var(--text-3);margin:-6px 0 14px;line-height:1.45;">
-      Assign a routine to each day of the week. Leave a day as <strong>Rest</strong> to skip it.
-    </p>
-    <div id="schList"></div>
+    <h3 id="dayEditTitle">Edit day</h3>
+    <div class="po-field">
+      <label>Label (optional)</label>
+      <input type="text" id="dayEditLabelInput" placeholder="e.g. Upper A">
+    </div>
+    <div class="po-field">
+      <label>Assigned templates</label>
+      <div id="dayEditAssignedList"></div>
+      <div class="po-empty" id="dayEditEmptyMsg" style="display:none;">Rest day — no templates assigned.</div>
+      <select id="dayEditAddSelect" style="width:100%;margin-top:8px;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:13px;">
+        <option value="">+ Add a template…</option>
+      </select>
+    </div>
     <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="schCancel">Cancel</button>
-      <button class="po-btn-primary" id="schSave">Save</button>
+      <button class="po-btn-secondary" id="dayEditClearBtn" type="button">Clear (Rest)</button>
+      <button class="po-btn-secondary" id="dayEditCancel" type="button">Cancel</button>
+      <button class="po-btn-primary" id="dayEditSave" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day view modal — read-only: assigned templates' exercises, an
+     "Equipment needed today" panel sourced live from equipmentForDay(),
+     and jump-off points into a template's read view or the Timer. -->
+<div class="po-modal-bg" id="dayViewModalBg">
+  <div class="po-modal">
+    <h3 id="dayViewTitle">Monday</h3>
+    <div id="dayViewEquipPanel" class="gear-needed-bar" style="display:none;margin-bottom:14px;">
+      <span>Equipment needed today</span>
+      <span class="equip-tag-row" id="dayViewEquipTags"></span>
+    </div>
+    <div id="dayViewBody"></div>
+    <div class="po-empty" id="dayViewRestMsg" style="display:none;">Rest day — no templates assigned.</div>
+    <div class="po-modal-actions">
+      <button class="po-btn-secondary" id="dayViewClose" type="button">Close</button>
+      <button class="po-btn-primary" id="dayViewStartTimerBtn" type="button">Start Timer</button>
     </div>
   </div>
 </div>
@@ -1924,7 +1991,18 @@ img, video, canvas, svg { max-width: 100%; }
     if (!Array.isArray(s.routines)) s.routines = [];
     s.routines.forEach(r => { normalizeRoutine(r); (r.exercises || []).forEach(normalizeExercise); });
     if (!s.schedule || typeof s.schedule !== 'object') s.schedule = {};
-    WEEKDAY_KEYS.forEach(k => { if (s.schedule[k] === undefined) s.schedule[k] = null; });
+    // Each day holds { routineIds: [...], label: '' } — a day can carry
+    // zero (Rest), one, or several templates. Migrates the legacy shape
+    // (a single routineId string, or null) in place.
+    WEEKDAY_KEYS.forEach(k => {
+      const v = s.schedule[k];
+      if (v == null) s.schedule[k] = { routineIds: [], label: '' };
+      else if (typeof v === 'string') s.schedule[k] = { routineIds: [v], label: '' };
+      else {
+        if (!Array.isArray(v.routineIds)) v.routineIds = [];
+        if (typeof v.label !== 'string') v.label = '';
+      }
+    });
     if (!s.logs || typeof s.logs !== 'object') s.logs = {};
     if (!s.workoutNotes || typeof s.workoutNotes !== 'object') s.workoutNotes = {};
     if (!s.exerciseDone || typeof s.exerciseDone !== 'object') s.exerciseDone = {};
@@ -1996,6 +2074,20 @@ img, video, canvas, svg { max-width: 100%; }
     return Array.from(ids).map(getEquipment).filter(Boolean);
   }
 
+  // ---------- weekly schedule resolvers ----------
+  function daySchedule(key) {
+    const d = state.schedule[key];
+    return (d && typeof d === 'object') ? d : { routineIds: [], label: '' };
+  }
+  function dayRoutines(key) { return daySchedule(key).routineIds.map(getRoutine).filter(Boolean); }
+  // The core Equipment DB connection for This Week: every piece of gear
+  // any exercise in any of the day's assigned templates references.
+  function equipmentForDay(key) {
+    const ids = new Set();
+    dayRoutines(key).forEach(r => r.exercises.forEach(ex => { if (ex.equipmentId) ids.add(ex.equipmentId); }));
+    return Array.from(ids).map(getEquipment).filter(Boolean);
+  }
+
   // Single equipment picker <select>, shared by the quick "Add exercise"
   // modal and the inline per-exercise rows in the routine editor.
   function renderEquipSelect(selectEl, selectedId) {
@@ -2040,9 +2132,11 @@ img, video, canvas, svg { max-width: 100%; }
     return ex.repMin === ex.repMax ? String(ex.repMin) : (ex.repMin + '–' + ex.repMax);
   }
 
+  // Returns the day's first-assigned template — the one the single-session
+  // logging flow below (routineSelect, Log a set, etc.) drives against when
+  // a day carries more than one.
   function todaysRoutine() {
-    const id = state.schedule[todayWeekdayKey()];
-    return id ? getRoutine(id) : null;
+    return dayRoutines(todayWeekdayKey())[0] || null;
   }
 
   // ============================================================
@@ -2057,7 +2151,7 @@ img, video, canvas, svg { max-width: 100%; }
     if (!routineId) return [];
     return WEEKDAY_ORDER
       .map(i => WEEKDAY_KEYS[i])
-      .filter(k => state.schedule[k] === routineId);
+      .filter(k => daySchedule(k).routineIds.indexOf(routineId) !== -1);
   }
   function dayTagsHtml(routineId) {
     const days = routineId ? scheduledDaysForRoutine(routineId) : [];
@@ -2126,15 +2220,212 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   // ============================================================
-  // DAY PILL (opens the schedule editor)
+  // DAY PILL (jumps to the This Week tab)
   // ============================================================
   function renderDayPill() {
-    const r = todaysRoutine();
+    const d = daySchedule(todayWeekdayKey());
+    const routines = d.routineIds.map(getRoutine).filter(Boolean);
     $('dayPillDate').textContent = fmtDate(todayDateKey());
     const splitEl = $('dayPillSplit');
-    splitEl.textContent = r ? r.name.toUpperCase() : 'REST';
-    splitEl.classList.toggle('is-rest', !r);
+    const names = routines.map(r => r.name.toUpperCase()).join(' + ');
+    splitEl.textContent = names ? (d.label ? d.label.toUpperCase() + ' · ' : '') + names : 'REST';
+    splitEl.classList.toggle('is-rest', !routines.length);
   }
+  $('dayPill').addEventListener('click', () => {
+    switchTab('week');
+    const row = document.querySelector('.week-row.is-today');
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  // ============================================================
+  // THIS WEEK — Mon-Sun template-assignment grid. Each day holds zero,
+  // one, or several templates (state.schedule[day].routineIds) plus an
+  // optional label. Editing (assign/reorder/clear) happens in the Day
+  // edit modal; tapping a day's chips opens the read-only Day view
+  // modal, which is where equipmentForDay() surfaces live from the
+  // Equipment DB through the day's templates' exercises.
+  // ============================================================
+  function renderWeekGrid() {
+    const wrap = $('weekGridList');
+    wrap.innerHTML = '';
+    const todayKey = todayWeekdayKey();
+    WEEKDAY_ORDER.forEach(dowIdx => {
+      const key = WEEKDAY_KEYS[dowIdx];
+      const d = daySchedule(key);
+      const routines = d.routineIds.map(getRoutine).filter(Boolean);
+      const row = document.createElement('div');
+      row.className = 'week-row' + (key === todayKey ? ' is-today' : '');
+      const chipsHtml = routines.length
+        ? routines.map(r => '<span class="week-tpl-chip">' + escape(r.name) + '</span>').join('<span class="week-tpl-plus">+</span>')
+        : '<span class="week-tpl-chip week-tpl-rest">Rest</span>';
+      row.innerHTML =
+        '<div class="week-row-top">' +
+          '<div class="week-row-day">' + WEEKDAY_LABELS[dowIdx] + '</div>' +
+          '<input type="text" class="week-label-input" placeholder="Add a label…" value="' + escape(d.label || '') + '">' +
+          '<div class="rt-card-actions">' +
+            '<button type="button" class="po-btn-icon" data-act="view" aria-label="View day">👁</button>' +
+            '<button type="button" class="po-btn-icon" data-act="edit" aria-label="Edit day">✎</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="week-row-chips">' + chipsHtml + '</div>';
+      row.querySelector('[data-act="view"]').addEventListener('click', () => openDayViewModal(key));
+      row.querySelector('[data-act="edit"]').addEventListener('click', () => openDayEditModal(key));
+      row.querySelector('.week-row-chips').addEventListener('click', () => openDayViewModal(key));
+      const labelInput = row.querySelector('.week-label-input');
+      labelInput.addEventListener('change', () => {
+        daySchedule(key).label = labelInput.value;
+        saveState();
+        renderDayPill();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  // ---- Day edit modal (assign/reorder templates, label, clear to Rest) ----
+  let dayEditKey = null;
+  let dayEditDraft = null; // { routineIds: [...], label: '' }
+
+  function renderDayEditAssignedList() {
+    const wrap = $('dayEditAssignedList');
+    wrap.innerHTML = '';
+    $('dayEditEmptyMsg').style.display = dayEditDraft.routineIds.length ? 'none' : 'block';
+    dayEditDraft.routineIds.forEach((id, idx) => {
+      const r = getRoutine(id);
+      if (!r) return;
+      const row = document.createElement('div');
+      row.className = 'dayedit-row';
+      row.innerHTML =
+        '<span class="dayedit-row-name">' + escape(r.name) + '</span>' +
+        '<button type="button" class="rex-reorder" data-dir="up" aria-label="Move up"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
+        '<button type="button" class="rex-reorder" data-dir="down" aria-label="Move down"' + (idx === dayEditDraft.routineIds.length - 1 ? ' disabled' : '') + '>▼</button>' +
+        '<button type="button" class="rex-del" aria-label="Remove">✕</button>';
+      row.querySelectorAll('.rex-reorder').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.disabled) return;
+          const newIdx = idx + (btn.dataset.dir === 'up' ? -1 : 1);
+          if (newIdx < 0 || newIdx >= dayEditDraft.routineIds.length) return;
+          const tmp = dayEditDraft.routineIds[idx];
+          dayEditDraft.routineIds[idx] = dayEditDraft.routineIds[newIdx];
+          dayEditDraft.routineIds[newIdx] = tmp;
+          renderDayEditAssignedList();
+          renderDayEditAddSelect();
+        });
+      });
+      row.querySelector('.rex-del').addEventListener('click', () => {
+        dayEditDraft.routineIds.splice(idx, 1);
+        renderDayEditAssignedList();
+        renderDayEditAddSelect();
+      });
+      wrap.appendChild(row);
+    });
+  }
+  function renderDayEditAddSelect() {
+    const sel = $('dayEditAddSelect');
+    sel.innerHTML = '<option value="">+ Add a template…</option>';
+    state.routines.forEach(r => {
+      if (dayEditDraft.routineIds.indexOf(r.id) !== -1) return;
+      const opt = document.createElement('option');
+      opt.value = r.id; opt.textContent = r.name;
+      sel.appendChild(opt);
+    });
+    sel.value = '';
+  }
+  function openDayEditModal(key) {
+    dayEditKey = key;
+    const d = daySchedule(key);
+    dayEditDraft = { routineIds: d.routineIds.slice(), label: d.label || '' };
+    $('dayEditTitle').textContent = 'Edit ' + WEEKDAY_LABELS[WEEKDAY_KEYS.indexOf(key)];
+    $('dayEditLabelInput').value = dayEditDraft.label;
+    renderDayEditAssignedList();
+    renderDayEditAddSelect();
+    $('dayEditModalBg').classList.add('show');
+  }
+  function closeDayEditModal() { $('dayEditModalBg').classList.remove('show'); }
+  $('dayEditAddSelect').addEventListener('change', () => {
+    const id = $('dayEditAddSelect').value;
+    if (!id) return;
+    dayEditDraft.routineIds.push(id);
+    renderDayEditAssignedList();
+    renderDayEditAddSelect();
+  });
+  $('dayEditClearBtn').addEventListener('click', () => {
+    dayEditDraft.routineIds = [];
+    renderDayEditAssignedList();
+    renderDayEditAddSelect();
+  });
+  $('dayEditCancel').addEventListener('click', closeDayEditModal);
+  $('dayEditModalBg').addEventListener('click', (e) => { if (e.target.id === 'dayEditModalBg') closeDayEditModal(); });
+  $('dayEditSave').addEventListener('click', () => {
+    dayEditDraft.label = $('dayEditLabelInput').value;
+    state.schedule[dayEditKey] = { routineIds: dayEditDraft.routineIds, label: dayEditDraft.label };
+    overrideRest = false;
+    state.currentRoutineId = null;
+    saveState();
+    closeDayEditModal();
+    renderWeekGrid();
+    renderRoutineSelect();
+    renderSelect();
+    renderAll();
+  });
+
+  // ---- Day view modal (read-only: exercises + gear needed + jump-off) ----
+  function openDayViewModal(key) {
+    const d = daySchedule(key);
+    const routines = d.routineIds.map(getRoutine).filter(Boolean);
+    const dowIdx = WEEKDAY_KEYS.indexOf(key);
+    $('dayViewTitle').textContent = WEEKDAY_LABELS[dowIdx] + (d.label ? ' — ' + d.label : '');
+
+    const gear = equipmentForDay(key);
+    const equipPanel = $('dayViewEquipPanel');
+    if (gear.length) {
+      equipPanel.style.display = 'flex';
+      $('dayViewEquipTags').innerHTML = gear.map(g =>
+        '<span class="equip-tag">' + escape(g.name) + ' (' + escape(formatEquipmentWeights(g)) + ')</span>'
+      ).join('');
+    } else {
+      equipPanel.style.display = 'none';
+    }
+
+    const body = $('dayViewBody');
+    body.innerHTML = '';
+    $('dayViewRestMsg').style.display = routines.length ? 'none' : 'block';
+    routines.forEach(r => {
+      const block = document.createElement('div');
+      block.className = 'dayview-tpl-block';
+      block.innerHTML = '<div class="dayview-tpl-name">' + escape(r.name) +
+        ' <span class="dayview-tpl-view-link" data-id="' + r.id + '">View template</span></div>';
+      if (!r.exercises.length) {
+        block.innerHTML += '<div class="po-empty">No exercises in this template yet.</div>';
+      } else {
+        r.exercises.forEach(ex => {
+          const equip = ex.equipmentId ? getEquipment(ex.equipmentId) : null;
+          const metaLine = [
+            ex.sets + ' × ' + fmtReps(ex) + ' reps',
+            ex.bw ? 'Bodyweight' : (ex.startWeight + unit() + ' target'),
+            ex.restSec + 's rest',
+            equip ? equip.name : 'No equipment'
+          ].join(' · ');
+          const row = document.createElement('div');
+          row.className = 'rt-view-row';
+          row.innerHTML =
+            '<div class="rt-view-name">' + escape(ex.name) + '</div>' +
+            '<div class="rt-view-meta">' + escape(metaLine) + '</div>' +
+            (ex.notes ? '<div class="rt-view-notes">' + escape(ex.notes) + '</div>' : '');
+          block.appendChild(row);
+        });
+      }
+      block.querySelector('.dayview-tpl-view-link').addEventListener('click', () => openRoutineViewModal(r));
+      body.appendChild(block);
+    });
+
+    $('dayViewModalBg').classList.add('show');
+  }
+  $('dayViewClose').addEventListener('click', () => $('dayViewModalBg').classList.remove('show'));
+  $('dayViewModalBg').addEventListener('click', (e) => { if (e.target.id === 'dayViewModalBg') $('dayViewModalBg').classList.remove('show'); });
+  $('dayViewStartTimerBtn').addEventListener('click', () => {
+    $('dayViewModalBg').classList.remove('show');
+    switchTab('timer');
+  });
 
   // ============================================================
   // BANNER PHOTO — uploadable/replaceable, sits directly under the
@@ -2468,6 +2759,7 @@ img, video, canvas, svg { max-width: 100%; }
 
   function renderAll() {
     renderDayPill();
+    renderWeekGrid();
     renderBanner();
     renderForm();
     renderLastSet();
@@ -2597,7 +2889,11 @@ img, video, canvas, svg { max-width: 100%; }
     if (!confirm('Delete routine "' + r.name + '" and all its exercises? Logged history for those exercises will also be removed.')) return;
     r.exercises.forEach(ex => { delete state.logs[ex.id]; });
     state.routines = state.routines.filter(x => x.id !== id);
-    WEEKDAY_KEYS.forEach(k => { if (state.schedule[k] === id) state.schedule[k] = null; });
+    WEEKDAY_KEYS.forEach(k => {
+      const d = daySchedule(k);
+      const idx = d.routineIds.indexOf(id);
+      if (idx !== -1) d.routineIds.splice(idx, 1);
+    });
     if (state.currentRoutineId === id) state.currentRoutineId = null;
     saveState();
     renderRoutineSelect();
@@ -3172,53 +3468,6 @@ img, video, canvas, svg { max-width: 100%; }
     if (!state.logs[ex.id]) state.logs[ex.id] = [];
     state.logs[ex.id].push({ weight, reps, date: new Date().toISOString() });
     saveState();
-    renderAll();
-  });
-
-  // ============================================================
-  // SCHEDULE editor
-  // ============================================================
-  let schDraft = null;
-  function openScheduleModal() {
-    schDraft = Object.assign({}, state.schedule);
-    const wrap = $('schList');
-    wrap.innerHTML = '';
-    const todayKey = todayWeekdayKey();
-    WEEKDAY_ORDER.forEach(dowIdx => {
-      const key = WEEKDAY_KEYS[dowIdx];
-      const row = document.createElement('div');
-      row.className = 'sch-row' + (key === todayKey ? ' is-today' : '');
-      const select = document.createElement('select');
-      select.dataset.day = key;
-      const restOpt = document.createElement('option');
-      restOpt.value = ''; restOpt.textContent = 'Rest';
-      select.appendChild(restOpt);
-      state.routines.forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r.id; opt.textContent = r.name;
-        select.appendChild(opt);
-      });
-      select.value = schDraft[key] || '';
-      select.addEventListener('change', () => { schDraft[key] = select.value || null; });
-      row.innerHTML = '<div class="sch-row-label">' + WEEKDAY_LABELS[dowIdx] + '</div>';
-      row.appendChild(select);
-      wrap.appendChild(row);
-    });
-    $('schModalBg').classList.add('show');
-  }
-  function closeScheduleModal() { $('schModalBg').classList.remove('show'); }
-
-  $('dayPill').addEventListener('click', openScheduleModal);
-  $('schCancel').addEventListener('click', closeScheduleModal);
-  $('schModalBg').addEventListener('click', (e) => { if (e.target.id === 'schModalBg') closeScheduleModal(); });
-  $('schSave').addEventListener('click', () => {
-    state.schedule = schDraft;
-    saveState();
-    overrideRest = false;
-    state.currentRoutineId = null;
-    closeScheduleModal();
-    renderRoutineSelect();
-    renderSelect();
     renderAll();
   });
 

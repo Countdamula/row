@@ -1031,3 +1031,72 @@ between this app and either data loss or a wide-open write target:
     have it scripted. Any future automated verification of this page
     should block `*.supabase.co` at the network layer first (e.g. CDP's
     `Network.setBlockedURLs`) so testing stays local-only.
+
+- **This Week tab rebuilt into an editable weekly grid**, replacing the old
+  day-pill-opens-a-single-select-per-day schedule modal (`openScheduleModal`/
+  `#schModalBg`, one routine id per weekday) with a richer, multi-template
+  weekly view. Deleted the superseded modal/JS/CSS outright rather than
+  leaving it as unreachable dead code — the same call this project already
+  made converting the Timer modal into an inline tab panel (see that
+  changelog entry above): both are a same-session supersession of an older
+  mechanism by a richer one, not another pass's orphaned feature, which is
+  what the DO-NOT-MODIFY dead-code precedent (`pushWaterMergedToSupabase`
+  etc.) actually protects.
+  - **Data model changed**: `state.schedule[day]` was a single
+    `routineId|null`; it's now `{ routineIds: [...], label: '' }` so a day
+    can carry zero (Rest), one, or several templates, plus an optional
+    freeform label (e.g. "Upper A"). `normalize()` migrates the legacy
+    string/null shape in place — existing single-routine schedules (and
+    `CONFIG.defaultSchedule`'s string values) come through unchanged as a
+    one-item `routineIds` array. `todaysRoutine()` (used throughout the
+    existing single-session logging flow — `routineSelect`, Log a set,
+    stats, etc.) now returns the day's *first* assigned template, so that
+    flow needed no further changes. New resolvers: `daySchedule(key)`,
+    `dayRoutines(key)`, and `equipmentForDay(key)` — the last one is the
+    actual "routine reads the Equipment DB through the templates'
+    exercises" connection the request asked for, unioning `equipmentId`
+    across every exercise in every template assigned to that day.
+    `scheduledDaysForRoutine()` and `deleteRoutine()`'s schedule-cleanup
+    loop were updated for the array shape (deleting a routine now splices
+    its id out of every day's `routineIds` instead of nulling a scalar).
+  - **This Week tab** (`#weekGridCard`, a second `.po-tab-panel` sharing
+    `data-panel="week"` with the pre-existing Today's Workout card — both
+    toggle together under `switchTab()`, exactly like any other panel)
+    lists Mon–Sun (`WEEKDAY_ORDER`, this file's existing Mon-first display
+    order) as `.week-row`s: a per-day label `<input>` (autosaves on
+    change), assigned-template chips (or a dashed "Rest" chip), and 👁/✎
+    icon buttons reusing the `.rt-card-actions`/`.po-btn-icon` look
+    already established for Routine cards.
+  - **Day edit modal** (`#dayEditModalBg`) — assign templates via a
+    "+ Add a template…" `<select>` (only offers templates not already on
+    that day), reorder assigned templates with the same up/down
+    `.rex-reorder` arrow-button pattern already used for exercise
+    reordering in the Template editor, remove one via ✕, edit the day's
+    label, or wipe the day back to Rest with "Clear (Rest)". Nothing
+    commits until Save (same draft-then-save convention as every other
+    modal here).
+  - **Day view modal** (`#dayViewModalBg`) — read-only: one block per
+    assigned template (name + a "View template" link that opens the
+    existing `#routineViewModalBg` read view via `openRoutineViewModal()`,
+    reused verbatim rather than reimplemented) listing its exercises via
+    the same `.rt-view-row` markup the template read view already uses,
+    plus an "Equipment needed today" panel sourced live from
+    `equipmentForDay()` — each item shown with its formatted available
+    weights via the existing `formatEquipmentWeights()`. A "Start Timer"
+    button closes the modal and calls `switchTab('timer')`.
+  - **Day pill** (top of page) no longer opens a modal — its title changed
+    to "Tap to open This Week" and its click now calls `switchTab('week')`
+    (plus scrolls today's `.week-row` into view), matching how the header
+    clock icon and quick-launch timer button already just switch tabs
+    instead of opening an overlay. `renderDayPill()` was updated to join
+    multiple assigned template names with "+" and prefix the optional
+    label, instead of assuming a single routine.
+  - **Verified via headless Edge (CDP, `*.supabase.co` network-blocked
+    per the testing note above)**: assigning multiple templates to a day,
+    reordering them, labeling a day, clearing a day to Rest, opening the
+    Day view (exercise lists from both templates, equipment panel pulling
+    a real linked barbell's weight range), jumping to a template's read
+    view from there, Start Timer switching tabs, deleting a routine
+    auto-clearing the days it was scheduled on, and the day pill
+    round-tripping into the This Week tab — all confirmed with no
+    JS console errors and no unwanted network calls.
