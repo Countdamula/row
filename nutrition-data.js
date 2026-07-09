@@ -34,7 +34,8 @@
     groceryItems: 'nutrition:groceryItems',
     recipes: 'nutrition:recipes',
     recipeIngredients: 'nutrition:recipeIngredients',
-    seeded: 'nutrition:seeded'
+    seeded: 'nutrition:seeded',
+    stepsMigratedV1: 'nutrition:stepsMigratedV1'
   };
 
   function uid(prefix) {
@@ -101,6 +102,16 @@
   }
 
   /**
+   * @typedef {Object} RecipeStep
+   * @property {string} text
+   * @property {?string} imageUrl - optional photo attached to this step
+   */
+  function normalizeStep(s) {
+    if (s && typeof s === 'object') return { text: s.text || '', imageUrl: s.imageUrl || null };
+    return { text: s == null ? '' : String(s), imageUrl: null };
+  }
+
+  /**
    * @typedef {Object} Recipe
    * @property {string} id
    * @property {string} title
@@ -109,7 +120,7 @@
    * @property {number} prepTimeMin
    * @property {number} cookTimeMin
    * @property {string[]} tags
-   * @property {string[]} steps - ordered strings
+   * @property {RecipeStep[]} steps - ordered, each with an optional image
    * @property {string} notes
    * @property {boolean} isFavorite
    * @property {?string} imageUrl
@@ -125,7 +136,7 @@
       prepTimeMin: Math.max(0, Math.round(Number(data.prepTimeMin) || 0)),
       cookTimeMin: Math.max(0, Math.round(Number(data.cookTimeMin) || 0)),
       tags: Array.isArray(data.tags) ? data.tags.slice() : [],
-      steps: Array.isArray(data.steps) ? data.steps.slice() : [],
+      steps: Array.isArray(data.steps) ? data.steps.map(normalizeStep) : [],
       notes: data.notes || '',
       isFavorite: data.isFavorite != null ? !!data.isFavorite : false,
       imageUrl: data.imageUrl || null,
@@ -416,6 +427,28 @@
     storeSet(KEYS.seeded, true);
   }
   seedIfEmpty();
+
+  // One-time migration: Recipe.steps changed shape from plain strings to
+  // { text, imageUrl } objects (to support attaching a photo per step).
+  // Recipes created before this change still have string steps sitting in
+  // storage — list()/get() read raw records and don't run them through
+  // recipeModel(), so without this pass they'd stay strings until their
+  // recipe happened to be re-saved. Same guarded-one-time-pass idiom as
+  // finance-data.js's migrateChfAccountsToUsd().
+  function migrateStepsToObjects() {
+    if (storeGet(KEYS.stepsMigratedV1)) return;
+    const recipes = Recipes.list();
+    let changed = false;
+    recipes.forEach(function (r) {
+      if (Array.isArray(r.steps) && r.steps.some(function (s) { return typeof s === 'string'; })) {
+        r.steps = r.steps.map(normalizeStep);
+        changed = true;
+      }
+    });
+    if (changed) storeSet(KEYS.recipes, recipes);
+    storeSet(KEYS.stepsMigratedV1, true);
+  }
+  migrateStepsToObjects();
 
   // ============================================================
   // PUBLIC API

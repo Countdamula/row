@@ -333,8 +333,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-detail-ing-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .nutr-detail-ing-row:last-child { border-bottom: none; }
 .nutr-detail-ing-row span:first-child { color: var(--text-primary); }
-.nutr-detail-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
-.nutr-detail-steps li { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+.nutr-detail-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
+.nutr-detail-steps li { font-size: 13px; color: var(--text-secondary); line-height: 1.55; display: flex; flex-direction: column; gap: 8px; }
+.nutr-detail-step-img { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); }
 
 /* ===== Recipe add/edit modal — ingredient & step draft-list editors ===== */
 #nutrRecipeModal { max-width: 520px; }
@@ -348,7 +349,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-ing-amount { flex: 0 1 60px; min-width: 45px; }
 .nutr-ing-unit { flex: 0 1 70px; min-width: 50px; }
 .nutr-step-num { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); flex-shrink: 0; margin-top: 9px; }
-.nutr-step-text { flex: 1; min-width: 0; resize: vertical; min-height: 36px; }
+.nutr-step-maincol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.nutr-step-text { width: 100%; resize: vertical; min-height: 36px; }
+.nutr-step-img-row { display: flex; align-items: center; gap: 8px; }
+.nutr-step-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0; border: 1px solid var(--border); }
 .nutr-draft-row-remove {
   background: transparent; border: 1px solid rgba(255,255,255,0.10); color: var(--danger);
   cursor: pointer; font-size: 13px; width: 30px; height: 30px; flex-shrink: 0; border-radius: 6px; font-family: inherit; align-self: flex-start;
@@ -1243,8 +1247,17 @@ document.addEventListener('DOMContentLoaded', function () {
     var stepsEl = document.getElementById('nutrDetailSteps');
     stepsEl.innerHTML = '';
     steps.forEach(function (s) {
+      var step = (s && typeof s === 'object') ? s : { text: s, imageUrl: null };
       var li = document.createElement('li');
-      li.textContent = s;
+      if (step.imageUrl) {
+        var img = document.createElement('img');
+        img.className = 'nutr-detail-step-img';
+        img.loading = 'lazy'; img.alt = ''; img.src = step.imageUrl;
+        li.appendChild(img);
+      }
+      var textDiv = document.createElement('div');
+      textDiv.textContent = step.text;
+      li.appendChild(textDiv);
       stepsEl.appendChild(li);
     });
     document.getElementById('nutrDetailStepsSection').hidden = steps.length === 0;
@@ -1282,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var recipeModalBg = document.getElementById('nutrRecipeModalBg');
   var editingRecipeId = null;
   var draftIngredients = []; // [{name, amount, unit}]
-  var draftSteps = []; // [text, ...]
+  var draftSteps = []; // [{text, imageUrl}, ...]
   var currentRecipeImage = '';
 
   function swapDraft(arr, idx, dir) {
@@ -1339,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function renderStepsDraft() {
     var wrap = document.getElementById('nutrRecipeStepsList');
     wrap.innerHTML = '';
-    draftSteps.forEach(function (stepText, idx) {
+    draftSteps.forEach(function (step, idx) {
       var row = document.createElement('div');
       row.className = 'nutr-draft-row';
 
@@ -1357,11 +1370,48 @@ document.addEventListener('DOMContentLoaded', function () {
       stepNum.textContent = (idx + 1) + '.';
       row.appendChild(stepNum);
 
+      var mainCol = document.createElement('div');
+      mainCol.className = 'nutr-step-maincol';
+
       var textInput = document.createElement('textarea');
       textInput.className = 'nutr-step-text'; textInput.placeholder = 'Describe this step…'; textInput.rows = 2;
-      textInput.value = stepText || '';
-      textInput.addEventListener('input', function () { draftSteps[idx] = textInput.value; });
-      row.appendChild(textInput);
+      textInput.value = step.text || '';
+      textInput.addEventListener('input', function () { step.text = textInput.value; });
+      mainCol.appendChild(textInput);
+
+      var imgRow = document.createElement('div');
+      imgRow.className = 'nutr-step-img-row';
+      if (step.imageUrl) {
+        var thumb = document.createElement('img');
+        thumb.className = 'nutr-step-thumb'; thumb.alt = ''; thumb.src = step.imageUrl;
+        imgRow.appendChild(thumb);
+        var removeImgBtn = document.createElement('button');
+        removeImgBtn.type = 'button'; removeImgBtn.className = 'nutr-add-row-btn'; removeImgBtn.textContent = 'Remove image';
+        removeImgBtn.addEventListener('click', function () { step.imageUrl = null; renderStepsDraft(); });
+        imgRow.appendChild(removeImgBtn);
+      } else {
+        var uploadBtn = document.createElement('button');
+        uploadBtn.type = 'button'; uploadBtn.className = 'nutr-add-row-btn'; uploadBtn.textContent = '+ Add image';
+        var fileInput = document.createElement('input');
+        fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.hidden = true;
+        uploadBtn.addEventListener('click', function () { fileInput.click(); });
+        fileInput.addEventListener('change', function (e) {
+          var file = e.target.files && e.target.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function () {
+            compressImageDataUrl(String(reader.result), 480, 0.82).then(function (compressed) {
+              step.imageUrl = compressed;
+              renderStepsDraft();
+            });
+          };
+          reader.readAsDataURL(file);
+        });
+        imgRow.appendChild(uploadBtn);
+        imgRow.appendChild(fileInput);
+      }
+      mainCol.appendChild(imgRow);
+      row.appendChild(mainCol);
 
       var removeBtn = document.createElement('button');
       removeBtn.type = 'button'; removeBtn.className = 'nutr-draft-row-remove'; removeBtn.textContent = '✕';
@@ -1373,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   document.getElementById('nutrAddStepBtn').addEventListener('click', function () {
-    draftSteps.push('');
+    draftSteps.push({ text: '', imageUrl: null });
     renderStepsDraft();
   });
 
@@ -1419,7 +1469,10 @@ document.addEventListener('DOMContentLoaded', function () {
     updateRecipeImagePreview();
 
     draftIngredients = recipe ? ND.ingredientsForRecipe(recipe.id).map(function (i) { return { name: i.name, amount: i.amount, unit: i.unit }; }) : [];
-    draftSteps = recipe ? (recipe.steps || []).slice() : [];
+    draftSteps = recipe ? (recipe.steps || []).map(function (s) {
+      var step = (s && typeof s === 'object') ? s : { text: s, imageUrl: null };
+      return { text: step.text || '', imageUrl: step.imageUrl || null };
+    }) : [];
     renderIngredientsDraft();
     renderStepsDraft();
 
@@ -1450,7 +1503,9 @@ document.addEventListener('DOMContentLoaded', function () {
       prepTimeMin: document.getElementById('nutrRecipePrep').value.trim() || 0,
       cookTimeMin: document.getElementById('nutrRecipeCook').value.trim() || 0,
       tags: tags,
-      steps: draftSteps.map(function (s) { return s.trim(); }).filter(Boolean),
+      steps: draftSteps
+        .map(function (s) { return { text: (s.text || '').trim(), imageUrl: s.imageUrl || null }; })
+        .filter(function (s) { return s.text || s.imageUrl; }),
       notes: document.getElementById('nutrRecipeNotes').value.trim(),
       isFavorite: document.getElementById('nutrRecipeFavorite').checked,
       imageUrl: currentRecipeImage || null
