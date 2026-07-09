@@ -193,7 +193,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-empty { color: var(--text-tertiary); font-size: 13px; padding: 40px 10px; text-align: center; }
 
 .nutr-store-group { margin-bottom: 20px; }
-.nutr-store-head { display: flex; align-items: center; gap: 8px; padding: 6px; margin-bottom: 2px; }
+.nutr-store-head {
+  display: flex; align-items: center; gap: 8px; padding: 6px; margin-bottom: 2px;
+  cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.nutr-store-caret { font-size: 10px; color: var(--accent); width: 12px; text-align: center; flex-shrink: 0; transition: transform 0.15s; }
+.nutr-store-group.collapsed .nutr-store-caret { transform: rotate(-90deg); }
+.nutr-store-group.collapsed .nutr-store-body { display: none; }
 .nutr-store-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .nutr-store-name { font-family: var(--font-serif); font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .nutr-store-count { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-left: auto; flex-shrink: 0; }
@@ -690,6 +696,15 @@ document.addEventListener('DOMContentLoaded', function () {
   var resetBtn = document.getElementById('nutrResetListBtn');
   var qaStoreSelect = document.getElementById('nutrQaStore');
 
+  // Per-store collapsed/expanded state — in-memory only for this page
+  // load, same convention as study.html's subject-group collapse
+  // (collapsedIds), keyed by storeId ('unassigned' for the Unassigned
+  // group since it has no real store record). Re-consulted on every
+  // renderGroceryList() call so a collapsed store stays collapsed across
+  // re-renders triggered by other actions (checking an item, editing,
+  // syncing, etc.).
+  var collapsedStoreIds = {};
+
   function buildItemRow(item) {
     var row = document.createElement('div');
     row.className = 'nutr-item-row';
@@ -745,11 +760,24 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function buildStoreGroup(group) {
+    var key = group.storeId || 'unassigned';
+    var isCollapsed = !!collapsedStoreIds[key];
+
     var wrap = document.createElement('div');
-    wrap.className = 'nutr-store-group';
+    wrap.className = 'nutr-store-group' + (isCollapsed ? ' collapsed' : '');
 
     var head = document.createElement('div');
     head.className = 'nutr-store-head';
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+    head.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    head.setAttribute('aria-label', 'Toggle ' + group.storeName + ' group');
+
+    var caret = document.createElement('span');
+    caret.className = 'nutr-store-caret';
+    caret.textContent = '▼';
+    head.appendChild(caret);
+
     if (group.color) {
       var dot = document.createElement('span');
       dot.className = 'nutr-store-dot';
@@ -764,9 +792,23 @@ document.addEventListener('DOMContentLoaded', function () {
     count.className = 'nutr-store-count';
     count.textContent = group.items.length;
     head.appendChild(count);
+
+    function toggleCollapse() {
+      collapsedStoreIds[key] = !collapsedStoreIds[key];
+      wrap.classList.toggle('collapsed', !!collapsedStoreIds[key]);
+      head.setAttribute('aria-expanded', collapsedStoreIds[key] ? 'false' : 'true');
+    }
+    head.addEventListener('click', toggleCollapse);
+    head.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapse(); }
+    });
     wrap.appendChild(head);
 
-    group.items.forEach(function (item) { wrap.appendChild(buildItemRow(item)); });
+    var body = document.createElement('div');
+    body.className = 'nutr-store-body';
+    group.items.forEach(function (item) { body.appendChild(buildItemRow(item)); });
+    wrap.appendChild(body);
+
     return wrap;
   }
 
