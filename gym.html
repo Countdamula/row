@@ -1016,6 +1016,62 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .equip-chip-empty { font-size: 12px; color: var(--text-3); font-style: italic; padding: 6px 0; }
 
+/* ----- Equipment search/filter toolbar ----- */
+.equip-toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.equip-search-input {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+  background: rgba(0,0,0,0.28); color: var(--text-1); border-radius: 12px;
+  font-family: inherit; font-size: 14px;
+}
+.equip-search-input::placeholder { color: var(--text-3); }
+.equip-search-input:focus {
+  outline: none; border-color: rgba(255,255,255,0.40);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+}
+.equip-type-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.equip-type-chip {
+  padding: 6px 12px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04); color: var(--text-2);
+  border-radius: 999px; font-family: inherit; font-size: 11.5px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.equip-type-chip:hover { background: rgba(255,255,255,0.08); }
+.equip-type-chip.active {
+  background: linear-gradient(180deg, var(--crimson-bright) 0%, var(--crimson) 100%);
+  color: var(--crimson-text); border-color: transparent;
+}
+
+/* ----- Equipment gallery grid — same .ent-grid/.ent-card/.ent-cover
+   shell convention entertainment.html/study.html already share for
+   photo-backed gallery cards (see CLAUDE.md §3), recolored to this
+   file's crimson accent instead of inventing a fifth card component. ----- */
+.ent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; }
+.ent-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.ent-cover {
+  position: relative; aspect-ratio: 1;
+  background: rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+}
+.ent-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.equip-qty-badge {
+  position: absolute; top: 6px; right: 6px;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(0,0,0,0.65); color: var(--text-1);
+  font-size: 10.5px; font-weight: 800; font-family: var(--font-mono);
+}
+.ent-card-body { padding: 10px 12px; }
+.ent-card-name { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.ent-card-meta { font-size: 11px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+.ent-card-actions { display: flex; gap: 4px; padding: 0 10px 10px; }
+.ent-card-actions button { flex: 1; }
+
 /* ----- Workout timer (countdown / stopwatch / interval) ----- */
 .timer-display {
   text-align: center; font-variant-numeric: tabular-nums;
@@ -1089,6 +1145,7 @@ img, video, canvas, svg { max-width: 100%; }
   .po-banner { aspect-ratio: 16 / 8; }
   .timer-display { font-size: 40px; }
   .po-tab { font-size: 10.5px; padding: 9px 3px; letter-spacing: 0; }
+  .ent-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
 }
 
 /* Anything narrower than ~360px (iPhone SE / mini) gets a final pass */
@@ -1308,6 +1365,10 @@ img, video, canvas, svg { max-width: 100%; }
   <!-- EQUIPMENT -->
   <div class="card po-tab-panel" data-panel="equipment">
     <div class="po-sub-title">Equipment</div>
+    <div class="equip-toolbar">
+      <input type="text" class="equip-search-input" id="equipSearchInput" placeholder="Search equipment by name…">
+      <div class="equip-type-row" id="equipTypeFilterRow"></div>
+    </div>
     <div id="equipmentList"></div>
     <button class="po-add-row-btn" id="addEquipBtn">+ Add equipment</button>
   </div>
@@ -1556,18 +1617,39 @@ img, video, canvas, svg { max-width: 100%; }
         <option value="Other">Other</option>
       </select>
     </div>
-    <div class="po-log-grid">
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Weight (optional)</label>
-        <input type="number" id="equipWeight" step="0.5" placeholder="20">
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Quantity</label>
+      <input type="number" id="equipQty" min="1" step="1" value="1">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Available weights</label>
+      <div class="po-modal-seg" id="equipWeightModeSeg">
+        <button type="button" data-mode="discrete" class="active">Discrete list</button>
+        <button type="button" data-mode="range">Range</button>
       </div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Unit</label>
-        <div class="po-modal-seg" id="equipUnitSeg">
-          <button type="button" data-u="kg">kg</button>
-          <button type="button" data-u="lb">lb</button>
-        </div>
+    </div>
+    <div class="po-field" id="equipDiscreteField">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Weights (comma-separated)</label>
+      <input type="text" id="equipWeightsList" placeholder="e.g. 5, 10, 15, 20">
+    </div>
+    <div class="po-field" id="equipRangeField" style="display:none">
+      <div class="rex-grid">
+        <div><label>Min</label><input type="number" id="equipWeightMin" step="0.5"></div>
+        <div><label>Max</label><input type="number" id="equipWeightMax" step="0.5"></div>
+        <div><label>Step</label><input type="number" id="equipWeightStep" step="0.5"></div>
       </div>
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Photo</label>
+      <div class="media-thumb" style="width:100px;">
+        <img id="equipPhotoPreview" style="display:none;" alt="">
+        <div id="equipPhotoEmptyIcon" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;">📷</div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button type="button" class="po-add-row-btn" id="equipPhotoAddBtn" style="flex:1;">+ Add / change photo</button>
+        <button type="button" class="po-btn-icon" id="equipPhotoRemoveBtn" title="Remove photo" aria-label="Remove photo" style="display:none;">✕</button>
+      </div>
+      <input type="file" id="equipPhotoFile" accept="image/*" style="display:none">
     </div>
     <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Notes</label>
@@ -1730,6 +1812,38 @@ img, video, canvas, svg { max-width: 100%; }
     return ex;
   }
 
+  // Weights are stored as plain numbers with no per-item unit — same
+  // convention as everywhere else in this file (exercise startWeight/
+  // step/logs are all plain numbers labeled with the single global
+  // unit() at render time, not converted when the global unit toggles).
+  // A legacy single `weight`/`unit` pair (from before this field existed)
+  // migrates into `weights: [n]` so existing equipment isn't dropped.
+  function normalizeEquipment(item) {
+    if (item.weightMode !== 'range') item.weightMode = 'discrete';
+    if (!Array.isArray(item.weights)) {
+      item.weights = (typeof item.weight === 'number' && !isNaN(item.weight)) ? [item.weight] : [];
+    }
+    if (typeof item.weightMin !== 'number') item.weightMin = null;
+    if (typeof item.weightMax !== 'number') item.weightMax = null;
+    if (typeof item.weightStep !== 'number') item.weightStep = null;
+    if (typeof item.quantity !== 'number' || isNaN(item.quantity) || item.quantity < 1) item.quantity = 1;
+    if (typeof item.photo !== 'string') item.photo = null;
+    if (typeof item.notes !== 'string') item.notes = '';
+    delete item.weight;
+    delete item.unit;
+    return item;
+  }
+  function formatEquipmentWeights(item) {
+    if (item.weightMode === 'range' && item.weightMin != null && item.weightMax != null) {
+      return item.weightMin + '–' + item.weightMax + unit() + (item.weightStep ? (' (in ' + item.weightStep + unit() + ' steps)') : '');
+    }
+    if (item.weights && item.weights.length) return item.weights.join(', ') + unit();
+    return '—';
+  }
+  function equipTypeIcon(type) {
+    return { Barbell: '🏋️', Dumbbell: '🏋️', Machine: '⚙️', Band: '➰', Bodyweight: '🤸', Other: '🔧' }[type] || '🔧';
+  }
+
   function loadState() {
     let s = null;
     try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) {}
@@ -1764,6 +1878,7 @@ img, video, canvas, svg { max-width: 100%; }
     if (!s.exerciseDone || typeof s.exerciseDone !== 'object') s.exerciseDone = {};
     if (!s.units) s.units = 'kg';
     if (!Array.isArray(s.equipment)) s.equipment = [];
+    s.equipment.forEach(normalizeEquipment);
     if (s.bannerPhoto === undefined) s.bannerPhoto = null;
     if (!s.timerSettings || typeof s.timerSettings !== 'object') s.timerSettings = { countdownSec: 90, workSec: 30, restSec: 15, rounds: 8 };
     return s;
@@ -2540,31 +2655,71 @@ img, video, canvas, svg { max-width: 100%; }
   // "null out, don't cascade" precedent as deleteRoutine() above,
   // which clears state.schedule slots instead of blocking the delete).
   // ============================================================
+  const EQUIP_TYPES = ['Barbell', 'Dumbbell', 'Machine', 'Band', 'Bodyweight', 'Other'];
+  let equipSearchQuery = '';
+  let equipTypeFilter = '';
+
+  function renderEquipTypeFilter() {
+    const row = $('equipTypeFilterRow');
+    row.innerHTML = '';
+    ['All'].concat(EQUIP_TYPES).forEach(t => {
+      const val = t === 'All' ? '' : t;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'equip-type-chip' + (equipTypeFilter === val ? ' active' : '');
+      chip.textContent = t;
+      chip.addEventListener('click', () => { equipTypeFilter = val; renderEquipmentList(); });
+      row.appendChild(chip);
+    });
+  }
+
   function renderEquipmentList() {
+    renderEquipTypeFilter();
     const wrap = $('equipmentList');
     wrap.innerHTML = '';
     if (!state.equipment.length) {
       wrap.innerHTML = '<div class="po-empty">No equipment yet — tap "+ Add equipment" to log what you\'ve got.</div>';
       return;
     }
-    state.equipment.forEach(item => {
+    const q = equipSearchQuery.trim().toLowerCase();
+    const items = state.equipment.filter(item => {
+      if (equipTypeFilter && item.type !== equipTypeFilter) return false;
+      if (q && item.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    if (!items.length) {
+      wrap.innerHTML = '<div class="po-empty">No equipment matches your search/filter.</div>';
+      return;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'ent-grid';
+    items.forEach(item => {
       const card = document.createElement('div');
-      card.className = 'rt-card';
-      const metaParts = [item.type, item.weight ? (item.weight + (item.unit || unit())) : null];
+      card.className = 'ent-card';
       card.innerHTML =
-        '<div class="rt-card-main">' +
-          '<div class="rt-card-name">' + escape(item.name) + '</div>' +
-          '<div class="rt-card-meta">' + escape(metaParts.filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="ent-cover">' +
+          (item.photo ? '<img src="' + item.photo + '" alt="">' : equipTypeIcon(item.type)) +
+          (item.quantity > 1 ? '<span class="equip-qty-badge">×' + item.quantity + '</span>' : '') +
         '</div>' +
-        '<div class="rt-card-actions">' +
+        '<div class="ent-card-body">' +
+          '<div class="ent-card-name">' + escape(item.name) + '</div>' +
+          '<div class="ent-card-meta">' + escape(item.type) + ' · ' + escape(formatEquipmentWeights(item)) + '</div>' +
+        '</div>' +
+        '<div class="ent-card-actions">' +
           '<button class="po-btn-icon" data-act="edit" aria-label="Edit equipment">✎</button>' +
           '<button class="po-btn-icon" data-act="del" aria-label="Delete equipment">✕</button>' +
         '</div>';
       card.querySelector('[data-act="edit"]').addEventListener('click', () => openEquipModal(item));
       card.querySelector('[data-act="del"]').addEventListener('click', () => deleteEquipment(item.id));
-      wrap.appendChild(card);
+      grid.appendChild(card);
     });
+    wrap.appendChild(grid);
   }
+
+  $('equipSearchInput').addEventListener('input', () => {
+    equipSearchQuery = $('equipSearchInput').value;
+    renderEquipmentList();
+  });
 
   function deleteEquipment(id) {
     const item = getEquipment(id);
@@ -2581,15 +2736,64 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   let equipEditingId = null;
+  let equipWeightMode = 'discrete';
+  let equipPhotoDraft = null;
+
+  function setEquipWeightMode(mode) {
+    equipWeightMode = mode === 'range' ? 'range' : 'discrete';
+    Array.from($('equipWeightModeSeg').children).forEach(b => b.classList.toggle('active', b.dataset.mode === equipWeightMode));
+    $('equipDiscreteField').style.display = equipWeightMode === 'discrete' ? 'block' : 'none';
+    $('equipRangeField').style.display = equipWeightMode === 'range' ? 'block' : 'none';
+  }
+  $('equipWeightModeSeg').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (btn) setEquipWeightMode(btn.dataset.mode);
+  });
+
+  function renderEquipPhotoPreview() {
+    const img = $('equipPhotoPreview');
+    const emptyIcon = $('equipPhotoEmptyIcon');
+    const removeBtn = $('equipPhotoRemoveBtn');
+    if (equipPhotoDraft) {
+      img.src = equipPhotoDraft; img.style.display = 'block';
+      emptyIcon.style.display = 'none';
+      removeBtn.style.display = 'flex';
+    } else {
+      img.removeAttribute('src'); img.style.display = 'none';
+      emptyIcon.style.display = 'flex';
+      removeBtn.style.display = 'none';
+    }
+  }
+  $('equipPhotoAddBtn').addEventListener('click', () => $('equipPhotoFile').click());
+  $('equipPhotoRemoveBtn').addEventListener('click', () => { equipPhotoDraft = null; renderEquipPhotoPreview(); });
+  $('equipPhotoFile').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      compressImageDataUrl(String(reader.result), 480, 0.82).then(compressed => {
+        equipPhotoDraft = compressed;
+        renderEquipPhotoPreview();
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+
   function openEquipModal(item) {
     equipEditingId = item ? item.id : null;
     $('equipModalTitle').textContent = item ? 'Edit equipment' : 'Add equipment';
     $('equipName').value = item ? item.name : '';
     $('equipType').value = item ? item.type : 'Barbell';
-    $('equipWeight').value = item && item.weight != null ? item.weight : '';
-    const equipUnit = item ? (item.unit || unit()) : unit();
-    Array.from($('equipUnitSeg').children).forEach(b => b.classList.toggle('active', b.dataset.u === equipUnit));
+    $('equipQty').value = item ? item.quantity : 1;
+    setEquipWeightMode(item ? item.weightMode : 'discrete');
+    $('equipWeightsList').value = item && item.weights.length ? item.weights.join(', ') : '';
+    $('equipWeightMin').value = item && item.weightMin != null ? item.weightMin : '';
+    $('equipWeightMax').value = item && item.weightMax != null ? item.weightMax : '';
+    $('equipWeightStep').value = item && item.weightStep != null ? item.weightStep : '';
     $('equipNotes').value = item ? (item.notes || '') : '';
+    equipPhotoDraft = item ? item.photo : null;
+    renderEquipPhotoPreview();
     $('equipDelete').style.display = item ? 'block' : 'none';
     $('equipModalBg').classList.add('show');
   }
@@ -2598,21 +2802,23 @@ img, video, canvas, svg { max-width: 100%; }
   $('addEquipBtn').addEventListener('click', () => openEquipModal(null));
   $('equipModalCancel').addEventListener('click', closeEquipModal);
   $('equipModalBg').addEventListener('click', (e) => { if (e.target.id === 'equipModalBg') closeEquipModal(); });
-  $('equipUnitSeg').addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    Array.from($('equipUnitSeg').children).forEach(b => b.classList.toggle('active', b === btn));
-  });
 
   $('equipModalSave').addEventListener('click', () => {
     const name = $('equipName').value.trim();
     if (!name) return;
-    const activeUnitBtn = $('equipUnitSeg').querySelector('.active');
+    const weights = $('equipWeightsList').value.split(',')
+      .map(s => parseFloat(s.trim()))
+      .filter(n => !isNaN(n));
     const payload = {
       name,
       type: $('equipType').value,
-      weight: $('equipWeight').value === '' ? null : parseFloat($('equipWeight').value),
-      unit: activeUnitBtn ? activeUnitBtn.dataset.u : unit(),
+      quantity: parseInt($('equipQty').value, 10) || 1,
+      weightMode: equipWeightMode,
+      weights: equipWeightMode === 'discrete' ? weights : [],
+      weightMin: equipWeightMode === 'range' && $('equipWeightMin').value !== '' ? parseFloat($('equipWeightMin').value) : null,
+      weightMax: equipWeightMode === 'range' && $('equipWeightMax').value !== '' ? parseFloat($('equipWeightMax').value) : null,
+      weightStep: equipWeightMode === 'range' && $('equipWeightStep').value !== '' ? parseFloat($('equipWeightStep').value) : null,
+      photo: equipPhotoDraft,
       notes: $('equipNotes').value
     };
     if (equipEditingId) {

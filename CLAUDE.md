@@ -904,3 +904,53 @@ between this app and either data loss or a wide-open write target:
   - No sync/data changes of any kind — this is a pure DOM/CSS/JS
     reorganization of already-synced state; `po_coach_v1`,
     `po_coach_workout_done`, and the inline Supabase block are untouched.
+
+- **Equipment tab rebuilt into a full home-gym database** (photo gallery,
+  weights, quantity, search/filter), replacing the simpler flat-list
+  version from the entry above. Built before Templates in this pass since
+  templates/exercises reference equipment by id.
+  - **Data shape changed**: each `state.equipment[]` item dropped its old
+    single `weight`/per-item `unit` pair in favor of
+    `{quantity, weightMode: 'discrete'|'range', weights: number[],
+    weightMin, weightMax, weightStep, photo}`. The per-item `unit` field
+    is gone entirely — weights are now plain numbers labeled with the
+    page's single global `unit()` at render time, the same convention
+    every other weight in this file already follows (exercise
+    `startWeight`/`step`/logged sets are never converted when the global
+    kg/lb toggle flips, they're just relabeled) — "respect the global
+    unit via the shared formatter" meant reusing that existing `unit()`
+    function, not adding a second parallel per-item unit system.
+    `normalizeEquipment()` (new, alongside `normalizeExercise()`) migrates
+    a legacy single `weight` value into `weights: [weight]` so equipment
+    added under the old shape isn't lost, then deletes the old
+    `weight`/`unit` keys.
+  - **Discrete vs. range weights**: a `.po-modal-seg` toggle in the
+    add/edit modal switches between a comma-separated free-text list
+    ("5, 10, 15, 20") and a min/max/step trio (reusing the `.rex-grid`
+    3-column input layout already used for the Timer's interval config).
+    `formatEquipmentWeights()` renders either shape through the shared
+    `unit()` formatter, e.g. "5, 10, 15, 20kg" or "20–140kg (in 2.5kg
+    steps)".
+  - **Photo**: reuses this file's own `compressImageDataUrl` — the same
+    function and general upload/preview/remove mechanism the banner
+    uses — called with the 480px/0.82 "cover" preset (this app's
+    established constants for a small gallery thumbnail, from
+    projects.html/entertainment.html) rather than the banner's wider
+    1000px preset, since an equipment photo is a small square card image,
+    not a full-bleed hero.
+  - **List UI upgraded from the flat `.rt-card` rows to a photo gallery
+    grid** — `.ent-grid`/`.ent-card`/`.ent-cover`, the exact same shell
+    class names entertainment.html/study.html already share for
+    photo-backed gallery cards (per §3), recolored to this file's
+    crimson accent rather than inventing a fifth card component. Each
+    card shows the photo (or a type emoji fallback), a quantity badge
+    when >1, name, and `type · weights` meta line.
+  - **Search + type filter**: a text input (`#equipSearchInput`, matches
+    on name, case-insensitive) plus an "All" + one chip per fixed type
+    (`.equip-type-chip`, same toggle-pill recipe as this file's own
+    `.po-tab`/`.equip-chip`) — both re-run `renderEquipmentList()` with
+    the current query/filter applied client-side, no new storage.
+  - Delete-with-reference-count warning, the equipment↔exercise chip
+    linking, and the "gear needed today" chips from the entry above are
+    unchanged — they only ever read `item.name`/`item.id`, not the
+    weight/quantity/photo fields that changed shape here.
