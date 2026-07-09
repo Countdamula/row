@@ -790,3 +790,117 @@ between this app and either data loss or a wide-open write target:
   - No AI/LLM involved, consistent with the rest of this app (see the
     Projects entry above on `ANTHROPIC_API_KEY` being an inactive
     placeholder).
+
+- **Fitness Studio (`gym.html`) gained a banner photo, a workout timer, and
+  an Equipment database.** Purely additive follow-up to the two rebuilds
+  above (manual routines/schedule, then the "Fitness Studio" rename) —
+  templates (`state.routines[]`) and the weekly Mon–Sun assignment
+  (`state.schedule`) already existed and needed no changes; this pass
+  added the three genuinely missing pieces. Same `po_coach_v1`/
+  `po_coach_workout_done` keys, same inline Supabase sync block
+  (`APP_KEY='po-coach'`, `PC_SYNCED_KEYS` untouched) — every new field
+  lives inside the already-synced `po_coach_v1` object, so no sync-side
+  changes were needed at all.
+  - **Banner photo** — a new `.po-banner` upload area sits directly under
+    the in-page title (`.po-header`'s `<h1>`), deliberately *not* inside
+    the existing crimson-themed `.po-cover` hero (that block is a
+    deliberate, signed-off reference-photo match per this file's earlier
+    entries and wasn't touched). Empty state is a dashed-border
+    click-to-upload placeholder; once set, the photo fills the area
+    (`object-fit: cover`) with a hover scrim exposing Change/Remove
+    buttons, same interaction convention as `projects.html`/
+    `entertainment.html`'s cover-photo upload. Stored as
+    `state.bannerPhoto` (dataURL or `null`), compressed via this file's
+    own pre-existing `compressImageDataUrl` — called as `(dataUrl, 1000,
+    0.8)` rather than the 640/0.75 preset already used here for exercise
+    media, since a full-bleed wide hero needs a larger max dimension than
+    a reference photo thumbnail.
+  - **Equipment database** — a new flat CRUD list, `state.equipment[]`
+    (`{id, name, type, weight, unit, notes}`), rendered as its own card
+    (reusing `.rt-card`/`.rt-card-main`/`.rt-card-actions` verbatim from
+    the Routines card, no new row component invented) with an add/edit
+    modal (`#equipModalBg`, the same `.po-modal-bg`/`.po-modal`
+    open(mode,item)/close()/single-Save-button pattern every other modal
+    in this file already uses). Exercises gained `equipmentIds: []`
+    (defaulted via `normalizeExercise()`), edited from a new multi-select
+    chip list (`renderEquipChipList()`, shared between the quick "Add
+    exercise" modal and the inline per-exercise rows in the routine
+    editor — both entry points, matching how media/notes were already
+    duplicated across those two places). Deleting an equipment item
+    warns how many exercises reference it (mirrors finance.html's
+    linked-transaction-count warning) then **strips the id from those
+    exercises' `equipmentIds`** rather than deleting them — the same
+    null-out-the-reference precedent `deleteRoutine()` already set for
+    `state.schedule`. "Gear needed today" is derived, not stored: a chip
+    row on Today's Workout and a small tag per exercise both resolve
+    `equipmentIds` against `state.equipment` fresh on every render.
+  - **Workout timer** — a new icon button next to the settings gear opens
+    `#timerModalBg`, a three-mode timer (Countdown / Stopwatch / Interval
+    rounds) sharing one big digit display and Start/Pause/Reset controls.
+    This is genuinely new code in every sense: there was no timer/interval
+    UI anywhere in this file before, and no audio/sound utility anywhere
+    in the repo (confirmed by a repo-wide grep) — the beep is synthesized
+    with the Web Audio API (`AudioContext` + `OscillatorNode`), not a
+    bundled asset, keeping this repo's zero-binary-assets/no-build-step
+    convention intact. Timing uses wall-clock timestamp diffs
+    (`Date.now()`), not a naive `setInterval` tick counter, so a
+    multi-minute interval session doesn't drift, and phase/round for
+    Interval mode is recomputed fresh from total elapsed time on every
+    tick rather than tracked incrementally, so pause/resume can never
+    desync from the true elapsed time. Only the last-used settings persist
+    (`state.timerSettings`) — the running timer itself is intentionally
+    ephemeral and resets on modal close or reload, since this is a
+    mid-workout tool, not a saved log. A quick-launch clock button next to
+    "Log set" opens the timer pre-set to Countdown at the last-used rest
+    duration, tying it into the existing set-logging flow.
+  - **Data preserved**: purely additive, no `migrated_vN` flag needed
+    (unlike the Finance/Media rebuilds, which actually remapped old data
+    shapes) — `state.equipment` (`[]`), `state.bannerPhoto` (`null`),
+    `state.timerSettings`, and `exercise.equipmentIds` (`[]`) all default
+    safely for existing users via `normalize()`/`normalizeExercise()`.
+    Every pre-existing field (`routines`, `schedule`, `logs`,
+    `workoutNotes`, `exerciseDone`, `gyms`, `units`) and
+    `po_coach_workout_done` are untouched.
+
+- **Fitness Studio (`gym.html`) reorganized around a This Week / Templates
+  / Equipment / Timer tab shell.** Follow-up to the banner/equipment/timer
+  entry above — those features already existed as inline cards and a
+  modal; this pass added a lightweight secondary nav directly under the
+  banner (`.po-tabs`/`.po-tab`, same segmented-control recipe as
+  `.po-modal-seg`, just full-width) and moved the *existing* real content
+  into it rather than building placeholders, since gutting working
+  features into "coming soon" panels would have been a regression:
+  - **This Week** = the existing `#todaysWorkoutCard` (Today's Workout)
+    card, now also tagged `po-tab-panel` / `data-panel="week"` and active
+    by default — no content changes.
+  - **Templates** = the existing Routines card, same tag/`data-panel`
+    treatment, no content changes.
+  - **Equipment** = the existing Equipment card, same treatment.
+  - **Timer** — converted from a `.po-modal-bg` overlay into an inline
+    `.po-tab-panel` card (`#timerPanel`) sitting right after Equipment in
+    the DOM. All of its internals (mode segmented control, config
+    inputs, display, controls, laps) are the exact same elements/ids that
+    lived inside the old modal, just re-parented — none of the timer JS
+    (`timerTick`, `computeIntervalPhase`, `playBeep`, etc.) changed. The
+    header clock icon (`#timerBtn`) and the quick-launch button next to
+    Log Set (`#quickTimerBtn`) now call `switchTab('timer')` instead of
+    opening a modal; the quick-launch one still resets to Countdown at
+    the last-used rest duration first, matching its old modal behavior.
+    `#timerModalClose` and the modal backdrop-click-to-close handler were
+    removed since there's no overlay left to close.
+  - **Tab state is reflected in the URL hash** (`#week`/`#templates`/
+    `#equipment`/`#timer`) via `history.replaceState` (not
+    `location.hash =`, so switching tabs doesn't pile up browser-history
+    entries) — this repo has no client-side router (see §1), so this is
+    a small hand-rolled hash sync, not a new routing system. A
+    `hashchange` listener and an initial `switchTab(location.hash ...)`
+    call at boot make a URL like `gym.html#equipment` deep-link straight
+    to that tab on load.
+  - **History / Progress / Compare sessions were deliberately left
+    outside the tab system**, exactly where they already were, below the
+    four tab panels — confirmed with the user rather than assumed, since
+    they weren't named in the new tab list and forcing them into one of
+    the four tabs would have changed how they're found today.
+  - No sync/data changes of any kind — this is a pure DOM/CSS/JS
+    reorganization of already-synced state; `po_coach_v1`,
+    `po_coach_workout_done`, and the inline Supabase block are untouched.
