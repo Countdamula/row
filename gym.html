@@ -756,6 +756,32 @@ img, video, canvas, svg { max-width: 100%; }
 .rt-card-meta { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
 .rt-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
+/* Template color swatch picker (reuses the existing --day-* palette) */
+.tpl-color-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.tpl-color-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.tpl-color-dot:hover { transform: scale(1.1); }
+.tpl-color-dot.active { border-color: var(--text-1); }
+.tpl-color-dot.is-none {
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed var(--border-strong);
+}
+
+/* Template read view (clean exercise listing, no edit controls) */
+.rt-view-row {
+  padding: 10px 12px; margin-bottom: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.rt-view-name { font-size: 13.5px; font-weight: 700; color: var(--text-1); }
+.rt-view-meta { font-size: 11.5px; color: var(--text-2); margin-top: 3px; font-family: var(--font-mono); }
+.rt-view-notes { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
+
 /* Routine-editor exercise rows */
 .rex-row {
   padding: 12px; margin-bottom: 8px;
@@ -775,6 +801,13 @@ img, video, canvas, svg { max-width: 100%; }
   -webkit-tap-highlight-color: transparent;
 }
 .rex-del:hover { color: var(--bad); }
+.rex-reorder {
+  background: transparent; border: none; color: var(--text-4);
+  font-size: 12px; cursor: pointer; padding: 0 4px; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.rex-reorder:hover { color: var(--text-1); }
+.rex-reorder:disabled { color: var(--text-4); opacity: 0.3; cursor: not-allowed; }
 .rex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
 .rex-grid label {
   display: block; font-size: 9px; color: var(--text-3); font-weight: 700;
@@ -998,23 +1031,9 @@ img, video, canvas, svg { max-width: 100%; }
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3);
 }
 
-/* ----- Equipment picker (multi-select chip list inside an exercise editor) ----- */
-.equip-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.equip-chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 7px 12px; border: 1px solid var(--border);
-  background: rgba(0,0,0,0.28); color: var(--text-2);
-  border-radius: 999px; cursor: pointer;
-  font-family: inherit; font-size: 12px; font-weight: 600;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.equip-chip:hover { background: rgba(255,255,255,0.06); }
-.equip-chip.active {
-  background: linear-gradient(180deg, var(--crimson-bright) 0%, var(--crimson) 100%);
-  color: var(--crimson-text); border-color: transparent; font-weight: 700;
-}
-.equip-chip-empty { font-size: 12px; color: var(--text-3); font-style: italic; padding: 6px 0; }
+/* ----- Equipment weight hint (shown under the equipment picker in the
+   exercise editors, when a piece of equipment is linked) ----- */
+.equip-weight-hint { font-size: 11px; color: var(--text-3); margin-top: 6px; font-family: var(--font-mono); }
 
 /* ----- Equipment search/filter toolbar ----- */
 .equip-toolbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
@@ -1479,8 +1498,13 @@ img, video, canvas, svg { max-width: 100%; }
       <input type="checkbox" id="exBw">
       Bodyweight (track reps only, no weight)
     </label>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Equipment</label>
+      <select id="exEquipSelect" style="width:100%;padding:12px 14px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:12px;font-family:inherit;font-size:14px;"></select>
+      <div class="equip-weight-hint" id="exEquipHint" style="display:none;"></div>
+    </div>
     <div class="po-field" id="exStartWeightField">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Starting weight</label>
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Starting / target weight</label>
       <input type="number" id="exStartWeight" step="0.5" placeholder="20" value="20">
     </div>
     <div class="po-log-grid" id="exNumFields">
@@ -1497,6 +1521,16 @@ img, video, canvas, svg { max-width: 100%; }
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Increment</label>
       <input type="number" id="exStep" step="0.5" value="2.5">
     </div>
+    <div class="po-log-grid">
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Sets</label>
+        <input type="number" id="exSets" min="1" value="3">
+      </div>
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Rest (seconds)</label>
+        <input type="number" id="exRestSec" min="0" step="5" value="60">
+      </div>
+    </div>
     <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Sets × reps note</label>
       <input type="text" id="exSetsReps" placeholder="e.g. 3 × 8–12">
@@ -1504,10 +1538,6 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Notes</label>
       <textarea class="po-tw-note" id="exNotes" placeholder="Form cues, reference notes…" style="min-height:60px"></textarea>
-    </div>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Equipment needed</label>
-      <div class="equip-chip-list" id="exEquipList"></div>
     </div>
     <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reference media</label>
@@ -1536,6 +1566,14 @@ img, video, canvas, svg { max-width: 100%; }
       <div class="po-modal-seg" id="routineGymSeg"></div>
     </div>
     <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Category / tag</label>
+      <input type="text" id="routineCategory" placeholder="e.g. Push, Pull, Legs, Cardio">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Color</label>
+      <div class="tpl-color-row" id="routineColorRow"></div>
+    </div>
+    <div class="po-field">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Exercises</label>
       <div id="routineExList"></div>
       <button class="po-add-row-btn" id="routineAddExBtn" type="button">+ Add exercise</button>
@@ -1545,6 +1583,19 @@ img, video, canvas, svg { max-width: 100%; }
       <button class="po-btn-primary" id="routineModalSave">Save routine</button>
     </div>
     <span class="po-delete-link" id="routineDelete" style="display:none">Delete this routine</span>
+  </div>
+</div>
+
+<!-- Template read view — clean, read-only listing for reference during a
+     workout (no edit controls, just the exercise plan). -->
+<div class="po-modal-bg" id="routineViewModalBg">
+  <div class="po-modal">
+    <h3 id="routineViewTitle">Template</h3>
+    <div class="rt-card-meta" id="routineViewMeta" style="margin-bottom:14px;"></div>
+    <div id="routineViewList"></div>
+    <div class="po-modal-actions">
+      <button class="po-btn-secondary" id="routineViewClose" type="button">Close</button>
+    </div>
   </div>
 </div>
 
@@ -1762,43 +1813,24 @@ img, video, canvas, svg { max-width: 100%; }
     });
   }
 
-  // Shared multi-select chip list — used both by the quick "Add exercise"
-  // modal and the inline per-exercise rows in the routine editor. Mutates
-  // selectedIds in place (push/splice) so the caller's draft array stays
-  // in sync without needing a change-event payload.
-  function renderEquipChipList(container, selectedIds, onToggle) {
-    container.innerHTML = '';
-    if (!state.equipment.length) {
-      container.innerHTML = '<div class="equip-chip-empty">No equipment logged yet — add some in the Equipment card below.</div>';
-      return;
-    }
-    state.equipment.forEach(item => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'equip-chip' + (selectedIds.indexOf(item.id) !== -1 ? ' active' : '');
-      chip.textContent = item.name;
-      chip.addEventListener('click', () => {
-        const idx = selectedIds.indexOf(item.id);
-        if (idx === -1) selectedIds.push(item.id); else selectedIds.splice(idx, 1);
-        onToggle();
-      });
-      container.appendChild(chip);
-    });
-  }
-
   function buildDefaultRoutines() {
     return (CONFIG.defaultRoutines || []).map(r => ({
       id: r.id || uid(),
       name: r.name,
       gym: r.gym || 'both',
+      category: r.category || '',
+      color: r.color || '',
       exercises: (r.exercises || []).map(ex => ({
         id: uid(),
         name: ex.name,
         repMin: ex.repMin, repMax: ex.repMax,
         step: ex.step, startWeight: ex.startWeight,
         bw: !!ex.bw,
+        sets: ex.sets || 3,
+        restSec: ex.restSec != null ? ex.restSec : 60,
         setsReps: ex.setsReps || ('3 × ' + ex.repMin + '–' + ex.repMax),
         notes: ex.notes || '',
+        equipmentId: ex.equipmentId || null,
         media: []
       }))
     }));
@@ -1808,9 +1840,29 @@ img, video, canvas, svg { max-width: 100%; }
     if (typeof ex.setsReps !== 'string') ex.setsReps = ex.repMin != null ? ('3 × ' + ex.repMin + '–' + ex.repMax) : '';
     if (typeof ex.notes !== 'string') ex.notes = '';
     if (!Array.isArray(ex.media)) ex.media = [];
-    if (!Array.isArray(ex.equipmentIds)) ex.equipmentIds = [];
+    if (typeof ex.sets !== 'number' || isNaN(ex.sets) || ex.sets < 1) ex.sets = 3;
+    if (typeof ex.restSec !== 'number' || isNaN(ex.restSec) || ex.restSec < 0) ex.restSec = 60;
+    // Equipment linking used to be a multi-select `equipmentIds[]`; the
+    // Templates rebuild switched to a single equipment picker per the
+    // spec ("an equipment picker (dropdown)... or none/bodyweight").
+    // Migrate the first linked id (if any) into the new single field,
+    // once — `equipmentId === undefined` only on data that predates it.
+    if (ex.equipmentId === undefined) {
+      ex.equipmentId = (Array.isArray(ex.equipmentIds) && ex.equipmentIds.length) ? ex.equipmentIds[0] : null;
+    }
+    delete ex.equipmentIds;
     return ex;
   }
+  function normalizeRoutine(r) {
+    if (typeof r.category !== 'string') r.category = '';
+    if (typeof r.color !== 'string') r.color = '';
+    return r;
+  }
+  // The 7 evenly-spaced pastel hues already defined in :root for weekday
+  // tags double as a ready-made, non-semantic accent palette — reused
+  // here as selectable "template color" swatches instead of inventing a
+  // new color set (CLAUDE.md's DO NOT MODIFY rule #2).
+  const TEMPLATE_COLORS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
   // Weights are stored as plain numbers with no per-item unit — same
   // convention as everywhere else in this file (exercise startWeight/
@@ -1870,7 +1922,7 @@ img, video, canvas, svg { max-width: 100%; }
     }
     if (!Array.isArray(s.gyms)) s.gyms = (CONFIG.gyms || []).map(g => ({ id: g.id, name: g.name }));
     if (!Array.isArray(s.routines)) s.routines = [];
-    s.routines.forEach(r => { (r.exercises || []).forEach(normalizeExercise); });
+    s.routines.forEach(r => { normalizeRoutine(r); (r.exercises || []).forEach(normalizeExercise); });
     if (!s.schedule || typeof s.schedule !== 'object') s.schedule = {};
     WEEKDAY_KEYS.forEach(k => { if (s.schedule[k] === undefined) s.schedule[k] = null; });
     if (!s.logs || typeof s.logs !== 'object') s.logs = {};
@@ -1934,14 +1986,58 @@ img, video, canvas, svg { max-width: 100%; }
   function equipmentNames(ids) { return (ids || []).map(getEquipment).filter(Boolean).map(e => e.name); }
   function exercisesUsingEquipment(id) {
     const out = [];
-    state.routines.forEach(r => { r.exercises.forEach(ex => { if ((ex.equipmentIds || []).indexOf(id) !== -1) out.push(ex); }); });
+    state.routines.forEach(r => { r.exercises.forEach(ex => { if (ex.equipmentId === id) out.push(ex); }); });
     return out;
   }
   function gearNeededForRoutine(routine) {
     if (!routine) return [];
     const ids = new Set();
-    routine.exercises.forEach(ex => (ex.equipmentIds || []).forEach(id => ids.add(id)));
+    routine.exercises.forEach(ex => { if (ex.equipmentId) ids.add(ex.equipmentId); });
     return Array.from(ids).map(getEquipment).filter(Boolean);
+  }
+
+  // Single equipment picker <select>, shared by the quick "Add exercise"
+  // modal and the inline per-exercise rows in the routine editor.
+  function renderEquipSelect(selectEl, selectedId) {
+    selectEl.innerHTML = '';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = 'None / Bodyweight';
+    selectEl.appendChild(noneOpt);
+    state.equipment.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.id; opt.textContent = item.name;
+      selectEl.appendChild(opt);
+    });
+    selectEl.value = selectedId || '';
+  }
+  // Shows the linked equipment's available weights as a target-weight hint.
+  function renderEquipWeightHint(hintEl, equipmentId) {
+    const item = equipmentId ? getEquipment(equipmentId) : null;
+    if (!item) { hintEl.style.display = 'none'; hintEl.textContent = ''; return; }
+    hintEl.style.display = 'block';
+    hintEl.textContent = 'Available: ' + formatEquipmentWeights(item);
+  }
+
+  // ---------- template list helpers (category/color/duration) ----------
+  // A rough estimate only: assumes a fixed working time per set on top of
+  // each exercise's own configured rest, since this app tracks no actual
+  // per-set duration data — same "deliberate simplification, not a bug"
+  // spirit as this file's other estimate-only figures (e.g. the burndown
+  // chart's fixed-scope assumption in projects.html).
+  const EST_SECONDS_PER_SET = 40;
+  function estimateTemplateDuration(routine) {
+    let totalSec = 0;
+    routine.exercises.forEach(ex => {
+      totalSec += (ex.sets || 3) * (EST_SECONDS_PER_SET + (ex.restSec != null ? ex.restSec : 60));
+    });
+    return totalSec;
+  }
+  function fmtDuration(totalSec) {
+    const min = Math.round(totalSec / 60);
+    return min < 1 ? '<1 min' : ('~' + min + ' min');
+  }
+  function fmtReps(ex) {
+    return ex.repMin === ex.repMax ? String(ex.repMin) : (ex.repMin + '–' + ex.repMax);
   }
 
   function todaysRoutine() {
@@ -2236,12 +2332,12 @@ img, video, canvas, svg { max-width: 100%; }
       return;
     }
     if (ex.bw) {
-      $('oneRm').innerHTML = '—<span class="po-unit">reps</span>';
+      $('oneRm').innerHTML = '—<span class="po-unit" id="oneRmUnit">reps</span>';
       const best = Math.max(...logs.map(l => l.reps));
       $('bestSet').textContent = best + ' reps';
     } else {
       const best1rm = Math.max(...logs.map(l => estimate1RM(l.weight, l.reps)));
-      $('oneRm').innerHTML = Math.round(best1rm) + '<span class="po-unit">' + unit() + '</span>';
+      $('oneRm').innerHTML = Math.round(best1rm) + '<span class="po-unit" id="oneRmUnit">' + unit() + '</span>';
       const bestLog = logs.reduce((a, b) => (a.weight * a.reps >= b.weight * b.reps ? a : b));
       $('bestSet').textContent = bestLog.weight + unit() + '×' + bestLog.reps;
     }
@@ -2326,7 +2422,7 @@ img, video, canvas, svg { max-width: 100%; }
     r.exercises.forEach(ex => {
       const isDone = !!doneMap[ex.id];
       const hasDetail = !!(ex.notes || (ex.media && ex.media.length));
-      const exGear = equipmentNames(ex.equipmentIds);
+      const exGear = equipmentNames(ex.equipmentId ? [ex.equipmentId] : []);
       const row = document.createElement('div');
       row.className = 'exchk-row' + (isDone ? ' is-done' : '');
       row.innerHTML =
@@ -2469,17 +2565,26 @@ img, video, canvas, svg { max-width: 100%; }
     state.routines.forEach(r => {
       const card = document.createElement('div');
       card.className = 'rt-card';
+      card.style.borderLeftWidth = '3px';
+      card.style.borderLeftColor = r.color ? ('var(--day-' + r.color + ')') : 'var(--border)';
+      const metaParts = [
+        r.category || null,
+        r.exercises.length + ' exercise' + (r.exercises.length === 1 ? '' : 's'),
+        (r.gym && r.gym !== 'both') ? gymName(r.gym) : null,
+        fmtDuration(estimateTemplateDuration(r))
+      ].filter(Boolean);
       card.innerHTML =
         '<div class="rt-card-main">' +
           '<div class="rt-card-name">' + escape(r.name) + '</div>' +
-          '<div class="rt-card-meta">' + r.exercises.length + ' exercise' + (r.exercises.length === 1 ? '' : 's') +
-            (r.gym && r.gym !== 'both' ? ' · ' + escape(gymName(r.gym)) : '') + '</div>' +
+          '<div class="rt-card-meta">' + escape(metaParts.join(' · ')) + '</div>' +
           '<div class="day-chip-row" style="margin-top:6px;">' + dayTagsHtml(r.id) + '</div>' +
         '</div>' +
         '<div class="rt-card-actions">' +
+          '<button class="po-btn-icon" data-act="view" aria-label="View routine">👁</button>' +
           '<button class="po-btn-icon" data-act="edit" aria-label="Edit routine">✎</button>' +
           '<button class="po-btn-icon" data-act="del" aria-label="Delete routine">✕</button>' +
         '</div>';
+      card.querySelector('[data-act="view"]').addEventListener('click', () => openRoutineViewModal(r));
       card.querySelector('[data-act="edit"]').addEventListener('click', () => openRoutineModal(r));
       card.querySelector('[data-act="del"]').addEventListener('click', () => deleteRoutine(r.id));
       wrap.appendChild(card);
@@ -2499,6 +2604,42 @@ img, video, canvas, svg { max-width: 100%; }
     renderSelect();
     renderAll();
   }
+
+  // ---- Read-only template view (for reference during a workout) ----
+  function openRoutineViewModal(routine) {
+    $('routineViewTitle').textContent = routine.name;
+    const metaParts = [
+      routine.category || null,
+      (routine.gym && routine.gym !== 'both') ? gymName(routine.gym) : null,
+      fmtDuration(estimateTemplateDuration(routine))
+    ].filter(Boolean);
+    $('routineViewMeta').textContent = metaParts.join(' · ');
+    const wrap = $('routineViewList');
+    wrap.innerHTML = '';
+    if (!routine.exercises.length) {
+      wrap.innerHTML = '<div class="po-empty">No exercises in this template yet.</div>';
+    } else {
+      routine.exercises.forEach(ex => {
+        const equip = ex.equipmentId ? getEquipment(ex.equipmentId) : null;
+        const metaLine = [
+          ex.sets + ' × ' + fmtReps(ex) + ' reps',
+          ex.bw ? 'Bodyweight' : (ex.startWeight + unit() + ' target'),
+          ex.restSec + 's rest',
+          equip ? equip.name : 'No equipment'
+        ].join(' · ');
+        const row = document.createElement('div');
+        row.className = 'rt-view-row';
+        row.innerHTML =
+          '<div class="rt-view-name">' + escape(ex.name) + '</div>' +
+          '<div class="rt-view-meta">' + escape(metaLine) + '</div>' +
+          (ex.notes ? '<div class="rt-view-notes">' + escape(ex.notes) + '</div>' : '');
+        wrap.appendChild(row);
+      });
+    }
+    $('routineViewModalBg').classList.add('show');
+  }
+  $('routineViewClose').addEventListener('click', () => $('routineViewModalBg').classList.remove('show'));
+  $('routineViewModalBg').addEventListener('click', (e) => { if (e.target.id === 'routineViewModalBg') $('routineViewModalBg').classList.remove('show'); });
 
   // ---- Routine modal (name, gym, exercise list) ----
   let routineDraftExercises = [];
@@ -2524,31 +2665,70 @@ img, video, canvas, svg { max-width: 100%; }
     return active ? active.dataset.id : 'both';
   }
 
+  function renderRoutineColorRow() {
+    const row = $('routineColorRow');
+    row.innerHTML = '';
+    const noneDot = document.createElement('button');
+    noneDot.type = 'button';
+    noneDot.className = 'tpl-color-dot is-none';
+    noneDot.dataset.color = '';
+    noneDot.title = 'No color';
+    row.appendChild(noneDot);
+    TEMPLATE_COLORS.forEach(key => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'tpl-color-dot';
+      dot.style.background = 'var(--day-' + key + ')';
+      dot.dataset.color = key;
+      row.appendChild(dot);
+    });
+  }
+  function selectRoutineColor(key) {
+    Array.from($('routineColorRow').children).forEach(b => b.classList.toggle('active', b.dataset.color === (key || '')));
+  }
+  function getSelectedRoutineColor() {
+    const active = $('routineColorRow').querySelector('.active');
+    return active ? active.dataset.color : '';
+  }
+  $('routineColorRow').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tpl-color-dot');
+    if (btn) selectRoutineColor(btn.dataset.color);
+  });
+
   function renderRoutineExList() {
     const wrap = $('routineExList');
     wrap.innerHTML = '';
     const dayTags = dayTagsHtml(routineEditingId);
     routineDraftExercises.forEach((ex, idx) => {
       if (!Array.isArray(ex.media)) ex.media = [];
-      if (!Array.isArray(ex.equipmentIds)) ex.equipmentIds = [];
+      if (ex.equipmentId === undefined) ex.equipmentId = null;
+      if (ex.sets == null) ex.sets = 3;
+      if (ex.restSec == null) ex.restSec = 60;
       const row = document.createElement('div');
       row.className = 'rex-row';
       row.innerHTML =
         '<div class="day-chip-row" style="margin-bottom:8px;">' + dayTags + '</div>' +
         '<div class="rex-row-top">' +
           '<input type="text" placeholder="Exercise name" value="' + escape(ex.name || '') + '" data-f="name">' +
+          '<button type="button" class="rex-reorder" data-dir="up" aria-label="Move up"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
+          '<button type="button" class="rex-reorder" data-dir="down" aria-label="Move down"' + (idx === routineDraftExercises.length - 1 ? ' disabled' : '') + '>▼</button>' +
           '<button type="button" class="rex-del" aria-label="Remove exercise">✕</button>' +
         '</div>' +
         '<label class="rex-bw"><input type="checkbox" data-f="bw" ' + (ex.bw ? 'checked' : '') + '> Bodyweight</label>' +
+        '<select class="rex-equip-select" data-role="equipSelect" style="margin-top:8px;width:100%;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:13px;"></select>' +
+        '<div class="equip-weight-hint" data-role="equipHint" style="display:none;"></div>' +
         '<div class="rex-grid" style="margin-top:8px;">' +
           '<div><label>Reps min</label><input type="number" data-f="repMin" value="' + (ex.repMin != null ? ex.repMin : 6) + '"></div>' +
           '<div><label>Reps max</label><input type="number" data-f="repMax" value="' + (ex.repMax != null ? ex.repMax : 8) + '"></div>' +
           '<div><label>Increment</label><input type="number" step="0.5" data-f="step" value="' + (ex.step != null ? ex.step : 2.5) + '"></div>' +
           '<div><label>Start weight</label><input type="number" step="0.5" data-f="startWeight" value="' + (ex.startWeight != null ? ex.startWeight : 20) + '" ' + (ex.bw ? 'disabled' : '') + '></div>' +
         '</div>' +
+        '<div class="rex-grid" style="grid-template-columns:1fr 1fr;margin-top:8px;">' +
+          '<div><label>Sets</label><input type="number" min="1" data-f="sets" value="' + ex.sets + '"></div>' +
+          '<div><label>Rest (s)</label><input type="number" min="0" step="5" data-f="restSec" value="' + ex.restSec + '"></div>' +
+        '</div>' +
         '<input type="text" style="margin-top:8px;width:100%;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:13px;" placeholder="Sets × reps note, e.g. 3 × 8–12" data-f="setsReps" value="' + escape(ex.setsReps || '') + '">' +
         '<textarea style="margin-top:8px;width:100%;min-height:50px;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:12.5px;resize:vertical;" placeholder="Notes (form cues, reference)…" data-f="notes">' + escape(ex.notes || '') + '</textarea>' +
-        '<div class="equip-chip-list" data-role="equipList" style="margin-top:8px;"></div>' +
         '<div class="media-grid" data-role="mediaGrid"></div>' +
         '<button type="button" class="po-add-row-btn" data-role="mediaAdd" style="margin-top:8px;">+ Add photo / video</button>' +
         '<input type="file" accept="image/*,video/*" multiple style="display:none" data-role="mediaFile">';
@@ -2572,9 +2752,25 @@ img, video, canvas, svg { max-width: 100%; }
         addMediaFiles(e.target.files, ex.media, () => renderMediaGrid(mediaGrid, ex.media));
         e.target.value = '';
       });
-      const equipGrid = row.querySelector('[data-role="equipList"]');
-      function refreshRowEquip() { renderEquipChipList(equipGrid, ex.equipmentIds, refreshRowEquip); }
-      refreshRowEquip();
+      const equipSelect = row.querySelector('[data-role="equipSelect"]');
+      const equipHint = row.querySelector('[data-role="equipHint"]');
+      renderEquipSelect(equipSelect, ex.equipmentId);
+      renderEquipWeightHint(equipHint, ex.equipmentId);
+      equipSelect.addEventListener('change', () => {
+        ex.equipmentId = equipSelect.value || null;
+        renderEquipWeightHint(equipHint, ex.equipmentId);
+      });
+      row.querySelectorAll('.rex-reorder').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.disabled) return;
+          const newIdx = idx + (btn.dataset.dir === 'up' ? -1 : 1);
+          if (newIdx < 0 || newIdx >= routineDraftExercises.length) return;
+          const tmp = routineDraftExercises[idx];
+          routineDraftExercises[idx] = routineDraftExercises[newIdx];
+          routineDraftExercises[newIdx] = tmp;
+          renderRoutineExList();
+        });
+      });
       row.querySelector('.rex-del').addEventListener('click', () => {
         routineDraftExercises.splice(idx, 1);
         renderRoutineExList();
@@ -2584,7 +2780,7 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   $('routineAddExBtn').addEventListener('click', () => {
-    routineDraftExercises.push({ name: '', repMin: 6, repMax: 8, step: 2.5, startWeight: 20, bw: false, setsReps: '', notes: '', media: [], equipmentIds: [] });
+    routineDraftExercises.push({ name: '', repMin: 6, repMax: 8, step: 2.5, startWeight: 20, bw: false, sets: 3, restSec: 60, setsReps: '', notes: '', media: [], equipmentId: null });
     renderRoutineExList();
   });
 
@@ -2594,7 +2790,10 @@ img, video, canvas, svg { max-width: 100%; }
     $('routineNameInput').value = routine ? routine.name : '';
     renderRoutineGymSeg();
     selectRoutineGym(routine ? (routine.gym || 'both') : 'both');
-    routineDraftExercises = routine ? routine.exercises.map(ex => Object.assign({}, ex, { media: (ex.media || []).map(m => Object.assign({}, m)), equipmentIds: (ex.equipmentIds || []).slice() })) : [];
+    $('routineCategory').value = routine ? (routine.category || '') : '';
+    renderRoutineColorRow();
+    selectRoutineColor(routine ? routine.color : '');
+    routineDraftExercises = routine ? routine.exercises.map(ex => Object.assign({}, ex, { media: (ex.media || []).map(m => Object.assign({}, m)) })) : [];
     renderRoutineExList();
     $('routineDelete').style.display = routine ? 'block' : 'none';
     $('routineModalBg').classList.add('show');
@@ -2620,20 +2819,26 @@ img, video, canvas, svg { max-width: 100%; }
         repMin: ex.repMin || 6, repMax: ex.repMax || 8,
         step: ex.step || 2.5, startWeight: ex.bw ? 0 : (ex.startWeight || 0),
         bw: !!ex.bw,
+        sets: ex.sets || 3,
+        restSec: ex.restSec != null ? ex.restSec : 60,
         setsReps: ex.setsReps || '',
         notes: ex.notes || '',
-        equipmentIds: Array.isArray(ex.equipmentIds) ? ex.equipmentIds : [],
+        equipmentId: ex.equipmentId || null,
         media: Array.isArray(ex.media) ? ex.media : []
       }));
+    const category = $('routineCategory').value.trim();
+    const color = getSelectedRoutineColor();
     if (routineEditingId) {
       const r = getRoutine(routineEditingId);
       r.name = name;
       r.gym = getSelectedRoutineGym();
+      r.category = category;
+      r.color = color;
       const keptIds = new Set(cleanExercises.map(e => e.id));
       r.exercises.forEach(ex => { if (!keptIds.has(ex.id)) delete state.logs[ex.id]; });
       r.exercises = cleanExercises;
     } else {
-      state.routines.push({ id: uid(), name, gym: getSelectedRoutineGym(), exercises: cleanExercises });
+      state.routines.push({ id: uid(), name, gym: getSelectedRoutineGym(), category, color, exercises: cleanExercises });
     }
     saveState();
     closeRoutineModal();
@@ -2650,7 +2855,7 @@ img, video, canvas, svg { max-width: 100%; }
 
   // ============================================================
   // EQUIPMENT — flat CRUD list, referenced by exercises via
-  // ex.equipmentIds. Deleting an item strips the reference from any
+  // ex.equipmentId. Deleting an item strips the reference from any
   // exercise that used it rather than deleting the exercise (same
   // "null out, don't cascade" precedent as deleteRoutine() above,
   // which clears state.schedule slots instead of blocking the delete).
@@ -2729,7 +2934,7 @@ img, video, canvas, svg { max-width: 100%; }
       ? ' It\'s currently linked to ' + using.length + ' exercise' + (using.length === 1 ? '' : 's') + ' — those will keep their other data, just unlinked from this equipment.'
       : '';
     if (!confirm('Delete "' + item.name + '"?' + warn)) return;
-    using.forEach(ex => { ex.equipmentIds = ex.equipmentIds.filter(eid => eid !== id); });
+    using.forEach(ex => { ex.equipmentId = null; });
     state.equipment = state.equipment.filter(e => e.id !== id);
     saveState();
     renderAll();
@@ -2843,32 +3048,33 @@ img, video, canvas, svg { max-width: 100%; }
   // ============================================================
   let exEditingId = null;
   let exMediaDraft = [];
-  let exEquipDraft = [];
-  function refreshExEquipChips() { renderEquipChipList($('exEquipList'), exEquipDraft, refreshExEquipChips); }
 
   function toggleBwFields() {
     const bw = $('exBw').checked;
     $('exStartWeightField').style.display = bw ? 'none' : 'flex';
   }
   $('exBw').addEventListener('change', toggleBwFields);
+  $('exEquipSelect').addEventListener('change', () => renderEquipWeightHint($('exEquipHint'), $('exEquipSelect').value || null));
 
   function openExModal(mode, ex) {
     exEditingId = mode === 'edit' && ex ? ex.id : null;
     $('exModalTitle').textContent = mode === 'edit' ? 'Edit exercise' : 'Add exercise';
     $('exName').value = ex ? ex.name : '';
     $('exBw').checked = ex ? !!ex.bw : false;
+    renderEquipSelect($('exEquipSelect'), ex ? ex.equipmentId : null);
+    renderEquipWeightHint($('exEquipHint'), ex ? ex.equipmentId : null);
     $('exStartWeight').value = ex ? ex.startWeight : 20;
     $('exRepMin').value = ex ? ex.repMin : 6;
     $('exRepMax').value = ex ? ex.repMax : 8;
     $('exStep').value = ex ? ex.step : 2.5;
+    $('exSets').value = ex ? ex.sets : 3;
+    $('exRestSec').value = ex ? ex.restSec : 60;
     $('exSetsReps').value = ex ? (ex.setsReps || '') : '';
     $('exNotes').value = ex ? (ex.notes || '') : '';
     const r = currentRoutine();
     $('exDayTags').innerHTML = dayTagsHtml(r ? r.id : null);
     exMediaDraft = ex ? (ex.media || []).map(m => Object.assign({}, m)) : [];
     renderMediaGrid($('exMediaGrid'), exMediaDraft);
-    exEquipDraft = ex ? (ex.equipmentIds || []).slice() : [];
-    refreshExEquipChips();
     toggleBwFields();
     $('exDelete').style.display = mode === 'edit' ? 'block' : 'none';
     $('exModalBg').classList.add('show');
@@ -2897,9 +3103,11 @@ img, video, canvas, svg { max-width: 100%; }
       step: parseFloat($('exStep').value) || 2.5,
       startWeight: bw ? 0 : (parseFloat($('exStartWeight').value) || 0),
       bw,
+      sets: parseInt($('exSets').value, 10) || 3,
+      restSec: parseInt($('exRestSec').value, 10) || 0,
       setsReps: $('exSetsReps').value,
       notes: $('exNotes').value,
-      equipmentIds: exEquipDraft,
+      equipmentId: $('exEquipSelect').value || null,
       media: exMediaDraft
     };
     if (exEditingId) {

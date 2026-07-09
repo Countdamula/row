@@ -954,3 +954,80 @@ between this app and either data loss or a wide-open write target:
     linking, and the "gear needed today" chips from the entry above are
     unchanged — they only ever read `item.name`/`item.id`, not the
     weight/quantity/photo fields that changed shape here.
+
+- **Templates tab rebuilt into fully-managed, reorderable workout
+  templates**, referencing the Equipment database (built in the entry
+  above, ahead of this one, since exercises now link to equipment by id).
+  `state.routines[]` and its `exercises[]` already existed as the
+  underlying data (see the original "manual routines/schedule" rebuild
+  entry) — this pass extends both shapes rather than replacing them.
+  - **Routine object gained `category`/`color`**, both defaulted to `''`
+    for existing routines via a new `normalizeRoutine()`. `color` is one
+    of the same 7 `--day-*` keys already defined in `:root` for weekday
+    tags (`TEMPLATE_COLORS`) — reused as a generic 7-swatch accent picker
+    rather than inventing new colors (CLAUDE.md DO NOT MODIFY rule #2).
+    The Templates list card now shows a `category · exercise count ·
+    gym · estimated duration` meta line and a 3px color-coded left
+    border (`card.style.borderLeftColor`), plus a new "👁 View" icon
+    button alongside the existing Edit/Delete.
+  - **Estimated duration is computed, not stored** (`estimateTemplateDuration()`
+    — sums `sets × (a fixed ~40s assumed working time + that exercise's
+    restSec)` across all exercises) — a documented simplification, this
+    app tracks no real per-set timing data, same spirit as the burndown
+    chart's fixed-scope assumption in projects.html.
+  - **Exercise object gained `sets` (default 3) and `restSec` (default
+    60)**, both defaulted via `normalizeExercise()`. "Reps" intentionally
+    still maps to the pre-existing `repMin`/`repMax` range (used by the
+    prescription engine in `getRx()`/This Week's stats/sparkline/progress
+    chart) rather than adding a redundant separate field — replacing that
+    range would have broken the progression-suggestion system this file
+    already had working.
+  - **Equipment linking changed from multi-select to a single picker**:
+    `ex.equipmentIds[]` (an array, from the entry above) is now
+    `ex.equipmentId` (a single id or `null`), matching the spec's "an
+    equipment picker (dropdown)... or none/bodyweight." `normalizeExercise()`
+    migrates the first id from any legacy array once, then drops the old
+    key. `renderEquipChipList()` (the old multi-select chip renderer) and
+    its `.equip-chip`/`.equip-chip-list` CSS were deleted outright as
+    dead code once both of its call sites were replaced — this is a
+    fresh removal by the same session that added it, not an instance of
+    the DO-NOT-MODIFY dead-code precedent (`pushWaterMergedToSupabase`
+    etc.), which only protects code some *other* pass chose to leave
+    behind. `getEquipment(ex.equipmentId)`'s weights are surfaced as a
+    live "Available: …" hint (`renderEquipWeightHint()`, reusing
+    `formatEquipmentWeights()`) under the target-weight field in both
+    exercise-editing surfaces below, updating on selection change.
+  - **Both places exercises are edited** — the quick "Add exercise" modal
+    (`#exModalBg`, opened from This Week) and the inline `.rex-row`s
+    inside the Template editor (`#routineModalBg`) — gained the same new
+    Equipment `<select>` (`renderEquipSelect()`, shared), weight hint,
+    and Sets/Rest number inputs, keeping the two entry points in sync the
+    same way media/notes were already kept in sync across both.
+  - **Reorder via up/down arrows** (not drag) on each `.rex-row` in the
+    Template editor — swaps adjacent entries in the in-memory
+    `routineDraftExercises` draft array and re-renders; only committed to
+    the routine on Save, same as every other edit in that draft array.
+  - **Read view** (`#routineViewModalBg`) — a new, separate, non-editable
+    modal listing a template's exercises cleanly (name, sets × reps,
+    target weight or "Bodyweight", rest, linked equipment name, notes)
+    for reference mid-workout, opened via the card's new 👁 button.
+  - **Bugfix found and fixed while verifying this feature, unrelated to
+    Templates itself**: `renderStats()` only re-added `id="oneRmUnit"` to
+    the "no logs yet" branch of its three `$('oneRm').innerHTML =` writes
+    — the other two (bodyweight, and normal-with-logs) silently dropped
+    the id. Once any set was logged, the id was gone for good, and the
+    next `renderAll()` → `renderForm()` → `$('oneRmUnit').textContent = …`
+    threw, silently aborting the rest of that render pass (routine list,
+    equipment list, charts, etc. would stop refreshing after any logged
+    set). Fixed by keeping the id on all three branches. Pre-existing,
+    not introduced by this session — caught because verifying Templates
+    involved actually logging sets against a template's exercises.
+  - **Testing note**: this file's Supabase sync uses real, hardcoded
+    project credentials (by design, so cloud sync works out of the box —
+    see §2/§4). Automated browser-based verification of this feature
+    exercised that real code path and pushed test data (equipment/template
+    test entries, a test logged set) to the live `po-coach` row before
+    this was caught; the user opted to clean that up manually rather than
+    have it scripted. Any future automated verification of this page
+    should block `*.supabase.co` at the network layer first (e.g. CDP's
+    `Network.setBlockedURLs`) so testing stays local-only.
