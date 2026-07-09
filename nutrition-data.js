@@ -2,10 +2,10 @@
 //
 // Shared data foundation for the Nutrition tab: typed-by-JSDoc models, a
 // localStorage-backed data-access layer, and pure derived selectors/actions.
-// Included by nutrition.html (`<script src="nutrition-data.js" defer>`), but
-// no UI reads from `window.NutritionData` yet — nutrition.html is currently
-// a shell (My Kitchen / Grocery List placeholder panels); real features land
-// next.
+// Included by nutrition.html (`<script src="nutrition-data.js" defer>`) and
+// read/written by both of its sections — My Kitchen (Recipes/
+// RecipeIngredients) and Grocery List (Stores/GroceryItems), bridged by
+// addRecipeIngredientsToGroceryList().
 //
 // Persistence matches this codebase's existing pattern (see CLAUDE.md §4):
 // plain localStorage, JSON-serialized, one key per collection, no server/DB.

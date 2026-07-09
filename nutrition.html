@@ -107,15 +107,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   background: var(--accent); border-radius: 2px;
 }
 
-/* ===== Placeholder panel — My Kitchen is still shell-only; real content lands next. ===== */
-.nutr-placeholder {
-  background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-lg);
-  padding: 64px 24px; text-align: center; color: var(--text-tertiary);
-}
-.nutr-placeholder-icon { font-size: 34px; margin-bottom: 12px; opacity: 0.6; }
-.nutr-placeholder-title { font-family: var(--font-serif); font-size: 18px; color: var(--text-primary); margin-bottom: 6px; }
-.nutr-placeholder-sub { font-size: 13px; max-width: 360px; margin: 0 auto; line-height: 1.5; }
-
 /* ===== Shared modal / form / button components — copied verbatim from
    study.html's recipe (same class names, same look), the established
    cross-file convention for these widgets rather than inventing new
@@ -339,6 +330,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-detail-ing-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-secondary); padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .nutr-detail-ing-row:last-child { border-bottom: none; }
 .nutr-detail-ing-row span:first-child { color: var(--text-primary); }
+.nutr-add-to-grocery-btn { width: 100%; margin-top: 10px; }
 .nutr-detail-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
 .nutr-detail-steps li { font-size: 13px; color: var(--text-secondary); line-height: 1.55; display: flex; flex-direction: column; gap: 8px; }
 .nutr-detail-step-img { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); }
@@ -377,6 +369,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer;
 }
 .nutr-fav-field input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+/* ===== Toast — brief confirmation after "Add to Grocery List". No prior
+   page in this app has a toast, so this is a new (but token-only, no new
+   colors) small component: dark card pill, bottom-center, auto-dismiss. ===== */
+.nutr-toast {
+  position: fixed; left: 50%; bottom: 28px; z-index: 200;
+  transform: translateX(-50%) translateY(12px);
+  background: #17090f; border: 1px solid var(--border); color: var(--text-primary);
+  padding: 12px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  opacity: 0; pointer-events: none; text-align: center;
+  max-width: calc(100vw - 32px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.nutr-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 480px) {
   .nutr-title { font-size: 21px; }
@@ -496,6 +503,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div id="nutrDetailIngSection" hidden>
       <div class="nutr-detail-section-title">Ingredients</div>
       <div class="nutr-detail-ing-list" id="nutrDetailIngredients"></div>
+      <button type="button" class="btn-secondary nutr-add-to-grocery-btn" id="nutrDetailAddToGroceryBtn">🛒 Add to Grocery List</button>
     </div>
 
     <div id="nutrDetailStepsSection" hidden>
@@ -513,6 +521,22 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       <button class="btn-primary" id="nutrDetailEditBtn" type="button">Edit</button>
     </div>
     <span class="delete-link" id="nutrDetailDeleteLink">Delete this recipe</span>
+  </div>
+</div>
+
+<!-- Add to Grocery List Modal (bridge: recipe -> Grocery List) -->
+<div class="modal-bg" id="nutrAddToGroceryModalBg">
+  <div class="modal" id="nutrAddToGroceryModal">
+    <h3>Add to Grocery List</h3>
+    <p class="nutr-detail-desc" id="nutrAddToGroceryContext" style="margin-bottom:14px"></p>
+    <div class="field">
+      <label>Store</label>
+      <select id="nutrAddToGroceryStore"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="nutrAddToGroceryCancelBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="nutrAddToGroceryConfirmBtn" type="button">Add Ingredients</button>
+    </div>
   </div>
 </div>
 
@@ -1074,6 +1098,22 @@ document.addEventListener('DOMContentLoaded', function () {
     return h + 'h' + (m ? ' ' + m + 'm' : '');
   }
 
+  /** Brief bottom-center confirmation, auto-dismisses. Only one at a time. */
+  function showToast(message) {
+    var existing = document.getElementById('nutrToast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'nutrToast';
+    toast.className = 'nutr-toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(function () { toast.classList.add('show'); });
+    setTimeout(function () {
+      toast.classList.remove('show');
+      setTimeout(function () { toast.remove(); }, 250);
+    }, 2600);
+  }
+
   // ---------- Filters ----------
   var searchQuery = '';
   var activeTagFilter = 'All';
@@ -1141,13 +1181,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var actions = document.createElement('div');
     actions.className = 'card-actions';
+    var groceryBtn = document.createElement('button');
+    groceryBtn.type = 'button'; groceryBtn.className = 'icon-btn-sm'; groceryBtn.dataset.action = 'grocery';
+    groceryBtn.setAttribute('aria-label', 'Add to Grocery List'); groceryBtn.textContent = '🛒';
     var editBtn = document.createElement('button');
     editBtn.type = 'button'; editBtn.className = 'icon-btn-sm'; editBtn.dataset.action = 'edit';
     editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
     var delBtn = document.createElement('button');
     delBtn.type = 'button'; delBtn.className = 'icon-btn-sm'; delBtn.dataset.action = 'delete';
     delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '✕';
-    actions.appendChild(editBtn); actions.appendChild(delBtn);
+    actions.appendChild(groceryBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
     cover.appendChild(actions);
 
     var body = document.createElement('div');
@@ -1224,6 +1267,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (actionBtn) {
       e.stopPropagation();
       if (actionBtn.dataset.action === 'edit') openRecipeModal(recipe);
+      else if (actionBtn.dataset.action === 'grocery') openAddToGroceryModal(recipe);
       else if (actionBtn.dataset.action === 'delete') {
         if (confirm('Delete "' + recipe.title + '"? This also removes its ingredients.')) {
           ND.Recipes.remove(recipe.id);
@@ -1331,6 +1375,59 @@ document.addEventListener('DOMContentLoaded', function () {
     ND.Recipes.remove(detailRecipeId);
     hideModal(detailModalBg);
     renderKitchen();
+  });
+
+  // ---------- Add to Grocery List (bridge to the Grocery List section) ----------
+  var addToGroceryModalBg = document.getElementById('nutrAddToGroceryModalBg');
+  var addToGroceryStoreSelect = document.getElementById('nutrAddToGroceryStore');
+  var addToGroceryRecipeId = null;
+
+  function openAddToGroceryModal(recipe) {
+    var ingredientCount = ND.ingredientsForRecipe(recipe.id).length;
+    if (!ingredientCount) { showToast('This recipe has no ingredients to add.'); return; }
+    addToGroceryRecipeId = recipe.id;
+    document.getElementById('nutrAddToGroceryContext').textContent =
+      ingredientCount + ' ingredient' + (ingredientCount === 1 ? '' : 's') + ' from "' + recipe.title + '" — which store?';
+
+    var stores = ND.Stores.list().slice().sort(function (a, b) { return a.order - b.order; });
+    addToGroceryStoreSelect.innerHTML = '';
+    var unassignedOpt = document.createElement('option');
+    unassignedOpt.value = ''; unassignedOpt.textContent = 'Unassigned';
+    addToGroceryStoreSelect.appendChild(unassignedOpt);
+    stores.forEach(function (s) {
+      var opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      addToGroceryStoreSelect.appendChild(opt);
+    });
+
+    showModal(addToGroceryModalBg);
+  }
+  document.getElementById('nutrDetailAddToGroceryBtn').addEventListener('click', function () {
+    var recipe = ND.Recipes.get(detailRecipeId);
+    if (recipe) openAddToGroceryModal(recipe);
+  });
+  document.getElementById('nutrAddToGroceryCancelBtn').addEventListener('click', function () { hideModal(addToGroceryModalBg); });
+  addToGroceryModalBg.addEventListener('click', function (e) { if (e.target === addToGroceryModalBg) hideModal(addToGroceryModalBg); });
+  document.getElementById('nutrAddToGroceryConfirmBtn').addEventListener('click', function () {
+    if (!addToGroceryRecipeId) return;
+    var storeId = addToGroceryStoreSelect.value || null;
+    var totalIngredients = ND.ingredientsForRecipe(addToGroceryRecipeId).length;
+    var added = ND.addRecipeIngredientsToGroceryList(addToGroceryRecipeId, storeId);
+    hideModal(addToGroceryModalBg);
+
+    if (added.length === 0) {
+      showToast('Already on the list — no new ingredients added.');
+    } else {
+      var skipped = totalIngredients - added.length;
+      showToast(added.length + ' ingredient' + (added.length === 1 ? '' : 's') + ' added to Grocery List'
+        + (skipped > 0 ? ' (' + skipped + ' already there)' : ''));
+    }
+    // The Grocery List section lives in a separate script block/closure;
+    // this is the same cross-section refresh signal a remote sync pull
+    // dispatches (see the initCloudSync block at the bottom of this
+    // file), so its renderGroceryList() picks up the new items whether
+    // or not that tab is currently visible.
+    window.dispatchEvent(new Event('storage'));
   });
 
   // ---------- Add / Edit modal ----------
