@@ -196,7 +196,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .ent-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
 .ent-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.ent-header-actions .btn-secondary { padding: 10px 16px; white-space: nowrap; }
+.ent-header-actions .btn-secondary, .ent-header-actions .sort-select { padding: 10px 16px; white-space: nowrap; }
 .btn-add {
   flex-shrink: 0;
   padding: 10px 16px;
@@ -315,6 +315,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
+.icon-btn-sm.fav-active { color: var(--pink-accent); border-color: var(--pink-accent); }
+.card-reorder {
+  position: absolute; top: 6px; left: 6px; z-index: 3;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.card-reorder button {
+  width: 18px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.55);
+  color: #fff; border-radius: 4px; font-size: 8px; padding: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-reorder button:hover:not(:disabled) { background: rgba(0,0,0,0.75); }
+.card-reorder button:disabled { opacity: 0.3; cursor: default; }
 .card-body {
   padding: 10px 12px 12px;
   display: flex; flex-direction: column; gap: 6px;
@@ -436,6 +451,16 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.sort-select {
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sort-select:hover { background: rgba(255,255,255,0.10); }
 .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .modal-actions button { flex: 1; }
 .delete-link {
@@ -458,7 +483,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div class="ent-banner-grain" aria-hidden="true"></div>
   <div class="ent-banner-title">Entertainment</div>
   <div class="ent-banner-rule" aria-hidden="true"><span>&#10022;</span></div>
-  <div class="ent-banner-subtext">Podcasts &middot; Stories &middot; Entertainment &middot; Playlists</div>
+  <div class="ent-banner-subtext">Podcasts &middot; Stories &middot; Entertainment &middot; Playlists &middot; Favorites</div>
   <button class="ent-banner-cta" type="button" id="entBannerCta">Browse the Collection</button>
 </div>
 
@@ -473,7 +498,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div class="ent-header">
     <h1 class="ent-title">Media</h1>
     <div class="ent-header-actions">
-      <button class="btn-secondary" id="entSortBtn" type="button">Sort: A&rarr;Z</button>
+      <select class="sort-select" id="entSortSelect" aria-label="Sort">
+        <option value="title-asc">Sort: Title A&rarr;Z</option>
+        <option value="title-desc">Sort: Title Z&rarr;A</option>
+        <option value="date-desc">Sort: Newest first</option>
+        <option value="date-asc">Sort: Oldest first</option>
+        <option value="rating-desc">Sort: Rating high&rarr;low</option>
+        <option value="manual">Sort: Manual</option>
+      </select>
       <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
     </div>
   </div>
@@ -589,15 +621,23 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     { key: 'entertainment', label: 'Entertainment', icon: '🎬', dataKey: 'media:entertainment', hasProgress: false,
       statuses: ['Funny', 'Gaming', 'Scary Videos', 'Vlog-Type', 'Other', 'Favorite Videos'] },
     { key: 'playlists', label: 'Playlists', icon: '🎧', dataKey: 'media:playlists', hasProgress: false,
-      statuses: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy', 'Metal', 'ASMR'] }
+      statuses: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy', 'Metal', 'ASMR'] },
+    { key: 'favorites', label: 'Favorites', icon: '⭐', dataKey: null, hasProgress: false,
+      statuses: [], isFavorites: true }
   ];
   var ACTIVE_GALLERY_KEY = 'media:active_gallery';
 
+  // Legacy sort preference — asc/desc only. Migrated on boot into the new
+  // sortMode scheme below (see the DOMContentLoaded handler) rather than
+  // being deleted; same one-time-normalize-on-load precedent this app
+  // already uses elsewhere for an evolving stored shape.
   var SORT_DIR_KEY = 'media:sort_dir';
+  var SORT_MODE_KEY = 'media:sort_mode';
+  var SORT_MODES = ['title-asc', 'title-desc', 'date-desc', 'date-asc', 'rating-desc', 'manual'];
   var activeGalleryKey = 'podcasts';
   var activeStatus = 'All';
   var activeProgress = 'All';
-  var sortDir = 'asc';
+  var sortMode = 'title-asc';
   var cards = [];
   var editingId = null;
   var editingCard = null;
@@ -623,6 +663,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   // -------- storage (per-gallery) --------
   function loadCards(galleryKeyArg) {
     var g = galleryByKey(galleryKeyArg || activeGalleryKey);
+    if (g.isFavorites) return loadFavoriteCards();
     var arr = [];
     try { arr = JSON.parse(localStorage.getItem(g.dataKey)) || []; } catch (e) {}
     return Array.isArray(arr) ? arr : [];
@@ -630,6 +671,39 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function saveCards(arr, galleryKeyArg) {
     var g = galleryByKey(galleryKeyArg || activeGalleryKey);
     try { localStorage.setItem(g.dataKey, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  // -------- Favorites — a virtual gallery aggregated from the other four,
+  // not its own storage key. A favorited card keeps living in its home
+  // gallery's array (just gets `favorite: true`); this view only reads
+  // and re-writes through that home gallery via updateCardEverywhere/
+  // deleteCardEverywhere below, tagging each aggregated card with a
+  // transient `_sourceGallery` (never persisted) so those helpers know
+  // where to write back. --------
+  function loadFavoriteCards() {
+    var out = [];
+    GALLERIES.forEach(function (gg) {
+      if (gg.isFavorites) return;
+      var arr = [];
+      try { arr = JSON.parse(localStorage.getItem(gg.dataKey)) || []; } catch (e) {}
+      if (!Array.isArray(arr)) return;
+      arr.forEach(function (c) {
+        if (c.favorite) out.push(Object.assign({}, c, { _sourceGallery: gg.key }));
+      });
+    });
+    return out;
+  }
+  function updateCardEverywhere(card, patch) {
+    var gKey = card._sourceGallery || activeGalleryKey;
+    var arr = loadCards(gKey).map(function (c) {
+      return c.id === card.id ? Object.assign({}, c, patch) : c;
+    });
+    saveCards(arr, gKey);
+  }
+  function deleteCardEverywhere(card) {
+    var gKey = card._sourceGallery || activeGalleryKey;
+    var arr = loadCards(gKey).filter(function (c) { return c.id !== card.id; });
+    saveCards(arr, gKey);
   }
 
   // ============================================================
@@ -771,6 +845,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   }
 
   // -------- gallery-type switcher --------
+  function updateAddBtnVisibility() {
+    $('entAddBtn').style.display = activeGallery().isFavorites ? 'none' : '';
+  }
   function renderGalleryTabs() {
     var row = $('galleryTabsRow');
     row.innerHTML = '';
@@ -784,16 +861,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         renderGalleryTabs();
         renderFilterBar();
         renderProgressFilterBar();
+        updateAddBtnVisibility();
         renderGrid();
       }, false, 'chip-gallery'));
     });
   }
 
-  // -------- status filter bar (scoped to the active gallery) --------
+  // -------- status filter bar (scoped to the active gallery; hidden for
+  // the Favorites virtual gallery, which has no status vocabulary of its
+  // own — each card keeps showing its home gallery's status as a tag) --------
   function renderFilterBar() {
     var row = $('entFilterRow');
-    row.innerHTML = '';
     var g = activeGallery();
+    row.hidden = g.statuses.length === 0;
+    if (row.hidden) return;
+    row.innerHTML = '';
     row.appendChild(makeChip('All', activeStatus === 'All', function () {
       activeStatus = 'All'; renderFilterBar(); renderGrid();
     }));
@@ -816,15 +898,63 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     });
   }
 
-  // -------- sort control (alphabetical by title, all galleries) --------
-  function updateSortBtn() {
-    $('entSortBtn').textContent = sortDir === 'asc' ? 'Sort: A→Z' : 'Sort: Z→A';
+  // -------- sort control --------
+  // Title A→Z / Z→A, Newest/Oldest (createdAt), Rating high→low, and
+  // Manual (preserves/edits the underlying array order via up/down
+  // reorder buttons on each card — this app has no drag-and-drop
+  // anywhere, only up/down-arrow swaps, e.g. Life Areas and the Overview
+  // notes sections on index.html, so Manual follows that same pattern).
+  // Manual doesn't apply to the aggregated Favorites view (there's no
+  // single underlying array to reorder), so it silently falls back to
+  // Title A→Z there without touching the saved preference.
+  function titleCmp(a, b) {
+    return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
   }
-  function wireSortBtn() {
-    $('entSortBtn').addEventListener('click', function () {
-      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-      try { localStorage.setItem(SORT_DIR_KEY, sortDir); } catch (e) {}
-      updateSortBtn();
+  function getVisibleList() {
+    var g = activeGallery();
+    var list = cards.filter(function (c) {
+      if (!g.isFavorites) {
+        if (activeStatus !== 'All' && c.status !== activeStatus) return false;
+        if (g.hasProgress && activeProgress !== 'All' && (c.progress || 'backlog') !== activeProgress) return false;
+      }
+      return true;
+    });
+    var manualActive = sortMode === 'manual' && !g.isFavorites;
+    if (!manualActive) {
+      list = list.slice().sort(function (a, b) {
+        switch (sortMode) {
+          case 'title-desc': return -titleCmp(a, b);
+          case 'date-desc': return (b.createdAt || 0) - (a.createdAt || 0);
+          case 'date-asc': return (a.createdAt || 0) - (b.createdAt || 0);
+          case 'rating-desc': return (Number(b.rating) || 0) - (Number(a.rating) || 0);
+          default: return titleCmp(a, b);
+        }
+      });
+    }
+    return { list: list, manualActive: manualActive };
+  }
+  function moveCardManual(id, dir) {
+    var visList = getVisibleList().list;
+    var idx = -1;
+    for (var i = 0; i < visList.length; i++) { if (visList[i].id === id) { idx = i; break; } }
+    var swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= visList.length) return;
+    var otherId = visList[swapIdx].id;
+    var iA = -1, iB = -1;
+    for (var j = 0; j < cards.length; j++) {
+      if (cards[j].id === id) iA = j;
+      if (cards[j].id === otherId) iB = j;
+    }
+    if (iA === -1 || iB === -1) return;
+    var tmp = cards[iA]; cards[iA] = cards[iB]; cards[iB] = tmp;
+    saveCards(cards);
+    renderGrid();
+  }
+  function updateSortSelect() { $('entSortSelect').value = sortMode; }
+  function wireSortSelect() {
+    $('entSortSelect').addEventListener('change', function () {
+      sortMode = $('entSortSelect').value;
+      try { localStorage.setItem(SORT_MODE_KEY, sortMode); } catch (e) {}
       renderGrid();
     });
   }
@@ -838,8 +968,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     out += '</div>';
     return out;
   }
-  function buildCardEl(card) {
+  function buildCardEl(card, index, total, manualActive) {
     var g = activeGallery();
+    // For an aggregated Favorites card, per-card icon/progress semantics
+    // should reflect its own home gallery, not the virtual one.
+    var srcG = card._sourceGallery ? galleryByKey(card._sourceGallery) : g;
     var el = document.createElement('div');
     el.className = 'ent-card';
     el.dataset.id = card.id;
@@ -858,11 +991,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     }
     var fallback = document.createElement('span');
     fallback.className = 'ent-cover-fallback';
-    fallback.textContent = card.source === 'spotify' ? '♫' : card.source === 'youtube' ? '▶' : g.icon;
+    fallback.textContent = card.source === 'spotify' ? '♫' : card.source === 'youtube' ? '▶' : srcG.icon;
     cover.appendChild(fallback);
 
     var badge = document.createElement('span');
-    if (g.hasProgress && card.progress === 'finished') {
+    if (srcG.hasProgress && card.progress === 'finished') {
       badge.className = 'badge finished';
       badge.textContent = 'Finished';
     } else {
@@ -871,15 +1004,39 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     }
     cover.appendChild(badge);
 
+    if (manualActive) {
+      var reorder = document.createElement('div');
+      reorder.className = 'card-reorder';
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button'; upBtn.dataset.action = 'move-up';
+      upBtn.textContent = '▲'; upBtn.setAttribute('aria-label', 'Move up');
+      upBtn.disabled = index === 0;
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button'; downBtn.dataset.action = 'move-down';
+      downBtn.textContent = '▼'; downBtn.setAttribute('aria-label', 'Move down');
+      downBtn.disabled = index === total - 1;
+      reorder.appendChild(upBtn); reorder.appendChild(downBtn);
+      cover.appendChild(reorder);
+    }
+
     var actions = document.createElement('div');
     actions.className = 'card-actions';
-    var editBtn = document.createElement('button');
-    editBtn.type = 'button'; editBtn.className = 'icon-btn-sm'; editBtn.dataset.action = 'edit';
-    editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    var favBtn = document.createElement('button');
+    favBtn.type = 'button'; favBtn.className = 'icon-btn-sm' + (card.favorite ? ' fav-active' : '');
+    favBtn.dataset.action = 'favorite';
+    favBtn.setAttribute('aria-label', card.favorite ? 'Unfavorite' : 'Favorite');
+    favBtn.textContent = card.favorite ? '★' : '☆';
+    actions.appendChild(favBtn);
+    if (!g.isFavorites) {
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button'; editBtn.className = 'icon-btn-sm'; editBtn.dataset.action = 'edit';
+      editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+      actions.appendChild(editBtn);
+    }
     var delBtn = document.createElement('button');
     delBtn.type = 'button'; delBtn.className = 'icon-btn-sm'; delBtn.dataset.action = 'delete';
     delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '✕';
-    actions.appendChild(editBtn); actions.appendChild(delBtn);
+    actions.appendChild(delBtn);
     cover.appendChild(actions);
 
     var body = document.createElement('div');
@@ -896,7 +1053,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     }
     var tag = document.createElement('span');
     tag.className = 'tag';
-    tag.textContent = card.status || '—';
+    tag.textContent = g.isFavorites ? (srcG.label + ' · ' + (card.status || '—')) : (card.status || '—');
     body.appendChild(tag);
     if (card.rating) {
       var ratingEl = document.createElement('div');
@@ -918,24 +1075,18 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function renderGrid() {
     var grid = $('entGrid');
     var empty = $('entEmpty');
-    var g = activeGallery();
     grid.innerHTML = '';
-    var list = cards.filter(function (c) {
-      if (activeStatus !== 'All' && c.status !== activeStatus) return false;
-      if (g.hasProgress && activeProgress !== 'All' && (c.progress || 'backlog') !== activeProgress) return false;
-      return true;
-    });
-    list.sort(function (a, b) {
-      var cmp = String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+    var res = getVisibleList();
+    var list = res.list;
     empty.hidden = list.length !== 0;
-    list.forEach(function (card) { grid.appendChild(buildCardEl(card)); });
+    list.forEach(function (card, i) {
+      grid.appendChild(buildCardEl(card, i, list.length, res.manualActive));
+    });
   }
 
-  function deleteCard(id) {
-    cards = cards.filter(function (c) { return c.id !== id; });
-    saveCards(cards);
+  function deleteCard(card) {
+    deleteCardEverywhere(card);
+    cards = cards.filter(function (c) { return c.id !== card.id; });
     renderGrid();
   }
 
@@ -1097,9 +1248,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     });
 
     $('entDelete').addEventListener('click', function () {
-      if (!editingId) return;
+      if (!editingCard) return;
       if (!confirm('Delete this item?')) return;
-      deleteCard(editingId);
+      deleteCard(editingCard);
       closeModal();
     });
 
@@ -1113,9 +1264,23 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       if (!card) return;
       if (actionBtn) {
         e.stopPropagation();
-        if (actionBtn.dataset.action === 'edit') openModal(card);
-        else if (actionBtn.dataset.action === 'delete') {
-          if (confirm('Delete "' + card.title + '"?')) deleteCard(id);
+        var action = actionBtn.dataset.action;
+        if (action === 'edit') openModal(card);
+        else if (action === 'delete') {
+          if (confirm('Delete "' + card.title + '"?')) deleteCard(card);
+        } else if (action === 'favorite') {
+          var newFav = !card.favorite;
+          updateCardEverywhere(card, { favorite: newFav });
+          if (activeGallery().isFavorites) {
+            cards = cards.filter(function (c) { return c.id !== id; });
+          } else {
+            cards = cards.map(function (c) { return c.id === id ? Object.assign({}, c, { favorite: newFav }) : c; });
+          }
+          renderGrid();
+        } else if (action === 'move-up') {
+          moveCardManual(id, -1);
+        } else if (action === 'move-down') {
+          moveCardManual(id, 1);
         }
         return;
       }
@@ -1128,17 +1293,24 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     var savedGallery = null;
     try { savedGallery = localStorage.getItem(ACTIVE_GALLERY_KEY); } catch (e) {}
     if (savedGallery && GALLERIES.some(function (g) { return g.key === savedGallery; })) activeGalleryKey = savedGallery;
-    var savedSortDir = null;
-    try { savedSortDir = localStorage.getItem(SORT_DIR_KEY); } catch (e) {}
-    if (savedSortDir === 'asc' || savedSortDir === 'desc') sortDir = savedSortDir;
+    var savedSortMode = null;
+    try { savedSortMode = localStorage.getItem(SORT_MODE_KEY); } catch (e) {}
+    if (savedSortMode && SORT_MODES.indexOf(savedSortMode) !== -1) {
+      sortMode = savedSortMode;
+    } else {
+      var legacyDir = null;
+      try { legacyDir = localStorage.getItem(SORT_DIR_KEY); } catch (e) {}
+      if (legacyDir === 'desc') sortMode = 'title-desc';
+    }
     cards = loadCards();
     renderGalleryTabs();
     renderFilterBar();
     renderProgressFilterBar();
-    updateSortBtn();
+    updateAddBtnVisibility();
+    updateSortSelect();
     renderGrid();
     wireModal();
-    wireSortBtn();
+    wireSortSelect();
 
     if (typeof initCloudSync === 'function') {
       initCloudSync({

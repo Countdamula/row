@@ -1264,3 +1264,75 @@ between this app and either data loss or a wide-open write target:
     rendering bug: recapturing the full viewport and cropping client-side
     immediately after an instant `scrollIntoView` showed all three color
     bands intact, confirming `contain` genuinely shows the whole photo.
+
+- **Media page (`entertainment.html`) gained a Favorites section and
+  richer sorting, including manual.** Per an explicit instruction, none
+  of the four existing galleries (Podcasts/Stories/Entertainment/
+  Playlists) were removed — this is additive only.
+  - **Favorites** is a fifth entry in `GALLERIES` (`{ key: 'favorites',
+    ..., dataKey: null, isFavorites: true }`) but, unlike the other four,
+    it owns no storage key of its own — it's a *virtual* gallery
+    aggregated live from the other four's existing arrays
+    (`loadFavoriteCards()`), so a favorited podcast episode or video
+    keeps living in its home gallery's data, just with a new boolean
+    `favorite` field. Every card, in every gallery (including Podcasts,
+    covering "episodes" as well as "videos"), gained a ☆/★ toggle button
+    in its existing `.card-actions` corner, alongside the pre-existing
+    edit/delete buttons (edit is hidden for cards viewed via the
+    Favorites tab, since editing needs that card's *home* gallery's
+    status vocabulary — favoriting/unfavoriting and deleting still work
+    from there). Each aggregated card is tagged in memory with a
+    transient `_sourceGallery` (never persisted) so `updateCardEverywhere()`/
+    `deleteCardEverywhere()` know which real gallery's array to write
+    the change back into — unfavoriting from the Favorites tab removes
+    it from that view without touching the underlying item; deleting
+    from the Favorites tab deletes it from its home gallery entirely
+    (same "Delete" confirm wording either way, since that's what it
+    actually does). The Favorites tab's cards show a
+    `HomeGallery · Status` tag (e.g. "Podcasts · Learning") instead of
+    just `Status`, since items from different galleries are mixed
+    together there. The "+ Add" button and the status/status-progress
+    filter chip rows are hidden on the Favorites tab (no single status
+    vocabulary applies to a cross-gallery view; add-from-scratch doesn't
+    make sense for it either — favoriting happens from an item's home
+    gallery).
+  - **Sorting** replaced the old single alphabetical-toggle button
+    (`#entSortBtn`, `media:sort_dir`) with a `<select>` (`#entSortSelect`)
+    offering Title A→Z/Z→A, Newest/Oldest first (`createdAt`, already
+    present on every card), Rating high→low, and Manual — persisted
+    under a new `media:sort_mode` key (covered automatically by the
+    existing `syncedPrefixes: ['media:']`, no sync-config change needed).
+    The legacy `media:sort_dir` value is read once on boot and mapped
+    into the new scheme if no `media:sort_mode` is stored yet (same
+    detect-old-shape-and-convert precedent as `gym.html`'s schedule
+    shape and `index.html`'s Overview notes), then left alone afterward
+    — not deleted, same orphaned-key treatment as other superseded keys
+    elsewhere in this app.
+  - **Manual sort** reuses the up/down-arrow reorder pattern already
+    established elsewhere in this app (Life Areas and Overview notes on
+    `index.html`) rather than drag-and-drop, which this codebase has
+    never used anywhere. New `.card-reorder` ▲▼ buttons appear on each
+    card (top-left of the cover, mirroring the existing edit/delete
+    buttons' top-right position) only when Manual is selected. Reordering
+    operates correctly under an active status/progress filter: the
+    up/down move is computed against the *currently visible* (filtered)
+    list, then applied by swapping those two cards' positions in the
+    real underlying array — not by swapping raw adjacent array indices,
+    which would misbehave whenever a filtered-out card sat between two
+    visible ones. Manual doesn't apply to the Favorites tab (there's no
+    single underlying array spanning four galleries to reorder); selecting
+    it there silently falls back to Title A→Z for display only, without
+    overwriting the saved `media:sort_mode` preference.
+  - Verified in headless Edge (Supabase blocked pre-navigation): seeded
+    three podcast episodes and a story directly into `media:podcasts`/
+    `media:stories`, confirmed every new sort mode's resulting order,
+    switched to Manual and arrow-moved a card up, confirmed both the
+    visual order and the underlying array order survived a reload,
+    favorited items across two different galleries
+    and confirmed the Favorites tab aggregated both with correct
+    `HomeGallery · Status` tags, unfavorited one from inside the
+    Favorites tab and confirmed it disappeared from that view while
+    still existing (just `favorite: false`) back in its home gallery,
+    and deleted the other from inside the Favorites tab and confirmed
+    it was actually gone from its home gallery's storage, not just
+    hidden. No Supabase requests were made during verification.
