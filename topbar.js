@@ -143,17 +143,9 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">MEDIA</span>
   </a>
-  <a href="projects.html" class="topbar-pill" id="topbarProjects">
-    <span class="topbar-pill-dot"></span>
-    <span class="topbar-pill-label">PROJECTS</span>
-  </a>
   <a href="braindump.html" class="topbar-pill" id="topbarBrainDump">
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">BRAIN DUMP</span>
-  </a>
-  <a href="study.html" class="topbar-pill" id="topbarStudy">
-    <span class="topbar-pill-dot"></span>
-    <span class="topbar-pill-label">STUDY</span>
   </a>
   <a href="nutrition.html" class="topbar-pill" id="topbarNutrition">
     <span class="topbar-pill-dot"></span>

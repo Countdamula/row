@@ -29,12 +29,12 @@ Vercel's static server) — see README.md.
 | `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
-| `projects.html` | Projects — project list + per-project tasks (CRUD, contribution grid, velocity, burndown) (rebuilt — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
-| `study.html` | Study — subjects with topics, tracked by progress %; toggles between a grouped-list view and a cover-art gallery view (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
-changelog note at the bottom of this file.
+changelog note at the bottom of this file. Projects (`projects.html`) and
+Study (`study.html`) were also removed — see the changelog note near the
+bottom of this file.
 
 **Shared, non-page files:**
 - `topbar.js` — injects the shared top nav bar (pills) into every page that
@@ -78,7 +78,7 @@ sync, not for authenticating a person:
 
 **Files involved (the entirety of the "auth-ish" surface):**
 - `sync.js` — the shared sync client used by `index.html`, `finance.html`,
-  `entertainment.html`, `projects.html`, `braindump.html`, `study.html`.
+  `entertainment.html`, `braindump.html`.
 - `gym.html` (inline `<script>`, ~line 2190–2386) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
 - `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
@@ -123,33 +123,34 @@ color anywhere in the codebase — see the discrepancy note in §6.
 - `--font-mono`: `ui-monospace, "SF Mono", Menlo, Consolas, monospace` (used for labels, tags, numeric readouts)
 
 **Spacing / radius:** no shared scale variables in most files; ad hoc pixel
-values in each stylesheet. `entertainment.html`/`projects.html` (the two
-newest, most consistent pages) do define `--radius-sm: 8px`, `--radius-md: 12px`,
-`--radius-lg: 16px`.
+values in each stylesheet. `entertainment.html` does define `--radius-sm: 8px`,
+`--radius-md: 12px`, `--radius-lg: 16px`.
 
 **Shared UI components** (by convention/copy-paste, not by import — every
 page's CSS is self-contained in its own `<style>` block):
 - **Top nav bar** — the only *actually* shared component (via `topbar.js`
   injecting real markup at runtime): `.topbar`, `.topbar-pill`.
 - **Buttons** — `.btn-primary` / `.btn-secondary` (white-gradient primary,
-  subtle-bordered secondary) in `entertainment.html` and `projects.html`;
-  `gym.html` uses `.po-btn-primary` / `.po-btn-secondary` (same look,
-  different class names); `finance.html` uses page-specific names
-  (`.quick-add-btn`, `.wish-add-btn`, `.ord-add-btn`) with the same visual
-  recipe. **Not unified — copy the closest existing pattern, don't invent a
+  subtle-bordered secondary) in `entertainment.html`; `gym.html` uses
+  `.po-btn-primary` / `.po-btn-secondary` (same look, different class
+  names); `finance.html` uses page-specific names (`.quick-add-btn`,
+  `.wish-add-btn`, `.ord-add-btn`) with the same visual recipe.
+  **Not unified — copy the closest existing pattern, don't invent a
   fourth naming scheme.**
-- **Modals** — `.modal-bg` / `.modal` (entertainment.html, projects.html) vs
+- **Modals** — `.modal-bg` / `.modal` (entertainment.html) vs
   `.po-modal-bg` / `.po-modal` (gym.html). `topbar.js` injects shared CSS
   that treats **both** naming conventions as "a modal" for mobile
   full-screen behavior and body-scroll locking (see the `MODAL_SELECTORS`
   array in `topbar.js`, `startModalLock()`). If you add a new modal, add its
-  class to that array too, or scroll-lock won't apply. `projects.html` also
-  has a full-screen, non-floating "page" overlay, `.project-page-bg`,
-  already added to `MODAL_SELECTORS`.
+  class to that array too, or scroll-lock won't apply. `topbar.js`'s
+  `MODAL_SELECTORS` array still lists `.project-page-bg` from the now-
+  deleted `projects.html` — left in place as unreachable dead code per the
+  DO NOT MODIFY precedent (see the Projects/Study removal changelog entry).
 - **Cards / gallery grid** — `.ent-card`, `.ent-cover`, `.ent-grid`, `.tag`,
-  `.chip` are *literally identical* class names/CSS copied between
-  `entertainment.html` and `projects.html` (the two Notion-gallery-style
-  pages). `finance.html` has its own separate `.card` / `.card-grid`.
+  `.chip` are the Notion-gallery-style component pattern established by
+  `entertainment.html`, copied verbatim into other gallery-style pages by
+  convention (not by import). `finance.html` has its own separate `.card` /
+  `.card-grid`.
 
 ## 4. Data layer
 
@@ -172,16 +173,18 @@ page's CSS is self-contained in its own `<style>` block):
    | `goals` | `index.html` | everything prefixed `goals:` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
-   | `projects` | `projects.html` | `proj:cards` (each card now also carries `startDate`, `deadline`, and a `tasks[]` array — no new top-level key needed), `proj:statuses`, `proj:groups` |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
-   | `study` | `study.html` (new) | everything prefixed `study:` (`study:subjects`, `study:topics`, `study:view`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
    writes it anymore since those pages were deleted (see changelog). It was
    left alone in Supabase itself; this doc only tracks code, not database
-   cleanup.
+   cleanup. `projects` (previously owned by `projects.html`, syncing
+   `proj:cards`/`proj:statuses`/`proj:groups`) and `study` (previously owned
+   by `study.html`, syncing everything prefixed `study:`) are now likewise
+   **orphaned rows** — left alone in Supabase, not cleaned up, same
+   treatment as `health` (see the Projects/Study removal changelog entry).
 
    There are no other tables, no foreign keys, no migrations directory.
    Uploaded images (progress photos, project/media covers) are stored as
@@ -204,11 +207,10 @@ using `sync.js`.
 | Fitness Studio | `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
-| Projects | `PROJECTS` → `projects.html` | `projects.html` (gained per-project tasks + charts — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
-| Study | `STUDY` → `study.html` | `study.html` (new — see changelog) |
 
-Stack and Water were removed — see changelog at the bottom of this file.
+Stack, Water, Projects, and Study were removed — see changelog at the
+bottom of this file.
 
 Nav pill markup lives in one place: the `html` template string inside
 `topbar.js`. There is no separate "nav config" file.
@@ -265,7 +267,7 @@ between this app and either data loss or a wide-open write target:
 1. **Never rewrite, weaken, or bypass the existing sync/access-control
    plumbing.** Specifically, do not modify unless explicitly asked:
    - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
-     `finance.html`, `entertainment.html`, `projects.html`).
+     `finance.html`, `entertainment.html`, `braindump.html`).
    - The inline Supabase sync block in `gym.html` (~line 2190–2386,
      `APP_KEY = 'po-coach'`).
    - The inline Supabase push in `topbar.js`
@@ -1100,3 +1102,106 @@ between this app and either data loss or a wide-open write target:
     auto-clearing the days it was scheduled on, and the day pill
     round-tripping into the This Week tab — all confirmed with no
     JS console errors and no unwanted network calls.
+
+- **Timer tab completed: presets, gesture-safe audio, and a reusable
+  launch point wired into This Week's Day view.** The Timer panel itself
+  (countdown/stopwatch/interval, timestamp-based accuracy, synthesized
+  beeps) already existed from the banner/equipment/timer rebuild — this
+  pass added the pieces the request was actually missing, plus made
+  starting the timer a single reusable entry point instead of three
+  separate ad hoc click handlers.
+  - **TimerPresets** (`state.timerPresets[]`, `{id, name, mode,
+    countdownSec, workSec, restSec, rounds}`, defaulted to `[]` in
+    `normalize()`) — a new Presets row in the Timer panel (`#timerPresetSelect`
+    + Load/Delete icon buttons + "+ Save current as preset") lets you name
+    and store the current mode/config (`saveCurrentAsPreset()`, a
+    `prompt()` for the name, same low-ceremony pattern this file already
+    uses for e.g. renaming a gym) and reload it later
+    (`loadTimerPreset()` sets every input, switches mode, and persists it
+    as the new last-used settings — same as manually reconfiguring).
+    Deleting warns via `confirm()` like every other destructive action
+    here. Rides the existing `po_coach_v1` sync blob, no new sync key.
+  - **Audio now initializes from the Start-press gesture, not lazily
+    inside a `requestAnimationFrame` callback.** Browsers require an
+    `AudioContext` to be created/resumed synchronously within a
+    user-gesture call stack; the previous lazy-create-on-first-`playBeep()`
+    could get created from inside a RAF tick instead, which some browsers
+    treat as not a gesture and leave `suspended`. New `ensureAudio()` is
+    called first thing when Start is pressed (not on Pause), creates the
+    context if needed and explicitly `resume()`s it, and swallows any
+    throw (unsupported/blocked audio) by leaving `audioCtx` null —
+    `playBeep()` is now a no-op whenever that's the case, so the timer
+    itself keeps working with no sound rather than erroring.
+  - **Visual cue at zero**: `timerFinish()` (fires for both a countdown
+    reaching 0:00 and an interval session completing its last round) now
+    also toggles a `.flash` class on the digit display (a brief
+    color-pulse `@keyframes` animation using `--crimson-bright`, this
+    file's existing accent) alongside the existing beep — "clear visual +
+    audio cue at zero." `resetTimer()` clears the class so a fresh run
+    doesn't inherit it.
+  - **`launchTimer(opts)`** — the "reusable component" the request asked
+    for: prefill the Timer's inputs (from `state.timerSettings`, or
+    `opts.countdownSec` for a one-off override without touching the saved
+    default), pick a mode, and switch to the Timer tab. Every timer
+    entry point in the app now funnels through this one function instead
+    of each hand-rolling its own prefill/switch logic:
+    - The header clock icon still just `switchTab('timer')` verbatim
+      (deliberately no reset — it's "go look at whatever's running").
+    - `quickTimerBtn` (next to Log Set) now calls `launchTimer({mode:
+      'countdown'})` — same last-used-duration behavior as before, just
+      routed through the shared function.
+    - Day view's "Start Timer" button now calls `launchTimer({})` instead
+      of a raw `switchTab('timer')` — same effect (last-used settings),
+      consistent entry point.
+    - **New**: a ⏱ button was added next to every individual exercise in
+      three places — the Today's Workout exercise checklist
+      (`.exchk-timer-btn`), This Week's Day view exercise rows, and the
+      standalone template read view (`#routineViewModalBg`) — each calling
+      `launchTimer({mode: 'countdown', countdownSec: ex.restSec})`, i.e.
+      a rest timer prefilled straight from that exercise's own configured
+      rest period. This is the actual "a routine day / exercise can
+      launch a rest-timer prefilled from that exercise's restSeconds"
+      connection the request asked for, and it's what "wires the Day
+      view's start-timer hooks into this timer" in practice — the Day
+      view's per-exercise buttons close `#dayViewModalBg` before
+      launching (same as the template read view's button closes
+      `#routineViewModalBg`), so the transition to the Timer tab doesn't
+      leave a stale modal open behind it.
+  - Reused `.exchk-timer-btn` (new, small icon-button CSS matching the
+    existing `.exchk-expand` look) as the one visual/markup pattern for
+    all three per-exercise buttons above, and added `.rt-view-row-top`
+    (a flex header row) to `.rt-view-row` so the exercise name/meta and
+    the new timer button sit side by side in both the Day view and the
+    template read view, which already shared that row markup.
+  - No changes to `sync.js`/the inline Supabase block/`PC_SYNCED_KEYS` —
+    `timerPresets` and every timer field already ride inside the
+    already-synced `po_coach_v1` object.
+
+- **Projects and Study tabs removed.** Deleted `projects.html` (Projects)
+  and `study.html` (Study) entirely, along with their `PROJECTS`/`STUDY`
+  nav pills in `topbar.js`'s injected pill list — the only edit made to
+  `topbar.js`, same scope as every other nav-pill change in this file's
+  history. Same treatment as the Stack/Water removal above:
+  - The Supabase `app_state` rows under `key = 'projects'` and
+    `key = 'study'` were left alone in the database — they're now
+    orphaned, not cleaned up. §4's sync table was updated to match.
+  - `sync.js` itself was untouched (it's a generic helper with no
+    per-page config baked in) — only the two `initCloudSync(...)` call
+    sites inside `projects.html`/`study.html` went away along with the
+    files themselves.
+  - `topbar.js`'s `MODAL_SELECTORS` array still lists `.project-page-bg`
+    (the full-page overlay `projects.html` used for its per-project view)
+    — left in place as unreachable dead code rather than deleted, since
+    removing it wasn't explicitly asked for, the same call made for
+    `pushWaterMergedToSupabase` and the `.wt-overlay`/`.wt-viewer`/
+    `.wt-cam` selectors in the Stack/Water and Gym-rebuild entries above.
+  - `README.md`'s file table was updated to drop the `projects.html` row
+    (it never listed `study.html`, so no change needed there).
+  - Nothing else in the app referenced `proj:*`/`study:*` localStorage
+    keys or the `projects`/`study` Supabase rows, so no other page needed
+    changes. Scattered code comments elsewhere in the repo (e.g. in
+    `nutrition.html`, `index.html`, `braindump.html`) that cite
+    `projects.html`/`study.html` as the origin of a copied CSS/JS pattern
+    were left as-is — they're historical attribution notes about where a
+    pattern was first established, not references to files that need to
+    keep existing.
