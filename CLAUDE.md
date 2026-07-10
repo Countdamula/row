@@ -1205,3 +1205,41 @@ between this app and either data loss or a wide-open write target:
     were left as-is — they're historical attribution notes about where a
     pattern was first established, not references to files that need to
     keep existing.
+
+- **Main page (`index.html`) Overview tab gained organizable, multi-section
+  notes.** Note: this file has grown a large "Main" rebuild — a subnav of
+  Overview / Life Areas / Goals / Tasks / Habits & Routines / Businesses /
+  Self-Discovery tabs (`.at-tabs`/`.at-tabpanel`, `main:*` localStorage
+  keys) — that predates this changelog's coverage of `index.html` further
+  above; this entry only covers the Notes feature, not that whole rebuild.
+  - First pass added a single freeform, autosaved textarea
+    (`main:overviewNotes`, a plain string) below the Overview panel's
+    placeholder content, following the existing `.at-textarea` /
+    `storeGet`/`storeSet` convention already used for business notes.
+  - Follow-up request asked for a button to generate more of the same
+    kind of section, and for all sections to be organizable. Reshaped
+    `main:overviewNotes` from a single string into an array of
+    `{ id, title, body, createdAt }` sections — migrated in place the
+    same way `gym.html`'s schedule shape evolved from a scalar to an
+    array (detect the old shape in the loader, convert, save back;
+    no separate `migrated_vN` flag needed). A "+ Add Notes Section"
+    button (`.at-mini-btn`, same component as every other panel's
+    "+ Add X" action) appends a new blank section; each section renders
+    as its own card (`.note-section-card`) with an editable title input,
+    a `.at-textarea` body (both autosave on blur), a delete button
+    (reused `.at-due-del`, the same small-✕-hover-danger pattern already
+    used for due-date chips/entry cards/value rows), and up/down reorder
+    buttons reusing `.area-card-reorder` verbatim (the same component
+    Life Areas and Self-Discovery entries already use for manual
+    reordering — this codebase has no drag-and-drop reordering anywhere,
+    only up/down-arrow swaps, so that's the pattern this follows too).
+    New installs start with zero sections (visible only via the Add
+    button) rather than one empty box, now that "add more" is the actual
+    interaction model.
+  - Verified in headless Edge with Supabase blocked at the network layer
+    before navigation (per the testing note on `gym.html`'s Templates
+    entry) — added three sections, filled and reloaded to confirm
+    persistence, reordered and reloaded again to confirm the reorder
+    itself persists (not just an in-memory swap), deleted a section and
+    confirmed the up/down-disabled states at the new list edges. No
+    Supabase requests were made during either verification pass.

@@ -518,6 +518,17 @@ body::after {
 .at-textarea:focus { border-color: rgba(255,255,255,0.28); }
 .at-textarea::placeholder { color: var(--text-tertiary); }
 
+/* ===== Notes sections (Overview tab) ===== */
+.note-section-card { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.note-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.note-section-title-input {
+  flex: 1; min-width: 0; background: transparent; border: none; border-bottom: 1px solid transparent;
+  color: var(--text-primary); font-family: var(--font-serif); font-size: 14px; font-weight: 700;
+  outline: none; padding: 2px 0;
+}
+.note-section-title-input:focus { border-bottom-color: rgba(255,255,255,0.28); }
+.note-section-title-input::placeholder { color: var(--text-tertiary); font-weight: 400; font-family: var(--font); }
+
 /* ===== Self-Discovery ===== */
 .entry-card { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
 .entry-card:hover { background: rgba(255,255,255,0.06); }
@@ -616,7 +627,8 @@ body::after {
     </div>
 
     <div class="section-title">Notes</div>
-    <textarea class="at-textarea" id="overviewNotesInput" placeholder="Freeform notes…"></textarea>
+    <div style="margin-bottom:14px;"><button type="button" class="at-mini-btn" id="atAddNoteSectionBtn">+ Add Notes Section</button></div>
+    <div id="overviewNotesList"></div>
   </div>
 
   <!-- ============ LIFE AREAS ============ -->
@@ -1164,14 +1176,106 @@ body::after {
     document.getElementById('atPanelHabits').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  // Overview notes — freeform, autosaved single string (main:overviewNotes).
-  (function () {
-    var ta = document.getElementById('overviewNotesInput');
-    ta.value = storeGet('main:overviewNotes') || '';
+  // Overview notes — organizable, autosaved sections (main:overviewNotes).
+  // Legacy shape was a single string; migrated in place to an array of
+  // { id, title, body, createdAt } sections, same normalize-on-load
+  // precedent used elsewhere for evolving a stored shape.
+  function loadNoteSections() {
+    var raw = storeGet('main:overviewNotes');
+    if (typeof raw === 'string') {
+      var migrated = raw ? [{ id: genId('note'), title: '', body: raw, createdAt: Date.now() }] : [];
+      storeSet('main:overviewNotes', migrated);
+      return migrated;
+    }
+    return Array.isArray(raw) ? raw : [];
+  }
+  function saveNoteSections(list) { storeSet('main:overviewNotes', list); }
+
+  function moveNoteSection(id, dir) {
+    var list = loadNoteSections();
+    var idx = list.map(function (s) { return s.id; }).indexOf(id);
+    var swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= list.length) return;
+    var tmp = list[idx]; list[idx] = list[swapIdx]; list[swapIdx] = tmp;
+    saveNoteSections(list);
+    renderNoteSections();
+  }
+
+  function deleteNoteSection(id) {
+    if (!confirm('Delete this notes section?')) return;
+    saveNoteSections(loadNoteSections().filter(function (s) { return s.id !== id; }));
+    renderNoteSections();
+  }
+
+  function buildNoteSectionCard(section, index, total) {
+    var card = document.createElement('div');
+    card.className = 'note-section-card';
+
+    var head = document.createElement('div');
+    head.className = 'note-section-head';
+
+    var reorder = document.createElement('div');
+    reorder.className = 'area-card-reorder';
+    var upBtn = document.createElement('button');
+    upBtn.type = 'button'; upBtn.textContent = '▲'; upBtn.setAttribute('aria-label', 'Move up');
+    upBtn.disabled = index === 0;
+    upBtn.addEventListener('click', function () { moveNoteSection(section.id, -1); });
+    var downBtn = document.createElement('button');
+    downBtn.type = 'button'; downBtn.textContent = '▼'; downBtn.setAttribute('aria-label', 'Move down');
+    downBtn.disabled = index === total - 1;
+    downBtn.addEventListener('click', function () { moveNoteSection(section.id, 1); });
+    reorder.appendChild(upBtn); reorder.appendChild(downBtn);
+    head.appendChild(reorder);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text'; titleInput.className = 'note-section-title-input';
+    titleInput.placeholder = 'Untitled section'; titleInput.value = section.title || '';
+    titleInput.addEventListener('blur', function () {
+      var list = loadNoteSections();
+      var s = list.filter(function (x) { return x.id === section.id; })[0];
+      if (s && s.title !== titleInput.value) { s.title = titleInput.value; saveNoteSections(list); }
+    });
+    head.appendChild(titleInput);
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'at-due-del'; delBtn.textContent = '✕';
+    delBtn.setAttribute('aria-label', 'Delete section');
+    delBtn.addEventListener('click', function () { deleteNoteSection(section.id); });
+    head.appendChild(delBtn);
+
+    card.appendChild(head);
+
+    var ta = document.createElement('textarea');
+    ta.className = 'at-textarea'; ta.placeholder = 'Freeform notes…'; ta.value = section.body || '';
     ta.addEventListener('input', function () { autosize(ta); });
-    ta.addEventListener('blur', function () { storeSet('main:overviewNotes', ta.value); });
+    ta.addEventListener('blur', function () {
+      var list = loadNoteSections();
+      var s = list.filter(function (x) { return x.id === section.id; })[0];
+      if (s && s.body !== ta.value) { s.body = ta.value; saveNoteSections(list); }
+    });
+    card.appendChild(ta);
     setTimeout(function () { autosize(ta); }, 0);
-  })();
+
+    return card;
+  }
+
+  function renderNoteSections() {
+    var wrap = document.getElementById('overviewNotesList');
+    wrap.innerHTML = '';
+    var list = loadNoteSections();
+    list.forEach(function (section, i) {
+      wrap.appendChild(buildNoteSectionCard(section, i, list.length));
+    });
+  }
+
+  document.getElementById('atAddNoteSectionBtn').addEventListener('click', function () {
+    var list = loadNoteSections();
+    list.push({ id: genId('note'), title: '', body: '', createdAt: Date.now() });
+    saveNoteSections(list);
+    renderNoteSections();
+  });
+
+  renderNoteSections();
 
   // =====================================================================
   // Life Areas — the taxonomy database. main:areas = [{ id, name,
