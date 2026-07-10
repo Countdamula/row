@@ -1243,3 +1243,24 @@ between this app and either data loss or a wide-open write target:
     itself persists (not just an in-memory swap), deleted a section and
     confirmed the up/down-disabled states at the new list edges. No
     Supabase requests were made during either verification pass.
+
+- **Fitness Studio (`gym.html`) banner photo now shows the whole image.**
+  `.po-banner-img`'s `object-fit` changed from `cover` (crops a non-16:6
+  photo to fill the box) to `contain` (letterboxes/pillarboxes instead,
+  showing the full uploaded photo against `.po-banner`'s existing subtle
+  fill). One-line CSS change, no HTML/JS touched. This commit also
+  finally lands the `gym.html` code for the "Timer presets, gesture-safe
+  audio, launchTimer()" changelog entry above — that entry documented
+  code that had been sitting uncommitted; it's included here rather than
+  split out, since the two were tangled in the same uncommitted working
+  tree and the user opted to land them together rather than untangle them.
+  - Verified with a synthetic non-16:6 test image (portrait, three
+    horizontal color bands) painted onto the real `#poBannerImg` via
+    canvas in headless Edge (Supabase blocked pre-navigation, per the
+    established testing note). First attempts appeared to show the
+    bottom band clipped — that turned out to be a test-harness artifact
+    (CDP `Page.captureScreenshot`'s `clip` region going stale against a
+    `getBoundingClientRect()` taken before a scroll settled), not a real
+    rendering bug: recapturing the full viewport and cropping client-side
+    immediately after an instant `scrollIntoView` showed all three color
+    bands intact, confirming `contain` genuinely shows the whole photo.

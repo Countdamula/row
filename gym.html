@@ -280,7 +280,7 @@ img, video, canvas, svg { max-width: 100%; }
   cursor: pointer;
 }
 .po-banner.has-photo { cursor: default; border-style: solid; border-color: var(--border); }
-.po-banner-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+.po-banner-img { width: 100%; height: 100%; object-fit: contain; display: none; }
 .po-banner.has-photo .po-banner-img { display: block; }
 .po-banner-empty {
   position: absolute; inset: 0;
@@ -808,6 +808,7 @@ img, video, canvas, svg { max-width: 100%; }
   border: 1px solid var(--border);
   border-radius: 10px;
 }
+.rt-view-row-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rt-view-name { font-size: 13.5px; font-weight: 700; color: var(--text-1); }
 .rt-view-meta { font-size: 11.5px; color: var(--text-2); margin-top: 3px; font-family: var(--font-mono); }
 .rt-view-notes { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
@@ -1029,6 +1030,12 @@ img, video, canvas, svg { max-width: 100%; }
   font-size: 13px; cursor: pointer; padding: 4px 6px;
   -webkit-tap-highlight-color: transparent;
 }
+.exchk-timer-btn {
+  flex-shrink: 0; background: transparent; border: 1px solid var(--border);
+  color: var(--text-2); font-size: 13px; cursor: pointer; padding: 5px 8px;
+  border-radius: 8px; -webkit-tap-highlight-color: transparent;
+}
+.exchk-timer-btn:hover { color: var(--text-1); border-color: var(--border-strong); }
 .exchk-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .exchk-row.is-open .exchk-detail { display: block; }
 .exchk-row.is-open .exchk-expand { transform: rotate(90deg); }
@@ -1143,6 +1150,12 @@ img, video, canvas, svg { max-width: 100%; }
   border-bottom: 1px solid var(--border);
 }
 .timer-lap-row:last-child { border-bottom: none; }
+.timer-display.flash { animation: timer-flash 0.5s ease-out 2; }
+@keyframes timer-flash {
+  0% { color: var(--text-1); }
+  50% { color: var(--crimson-bright); }
+  100% { color: var(--text-1); }
+}
 
 .hidden { display: none !important; }
 
@@ -1441,6 +1454,18 @@ img, video, canvas, svg { max-width: 100%; }
       <button type="button" data-mode="countdown" class="active">Countdown</button>
       <button type="button" data-mode="stopwatch">Stopwatch</button>
       <button type="button" data-mode="interval">Interval</button>
+    </div>
+
+    <div class="po-field" id="timerPresetsField" style="margin-top:14px;">
+      <label>Presets</label>
+      <div style="display:flex;gap:8px;">
+        <select id="timerPresetSelect" style="flex:1;padding:9px 10px;border:1px solid var(--border);background:rgba(0,0,0,0.28);color:var(--text-1);border-radius:8px;font-family:inherit;font-size:13px;">
+          <option value="">Select a preset…</option>
+        </select>
+        <button class="po-btn-icon" id="timerPresetLoadBtn" type="button" title="Load preset" aria-label="Load preset">▶</button>
+        <button class="po-btn-icon" id="timerPresetDeleteBtn" type="button" title="Delete preset" aria-label="Delete preset">✕</button>
+      </div>
+      <button class="po-add-row-btn" id="timerPresetSaveBtn" type="button">+ Save current as preset</button>
     </div>
 
     <div class="po-field" id="timerCountdownConfig" style="margin-top:14px;">
@@ -1984,7 +2009,8 @@ img, video, canvas, svg { max-width: 100%; }
         currentEx: null,
         equipment: [],
         bannerPhoto: null,
-        timerSettings: { countdownSec: 90, workSec: 30, restSec: 15, rounds: 8 }
+        timerSettings: { countdownSec: 90, workSec: 30, restSec: 15, rounds: 8 },
+        timerPresets: []
       };
     }
     if (!Array.isArray(s.gyms)) s.gyms = (CONFIG.gyms || []).map(g => ({ id: g.id, name: g.name }));
@@ -2011,6 +2037,7 @@ img, video, canvas, svg { max-width: 100%; }
     s.equipment.forEach(normalizeEquipment);
     if (s.bannerPhoto === undefined) s.bannerPhoto = null;
     if (!s.timerSettings || typeof s.timerSettings !== 'object') s.timerSettings = { countdownSec: 90, workSec: 30, restSec: 15, rounds: 8 };
+    if (!Array.isArray(s.timerPresets)) s.timerPresets = [];
     return s;
   }
 
@@ -2408,9 +2435,16 @@ img, video, canvas, svg { max-width: 100%; }
           const row = document.createElement('div');
           row.className = 'rt-view-row';
           row.innerHTML =
-            '<div class="rt-view-name">' + escape(ex.name) + '</div>' +
-            '<div class="rt-view-meta">' + escape(metaLine) + '</div>' +
+            '<div class="rt-view-row-top">' +
+              '<div><div class="rt-view-name">' + escape(ex.name) + '</div>' +
+              '<div class="rt-view-meta">' + escape(metaLine) + '</div></div>' +
+              '<button type="button" class="exchk-timer-btn" aria-label="Start rest timer" title="Start rest timer">⏱</button>' +
+            '</div>' +
             (ex.notes ? '<div class="rt-view-notes">' + escape(ex.notes) + '</div>' : '');
+          row.querySelector('.exchk-timer-btn').addEventListener('click', () => {
+            $('dayViewModalBg').classList.remove('show');
+            launchTimer({ mode: 'countdown', countdownSec: ex.restSec != null ? ex.restSec : 60 });
+          });
           block.appendChild(row);
         });
       }
@@ -2424,7 +2458,7 @@ img, video, canvas, svg { max-width: 100%; }
   $('dayViewModalBg').addEventListener('click', (e) => { if (e.target.id === 'dayViewModalBg') $('dayViewModalBg').classList.remove('show'); });
   $('dayViewStartTimerBtn').addEventListener('click', () => {
     $('dayViewModalBg').classList.remove('show');
-    switchTab('timer');
+    launchTimer({});
   });
 
   // ============================================================
@@ -2727,6 +2761,7 @@ img, video, canvas, svg { max-width: 100%; }
               exGear.map(n => '<span class="equip-tag">' + escape(n) + '</span>').join('') +
             '</div>' +
           '</div>' +
+          '<button type="button" class="exchk-timer-btn" aria-label="Start rest timer" title="Start rest timer">⏱</button>' +
           (hasDetail ? '<button type="button" class="exchk-expand" aria-label="Toggle notes and media">▸</button>' : '') +
         '</div>' +
         (hasDetail ? '<div class="exchk-detail">' +
@@ -2746,6 +2781,10 @@ img, video, canvas, svg { max-width: 100%; }
         renderSelect();
         renderAll();
       });
+      row.querySelector('.exchk-timer-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        launchTimer({ mode: 'countdown', countdownSec: ex.restSec != null ? ex.restSec : 60 });
+      });
       if (hasDetail) {
         row.querySelector('.exchk-expand').addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2761,6 +2800,7 @@ img, video, canvas, svg { max-width: 100%; }
     renderDayPill();
     renderWeekGrid();
     renderBanner();
+    renderTimerPresetSelect();
     renderForm();
     renderLastSet();
     renderRx();
@@ -2926,9 +2966,16 @@ img, video, canvas, svg { max-width: 100%; }
         const row = document.createElement('div');
         row.className = 'rt-view-row';
         row.innerHTML =
-          '<div class="rt-view-name">' + escape(ex.name) + '</div>' +
-          '<div class="rt-view-meta">' + escape(metaLine) + '</div>' +
+          '<div class="rt-view-row-top">' +
+            '<div><div class="rt-view-name">' + escape(ex.name) + '</div>' +
+            '<div class="rt-view-meta">' + escape(metaLine) + '</div></div>' +
+            '<button type="button" class="exchk-timer-btn" aria-label="Start rest timer" title="Start rest timer">⏱</button>' +
+          '</div>' +
           (ex.notes ? '<div class="rt-view-notes">' + escape(ex.notes) + '</div>' : '');
+        row.querySelector('.exchk-timer-btn').addEventListener('click', () => {
+          $('routineViewModalBg').classList.remove('show');
+          launchTimer({ mode: 'countdown', countdownSec: ex.restSec != null ? ex.restSec : 60 });
+        });
         wrap.appendChild(row);
       });
     }
@@ -3701,9 +3748,22 @@ img, video, canvas, svg { max-width: 100%; }
   let timerLaps = [];        // stopwatch mode only
   let audioCtx = null;
 
-  function playBeep(freq, durMs) {
+  // Browsers only allow audio to start from within a user-gesture call
+  // stack — created lazily on the first Start press (not e.g. on tab
+  // load) and resumed there too, since some browsers hand back a
+  // 'suspended' context even when created inside a gesture. If this
+  // throws (audio blocked/unsupported), audioCtx stays null and every
+  // playBeep() call below is a silent no-op — the timer itself still
+  // works with no sound, a deliberate graceful degrade.
+  function ensureAudio() {
     try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) { audioCtx = null; }
+  }
+  function playBeep(freq, durMs) {
+    if (!audioCtx) return;
+    try {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.frequency.value = freq;
@@ -3771,6 +3831,7 @@ img, video, canvas, svg { max-width: 100%; }
     timerPhase = 'work';
     timerLaps = [];
     $('timerStartBtn').textContent = 'Start';
+    $('timerDisplay').classList.remove('flash');
     renderTimerLaps();
     updateTimerDisplay();
   }
@@ -3799,6 +3860,10 @@ img, video, canvas, svg { max-width: 100%; }
     timerRunning = false;
     $('timerStartBtn').textContent = 'Start';
     playBeep(880, 500);
+    const el = $('timerDisplay');
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart the animation if it's already mid-flash
+    el.classList.add('flash');
   }
 
   function timerTick() {
@@ -3853,6 +3918,7 @@ img, video, canvas, svg { max-width: 100%; }
       $('timerStartBtn').textContent = 'Start';
       return;
     }
+    ensureAudio();
     saveTimerSettings();
     timerStartTs = Date.now() - timerTotalMs;
     timerRunning = true;
@@ -3880,17 +3946,92 @@ img, video, canvas, svg { max-width: 100%; }
   }
   loadTimerSettingsIntoInputs();
 
+  // ---- Timer presets (named, saved configs — state.timerPresets) ----
+  function renderTimerPresetSelect() {
+    const sel = $('timerPresetSelect');
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">Select a preset…</option>';
+    state.timerPresets.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = p.name + ' (' + p.mode + ')';
+      sel.appendChild(opt);
+    });
+    sel.value = state.timerPresets.some(p => p.id === prevVal) ? prevVal : '';
+  }
+  function saveCurrentAsPreset() {
+    const name = (prompt('Name this preset (e.g. "Tabata 20/10x8"):') || '').trim();
+    if (!name) return;
+    const c = timerConfig();
+    const preset = {
+      id: 'tp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: name,
+      mode: timerMode,
+      countdownSec: Math.round(c.countdownMs / 1000),
+      workSec: Math.round(c.workMs / 1000),
+      restSec: Math.round(c.restMs / 1000),
+      rounds: c.rounds
+    };
+    state.timerPresets.push(preset);
+    saveState();
+    renderTimerPresetSelect();
+    $('timerPresetSelect').value = preset.id;
+  }
+  function loadTimerPreset(id) {
+    const p = state.timerPresets.find(x => x.id === id);
+    if (!p) return;
+    $('timerCdMin').value = Math.floor((p.countdownSec || 90) / 60);
+    $('timerCdSec').value = (p.countdownSec || 90) % 60;
+    $('timerWorkSec').value = p.workSec || 30;
+    $('timerRestSec').value = p.restSec || 15;
+    $('timerRounds').value = p.rounds || 8;
+    setTimerMode(p.mode || 'countdown');
+    saveTimerSettings();
+  }
+  function deleteTimerPreset(id) {
+    const p = state.timerPresets.find(x => x.id === id);
+    if (!p) return;
+    if (!confirm('Delete preset "' + p.name + '"?')) return;
+    state.timerPresets = state.timerPresets.filter(x => x.id !== id);
+    saveState();
+    renderTimerPresetSelect();
+  }
+  $('timerPresetSaveBtn').addEventListener('click', saveCurrentAsPreset);
+  $('timerPresetLoadBtn').addEventListener('click', () => {
+    const id = $('timerPresetSelect').value;
+    if (id) loadTimerPreset(id);
+  });
+  $('timerPresetDeleteBtn').addEventListener('click', () => {
+    const id = $('timerPresetSelect').value;
+    if (id) deleteTimerPreset(id);
+  });
+  renderTimerPresetSelect();
+
+  // ---- Reusable launch point — the Timer tab is a single shared
+  // instance, so "launching" it from elsewhere in the app (a routine
+  // day, a specific exercise's rest period) just means: stop whatever
+  // was running, prefill its inputs, pick a mode, and switch to it.
+  // opts.countdownSec, if given, overrides the last-used countdown
+  // duration for this one launch (e.g. an exercise's restSec) without
+  // overwriting the saved default; omit it to just reuse last-used
+  // settings (the plain quick-launch behavior).
+  function launchTimer(opts) {
+    opts = opts || {};
+    loadTimerSettingsIntoInputs();
+    if (opts.countdownSec != null) {
+      $('timerCdMin').value = Math.floor(opts.countdownSec / 60);
+      $('timerCdSec').value = opts.countdownSec % 60;
+    }
+    setTimerMode(opts.mode || 'countdown');
+    switchTab('timer');
+  }
+
   // Header clock icon: just jump to the Timer tab, keeping whatever
   // mode/state it's currently in (e.g. an interval session left running).
   $('timerBtn').addEventListener('click', () => switchTab('timer'));
   // Quick-launch next to Log Set: this one's purpose is "start a rest
   // countdown right now", so it resets to Countdown at the last-used
   // duration — same behavior this had when it opened a modal.
-  $('quickTimerBtn').addEventListener('click', () => {
-    loadTimerSettingsIntoInputs();
-    setTimerMode('countdown');
-    switchTab('timer');
-  });
+  $('quickTimerBtn').addEventListener('click', () => launchTimer({ mode: 'countdown' }));
 
   // ============================================================
   // SETTINGS (units, gyms, data export/import/reset)
