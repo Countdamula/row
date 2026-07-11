@@ -336,13 +336,14 @@ body::after {
 .std-group-count { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); flex-shrink: 0; white-space: nowrap; }
 .std-group-spacer { flex: 1; }
 .std-group-pct { font-size: 12px; color: var(--at-gold); font-weight: 800; font-family: var(--font-mono); flex-shrink: 0; min-width: 34px; text-align: right; }
-.std-group-edit, .std-group-del {
+.std-group-edit, .std-group-del, .std-group-dup {
   background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; opacity: 0;
   transition: opacity 0.15s; padding: 2px 3px; flex-shrink: 0;
 }
-.std-group-head:hover .std-group-edit, .std-group-head:hover .std-group-del { opacity: 1; }
+.std-group-head:hover .std-group-edit, .std-group-head:hover .std-group-del, .std-group-head:hover .std-group-dup { opacity: 1; }
 .std-group-edit:hover { color: var(--text-primary); }
 .std-group-del:hover { color: var(--danger); }
+.std-group-dup:hover { color: var(--at-gold); }
 .std-group-body { padding: 2px 2px 14px; }
 .std-group.collapsed .std-group-body { display: none; }
 .std-group-bar { margin-bottom: 12px; }
@@ -547,6 +548,46 @@ body::after {
 .value-row-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
 .value-row-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; flex-shrink: 0; }
 .value-row-del:hover { color: var(--danger); }
+
+/* ===== Workflow (business book playbook: Weeks -> Days -> checklist) ===== */
+.wf-text-input {
+  background: transparent; border: none; border-bottom: 1px solid transparent; outline: none;
+  font-family: inherit; color: inherit; padding: 2px 0; width: 100%;
+}
+.wf-text-input:focus { border-bottom-color: rgba(255,255,255,0.28); }
+.wf-text-input::placeholder { color: var(--text-tertiary); }
+.wf-week-title { font-family: var(--font-serif); font-size: 14.5px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 90px; }
+.wf-day-title { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 90px; }
+
+.wf-day {
+  border: 1px solid var(--at-border); border-radius: 12px; background: rgba(255,255,255,0.035);
+  margin: 0 0 8px; padding: 2px 12px;
+}
+.wf-day-head { display: flex; align-items: center; gap: 8px; padding: 9px 0; cursor: pointer; flex-wrap: wrap; }
+.wf-day-caret { font-size: 10px; color: var(--text-tertiary); flex-shrink: 0; transition: transform 0.15s; }
+.wf-day.collapsed .wf-day-caret { transform: rotate(-90deg); }
+.wf-day.collapsed .wf-day-body { display: none; }
+.wf-day-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; padding: 0 2px; flex-shrink: 0; }
+.wf-day-del:hover { color: var(--danger); }
+.wf-day-body { padding: 0 2px 12px 24px; }
+
+.wf-status-select {
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.05);
+  color: var(--text-secondary); font-family: inherit; font-size: 10.5px; font-weight: 800;
+  padding: 4px 8px; cursor: pointer; outline: none; flex-shrink: 0;
+}
+.wf-status-select[data-status="In progress"] { color: var(--warning); background: rgba(242,192,99,0.14); border-color: transparent; }
+.wf-status-select[data-status="Done"] { color: var(--success); background: rgba(107,227,164,0.14); border-color: transparent; }
+.wf-status-select[data-status="Blocked"] { color: var(--danger); background: rgba(255,107,107,0.14); border-color: transparent; }
+
+.wf-move-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11px; color: var(--text-tertiary); flex-wrap: wrap; }
+.wf-move-row select {
+  padding: 5px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 11.5px;
+}
+.wf-day-send-btn.linked { color: var(--success); border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.08); }
+.wf-autosync-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.wf-autosync-label input { accent-color: var(--at-gold); cursor: pointer; }
 
 /* ===== Shared chip / modal / field / button kit ===== */
 .modal-bg {
@@ -1682,6 +1723,537 @@ body::after {
   function saveBusinesses(list) { storeSet('main:businesses', list); }
   function businessById(id) { return loadBusinesses().filter(function (b) { return b.id === id; })[0] || null; }
 
+  // =====================================================================
+  // Workflow (book playbook) — main:workflowWeeks / main:workflowDays /
+  // main:workflowChecklist. Same flat-array-per-collection +
+  // id-as-foreign-key convention as Goals/Tasks/Milestones/Objectives
+  // above, not a nested blob. A Week belongs to a business (businessId);
+  // a Day belongs to a week (weekId) and also denormalizes businessId
+  // (same two-level-FK precedent as Tasks carrying both goalId and
+  // milestoneId) so it can be queried without joining through its week;
+  // a ChecklistItem belongs to a day (dayId). Generic — any business can
+  // have a Workflow, not just Amazon KDP; nothing here is name-scoped to
+  // a specific business, per CLAUDE.md's DO NOT MODIFY §2 (no one-off
+  // exceptions unless asked). Data layer only in this step — nothing
+  // here renders UI yet.
+  //
+  // WorkflowWeek:          { id, businessId, title, order, collapsed, createdAt }
+  // WorkflowDay:           { id, weekId, businessId, title, status, order, notes, createdAt }
+  // WorkflowChecklistItem: { id, dayId, text, checked, order, createdAt }
+  //
+  // `order` is a free-floating numeric sort key (new records get
+  // "current max within their parent scope + 1"); move*() below swaps
+  // two siblings' `order` values on reorder — titles/text/status are
+  // never rewritten or renumbered as a side effect of reordering, same
+  // "swap adjacent order values only" precedent as moveValueRank() for
+  // Self-Discovery Values elsewhere in this file.
+  // =====================================================================
+  var WORKFLOW_DAY_STATUSES = ['Not started', 'In progress', 'Done', 'Blocked'];
+  var WORKFLOW_DAY_DEFAULT_STATUS = WORKFLOW_DAY_STATUSES[0];
+
+  function workflowWeekModel(data) {
+    data = data || {};
+    return {
+      id: data.id || genId('week'),
+      businessId: data.businessId || null,
+      title: data.title || '',
+      order: data.order != null ? data.order : Date.now(),
+      collapsed: !!data.collapsed,
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+  function workflowDayModel(data) {
+    data = data || {};
+    return {
+      id: data.id || genId('wday'),
+      weekId: data.weekId || null,
+      businessId: data.businessId || null,
+      title: data.title || '',
+      status: WORKFLOW_DAY_STATUSES.indexOf(data.status) !== -1 ? data.status : WORKFLOW_DAY_DEFAULT_STATUS,
+      order: data.order != null ? data.order : Date.now(),
+      notes: data.notes || '',
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+  function workflowChecklistItemModel(data) {
+    data = data || {};
+    return {
+      id: data.id || genId('wchk'),
+      dayId: data.dayId || null,
+      text: data.text || '',
+      checked: !!data.checked,
+      order: data.order != null ? data.order : Date.now(),
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+
+  function loadWorkflowWeeks() { var l = storeGet('main:workflowWeeks'); return Array.isArray(l) ? l : []; }
+  function saveWorkflowWeeks(list) { storeSet('main:workflowWeeks', list); }
+  function loadWorkflowDays() { var l = storeGet('main:workflowDays'); return Array.isArray(l) ? l : []; }
+  function saveWorkflowDays(list) { storeSet('main:workflowDays', list); }
+  function loadWorkflowChecklist() { var l = storeGet('main:workflowChecklist'); return Array.isArray(l) ? l : []; }
+  function saveWorkflowChecklist(list) { storeSet('main:workflowChecklist', list); }
+
+  function workflowWeekById(id) { return loadWorkflowWeeks().filter(function (w) { return w.id === id; })[0] || null; }
+  function workflowDayById(id) { return loadWorkflowDays().filter(function (d) { return d.id === id; })[0] || null; }
+  function workflowChecklistItemById(id) { return loadWorkflowChecklist().filter(function (c) { return c.id === id; })[0] || null; }
+
+  // ---- selectors ----
+  function weeksForBusiness(businessId) {
+    return loadWorkflowWeeks().filter(function (w) { return w.businessId === businessId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function daysForWeek(weekId) {
+    return loadWorkflowDays().filter(function (d) { return d.weekId === weekId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function checklistForDay(dayId) {
+    return loadWorkflowChecklist().filter(function (c) { return c.dayId === dayId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  /** { done, total, fraction } — fraction (0-1) of a week's days marked Done; 0 total -> 0 fraction, not NaN. */
+  function weekProgress(weekId) {
+    var days = daysForWeek(weekId);
+    var done = days.filter(function (d) { return d.status === 'Done'; }).length;
+    return { done: done, total: days.length, fraction: days.length ? done / days.length : 0 };
+  }
+
+  function nextWorkflowOrder(siblings) {
+    return siblings.reduce(function (max, x) { return Math.max(max, x.order || 0); }, 0) + 1;
+  }
+
+  // ---- weeks ----
+  function addWorkflowWeek(businessId, fields) {
+    var list = loadWorkflowWeeks();
+    var week = workflowWeekModel(Object.assign({}, fields, {
+      businessId: businessId,
+      order: (fields && fields.order != null) ? fields.order : nextWorkflowOrder(weeksForBusiness(businessId))
+    }));
+    list.push(week);
+    saveWorkflowWeeks(list);
+    return week;
+  }
+  function updateWorkflowWeek(id, patch) {
+    var list = loadWorkflowWeeks();
+    var week = list.filter(function (w) { return w.id === id; })[0];
+    if (!week) return null;
+    Object.assign(week, workflowWeekModel(Object.assign({}, week, patch, { id: id })));
+    saveWorkflowWeeks(list);
+    return week;
+  }
+  /** Cascades: deletes the week's days, which in turn deletes each day's checklist items. */
+  function removeWorkflowWeek(id) {
+    daysForWeek(id).forEach(function (d) { removeWorkflowDay(d.id); });
+    saveWorkflowWeeks(loadWorkflowWeeks().filter(function (w) { return w.id !== id; }));
+  }
+  function moveWorkflowWeek(id, dir) {
+    var all = loadWorkflowWeeks();
+    var week = all.filter(function (w) { return w.id === id; })[0];
+    if (!week) return false;
+    var siblings = all.filter(function (w) { return w.businessId === week.businessId; })
+      .sort(function (a, b) { return a.order - b.order; });
+    var idx = siblings.indexOf(week);
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= siblings.length) return false;
+    var tmp = week.order;
+    week.order = siblings[swapIdx].order;
+    siblings[swapIdx].order = tmp;
+    saveWorkflowWeeks(all);
+    return true;
+  }
+  /**
+   * Clones a week (title suffixed " (Copy)") plus every one of its days and
+   * their checklist items, into a new week appended at the end of the same
+   * business's list (so it's immediately reorderable with the existing
+   * move*() controls like any other week). The copy starts fresh — day
+   * statuses reset to "Not started" and checklist items reset unchecked —
+   * since duplicating is for reusing a week's day/checklist *structure*
+   * (e.g. another prose-sprint week), not for snapshotting progress.
+   * Linked Tasks are never copied (a duplicated day has no Task pointing
+   * at it until explicitly sent).
+   */
+  function duplicateWorkflowWeek(weekId) {
+    var week = workflowWeekById(weekId);
+    if (!week) return null;
+    var newWeek = addWorkflowWeek(week.businessId, { title: (week.title || 'Untitled week') + ' (Copy)' });
+    daysForWeek(weekId).forEach(function (day) {
+      var newDay = addWorkflowDay(newWeek.id, { title: day.title, notes: day.notes || '', status: WORKFLOW_DAY_DEFAULT_STATUS });
+      checklistForDay(day.id).forEach(function (item) {
+        addWorkflowChecklistItem(newDay.id, { text: item.text, checked: false });
+      });
+    });
+    return newWeek;
+  }
+
+  // ---- days ----
+  function addWorkflowDay(weekId, fields) {
+    var week = workflowWeekById(weekId);
+    var list = loadWorkflowDays();
+    var day = workflowDayModel(Object.assign({}, fields, {
+      weekId: weekId,
+      businessId: week ? week.businessId : null,
+      order: (fields && fields.order != null) ? fields.order : nextWorkflowOrder(daysForWeek(weekId))
+    }));
+    list.push(day);
+    saveWorkflowDays(list);
+    return day;
+  }
+  function updateWorkflowDay(id, patch) {
+    var list = loadWorkflowDays();
+    var day = list.filter(function (d) { return d.id === id; })[0];
+    if (!day) return null;
+    Object.assign(day, workflowDayModel(Object.assign({}, day, patch, { id: id })));
+    saveWorkflowDays(list);
+    return day;
+  }
+  /** Cascades: deletes the day's checklist items. */
+  function removeWorkflowDay(id) {
+    checklistForDay(id).forEach(function (c) { removeWorkflowChecklistItem(c.id); });
+    saveWorkflowDays(loadWorkflowDays().filter(function (d) { return d.id !== id; }));
+  }
+  function moveWorkflowDay(id, dir) {
+    var all = loadWorkflowDays();
+    var day = all.filter(function (d) { return d.id === id; })[0];
+    if (!day) return false;
+    var siblings = all.filter(function (d) { return d.weekId === day.weekId; })
+      .sort(function (a, b) { return a.order - b.order; });
+    var idx = siblings.indexOf(day);
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= siblings.length) return false;
+    var tmp = day.order;
+    day.order = siblings[swapIdx].order;
+    siblings[swapIdx].order = tmp;
+    saveWorkflowDays(all);
+    return true;
+  }
+
+  // ---- checklist items ----
+  function addWorkflowChecklistItem(dayId, fields) {
+    var list = loadWorkflowChecklist();
+    var item = workflowChecklistItemModel(Object.assign({}, fields, {
+      dayId: dayId,
+      order: (fields && fields.order != null) ? fields.order : nextWorkflowOrder(checklistForDay(dayId))
+    }));
+    list.push(item);
+    saveWorkflowChecklist(list);
+    return item;
+  }
+  function updateWorkflowChecklistItem(id, patch) {
+    var list = loadWorkflowChecklist();
+    var item = list.filter(function (c) { return c.id === id; })[0];
+    if (!item) return null;
+    Object.assign(item, workflowChecklistItemModel(Object.assign({}, item, patch, { id: id })));
+    saveWorkflowChecklist(list);
+    return item;
+  }
+  function removeWorkflowChecklistItem(id) {
+    saveWorkflowChecklist(loadWorkflowChecklist().filter(function (c) { return c.id !== id; }));
+  }
+  function moveWorkflowChecklistItem(id, dir) {
+    var all = loadWorkflowChecklist();
+    var item = all.filter(function (c) { return c.id === id; })[0];
+    if (!item) return false;
+    var siblings = all.filter(function (c) { return c.dayId === item.dayId; })
+      .sort(function (a, b) { return a.order - b.order; });
+    var idx = siblings.indexOf(item);
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= siblings.length) return false;
+    var tmp = item.order;
+    item.order = siblings[swapIdx].order;
+    siblings[swapIdx].order = tmp;
+    saveWorkflowChecklist(all);
+    return true;
+  }
+
+  // ---- one-time content seed: the Amazon KDP book-playbook Workflow ----
+  // Guarded by main:kdpWorkflowSeeded so it only does real work on the
+  // first load after this ships (same "runs automatically once inline in
+  // the page's own script" precedent as finance.html's finance:migrated_v2
+  // / entertainment.html's media:migrated_v1) — after that it's a cheap
+  // early-return. The find-or-create-by-title helpers inside are ALSO
+  // independently idempotent (title match -> reuse, no match -> create),
+  // so re-running this (e.g. by clearing the flag to reseed after editing
+  // WORKFLOW_SEED_PLAN below) never duplicates weeks/days/checklist items
+  // — it only ever fills in what's missing. It never resets an existing
+  // day's status or an existing item's checked state, so it can't stomp
+  // on real progress the user has already logged.
+  var WORKFLOW_PROSE_SPRINT_ITEMS = [
+    'For each chapter: generate draft in Novel Chapter Writer',
+    'Run critique pass',
+    'Rewrite / revise against Style Sheet & Forbidden Words',
+    'Save to project folder; update continuity notes'
+  ];
+  var WORKFLOW_SEED_PLAN = [
+    {
+      title: 'Week 1 ~ Foundation',
+      days: [
+        { title: 'Day 01. Story Dossier', items: [
+          'Block 90–120 min/day for 22 days',
+          'Choose genre & pick your lane',
+          'Create "Novel Brainstormer" Claude Project',
+          'Paste trilogy outline; AI interviews you',
+          'Extract Story Dossier (first draft)'
+        ] },
+        { title: 'Day 02. Dossier Critique + Rewrite', items: [
+          'Run Emotional Critique prompt',
+          'Run Character Name Critique prompt',
+          'Implement both → Story Dossier (Revised)',
+          'Save all docs to project folder',
+          '✓ Story Dossier (Revised) done'
+        ] },
+        { title: 'Day 03. Characters — Protagonist + Love Interest + Antagonist + Supporting', items: [
+          'Create "Novel Characters" Claude Project',
+          'Upload revised dossier + blank character sheet',
+          'Generate Protagonist → critique → rewrite',
+          'Generate Love Interest → critique → rewrite',
+          'Generate Betrayer Best Friend → critique → rewrite',
+          'Generate Antagonist → critique → rewrite',
+          'Generate any remaining major characters',
+          'Map all character goal conflicts',
+          '✓ All character sheets done'
+        ] },
+        { title: 'Day 04. Worldbuilding Sheet', items: [
+          'Create "Novel Worldbuilding" Claude Project',
+          'Upload revised dossier',
+          'Generate full worldbuilding sheet (all categories)',
+          'Label each: vital / flexible / flavor',
+          'Build optional mood board',
+          '✓ Worldbuilding Sheet done'
+        ] },
+        { title: 'Day 05. Outline — Ch. 1–20', items: [
+          'Create "Novel Outliner" Claude Project',
+          'Upload all docs: dossier, chars, worldbuilding, trilogy outline',
+          'Expand Ch. 1–20 to 4–6 sentence scene summaries',
+          'Review & fix any drift from your vision'
+        ] },
+        { title: 'Day 06. Outline — Ch. 21–40', items: [
+          'Expand Ch. 21–40',
+          'Verify escalation + cause-and-effect chain',
+          'Every chapter has clear purpose, POV, stakes & outcome',
+          '✓ Full Expanded Chapter Outline done'
+        ] },
+        { title: 'Day 07. Chapter Writer Setup', items: [
+          'Create "Novel Chapter Writer" Claude Project',
+          'Upload: all char sheets, worldbuilding, expanded outline',
+          'Upload: Sample Prose, Style Sheet, Forbidden Words',
+          'Finalize Style Sheet if not done',
+          'Test-run Ch. 1 generation to check tone/voice'
+        ] }
+      ]
+    },
+    {
+      title: 'Week 2 ~ Full Prose Sprint',
+      days: [
+        { title: 'Day 01. Ch. 1–4 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 02. Ch. 5–8 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 03. Ch. 9–12 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 04. Ch. 13–16 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 05. Ch. 17–20 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 06. Ch. 21–24 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 07. Ch. 25–28 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS }
+      ]
+    },
+    {
+      // Intentionally still "Full Prose Sprint" — same subtitle as Week 2, not a typo.
+      title: 'Week 3 ~ Full Prose Sprint',
+      days: [
+        { title: 'Day 01. Ch. 29–32 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 02. Ch. 33–36 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS },
+        { title: 'Day 03. Ch. 37–40 (full loop each)', items: WORKFLOW_PROSE_SPRINT_ITEMS }
+      ]
+    },
+    {
+      title: 'Week 4 ~ Finish & Polish',
+      days: [
+        { title: 'Day 01. Continuity Read-Through', items: [
+          'Read the full manuscript start to finish',
+          'Log continuity errors and inconsistencies',
+          'Add fixes to the punch list'
+        ] },
+        { title: 'Day 02. Continuity Read-Through', items: [
+          'Continue continuity read-through',
+          'Log continuity errors and inconsistencies',
+          'Add fixes to the punch list'
+        ] },
+        { title: 'Day 03. Continuity Read-Through', items: [
+          'Finish continuity read-through',
+          'Finalize the punch list'
+        ] },
+        { title: 'Day 04. Fix Punch List', items: [
+          'Work through every punch-list item',
+          'Verify each fix in context'
+        ] },
+        { title: 'Day 05. Formatting Day', items: [
+          'Format manuscript for KDP (front/back matter, chapters, styles)'
+        ] },
+        { title: 'Day 06. Formatting Day', items: [
+          'Continue formatting; build/insert cover and TOC'
+        ] },
+        { title: 'Day 07. Formatting Day', items: [
+          'Final formatting pass; export/proof the file'
+        ] }
+      ]
+    },
+    {
+      // Intentionally jumps from Week 4 to Week 6 — there is no Week 5.
+      title: 'Week 6 ~ Publish',
+      days: [
+        { title: 'Day 01. Publish to KDP', items: [
+          'Finalize cover, blurb, keywords, categories',
+          'Set pricing and territories',
+          'Upload manuscript + cover; order/review proof',
+          'Hit Publish'
+        ] }
+      ]
+    }
+  ];
+  function seedKdpWorkflow() {
+    if (storeGet('main:kdpWorkflowSeeded')) return;
+
+    var biz = loadBusinesses().filter(function (b) { return b.name === 'Amazon KDP'; })[0];
+    if (!biz) {
+      var list = loadBusinesses();
+      biz = { id: genId('biz'), name: 'Amazon KDP', icon: '📚', description: '', notes: '', kpis: [], createdAt: Date.now() };
+      list.push(biz);
+      saveBusinesses(list);
+    }
+
+    function findOrCreateWeek(title) {
+      var existing = weeksForBusiness(biz.id).filter(function (w) { return w.title === title; })[0];
+      return existing || addWorkflowWeek(biz.id, { title: title });
+    }
+    function findOrCreateDay(weekId, title) {
+      var existing = daysForWeek(weekId).filter(function (d) { return d.title === title; })[0];
+      return existing || addWorkflowDay(weekId, { title: title, status: WORKFLOW_DAY_DEFAULT_STATUS });
+    }
+    function ensureChecklistItems(dayId, texts) {
+      var existingTexts = checklistForDay(dayId).map(function (c) { return c.text; });
+      texts.forEach(function (t) {
+        if (existingTexts.indexOf(t) === -1) addWorkflowChecklistItem(dayId, { text: t });
+      });
+    }
+
+    WORKFLOW_SEED_PLAN.forEach(function (weekSpec) {
+      var week = findOrCreateWeek(weekSpec.title);
+      weekSpec.days.forEach(function (daySpec) {
+        var day = findOrCreateDay(week.id, daySpec.title);
+        ensureChecklistItems(day.id, daySpec.items);
+      });
+    });
+
+    storeSet('main:kdpWorkflowSeeded', true);
+  }
+  seedKdpWorkflow();
+
+  // ---- Workflow <-> Tasks integration ----
+  // A WorkflowDay can optionally be linked to a main:tasks record via a new
+  // Task field, workflowDayId (nullable, additive — every task created
+  // before this shipped just has it undefined, which every read below
+  // treats the same as null). This mirrors the two-level-FK precedent
+  // Tasks already use for goalId+milestoneId: the link lives on the Task
+  // side only (not duplicated back onto WorkflowDay), so there's one
+  // source of truth for "is this day sent to Tasks" — taskForWorkflowDay()
+  // below is the only lookup, everything else reads through it.
+  //
+  // Status sync is two-way, but deliberately NOT via a generic "any update
+  // propagates" hook on the low-level update*()/setTaskDone() primitives
+  // (that would risk a Day->Task->Day->... ping-pong). Instead, push*()
+  // below are one-hop, non-recursive mirrors called ONLY from the specific
+  // user-facing entry points that originate a change: the Day status
+  // <select>'s change handler calls pushDayStatusToLinkedTask(); setTaskDone()
+  // and the task edit modal's save handler call pushTaskStatusToLinkedDay().
+  // Neither push* function calls the other's entry point, so there's no
+  // cycle by construction, not just by convention.
+  //
+  // Status vocabularies don't map 1:1: Tasks have todo/in-progress/done,
+  // WorkflowDay adds Blocked. Blocked has no Task equivalent, so pushing
+  // Day->Task maps Blocked to 'todo' (lossy but harmless). Pushing the
+  // other way, a Task that isn't done/in-progress is never allowed to
+  // silently clear an explicit Blocked on the Day — only an actual
+  // "done" on the Task can override Blocked — so unchecking an unrelated
+  // task field can't accidentally un-block a day.
+  function taskStatusFromWorkflowStatus(dayStatus) {
+    if (dayStatus === 'Done') return 'done';
+    if (dayStatus === 'In progress') return 'in-progress';
+    return 'todo'; // 'Not started' and 'Blocked' both have no better Task equivalent
+  }
+  function workflowStatusFromTaskStatus(taskStatus) {
+    if (taskStatus === 'done') return 'Done';
+    if (taskStatus === 'in-progress') return 'In progress';
+    return 'Not started';
+  }
+  function taskForWorkflowDay(dayId) {
+    return loadTasks().filter(function (t) { return t.workflowDayId === dayId; })[0] || null;
+  }
+  /** Day status changed -> mirror onto its linked Task, if any. One-hop only. */
+  function pushDayStatusToLinkedTask(dayId, dayStatus) {
+    var list = loadTasks();
+    var t = list.filter(function (x) { return x.workflowDayId === dayId; })[0];
+    if (!t) return;
+    var newStatus = taskStatusFromWorkflowStatus(dayStatus);
+    if (taskStatusOf(t) === newStatus) return;
+    t.status = newStatus; t.done = newStatus === 'done'; t.doneAt = newStatus === 'done' ? Date.now() : null;
+    saveTasks(list);
+  }
+  /** Task status changed -> mirror onto its linked WorkflowDay, if any. One-hop only. */
+  function pushTaskStatusToLinkedDay(task) {
+    if (!task || !task.workflowDayId) return;
+    var day = workflowDayById(task.workflowDayId);
+    if (!day) return;
+    var newStatus = workflowStatusFromTaskStatus(taskStatusOf(task));
+    if (day.status === 'Blocked' && newStatus !== 'Done') return;
+    if (day.status === newStatus) return;
+    updateWorkflowDay(day.id, { status: newStatus });
+  }
+  /** Create (or, if already linked, sync title/status onto) the Task for a day. Merge-not-duplicate by day. */
+  function sendWorkflowDayToTasks(day, biz) {
+    var list = loadTasks();
+    var existing = list.filter(function (t) { return t.workflowDayId === day.id; })[0];
+    var newStatus = taskStatusFromWorkflowStatus(day.status);
+    if (existing) {
+      if (existing.title !== day.title || taskStatusOf(existing) !== newStatus) {
+        existing.title = day.title;
+        existing.status = newStatus; existing.done = newStatus === 'done'; existing.doneAt = newStatus === 'done' ? Date.now() : null;
+        saveTasks(list);
+      }
+      return existing;
+    }
+    var task = {
+      id: genId('task'), title: day.title, note: '', status: newStatus, priority: 'medium',
+      dueDate: '', lifeAreaId: null, goalId: null, milestoneId: null, businessId: biz.id, habitId: null,
+      estimateMinutes: null, isDailyAction: false, recurrence: 'none',
+      done: newStatus === 'done', doneAt: newStatus === 'done' ? Date.now() : null,
+      createdAt: Date.now(), workflowDayId: day.id
+    };
+    list.push(task);
+    saveTasks(list);
+    return task;
+  }
+  /** Un-links a day from its Task without deleting the Task itself (same "null the reference, don't cascade-delete" precedent used elsewhere in this app). */
+  function unlinkWorkflowDayFromTask(dayId) {
+    var list = loadTasks();
+    var t = list.filter(function (x) { return x.workflowDayId === dayId; })[0];
+    if (!t) return;
+    t.workflowDayId = null;
+    saveTasks(list);
+  }
+  function isWorkflowAutoSyncOn(biz) { return !!(biz && biz.workflowAutoSync); }
+  /** Flips a business's auto-sync flag; turning it on immediately sends every not-yet-linked day. */
+  function setWorkflowAutoSync(bizId, on) {
+    var list = loadBusinesses();
+    var b = list.filter(function (x) { return x.id === bizId; })[0];
+    if (!b) return;
+    b.workflowAutoSync = !!on;
+    saveBusinesses(list);
+    if (on) {
+      weeksForBusiness(bizId).forEach(function (w) {
+        daysForWeek(w.id).forEach(function (d) {
+          if (!taskForWorkflowDay(d.id)) sendWorkflowDayToTasks(d, b);
+        });
+      });
+    }
+  }
+
   // Habits — main:habits = [{ id, name, lifeAreaId, cue, routine, reward,
   // frequency, weekdays, timeOfDay, targetStreak, createdAt }]. This
   // section (and the Tasks-section habitId selector, wired earlier) now
@@ -1735,6 +2307,7 @@ body::after {
     t.done = doneBool; t.doneAt = doneBool ? Date.now() : null; t.status = doneBool ? 'done' : 'todo';
     if (doneBool && !wasDone && t.recurrence && t.recurrence !== 'none') spawnNextRecurrence(list, t);
     saveTasks(list);
+    pushTaskStatusToLinkedDay(t);
   }
 
   // =====================================================================
@@ -2362,6 +2935,7 @@ body::after {
       spawnNextRecurrence(list, target);
     }
     saveTasks(list);
+    pushTaskStatusToLinkedDay(target);
     document.getElementById('gTaskModalBg').classList.remove('show');
     teRerender();
   });
@@ -3313,6 +3887,339 @@ body::after {
     return wrap;
   }
 
+  // =====================================================================
+  // Workflow UI — collapsible Week groups -> Day rows -> checklist items,
+  // scoped to whichever business tab is active. The data layer (models,
+  // CRUD, reordering, selectors: loadWorkflowWeeks/weeksForBusiness/
+  // daysForWeek/checklistForDay/weekProgress/move*() etc.) lives above
+  // with the rest of the Businesses data — this block is presentation
+  // only, following the same build*()-returns-a-node convention as the
+  // rest of the Businesses UI just above. Every mutation re-renders via
+  // renderBusinessesSection (same rerenderFn already threaded through
+  // buildGoalCard/buildTaskRow calls elsewhere in this section).
+  //
+  // Collapse state: a Week's is persisted (WorkflowWeek.collapsed, part
+  // of the data layer). A Day's is intentionally NOT persisted — same
+  // "transient, module-scoped, defaults to expanded" precedent as
+  // collapsedMilestoneIds above, since only the week-level collapse was
+  // asked to survive a reload.
+  // =====================================================================
+  var collapsedWorkflowDayIds = {};
+
+  function moveWorkflowDayToWeek(dayId, newWeekId) {
+    var day = workflowDayById(dayId);
+    var newWeek = workflowWeekById(newWeekId);
+    if (!day || !newWeek || day.weekId === newWeekId) return;
+    updateWorkflowDay(dayId, {
+      weekId: newWeekId,
+      businessId: newWeek.businessId,
+      order: nextWorkflowOrder(daysForWeek(newWeekId))
+    });
+  }
+
+  function buildWorkflowStatusSelect(day, rerenderFn) {
+    var sel = document.createElement('select');
+    sel.className = 'wf-status-select';
+    sel.setAttribute('aria-label', 'Day status');
+    sel.dataset.status = day.status;
+    WORKFLOW_DAY_STATUSES.forEach(function (s) {
+      var o = document.createElement('option'); o.value = s; o.textContent = s;
+      sel.appendChild(o);
+    });
+    sel.value = day.status;
+    sel.addEventListener('click', function (e) { e.stopPropagation(); });
+    sel.addEventListener('change', function () {
+      updateWorkflowDay(day.id, { status: sel.value });
+      pushDayStatusToLinkedTask(day.id, sel.value);
+      rerenderFn();
+    });
+    return sel;
+  }
+
+  function buildWorkflowChecklistRow(item, rerenderFn) {
+    var row = document.createElement('div');
+    row.className = 'gp-obj-row' + (item.checked ? ' is-done' : '');
+
+    var siblings = checklistForDay(item.dayId);
+    var idx = siblings.map(function (x) { return x.id; }).indexOf(item.id);
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx <= 0;
+    up.addEventListener('click', function () { moveWorkflowChecklistItem(item.id, -1); rerenderFn(); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === -1 || idx === siblings.length - 1;
+    down.addEventListener('click', function () { moveWorkflowChecklistItem(item.id, 1); rerenderFn(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    row.appendChild(reorder);
+
+    var check = document.createElement('button');
+    check.type = 'button'; check.className = 'gp-obj-check' + (item.checked ? ' done' : ''); check.textContent = '✓';
+    check.setAttribute('aria-label', item.checked ? 'Mark not done' : 'Mark done');
+    check.addEventListener('click', function () { updateWorkflowChecklistItem(item.id, { checked: !item.checked }); rerenderFn(); });
+    row.appendChild(check);
+
+    var textInput = document.createElement('input');
+    textInput.type = 'text'; textInput.className = 'wf-text-input gp-obj-text'; textInput.value = item.text;
+    textInput.addEventListener('blur', function () {
+      var v = textInput.value.trim();
+      if (!v) { removeWorkflowChecklistItem(item.id); rerenderFn(); return; }
+      if (v !== item.text) { updateWorkflowChecklistItem(item.id, { text: v }); rerenderFn(); }
+    });
+    textInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); textInput.blur(); } });
+    row.appendChild(textInput);
+
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'gp-obj-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete item');
+    del.addEventListener('click', function () { removeWorkflowChecklistItem(item.id); rerenderFn(); });
+    row.appendChild(del);
+    return row;
+  }
+
+  function buildWorkflowDayRow(day, biz, rerenderFn) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wf-day' + (collapsedWorkflowDayIds[day.id] ? ' collapsed' : '');
+
+    var head = document.createElement('div'); head.className = 'wf-day-head';
+    head.addEventListener('click', function () {
+      collapsedWorkflowDayIds[day.id] = !collapsedWorkflowDayIds[day.id];
+      rerenderFn();
+    });
+
+    var siblings = daysForWeek(day.weekId);
+    var idx = siblings.map(function (d) { return d.id; }).indexOf(day.id);
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx <= 0;
+    up.addEventListener('click', function (e) { e.stopPropagation(); moveWorkflowDay(day.id, -1); rerenderFn(); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === -1 || idx === siblings.length - 1;
+    down.addEventListener('click', function (e) { e.stopPropagation(); moveWorkflowDay(day.id, 1); rerenderFn(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    head.appendChild(reorder);
+
+    var caret = document.createElement('span'); caret.className = 'wf-day-caret'; caret.textContent = '▼';
+    head.appendChild(caret);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text'; titleInput.className = 'wf-text-input wf-day-title'; titleInput.value = day.title;
+    titleInput.placeholder = 'Day title…';
+    titleInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    titleInput.addEventListener('blur', function () {
+      var v = titleInput.value.trim();
+      if (v !== day.title) { updateWorkflowDay(day.id, { title: v }); rerenderFn(); }
+    });
+    titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); titleInput.blur(); } });
+    head.appendChild(titleInput);
+
+    head.appendChild(buildWorkflowStatusSelect(day, rerenderFn));
+
+    var tag = document.createElement('span'); tag.className = 'at-due-link';
+    tag.textContent = (biz.icon || '💼') + ' ' + biz.name;
+    head.appendChild(tag);
+
+    var linkedTask = taskForWorkflowDay(day.id);
+    var sendBtn = document.createElement('button');
+    sendBtn.type = 'button'; sendBtn.className = 'at-mini-btn wf-day-send-btn' + (linkedTask ? ' linked' : '');
+    sendBtn.textContent = linkedTask ? '✓ In Tasks' : '→ Tasks';
+    sendBtn.title = linkedTask ? 'Linked to a Task — click to unlink' : 'Create a linked Task from this day';
+    sendBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (linkedTask) unlinkWorkflowDayFromTask(day.id);
+      else sendWorkflowDayToTasks(day, biz);
+      rerenderFn();
+    });
+    head.appendChild(sendBtn);
+
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'wf-day-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete day');
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete "' + (day.title || 'this day') + '"? Its checklist items will be deleted too.')) return;
+      removeWorkflowDay(day.id);
+      rerenderFn();
+    });
+    head.appendChild(del);
+
+    wrap.appendChild(head);
+
+    var body = document.createElement('div'); body.className = 'wf-day-body';
+
+    var weekSiblings = weeksForBusiness(biz.id);
+    if (weekSiblings.length > 1) {
+      var moveRow = document.createElement('div'); moveRow.className = 'wf-move-row';
+      var moveLabel = document.createElement('span'); moveLabel.textContent = 'Move to week:';
+      moveRow.appendChild(moveLabel);
+      var moveSelect = document.createElement('select');
+      moveSelect.setAttribute('aria-label', 'Move day to week');
+      weekSiblings.forEach(function (w) {
+        var o = document.createElement('option'); o.value = w.id; o.textContent = w.title || '(untitled week)';
+        moveSelect.appendChild(o);
+      });
+      moveSelect.value = day.weekId;
+      moveSelect.addEventListener('change', function () {
+        moveWorkflowDayToWeek(day.id, moveSelect.value);
+        rerenderFn();
+      });
+      moveRow.appendChild(moveSelect);
+      body.appendChild(moveRow);
+    }
+
+    var items = checklistForDay(day.id);
+    if (items.length) {
+      items.forEach(function (item) { body.appendChild(buildWorkflowChecklistRow(item, rerenderFn)); });
+    } else {
+      var itemsEmpty = document.createElement('div'); itemsEmpty.className = 'at-empty'; itemsEmpty.textContent = 'No checklist items yet.';
+      body.appendChild(itemsEmpty);
+    }
+
+    var quickAdd = document.createElement('div'); quickAdd.className = 'std-quick-add';
+    var itemInput = document.createElement('input'); itemInput.type = 'text'; itemInput.placeholder = 'Quick-add a note item, press Enter…';
+    var itemBtn = document.createElement('button'); itemBtn.type = 'button'; itemBtn.textContent = '+ Add';
+    function addItem() {
+      var t = itemInput.value.trim();
+      if (!t) return;
+      addWorkflowChecklistItem(day.id, { text: t });
+      itemInput.value = '';
+      rerenderFn();
+    }
+    itemBtn.addEventListener('click', addItem);
+    itemInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addItem(); } });
+    quickAdd.appendChild(itemInput); quickAdd.appendChild(itemBtn);
+    body.appendChild(quickAdd);
+
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function buildWorkflowWeekGroup(week, biz, rerenderFn) {
+    var group = document.createElement('div');
+    group.className = 'std-group' + (week.collapsed ? ' collapsed' : '');
+
+    var head = document.createElement('div'); head.className = 'std-group-head';
+    head.addEventListener('click', function () {
+      updateWorkflowWeek(week.id, { collapsed: !week.collapsed });
+      rerenderFn();
+    });
+
+    var siblings = weeksForBusiness(biz.id);
+    var idx = siblings.map(function (w) { return w.id; }).indexOf(week.id);
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx <= 0;
+    up.addEventListener('click', function (e) { e.stopPropagation(); moveWorkflowWeek(week.id, -1); rerenderFn(); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === -1 || idx === siblings.length - 1;
+    down.addEventListener('click', function (e) { e.stopPropagation(); moveWorkflowWeek(week.id, 1); rerenderFn(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    head.appendChild(reorder);
+
+    var caret = document.createElement('span'); caret.className = 'std-caret'; caret.textContent = '▼';
+    head.appendChild(caret);
+
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text'; titleInput.className = 'wf-text-input wf-week-title'; titleInput.value = week.title;
+    titleInput.placeholder = 'Week title…';
+    titleInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    titleInput.addEventListener('blur', function () {
+      var v = titleInput.value.trim();
+      if (v !== week.title) { updateWorkflowWeek(week.id, { title: v }); rerenderFn(); }
+    });
+    titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); titleInput.blur(); } });
+    head.appendChild(titleInput);
+
+    var days = daysForWeek(week.id);
+    var progress = weekProgress(week.id);
+    var count = document.createElement('span'); count.className = 'std-group-count';
+    count.textContent = progress.total ? (progress.done + '/' + progress.total + ' done') : 'No days yet';
+    head.appendChild(count);
+
+    var spacer = document.createElement('span'); spacer.className = 'std-group-spacer';
+    head.appendChild(spacer);
+
+    var dupBtn = document.createElement('button');
+    dupBtn.type = 'button'; dupBtn.className = 'std-group-dup'; dupBtn.textContent = '⧉'; dupBtn.setAttribute('aria-label', 'Duplicate week');
+    dupBtn.title = 'Duplicate this week (days + checklist items, reset to Not started)';
+    dupBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      duplicateWorkflowWeek(week.id);
+      rerenderFn();
+    });
+    head.appendChild(dupBtn);
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'std-group-del'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete week');
+    delBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete "' + (week.title || 'this week') + '"? Its days and their checklist items will be deleted too.')) return;
+      removeWorkflowWeek(week.id);
+      rerenderFn();
+    });
+    head.appendChild(delBtn);
+
+    group.appendChild(head);
+
+    var body = document.createElement('div'); body.className = 'std-group-body';
+
+    var bar = document.createElement('div'); bar.className = 'std-bar std-group-bar';
+    var fill = document.createElement('div'); fill.className = 'std-bar-fill'; fill.style.width = Math.round(progress.fraction * 100) + '%';
+    bar.appendChild(fill); body.appendChild(bar);
+
+    if (days.length) {
+      days.forEach(function (d) { body.appendChild(buildWorkflowDayRow(d, biz, rerenderFn)); });
+    } else {
+      var daysEmpty = document.createElement('div'); daysEmpty.className = 'at-empty'; daysEmpty.textContent = 'No days yet.';
+      body.appendChild(daysEmpty);
+    }
+
+    var quickAdd = document.createElement('div'); quickAdd.className = 'std-quick-add';
+    var dayInput = document.createElement('input'); dayInput.type = 'text'; dayInput.placeholder = 'Quick-add a day, press Enter…';
+    var dayBtn = document.createElement('button'); dayBtn.type = 'button'; dayBtn.textContent = '+ Add';
+    function addDay() {
+      var t = dayInput.value.trim();
+      if (!t) return;
+      var newDay = addWorkflowDay(week.id, { title: t });
+      if (isWorkflowAutoSyncOn(biz)) sendWorkflowDayToTasks(newDay, biz);
+      dayInput.value = '';
+      rerenderFn();
+    }
+    dayBtn.addEventListener('click', addDay);
+    dayInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addDay(); } });
+    quickAdd.appendChild(dayInput); quickAdd.appendChild(dayBtn);
+    body.appendChild(quickAdd);
+
+    group.appendChild(body);
+    return group;
+  }
+
+  function buildBizWorkflowSection(biz) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wf-section';
+    var title = document.createElement('div'); title.className = 'section-title';
+    title.appendChild(document.createTextNode('Workflow'));
+    var addWeekBtn = document.createElement('button'); addWeekBtn.type = 'button'; addWeekBtn.className = 'at-mini-btn'; addWeekBtn.textContent = '+ Add Week';
+    addWeekBtn.addEventListener('click', function () {
+      addWorkflowWeek(biz.id, { title: '' });
+      renderBusinessesSection();
+    });
+    title.appendChild(addWeekBtn);
+
+    var autoSyncLabel = document.createElement('label'); autoSyncLabel.className = 'wf-autosync-label';
+    var autoSyncCheckbox = document.createElement('input'); autoSyncCheckbox.type = 'checkbox';
+    autoSyncCheckbox.checked = isWorkflowAutoSyncOn(biz);
+    autoSyncCheckbox.addEventListener('change', function () {
+      setWorkflowAutoSync(biz.id, autoSyncCheckbox.checked);
+      renderBusinessesSection();
+    });
+    autoSyncLabel.appendChild(autoSyncCheckbox);
+    autoSyncLabel.appendChild(document.createTextNode('Auto-sync days to Tasks'));
+    title.appendChild(autoSyncLabel);
+
+    wrap.appendChild(title);
+
+    var weeks = weeksForBusiness(biz.id);
+    if (weeks.length) {
+      weeks.forEach(function (w) { wrap.appendChild(buildWorkflowWeekGroup(w, biz, renderBusinessesSection)); });
+    } else {
+      var empty = document.createElement('div'); empty.className = 'at-empty'; empty.textContent = 'No workflow weeks yet.';
+      wrap.appendChild(empty);
+    }
+    return wrap;
+  }
+
   function renderBizPanelBody() {
     var wrap = document.getElementById('bizPanelBody');
     wrap.innerHTML = '';
@@ -3388,6 +4295,8 @@ body::after {
     wrap.appendChild(buildBizTaskQuickAdd(biz));
 
     wrap.appendChild(buildBizNotesSection(biz));
+
+    wrap.appendChild(buildBizWorkflowSection(biz));
   }
 
   function renderBusinessesSection() {

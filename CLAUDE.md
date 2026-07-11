@@ -30,6 +30,7 @@ Vercel's static server) — see README.md.
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
+| `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -175,6 +176,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
+   | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -208,6 +210,7 @@ using `sync.js`.
 | Finance | `FINANCE` → `finance.html` | `finance.html` |
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
+| Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -1336,3 +1339,240 @@ between this app and either data loss or a wide-open write target:
     and deleted the other from inside the Favorites tab and confirmed
     it was actually gone from its home gallery's storage, not just
     hidden. No Supabase requests were made during verification.
+
+- **New page: `household.html` ("Household"), a five-section dashboard
+  for home admin.** Genuinely new file, plus a new companion data file,
+  `household-data.js` — new nav pill (`HOUSEHOLD` → `household.html`,
+  appended after `NUTRITION` in `topbar.js`'s injected pill list — the
+  only edit made to `topbar.js`); new sync key (`appKey: 'household'`,
+  `syncedPrefixes: ['household:']`, wired via the standard shared
+  `initCloudSync` — same call pattern as finance/entertainment/
+  braindump, nothing new invented).
+  - **Data layer modeled on `finance-data.js`, not the older raw-
+    localStorage-inline style** (`braindump.html`'s convention): a model
+    factory per collection (fills defaults, coerces types) +
+    `makeCollection(key, model)` → `{list, get, add, update, remove}` +
+    pure derived selectors, all under `window.HouseholdData`. Five
+    collections, one `localStorage` key each, all under a `household:`
+    prefix so the single `syncedPrefixes` entry covers everything with
+    no per-key sync list: `household:legions`, `household:beings`,
+    `household:inventory`, `household:wishlist`, `household:chores`,
+    plus `household:active_tab` (persisted last-open tab, same idea as
+    `finance.html`'s `TAB_KEY`/`setActiveTab`).
+  - **Energy Beings** — a roster of thought-forms (`household:beings`)
+    grouped into legions (`household:beings`'s `legionId` →
+    `household:legions`). Legions get lightweight CRUD (name, purpose,
+    a color tag from a small fixed palette) and up/down reorder — the
+    same swap-adjacent-`order`-values pattern as `index.html`'s Life
+    Areas (`.area-card-reorder`), renamed `.legion-card-reorder` here
+    since "area" is `index.html`-specific vocabulary. Deleting a legion
+    does **not** cascade-delete its beings — it nulls out their
+    `legionId` back to "Unassigned", the same null-out-the-reference
+    precedent `gym.html`'s equipment deletion already established,
+    confirmed as the right call here too since a being shouldn't vanish
+    just because its legion was reorganized. Each being renders as an
+    `.ent-card`/`.ent-cover` tile (the exact gallery-card shell from
+    `entertainment.html`, recolored with this page's own `--accent`
+    instead of pink) — cover is the being's **sigil**, an uploaded image
+    compressed via the standard `compressImageDataUrl(dataUrl, 480,
+    0.82)` thumbnail preset (same convention as cover art in
+    `entertainment.html`/`nutrition.html`, equipment photos in
+    `gym.html`), or a fallback glyph if none was set. A status badge
+    (Active/Charging/Dormant/Retired, colored via the existing
+    `--success`/`--warning`/`--info`/`--text-tertiary` tokens — no new
+    hues) overlays the cover, and the being's purpose/activation phrase
+    render below as card text/a `.tag`. Editing a being opens a modal
+    with an inline **charging log** — a simple timestamped add/delete
+    note list (no edit-in-place), the same low-ceremony pattern as
+    `gym.html`'s workout notes; log entries are edited as an in-memory
+    draft array and only committed to `household:beings` on Save,
+    matching every other modal's draft-then-save convention in this app.
+  - **Inventory** (`household:inventory`) — flat CRUD list (name,
+    category, quantity, unit, restock threshold), rendered as
+    `.acct-row`-style rows (copied verbatim from `finance.html`'s
+    Accounts/Subscriptions list recipe) inside a `.card`. "Needs
+    restock" is **derived, not stored** (`quantity <= restockThreshold`)
+    and reuses `finance.html`'s `.acct-row.is-due-soon` left-border/tint
+    treatment; items at or under half their threshold escalate to a new
+    `.acct-row.is-overdue` (danger red) variant of the same recipe.
+  - **Wishlist** (`household:wishlist`) — flat CRUD list (name, priority,
+    price, optional link, notes), sorted priority-then-price. Priority
+    pill is `index.html`'s `.std-priority-pill` recipe copied verbatim
+    (low/medium/high → info/warning/danger, the app's existing severity
+    colors, not new ones).
+  - **Chores** (`household:chores`) — recurring tasks with a `cadence`
+    (daily/weekly/monthly/custom-every-N-days) and a `dueDate`. A "Done"
+    action (`HouseholdData.completeChore()`) stamps `lastCompletedAt` to
+    today and advances `dueDate` forward by the chore's interval — plain
+    date math, no auto-deduct/financial side effect needed here (unlike
+    `finance.html`'s Subscriptions renewal flow, which was considered as
+    a precedent but doesn't actually apply since chores have no cost).
+    Rows reuse the `daysUntil()`/`is-due-soon` due-soon-highlighting
+    pattern from `finance.html`'s Subscriptions list (`daysUntil() <=
+    7`-style threshold), with overdue chores (`days < 0`) escalating to
+    the same new `.is-overdue` variant Inventory uses.
+  - **Overview** — read-only summary tiles + lists (low-stock count/list,
+    chores due-or-overdue, top wishlist items by priority, an energy-
+    beings status breakdown) sourced entirely from `HouseholdData`'s pure
+    derived selectors (`lowStockItems()`, `dueSoonChores()`,
+    `overdueChoresCount()`, `topWishlistByPriority()`,
+    `beingStatusCounts()`) — no separate stored state, so it can never
+    drift from the other four sections.
+  - **Page shell**: same `.shell`/back-button/cover-banner (sunburst
+    emblem, italic serif title, tracked-caps subtext, outlined pill CTA,
+    radiating-line divider)/underline-tab-bar structure every other
+    top-level page uses (`.hh-cover-*`/`.hh-tabs`/`.hh-tab`, copied from
+    `finance.html`'s `.fin-cover-*`/`.fin-tabs`/`.fin-tab`, itself
+    matching `index.html`/`gym.html`/`braindump.html`'s cover pattern).
+    The cover's CTA ("Log a Chore") jumps straight to the Chores tab via
+    the same hash-router `setActiveTab()` already used for tab clicks —
+    no separate navigation mechanism, matching `finance.html`'s
+    `finCoverCtaBtn` precedent.
+  - **Palette**: per an explicit decision with the user, Household stays
+    on the app's standard near-black/off-white palette with the
+    long-form `--success`/`--warning`/`--danger`/`--info` token
+    convention (used by 4 of 5 existing pages) rather than getting a new
+    themed look — despite the occult-flavored feature vocabulary
+    (legions, sigils, activation phrases), this was a deliberate call to
+    keep scope down and match the "dashboard" framing, not an oversight.
+    `--accent` is set to the same blue as `--info` (`#7DD3FC`) rather
+    than a new hue, reusing an existing token's value instead of
+    inventing one, per the DO NOT MODIFY §2 rule.
+  - Modals use the plain `.modal-bg`/`.modal` class names (not a new
+    page-specific prefix), so they're already covered by `topbar.js`'s
+    existing `MODAL_SELECTORS` list — no `topbar.js` CSS/JS edit was
+    needed for mobile scroll-lock/full-screen behavior on this page's
+    modals.
+
+- **Main tab (`index.html`), Businesses section: added a "Workflow"
+  book-playbook view (Weeks -> Days -> checklist), plus a Tasks
+  integration and a one-time content seed for the Amazon KDP business.**
+  Landed in stages (data layer, then UI, then seed content, then Tasks
+  integration); this entry covers the whole thing as delivered. Nothing
+  here is name-scoped to "Amazon KDP" except the seed content itself —
+  the Workflow feature is generic and available on every business, same
+  as KPIs/Goals/Tasks/Notes already are.
+  - **Data layer** — three new flat-array stores, same
+    flat-array-per-collection + id-as-foreign-key convention as
+    Goals/Tasks/Milestones/Objectives (not a nested blob):
+    `main:workflowWeeks = [{ id, businessId, title, order, collapsed, createdAt }]`,
+    `main:workflowDays = [{ id, weekId, businessId, title, status, order, notes, createdAt }]`
+    (`status` is one of `WORKFLOW_DAY_STATUSES = ['Not started', 'In progress', 'Done', 'Blocked']`,
+    the single place to edit that set), and
+    `main:workflowChecklist = [{ id, dayId, text, checked, order, createdAt }]`.
+    `order` is a free-floating sort key; `moveWorkflow*(id, dir)` swaps
+    two siblings' `order` values on reorder and never renumbers/rewrites
+    titles — same precedent as `moveValueRank()` for Self-Discovery
+    Values. Full CRUD (`addWorkflow*`/`updateWorkflow*`/`removeWorkflow*`)
+    and selectors (`weeksForBusiness`/`daysForWeek`/`checklistForDay`/
+    `weekProgress`) live inline in `index.html`'s own script, not a
+    separate `-data.js` file — Businesses/Goals/Tasks/Milestones/
+    Objectives were never split out that way either, so this follows
+    suit. Deleting a Week cascades to its Days and their checklist items
+    (a Day/checklist item has no meaning outside its Week, unlike
+    Goal/Task which can be reassigned off a deleted Business by nulling
+    the reference).
+  - **UI** — a "Workflow" section appended to the Business panel after
+    Notes: Weeks render as `.std-group` (the exact collapsible component
+    Milestones already use — caret, ▲▼ reorder, inline-editable title
+    autosaving on blur, a "3/7 done" counter + `.std-bar` progress fill
+    from `weekProgress()`, delete-with-cascade-confirm). Days are a new
+    `.wf-day` row (reorder, inline-editable title, a `Status` `<select>`
+    colored per state, an `.at-due-link` business tag, delete) that
+    itself collapses independently to reveal a "Move to week" `<select>`
+    (only shown when >1 week exists) and its checklist. Checklist items
+    reuse the Objectives-under-Milestone pattern verbatim (check/text/
+    delete) with reorder arrows added. Collapse-on-click is wired at the
+    `.std-group-head`/`.wf-day-head` level (not per-child), with every
+    interactive child (reorder buttons, title inputs, selects, delete)
+    calling `stopPropagation()` so editing doesn't also toggle collapse.
+    Week collapse persists (`WorkflowWeek.collapsed`, part of the data
+    layer); Day collapse is intentionally transient/in-memory only
+    (`collapsedWorkflowDayIds`, module-scoped) — only week-level
+    persistence was asked for. No new colors — statuses reuse
+    `--success`/`--warning`/`--danger`; everything else reuses this
+    page's existing `--at-gold`/near-black tokens.
+  - **Content seed** — `seedKdpWorkflow()`, guarded by
+    `main:kdpWorkflowSeeded` (runs once automatically, same "inline
+    migration" precedent as `finance:migrated_v2`/`media:migrated_v1`),
+    finds-or-creates the "Amazon KDP" business then walks a
+    `WORKFLOW_SEED_PLAN` array, matching weeks/days by exact title and
+    checklist items by exact text — creates what's missing, reuses what
+    exists, never resets an existing day's status or item's checked
+    state. Seeds Weeks 1–4 and 6 (**no Week 5**, intentional) totaling 25
+    days, matching a specific book-writing playbook provided by the
+    user. Verified idempotent by forcing the guard flag off and
+    re-running in the same session — byte-identical output, no
+    duplicates.
+  - **Tasks integration** — a Task can optionally link to a WorkflowDay
+    via a new, additive `Task.workflowDayId` field (nullable; every task
+    created before this shipped just has it `undefined`, treated the
+    same as `null` everywhere). The link lives only on the Task side
+    (mirrors the goalId+milestoneId two-level-FK precedent Tasks already
+    had) — `taskForWorkflowDay(dayId)` is the one lookup everything else
+    reads through. A per-day "→ Tasks" / "✓ In Tasks" button
+    (`sendWorkflowDayToTasks`/`unlinkWorkflowDayFromTask`) creates or
+    unlinks a linked Task, merge-not-duplicate by day (re-clicking syncs
+    title/status onto the existing linked task rather than creating a
+    second one; unlinking nulls the reference, doesn't delete the Task —
+    same precedent as Business deletion nulling Goal/Task references). A
+    per-business "Auto-sync days to Tasks" checkbox
+    (`biz.workflowAutoSync`) immediately links every not-yet-linked day
+    when turned on, and auto-sends any day added afterward via the
+    Week's quick-add while it's on. New Tasks are created plain
+    (`isDailyAction: false`, no `dueDate`) rather than auto-flagged
+    Daily — deliberately, since flagging all 25 seeded days Daily would
+    flood the Today view at once; the user can flag individual synced
+    tasks Daily or set a due date by hand via the existing task modal,
+    same as any other task.
+  - **Status sync is two-way**, wired as one-hop, non-recursive pushes
+    called only from the specific user-facing entry points that
+    originate a change — `pushDayStatusToLinkedTask()` from the Day
+    status `<select>`'s change handler, `pushTaskStatusToLinkedDay()`
+    from `setTaskDone()` (covers the checkbox everywhere `buildTaskRow`
+    is used — Tasks tab, Business panel, Goal page) and from the task
+    edit modal's save handler — deliberately *not* a generic "any update
+    propagates" hook on the low-level `updateWorkflowDay`/`setTaskDone`
+    primitives themselves, which would risk a Day→Task→Day ping-pong;
+    neither push function calls into the other's entry point, so there's
+    no cycle by construction. Status vocabularies don't map 1:1 (Tasks
+    have `todo`/`in-progress`/`done`; WorkflowDay adds `Blocked`, which
+    has no Task equivalent and maps to `todo` going that direction). To
+    keep a Task's binary done/todo from silently erasing an explicit
+    `Blocked` on the Day, the Task→Day push only overrides an existing
+    `Blocked` day when the Task is actually marked `done` — any other
+    Task change leaves `Blocked` alone. Verified end-to-end in a headless
+    session: send-to-Tasks, resend-is-idempotent, Day→Task in both
+    `In progress` and `Done`, Task→Day via `setTaskDone` in both
+    directions, the `Blocked`-protection rule, unlink (Task survives,
+    just un-linked), and auto-sync-on-toggle linking all 25 seeded days
+    — every step matched the expected result.
+
+- **Workflow follow-up: duplicate a week.** A new "⧉" button
+  (`.std-group-dup`, same hover-reveal treatment as the existing
+  `.std-group-edit`/`.std-group-del` icons on a `.std-group` header) on
+  every Week — seeded, user-added, or itself a prior duplicate, since
+  it's rendered generically in `buildWorkflowWeekGroup()` for whichever
+  week is passed in, not special-cased to any one week — clones that
+  week via `duplicateWorkflowWeek(weekId)`: a new week (title suffixed
+  `" (Copy)"`) plus every one of its days and their checklist items,
+  reusing the existing `addWorkflowWeek`/`addWorkflowDay`/
+  `addWorkflowChecklistItem` CRUD so the copy lands with fresh ids and
+  correct ordering. The copy starts fresh — day statuses reset to
+  `Not started`, checklist items reset unchecked — since duplicating is
+  for reusing a week's day/checklist *structure* (e.g. spinning up
+  another prose-sprint week), not for snapshotting progress; the
+  original week's statuses/checked-items are left untouched. Linked
+  Tasks are never copied — a duplicated day has no Task pointing at it
+  (`workflowDayId`) until explicitly sent via the existing "→ Tasks"
+  button. The new week is appended at the end of the business's week
+  list via the same `nextWorkflowOrder()` logic every other new week
+  uses, so it's immediately reorderable with the existing ▲▼ controls —
+  no separate "make duplicates reorderable" mechanism was needed, since
+  reordering already operates generically over `weeksForBusiness()`
+  regardless of how a week was created. Verified in a headless session:
+  duplicating Week 2 (7 days × 4 checklist items each, with one day
+  pre-marked Done and one item pre-checked) produced a 6th week with all
+  7 days/28 items copied, every status reset to `Not started`/unchecked,
+  the original week's Done/checked state left intact, and the new week
+  successfully reordered via `moveWorkflowWeek`.
