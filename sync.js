@@ -18,6 +18,12 @@
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
 
     let supa = null, pushTimer = null, suppressSync = false, lastSyncedJson = null;
+    // Keys written locally since their last confirmed push. While a key is
+    // dirty, incoming remote data must not overwrite or delete it — doing so
+    // would silently revert an edit made while a fetch/realtime message was
+    // already in flight (e.g. adding a card right after page load, before
+    // the initial pull resolves). The pending push reconciles it shortly after.
+    let localDirtyKeys = new Set();
 
     function matches(k) {
       if (!k) return false;
@@ -48,11 +54,11 @@
     const origRemove = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function (k, v) {
       origSet(k, v);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
+      try { if (!suppressSync && matches(k)) { localDirtyKeys.add(k); schedulePush(); } } catch (e) {}
     };
     localStorage.removeItem = function (k) {
       origRemove(k);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
+      try { if (!suppressSync && matches(k)) { localDirtyKeys.add(k); schedulePush(); } } catch (e) {}
     };
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
@@ -61,11 +67,13 @@
       try {
         for (const k of Object.keys(remote)) {
           if (!matches(k)) continue;
+          if (localDirtyKeys.has(k)) continue;
           const incoming = JSON.stringify(remote[k]);
           const local = localStorage.getItem(k);
           if (local !== incoming) { try { origSet(k, incoming); changed = true; } catch (e) {} }
         }
         for (const k of listAllKeys()) {
+          if (localDirtyKeys.has(k)) continue;
           if (!(k in remote)) { try { origRemove(k); changed = true; } catch (e) {} }
         }
       } finally { suppressSync = false; }
@@ -75,14 +83,18 @@
     async function pushNow() {
       if (!supa) return;
       const state = collect();
+      const pushedKeys = Object.keys(state);
       const json = JSON.stringify(state);
-      if (json === lastSyncedJson) return;
+      if (json === lastSyncedJson) { pushedKeys.forEach((k) => localDirtyKeys.delete(k)); return; }
       try {
         const { error } = await supa.from('app_state').upsert(
           { key: appKey, data: state, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-        if (!error) lastSyncedJson = json;
+        if (!error) {
+          lastSyncedJson = json;
+          pushedKeys.forEach((k) => localDirtyKeys.delete(k));
+        }
       } catch (e) {}
     }
     function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(pushNow, 250); }
