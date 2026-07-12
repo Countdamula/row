@@ -370,7 +370,7 @@ body::after {
 
 /* ===== Due-card (reused for goal / milestone task lists) ===== */
 .at-due-card {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 9px 11px; margin-bottom: 7px;
   background: rgba(255,255,255,0.03); border-left: 2px solid var(--at-gold); border-radius: 8px;
 }
@@ -3153,7 +3153,7 @@ body::after {
       var openBtn = document.createElement('button');
       openBtn.type = 'button'; openBtn.className = 'at-mini-btn'; openBtn.textContent = '📄 Open';
       openBtn.title = 'Open this task\'s notes';
-      openBtn.addEventListener('click', function (e) { e.stopPropagation(); openTaskDetailPage(task.id); });
+      openBtn.addEventListener('click', function (e) { e.stopPropagation(); openTaskDetailPage(task.id, rerenderFn); });
       main.appendChild(openBtn);
     }
     var del = document.createElement('button');
@@ -3282,23 +3282,31 @@ body::after {
   // handle + arrow fallback + reorder-persist), reused verbatim wherever
   // possible, but Notes-only: no code-block type, no per-block "+ Code
   // block" button (nothing to insert after), no checklist section (tasks
-  // don't have one). Opened only from the Tasks tab's row (opts.showBlocksBtn
-  // in buildTaskRow) — Business panel / Goal page / Life Area task rows are
-  // untouched, same task rows, same buildTaskRow, just without that button.
+  // don't have one). Opened from the Tasks tab's "All Tasks"/"Today" list
+  // and from a Business's task list (both pass opts.showBlocksBtn: true to
+  // buildTaskRow) — Goal page / Life Area task rows are untouched, same
+  // buildTaskRow, just without that button. openTaskDetailPage takes the
+  // caller's own rerenderFn so closing refreshes whichever list opened it.
   // =====================================================================
   var currentTaskDetailId = null;
+  var currentTaskDetailRerender = function () {};
   var tdEditingBlockIds = {};
   var tdDragBlock = null;
 
-  function openTaskDetailPage(taskId) {
+  /** rerenderFn is whichever list this task's row came from (renderTaskSection
+   * from the Tasks tab, renderBusinessesSection from a Business panel) — this
+   * page is opened from both now, so closing it must refresh the caller's own
+   * view, not always assume the Tasks tab. */
+  function openTaskDetailPage(taskId, rerenderFn) {
     currentTaskDetailId = taskId;
+    currentTaskDetailRerender = rerenderFn || function () {};
     document.getElementById('taskDetailPageBg').classList.add('show');
     renderTaskDetailPage(taskId);
   }
   function closeTaskDetailPage() {
     document.getElementById('taskDetailPageBg').classList.remove('show');
     currentTaskDetailId = null;
-    renderTaskSection();
+    currentTaskDetailRerender();
   }
 
   function renderTaskDetailPage(taskId) {
@@ -5174,7 +5182,7 @@ body::after {
     var bizTasks = loadTasks().filter(function (t) { return t.businessId === biz.id; })
       .sort(function (a, b) { return (a.dueDate || '9999').localeCompare(b.dueDate || '9999'); });
     if (bizTasks.length) {
-      bizTasks.forEach(function (t) { wrap.appendChild(buildTaskRow(t, renderBusinessesSection, { showTags: true, rich: true })); });
+      bizTasks.forEach(function (t) { wrap.appendChild(buildTaskRow(t, renderBusinessesSection, { showTags: true, rich: true, showBlocksBtn: true })); });
     } else {
       var tasksEmpty = document.createElement('div'); tasksEmpty.className = 'at-empty'; tasksEmpty.textContent = 'No tasks linked to this business yet.';
       wrap.appendChild(tasksEmpty);
