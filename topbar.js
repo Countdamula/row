@@ -67,14 +67,34 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.topbar-pill.active { background: rgba(255, 255, 255, 0.11); border-color: rgba(255, 255, 255, 0.24); }
+/* Below 480px, 7 pills sharing the row via flex:1 1 0 (the desktop layout)
+   squeeze until labels either vanish or overflow illegibly — there's no
+   width left to show which page is which. Switch to a horizontally
+   scrollable strip instead: every pill keeps its natural content width
+   (flex: 0 0 auto) so its label always stays fully legible, and the row
+   scrolls rather than compresses. Desktop is untouched. */
 @media (max-width: 480px) {
-  .topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); gap: 4px; }
-  .topbar-pill { padding: 7px 9px; gap: 5px; }
-  .topbar-pill-label { font-size: 9px; letter-spacing: 0.10em; }
+  .topbar {
+    padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
+    gap: 8px;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none; -ms-overflow-style: none;
+    /* Fade at both edges hints there's more to scroll, same affordance
+       most mobile tab-strip UIs use. */
+    mask-image: linear-gradient(90deg, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+  }
+  .topbar::-webkit-scrollbar { display: none; height: 0; }
+  .topbar-pill {
+    flex: 0 0 auto; min-width: auto;
+    padding: 10px 14px; gap: 6px;
+    scroll-snap-align: start;
+  }
+  .topbar-pill-label { font-size: 10px; letter-spacing: 0.10em; white-space: nowrap; }
   .topbar-pill-count { font-size: 11px; }
-}
-@media (max-width: 380px) {
-  .topbar-pill-label { display: none; }
 }
 
 /* === Global mobile lockdown ===
@@ -221,6 +241,25 @@ body.topbar-modal-open {
     if (status === 'warn' || status === 'miss') pillEl.classList.add(status);
   }
 
+  // Marks the current page's pill so it's visually distinct from the rest,
+  // and — since the mobile layout now scrolls horizontally instead of
+  // squeezing everything onto one screen — scrolls it into view so
+  // landing on e.g. Household doesn't leave you wondering which of the
+  // off-screen pills you're actually on.
+  function highlightActivePill() {
+    let path = window.location.pathname.split('/').pop();
+    if (!path) path = 'index.html';
+    const pills = document.querySelectorAll('.topbar-pill');
+    pills.forEach((p) => {
+      if (p.getAttribute('href') === path) {
+        p.classList.add('active');
+        if (typeof p.scrollIntoView === 'function') {
+          p.scrollIntoView({ inline: 'center', block: 'nearest' });
+        }
+      }
+    });
+  }
+
   function render() {
     const goalsEl = document.getElementById('topbarGoals');
     if (!goalsEl) return; // not injected yet
@@ -305,6 +344,7 @@ body.topbar-modal-open {
   // -------- Boot --------
   function boot() {
     injectStyleAndHTML();
+    highlightActivePill();
     render();
     lockGestures();
     startModalLock();
