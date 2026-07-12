@@ -151,6 +151,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">NUTRITION</span>
   </a>
+  <a href="household.html" class="topbar-pill" id="topbarHousehold">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">HOUSEHOLD</span>
+  </a>
 </header>
 `;
 
@@ -273,7 +277,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {

@@ -589,6 +589,81 @@ body::after {
 .wf-autosync-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary); font-weight: 600; cursor: pointer; white-space: nowrap; }
 .wf-autosync-label input { accent-color: var(--at-gold); cursor: pointer; }
 
+/* ===== Workflow Day detail page (full-page overlay, same shell as .goal-page-bg)
+   and its rearrangeable notes/code blocks ===== */
+.wfd-page-bg {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: #0b0509; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.wfd-page-bg.show { display: block; }
+.wfd-page { max-width: 760px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 80px; }
+.wfd-topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.wfd-topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wfd-primary-action-wrap {
+  position: sticky; top: 0; z-index: 5; background: #0b0509;
+  padding: 8px 0 16px; margin-bottom: 4px;
+}
+.wfd-primary-action-wrap .btn-primary { width: auto; padding: 11px 22px; }
+.wfd-title-input {
+  font-family: var(--font-serif); font-size: 24px; font-weight: 700; color: var(--text-primary);
+  background: none; border: none; border-bottom: 1px solid transparent; width: 100%; padding: 2px 0; margin-bottom: 6px;
+}
+.wfd-title-input:focus { outline: none; border-bottom-color: rgba(255,255,255,0.28); }
+.wfd-title-input::placeholder { color: var(--text-tertiary); }
+.wfd-meta-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+
+.wfd-block {
+  background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 12px;
+  padding: 10px 14px 14px; margin-bottom: 12px; transition: opacity 0.15s;
+}
+.wfd-block.dragging { opacity: 0.4; }
+.wfd-block.drag-over-before { border-top: 2px solid var(--at-gold); }
+.wfd-block.drag-over-after { border-bottom: 2px solid var(--at-gold); }
+.wfd-block-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.wfd-drag-handle { cursor: grab; color: var(--text-tertiary); font-size: 14px; padding: 0 2px; touch-action: none; }
+.wfd-drag-handle:active { cursor: grabbing; }
+.wfd-block-type { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.wfd-block-spacer { flex: 1; }
+.wfd-lang-input {
+  width: 90px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.28); color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px;
+}
+.wfd-copy-btn.copied { color: var(--success); border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.08); }
+.wfd-block-textarea, .wfd-code-textarea {
+  display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden;
+  border: none; outline: none; background: none; color: var(--text-primary);
+  font-family: var(--font); font-size: 13.5px; line-height: 1.6; padding: 4px 2px;
+}
+.wfd-code-textarea {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55;
+  background: rgba(0,0,0,0.32); border-radius: 8px; padding: 10px 12px; color: #d7e2ff;
+}
+.wfd-add-code-below { margin-top: 8px; }
+
+/* Note block view mode — lightweight rendered Markdown (see renderMarkdownLite) */
+.wfd-note-view { cursor: text; padding: 4px 2px; font-size: 13.5px; line-height: 1.6; color: var(--text-primary); min-height: 22px; }
+.wfd-note-placeholder { color: var(--text-tertiary); font-style: italic; }
+.wfd-note-view h1, .wfd-note-view h2, .wfd-note-view h3, .wfd-note-view h4, .wfd-note-view h5, .wfd-note-view h6 {
+  font-family: var(--font-serif); color: var(--text-primary); margin: 10px 0 6px; line-height: 1.3;
+}
+.wfd-note-view h1 { font-size: 20px; }
+.wfd-note-view h2 { font-size: 17px; }
+.wfd-note-view h3 { font-size: 15px; }
+.wfd-note-view h4, .wfd-note-view h5, .wfd-note-view h6 { font-size: 13.5px; }
+.wfd-note-view p { margin: 0 0 8px; }
+.wfd-note-view p:last-child { margin-bottom: 0; }
+.wfd-note-view ul { margin: 0 0 8px; padding-left: 20px; }
+.wfd-note-view li { margin-bottom: 3px; }
+.wfd-note-view strong { color: var(--text-primary); font-weight: 700; }
+
+/* Code block view mode — fenced-code-style read box */
+.wfd-code-view {
+  margin: 0; cursor: text; white-space: pre-wrap; word-break: break-word;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55;
+  background: rgba(0,0,0,0.32); border-radius: 8px; padding: 10px 12px; color: #d7e2ff;
+}
+.wfd-code-view.wfd-code-empty { color: var(--text-tertiary); font-style: italic; }
+
 /* ===== Shared chip / modal / field / button kit ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
@@ -865,6 +940,72 @@ body::after {
       <input type="date" id="gpTaskDateInput">
       <label><input type="checkbox" id="gpTaskDailyInput"> Daily</label>
       <button type="button" id="gpTaskAddBtn">+ Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Workflow Day detail — full-page overlay ============ -->
+<div class="wfd-page-bg" id="workflowDayPageBg">
+  <div class="wfd-page">
+    <div class="wfd-topbar">
+      <button class="btn-secondary" type="button" id="wfdBack">← Back</button>
+      <div class="wfd-topbar-actions">
+        <span id="wfdStatusSelectWrap"></span>
+        <button class="at-mini-btn" type="button" id="wfdDeleteBtn">✕ Delete Day</button>
+      </div>
+    </div>
+    <div class="wfd-primary-action-wrap">
+      <button class="btn-primary" type="button" id="wfdAddNotesCodeBtn">+ Notes + Code</button>
+    </div>
+
+    <input type="text" class="wfd-title-input" id="wfdTitleInput" placeholder="Day title…">
+    <div class="wfd-meta-row" id="wfdMetaRow"></div>
+
+    <div class="section-title">Checklist</div>
+    <div id="wfdChecklistList"></div>
+    <div class="at-empty" id="wfdChecklistEmpty" hidden>No checklist items yet.</div>
+    <div class="std-quick-add">
+      <input type="text" id="wfdChecklistInput" placeholder="Quick-add a checklist item, press Enter…">
+      <button type="button" id="wfdChecklistAddBtn">+ Add</button>
+    </div>
+
+    <div class="section-title">Blocks</div>
+    <div id="wfdBlocksList"></div>
+    <div class="placeholder-panel placeholder-panel-sm" id="wfdBlocksEmpty" hidden>
+      <div class="placeholder-icon">📝</div>
+      <div class="placeholder-title">No blocks yet</div>
+      <div class="placeholder-text">Tap "+ Notes + Code" above to add your first note and code block.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Task detail — full-page overlay ============
+     Reuses the .wfd-page-bg shell (same generic block-editor page as the
+     Workflow Day detail above — not Workflow-specific despite the class
+     prefix) so topbar.js's existing .wfd-page-bg scroll-lock entry already
+     covers this overlay too; no topbar.js change needed. Notes-only: no
+     checklist (tasks don't have one) and no code-block type. -->
+<div class="wfd-page-bg" id="taskDetailPageBg">
+  <div class="wfd-page">
+    <div class="wfd-topbar">
+      <button class="btn-secondary" type="button" id="tdBack">← Back</button>
+      <div class="wfd-topbar-actions">
+        <button class="at-mini-btn" type="button" id="tdDeleteBtn">✕ Delete Task</button>
+      </div>
+    </div>
+    <div class="wfd-primary-action-wrap">
+      <button class="btn-primary" type="button" id="tdAddNoteBtn">+ Notes</button>
+    </div>
+
+    <input type="text" class="wfd-title-input" id="tdTitleInput" placeholder="Task title…">
+    <div class="wfd-meta-row" id="tdMetaRow"></div>
+
+    <div class="section-title">Notes</div>
+    <div id="tdBlocksList"></div>
+    <div class="placeholder-panel placeholder-panel-sm" id="tdBlocksEmpty" hidden>
+      <div class="placeholder-icon">📝</div>
+      <div class="placeholder-title">No notes yet</div>
+      <div class="placeholder-text">Tap "+ Notes" above to add your first note.</div>
     </div>
   </div>
 </div>
@@ -1881,6 +2022,9 @@ body::after {
       checklistForDay(day.id).forEach(function (item) {
         addWorkflowChecklistItem(newDay.id, { text: item.text, checked: false });
       });
+      blocksForDay(day.id).forEach(function (block) {
+        addDayBlock(newDay.id, { type: block.type, content: block.content, language: block.language });
+      });
     });
     return newWeek;
   }
@@ -1906,9 +2050,10 @@ body::after {
     saveWorkflowDays(list);
     return day;
   }
-  /** Cascades: deletes the day's checklist items. */
+  /** Cascades: deletes the day's checklist items and blocks. */
   function removeWorkflowDay(id) {
     checklistForDay(id).forEach(function (c) { removeWorkflowChecklistItem(c.id); });
+    blocksForDay(id).forEach(function (b) { deleteBlock(b.id); });
     saveWorkflowDays(loadWorkflowDays().filter(function (d) { return d.id !== id; }));
   }
   function moveWorkflowDay(id, dir) {
@@ -1963,6 +2108,100 @@ body::after {
     siblings[swapIdx].order = tmp;
     saveWorkflowChecklist(all);
     return true;
+  }
+
+  // ---- DayBlock: per-day rearrangeable notes/code blocks — the Day detail
+  // page's content, independent of the checklist above. Same
+  // model/load-save/CRUD/move shape as every other Workflow collection. ----
+  // DayBlock: { id, dayId, type: 'note'|'code', content, language, order, createdAt }
+  function dayBlockModel(data) {
+    data = data || {};
+    return {
+      id: data.id || genId('dblk'),
+      dayId: data.dayId || null,
+      type: data.type === 'code' ? 'code' : 'note',
+      content: data.content || '',
+      language: data.language || '',
+      order: data.order != null ? data.order : Date.now(),
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+  function loadDayBlocks() { var l = storeGet('main:dayBlocks'); return Array.isArray(l) ? l : []; }
+  function saveDayBlocks(list) { storeSet('main:dayBlocks', list); }
+  function dayBlockById(id) { return loadDayBlocks().filter(function (b) { return b.id === id; })[0] || null; }
+  /** A day's blocks, ordered by `order`. */
+  function blocksForDay(dayId) {
+    return loadDayBlocks().filter(function (b) { return b.dayId === dayId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  /** Internal plumbing shared by the public helpers below — not part of the
+   * requested CRUD surface itself, same "low-level add + higher-level
+   * callers" split every other Workflow collection already uses. */
+  function addDayBlock(dayId, fields) {
+    var list = loadDayBlocks();
+    var block = dayBlockModel(Object.assign({}, fields, {
+      dayId: dayId,
+      order: (fields && fields.order != null) ? fields.order : nextWorkflowOrder(blocksForDay(dayId))
+    }));
+    list.push(block);
+    saveDayBlocks(list);
+    return block;
+  }
+  /** Creates a 'note' block then a 'code' block at the end (highest order) of dayId's blocks. */
+  function appendNotePlusCode(dayId) {
+    var note = addDayBlock(dayId, { type: 'note' });
+    var code = addDayBlock(dayId, { type: 'code' });
+    return { note: note, code: code };
+  }
+  /** Creates a 'code' block immediately after blockId — an order value between
+   * it and its next sibling (or +1 if it's last) — without renumbering the rest. */
+  function insertCodeBlockAfter(blockId) {
+    var afterBlock = dayBlockById(blockId);
+    if (!afterBlock) return null;
+    var siblings = blocksForDay(afterBlock.dayId);
+    var idx = siblings.map(function (b) { return b.id; }).indexOf(afterBlock.id);
+    var next = siblings[idx + 1];
+    var order = next ? (afterBlock.order + next.order) / 2 : afterBlock.order + 1;
+    return addDayBlock(afterBlock.dayId, { type: 'code', order: order });
+  }
+  function updateBlock(id, patch) {
+    var list = loadDayBlocks();
+    var block = list.filter(function (b) { return b.id === id; })[0];
+    if (!block) return null;
+    Object.assign(block, dayBlockModel(Object.assign({}, block, patch, { id: id })));
+    saveDayBlocks(list);
+    return block;
+  }
+  function deleteBlock(id) {
+    saveDayBlocks(loadDayBlocks().filter(function (b) { return b.id !== id; }));
+  }
+  /** Single-step swap with an adjacent sibling — the arrow-button fallback
+   * alongside reorderBlocks' arbitrary drag-drop landing below. */
+  function moveBlock(id, dir) {
+    var all = loadDayBlocks();
+    var block = all.filter(function (b) { return b.id === id; })[0];
+    if (!block) return false;
+    var siblings = all.filter(function (b) { return b.dayId === block.dayId; })
+      .sort(function (a, b) { return a.order - b.order; });
+    var idx = siblings.indexOf(block);
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= siblings.length) return false;
+    var tmp = block.order;
+    block.order = siblings[swapIdx].order;
+    siblings[swapIdx].order = tmp;
+    saveDayBlocks(all);
+    return true;
+  }
+  /** Drag-drop landing: rewrites every one of a day's blocks' `order` to
+   * match orderedIds' sequence (0,1,2,...) — stable regardless of what
+   * fractional/free-floating values were there before. */
+  function reorderBlocks(dayId, orderedIds) {
+    var all = loadDayBlocks();
+    orderedIds.forEach(function (id, i) {
+      var block = all.filter(function (b) { return b.id === id; })[0];
+      if (block) block.order = i;
+    });
+    saveDayBlocks(all);
   }
 
   // ---- one-time content seed: the Amazon KDP book-playbook Workflow ----
@@ -2274,9 +2513,90 @@ body::after {
   // =====================================================================
   function loadTasks() { var t = storeGet('main:tasks'); return Array.isArray(t) ? t : []; }
   function saveTasks(list) { storeSet('main:tasks', list); }
+  function taskById(id) { return loadTasks().filter(function (t) { return t.id === id; })[0] || null; }
   function tasksForGoal(goalId) { return loadTasks().filter(function (t) { return t.goalId === goalId; }); }
   function tasksForMilestone(msId) { return loadTasks().filter(function (t) { return t.milestoneId === msId; }); }
   function taskStatusOf(t) { return t.status || (t.done ? 'done' : 'todo'); }
+
+  // =====================================================================
+  // TaskBlock — the same rearrangeable-block system as WorkflowDay's
+  // DayBlock, applied to Tasks' interior detail page — but Notes-only (no
+  // code-block type), per an explicit "just Notes" scope decision. Same
+  // model/load-save/CRUD/move shape as DayBlock, just one FK (taskId) and
+  // no type/language fields since there's nothing to distinguish.
+  // TaskBlock: { id, taskId, content, order, createdAt }
+  // =====================================================================
+  function taskBlockModel(data) {
+    data = data || {};
+    return {
+      id: data.id || genId('tblk'),
+      taskId: data.taskId || null,
+      content: data.content || '',
+      order: data.order != null ? data.order : Date.now(),
+      createdAt: data.createdAt || Date.now()
+    };
+  }
+  function loadTaskBlocks() { var l = storeGet('main:taskBlocks'); return Array.isArray(l) ? l : []; }
+  function saveTaskBlocks(list) { storeSet('main:taskBlocks', list); }
+  function taskBlockById(id) { return loadTaskBlocks().filter(function (b) { return b.id === id; })[0] || null; }
+  /** A task's blocks, ordered by `order`. */
+  function blocksForTask(taskId) {
+    return loadTaskBlocks().filter(function (b) { return b.taskId === taskId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function addTaskBlock(taskId, fields) {
+    var list = loadTaskBlocks();
+    var block = taskBlockModel(Object.assign({}, fields, {
+      taskId: taskId,
+      order: (fields && fields.order != null) ? fields.order : nextWorkflowOrder(blocksForTask(taskId))
+    }));
+    list.push(block);
+    saveTaskBlocks(list);
+    return block;
+  }
+  /** Creates a single note block at the end (highest order) of taskId's
+   * blocks — the Notes-only equivalent of DayBlock's appendNotePlusCode. */
+  function appendNote(taskId) {
+    return addTaskBlock(taskId, {});
+  }
+  function updateTaskBlock(id, patch) {
+    var list = loadTaskBlocks();
+    var block = list.filter(function (b) { return b.id === id; })[0];
+    if (!block) return null;
+    Object.assign(block, taskBlockModel(Object.assign({}, block, patch, { id: id })));
+    saveTaskBlocks(list);
+    return block;
+  }
+  function deleteTaskBlock(id) {
+    saveTaskBlocks(loadTaskBlocks().filter(function (b) { return b.id !== id; }));
+  }
+  /** Single-step swap with an adjacent sibling — the arrow-button fallback
+   * alongside reorderTaskBlocks' arbitrary drag-drop landing. */
+  function moveTaskBlock(id, dir) {
+    var all = loadTaskBlocks();
+    var block = all.filter(function (b) { return b.id === id; })[0];
+    if (!block) return false;
+    var siblings = all.filter(function (b) { return b.taskId === block.taskId; })
+      .sort(function (a, b) { return a.order - b.order; });
+    var idx = siblings.indexOf(block);
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= siblings.length) return false;
+    var tmp = block.order;
+    block.order = siblings[swapIdx].order;
+    siblings[swapIdx].order = tmp;
+    saveTaskBlocks(all);
+    return true;
+  }
+  /** Drag-drop landing: rewrites every one of a task's blocks' `order` to
+   * match orderedIds' sequence (0,1,2,...). */
+  function reorderTaskBlocks(taskId, orderedIds) {
+    var all = loadTaskBlocks();
+    orderedIds.forEach(function (id, i) {
+      var block = all.filter(function (b) { return b.id === id; })[0];
+      if (block) block.order = i;
+    });
+    saveTaskBlocks(all);
+  }
   function formatMinutes(m) {
     m = Number(m);
     if (!m) return '';
@@ -2829,9 +3149,17 @@ body::after {
       date.className = 'at-due-date'; date.textContent = formatDateShort(task.dueDate);
       main.appendChild(date);
     }
+    if (opts.showBlocksBtn) {
+      var openBtn = document.createElement('button');
+      openBtn.type = 'button'; openBtn.className = 'at-mini-btn'; openBtn.textContent = '📄 Open';
+      openBtn.title = 'Open this task\'s notes';
+      openBtn.addEventListener('click', function (e) { e.stopPropagation(); openTaskDetailPage(task.id); });
+      main.appendChild(openBtn);
+    }
     var del = document.createElement('button');
     del.type = 'button'; del.className = 'at-due-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete');
     del.addEventListener('click', function () {
+      blocksForTask(task.id).forEach(function (b) { deleteTaskBlock(b.id); });
       saveTasks(loadTasks().filter(function (x) { return x.id !== task.id; }));
       rerenderFn();
     });
@@ -2942,9 +3270,201 @@ body::after {
   document.getElementById('gTaskModalDelete').addEventListener('click', function () {
     if (!teEditingId) return;
     if (!confirm('Delete this task?')) return;
+    blocksForTask(teEditingId).forEach(function (b) { deleteTaskBlock(b.id); });
     saveTasks(loadTasks().filter(function (x) { return x.id !== teEditingId; }));
     document.getElementById('gTaskModalBg').classList.remove('show');
     teRerender();
+  });
+
+  // =====================================================================
+  // Task detail page — the same interior-page block editor as WorkflowDay's
+  // (open/close/render, view/edit-mode toggle with Markdown rendering, drag
+  // handle + arrow fallback + reorder-persist), reused verbatim wherever
+  // possible, but Notes-only: no code-block type, no per-block "+ Code
+  // block" button (nothing to insert after), no checklist section (tasks
+  // don't have one). Opened only from the Tasks tab's row (opts.showBlocksBtn
+  // in buildTaskRow) — Business panel / Goal page / Life Area task rows are
+  // untouched, same task rows, same buildTaskRow, just without that button.
+  // =====================================================================
+  var currentTaskDetailId = null;
+  var tdEditingBlockIds = {};
+  var tdDragBlock = null;
+
+  function openTaskDetailPage(taskId) {
+    currentTaskDetailId = taskId;
+    document.getElementById('taskDetailPageBg').classList.add('show');
+    renderTaskDetailPage(taskId);
+  }
+  function closeTaskDetailPage() {
+    document.getElementById('taskDetailPageBg').classList.remove('show');
+    currentTaskDetailId = null;
+    renderTaskSection();
+  }
+
+  function renderTaskDetailPage(taskId) {
+    var task = taskById(taskId);
+    if (!task) { closeTaskDetailPage(); return; }
+
+    var titleInput = document.getElementById('tdTitleInput');
+    titleInput.value = task.title;
+
+    var metaRow = document.getElementById('tdMetaRow');
+    metaRow.innerHTML = '';
+    var pri = document.createElement('span'); pri.className = 'std-priority-pill ' + (task.priority || 'medium');
+    pri.textContent = task.priority || 'medium';
+    metaRow.appendChild(pri);
+    if (task.dueDate) {
+      var dateTag = document.createElement('span'); dateTag.className = 'at-due-date'; dateTag.textContent = formatDateShort(task.dueDate);
+      metaRow.appendChild(dateTag);
+    }
+    var goal = task.goalId ? goalById(task.goalId) : null;
+    var biz = task.businessId ? businessById(task.businessId) : null;
+    if (goal) { var goalTag = document.createElement('span'); goalTag.className = 'at-due-link'; goalTag.textContent = goal.title; metaRow.appendChild(goalTag); }
+    if (biz) { var bizTag = document.createElement('span'); bizTag.className = 'at-due-link'; bizTag.textContent = (biz.icon || '💼') + ' ' + biz.name; metaRow.appendChild(bizTag); }
+
+    renderTaskBlocksList(taskId);
+  }
+
+  function buildTaskBlockCard(block, taskId, rerenderFn) {
+    var card = document.createElement('div');
+    card.className = 'wfd-block';
+    card.dataset.blockId = block.id;
+
+    card.addEventListener('dragover', function (e) {
+      if (!tdDragBlock || tdDragBlock.taskId !== taskId || tdDragBlock.id === block.id) return;
+      e.preventDefault();
+      var rect = card.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      card.classList.toggle('drag-over-before', before);
+      card.classList.toggle('drag-over-after', !before);
+    });
+    card.addEventListener('dragleave', function () { card.classList.remove('drag-over-before', 'drag-over-after'); });
+    card.addEventListener('drop', function (e) {
+      if (!tdDragBlock || tdDragBlock.taskId !== taskId || tdDragBlock.id === block.id) return;
+      e.preventDefault();
+      var before = card.classList.contains('drag-over-before');
+      card.classList.remove('drag-over-before', 'drag-over-after');
+      var ids = blocksForTask(taskId).map(function (b) { return b.id; });
+      var fromIdx = ids.indexOf(tdDragBlock.id);
+      if (fromIdx === -1) return;
+      ids.splice(fromIdx, 1);
+      var toIdx = ids.indexOf(block.id);
+      ids.splice(before ? toIdx : toIdx + 1, 0, tdDragBlock.id);
+      reorderTaskBlocks(taskId, ids);
+      rerenderFn();
+    });
+
+    var head = document.createElement('div'); head.className = 'wfd-block-head';
+
+    var handle = document.createElement('span');
+    handle.className = 'wfd-drag-handle'; handle.textContent = '⠿'; handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.setAttribute('draggable', 'true');
+    handle.addEventListener('dragstart', function (e) {
+      tdDragBlock = { id: block.id, taskId: taskId };
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', block.id); } catch (err) {}
+      try { e.dataTransfer.setDragImage(card, 20, 20); } catch (err) {}
+    });
+    handle.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      tdDragBlock = null;
+      document.querySelectorAll('.wfd-block.drag-over-before, .wfd-block.drag-over-after')
+        .forEach(function (el) { el.classList.remove('drag-over-before', 'drag-over-after'); });
+    });
+    head.appendChild(handle);
+
+    var siblings = blocksForTask(taskId);
+    var idx = siblings.map(function (b) { return b.id; }).indexOf(block.id);
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx <= 0;
+    up.addEventListener('click', function () { moveTaskBlock(block.id, -1); rerenderFn(); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === -1 || idx === siblings.length - 1;
+    down.addEventListener('click', function () { moveTaskBlock(block.id, 1); rerenderFn(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    head.appendChild(reorder);
+
+    var typeLabel = document.createElement('span'); typeLabel.className = 'wfd-block-type';
+    typeLabel.textContent = '📝 Note';
+    head.appendChild(typeLabel);
+
+    head.appendChild(document.createElement('span')).className = 'wfd-block-spacer';
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'at-due-del'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete block');
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete this note?')) return;
+      delete tdEditingBlockIds[block.id];
+      deleteTaskBlock(block.id);
+      rerenderFn();
+    });
+    head.appendChild(delBtn);
+
+    card.appendChild(head);
+
+    var isEditing = !!tdEditingBlockIds[block.id];
+    if (isEditing) {
+      var ta = document.createElement('textarea');
+      ta.className = 'wfd-block-textarea';
+      ta.placeholder = 'Notes… (Markdown: **bold**, # heading, - bullet)';
+      ta.value = block.content;
+      ta.addEventListener('input', function () { autosize(ta); });
+      ta.addEventListener('blur', function () {
+        if (ta.value !== block.content) updateTaskBlock(block.id, { content: ta.value });
+        delete tdEditingBlockIds[block.id];
+        rerenderFn();
+      });
+      card.appendChild(ta);
+      setTimeout(function () { autosize(ta); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 0);
+    } else {
+      var view = document.createElement('div'); view.className = 'wfd-note-view';
+      if (block.content && block.content.trim()) {
+        view.innerHTML = renderMarkdownLite(block.content);
+      } else {
+        var placeholder = document.createElement('span'); placeholder.className = 'wfd-note-placeholder'; placeholder.textContent = 'Click to add notes…';
+        view.appendChild(placeholder);
+      }
+      view.addEventListener('click', function () { tdEditingBlockIds[block.id] = true; rerenderFn(); });
+      card.appendChild(view);
+    }
+
+    return card;
+  }
+
+  function renderTaskBlocksList(taskId) {
+    var wrap = document.getElementById('tdBlocksList');
+    wrap.innerHTML = '';
+    var blocks = blocksForTask(taskId);
+    document.getElementById('tdBlocksEmpty').hidden = !!blocks.length;
+    blocks.forEach(function (b) { wrap.appendChild(buildTaskBlockCard(b, taskId, function () { renderTaskBlocksList(taskId); })); });
+  }
+
+  document.getElementById('tdBack').addEventListener('click', closeTaskDetailPage);
+  document.getElementById('tdTitleInput').addEventListener('blur', function () {
+    if (!currentTaskDetailId) return;
+    var input = document.getElementById('tdTitleInput');
+    var task = taskById(currentTaskDetailId);
+    var v = input.value.trim();
+    if (task && v && v !== task.title) { saveTasks(loadTasks().map(function (t) { if (t.id === currentTaskDetailId) t.title = v; return t; })); }
+  });
+  document.getElementById('tdTitleInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('tdTitleInput').blur(); }
+  });
+  document.getElementById('tdDeleteBtn').addEventListener('click', function () {
+    if (!currentTaskDetailId) return;
+    var task = taskById(currentTaskDetailId);
+    if (!task) return;
+    if (!confirm('Delete "' + (task.title || 'this task') + '"? Its notes will be deleted too.')) return;
+    blocksForTask(currentTaskDetailId).forEach(function (b) { deleteTaskBlock(b.id); });
+    saveTasks(loadTasks().filter(function (x) { return x.id !== currentTaskDetailId; }));
+    closeTaskDetailPage();
+  });
+  document.getElementById('tdAddNoteBtn').addEventListener('click', function () {
+    if (!currentTaskDetailId) return;
+    var note = appendNote(currentTaskDetailId);
+    tdEditingBlockIds[note.id] = true;
+    renderTaskBlocksList(currentTaskDetailId);
   });
 
   function buildObjectiveRow(o, rerenderFn) {
@@ -3271,7 +3791,7 @@ body::after {
     wrap.innerHTML = '';
     document.getElementById('taskSectionEmpty').hidden = scoped.length !== 0;
 
-    function rowFor(t) { return buildTaskRow(t, renderTaskSection, { showTags: true, rich: true }); }
+    function rowFor(t) { return buildTaskRow(t, renderTaskSection, { showTags: true, rich: true, showBlocksBtn: true }); }
     if (taskGroupBy === 'none') {
       scoped.forEach(function (t) { wrap.appendChild(rowFor(t)); });
     } else {
@@ -3973,6 +4493,260 @@ body::after {
     return row;
   }
 
+  function copyBlockContent(block, btn) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      alert('Clipboard copy is not supported in this browser.');
+      return;
+    }
+    navigator.clipboard.writeText(block.content || '').then(function () {
+      var original = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(function () { btn.textContent = original; btn.classList.remove('copied'); }, 1400);
+    }, function () {
+      alert('Could not copy — clipboard access was blocked.');
+    });
+  }
+
+  function escapeHtmlLite(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  /** A deliberately small Markdown-lite renderer — headings, bold, bullet
+   * lists, and paragraphs only. No Markdown library exists anywhere in this
+   * repo (checked before adding this); pulling one in would be the first
+   * external dependency in an app that otherwise hand-rolls everything
+   * (charts, sync, etc.), so this stays minimal on purpose. HTML is escaped
+   * before any Markdown transform runs, so raw tags in a note can't inject
+   * markup into the page. */
+  function renderMarkdownLite(text) {
+    var lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+    function inline(s) {
+      s = escapeHtmlLite(s);
+      s = s.replace(/\*\*(.+?)\*\*|__(.+?)__/g, function (m, a, b) { return '<strong>' + (a || b) + '</strong>'; });
+      return s;
+    }
+    var html = '';
+    var paragraphBuf = [];
+    function flushParagraph() {
+      if (!paragraphBuf.length) return;
+      html += '<p>' + paragraphBuf.join('<br>') + '</p>';
+      paragraphBuf = [];
+    }
+    var i = 0;
+    while (i < lines.length) {
+      var headingMatch = lines[i].match(/^(#{1,6})\s+(.*)$/);
+      var bulletMatch = lines[i].match(/^[-*]\s+(.*)$/);
+      if (headingMatch) {
+        flushParagraph();
+        var level = headingMatch[1].length;
+        html += '<h' + level + '>' + inline(headingMatch[2]) + '</h' + level + '>';
+        i++;
+      } else if (bulletMatch) {
+        flushParagraph();
+        var items = [];
+        while (i < lines.length && (bulletMatch = lines[i].match(/^[-*]\s+(.*)$/))) {
+          items.push('<li>' + inline(bulletMatch[1]) + '</li>');
+          i++;
+        }
+        html += '<ul>' + items.join('') + '</ul>';
+      } else if (lines[i].trim() === '') {
+        flushParagraph();
+        i++;
+      } else {
+        paragraphBuf.push(inline(lines[i]));
+        i++;
+      }
+    }
+    flushParagraph();
+    return html;
+  }
+
+  // Which blocks currently have their content in edit mode (textarea) rather
+  // than view mode (rendered Markdown / read-only code box). Transient and
+  // module-scoped, same "not persisted, defaults closed" precedent as
+  // collapsedWorkflowDayIds above — nobody needs a block to reopen in edit
+  // mode after a reload.
+  var wfdEditingBlockIds = {};
+
+  // Drag state for block reordering — module-scoped since only one drag can
+  // be in flight at a time; cleared on dragend regardless of drop outcome.
+  // No DnD library exists anywhere in this repo (checked before building
+  // this — no dnd-kit/react-dnd/SortableJS), so this is a minimal native
+  // HTML5 Drag and Drop implementation, consistent with the rest of the
+  // app hand-rolling things instead of adding a dependency. The handle
+  // itself is `draggable`, not the whole card, so dragging never fights
+  // with selecting text inside a block's textarea. The ▲▼ arrow buttons
+  // above (moveBlock) remain the accessible keyboard/touch fallback —
+  // native HTML5 drag has no keyboard equivalent.
+  var wfdDragBlock = null;
+
+  function buildWorkflowBlockCard(block, dayId, rerenderFn) {
+    var card = document.createElement('div');
+    card.className = 'wfd-block';
+    card.dataset.blockId = block.id;
+
+    card.addEventListener('dragover', function (e) {
+      if (!wfdDragBlock || wfdDragBlock.dayId !== dayId || wfdDragBlock.id === block.id) return;
+      e.preventDefault();
+      var rect = card.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      card.classList.toggle('drag-over-before', before);
+      card.classList.toggle('drag-over-after', !before);
+    });
+    card.addEventListener('dragleave', function () { card.classList.remove('drag-over-before', 'drag-over-after'); });
+    card.addEventListener('drop', function (e) {
+      if (!wfdDragBlock || wfdDragBlock.dayId !== dayId || wfdDragBlock.id === block.id) return;
+      e.preventDefault();
+      var before = card.classList.contains('drag-over-before');
+      card.classList.remove('drag-over-before', 'drag-over-after');
+      var ids = blocksForDay(dayId).map(function (b) { return b.id; });
+      var fromIdx = ids.indexOf(wfdDragBlock.id);
+      if (fromIdx === -1) return;
+      ids.splice(fromIdx, 1);
+      var toIdx = ids.indexOf(block.id);
+      ids.splice(before ? toIdx : toIdx + 1, 0, wfdDragBlock.id);
+      reorderBlocks(dayId, ids);
+      rerenderFn();
+    });
+
+    var head = document.createElement('div'); head.className = 'wfd-block-head';
+
+    var handle = document.createElement('span');
+    handle.className = 'wfd-drag-handle'; handle.textContent = '⠿'; handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.setAttribute('draggable', 'true');
+    handle.addEventListener('dragstart', function (e) {
+      wfdDragBlock = { id: block.id, dayId: dayId };
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', block.id); } catch (err) {}
+      try { e.dataTransfer.setDragImage(card, 20, 20); } catch (err) {}
+    });
+    handle.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      wfdDragBlock = null;
+      document.querySelectorAll('.wfd-block.drag-over-before, .wfd-block.drag-over-after')
+        .forEach(function (el) { el.classList.remove('drag-over-before', 'drag-over-after'); });
+    });
+    head.appendChild(handle);
+
+    var siblings = blocksForDay(dayId);
+    var idx = siblings.map(function (b) { return b.id; }).indexOf(block.id);
+    var reorder = document.createElement('div'); reorder.className = 'area-card-reorder';
+    var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.setAttribute('aria-label', 'Move up'); up.disabled = idx <= 0;
+    up.addEventListener('click', function () { moveBlock(block.id, -1); rerenderFn(); });
+    var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.setAttribute('aria-label', 'Move down'); down.disabled = idx === -1 || idx === siblings.length - 1;
+    down.addEventListener('click', function () { moveBlock(block.id, 1); rerenderFn(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    head.appendChild(reorder);
+
+    var typeLabel = document.createElement('span'); typeLabel.className = 'wfd-block-type';
+    typeLabel.textContent = block.type === 'code' ? '</> Code' : '📝 Note';
+    head.appendChild(typeLabel);
+
+    head.appendChild(document.createElement('span')).className = 'wfd-block-spacer';
+
+    var isEditing = !!wfdEditingBlockIds[block.id];
+
+    if (block.type === 'code') {
+      var langInput = document.createElement('input');
+      langInput.type = 'text'; langInput.className = 'wfd-lang-input'; langInput.placeholder = 'language'; langInput.value = block.language || '';
+      langInput.addEventListener('blur', function () {
+        var v = langInput.value.trim();
+        if (v !== block.language) updateBlock(block.id, { language: v });
+      });
+      head.appendChild(langInput);
+
+      if (!isEditing) {
+        var copyBtn = document.createElement('button');
+        copyBtn.type = 'button'; copyBtn.className = 'at-mini-btn wfd-copy-btn'; copyBtn.textContent = '⧉ Copy';
+        copyBtn.addEventListener('click', function () { copyBlockContent(block, copyBtn); });
+        head.appendChild(copyBtn);
+      }
+    }
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'at-due-del'; delBtn.textContent = '✕'; delBtn.setAttribute('aria-label', 'Delete block');
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete this block?')) return;
+      delete wfdEditingBlockIds[block.id];
+      deleteBlock(block.id);
+      rerenderFn();
+    });
+    head.appendChild(delBtn);
+
+    card.appendChild(head);
+
+    if (block.type === 'note') {
+      if (isEditing) {
+        var noteTa = document.createElement('textarea');
+        noteTa.className = 'wfd-block-textarea';
+        noteTa.placeholder = 'Notes… (Markdown: **bold**, # heading, - bullet)';
+        noteTa.value = block.content;
+        noteTa.addEventListener('input', function () { autosize(noteTa); });
+        noteTa.addEventListener('blur', function () {
+          if (noteTa.value !== block.content) updateBlock(block.id, { content: noteTa.value });
+          delete wfdEditingBlockIds[block.id];
+          rerenderFn();
+        });
+        card.appendChild(noteTa);
+        setTimeout(function () { autosize(noteTa); noteTa.focus(); noteTa.setSelectionRange(noteTa.value.length, noteTa.value.length); }, 0);
+      } else {
+        var noteView = document.createElement('div'); noteView.className = 'wfd-note-view';
+        if (block.content && block.content.trim()) {
+          noteView.innerHTML = renderMarkdownLite(block.content);
+        } else {
+          var placeholder = document.createElement('span'); placeholder.className = 'wfd-note-placeholder'; placeholder.textContent = 'Click to add notes…';
+          noteView.appendChild(placeholder);
+        }
+        noteView.addEventListener('click', function () { wfdEditingBlockIds[block.id] = true; rerenderFn(); });
+        card.appendChild(noteView);
+      }
+    } else {
+      if (isEditing) {
+        var codeTa = document.createElement('textarea');
+        codeTa.className = 'wfd-code-textarea'; codeTa.placeholder = '// code…'; codeTa.value = block.content; codeTa.spellcheck = false;
+        codeTa.addEventListener('input', function () { autosize(codeTa); });
+        codeTa.addEventListener('blur', function () {
+          if (codeTa.value !== block.content) updateBlock(block.id, { content: codeTa.value });
+          delete wfdEditingBlockIds[block.id];
+          rerenderFn();
+        });
+        card.appendChild(codeTa);
+        setTimeout(function () { autosize(codeTa); codeTa.focus(); codeTa.setSelectionRange(codeTa.value.length, codeTa.value.length); }, 0);
+      } else {
+        var codeView = document.createElement('pre'); codeView.className = 'wfd-code-view';
+        if (block.content) {
+          codeView.textContent = block.content;
+        } else {
+          codeView.textContent = 'Click to add code…';
+          codeView.classList.add('wfd-code-empty');
+        }
+        codeView.addEventListener('click', function () { wfdEditingBlockIds[block.id] = true; rerenderFn(); });
+        card.appendChild(codeView);
+      }
+
+      var addBelowBtn = document.createElement('button');
+      addBelowBtn.type = 'button'; addBelowBtn.className = 'at-mini-btn wfd-add-code-below'; addBelowBtn.textContent = '+ Code block';
+      addBelowBtn.addEventListener('click', function () {
+        var nb = insertCodeBlockAfter(block.id);
+        if (nb) wfdEditingBlockIds[nb.id] = true;
+        rerenderFn();
+      });
+      card.appendChild(addBelowBtn);
+    }
+
+    return card;
+  }
+
+  function renderWorkflowBlocksList(dayId) {
+    var wrap = document.getElementById('wfdBlocksList');
+    wrap.innerHTML = '';
+    var blocks = blocksForDay(dayId);
+    document.getElementById('wfdBlocksEmpty').hidden = !!blocks.length;
+    blocks.forEach(function (b) { wrap.appendChild(buildWorkflowBlockCard(b, dayId, function () { renderWorkflowBlocksList(dayId); })); });
+  }
+
   function buildWorkflowDayRow(day, biz, rerenderFn) {
     var wrap = document.createElement('div');
     wrap.className = 'wf-day' + (collapsedWorkflowDayIds[day.id] ? ' collapsed' : '');
@@ -4012,6 +4786,12 @@ body::after {
     var tag = document.createElement('span'); tag.className = 'at-due-link';
     tag.textContent = (biz.icon || '💼') + ' ' + biz.name;
     head.appendChild(tag);
+
+    var openBtn = document.createElement('button');
+    openBtn.type = 'button'; openBtn.className = 'at-mini-btn'; openBtn.textContent = '📄 Open';
+    openBtn.title = 'Open this day\'s notes/code blocks';
+    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openWorkflowDayPage(day.id); });
+    head.appendChild(openBtn);
 
     var linkedTask = taskForWorkflowDay(day.id);
     var sendBtn = document.createElement('button');
@@ -4219,6 +4999,113 @@ body::after {
     }
     return wrap;
   }
+
+  // ---- Workflow Day detail page (full-page overlay, same open/close/render
+  // shape as the Goal page above) ----
+  var currentWorkflowDayId = null;
+
+  /** One-time, best-effort: seeds an initial notes block from the legacy
+   * day.notes string field (never rendered by any UI — see the Workflow
+   * changelog entry) the first time a day with no blocks yet is opened.
+   * day.notes itself is left in place afterward, same orphaned-field
+   * treatment as every other superseded field in this app. */
+  function seedWorkflowDayLegacyNotes(dayId) {
+    var day = workflowDayById(dayId);
+    if (!day || !day.notes || blocksForDay(dayId).length) return;
+    addDayBlock(dayId, { type: 'note', content: day.notes });
+  }
+
+  function openWorkflowDayPage(dayId) {
+    currentWorkflowDayId = dayId;
+    document.getElementById('workflowDayPageBg').classList.add('show');
+    seedWorkflowDayLegacyNotes(dayId);
+    renderWorkflowDayPage(dayId);
+  }
+  function closeWorkflowDayPage() {
+    document.getElementById('workflowDayPageBg').classList.remove('show');
+    currentWorkflowDayId = null;
+    renderBusinessesSection();
+  }
+
+  function renderWorkflowDayPage(dayId) {
+    var day = workflowDayById(dayId);
+    if (!day) { closeWorkflowDayPage(); return; }
+    var biz = businessById(day.businessId);
+    var week = workflowWeekById(day.weekId);
+
+    var titleInput = document.getElementById('wfdTitleInput');
+    titleInput.value = day.title;
+
+    var metaRow = document.getElementById('wfdMetaRow');
+    metaRow.innerHTML = '';
+    if (biz) {
+      var tag = document.createElement('span'); tag.className = 'at-due-link';
+      tag.textContent = (biz.icon || '💼') + ' ' + biz.name + (week ? ' · ' + (week.title || 'Untitled week') : '');
+      metaRow.appendChild(tag);
+    }
+
+    var statusWrap = document.getElementById('wfdStatusSelectWrap');
+    statusWrap.innerHTML = '';
+    statusWrap.appendChild(buildWorkflowStatusSelect(day, function () { renderWorkflowDayPage(dayId); }));
+
+    renderWorkflowDayChecklist(dayId);
+    renderWorkflowBlocksList(dayId);
+  }
+
+  /** The day's existing checklist, shown at the top of the detail page —
+   * same buildWorkflowChecklistRow component the board row already uses, so
+   * both stay in sync automatically (one underlying store, two render
+   * sites). */
+  function renderWorkflowDayChecklist(dayId) {
+    var wrap = document.getElementById('wfdChecklistList');
+    wrap.innerHTML = '';
+    var items = checklistForDay(dayId);
+    document.getElementById('wfdChecklistEmpty').hidden = !!items.length;
+    items.forEach(function (item) { wrap.appendChild(buildWorkflowChecklistRow(item, function () { renderWorkflowDayChecklist(dayId); })); });
+  }
+
+  document.getElementById('wfdBack').addEventListener('click', closeWorkflowDayPage);
+  document.getElementById('wfdTitleInput').addEventListener('blur', function () {
+    if (!currentWorkflowDayId) return;
+    var input = document.getElementById('wfdTitleInput');
+    var day = workflowDayById(currentWorkflowDayId);
+    var v = input.value.trim();
+    if (day && v !== day.title) updateWorkflowDay(currentWorkflowDayId, { title: v });
+  });
+  document.getElementById('wfdTitleInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('wfdTitleInput').blur(); }
+  });
+  document.getElementById('wfdDeleteBtn').addEventListener('click', function () {
+    if (!currentWorkflowDayId) return;
+    var day = workflowDayById(currentWorkflowDayId);
+    if (!day) return;
+    if (!confirm('Delete "' + (day.title || 'this day') + '"? Its checklist items and blocks will be deleted too.')) return;
+    removeWorkflowDay(currentWorkflowDayId);
+    closeWorkflowDayPage();
+  });
+  document.getElementById('wfdAddNotesCodeBtn').addEventListener('click', function () {
+    if (!currentWorkflowDayId) return;
+    var pair = appendNotePlusCode(currentWorkflowDayId);
+    // Auto-open the new note block for editing (the note, not the code
+    // block, since only one textarea can hold focus at a time) — matches
+    // the same "new block opens ready to type" treatment insertCodeBlockAfter
+    // gets below.
+    wfdEditingBlockIds[pair.note.id] = true;
+    renderWorkflowBlocksList(currentWorkflowDayId);
+  });
+  function addWorkflowDayChecklistItem() {
+    if (!currentWorkflowDayId) return;
+    var input = document.getElementById('wfdChecklistInput');
+    var t = input.value.trim();
+    if (!t) return;
+    addWorkflowChecklistItem(currentWorkflowDayId, { text: t });
+    input.value = '';
+    renderWorkflowDayChecklist(currentWorkflowDayId);
+  }
+  document.getElementById('wfdChecklistAddBtn').addEventListener('click', addWorkflowDayChecklistItem);
+  document.getElementById('wfdChecklistInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addWorkflowDayChecklistItem(); }
+  });
 
   function renderBizPanelBody() {
     var wrap = document.getElementById('bizPanelBody');
