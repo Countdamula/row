@@ -20,6 +20,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
 | [braindump.html](braindump.html) | Brain Dump — freeform daily thoughts/emotions journal |
 | [nutrition.html](nutrition.html) | Nutrition — My Kitchen / Grocery List |
+| [household.html](household.html) | Household — Energy Beings roster, Inventory, Wishlist, Chores |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 

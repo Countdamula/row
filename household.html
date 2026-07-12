@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Household</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="household-data.js" defer></script>
+<style>
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: transparent;
+  --glass-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+  --border: transparent;
+  --accent: #7DD3FC;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -2;
+  background:
+    radial-gradient(60% 45% at 82% 14%, rgba(125, 211, 252, 0.14) 0%, transparent 55%),
+    radial-gradient(55% 45% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+
+.shell { max-width: 880px; margin: 0 auto; padding: 24px 16px 40px; }
+
+/* ===== Back to dashboard ===== */
+.hh-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px; margin: 0 0 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px; color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.hh-back-btn:hover, .hh-back-btn:active { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.hh-back-btn svg { display: block; }
+
+/* ===== Cover banner — same structure as index.html/gym.html/braindump.html/
+   finance.html: sunburst emblem, italic serif title, tracked-caps subtext,
+   outlined pill CTA, radiating-line divider — recolored with this page's
+   own --accent (info-blue, from the app's existing standard token family,
+   not a new hue). ===== */
+.hh-cover {
+  position: relative; width: 100%; overflow: hidden;
+  padding: 48px 24px 36px; text-align: center; border-radius: 20px;
+  margin-bottom: 22px; border: 1px solid rgba(125,211,252,0.18);
+  background:
+    radial-gradient(120% 85% at 50% -15%, rgba(125,211,252,0.24) 0%, rgba(5,5,6,0.92) 55%, transparent 100%),
+    radial-gradient(35% 30% at 85% 20%, rgba(180,180,200,0.10) 0%, transparent 65%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+}
+.hh-cover-emblem { position: relative; width: 60px; height: 60px; margin: 0 auto 18px; }
+.hh-cover-emblem-rays {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 140px; height: 140px;
+  background: repeating-conic-gradient(rgba(125,211,252,0.5) 0deg 0.7deg, transparent 0.7deg 15deg);
+  border-radius: 50%; opacity: 0.85;
+}
+.hh-cover-emblem-circle {
+  position: absolute; inset: 0; border: 1px solid var(--accent); border-radius: 50%;
+  background: #050506; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-style: italic; font-size: 20px; color: var(--accent);
+}
+.hh-cover-title {
+  position: relative; z-index: 1; font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-size: clamp(30px, 7vw, 46px); color: var(--text-primary); letter-spacing: -0.01em;
+  text-shadow: 0 2px 28px rgba(0,0,0,0.6);
+}
+.hh-cover-subtext {
+  position: relative; z-index: 1; margin-top: 14px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); line-height: 2.1;
+}
+.hh-cover-cta {
+  position: relative; z-index: 1; display: inline-flex; align-items: center;
+  margin-top: 18px; padding: 11px 26px; border: 1px solid rgba(125,211,252,0.35); border-radius: 999px;
+  background: transparent; color: var(--accent); font-family: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hh-cover-cta:hover { background: rgba(125,211,252,0.10); border-color: var(--accent); }
+@media (max-width: 480px) { .hh-cover { padding: 38px 16px 28px; } }
+
+.hh-section-divider {
+  width: 100%; height: 28px; margin: 4px 0 18px;
+  background: repeating-conic-gradient(rgba(125,211,252,0.35) 0deg 0.5deg, transparent 0.5deg 12deg);
+  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  opacity: 0.7;
+}
+
+/* ===== Section nav — top underline tabs, matching finance.html's
+   .fin-subnav/.fin-tab pattern. ===== */
+.hh-subnav { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.hh-tabs { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+.hh-tab {
+  background: none; border: none; padding: 6px 0; margin-bottom: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--text-tertiary); cursor: pointer; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.hh-tab:hover { color: var(--text-secondary); }
+.hh-tab.active { color: var(--accent); }
+.hh-tab.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 2px; background: var(--accent); }
+
+.section[hidden] { display: none !important; }
+.section { margin-bottom: 18px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 14px; display: flex; align-items: center; gap: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title-text { display: inline-flex; align-items: center; gap: 8px; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.card {
+  background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+  padding: 18px 20px; margin-bottom: 10px; box-shadow: var(--glass-shadow); position: relative; overflow: hidden;
+}
+.hh-empty { color: var(--text-tertiary); font-size: 13px; padding: 18px 4px; text-align: center; }
+
+/* ===== Row list (attention panel) — same recipe as finance.html's
+   .acct-row, copied verbatim under the same class name. ===== */
+.acct-row {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 12px; padding: 12px 14px;
+  background: rgba(255,255,255,0.025); border-radius: var(--radius-md); margin-bottom: 6px;
+  transition: background 0.15s;
+}
+.acct-row.is-overdue { border-left: 3px solid var(--warning); background: rgba(242,192,99,0.06); }
+.acct-row-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.acct-row-info { min-width: 0; }
+.acct-row-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.acct-row-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.acct-row-actions { display: flex; gap: 4px; }
+.acct-icon-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.10); color: var(--text-tertiary);
+  cursor: pointer; font-size: 12px; padding: 5px 8px; border-radius: 6px; font-family: inherit; line-height: 1;
+}
+.acct-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.charge-btn {
+  background: rgba(125,211,252,0.12); border: 1px solid rgba(125,211,252,0.30);
+  color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 700;
+  padding: 5px 10px; border-radius: 6px; font-family: inherit; white-space: nowrap;
+}
+.charge-btn:hover { background: rgba(125,211,252,0.20); }
+
+/* ===== Buttons / modal / fields — copied verbatim from
+   entertainment.html/finance.html's shared pattern. ===== */
+.btn-primary {
+  padding: 11px 20px; border: 1px solid rgba(255,255,255,0.85);
+  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%); color: #0a0a0b; border-radius: 12px;
+  font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.btn-secondary {
+  padding: 10px 16px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.hh-add-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+
+.modal-bg {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 300; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 460px; background: #111113; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
+.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.modal-actions button { flex: 1; }
+.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 6px; }
+
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.field input[type="text"], .field input[type="number"], .field input[type="date"], .field input[type="url"], .field select, .field textarea {
+  padding: 12px; border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.28); color: var(--text-primary);
+  border-radius: 10px; font-family: inherit; font-size: 14px; width: 100%;
+}
+.field input[type="range"] { width: 100%; accent-color: var(--accent); }
+.field textarea { min-height: 56px; resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-hint { font-size: 10.5px; color: var(--text-tertiary); }
+
+.color-chip-row { display: flex; flex-wrap: wrap; gap: 9px; }
+.color-chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.color-chip.active { border-color: var(--text-primary); }
+
+/* ===== Filters / search ===== */
+.being-search {
+  width: 100%; padding: 12px 14px; margin-bottom: 12px;
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.28); color: var(--text-primary);
+  border-radius: 10px; font-family: inherit; font-size: 14px;
+}
+.being-search:focus { outline: none; border-color: rgba(255,255,255,0.40); }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip { padding: 7px 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: var(--text-secondary); border-radius: 999px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chip.active { background: var(--accent); color: #0a0a0b; border-color: transparent; font-weight: 800; }
+
+/* ===== Legions — same visual recipe as index.html's Life Areas
+   .area-card, renamed for this page's own vocabulary. ===== */
+.legion-card { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; }
+.legion-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.legion-card-reorder { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.legion-card-reorder button {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--text-tertiary);
+  width: 16px; height: 13px; border-radius: 3px; cursor: pointer; font-size: 8px; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.legion-card-reorder button:hover:not(:disabled) { color: var(--text-primary); background: rgba(255,255,255,0.12); }
+.legion-card-reorder button:disabled { opacity: 0.2; cursor: default; }
+.legion-card-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.legion-card-name { font-family: var(--font-serif); font-size: 15px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; }
+.legion-card-count { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); flex-shrink: 0; }
+.legion-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.legion-card-actions button { background: rgba(0,0,0,0.35); border: none; color: var(--text-tertiary); width: 22px; height: 22px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.legion-card-actions button:hover { color: var(--text-primary); }
+.legion-card-purpose { font-size: 12px; color: var(--text-secondary); margin: 6px 0 12px; }
+.legion-add-being-btn {
+  background: rgba(125,211,252,0.10); border: 1px solid rgba(125,211,252,0.28); color: var(--accent);
+  cursor: pointer; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 6px; font-family: inherit; margin-bottom: 10px;
+}
+.legion-add-being-btn:hover { background: rgba(125,211,252,0.18); }
+
+/* ===== Beings gallery — same shell as entertainment.html's .ent-grid/
+   .ent-card, recolored with this page's --accent instead of pink. ===== */
+.ent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.ent-card { background: var(--bg-card); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.ent-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 22px rgba(125,211,252,0.16); }
+.ent-card.needs-charge { border-color: var(--warning); box-shadow: 0 0 0 1px rgba(242,192,99,0.35); }
+.ent-cover { position: relative; aspect-ratio: 1 / 1; background: rgba(255,255,255,0.04); overflow: hidden; }
+.ent-cover::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, transparent 55%, rgba(5,5,6,0.55) 100%); pointer-events: none; }
+.ent-cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.ent-cover-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; opacity: 0.3; z-index: 0; }
+.being-status-badge {
+  position: absolute; top: 7px; left: 7px; z-index: 2; font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 4px 8px; border-radius: 999px; background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff;
+}
+.being-status-badge.active { color: var(--success); }
+.being-status-badge.dormant { color: var(--info); }
+.being-status-badge.retired { color: var(--text-tertiary); }
+.card-actions { position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 4px; }
+.icon-btn-sm {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff; border-radius: 8px;
+  font-size: 12px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
+.icon-btn-sm.charge-flag { color: var(--warning); border-color: var(--warning); }
+.legion-card-reorder-outer { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.card-title { font-size: 13.5px; font-weight: 600; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+.card-author { font-size: 11px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: -4px; }
+.tag { display: inline-flex; align-self: flex-start; align-items: center; gap: 5px; font-size: 10px; padding: 3px 9px; border-radius: 999px; font-weight: 700; letter-spacing: 0.04em; background: rgba(255,255,255,0.06); color: var(--text-secondary); font-family: var(--font-mono); text-transform: uppercase; }
+.tag.needs-charge-tag { background: rgba(242,192,99,0.14); color: var(--warning); }
+.tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Strength meter — same "div with inline width%" bar idiom already used
+   elsewhere in this app for budgets/wishlist/tasks progress. */
+.being-strength-row { display: flex; align-items: center; gap: 6px; }
+.being-strength-track { flex: 1; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.being-strength-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.being-strength-label { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); flex-shrink: 0; }
+
+/* ===== Sigil upload (being modal) ===== */
+.sigil-upload { display: flex; align-items: center; gap: 12px; }
+.sigil-preview { width: 64px; height: 64px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; font-size: 26px; opacity: 0.4; }
+.sigil-preview img { width: 100%; height: 100%; object-fit: cover; }
+.sigil-upload-actions { display: flex; gap: 8px; }
+
+/* ===== Charge history (inside being modal) ===== */
+.charge-history-list { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+.charge-history-entry { display: flex; align-items: flex-start; gap: 8px; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 8px 10px; }
+.charge-history-date { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); flex-shrink: 0; white-space: nowrap; margin-top: 1px; }
+.charge-history-note { font-size: 12.5px; color: var(--text-secondary); flex: 1; }
+.charge-history-del { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; padding: 0 2px; flex-shrink: 0; }
+.charge-history-del:hover { color: var(--danger); }
+
+/* ===== Inventory ===== */
+.acct-row.is-low-stock { border-left: 3px solid var(--warning); background: rgba(242,192,99,0.06); }
+.acct-row.is-out-of-stock { border-left: 3px solid var(--danger); background: rgba(255,107,107,0.08); }
+.acct-row-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.qty-stepper { display: flex; align-items: center; gap: 6px; }
+.qty-btn {
+  width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04); color: var(--text-primary); cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.qty-btn:hover { background: rgba(255,255,255,0.10); }
+.qty-btn:disabled { opacity: 0.25; cursor: default; }
+.qty-value { font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 44px; text-align: center; }
+.tag.expiry-warn { background: rgba(242,192,99,0.14); color: var(--warning); }
+.tag.expiry-bad { background: rgba(255,107,107,0.14); color: var(--danger); }
+.inv-group-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 16px 0 8px; }
+.inv-group-title:first-child { margin-top: 0; }
+.acct-row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.acct-row-value { font-size: 14px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ===== Wishlist ===== */
+.acct-row.is-purchased { opacity: 0.55; }
+.acct-row.is-purchased .acct-row-name { text-decoration: line-through; }
+.std-priority-pill { font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; margin-left: 4px; }
+.std-priority-pill.low { color: var(--info); background: rgba(125,211,252,0.12); }
+.std-priority-pill.med { color: var(--warning); background: rgba(242,192,99,0.12); }
+.std-priority-pill.high { color: var(--danger); background: rgba(255,107,107,0.12); }
+.wish-total-card { text-align: center; }
+.wish-total-label { font-size: 10.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.wish-total-val { font-family: var(--font-serif); font-size: 30px; font-weight: 700; color: var(--text-primary); }
+.bridge-btn {
+  background: rgba(125,211,252,0.12); border: 1px solid rgba(125,211,252,0.30); color: var(--accent);
+  cursor: pointer; font-size: 10.5px; font-weight: 700; padding: 5px 9px; border-radius: 6px; font-family: inherit; white-space: nowrap;
+}
+.bridge-btn:hover { background: rgba(125,211,252,0.20); }
+.bridge-btn.done { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.10); color: var(--text-tertiary); cursor: default; }
+
+/* ===== Chores — same "3px left border + tint" idiom as
+   .is-low-stock/.is-out-of-stock, under names that actually match
+   what a chore's due date means. ===== */
+.acct-row.is-due-today { border-left: 3px solid var(--warning); background: rgba(242,192,99,0.06); }
+.acct-row.is-past-due { border-left: 3px solid var(--danger); background: rgba(255,107,107,0.08); }
+.acct-row.is-paused { opacity: 0.55; }
+
+/* ===== Overview — stat tiles ===== */
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.ov-tile-label { font-size: 10.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.ov-tile-val { font-family: var(--font-serif); font-size: 26px; font-weight: 700; color: var(--text-primary); }
+.ov-tile-val.warn { color: var(--warning); }
+.ov-tile-val.bad { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ===== BACK BUTTON ===== -->
+<a href="index.html" class="hh-back-btn" aria-label="Back to dashboard">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  <span>Back</span>
+</a>
+
+<!-- ===== COVER BANNER — same structure as Main/Fitness Studio/Brain Dump/Finance ===== -->
+<div class="hh-cover">
+  <div class="hh-cover-emblem">
+    <div class="hh-cover-emblem-rays"></div>
+    <div class="hh-cover-emblem-circle">H</div>
+  </div>
+  <div class="hh-cover-title">Household</div>
+  <div class="hh-cover-subtext">Tend<br>Stock<br>Provide</div>
+  <button class="hh-cover-cta" type="button" id="hhCoverCtaBtn">View the Roster</button>
+</div>
+<div class="hh-section-divider" aria-hidden="true"></div>
+
+<!-- ===== SECTION NAV ===== -->
+<div class="hh-subnav">
+  <div class="hh-tabs" id="hhTabs">
+    <button type="button" class="hh-tab active" data-tab="overview">Overview</button>
+    <button type="button" class="hh-tab" data-tab="beings">Energy Beings</button>
+    <button type="button" class="hh-tab" data-tab="inventory">Inventory</button>
+    <button type="button" class="hh-tab" data-tab="wishlist">Wishlist</button>
+    <button type="button" class="hh-tab" data-tab="chores">Chores</button>
+  </div>
+</div>
+
+<!-- ===== OVERVIEW — landing view, pulls from all four sections'
+     data, no store of its own. ===== -->
+<div class="section" data-section="overview">
+  <div class="section-title"><span class="section-title-text">NEEDS ATTENTION</span></div>
+  <div class="ov-grid">
+    <div class="card"><div class="ov-tile-label">Beings needing charge</div><div class="ov-tile-val warn" id="ovBeingsCount">0</div></div>
+    <div class="card"><div class="ov-tile-label">Chores due</div><div class="ov-tile-val bad" id="ovChoresCount">0</div></div>
+    <div class="card"><div class="ov-tile-label">Low stock items</div><div class="ov-tile-val warn" id="ovLowStockCount">0</div></div>
+    <div class="card"><div class="ov-tile-label">Wishlist total</div><div class="ov-tile-val" id="ovWishTotalTile">$0.00</div></div>
+  </div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">ENERGY BEINGS NEEDING A CHARGE</span></div>
+  <div class="card"><div id="ovBeingsList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">CHORES DUE</span></div>
+  <div class="card"><div id="ovChoresList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">LOW STOCK</span></div>
+  <div class="card"><div id="ovInventoryList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">WISHLIST HIGHLIGHTS</span></div>
+  <div class="card"><div id="ovWishlistList"></div></div>
+</div>
+
+<!-- ===== ENERGY BEINGS ===== -->
+<div class="section" data-section="beings" hidden>
+  <div class="section-title"><span class="section-title-text">NEEDS ATTENTION</span></div>
+  <div class="card"><div id="attentionList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">FILTER &amp; SEARCH</span></div>
+  <input type="text" class="being-search" id="beingSearchInput" placeholder="Search by name or purpose…">
+  <div class="chip-row" id="statusFilterRow"></div>
+  <div class="chip-row" id="typeFilterRow"></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">LEGIONS</span></div>
+  <div class="hh-add-row"><button class="btn-secondary" type="button" id="legionAddBtn">+ Add Legion</button></div>
+  <div id="legionsList"></div>
+</div>
+
+<!-- ===== INVENTORY ===== -->
+<div class="section" data-section="inventory" hidden>
+  <div class="section-title"><span class="section-title-text">LOW STOCK</span></div>
+  <div class="card"><div id="lowStockList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">FILTER &amp; SEARCH</span></div>
+  <input type="text" class="being-search" id="invSearchInput" placeholder="Search by name…">
+  <div class="chip-row" id="invGroupByRow"></div>
+  <div class="chip-row" id="invCategoryFilterRow"></div>
+  <div class="chip-row" id="invLocationFilterRow"></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">HOUSEHOLD STOCK</span></div>
+  <div class="hh-add-row"><button class="btn-secondary" type="button" id="invAddBtn">+ Add Item</button></div>
+  <div class="card"><div id="invList"></div></div>
+</div>
+
+<!-- ===== WISHLIST ===== -->
+<div class="section" data-section="wishlist" hidden>
+  <div class="section-title"><span class="section-title-text">TOTAL TO ACQUIRE</span></div>
+  <div class="card wish-total-card">
+    <div class="wish-total-label">Unpurchased items</div>
+    <div class="wish-total-val" id="wishTotalVal">$0.00</div>
+  </div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">GROUP &amp; FILTER</span></div>
+  <div class="chip-row" id="wishGroupByRow"></div>
+  <div class="chip-row" id="wishStatusFilterRow"></div>
+  <div class="chip-row" id="wishCategoryFilterRow"></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">WISHLIST</span></div>
+  <div class="hh-add-row"><button class="btn-secondary" type="button" id="wishAddBtn">+ Add to Wishlist</button></div>
+  <div class="card"><div id="wishList"></div></div>
+</div>
+
+<!-- ===== CHORES ===== -->
+<div class="section" data-section="chores" hidden>
+  <div class="section-title"><span class="section-title-text">DUE NOW</span></div>
+  <div class="card"><div id="choresDueList"></div></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">GROUP &amp; FILTER</span></div>
+  <div class="chip-row" id="choreGroupByRow"></div>
+  <div class="chip-row" id="choreStatusFilterRow"></div>
+
+  <div class="section-title" style="margin-top:22px"><span class="section-title-text">ALL CHORES</span></div>
+  <div class="hh-add-row"><button class="btn-secondary" type="button" id="choreAddBtn">+ Add Chore</button></div>
+  <div class="card"><div id="choreList"></div></div>
+</div>
+
+</div>
+
+<!-- ===== LEGION MODAL ===== -->
+<div class="modal-bg" id="legionModalBg">
+  <div class="modal" id="legionModal">
+    <h3 id="legionModalTitle">Add legion</h3>
+    <div class="field"><label>Name</label><input type="text" id="legionName" placeholder="e.g. Dawn Ward"></div>
+    <div class="field"><label>Purpose</label><textarea id="legionPurpose" placeholder="What this legion is for"></textarea></div>
+    <div class="field"><label>Color</label><div class="color-chip-row" id="legionColorRow"></div></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="legionModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="legionModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="legionModalDelete" style="display:none">Delete this legion</span>
+  </div>
+</div>
+
+<!-- ===== BEING MODAL ===== -->
+<div class="modal-bg" id="beingModalBg">
+  <div class="modal" id="beingModal" style="max-width:520px">
+    <h3 id="beingModalTitle">Add energy being</h3>
+
+    <div class="field"><label>Sigil</label>
+      <div class="sigil-upload">
+        <div class="sigil-preview" id="beingSigilPreview">◈</div>
+        <div class="sigil-upload-actions">
+          <input type="file" accept="image/*" id="beingSigilFile" style="display:none">
+          <button class="btn-secondary" type="button" id="beingSigilPickBtn">Upload</button>
+          <button class="btn-secondary" type="button" id="beingSigilRemoveBtn">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="field"><label>Name</label><input type="text" id="beingName" placeholder="e.g. Emberkin"></div>
+      <div class="field"><label>Type</label><select id="beingType"></select></div>
+    </div>
+
+    <div class="field"><label>Legion</label><select id="beingLegion"></select></div>
+    <div class="field"><label>Purpose</label><textarea id="beingPurpose" placeholder="Intent / task"></textarea></div>
+    <div class="field"><label>Appearance</label><textarea id="beingAppearance"></textarea></div>
+
+    <div class="two-col">
+      <div class="field"><label>Activation phrase</label><input type="text" id="beingActivationPhrase"></div>
+      <div class="field"><label>Energy source</label><input type="text" id="beingEnergySource"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="field"><label>Charge every (days)</label><input type="number" id="beingChargeFrequencyDays" min="1" step="1" placeholder="none"></div>
+      <div class="field"><label>Last charged</label><input type="date" id="beingLastChargedDate"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="field"><label>Strength: <span id="beingStrengthVal">5</span>/10</label><input type="range" id="beingStrength" min="1" max="10" step="1" value="5"></div>
+      <div class="field"><label>Status</label><select id="beingStatus"></select></div>
+    </div>
+
+    <div class="field"><label>Tags</label><input type="text" id="beingTags" placeholder="comma-separated, e.g. protection, home"></div>
+    <div class="field"><label>Dissolution method</label><input type="text" id="beingDissolutionMethod"></div>
+    <div class="field"><label>Notes</label><textarea id="beingNotes"></textarea></div>
+
+    <div class="field"><label>Charge history</label>
+      <div class="charge-history-list" id="beingChargeHistoryList"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="beingModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="beingModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="beingModalDelete" style="display:none">Delete this being</span>
+  </div>
+</div>
+
+<!-- ===== CHARGE MODAL ===== -->
+<div class="modal-bg" id="chargeModalBg">
+  <div class="modal" id="chargeModal">
+    <h3>Log a charge — <span id="chargeModalBeingName"></span></h3>
+    <div class="field"><label>Date</label><input type="date" id="chargeDate"></div>
+    <div class="field"><label>Note</label><input type="text" id="chargeNote" placeholder="e.g. fresh candle, spoken intent"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="chargeModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="chargeModalSave" type="button">Log Charge</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== INVENTORY ITEM MODAL ===== -->
+<div class="modal-bg" id="invModalBg">
+  <div class="modal" id="invModal">
+    <h3 id="invModalTitle">Add inventory item</h3>
+
+    <div class="field"><label>Photo</label>
+      <div class="sigil-upload">
+        <div class="sigil-preview" id="invPhotoPreview">📦</div>
+        <div class="sigil-upload-actions">
+          <input type="file" accept="image/*" id="invPhotoFile" style="display:none">
+          <button class="btn-secondary" type="button" id="invPhotoPickBtn">Upload</button>
+          <button class="btn-secondary" type="button" id="invPhotoRemoveBtn">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="invName" placeholder="e.g. Paper towels"></div>
+    <div class="two-col">
+      <div class="field"><label>Category</label><input type="text" id="invCategory" list="invCategoryDatalist" placeholder="e.g. Kitchen"></div>
+      <div class="field"><label>Location</label><input type="text" id="invLocation" list="invLocationDatalist" placeholder="e.g. Under the sink"></div>
+    </div>
+    <datalist id="invCategoryDatalist"></datalist>
+    <datalist id="invLocationDatalist"></datalist>
+
+    <div class="two-col">
+      <div class="field"><label>Quantity</label><input type="number" id="invQuantity" min="0" step="1"></div>
+      <div class="field"><label>Unit</label><input type="text" id="invUnit" placeholder="e.g. rolls, bottles"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Restock threshold</label><input type="number" id="invMinQuantity" min="0" step="1"></div>
+      <div class="field"><label>Expiry date</label><input type="date" id="invExpiryDate"></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="invNotes"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="invModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="invModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="invModalDelete" style="display:none">Delete this item</span>
+  </div>
+</div>
+
+<!-- ===== WISHLIST ITEM MODAL ===== -->
+<div class="modal-bg" id="wishModalBg">
+  <div class="modal" id="wishModal">
+    <h3 id="wishModalTitle">Add to wishlist</h3>
+
+    <div class="field"><label>Photo</label>
+      <div class="sigil-upload">
+        <div class="sigil-preview" id="wishPhotoPreview">🎁</div>
+        <div class="sigil-upload-actions">
+          <input type="file" accept="image/*" id="wishPhotoFile" style="display:none">
+          <button class="btn-secondary" type="button" id="wishPhotoPickBtn">Upload</button>
+          <button class="btn-secondary" type="button" id="wishPhotoRemoveBtn">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>Name</label><input type="text" id="wishName" placeholder="e.g. Cast iron skillet"></div>
+    <div class="two-col">
+      <div class="field"><label>Category</label><input type="text" id="wishCategory" list="wishCategoryDatalist" placeholder="e.g. Kitchen"></div>
+      <div class="field"><label>Priority</label><select id="wishPriority"></select></div>
+    </div>
+    <datalist id="wishCategoryDatalist"></datalist>
+
+    <div class="two-col">
+      <div class="field"><label>Price</label><input type="text" id="wishPrice" placeholder="0.00"></div>
+      <div class="field"><label>Store</label><input type="text" id="wishStore"></div>
+    </div>
+    <div class="field"><label>Link</label><input type="url" id="wishUrl" placeholder="https://..."></div>
+    <div class="field">
+      <label style="text-transform:none;letter-spacing:normal;font-size:13px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="wishPurchased" style="width:auto">Purchased
+      </label>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="wishNotes"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="wishModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="wishModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="wishModalDelete" style="display:none">Delete this item</span>
+  </div>
+</div>
+
+<!-- ===== CHORE MODAL ===== -->
+<div class="modal-bg" id="choreModalBg">
+  <div class="modal" id="choreModal">
+    <h3 id="choreModalTitle">Add chore</h3>
+    <div class="field"><label>Name</label><input type="text" id="choreName" placeholder="e.g. Water the plants"></div>
+    <div class="two-col">
+      <div class="field"><label>Area / Room</label><input type="text" id="choreArea" list="choreAreaDatalist" placeholder="e.g. Living room"></div>
+      <div class="field"><label>Assignee</label><input type="text" id="choreAssignee" placeholder="Optional"></div>
+    </div>
+    <datalist id="choreAreaDatalist"></datalist>
+    <div class="two-col">
+      <div class="field"><label>Frequency</label><select id="choreFrequency"></select></div>
+      <div class="field" id="choreIntervalField" style="display:none"><label>Every N days</label><input type="number" id="choreIntervalDays" min="1" step="1" value="7"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>Last done</label><input type="date" id="choreLastDone"></div>
+      <div class="field"><label>Status</label><select id="choreStatus"></select></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="choreNotes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="choreModalCancel" type="button">Cancel</button>
+      <button class="btn-primary" id="choreModalSave" type="button">Save</button>
+    </div>
+    <span class="delete-link" id="choreModalDelete" style="display:none">Delete this chore</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+
+  const TYPE_LABELS = { servitor: 'Servitor', egregore: 'Egregore', familiar: 'Familiar', guardian: 'Guardian', elemental: 'Elemental', other: 'Other' };
+  const TYPE_ICONS = { servitor: '🔥', egregore: '👁', familiar: '🐾', guardian: '🛡', elemental: '🌊', other: '✦' };
+  const STATUS_LABELS = { active: 'Active', dormant: 'Dormant', retired: 'Retired' };
+  const LEGION_COLOR_HEX = { gold: '#F2C063', purple: '#B794F4', indigo: '#7DD3FC', orange: '#F2A263', rose: '#FF8A9E', teal: '#6EE7B7', cyan: '#67E8F9' };
+
+  // ============================================================
+  // TAB ROUTER — same underline-tab + hash + localStorage pattern
+  // used by finance.html's setActiveTab(). Overview is the landing tab;
+  // all five panels read live from HouseholdData.
+  // ============================================================
+  const TAB_KEY = 'household:active_tab';
+  const VALID_TABS = ['overview', 'beings', 'inventory', 'wishlist', 'chores'];
+  const tabs = document.querySelectorAll('.hh-tab');
+  const sections = document.querySelectorAll('.section[data-section]');
+
+  function storeGet(key) {
+    try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
+    catch (e) { return null; }
+  }
+  function storeSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function setActiveTab(name, opts) {
+    if (VALID_TABS.indexOf(name) === -1) name = 'overview';
+    tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    sections.forEach(function (s) {
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    storeSet(TAB_KEY, name);
+    if (!opts || !opts.skipHash) history.replaceState(null, '', '#' + name);
+    if (!opts || !opts.skipScroll) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (name === 'overview') renderOverviewSection();
+    if (name === 'beings') renderBeingsSection();
+    if (name === 'inventory') renderInventorySection();
+    if (name === 'wishlist') renderWishlistSection();
+    if (name === 'chores') renderChoresSection();
+  }
+  tabs.forEach(function (b) { b.addEventListener('click', function () { setActiveTab(b.dataset.tab); }); });
+
+  function tabFromHash() {
+    const h = (location.hash || '').replace('#', '');
+    return VALID_TABS.indexOf(h) !== -1 ? h : null;
+  }
+  window.addEventListener('hashchange', function () {
+    const h = tabFromHash();
+    if (h) setActiveTab(h, { skipHash: true });
+  });
+
+  $('hhCoverCtaBtn').addEventListener('click', function () { setActiveTab('beings'); });
+
+  // ============================================================
+  // FILTER / SEARCH STATE
+  // ============================================================
+  let statusFilter = 'all';
+  let typeFilter = 'all';
+  let searchQuery = '';
+
+  function renderFilterChips() {
+    const HD = window.HouseholdData;
+    const statusRow = $('statusFilterRow');
+    const statuses = ['all'].concat(HD.BEING_STATUSES);
+    statusRow.innerHTML = statuses.map(function (s) {
+      const label = s === 'all' ? 'All statuses' : STATUS_LABELS[s];
+      return '<button type="button" class="chip status-chip' + (statusFilter === s ? ' active' : '') + '" data-status="' + s + '">' + label + '</button>';
+    }).join('');
+    statusRow.querySelectorAll('.status-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { statusFilter = btn.dataset.status; renderBeingsSection(); });
+    });
+
+    const typeRow = $('typeFilterRow');
+    const types = ['all'].concat(HD.BEING_TYPES);
+    typeRow.innerHTML = types.map(function (t) {
+      const label = t === 'all' ? 'All types' : TYPE_LABELS[t];
+      return '<button type="button" class="chip type-chip' + (typeFilter === t ? ' active' : '') + '" data-type="' + t + '">' + label + '</button>';
+    }).join('');
+    typeRow.querySelectorAll('.type-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { typeFilter = btn.dataset.type; renderBeingsSection(); });
+    });
+  }
+  $('beingSearchInput').addEventListener('input', function () {
+    searchQuery = $('beingSearchInput').value.trim().toLowerCase();
+    renderBeingsSection();
+  });
+
+  function beingMatchesFilters(b) {
+    if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+    if (typeFilter !== 'all' && b.type !== typeFilter) return false;
+    if (searchQuery) {
+      const hay = (b.name + ' ' + b.purpose).toLowerCase();
+      if (hay.indexOf(searchQuery) === -1) return false;
+    }
+    return true;
+  }
+
+  // ============================================================
+  // NEEDS ATTENTION PANEL
+  // ============================================================
+  function legionNameFor(legionId) {
+    if (!legionId) return 'Unassigned';
+    const l = window.HouseholdData.Legions.get(legionId);
+    return l ? l.name : 'Unassigned';
+  }
+
+  function renderAttentionPanel(needing) {
+    if (!needing.length) {
+      $('attentionList').innerHTML = '<div class="hh-empty">All active beings are charged.</div>';
+      return;
+    }
+    $('attentionList').innerHTML = needing.map(function (b) {
+      const lastLabel = b.lastChargedDate ? ('last charged ' + b.lastChargedDate) : 'never charged';
+      return '<div class="acct-row is-overdue" data-id="' + b.id + '">'
+        + '<div class="acct-row-icon" style="background:rgba(242,192,99,0.14);color:var(--warning)">⚡</div>'
+        + '<div class="acct-row-info">'
+        + '<div class="acct-row-name">' + escapeHtml(b.name) + '</div>'
+        + '<div class="acct-row-meta">' + escapeHtml(legionNameFor(b.legionId)) + ' · ' + escapeHtml(lastLabel) + ' · every ' + b.chargeFrequencyDays + 'd</div>'
+        + '</div>'
+        + '<div class="acct-row-actions"><button type="button" class="charge-btn attention-charge-btn" data-id="' + b.id + '">Charge</button></div>'
+        + '</div>';
+    }).join('');
+    $('attentionList').querySelectorAll('.attention-charge-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openChargeModal(btn.dataset.id); });
+    });
+  }
+
+  // ============================================================
+  // BEING CARD + LEGION ROSTER
+  // ============================================================
+  function beingCardHtml(being, needsCharge) {
+    const cover = being.sigilImageUrl
+      ? '<img class="ent-cover-img" src="' + being.sigilImageUrl + '" alt="">'
+      : '<div class="ent-cover-fallback">' + (TYPE_ICONS[being.type] || '✦') + '</div>';
+    const tagsHtml = (being.tags || []).map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    const needsChargeTag = needsCharge ? '<span class="tag needs-charge-tag">⚡ Needs charging</span>' : '';
+    return '<div class="ent-card' + (needsCharge ? ' needs-charge' : '') + '" data-id="' + being.id + '">'
+      + '<div class="ent-cover">' + cover
+      + '<span class="being-status-badge ' + being.status + '">' + being.status + '</span>'
+      + '<span class="card-actions"><button type="button" class="icon-btn-sm' + (needsCharge ? ' charge-flag' : '') + ' card-charge-btn" data-id="' + being.id + '" title="Log a charge">⚡</button></span>'
+      + '</div>'
+      + '<div class="card-body">'
+      + '<div class="card-title">' + escapeHtml(being.name) + '</div>'
+      + '<div class="card-author">' + TYPE_LABELS[being.type] + (being.purpose ? ' · ' + escapeHtml(being.purpose) : '') + '</div>'
+      + '<div class="being-strength-row"><div class="being-strength-track"><div class="being-strength-fill" style="width:' + (being.strength * 10) + '%"></div></div><span class="being-strength-label">' + being.strength + '/10</span></div>'
+      + '<div class="tag-row">' + needsChargeTag + tagsHtml + '</div>'
+      + '</div></div>';
+  }
+
+  function legionGroupHtml(legion, allMembers, filteredMembers, idx, realLegionCount, needingIds) {
+    const isUnassigned = !legion;
+    const cardsHtml = filteredMembers.length
+      ? '<div class="ent-grid">' + filteredMembers.map(function (b) { return beingCardHtml(b, !!needingIds[b.id]); }).join('') + '</div>'
+      : '<div class="hh-empty">' + (allMembers.length ? 'No beings match the current filters.' : (isUnassigned ? 'No unassigned beings.' : 'No beings in this legion yet.')) + '</div>';
+
+    const header = isUnassigned
+      ? '<div class="legion-card-top">'
+        + '<span class="legion-card-dot" style="background:rgba(255,255,255,0.2)"></span>'
+        + '<span class="legion-card-name">Unassigned</span>'
+        + '<span class="legion-card-count">' + allMembers.length + ' being' + (allMembers.length === 1 ? '' : 's') + '</span>'
+        + '</div>'
+      : '<div class="legion-card-top">'
+        + '<div class="legion-card-reorder">'
+        + '<button type="button" class="legion-move-up" data-id="' + legion.id + '"' + (idx === 0 ? ' disabled' : '') + '>▲</button>'
+        + '<button type="button" class="legion-move-down" data-id="' + legion.id + '"' + (idx === realLegionCount - 1 ? ' disabled' : '') + '>▼</button>'
+        + '</div>'
+        + '<span class="legion-card-dot" style="background:' + (LEGION_COLOR_HEX[legion.color] || '#888') + '"></span>'
+        + '<span class="legion-card-name">' + escapeHtml(legion.name) + '</span>'
+        + '<span class="legion-card-count">' + allMembers.length + ' being' + (allMembers.length === 1 ? '' : 's') + '</span>'
+        + '<span class="legion-card-actions"><button type="button" class="legion-edit-btn" data-id="' + legion.id + '">✎</button></span>'
+        + '</div>'
+        + (legion.purpose ? '<div class="legion-card-purpose">' + escapeHtml(legion.purpose) + '</div>' : '');
+
+    return '<div class="legion-card">' + header
+      + '<button type="button" class="legion-add-being-btn" data-legion-id="' + (legion ? legion.id : '') + '">+ Add being' + (legion ? ' to this legion' : '') + '</button>'
+      + cardsHtml
+      + '</div>';
+  }
+
+  function renderBeingsSection() {
+    const HD = window.HouseholdData;
+    renderFilterChips();
+
+    const needing = HD.beingsNeedingCharge();
+    const needingIds = {};
+    needing.forEach(function (b) { needingIds[b.id] = true; });
+    renderAttentionPanel(needing);
+
+    const groups = HD.energyBeingsByLegion();
+    const realLegionCount = groups.filter(function (g) { return g.legion; }).length;
+    let realIdx = 0;
+    const html = groups.map(function (g) {
+      const filtered = g.beings.filter(beingMatchesFilters);
+      const out = legionGroupHtml(g.legion, g.beings, filtered, g.legion ? realIdx : -1, realLegionCount, needingIds);
+      if (g.legion) realIdx++;
+      return out;
+    }).join('');
+    $('legionsList').innerHTML = html || '<div class="hh-empty">No legions yet — add one to start organizing your energy beings.</div>';
+
+    $('legionsList').querySelectorAll('.legion-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openLegionModal(HD.Legions.get(btn.dataset.id)); });
+    });
+    $('legionsList').querySelectorAll('.legion-move-up').forEach(function (btn) {
+      btn.addEventListener('click', function () { moveLegion(btn.dataset.id, 'up'); });
+    });
+    $('legionsList').querySelectorAll('.legion-move-down').forEach(function (btn) {
+      btn.addEventListener('click', function () { moveLegion(btn.dataset.id, 'down'); });
+    });
+    $('legionsList').querySelectorAll('.legion-add-being-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openBeingModal(null, btn.dataset.legionId || null); });
+    });
+    $('legionsList').querySelectorAll('.card-charge-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); openChargeModal(btn.dataset.id); });
+    });
+    $('legionsList').querySelectorAll('.ent-card').forEach(function (el) {
+      el.addEventListener('click', function () { openBeingModal(HD.Beings.get(el.dataset.id)); });
+    });
+  }
+
+  // ============================================================
+  // LEGION CRUD
+  // ============================================================
+  let editingLegionId = null;
+
+  function renderLegionColorChips(selected) {
+    const HD = window.HouseholdData;
+    $('legionColorRow').innerHTML = HD.LEGION_COLORS.map(function (c) {
+      return '<button type="button" class="color-chip' + (c === selected ? ' active' : '') + '" data-color="' + c + '" style="background:' + (LEGION_COLOR_HEX[c] || '#888') + '"></button>';
+    }).join('');
+    $('legionColorRow').querySelectorAll('.color-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        $('legionColorRow').querySelectorAll('.color-chip').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    });
+  }
+  function selectedLegionColor() {
+    const active = $('legionColorRow').querySelector('.color-chip.active');
+    return active ? active.dataset.color : window.HouseholdData.LEGION_COLORS[0];
+  }
+
+  function openLegionModal(legion) {
+    editingLegionId = legion ? legion.id : null;
+    $('legionModalTitle').textContent = legion ? 'Edit legion' : 'Add legion';
+    $('legionName').value = legion ? legion.name : '';
+    $('legionPurpose').value = legion ? legion.purpose : '';
+    renderLegionColorChips(legion ? legion.color : window.HouseholdData.LEGION_COLORS[0]);
+    $('legionModalDelete').style.display = legion ? 'block' : 'none';
+    $('legionModalBg').classList.add('show');
+  }
+  function closeLegionModal() { $('legionModalBg').classList.remove('show'); editingLegionId = null; }
+
+  $('legionAddBtn').addEventListener('click', function () { openLegionModal(null); });
+  $('legionModalCancel').addEventListener('click', closeLegionModal);
+  $('legionModalBg').addEventListener('click', function (e) { if (e.target.id === 'legionModalBg') closeLegionModal(); });
+  $('legionModalSave').addEventListener('click', function () {
+    const HD = window.HouseholdData;
+    const name = $('legionName').value.trim();
+    if (!name) return;
+    const data = { name: name, purpose: $('legionPurpose').value.trim(), color: selectedLegionColor() };
+    if (editingLegionId) HD.Legions.update(editingLegionId, data);
+    else HD.Legions.add(data);
+    closeLegionModal();
+    renderBeingsSection();
+  });
+  $('legionModalDelete').addEventListener('click', function () {
+    if (!editingLegionId) return;
+    if (!confirm('Delete this legion? Its beings will become Unassigned, not deleted.')) return;
+    window.HouseholdData.Legions.remove(editingLegionId);
+    closeLegionModal();
+    renderBeingsSection();
+  });
+
+  function moveLegion(id, dir) {
+    const HD = window.HouseholdData;
+    const list = HD.Legions.list().slice().sort(function (a, b) { return a.order - b.order; });
+    const idx = list.findIndex(function (l) { return l.id === id; });
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= list.length) return;
+    const a = list[idx], b = list[swapIdx];
+    const aOrder = a.order, bOrder = b.order;
+    HD.Legions.update(a.id, { order: bOrder });
+    HD.Legions.update(b.id, { order: aOrder });
+    renderBeingsSection();
+  }
+
+  // ============================================================
+  // BEING CRUD
+  // ============================================================
+  let editingBeingId = null;
+  let sigilDraft = null;
+
+  function populateBeingSelects() {
+    const HD = window.HouseholdData;
+    $('beingType').innerHTML = HD.BEING_TYPES.map(function (t) { return '<option value="' + t + '">' + TYPE_LABELS[t] + '</option>'; }).join('');
+    $('beingStatus').innerHTML = HD.BEING_STATUSES.map(function (s) { return '<option value="' + s + '">' + STATUS_LABELS[s] + '</option>'; }).join('');
+    const legions = HD.Legions.list().slice().sort(function (a, b) { return a.order - b.order; });
+    $('beingLegion').innerHTML = '<option value="">Unassigned</option>' + legions.map(function (l) {
+      return '<option value="' + l.id + '">' + escapeHtml(l.name) + '</option>';
+    }).join('');
+  }
+
+  function renderSigilPreview() {
+    $('beingSigilPreview').innerHTML = sigilDraft ? '<img src="' + sigilDraft + '">' : '◈';
+  }
+
+  function renderChargeHistory(beingId) {
+    const HD = window.HouseholdData;
+    const entries = beingId ? HD.chargeLogForBeing(beingId) : [];
+    $('beingChargeHistoryList').innerHTML = entries.length ? entries.map(function (e) {
+      return '<div class="charge-history-entry"><span class="charge-history-date">' + escapeHtml(e.date) + '</span><span class="charge-history-note">' + escapeHtml(e.note) + '</span><button type="button" class="charge-history-del" data-id="' + e.id + '">✕</button></div>';
+    }).join('') : '<div class="hh-empty">No charges logged yet.</div>';
+    $('beingChargeHistoryList').querySelectorAll('.charge-history-del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Delete this charge log entry?')) return;
+        HD.removeChargeLog(btn.dataset.id);
+        renderChargeHistory(beingId);
+        renderBeingsSection();
+        if (editingBeingId) { const fresh = HD.Beings.get(editingBeingId); if (fresh) $('beingLastChargedDate').value = fresh.lastChargedDate || ''; }
+      });
+    });
+  }
+
+  function openBeingModal(being, presetLegionId) {
+    const HD = window.HouseholdData;
+    editingBeingId = being ? being.id : null;
+    sigilDraft = being ? being.sigilImageUrl : null;
+    populateBeingSelects();
+
+    $('beingModalTitle').textContent = being ? 'Edit energy being' : 'Add energy being';
+    $('beingName').value = being ? being.name : '';
+    $('beingType').value = being ? being.type : 'servitor';
+    $('beingLegion').value = being ? (being.legionId || '') : (presetLegionId || '');
+    $('beingPurpose').value = being ? being.purpose : '';
+    $('beingAppearance').value = being ? being.appearance : '';
+    $('beingActivationPhrase').value = being ? being.activationPhrase : '';
+    $('beingEnergySource').value = being ? being.energySource : '';
+    $('beingChargeFrequencyDays').value = being && being.chargeFrequencyDays != null ? being.chargeFrequencyDays : '';
+    $('beingLastChargedDate').value = being ? (being.lastChargedDate || '') : '';
+    $('beingStrength').value = being ? being.strength : 5;
+    $('beingStrengthVal').textContent = being ? being.strength : 5;
+    $('beingStatus').value = being ? being.status : 'active';
+    $('beingTags').value = being ? being.tags.join(', ') : '';
+    $('beingDissolutionMethod').value = being ? being.dissolutionMethod : '';
+    $('beingNotes').value = being ? being.notes : '';
+
+    renderSigilPreview();
+    renderChargeHistory(editingBeingId);
+    $('beingModalDelete').style.display = being ? 'block' : 'none';
+    $('beingModalBg').classList.add('show');
+  }
+  function closeBeingModal() { $('beingModalBg').classList.remove('show'); editingBeingId = null; sigilDraft = null; }
+
+  $('beingStrength').addEventListener('input', function () { $('beingStrengthVal').textContent = $('beingStrength').value; });
+  $('beingSigilPickBtn').addEventListener('click', function () { $('beingSigilFile').click(); });
+  $('beingSigilRemoveBtn').addEventListener('click', function () { sigilDraft = null; renderSigilPreview(); });
+  $('beingSigilFile').addEventListener('change', function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      sigilDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
+      renderSigilPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('beingModalCancel').addEventListener('click', closeBeingModal);
+  $('beingModalBg').addEventListener('click', function (e) { if (e.target.id === 'beingModalBg') closeBeingModal(); });
+  $('beingModalSave').addEventListener('click', function () {
+    const HD = window.HouseholdData;
+    const name = $('beingName').value.trim();
+    if (!name) return;
+    const freqRaw = $('beingChargeFrequencyDays').value.trim();
+    const data = {
+      name: name,
+      type: $('beingType').value,
+      legionId: $('beingLegion').value || null,
+      purpose: $('beingPurpose').value.trim(),
+      appearance: $('beingAppearance').value.trim(),
+      activationPhrase: $('beingActivationPhrase').value.trim(),
+      energySource: $('beingEnergySource').value.trim(),
+      chargeFrequencyDays: freqRaw === '' ? null : Number(freqRaw),
+      lastChargedDate: $('beingLastChargedDate').value || null,
+      strength: Number($('beingStrength').value),
+      status: $('beingStatus').value,
+      tags: $('beingTags').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean),
+      dissolutionMethod: $('beingDissolutionMethod').value.trim(),
+      notes: $('beingNotes').value.trim(),
+      sigilImageUrl: sigilDraft
+    };
+    if (editingBeingId) HD.Beings.update(editingBeingId, data);
+    else HD.Beings.add(data);
+    closeBeingModal();
+    renderBeingsSection();
+  });
+  $('beingModalDelete').addEventListener('click', function () {
+    if (!editingBeingId) return;
+    if (!confirm('Delete this energy being? Its charge history will be deleted too. This cannot be undone.')) return;
+    window.HouseholdData.Beings.remove(editingBeingId);
+    closeBeingModal();
+    renderBeingsSection();
+  });
+
+  // ============================================================
+  // CHARGE MODAL
+  // ============================================================
+  let chargingBeingId = null;
+  function openChargeModal(beingId) {
+    const being = window.HouseholdData.Beings.get(beingId);
+    if (!being) return;
+    chargingBeingId = beingId;
+    $('chargeModalBeingName').textContent = being.name;
+    $('chargeDate').value = window.HouseholdData.todayISO();
+    $('chargeNote').value = '';
+    $('chargeModalBg').classList.add('show');
+  }
+  function closeChargeModal() { $('chargeModalBg').classList.remove('show'); chargingBeingId = null; }
+  $('chargeModalCancel').addEventListener('click', closeChargeModal);
+  $('chargeModalBg').addEventListener('click', function (e) { if (e.target.id === 'chargeModalBg') closeChargeModal(); });
+  $('chargeModalSave').addEventListener('click', function () {
+    if (!chargingBeingId) return;
+    const justChargedId = chargingBeingId;
+    window.HouseholdData.logCharge(justChargedId, $('chargeNote').value.trim(), $('chargeDate').value || window.HouseholdData.todayISO());
+    closeChargeModal();
+    renderBeingsSection();
+    if (editingBeingId && editingBeingId === justChargedId) {
+      const fresh = window.HouseholdData.Beings.get(justChargedId);
+      if (fresh) $('beingLastChargedDate').value = fresh.lastChargedDate || '';
+      renderChargeHistory(justChargedId);
+    }
+  });
+
+  // ============================================================
+  // INVENTORY
+  // ============================================================
+  let invGroupBy = 'location'; // 'location' | 'category'
+  let invCategoryFilter = 'all';
+  let invLocationFilter = 'all';
+  let invSearchQuery = '';
+
+  function invMatchesFilters(i) {
+    if (invCategoryFilter !== 'all' && (i.category || '') !== invCategoryFilter) return false;
+    if (invLocationFilter !== 'all' && (i.location || '') !== invLocationFilter) return false;
+    if (invSearchQuery && i.name.toLowerCase().indexOf(invSearchQuery) === -1) return false;
+    return true;
+  }
+
+  function distinctValues(items, field) {
+    const seen = {};
+    const out = [];
+    items.forEach(function (i) {
+      const v = i[field] || '';
+      if (v && !seen[v]) { seen[v] = true; out.push(v); }
+    });
+    return out.sort();
+  }
+
+  function invExpiryTag(item) {
+    if (!item.expiryDate) return '';
+    const HD = window.HouseholdData;
+    const days = HD.daysUntil(item.expiryDate);
+    if (days == null) return '';
+    if (days < 0) return '<span class="tag expiry-bad">Expired</span>';
+    if (days <= 7) return '<span class="tag expiry-warn">Expires in ' + days + 'd</span>';
+    return '<span class="tag">Expires ' + escapeHtml(item.expiryDate) + '</span>';
+  }
+
+  function invRowHtml(item) {
+    const lowStock = item.quantity <= item.minQuantity;
+    const outOfStock = item.quantity <= 0;
+    const rowClass = outOfStock ? ' is-out-of-stock' : (lowStock ? ' is-low-stock' : '');
+    const icon = item.imageUrl ? '<img src="' + item.imageUrl + '" alt="">' : '📦';
+    const metaParts = [item.category, item.location, 'min ' + item.minQuantity + ' ' + item.unit].filter(Boolean);
+    return '<div class="acct-row' + rowClass + '" data-id="' + item.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(125,211,252,0.14);color:var(--accent)">' + icon + '</div>'
+      + '<div class="acct-row-info">'
+      + '<div class="acct-row-name">' + escapeHtml(item.name) + ' ' + invExpiryTag(item) + '</div>'
+      + '<div class="acct-row-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
+      + '</div>'
+      + '<div class="acct-row-right">'
+      + '<div class="qty-stepper">'
+      + '<button type="button" class="qty-btn qty-dec" data-id="' + item.id + '"' + (item.quantity <= 0 ? ' disabled' : '') + '>−</button>'
+      + '<span class="qty-value">' + item.quantity + ' ' + escapeHtml(item.unit) + '</span>'
+      + '<button type="button" class="qty-btn qty-inc" data-id="' + item.id + '">+</button>'
+      + '</div>'
+      + '<div class="acct-row-actions"><button type="button" class="acct-icon-btn inv-edit-btn" data-id="' + item.id + '">✎</button></div>'
+      + '</div></div>';
+  }
+
+  function renderLowStockPanel() {
+    const HD = window.HouseholdData;
+    const low = HD.lowStockItems();
+    if (!low.length) { $('lowStockList').innerHTML = '<div class="hh-empty">Everything is stocked up.</div>'; return; }
+    $('lowStockList').innerHTML = low.map(function (i) {
+      const onWishlist = HD.Wishlist.list().some(function (w) { return !w.purchased && w.name.trim().toLowerCase() === i.name.trim().toLowerCase(); });
+      const bridgeBtn = onWishlist
+        ? '<button type="button" class="bridge-btn done" disabled>On Wishlist ✓</button>'
+        : '<button type="button" class="bridge-btn low-stock-to-wish-btn" data-id="' + i.id + '">+ Wishlist</button>';
+      return '<div class="acct-row is-low-stock low-stock-row" data-id="' + i.id + '">'
+        + '<div class="acct-row-icon" style="background:rgba(242,192,99,0.14);color:var(--warning)">⚠</div>'
+        + '<div class="acct-row-info">'
+        + '<div class="acct-row-name">' + escapeHtml(i.name) + '</div>'
+        + '<div class="acct-row-meta">' + escapeHtml(i.category || 'Uncategorized') + ' · ' + i.quantity + ' / ' + i.minQuantity + ' ' + escapeHtml(i.unit) + '</div>'
+        + '</div>'
+        + '<div class="acct-row-actions">' + bridgeBtn + '</div>'
+        + '</div>';
+    }).join('');
+    $('lowStockList').querySelectorAll('.low-stock-row').forEach(function (row) {
+      row.addEventListener('click', function () { openInvModal(window.HouseholdData.Inventory.get(row.dataset.id)); });
+    });
+    $('lowStockList').querySelectorAll('.low-stock-to-wish-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        window.HouseholdData.addInventoryItemToWishlist(btn.dataset.id);
+        renderLowStockPanel();
+      });
+    });
+  }
+
+  function renderInvFilterChips(items) {
+    $('invGroupByRow').innerHTML =
+      '<button type="button" class="chip inv-groupby-chip' + (invGroupBy === 'location' ? ' active' : '') + '" data-group="location">Group by Location</button>'
+      + '<button type="button" class="chip inv-groupby-chip' + (invGroupBy === 'category' ? ' active' : '') + '" data-group="category">Group by Category</button>';
+    $('invGroupByRow').querySelectorAll('.inv-groupby-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { invGroupBy = btn.dataset.group; renderInventorySection(); });
+    });
+
+    const categories = distinctValues(items, 'category');
+    $('invCategoryFilterRow').innerHTML = ['<button type="button" class="chip inv-cat-chip' + (invCategoryFilter === 'all' ? ' active' : '') + '" data-cat="all">All categories</button>']
+      .concat(categories.map(function (c) { return '<button type="button" class="chip inv-cat-chip' + (invCategoryFilter === c ? ' active' : '') + '" data-cat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>'; }))
+      .join('');
+    $('invCategoryFilterRow').querySelectorAll('.inv-cat-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { invCategoryFilter = btn.dataset.cat; renderInventorySection(); });
+    });
+
+    const locations = distinctValues(items, 'location');
+    $('invLocationFilterRow').innerHTML = ['<button type="button" class="chip inv-loc-chip' + (invLocationFilter === 'all' ? ' active' : '') + '" data-loc="all">All locations</button>']
+      .concat(locations.map(function (l) { return '<button type="button" class="chip inv-loc-chip' + (invLocationFilter === l ? ' active' : '') + '" data-loc="' + escapeHtml(l) + '">' + escapeHtml(l) + '</button>'; }))
+      .join('');
+    $('invLocationFilterRow').querySelectorAll('.inv-loc-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { invLocationFilter = btn.dataset.loc; renderInventorySection(); });
+    });
+  }
+
+  $('invSearchInput').addEventListener('input', function () {
+    invSearchQuery = $('invSearchInput').value.trim().toLowerCase();
+    renderInventorySection();
+  });
+
+  function renderInventorySection() {
+    const HD = window.HouseholdData;
+    const all = HD.Inventory.list();
+    renderLowStockPanel();
+    renderInvFilterChips(all);
+
+    const filtered = all.filter(invMatchesFilters);
+    if (!filtered.length) {
+      $('invList').innerHTML = '<div class="hh-empty">' + (all.length ? 'No items match the current filters.' : 'No inventory items yet.') + '</div>';
+    } else {
+      const groupField = invGroupBy === 'category' ? 'category' : 'location';
+      const groups = {};
+      const order = [];
+      filtered.forEach(function (i) {
+        const key = i[groupField] || 'Unspecified';
+        if (!groups[key]) { groups[key] = []; order.push(key); }
+        groups[key].push(i);
+      });
+      order.sort(function (a, b) { return a === 'Unspecified' ? 1 : (b === 'Unspecified' ? -1 : a.localeCompare(b)); });
+      $('invList').innerHTML = order.map(function (key) {
+        const items = groups[key].slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+        return '<div class="inv-group-title">' + escapeHtml(key) + '</div>' + items.map(invRowHtml).join('');
+      }).join('');
+    }
+
+    $('invList').querySelectorAll('.inv-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openInvModal(HD.Inventory.get(btn.dataset.id)); });
+    });
+    $('invList').querySelectorAll('.qty-inc').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const item = HD.Inventory.get(btn.dataset.id);
+        if (item) HD.Inventory.update(item.id, { quantity: item.quantity + 1 });
+        renderInventorySection();
+      });
+    });
+    $('invList').querySelectorAll('.qty-dec').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const item = HD.Inventory.get(btn.dataset.id);
+        if (item) HD.Inventory.update(item.id, { quantity: Math.max(0, item.quantity - 1) });
+        renderInventorySection();
+      });
+    });
+  }
+
+  let editingInvId = null;
+  let invPhotoDraft = null;
+
+  function renderInvPhotoPreview() {
+    $('invPhotoPreview').innerHTML = invPhotoDraft ? '<img src="' + invPhotoDraft + '">' : '📦';
+  }
+
+  function openInvModal(item) {
+    const HD = window.HouseholdData;
+    editingInvId = item ? item.id : null;
+    invPhotoDraft = item ? item.imageUrl : null;
+
+    const allItems = HD.Inventory.list();
+    $('invCategoryDatalist').innerHTML = distinctValues(allItems, 'category').map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join('');
+    $('invLocationDatalist').innerHTML = distinctValues(allItems, 'location').map(function (l) { return '<option value="' + escapeHtml(l) + '">'; }).join('');
+
+    $('invModalTitle').textContent = item ? 'Edit inventory item' : 'Add inventory item';
+    $('invName').value = item ? item.name : '';
+    $('invCategory').value = item ? item.category : '';
+    $('invLocation').value = item ? item.location : '';
+    $('invQuantity').value = item ? item.quantity : 0;
+    $('invUnit').value = item ? item.unit : '';
+    $('invMinQuantity').value = item ? item.minQuantity : 0;
+    $('invExpiryDate').value = item ? (item.expiryDate || '') : '';
+    $('invNotes').value = item ? item.notes : '';
+    renderInvPhotoPreview();
+    $('invModalDelete').style.display = item ? 'block' : 'none';
+    $('invModalBg').classList.add('show');
+  }
+  function closeInvModal() { $('invModalBg').classList.remove('show'); editingInvId = null; invPhotoDraft = null; }
+
+  $('invAddBtn').addEventListener('click', function () { openInvModal(null); });
+  $('invModalCancel').addEventListener('click', closeInvModal);
+  $('invModalBg').addEventListener('click', function (e) { if (e.target.id === 'invModalBg') closeInvModal(); });
+  $('invPhotoPickBtn').addEventListener('click', function () { $('invPhotoFile').click(); });
+  $('invPhotoRemoveBtn').addEventListener('click', function () { invPhotoDraft = null; renderInvPhotoPreview(); });
+  $('invPhotoFile').addEventListener('change', function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      invPhotoDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
+      renderInvPhotoPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  $('invModalSave').addEventListener('click', function () {
+    const HD = window.HouseholdData;
+    const name = $('invName').value.trim();
+    if (!name) return;
+    const data = {
+      name: name,
+      category: $('invCategory').value.trim(),
+      location: $('invLocation').value.trim(),
+      quantity: Number($('invQuantity').value) || 0,
+      unit: $('invUnit').value.trim(),
+      minQuantity: Number($('invMinQuantity').value) || 0,
+      expiryDate: $('invExpiryDate').value || null,
+      notes: $('invNotes').value.trim(),
+      imageUrl: invPhotoDraft
+    };
+    if (editingInvId) HD.Inventory.update(editingInvId, data);
+    else HD.Inventory.add(data);
+    closeInvModal();
+    renderInventorySection();
+  });
+  $('invModalDelete').addEventListener('click', function () {
+    if (!editingInvId) return;
+    if (!confirm('Delete this inventory item?')) return;
+    window.HouseholdData.Inventory.remove(editingInvId);
+    closeInvModal();
+    renderInventorySection();
+  });
+
+  // ============================================================
+  // WISHLIST
+  // ============================================================
+  const WISH_PRIORITY_LABELS = { low: 'Low', med: 'Med', high: 'High' };
+  const WISH_PRIORITY_GROUP_ORDER = ['High', 'Med', 'Low'];
+  let wishGroupBy = 'priority'; // 'priority' | 'category'
+  let wishStatusFilter = 'all'; // 'all' | 'unpurchased' | 'purchased'
+  let wishCategoryFilter = 'all';
+
+  function wishMatchesFilters(w) {
+    if (wishStatusFilter === 'unpurchased' && w.purchased) return false;
+    if (wishStatusFilter === 'purchased' && !w.purchased) return false;
+    if (wishCategoryFilter !== 'all' && (w.category || '') !== wishCategoryFilter) return false;
+    return true;
+  }
+
+  function renderWishTotal() {
+    const HD = window.HouseholdData;
+    $('wishTotalVal').textContent = HD.Currency.format(HD.wishlistTotalCents());
+  }
+
+  function renderWishFilterChips(items) {
+    $('wishGroupByRow').innerHTML =
+      '<button type="button" class="chip wish-groupby-chip' + (wishGroupBy === 'priority' ? ' active' : '') + '" data-group="priority">Group by Priority</button>'
+      + '<button type="button" class="chip wish-groupby-chip' + (wishGroupBy === 'category' ? ' active' : '') + '" data-group="category">Group by Category</button>';
+    $('wishGroupByRow').querySelectorAll('.wish-groupby-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { wishGroupBy = btn.dataset.group; renderWishlistSection(); });
+    });
+
+    const statuses = [{ key: 'all', label: 'All' }, { key: 'unpurchased', label: 'To Buy' }, { key: 'purchased', label: 'Purchased' }];
+    $('wishStatusFilterRow').innerHTML = statuses.map(function (s) {
+      return '<button type="button" class="chip wish-status-chip' + (wishStatusFilter === s.key ? ' active' : '') + '" data-status="' + s.key + '">' + s.label + '</button>';
+    }).join('');
+    $('wishStatusFilterRow').querySelectorAll('.wish-status-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { wishStatusFilter = btn.dataset.status; renderWishlistSection(); });
+    });
+
+    const categories = distinctValues(items, 'category');
+    $('wishCategoryFilterRow').innerHTML = ['<button type="button" class="chip wish-cat-chip' + (wishCategoryFilter === 'all' ? ' active' : '') + '" data-cat="all">All categories</button>']
+      .concat(categories.map(function (c) { return '<button type="button" class="chip wish-cat-chip' + (wishCategoryFilter === c ? ' active' : '') + '" data-cat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>'; }))
+      .join('');
+    $('wishCategoryFilterRow').querySelectorAll('.wish-cat-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { wishCategoryFilter = btn.dataset.cat; renderWishlistSection(); });
+    });
+  }
+
+  function wishRowHtml(item) {
+    const HD = window.HouseholdData;
+    const icon = item.imageUrl ? '<img src="' + item.imageUrl + '" alt="">' : '🎁';
+    const metaParts = [item.store, item.url ? ('<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" style="color:inherit">link ↗</a>') : ''].filter(Boolean);
+    const bridgeBtn = item.purchased ? '<button type="button" class="bridge-btn wish-to-inv-btn" data-id="' + item.id + '">+ Inventory</button>' : '';
+    return '<div class="acct-row' + (item.purchased ? ' is-purchased' : '') + '" data-id="' + item.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(255,255,255,0.06);color:var(--text-secondary)">' + icon + '</div>'
+      + '<div class="acct-row-info">'
+      + '<div class="acct-row-name">' + escapeHtml(item.name) + '<span class="std-priority-pill ' + item.priority + '">' + WISH_PRIORITY_LABELS[item.priority] + '</span></div>'
+      + '<div class="acct-row-meta">' + metaParts.join(' · ') + '</div>'
+      + '</div>'
+      + '<div class="acct-row-right">'
+      + '<div class="acct-row-value">' + HD.Currency.format(item.priceCents) + '</div>'
+      + '<div class="acct-row-actions">' + bridgeBtn + '<button type="button" class="acct-icon-btn wish-purchased-toggle" data-id="' + item.id + '" title="' + (item.purchased ? 'Mark unpurchased' : 'Mark purchased') + '">' + (item.purchased ? '↺' : '✓') + '</button><button type="button" class="acct-icon-btn wish-edit-btn" data-id="' + item.id + '">✎</button></div>'
+      + '</div></div>';
+  }
+
+  function renderWishlistSection() {
+    const HD = window.HouseholdData;
+    const all = HD.Wishlist.list();
+    renderWishTotal();
+    renderWishFilterChips(all);
+
+    const filtered = all.filter(wishMatchesFilters);
+    if (!filtered.length) {
+      $('wishList').innerHTML = '<div class="hh-empty">' + (all.length ? 'No items match the current filters.' : 'Wishlist is empty.') + '</div>';
+    } else {
+      const groups = {};
+      const order = [];
+      filtered.forEach(function (w) {
+        const key = wishGroupBy === 'category' ? (w.category || 'Unspecified') : WISH_PRIORITY_LABELS[w.priority];
+        if (!groups[key]) { groups[key] = []; order.push(key); }
+        groups[key].push(w);
+      });
+      if (wishGroupBy === 'category') {
+        order.sort(function (a, b) { return a === 'Unspecified' ? 1 : (b === 'Unspecified' ? -1 : a.localeCompare(b)); });
+      } else {
+        order.sort(function (a, b) { return WISH_PRIORITY_GROUP_ORDER.indexOf(a) - WISH_PRIORITY_GROUP_ORDER.indexOf(b); });
+      }
+      // .inv-group-title is reused here verbatim (same visual recipe, no
+      // need for a second, near-identical CSS block for one word's
+      // difference in the class name).
+      $('wishList').innerHTML = order.map(function (key) {
+        const items = groups[key].slice().sort(function (a, b) { return (b.priceCents || 0) - (a.priceCents || 0); });
+        return '<div class="inv-group-title">' + escapeHtml(key) + '</div>' + items.map(wishRowHtml).join('');
+      }).join('');
+    }
+
+    $('wishList').querySelectorAll('.wish-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openWishModal(HD.Wishlist.get(btn.dataset.id)); });
+    });
+    $('wishList').querySelectorAll('.wish-purchased-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const item = HD.Wishlist.get(btn.dataset.id);
+        if (item) HD.Wishlist.update(item.id, { purchased: !item.purchased });
+        renderWishlistSection();
+      });
+    });
+    $('wishList').querySelectorAll('.wish-to-inv-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        window.HouseholdData.addWishlistItemToInventory(btn.dataset.id);
+        renderWishlistSection();
+      });
+    });
+  }
+
+  let editingWishId = null;
+  let wishPhotoDraft = null;
+
+  function renderWishPhotoPreview() {
+    $('wishPhotoPreview').innerHTML = wishPhotoDraft ? '<img src="' + wishPhotoDraft + '">' : '🎁';
+  }
+
+  function openWishModal(item) {
+    const HD = window.HouseholdData;
+    editingWishId = item ? item.id : null;
+    wishPhotoDraft = item ? item.imageUrl : null;
+    $('wishPriority').innerHTML = HD.WISHLIST_PRIORITIES.map(function (p) { return '<option value="' + p + '">' + WISH_PRIORITY_LABELS[p] + '</option>'; }).join('');
+
+    const allItems = HD.Wishlist.list();
+    $('wishCategoryDatalist').innerHTML = distinctValues(allItems, 'category').map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join('');
+
+    $('wishModalTitle').textContent = item ? 'Edit wishlist item' : 'Add to wishlist';
+    $('wishName').value = item ? item.name : '';
+    $('wishCategory').value = item ? item.category : '';
+    $('wishPriority').value = item ? item.priority : 'med';
+    $('wishPrice').value = item && item.priceCents != null ? (item.priceCents / 100).toFixed(2) : '';
+    $('wishStore').value = item ? item.store : '';
+    $('wishUrl').value = item ? (item.url || '') : '';
+    $('wishPurchased').checked = item ? !!item.purchased : false;
+    $('wishNotes').value = item ? item.notes : '';
+    renderWishPhotoPreview();
+    $('wishModalDelete').style.display = item ? 'block' : 'none';
+    $('wishModalBg').classList.add('show');
+  }
+  function closeWishModal() { $('wishModalBg').classList.remove('show'); editingWishId = null; wishPhotoDraft = null; }
+
+  $('wishAddBtn').addEventListener('click', function () { openWishModal(null); });
+  $('wishModalCancel').addEventListener('click', closeWishModal);
+  $('wishModalBg').addEventListener('click', function (e) { if (e.target.id === 'wishModalBg') closeWishModal(); });
+  $('wishPhotoPickBtn').addEventListener('click', function () { $('wishPhotoFile').click(); });
+  $('wishPhotoRemoveBtn').addEventListener('click', function () { wishPhotoDraft = null; renderWishPhotoPreview(); });
+  $('wishPhotoFile').addEventListener('change', function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      wishPhotoDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
+      renderWishPhotoPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  $('wishModalSave').addEventListener('click', function () {
+    const HD = window.HouseholdData;
+    const name = $('wishName').value.trim();
+    if (!name) return;
+    const priceRaw = $('wishPrice').value.trim();
+    const data = {
+      name: name,
+      category: $('wishCategory').value.trim(),
+      priority: $('wishPriority').value,
+      priceCents: priceRaw === '' ? null : HD.Currency.parseToCents(priceRaw),
+      url: $('wishUrl').value.trim() || null,
+      store: $('wishStore').value.trim(),
+      purchased: $('wishPurchased').checked,
+      notes: $('wishNotes').value.trim(),
+      imageUrl: wishPhotoDraft
+    };
+    if (editingWishId) HD.Wishlist.update(editingWishId, data);
+    else HD.Wishlist.add(data);
+    closeWishModal();
+    renderWishlistSection();
+  });
+  $('wishModalDelete').addEventListener('click', function () {
+    if (!editingWishId) return;
+    if (!confirm('Delete this wishlist item?')) return;
+    window.HouseholdData.Wishlist.remove(editingWishId);
+    closeWishModal();
+    renderWishlistSection();
+  });
+
+  // ============================================================
+  // CHORES
+  // ============================================================
+  const CHORE_FREQUENCY_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' };
+  const CHORE_STATUS_LABELS = { active: 'Active', paused: 'Paused' };
+  let choreGroupBy = 'room'; // 'room' | 'assignee'
+  let choreStatusFilter = 'all'; // 'all' | 'active' | 'paused'
+
+  function choreFreqLabel(chore) {
+    return chore.frequency === 'custom' ? ('Every ' + chore.intervalDays + 'd') : CHORE_FREQUENCY_LABELS[chore.frequency];
+  }
+
+  function formatDueLabel(iso) {
+    const HD = window.HouseholdData;
+    const days = HD.daysUntil(iso);
+    if (days == null) return iso;
+    if (days === 0) return 'today';
+    if (days === 1) return 'tomorrow';
+    if (days > 1) return 'in ' + days + 'd';
+    if (days === -1) return 'yesterday';
+    return Math.abs(days) + 'd overdue';
+  }
+
+  function choreMatchesFilters(c) {
+    if (choreStatusFilter !== 'all' && c.status !== choreStatusFilter) return false;
+    return true;
+  }
+
+  function renderChoresDue() {
+    const HD = window.HouseholdData;
+    const due = HD.choresDue();
+    if (!due.length) { $('choresDueList').innerHTML = '<div class="hh-empty">Nothing due — you\'re all caught up.</div>'; return; }
+    $('choresDueList').innerHTML = due.map(function (c) {
+      const nextDue = HD.nextDue(c);
+      const rowClass = HD.daysUntil(nextDue) < 0 ? ' is-past-due' : ' is-due-today';
+      const metaParts = [c.area, c.assignee || 'Unassigned', choreFreqLabel(c)].filter(Boolean);
+      return '<div class="acct-row' + rowClass + '" data-id="' + c.id + '">'
+        + '<div class="acct-row-icon" style="background:rgba(255,107,107,0.14);color:var(--danger)">🧹</div>'
+        + '<div class="acct-row-info">'
+        + '<div class="acct-row-name">' + escapeHtml(c.name) + '</div>'
+        + '<div class="acct-row-meta">' + escapeHtml(metaParts.join(' · ')) + ' · ' + formatDueLabel(nextDue) + '</div>'
+        + '</div>'
+        + '<div class="acct-row-actions"><button type="button" class="charge-btn chore-done-btn" data-id="' + c.id + '">Done</button></div>'
+        + '</div>';
+    }).join('');
+    $('choresDueList').querySelectorAll('.chore-done-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { window.HouseholdData.markChoreDone(btn.dataset.id); renderChoresSection(); });
+    });
+  }
+
+  function choreRowHtml(chore) {
+    const HD = window.HouseholdData;
+    const nextDue = HD.nextDue(chore);
+    const days = HD.daysUntil(nextDue);
+    let rowClass = '';
+    if (chore.status === 'paused') rowClass = ' is-paused';
+    else if (days < 0) rowClass = ' is-past-due';
+    else if (days === 0) rowClass = ' is-due-today';
+    const metaParts = [chore.area, chore.assignee || 'Unassigned', choreFreqLabel(chore), 'next: ' + formatDueLabel(nextDue)].filter(Boolean);
+    const doneBtn = chore.status === 'active' ? '<button type="button" class="charge-btn chore-done-btn" data-id="' + chore.id + '">Done</button>' : '';
+    return '<div class="acct-row' + rowClass + '" data-id="' + chore.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(255,255,255,0.06);color:var(--text-secondary)">🧹</div>'
+      + '<div class="acct-row-info">'
+      + '<div class="acct-row-name">' + escapeHtml(chore.name) + (chore.status === 'paused' ? ' <span class="tag">Paused</span>' : '') + '</div>'
+      + '<div class="acct-row-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
+      + '</div>'
+      + '<div class="acct-row-actions">' + doneBtn + '<button type="button" class="acct-icon-btn chore-edit-btn" data-id="' + chore.id + '">✎</button></div>'
+      + '</div>';
+  }
+
+  function renderChoreFilterChips(items) {
+    $('choreGroupByRow').innerHTML =
+      '<button type="button" class="chip chore-groupby-chip' + (choreGroupBy === 'room' ? ' active' : '') + '" data-group="room">Group by Room</button>'
+      + '<button type="button" class="chip chore-groupby-chip' + (choreGroupBy === 'assignee' ? ' active' : '') + '" data-group="assignee">Group by Assignee</button>';
+    $('choreGroupByRow').querySelectorAll('.chore-groupby-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { choreGroupBy = btn.dataset.group; renderChoresSection(); });
+    });
+
+    const HD = window.HouseholdData;
+    const statuses = ['all'].concat(HD.CHORE_STATUSES);
+    $('choreStatusFilterRow').innerHTML = statuses.map(function (s) {
+      const label = s === 'all' ? 'All statuses' : CHORE_STATUS_LABELS[s];
+      return '<button type="button" class="chip chore-status-chip' + (choreStatusFilter === s ? ' active' : '') + '" data-status="' + s + '">' + label + '</button>';
+    }).join('');
+    $('choreStatusFilterRow').querySelectorAll('.chore-status-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () { choreStatusFilter = btn.dataset.status; renderChoresSection(); });
+    });
+  }
+
+  function renderChoresSection() {
+    const HD = window.HouseholdData;
+    const all = HD.Chores.list();
+    renderChoresDue();
+    renderChoreFilterChips(all);
+
+    const filtered = all.filter(choreMatchesFilters);
+    if (!filtered.length) {
+      $('choreList').innerHTML = '<div class="hh-empty">' + (all.length ? 'No chores match the current filters.' : 'No chores yet.') + '</div>';
+    } else {
+      const groupField = choreGroupBy === 'assignee' ? 'assignee' : 'area';
+      const fallback = choreGroupBy === 'assignee' ? 'Unassigned' : 'Unspecified';
+      const groups = {};
+      const order = [];
+      filtered.forEach(function (c) {
+        const key = c[groupField] || fallback;
+        if (!groups[key]) { groups[key] = []; order.push(key); }
+        groups[key].push(c);
+      });
+      order.sort(function (a, b) { return a === fallback ? 1 : (b === fallback ? -1 : a.localeCompare(b)); });
+      $('choreList').innerHTML = order.map(function (key) {
+        const items = groups[key].slice().sort(function (a, b) { return HD.nextDue(a).localeCompare(HD.nextDue(b)); });
+        return '<div class="inv-group-title">' + escapeHtml(key) + '</div>' + items.map(choreRowHtml).join('');
+      }).join('');
+    }
+
+    $('choreList').querySelectorAll('.chore-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { openChoreModal(HD.Chores.get(btn.dataset.id)); });
+    });
+    $('choreList').querySelectorAll('.chore-done-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { HD.markChoreDone(btn.dataset.id); renderChoresSection(); });
+    });
+  }
+
+  let editingChoreId = null;
+  $('choreFrequency').addEventListener('change', function () {
+    $('choreIntervalField').style.display = $('choreFrequency').value === 'custom' ? 'flex' : 'none';
+  });
+
+  function openChoreModal(chore) {
+    const HD = window.HouseholdData;
+    editingChoreId = chore ? chore.id : null;
+    $('choreFrequency').innerHTML = HD.CHORE_FREQUENCIES.map(function (f) { return '<option value="' + f + '">' + CHORE_FREQUENCY_LABELS[f] + '</option>'; }).join('');
+    $('choreStatus').innerHTML = HD.CHORE_STATUSES.map(function (s) { return '<option value="' + s + '">' + CHORE_STATUS_LABELS[s] + '</option>'; }).join('');
+    $('choreAreaDatalist').innerHTML = distinctValues(HD.Chores.list(), 'area').map(function (a) { return '<option value="' + escapeHtml(a) + '">'; }).join('');
+
+    $('choreModalTitle').textContent = chore ? 'Edit chore' : 'Add chore';
+    $('choreName').value = chore ? chore.name : '';
+    $('choreArea').value = chore ? chore.area : '';
+    $('choreAssignee').value = chore ? (chore.assignee || '') : '';
+    $('choreFrequency').value = chore ? chore.frequency : 'weekly';
+    $('choreIntervalField').style.display = (chore && chore.frequency === 'custom') ? 'flex' : 'none';
+    $('choreIntervalDays').value = chore ? chore.intervalDays : 7;
+    $('choreLastDone').value = chore ? (chore.lastDone || '') : '';
+    $('choreStatus').value = chore ? chore.status : 'active';
+    $('choreNotes').value = chore ? chore.notes : '';
+    $('choreModalDelete').style.display = chore ? 'block' : 'none';
+    $('choreModalBg').classList.add('show');
+  }
+  function closeChoreModal() { $('choreModalBg').classList.remove('show'); editingChoreId = null; }
+
+  $('choreAddBtn').addEventListener('click', function () { openChoreModal(null); });
+  $('choreModalCancel').addEventListener('click', closeChoreModal);
+  $('choreModalBg').addEventListener('click', function (e) { if (e.target.id === 'choreModalBg') closeChoreModal(); });
+  $('choreModalSave').addEventListener('click', function () {
+    const HD = window.HouseholdData;
+    const name = $('choreName').value.trim();
+    if (!name) return;
+    const data = {
+      name: name,
+      area: $('choreArea').value.trim(),
+      assignee: $('choreAssignee').value.trim() || null,
+      frequency: $('choreFrequency').value,
+      intervalDays: Number($('choreIntervalDays').value) || 7,
+      lastDone: $('choreLastDone').value || null,
+      status: $('choreStatus').value,
+      notes: $('choreNotes').value.trim()
+    };
+    if (editingChoreId) HD.Chores.update(editingChoreId, data);
+    else HD.Chores.add(data);
+    closeChoreModal();
+    renderChoresSection();
+  });
+  $('choreModalDelete').addEventListener('click', function () {
+    if (!editingChoreId) return;
+    if (!confirm('Delete this chore?')) return;
+    window.HouseholdData.Chores.remove(editingChoreId);
+    closeChoreModal();
+    renderChoresSection();
+  });
+
+  // ============================================================
+  // OVERVIEW — landing view, pure read (+ quick actions) over the
+  // other four sections' data. No storage of its own.
+  // ============================================================
+  function ovBeingRowHtml(b) {
+    return '<div class="acct-row is-due-today" data-id="' + b.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(242,192,99,0.14);color:var(--warning)">⚡</div>'
+      + '<div class="acct-row-info"><div class="acct-row-name">' + escapeHtml(b.name) + '</div><div class="acct-row-meta">' + escapeHtml(legionNameFor(b.legionId)) + '</div></div>'
+      + '<div class="acct-row-actions"><button type="button" class="charge-btn ov-charge-btn" data-id="' + b.id + '">Charge</button></div>'
+      + '</div>';
+  }
+
+  function ovChoreRowHtml(c) {
+    const HD = window.HouseholdData;
+    const nextDue = HD.nextDue(c);
+    const rowClass = HD.daysUntil(nextDue) < 0 ? ' is-past-due' : ' is-due-today';
+    const metaParts = [c.area, c.assignee || 'Unassigned'].filter(Boolean);
+    return '<div class="acct-row' + rowClass + '" data-id="' + c.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(255,107,107,0.14);color:var(--danger)">🧹</div>'
+      + '<div class="acct-row-info"><div class="acct-row-name">' + escapeHtml(c.name) + '</div><div class="acct-row-meta">' + escapeHtml(metaParts.join(' · ')) + ' · ' + formatDueLabel(nextDue) + '</div></div>'
+      + '<div class="acct-row-actions"><button type="button" class="charge-btn ov-chore-done-btn" data-id="' + c.id + '">Done</button></div>'
+      + '</div>';
+  }
+
+  function ovInventoryRowHtml(i) {
+    const HD = window.HouseholdData;
+    const onWishlist = HD.Wishlist.list().some(function (w) { return !w.purchased && w.name.trim().toLowerCase() === i.name.trim().toLowerCase(); });
+    const bridgeBtn = onWishlist
+      ? '<button type="button" class="bridge-btn done" disabled>On Wishlist ✓</button>'
+      : '<button type="button" class="bridge-btn ov-inv-to-wish-btn" data-id="' + i.id + '">+ Wishlist</button>';
+    return '<div class="acct-row is-low-stock" data-id="' + i.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(242,192,99,0.14);color:var(--warning)">⚠</div>'
+      + '<div class="acct-row-info"><div class="acct-row-name">' + escapeHtml(i.name) + '</div><div class="acct-row-meta">' + escapeHtml(i.category || 'Uncategorized') + ' · ' + i.quantity + ' / ' + i.minQuantity + ' ' + escapeHtml(i.unit) + '</div></div>'
+      + '<div class="acct-row-actions">' + bridgeBtn + '</div>'
+      + '</div>';
+  }
+
+  function ovWishRowHtml(w) {
+    const HD = window.HouseholdData;
+    const icon = w.imageUrl ? '<img src="' + w.imageUrl + '" alt="">' : '🎁';
+    return '<div class="acct-row" data-id="' + w.id + '">'
+      + '<div class="acct-row-icon" style="background:rgba(255,255,255,0.06);color:var(--text-secondary)">' + icon + '</div>'
+      + '<div class="acct-row-info"><div class="acct-row-name">' + escapeHtml(w.name) + '<span class="std-priority-pill ' + w.priority + '">' + WISH_PRIORITY_LABELS[w.priority] + '</span></div></div>'
+      + '<div class="acct-row-right"><div class="acct-row-value">' + HD.Currency.format(w.priceCents) + '</div></div>'
+      + '</div>';
+  }
+
+  function renderOverviewSection() {
+    const HD = window.HouseholdData;
+    const needingCharge = HD.beingsNeedingCharge();
+    const due = HD.choresDue();
+    const low = HD.lowStockItems();
+    const topWish = HD.topWishlistItems(5);
+
+    $('ovBeingsCount').textContent = String(needingCharge.length);
+    $('ovChoresCount').textContent = String(due.length);
+    $('ovLowStockCount').textContent = String(low.length);
+    $('ovWishTotalTile').textContent = HD.Currency.format(HD.wishlistTotalCents());
+
+    $('ovBeingsList').innerHTML = needingCharge.length ? needingCharge.map(ovBeingRowHtml).join('') : '<div class="hh-empty">All active beings are charged.</div>';
+    $('ovBeingsList').querySelectorAll('.ov-charge-btn').forEach(function (btn) {
+      // One click, no modal: logs an unadorned charge entry immediately.
+      // The Beings tab's own Charge button opens a modal so a note/date
+      // can be attached — this is the "just handle it" quick path.
+      btn.addEventListener('click', function () {
+        HD.logCharge(btn.dataset.id, '', HD.todayISO());
+        renderOverviewSection();
+      });
+    });
+
+    $('ovChoresList').innerHTML = due.length ? due.map(ovChoreRowHtml).join('') : '<div class="hh-empty">Nothing due — you\'re all caught up.</div>';
+    $('ovChoresList').querySelectorAll('.ov-chore-done-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        HD.markChoreDone(btn.dataset.id);
+        renderOverviewSection();
+      });
+    });
+
+    $('ovInventoryList').innerHTML = low.length ? low.map(ovInventoryRowHtml).join('') : '<div class="hh-empty">Everything is stocked up.</div>';
+    $('ovInventoryList').querySelectorAll('.ov-inv-to-wish-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        HD.addInventoryItemToWishlist(btn.dataset.id);
+        renderOverviewSection();
+      });
+    });
+
+    $('ovWishlistList').innerHTML = topWish.length ? topWish.map(ovWishRowHtml).join('') : '<div class="hh-empty">Wishlist is empty.</div>';
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', function () {
+    const savedTab = storeGet(TAB_KEY);
+    const initialTab = tabFromHash() || (VALID_TABS.indexOf(savedTab) !== -1 ? savedTab : 'overview');
+    setActiveTab(initialTab, { skipScroll: true });
+
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'household',
+        syncedPrefixes: ['household:'],
+        onApplied: function () {
+          const active = tabFromHash() || storeGet(TAB_KEY);
+          if (active === 'overview') renderOverviewSection();
+          if (active === 'beings') renderBeingsSection();
+          if (active === 'inventory') renderInventorySection();
+          if (active === 'wishlist') renderWishlistSection();
+          if (active === 'chores') renderChoresSection();
+        }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
