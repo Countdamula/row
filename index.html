@@ -461,6 +461,13 @@ body::after {
 .at-task-meta { display: flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: auto; padding-top: 1px; }
 .at-task-streak { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); white-space: nowrap; }
 
+/* ===== Overview tab — per-area goal progress rows ===== */
+.ov-area-row { padding: 10px 2px; border-bottom: 1px solid var(--at-border); cursor: pointer; }
+.ov-area-row:last-child { border-bottom: none; }
+.ov-area-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.ov-area-row-name { font-size: 13px; color: var(--text-primary); font-weight: 600; }
+.ov-area-row-empty { font-size: 11.5px; color: var(--text-tertiary); font-style: italic; }
+
 /* ===== Habit cards + heatmap (contrib-grid pattern reused verbatim from projects.html) ===== */
 .habit-card { background: rgba(255,255,255,0.035); border: 1px solid var(--at-border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; }
 .habit-card-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -736,11 +743,18 @@ body::after {
 
   <div class="at-tabpanel" id="atPanelOverview">
     <div class="at-col-head"><h2>Overview</h2></div>
-    <div class="placeholder-panel">
-      <div class="placeholder-icon">🧭</div>
-      <div class="placeholder-title">Overview coming soon</div>
-      <div class="placeholder-text">A cross-database summary — today's habits, upcoming tasks, goal progress across Life Areas — will live here once those sections are wired up.</div>
-    </div>
+
+    <div class="section-title">Today's Habits</div>
+    <div class="at-task-grid" id="ovHabitsGrid"></div>
+    <div class="at-empty" id="ovHabitsEmpty" hidden>No habits scheduled today.</div>
+
+    <div class="section-title">Upcoming Tasks</div>
+    <div id="ovTasksList"></div>
+    <div class="at-empty" id="ovTasksEmpty" hidden>No upcoming tasks.</div>
+
+    <div class="section-title">Goal Progress by Life Area</div>
+    <div id="ovAreaProgressList"></div>
+    <div class="at-empty" id="ovAreaProgressEmpty" hidden>Add a Life Area to see goal progress here.</div>
 
     <div class="section-title">Notes</div>
     <div style="margin-bottom:14px;"><button type="button" class="at-mini-btn" id="atAddNoteSectionBtn">+ Add Notes Section</button></div>
@@ -1323,7 +1337,8 @@ body::after {
     return TABS.indexOf(h) !== -1 ? h : 'overview';
   }
   function renderSection(tab) {
-    if (tab === 'areas') renderAreasSection();
+    if (tab === 'overview') renderOverviewSection();
+    else if (tab === 'areas') renderAreasSection();
     else if (tab === 'goals') renderGoalsSection();
     else if (tab === 'tasks') renderTaskSection();
     else if (tab === 'habits') renderHabitsSection();
@@ -1458,6 +1473,107 @@ body::after {
   });
 
   renderNoteSections();
+
+  // =====================================================================
+  // Overview tab — the Main page's landing view. Pulls live from the
+  // Habits, Tasks, and Life Areas/Goals databases below (no separate
+  // storage of its own beyond the Notes sections above), so it can never
+  // drift from what those tabs show. renderOverviewSection() is invoked
+  // from renderSection('overview') — on every tab switch, on incoming
+  // cloud sync (via the 'storage' event), and on the 'goals-changed'
+  // event — never called eagerly at parse time, since it reads
+  // AREA_COLORS/areaColorVar and other vars that are only assigned once
+  // the rest of this script has finished executing top to bottom.
+  // =====================================================================
+  function upcomingTasksForOverview() {
+    return loadTasks().filter(function (t) { return !t.done; })
+      .sort(function (a, b) {
+        var d = (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99');
+        return d !== 0 ? d : (a.createdAt || 0) - (b.createdAt || 0);
+      })
+      .slice(0, 8);
+  }
+  function renderOverviewHabits() {
+    var habits = loadHabits();
+    var today = getActiveDateString();
+    var dow = keyToDate(today).getDay();
+    var scheduled = habits.filter(function (h) { return isHabitScheduled(h, dow); });
+    var grid = document.getElementById('ovHabitsGrid');
+    grid.innerHTML = '';
+    document.getElementById('ovHabitsEmpty').hidden = scheduled.length !== 0;
+    scheduled.forEach(function (habit) {
+      var done = isHabitDoneOn(habit.id, today);
+      var el = document.createElement('div');
+      el.className = 'at-task' + (done ? ' at-task-done' : ' at-task-pending');
+      var check = document.createElement('button');
+      check.type = 'button'; check.className = 'at-task-check' + (done ? ' done' : ''); check.textContent = '✓';
+      check.setAttribute('aria-label', done ? 'Mark not done' : 'Mark done');
+      check.addEventListener('click', function () { toggleHabitToday(habit.id); renderOverviewHabits(); });
+      el.appendChild(check);
+      var body = document.createElement('div'); body.className = 'at-task-body';
+      var title = document.createElement('div'); title.className = 'at-task-title'; title.textContent = habit.name;
+      body.appendChild(title);
+      if (habit.cue) { var note = document.createElement('div'); note.className = 'at-task-note'; note.textContent = habit.cue; body.appendChild(note); }
+      body.addEventListener('click', function () { openHabitModal(habit); });
+      el.appendChild(body);
+      var meta = document.createElement('div'); meta.className = 'at-task-meta';
+      var streak = document.createElement('span'); streak.className = 'at-task-streak';
+      streak.textContent = '🔥 ' + computeHabitStreaks(habit).current;
+      meta.appendChild(streak);
+      el.appendChild(meta);
+      grid.appendChild(el);
+    });
+  }
+  function renderOverviewTasks() {
+    var tasks = upcomingTasksForOverview();
+    var wrap = document.getElementById('ovTasksList');
+    wrap.innerHTML = '';
+    document.getElementById('ovTasksEmpty').hidden = tasks.length !== 0;
+    tasks.forEach(function (t) {
+      wrap.appendChild(buildTaskRow(t, renderOverviewTasks, { rich: true }));
+    });
+  }
+  function renderOverviewAreaProgress() {
+    var areas = loadAreas();
+    var goals = loadGoals();
+    var wrap = document.getElementById('ovAreaProgressList');
+    wrap.innerHTML = '';
+    document.getElementById('ovAreaProgressEmpty').hidden = areas.length !== 0;
+    areas.forEach(function (area) {
+      var areaGoals = goals.filter(function (g) { return g.lifeAreaId === area.id; });
+      var avg = areaGoals.length
+        ? Math.round(areaGoals.reduce(function (s, g) { return s + computeGoalProgress(g); }, 0) / areaGoals.length)
+        : 0;
+      var row = document.createElement('div');
+      row.className = 'ov-area-row';
+      row.addEventListener('click', function () { openAreaDetail(area); });
+      var head = document.createElement('div'); head.className = 'ov-area-row-head';
+      var name = document.createElement('span'); name.className = 'ov-area-row-name';
+      name.textContent = (area.icon || '') + ' ' + area.name;
+      head.appendChild(name);
+      if (areaGoals.length) {
+        var pct = document.createElement('span'); pct.className = 'goal-card-pct'; pct.textContent = avg + '%';
+        head.appendChild(pct);
+      }
+      row.appendChild(head);
+      if (areaGoals.length) {
+        var bar = document.createElement('div'); bar.className = 'std-bar';
+        var fill = document.createElement('div'); fill.className = 'std-bar-fill';
+        fill.style.width = avg + '%'; fill.style.background = areaColorVar(area.color);
+        bar.appendChild(fill);
+        row.appendChild(bar);
+      } else {
+        var emptyLine = document.createElement('div'); emptyLine.className = 'ov-area-row-empty'; emptyLine.textContent = 'No goals yet';
+        row.appendChild(emptyLine);
+      }
+      wrap.appendChild(row);
+    });
+  }
+  function renderOverviewSection() {
+    renderOverviewHabits();
+    renderOverviewTasks();
+    renderOverviewAreaProgress();
+  }
 
   // =====================================================================
   // Life Areas — the taxonomy database. main:areas = [{ id, name,

@@ -2126,3 +2126,63 @@ between this app and either data loss or a wide-open write target:
     new values while `--info` still resolves to the original blue; and
     a functional smoke pass (water quick-add, bucket category filter)
     confirmed the CSS-only change didn't disturb any JS behavior.
+
+- **Main page (`index.html`) Overview tab built as a real landing view,
+  replacing its "coming soon" placeholder.** The placeholder text itself
+  already specified the scope — "today's habits, upcoming tasks, goal
+  progress across Life Areas" — so this pass implements exactly that,
+  no more: three tiles pulling live from the Habits/Tasks/Life
+  Areas+Goals stores that already existed from the earlier Main-tab
+  rebuild (`main:habits`/`main:habitlogs`, `main:tasks`, `main:areas`/
+  `main:goals`). No new storage key — same "read-only summary derived
+  from existing collections" precedent Self-Care's own Overview tab
+  used one entry above.
+  - **Today's Habits** (`#ovHabitsGrid`) reuses the exact `.at-task`
+    row markup/behavior the Habits tab's own "Today" grid
+    (`renderHabitTodayGrid()`) already established — checkbox toggles
+    `toggleHabitToday()`, streak badge from `computeHabitStreaks()`,
+    row click opens the habit edit modal — just rendered into its own
+    container (`renderOverviewHabits()`) so toggling from Overview
+    doesn't require the Habits tab to be mounted.
+  - **Upcoming Tasks** (`#ovTasksList`) is the 8 soonest not-done tasks
+    across every area/goal/business (`upcomingTasksForOverview()`,
+    same due-date-then-created-date sort `nextActionForGoal()` already
+    used), rendered via the existing shared `buildTaskRow(task,
+    rerenderFn, opts)` — the same row component Goals/Tasks/Business
+    panels already build their own lists from, so check-off, delete,
+    and click-to-edit all work identically here with zero new code for
+    those interactions.
+  - **Goal Progress by Life Area** (`#ovAreaProgressList`) is new: one
+    row per Life Area (icon, name, an averaged `computeGoalProgress()`
+    across that area's goals, a `.std-bar` fill in the area's own
+    `areaColorVar()` color), click-through to the existing Area detail
+    modal (`openAreaDetail()`). Areas with zero goals show a plain "No
+    goals yet" line instead of a 0%-filled bar, so an empty area doesn't
+    read as "this area is failing."
+  - **Rendering is wired through the existing `renderSection(tab)`
+    dispatcher** (`renderSection('overview')` → `renderOverviewSection()`,
+    added as a new branch) rather than an eager call at parse time —
+    `renderOverviewAreaProgress()` reads `AREA_COLORS`/`areaColorVar`,
+    which are `var`-assigned partway through this same script, so
+    calling it before that assignment line executes would silently see
+    `undefined`. `renderSection()` itself was already called from every
+    place data can change (tab clicks, hashchange, the `goals-changed`
+    event, and the `storage` event that also fires on an incoming
+    cloud-sync apply), so Overview refreshes on all of the same triggers
+    every other tab already does — no separate `onApplied` hook needed.
+  - No new CSS tokens — `.ov-area-row`/`.ov-area-row-head`/
+    `.ov-area-row-name`/`.ov-area-row-empty` are new but built entirely
+    from this file's existing `--text-*`/`--at-border` tokens; the bars
+    reuse `.std-bar`/`.std-bar-fill`, the pill reuses `.goal-card-pct`.
+  - **Verified in headless Edge with Supabase blocked** (`--host-resolver-rules`
+    mapping the Supabase host to `0.0.0.0` at launch, confirmed via a
+    successful `/json/version` handshake before navigating): seeded a
+    habit/area/goal/two tasks directly into a fresh, never-synced
+    profile's `localStorage`, reloaded, and confirmed the Overview tab
+    renders by default with all three tiles populated correctly (habit
+    scheduled today, tasks sorted soonest-due-first, area row showing
+    the right name/percentage/bar width); confirmed the habit checkbox
+    toggle updates the streak live: confirmed the task checkbox removes
+    it from the tile; confirmed clicking an area row opens the Area
+    detail modal; and confirmed switching to Habits and back to Overview
+    re-renders cleanly with no stale or duplicated rows.
