@@ -2004,19 +2004,23 @@ body::after {
   }
   /**
    * Clones a week (title suffixed " (Copy)") plus every one of its days and
-   * their checklist items, into a new week appended at the end of the same
-   * business's list (so it's immediately reorderable with the existing
-   * move*() controls like any other week). The copy starts fresh — day
-   * statuses reset to "Not started" and checklist items reset unchecked —
-   * since duplicating is for reusing a week's day/checklist *structure*
-   * (e.g. another prose-sprint week), not for snapshotting progress.
-   * Linked Tasks are never copied (a duplicated day has no Task pointing
-   * at it until explicitly sent).
+   * their checklist items, into a new week appended at the end of the
+   * target business's list (defaults to the source week's own business, so
+   * existing same-business duplication is unchanged) — so it's immediately
+   * reorderable with the existing move*() controls like any other week.
+   * Passing a different targetBusinessId is what lets a Week built as a
+   * reusable template get copied into another project/business without
+   * touching the original. The copy starts fresh — day statuses reset to
+   * "Not started" and checklist items reset unchecked — since duplicating
+   * is for reusing a week's day/checklist *structure* (e.g. another
+   * prose-sprint week, or the same template on a new project), not for
+   * snapshotting progress. Linked Tasks are never copied (a duplicated day
+   * has no Task pointing at it until explicitly sent).
    */
-  function duplicateWorkflowWeek(weekId) {
+  function duplicateWorkflowWeek(weekId, targetBusinessId) {
     var week = workflowWeekById(weekId);
     if (!week) return null;
-    var newWeek = addWorkflowWeek(week.businessId, { title: (week.title || 'Untitled week') + ' (Copy)' });
+    var newWeek = addWorkflowWeek(targetBusinessId || week.businessId, { title: (week.title || 'Untitled week') + ' (Copy)' });
     daysForWeek(weekId).forEach(function (day) {
       var newDay = addWorkflowDay(newWeek.id, { title: day.title, notes: day.notes || '', status: WORKFLOW_DAY_DEFAULT_STATUS });
       checklistForDay(day.id).forEach(function (item) {
@@ -2027,6 +2031,20 @@ body::after {
       });
     });
     return newWeek;
+  }
+  /**
+   * Relocates a week (in place, with its current progress intact — not a
+   * copy) to a different business, appended at the end of that business's
+   * week list. Every one of its days gets its businessId re-pointed to
+   * match (weekId itself doesn't change, so daysForWeek() still resolves
+   * correctly) — same cascade-the-foreign-key precedent moveWorkflowDayToWeek
+   * already uses one level down.
+   */
+  function moveWorkflowWeekToBusiness(weekId, targetBusinessId) {
+    var week = workflowWeekById(weekId);
+    if (!week || !targetBusinessId || week.businessId === targetBusinessId) return;
+    updateWorkflowWeek(weekId, { businessId: targetBusinessId, order: nextWorkflowOrder(weeksForBusiness(targetBusinessId)) });
+    daysForWeek(weekId).forEach(function (day) { updateWorkflowDay(day.id, { businessId: targetBusinessId }); });
   }
 
   // ---- days ----
@@ -2070,6 +2088,26 @@ body::after {
     siblings[swapIdx].order = tmp;
     saveWorkflowDays(all);
     return true;
+  }
+  /**
+   * Clones a day (title suffixed " (Copy)") plus its checklist items and
+   * blocks into the same week, appended at the end (so it's immediately
+   * reorderable with the existing moveWorkflowDay()/"Move to week" controls
+   * like any other day). Same "reset progress, keep structure" precedent
+   * as duplicateWorkflowWeek — status resets to Not started, checklist
+   * items reset unchecked, no linked Task is copied.
+   */
+  function duplicateWorkflowDay(dayId) {
+    var day = workflowDayById(dayId);
+    if (!day) return null;
+    var newDay = addWorkflowDay(day.weekId, { title: (day.title || 'Untitled day') + ' (Copy)', notes: day.notes || '', status: WORKFLOW_DAY_DEFAULT_STATUS });
+    checklistForDay(dayId).forEach(function (item) {
+      addWorkflowChecklistItem(newDay.id, { text: item.text, checked: false });
+    });
+    blocksForDay(dayId).forEach(function (block) {
+      addDayBlock(newDay.id, { type: block.type, content: block.content, language: block.language });
+    });
+    return newDay;
   }
 
   // ---- checklist items ----
@@ -4814,6 +4852,16 @@ body::after {
     });
     head.appendChild(sendBtn);
 
+    var dupBtn = document.createElement('button');
+    dupBtn.type = 'button'; dupBtn.className = 'at-mini-btn'; dupBtn.textContent = '⧉ Duplicate';
+    dupBtn.title = 'Duplicate this day (checklist items + notes/code blocks, reset to Not started)';
+    dupBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      duplicateWorkflowDay(day.id);
+      rerenderFn();
+    });
+    head.appendChild(dupBtn);
+
     var del = document.createElement('button');
     del.type = 'button'; del.className = 'wf-day-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete day');
     del.addEventListener('click', function (e) {
@@ -4945,6 +4993,40 @@ body::after {
     var bar = document.createElement('div'); bar.className = 'std-bar std-group-bar';
     var fill = document.createElement('div'); fill.className = 'std-bar-fill'; fill.style.width = Math.round(progress.fraction * 100) + '%';
     bar.appendChild(fill); body.appendChild(bar);
+
+    var otherBizs = loadBusinesses().filter(function (b) { return b.id !== biz.id; });
+    if (otherBizs.length) {
+      var bizMoveRow = document.createElement('div'); bizMoveRow.className = 'wf-move-row';
+      var bizMoveLabel = document.createElement('span'); bizMoveLabel.textContent = 'Send to another project:';
+      bizMoveRow.appendChild(bizMoveLabel);
+      var bizSelect = document.createElement('select');
+      bizSelect.setAttribute('aria-label', 'Target project/business');
+      otherBizs.forEach(function (b) {
+        var o = document.createElement('option'); o.value = b.id; o.textContent = (b.icon || '💼') + ' ' + b.name;
+        bizSelect.appendChild(o);
+      });
+      bizMoveRow.appendChild(bizSelect);
+
+      var bizCopyBtn = document.createElement('button');
+      bizCopyBtn.type = 'button'; bizCopyBtn.className = 'at-mini-btn'; bizCopyBtn.textContent = '⧉ Copy';
+      bizCopyBtn.title = 'Copy this week as a fresh template into the selected project (days + checklist items, reset to Not started) — this week stays here too';
+      bizCopyBtn.addEventListener('click', function () {
+        duplicateWorkflowWeek(week.id, bizSelect.value);
+        rerenderFn();
+      });
+      bizMoveRow.appendChild(bizCopyBtn);
+
+      var bizMoveBtn = document.createElement('button');
+      bizMoveBtn.type = 'button'; bizMoveBtn.className = 'at-mini-btn'; bizMoveBtn.textContent = '→ Move';
+      bizMoveBtn.title = 'Move this week (with its current progress) to the selected project — it leaves this project';
+      bizMoveBtn.addEventListener('click', function () {
+        moveWorkflowWeekToBusiness(week.id, bizSelect.value);
+        rerenderFn();
+      });
+      bizMoveRow.appendChild(bizMoveBtn);
+
+      body.appendChild(bizMoveRow);
+    }
 
     if (days.length) {
       days.forEach(function (d) { body.appendChild(buildWorkflowDayRow(d, biz, rerenderFn)); });
