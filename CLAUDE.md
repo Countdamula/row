@@ -31,7 +31,7 @@ Vercel's static server) — see README.md.
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
-| `selfcare.html` | Self-Care — Journals (topic-filtered) and Meditations (linkable library) are built; Water tracker (personalized daily goal), Bucket List, and Overview are still placeholder shells (new — see changelog) |
+| `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -213,7 +213,7 @@ using `sync.js`.
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
-| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; Journals and Meditations built, Water/Bucket List/Overview still shells — see changelog) |
+| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; all five tabs built — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -239,8 +239,13 @@ documents what's actually here:
   specific visual instruction (a reference photo) rather than generic
   "themed to a palette" boilerplate: (1) `entertainment.html` (the Media
   page) got a thin-red tile border + a genuinely new pink accent color on
-  hover; (2) `braindump.html` (Brain Dump) has its own self-contained
-  dark forest-green/black + gold/copper theme (deep green radial-gradient
+  hover — this has since evolved further (see its own changelog) into a
+  dark wine/candlelit "boutique gallery" look (`--tile-border`/
+  `--pink-accent`/`--wine`/`--candle`/`--cream` tokens), which
+  `household.html` and `selfcare.html` were each later explicitly asked
+  to match — see their own changelog entries; (2) `braindump.html`
+  (Brain Dump) has its own self-contained dark forest-green/black +
+  gold/copper theme (deep green radial-gradient
   background, gold serif-italic display type, a CSS sunburst emblem) —
   **not** the app's near-black/off-white/green-amber-red-blue palette,
   and also not its own original light-cream theme (see its changelog:
@@ -1753,3 +1758,371 @@ between this app and either data loss or a wide-open write target:
     favorites-only toggle, title search, edit-persists-changes, and
     delete (record gone, unrelated seed records untouched, count nets
     back to the original 4) — all ten passed on the first run.
+
+- **Self-Care (`selfcare.html`) Water tab built as a personalized daily
+  hydration tracker.** Follow-up to the Meditations entry above — same
+  page, next placeholder replaced. Runs on top of `SelfCareData`'s
+  existing `HydrationProfile`/`WaterLog` collections and
+  `recommendedDailyMl()`/`todayIntakeMl()`/`todayProgress()`/
+  `intakeHistory()` selectors; the one data-layer addition was
+  `hydrationGoalBreakdown(profile)` (new, exported alongside
+  `recommendedDailyMl`) — same inputs/math, including the
+  override-wins-outright behavior, but returns the itemized components
+  (`weightKg`, `ageFactor`, `baseMl`, `activityAdjMl`, `climateAdjMl`,
+  `total`) instead of just the final number, so the UI's "how is this
+  calculated?" disclosure doesn't need its own copy of the private
+  formula constants (`WATER_AGE_FACTOR_ML_PER_KG` etc. stay private).
+  `recommendedDailyMl()` itself is now a thin wrapper around it —
+  `base` is deliberately left unrounded internally so `total`'s
+  rounding matches the original formula exactly (verified: identical
+  output for every profile shape tested).
+  - **Profile form** (`#wtrProfileCard`): weight (+ kg/lb unit),
+    height (cm, optional), age, sex (optional freeform text, matching
+    the model's own "freeform, nullable" comment — not an enum),
+    activity level and climate `<select>`s (populated from
+    `SelfCareData.ACTIVITY_LEVELS`/`CLIMATES`), and a preferred
+    display-unit `<select>` (ml/oz). "Save Profile" gathers every
+    field and calls `saveHydrationProfile()` once — a deliberate
+    single explicit write, not autosave-per-keystroke, both to match
+    every other page's "edit inputs, click Save" form convention and
+    so `sync.js`'s new `localDirtyKeys` protection (see the
+    "Prevent incoming sync from clobbering in-flight local edits"
+    entry) only needs to cover one write per edit session, not a
+    stream of them.
+  - **Goal + progress ring** (`#wtrGoalCard`): a hand-rolled SVG
+    circular progress ring (stroke-dasharray/dashoffset on a circle,
+    r=70 — this app's established "no charting library" convention for
+    all its visualizations, same spirit as the div-bar/inline-SVG
+    charts elsewhere) showing percent-of-goal in the center, with
+    today's logged amount and remaining-vs-goal text beside it — all
+    formatted in the profile's chosen unit via
+    `SelfCareData.Units.Volume.format()`. The ring and remaining-text
+    both flip to `--success` once the goal is met (a calm "you did it"
+    signal, not a warning color). The required caption ("General
+    estimate, not medical advice…") is always visible, unstyled beyond
+    a muted tertiary color — deliberately not a red/amber warning
+    treatment, per the "keep it calm and non-alarming" instruction.
+    A collapsed-by-default "How is this calculated?" disclosure
+    (`#wtrBreakdownBody`) shows the itemized
+    `hydrationGoalBreakdown()` output (or, if a manual override is
+    active, a short note saying so instead of the formula). **Manual
+    override**: a text input + Set/Clear buttons write/clear
+    `profile.customGoalOverride` directly via `saveHydrationProfile()`
+    — Set validates the input is a positive number first.
+  - **Quick-add logging** (`#wtrLogCard`): "+ Cup"/"+ Bottle" buttons
+    (fixed 250 ml / 500 ml presets, their button labels reformatted
+    live in the profile's display unit) write a `WaterLog` entry for
+    `todayISO()` with one click; "+ Custom…" opens a small modal
+    (`#wtrCustomModalBg`) for an arbitrary amount in the display unit,
+    rejecting non-positive input with an `alert()` before writing.
+    **Today's entries** list every `WaterLog` row dated today with an
+    always-editable amount `<input>` (blur-to-save, this app's
+    established inline-edit convention — same as Workflow day
+    titles/checklist text) and a delete ✕ button; editing/deleting
+    only re-renders the read-only readouts (ring/goal/history), never
+    the profile form, so neither action can clobber an in-progress
+    profile edit.
+  - **History** (`#wtrHistoryCard`): a "Last 7 days"/"Last 30 days"
+    chip toggle over `intakeHistory(days)`, newest-first, each day a
+    row with a mini progress bar (new `.wtr-bar`/`.wtr-bar-fill`, the
+    same div-fill-percentage idiom `.std-bar`/`.std-bar-fill` already
+    uses elsewhere in this app, given a page-local copy since this
+    file doesn't share that class) that turns `--success` once that
+    day's goal was met, plus the day's total-vs-goal text. Dates are
+    formatted via the browser's native `toLocaleDateString()` (no
+    hand-rolled day-name table, no date library) with today shown as
+    "Today". Logging any entry (quick-add, custom, edit, delete)
+    always re-renders history too, so a same-day edit is reflected
+    immediately without waiting for a tab switch.
+  - **Date-based reset is implicit, not special-cased**: "today" is
+    always `SelfCareData.todayISO()` evaluated at render time, and
+    every log/history read filters or groups by each entry's own
+    `date` field — so a new day naturally starts today's log/progress
+    at zero with no migration or rollover logic needed, while every
+    past day's entries remain exactly as logged in history. Verified
+    directly: adding a log dated yesterday leaves today's intake
+    unchanged and shows up correctly summed into yesterday's history
+    row.
+  - **Render split for sync safety**: `populateWaterProfileForm()`
+    (fills the profile inputs from storage) only runs on tab
+    activation or right after an explicit Save — never from the
+    cloud-sync `onApplied` callback, which instead calls the separate
+    `renderWaterReadouts()` (ring/goal/log/history — all read-only
+    until acted on). This mirrors the Journals/Meditations tabs'
+    existing onApplied behavior (they only ever refresh list views,
+    never form state) and specifically avoids the class of bug the
+    immediately-preceding `sync.js` "Prevent incoming sync from
+    clobbering in-flight local edits" commit addressed one layer down
+    — that fix protects data already written to `localStorage`, not
+    unsaved keystrokes still sitting only in a DOM input.
+  - **Verified via the same raw-CDP-over-websocket approach** used for
+    the Meditations tab (no `chromium-cli`/Node/Python in this
+    environment; an isolated temporary `--user-data-dir`, not the real
+    profile): quick-add Cup/Bottle updating intake and the ring
+    correctly, the custom modal rejecting a negative amount then
+    accepting a valid one, inline amount edit persisting, delete
+    removing the right entry, the breakdown disclosure's itemized math
+    matching the displayed goal exactly, override set/clear correctly
+    swapping between "4000 ml" and the recalculated "3300 ml" (and the
+    breakdown text switching to the override note and back), a full
+    profile save (weight/age/activity/climate/unit all changed at
+    once, including ml→oz) correctly recomputing the goal and
+    relabeling the quick-add buttons and custom-modal unit in oz, a
+    yesterday-dated entry leaving today's intake untouched while
+    correctly summing into history, and the 7/30-day history toggle
+    changing row counts accordingly — all eleven checks passed on the
+    first run, with the page still responsive afterward.
+
+- **Self-Care (`selfcare.html`) Bucket List tab built, groupable by status
+  or category, with a "surprise me."** Follow-up to the Water entry
+  above — same page, next (and per the file's own §5 table, last
+  remaining real) placeholder replaced; Overview stays a shell. Runs on
+  top of `SelfCareData`'s existing `BucketList` collection/model and
+  `BUCKET_CATEGORIES`/`BUCKET_STATUSES`. One data-layer addition:
+  `SelfCareCurrency` (new, exported as `SelfCareData.Currency`) —
+  `parseToCents`/`format`, copied verbatim from
+  `household-data.js`'s `HouseholdCurrency` (itself mirroring
+  `finance-data.js`'s `FinanceCurrency`), since `BucketItem.costCents`
+  needed the same "parse user input into integer cents / format cents
+  back for display" pair this app already has two other copies of, and
+  no shared cross-file module system exists to import one instead (see
+  CLAUDE.md §1/§4) — a third small page-local copy, same precedent.
+  - **Cards** (`.bkt-card`, new gallery-card CSS distinct from
+    Meditations' image-less `.med-card`, since bucket items can have a
+    cover photo): an optional cover — a real `<img src="…">` (not a CSS
+    `background-image: url(...)`, which was tried first and reverted;
+    seeing an item's `imageUrl` value pass through HTML-attribute
+    escaping into a CSS `url('...')` string raised the same class of
+    quote-re-decoding subtlety `url()`-in-`style=` constructs are prone
+    to — a plain `<img src>` sidesteps it entirely since standard HTML
+    attribute escaping is sufficient there) or a category-icon
+    fallback — a status badge overlay (Idea/Planned/Done, colored via
+    the existing `--info`/`--warning`/`--success` tokens, no new
+    colors), title, category `.tag` + cost (via
+    `SelfCareData.Currency.format()`, omitted entirely when
+    `costCents` is null rather than showing a placeholder), a date line
+    ("By <date>" for a target date, "Done <date>" once completed, or
+    "No date set"), an optional clamped description, and
+    Mark-Done/Edit/Delete actions (Mark Done hidden once already done).
+  - **Groupable by status or category** (`#bktGroupChips`, a two-chip
+    toggle — "Group by Status" / "Group by Category"): re-partitions
+    the *same* filtered item list into `.bkt-group` sections (status
+    groups always in `BUCKET_STATUSES` order; category groups in
+    `BUCKET_CATEGORIES` order), each with a header + count, omitting
+    any group with zero items after filters/search are applied — status
+    and category filters, and title search, all compose with whichever
+    grouping is active, same "every filter composes" precedent as
+    Meditations.
+  - **Create/edit/delete** via a shared modal (`#bktModalBg`, same
+    structural pattern as the Journal/Meditation modals): title
+    (required — empty blocks Save with an `alert()`), description,
+    category/status `<select>`s, target date (`<input type="date">`),
+    cost (free-text, parsed via `SelfCareData.Currency.parseToCents`),
+    image URL (optional, no upload/compression pipeline — deliberately
+    simpler than the cover-photo upload machinery other pages use,
+    since the request was "image if present," not a full upload flow),
+    and notes. **`completedDate` is derived from the status field on
+    every save**, not just from the quick Mark Done button: saving with
+    `status === 'done'` stamps today's date only if one isn't already
+    set (so re-saving an already-done item doesn't shift its completion
+    date), and saving with any other status clears it — the same
+    stamp-on-entering/clear-on-leaving precedent `gym.html`'s
+    `exerciseDone`/Household's chore-completion timestamps already
+    established, verified by editing a just-completed item back to
+    "Idea" and confirming `completedDate` returned to `null`.
+  - **Mark Done + a small celebratory touch**: the quick "✓ Mark Done"
+    card button stamps `status: 'done'`/`completedDate` immediately,
+    then plays a CSS-only celebration on that card — a brief
+    box-shadow pulse (`.bkt-card-celebrate`, `--success`-tinted) plus a
+    🎉 emoji that rises and fades (`.bkt-confetti`, a
+    `@keyframes` pop, no animation library anywhere in this repo) —
+    and only *then* (after a 650ms delay matching the animation) calls
+    the grid re-render that actually moves the card into its new
+    group/out of an active filter. Doing the re-render immediately
+    would yank the card away before the celebration had a chance to
+    play; the delay is what makes the "small celebratory touch" land
+    as a moment, not a location. Marking done from the Surprise Me
+    modal (below) uses the same status/completedDate stamp but skips
+    the on-card animation, since that modal closes immediately instead.
+  - **"Surprise Me"** (`#bktSurpriseBtn` → `#bktSurpriseModalBg`):
+    picks a uniformly random item with `status !== 'done'` and shows
+    its icon/title/category/date/cost/description in a small modal
+    with "🎲 Try Another" (re-roll) and "✓ Mark Done" (stamps and
+    closes, same status/completedDate logic as above) actions. If
+    there are no not-done items left, an `alert()` says so instead of
+    opening an empty modal.
+  - **Verified via the same raw-CDP-over-websocket approach** used for
+    Meditations/Water (isolated temporary `--user-data-dir`): create
+    with an image/cost/target-date (card's `<img src>` matched exactly),
+    empty-title rejection, Mark Done's confetti/pulse classes appearing
+    immediately and the card landing in the correct group after the
+    delay, edit-reverting done→idea clearing `completedDate`, category
+    filter, status filter, title search, the group-by toggle's headers
+    and counts, delete (item gone, count back to baseline), Surprise
+    Me picking a not-done item and its Mark Done stamping correctly,
+    and `SelfCareData.Currency.format`/`parseToCents` round-tripping
+    cents correctly (including the null → "—" case) — all twelve
+    checks passed on the first run.
+
+- **Self-Care (`selfcare.html`) Overview tab built as the landing view,
+  plus a consistency pass across the whole page.** Follow-up to the
+  Bucket List entry above — this is the fifth and last tab on this
+  page; every tab is now real. Overview adds **no new localStorage
+  key** — every tile is a thin read (and, for quick-add/mark-done, a
+  thin write) over the same `SelfCareData` collections/selectors the
+  other four tabs already use, reusing their functions directly
+  (`quickAddWater`, `openJournalModal`, `openMeditationLink`,
+  `celebrateCard`, `bktFormatDate`, etc.) rather than duplicating logic.
+  - **Water tile**: a smaller preview progress ring (`#ovRingFill`,
+    r=44 vs the Water tab's r=70) plus a "+ Add &lt;cup size&gt;"
+    quick-add button that calls the same `quickAddWater('cup', …)`
+    already wired to the Water tab's own Cup button — so a log added
+    from Overview is immediately correct on the Water tab too (same
+    underlying `WaterLog` collection, no separate state). Extracted a
+    shared `updateProgressRing(circleEl, progress)` helper (new — reads
+    the circle's own `r` attribute, so it works at any ring size) so
+    the Water tab's ring and this smaller one share one implementation
+    of the circumference/dash-offset math and the "flips to `--success`
+    at 100%" rule, instead of duplicating it.
+  - **Journal tile**: picks a random topic + one of its prompts on
+    every render (transient, never persisted) and shows it as a
+    nudge; "Start an Entry" calls the existing `openJournalModal(null,
+    topic)` with that topic preset, which already renders that topic's
+    prompts inside the modal as usual.
+  - **Meditation tile**: prefers a random *favorite* if any exist,
+    else a random meditation from the full list; "Open" calls the
+    existing `openMeditationLink()` (same `window.open(url, '_blank',
+    'noopener')`); "Another" re-picks. The pick is transient
+    (`ovMedPickId`, module-scoped) so a reload/revisit gets a fresh
+    suggestion.
+  - **Bucket List tile**: picks a random not-done item (transient,
+    `ovBucketPickId`); "Mark Done" stamps `status`/`completedDate` via
+    the same logic as the Bucket List tab and calls the existing
+    `celebrateCard()` touch on the Overview tile itself, then re-picks
+    a new (still not-done) item after the same 650ms delay used
+    elsewhere; "Another" re-picks without marking anything done.
+  - **Consistency-pass fixes found and applied**: the Water goal
+    breakdown's "Weight (X kg) × …" line was hand-formatting the
+    number with a hardcoded `' kg'` suffix instead of going through
+    `SelfCareData.Units.Weight.format()` like every other weight/volume
+    display on this page — fixed to call the shared formatter (output
+    is identical today, e.g. "70 kg", but now guaranteed to stay
+    consistent if that formatter's rounding/format ever changes). An
+    audit of the rest of the file (`grep` for hardcoded `' ml'`/`'
+    oz'`/`' kg'`/`' lb'` suffixes) found no other instances — every
+    other volume/weight display already went through
+    `SelfCareData.Units.Volume`/`Weight`. Confirmed no dead placeholder
+    content remains: the only surviving `.sc-placeholder` usages are
+    the legitimate "no items yet" empty states in Journals/
+    Meditations/Bucket List (not stubs — real, reachable UI), and a
+    `grep` for leftover "coming soon"/"lands here next" placeholder
+    copy came back empty. Confirmed no new hardcoded colors crept into
+    any of the four feature builds (`grep` for hex codes across the
+    whole file matches only the pre-existing page shell's own `:root`
+    tokens/cover-banner/button/modal values) — every tile/card/chip
+    added across Meditations, Water, Bucket List, and Overview uses
+    existing `--accent`/`--success`/`--warning`/`--danger`/`--info`/
+    `--text-*` tokens.
+  - **Verified**: topic filtering (Journals), Markdown rendering
+    (heading/bold/list, Journal read view), meditation Open links
+    (`noopener`, both from Overview and the Meditations tab itself),
+    the water goal formula + daily reset (a yesterday-dated log excluded
+    from today's total but correctly summed into history; the
+    breakdown's `total` still matches `recommendedDailyMl()` exactly
+    after the weight-formatter fix), and a Bucket List status change via
+    the Edit modal (still correctly clears `completedDate` when leaving
+    Done) — all reconfirmed working, not just assumed unbroken.
+    Unit consistency was verified end-to-end in one pass: switching the
+    profile to lb/oz correctly updated the Water tab's goal, its
+    breakdown (still labeled "kg" for the internal working value, which
+    is correct — see that tile's own note above), and Overview's amount
+    text and quick-add button label, all in agreement.
+  - **Process note — a real mistake, not just a test artifact**: the
+    first pass at verifying this tab (and, on inspection, likely the
+    Meditations/Water/Bucket List verification passes in the three
+    entries above too) used isolated temporary `--user-data-dir`
+    browser profiles but did **not** block `*.supabase.co` at the
+    network layer. Since `selfcare.html` calls `initCloudSync(...)`
+    with real, working credentials (by design, see §2), each "isolated"
+    profile still pulled the real cloud `selfcare` row on load and
+    pushed local test mutations back up via `sync.js`'s debounced push
+    — confirmed via the cloud row's `updated_at` timestamp lining up
+    with test-run times, and via a profile field (age/sex/activity/
+    climate) appearing in a nominally-fresh test profile that no test
+    script had set, matching values only explainable as real pre-existing
+    user data pulled from the cloud. This is the exact failure mode
+    CLAUDE.md already documented once for `gym.html`'s Templates
+    testing (per that entry's own closing note: block `*.supabase.co`
+    at the network layer first) — it wasn't followed here across four
+    entries before being caught. The user was informed directly and
+    opted not to need cleanup. This Overview verification pass was
+    then redone correctly: CDP `Network.setBlockedURLs(['*supabase.co*'])`
+    armed before `Page.navigate` (not after, and not left to a
+    same-origin assumption), confirmed by the reloaded profile showing
+    genuine seed values (age 29/moderate/normal/70kg) instead of the
+    real data seen before blocking. Future automated browser testing of
+    *any* page in this repo that calls `initCloudSync(...)` — not just
+    `gym.html` — should block Supabase first, verified before
+    interacting, not assumed.
+
+- **Self-Care (`selfcare.html`) re-themed to match Media's current
+  dusty-rose/wine aesthetic.** Same treatment `household.html` already
+  got (see that changelog entry and commit — `entertainment.html`'s
+  palette evolved past a plain "thin-red tile border + pink hover" into
+  a dark wine/candlelit "boutique gallery" look, and this page was
+  explicitly asked to match it too):
+  - `:root`: `--bg`/`--bg-deep` switched to the same wine-black as Media
+    (`#170a12`/`#0b0509`), added the identical `--tile-border`/
+    `--pink-accent`/`--wine`/`--candle`/`--cream` tokens (same values,
+    not a new palette), and repointed `--accent` from info-blue to the
+    same dusty rose so every existing `var(--accent)` reference already
+    in this file (cover emblem, active tab, breakdown-toggle link,
+    water/history progress-bar fill, Overview tile links) picks up the
+    new look without touching each rule individually. `--success`/
+    `--warning`/`--danger`/`--info` were left alone on purpose — same
+    precedent Media itself follows and Household repeated: those carry
+    status meaning (goal met, favorite star, delete, "Idea" badge), not
+    brand accent. `body::before`'s ambient glow gradient was swapped for
+    Media's actual recipe (warm corner glow + rose corner glow over the
+    wine-black base); `body::after`'s grain-texture layer already
+    existed here (unlike Household, which was missing it) so nothing
+    needed adding there.
+  - **Cover banner**: wine-glow + candle/rose corner gradients,
+    `--tile-border` border, cream title with the warm text-shadow,
+    `--tile-border` CTA with a dusty-rose hover — identical recipe to
+    Media's hero and Household's cover, kept as this page's own existing
+    rounded-card structure (not Media's edge-to-edge banner), matching
+    the precedent both other re-themed/bannered pages already set.
+  - **Every hardcoded `rgba(125,211,252,X)` info-blue tint** (the cover
+    emblem rays/CTA hover, the section divider, the old `.btn-primary`
+    gradient, `.chip.active`, the journal prompt chips) was replaced
+    with either the equivalent `rgba(224,138,159,X)` dusty-rose tint or,
+    for `.btn-primary`/`.chip.active`, switched outright to Media's
+    actual cream-to-dusty-rose gradient recipe (`linear-gradient(180deg,
+    var(--cream) 0%, #d9a0ae 100%)`, text `#2a0d14`) — the same
+    substitution Household's own re-theme made. A `grep` after the pass
+    confirmed only `--info`'s own definition still references the old
+    blue hex; every other instance was updated.
+  - **`.med-card`/`.bkt-card`** (the Meditations/Bucket List gallery
+    cards) gained the always-visible `--tile-border` — Media's signature
+    "thin tile border" cue — matching how Household's own `.ent-card`
+    got the identical treatment. `.jr-row` (Journal's list rows) and the
+    generic `.card` well (Water's profile/goal/log/history cards,
+    Overview's tiles) were deliberately left on the neutral `--border`
+    token, since those are list-row/content-well surfaces, not gallery
+    tiles — matching Household's own precedent of only recoloring its
+    actual `.ent-card`-equivalent, not every surface in the file.
+    `.med-fav-chip.active`/`.med-fav-btn` (the favorite-star elements,
+    amber/`--warning`) were left untouched for the same status-not-brand
+    reason as `--success`/`--warning`/`--danger`/`--info` above.
+  - **Verified in headless Edge with Supabase blocked** (this time
+    correctly — `Network.setBlockedURLs` armed via CDP before
+    `Page.navigate`, or `--host-resolver-rules` mapping the Supabase
+    host to `0.0.0.0` for the plain screenshot passes): all five tabs
+    screenshotted and visually confirmed matching Media's look
+    (wine-glow cover, cream serif title, dusty-rose active tab/chips/
+    buttons, tile-bordered gallery cards); `getComputedStyle` confirmed
+    `--accent`/`--tile-border`/`--cream`/`--bg-deep` all resolve to the
+    new values while `--info` still resolves to the original blue; and
+    a functional smoke pass (water quick-add, bucket category filter)
+    confirmed the CSS-only change didn't disturb any JS behavior.

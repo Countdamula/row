@@ -120,6 +120,49 @@
   };
 
   // ============================================================
+  // CURRENCY — the one shared helper for parsing user input into integer
+  // cents and formatting cents back for display, mirroring finance-data.js's
+  // FinanceCurrency / household-data.js's HouseholdCurrency (no
+  // multi-currency need for a personal bucket-list cost field, so this is
+  // the same recipe kept intentionally small).
+  // ============================================================
+  const CurrencyConfig = { currency: 'USD', locale: 'en-US' };
+  const SelfCareCurrency = {
+    configure(opts) {
+      if (opts && opts.currency) CurrencyConfig.currency = opts.currency;
+      if (opts && opts.locale) CurrencyConfig.locale = opts.locale;
+    },
+    /** "12.50", "1,234.56", 12.5, "-4.20" -> integer cents. Never a float. */
+    parseToCents(input) {
+      if (input == null || input === '') return 0;
+      if (typeof input === 'number') return Math.round(input * 100);
+      let s = String(input).trim();
+      const negative = s.indexOf('-') !== -1;
+      s = s.replace(/[^0-9.,]/g, '');
+      if (!s) return 0;
+      const lastSep = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+      let intPart, fracPart;
+      if (lastSep === -1) { intPart = s; fracPart = ''; }
+      else {
+        intPart = s.slice(0, lastSep).replace(/[.,]/g, '');
+        fracPart = s.slice(lastSep + 1).replace(/[^0-9]/g, '');
+      }
+      const n = parseFloat((intPart || '0') + '.' + (fracPart || '0'));
+      if (isNaN(n)) return 0;
+      return Math.round((negative ? -1 : 1) * n * 100);
+    },
+    /** integer cents (or null) -> "$12.50" / "—". */
+    format(cents, opts) {
+      if (cents == null) return '—';
+      const currency = (opts && opts.currency) || CurrencyConfig.currency;
+      const locale = (opts && opts.locale) || CurrencyConfig.locale;
+      const amount = (Number(cents) || 0) / 100;
+      try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currency }).format(amount); }
+      catch (e) { return currency + ' ' + amount.toFixed(2); }
+    }
+  };
+
+  // ============================================================
   // MODELS — no build step / no TypeScript in this repo, so "typed"
   // means a JSDoc @typedef (for editor hints) plus a factory that
   // fills every field with a sane default and coerces enums/numbers,
@@ -337,20 +380,43 @@
   const WATER_ACTIVITY_ADJUSTMENT_ML = { none: 0, light: 250, moderate: 500, heavy: 750 };
   const WATER_CLIMATE_ADJUSTMENT_ML = { normal: 0, hot: 500 };
 
-  /** @param {?HydrationProfile} profile @returns {number} recommended daily intake in ml */
-  function recommendedDailyMl(profile) {
-    if (!profile) return 0;
-    if (profile.customGoalOverride != null) return profile.customGoalOverride;
+  /**
+   * Same inputs/math as recommendedDailyMl() (including the "override wins
+   * outright" behavior), but returns the itemized breakdown instead of just
+   * the final number — so a "how is this calculated?" UI can show its work
+   * without duplicating these private constants/formula itself. `base` is
+   * deliberately left unrounded internally so total's rounding matches
+   * recommendedDailyMl() exactly; only the returned baseMl is rounded, for
+   * display.
+   * @param {?HydrationProfile} profile
+   * @returns {?{isOverride: boolean, total: number, weightKg?: number, ageFactor?: number, baseMl?: number, activityAdjMl?: number, climateAdjMl?: number}}
+   */
+  function hydrationGoalBreakdown(profile) {
+    if (!profile) return null;
+    if (profile.customGoalOverride != null) return { isOverride: true, total: profile.customGoalOverride };
 
     const weightKg = SelfCareUnits.Weight.toKg(profile.weight, profile.weightUnit);
     const age = Number(profile.age) || 0;
     const ageFactor = (WATER_AGE_FACTOR_ML_PER_KG.find(function (b) { return age < b.maxAge || age === b.maxAge; }) || WATER_AGE_FACTOR_ML_PER_KG[WATER_AGE_FACTOR_ML_PER_KG.length - 1]).factor;
     const base = weightKg * ageFactor;
-
     const activityAdj = WATER_ACTIVITY_ADJUSTMENT_ML[profile.activityLevel] || 0;
     const climateAdj = WATER_CLIMATE_ADJUSTMENT_ML[profile.climate] || 0;
 
-    return Math.round(base + activityAdj + climateAdj);
+    return {
+      isOverride: false,
+      weightKg: Math.round(weightKg * 10) / 10,
+      ageFactor: ageFactor,
+      baseMl: Math.round(base),
+      activityAdjMl: activityAdj,
+      climateAdjMl: climateAdj,
+      total: Math.round(base + activityAdj + climateAdj)
+    };
+  }
+
+  /** @param {?HydrationProfile} profile @returns {number} recommended daily intake in ml */
+  function recommendedDailyMl(profile) {
+    const breakdown = hydrationGoalBreakdown(profile);
+    return breakdown ? breakdown.total : 0;
   }
 
   // ============================================================
@@ -475,6 +541,7 @@
     BUCKET_CATEGORIES: BUCKET_CATEGORIES,
     BUCKET_STATUSES: BUCKET_STATUSES,
     Units: SelfCareUnits,
+    Currency: SelfCareCurrency,
     Models: {
       journalEntry: journalEntryModel,
       meditation: meditationModel,
@@ -489,6 +556,7 @@
     getHydrationProfile: getHydrationProfile,
     saveHydrationProfile: saveHydrationProfile,
     recommendedDailyMl: recommendedDailyMl,
+    hydrationGoalBreakdown: hydrationGoalBreakdown,
     entriesByTopic: entriesByTopic,
     todayIntakeMl: todayIntakeMl,
     todayProgress: todayProgress,
