@@ -31,6 +31,7 @@ Vercel's static server) — see README.md.
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
+| `selfcare.html` | Self-Care — Journals (topic-filtered) and Meditations (linkable library) are built; Water tracker (personalized daily goal), Bucket List, and Overview are still placeholder shells (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -177,6 +178,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
+   | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -211,6 +213,7 @@ using `sync.js`.
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
+| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; Journals and Meditations built, Water/Bucket List/Overview still shells — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -1576,3 +1579,177 @@ between this app and either data loss or a wide-open write target:
   7 days/28 items copied, every status reset to `Not started`/unchecked,
   the original week's Done/checked state left intact, and the new week
   successfully reordered via `moveWorkflowWeek`.
+
+- **New page in progress: `selfcare.html` ("Self-Care"), built in two
+  steps — a data layer first, then the nav shell — per an explicit ask
+  to set up the foundation before any UI.**
+  - **Data layer** (`selfcare-data.js`, landed first, on its own,
+    `<script>`-included by no page yet at that point): same
+    conventions as `household-data.js`/`finance-data.js` — an IIFE
+    exposing `window.SelfCareData`, `storeGet`/`storeSet`, JSDoc-typed
+    model factories + `makeCollection(key, model)` CRUD, pure derived
+    selectors, a guarded one-time seed. Five collections under a
+    `selfcare:` prefix: `JournalEntries`, `Meditations`, `WaterLog`,
+    `BucketList` (all `makeCollection`-backed) and `HydrationProfile`
+    (a single-record get/save pair, not a list, since there's only ever
+    one). `SelfCareUnits` (`Volume` ml↔oz, `Weight` kg↔lb
+    convert/format) mirrors `FinanceCurrency`'s shape — there's no
+    shared cross-file unit helper to import (no build step), so this is
+    a small new one in the same spirit; `gym.html`'s `unit()` is the
+    closest prior art, but it's just a page-scoped kg/lb label getter,
+    not a conversion helper. `recommendedDailyMl(profile)` is one pure,
+    heavily-commented function implementing the requested ml/kg-by-age-
+    bracket + activity/climate-adjustment heuristic — explicitly a
+    general estimate, not medical advice — and yields to
+    `customGoalOverride` when set. Selectors: `entriesByTopic`,
+    `todayIntakeMl`, `todayProgress`, `intakeHistory(days)`,
+    `bucketItemsByStatus`, `bucketItemsByCategory`. Seed data covers all
+    five collections (including a few `WaterLog` rows, even though only
+    entries/meditations/profile/bucket items were explicitly asked for
+    — otherwise the water-history selectors would have had nothing to
+    demonstrate), dated relative to today so it stays meaningful
+    whenever it runs. Verified standalone in headless Edge (a small
+    throwaway test harness loading just this file against a fake
+    `localStorage`) — every model, CRUD path, enum-coercion fallback,
+    and selector produced correct output before any UI touched it.
+  - **Nav shell** (this commit): `selfcare.html`, following
+    `household.html`'s page skeleton (`sc-`-prefixed classes in place
+    of `hh-`): back button, cover banner (sunburst emblem, italic serif
+    title, tracked-caps subtext "Rest / Reflect / Restore", pill CTA
+    that jumps to the Water tab, radiating-line divider), an underline
+    `.sc-tabs`/`.sc-tab` subnav — Overview / Journals / Meditations /
+    Water / Bucket List — and one `.section[data-section]` panel per
+    tab, each currently just a placeholder `.card` (icon + title +
+    one-line description of what's coming). Tab routing is the same
+    hash-plus-localStorage-fallback pattern as `household.html`'s
+    `setActiveTab()`/`tabFromHash()`/`hashchange` listener
+    (`selfcare:active_tab`), so the active section is reflected in the
+    URL (`#overview`, `#journals`, etc.) and survives a reload/deep
+    link exactly like Household's tabs do. Palette: standard near-black/
+    off-white base with the existing `--success`/`--warning`/`--danger`/
+    `--info` tokens; `--accent` repoints to `--info`'s own value
+    (info-blue) rather than inventing a new hue — the same call
+    `household.html` made and for the same reason (no reference photo,
+    no new-palette exception granted, per the DO NOT MODIFY rule in
+    §3/below). `topbar.js` got one addition — a `SELF-CARE` pill
+    (`href="selfcare.html"`, id `topbarSelfCare`) appended after
+    `HOUSEHOLD`, no other line touched, same as every prior page's nav
+    registration. `selfcare.html` loads `selfcare-data.js` (`defer`)
+    and calls `initCloudSync({ appKey: 'selfcare', syncedPrefixes:
+    ['selfcare:'] })` at boot, so cloud sync is wired even though no
+    panel reads `SelfCareData` yet. `README.md`'s file table and this
+    file's three registration tables (§1 file list, §4 sync-key table,
+    §5 pages table) were all updated to match — same three-table
+    convention every previous page addition followed. Verified in
+    headless Edge: all five tabs switch and update the URL hash
+    correctly, a hard reload on `#meditations` lands back on the
+    Meditations panel, the topbar's new SELF-CARE pill navigates in and
+    highlights itself as active, and every other page's topbar pill/
+    href/id was diffed against its pre-change state to confirm nothing
+    else in `topbar.js` was touched.
+
+- **Main page (`index.html`) Workflow: day duplication, plus copying/moving
+  a whole Week between businesses.** Follow-up to the Workflow feature
+  (Weeks → Days → checklist, see the earlier Workflow entries above) — the
+  request was specifically for Weekly Templates that get reused across
+  future projects, so this pass fills the two gaps that blocked that:
+  Weeks already had a duplicate button but Days didn't, and neither Weeks
+  nor Days had any way to leave their originating business. Purely
+  additive — no existing Week/Day/checklist data, title, status, or
+  ordering was altered, and every existing move*()/duplicate*() call site
+  keeps working unchanged (`targetBusinessId` on `duplicateWorkflowWeek` is
+  a new optional second argument, defaulting to the source week's own
+  business).
+  - `duplicateWorkflowDay(dayId)` (new) — clones a day plus its checklist
+    items and notes/code blocks into the same week, appended at the end,
+    same "reset to Not started / unchecked, no linked Task copied"
+    precedent `duplicateWorkflowWeek` already established. A new "⧉
+    Duplicate" button (`.at-mini-btn`, matching the day row's existing
+    Open/→Tasks button styling) sits in every Day row's header.
+  - `moveWorkflowWeekToBusiness(weekId, targetBusinessId)` (new) —
+    relocates a week in place (keeping its current progress) to a
+    different business, cascading the businessId onto its days the same
+    way `moveWorkflowDayToWeek` already cascades a day's businessId when
+    it changes weeks.
+  - `duplicateWorkflowWeek` gained an optional second `targetBusinessId`
+    argument (defaults to the week's own business, so the existing
+    same-business "⧉" duplicate button is unchanged) so a template week
+    can be copied straight into a different business/project without
+    disturbing the original.
+  - Each Week group gained a "Send to another project:" row (`.wf-move-row`,
+    the same select+label component the Day row's existing "Move to week"
+    control already uses) with a business `<select>` plus two buttons —
+    "⧉ Copy" (duplicate into the selected business, original stays put)
+    and "→ Move" (relocate the week and its days there, original leaves
+    this business) — shown only when more than one business exists.
+  - Reordering itself (the up/down arrow controls on both Weeks and Days,
+    and the Day row's existing "Move to week" select) was already fully
+    free-form — any position reachable by repeated clicks/reassignment —
+    so no change was needed there; this entry only closes the "duplicate
+    a day" and "move across businesses" gaps.
+
+- **Self-Care (`selfcare.html`) Meditations tab built as a linkable
+  library.** Follow-up to the Self-Care nav-shell entry above, which left
+  Meditations as a placeholder card — this pass replaces it with a real
+  UI over the `SelfCareData.Meditations` collection that already existed
+  in `selfcare-data.js` (no data-layer changes needed; the model/CRUD/
+  `MEDITATION_TYPES` were already there, just unread by any UI until now).
+  Same state/render/wire-events shape as the Journals tab already built
+  on this page (topic chips → filtered list, a shared add/edit modal,
+  `escapeHtml`/`renderMarkdownLite` reused where applicable).
+  - **Grid of cards** (`.med-grid`/`.med-card`, new CSS — reuses the
+    `.jr-row` surface recipe (bg/border/radius) laid out as a responsive
+    grid instead of a stacked list, since there's no cover art here to
+    justify the heavier `.ent-card`/`.ent-cover` gallery pattern):
+    title, a type `.tag`, duration (or "No duration set" if
+    `durationMin` is null), an optional clamped description, tag chips,
+    and a ☆/★ favorite toggle button pinned to the card's top-right
+    corner (click toggles `isFavorite` immediately, no modal needed —
+    same "instant toggle" precedent as Media's favorite star).
+  - **Open action** — a dedicated "↗ Open" button per card calls
+    `window.open(m.url, '_blank', 'noopener')`, the `window.open`
+    equivalent of an `<a rel="noopener">` link (there's no anchor tag
+    here to attach `rel` to, since the whole card is built from a
+    template string, not a link).
+  - **Create/edit/delete** via a shared modal (`#medModalBg`, copied
+    structurally from the Journal modal): title, description, URL,
+    type `<select>` (from `SelfCareData.MEDITATION_TYPES`), duration in
+    minutes (optional, blank = no duration), comma-separated tags,
+    a favorite checkbox, and notes. **URL validation**
+    (`isValidMeditationUrl()`) requires `new URL(value)` to parse *and*
+    resolve to `http:`/`https:` — rejects empty strings, bare words,
+    and non-http(s) schemes like `javascript:`; an invalid URL blocks
+    Save with an `alert()` and leaves the modal open, same "alert and
+    return" precedent as the Journal modal's empty-title/body guard.
+    Delete is available both per-card (a small ✕ icon button, `confirm()`-
+    gated) and from inside the edit modal (the same `.delete-link`
+    pattern as the Journal modal).
+  - **Filters**: a type chip-row (`#medTypeChips`, All + each
+    `MEDITATION_TYPES` value) and a duration chip-row (`#medDurationChips`,
+    fixed presets — Any length / Under 10 min / 10–20 min / Over 20 min —
+    chosen over a free-form min/max range input since every other filter
+    in this codebase is chip-based, not a custom range control) sit above
+    the grid, plus a "★ Favorites only" toggle appended as the last chip
+    in that same row, and a title-only search input (`#medSearchInput`,
+    same live-filter-on-`input` pattern as the Journal search box). All
+    filters compose (type AND duration AND favorites-only AND search),
+    matching the Journal tab's topic+search composition.
+  - `setActiveTab()` and the cloud-sync `onApplied` callback both gained
+    a `meditations` branch (mirroring the existing `journals` branch) so
+    the grid renders on tab-switch and refreshes after an incoming sync
+    — no other tab-router/sync code changed. No `selfcare-data.js`
+    changes were needed; `medModalBg`'s fields all already existed on
+    `SelfCareData.Models.meditation`.
+  - **Verified via a raw CDP session against headless Edge** (no
+    `chromium-cli`/Node/Python available in this environment, so this
+    was driven directly over the DevTools Protocol websocket from a
+    PowerShell script using `System.Net.WebSockets.ClientWebSocket`,
+    against an isolated temporary `--user-data-dir`, not the real
+    browser profile): invalid-URL rejection (alert shown, modal stays
+    open, no record created), valid create (all fields land correctly),
+    favorite toggle (star glyph + `isFavorite` + active class all
+    flip), Open button's exact `window.open` args
+    (`url, '_blank', 'noopener'`), type filter, duration filter,
+    favorites-only toggle, title search, edit-persists-changes, and
+    delete (record gone, unrelated seed records untouched, count nets
+    back to the original 4) — all ten passed on the first run.

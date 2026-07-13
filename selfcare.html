@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Self-Care</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="selfcare-data.js" defer></script>
+<style>
+:root {
+  /* Standard near-black/off-white base + the app's existing
+     --success/--warning/--danger/--info semantics — no new palette,
+     per CLAUDE.md's "no new hard-coded colors" rule. --accent reuses
+     --info's own value rather than inventing a new hue, same call
+     household.html made for the same reason. */
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --border: rgba(255, 255, 255, 0.08);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --accent: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  z-index: -2;
+  background:
+    radial-gradient(55% 45% at 50% -10%, rgba(125, 211, 252, 0.08) 0%, transparent 55%),
+    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.shell { max-width: 880px; margin: 0 auto; padding: 24px 16px 40px; }
+
+/* ===== Back to dashboard ===== */
+.sc-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px; margin: 0 0 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px; color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sc-back-btn:hover, .sc-back-btn:active { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.sc-back-btn svg { display: block; }
+
+/* ===== Cover banner — same structure as index.html/gym.html/
+   braindump.html/finance.html/household.html: sunburst emblem, italic
+   serif title, tracked-caps subtext, outlined pill CTA, radiating-line
+   divider — recolored with this file's own --accent (info-blue) rather
+   than a new hue. ===== */
+.sc-cover {
+  position: relative; width: 100%; overflow: hidden;
+  padding: 48px 24px 36px; text-align: center; border-radius: 20px;
+  margin-bottom: 22px; border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 85% at 50% -15%, rgba(125, 211, 252, 0.22) 0%, rgba(5, 5, 6, 0.92) 55%, transparent 100%),
+    radial-gradient(38% 30% at 88% 18%, rgba(107, 227, 164, 0.10) 0%, transparent 65%),
+    radial-gradient(30% 26% at 10% 82%, rgba(125, 211, 252, 0.10) 0%, transparent 65%);
+}
+.sc-cover-emblem { position: relative; width: 60px; height: 60px; margin: 0 auto 18px; }
+.sc-cover-emblem-rays {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 140px; height: 140px;
+  background: repeating-conic-gradient(rgba(125,211,252,0.5) 0deg 0.7deg, transparent 0.7deg 15deg);
+  border-radius: 50%; opacity: 0.85;
+}
+.sc-cover-emblem-circle {
+  position: absolute; inset: 0; border: 1px solid var(--accent); border-radius: 50%;
+  background: #050506; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-style: italic; font-size: 20px; color: var(--accent);
+}
+.sc-cover-title {
+  position: relative; z-index: 1; font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-size: clamp(30px, 7vw, 46px); color: var(--text-primary); letter-spacing: -0.01em;
+  text-shadow: 0 2px 28px rgba(0,0,0,0.6);
+}
+.sc-cover-subtext {
+  position: relative; z-index: 1; margin-top: 14px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-secondary); line-height: 2.1;
+}
+.sc-cover-cta {
+  position: relative; z-index: 1; display: inline-flex; align-items: center;
+  margin-top: 18px; padding: 11px 26px; border: 1px solid var(--border); border-radius: 999px;
+  background: transparent; color: var(--accent); font-family: inherit; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.sc-cover-cta:hover { background: rgba(125,211,252,0.10); border-color: var(--accent); }
+@media (max-width: 480px) { .sc-cover { padding: 38px 16px 28px; } }
+
+.sc-section-divider {
+  width: 100%; height: 28px; margin: 4px 0 18px;
+  background: repeating-conic-gradient(rgba(125,211,252,0.16) 0deg 0.5deg, transparent 0.5deg 12deg);
+  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
+  opacity: 0.7;
+}
+
+/* ===== Section nav — top underline tabs, same .hh-subnav/.hh-tab
+   pattern as household.html (itself matching finance.html's
+   .fin-subnav/.fin-tab). ===== */
+.sc-subnav { margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.sc-tabs { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+.sc-tab {
+  background: none; border: none; padding: 6px 0; margin-bottom: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--text-tertiary); cursor: pointer; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.sc-tab:hover { color: var(--text-secondary); }
+.sc-tab.active { color: var(--accent); }
+.sc-tab.active::after { content: ''; position: absolute; left: 0; right: 0; bottom: -9px; height: 2px; background: var(--accent); }
+
+.section[hidden] { display: none !important; }
+.section { margin-bottom: 18px; }
+
+/* ===== Shared card + placeholder — same .card recipe (bg-card/border/
+   radius-lg) used across every other page for a content well. ===== */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45);
+}
+.sc-placeholder { text-align: center; padding: 48px 20px; color: var(--text-tertiary); }
+.sc-placeholder-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.6; }
+.sc-placeholder-title { font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.sc-placeholder-text { font-size: 12.5px; line-height: 1.6; max-width: 360px; margin: 0 auto; }
+
+/* ===== Buttons — same shape/shadow as finance.html/household.html's
+   shared .btn-primary/.btn-secondary recipe, recolored to a tint of
+   this page's own --accent instead of the cream/white other pages use
+   (there's no --cream token here) — #bfe9fc/#7dd3fc are derived from
+   --accent, not a new hue. ===== */
+.btn-primary {
+  padding: 11px 20px; border: 1px solid rgba(125,211,252,0.85);
+  background: linear-gradient(180deg, #bfe9fc 0%, #7dd3fc 100%); color: #04202b; border-radius: 12px;
+  font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(0,0,0,0.40);
+}
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-secondary {
+  padding: 10px 16px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+  color: var(--text-primary); border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+
+/* ===== Modal — shared .modal-bg/.modal pattern, copied verbatim from
+   household.html/finance.html. topbar.js's MODAL_SELECTORS already
+   includes `.modal-bg` generically, so mobile fullscreen + body-scroll
+   lock apply here with no topbar.js changes. ===== */
+.modal-bg {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  z-index: 300; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 460px; background: #111113; border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
+.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.modal-actions button { flex: 1; }
+.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; padding: 6px; }
+
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.field input[type="text"], .field input[type="date"], .field select, .field textarea {
+  padding: 12px; border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.28); color: var(--text-primary);
+  border-radius: 10px; font-family: inherit; font-size: 14px; width: 100%;
+}
+.field textarea { min-height: 160px; resize: vertical; line-height: 1.6; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: rgba(255,255,255,0.40); box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ===== Filter chips — same .chip-row/.chip pattern as household.html/
+   entertainment.html, recolored with this page's --accent instead of
+   the cream/rose gradient those pages use (no --cream token here). ===== */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  padding: 7px 14px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
+  color: var(--text-secondary); border-radius: 999px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.chip.active { background: rgba(125,211,252,0.16); color: var(--accent); border-color: rgba(125,211,252,0.4); font-weight: 800; }
+
+/* ===== .tag — same small mono pill as entertainment.html's card tags,
+   reused for topic/mood/tag labels on journal entries. ===== */
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; padding: 3px 9px; border-radius: 999px; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(255,255,255,0.06); color: var(--text-secondary);
+  font-family: var(--font-mono); text-transform: uppercase;
+}
+
+/* ===== Journals ===== */
+.jr-toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+.jr-search {
+  flex: 1; padding: 11px 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.28);
+  color: var(--text-primary); border-radius: 10px; font-family: inherit; font-size: 13.5px;
+}
+.jr-search:focus { outline: none; border-color: rgba(255,255,255,0.40); }
+.jr-search::placeholder { color: var(--text-tertiary); }
+@media (max-width: 480px) { .jr-toolbar { flex-direction: column; } .jr-toolbar .btn-primary { width: 100%; } }
+
+.jr-row {
+  background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.jr-row:hover { background: rgba(255,255,255,0.045); border-color: rgba(255,255,255,0.16); }
+.jr-row-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.jr-row-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; }
+.jr-row-date { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
+.jr-row-preview {
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 9px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.jr-row-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.jr-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.jr-prompt-chip {
+  background: rgba(125,211,252,0.08); border: 1px solid rgba(125,211,252,0.24); color: var(--accent);
+  font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.jr-prompt-chip:hover { background: rgba(125,211,252,0.16); }
+
+.jr-view-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.jr-view-date { font-size: 11.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.jr-view-mood { font-size: 12.5px; color: var(--text-secondary); margin: -8px 0 14px; }
+.jr-view-body { font-size: 14px; line-height: 1.7; color: var(--text-primary); margin-bottom: 14px; }
+.jr-view-body h1, .jr-view-body h2, .jr-view-body h3, .jr-view-body h4, .jr-view-body h5, .jr-view-body h6 { margin: 14px 0 8px; color: var(--text-primary); }
+.jr-view-body p { margin: 0 0 10px; }
+.jr-view-body ul { margin: 0 0 10px 20px; }
+.jr-view-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ===== Meditations — a linkable library. Cards reuse the .jr-row surface
+   recipe (bg-card/border/radius-md) laid out as a responsive grid instead
+   of a stacked list, since there's no cover art to justify the heavier
+   .ent-card/.ent-cover gallery pattern here. ===== */
+.med-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.med-card {
+  position: relative; background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 16px 16px 14px;
+}
+.med-fav-btn {
+  position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer;
+  font-size: 18px; line-height: 1; color: var(--text-tertiary); padding: 2px; -webkit-tap-highlight-color: transparent;
+}
+.med-fav-btn:hover { color: var(--warning); }
+.med-fav-btn.active { color: var(--warning); }
+.med-card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); padding-right: 26px; margin-bottom: 8px; line-height: 1.35; }
+.med-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.med-card-duration { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.med-card-desc {
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.med-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.med-card-actions { display: flex; align-items: center; gap: 8px; }
+.med-card-actions .btn-primary, .med-card-actions .btn-secondary { padding: 8px 10px; font-size: 12.5px; flex: 1; }
+.med-del-btn { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 6px; flex-shrink: 0; }
+.med-del-btn:hover { color: var(--danger); }
+.med-fav-chip.active { background: rgba(242,192,99,0.16); color: var(--warning); border-color: rgba(242,192,99,0.4); }
+.med-fav-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); font-weight: 600; margin: -4px 0 14px; cursor: pointer; }
+.med-fav-field input { accent-color: var(--warning); cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ===== BACK BUTTON ===== -->
+<a href="index.html" class="sc-back-btn" aria-label="Back to dashboard">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  <span>Back</span>
+</a>
+
+<!-- ===== COVER BANNER — same structure as Main/Fitness Studio/Brain Dump/Finance/Household ===== -->
+<div class="sc-cover">
+  <div class="sc-cover-emblem">
+    <div class="sc-cover-emblem-rays"></div>
+    <div class="sc-cover-emblem-circle">S</div>
+  </div>
+  <div class="sc-cover-title">Self-Care</div>
+  <div class="sc-cover-subtext">Rest<br>Reflect<br>Restore</div>
+  <button class="sc-cover-cta" type="button" id="scCoverCtaBtn">Log Water</button>
+</div>
+<div class="sc-section-divider" aria-hidden="true"></div>
+
+<!-- ===== SECTION NAV ===== -->
+<div class="sc-subnav">
+  <div class="sc-tabs" id="scTabs">
+    <button type="button" class="sc-tab active" data-tab="overview">Overview</button>
+    <button type="button" class="sc-tab" data-tab="journals">Journals</button>
+    <button type="button" class="sc-tab" data-tab="meditations">Meditations</button>
+    <button type="button" class="sc-tab" data-tab="water">Water</button>
+    <button type="button" class="sc-tab" data-tab="bucket">Bucket List</button>
+  </div>
+</div>
+
+<!-- ===== PANELS — placeholders only; each section's real UI lands in a later step. ===== -->
+<div class="section" data-section="overview">
+  <div class="card sc-placeholder">
+    <div class="sc-placeholder-icon">🌿</div>
+    <div class="sc-placeholder-title">Overview</div>
+    <div class="sc-placeholder-text">A daily snapshot — today's water progress, a journaling nudge, a meditation, and a bucket-list idea — lands here next.</div>
+  </div>
+</div>
+<div class="section" data-section="journals" hidden>
+  <div class="jr-toolbar">
+    <input type="text" id="jrSearchInput" class="jr-search" placeholder="Search entries…">
+    <button class="btn-primary" type="button" id="jrAddBtn">+ New Entry</button>
+  </div>
+  <div class="chip-row" id="jrTopicChips"></div>
+  <div id="jrList"></div>
+</div>
+<div class="section" data-section="meditations" hidden>
+  <div class="jr-toolbar">
+    <input type="text" id="medSearchInput" class="jr-search" placeholder="Search meditations by title…">
+    <button class="btn-primary" type="button" id="medAddBtn">+ New Meditation</button>
+  </div>
+  <div class="chip-row" id="medTypeChips"></div>
+  <div class="chip-row" id="medDurationChips"></div>
+  <div id="medGrid" class="med-grid"></div>
+</div>
+<div class="section" data-section="water" hidden>
+  <div class="card sc-placeholder">
+    <div class="sc-placeholder-icon">💧</div>
+    <div class="sc-placeholder-title">Water</div>
+    <div class="sc-placeholder-text">A personalized daily hydration goal, quick logging, and history.</div>
+  </div>
+</div>
+<div class="section" data-section="bucket" hidden>
+  <div class="card sc-placeholder">
+    <div class="sc-placeholder-icon">🌟</div>
+    <div class="sc-placeholder-title">Bucket List</div>
+    <div class="sc-placeholder-text">A self-care bucket list — ideas, plans, and things you've already done.</div>
+  </div>
+</div>
+
+<!-- ===== JOURNAL — reading view ===== -->
+<div class="modal-bg" id="jrViewModalBg">
+  <div class="modal" id="jrViewModal">
+    <div class="jr-view-meta">
+      <span class="tag" id="jrViewTopicTag"></span>
+      <span class="jr-view-date" id="jrViewDate"></span>
+    </div>
+    <h3 id="jrViewTitle"></h3>
+    <div class="jr-view-mood" id="jrViewMood" style="display:none"></div>
+    <div class="jr-view-body" id="jrViewBody"></div>
+    <div class="jr-view-tags" id="jrViewTags"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="jrViewCloseBtn">Close</button>
+      <button class="btn-primary" type="button" id="jrViewEditBtn">Edit</button>
+    </div>
+    <span class="delete-link" id="jrViewDeleteBtn">Delete this entry</span>
+  </div>
+</div>
+
+<!-- ===== JOURNAL — add / edit ===== -->
+<div class="modal-bg" id="jrModalBg">
+  <div class="modal" id="jrModal">
+    <h3 id="jrModalTitle">New Entry</h3>
+    <div class="field"><label>Topic</label><select id="jrTopicSelect"></select></div>
+    <div class="field"><label>Title</label><input type="text" id="jrTitleInput" placeholder="Give this entry a title…"></div>
+    <div class="two-col">
+      <div class="field"><label>Date</label><input type="date" id="jrDateInput"></div>
+      <div class="field"><label>Mood (optional)</label><input type="text" id="jrMoodInput" placeholder="e.g. calm, anxious, hopeful"></div>
+    </div>
+    <div class="field">
+      <label>Body (Markdown: **bold**, # heading, - bullet)</label>
+      <div class="jr-prompts" id="jrPrompts"></div>
+      <textarea id="jrBodyInput" placeholder="Write freely…"></textarea>
+    </div>
+    <div class="field"><label>Tags (comma-separated, optional)</label><input type="text" id="jrTagsInput" placeholder="e.g. morning, work"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="jrModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="jrModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="jrModalDelete" style="display:none">Delete this entry</span>
+  </div>
+</div>
+
+<!-- ===== MEDITATION — add / edit ===== -->
+<div class="modal-bg" id="medModalBg">
+  <div class="modal" id="medModal">
+    <h3 id="medModalTitle">New Meditation</h3>
+    <div class="field"><label>Title</label><input type="text" id="medTitleInput" placeholder="e.g. 10-Minute Body Scan"></div>
+    <div class="field"><label>Description</label><textarea id="medDescInput" placeholder="What this session is for…" style="min-height:80px"></textarea></div>
+    <div class="field"><label>Web link (URL)</label><input type="text" id="medUrlInput" placeholder="https://…"></div>
+    <div class="two-col">
+      <div class="field"><label>Type</label><select id="medTypeSelect"></select></div>
+      <div class="field"><label>Duration (minutes, optional)</label><input type="text" inputmode="numeric" id="medDurationInput" placeholder="e.g. 10"></div>
+    </div>
+    <div class="field"><label>Tags (comma-separated, optional)</label><input type="text" id="medTagsInput" placeholder="e.g. relaxation, night"></div>
+    <label class="med-fav-field"><input type="checkbox" id="medFavInput"> Mark as favorite</label>
+    <div class="field"><label>Notes (optional)</label><textarea id="medNotesInput" placeholder="Personal notes…" style="min-height:80px"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="medModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="medModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="medModalDelete" style="display:none">Delete this meditation</span>
+  </div>
+</div>
+
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // TAB ROUTER — same underline-tab + hash + localStorage pattern as
+  // household.html's setActiveTab()/tabFromHash(). Overview is the
+  // landing tab; each panel's real render function gets wired in when
+  // that section is built.
+  // ============================================================
+  const TAB_KEY = 'selfcare:active_tab';
+  const VALID_TABS = ['overview', 'journals', 'meditations', 'water', 'bucket'];
+  const tabs = document.querySelectorAll('.sc-tab');
+  const sections = document.querySelectorAll('.section[data-section]');
+
+  function storeGet(key) {
+    try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
+    catch (e) { return null; }
+  }
+  function storeSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  function setActiveTab(name, opts) {
+    if (VALID_TABS.indexOf(name) === -1) name = 'overview';
+    tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    sections.forEach(function (s) {
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    storeSet(TAB_KEY, name);
+    if (!opts || !opts.skipHash) history.replaceState(null, '', '#' + name);
+    if (!opts || !opts.skipScroll) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (name === 'journals') renderJournalsSection();
+    if (name === 'meditations') renderMeditationsSection();
+  }
+  tabs.forEach(function (b) { b.addEventListener('click', function () { setActiveTab(b.dataset.tab); }); });
+
+  function tabFromHash() {
+    const h = (location.hash || '').replace('#', '');
+    return VALID_TABS.indexOf(h) !== -1 ? h : null;
+  }
+  window.addEventListener('hashchange', function () {
+    const h = tabFromHash();
+    if (h) setActiveTab(h, { skipHash: true });
+  });
+
+  document.getElementById('scCoverCtaBtn').addEventListener('click', function () { setActiveTab('water'); });
+
+  // ============================================================
+  // SHARED TEXT HELPERS
+  // ============================================================
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+  function escapeHtmlLite(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  /** A deliberately small Markdown-lite renderer — headings, bold, bullet
+   * lists, and paragraphs only. Copied verbatim from index.html's
+   * renderMarkdownLite (there's no shared JS module system in this app —
+   * see CLAUDE.md §1 — so each file that needs it keeps its own copy).
+   * HTML is escaped before any Markdown transform runs, so raw tags in an
+   * entry body can't inject markup into the page. */
+  function renderMarkdownLite(text) {
+    var lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+    function inline(s) {
+      s = escapeHtmlLite(s);
+      s = s.replace(/\*\*(.+?)\*\*|__(.+?)__/g, function (m, a, b) { return '<strong>' + (a || b) + '</strong>'; });
+      return s;
+    }
+    var html = '';
+    var paragraphBuf = [];
+    function flushParagraph() {
+      if (!paragraphBuf.length) return;
+      html += '<p>' + paragraphBuf.join('<br>') + '</p>';
+      paragraphBuf = [];
+    }
+    var i = 0;
+    while (i < lines.length) {
+      var headingMatch = lines[i].match(/^(#{1,6})\s+(.*)$/);
+      var bulletMatch = lines[i].match(/^[-*]\s+(.*)$/);
+      if (headingMatch) {
+        flushParagraph();
+        var level = headingMatch[1].length;
+        html += '<h' + level + '>' + inline(headingMatch[2]) + '</h' + level + '>';
+        i++;
+      } else if (bulletMatch) {
+        flushParagraph();
+        var items = [];
+        while (i < lines.length && (bulletMatch = lines[i].match(/^[-*]\s+(.*)$/))) {
+          items.push('<li>' + inline(bulletMatch[1]) + '</li>');
+          i++;
+        }
+        html += '<ul>' + items.join('') + '</ul>';
+      } else if (lines[i].trim() === '') {
+        flushParagraph();
+        i++;
+      } else {
+        paragraphBuf.push(inline(lines[i]));
+        i++;
+      }
+    }
+    flushParagraph();
+    return html;
+  }
+
+  // ============================================================
+  // JOURNALS
+  // ============================================================
+  var TOPIC_LABELS = {
+    daily_reflection: 'Daily Reflections',
+    self_discovery: 'Self-Discovery',
+    emotional_processing: 'Emotional Processing',
+    gratitude: 'Gratitude'
+  };
+  // Starter prompts shown only when creating a new entry (not while
+  // editing an existing one) — purely a writing aid inserted into the
+  // body textarea on click; nothing about them is stored on the entry
+  // itself, so they're free to edit or ignore.
+  var TOPIC_PROMPTS = {
+    daily_reflection: ['What went well today?', 'What would I do differently?', 'What is one thing I learned today?'],
+    self_discovery: ['What pattern did I notice in myself today?', 'What am I avoiding right now, and why?', 'What do I need more of in my life right now?'],
+    emotional_processing: ['What am I feeling right now, and where do I feel it in my body?', 'What triggered this feeling?', 'What does this emotion need from me?'],
+    gratitude: ["Three things I'm grateful for today…", 'Who made my day better, and how?', 'What small thing brought me joy today?']
+  };
+
+  var jrTopicFilter = ''; // '' = All
+  var jrSearchQuery = '';
+  var jrEditingId = null; // set while the add/edit modal is open for an existing entry
+  var jrViewingId = null; // set while the read view is open
+
+  function jrPreviewText(body) {
+    var plain = String(body || '').replace(/[#*_`>~]/g, '').replace(/^[-]\s+/gm, '').replace(/\s+/g, ' ').trim();
+    return plain.length > 140 ? plain.slice(0, 140) + '…' : plain;
+  }
+
+  function renderTopicChips() {
+    var row = document.getElementById('jrTopicChips');
+    var topics = [''].concat(SelfCareData.JOURNAL_TOPICS);
+    row.innerHTML = topics.map(function (t) {
+      var label = t ? TOPIC_LABELS[t] : 'All';
+      var active = t === jrTopicFilter ? ' active' : '';
+      return '<button type="button" class="chip' + active + '" data-topic="' + t + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(row.querySelectorAll('.chip'), function (btn) {
+      btn.addEventListener('click', function () {
+        jrTopicFilter = btn.dataset.topic;
+        renderJournalsSection();
+      });
+    });
+  }
+
+  function jrRowHtml(entry) {
+    var topicLabel = TOPIC_LABELS[entry.topic] || entry.topic;
+    var preview = jrPreviewText(entry.body);
+    var tagsHtml = entry.tags.map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    var moodHtml = entry.mood ? '<span class="tag">' + escapeHtml(entry.mood) + '</span>' : '';
+    return '' +
+      '<div class="jr-row" data-id="' + entry.id + '">' +
+        '<div class="jr-row-top">' +
+          '<div class="jr-row-title">' + escapeHtml(entry.title || '(Untitled)') + '</div>' +
+          '<div class="jr-row-date">' + escapeHtml(entry.date) + '</div>' +
+        '</div>' +
+        (preview ? '<div class="jr-row-preview">' + escapeHtml(preview) + '</div>' : '') +
+        '<div class="jr-row-meta"><span class="tag">' + escapeHtml(topicLabel) + '</span>' + moodHtml + tagsHtml + '</div>' +
+      '</div>';
+  }
+
+  function renderJournalsList() {
+    var entries = SelfCareData.entriesByTopic(jrTopicFilter);
+    var q = jrSearchQuery.trim().toLowerCase();
+    if (q) {
+      entries = entries.filter(function (e) {
+        return (e.title || '').toLowerCase().indexOf(q) !== -1 || (e.body || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    var list = document.getElementById('jrList');
+    if (!entries.length) {
+      var emptyText = (q || jrTopicFilter) ? 'Nothing matches — try a different search or topic.' : 'Start your first entry with the button above.';
+      list.innerHTML = '<div class="card sc-placeholder"><div class="sc-placeholder-icon">📔</div><div class="sc-placeholder-title">No entries yet</div><div class="sc-placeholder-text">' + emptyText + '</div></div>';
+      return;
+    }
+    list.innerHTML = entries.map(jrRowHtml).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.jr-row'), function (row) {
+      row.addEventListener('click', function () { openJournalReadView(row.dataset.id); });
+    });
+  }
+
+  function renderJournalsSection() {
+    renderTopicChips();
+    renderJournalsList();
+  }
+
+  document.getElementById('jrSearchInput').addEventListener('input', function () {
+    jrSearchQuery = this.value;
+    renderJournalsList();
+  });
+
+  // ----- Read view -----
+  function openJournalReadView(id) {
+    var entry = SelfCareData.JournalEntries.get(id);
+    if (!entry) return;
+    jrViewingId = id;
+    document.getElementById('jrViewTopicTag').textContent = TOPIC_LABELS[entry.topic] || entry.topic;
+    document.getElementById('jrViewDate').textContent = entry.date;
+    document.getElementById('jrViewTitle').textContent = entry.title || '(Untitled)';
+    var moodEl = document.getElementById('jrViewMood');
+    if (entry.mood) { moodEl.textContent = 'Mood: ' + entry.mood; moodEl.style.display = 'block'; }
+    else { moodEl.style.display = 'none'; }
+    document.getElementById('jrViewBody').innerHTML = renderMarkdownLite(entry.body) || '<p style="color:var(--text-tertiary)">(No content yet.)</p>';
+    document.getElementById('jrViewTags').innerHTML = entry.tags.map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    document.getElementById('jrViewModalBg').classList.add('show');
+  }
+  function closeJournalReadView() {
+    document.getElementById('jrViewModalBg').classList.remove('show');
+    jrViewingId = null;
+  }
+  document.getElementById('jrViewCloseBtn').addEventListener('click', closeJournalReadView);
+  document.getElementById('jrViewModalBg').addEventListener('click', function (e) { if (e.target.id === 'jrViewModalBg') closeJournalReadView(); });
+  document.getElementById('jrViewEditBtn').addEventListener('click', function () {
+    var id = jrViewingId;
+    closeJournalReadView();
+    openJournalModal(SelfCareData.JournalEntries.get(id));
+  });
+  document.getElementById('jrViewDeleteBtn').addEventListener('click', function () {
+    if (!jrViewingId) return;
+    if (!confirm('Delete this journal entry? This cannot be undone.')) return;
+    SelfCareData.JournalEntries.remove(jrViewingId);
+    closeJournalReadView();
+    renderJournalsSection();
+  });
+
+  // ----- Add / edit modal -----
+  function populateTopicSelect() {
+    var sel = document.getElementById('jrTopicSelect');
+    sel.innerHTML = SelfCareData.JOURNAL_TOPICS.map(function (t) {
+      return '<option value="' + t + '">' + escapeHtml(TOPIC_LABELS[t]) + '</option>';
+    }).join('');
+  }
+  function renderJournalPrompts(topic) {
+    var wrap = document.getElementById('jrPrompts');
+    // Prompts are a "starting a blank page" aid — only show them for a
+    // brand-new entry, not while editing one that already has content.
+    if (jrEditingId) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+    var prompts = TOPIC_PROMPTS[topic] || [];
+    wrap.style.display = prompts.length ? 'flex' : 'none';
+    wrap.innerHTML = prompts.map(function (p) {
+      return '<button type="button" class="jr-prompt-chip" data-prompt="' + escapeHtml(p) + '">' + escapeHtml(p) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(wrap.querySelectorAll('.jr-prompt-chip'), function (btn) {
+      btn.addEventListener('click', function () {
+        var ta = document.getElementById('jrBodyInput');
+        var insert = (ta.value.trim() ? '\n\n' : '') + '**' + btn.dataset.prompt + '**\n';
+        ta.value += insert;
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      });
+    });
+  }
+  document.getElementById('jrTopicSelect').addEventListener('change', function () { renderJournalPrompts(this.value); });
+
+  function openJournalModal(entry, presetTopic) {
+    jrEditingId = entry ? entry.id : null;
+    document.getElementById('jrModalTitle').textContent = entry ? 'Edit Entry' : 'New Entry';
+    populateTopicSelect();
+    var topic = entry ? entry.topic : (presetTopic || SelfCareData.JOURNAL_TOPICS[0]);
+    document.getElementById('jrTopicSelect').value = topic;
+    document.getElementById('jrTitleInput').value = entry ? entry.title : '';
+    document.getElementById('jrDateInput').value = entry ? entry.date : SelfCareData.todayISO();
+    document.getElementById('jrMoodInput').value = entry && entry.mood ? entry.mood : '';
+    document.getElementById('jrBodyInput').value = entry ? entry.body : '';
+    document.getElementById('jrTagsInput').value = entry && entry.tags.length ? entry.tags.join(', ') : '';
+    document.getElementById('jrModalDelete').style.display = entry ? 'block' : 'none';
+    renderJournalPrompts(topic);
+    document.getElementById('jrModalBg').classList.add('show');
+  }
+  function closeJournalModal() {
+    document.getElementById('jrModalBg').classList.remove('show');
+    jrEditingId = null;
+  }
+  document.getElementById('jrAddBtn').addEventListener('click', function () { openJournalModal(null, jrTopicFilter || null); });
+  document.getElementById('jrModalCancel').addEventListener('click', closeJournalModal);
+  document.getElementById('jrModalBg').addEventListener('click', function (e) { if (e.target.id === 'jrModalBg') closeJournalModal(); });
+  document.getElementById('jrModalSave').addEventListener('click', function () {
+    var title = document.getElementById('jrTitleInput').value.trim();
+    var body = document.getElementById('jrBodyInput').value;
+    if (!title && !body.trim()) { alert('Add a title or some body text first.'); return; }
+    var topic = document.getElementById('jrTopicSelect').value;
+    var date = document.getElementById('jrDateInput').value || SelfCareData.todayISO();
+    var mood = document.getElementById('jrMoodInput').value.trim() || null;
+    var tags = document.getElementById('jrTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    if (jrEditingId) {
+      SelfCareData.JournalEntries.update(jrEditingId, { topic: topic, title: title, body: body, date: date, mood: mood, tags: tags });
+    } else {
+      SelfCareData.JournalEntries.add({ topic: topic, title: title, body: body, date: date, mood: mood, tags: tags });
+    }
+    closeJournalModal();
+    renderJournalsSection();
+  });
+  document.getElementById('jrModalDelete').addEventListener('click', function () {
+    if (!jrEditingId) return;
+    if (!confirm('Delete this journal entry? This cannot be undone.')) return;
+    SelfCareData.JournalEntries.remove(jrEditingId);
+    closeJournalModal();
+    renderJournalsSection();
+  });
+
+  // ============================================================
+  // MEDITATIONS — a linkable library: grid of cards (title/type/duration/
+  // favorite star), an "Open" action that launches the real session in a
+  // new tab, full CRUD with URL validation, and filter-by-type/duration +
+  // favorites-only + title search. Same state/render/wire-events shape as
+  // the Journals section above.
+  // ============================================================
+  var MED_TYPE_LABELS = {
+    breathing: 'Breathing',
+    sleep: 'Sleep',
+    anxiety: 'Anxiety',
+    focus: 'Focus',
+    body_scan: 'Body Scan',
+    other: 'Other'
+  };
+  // Duration is filtered via fixed presets (chips), same interaction model
+  // as the type/topic chip-rows elsewhere in this app, rather than a
+  // free-form min/max range input — consistent with how every other
+  // filter in this codebase is chip-based, not a custom range control.
+  var MED_DURATION_FILTERS = [
+    { key: '', label: 'Any length', test: null },
+    { key: 'short', label: 'Under 10 min', test: function (d) { return d != null && d < 10; } },
+    { key: 'medium', label: '10–20 min', test: function (d) { return d != null && d >= 10 && d <= 20; } },
+    { key: 'long', label: 'Over 20 min', test: function (d) { return d != null && d > 20; } }
+  ];
+
+  var medTypeFilter = ''; // '' = All
+  var medDurationFilter = ''; // '' = Any length
+  var medFavOnly = false;
+  var medSearchQuery = '';
+  var medEditingId = null; // set while the add/edit modal is open for an existing meditation
+
+  /** Requires an absolute http(s) URL — anything else (empty, javascript:, a bare word) fails. */
+  function isValidMeditationUrl(url) {
+    try {
+      var u = new URL(url);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function renderMedFilterChips() {
+    var typeRow = document.getElementById('medTypeChips');
+    var types = [''].concat(SelfCareData.MEDITATION_TYPES);
+    typeRow.innerHTML = types.map(function (t) {
+      var label = t ? (MED_TYPE_LABELS[t] || t) : 'All';
+      var active = t === medTypeFilter ? ' active' : '';
+      return '<button type="button" class="chip' + active + '" data-type="' + t + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(typeRow.querySelectorAll('.chip'), function (btn) {
+      btn.addEventListener('click', function () { medTypeFilter = btn.dataset.type; renderMeditationsSection(); });
+    });
+
+    var durRow = document.getElementById('medDurationChips');
+    var chipsHtml = MED_DURATION_FILTERS.map(function (f) {
+      var active = f.key === medDurationFilter ? ' active' : '';
+      return '<button type="button" class="chip' + active + '" data-duration="' + f.key + '">' + escapeHtml(f.label) + '</button>';
+    }).join('');
+    chipsHtml += '<button type="button" class="chip med-fav-chip' + (medFavOnly ? ' active' : '') + '" id="medFavToggleChip">★ Favorites only</button>';
+    durRow.innerHTML = chipsHtml;
+    Array.prototype.forEach.call(durRow.querySelectorAll('[data-duration]'), function (btn) {
+      btn.addEventListener('click', function () { medDurationFilter = btn.dataset.duration; renderMeditationsSection(); });
+    });
+    document.getElementById('medFavToggleChip').addEventListener('click', function () {
+      medFavOnly = !medFavOnly;
+      renderMeditationsSection();
+    });
+  }
+
+  function medCardHtml(m) {
+    var typeLabel = MED_TYPE_LABELS[m.type] || m.type;
+    var durationLabel = m.durationMin != null ? m.durationMin + ' min' : 'No duration set';
+    var tagsHtml = m.tags.map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    return '' +
+      '<div class="med-card" data-id="' + m.id + '">' +
+        '<button type="button" class="med-fav-btn' + (m.isFavorite ? ' active' : '') + '" data-id="' + m.id + '" aria-label="' + (m.isFavorite ? 'Remove favorite' : 'Mark favorite') + '">' + (m.isFavorite ? '★' : '☆') + '</button>' +
+        '<div class="med-card-title">' + escapeHtml(m.title || '(Untitled)') + '</div>' +
+        '<div class="med-card-meta"><span class="tag">' + escapeHtml(typeLabel) + '</span><span class="med-card-duration">' + escapeHtml(durationLabel) + '</span></div>' +
+        (m.description ? '<div class="med-card-desc">' + escapeHtml(m.description) + '</div>' : '') +
+        (tagsHtml ? '<div class="med-card-tags">' + tagsHtml + '</div>' : '') +
+        '<div class="med-card-actions">' +
+          '<button type="button" class="btn-primary med-open-btn" data-id="' + m.id + '">↗ Open</button>' +
+          '<button type="button" class="btn-secondary med-edit-btn" data-id="' + m.id + '">Edit</button>' +
+          '<button type="button" class="med-del-btn" data-id="' + m.id + '" aria-label="Delete meditation">✕</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderMedGrid() {
+    var list = SelfCareData.Meditations.list();
+    if (medTypeFilter) list = list.filter(function (m) { return m.type === medTypeFilter; });
+    if (medDurationFilter) {
+      var filterDef = MED_DURATION_FILTERS.filter(function (f) { return f.key === medDurationFilter; })[0];
+      if (filterDef && filterDef.test) list = list.filter(function (m) { return filterDef.test(m.durationMin); });
+    }
+    if (medFavOnly) list = list.filter(function (m) { return m.isFavorite; });
+    var q = medSearchQuery.trim().toLowerCase();
+    if (q) list = list.filter(function (m) { return (m.title || '').toLowerCase().indexOf(q) !== -1; });
+    list = list.slice().sort(function (a, b) { return (a.title || '').localeCompare(b.title || ''); });
+
+    var grid = document.getElementById('medGrid');
+    if (!list.length) {
+      var hasFilters = !!(q || medTypeFilter || medDurationFilter || medFavOnly);
+      var emptyText = hasFilters ? 'Nothing matches — try different filters or search.' : 'Add your first meditation with the button above.';
+      grid.innerHTML = '<div class="card sc-placeholder"><div class="sc-placeholder-icon">🧘</div><div class="sc-placeholder-title">No meditations yet</div><div class="sc-placeholder-text">' + emptyText + '</div></div>';
+      return;
+    }
+    grid.innerHTML = list.map(medCardHtml).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('.med-fav-btn'), function (btn) {
+      btn.addEventListener('click', function () { toggleMedFavorite(btn.dataset.id); });
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll('.med-open-btn'), function (btn) {
+      btn.addEventListener('click', function () { openMeditationLink(btn.dataset.id); });
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll('.med-edit-btn'), function (btn) {
+      btn.addEventListener('click', function () { openMeditationModal(SelfCareData.Meditations.get(btn.dataset.id)); });
+    });
+    Array.prototype.forEach.call(grid.querySelectorAll('.med-del-btn'), function (btn) {
+      btn.addEventListener('click', function () { deleteMeditation(btn.dataset.id); });
+    });
+  }
+
+  function renderMeditationsSection() {
+    renderMedFilterChips();
+    renderMedGrid();
+  }
+
+  function toggleMedFavorite(id) {
+    var m = SelfCareData.Meditations.get(id);
+    if (!m) return;
+    SelfCareData.Meditations.update(id, { isFavorite: !m.isFavorite });
+    renderMedGrid();
+  }
+
+  /** Opens the meditation's link in a new tab without granting it access back to this
+   * window (the window.open equivalent of an <a rel="noopener"> link). */
+  function openMeditationLink(id) {
+    var m = SelfCareData.Meditations.get(id);
+    if (!m || !m.url) return;
+    window.open(m.url, '_blank', 'noopener');
+  }
+
+  function deleteMeditation(id) {
+    var m = SelfCareData.Meditations.get(id);
+    if (!m) return;
+    if (!confirm('Delete "' + (m.title || 'this meditation') + '"? This cannot be undone.')) return;
+    SelfCareData.Meditations.remove(id);
+    renderMedGrid();
+  }
+
+  document.getElementById('medSearchInput').addEventListener('input', function () {
+    medSearchQuery = this.value;
+    renderMedGrid();
+  });
+
+  function populateMedTypeSelect() {
+    var sel = document.getElementById('medTypeSelect');
+    sel.innerHTML = SelfCareData.MEDITATION_TYPES.map(function (t) {
+      return '<option value="' + t + '">' + escapeHtml(MED_TYPE_LABELS[t] || t) + '</option>';
+    }).join('');
+  }
+
+  function openMeditationModal(m) {
+    medEditingId = m ? m.id : null;
+    document.getElementById('medModalTitle').textContent = m ? 'Edit Meditation' : 'New Meditation';
+    populateMedTypeSelect();
+    document.getElementById('medTitleInput').value = m ? m.title : '';
+    document.getElementById('medDescInput').value = m ? m.description : '';
+    document.getElementById('medUrlInput').value = m ? m.url : '';
+    document.getElementById('medTypeSelect').value = m ? m.type : SelfCareData.MEDITATION_TYPES[0];
+    document.getElementById('medDurationInput').value = m && m.durationMin != null ? String(m.durationMin) : '';
+    document.getElementById('medTagsInput').value = m && m.tags.length ? m.tags.join(', ') : '';
+    document.getElementById('medFavInput').checked = !!(m && m.isFavorite);
+    document.getElementById('medNotesInput').value = m ? m.notes : '';
+    document.getElementById('medModalDelete').style.display = m ? 'block' : 'none';
+    document.getElementById('medModalBg').classList.add('show');
+  }
+  function closeMedModal() {
+    document.getElementById('medModalBg').classList.remove('show');
+    medEditingId = null;
+  }
+  document.getElementById('medAddBtn').addEventListener('click', function () { openMeditationModal(null); });
+  document.getElementById('medModalCancel').addEventListener('click', closeMedModal);
+  document.getElementById('medModalBg').addEventListener('click', function (e) { if (e.target.id === 'medModalBg') closeMedModal(); });
+  document.getElementById('medModalSave').addEventListener('click', function () {
+    var title = document.getElementById('medTitleInput').value.trim();
+    var url = document.getElementById('medUrlInput').value.trim();
+    if (!title) { alert('Give this meditation a title first.'); return; }
+    if (!isValidMeditationUrl(url)) { alert('Enter a valid web link, starting with http:// or https://'); return; }
+    var description = document.getElementById('medDescInput').value.trim();
+    var type = document.getElementById('medTypeSelect').value;
+    var durationRaw = document.getElementById('medDurationInput').value.trim();
+    var durationMin = durationRaw === '' ? null : Math.max(0, Math.round(Number(durationRaw)) || 0);
+    var tags = document.getElementById('medTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    var isFavorite = document.getElementById('medFavInput').checked;
+    var notes = document.getElementById('medNotesInput').value.trim();
+    var patch = { title: title, description: description, url: url, type: type, durationMin: durationMin, tags: tags, isFavorite: isFavorite, notes: notes };
+    if (medEditingId) {
+      SelfCareData.Meditations.update(medEditingId, patch);
+    } else {
+      SelfCareData.Meditations.add(patch);
+    }
+    closeMedModal();
+    renderMeditationsSection();
+  });
+  document.getElementById('medModalDelete').addEventListener('click', function () {
+    if (!medEditingId) return;
+    var m = SelfCareData.Meditations.get(medEditingId);
+    if (!confirm('Delete "' + (m && m.title || 'this meditation') + '"? This cannot be undone.')) return;
+    SelfCareData.Meditations.remove(medEditingId);
+    closeMedModal();
+    renderMeditationsSection();
+  });
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', function () {
+    const savedTab = storeGet(TAB_KEY);
+    const initialTab = tabFromHash() || (VALID_TABS.indexOf(savedTab) !== -1 ? savedTab : 'overview');
+    setActiveTab(initialTab, { skipScroll: true });
+
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'selfcare',
+        syncedPrefixes: ['selfcare:'],
+        onApplied: function () {
+          var active = tabFromHash() || storeGet(TAB_KEY);
+          if (active === 'journals') renderJournalsSection();
+          if (active === 'meditations') renderMeditationsSection();
+        }
+      });
+    }
+  });
+})();
+</script>
+</body>
+</html>
