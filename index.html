@@ -450,6 +450,10 @@ body::after {
 }
 .hb-media-thumb-del:hover { background: var(--danger); }
 .hb-media-empty { font-size: 11.5px; color: var(--text-tertiary); font-style: italic; padding: 4px 0; }
+.hb-media-url-row { display: flex; gap: 6px; align-items: center; }
+.field .hb-media-url-row select { flex-shrink: 0; width: auto; margin-bottom: 0; }
+.field .hb-media-url-row input[type="text"] { flex: 1; min-width: 0; margin-bottom: 0; }
+.hb-media-url-row .at-mini-btn { flex-shrink: 0; }
 
 /* ===== Today's Habits grid ===== */
 .at-task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -1405,10 +1409,13 @@ body::after {
       <select id="habitStackAddSelect"><option value="">+ Stack a habit with this one…</option></select>
     </div>
     <div class="field">
-      <label>Photos &amp; videos</label>
+      <label>Photos &amp; videos (URL)</label>
       <div class="hb-media-grid" id="habitMediaGrid"></div>
-      <button type="button" class="at-mini-btn" id="habitMediaAddBtn">+ Add photo / video</button>
-      <input type="file" id="habitMediaFile" accept="image/*,video/*" multiple style="display:none">
+      <div class="hb-media-url-row">
+        <select id="habitMediaTypeInput"><option value="image">Photo</option><option value="video">Video</option></select>
+        <input type="text" id="habitMediaUrlInput" placeholder="Paste an image or video URL…">
+        <button type="button" class="at-mini-btn" id="habitMediaAddBtn">+ Add</button>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" type="button" id="habitModalCancel">Cancel</button>
@@ -4233,76 +4240,48 @@ body::after {
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   // ---------- Reference media (habit photos/videos) ----------
-  // habit.media = [{ id, type: 'image'|'video', dataUrl, name }]. Same
-  // convention already established for exercise media in gym.html:
-  // images are canvas-downscaled before storage, video can't be
-  // transcoded client-side so it's just size-capped instead.
-  function compressImageDataUrl(dataUrl, maxDim, quality) {
-    maxDim = maxDim || 640;
-    quality = quality == null ? 0.75 : quality;
-    return new Promise(function (resolve) {
-      var img = new Image();
-      img.onload = function () {
-        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
-          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
-        }
-        var c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
-      };
-      img.onerror = function () { resolve(dataUrl); };
-      img.src = dataUrl;
-    });
+  // habit.media = [{ id, type: 'image'|'video', dataUrl, name }] — linked
+  // by URL (pasted, not uploaded/stored inline). `dataUrl` keeps its name
+  // from the file-upload version this replaced so renderMediaGrid/
+  // renderMediaGridReadonly (and any habit media added under the old
+  // upload flow) don't need a data-shape migration — <img>/<video> src
+  // accepts a plain http(s) URL exactly the same as a data: URI.
+  function isValidMediaUrl(value) {
+    if (!value) return false;
+    try {
+      var u = new URL(value);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (e) { return false; }
   }
-  var MEDIA_MAX_VIDEO_BYTES = 8 * 1024 * 1024;
-  function addMediaFiles(fileList, mediaArr, onDone) {
-    Array.prototype.forEach.call(fileList || [], function (file) {
-      var isVideo = file.type.indexOf('video/') === 0;
-      if (isVideo && file.size > MEDIA_MAX_VIDEO_BYTES) {
-        alert('Video "' + file.name + '" is larger than 8MB and was skipped — trim it or use a shorter clip (this data is stored inline, no video transcoding is done).');
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function () {
-        var raw = String(reader.result);
-        if (isVideo) {
-          mediaArr.push({ id: genId('media'), type: 'video', dataUrl: raw, name: file.name });
-          onDone();
-        } else {
-          compressImageDataUrl(raw, 640, 0.75).then(function (compressed) {
-            mediaArr.push({ id: genId('media'), type: 'image', dataUrl: compressed, name: file.name });
-            onDone();
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+  // Elements are built via DOM APIs (not innerHTML string concat) since
+  // the URL is now arbitrary user-pasted text, not an app-generated
+  // base64 blob — assigning to .src can't be parsed as markup, so this
+  // sidesteps any HTML-injection risk from a crafted URL.
+  function buildMediaThumb(m, onRemove) {
+    var div = document.createElement('div'); div.className = 'hb-media-thumb';
+    var media = document.createElement(m.type === 'video' ? 'video' : 'img');
+    media.src = m.dataUrl;
+    if (m.type === 'video') { media.muted = true; media.setAttribute('playsinline', ''); if (onRemove) { /* editable grid: no controls, keep click for delete visible */ } else { media.controls = true; } }
+    else { media.alt = ''; }
+    div.appendChild(media);
+    if (onRemove) {
+      var del = document.createElement('button'); del.type = 'button'; del.className = 'hb-media-thumb-del'; del.setAttribute('aria-label', 'Remove media'); del.textContent = '✕';
+      del.addEventListener('click', onRemove);
+      div.appendChild(del);
+    }
+    return div;
   }
   function renderMediaGrid(container, mediaArr) {
     container.innerHTML = '';
     if (!mediaArr || !mediaArr.length) { container.innerHTML = '<div class="hb-media-empty">No media yet.</div>'; return; }
     mediaArr.forEach(function (m, idx) {
-      var div = document.createElement('div'); div.className = 'hb-media-thumb';
-      div.innerHTML = (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline></video>' : '<img src="' + m.dataUrl + '" alt="">')
-        + '<button type="button" class="hb-media-thumb-del" aria-label="Remove media">✕</button>';
-      div.querySelector('.hb-media-thumb-del').addEventListener('click', function () {
-        mediaArr.splice(idx, 1);
-        renderMediaGrid(container, mediaArr);
-      });
-      container.appendChild(div);
+      container.appendChild(buildMediaThumb(m, function () { mediaArr.splice(idx, 1); renderMediaGrid(container, mediaArr); }));
     });
   }
   function renderMediaGridReadonly(container, mediaArr) {
     container.innerHTML = '';
     if (!mediaArr || !mediaArr.length) return;
-    mediaArr.forEach(function (m) {
-      var div = document.createElement('div'); div.className = 'hb-media-thumb';
-      div.innerHTML = (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline controls></video>' : '<img src="' + m.dataUrl + '" alt="">');
-      container.appendChild(div);
-    });
+    mediaArr.forEach(function (m) { container.appendChild(buildMediaThumb(m, null)); });
   }
 
   function loadHabitLogs() { var l = storeGet('main:habitlogs'); return Array.isArray(l) ? l : []; }
@@ -4596,13 +4575,16 @@ body::after {
   // ---------- Media: habit.media = [{ id, type, dataUrl, name }] ----------
   var habitEditingMedia = [];
   document.getElementById('habitMediaAddBtn').addEventListener('click', function () {
-    document.getElementById('habitMediaFile').click();
+    var urlInput = document.getElementById('habitMediaUrlInput');
+    var url = urlInput.value.trim();
+    if (!isValidMediaUrl(url)) { alert('Enter a valid http(s) image or video URL.'); return; }
+    var type = document.getElementById('habitMediaTypeInput').value === 'video' ? 'video' : 'image';
+    habitEditingMedia.push({ id: genId('media'), type: type, dataUrl: url, name: url });
+    urlInput.value = '';
+    renderMediaGrid(document.getElementById('habitMediaGrid'), habitEditingMedia);
   });
-  document.getElementById('habitMediaFile').addEventListener('change', function (e) {
-    addMediaFiles(e.target.files, habitEditingMedia, function () {
-      renderMediaGrid(document.getElementById('habitMediaGrid'), habitEditingMedia);
-    });
-    e.target.value = '';
+  document.getElementById('habitMediaUrlInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('habitMediaAddBtn').click(); }
   });
   function stackedHabitIdSet() {
     var set = {};

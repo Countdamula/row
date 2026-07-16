@@ -2495,3 +2495,50 @@ between this app and either data loss or a wide-open write target:
     modal (name, area, cue, routine, reward, frequency, days, time,
     target streak, stack picker, cancel/save/delete) is still present
     and unchanged, and confirmed no other page/tab/nav pill was touched.
+
+- **Habit media switched from file upload to a pasted URL.** Follow-up
+  to the entry above, same session — the file-upload pipeline
+  (`compressImageDataUrl`/`addMediaFiles`/`MEDIA_MAX_VIDEO_BYTES`, the
+  hidden `<input type="file">`, and the button-click-triggers-file-
+  picker wiring) was deleted outright rather than kept as unreachable
+  dead code, since this is the same session's own immediate
+  supersession of a mechanism it just added — the same precedent
+  `gym.html`'s Templates rebuild already set converting its old
+  multi-select equipment chips into a single picker (that call only
+  protects code some *other* pass intentionally left behind, not a
+  feature replacing itself one message later).
+  - The habit modal's "Photos & videos" field is now a URL row
+    (`.hb-media-url-row`): a Photo/Video `<select>`, a text input
+    ("Paste an image or video URL…"), and an "+ Add" button (Enter key
+    also submits). `isValidMediaUrl()` (new) requires `new URL(value)`
+    to parse *and* resolve to `http:`/`https:` — same validate-before-
+    accept precedent as `selfcare.html`'s meditation-link modal — and
+    blocks Add with an `alert()` otherwise.
+  - **No data-shape or migration change**: `habit.media[]` still stores
+    `{id, type, dataUrl, name}` — `dataUrl` now holds a plain http(s)
+    URL instead of a `data:` URI, but `<img>`/`<video src>` accept both
+    identically, so any habit media added under the old upload flow
+    keeps rendering exactly as before with zero migration code.
+  - **Real bug fixed while making this change**: the old renderers built
+    `<img src="...">`/`<video src="...">` via string-concatenated
+    `innerHTML`, which was safe only because the source was always an
+    app-generated base64 blob (never contains `"`). Now that the value
+    is arbitrary user-pasted text, that would have been an HTML-
+    injection path (a URL containing `">` could break out of the
+    attribute). Fixed by rewriting `renderMediaGrid`/
+    `renderMediaGridReadonly` to build the `<img>`/`<video>` via DOM
+    APIs and assign `.src` as a property instead of interpolating it
+    into markup — not parsed as HTML, so this class of injection isn't
+    reachable regardless of what the pasted URL contains. Both renderers
+    now share one `buildMediaThumb(m, onRemove)` helper (editable grid
+    passes a remove callback, the read-only grid on habit cards passes
+    `null`) instead of two near-duplicate implementations.
+  - Verified in headless Edge with Supabase blocked: an existing habit's
+    media saved under the old upload flow (a base64 data-URI thumbnail
+    from the prior entry's own test) still rendered correctly after this
+    change with no migration step; adding a valid `https://` image URL
+    worked end-to-end (modal thumbnail → Save → persisted in
+    `main:habits` → thumbnail on the All Habits card); an invalid URL
+    (`not-a-url`) was rejected with the modal staying open and nothing
+    added; and every other pre-existing field in the same modal was
+    re-confirmed present and untouched.
