@@ -512,6 +512,7 @@ body::after {
 .habit-card-actions { display: flex; gap: 4px; }
 .habit-card-actions button { background: none; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 12px; padding: 2px 4px; }
 .habit-card-actions button:hover { color: var(--text-primary); }
+.habit-card-instructions { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; margin-bottom: 10px; }
 .habit-card-stack { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
 .habit-card-stack-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
 .contrib-grid-wrap { overflow-x: auto; padding-bottom: 2px; }
@@ -537,7 +538,7 @@ body::after {
 .run-routine-field { margin-bottom: 12px; }
 .run-routine-field:last-child { margin-bottom: 0; }
 .run-routine-field-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--at-gold); margin-bottom: 3px; }
-.run-routine-field-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.run-routine-field-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
 
 /* ================================================================
    Habits & Routines: "System HUD" panel styling, re-grounded in this
@@ -684,12 +685,12 @@ body::after {
   text-shadow: 0 0 14px rgba(224,138,159,0.3);
 }
 #habitModalBg .field > label, #routineModalBg .field > label { color: rgba(243,232,218,0.55); font-family: var(--font-mono); }
-#habitModalBg .field input, #habitModalBg .field select,
-#routineModalBg .field input, #routineModalBg .field select {
+#habitModalBg .field input, #habitModalBg .field select, #habitModalBg .field textarea,
+#routineModalBg .field input, #routineModalBg .field select, #routineModalBg .field textarea {
   background: rgba(224,138,159,0.06); border-color: rgba(224,138,159,0.25); color: var(--at-cream); font-family: var(--font-mono);
 }
-#habitModalBg .field input:focus, #habitModalBg .field select:focus,
-#routineModalBg .field input:focus, #routineModalBg .field select:focus {
+#habitModalBg .field input:focus, #habitModalBg .field select:focus, #habitModalBg .field textarea:focus,
+#routineModalBg .field input:focus, #routineModalBg .field select:focus, #routineModalBg .field textarea:focus {
   border-color: var(--at-gold); box-shadow: 0 0 0 3px rgba(224,138,159,0.12);
 }
 #habitModalBg .hb-day { border-color: rgba(224,138,159,0.25); background: rgba(224,138,159,0.05); color: rgba(243,232,218,0.4); font-family: var(--font-mono); }
@@ -1393,6 +1394,7 @@ body::after {
     <div class="field"><label>Cue</label><input type="text" id="habitCueInput" placeholder="What triggers this habit?"></div>
     <div class="field"><label>Routine (the action)</label><input type="text" id="habitRoutineInput" placeholder="What you actually do"></div>
     <div class="field"><label>Reward</label><input type="text" id="habitRewardInput" placeholder="What you get out of it"></div>
+    <div class="field"><label>Instructions</label><textarea id="habitInstructionsInput" placeholder="Step-by-step guidance, form cues, or any other detail worth remembering…" style="min-height:70px"></textarea></div>
     <div class="field">
       <label>Frequency</label>
       <select id="habitFrequencyInput">
@@ -4530,6 +4532,10 @@ body::after {
     card.appendChild(head);
     var hProg = computeHabitProgress(habit);
     card.appendChild(buildProgressRow(hProg.pct, hProg.label));
+    if (habit.instructions) {
+      var instr = document.createElement('div'); instr.className = 'habit-card-instructions'; instr.textContent = habit.instructions;
+      card.appendChild(instr);
+    }
     var stackIds = (habit.stackedHabitIds || []).filter(function (id) { return habitById(id); });
     if (stackIds.length) {
       var stackRow = document.createElement('div'); stackRow.className = 'habit-card-stack';
@@ -4650,6 +4656,7 @@ body::after {
     document.getElementById('habitCueInput').value = habit ? (habit.cue || '') : '';
     document.getElementById('habitRoutineInput').value = habit ? (habit.routine || '') : '';
     document.getElementById('habitRewardInput').value = habit ? (habit.reward || '') : '';
+    document.getElementById('habitInstructionsInput').value = habit ? (habit.instructions || '') : '';
     var freq = habit ? (habit.frequency || 'daily') : 'daily';
     document.getElementById('habitFrequencyInput').value = freq;
     document.getElementById('habitDaysField').style.display = freq === 'daily' ? 'none' : '';
@@ -4678,6 +4685,7 @@ body::after {
       cue: document.getElementById('habitCueInput').value.trim(),
       routine: document.getElementById('habitRoutineInput').value.trim(),
       reward: document.getElementById('habitRewardInput').value.trim(),
+      instructions: document.getElementById('habitInstructionsInput').value.trim(),
       frequency: frequency, weekdays: weekdays,
       timeOfDay: document.getElementById('habitTimeInput').value,
       targetStreak: document.getElementById('habitTargetInput').value ? Number(document.getElementById('habitTargetInput').value) : null,
@@ -4882,6 +4890,7 @@ body::after {
       if (habit.cue) card.appendChild(makeRunField('Cue', habit.cue));
       if (habit.routine) card.appendChild(makeRunField('Routine', habit.routine));
       if (habit.reward) card.appendChild(makeRunField('Reward', habit.reward));
+      if (habit.instructions) card.appendChild(makeRunField('Instructions', habit.instructions));
       body.appendChild(card);
     }
   }

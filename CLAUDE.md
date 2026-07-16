@@ -2574,3 +2574,44 @@ between this app and either data loss or a wide-open write target:
     `.hb-media-thumb-broken`, shows the fallback icon, and clicking it
     still opens the correct URL; and clicking the delete button removes
     the item without also triggering an open. Zero console errors.
+
+- **Habits & Routines: added a freeform Instructions field to each
+  habit.** Purely additive — no existing habit, routine, or page was
+  touched or removed; verified directly (see below).
+  - Habits gained an additive `instructions: ''` string field
+    (undefined on pre-existing habits, same "treated as empty" default
+    as every other optional habit field). Distinct from the existing
+    `cue`/`routine`/`reward` fields — those are the short cue-routine-
+    reward triad from the original habit model; `instructions` is a
+    longer freeform textarea for step-by-step guidance, form cues, or
+    any other detail, same spirit as `gym.html`'s exercise `notes`
+    field.
+  - **Habit modal**: a new "Instructions" `<textarea>` sits right after
+    Reward — reuses the modal's existing `.field textarea` styling
+    (which didn't previously need modal-specific colors since this
+    modal's `.field input`/`.field select` recolor rule didn't cover
+    `textarea` yet — extended it to include `textarea` so the new field
+    matches the rest of the modal instead of falling back to the plain
+    global style).
+  - **Displayed in two read surfaces**, both already-established
+    patterns extended rather than new components: the "All Habits" card
+    (`buildHabitCard`, a new `.habit-card-instructions` block, right
+    after the progress bar) and the Run Routine step-through view
+    (`makeRunField('Instructions', habit.instructions)`, alongside the
+    existing Cue/Routine/Reward fields shown one habit at a time while
+    running a routine). Both — plus `.run-routine-field-text`, shared
+    with Cue/Routine/Reward — gained `white-space: pre-wrap` so
+    multi-line instructions actually keep their line breaks instead of
+    collapsing to one line (harmless for the single-line Cue/Routine/
+    Reward text, which never contains a newline).
+  - Verified in headless Edge with Supabase blocked: seeded one
+    pre-existing habit and one pre-existing routine, confirmed both
+    still present after a reload (not deleted by this change), opened
+    the habit's edit modal and confirmed every other field (cue, stack
+    picker, media) was still there alongside the new Instructions
+    field, saved a 3-line instructions value, confirmed it rendered
+    with line breaks intact on the All Habits card and persisted
+    correctly in `main:habits`, confirmed the same text appears under
+    an "Instructions" label when running that habit's routine, and
+    confirmed all 9 nav pills and all 7 Main sub-tabs were still
+    present (no page was removed). Zero console errors.
