@@ -441,8 +441,17 @@ body::after {
    gym.html's exercise media grid, reused verbatim under this file's own
    tokens. ===== */
 .hb-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 8px 0; }
-.hb-media-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--at-border); background: rgba(0,0,0,0.3); }
+.hb-media-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--at-border); background: rgba(0,0,0,0.3); cursor: pointer; }
 .hb-media-thumb img, .hb-media-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Shown instead of a blank box when the pasted URL isn't a directly
+   embeddable image/video file (a share-page link, a page requiring
+   login, etc.) — the thumbnail stays clickable either way. */
+.hb-media-thumb-fallback {
+  display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+  font-size: 22px; background: rgba(224,138,159,0.06);
+}
+.hb-media-thumb-broken img, .hb-media-thumb-broken video { display: none; }
+.hb-media-thumb-broken .hb-media-thumb-fallback { display: flex; }
 .hb-media-thumb-del {
   position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
   background: rgba(0,0,0,0.6); border: none; color: #fff; font-size: 10px; line-height: 1; cursor: pointer;
@@ -4257,16 +4266,35 @@ body::after {
   // the URL is now arbitrary user-pasted text, not an app-generated
   // base64 blob — assigning to .src can't be parsed as markup, so this
   // sidesteps any HTML-injection risk from a crafted URL.
+  //
+  // Many "photo/video URLs" people actually paste (a Google Photos/
+  // iCloud/Instagram share link, a Dropbox page, etc.) aren't a direct
+  // hotlinkable file URL, so the <img>/<video> element itself fails to
+  // load — previously that just left a blank box with nothing to click.
+  // Now: the whole thumbnail is clickable (opens the URL in a new tab,
+  // same `noopener` pattern already used for meditation links in
+  // selfcare.html) so the link is always reachable even when it can't
+  // preview inline, and a load failure swaps in a fallback icon instead
+  // of staying blank.
   function buildMediaThumb(m, onRemove) {
     var div = document.createElement('div'); div.className = 'hb-media-thumb';
+    div.title = 'Open ' + (m.type === 'video' ? 'video' : 'photo') + ' in a new tab';
+    div.addEventListener('click', function () { window.open(m.dataUrl, '_blank', 'noopener'); });
     var media = document.createElement(m.type === 'video' ? 'video' : 'img');
     media.src = m.dataUrl;
-    if (m.type === 'video') { media.muted = true; media.setAttribute('playsinline', ''); if (onRemove) { /* editable grid: no controls, keep click for delete visible */ } else { media.controls = true; } }
-    else { media.alt = ''; }
+    if (m.type === 'video') {
+      media.muted = true; media.setAttribute('playsinline', '');
+      // Readonly cards show native video controls — stop those clicks from
+      // also bubbling into the thumbnail's open-in-new-tab handler above.
+      if (!onRemove) { media.controls = true; media.addEventListener('click', function (e) { e.stopPropagation(); }); }
+    } else { media.alt = ''; }
+    media.addEventListener('error', function () { div.classList.add('hb-media-thumb-broken'); });
     div.appendChild(media);
+    var fallback = document.createElement('div'); fallback.className = 'hb-media-thumb-fallback'; fallback.textContent = m.type === 'video' ? '🎬' : '🔗';
+    div.appendChild(fallback);
     if (onRemove) {
       var del = document.createElement('button'); del.type = 'button'; del.className = 'hb-media-thumb-del'; del.setAttribute('aria-label', 'Remove media'); del.textContent = '✕';
-      del.addEventListener('click', onRemove);
+      del.addEventListener('click', function (e) { e.stopPropagation(); onRemove(); });
       div.appendChild(del);
     }
     return div;

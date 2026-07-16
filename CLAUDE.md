@@ -2542,3 +2542,35 @@ between this app and either data loss or a wide-open write target:
     (`not-a-url`) was rejected with the modal staying open and nothing
     added; and every other pre-existing field in the same modal was
     re-confirmed present and untouched.
+
+- **Bugfix: habit media thumbnails were blank and unclickable for most
+  real-world pasted links.** Root cause: most "photo/video URLs" people
+  actually have (a Google Photos/iCloud/Instagram share link, a Dropbox
+  page, etc.) aren't a direct hotlinkable file URL, so the `<img>`/
+  `<video>` element failed to load — the thumbnail just stayed an empty
+  box with nothing wired up to click. Confirmed the failure mode
+  directly in headless Edge before fixing: a real image URL
+  (`w3.org/Icons/w3c_home.png`) loaded and rendered fine, but a page URL
+  used as an image `src` fails silently with no fallback.
+  - `buildMediaThumb()` now attaches a click handler to the whole
+    thumbnail that opens `m.dataUrl` in a new tab (`window.open(url,
+    '_blank', 'noopener')` — same pattern already used for meditation
+    links in `selfcare.html`), so the link is always reachable regardless
+    of whether it can preview inline.
+  - The `<img>`/`<video>` now has an `error` listener that adds
+    `.hb-media-thumb-broken`, which swaps in a new `.hb-media-thumb-
+    fallback` icon (🔗 for photos, 🎬 for videos) instead of leaving a
+    blank box — new CSS, `.hb-media-thumb { cursor: pointer; }` plus the
+    fallback's `display:none` unless `.hb-media-thumb-broken` is present.
+  - Readonly video thumbnails (All Habits cards) keep their native
+    `controls` — those clicks now call `stopPropagation()` so pressing
+    play doesn't also pop open a new tab; the delete button (✕, editable
+    grid only) already did the same to keep it independent of the new
+    open-link behavior.
+  - Verified in headless Edge with Supabase blocked, `window.open`
+    stubbed to capture calls instead of actually opening tabs: a working
+    image URL loads normally, isn't marked broken, and clicking it opens
+    the correct URL; a non-image page URL gets marked
+    `.hb-media-thumb-broken`, shows the fallback icon, and clicking it
+    still opens the correct URL; and clicking the delete button removes
+    the item without also triggering an open. Zero console errors.
