@@ -32,6 +32,7 @@ Vercel's static server) — see README.md.
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
+| `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -214,6 +215,7 @@ using `sync.js`.
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
 | Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; all five tabs built — see changelog) |
+| Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -2186,3 +2188,259 @@ between this app and either data loss or a wide-open write target:
     it from the tile; confirmed clicking an area row opens the Area
     detail modal; and confirmed switching to Habits and back to Overview
     re-renders cleanly with no stale or duplicated rows.
+
+- **New page: `example.html` ("Example"), a standalone visual style demo
+  tab built to match a reference photo** (a "Solo Leveling: Beyond the
+  System" movie poster — deep navy/black, glitchy scanline texture,
+  glowing cyan holographic "System" HUD panels, a purple-to-cyan accent,
+  and a central glowing "NOTIFICATION" dialog). Confirmed with the user
+  up front that this should be (a) a genuinely new standalone page, not
+  a re-theme of an existing one, and (b) added to the nav so it's easy
+  to find, but explicitly **not** wired to real feature data — it's a
+  styled example/demo, the same category of thing as this file's own
+  "DO NOT MODIFY" reference-photo exceptions (braindump.html's forest
+  theme, gym.html's crimson grading, entertainment.html's boutique-
+  gallery look) but scoped to a whole throwaway page instead of an
+  existing one.
+  - **No sync, no storage**: `example.html` does not include `sync.js`
+    and defines no `localStorage` keys — the notification Accept/Decline
+    interaction and its Reset are pure in-memory DOM state, since there's
+    nothing here that needs to persist or sync. `topbar.js` was the only
+    shared file touched (one new pill, `EXAMPLE` → `example.html`,
+    appended after `SELF-CARE` — same one-line-addition precedent every
+    prior page's nav registration followed).
+  - **Own self-contained `:root` tokens** (`--sy-*`), not shared with any
+    other page — same "explicit reference-photo exception" precedent as
+    the three exceptions listed in §6, just for a brand-new file instead
+    of an existing one: deep navy background, a bright cyan
+    (`--sy-cyan`/`--sy-cyan-bright`) glow accent, a purple
+    (`--sy-purple`) secondary accent for the gradient title text, and a
+    dedicated danger red (`--sy-danger`) for the Decline path.
+  - **Visual recipe**: the fixed body background layers a radial cyan/
+    purple glow over this repo's existing dotted-grain-texture technique
+    (the same `radial-gradient(rgba(255,255,255,0.014) 1px, transparent
+    1px)` / `3px 3px` recipe already used verbatim in `gym.html`/
+    `finance.html`/`entertainment.html`), plus a new fixed, pointer-events-
+    none scanline overlay (`repeating-linear-gradient`, `mix-blend-mode:
+    overlay`) with a slow vertical sweep animation for the reference
+    photo's glitchy holographic-display feel. HUD panels
+    (`.sy-panel`/`.sy-notify`) use `clip-path` corner notches instead of
+    plain rounded corners — a sharper, more "console UI" silhouette than
+    this app's usual rounded-card look, matching the poster's angular
+    panel style. The page title uses a gradient (purple → cyan) clipped
+    to text, with a rare (~2s out of every ~7s cycle), subtle RGB-split
+    `filter: drop-shadow` glitch animation — deliberately sparse so it
+    reads as a texture, not a distraction.
+  - **Central interactive notification** — mirrors the reference photo's
+    "You have acquired the qualifications to be a Player. Will you
+    accept?" dialog, plus a nod to the source image's own filename
+    (`❌ [DECLINE] ✅ [ACCEPT]`): clicking **Accept** locks the panel's
+    glow to solid cyan and swaps in an `[ ACCEPTED ]` result + a Reset
+    button; clicking **Decline** plays a brief shake/hue-shift glitch and
+    shows a "Rejection request denied by the System" message before
+    reverting — a small, deliberate genre nod (the System doesn't
+    actually let you decline) rather than a real dead-end action. Every
+    HUD panel below (Player Status, System Log, Available Skills, Quest
+    Received, Inventory) is static demo content styled to match the
+    poster's background panels — bracket-style stat labels
+    (`[NAME: Hunter]`), a staggered-fade-in log with a blinking cursor,
+    and a progress bar reusing this app's existing div-fill-percentage
+    idiom (recolored cyan-to-purple).
+  - A small `.sy-cover-note` line ("Example tab — a visual style demo,
+    not wired to real data") is always visible under the page title, so
+    the page is self-documenting about its own scope at a glance, not
+    just in this file.
+  - `README.md`'s file table and this file's §1 file list / §5 pages
+    table were updated to match, same three-table convention every
+    previous page addition followed.
+
+- **`example.html` follow-up: busier, layered backdrop matching the
+  reference photo's blurred "background HUD clutter."** The initial pass
+  above only had a plain glow behind the content; asked to match the
+  poster's aesthetic more closely, since the poster's backdrop is densely
+  packed with faded/blurred PLAYER STATUS/SYSTEM LOG/QUEST RECEIVED/
+  INVENTORY windows behind the central notification. Added `.sy-bg-hud`,
+  a fixed, pointer-events-none, `aria-hidden` layer holding ~7 small
+  bracket-style ghost panels and a few thin light-streak glitches,
+  positioned by percentage so they redistribute across viewport sizes;
+  the whole layer is blurred and dimmed as one group (cheaper than
+  per-panel blur, and reads as uniformly "out of focus" like the
+  reference). A softened radial vignette (`body::after`) darkens the
+  true edges so the clutter doesn't compete with the real content in the
+  center. Three of the seven ghost panels hide below 640px (they'd
+  otherwise overlap the single-column shell content on phones).
+  - **Real bug found and fixed while building this**: the ghost layer,
+    the base gradient, and the vignette were each given negative
+    `z-index` values (-3/-2/-1) so they'd paint behind the real content
+    without an explicit stacking order fight. In this environment,
+    `position: fixed` elements with a **negative** `z-index` did not
+    paint at all — confirmed in an isolated minimal test file (a plain
+    fixed red box at `z-index:-2` over an `html, body { background:
+    ... }` page rendered nothing, while the identical box at `z-index:0`
+    or `z-index:auto` rendered fine). Root-caused to `html`/`body` both
+    declaring an explicit background color: with that, this browser
+    treats the negative-z-index paint layer as behind the effective
+    canvas rather than above it. Fixed by giving `body::before`,
+    `.sy-bg-hud`, and `body::after` all `z-index: 0` instead — same-
+    z-index siblings paint in document order, and `::before`/`::after`
+    act as the first/last child of that order, so the original intended
+    stack (base gradient → ghost clutter → vignette → real content →
+    scanline overlay) comes out identical, just via document order
+    instead of negative z-index. Worth remembering for any future page
+    in this repo that layers multiple fixed-position decorative
+    backgrounds behind real content — don't reach for negative z-index
+    here, use `z-index: 0` (or a positive value below the content's) and
+    control order via DOM position instead.
+  - **Verified** via headless Edge: confirmed the bug in isolation first
+    (three tiny standalone test HTML files), then confirmed the fix
+    renders all seven ghost panels and the light streaks correctly at a
+    1920px-wide viewport, nudged the top-left panel down 12% (was
+    colliding with the Back button), and used CDP to confirm no real
+    horizontal-overflow bug exists at a narrow (~390 CSS px) viewport —
+    `document.documentElement.scrollWidth === window.innerWidth`, no
+    scrollable overflow — after a screenshot crop initially looked like
+    clipped notification text (that turned out to be a DPI-scaling
+    mismatch between the requested screenshot window size and the
+    actual CSS pixel viewport in this environment, not a real bug).
+
+- **Main page (`index.html`) Habits & Routines: stackable habits, plus a
+  "System HUD" reference-photo restyle scoped to this one section.** Two
+  changes landed together since the visual restyle exists specifically to
+  make the new stacking feature read as literal "stacked panels," per the
+  request's own framing (a screenshot of the "Solo Leveling: Beyond the
+  System" ❌ DECLINE / ✅ ACCEPT notification poster — the same reference
+  photo `example.html` was already built to match).
+  - **Stacking (functional)**: `Habit` objects gained an additive
+    `stackedHabitIds: []` field (undefined on pre-existing habits, treated
+    identically to `[]` everywhere it's read via `habit.stackedHabitIds ||
+    []` — no migration flag needed). This is deliberately a *different*
+    mechanism from the pre-existing `main:routines` ("Routines" — a named,
+    ordered, steppable sequence run one-at-a-time via "▶ Run") — stacking
+    is the informal "habit stacking" technique (pair a new habit directly
+    onto an existing one, check them off together), not a named multi-step
+    program, so both now coexist rather than one replacing the other.
+    - The Habit modal gained a "Stacked habits (done together with this
+      one)" field: a `manage-row` list + `+ Stack a habit with this
+      one…` `<select>`, copied structurally from the Routine modal's own
+      habit-picker (`renderRoutineHabitList`/`renderRoutineAddHabitSelect`
+      → new `renderHabitStackList`/`renderHabitStackAddSelect`), minus
+      reordering (a stack has no sequence, unlike a Routine). The
+      add-select excludes the habit being edited (no self-stacking) and
+      excludes any habit that already has *this* habit in its own stack
+      — a direct-reciprocal guard (A stacks B ⇒ B can't also stack A),
+      since a mutual pair would make both habits vanish from Today's grid
+      entirely (see the render-side rule below) with no way to un-stack
+      either from the UI.
+    - Deleting a habit now also strips it out of every other habit's
+      `stackedHabitIds` (mirroring the existing cleanup that already ran
+      against `routines[].habitIds`), so a deleted habit can't leave a
+      dangling stack reference.
+  - **Stacking (Today grid)**: `renderHabitTodayGrid()` now computes
+    `stackedHabitIdSet()` (the union of every habit's `stackedHabitIds`)
+    and excludes any habit already claimed by another habit's stack from
+    rendering as its own top-level quest — it only renders once, nested
+    under its anchor. A habit with a non-empty stack renders as one
+    `.hb-quest-stacked` group: the anchor's row (`buildHabitTodayRow()`,
+    factored out of the old inline row-building code so the same row
+    markup/behavior serves both the anchor and its nested rows) plus a
+    `.hb-quest-substack` of indented sub-rows, each independently
+    checkable (`toggleHabitToday()` unchanged — a stacked habit is a real
+    habit with its own log/streak, stacking is purely a display grouping,
+    not a new entity type). The "All Habits" list (`buildHabitCard`) gained
+    a `⛓ Stacked with` chip row so a habit's stack composition is visible
+    without opening its edit modal.
+  - **Visual restyle — "System HUD" reference-photo exception, scoped to
+    `#atPanelHabits` only** (plus the three modals this section owns:
+    `#habitModalBg`/`#routineModalBg`/`#runRoutineModalBg`, since they're
+    only ever opened from here). Every other Main tab (Overview/Goals/
+    Tasks/Businesses/Self-Discovery) keeps the page's existing dusty-rose
+    palette untouched — confirmed by scoping every new rule under those
+    four selectors rather than touching `:root` or any unscoped class.
+    Same "explicit reference-photo instruction" exception category as
+    gym.html's crimson grading / braindump.html's forest theme /
+    entertainment.html's pink hover (CLAUDE.md §6 / DO NOT MODIFY rule 2)
+    — and specifically reuses `example.html`'s already-established
+    `--sy-*` token values and component techniques (clip-path notched
+    panels, mono bracket-style labels, cyan glow-pulse borders, scanline
+    overlay) verbatim under a new `--hb-*` prefix, rather than inventing a
+    fresh palette for the same reference photo a second time. The Today
+    quest cards, Habit/Routine cards, "Run Routine" stepper, and all three
+    modals (fields, buttons, manage-rows, delete links) were reskinned;
+    `.hb-quest-stacked`'s shared glowing frame around an anchor + its
+    sub-stack is the concrete "visualize the stack as one linked HUD
+    panel" piece the request asked for. `topbar.js` was not touched —
+    these modals already use the plain `.modal-bg`/`.modal` classes
+    covered by its existing `MODAL_SELECTORS`.
+
+- **Habits & Routines follow-up: re-grounded the HUD in the page's own
+  palette, worked the reference photo into the panel background, and
+  added progress bars to every quest/habit/routine.** Three changes
+  landed together per an explicit follow-up request.
+  - **Recolor**: the cyan/purple `--hb-*` token layer from the prior
+    entry is gone. Every rule under `#atPanelHabits` and its three
+    modals now points straight at this file's own existing global
+    tokens (`--at-gold`/`--at-gold-dim`/`--at-border`/`--at-purple`/
+    `--at-cream`/`--text-primary`/`--text-secondary`/`--text-tertiary`/
+    `--danger`) instead of a separate imported palette — this is no
+    longer a "reference-photo exception" in the §6 sense, since it no
+    longer introduces any color the rest of the page doesn't already
+    use. The notched-panel/mono-label/glow-border HUD *shape* (clip-
+    path corner notches, `// ` prefix on the section heading, bracket-
+    style mono labels) was kept — only the colors changed. Modal rules
+    (not DOM descendants of `#atPanelHabits`, so they can't inherit its
+    custom properties) use the literal `rgba(224,138,159,X)` values
+    already established elsewhere in this same file (`.hb-day.active`,
+    `.at-task-pending`) rather than hex copies of a cyan palette.
+  - **Reference photo worked into the panel background**: the actual
+    "Solo Leveling: Beyond the System" reference photo (confirmed to
+    really be a JPEG despite its `.heic` filename — `FFD8FF` SOI/JFIF
+    header — so no HEIC transcoding was needed) is embedded as a
+    resized (640×853) and recompressed (JPEG q62, ~50KB) base64 `data:`
+    URI directly in the stylesheet, not committed as a separate binary
+    file — keeping with this repo's existing "images live as data URLs
+    inside JSON/CSS, not as checked-in asset files" convention (same
+    pattern user-uploaded covers already use, just static this time
+    instead of runtime-uploaded). It sits on a new `#atPanelHabits::before`
+    layer, under three gradient layers in the page's own wine/rose
+    colors (the same `rgba(23,10,18,*)`/`rgba(11,5,9,*)`/
+    `rgba(224,138,159,*)`/`rgba(167,139,250,*)` values `body::before`
+    and the cover banner already use) plus `filter: saturate(0.4)
+    brightness(0.6)` — desaturated/darkened rather than hue-rotated, so
+    the gradient's rose/wine tint carries the color instead of an
+    unpredictable filter-shifted hue. The existing neutral scanline
+    `::after` layer sits on top of it unchanged. Net effect: the photo
+    (its HUD panel outlines, the notification box, the "Solo Leveling"
+    logo) is visible as a faint watermark-like texture behind the real
+    cards, tinted into the page's own colors rather than shown at its
+    native blue.
+  - **Progress bars**: three new pure functions —
+    `computeHabitProgress(habit)` (current streak ÷ `targetStreak` when
+    a habit has one set; otherwise this week's scheduled-vs-done ratio
+    from Sunday through today, so every habit has a meaningful bar even
+    without a target) and `computeRoutineTodayProgress(routine)` (how
+    many of a routine's habits are already checked off *today* — a
+    routine has no streak of its own, so "progress" is today's
+    completion, not a historical measure) — plus a shared
+    `buildProgressRow(pct, labelText)` that reuses `buildGoalCard()`'s
+    existing `.goal-card-progress-row`/`.std-bar`/`.std-bar-fill`/
+    `.goal-card-pct` markup verbatim (same component, not a new one).
+    Wired into all three habit/routine surfaces: each Today quest row
+    (`buildHabitTodayRow`, a small 4px bar under the title/cue — applies
+    to both anchor and nested stacked rows, since `buildHabitTodayRow`
+    already serves both), each "All Habits" card (`buildHabitCard`, a
+    full-size bar under the header), and each Routine card
+    (`buildRoutineCard`, a full-size bar showing today's X/N completion
+    under the header, above the ordered habit-sequence chips).
+  - Verified via headless Edge with Supabase blocked (`--host-resolver-
+    rules=MAP *.supabase.co 0.0.0.0`, confirmed via CDP before any
+    navigation): seeded a stacked anchor habit (target streak 10, 1-day
+    streak logged), its two stacked sub-habits, a solo habit, and a
+    3-habit routine with 2 of 3 done today; confirmed all three
+    progress-bar call sites render the right width/label (`1/10`,
+    `1/4 this wk`, `2/3 today`), confirmed the recolor (computed
+    `#atPanelHabits` background, modal screenshot) shows the dusty-rose/
+    wine palette with no leftover cyan, confirmed the background photo
+    (`getComputedStyle(..., '::before').backgroundImage`) resolves to a
+    `data:image` URI and is visibly tinted-through in a full-page
+    screenshot, and confirmed zero console errors/exceptions across the
+    whole pass.
