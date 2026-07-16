@@ -2615,3 +2615,39 @@ between this app and either data loss or a wide-open write target:
     an "Instructions" label when running that habit's routine, and
     confirmed all 9 nav pills and all 7 Main sub-tabs were still
     present (no page was removed). Zero console errors.
+
+- **Habit Instructions field now autosizes instead of internally
+  scrolling.** The `<textarea>` was a fixed-height `.field textarea`
+  (the shared style every other modal textarea in this file also
+  uses), so any instructions longer than a few lines required
+  scrolling inside the box to read the rest. Wired it to this file's
+  existing `autosize(ta)` helper (already used for Overview notes/
+  business notes/journal entries — `ta.style.height = 'auto'; ta.style.
+  height = ta.scrollHeight + 'px'`) instead of writing a new one: an
+  `input` listener grows it live while typing, and `openHabitModal()`
+  now also calls it in a `setTimeout(..., 0)` after the modal is shown
+  (same precedent as every other autosize call site — needs to run
+  after layout, not while the modal is still `display:none`) so
+  reopening a habit with existing long instructions is already
+  full-height on open, not just after the next keystroke.
+  - **Scoped, not shared**: `resize: none; overflow: hidden;` — needed
+    so the box only grows and never shows an internal scrollbar — was
+    added under the `#habitInstructionsInput` ID selector specifically,
+    *not* by editing the shared `.field textarea` rule every other
+    modal textarea in this file (Life Area vision/description, Goal
+    why/description, Business description, Self-Discovery entry body)
+    still uses unmodified. Changing the shared rule would have silently
+    made all of those fixed-height-with-clipped-overflow too, since
+    none of them call `autosize()` — confirmed after the change that
+    `#areaVisionInput` (Life Areas) still reports `resize: vertical`,
+    unaffected.
+  - Verified in headless Edge: typed a 15-line instructions value and
+    confirmed the textarea grew to `scrollHeight` with `resize: none`/
+    `overflow: hidden` (no interactive scrollbar — the ~2px `scrollHeight`
+    vs `clientHeight` delta observed is exactly this file's global
+    `box-sizing: border-box` border width, not clipped text); saved,
+    reopened the same habit, and confirmed the field was already
+    full-height on open via the `setTimeout` autosize call, not just
+    after typing; and reconfirmed all 9 nav pills still present. Zero
+    console errors. Nothing was deleted — purely a sizing/CSS change to
+    one existing field.
