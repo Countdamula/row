@@ -2720,3 +2720,115 @@ between this app and either data loss or a wide-open write target:
     `#workflowDayPageBg` (Business Workflow's day detail, same `.wfd-*`
     classes) is visually unchanged; and reconfirmed all 9 nav pills and
     all 7 Main sub-tabs are still present. Zero console errors.
+
+- **Overview tab (`index.html`) rebuilt into a real hub: a "Dream Life"
+  media board, live summaries of Businesses/Self-Discovery, a
+  read-only "Connected Apps" snapshot of every other top-level page,
+  and the same Habits & Routines/Tasks HUD reskin.** Per an explicit
+  ask to "connect the data of all of the tabs and pages" to Overview
+  without deleting anything. Everything below is additive — the
+  pre-existing Today's Habits/Upcoming Tasks/Goal Progress by Life
+  Area/Notes sections are untouched in behavior, just visually
+  restyled along with the rest of the panel.
+  - **HUD reskin**: `#atPanelOverview` was added to every combined
+    selector `#atPanelHabits, #atPanelTasks` already used (background
+    photo/gradient/scanline, mono section headings, `.at-mini-btn`,
+    `.at-task`/`.at-due-card` quest/task-card notched-panel styling),
+    plus new Overview-only rules for its own row/tile components
+    (`.ov-area-row`/`.ov-biz-row`/`.ov-self-row`, `.ov-ext-tile`,
+    `.dream-card`) built from the same `--at-*` tokens — no new colors,
+    same DO NOT MODIFY §2 discipline as every prior HUD extension.
+  - **Dream Life board** (top of Overview, `main:dreamLife = [{id,
+    title, body, media:[{id,type,dataUrl,name}], createdAt}]`) — the
+    "input text, photos, videos, etc. for what I want my dream life to
+    look like" database. Same inline-autosave-card-with-reorder pattern
+    as the existing Notes sections (`buildNoteSectionCard`/
+    `main:overviewNotes`) for title/body, plus the media-by-URL
+    components already built for Habit media
+    (`isValidMediaUrl`/`buildMediaThumb`/the `.hb-media-*` CSS) reused
+    verbatim rather than rebuilt — those were already fully generic,
+    not habit-specific, so this is the same "reuse an existing
+    component, don't invent a fourth one" precedent as `.ent-card`/
+    `.chip`/`.modal-bg` elsewhere in this app. No file upload (matches
+    the earlier, deliberate habit-media file-upload → URL-paste
+    supersession) — paste an image/video URL, same validate-before-add
+    and click-to-open/broken-link-fallback behavior as habit media.
+  - **Businesses summary** (`renderOverviewBusinesses`) — one row per
+    `main:businesses` entry (icon/name, average goal progress via the
+    existing `computeGoalProgress`, goal/task counts), click jumps to
+    that business's own tab via the exact same `activeBizId = biz.id;
+    switchTab('businesses')` the Businesses sub-tab chips already use
+    — no new navigation mechanism.
+  - **Self-Discovery summary** (`renderOverviewSelf`) — 5 most recent
+    `main:selfentries`, click opens the same `openEntryModal()` the
+    Self-Discovery tab itself uses (no navigation needed at all, since
+    it's already the same page/DOM).
+  - **Connected Apps** (`renderOverviewConnectedApps`) — a 7-tile grid,
+    one per other top-level page (Fitness Studio/Finance/Media/Brain
+    Dump/Nutrition/Household/Self-Care), each showing 2-3 real live
+    stat lines read straight from that page's own localStorage
+    key(s) — same shared-origin localStorage this whole app's sync
+    model already depends on (see CLAUDE.md §4), so no iframe/network
+    call is needed to read another page's data, only a page navigation
+    (plain `<a href>`) to actually edit it. Deliberately **read-only
+    and parsed directly from raw localStorage** rather than by loading
+    `finance-data.js`/`household-data.js`/`selfcare-data.js`/
+    `nutrition-data.js` into `index.html` to reuse their clean
+    `Collection.list()` APIs — every one of those files calls its own
+    `seedIfEmpty()`/migration function at IIFE load time, and pulling
+    them into Overview would risk silently seeding fake demo data into
+    another page's store the first time someone opens the Main tab on
+    a fresh device, before ever opening that page itself. Instead each
+    tile's reader (`safeParseLS` + a small per-page block inside
+    `renderOverviewConnectedApps`) parses the known key(s) directly
+    (`po_coach_v1`/`po_coach_workout_done`, `financev2:accounts`/
+    `financev2:transactions`, the four `media:*` galleries,
+    `braindump:entries`, `nutrition:groceryItems`/`nutrition:recipes`,
+    `household:inventory`/`household:chores`,
+    `selfcare:waterLog`/`journalEntries`/`bucketList`), wrapped in
+    try/catch, and treats missing/malformed data as "not connected
+    yet" (an empty-state line) rather than throwing — confirmed some of
+    these pages have moved past what CLAUDE.md's own earlier changelog
+    entries described (e.g. `finance.html` now runs on a newer
+    `financev2:*` schema via `finance-data.js`, not the older
+    `finance:*`/`nw:*` keys documented above) — read the live code as
+    ground truth per this file's own §6 philosophy, not the older
+    changelog text. Tile lines are built via `document.createTextNode`/
+    `textContent`, never `innerHTML` — several of the values being
+    displayed (routine names, chore names, media titles) are arbitrary
+    user-authored text from another page, same class of risk already
+    fixed once for pasted habit-media URLs, so the same DOM-not-markup
+    precedent applies here from the start rather than needing a second
+    fix later.
+  - Chose **not** to attempt full in-place CRUD for every other page's
+    features (e.g. checking off a chore, editing a transaction, right
+    from Overview) — that would mean substantially duplicating each
+    page's own UI/logic a second time inside `index.html`, which is a
+    different scale of change than "connect the data and make it
+    visible and interactable." Cross-page data is visible with real
+    live numbers and one click away from its real page; same-page data
+    (Habits/Tasks/Life Areas/Businesses/Self-Discovery, all already
+    part of the Main tab) is fully interactive in place, exactly as it
+    already was.
+  - Verified in headless Edge with Supabase blocked (`--host-resolver-
+    rules="MAP *.supabase.co 0.0.0.0"`, armed before navigation): seeded
+    realistic data across every one of the keys above (Main tab's own
+    stores plus `po_coach_v1`/`financev2:*`/`media:*`/`braindump:entries`/
+    `nutrition:*`/`household:*`/`selfcare:*`), confirmed the HUD
+    background/photo/mono styling renders on `#atPanelOverview`; added a
+    Dream Life entry with a title/body/pasted image URL and confirmed it
+    persisted to `main:dreamLife` correctly; confirmed the Businesses row
+    renders real goal/task counts and clicking it switches to the
+    Businesses tab with the right business active; confirmed the
+    Self-Discovery row renders and is clickable; confirmed all 7
+    Connected Apps tiles render correct live numbers matching the seeded
+    data (today's routine/workout count, net worth/monthly spend, media
+    saved/favorites count, brain dump entry status, grocery/recipe
+    counts, low-stock/chores-due counts, water/journal/bucket-list
+    counts); confirmed the pre-existing Today's Habits/Upcoming
+    Tasks/Goal Progress/Notes sections still render and behave exactly
+    as before; confirmed the Habits & Routines, Tasks, and
+    Self-Discovery tabs still render correctly (nothing else on the
+    page was disturbed); confirmed all 8 nav pills and all 7 Main
+    sub-tabs are still present; confirmed no horizontal overflow at a
+    390px mobile viewport; and confirmed zero console errors throughout.
