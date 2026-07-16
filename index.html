@@ -437,6 +437,20 @@ body::after {
 .manage-row button:hover { color: var(--text-primary); }
 .manage-row .manage-del:hover { color: var(--danger); }
 
+/* ===== Reference media (habit photos/videos) — same layout recipe as
+   gym.html's exercise media grid, reused verbatim under this file's own
+   tokens. ===== */
+.hb-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 8px 0; }
+.hb-media-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--at-border); background: rgba(0,0,0,0.3); }
+.hb-media-thumb img, .hb-media-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hb-media-thumb-del {
+  position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); border: none; color: #fff; font-size: 10px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.hb-media-thumb-del:hover { background: var(--danger); }
+.hb-media-empty { font-size: 11.5px; color: var(--text-tertiary); font-style: italic; padding: 4px 0; }
+
 /* ===== Today's Habits grid ===== */
 .at-task-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 @media (max-width: 520px) { .at-task-grid { grid-template-columns: 1fr; } }
@@ -671,6 +685,13 @@ body::after {
   background: rgba(224,138,159,0.05); border-color: rgba(224,138,159,0.2);
 }
 #habitModalBg .manage-row-text, #routineModalBg .manage-row-text { color: var(--at-cream); font-family: var(--font-mono); font-size: 12.5px; }
+#habitModalBg .at-mini-btn {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase;
+  background: rgba(224,138,159,0.08); border: 1px solid rgba(224,138,159,0.25); color: var(--at-cream);
+}
+#habitModalBg .at-mini-btn:hover { background: rgba(224,138,159,0.16); }
+#habitModalBg .hb-media-thumb { border-color: rgba(224,138,159,0.25); }
+#habitModalBg .hb-media-empty { color: rgba(243,232,218,0.4); }
 #habitModalBg .btn-primary, #routineModalBg .btn-primary, #runRoutineModalBg .btn-primary {
   background: linear-gradient(180deg, var(--at-cream) 0%, #d9a0ae 100%); color: #2a0d14;
   font-family: var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; font-weight: 700;
@@ -1382,6 +1403,12 @@ body::after {
       <label>Stacked habits (done together with this one)</label>
       <div id="habitStackList" class="manage-list"></div>
       <select id="habitStackAddSelect"><option value="">+ Stack a habit with this one…</option></select>
+    </div>
+    <div class="field">
+      <label>Photos &amp; videos</label>
+      <div class="hb-media-grid" id="habitMediaGrid"></div>
+      <button type="button" class="at-mini-btn" id="habitMediaAddBtn">+ Add photo / video</button>
+      <input type="file" id="habitMediaFile" accept="image/*,video/*" multiple style="display:none">
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" type="button" id="habitModalCancel">Cancel</button>
@@ -4205,6 +4232,79 @@ body::after {
   var DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+  // ---------- Reference media (habit photos/videos) ----------
+  // habit.media = [{ id, type: 'image'|'video', dataUrl, name }]. Same
+  // convention already established for exercise media in gym.html:
+  // images are canvas-downscaled before storage, video can't be
+  // transcoded client-side so it's just size-capped instead.
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 640;
+    quality = quality == null ? 0.75 : quality;
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  var MEDIA_MAX_VIDEO_BYTES = 8 * 1024 * 1024;
+  function addMediaFiles(fileList, mediaArr, onDone) {
+    Array.prototype.forEach.call(fileList || [], function (file) {
+      var isVideo = file.type.indexOf('video/') === 0;
+      if (isVideo && file.size > MEDIA_MAX_VIDEO_BYTES) {
+        alert('Video "' + file.name + '" is larger than 8MB and was skipped — trim it or use a shorter clip (this data is stored inline, no video transcoding is done).');
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var raw = String(reader.result);
+        if (isVideo) {
+          mediaArr.push({ id: genId('media'), type: 'video', dataUrl: raw, name: file.name });
+          onDone();
+        } else {
+          compressImageDataUrl(raw, 640, 0.75).then(function (compressed) {
+            mediaArr.push({ id: genId('media'), type: 'image', dataUrl: compressed, name: file.name });
+            onDone();
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderMediaGrid(container, mediaArr) {
+    container.innerHTML = '';
+    if (!mediaArr || !mediaArr.length) { container.innerHTML = '<div class="hb-media-empty">No media yet.</div>'; return; }
+    mediaArr.forEach(function (m, idx) {
+      var div = document.createElement('div'); div.className = 'hb-media-thumb';
+      div.innerHTML = (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline></video>' : '<img src="' + m.dataUrl + '" alt="">')
+        + '<button type="button" class="hb-media-thumb-del" aria-label="Remove media">✕</button>';
+      div.querySelector('.hb-media-thumb-del').addEventListener('click', function () {
+        mediaArr.splice(idx, 1);
+        renderMediaGrid(container, mediaArr);
+      });
+      container.appendChild(div);
+    });
+  }
+  function renderMediaGridReadonly(container, mediaArr) {
+    container.innerHTML = '';
+    if (!mediaArr || !mediaArr.length) return;
+    mediaArr.forEach(function (m) {
+      var div = document.createElement('div'); div.className = 'hb-media-thumb';
+      div.innerHTML = (m.type === 'video' ? '<video src="' + m.dataUrl + '" muted playsinline controls></video>' : '<img src="' + m.dataUrl + '" alt="">');
+      container.appendChild(div);
+    });
+  }
+
   function loadHabitLogs() { var l = storeGet('main:habitlogs'); return Array.isArray(l) ? l : []; }
   function saveHabitLogs(list) { storeSet('main:habitlogs', list); }
   function isHabitDoneOn(habitId, dateStr) {
@@ -4434,6 +4534,11 @@ body::after {
       });
       card.appendChild(stackRow);
     }
+    if (habit.media && habit.media.length) {
+      var mediaGrid = document.createElement('div'); mediaGrid.className = 'hb-media-grid';
+      renderMediaGridReadonly(mediaGrid, habit.media);
+      card.appendChild(mediaGrid);
+    }
     card.appendChild(buildHabitHeatmap(habit));
     return card;
   }
@@ -4488,6 +4593,17 @@ body::after {
     e.target.value = '';
     renderHabitStackList();
   });
+  // ---------- Media: habit.media = [{ id, type, dataUrl, name }] ----------
+  var habitEditingMedia = [];
+  document.getElementById('habitMediaAddBtn').addEventListener('click', function () {
+    document.getElementById('habitMediaFile').click();
+  });
+  document.getElementById('habitMediaFile').addEventListener('change', function (e) {
+    addMediaFiles(e.target.files, habitEditingMedia, function () {
+      renderMediaGrid(document.getElementById('habitMediaGrid'), habitEditingMedia);
+    });
+    e.target.value = '';
+  });
   function stackedHabitIdSet() {
     var set = {};
     loadHabits().forEach(function (h) { (h.stackedHabitIds || []).forEach(function (id) { set[id] = true; }); });
@@ -4533,6 +4649,8 @@ body::after {
     document.getElementById('habitTargetInput').value = habit && habit.targetStreak != null ? habit.targetStreak : '';
     habitEditingStackIds = habit && Array.isArray(habit.stackedHabitIds) ? habit.stackedHabitIds.slice() : [];
     renderHabitStackList();
+    habitEditingMedia = habit && Array.isArray(habit.media) ? habit.media.slice() : [];
+    renderMediaGrid(document.getElementById('habitMediaGrid'), habitEditingMedia);
     document.getElementById('habitModalDelete').style.display = habit ? 'block' : 'none';
     document.getElementById('habitModalBg').classList.add('show');
   }
@@ -4553,7 +4671,8 @@ body::after {
       frequency: frequency, weekdays: weekdays,
       timeOfDay: document.getElementById('habitTimeInput').value,
       targetStreak: document.getElementById('habitTargetInput').value ? Number(document.getElementById('habitTargetInput').value) : null,
-      stackedHabitIds: habitEditingStackIds.slice()
+      stackedHabitIds: habitEditingStackIds.slice(),
+      media: habitEditingMedia.slice()
     };
     var list = loadHabits();
     if (habitEditingId) {

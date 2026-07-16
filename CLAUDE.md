@@ -2444,3 +2444,54 @@ between this app and either data loss or a wide-open write target:
     `data:image` URI and is visibly tinted-through in a full-page
     screenshot, and confirmed zero console errors/exceptions across the
     whole pass.
+
+- **Habits & Routines: habits can link photos/videos.** Purely additive
+  follow-up — no existing field, page, or input was removed. Reused
+  `gym.html`'s already-established exercise-media pattern verbatim
+  (same data shape and compress/size-cap strategy) rather than inventing
+  a new one, ported from that file's ES6 syntax into this file's own
+  ES5 `function`/`var` style to match its existing code.
+  - **Data**: habits gained an additive `media: []` field (`{id, type:
+    'image'|'video', dataUrl, name}`), undefined on pre-existing habits
+    and treated identically to `[]` everywhere it's read. It lives
+    inline on the habit object, so deleting a habit deletes its media
+    with it — no separate orphan cleanup needed (unlike
+    `stackedHabitIds`/routine references, which point at other
+    entities by id).
+  - **Upload pipeline** (`compressImageDataUrl`/`addMediaFiles`, new):
+    images are canvas-downscaled to 640px/JPEG quality 0.75 before
+    storage; video can't be transcoded client-side so it's just
+    size-capped at 8MB with an `alert()` on rejection — identical
+    behavior/thresholds to `gym.html`'s exercise media, since this is
+    the same "no binary assets, images live as data URLs" convention
+    already established there.
+  - **Habit modal** gained a "Photos & videos" field: an editable
+    `.hb-media-grid` of thumbnails (`renderMediaGrid`, each with a ✕ to
+    remove) plus a "+ Add photo / video" button opening a hidden
+    `accept="image/*,video/*" multiple` file input — same
+    button-triggers-hidden-input pattern already used for cover-image
+    uploads elsewhere in this app. Draft state (`habitEditingMedia`)
+    follows the same open-modal-clones-into-draft / save-writes-draft-
+    back convention as `habitEditingStackIds` right next to it.
+  - **All Habits cards** show a read-only `.hb-media-grid`
+    (`renderMediaGridReadonly`, no delete buttons) when a habit has any
+    media, placed after the stack chips and before the streak heatmap.
+    Today's quest cards and Routine cards were deliberately left
+    unchanged — the request was scoped to "each task" (this app's
+    established synonym for "habit" in this section, per the original
+    stacking request), not routines, and the compact Today grid has no
+    room for thumbnails without cluttering the two-column quest layout.
+  - New `.hb-media-grid`/`.hb-media-thumb`/`.hb-media-thumb-del`/
+    `.hb-media-empty` CSS is the same layout recipe as `gym.html`'s
+    `.media-grid`/`.media-thumb`/etc., just pointed at this file's own
+    `--at-border`/`--text-tertiary`/`--danger` tokens instead of
+    `gym.html`'s `--border`/`--text-3` — plus a small `#habitModalBg
+    .at-mini-btn` rose-toned override so the new "+ Add photo / video"
+    button matches this modal's existing recolored look rather than
+    falling back to the plain global `.at-mini-btn` style.
+  - Verified in headless Edge with Supabase blocked: opened the Add
+    Habit modal, confirmed the new field renders with an empty-state
+    message, confirmed every other existing field/button in the same
+    modal (name, area, cue, routine, reward, frequency, days, time,
+    target streak, stack picker, cancel/save/delete) is still present
+    and unchanged, and confirmed no other page/tab/nav pill was touched.
