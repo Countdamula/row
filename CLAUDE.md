@@ -2651,3 +2651,72 @@ between this app and either data loss or a wide-open write target:
     after typing; and reconfirmed all 9 nav pills still present. Zero
     console errors. Nothing was deleted — purely a sizing/CSS change to
     one existing field.
+
+- **Tasks tab restyled to match Habits & Routines: same HUD panel,
+  same background photo, same palette.** Explicit ask to give the
+  Tasks tab (`#atPanelTasks`) "the exact same color scheme, background,
+  and aesthetic setup" as the Habits & Routines panel. Pure CSS —
+  no HTML structure, no JS, no data shape changed, so every existing
+  control (filters, grouping/sort, quick-add, the "📄 Open" button, the
+  task detail page's Notes blocks and their add/reorder/delete buttons)
+  works exactly as before, just recolored.
+  - **Shared structural rules extended, not duplicated**: every
+    `#atPanelHabits` selector that was purely structural (the panel
+    background/photo/scanline layers, `.at-col-head`/`h2`, `.at-mini-btn`
+    — which already covers the "+ Add Task" and "📄 Open" buttons since
+    both reuse that same class, `.section-title`, `.at-empty`, the
+    mobile margin media query) now reads `#atPanelHabits, #atPanelTasks
+    { ... }` instead of gaining a second near-identical rule block.
+  - **Tasks-specific components** (new rules, since `.at-due-card` and
+    friends are shared with Goals/Overview/Business task lists
+    elsewhere in this same file — every rule scoped under
+    `#atPanelTasks` specifically, never the bare class, so those other
+    tabs' task rows are untouched): `.chip`/`.chip.active` (view/filter
+    toggles), `.task-filter-select`, the quick-add row's input/button,
+    and `.at-due-card`/`.at-due-check`/`.at-due-title` (notched panel,
+    gold done-state — same visual role as the Habit quest checkbox,
+    matched to it; priority pills/status/recurrence badges were
+    deliberately left on their original `--info`/`--warning`/`--danger`
+    colors, same "status colors carry meaning, not brand accent"
+    precedent every other re-theme in this file already follows —
+    Habits has no equivalent priority/status-badge component to match
+    against anyway).
+  - **Add/Edit Task modal** (`#gTaskModalBg`) reskinned with the same
+    recipe as `#habitModalBg`, applied to this modal's own field set
+    (title, note, status, priority, due date, area/goal/business/habit
+    links, estimate, daily checkbox, recurrence).
+  - **Task detail page** (`#taskDetailPageBg`, opened via "📄 Open" —
+    title, meta row, Notes blocks list, "+ Notes" button) reskinned
+    too, but scoped strictly to `#taskDetailPageBg`, *not* the bare
+    `.wfd-*` classes it's built from — those exact same classes are
+    also used by `#workflowDayPageBg` (Business Workflow's day detail
+    page), which must stay on its own existing look untouched. One
+    real wrinkle: this page scrolls internally (`.wfd-page-bg` has
+    `overflow-y: auto`), so a background layer positioned like the
+    panels' (`position: absolute`) would scroll away with the notes
+    instead of staying put — used `position: fixed` for
+    `#taskDetailPageBg::before`/`::after` instead (same technique
+    `example.html`'s own fixed decorative background layers already
+    use in this file), so the photo/scanline stay anchored to the
+    viewport while the notes list scrolls over them.
+  - **Avoided duplicating the ~50KB encoded background photo a second
+    time**: pulled it into a new `--hb-bg-photo` custom property
+    defined once at `:root` (`url("data:image/jpeg;base64,...")`), with
+    both `#atPanelHabits::before`/`#atPanelTasks::before` (already
+    combined into one rule, `position: absolute`) and the new
+    `#taskDetailPageBg::before` (`position: fixed`) referencing it via
+    `var(--hb-bg-photo)` instead of each carrying their own inline copy
+    — same base64 payload, extracted once from the file's existing
+    embedded copy and substituted programmatically (not re-derived from
+    the original image) so it's guaranteed byte-identical, confirmed
+    the original inline `url(...)` occurred exactly once before the
+    swap.
+  - Verified in headless Edge with Supabase blocked: the Tasks panel
+    renders the same wine/rose gradient + tinted photo + scanline
+    backdrop as Habits & Routines with matching notched task rows/mono
+    labels; the Add Task modal and the task detail ("📄 Open") page both
+    show the same recolor; added a note via "+ Notes", confirmed it
+    saves/renders/reorders/deletes exactly as before; confirmed
+    `#workflowDayPageBg` (Business Workflow's day detail, same `.wfd-*`
+    classes) is visually unchanged; and reconfirmed all 9 nav pills and
+    all 7 Main sub-tabs are still present. Zero console errors.
