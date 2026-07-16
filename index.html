@@ -721,10 +721,17 @@ body::after {
   font-family: var(--font-mono); color: var(--at-cream); letter-spacing: 0.02em;
 }
 #atPanelOverview .ov-area-row-empty, #atPanelOverview .ov-biz-row-meta, #atPanelOverview .ov-self-row-meta { color: var(--text-tertiary); font-size: 11.5px; }
+/* Self-Discovery rows use their own head layout (badge + title, left-
+   aligned with a gap) rather than .ov-area-row-head's space-between —
+   that one's built for a "name ... percent" pair and left a wide gap
+   between the type badge and the title when reused here. */
+#atPanelOverview .ov-self-row-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+#atPanelOverview .ov-self-row-head .goal-card-tag { flex-shrink: 0; margin-top: 1px; }
+#atPanelOverview .ov-self-row-title { flex: 1; min-width: 0; }
 #atPanelOverview .goal-card-tag {
   font-family: var(--font-mono); background: rgba(224,138,159,0.10); border: 1px solid var(--at-border); color: var(--text-secondary);
 }
-#atPanelOverview .ov-ext-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; padding: 0 4px 14px; }
+#atPanelOverview .ov-ext-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; padding: 0 4px 14px; }
 #atPanelOverview .ov-ext-tile {
   display: block; text-decoration: none;
   background: rgba(224,138,159,0.045); border: 1px solid var(--at-border);
@@ -747,7 +754,10 @@ body::after {
    this page (buildNoteSectionCard), plus the .hb-media-* grid already
    built for Habit media (generic, not habit-specific — reused verbatim,
    same as this app reuses .ent-card/.ent-cover across gallery pages). */
-#atPanelOverview .dream-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 4px; }
+/* auto-fit + a bounded max (not auto-fill + 1fr) so a single card sits at
+   a natural width instead of stretching edge-to-edge on a wide screen —
+   the bug an early desktop-width pass surfaced. */
+#atPanelOverview .dream-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 380px)); gap: 12px; padding: 0 4px; }
 #atPanelOverview .dream-card {
   background: rgba(224,138,159,0.045); border: 1px solid var(--at-border);
   clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
@@ -768,6 +778,15 @@ body::after {
 #atPanelOverview .dream-card textarea.at-textarea:focus { outline: none; border-color: var(--at-gold-dim); }
 #atPanelOverview .hb-media-thumb { border-color: var(--at-border); }
 #atPanelOverview .dream-add-row { margin-bottom: 14px; }
+/* The habit modal's .hb-media-url-row select/input sizing rules require
+   a .field ancestor (see the shared CSS above); the Dream card's copy of
+   this row isn't inside one, so it needs its own explicit sizing here —
+   otherwise the text input falls back to its browser-default width
+   instead of flexing/shrinking to the card's actual width. */
+#atPanelOverview .hb-media-url-row select { flex-shrink: 0; width: auto; background: rgba(0,0,0,0.25); border: 1px solid var(--at-border); color: var(--text-primary); border-radius: 2px; font-family: var(--font); font-size: 12px; padding: 6px 4px; }
+#atPanelOverview .hb-media-url-row input[type="text"] { flex: 1; min-width: 0; background: rgba(0,0,0,0.25); border: 1px solid var(--at-border); color: var(--text-primary); border-radius: 2px; font-family: var(--font); font-size: 12.5px; padding: 6px 8px; }
+#atPanelOverview .hb-media-url-row input[type="text"]::placeholder { color: var(--text-tertiary); }
+#atPanelOverview .hb-media-url-row input[type="text"]:focus, #atPanelOverview .hb-media-url-row select:focus { outline: none; border-color: var(--at-gold-dim); }
 
 @media (max-width: 640px) { #atPanelHabits, #atPanelTasks, #atPanelOverview { margin: 0 -12px; padding: 16px 10px 4px; } }
 
@@ -2184,7 +2203,7 @@ body::after {
     entries.forEach(function (entry) {
       var row = document.createElement('div'); row.className = 'ov-self-row';
       row.addEventListener('click', function () { openEntryModal(entry); });
-      var head = document.createElement('div'); head.className = 'ov-area-row-head';
+      var head = document.createElement('div'); head.className = 'ov-self-row-head';
       var badge = document.createElement('span'); badge.className = 'goal-card-tag'; badge.textContent = entryTypeLabel(entry.type);
       head.appendChild(badge);
       var title = document.createElement('span'); title.className = 'ov-self-row-title'; title.textContent = entry.title || '(untitled)';

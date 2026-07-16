@@ -2832,3 +2832,57 @@ between this app and either data loss or a wide-open write target:
     page was disturbed); confirmed all 8 nav pills and all 7 Main
     sub-tabs are still present; confirmed no horizontal overflow at a
     390px mobile viewport; and confirmed zero console errors throughout.
+
+- **Overview layout follow-up: fixed a desktop-only stretch bug and a
+  misaligned Self-Discovery row, found by actually screenshotting the
+  page at a real desktop width (1440px) instead of only the narrower
+  width used above.** Two real bugs, not just polish:
+  - **Dream Life cards stretched edge-to-edge on wide screens.**
+    `.dream-grid` used `repeat(auto-fill, minmax(260px, 1fr))` — with
+    only one card, `auto-fill` still only creates as many tracks as fit
+    (one, when there's only one card wider than the container's
+    remaining space), so that single track's `1fr` stretched the card
+    across the full ~1100px content width instead of sitting at a
+    natural size. Fixed by switching to `repeat(auto-fit, minmax(260px,
+    380px))` — a bounded max instead of `1fr`, so a card never grows
+    past 380px regardless of how few there are, while `auto-fit` still
+    lets multiple cards sit side-by-side once there's enough of them.
+  - **Self-Discovery rows had a wide, dead gap between the type badge
+    and the title.** `renderOverviewSelf` reused `.ov-area-row-head`
+    (built for the Life Area rows' "name ... percent" pair, i.e.
+    `justify-content: space-between`) for its own "badge + title" pair,
+    which has nothing to push to the far right — so the badge sat
+    pinned left and the title got shoved to the far right edge with a
+    large empty gap between them. Fixed with a dedicated
+    `.ov-self-row-head` (`flex-start` + a small gap, title `flex:1;
+    min-width:0` so a long title wraps naturally instead of overflowing
+    or forcing the row wider) instead of reusing a class built for a
+    different layout shape.
+  - **Connected Apps grid's column width bumped 220px → 260px** so 7
+    tiles split 4-then-3 instead of 5-then-2 at common desktop widths —
+    a minor balance fix, not a bug, done at the same time since it was
+    visible in the same screenshot pass.
+  - **The Dream card's photo/video URL row (select + text input + Add
+    button) needed its own explicit sizing.** The shared
+    `.hb-media-url-row select`/`input[type="text"]` sizing rules
+    (`flex-shrink:0`/`flex:1; min-width:0`) are scoped under `.field`,
+    since that's the only place this row existed before (inside the
+    Habit modal's `.field`-wrapped rows). The Dream card's copy of this
+    row isn't inside a `.field`, so without an explicit rule the text
+    input would've fallen back to its browser-default intrinsic width
+    instead of flexing to the card's actual width — added
+    `#atPanelOverview .hb-media-url-row select/input[type="text"]`
+    rules (sizing + this page's own dark-field look) so it behaves
+    identically without requiring a `.field` wrapper that isn't there.
+  - Verified in headless Edge at both 1440px desktop and 390px mobile
+    with the same seeded dataset as the entry above (one Dream Life
+    entry with an image, 3 habits, 2 tasks including a long title, 2
+    life areas, a business, and a long-titled Self-Discovery entry, plus
+    all 7 Connected Apps sources): the Dream card now sits at a natural
+    ~380px width on desktop instead of stretching full-width; the
+    Self-Discovery row's badge and title now sit close together with the
+    title wrapping onto multiple lines on both narrow and wide screens
+    instead of being pushed apart; Connected Apps renders a 4-then-3
+    split at 1440px; the media URL row fits on one line with no overflow
+    at 390px; no horizontal overflow at 390px either before or after;
+    and zero console errors.
