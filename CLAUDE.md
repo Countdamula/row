@@ -3366,3 +3366,68 @@ between this app and either data loss or a wide-open write target:
   - **Testing note**: same environment limitation as the two preceding
     entries — verified statically (event wiring/ID cross-check, brace/
     paren balance), not in a live browser.
+
+- **Dream Board (`dreamboard.html`/`dreamboard-data.js`): fixed a real
+  data-loss bug — reloading a device with empty local storage could wipe
+  another device's real data.** Reported behavior: edit the cover photo
+  and a widget's color grading on the computer, it doesn't show up on
+  the phone, and reloading the phone actually deletes the computer's
+  progress. Root-caused, not just patched around.
+  - **The bug**: `dreamboard-data.js`'s `seedIfEmpty()` ran automatically
+    and synchronously the moment this script loaded — on *any* device,
+    the very first time its local storage had no `dreamboard:` data yet
+    (a genuine first visit to this page, or storage that got cleared).
+    It would immediately write a full default board, well before
+    `initCloudSync()` (only called later, from `dreamboard.html`'s own
+    `init()`) ever got a chance to check whether real cloud data
+    existed. That write got marked "dirty" by `sync.js`'s
+    `localStorage.setItem` wrapper and pushed to Supabase as "this
+    device's changes" — overwriting the real data other devices had
+    already saved. This is a bug in this page's own code, not in the
+    shared `sync.js` (not modified) — the seeding logic simply never
+    coordinated with the sync pull at all.
+  - **The fix**: `seedIfEmpty()` is no longer called automatically.
+    `dreamboard.html`'s `init()` now only seeds as an explicit fallback,
+    and only when local storage was empty *and* the cloud pull hasn't
+    delivered anything after a generous window: it calls
+    `initCloudSync(...)` first, tracks whether its `onApplied` callback
+    ever fires (meaning real remote data arrived and was applied), and
+    schedules `maybeSeedAfterSyncAttempt()` via `setTimeout(…, 2500)` —
+    which bails out immediately if real data already arrived, or if
+    anything already showed up locally by the time it runs. If the
+    Supabase SDK isn't even available (`initCloudSync` undefined), it
+    seeds immediately instead, since there's no cloud to race against.
+    `normalizeTabs()` (the hero-backfill fix from two entries above)
+    stays automatic — it only ever backfills fields on records that
+    already exist, so it's a no-op on empty storage and can't clobber
+    anything, unlike full seeding.
+  - **Residual risk, disclosed rather than hidden**: this converts what
+    was a *near-guaranteed* clobber (every first load of an empty
+    device) into a narrow one (only if the cloud pull takes longer than
+    ~2.5 seconds, or the device is offline at that exact moment) — a
+    timing-based mitigation, not a fully race-proof one, because a truly
+    race-proof fix would mean changing how `sync.js` itself sequences
+    pull-vs-local-write, which is shared by four other pages and out of
+    scope here without being asked to touch it directly.
+  - **Separately, "changes don't appear on the other device until I
+    reload"**: this part is expected behavior, not a bug this pass
+    fixes. `sync.js`'s live cross-device push relies on a Supabase
+    Realtime subscription that stays open only while the tab is active;
+    mobile browsers throttle or drop that connection for backgrounded
+    tabs (a widely-documented browser behavior, not specific to this
+    app), so a phone tab that's been sitting in the background won't see
+    a computer's edits until it's reloaded or refocused — same as every
+    other page in this app built on `sync.js`. A true "always live, no
+    reload needed" fix would require changing `sync.js`'s own reconnect/
+    re-pull behavior, which wasn't touched here for the same
+    shared-file-scope reason as above.
+  - **Testing note**: same environment limitation as the three preceding
+    entries — this is a timing/race fix that would ideally be verified
+    by loading the page with empty `localStorage` against a populated
+    remote row and confirming the local board is never overwritten
+    before `onApplied` fires, but that requires the live, two-device (or
+    at least two-profile) browser testing this environment's headless-Edge
+    automation still can't do here (see the testing notes above for
+    why). Verified statically only: the control-flow logic was re-read
+    end to end, and `DB.seedIfEmpty` is still exported and reachable
+    from `dreamboard.html`, just no longer auto-invoked.

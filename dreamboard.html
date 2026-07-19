@@ -1605,11 +1605,37 @@ body::after {
     $('dbDayNoteClearBtn').addEventListener('click', function () { $('dbDayNoteInput').value = ''; });
     $('dbDayNoteSaveBtn').addEventListener('click', saveDayNote);
 
+    // ------------------------------------------------------------
+    // Seeding a default board is now deliberately deferred until AFTER
+    // the cloud has had a real chance to answer (see the note at the
+    // bottom of dreamboard-data.js). Seeding immediately and
+    // unconditionally, like this used to, meant: a device with empty
+    // local storage — its first-ever visit, or storage that got cleared —
+    // would write a full default board *before* ever checking whether
+    // real cloud data existed, and that write would then get pushed to
+    // Supabase as "this device's changes," overwriting another device's
+    // real data. That's the exact failure mode reported: editing on one
+    // device, then reloading a device with no local copy yet, wiping the
+    // first device's progress.
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return; // real cloud data already arrived — never seed over it
+      if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0) return; // something already showed up locally
+      DB.seedIfEmpty();
+      const freshTabs = DB.tabsSorted();
+      activeTabId = (freshTabs[0] || {}).id || null;
+      storeSet(ACTIVE_TAB_KEY, activeTabId);
+      renderHero();
+      renderTabs();
+      renderBoard();
+    }
+
     if (typeof initCloudSync === 'function') {
       initCloudSync({
         appKey: 'dreamboard',
         syncedPrefixes: ['dreamboard:'],
         onApplied: function () {
+          remoteAppliedOnce = true;
           const tabs2 = DB.tabsSorted();
           if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
           renderHero();
@@ -1617,6 +1643,17 @@ body::after {
           renderBoard();
         }
       });
+      if (tabs.length === 0) {
+        // Nothing locally yet on this device. Give the cloud pull a
+        // generous window (Supabase reads typically resolve in well
+        // under a second) before assuming this is genuinely a first-ever
+        // use rather than just "hasn't synced down yet."
+        setTimeout(maybeSeedAfterSyncAttempt, 2500);
+      }
+    } else if (tabs.length === 0) {
+      // No cloud sync available at all (e.g. the Supabase SDK failed to
+      // load) — nothing to race against, so it's safe to seed right away.
+      maybeSeedAfterSyncAttempt();
     }
   }
 

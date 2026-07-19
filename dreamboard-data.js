@@ -405,7 +405,20 @@
     seedDefaultBoard();
   }
 
-  seedIfEmpty();
+  // seedIfEmpty() is deliberately NOT called automatically here anymore —
+  // see dreamboard.html's init()/maybeSeedAfterSyncAttempt() for why. In
+  // short: this script runs and would seed synchronously, well before
+  // initCloudSync() (called later, from dreamboard.html's own init()) has
+  // any chance to pull real cloud data. On a device with empty local
+  // storage — its first-ever visit to this page, or storage that got
+  // cleared — that meant seeding a full default board immediately, which
+  // then got pushed to Supabase as this device's "local changes,"
+  // overwriting another device's real data before this device ever found
+  // out real data existed. dreamboard.html now calls seedIfEmpty() itself,
+  // but only as a fallback after giving the cloud pull a real chance to
+  // land first. normalizeTabs() stays automatic — it only backfills
+  // missing fields on records that already exist, so it's a no-op on an
+  // empty board and can't clobber anything.
   normalizeTabs();
 
   // ============================================================
