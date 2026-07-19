@@ -3527,3 +3527,14 @@ between this app and either data loss or a wide-open write target:
   explanation for the recurrence. A fully race-proof fix (no timing
   heuristic at all) would mean touching `sync.js`, shared by four other
   pages — not done here without being asked to specifically.
+
+- **Fixed a dead end: a hero video cover missing its session-only blob
+  (e.g. after a reload) showed only the "re-attach" prompt, with no way
+  to remove it or switch to a photo instead** unless you happened to
+  have that exact video file to re-select. `renderHero()` now also shows
+  the Change/Remove tools alongside the re-attach prompt in that state
+  (`.db-hero-photo-tools` already sits at `z-index: 5` above
+  `.db-hero-reattach`'s `z-index: 1`, so both render together without a
+  layout change) — Remove clears back to the "+ Add a cover photo/video"
+  choice, Change opens a picker for a *new* video, and Re-attach still
+  works for the original file if you have it.
