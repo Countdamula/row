@@ -204,6 +204,29 @@
   const Tabs = makeCollection(KEYS.tabs, tabModel);
   const Widgets = makeCollection(KEYS.widgets, widgetModel);
 
+  // `list()`/`get()` return raw stored JSON as-is (see makeCollection above) —
+  // they never re-run a record through its model factory, only add()/update()
+  // do. That's fine for fields that existed when a record was first written,
+  // but tabs saved before the per-tab `hero` field existed are missing it
+  // entirely, and every hero-reading function in dreamboard.html assumes
+  // `tab.hero` is always an object. Left unpatched, the very first read of
+  // `tab.hero.eyebrow` on such a tab throws before anything else in the page's
+  // boot sequence runs — which looked like "all my data got deleted and
+  // nothing is clickable" (nothing rendered AND no event listeners got wired,
+  // since both come after that line), when the underlying data was actually
+  // untouched. Runs once per load, right after seedIfEmpty(), and persists
+  // the backfill so it's a one-time fix per tab, not a per-render patch.
+  function normalizeTabs() {
+    const tabs = Tabs.list();
+    let changed = false;
+    const fixed = tabs.map(function (t) {
+      if (t && t.hero && typeof t.hero === 'object') return t;
+      changed = true;
+      return tabModel(t);
+    });
+    if (changed) Tabs.replaceAll(fixed);
+  }
+
   function removeTab(id) {
     Tabs.remove(id);
     Widgets.replaceAll(Widgets.list().filter(function (w) { return w.tabId !== id; }));
@@ -354,6 +377,7 @@
   }
 
   seedIfEmpty();
+  normalizeTabs();
 
   // ============================================================
   // PUBLIC API
@@ -374,6 +398,7 @@
     reorderTab: reorderTab,
     todayStepsCount: todayStepsCount,
     seedDefaultBoard: seedDefaultBoard,
-    seedIfEmpty: seedIfEmpty
+    seedIfEmpty: seedIfEmpty,
+    normalizeTabs: normalizeTabs
   };
 })(window);
