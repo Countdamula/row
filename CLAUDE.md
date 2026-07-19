@@ -3301,3 +3301,68 @@ between this app and either data loss or a wide-open write target:
     (every new `$('id')` reference cross-matched against the HTML, brace/
     paren balance confirmed after each edit) rather than click-tested in
     a real browser.
+
+- **Dream Board (`dreamboard.html`): labeled the existing custom color
+  picker, then hardened save/sync reliability, especially around cover
+  photos.** Two small follow-ups landed together.
+  - The per-widget color-grading popover's native `<input type="color">`
+    already existed from the previous pass but had no visible label —
+    just a small unlabeled swatch box, easy to mistake for decoration.
+    Added "Quick colors"/"Custom color" section labels, a live hex
+    readout next to the picker (updates while dragging, via the same
+    `input`-event listener that already drove the live preview), and
+    enlarged the swatch itself (32×28 → 44×34) for an easier phone tap
+    target.
+  - **Sync reliability**: traced through `sync.js` (not modified — see
+    CLAUDE.md DO NOT MODIFY §1, it's shared by `index.html`/
+    `finance.html`/`entertainment.html`/`braindump.html`/`dreamboard.html`)
+    to find what could make "computer and phone don't match" actually
+    happen. Mechanically, any `dreamboard:`-prefixed write already
+    auto-pushes to Supabase ~250ms after it happens and pulls + live-
+    subscribes on load, same as every other page using it — that part
+    isn't broken. Two real, fixable gaps found within this page's own
+    code (not sync.js):
+    - `dreamboard-data.js`'s `storeSet()` swallowed a failed
+      `localStorage.setItem()` entirely (bare `try/catch(e){}`). A full
+      per-origin storage quota — easy to approach with several full-size
+      cover photos across four tabs — would silently drop an edit with
+      zero signal, which looks identical to "sometimes it just doesn't
+      save." `storeSet()` now dispatches a `dreamboard:save` CustomEvent
+      (`{key, ok, error?}`) on every write, success or failure, so the
+      page can react honestly instead of guessing.
+    - A new `#dbSyncStatus` indicator (next to Add Widget/Reset)
+      listens for that event plus the browser's own `online`/`offline`
+      events and shows one of: idle ("Changes save automatically"),
+      "Saved — syncing…" → "Synced" a couple seconds later, a persistent
+      error ("Couldn't save — your browser's storage may be full") on a
+      real write failure, or "Offline — will sync when reconnected."
+      Deliberately scoped to what's actually verifiable from here: it
+      confirms *this device's local write* succeeded or failed and
+      whether the browser is online, but it does **not** and cannot
+      claim to confirm the cross-device Supabase push itself completed
+      — that lifecycle lives entirely in `sync.js`, which this page
+      doesn't touch, so the status text says "syncing"/"synced" as a
+      reasonable expectation given `sync.js`'s known ~250ms debounce,
+      not as a guarantee.
+    - Hero photos were trimmed from 1400px/0.82 to 1100px/0.78 — still
+      plenty sharp as a blurred full-page backdrop, meaningfully smaller
+      as a stored payload, lowering the odds of hitting the quota issue
+      above in the first place (a photo is the single largest thing this
+      page stores, up to four of them).
+  - **Known, disclosed limitation, not fixed**: browsers cap `fetch(...,
+    {keepalive:true})` payloads at 64KB, and `sync.js`'s `flushOnUnload()`
+    (its `beforeunload`/`pagehide` safety-net push) uses exactly that.
+    A large cover photo edit followed by closing the tab or switching
+    devices within roughly a second — before the normal debounced push
+    finishes — could in principle miss that unload-time fallback. Fixing
+    it would mean changing `flushOnUnload()` itself, which is inside the
+    protected shared `sync.js` used by five pages, not something this
+    pass touches without being asked to specifically. Practical
+    mitigation in the meantime: the smaller hero-photo size above, plus
+    simply giving it a couple of seconds after a big change (a cover
+    photo especially) before closing the tab or switching devices — the
+    normal debounced push (not the unload fallback) handles that
+    reliably regardless of payload size.
+  - **Testing note**: same environment limitation as the two preceding
+    entries — verified statically (event wiring/ID cross-check, brace/
+    paren balance), not in a live browser.

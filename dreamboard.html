@@ -216,7 +216,20 @@ body::after {
   background: var(--db-paper-solid); border: 1px solid var(--db-gold); border-radius: 999px;
   padding: 6px 10px; font-size: 12.5px; font-weight: 600; color: var(--db-text); width: 140px;
 }
-.db-tab-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.db-tab-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.db-sync-status {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--db-text-mute);
+  display: flex; align-items: center; gap: 5px;
+}
+.db-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--db-text-mute); flex-shrink: 0; }
+.db-sync-status.is-saved .db-sync-status-dot { background: var(--success); }
+.db-sync-status.is-saved { color: var(--db-text-dim); }
+.db-sync-status.is-error, .db-sync-status.is-offline { color: var(--danger); }
+.db-sync-status.is-error .db-sync-status-dot, .db-sync-status.is-offline .db-sync-status-dot {
+  background: var(--danger); animation: db-sync-pulse 1.4s ease-in-out infinite;
+}
+@keyframes db-sync-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.5); } 50% { box-shadow: 0 0 0 4px rgba(255,107,107,0); } }
+@media (max-width: 480px) { .db-tab-actions { width: 100%; justify-content: space-between; } }
 
 .db-btn-primary, .db-btn-secondary, .db-btn-ghost {
   border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 700;
@@ -298,20 +311,28 @@ body::after {
   margin: 8px 0 4px; padding: 10px; border-radius: var(--radius-md);
   background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.16);
 }
-.dw-tint-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.dw-tint-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--db-text-mute); margin-bottom: 6px;
+}
+.dw-tint-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .dw-tint-swatch {
   width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4); cursor: pointer;
   display: flex; align-items: center; justify-content: center; font-size: 11px;
 }
 .dw-tint-swatch:hover { border-color: var(--db-gold-bright); }
 .dw-tint-swatch-photo:disabled { opacity: 0.3; cursor: not-allowed; }
-.dw-tint-custom-row { display: flex; align-items: center; gap: 8px; }
+.dw-tint-custom-row { display: flex; align-items: center; gap: 10px; }
 .dw-tint-custom-row input[type="color"] {
-  width: 32px; height: 28px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 0;
-  background: none; cursor: pointer;
+  width: 44px; height: 34px; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 0;
+  background: none; cursor: pointer; flex-shrink: 0;
 }
-.dw-tint-custom-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.dw-tint-custom-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
 .dw-tint-custom-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.dw-tint-hex {
+  flex: 1; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  color: var(--db-text-dim); letter-spacing: 0.03em;
+}
 .dw-tint-clear {
   background: transparent; border: 1px solid rgba(255,255,255,0.22); color: var(--db-text-dim);
   border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;
@@ -555,6 +576,7 @@ body::after {
     <div class="db-tabs-row">
       <div class="db-tabs" id="dbTabs"></div>
       <div class="db-tab-actions">
+        <span class="db-sync-status" id="dbSyncStatus"></span>
         <button type="button" class="db-btn-secondary" id="dbAddWidgetBtn">+ Add Widget</button>
         <button type="button" class="db-btn-ghost" id="dbResetBtn">Reset to Default</button>
       </div>
@@ -650,6 +672,40 @@ body::after {
   function closeModal(el) { el.classList.remove('show'); }
   function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
 
+  // ============================================================
+  // SYNC STATUS — honest, local-only feedback. This confirms a write to
+  // *this device's* localStorage succeeded or failed (via the
+  // 'dreamboard:save' event dreamboard-data.js's storeSet() now dispatches
+  // every time); it can't confirm the actual cross-device Supabase push
+  // completed, since that lives entirely in sync.js, which this page
+  // (like every other page in this app) doesn't modify. What it CAN catch
+  // honestly: a failed local write (e.g. localStorage quota exceeded —
+  // the most likely way a cover-photo-heavy board silently stops saving)
+  // and whether the browser is currently offline (sync.js can't push
+  // anywhere without a connection either way).
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('dbSyncStatus');
+    if (!el) return;
+    el.className = 'db-sync-status' + (mode ? ' is-' + mode : '');
+    el.textContent = '';
+    const dot = document.createElement('span'); dot.className = 'db-sync-status-dot';
+    const label = document.createElement('span'); label.className = 'db-sync-status-text'; label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) {
+      setSyncStatus('error', "Couldn't save — your browser's storage may be full. Try removing a photo.");
+      return;
+    }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () {
+      if (navigator.onLine) setSyncStatus('saved', 'Synced');
+    }, 1800);
+  }
+
   function wireInlineEdit(el, onCommit, opts) {
     opts = opts || {};
     let original = el.textContent;
@@ -740,7 +796,12 @@ body::after {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async function () {
-      const compressed = await DB.compressImageDataUrl(String(reader.result), 1400, 0.82);
+      // Trimmed from 1400/0.82 — a hero photo is the single largest payload
+      // on this page (up to 4 of them, one per tab), and localStorage has a
+      // hard per-origin quota; a smaller, still-plenty-sharp-as-a-blurred-
+      // backdrop size meaningfully lowers the odds of a quota failure (now
+      // surfaced, see dreamboard-data.js's storeSet(), but better avoided).
+      const compressed = await DB.compressImageDataUrl(String(reader.result), 1100, 0.78);
       const color = await extractDominantColor(compressed);
       patchHero({ photo: compressed, photoColor: color });
       renderHero();
@@ -1195,6 +1256,10 @@ body::after {
   }
   function buildTintPopover(widget) {
     const pop = document.createElement('div'); pop.className = 'dw-tint-popover';
+
+    const presetsLabel = document.createElement('div'); presetsLabel.className = 'dw-tint-label'; presetsLabel.textContent = 'Quick colors';
+    pop.appendChild(presetsLabel);
+
     const swatchRow = document.createElement('div'); swatchRow.className = 'dw-tint-swatches';
     TINT_PRESETS.forEach(function (hex) {
       const sw = document.createElement('button');
@@ -1214,18 +1279,31 @@ body::after {
     swatchRow.appendChild(photoSw);
     pop.appendChild(swatchRow);
 
+    // Custom color picker — a real, fully-labeled <input type="color">
+    // (native OS/browser color wheel), not just the small unlabeled swatch
+    // box this had before. A live hex readout next to it makes it obvious
+    // this is an interactive picker, not decoration, and confirms exactly
+    // what's selected while dragging inside the picker.
+    const customLabel = document.createElement('div'); customLabel.className = 'dw-tint-label'; customLabel.textContent = 'Custom color';
+    pop.appendChild(customLabel);
+
     const customRow = document.createElement('div'); customRow.className = 'dw-tint-custom-row';
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
     const eff = effectiveTint(widget);
-    colorInput.value = (eff && /^#[0-9a-f]{6}$/i.test(eff)) ? eff : '#c9a876';
+    const startHex = (eff && /^#[0-9a-f]{6}$/i.test(eff)) ? eff : '#c9a876';
+    colorInput.value = startHex;
     colorInput.setAttribute('aria-label', 'Pick a custom color');
-    colorInput.addEventListener('input', function () { previewWidgetTint(widget.id, colorInput.value); });
+    const hexReadout = document.createElement('span'); hexReadout.className = 'dw-tint-hex'; hexReadout.textContent = startHex.toUpperCase();
+    colorInput.addEventListener('input', function () {
+      previewWidgetTint(widget.id, colorInput.value);
+      hexReadout.textContent = colorInput.value.toUpperCase();
+    });
     colorInput.addEventListener('change', function () { setWidgetTint(widget.id, colorInput.value); });
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button'; clearBtn.className = 'dw-tint-clear'; clearBtn.textContent = 'Clear';
     clearBtn.addEventListener('click', function () { setWidgetTint(widget.id, null); });
-    customRow.appendChild(colorInput); customRow.appendChild(clearBtn);
+    customRow.appendChild(colorInput); customRow.appendChild(hexReadout); customRow.appendChild(clearBtn);
     pop.appendChild(customRow);
     return pop;
   }
@@ -1492,6 +1570,11 @@ body::after {
     renderHero();
     renderTabs();
     renderBoard();
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('dreamboard:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
 
     wireInlineEdit($('dbHeroEyebrow'), function (v) { patchHero({ eyebrow: v }); }, { allowEmpty: true });
     wireInlineEdit($('dbHeroSubtext'), function (v) { patchHero({ subtext: v }); }, { allowEmpty: true });

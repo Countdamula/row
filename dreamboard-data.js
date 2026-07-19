@@ -34,7 +34,20 @@
     catch (e) { return null; }
   }
   function storeSet(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    // This used to swallow a failed write entirely — if localStorage's
+    // quota was full (easy to hit with a few full-size cover photos
+    // across four tabs), the edit would just silently vanish with zero
+    // signal, which looks exactly like "sometimes it doesn't save/sync."
+    // A `dreamboard:save` event now fires either way so dreamboard.html
+    // can show a real, honest status (not a guess about whether the
+    // *cross-device* push also succeeded — sync.js owns that part and
+    // isn't touched here — just whether this device's local write did).
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      try { window.dispatchEvent(new CustomEvent('dreamboard:save', { detail: { key: key, ok: true } })); } catch (e2) {}
+    } catch (e) {
+      try { window.dispatchEvent(new CustomEvent('dreamboard:save', { detail: { key: key, ok: false, error: e } })); } catch (e2) {}
+    }
   }
 
   const KEYS = {
