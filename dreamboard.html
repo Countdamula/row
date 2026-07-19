@@ -1791,6 +1791,29 @@ body::after {
       // load) — nothing to race against, so it's safe to seed right away.
       maybeSeedAfterSyncAttempt();
     }
+
+    // One-time repair: the Vision Board tab got stuck with mediaType:
+    // 'video' pointing at a session-only blob that's gone after any
+    // reload (by design — see CLAUDE.md §2/§4), with no local file to
+    // re-attach. Resets it back to a clean "no cover yet" photo state so
+    // it's usable again. Placed *after* initCloudSync() above (not in
+    // dreamboard-data.js's own load-time IIFE) specifically so this
+    // write happens once the localStorage.setItem monkeypatch is already
+    // active — that marks it "dirty," which protects it from being
+    // silently overwritten by a stale (still-stuck) remote copy the
+    // instant the cloud pull resolves, and ensures it actually gets
+    // pushed so the other device converges to the same fixed state
+    // instead of only fixing whichever device happens to load first.
+    // Guarded so it only ever runs once, not every load.
+    if (!storeGet('dreamboard:visionboard_video_fix_v1')) {
+      const vb = DB.Tabs.list().find(function (t) { return t.title === 'Vision Board'; });
+      if (vb && vb.hero && vb.hero.mediaType === 'video') {
+        revokeHeroVideoBlob(vb.id);
+        DB.Tabs.update(vb.id, { hero: Object.assign({}, vb.hero, { mediaType: 'image', photo: '', photoColor: '' }) });
+        if (vb.id === activeTabId) { renderHero(); renderBoard(); }
+      }
+      storeSet('dreamboard:visionboard_video_fix_v1', true);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

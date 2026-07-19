@@ -3538,3 +3538,34 @@ between this app and either data loss or a wide-open write target:
   layout change) — Remove clears back to the "+ Add a cover photo/video"
   choice, Change opens a picker for a *new* video, and Re-attach still
   works for the original file if you have it.
+
+- **One-time repair: reset the Vision Board tab's stuck video cover back
+  to a clean photo-ready state, on both devices.** The previous entry's
+  fix made the stuck state *usable* (Change/Remove now show); this pass
+  actually clears it, since the request was for Vision Board's cover to
+  go back to "photo only" outright, not just be recoverable. There's no
+  way for this session to reach into the user's actual browser storage
+  directly, so this is a guarded, automatic migration
+  (`dreamboard:visionboard_video_fix_v1`) that runs once per device,
+  in `dreamboard.html`'s `init()`: finds the tab titled "Vision Board,"
+  and if its `hero.mediaType` is still `'video'`, resets it to
+  `{ mediaType: 'image', photo: '', photoColor: '' }`.
+  - **Deliberately placed after `initCloudSync(...)` is called, not in
+    dreamboard-data.js's own load-time IIFE** (unlike `normalizeTabs()`,
+    which runs earlier). `initCloudSync` monkey-patches
+    `localStorage.setItem`/`removeItem` synchronously, before its own
+    async cloud pull starts — running the repair after that call means
+    this write gets marked "dirty" immediately, which (a) protects it
+    from being silently overwritten the instant the pull resolves with
+    a stale, still-stuck remote copy, and (b) means it actually gets
+    pushed, so *both* devices converge to the same fixed state once
+    they've each loaded this update — not just whichever one happens to
+    load first. Confirmed idempotent regardless of which device runs it
+    first: the target state is identical either way, so even if both
+    devices independently apply the fix before ever seeing each other's
+    push, they still converge, not conflict.
+  - Scoped to the tab titled "Vision Board" specifically (matches this
+    request exactly) rather than resetting every video cover on the
+    board — a tab renamed away from that exact title afterward simply
+    won't match, which is expected for a targeted one-time cleanup, not
+    a standing rule.
