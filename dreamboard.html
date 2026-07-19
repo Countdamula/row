@@ -58,9 +58,9 @@ body::before {
   content: '';
   position: fixed; inset: -10%; z-index: -2;
   background:
-    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.14) 0%, transparent 55%),
-    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.10) 0%, transparent 55%),
-    linear-gradient(180deg, #0b0a08 0%, #050403 100%);
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
   filter: blur(40px) saturate(1.05);
   pointer-events: none;
 }
@@ -70,6 +70,23 @@ body::after {
   background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 3px 3px;
   opacity: 0.6;
+  pointer-events: none;
+}
+/* ===== Page-wide cover-photo backdrop — the active tab's hero photo,
+   blurred and dimmed, shown behind the ENTIRE page (not just the hero),
+   so every glass widget card below actually has something colorful to
+   blur/reveal (see the reference photo: a frosted card over a full sky
+   photo, not over a flat color). body::before/after (above) sit on top
+   of this at reduced opacity for legibility; when a tab has no cover
+   photo, this layer is simply empty and the plain dark gradient shows
+   through unchanged. Updated by renderPageBg() whenever the active tab
+   or its photo changes. ===== */
+#dbPageBg {
+  position: fixed; inset: 0; z-index: -3;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
   pointer-events: none;
 }
 
@@ -219,16 +236,33 @@ body::after {
 @media (max-width: 620px) { .db-board { grid-template-columns: 1fr; } }
 .db-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 40px; }
 
-/* ===== Widget card chassis — dark glass, gold hairline, numbered index +
-   decorative arrow (top row) echoing the reference's "01 / ↗" card corners,
-   with drag/wide/delete tucked into a subtle hover-reveal row so the
-   numbered-card look stays clean. ===== */
+/* ===== Widget card chassis — real frosted glass over the page's cover-
+   photo backdrop (#dbPageBg), gold hairline, numbered index + decorative
+   arrow (top row) echoing the reference's "01 / ↗" card corners, with
+   drag/wide/delete tucked into a subtle hover-reveal row so the numbered-
+   card look stays clean. Each card can carry its own color-grading tint
+   (a widget's `tint` field, resolved via effectiveTint() in the script
+   below) painted by the ::before layer using the --tint custom property
+   set inline per-card — a real DOM overlay would also work but a
+   pseudo-element keeps the glass blur/border on the card itself
+   untouched by the tint. ===== */
 .dw-card {
-  background: var(--db-paper); border: 1px solid var(--db-hairline); border-radius: var(--radius-lg);
-  padding: 16px 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 16px 16px 18px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
+  --tint: transparent;
 }
-.dw-card-blush { background: var(--db-accent-tint); border-color: var(--db-gold); }
-.dw-card-ghost { opacity: 0.4; border: 1px dashed var(--db-gold); background: var(--db-accent-tint); }
+.dw-card::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: var(--tint); opacity: 0.32;
+}
+.dw-card-head, .dw-card-title-row, .dw-card-body { position: relative; z-index: 1; }
+.dw-card-ghost { opacity: 0.4; border: 1px dashed var(--db-gold); background: rgba(201,168,118,0.12); }
 .sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 
 .dw-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
@@ -249,6 +283,40 @@ body::after {
 .dw-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
 .dw-wide-toggle { font-size: 9.5px; letter-spacing: 0.05em; }
 .dw-wide-toggle:hover { background: var(--db-accent-tint); color: var(--db-gold-bright); }
+
+/* ===== Color-grading control — a small swatch button that opens an
+   inline (not floating) popover, so it never clips off-screen on a
+   narrow phone the way an absolutely-positioned popover could. ===== */
+.dw-tint-btn {
+  flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; padding: 0; cursor: pointer;
+  border: 1.5px solid rgba(255,255,255,0.5); background: transparent;
+}
+.dw-tint-btn-empty {
+  background: repeating-conic-gradient(rgba(255,255,255,0.25) 0% 25%, transparent 0% 50%) 0 0/8px 8px;
+}
+.dw-tint-popover {
+  margin: 8px 0 4px; padding: 10px; border-radius: var(--radius-md);
+  background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.16);
+}
+.dw-tint-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.dw-tint-swatch {
+  width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+}
+.dw-tint-swatch:hover { border-color: var(--db-gold-bright); }
+.dw-tint-swatch-photo:disabled { opacity: 0.3; cursor: not-allowed; }
+.dw-tint-custom-row { display: flex; align-items: center; gap: 8px; }
+.dw-tint-custom-row input[type="color"] {
+  width: 32px; height: 28px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 0;
+  background: none; cursor: pointer;
+}
+.dw-tint-custom-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.dw-tint-custom-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.dw-tint-clear {
+  background: transparent; border: 1px solid rgba(255,255,255,0.22); color: var(--db-text-dim);
+  border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.dw-tint-clear:hover { color: var(--db-text); border-color: var(--db-text-mute); }
 
 .dw-card-title-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
 .dw-card-title {
@@ -417,7 +485,12 @@ body::after {
   align-items: center; justify-content: center; padding: 20px;
 }
 .modal-bg.show { display: flex; }
-.modal { background: var(--db-paper-solid); border: 1px solid var(--db-hairline); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 440px; max-height: 86vh; overflow-y: auto; }
+.modal {
+  background: rgba(20, 17, 13, 0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg);
+  padding: 22px; width: 100%; max-width: 440px; max-height: 86vh; overflow-y: auto;
+}
 .db-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .db-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--db-text); }
 .db-modal-close { background: transparent; border: none; font-size: 18px; color: var(--db-text-mute); cursor: pointer; }
@@ -446,6 +519,7 @@ body::after {
 </style>
 </head>
 <body>
+<div id="dbPageBg" aria-hidden="true"></div>
 <div class="shell">
   <div class="db-hero" id="dbHero">
     <div class="db-hero-media" id="dbHeroMedia">
@@ -564,6 +638,8 @@ body::after {
   let addSlotTargetWidgetId = null;
   let addSlotSingleTarget = false; // true when the photo modal is filling a 'feature' widget's single photo, not a 'photos' widget's slots array
   let dayNoteTarget = null;
+  let tintPopoverWidgetId = null; // which widget's color-grading popover is open, if any
+  const TINT_PRESETS = ['#e8927a', '#e3a8b0', '#7ea8c4', '#a89bd4', '#c9a876', '#9ab89a'];
   // Uploaded video files never touch localStorage/Supabase (no backend to
   // store them — see CLAUDE.md §2/§4) — object URLs live only in this map
   // for the current tab lifetime. A slot with sessionOnly:true and no
@@ -600,13 +676,20 @@ body::after {
     // already guarantee every tab has a hero object by the time this runs,
     // but never trust a possibly-legacy record enough to let a missing
     // `hero` throw here and take down the rest of init() with it.
-    return (t && t.hero) ? t.hero : { eyebrow: '', title: '', subtext: '', ctaLabel: '', photo: '' };
+    return (t && t.hero) ? t.hero : { eyebrow: '', title: '', subtext: '', ctaLabel: '', photo: '', photoColor: '' };
   }
   function patchHero(patch) {
     if (!activeTabId) return;
     const t = DB.Tabs.get(activeTabId);
     if (!t) return;
     DB.Tabs.update(activeTabId, { hero: Object.assign({}, t.hero, patch) });
+  }
+  // Keeps #dbPageBg (the full-page blurred backdrop every glass card reads
+  // through) in sync with whichever tab is active — called from anywhere
+  // the active tab or its photo can change (renderHero()'s own callers).
+  function renderPageBg() {
+    const hero = currentHero();
+    $('dbPageBg').style.backgroundImage = hero.photo ? 'url("' + hero.photo + '")' : 'none';
   }
   function renderHero() {
     const hero = currentHero();
@@ -622,16 +705,46 @@ body::after {
     } else {
       img.style.display = 'none'; img.src = ''; btn.style.display = 'flex'; tools.style.display = 'none';
     }
+    renderPageBg();
   }
   function openHeroFilePicker() { $('dbHeroPhotoInput').value = ''; $('dbHeroPhotoInput').click(); }
+  // Cheap average-RGB color sample from a downscaled copy of the image —
+  // not a "true" dominant-color algorithm, just a fast, dependency-free
+  // approximation (this repo has no build step to pull in a color-
+  // quantization library) good enough to give a widget's "match tab photo"
+  // tint option something reasonably representative of the photo's tone.
+  function extractDominantColor(dataUrl) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const size = 32;
+          const c = document.createElement('canvas');
+          c.width = size; c.height = size;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; count++; }
+          if (!count) { resolve(''); return; }
+          const toHex = function (v) { return Math.round(v / count).toString(16).padStart(2, '0'); };
+          resolve('#' + toHex(r) + toHex(g) + toHex(b));
+        } catch (e) { resolve(''); }
+      };
+      img.onerror = function () { resolve(''); };
+      img.src = dataUrl;
+    });
+  }
   function handleHeroPhotoFile() {
     const file = $('dbHeroPhotoInput').files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async function () {
       const compressed = await DB.compressImageDataUrl(String(reader.result), 1400, 0.82);
-      patchHero({ photo: compressed });
+      const color = await extractDominantColor(compressed);
+      patchHero({ photo: compressed, photoColor: color });
       renderHero();
+      renderBoard(); // any widget with tint:'photo' needs its swatch/overlay refreshed
     };
     reader.readAsDataURL(file);
   }
@@ -1027,15 +1140,107 @@ body::after {
     renderBoard();
   }
 
+  // ============================================================
+  // COLOR GRADING (per-widget glass tint)
+  // ============================================================
+  // Resolves a widget's effective tint color: an explicit hex wins, then
+  // 'photo' looks up its own tab's sampled cover-photo color (never the
+  // globally-active tab, since a widget always belongs to one specific
+  // tab), then the legacy 'blush' accent falls back to gold, else none.
+  // Always returns either a '#rrggbb' string or null — never throws on a
+  // widget missing the field entirely (undefined fails every check below
+  // and falls through to null), same defensive shape as every other new
+  // field added to this page since the hero crash.
+  function effectiveTint(widget) {
+    if (widget.tint === 'photo') {
+      const t = DB.Tabs.get(widget.tabId);
+      const color = t && t.hero && t.hero.photoColor;
+      return color || null;
+    }
+    if (widget.tint) return widget.tint;
+    if (widget.accent === 'blush') return '#c9a876';
+    return null;
+  }
+  function setWidgetTint(widgetId, tint) {
+    DB.Widgets.update(widgetId, { tint: tint });
+    renderBoard();
+  }
+  // Live-preview while dragging the native color wheel: mutate the DOM
+  // directly instead of going through renderBoard() on every 'input' tick.
+  // Rebuilding the whole board mid-drag would destroy and recreate the
+  // <input type="color"> element itself, which closes the browser's native
+  // color-picker popup after the very first movement — persistence (and
+  // the full re-render) only happens on 'change', once the user commits.
+  function previewWidgetTint(widgetId, hex) {
+    const card = document.querySelector('.dw-card[data-widget-id="' + widgetId + '"]');
+    if (!card) return;
+    card.style.setProperty('--tint', hex);
+    const btn = card.querySelector('.dw-tint-btn');
+    if (btn) { btn.style.background = hex; btn.classList.remove('dw-tint-btn-empty'); }
+  }
+  function buildTintControls(widget) {
+    const wrap = document.createElement('div');
+    const eff = effectiveTint(widget);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dw-tint-btn' + (eff ? '' : ' dw-tint-btn-empty');
+    btn.title = 'Color grading'; btn.setAttribute('aria-label', 'Adjust color grading');
+    if (eff) btn.style.background = eff;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      tintPopoverWidgetId = (tintPopoverWidgetId === widget.id) ? null : widget.id;
+      renderBoard();
+    });
+    wrap.appendChild(btn);
+    return wrap;
+  }
+  function buildTintPopover(widget) {
+    const pop = document.createElement('div'); pop.className = 'dw-tint-popover';
+    const swatchRow = document.createElement('div'); swatchRow.className = 'dw-tint-swatches';
+    TINT_PRESETS.forEach(function (hex) {
+      const sw = document.createElement('button');
+      sw.type = 'button'; sw.className = 'dw-tint-swatch'; sw.style.background = hex;
+      sw.setAttribute('aria-label', 'Use this color');
+      sw.addEventListener('click', function () { setWidgetTint(widget.id, hex); });
+      swatchRow.appendChild(sw);
+    });
+    const tab = DB.Tabs.get(widget.tabId);
+    const photoColor = tab && tab.hero && tab.hero.photoColor;
+    const photoSw = document.createElement('button');
+    photoSw.type = 'button'; photoSw.className = 'dw-tint-swatch dw-tint-swatch-photo';
+    photoSw.textContent = '📷'; photoSw.disabled = !photoColor;
+    photoSw.title = photoColor ? "Match this tab's cover photo" : 'Add a cover photo to this tab first';
+    if (photoColor) photoSw.style.background = photoColor;
+    photoSw.addEventListener('click', function () { if (photoColor) setWidgetTint(widget.id, 'photo'); });
+    swatchRow.appendChild(photoSw);
+    pop.appendChild(swatchRow);
+
+    const customRow = document.createElement('div'); customRow.className = 'dw-tint-custom-row';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    const eff = effectiveTint(widget);
+    colorInput.value = (eff && /^#[0-9a-f]{6}$/i.test(eff)) ? eff : '#c9a876';
+    colorInput.setAttribute('aria-label', 'Pick a custom color');
+    colorInput.addEventListener('input', function () { previewWidgetTint(widget.id, colorInput.value); });
+    colorInput.addEventListener('change', function () { setWidgetTint(widget.id, colorInput.value); });
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.className = 'dw-tint-clear'; clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('click', function () { setWidgetTint(widget.id, null); });
+    customRow.appendChild(colorInput); customRow.appendChild(clearBtn);
+    pop.appendChild(customRow);
+    return pop;
+  }
+
   function buildWidgetCard(widget, displayIndex) {
     const card = document.createElement('div');
-    card.className = 'dw-card' + (widget.accent === 'blush' ? ' dw-card-blush' : '');
+    card.className = 'dw-card';
     card.dataset.widgetId = widget.id;
     card.dataset.widgetType = widget.type;
+    card.style.setProperty('--tint', effectiveTint(widget) || 'transparent');
 
     const head = document.createElement('div'); head.className = 'dw-card-head';
     const index = document.createElement('span'); index.className = 'dw-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
     const hoverActions = document.createElement('div'); hoverActions.className = 'dw-card-hover-actions';
+    hoverActions.appendChild(buildTintControls(widget));
     const handle = document.createElement('span'); handle.className = 'dw-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
     hoverActions.appendChild(handle);
     if (widget.type === 'photos') {
@@ -1051,6 +1256,8 @@ body::after {
     hoverActions.appendChild(delBtn);
     head.appendChild(index); head.appendChild(hoverActions);
     card.appendChild(head);
+
+    if (tintPopoverWidgetId === widget.id) { card.appendChild(buildTintPopover(widget)); }
 
     const titleRow = document.createElement('div'); titleRow.className = 'dw-card-title-row';
     const title = document.createElement('span'); title.className = 'dw-card-title'; title.contentEditable = 'true'; title.textContent = widget.title || '';
@@ -1293,7 +1500,7 @@ body::after {
     $('dbHeroTitle').addEventListener('blur', function () { patchHero({ title: $('dbHeroTitle').value }); });
     $('dbHeroPhotoBtn').addEventListener('click', openHeroFilePicker);
     $('dbHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
-    $('dbHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); patchHero({ photo: '' }); renderHero(); });
+    $('dbHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); patchHero({ photo: '', photoColor: '' }); renderHero(); renderBoard(); });
     $('dbHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
     $('dbHeroCta').addEventListener('click', function () {
       $('dbBoard').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });

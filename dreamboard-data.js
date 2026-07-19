@@ -120,7 +120,14 @@
       title: typeof data.title === 'string' ? data.title : '',
       subtext: typeof data.subtext === 'string' ? data.subtext : '',
       ctaLabel: typeof data.ctaLabel === 'string' ? data.ctaLabel : '',
-      photo: typeof data.photo === 'string' ? data.photo : ''
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      // A cheap average-RGB hex sampled from `photo` once, when it's set
+      // (see dreamboard.html's extractDominantColor()) — a flat string,
+      // never a nested object, specifically so a legacy record missing it
+      // just reads as '' (falsy) everywhere it's used, the same defensive
+      // shape every other new field on this page follows after the hero
+      // crash this file's changelog already documents.
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : ''
     };
   }
 
@@ -165,6 +172,15 @@
       type: type,
       title: typeof data.title === 'string' ? data.title : '',
       accent: data.accent === 'blush' ? 'blush' : 'default',
+      // Per-widget glass color grading: null/undefined = neutral glass,
+      // a '#rrggbb' string = a manually picked tint, or the literal string
+      // 'photo' = "match this widget's tab's cover photo" (resolved live
+      // at render time via effectiveTint() in dreamboard.html, never
+      // stored as a resolved color, so it stays in sync if the photo
+      // changes later). Always a flat string or null — never a nested
+      // object — so a legacy record simply missing this field reads as
+      // `undefined`, which every read site treats the same as null.
+      tint: typeof data.tint === 'string' ? data.tint : null,
       data: Object.assign({}, defaults, incoming)
     };
   }

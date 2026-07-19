@@ -3181,3 +3181,123 @@ between this app and either data loss or a wide-open write target:
     verification every other entry in this file describes** — a real
     click-through in an actual browser before relying on this page is
     still recommended.
+
+- **Dream Board (`dreamboard.html`) fixed a load-crash on legacy tabs,
+  then gained real frosted-glass cards with per-widget color grading.**
+  Two follow-ups landed together in this pass.
+  - **Bugfix**: tabs saved under the pre-hero version of this page had no
+    `hero` object at all. `currentHero()` read `tab.hero.eyebrow` on such
+    a tab and threw a `TypeError` on the very first line of `init()`'s
+    render sequence — before `renderTabs()`/`renderBoard()` ran and
+    before any of `init()`'s many `addEventListener` calls executed. The
+    user-visible symptom was "all my data is gone and nothing is
+    clickable," when the actual `localStorage`/Supabase data was never
+    touched — the page just crashed before it ever got to read or
+    display it. Fixed with `normalizeTabs()` (new, `dreamboard-data.js`)
+    — runs once per load right after `seedIfEmpty()`, re-runs any tab
+    missing a proper `hero` object through `tabModel()` (which backfills
+    it via `heroModel()`) and persists the fix, preserving the tab's
+    real `id`/`title`/`order` — plus a defensive fallback directly in
+    `currentHero()` so a similar gap can't crash the page again. Learned
+    from this: `makeCollection()`'s `list()`/`get()` never re-run a
+    stored record through its model factory (only `add()`/`update()`
+    do), so any *new* field added to an existing model needs either a
+    one-time normalize pass like this one, or — cheaper, and what every
+    field added in this same pass now does — code that reads it
+    defensively (plain truthy checks, never a nested property access on
+    a value that might not exist).
+  - **Glass card redesign**, per a reference photo (a translucent
+    "Pink Sky" profile card over a cloud photo): `.dw-card` changed from
+    a flat tinted fill to real frosted glass —
+    `background: rgba(255,255,255,0.08)` plus
+    `backdrop-filter: blur(22px) saturate(1.6)` (both prefixed and
+    unprefixed, for iOS Safari), a soft white hairline border, and an
+    inset highlight/shadow combo. `.modal` got a lighter version of the
+    same treatment (less blur, more fill, for legibility) for visual
+    consistency, though modals weren't explicitly named in the request.
+  - **The active tab's cover photo now shows behind the entire page, not
+    just the hero section** (new `#dbPageBg`, a fixed full-viewport div,
+    `background-image` set by `renderPageBg()` — folded into the
+    existing `renderHero()`, which already ran at every point the active
+    tab or its photo could change, so no new call sites were needed),
+    blurred/dimmed via `filter: blur(60px) saturate(1.35) brightness(0.55)`
+    and scaled up 1.15× to hide blur-edge artifacts. This is the reason
+    the glass cards actually read as "glass" instead of a blurred smudge
+    of flat near-black — `backdrop-filter` needs something with texture
+    and color behind it to reveal, which a plain dark background doesn't
+    provide. `body::before`'s existing dark gradient/glow wash (sits in
+    front of `#dbPageBg`, behind the grain texture and all real content)
+    was changed from opaque hex stops to semi-transparent `rgba()` ones
+    so the photo shows through it rather than being fully hidden — when
+    a tab has no cover photo, `#dbPageBg` is simply empty and the page
+    looks exactly as before this change.
+  - **Per-widget color grading** — every widget gained a `tint` field
+    (`dreamboard-data.js`, a flat `'#rrggbb'` string, the literal string
+    `'photo'`, or `null` — deliberately never a nested object, per the
+    lesson above) plus a small circular swatch button in each card's
+    existing hover-actions row. Clicking it opens an **inline** popover
+    (not an absolutely-positioned floating one — chosen specifically so
+    it can never clip off-screen on a narrow phone, at the cost of
+    pushing the card's content down slightly while open) offering six
+    curated preset swatches, a "📷 Match this tab's cover photo" swatch
+    (disabled when the tab has no photo), and a native
+    `<input type="color">` for a fully custom pick, plus a Clear button.
+    `effectiveTint(widget)` resolves the actual color to paint at render
+    time: an explicit `tint` wins, `'photo'` looks up that widget's own
+    tab's `hero.photoColor` (see below — never the currently-*active*
+    tab, since a widget always belongs to one specific tab regardless of
+    which tab is on screen), the pre-existing `accent: 'blush'` flag
+    (the "My Goals" checklist's original gold tint from this page's very
+    first build) falls back to gold for backward compatibility, else no
+    tint. The resolved color is painted via a CSS custom property
+    (`card.style.setProperty('--tint', ...)`) read by a `.dw-card::before`
+    overlay at fixed 32% opacity — chosen over a real DOM overlay div so
+    the tint layer can't interfere with the card's own blur/border, and
+    chosen over inline `background-color` directly on `.dw-card` so the
+    glass's own translucent white fill and the color tint composite
+    together instead of one replacing the other. The old `.dw-card-blush`
+    CSS rule and class were removed outright (not kept as dead code) —
+    this is the same session's own mechanism being folded into a richer,
+    unified replacement, the same precedent as `gym.html`'s Timer
+    modal→panel conversion, not another pass's orphaned feature.
+  - **`hero.photoColor`** (new field, `dreamboard-data.js`) — a cheap
+    average-RGB hex sampled from a downscaled (32×32) copy of the hero
+    photo via canvas `getImageData` (`extractDominantColor()`, new,
+    `dreamboard.html`) whenever a hero photo is uploaded or removed (set
+    to `''` on remove). Explicitly **not** a real dominant-color/
+    quantization algorithm — this repo has no build step to pull one in
+    — just a fast, reasonable approximation of the photo's overall tone,
+    good enough to make the "match tab photo" swatch feel connected to
+    the actual photo without adding a dependency. Stored once at upload
+    time (not recomputed on every render) since the photo itself only
+    changes on upload/remove.
+  - **A real, subtle bug caught and fixed while wiring the custom color
+    picker**: the first version called the full `renderBoard()` (which
+    destroys and rebuilds every card's DOM, including the `<input
+    type="color">` element itself) directly from the color input's
+    `input` event, which fires continuously while the user drags inside
+    the browser's native color-picker popup. Rebuilding the element out
+    from under an open native picker closes that picker after the very
+    first pixel of movement, making the custom-color picker effectively
+    unusable. Fixed by splitting the two events: `input` now calls
+    `previewWidgetTint()` (a direct, targeted DOM mutation — no
+    rebuild — for live visual feedback while dragging), and only
+    `change` (fires once, when the picker is dismissed/committed) calls
+    `setWidgetTint()`, which persists and triggers the real
+    `renderBoard()`.
+  - **Mobile**: the color-grading popover's inline (not floating) layout
+    was chosen specifically for phone screens, as noted above; preset/
+    photo swatches are 28px touch targets; the tint toggle button sits in
+    the same always-partly-visible hover-actions cluster the rest of this
+    page's card controls already use, so it's discoverable on a
+    touchscreen with no hover state. No other mobile-specific changes
+    were needed — the existing 3→2→1 column board collapse, safe-area
+    padding, and `prefers-reduced-motion` handling from prior passes
+    already cover this update's new elements.
+  - **Testing note**: same limitation as the immediately preceding entry
+    — this environment's headless-Edge automation still gets absorbed
+    into the one already-running background Edge instance instead of
+    launching isolated, so this pass was also verified statically only
+    (every new `$('id')` reference cross-matched against the HTML, brace/
+    paren balance confirmed after each edit) rather than click-tested in
+    a real browser.
