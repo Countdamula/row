@@ -34,7 +34,7 @@ Vercel's static server) — see README.md.
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
-| `business.html` | Business Hub — a content-planning workspace built on Dream Board's same drag-and-drop board engine (editable subpages, a 3-column board of reorderable widgets, per-widget color-grading tint, Add Widget menu, reset-to-default), restyled light cream/rust to match a Notion "Content Hub" reference photo, with five widget types tailored to content planning (Platform, Content Plan Card, Resource, Content Summary, Posting Schedule) alongside Dream Board's original ten (new — see changelog) |
+| `business.html` | Business Hub — a content-planning workspace, now restyled to be visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Two board-mode tabs (Analytics/Audit) keep Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, all fifteen widget types); five tasks-mode tabs (Content/Ideas/Platforms/Strategy/Resources) instead run a per-tab Tasks list mirroring index.html's Main-dashboard Tasks tab, and the Platforms tab additionally has a roster of individual platforms each with its own freeform, autosaving notes field (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -183,7 +183,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
-   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:profile`, `business:active_tab`) — same session-only-video-slot exception as `dreamboard` above |
+   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:platforms`, `business:active_tab`; `business:profile` was removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -3782,3 +3782,192 @@ between this app and either data loss or a wide-open write target:
     tabs, open the tint popover) is still recommended before relying on
     this page, same disclosed-limitation caveat `dreamboard.html`'s own
     later entries already established for this environment.
+
+- **Business Hub (`business.html`) restyled to be visually identical to
+  Dream Board, and five of its seven subpages rebuilt around a per-tab
+  Tasks list mirroring index.html's Main-dashboard Tasks tab, plus a
+  Platforms roster with per-platform autosaving notes.** Two explicit
+  follow-up requests landed together: "make the entire aesthetic of the
+  new Business Tab the exact same as the Dream Board Tab," and "set up
+  Ideas, Platforms, Content, Resources, and Strategy the exact same as
+  the Tasks in Main Tab, and add a freeform notes section for each
+  platform... that autosaves as you type."
+  - **Aesthetic, now a literal match to Dream Board's dark cinematic
+    theme** — this page's `:root` tokens were replaced wholesale with
+    Dream Board's exact values (near-black `--bh-bg`/`--bh-bg-deep`, the
+    same warm gold `--bh-gold`/`--bh-gold-bright`, the same hairline/
+    paper/text-dim/text-mute values), Cormorant Garamond + Inter loaded
+    the same way, and the same layered-background technique
+    (`body::before`'s glow gradient, `body::after`'s grain texture, and
+    `#bhPageBg` — a page-wide blurred cover-photo backdrop keyed to the
+    active tab's hero photo, identical to Dream Board's `#dbPageBg`).
+    Every widget card (`.bw-card`) is now real frosted glass — the same
+    `background: rgba(255,255,255,0.08)` + `backdrop-filter: blur(22px)
+    saturate(1.6)` recipe as Dream Board's `.dw-card` — instead of the
+    light "Content Hub" cream-card look this page launched with. The
+    previous light/rust palette (`--bh-card`, `--bh-accent`, the
+    scalloped-edge banner, the avatar+sidebar header) is retired outright,
+    not kept as a second variant — this is the same-session's own
+    aesthetic evolving forward, matching the precedent already set by
+    e.g. `gym.html`'s Timer modal→panel conversion.
+  - **Per-tab hero, ported from Dream Board wholesale** — each tab
+    (`BusinessData.tabModel`) gained the exact `hero` shape Dream Board's
+    tabs already have (`eyebrow`/`title`/`subtext`/`ctaLabel`/`photo`/
+    `photoColor`), editable the same way (inline-editable eyebrow/
+    subtext/CTA label, an autosizing borderless `<textarea>` for the
+    multi-line serif headline, a click-to-upload cover photo with
+    Change/Remove tools, a cheap dominant-color sample for future tint-
+    matching use). **Deliberately narrower than Dream Board in one way**:
+    no session-only video-hero support was ported — only an image cover
+    — since that's a secondary capability of Dream Board's hero, not part
+    of the core visual identity this request was actually asking to
+    match. The persistent global "profile" header (banner photo/avatar/
+    name/tagline, `business:profile`) from this page's first pass is
+    removed outright, superseded by the per-tab hero — same same-session-
+    supersession precedent as above, not kept as unreachable dead code
+    since nothing else in this app ever read `business:profile`.
+  - **Tabs row converted from a sidebar list to Dream Board's exact
+    horizontal pill row** (`.bh-tabs`/`.bh-tab`, rename-in-place via the
+    same "✎ → inline input → commit on Enter/blur" pattern) — tabs no
+    longer carry a per-tab `icon` field (Dream Board's tabs don't have
+    one either); the "Subpages" sidebar concept from the previous pass is
+    gone entirely, not just restyled.
+  - **Two tab "modes"**, a new `BizTab.mode` field (`'board'` |
+    `'tasks'`, default `'tasks'`): **Analytics** and **Audit** stay
+    `'board'` — Dream Board's original engine, completely unchanged
+    (`DB.Widgets`/`columnsForTab`/`reorderTab`, all fifteen widget types
+    including the four content-planning ones from this page's first pass
+    — `platform`/`contentcard`/`resource`/`summary`/`schedule` — still
+    available via Add Widget, just no longer seeded onto any tab by
+    default since the tabs they originally themed no longer render a
+    board at all). **Content/Ideas/Platforms/Strategy/Resources** are
+    `'tasks'` — a brand new per-tab Tasks system (below) replaces the
+    board entirely on those five; `renderActiveTabContent()` is the one
+    new dispatcher that decides which to show per active tab, toggling
+    `#bhBoard`/`#bhAddWidgetBtn` vs. `#bhTasksPanel` — "Reset to Default"
+    stays visible on every tab regardless of mode (a whole-hub reset, not
+    per-tab), matching Dream Board's own single global reset button.
+  - **Tasks system** (`business:tasks`, a new flat collection,
+    `{id, tabId, title, note, status, priority, dueDate, estimateMinutes,
+    isDailyAction, recurrence, done, doneAt, createdAt}`) — deliberately
+    mirrors index.html's dedicated Main-dashboard Tasks tab (not the
+    smaller task list embedded in that page's Businesses sub-tab), read
+    directly from that tab's actual implementation rather than assumed:
+    **Today/All Tasks view chips** (Today = `isDailyAction || dueDate ===
+    today`), a **filter/group/sort bar** (Priority filter, Status filter,
+    Group by None/Priority/Status, Sort by Due date/Priority) —
+    deliberately missing Main's Area/Goal/Business/Habit filters and
+    group dimensions, since none of those concepts exist on this page;
+    everything else carries over directly. A **quick-add row** (title +
+    date, Enter submits) creates a bare task with no other fields set,
+    same as Main's. Each **task row** mirrors `buildTaskRow`'s structure
+    (a round checkbox, click-to-edit title, a priority pill, a DAILY
+    badge, a recurrence badge, a due date, a "📄 Open" button, and an
+    immediate no-confirm delete "✕" — matching the exact finding from
+    reading Main's code that row-level delete has no confirm, only the
+    modal's Delete does). The **Add/Edit Task modal** has the same
+    fields as Main's in the same order minus the four FK selects
+    (Title/Note/Status/Priority/Due date/Estimate/Daily action/
+    Recurrence, with the exact same three recurrence option labels),
+    same validation (title required, nothing else), same Delete-with-
+    confirm. **Recurrence spawn-on-done** (`DB.spawnNextRecurrence`) is
+    the same +1-day/+7-days-then-reset-to-todo behavior as Main's
+    `spawnNextRecurrence`, triggered from both the row checkbox and the
+    modal Save, matching Main's own two trigger points.
+  - **Task Detail** (a modal, not a full-page overlay like Main's
+    `#taskDetailPageBg`) is a deliberate simplification: Main's version is
+    a drag-reorderable multi-block note/code editor backed by a separate
+    `TaskBlock` collection — overkill for what this request actually
+    needed, which was "a task can carry freeform notes." Business Hub's
+    Task Detail modal is a title input (blur-saves) + a priority/due-date
+    meta row + one big `<textarea>` bound directly to `task.note`, which
+    **autosaves as you type** (bound to `input`, debounced 500ms via a
+    small new `debounce()` helper — not just on blur) — the same
+    "autosave as you type" requirement the request made explicit for
+    Platforms notes, applied here too for consistency rather than only
+    saving on blur like most of this app's other textareas.
+  - **Platforms roster** (`business:platforms`, a new flat collection,
+    `{id, name, active, cover, notes, createdAt}` — deliberately separate
+    from the pre-existing `platform` *widget* type, which is a different,
+    still-valid concept scoped to board-mode tabs) — shown only on the
+    tab whose new `tab.roster === 'platforms'` field is set (a dedicated
+    field rather than matching on the tab's title, so renaming the
+    "Platforms" tab — fully supported, same rename-in-place as every
+    other tab — can never silently drop the roster section). Each
+    platform renders as a small card (a monogram-or-uploaded-cover
+    circle, name, an Active/Inactive toggle that doesn't open the modal
+    via `stopPropagation`, and a notes preview snippet) in a responsive
+    grid above that tab's Tasks list. **Clicking into a platform** opens
+    a modal — this is the literal "once you click the page... a freeform
+    notes section... that autosaves as you type" the request asked for —
+    with an editable name, an Active checkbox, a cover-photo picker
+    (reusing the same generalized photo modal every other cover field on
+    this page already uses), and the same debounced-on-input autosaving
+    `<textarea>` pattern as Task Detail's notes field.
+  - **A real bug found and fixed during this build, before it ever
+    shipped**: the platform cover-photo picker was wired through the
+    existing `openPhotoModal()`/`setSingleFieldPhoto()` pair verbatim,
+    but that pair only ever knew how to write back to a Widget's `data`
+    object (`DB.Widgets.get(id)`) — passing a Platforms-roster id through
+    it would silently no-op (`DB.Widgets.get()` returns `null` for a
+    platform id, and the function just returns). Fixed by generalizing
+    both functions with an explicit `kind: 'widget' | 'platform'`
+    parameter, so the same modal/upload pipeline/URL-validation now
+    writes back to either collection correctly. A second, related bug
+    from the same root cause: opening the photo picker *from inside* the
+    already-open Platform modal would have rendered *underneath* it, not
+    on top — both modals share the same `.modal-bg` z-index, and the
+    Platform modal is later in DOM order, so equal-z-index stacking
+    order (not just z-index alone) decides which one paints on top.
+    Fixed by having `openPhotoModal()` close the Platform modal first
+    when opened from within it (tracked via a small
+    `photoModalReturnToPlatformId` variable) and reopening it once the
+    photo modal closes, on every exit path (submit *and* cancel/backdrop-
+    click) — not just the happy path. Neither bug was visible from a
+    surface-level read of either function in isolation; both were caught
+    by deliberately tracing the actual call path end-to-end before
+    shipping, not by the headless screenshot pass (which only exercises
+    the default, already-populated seed data, not a fresh upload).
+  - **Seed data updated to match**: the Content tab's previous heavy
+    widget-based seed (platform cards, content-plan cards, resource
+    tiles, a summary, a schedule, a gallery — all built in this page's
+    first pass) is retired for that tab specifically, replaced with six
+    seed Tasks carrying the same titles/flavor as before (translated from
+    "content card with a status" into "task with a status," e.g. the
+    "Published!"-status cards became `status: 'done'` tasks). Ideas/
+    Strategy/Resources each get a small seed Tasks list themed to their
+    name (not copied from any reference). The Platforms tab gets both a
+    seed Tasks list (platform-related to-dos) and the full six-platform
+    roster (Instagram/Tiktok/Youtube active, Pinterest/Facebook/Twitter
+    inactive, with Instagram pre-seeded with a sample note) carried over
+    from the previous pass's platform-widget seed. Analytics/Audit keep
+    their previous modest board-mode widget seeds essentially unchanged.
+    `seedDefaultBoard()`/`seedIfEmpty()` now wipe and rebuild all four
+    collections (`Tabs`/`Widgets`/`Tasks`/`Platforms`) together, so
+    "Reset to Default" is still a genuine full-hub reset.
+  - **Verified via headless Edge screenshots** (Supabase mapped to
+    `0.0.0.0` via `--host-resolver-rules`, armed before navigation, per
+    this file's established testing convention): the Content tab's hero/
+    tab-row/Tasks-panel all render in Dream Board's exact dark/gold/
+    frosted-glass look, with the seeded "How to Increase Website Traffic"
+    task correctly appearing under the default "Today" view (its seed
+    due-date is computed relative to today, same `shiftedISO()` fix as
+    this page's first pass); a second pass (a temporary scratch copy with
+    an injected auto-click script — not committed, since this
+    environment's headless Edge still can't be driven interactively via
+    a real CDP connection, same limitation `dreamboard.html`'s own later
+    entries already documented) confirmed the Platforms tab's roster grid
+    (all six platforms, correct active/inactive states) and clicking a
+    platform card correctly opens its notes modal pre-filled with the
+    seeded note and the "Autosaves as you type" hint, and confirmed the
+    Analytics tab still renders its board correctly (numbered glass
+    cards, "+ Add Widget" visible only here, the Content Summary widget's
+    honest "No content cards on this page yet." empty state now that no
+    tab seeds any `contentcard` widgets by default). **Not verified this
+    way**: actually typing into a notes field and confirming the debounced
+    autosave fires (vs. just reading the code path), drag-and-drop
+    reordering on the board tabs, and the Task/Platform modals' Cancel/
+    Delete paths — same disclosed interactive-testing gap as this page's
+    first pass and as `dreamboard.html`'s later entries; a real click-
+    through covering those specific paths is recommended before relying
+    on this page heavily.
