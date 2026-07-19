@@ -22,6 +22,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [nutrition.html](nutrition.html) | Nutrition — My Kitchen / Grocery List |
 | [household.html](household.html) | Household — Energy Beings roster, Inventory, Wishlist, Chores |
 | [selfcare.html](selfcare.html) | Self-Care — Journals, Meditations, Water tracker, Bucket List |
+| [dreamboard.html](dreamboard.html) | Dream Board — a drag-and-drop vision board (checklists, calendar, photo/video grid, affirmations, and more) |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 

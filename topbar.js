@@ -179,6 +179,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">SELF-CARE</span>
   </a>
+  <a href="dreamboard.html" class="topbar-pill" id="topbarDreamBoard">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">DREAM BOARD</span>
+  </a>
 </header>
 `;
 

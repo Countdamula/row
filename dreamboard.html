@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>Dream Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="dreamboard-data.js" defer></script>
+<style>
+/* =============================================================
+   Dream Board — re-themed to a dark, cinematic "destination wedding
+   photographer" reference (near-black + warm champagne/gold, italic
+   serif display type, frosted-glass pill buttons). A deliberate one-off
+   palette exception, same category as braindump.html's forest theme or
+   gym.html's crimson grading (see CLAUDE.md §6/DO NOT MODIFY rule 2) —
+   the light cream/blush look this page launched with is retired in
+   favor of this reference photo, per an explicit follow-up request. No
+   other page's tokens are touched.
+   ============================================================= */
+:root {
+  --db-bg: #0b0a08;
+  --db-bg-deep: #050403;
+  --db-paper: rgba(255, 255, 255, 0.045);
+  --db-paper-solid: #16130f;
+  --db-gold: #c9a876;
+  --db-gold-bright: #e8cf9f;
+  --db-text: #f5f1e9;
+  --db-text-dim: rgba(245, 241, 233, 0.68);
+  --db-text-mute: rgba(245, 241, 233, 0.44);
+  --db-hairline: rgba(201, 168, 118, 0.22);
+  --db-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--db-bg-deep); color: var(--db-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.14) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.10) 0%, transparent 55%),
+    linear-gradient(180deg, #0b0a08 0%, #050403 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+:focus-visible { outline: 2px solid var(--db-gold-bright); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { padding: 0 16px; }
+
+/* ===== Back button — floats over the hero ===== */
+.db-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px);
+  border: 1px solid var(--db-hairline);
+  border-radius: 999px; color: var(--db-text-dim);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.db-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--db-text); }
+.db-back-btn svg { display: block; }
+
+/* ===== Hero — one per tab, styled after the reference: full-bleed cover
+   photo, dark gradient scrim, tracked-caps eyebrow, large serif headline,
+   subtext, frosted-glass pill CTA, "scroll to explore" flourish. ===== */
+.db-hero {
+  position: relative; min-height: 78vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 90px 20px 46px;
+}
+.db-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--db-paper-solid); }
+.db-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.db-hero-photo-btn {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  background: transparent; border: none; color: var(--db-text-mute);
+  font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em;
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px;
+}
+.db-hero-photo-btn:hover { color: var(--db-gold-bright); }
+.db-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5,4,3,0.55) 0%, rgba(5,4,3,0.15) 32%, rgba(5,4,3,0.35) 62%, rgba(5,4,3,0.92) 100%);
+}
+.db-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5;
+  display: flex; gap: 6px;
+}
+.db-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); border: 1px solid var(--db-hairline);
+  color: var(--db-text-dim); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer;
+}
+.db-hero-photo-tools button:hover { color: var(--db-gold-bright); border-color: var(--db-gold); }
+
+.db-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.db-hero-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--db-gold-bright); margin-bottom: 14px; outline-offset: 4px;
+}
+.db-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--db-gold); margin-right: 10px; vertical-align: middle; }
+.db-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-weight: 500; color: var(--db-text);
+  font-size: clamp(34px, 8vw, 58px); line-height: 1.06; letter-spacing: -0.01em;
+  padding: 0; margin-bottom: 16px; text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+.db-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.db-hero-subtext {
+  font-size: 14px; line-height: 1.6; color: var(--db-text-dim); max-width: 440px; margin-bottom: 26px;
+  outline-offset: 4px;
+}
+.db-hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--db-hairline); border-radius: 999px;
+  padding: 13px 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.db-hero-cta:hover { border-color: var(--db-gold); background: rgba(201,168,118,0.10); }
+.db-hero-cta-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--db-text);
+}
+.db-hero-cta-arrow { color: var(--db-gold-bright); font-size: 13px; }
+.db-hero-scroll-hint {
+  position: absolute; right: 20px; bottom: 26px; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--db-text-mute);
+}
+.db-hero-scroll-hint span:first-child { writing-mode: vertical-rl; }
+.db-hero-scroll-arrow {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--db-hairline);
+  display: flex; align-items: center; justify-content: center; color: var(--db-gold);
+  animation: db-scroll-bounce 2.2s ease-in-out infinite;
+}
+@keyframes db-scroll-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+@media (max-width: 620px) {
+  .db-hero { min-height: 84vh; padding: 84px 16px 34px; }
+  .db-hero-scroll-hint { display: none; }
+}
+
+/* ===== Tab row ===== */
+.db-tabs-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 20px 0 14px; margin-bottom: 20px; border-bottom: 1px solid var(--db-hairline);
+}
+.db-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.db-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--db-paper); border: 1px solid var(--db-hairline); border-radius: 999px;
+  padding: 8px 14px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--db-text-mute); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.db-tab:hover { color: var(--db-text); }
+.db-tab.active { background: var(--db-accent-tint); color: var(--db-gold-bright); border-color: var(--db-gold); }
+.db-tab-edit { font-size: 11px; opacity: 0.65; cursor: pointer; }
+.db-tab-edit:hover { opacity: 1; }
+.db-tab-rename-input {
+  background: var(--db-paper-solid); border: 1px solid var(--db-gold); border-radius: 999px;
+  padding: 6px 10px; font-size: 12.5px; font-weight: 600; color: var(--db-text); width: 140px;
+}
+.db-tab-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.db-btn-primary, .db-btn-secondary, .db-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; letter-spacing: 0.03em;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.db-btn-primary { background: linear-gradient(180deg, var(--db-gold-bright) 0%, var(--db-gold) 100%); color: #24190c; border: 1px solid var(--db-gold); }
+.db-btn-primary:hover { opacity: 0.9; }
+.db-btn-secondary { background: var(--db-paper); color: var(--db-text-dim); border: 1px solid var(--db-hairline); }
+.db-btn-secondary:hover { color: var(--db-gold-bright); border-color: var(--db-gold); }
+.db-btn-ghost { background: transparent; color: var(--db-text-mute); border: 1px solid var(--db-hairline); }
+.db-btn-ghost:hover { color: var(--db-text); border-color: var(--db-text-mute); }
+
+/* ===== Board ===== */
+.db-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .db-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .db-board { grid-template-columns: 1fr; } }
+.db-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 40px; }
+
+/* ===== Widget card chassis — dark glass, gold hairline, numbered index +
+   decorative arrow (top row) echoing the reference's "01 / ↗" card corners,
+   with drag/wide/delete tucked into a subtle hover-reveal row so the
+   numbered-card look stays clean. ===== */
+.dw-card {
+  background: var(--db-paper); border: 1px solid var(--db-hairline); border-radius: var(--radius-lg);
+  padding: 16px 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.dw-card-blush { background: var(--db-accent-tint); border-color: var(--db-gold); }
+.dw-card-ghost { opacity: 0.4; border: 1px dashed var(--db-gold); background: var(--db-accent-tint); }
+.sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+.dw-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dw-card-index {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--db-gold);
+}
+.dw-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.dw-card:hover .dw-card-hover-actions, .dw-card:focus-within .dw-card-hover-actions { opacity: 1; }
+.dw-drag-handle {
+  flex-shrink: 0; cursor: grab; color: var(--db-text-mute); font-size: 13px; line-height: 1;
+  letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent;
+}
+.dw-drag-handle:active { cursor: grabbing; }
+.dw-card-del, .dw-wide-toggle {
+  background: transparent; border: none; color: var(--db-text-mute); font-size: 14px; line-height: 1;
+  cursor: pointer; padding: 4px 6px; border-radius: 6px;
+}
+.dw-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.dw-wide-toggle { font-size: 9.5px; letter-spacing: 0.05em; }
+.dw-wide-toggle:hover { background: var(--db-accent-tint); color: var(--db-gold-bright); }
+
+.dw-card-title-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.dw-card-title {
+  flex: 1; min-width: 0; font-family: var(--font-serif); font-weight: 600; font-size: 19px;
+  color: var(--db-text); outline-offset: 3px; word-break: break-word;
+}
+
+/* ===== Checklist / plain list ===== */
+.dw-plain-list, .dw-affirm-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.dw-plain-row {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 8px; border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.dw-plain-row:hover { background: rgba(255,255,255,0.03); }
+.dw-plain-row .dw-check-cb { margin-top: 3px; flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--db-gold); cursor: pointer; }
+.dw-item-text { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; outline-offset: 3px; word-break: break-word; }
+.dw-item-done .dw-item-text { text-decoration: line-through; color: var(--db-text-mute); }
+.dw-item-del {
+  flex-shrink: 0; background: transparent; border: none; color: var(--db-text-mute); opacity: 0;
+  font-size: 14px; cursor: pointer; padding: 0 4px; transition: opacity 0.15s;
+}
+.dw-plain-row:hover .dw-item-del, .dw-affirm-row:hover .dw-item-del { opacity: 1; }
+.dw-item-del:hover { color: var(--danger); }
+
+.dw-affirm-row {
+  position: relative; background: rgba(255,255,255,0.03); border: 1px solid var(--db-hairline); border-radius: var(--radius-md);
+  padding: 12px 30px 12px 14px;
+}
+.dw-affirm-text { font-family: var(--font-serif); font-style: italic; font-size: 15px; line-height: 1.4; color: var(--db-text); outline-offset: 3px; display: block; }
+.dw-affirm-row .dw-item-del { position: absolute; top: 6px; right: 6px; }
+
+.dw-additem-row { display: flex; gap: 6px; }
+.dw-additem-row input {
+  flex: 1; min-width: 0; background: rgba(255,255,255,0.04); border: 1px solid var(--db-hairline); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-size: 13px; color: var(--db-text);
+}
+.dw-additem-btn {
+  flex-shrink: 0; background: var(--db-gold); color: #24190c; border: none; border-radius: var(--radius-sm);
+  width: 32px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+
+/* ===== Note ===== */
+.dw-note-textarea {
+  width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--db-hairline); background: rgba(255,255,255,0.03);
+  border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px; line-height: 1.55; color: var(--db-text);
+}
+
+/* ===== Quote — a large decorative mark echoing the reference's testimonial
+   block. ===== */
+.dw-quote-body { padding: 6px 4px 2px; position: relative; }
+.dw-quote-body::before {
+  content: '\201C'; position: absolute; top: -22px; left: -4px; font-family: var(--font-serif);
+  font-size: 64px; color: var(--db-gold); opacity: 0.4; line-height: 1;
+}
+.dw-quote-text {
+  position: relative; font-family: var(--font-serif); font-style: italic; font-size: 19px; line-height: 1.4; color: var(--db-text);
+  outline-offset: 4px; padding-top: 6px;
+}
+.dw-quote-author { margin-top: 10px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--db-gold-bright); text-transform: uppercase; outline-offset: 3px; }
+.dw-quote-author::before { content: '\2014\00A0'; }
+
+/* ===== Steps tracker ===== */
+.dw-steps-body { display: flex; flex-direction: column; gap: 8px; }
+.dw-steps-row, .dw-steps-goal-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--db-text-mute); }
+.dw-steps-input {
+  width: 90px; font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--db-text);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--db-hairline); border-radius: var(--radius-sm); padding: 6px 8px;
+}
+.dw-steps-goal-input {
+  width: 70px; font-family: var(--font-mono); font-size: 12.5px; color: var(--db-text);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--db-hairline); border-radius: var(--radius-sm); padding: 4px 6px;
+}
+.dw-progress-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; border: 1px solid var(--db-hairline); }
+.dw-progress-fill { height: 100%; background: linear-gradient(90deg, var(--db-gold) 0%, var(--db-gold-bright) 100%); border-radius: 999px; transition: width 0.3s ease; }
+.dw-steps-pct { font-size: 11px; color: var(--db-text-mute); font-weight: 600; }
+
+/* ===== Photo / video grid ===== */
+.dw-photo-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.dw-photo-grid-2 { grid-template-columns: 1fr 1fr; }
+.dw-photo-slot {
+  position: relative; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03);
+  border: 1px solid var(--db-hairline); aspect-ratio: 4 / 3;
+}
+.dw-photo-slot img, .dw-photo-slot video { width: 100%; height: 100%; object-fit: cover; }
+.dw-photo-slot-empty, .dw-photo-slot-broken {
+  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; color: var(--db-text-mute); font-size: 11px; text-align: center; padding: 8px;
+}
+.dw-photo-broken-icon { font-size: 22px; }
+.dw-photo-reattach-btn {
+  background: var(--db-paper-solid); border: 1px solid var(--db-hairline); border-radius: 999px; padding: 4px 10px;
+  font-size: 11px; font-weight: 700; cursor: pointer; color: var(--db-text);
+}
+.dw-slot-del {
+  position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(5,4,3,0.65); color: #fff; border: none; font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.dw-photo-addslot {
+  aspect-ratio: 4 / 3; border: 1px dashed var(--db-text-mute); border-radius: var(--radius-md);
+  background: transparent; color: var(--db-text-mute); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.dw-photo-addslot:hover { background: rgba(255,255,255,0.03); color: var(--db-gold-bright); border-color: var(--db-gold); }
+.dw-photo-caption { margin-top: 10px; font-size: 10.5px; color: var(--db-text-mute); line-height: 1.5; }
+
+/* ===== Feature card — a single numbered photo card with an overlay title
+   + caption, mirroring the reference's "01 The Films / 02 The Moments /
+   03 The Experience" row. ===== */
+.dw-feature-photo {
+  position: relative; border-radius: var(--radius-md); overflow: hidden; background: var(--db-paper-solid);
+  border: 1px solid var(--db-hairline); aspect-ratio: 3 / 4;
+}
+.dw-feature-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dw-feature-photo-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(5,4,3,0.85) 100%);
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 14px;
+}
+.dw-feature-title {
+  font-family: var(--font-serif); font-weight: 600; font-size: 18px; color: var(--db-text);
+  outline-offset: 3px; text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+.dw-feature-caption { margin-top: 4px; font-size: 11px; color: var(--db-text-dim); outline-offset: 3px; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.dw-feature-addphoto {
+  position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; border: none;
+  color: var(--db-text-mute); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.dw-feature-addphoto:hover { color: var(--db-gold-bright); }
+.dw-feature-photo-change {
+  position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(5,4,3,0.6); border: 1px solid var(--db-hairline);
+  color: var(--db-text-dim); border-radius: 999px; padding: 4px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer;
+}
+.dw-feature-photo-change:hover { color: var(--db-gold-bright); border-color: var(--db-gold); }
+
+/* ===== Info card — small centered icon/title/subtitle tile, mirroring the
+   reference's "Traveling Worldwide" / "Follow Along" cards. ===== */
+.dw-infocard-body { text-align: center; padding: 10px 4px 4px; }
+.dw-infocard-icon { font-size: 26px; margin-bottom: 10px; outline-offset: 3px; }
+.dw-infocard-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--db-gold-bright); outline-offset: 3px; }
+.dw-infocard-subtitle { margin-top: 6px; font-size: 12.5px; color: var(--db-text-dim); outline-offset: 3px; }
+
+/* ===== Calendar ===== */
+.dw-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dw-cal-nav {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--db-hairline); border-radius: 50%; width: 26px; height: 26px;
+  font-size: 14px; cursor: pointer; color: var(--db-text);
+}
+.dw-cal-label { font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--db-text); }
+.dw-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.dw-cal-dow { font-size: 9.5px; font-weight: 700; color: var(--db-text-mute); text-align: center; padding-bottom: 4px; }
+.dw-cal-day {
+  position: relative; aspect-ratio: 1; border: 1px solid transparent; border-radius: 7px; background: rgba(255,255,255,0.03);
+  font-size: 11px; color: var(--db-text); cursor: pointer; display: flex; align-items: flex-start; justify-content: flex-start;
+  padding: 3px 4px;
+}
+.dw-cal-day:hover { border-color: var(--db-hairline); background: var(--db-accent-tint); }
+.dw-cal-day-empty { background: transparent; cursor: default; pointer-events: none; }
+.dw-cal-day-today { border-color: var(--db-gold); font-weight: 700; }
+.dw-cal-note-dot { position: absolute; bottom: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--db-gold-bright); }
+
+/* ===== Modals — plain .modal-bg/.modal so topbar.js's existing
+   MODAL_SELECTORS/mobile full-screen handling covers this page with
+   zero topbar.js edits (see CLAUDE.md DO NOT MODIFY §2). ===== */
+.modal-bg {
+  display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-bg.show { display: flex; }
+.modal { background: var(--db-paper-solid); border: 1px solid var(--db-hairline); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 440px; max-height: 86vh; overflow-y: auto; }
+.db-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.db-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--db-text); }
+.db-modal-close { background: transparent; border: none; font-size: 18px; color: var(--db-text-mute); cursor: pointer; }
+.db-modal-close:hover { color: var(--db-text); }
+.db-modal-or { text-align: center; font-size: 11px; color: var(--db-text-mute); margin: 10px 0; }
+.db-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.db-modal-textarea {
+  width: 100%; min-height: 120px; border: 1px solid var(--db-hairline); background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px; resize: vertical; color: var(--db-text);
+}
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--db-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select {
+  width: 100%; border: 1px solid var(--db-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm);
+  padding: 9px 10px; font-size: 13.5px; color: var(--db-text);
+}
+.db-widget-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 420px) { .db-widget-menu { grid-template-columns: 1fr; } }
+.db-widget-menu-item {
+  text-align: left; background: rgba(255,255,255,0.03); border: 1px solid var(--db-hairline); border-radius: var(--radius-md);
+  padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; color: var(--db-text);
+}
+.db-widget-menu-item:hover { background: var(--db-accent-tint); border-color: var(--db-gold); }
+.db-widget-menu-item strong { font-size: 13px; }
+.db-widget-menu-item span { font-size: 10.5px; color: var(--db-text-mute); line-height: 1.35; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="db-hero" id="dbHero">
+    <div class="db-hero-media" id="dbHeroMedia">
+      <img id="dbHeroPhotoImg" style="display:none;" alt="">
+      <button type="button" class="db-hero-photo-btn" id="dbHeroPhotoBtn">+ Add a cover photo</button>
+    </div>
+    <div class="db-hero-overlay"></div>
+    <a href="index.html" class="db-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="db-hero-photo-tools" id="dbHeroPhotoTools" style="display:none;">
+      <button type="button" id="dbHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="dbHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="dbHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="db-hero-content">
+      <div class="db-hero-eyebrow" id="dbHeroEyebrow" contenteditable="true"></div>
+      <textarea class="db-hero-title" id="dbHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="db-hero-subtext" id="dbHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="db-hero-cta" id="dbHeroCta">
+        <span class="db-hero-cta-label" id="dbHeroCtaLabel" contenteditable="true"></span>
+        <span class="db-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+    <div class="db-hero-scroll-hint" aria-hidden="true">
+      <span>SCROLL TO EXPLORE</span>
+      <span class="db-hero-scroll-arrow">↓</span>
+    </div>
+  </div>
+
+  <div class="shell-inner">
+    <div class="db-tabs-row">
+      <div class="db-tabs" id="dbTabs"></div>
+      <div class="db-tab-actions">
+        <button type="button" class="db-btn-secondary" id="dbAddWidgetBtn">+ Add Widget</button>
+        <button type="button" class="db-btn-ghost" id="dbResetBtn">Reset to Default</button>
+      </div>
+    </div>
+
+    <div class="db-board" id="dbBoard"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="dbAddWidgetModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3>Add a widget</h3><button type="button" class="db-modal-close" id="dbAddWidgetCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="db-widget-menu">
+      <button type="button" class="db-widget-menu-item" data-wtype="feature"><strong>Feature Card</strong><span>A single numbered photo with a title and caption</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="infocard"><strong>Info Card</strong><span>A small icon, title, and one-line note</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="checklist"><strong>Checklist</strong><span>Goals, routines, or any to-do list</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="list"><strong>List</strong><span>Plain items — traits, values, ideas</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="note"><strong>Note</strong><span>A freeform block of text</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="quote"><strong>Quote</strong><span>A quote with an attribution</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="affirmation"><strong>Affirmation</strong><span>A set of affirmation cards</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="steps"><strong>Steps Tracker</strong><span>Today's steps vs. a daily goal</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="photos"><strong>Photo / Video Grid</strong><span>A vision-board grid of media</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="calendar"><strong>Calendar</strong><span>This month, with a note per day</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="dbPhotoModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3 id="dbPhotoModalTitle">Add photo or video</h3><button type="button" class="db-modal-close" id="dbPhotoModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field" id="dbSlotTypeField">
+      <label>Type</label>
+      <select id="dbSlotTypeSelect"><option value="image">Photo</option><option value="video">Video</option></select>
+    </div>
+    <div class="field">
+      <label>Upload a file</label>
+      <input type="file" id="dbSlotFileInput" accept="image/*,video/*">
+    </div>
+    <div class="db-modal-or">— or —</div>
+    <div class="field">
+      <label>Paste a URL</label>
+      <input type="text" id="dbSlotUrlInput" placeholder="https://…">
+    </div>
+    <div class="db-modal-actions"><button type="button" class="db-btn-primary" id="dbSlotAddBtn">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="dbDayNoteModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3>Note for <span id="dbDayNoteDateLabel"></span></h3><button type="button" class="db-modal-close" id="dbDayNoteCloseBtn" aria-label="Close">&times;</button></div>
+    <textarea id="dbDayNoteInput" class="db-modal-textarea" placeholder="Add a note for this day…"></textarea>
+    <div class="db-modal-actions">
+      <button type="button" class="db-btn-ghost" id="dbDayNoteClearBtn">Clear</button>
+      <button type="button" class="db-btn-primary" id="dbDayNoteSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+
+  const ACTIVE_TAB_KEY = 'dreamboard:active_tab';
+  const LEGACY_BANNER_KEY = 'dreamboard:banner';
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const WIDGET_TYPE_LABELS = {
+    checklist: 'New Checklist', list: 'New List', note: 'New Note', quote: 'New Quote',
+    affirmation: 'New Affirmation', steps: 'Daily Steps', photos: 'Photo / Video Grid', calendar: 'Calendar',
+    feature: 'New Feature Card', infocard: 'New Info Card'
+  };
+
+  let DB = null;
+  let activeTabId = null;
+  let renamingTabId = null;
+  let sortableInstances = [];
+  let addSlotTargetWidgetId = null;
+  let addSlotSingleTarget = false; // true when the photo modal is filling a 'feature' widget's single photo, not a 'photos' widget's slots array
+  let dayNoteTarget = null;
+  // Uploaded video files never touch localStorage/Supabase (no backend to
+  // store them — see CLAUDE.md §2/§4) — object URLs live only in this map
+  // for the current tab lifetime. A slot with sessionOnly:true and no
+  // entry here (e.g. right after a reload) renders as a "re-attach" prompt.
+  let sessionVideoBlobs = {};
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // ============================================================
+  // HERO — one per tab (each tab reads as its own "page"). Editing any
+  // field patches that tab's `hero` object directly.
+  // ============================================================
+  function currentHero() {
+    const t = DB.Tabs.get(activeTabId);
+    return t ? t.hero : { eyebrow: '', title: '', subtext: '', ctaLabel: '', photo: '' };
+  }
+  function patchHero(patch) {
+    if (!activeTabId) return;
+    const t = DB.Tabs.get(activeTabId);
+    if (!t) return;
+    DB.Tabs.update(activeTabId, { hero: Object.assign({}, t.hero, patch) });
+  }
+  function renderHero() {
+    const hero = currentHero();
+    $('dbHeroEyebrow').textContent = hero.eyebrow;
+    $('dbHeroTitle').value = hero.title;
+    $('dbHeroSubtext').textContent = hero.subtext;
+    $('dbHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+    autosize($('dbHeroTitle'));
+
+    const img = $('dbHeroPhotoImg'), btn = $('dbHeroPhotoBtn'), tools = $('dbHeroPhotoTools');
+    if (hero.photo) {
+      img.src = hero.photo; img.style.display = 'block'; btn.style.display = 'none'; tools.style.display = 'flex';
+    } else {
+      img.style.display = 'none'; img.src = ''; btn.style.display = 'flex'; tools.style.display = 'none';
+    }
+  }
+  function openHeroFilePicker() { $('dbHeroPhotoInput').value = ''; $('dbHeroPhotoInput').click(); }
+  function handleHeroPhotoFile() {
+    const file = $('dbHeroPhotoInput').files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const compressed = await DB.compressImageDataUrl(String(reader.result), 1400, 0.82);
+      patchHero({ photo: compressed });
+      renderHero();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // TABS
+  // ============================================================
+  function renderTabs() {
+    const tabs = DB.tabsSorted();
+    const wrap = $('dbTabs');
+    wrap.innerHTML = '';
+    tabs.forEach(function (t) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'db-tab' + (t.id === activeTabId ? ' active' : '');
+      btn.dataset.tabId = t.id;
+
+      if (renamingTabId === t.id) {
+        const input = document.createElement('input');
+        input.type = 'text'; input.className = 'db-tab-rename-input'; input.value = t.title;
+        input.addEventListener('click', function (e) { e.stopPropagation(); });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); commitTabRename(t.id, input.value); }
+          else if (e.key === 'Escape') { renamingTabId = null; renderTabs(); }
+        });
+        input.addEventListener('blur', function () { commitTabRename(t.id, input.value); });
+        btn.appendChild(input);
+        wrap.appendChild(btn);
+        setTimeout(function () { input.focus(); input.select(); }, 0);
+        return;
+      }
+
+      const label = document.createElement('span');
+      label.textContent = t.title;
+      btn.appendChild(label);
+      if (t.id === activeTabId) {
+        const editBtn = document.createElement('span');
+        editBtn.className = 'db-tab-edit'; editBtn.textContent = '✎';
+        editBtn.setAttribute('role', 'button'); editBtn.tabIndex = 0;
+        editBtn.title = 'Rename tab';
+        editBtn.addEventListener('click', function (e) { e.stopPropagation(); renamingTabId = t.id; renderTabs(); });
+        editBtn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); renamingTabId = t.id; renderTabs(); } });
+        btn.appendChild(editBtn);
+      }
+      btn.addEventListener('click', function () { if (t.id !== activeTabId) switchTab(t.id); });
+      wrap.appendChild(btn);
+    });
+  }
+  function commitTabRename(id, value) {
+    const val = value.trim();
+    renamingTabId = null;
+    if (val) DB.Tabs.update(id, { title: val });
+    renderTabs();
+  }
+  function switchTab(tabId) {
+    activeTabId = tabId;
+    storeSet(ACTIVE_TAB_KEY, tabId);
+    renderHero();
+    renderTabs();
+    renderBoard();
+  }
+
+  // ============================================================
+  // WIDGET BODIES
+  // ============================================================
+  function mutateWidget(widget, dataPatch) {
+    DB.Widgets.update(widget.id, { data: Object.assign({}, widget.data, dataPatch) });
+  }
+
+  function buildItemRow(widget, item, opts) {
+    const row = document.createElement('div');
+    row.className = opts.cardStyle ? 'dw-affirm-row' : 'dw-plain-row';
+    if (item.done) row.classList.add('dw-item-done');
+
+    if (opts.checkable) {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'dw-check-cb'; cb.checked = !!item.done;
+      cb.setAttribute('aria-label', 'Mark done');
+      cb.addEventListener('change', function () {
+        const items = (widget.data.items || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { done: cb.checked }) : x; });
+        mutateWidget(widget, { items: items });
+        renderBoard();
+      });
+      row.appendChild(cb);
+    }
+
+    const text = document.createElement('span');
+    text.className = opts.cardStyle ? 'dw-affirm-text' : 'dw-item-text';
+    text.contentEditable = 'true';
+    text.textContent = item.text;
+    wireInlineEdit(text, function (newVal) {
+      if (!newVal) {
+        const items = (widget.data.items || []).filter(function (x) { return x.id !== item.id; });
+        mutateWidget(widget, { items: items });
+        renderBoard();
+        return;
+      }
+      const items = (widget.data.items || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { text: newVal }) : x; });
+      mutateWidget(widget, { items: items });
+    }, { allowEmpty: true });
+    row.appendChild(text);
+
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'dw-item-del'; del.setAttribute('aria-label', 'Delete item'); del.textContent = '×';
+    del.addEventListener('click', function () {
+      const items = (widget.data.items || []).filter(function (x) { return x.id !== item.id; });
+      mutateWidget(widget, { items: items });
+      renderBoard();
+    });
+    row.appendChild(del);
+    return row;
+  }
+
+  function buildItemListBody(widget, opts) {
+    const wrap = document.createElement('div');
+    const list = document.createElement('div');
+    list.className = opts.cardStyle ? 'dw-affirm-list' : 'dw-plain-list';
+    (widget.data.items || []).forEach(function (item) { list.appendChild(buildItemRow(widget, item, opts)); });
+    wrap.appendChild(list);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'dw-additem-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = opts.cardStyle ? 'Add an affirmation…' : 'Add an item…';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dw-additem-btn'; btn.setAttribute('aria-label', 'Add item'); btn.textContent = '+';
+    function submit() {
+      const val = input.value.trim();
+      if (!val) return;
+      const items = (widget.data.items || []).concat([{ id: DB.uid('it'), text: val, done: false }]);
+      mutateWidget(widget, { items: items });
+      renderBoard();
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    addRow.appendChild(input); addRow.appendChild(btn);
+    wrap.appendChild(addRow);
+    return wrap;
+  }
+
+  function buildNoteBody(widget) {
+    const ta = document.createElement('textarea');
+    ta.className = 'dw-note-textarea';
+    ta.value = widget.data.body || '';
+    ta.placeholder = 'Write freely…';
+    ta.addEventListener('input', function () { autosize(ta); });
+    ta.addEventListener('blur', function () { mutateWidget(widget, { body: ta.value }); });
+    setTimeout(function () { autosize(ta); }, 0);
+    return ta;
+  }
+
+  function buildQuoteBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-quote-body';
+    const q = document.createElement('div');
+    q.className = 'dw-quote-text'; q.contentEditable = 'true'; q.textContent = widget.data.text || 'Click to write a quote…';
+    wireInlineEdit(q, function (v) { mutateWidget(widget, { text: v }); }, { multiline: true, allowEmpty: true });
+    const a = document.createElement('div');
+    a.className = 'dw-quote-author'; a.contentEditable = 'true'; a.textContent = widget.data.author || 'Add an author';
+    wireInlineEdit(a, function (v) { mutateWidget(widget, { author: v }); }, { allowEmpty: true });
+    wrap.appendChild(q); wrap.appendChild(a);
+    return wrap;
+  }
+
+  function buildStepsBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-steps-body';
+    const today = DB.todayISO();
+    const count = Number((widget.data.log || {})[today]) || 0;
+    const goal = Math.max(1, Number(widget.data.goal) || 1);
+    const pct = Math.max(0, Math.min(100, Math.round((count / goal) * 100)));
+
+    const row = document.createElement('div'); row.className = 'dw-steps-row';
+    const countInput = document.createElement('input');
+    countInput.type = 'number'; countInput.min = '0'; countInput.className = 'dw-steps-input'; countInput.value = String(count);
+    countInput.setAttribute('aria-label', 'Steps today');
+    countInput.addEventListener('change', function () {
+      const log = Object.assign({}, widget.data.log);
+      log[today] = Math.max(0, Number(countInput.value) || 0);
+      mutateWidget(widget, { log: log });
+      renderBoard();
+    });
+    const lbl = document.createElement('span'); lbl.textContent = 'steps today';
+    row.appendChild(countInput); row.appendChild(lbl);
+
+    const goalRow = document.createElement('div'); goalRow.className = 'dw-steps-goal-row';
+    const goalLbl = document.createElement('span'); goalLbl.textContent = 'Goal:';
+    const goalInput = document.createElement('input');
+    goalInput.type = 'number'; goalInput.min = '1'; goalInput.className = 'dw-steps-goal-input'; goalInput.value = String(goal);
+    goalInput.setAttribute('aria-label', 'Daily step goal');
+    goalInput.addEventListener('change', function () {
+      mutateWidget(widget, { goal: Math.max(1, Number(goalInput.value) || 1) });
+      renderBoard();
+    });
+    goalRow.appendChild(goalLbl); goalRow.appendChild(goalInput);
+
+    const bar = document.createElement('div'); bar.className = 'dw-progress-bar';
+    const fill = document.createElement('div'); fill.className = 'dw-progress-fill'; fill.style.width = pct + '%';
+    bar.appendChild(fill);
+    const pctLbl = document.createElement('div'); pctLbl.className = 'dw-steps-pct'; pctLbl.textContent = pct + '% of goal';
+
+    wrap.appendChild(row); wrap.appendChild(goalRow); wrap.appendChild(bar); wrap.appendChild(pctLbl);
+    return wrap;
+  }
+
+  function revokeSessionBlob(slotId) {
+    if (sessionVideoBlobs[slotId]) { try { URL.revokeObjectURL(sessionVideoBlobs[slotId]); } catch (e) {} delete sessionVideoBlobs[slotId]; }
+  }
+
+  function buildPhotoSlotEl(widget, slot) {
+    const el = document.createElement('div');
+    el.className = 'dw-photo-slot';
+    el.dataset.slotId = slot.id;
+
+    const liveUrl = (slot.type === 'video' && slot.sessionOnly) ? sessionVideoBlobs[slot.id] : slot.url;
+    if (liveUrl) {
+      let media;
+      if (slot.type === 'video') { media = document.createElement('video'); media.src = liveUrl; media.controls = true; media.playsInline = true; }
+      else { media = document.createElement('img'); media.src = liveUrl; media.alt = slot.name || ''; }
+      el.appendChild(media);
+    } else if (slot.type === 'video' && slot.sessionOnly) {
+      const ph = document.createElement('div'); ph.className = 'dw-photo-slot-broken';
+      const icon = document.createElement('div'); icon.className = 'dw-photo-broken-icon'; icon.textContent = '🎬';
+      const label = document.createElement('div'); label.textContent = 'Video needs to be re-attached';
+      const reBtn = document.createElement('button'); reBtn.type = 'button'; reBtn.className = 'dw-photo-reattach-btn'; reBtn.textContent = 'Re-attach';
+      reBtn.addEventListener('click', function () { reattachVideoSlot(widget.id, slot.id); });
+      ph.appendChild(icon); ph.appendChild(label); ph.appendChild(reBtn);
+      el.appendChild(ph);
+    } else {
+      const ph = document.createElement('div'); ph.className = 'dw-photo-slot-empty'; ph.textContent = 'No media';
+      el.appendChild(ph);
+    }
+
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'dw-slot-del'; del.setAttribute('aria-label', 'Remove'); del.textContent = '×';
+    del.addEventListener('click', function (e) { e.stopPropagation(); deletePhotoSlot(widget.id, slot.id); });
+    el.appendChild(del);
+    return el;
+  }
+
+  function reattachVideoSlot(widgetId, slotId) {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'video/*'; input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', function () {
+      const file = input.files[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      sessionVideoBlobs[slotId] = URL.createObjectURL(file);
+      renderBoard();
+    });
+    input.click();
+  }
+
+  function deletePhotoSlot(widgetId, slotId) {
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    revokeSessionBlob(slotId);
+    const slots = (w.data.slots || []).filter(function (s) { return s.id !== slotId; });
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
+
+  function buildPhotosBody(widget) {
+    const wrap = document.createElement('div');
+    const grid = document.createElement('div');
+    grid.className = 'dw-photo-grid ' + (widget.data.wide ? 'dw-photo-grid-2' : 'dw-photo-grid-1');
+    (widget.data.slots || []).forEach(function (slot) { grid.appendChild(buildPhotoSlotEl(widget, slot)); });
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button'; addBtn.className = 'dw-photo-addslot'; addBtn.textContent = '+ Add photo / video';
+    addBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: false }); });
+    grid.appendChild(addBtn);
+    wrap.appendChild(grid);
+
+    const caption = document.createElement('div'); caption.className = 'dw-photo-caption';
+    caption.textContent = 'Photos are saved automatically. Videos are attached for this browser session only and will need to be re-attached after a reload.';
+    wrap.appendChild(caption);
+    return wrap;
+  }
+
+  // ===== Feature card — single numbered photo + title + caption =====
+  function buildFeatureBody(widget) {
+    const wrap = document.createElement('div');
+    const photoWrap = document.createElement('div'); photoWrap.className = 'dw-feature-photo';
+    if (widget.data.photo) {
+      const img = document.createElement('img'); img.src = widget.data.photo; img.alt = '';
+      photoWrap.appendChild(img);
+      const changeBtn = document.createElement('button');
+      changeBtn.type = 'button'; changeBtn.className = 'dw-feature-photo-change'; changeBtn.textContent = 'Change';
+      changeBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: true }); });
+      photoWrap.appendChild(changeBtn);
+      const overlay = document.createElement('div'); overlay.className = 'dw-feature-photo-overlay';
+      const title = document.createElement('div'); title.className = 'dw-feature-title'; title.contentEditable = 'true'; title.textContent = widget.data.title || '';
+      wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: true });
+      const caption = document.createElement('div'); caption.className = 'dw-feature-caption'; caption.contentEditable = 'true'; caption.textContent = widget.data.caption || 'Add a caption…';
+      wireInlineEdit(caption, function (v) { mutateWidget(widget, { caption: v }); }, { allowEmpty: true });
+      overlay.appendChild(title); overlay.appendChild(caption);
+      photoWrap.appendChild(overlay);
+    } else {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'dw-feature-addphoto'; addBtn.textContent = '+ Add photo';
+      addBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: true }); });
+      photoWrap.appendChild(addBtn);
+    }
+    wrap.appendChild(photoWrap);
+
+    if (!widget.data.photo) {
+      const title = document.createElement('div'); title.className = 'dw-feature-title'; title.style.marginTop = '10px';
+      title.contentEditable = 'true'; title.textContent = widget.data.title || '';
+      wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: true });
+      const caption = document.createElement('div'); caption.className = 'dw-feature-caption'; caption.style.color = 'var(--db-text-mute)';
+      caption.contentEditable = 'true'; caption.textContent = widget.data.caption || 'Add a caption…';
+      wireInlineEdit(caption, function (v) { mutateWidget(widget, { caption: v }); }, { allowEmpty: true });
+      wrap.appendChild(title); wrap.appendChild(caption);
+    }
+    return wrap;
+  }
+
+  // ===== Info card — icon + tracked-caps title + subtitle =====
+  function buildInfoCardBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-infocard-body';
+    const icon = document.createElement('div'); icon.className = 'dw-infocard-icon'; icon.contentEditable = 'true'; icon.textContent = widget.data.icon || '✨';
+    wireInlineEdit(icon, function (v) { mutateWidget(widget, { icon: v }); }, { allowEmpty: false });
+    const title = document.createElement('div'); title.className = 'dw-infocard-title'; title.contentEditable = 'true'; title.textContent = widget.data.title || 'TITLE';
+    wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: false });
+    const subtitle = document.createElement('div'); subtitle.className = 'dw-infocard-subtitle'; subtitle.contentEditable = 'true'; subtitle.textContent = widget.data.subtitle || 'Add a note…';
+    wireInlineEdit(subtitle, function (v) { mutateWidget(widget, { subtitle: v }); }, { allowEmpty: true });
+    wrap.appendChild(icon); wrap.appendChild(title); wrap.appendChild(subtitle);
+    return wrap;
+  }
+
+  function shiftCalMonth(widgetId, year, month, delta) {
+    let m = month + delta, y = year;
+    if (m < 0) { m = 11; y -= 1; } else if (m > 11) { m = 0; y += 1; }
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { viewYear: y, viewMonth: m }) });
+    renderBoard();
+  }
+
+  function buildCalendarBody(widget) {
+    const wrap = document.createElement('div');
+    const now = new Date();
+    const year = widget.data.viewYear != null ? widget.data.viewYear : now.getFullYear();
+    const month = widget.data.viewMonth != null ? widget.data.viewMonth : now.getMonth();
+
+    const head = document.createElement('div'); head.className = 'dw-cal-head';
+    const prevBtn = document.createElement('button'); prevBtn.type = 'button'; prevBtn.className = 'dw-cal-nav'; prevBtn.textContent = '‹'; prevBtn.setAttribute('aria-label', 'Previous month');
+    const label = document.createElement('span'); label.className = 'dw-cal-label'; label.textContent = MONTH_NAMES[month] + ' ' + year;
+    const nextBtn = document.createElement('button'); nextBtn.type = 'button'; nextBtn.className = 'dw-cal-nav'; nextBtn.textContent = '›'; nextBtn.setAttribute('aria-label', 'Next month');
+    prevBtn.addEventListener('click', function () { shiftCalMonth(widget.id, year, month, -1); });
+    nextBtn.addEventListener('click', function () { shiftCalMonth(widget.id, year, month, 1); });
+    head.appendChild(prevBtn); head.appendChild(label); head.appendChild(nextBtn);
+    wrap.appendChild(head);
+
+    const grid = document.createElement('div'); grid.className = 'dw-cal-grid';
+    ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(function (d) {
+      const dow = document.createElement('div'); dow.className = 'dw-cal-dow'; dow.textContent = d; grid.appendChild(dow);
+    });
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < firstDow; i++) { const blank = document.createElement('div'); blank.className = 'dw-cal-day dw-cal-day-empty'; grid.appendChild(blank); }
+    const todayStr = DB.todayISO();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const cell = document.createElement('button');
+      cell.type = 'button'; cell.className = 'dw-cal-day' + (dateStr === todayStr ? ' dw-cal-day-today' : '');
+      const num = document.createElement('span'); num.textContent = String(d);
+      cell.appendChild(num);
+      if (widget.data.notes && widget.data.notes[dateStr]) { const dot = document.createElement('span'); dot.className = 'dw-cal-note-dot'; cell.appendChild(dot); }
+      cell.addEventListener('click', function () { openDayNoteModal(widget.id, dateStr); });
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  // ============================================================
+  // CARD SHELL + BOARD RENDER
+  // ============================================================
+  function toggleWidgetWide(widgetId) {
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { wide: !w.data.wide }) });
+    renderBoard();
+  }
+
+  function deleteWidget(id) {
+    if (!confirm('Delete this widget?')) return;
+    const w = DB.Widgets.get(id);
+    if (w && w.type === 'photos') { (w.data.slots || []).forEach(function (s) { revokeSessionBlob(s.id); }); }
+    DB.Widgets.remove(id);
+    renderBoard();
+  }
+
+  function buildWidgetCard(widget, displayIndex) {
+    const card = document.createElement('div');
+    card.className = 'dw-card' + (widget.accent === 'blush' ? ' dw-card-blush' : '');
+    card.dataset.widgetId = widget.id;
+    card.dataset.widgetType = widget.type;
+
+    const head = document.createElement('div'); head.className = 'dw-card-head';
+    const index = document.createElement('span'); index.className = 'dw-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const hoverActions = document.createElement('div'); hoverActions.className = 'dw-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'dw-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    hoverActions.appendChild(handle);
+    if (widget.type === 'photos') {
+      const wideBtn = document.createElement('button');
+      wideBtn.type = 'button'; wideBtn.className = 'dw-wide-toggle'; wideBtn.title = 'Toggle 1 / 2 column grid';
+      wideBtn.textContent = widget.data.wide ? '2 COL' : '1 COL';
+      wideBtn.addEventListener('click', function () { toggleWidgetWide(widget.id); });
+      hoverActions.appendChild(wideBtn);
+    }
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'dw-card-del'; delBtn.setAttribute('aria-label', 'Delete widget'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () { deleteWidget(widget.id); });
+    hoverActions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(hoverActions);
+    card.appendChild(head);
+
+    const titleRow = document.createElement('div'); titleRow.className = 'dw-card-title-row';
+    const title = document.createElement('span'); title.className = 'dw-card-title'; title.contentEditable = 'true'; title.textContent = widget.title || '';
+    wireInlineEdit(title, function (v) { DB.Widgets.update(widget.id, { title: v }); }, { allowEmpty: false });
+    titleRow.appendChild(title);
+    card.appendChild(titleRow);
+
+    const body = document.createElement('div'); body.className = 'dw-card-body';
+    switch (widget.type) {
+      case 'checklist': body.appendChild(buildItemListBody(widget, { checkable: true, cardStyle: false })); break;
+      case 'list': body.appendChild(buildItemListBody(widget, { checkable: false, cardStyle: false })); break;
+      case 'affirmation': body.appendChild(buildItemListBody(widget, { checkable: false, cardStyle: true })); break;
+      case 'note': body.appendChild(buildNoteBody(widget)); break;
+      case 'quote': body.appendChild(buildQuoteBody(widget)); break;
+      case 'steps': body.appendChild(buildStepsBody(widget)); break;
+      case 'photos': body.appendChild(buildPhotosBody(widget)); break;
+      case 'calendar': body.appendChild(buildCalendarBody(widget)); break;
+      case 'feature': body.appendChild(buildFeatureBody(widget)); break;
+      case 'infocard': body.appendChild(buildInfoCardBody(widget)); break;
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  function destroySortables() {
+    sortableInstances.forEach(function (s) { try { s.destroy(); } catch (e) {} });
+    sortableInstances = [];
+  }
+
+  function persistColumnOrder() {
+    const cols = [];
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.querySelector('#dbBoard .db-col[data-col="' + i + '"]');
+      cols.push(Array.from(colEl.children).map(function (el) { return el.dataset.widgetId; }));
+    }
+    DB.reorderTab(activeTabId, cols);
+  }
+
+  function wireSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const groupName = 'dbcol-' + activeTabId;
+    document.querySelectorAll('#dbBoard .db-col').forEach(function (col) {
+      sortableInstances.push(new Sortable(col, {
+        group: groupName,
+        handle: '.dw-drag-handle',
+        animation: reduced ? 0 : 150,
+        ghostClass: 'dw-card-ghost',
+        onEnd: function () { persistColumnOrder(); renderBoard(); }
+      }));
+    });
+  }
+
+  // Sequential 01/02/03… numbering across the whole tab, read left-to-right
+  // then top-to-bottom across the three columns (row-major), purely a
+  // cosmetic label — not stored, recomputed fresh on every render.
+  function computeDisplayIndexes(cols) {
+    const indexMap = {};
+    let counter = 1;
+    const maxLen = Math.max(cols[0].length, cols[1].length, cols[2].length);
+    for (let row = 0; row < maxLen; row++) {
+      for (let c = 0; c < 3; c++) { if (cols[c][row]) { indexMap[cols[c][row].id] = counter++; } }
+    }
+    return indexMap;
+  }
+
+  function renderBoard() {
+    destroySortables();
+    const board = $('dbBoard');
+    board.innerHTML = '';
+    if (!activeTabId) return;
+    const cols = DB.columnsForTab(activeTabId);
+    const indexMap = computeDisplayIndexes(cols);
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.createElement('div');
+      colEl.className = 'db-col'; colEl.dataset.col = String(i);
+      cols[i].forEach(function (w) { colEl.appendChild(buildWidgetCard(w, indexMap[w.id])); });
+      board.appendChild(colEl);
+    }
+    wireSortable();
+  }
+
+  // ============================================================
+  // ADD WIDGET / RESET
+  // ============================================================
+  function addWidgetToActiveTab(type, title) {
+    if (!activeTabId) return;
+    const cols = DB.columnsForTab(activeTabId);
+    let colIdx = 0, minLen = cols[0].length;
+    for (let i = 1; i < 3; i++) { if (cols[i].length < minLen) { minLen = cols[i].length; colIdx = i; } }
+    DB.Widgets.add({ tabId: activeTabId, column: colIdx, order: cols[colIdx].length, type: type, title: title, data: DB.defaultWidgetData(type) });
+    closeModal($('dbAddWidgetModalBg'));
+    renderBoard();
+  }
+
+  function wireAddWidgetMenu() {
+    document.querySelectorAll('.db-widget-menu-item').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const type = btn.dataset.wtype;
+        addWidgetToActiveTab(type, WIDGET_TYPE_LABELS[type] || 'New Widget');
+      });
+    });
+  }
+
+  function resetBoard() {
+    if (!confirm('Reset the Dream Board to its default tabs and widgets? This deletes everything currently on the board.')) return;
+    Object.keys(sessionVideoBlobs).forEach(function (id) { try { URL.revokeObjectURL(sessionVideoBlobs[id]); } catch (e) {} });
+    sessionVideoBlobs = {};
+    DB.seedDefaultBoard();
+    const tabs = DB.tabsSorted();
+    activeTabId = (tabs[0] || {}).id || null;
+    storeSet(ACTIVE_TAB_KEY, activeTabId);
+    renderHero();
+    renderTabs();
+    renderBoard();
+  }
+
+  // ============================================================
+  // PHOTO MODAL — shared by the Photos widget (multi-slot) and the
+  // Feature Card widget (a single photo field); `single` picks which.
+  // ============================================================
+  function openPhotoModal(widgetId, opts) {
+    opts = opts || {};
+    addSlotTargetWidgetId = widgetId;
+    addSlotSingleTarget = !!opts.single;
+    $('dbPhotoModalTitle').textContent = addSlotSingleTarget ? 'Add photo' : 'Add photo or video';
+    $('dbSlotTypeField').style.display = addSlotSingleTarget ? 'none' : '';
+    $('dbSlotFileInput').accept = addSlotSingleTarget ? 'image/*' : 'image/*,video/*';
+    $('dbSlotTypeSelect').value = 'image';
+    $('dbSlotFileInput').value = '';
+    $('dbSlotUrlInput').value = '';
+    openModal($('dbPhotoModalBg'));
+  }
+  function addSlotToWidget(widgetId, slot) {
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    const slots = (w.data.slots || []).concat([slot]);
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
+  function setFeaturePhoto(widgetId, url) {
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { photo: url }) });
+    renderBoard();
+  }
+  function handleAddSlotSubmit() {
+    const widgetId = addSlotTargetWidgetId;
+    const single = addSlotSingleTarget;
+    const file = $('dbSlotFileInput').files[0];
+    const urlVal = $('dbSlotUrlInput').value.trim();
+    const selectedType = single ? 'image' : $('dbSlotTypeSelect').value;
+    if (file) {
+      const isVideo = !single && (file.type.indexOf('video') === 0 || (file.type.indexOf('image') !== 0 && selectedType === 'video'));
+      if (isVideo) {
+        if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+        const slotId = DB.uid('slot');
+        sessionVideoBlobs[slotId] = URL.createObjectURL(file);
+        addSlotToWidget(widgetId, { id: slotId, type: 'video', url: '', sessionOnly: true, name: file.name });
+        closeModal($('dbPhotoModalBg'));
+      } else {
+        const reader = new FileReader();
+        reader.onload = async function () {
+          const compressed = await DB.compressImageDataUrl(String(reader.result), single ? 900 : 640, 0.8);
+          if (single) setFeaturePhoto(widgetId, compressed);
+          else addSlotToWidget(widgetId, { id: DB.uid('slot'), type: 'image', url: compressed, sessionOnly: false, name: file.name });
+          closeModal($('dbPhotoModalBg'));
+        };
+        reader.readAsDataURL(file);
+      }
+    } else if (urlVal) {
+      if (!DB.isValidMediaUrl(urlVal)) { alert('Please enter a valid http(s) URL.'); return; }
+      if (single) setFeaturePhoto(widgetId, urlVal);
+      else addSlotToWidget(widgetId, { id: DB.uid('slot'), type: selectedType, url: urlVal, sessionOnly: false, name: '' });
+      closeModal($('dbPhotoModalBg'));
+    } else {
+      alert('Choose a file or paste a URL first.');
+    }
+  }
+
+  // ============================================================
+  // DAY NOTE MODAL
+  // ============================================================
+  function openDayNoteModal(widgetId, dateStr) {
+    const w = DB.Widgets.get(widgetId);
+    if (!w) return;
+    dayNoteTarget = { widgetId: widgetId, dateStr: dateStr };
+    $('dbDayNoteDateLabel').textContent = dateStr;
+    $('dbDayNoteInput').value = (w.data.notes && w.data.notes[dateStr]) || '';
+    openModal($('dbDayNoteModalBg'));
+    setTimeout(function () { autosize($('dbDayNoteInput')); }, 0);
+  }
+  function saveDayNote() {
+    if (!dayNoteTarget) return;
+    const w = DB.Widgets.get(dayNoteTarget.widgetId);
+    if (!w) return;
+    const notes = Object.assign({}, w.data.notes);
+    const val = $('dbDayNoteInput').value.trim();
+    if (val) notes[dayNoteTarget.dateStr] = val; else delete notes[dayNoteTarget.dateStr];
+    DB.Widgets.update(dayNoteTarget.widgetId, { data: Object.assign({}, w.data, { notes: notes }) });
+    closeModal($('dbDayNoteModalBg'));
+    renderBoard();
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function migrateLegacyBanner() {
+    // The page's first version had one global editable banner
+    // ("a new era of me"). This version replaces it with a per-tab hero,
+    // so a user who'd already customized that banner gets it folded into
+    // the first tab's hero title/eyebrow once, rather than silently lost.
+    const legacy = storeGet(LEGACY_BANNER_KEY);
+    if (!legacy) return;
+    const tabs = DB.tabsSorted();
+    const first = tabs[0];
+    if (first && !first.hero.title && legacy.title) {
+      DB.Tabs.update(first.id, { hero: Object.assign({}, first.hero, { title: legacy.title, subtext: legacy.subtitle || first.hero.subtext }) });
+    }
+    try { localStorage.removeItem(LEGACY_BANNER_KEY); } catch (e) {}
+  }
+
+  function init() {
+    DB = window.DreamBoardData;
+    if (!DB) return;
+
+    migrateLegacyBanner();
+
+    const tabs = DB.tabsSorted();
+    const savedTab = storeGet(ACTIVE_TAB_KEY);
+    activeTabId = (tabs.find(function (t) { return t.id === savedTab; }) || tabs[0] || {}).id || null;
+    renderHero();
+    renderTabs();
+    renderBoard();
+
+    wireInlineEdit($('dbHeroEyebrow'), function (v) { patchHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('dbHeroSubtext'), function (v) { patchHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('dbHeroCtaLabel'), function (v) { patchHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('dbHeroTitle').addEventListener('input', function () { autosize($('dbHeroTitle')); });
+    $('dbHeroTitle').addEventListener('blur', function () { patchHero({ title: $('dbHeroTitle').value }); });
+    $('dbHeroPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('dbHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('dbHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); patchHero({ photo: '' }); renderHero(); });
+    $('dbHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+    $('dbHeroCta').addEventListener('click', function () {
+      $('dbBoard').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('dbAddWidgetBtn').addEventListener('click', function () { openModal($('dbAddWidgetModalBg')); });
+    $('dbAddWidgetCloseBtn').addEventListener('click', function () { closeModal($('dbAddWidgetModalBg')); });
+    $('dbAddWidgetModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    wireAddWidgetMenu();
+
+    $('dbResetBtn').addEventListener('click', resetBoard);
+
+    $('dbPhotoModalCloseBtn').addEventListener('click', function () { closeModal($('dbPhotoModalBg')); });
+    $('dbPhotoModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    $('dbSlotAddBtn').addEventListener('click', handleAddSlotSubmit);
+
+    $('dbDayNoteCloseBtn').addEventListener('click', function () { closeModal($('dbDayNoteModalBg')); });
+    $('dbDayNoteModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    $('dbDayNoteClearBtn').addEventListener('click', function () { $('dbDayNoteInput').value = ''; });
+    $('dbDayNoteSaveBtn').addEventListener('click', saveDayNote);
+
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'dreamboard',
+        syncedPrefixes: ['dreamboard:'],
+        onApplied: function () {
+          const tabs2 = DB.tabsSorted();
+          if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
+          renderHero();
+          renderTabs();
+          renderBoard();
+        }
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

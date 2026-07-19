@@ -33,6 +33,7 @@ Vercel's static server) — see README.md.
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
+| `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -180,6 +181,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
+   | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -216,6 +218,7 @@ using `sync.js`.
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
 | Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; all five tabs built — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
+| Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -2886,3 +2889,295 @@ between this app and either data loss or a wide-open write target:
     split at 1440px; the media URL row fits on one line with no overflow
     at 390px; no horizontal overflow at 390px either before or after;
     and zero console errors.
+
+- **New page: `dreamboard.html` ("Dream Board"), a drag-and-drop vision-
+  board page built from a detailed written spec** (a synthesis of three
+  Notion "dream life"/planner template screenshots — no `dashboard.html`
+  prototype actually existed in the repo to port from, so the spec text
+  was treated as ground truth over the screenshots wherever they
+  diverged). Genuinely new file, plus a new companion data file,
+  `dreamboard-data.js` — new nav pill (`DREAM BOARD` → `dreamboard.html`,
+  appended after `SELF-CARE` in `topbar.js`'s injected pill list — the
+  only edit made to `topbar.js`; note `topbar.js` currently has **no**
+  `EXAMPLE` pill despite CLAUDE.md's own `example.html` changelog entry
+  claiming one was added — that entry describes work that isn't actually
+  present in this file today, a pre-existing doc/code mismatch this
+  session found but left alone since fixing it wasn't asked for); new
+  sync key (`appKey: 'dreamboard'`, `syncedPrefixes: ['dreamboard:']`,
+  wired via the standard shared `initCloudSync` — same call pattern as
+  every other page, nothing new invented).
+  - **Palette exception, explicit and deliberate**: the request gave
+    literal hex values (cream `#F7F3EC` background, paper `#FEFDFB`
+    cards, blush `#F1E3DC` accent, ink `#2B2724` text, muted `#9A8F82`
+    labels, hairline `#E7DFD3` borders) and named fonts (Cormorant
+    Garamond serif for the banner/card titles, Inter for body text) —
+    the same category of one-off reference-instruction exception as
+    `braindump.html`'s forest theme or `gym.html`'s crimson grading (see
+    CLAUDE.md §6/DO NOT MODIFY rule 2), just a light theme instead of a
+    dark one this time. No other page's tokens were touched. Since
+    Cormorant Garamond isn't a system font and this repo has no local
+    font files, it's loaded from Google Fonts via a `<link>` tag — the
+    same "small CDN dependency, no build step" precedent already set by
+    loading the Supabase JS SDK from jsDelivr in every other page.
+  - **Data model** (`dreamboard-data.js`, same model-factory +
+    `makeCollection` + pure-selector conventions as `household-data.js`/
+    `finance-data.js`): two flat collections, `dreamboard:tabs`
+    (`{id, title, order}`, four seeded by default — Vision Board /
+    Reflections / Quarterly Goals / Monthly Breakdown, inline-
+    renameable via a "✎" next to the active tab, not user-addable/
+    removable — the request said "editable tab row," which this reads
+    as rename, not full tab CRUD, a deliberate scope call) and
+    `dreamboard:widgets` (`{id, tabId, column (0-2), order, type, title,
+    accent, data}` — the same flat-array-with-foreign-key convention as
+    `index.html`'s Goals/Tasks/Milestones, not a nested tree). Eight
+    widget types cover every item in the request's widget list without
+    inventing a type per named example: **Checklist** (My Goals/Morning
+    Routine/Evening Routine/category checklists are all just Checklist
+    instances with different titles — My Goals seeded with
+    `accent: 'blush'` per the "My Goals (blush)" instruction), **List**
+    (the "How I Am ♡" personality traits — same item shape as Checklist
+    minus the checkbox), **Note** (the "My biggest goals" freeform
+    text), **Quote**, **Affirmation** (a card-styled variant of List),
+    **Steps Tracker**, **Photo/Video Grid**, and **Calendar**. A
+    `dreamboard:banner` key (not a collection — just `{title,
+    subtitle}`) holds the editable "a new era of me" banner text, and
+    `dreamboard:active_tab` persists which tab was last open — both
+    already covered by the single `syncedPrefixes: ['dreamboard:']`
+    entry, no extra sync wiring needed. `seedDefaultBoard()` splits the
+    default widgets thematically across the four tabs (Vision Board →
+    photo grid + quote + affirmations; Reflections → personality list +
+    goals note; Quarterly Goals → three checklists; Monthly Breakdown →
+    calendar + morning/evening routines + steps tracker) — a judgment
+    call made to loosely mirror which of the three reference screenshots
+    each tab's content came from, not copied verbatim from any of them.
+  - **Drag-and-drop**: this repo has never used real drag-and-drop
+    anywhere before (every other page's manual reordering is up/down-
+    arrow swaps — Life Areas, Overview notes, Media's Manual sort, etc.)
+    — since the request explicitly asked for handle-based drag within
+    AND between columns, and this is a vanilla-JS repo with no React
+    (so dnd-kit doesn't apply), **SortableJS** was added via CDN
+    (`cdn.jsdelivr.net/npm/sortablejs@1.15.2`), the same "small CDN
+    dependency, no build step" precedent as the Supabase SDK. One
+    `Sortable` instance per board column (`.db-col`), all three sharing
+    one `group` name scoped to the active tab so cards can move between
+    columns but never leak into another tab's (unrendered) columns;
+    `handle: '.dw-drag-handle'` so dragging only starts from the ⋮⋮
+    handle, never from clicking into a title/item to edit it. Every
+    drag end reads the current DOM order of all three columns and does
+    one bulk write (`DreamBoardData.reorderTab`) rather than one
+    `update()` call per moved widget. `animation` drops to 0 under
+    `prefers-reduced-motion: reduce`, matching the page-wide reduced-
+    motion media query that also zeroes out CSS transitions/animations.
+  - **Inline editing** covers everything the request named: banner
+    title/subtitle, tab titles (via the rename-in-place `✎` flow above),
+    widget titles, checklist/list/affirmation item text (`contentEditable`
+    spans, commit on blur/Enter, revert on Escape, delete-the-item if
+    left empty — the same shared `wireInlineEdit()` helper used
+    everywhere), quote text/author, and calendar day notes (a
+    `<textarea>` in a small modal, since a day note is realistically
+    multi-line and a calendar cell has no room for inline text). Note
+    bodies use an autosizing `<textarea>` with save-on-blur rather than
+    `contentEditable`, matching this app's own established convention
+    for larger freeform text elsewhere (Overview notes, business notes).
+  - **Checklists**: toggle via a real checkbox (not a custom div, unlike
+    `index.html`'s Goals page — a plain checkbox was simplest and
+    sufficient here), add via an inline text input + Enter/+-button,
+    delete via a per-row × button — all three also apply to List/
+    Affirmation widgets (List/Affirmation just render without the
+    checkbox and with card-styled rows for Affirmation).
+  - **Photo/video grid**: "1 ↔ 2 column toggle per photo widget" was
+    read as toggling the widget's own internal thumbnail grid between a
+    single column and a 2-across grid (matching how the two reference
+    screenshots actually differ — one shows a vertical single-column
+    photo stack, the other a 2×2 grid) rather than the widget spanning
+    across two of the board's three physical columns, which would have
+    fought with having three independent `Sortable` lists as separate
+    DOM containers. Adding a slot opens a modal offering either a file
+    upload or a pasted URL (mirroring `entertainment.html`'s established
+    paste-or-upload cover-art flow); an uploaded image is downscaled via
+    the same canvas-based `compressImageDataUrl()` recipe every other
+    page in this app already uses and stored as a base64 `data:` URL
+    (persisted, synced, survives reload). **Video is different by
+    necessity**: this app has no backend/file storage at all (see
+    CLAUDE.md §2/§4), so an uploaded video file becomes a session-local
+    `URL.createObjectURL()` blob that is never written to `localStorage`
+    or pushed to Supabase — only the slot's metadata persists. After a
+    reload (or on another device via sync), that slot renders a "🎬
+    Video needs to be re-attached" placeholder with a one-click
+    re-attach button instead of silently showing nothing — a pasted
+    video URL, by contrast, is a plain string and works normally after
+    reload since there's nothing to re-attach. A visible caption under
+    every photo/video grid says as much, so this isn't a surprise
+    discovered only by losing a video.
+  - **Add Widget menu** (a modal listing all eight widget types with a
+    one-line description each) appends the new widget to whichever of
+    the active tab's three columns currently has the fewest widgets.
+    **Per-widget delete** lives in every card's header (with a
+    `confirm()`, and cleans up any session video blob URLs first so
+    they don't leak). **Reset to Default** (`confirm()`-gated) calls
+    `DreamBoardData.seedDefaultBoard()`, which wipes and rebuilds both
+    collections from scratch — the same "wipe with confirm, rebuild
+    from the seed function" pattern this app hasn't needed elsewhere
+    but is the natural counterpart to every other page's one-time
+    `seedIfEmpty()`.
+  - **Accessibility**: `:focus-visible` outlines added globally (this
+    page's own addition — not present in the shared `topbar.js` CSS,
+    which this page still inherits for its top nav bar and modal
+    scroll-lock/full-screen behavior since every modal here uses the
+    plain `.modal-bg`/`.modal` classes already in `topbar.js`'s
+    `MODAL_SELECTORS`, needing no `topbar.js` edit); a
+    `prefers-reduced-motion: reduce` media query collapses all CSS
+    transitions/animations to near-zero duration and also zeroes
+    SortableJS's own drag animation; the board is a CSS grid that
+    collapses 3 → 2 → 1 columns by viewport width (a graceful
+    simplification: below 3 columns, the three physical column
+    containers just stack in order rather than truly re-flowing card-
+    by-card, which is an accepted trade-off for a column-based board,
+    not a bug). **Known limitation, not addressed**: reordering itself
+    is still mouse/touch-only, since SortableJS (like effectively every
+    drag-and-drop library) has no built-in keyboard-operable reorder
+    path — every other interactive element (checkboxes, add/delete
+    buttons, tab rename, modals) is fully keyboard-operable.
+
+- **Dream Board (`dreamboard.html`) re-themed dark/cinematic to match a
+  destination-wedding-photographer portfolio reference photo, gained a
+  per-tab hero cover section, and two new widget types — all follow-up
+  to the page's initial build above, per an explicit request to match
+  a new reference image while keeping every existing widget/DnD/editing
+  capability intact.** Nothing built in the original pass was removed;
+  this is a re-skin plus two additions, verified by re-reading every
+  function end to end (see the testing note below on why that, and not
+  a live browser, is what verified this pass).
+  - **Palette flip, deliberate**: the light cream/paper/blush/ink look
+    this page launched with is retired in favor of the reference photo's
+    near-black + warm champagne/gold grading (`--db-bg`/`--db-gold`/
+    `--db-gold-bright`/`--db-hairline` etc., replacing the old `--cream`/
+    `--paper`/`--blush`/`--ink`/`--muted`/`--hairline` tokens one-for-
+    one). Still the same category of one-off reference-photo exception
+    as `braindump.html`'s forest theme or `gym.html`'s crimson grading
+    (CLAUDE.md §6/DO NOT MODIFY rule 2) — just a second, different
+    exception replacing the first on this same page, not a new
+    precedent for the rest of the app. `--success`/`--warning`/`--danger`
+    were left as the app's usual green/amber/red-coral (status meaning,
+    not brand accent — same precedent every other re-theme in this file
+    follows). Cormorant Garamond (serif, titles) + Inter (body) were
+    kept from the original build — the reference's elegant serif display
+    type was already exactly what this page was using, so no new font
+    was loaded.
+  - **Per-tab "hero" replaces the old single global banner.** The
+    original build had one editable banner ("a new era of me" title +
+    subtitle) shown once above the tab row. Since the reference photo is
+    a full-bleed cover section that reads differently per page (Home vs
+    Films vs Portfolio), and this page's four tabs are the closest thing
+    it has to "pages," each `DreamTab` gained a `hero` object
+    (`{eyebrow, title, subtext, ctaLabel, photo}`, new `heroModel()` in
+    `dreamboard-data.js`) rendered fresh on every `switchTab()` — the
+    single old banner is retired outright, not kept as a second parallel
+    element, since it's the same session evolving its own feature
+    forward into a richer version (same precedent as `gym.html`'s Timer
+    modal→panel conversion or its This-Week schedule-modal→grid
+    conversion: a same-session supersession, not another pass's orphaned
+    feature, so nothing was preserved as unreachable dead code here). A
+    one-time `migrateLegacyBanner()` folds any already-customized
+    `dreamboard:banner` value into the first tab's hero title/subtext on
+    first load after this update, then deletes the old key, so an
+    already-personalized banner isn't silently lost; the key was never
+    published/used beyond this local session, so this is a courtesy, not
+    a load-bearing migration.
+    - Hero eyebrow/subtext/CTA label are `contentEditable` spans (the
+      existing `wireInlineEdit()` helper, unchanged). The **headline is
+      a styled, borderless, autosizing `<textarea>`** rather than
+      `contentEditable`, specifically because the reference's headline
+      wraps across multiple lines and `contentEditable`'s Enter-key
+      behavior (nested `<div>`s/`<br>`s) doesn't round-trip cleanly
+      through `el.textContent` the way this page's other single-line
+      editable fields do — a `<textarea>` styled to have no visible
+      chrome (transparent background, no border, autosize-to-content via
+      the same `autosize()` helper already used for Note bodies/day
+      notes) gets real multi-line text with zero risk of losing line
+      breaks, at the cost of one bespoke input/blur handler instead of
+      the shared `wireInlineEdit()`.
+    - **Cover photo** is uploadable (click-to-upload when empty, small
+      "Change"/"Remove" buttons — always visible, not hover-gated, since
+      hover doesn't exist on touch — once set), compressed via the same
+      `compressImageDataUrl()` every other page's cover/banner photo
+      already uses, just at a wider 1400px/0.82 preset than this app's
+      480–640px thumbnail presets since a full-bleed hero needs more
+      resolution than a card thumbnail. Stored on `tab.hero.photo`
+      (persisted, synced — unlike the Photos/Feature widgets' video
+      slots, a hero photo is always a still image, so there's no
+      session-only case to handle here). The CTA button smooth-scrolls
+      to the board below (`#dbBoard`), the closest functional analog
+      available to the reference's "VIEW FILMS" page-navigation button
+      since this page has no separate destination to link to — it
+      respects `prefers-reduced-motion` (falls back to an instant jump).
+      A "SCROLL TO EXPLORE ↓" flourish is static decorative chrome (like
+      the reference photo's own scroll hint), not stored/editable data,
+      same treatment as this app's other purely-decorative UI copy.
+  - **Two new widget types**, both added to `WIDGET_TYPES` in
+    `dreamboard-data.js` and to the Add Widget menu, fully draggable/
+    deletable/reorderable like every other widget — "editable and
+    moveable," not hardcoded page chrome:
+    - **Feature Card** (`{photo, title, caption}`) — a single numbered
+      photo with a bottom gradient-overlay title/caption, mirroring the
+      reference's "01 The Films / 02 The Moments / 03 The Experience"
+      row. Photo upload/paste-URL reuses the same modal as the Photos
+      widget (`openPhotoModal()` gained a `{single: true}` mode that
+      writes to `widget.data.photo` instead of pushing into
+      `widget.data.slots[]`, and hides the Photo/Video type picker since
+      a Feature Card is photo-only) rather than duplicating a second
+      upload modal.
+    - **Info Card** (`{icon, title, subtitle}`) — a small centered
+      icon + tracked-caps title + one-line subtitle, mirroring the
+      reference's "Traveling Worldwide"/"Follow Along" tiles. The icon
+      is just a `contentEditable` span (type any emoji/character), not a
+      picker — kept intentionally simple.
+  - **Numbered-card treatment applied to every widget, of every type**
+    (not just the two new ones): each card's header now shows a
+    zero-padded running index (`01`, `02`, …) computed fresh on every
+    render (`computeDisplayIndexes()`, row-major across the three
+    columns — col0[0], col1[0], col2[0], col0[1], … — purely cosmetic,
+    never persisted) alongside the drag handle/wide-toggle/delete, which
+    moved into a `.dw-card-hover-actions` cluster sitting at ~55% opacity
+    normally and full opacity on hover/focus — visible enough to
+    discover on a touchscreen (no hover state to reveal it there) without
+    cluttering the clean numbered-card look the reference photo has. A
+    drag-and-drop reorder now also calls `renderBoard()` (previously it
+    only persisted the new order) so the index numbers immediately
+    reflect the new positions instead of staying stale until the next
+    unrelated re-render.
+  - **Mobile pass**: hero headline uses `clamp(34px, 8vw, 58px)` so it
+    scales continuously rather than jumping at breakpoints; the hero's
+    "scroll to explore" side-label (a vertical-text element that reads
+    fine on a tall desktop hero) is hidden under 620px, where it would
+    otherwise collide with the shorter mobile hero; the back button and
+    photo change/remove controls respect `env(safe-area-inset-*)` for
+    notched phones (already this app's standard convention, just
+    re-applied here since the back button moved from a plain top-of-page
+    link to floating over the hero photo). The board's existing
+    3 → 2 → 1 column collapse (from the original build) was left as-is —
+    still the right behavior, just now rendering dark/gold cards instead
+    of light/blush ones.
+  - **Testing note, disclosed rather than glossed over**: this pass
+    could **not** be verified in a live headless browser, unlike every
+    other page-build entry in this file that ends with a headless-Edge
+    verification note. Every attempt to launch an isolated headless Edge
+    instance in this environment (`--user-data-dir`, `--remote-debugging-
+    port`, `--host-resolver-rules` blocking `*.supabase.co`, mirroring
+    this file's own established testing convention) got silently
+    absorbed as new renderer processes into the one Edge instance already
+    running in the background (confirmed via `Win32_Process` command-line
+    inspection: the new processes were `--type=renderer` children of the
+    pre-existing browser process, not a fresh instance with its own
+    remote-debugging port), so `Runtime.evaluate`-driven interaction
+    testing was never actually possible here. Rather than kill that
+    background instance (ambiguous whether it's tied to the user's real
+    browser session, so treated as off-limits) or claim untested work was
+    verified, this pass was instead checked statically: every `$('id')`
+    reference in the script was cross-matched against the HTML's actual
+    element ids (none orphaned), and brace/paren counts across both
+    `dreamboard.html` and `dreamboard-data.js` were confirmed balanced
+    after every edit. **This is a weaker guarantee than the behavioral
+    verification every other entry in this file describes** — a real
+    click-through in an actual browser before relying on this page is
+    still recommended.
