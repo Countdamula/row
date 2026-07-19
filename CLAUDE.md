@@ -3478,3 +3478,37 @@ between this app and either data loss or a wide-open write target:
     entries — verified statically (every new/renamed `$('id')`/function
     reference cross-checked, brace/paren balance confirmed), not
     click-tested in a live browser.
+
+- **Fixed: adding a video cover option broke adding a photo cover.**
+  Root cause: the hero file input's `accept` was widened from
+  `"image/*"` (single-type, worked) to `"image/*,video/*"` (combined) in
+  the previous entry's video-support work. Combined-type `accept`
+  values are a known source of unpredictable behavior in some mobile
+  photo/video pickers (the OS picker can get confused about which media
+  type it's actually supposed to offer) — this is the one concrete thing
+  that changed right when photo uploads stopped working.
+  - Replaced the single "+ Add a cover photo or video" button with two
+    explicit buttons — "+ Add a cover photo" / "+ Add a cover video" —
+    each calling `openHeroFilePicker(mediaKind)` (new signature; used to
+    take no argument), which sets the shared `#dbHeroPhotoInput`'s
+    `accept` to a single, unambiguous `image/*` or `video/*` right
+    before opening it, rather than relying on a combined value the OS
+    picker has to sort out itself. "Change" now reopens whichever kind
+    the tab's current cover already is, so switching an existing
+    photo → photo (or video → video) stays a single click; switching
+    *type* entirely (photo → video or back) means Remove then pick the
+    other Add button, a deliberately simple tradeoff over building a
+    second in-place type-switch control.
+  - Applied the same fix to the Photos widget's add-media modal (the
+    Feature Card path was already safe — its `single:true` mode was
+    already forcing `accept="image/*"` only). That modal already has a
+    Photo/Video `<select>`; it just wasn't driving the file input's
+    `accept` at all before. It now does, both on modal open and live via
+    a `change` listener on the select, so by the time the OS picker
+    opens it always matches whichever single type is currently chosen.
+  - **Testing note**: same environment limitation as the preceding
+    entries — verified statically (every `$('id')`/function reference
+    cross-checked, brace/paren balance confirmed), not click-tested in a
+    live browser. This fix is inherently hard to verify without a real
+    mobile device/browser anyway, since the actual failure mode lives in
+    OS-level picker behavior this environment can't reproduce.

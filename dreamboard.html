@@ -126,13 +126,16 @@ body::after {
 }
 .db-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--db-paper-solid); }
 .db-hero-media img, .db-hero-media video { width: 100%; height: 100%; object-fit: cover; }
-.db-hero-photo-btn {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  background: transparent; border: none; color: var(--db-text-mute);
-  font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em;
-  display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px;
+.db-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
 }
-.db-hero-photo-btn:hover { color: var(--db-gold-bright); }
+.db-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.4); border: 1px solid var(--db-hairline); border-radius: 999px;
+  color: var(--db-text-mute); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 9px 18px;
+}
+.db-hero-photo-choice-btn:hover { color: var(--db-gold-bright); border-color: var(--db-gold); }
 .db-hero-reattach {
   position: absolute; inset: 0; z-index: 1; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; color: var(--db-text-mute); background: rgba(0,0,0,0.3); text-align: center; padding: 20px;
@@ -563,7 +566,10 @@ body::after {
         <div class="db-hero-reattach-label">Video needs to be re-attached</div>
         <button type="button" class="db-hero-reattach-btn" id="dbHeroReattachBtn">Re-attach</button>
       </div>
-      <button type="button" class="db-hero-photo-btn" id="dbHeroPhotoBtn">+ Add a cover photo or video</button>
+      <div class="db-hero-photo-choice" id="dbHeroPhotoChoice">
+        <button type="button" class="db-hero-photo-choice-btn" id="dbHeroAddPhotoBtn">+ Add a cover photo</button>
+        <button type="button" class="db-hero-photo-choice-btn" id="dbHeroAddVideoBtn">+ Add a cover video</button>
+      </div>
     </div>
     <div class="db-hero-overlay"></div>
     <a href="index.html" class="db-back-btn" aria-label="Back to dashboard">
@@ -574,7 +580,7 @@ body::after {
       <button type="button" id="dbHeroPhotoChangeBtn">Change</button>
       <button type="button" id="dbHeroPhotoRemoveBtn">Remove</button>
     </div>
-    <input type="file" id="dbHeroPhotoInput" accept="image/*,video/*" style="display:none;">
+    <input type="file" id="dbHeroPhotoInput" accept="image/*" style="display:none;">
     <div class="db-hero-content">
       <div class="db-hero-eyebrow" id="dbHeroEyebrow" contenteditable="true"></div>
       <textarea class="db-hero-title" id="dbHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
@@ -794,11 +800,11 @@ body::after {
     autosize($('dbHeroTitle'));
 
     const img = $('dbHeroPhotoImg'), video = $('dbHeroVideoEl'), reattach = $('dbHeroReattach'),
-      btn = $('dbHeroPhotoBtn'), tools = $('dbHeroPhotoTools');
+      choice = $('dbHeroPhotoChoice'), tools = $('dbHeroPhotoTools');
     img.style.display = 'none'; img.src = '';
     video.pause(); video.style.display = 'none';
     reattach.style.display = 'none';
-    btn.style.display = 'none';
+    choice.style.display = 'none';
     tools.style.display = 'none';
 
     if (hero.mediaType === 'video') {
@@ -812,11 +818,24 @@ body::after {
     } else if (hero.photo) {
       img.src = hero.photo; img.style.display = 'block'; tools.style.display = 'flex';
     } else {
-      btn.style.display = 'flex';
+      choice.style.display = 'flex';
     }
     renderPageBg();
   }
-  function openHeroFilePicker() { $('dbHeroPhotoInput').value = ''; $('dbHeroPhotoInput').click(); }
+  // Takes an explicit 'image'|'video' rather than a single input with
+  // accept="image/*,video/*" — combined-type accept values are known to
+  // behave unpredictably in some mobile photo/video pickers (some OS
+  // pickers get confused about which media type to actually offer).
+  // Forcing a single, unambiguous accept value per pick sidesteps that
+  // entirely, and still supports both — the user just says which one
+  // first (see the two "+ Add a cover photo" / "+ Add a cover video"
+  // buttons, or "Change," which reuses whichever kind is already set).
+  function openHeroFilePicker(mediaKind) {
+    const input = $('dbHeroPhotoInput');
+    input.accept = mediaKind === 'video' ? 'video/*' : 'image/*';
+    input.value = '';
+    input.click();
+  }
   function reattachHeroVideo() {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'video/*'; input.style.display = 'none';
@@ -1549,8 +1568,13 @@ body::after {
     addSlotSingleTarget = !!opts.single;
     $('dbPhotoModalTitle').textContent = addSlotSingleTarget ? 'Add photo' : 'Add photo or video';
     $('dbSlotTypeField').style.display = addSlotSingleTarget ? 'none' : '';
-    $('dbSlotFileInput').accept = addSlotSingleTarget ? 'image/*' : 'image/*,video/*';
     $('dbSlotTypeSelect').value = 'image';
+    // A single accept="image/*,video/*" is known to behave unpredictably
+    // in some mobile pickers (same reasoning as the hero cover picker
+    // above) — since this modal already has a Photo/Video type select,
+    // drive the file input's accept from whichever one is currently
+    // chosen instead, so the OS picker always gets one unambiguous type.
+    $('dbSlotFileInput').accept = (addSlotSingleTarget || $('dbSlotTypeSelect').value !== 'video') ? 'image/*' : 'video/*';
     $('dbSlotFileInput').value = '';
     $('dbSlotUrlInput').value = '';
     openModal($('dbPhotoModalBg'));
@@ -1667,8 +1691,12 @@ body::after {
     wireInlineEdit($('dbHeroCtaLabel'), function (v) { patchHero({ ctaLabel: v }); }, { allowEmpty: false });
     $('dbHeroTitle').addEventListener('input', function () { autosize($('dbHeroTitle')); });
     $('dbHeroTitle').addEventListener('blur', function () { patchHero({ title: $('dbHeroTitle').value }); });
-    $('dbHeroPhotoBtn').addEventListener('click', openHeroFilePicker);
-    $('dbHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('dbHeroAddPhotoBtn').addEventListener('click', function () { openHeroFilePicker('image'); });
+    $('dbHeroAddVideoBtn').addEventListener('click', function () { openHeroFilePicker('video'); });
+    $('dbHeroPhotoChangeBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      openHeroFilePicker(currentHero().mediaType === 'video' ? 'video' : 'image');
+    });
     $('dbHeroPhotoRemoveBtn').addEventListener('click', function (e) {
       e.stopPropagation();
       revokeHeroVideoBlob(activeTabId);
@@ -1692,6 +1720,9 @@ body::after {
     $('dbPhotoModalCloseBtn').addEventListener('click', function () { closeModal($('dbPhotoModalBg')); });
     $('dbPhotoModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
     $('dbSlotAddBtn').addEventListener('click', handleAddSlotSubmit);
+    $('dbSlotTypeSelect').addEventListener('change', function () {
+      $('dbSlotFileInput').accept = $('dbSlotTypeSelect').value === 'video' ? 'video/*' : 'image/*';
+    });
 
     $('dbDayNoteCloseBtn').addEventListener('click', function () { closeModal($('dbDayNoteModalBg')); });
     $('dbDayNoteModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
