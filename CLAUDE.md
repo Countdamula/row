@@ -3431,3 +3431,50 @@ between this app and either data loss or a wide-open write target:
     why). Verified statically only: the control-flow logic was re-read
     end to end, and `DB.seedIfEmpty` is still exported and reachable
     from `dreamboard.html`, just no longer auto-invoked.
+
+- **Dream Board's cover photo can now be a video too.** Additive follow-
+  up — image covers behave exactly as before.
+  - `tab.hero` gained `mediaType` (`'image'` default or `'video'`,
+    `dreamboard-data.js`'s `heroModel()`). When `'video'`, `hero.photo`
+    stays empty — there's no backend to persist a video to (CLAUDE.md
+    §2/§4), same constraint the Photos/Feature widgets' video slots
+    already work around. The actual video lives only as a session-local
+    `URL.createObjectURL()` blob, in a new `heroVideoBlobs` map keyed by
+    tab id (mirroring the existing `sessionVideoBlobs` map for widget
+    photo slots, just keyed by tab instead of by slot, since a hero has
+    exactly one media field per tab, not an array of slots). A tab
+    reloaded with `mediaType:'video'` and no matching entry in that map
+    shows a "🎬 Video needs to be re-attached" prompt with a one-click
+    re-attach button, same pattern as the Photos widget's broken-video
+    state.
+  - `handleHeroPhotoFile()` was renamed `handleHeroMediaFile()` and now
+    branches on the picked file's actual MIME type: images go through the
+    existing compress-then-store-as-data-URL-plus-sampled-color path
+    unchanged; videos (capped at 8MB, same limit used elsewhere in this
+    app for session-only video) create a blob URL and patch
+    `mediaType:'video'`, clearing `photo`/`photoColor` (there's no cheap
+    frame-sampling wired up for video, so a video cover simply has no
+    "match tab photo" tint color available — that swatch just disables
+    itself, the same as when a tab has no cover at all). The hero file
+    input's `accept` widened from `image/*` to `image/*,video/*`.
+  - **The page-wide blurred cover-photo backdrop (`#dbPageBg`, added
+    two entries above) now handles video too.** A CSS
+    `background-image` can't reference a `<video>`, so `#dbPageBg`
+    gained a child `<video id="dbPageBgVideo">`; `renderPageBg()` now
+    toggles between setting the background-image (photo) and playing
+    that video element (video cover with a live blob available) —
+    either way, the same `filter: blur(60px) saturate(1.35)
+    brightness(0.55)` on the `#dbPageBg` container still applies, since
+    CSS `filter` rasterizes everything rendered inside the element it's
+    on, image or video alike.
+  - The foreground hero video plays muted/looped/inline (no visible
+    native controls) so it reads as an ambient background loop
+    consistent with the reference site's cinematic feel, rather than a
+    playable clip with a control bar sitting over the headline —
+    matching how the Photos/Feature widgets' videos (which DO show
+    controls, since those are plainly functional content cards, not
+    hero chrome) were deliberately left alone.
+  - **Testing note**: same environment limitation as the preceding
+    entries — verified statically (every new/renamed `$('id')`/function
+    reference cross-checked, brace/paren balance confirmed), not
+    click-tested in a live browser.

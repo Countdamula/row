@@ -140,7 +140,14 @@
       // just reads as '' (falsy) everywhere it's used, the same defensive
       // shape every other new field on this page follows after the hero
       // crash this file's changelog already documents.
-      photoColor: typeof data.photoColor === 'string' ? data.photoColor : ''
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : '',
+      // 'image' (default) or 'video'. When 'video', `photo` stays empty —
+      // there's no backend to persist a video to (see CLAUDE.md §2/§4),
+      // so the actual video only ever lives as a session-local object URL
+      // in dreamboard.html's heroVideoBlobs map, keyed by tab id. A tab
+      // reloaded with mediaType:'video' and no matching blob in that map
+      // renders a "re-attach" prompt instead of silently showing nothing.
+      mediaType: data.mediaType === 'video' ? 'video' : 'image'
     };
   }
 
