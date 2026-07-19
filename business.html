@@ -25,12 +25,13 @@
    no other page touched.
 
    Two tab "modes" (`BusinessData` tab.mode):
-   - 'tasks' (Content/Ideas/Platforms/Strategy/Resources) — a per-tab
-     Tasks list mirroring index.html's Main-dashboard Tasks tab, plus a
-     Platforms roster (with per-platform autosaving notes) on the
-     Platforms tab specifically.
-   - 'board' (Analytics/Audit) — Dream Board's original 3-column
-     drag-and-drop widget board, unchanged engine.
+   - 'board' (Content/Ideas/Platforms/Resources/Analytics/Audit) — Dream
+     Board's original 3-column drag-and-drop widget board, unchanged
+     engine. Resources additionally has `hasTemplates: true`, which
+     renders a Templates/Workflow (Weeks → Days → Checklist) section
+     below its board.
+   - 'tasks' (Strategy only) — a per-tab Tasks list mirroring
+     index.html's Main-dashboard Tasks tab.
    ============================================================= */
 :root {
   --bh-bg: #0b0a08;
@@ -436,26 +437,60 @@ body::after {
 .bh-task-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
 .bh-task-empty { font-size: 12px; color: var(--bh-text-mute); font-style: italic; padding: 6px 2px; }
 
-/* ===== Platforms roster (Platforms tab only) ===== */
+/* ===== Link widget (Resources tab, and any board-mode tab) ===== */
+.bw-link-body { display: flex; flex-direction: column; gap: 8px; }
+.bw-link-url-row { display: flex; gap: 6px; align-items: center; }
+.bw-link-url-input { flex: 1; min-width: 0; font-size: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 7px 9px; color: var(--bh-text); }
+.bw-link-open-btn {
+  flex-shrink: 0; background: var(--bh-accent-tint); border: 1px solid var(--bh-hairline); color: var(--bh-gold-bright);
+  border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: none;
+}
+.bw-link-open-btn:hover { border-color: var(--bh-gold); }
+.bw-link-open-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
+.bw-link-desc { width: 100%; min-height: 54px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--bh-text-dim); }
+
+/* ===== Templates / Workflow section (Resources tab only) ===== */
+.bh-templates-section { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--bh-hairline); }
+.bh-templates-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .bh-roster-heading { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bh-gold); }
-.bh-roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-.bh-roster-card {
-  position: relative; border-radius: var(--radius-md); overflow: hidden; cursor: pointer;
-  background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline);
+.bh-wf-week {
+  border-radius: var(--radius-lg); border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  padding: 12px; display: flex; flex-direction: column; gap: 8px; text-align: center; align-items: center;
+  padding: 14px 16px 16px; margin-bottom: 16px;
 }
-.bh-roster-cover {
-  width: 56px; height: 56px; border-radius: 50%; overflow: hidden;
-  background: linear-gradient(135deg, var(--bh-gold) 0%, var(--bh-gold-bright) 100%);
-  display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #24190c;
+.bh-wf-week-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.bh-wf-caret { font-size: 11px; color: var(--bh-text-mute); transition: transform 0.15s; flex-shrink: 0; }
+.bh-wf-caret.collapsed { transform: rotate(-90deg); }
+.bh-wf-reorder { display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
+.bh-wf-reorder button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 9px; line-height: 1; padding: 1px 3px; }
+.bh-wf-reorder button:hover { color: var(--bh-gold-bright); }
+.bh-wf-reorder button:disabled { opacity: 0.25; cursor: default; }
+.bh-wf-week-title { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
+.bh-wf-week-count { flex-shrink: 0; font-size: 10.5px; color: var(--bh-text-mute); font-family: var(--font-mono); }
+.bh-wf-week-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0.6; }
+.bh-wf-week:hover .bh-wf-week-actions { opacity: 1; }
+.bh-wf-week-actions button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.bh-wf-week-actions button:hover { color: var(--bh-gold-bright); background: var(--bh-accent-tint); }
+.bh-wf-week-actions .bh-wf-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.bh-wf-week-bar { margin: 10px 0 12px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; border: 1px solid var(--bh-hairline); }
+.bh-wf-week-bar-fill { height: 100%; background: linear-gradient(90deg, var(--bh-gold) 0%, var(--bh-gold-bright) 100%); border-radius: 999px; }
+.bh-wf-week-body { display: flex; flex-direction: column; gap: 10px; }
+.bh-wf-day {
+  border-radius: var(--radius-md); border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03);
+  padding: 10px 12px;
 }
-.bh-roster-cover img { width: 100%; height: 100%; object-fit: cover; }
-.bh-roster-name { font-size: 13px; font-weight: 700; color: var(--bh-text); }
-.bh-roster-active { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--success); display: flex; align-items: center; gap: 5px; cursor: pointer; }
-.bh-roster-active.is-inactive { color: var(--bh-text-mute); }
-.bh-roster-active input { width: 13px; height: 13px; accent-color: var(--success); cursor: pointer; }
-.bh-roster-notes-preview { font-size: 10.5px; color: var(--bh-text-mute); line-height: 1.4; max-height: 2.6em; overflow: hidden; }
+.bh-wf-day-head { display: flex; align-items: center; gap: 8px; }
+.bh-wf-day-title { flex: 1; min-width: 0; background: transparent; border: none; font-size: 13.5px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
+.bh-wf-day-status { background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 4px 8px; font-size: 10.5px; color: var(--bh-text-dim); flex-shrink: 0; }
+.bh-wf-day-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0.55; }
+.bh-wf-day:hover .bh-wf-day-actions { opacity: 1; }
+.bh-wf-day-actions button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 6px; }
+.bh-wf-day-actions button:hover { color: var(--bh-gold-bright); background: var(--bh-accent-tint); }
+.bh-wf-day-actions .bh-wf-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.bh-wf-checklist { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.bh-wf-quickadd { display: flex; gap: 6px; margin-top: 10px; }
+.bh-wf-quickadd input { flex: 1; min-width: 0; background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 7px 9px; font-size: 12px; color: var(--bh-text); }
+.bh-wf-empty { font-size: 11.5px; color: var(--bh-text-mute); font-style: italic; padding: 4px 0; }
 
 /* ===== Modals ===== */
 .modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
@@ -528,12 +563,15 @@ body::after {
 
     <div class="bh-board" id="bhBoard"></div>
 
-    <div class="bh-tasks-panel" id="bhTasksPanel" style="display:none;">
-      <div id="bhRosterSection" style="display:none;">
-        <div class="bh-roster-heading">Platforms</div>
-        <div class="bh-roster-grid" id="bhRosterGrid" style="margin-top:10px;"></div>
+    <div class="bh-templates-section" id="bhTemplatesSection" style="display:none;">
+      <div class="bh-templates-head">
+        <div class="bh-roster-heading">Templates</div>
+        <button type="button" class="bh-btn-secondary" id="bhAddWeekBtn">+ Add Week</button>
       </div>
+      <div id="bhWorkflowWeeks"></div>
+    </div>
 
+    <div class="bh-tasks-panel" id="bhTasksPanel" style="display:none;">
       <div class="bh-chip-row" id="bhTaskViewChips">
         <button type="button" class="bh-chip active" data-view="today">Today</button>
         <button type="button" class="bh-chip" data-view="all">All Tasks</button>
@@ -581,6 +619,7 @@ body::after {
       <button type="button" class="bh-widget-menu-item" data-wtype="resource"><strong>Resource</strong><span>An icon, title, description, and status</span></button>
       <button type="button" class="bh-widget-menu-item" data-wtype="summary"><strong>Content Summary</strong><span>Auto-computed overview of this tab's content cards</span></button>
       <button type="button" class="bh-widget-menu-item" data-wtype="schedule"><strong>Posting Schedule</strong><span>Platform + day + time rows, grouped by platform</span></button>
+      <button type="button" class="bh-widget-menu-item" data-wtype="link"><strong>Link</strong><span>A URL + description card</span></button>
       <button type="button" class="bh-widget-menu-item" data-wtype="checklist"><strong>Checklist</strong><span>Any to-do list</span></button>
       <button type="button" class="bh-widget-menu-item" data-wtype="list"><strong>List</strong><span>Plain items — ideas, values, notes</span></button>
       <button type="button" class="bh-widget-menu-item" data-wtype="note"><strong>Note</strong><span>A freeform block of text</span></button>
@@ -665,16 +704,6 @@ body::after {
   </div>
 </div>
 
-<div class="modal-bg" id="bhPlatformModalBg">
-  <div class="modal">
-    <div class="bh-modal-head"><h3 id="bhPlatformModalTitle">Platform</h3><button type="button" class="bh-modal-close" id="bhPlatformModalCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="bh-roster-cover" id="bhPlatformCover" style="width:72px;height:72px;font-size:28px;margin:0 auto 14px;cursor:pointer;"></div>
-    <div class="field"><label>Name</label><input type="text" id="bhPlatformNameInput"></div>
-    <div class="field field-inline"><input type="checkbox" id="bhPlatformActiveInput"><label style="margin:0;">Active</label></div>
-    <div class="field"><label>Notes</label><textarea class="bh-modal-textarea" id="bhPlatformNotesInput" placeholder="Write freely — this autosaves as you type…"></textarea></div>
-    <div class="bh-autosave-hint">Autosaves as you type.</div>
-  </div>
-</div>
 
 <script>
 (function () {
@@ -692,7 +721,7 @@ body::after {
     affirmation: 'New Affirmation', steps: 'Daily Steps', photos: 'Photo / Video Grid', calendar: 'Calendar',
     feature: 'New Feature Card', infocard: 'New Info Card',
     platform: 'New Platform', contentcard: 'New Content', resource: 'New Resource',
-    summary: 'Content Overview', schedule: 'Posting Schedule'
+    summary: 'Content Overview', schedule: 'Posting Schedule', link: 'New Link'
   };
 
   let DB = null;
@@ -700,7 +729,6 @@ body::after {
   let renamingTabId = null;
   let sortableInstances = [];
   let addSlotTargetWidgetId = null;
-  let addSlotTargetKind = 'widget'; // 'widget' | 'platform' — which collection a single-target photo add writes back to
   let addSlotSingleTarget = false;
   let addSlotField = 'photo';
   let dayNoteTarget = null;
@@ -708,8 +736,8 @@ body::after {
   const TINT_PRESETS = ['#e8927a', '#e3a8b0', '#7ea8c4', '#a89bd4', '#c9a876', '#9ab89a'];
   let sessionVideoBlobs = {};
 
-  // Tasks/Platforms UI state (module-scoped, not persisted — same
-  // precedent as index.html's Main-dashboard Tasks tab module state)
+  // Tasks UI state (Strategy tab only — module-scoped, not persisted,
+  // same precedent as index.html's Main-dashboard Tasks tab module state)
   let taskView = 'today';
   let taskFilterPriority = '';
   let taskFilterStatus = '';
@@ -717,9 +745,9 @@ body::after {
   let taskSortBy = 'due';
   let taskModalEditingId = null;
   let taskDetailId = null;
-  let platformModalId = null;
-  let taskDetailSaveTimer = null;
-  let platformNotesSaveTimer = null;
+
+  // Workflow UI state (Resources tab's Templates section)
+  let collapsedWeekIds = {};
 
   function openModal(el) { el.classList.add('show'); }
   function closeModal(el) { el.classList.remove('show'); }
@@ -900,8 +928,8 @@ body::after {
     $('bhBoard').style.display = isBoard ? 'grid' : 'none';
     $('bhAddWidgetBtn').style.display = isBoard ? '' : 'none';
     $('bhTasksPanel').style.display = isBoard ? 'none' : 'flex';
-    if (isBoard) { renderBoard(); }
-    else { renderRoster(); renderTaskList(); }
+    if (isBoard) { renderBoard(); renderWorkflow(); }
+    else { $('bhTemplatesSection').style.display = 'none'; renderTaskList(); }
   }
 
   // ============================================================
@@ -1306,6 +1334,29 @@ body::after {
     return h + ':' + m + ' ' + ampm;
   }
 
+  // ===== Link widget — a title (the card's own title row) + URL + a
+  // short description, for the Resources tab's "links, notes, etc." top
+  // section (usable on any board-mode tab like every other type). =====
+  function buildLinkBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'bw-link-body';
+    const urlRow = document.createElement('div'); urlRow.className = 'bw-link-url-row';
+    const urlInput = document.createElement('input'); urlInput.type = 'text'; urlInput.className = 'bw-link-url-input';
+    urlInput.value = widget.data.url || ''; urlInput.placeholder = 'https://…';
+    urlInput.addEventListener('blur', function () { if (urlInput.value !== widget.data.url) { mutateWidget(widget, { url: urlInput.value }); renderBoard(); } });
+    urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') urlInput.blur(); });
+    const openBtn = document.createElement('a'); openBtn.className = 'bw-link-open-btn'; openBtn.textContent = '↗ Open';
+    const valid = DB.isValidMediaUrl(widget.data.url);
+    if (valid) { openBtn.href = widget.data.url; openBtn.target = '_blank'; openBtn.rel = 'noopener'; }
+    else { openBtn.removeAttribute('href'); openBtn.setAttribute('aria-disabled', 'true'); }
+    urlRow.appendChild(urlInput); urlRow.appendChild(openBtn); wrap.appendChild(urlRow);
+    const desc = document.createElement('textarea'); desc.className = 'bw-link-desc'; desc.value = widget.data.description || ''; desc.placeholder = 'What is this link for?';
+    desc.addEventListener('input', function () { autosize(desc); });
+    desc.addEventListener('blur', function () { mutateWidget(widget, { description: desc.value }); });
+    setTimeout(function () { autosize(desc); }, 0);
+    wrap.appendChild(desc);
+    return wrap;
+  }
+
   // ============================================================
   // BOARD (Analytics / Audit)
   // ============================================================
@@ -1390,6 +1441,7 @@ body::after {
       case 'resource': body.appendChild(buildResourceWidgetBody(widget)); break;
       case 'summary': body.appendChild(buildSummaryWidgetBody(widget)); break;
       case 'schedule': body.appendChild(buildScheduleWidgetBody(widget)); break;
+      case 'link': body.appendChild(buildLinkBody(widget)); break;
     }
     card.appendChild(body);
     return card;
@@ -1445,6 +1497,7 @@ body::after {
     if (!confirm('Reset the Business Hub to its default subpages, tasks, and widgets? This deletes everything currently here.')) return;
     Object.keys(sessionVideoBlobs).forEach(function (id) { try { URL.revokeObjectURL(sessionVideoBlobs[id]); } catch (e) {} });
     sessionVideoBlobs = {};
+    collapsedWeekIds = {};
     DB.seedDefaultBoard();
     const tabs = DB.tabsSorted();
     activeTabId = (tabs[0] || {}).id || null;
@@ -1455,20 +1508,10 @@ body::after {
   // ============================================================
   // PHOTO MODAL
   // ============================================================
-  // Set when the photo modal is opened from inside the Platform modal, so
-  // it can be reopened once the photo modal closes (submit or cancel) —
-  // both modals share the same .modal-bg z-index, and the Platform modal
-  // is later in DOM order, so simply layering the photo modal on top of
-  // an still-open Platform modal would paint it *underneath* instead
-  // (later same-z-index siblings win). Hiding the Platform modal first
-  // and explicitly reopening it avoids that instead of fighting z-index.
-  let photoModalReturnToPlatformId = null;
   function openPhotoModal(widgetId, opts) {
     opts = opts || {};
-    addSlotTargetWidgetId = opts.platformId ? opts.platformId : widgetId;
-    addSlotTargetKind = opts.platformId ? 'platform' : 'widget';
+    addSlotTargetWidgetId = widgetId;
     addSlotSingleTarget = !!opts.single; addSlotField = opts.field || 'photo';
-    if (opts.platformId) { photoModalReturnToPlatformId = opts.platformId; closeModal($('bhPlatformModalBg')); }
     $('bhPhotoModalTitle').textContent = addSlotSingleTarget ? 'Add photo' : 'Add photo or video';
     $('bhSlotTypeField').style.display = addSlotSingleTarget ? 'none' : '';
     $('bhSlotTypeSelect').value = 'image';
@@ -1476,37 +1519,17 @@ body::after {
     $('bhSlotFileInput').value = ''; $('bhSlotUrlInput').value = '';
     openModal($('bhPhotoModalBg'));
   }
-  function closePhotoModalAndReturn() {
-    closeModal($('bhPhotoModalBg'));
-    if (photoModalReturnToPlatformId) { const id = photoModalReturnToPlatformId; photoModalReturnToPlatformId = null; openPlatformModal(id); }
-  }
   function addSlotToWidget(widgetId, slot) {
     const w = DB.Widgets.get(widgetId); if (!w) return;
     const slots = (w.data.slots || []).concat([slot]);
     DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) }); renderBoard();
   }
-  /** Writes a single cover-photo field back to whichever collection this
-   * photo-add was opened for — a Widget's `data[field]` (Feature/Platform-
-   * widget/Content-plan-card covers, all on board-mode tabs) or a
-   * Platforms-roster record's own `cover` field (opened from the Platform
-   * detail modal on the Platforms tab). Same modal, upload pipeline, and
-   * URL validation serve both, rather than a second near-duplicate modal. */
-  function setSingleFieldPhoto(id, field, url, kind) {
-    if (kind === 'platform') {
-      if (!DB.Platforms.get(id)) return;
-      DB.Platforms.update(id, { cover: url });
-      // closePhotoModalAndReturn() (called right after this, at every
-      // handleAddSlotSubmit call site) reopens the Platform modal fresh —
-      // that already re-reads the updated cover, so no re-render is
-      // needed here beyond the roster grid behind it.
-      renderRoster();
-      return;
-    }
-    const w = DB.Widgets.get(id); if (!w) return;
-    DB.Widgets.update(id, { data: Object.assign({}, w.data, { [field]: url }) }); renderBoard();
+  function setSingleFieldPhoto(widgetId, field, url) {
+    const w = DB.Widgets.get(widgetId); if (!w) return;
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { [field]: url }) }); renderBoard();
   }
   function handleAddSlotSubmit() {
-    const targetId = addSlotTargetWidgetId, kind = addSlotTargetKind, single = addSlotSingleTarget, field = addSlotField;
+    const targetId = addSlotTargetWidgetId, single = addSlotSingleTarget, field = addSlotField;
     const file = $('bhSlotFileInput').files[0]; const urlVal = $('bhSlotUrlInput').value.trim();
     const selectedType = single ? 'image' : $('bhSlotTypeSelect').value;
     if (file) {
@@ -1515,22 +1538,22 @@ body::after {
         if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
         const slotId = DB.uid('slot'); sessionVideoBlobs[slotId] = URL.createObjectURL(file);
         addSlotToWidget(targetId, { id: slotId, type: 'video', url: '', sessionOnly: true, name: file.name });
-        closePhotoModalAndReturn();
+        closeModal($('bhPhotoModalBg'));
       } else {
         const reader = new FileReader();
         reader.onload = async function () {
           const compressed = await DB.compressImageDataUrl(String(reader.result), single ? 900 : 640, 0.8);
-          if (single) setSingleFieldPhoto(targetId, field, compressed, kind);
+          if (single) setSingleFieldPhoto(targetId, field, compressed);
           else addSlotToWidget(targetId, { id: DB.uid('slot'), type: 'image', url: compressed, sessionOnly: false, name: file.name });
-          closePhotoModalAndReturn();
+          closeModal($('bhPhotoModalBg'));
         };
         reader.readAsDataURL(file);
       }
     } else if (urlVal) {
       if (!DB.isValidMediaUrl(urlVal)) { alert('Please enter a valid http(s) URL.'); return; }
-      if (single) setSingleFieldPhoto(targetId, field, urlVal, kind);
+      if (single) setSingleFieldPhoto(targetId, field, urlVal);
       else addSlotToWidget(targetId, { id: DB.uid('slot'), type: selectedType, url: urlVal, sessionOnly: false, name: '' });
-      closePhotoModalAndReturn();
+      closeModal($('bhPhotoModalBg'));
     } else { alert('Choose a file or paste a URL first.'); }
   }
 
@@ -1556,9 +1579,9 @@ body::after {
   }
 
   // ============================================================
-  // TASKS (Content / Ideas / Platforms / Strategy / Resources) — mirrors
-  // index.html's Main-dashboard Tasks tab: view chips, filter/group/sort,
-  // a quick-add row, and simple checklist-style rows. No Life Area/Goal/
+  // TASKS (Strategy tab only) — mirrors index.html's Main-dashboard Tasks
+  // tab: view chips, filter/group/sort, a quick-add row, and simple
+  // checklist-style rows. No Life Area/Goal/
   // Business/Habit dimension exists on this page, so those filters/
   // selects from the Main-dashboard version are dropped — everything else
   // (view chips, priority/status filters, group-by, sort-by, the
@@ -1693,57 +1716,150 @@ body::after {
   }
 
   // ============================================================
-  // PLATFORMS ROSTER (Platforms tab only) — each platform has its own
-  // freeform notes field that autosaves as you type (debounced ~500ms
-  // after the last keystroke, same idea as sync.js's own debounced push,
-  // so it doesn't write to localStorage on every single keystroke).
+  // TEMPLATES / WORKFLOW (Resources tab only) — Weeks → Days → Checklist,
+  // the same mechanic as index.html's Business Workflow feature (see that
+  // page's own "Amazon KDP" Workflow entries), rendered inline (no
+  // separate day-detail page — this page's Task Detail modal already
+  // covers "a freeform note," so Workflow days keep it simple: a title,
+  // a status, and a checklist).
   // ============================================================
-  function renderRoster() {
-    const section = $('bhRosterSection');
-    const t = DB.Tabs.get(activeTabId);
-    if (!t || t.roster !== 'platforms') { section.style.display = 'none'; return; }
-    section.style.display = 'block';
-    const grid = $('bhRosterGrid'); grid.innerHTML = '';
-    DB.Platforms.list().forEach(function (p) {
-      const card = document.createElement('div'); card.className = 'bh-roster-card';
-      const cover = document.createElement('div'); cover.className = 'bh-roster-cover';
-      if (p.cover) { const img = document.createElement('img'); img.src = p.cover; img.alt = ''; cover.appendChild(img); }
-      else { cover.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?'; }
-      card.appendChild(cover);
-      const name = document.createElement('div'); name.className = 'bh-roster-name'; name.textContent = p.name; card.appendChild(name);
-      const activeLabel = document.createElement('label'); activeLabel.className = 'bh-roster-active' + (p.active ? '' : ' is-inactive');
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!p.active;
-      cb.addEventListener('click', function (e) { e.stopPropagation(); });
-      cb.addEventListener('change', function () { DB.Platforms.update(p.id, { active: cb.checked }); renderRoster(); });
-      const activeText = document.createElement('span'); activeText.textContent = p.active ? 'Active' : 'Inactive';
-      activeLabel.appendChild(cb); activeLabel.appendChild(activeText); card.appendChild(activeLabel);
-      if (p.notes) { const preview = document.createElement('div'); preview.className = 'bh-roster-notes-preview'; preview.textContent = p.notes; card.appendChild(preview); }
-      card.addEventListener('click', function () { openPlatformModal(p.id); });
-      grid.appendChild(card);
+  function buildWorkflowChecklistRow(item) {
+    const row = document.createElement('div'); row.className = 'bw-plain-row';
+    if (item.checked) row.classList.add('bw-item-done');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'bw-check-cb'; cb.checked = !!item.checked;
+    cb.addEventListener('change', function () { DB.updateWorkflowChecklistItem(item.id, { checked: cb.checked }); renderWorkflow(); });
+    row.appendChild(cb);
+    const text = document.createElement('span'); text.className = 'bw-item-text'; text.contentEditable = 'true'; text.textContent = item.text;
+    wireInlineEdit(text, function (v) {
+      if (!v) { DB.removeWorkflowChecklistItem(item.id); renderWorkflow(); return; }
+      DB.updateWorkflowChecklistItem(item.id, { text: v });
+    }, { allowEmpty: true });
+    row.appendChild(text);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bw-item-del'; del.textContent = '×'; del.setAttribute('aria-label', 'Delete item');
+    del.addEventListener('click', function () { DB.removeWorkflowChecklistItem(item.id); renderWorkflow(); });
+    row.appendChild(del);
+    return row;
+  }
+  function buildWorkflowDay(day) {
+    const wrap = document.createElement('div'); wrap.className = 'bh-wf-day';
+    const head = document.createElement('div'); head.className = 'bh-wf-day-head';
+
+    const days = DB.daysForWeek(day.weekId);
+    const idx = days.findIndex(function (d) { return d.id === day.id; });
+    const reorder = document.createElement('div'); reorder.className = 'bh-wf-reorder';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = idx <= 0; up.setAttribute('aria-label', 'Move day up');
+    up.addEventListener('click', function () { DB.moveWorkflowDay(day.id, -1); renderWorkflow(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = idx >= days.length - 1; down.setAttribute('aria-label', 'Move day down');
+    down.addEventListener('click', function () { DB.moveWorkflowDay(day.id, 1); renderWorkflow(); });
+    reorder.appendChild(up); reorder.appendChild(down); head.appendChild(reorder);
+
+    const title = document.createElement('input'); title.type = 'text'; title.className = 'bh-wf-day-title'; title.value = day.title; title.placeholder = 'Day title…';
+    title.addEventListener('blur', function () { if (title.value !== day.title) DB.updateWorkflowDay(day.id, { title: title.value }); });
+    title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+    head.appendChild(title);
+
+    const statusSelect = document.createElement('select'); statusSelect.className = 'bh-wf-day-status';
+    DB.WORKFLOW_DAY_STATUSES.forEach(function (s) { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; if (s === day.status) opt.selected = true; statusSelect.appendChild(opt); });
+    statusSelect.addEventListener('change', function () { DB.updateWorkflowDay(day.id, { status: statusSelect.value }); renderWorkflow(); });
+    head.appendChild(statusSelect);
+
+    const actions = document.createElement('div'); actions.className = 'bh-wf-day-actions';
+    const dup = document.createElement('button'); dup.type = 'button'; dup.title = 'Duplicate day'; dup.textContent = '⧉';
+    dup.addEventListener('click', function () { DB.duplicateWorkflowDay(day.id); renderWorkflow(); });
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-wf-del'; del.title = 'Delete day'; del.textContent = '✕';
+    del.addEventListener('click', function () {
+      if (!confirm('Delete "' + (day.title || 'this day') + '"? Its checklist items will be deleted too.')) return;
+      DB.removeWorkflowDay(day.id); renderWorkflow();
     });
+    actions.appendChild(dup); actions.appendChild(del); head.appendChild(actions);
+    wrap.appendChild(head);
+
+    const checklist = document.createElement('div'); checklist.className = 'bh-wf-checklist';
+    DB.checklistForDay(day.id).forEach(function (item) { checklist.appendChild(buildWorkflowChecklistRow(item)); });
+    wrap.appendChild(checklist);
+
+    const quickAdd = document.createElement('div'); quickAdd.className = 'bh-wf-quickadd';
+    const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Quick-add a checklist item…';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bw-additem-btn'; btn.textContent = '+'; btn.setAttribute('aria-label', 'Add checklist item');
+    function submitItem() { const val = input.value.trim(); if (!val) return; DB.addWorkflowChecklistItem(day.id, { text: val }); input.value = ''; renderWorkflow(); }
+    btn.addEventListener('click', submitItem);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitItem(); } });
+    quickAdd.appendChild(input); quickAdd.appendChild(btn); wrap.appendChild(quickAdd);
+
+    return wrap;
   }
-  function openPlatformModal(id) {
-    const p = DB.Platforms.get(id); if (!p) return;
-    platformModalId = id;
-    $('bhPlatformModalTitle').textContent = p.name || 'Platform';
-    const cover = $('bhPlatformCover'); cover.innerHTML = '';
-    if (p.cover) { const img = document.createElement('img'); img.src = p.cover; img.alt = ''; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover'; cover.appendChild(img); }
-    else { cover.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?'; }
-    cover.onclick = function () { openPhotoModal(null, { single: true, field: 'cover', platformId: id }); };
-    $('bhPlatformNameInput').value = p.name;
-    $('bhPlatformActiveInput').checked = !!p.active;
-    $('bhPlatformNotesInput').value = p.notes || '';
-    openModal($('bhPlatformModalBg'));
-    setTimeout(function () { autosize($('bhPlatformNotesInput')); }, 0);
+  function buildWorkflowWeek(week, index, total) {
+    const wrap = document.createElement('div'); wrap.className = 'bh-wf-week';
+    const collapsed = !!collapsedWeekIds[week.id];
+    const head = document.createElement('div'); head.className = 'bh-wf-week-head';
+    head.addEventListener('click', function () { collapsedWeekIds[week.id] = !collapsed; renderWorkflow(); });
+
+    const reorder = document.createElement('div'); reorder.className = 'bh-wf-reorder';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = index <= 0; up.setAttribute('aria-label', 'Move week up');
+    up.addEventListener('click', function (e) { e.stopPropagation(); DB.moveWorkflowWeek(week.id, -1); renderWorkflow(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = index >= total - 1; down.setAttribute('aria-label', 'Move week down');
+    down.addEventListener('click', function (e) { e.stopPropagation(); DB.moveWorkflowWeek(week.id, 1); renderWorkflow(); });
+    reorder.appendChild(up); reorder.appendChild(down);
+    reorder.addEventListener('click', function (e) { e.stopPropagation(); });
+    head.appendChild(reorder);
+
+    const caret = document.createElement('span'); caret.className = 'bh-wf-caret' + (collapsed ? ' collapsed' : ''); caret.textContent = '▼'; head.appendChild(caret);
+
+    const title = document.createElement('input'); title.type = 'text'; title.className = 'bh-wf-week-title'; title.value = week.title; title.placeholder = 'Week title…';
+    title.addEventListener('click', function (e) { e.stopPropagation(); });
+    title.addEventListener('blur', function () { if (title.value !== week.title) DB.updateWorkflowWeek(week.id, { title: title.value }); });
+    title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+    head.appendChild(title);
+
+    const progress = DB.weekProgress(week.id);
+    const count = document.createElement('span'); count.className = 'bh-wf-week-count';
+    count.textContent = progress.total ? (progress.done + '/' + progress.total + ' done') : 'No days yet';
+    head.appendChild(count);
+
+    const actions = document.createElement('div'); actions.className = 'bh-wf-week-actions';
+    const dup = document.createElement('button'); dup.type = 'button'; dup.title = 'Duplicate week (days + checklist items, reset to Not started)'; dup.textContent = '⧉';
+    dup.addEventListener('click', function (e) { e.stopPropagation(); DB.duplicateWorkflowWeek(week.id); renderWorkflow(); });
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-wf-del'; del.title = 'Delete week'; del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete "' + (week.title || 'this week') + '"? Its days and their checklist items will be deleted too.')) return;
+      DB.removeWorkflowWeek(week.id); renderWorkflow();
+    });
+    actions.appendChild(dup); actions.appendChild(del);
+    actions.addEventListener('click', function (e) { e.stopPropagation(); });
+    head.appendChild(actions);
+    wrap.appendChild(head);
+
+    if (!collapsed) {
+      const bar = document.createElement('div'); bar.className = 'bh-wf-week-bar';
+      const fill = document.createElement('div'); fill.className = 'bh-wf-week-bar-fill'; fill.style.width = Math.round(progress.fraction * 100) + '%';
+      bar.appendChild(fill); wrap.appendChild(bar);
+
+      const body = document.createElement('div'); body.className = 'bh-wf-week-body';
+      const days = DB.daysForWeek(week.id);
+      if (days.length) { days.forEach(function (day) { body.appendChild(buildWorkflowDay(day)); }); }
+      else { const empty = document.createElement('div'); empty.className = 'bh-wf-empty'; empty.textContent = 'No days yet.'; body.appendChild(empty); }
+
+      const quickAdd = document.createElement('div'); quickAdd.className = 'bh-wf-quickadd';
+      const input = document.createElement('input'); input.type = 'text'; input.placeholder = 'Quick-add a day…';
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bw-additem-btn'; btn.textContent = '+'; btn.setAttribute('aria-label', 'Add day');
+      function submitDay() { const val = input.value.trim(); if (!val) return; DB.addWorkflowDay(week.id, week.tabId, { title: val }); input.value = ''; renderWorkflow(); }
+      btn.addEventListener('click', submitDay);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitDay(); } });
+      quickAdd.appendChild(input); quickAdd.appendChild(btn); body.appendChild(quickAdd);
+      wrap.appendChild(body);
+    }
+    return wrap;
   }
-  const autosavePlatformNotes = debounce(function () {
-    if (!platformModalId) return;
-    DB.Platforms.update(platformModalId, { notes: $('bhPlatformNotesInput').value });
-  }, 500);
-  function closePlatformModal() {
-    closeModal($('bhPlatformModalBg'));
-    platformModalId = null;
-    renderRoster();
+  function renderWorkflow() {
+    const section = $('bhTemplatesSection');
+    const t = DB.Tabs.get(activeTabId);
+    if (!t || t.mode !== 'board' || !t.hasTemplates) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    const wrap = $('bhWorkflowWeeks'); wrap.innerHTML = '';
+    const weeks = DB.weeksForTab(activeTabId);
+    if (!weeks.length) { const empty = document.createElement('div'); empty.className = 'bh-wf-empty'; empty.textContent = 'No weeks yet.'; wrap.appendChild(empty); return; }
+    weeks.forEach(function (week, i) { wrap.appendChild(buildWorkflowWeek(week, i, weeks.length)); });
   }
 
   // ============================================================
@@ -1782,8 +1898,8 @@ body::after {
     wireAddWidgetMenu();
     $('bhResetBtn').addEventListener('click', resetBoard);
 
-    $('bhPhotoModalCloseBtn').addEventListener('click', closePhotoModalAndReturn);
-    $('bhPhotoModalBg').addEventListener('click', function (e) { if (e.target === this) closePhotoModalAndReturn(); });
+    $('bhPhotoModalCloseBtn').addEventListener('click', function () { closeModal($('bhPhotoModalBg')); });
+    $('bhPhotoModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
     $('bhSlotAddBtn').addEventListener('click', handleAddSlotSubmit);
     $('bhSlotTypeSelect').addEventListener('change', function () { $('bhSlotFileInput').accept = $('bhSlotTypeSelect').value === 'video' ? 'video/*' : 'image/*'; });
 
@@ -1823,26 +1939,18 @@ body::after {
     });
     $('bhTaskDetailNoteInput').addEventListener('input', function () { autosize(this); autosaveTaskDetailNote(); });
 
-    $('bhPlatformModalCloseBtn').addEventListener('click', closePlatformModal);
-    $('bhPlatformModalBg').addEventListener('click', function (e) { if (e.target === this) closePlatformModal(); });
-    $('bhPlatformNameInput').addEventListener('blur', function () {
-      if (!platformModalId) return;
-      const val = this.value.trim(); if (!val) return;
-      DB.Platforms.update(platformModalId, { name: val });
-      $('bhPlatformModalTitle').textContent = val;
+    $('bhAddWeekBtn').addEventListener('click', function () {
+      if (!activeTabId) return;
+      DB.addWorkflowWeek(activeTabId, { title: 'New Week' });
+      renderWorkflow();
     });
-    $('bhPlatformActiveInput').addEventListener('change', function () {
-      if (!platformModalId) return;
-      DB.Platforms.update(platformModalId, { active: this.checked });
-    });
-    $('bhPlatformNotesInput').addEventListener('input', function () { autosize(this); autosavePlatformNotes(); });
 
     // Empty-storage seed-race safety window — same reasoning as
     // dreamboard.html's maybeSeedAfterSyncAttempt().
     let remoteAppliedOnce = false;
     function maybeSeedAfterSyncAttempt() {
       if (remoteAppliedOnce) return;
-      if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.Tasks.list().length > 0 || DB.Platforms.list().length > 0) return;
+      if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.Tasks.list().length > 0 || DB.WorkflowWeeks.list().length > 0) return;
       DB.seedIfEmpty();
       const freshTabs = DB.tabsSorted();
       activeTabId = (freshTabs[0] || {}).id || null;

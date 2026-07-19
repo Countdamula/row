@@ -34,7 +34,7 @@ Vercel's static server) — see README.md.
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
-| `business.html` | Business Hub — a content-planning workspace, now restyled to be visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Two board-mode tabs (Analytics/Audit) keep Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, all fifteen widget types); five tasks-mode tabs (Content/Ideas/Platforms/Strategy/Resources) instead run a per-tab Tasks list mirroring index.html's Main-dashboard Tasks tab, and the Platforms tab additionally has a roster of individual platforms each with its own freeform, autosaving notes field (new — see changelog) |
+| `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Content/Ideas/Platforms/Resources/Analytics/Audit are all board-mode — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Strategy alone is tasks-mode, a per-tab Tasks list mirroring index.html's Main-dashboard Tasks tab. Resources additionally has a Templates section below its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -183,7 +183,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
-   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:platforms`, `business:active_tab`; `business:profile` was removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
+   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -3971,3 +3971,110 @@ between this app and either data loss or a wide-open write target:
     first pass and as `dreamboard.html`'s later entries; a real click-
     through covering those specific paths is recommended before relying
     on this page heavily.
+
+- **Business Hub: reverted Content/Ideas/Platforms/Resources back to
+  Dream Board's board-mode (retiring the brief Tasks-list-per-tab/
+  Platforms-roster detour from the entry above), and gave Resources two
+  new sections — a Links & Notes area at the top of its board, and a
+  Templates section at the bottom built around a Workflow (Weeks → Days
+  → Checklist) system mirroring index.html's Business Workflow / Amazon
+  KDP feature.** Per an explicit follow-up: "keep the aesthetic but
+  restore the content, platforms, ideas, and resources system" — Dream
+  Board's dark/gold/frosted-glass look (from the entry above) is
+  untouched; only the *mode* of four tabs reverts. Strategy was not named
+  in the restore request, so it's the one tab that keeps the Tasks-list
+  system from the previous pass.
+  - **Mode reverted per-tab**: `BizTab.mode` now defaults to `'board'`
+    (was `'tasks'`) — Content, Ideas, Platforms, and Resources are
+    `'board'` again, re-seeded with essentially the same widget content
+    as this page's very first pass (platform toggle cards, content-plan
+    cards, resource tiles, a Content Summary, a Posting Schedule, a
+    Gallery on Content; a list/note/infocard trio on Ideas; six platform
+    toggle cards on Platforms) — not byte-identical to that first seed,
+    but the same spirit, since some seed dates/ids necessarily
+    regenerate. Strategy stays `'tasks'`, untouched. Analytics/Audit stay
+    `'board'`, untouched.
+  - **The Platforms roster + per-platform autosaving-notes feature from
+    the entry above is removed outright**, not kept as unreachable dead
+    code — `business:platforms`, `platformModel`, `renderRoster()`,
+    `openPlatformModal()`/`closePlatformModal()`, the `#bhPlatformModalBg`
+    modal, and the `tab.roster` field are all deleted. This is a genuine
+    "restore the prior system" request, not a same-session refinement, so
+    the superseded feature doesn't linger — same precedent as e.g.
+    `gym.html`'s multi-select-to-single equipment-picker replacement, but
+    in the opposite direction (undoing a change, not iterating past it).
+    The Platforms *tab* still exists and still shows individual platforms
+    — just as `platform` board widgets again, exactly as before the
+    detour, with no per-platform notes field (that capability is gone
+    along with the roster it lived on).
+  - **`openPhotoModal()`/`setSingleFieldPhoto()`/`handleAddSlotSubmit()`
+    are simplified back to widget-only** (the `kind: 'widget' | 'platform'`
+    generalization and the `photoModalReturnToPlatformId` modal-stacking
+    workaround from the entry above, both added specifically to support
+    the Platforms roster's cover-photo picker, are removed along with it
+    — dead parameters with no remaining caller are a correctness smell,
+    not a feature worth preserving for its own sake).
+  - **New widget type, `link`** (`{url, description}`, title from the
+    card's own existing title-row control like every other type) — a
+    URL input, a "↗ Open" button (a real `<a target="_blank"
+    rel="noopener">`, disabled via `aria-disabled` when the URL doesn't
+    pass the same `isValidMediaUrl()` http(s)-only check every other
+    link/media field on this page already uses), and an autosizing
+    description textarea. Added to `WIDGET_TYPES` and the Add Widget menu
+    (available on any board-mode tab, not Resources-exclusive) — this is
+    the concrete answer to "things like links" for Resources' new top
+    section, alongside the pre-existing `note` type for "notes, etc."
+  - **Resources' top section** ("Links & Notes," seeded, not a fixed
+    layout region): a `note` widget ("Quick Notes") plus two `link`
+    widgets ("Brand Guidelines," "Shared Drive") seeded into the ordinary
+    3-column board — same board, same drag-and-drop, nothing new
+    structurally; the "section" is just what's seeded there, freely
+    rearrangeable/deletable/addable like every other board tab.
+  - **Resources' bottom section — Templates/Workflow, a genuinely new
+    system**, not built from board widgets: a new `tab.hasTemplates`
+    boolean (true only for Resources) renders a `#bhTemplatesSection`
+    below that tab's board, containing Weeks → Days → Checklist items —
+    the same mechanic as index.html's Business Workflow feature (read
+    directly from that page's actual implementation, not assumed), scoped
+    to a tab (`tabId`) instead of a "business" record, since this page
+    has no multiple-businesses concept. Three new flat collections
+    (`business:workflowWeeks`/`workflowDays`/`workflowChecklist`, the same
+    flat-array-plus-foreign-key convention as every other collection on
+    this page) with full CRUD: add/rename/reorder (▲▼, swap-adjacent-
+    `order`-values, same convention as every other reorderable list in
+    this app)/collapse/duplicate/delete-with-cascade-confirm for weeks,
+    the same set for days (plus a status `<select>` — Not started/In
+    progress/Done/Blocked, `DB.WORKFLOW_DAY_STATUSES`) nested inside each
+    week, and check/edit/delete/quick-add for each day's checklist items.
+    **Deliberately narrower than index.html's Workflow feature in one
+    way**: everything renders inline (no separate full-page Day Detail
+    overlay with a drag-reorderable note/code-block editor) — this page's
+    existing Task Detail modal already covers "a task can carry a
+    freeform note," so a day here is kept to title + status + checklist,
+    which is what "the same *type* of Workflow setup" (the mechanism)
+    actually required, not literally every feature layered onto Main's
+    version across its own many follow-up changelog entries. **Also
+    deliberately not seeded with the real Amazon-KDP content** (Weeks
+    1–4, 6, 25 days) — that's business-specific content for a specific
+    book, not part of "the same type of setup" — instead seeded with a
+    small generic two-week example ("Week 1 — Launch Checklist," "Week 2
+    — Repurpose & Recap") that demonstrates the same mechanic.
+    "Reset to Default" now also wipes/reseeds all three Workflow
+    collections alongside Tabs/Widgets/Tasks, so it's still a genuine
+    whole-hub reset.
+  - **Verified via headless Edge screenshots** (Supabase mapped to
+    `0.0.0.0`, armed before navigation): confirmed Content reverted to a
+    board (platform cards + content cards + "+ Add Widget" visible),
+    confirmed Platforms reverted to six plain platform toggle cards with
+    no roster/notes UI anywhere, and confirmed Resources shows both new
+    sections correctly — the top board with Quick Notes/Brand Guidelines/
+    Shared Drive (the Link widget's URL field, Open button, and
+    description all rendering correctly), and the Templates section below
+    it with "Week 1 — Launch Checklist" expanded showing its progress bar
+    (1/3 done), its "Kickoff & brief" day (Done status, both checklist
+    items struck through), and the quick-add-checklist-item row. **Not
+    verified this way**: reordering weeks/days, duplicating a week/day,
+    the delete-with-cascade-confirm paths, and typing into a checklist
+    quick-add — same disclosed interactive-CDP limitation as this page's
+    two prior passes; those code paths were read through carefully but
+    not click-tested.

@@ -9,15 +9,19 @@
 //
 // This page reuses Dream Board's exact board engine (Tabs + Widgets, a
 // per-tab hero, a 3-column drag-and-drop layout, per-widget color-grading
-// tint) verbatim for its two "board-mode" tabs (Analytics/Audit), per an
-// explicit request that the whole page's aesthetic match Dream Board
-// exactly. Five tabs (Content/Ideas/Platforms/Strategy/Resources) are
-// "tasks-mode" instead — a per-tab Tasks list mirroring index.html's Main
-// dashboard Tasks tab (view chips, filter/group/sort, quick-add, a
-// checklist-style row, an Add/Edit modal, and a simple detail view with
-// one freeform autosaving note) — plus, for the Platforms tab specifically,
-// a roster of individual platforms, each with its own freeform autosaving
-// notes field, opened by clicking into that platform.
+// tint) verbatim for six of its seven tabs — Content/Ideas/Platforms/
+// Resources (restored to board-mode after a brief detour through a
+// Tasks-list-per-tab design) plus Analytics/Audit (always board-mode).
+// Only Strategy stays "tasks-mode" — a per-tab Tasks list mirroring
+// index.html's Main-dashboard Tasks tab (view chips, filter/group/sort,
+// quick-add, a checklist-style row, an Add/Edit modal, recurrence).
+//
+// The Resources tab additionally has a `hasTemplates` flag that renders a
+// second section below its board: a Workflow system (Weeks → Days →
+// Checklist items), the same mechanic as index.html's Business Workflow
+// feature (see that page's own "Amazon KDP" Workflow changelog entries) —
+// scoped to this tab rather than to a "business" record, since this page
+// has no multiple-businesses concept, just the one hub.
 
 (function (global) {
   'use strict';
@@ -45,7 +49,9 @@
     tabs: 'business:tabs',
     widgets: 'business:widgets',
     tasks: 'business:tasks',
-    platforms: 'business:platforms',
+    workflowWeeks: 'business:workflowWeeks',
+    workflowDays: 'business:workflowDays',
+    workflowChecklist: 'business:workflowChecklist',
     seeded: 'business:seeded'
   };
 
@@ -112,16 +118,14 @@
   // ============================================================
 
   // Dream Board's original ten widget types, reused verbatim (same field
-  // shapes, same defaults) for this page's two board-mode tabs
-  // (Analytics/Audit). The five content-planning types from this page's
-  // first pass (platform/contentcard/resource/summary/schedule) are kept
-  // too — still valid, still in the Add Widget menu for board-mode tabs —
-  // even though the tabs they were originally seeded onto are now
-  // tasks-mode instead (see the Tasks/Platforms systems below, which
-  // supersede them for Content/Ideas/Platforms/Strategy/Resources).
+  // shapes, same defaults), plus five tailored to content planning
+  // (platform/contentcard/resource/summary/schedule) and one more, `link`
+  // (a title + URL + description card — "things like links, notes, etc."
+  // for the top of the Resources tab specifically, though usable on any
+  // board-mode tab like every other type).
   const WIDGET_TYPES = [
     'checklist', 'list', 'note', 'quote', 'affirmation', 'steps', 'photos', 'calendar', 'feature', 'infocard',
-    'platform', 'contentcard', 'resource', 'summary', 'schedule'
+    'platform', 'contentcard', 'resource', 'summary', 'schedule', 'link'
   ];
 
   const CONTENT_STATUSES = [
@@ -148,6 +152,7 @@
     { key: 'daily', label: 'Daily — regenerates the next day when completed' },
     { key: 'weekly', label: 'Weekly — regenerates 7 days later when completed' }
   ];
+  const WORKFLOW_DAY_STATUSES = ['Not started', 'In progress', 'Done', 'Blocked'];
 
   // Per-tab "hero" — a full-bleed cover section, same shape/behavior as
   // dreamboard-data.js's heroModel (image cover only here — this page
@@ -165,19 +170,19 @@
     };
   }
 
-  /** @typedef {{id:string, title:string, order:number, mode:'tasks'|'board', roster:?string, hero:Object}} BizTab */
+  /** @typedef {{id:string, title:string, order:number, mode:'tasks'|'board', hasTemplates:boolean, hero:Object}} BizTab */
   function tabModel(data) {
     data = data || {};
     return {
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      mode: data.mode === 'board' ? 'board' : 'tasks',
-      // 'platforms' shows the Platforms roster above this tab's task list.
-      // A dedicated field rather than matching on `title` so renaming the
-      // tab (rename-in-place is fully supported, same as Dream Board's
-      // tabs) can never silently drop the roster section.
-      roster: data.roster === 'platforms' ? 'platforms' : null,
+      mode: data.mode === 'tasks' ? 'tasks' : 'board',
+      // Renders a Templates/Workflow (Weeks → Days → Checklist) section
+      // below this tab's board — a dedicated field rather than matching
+      // on `title`, so renaming the tab (rename-in-place is fully
+      // supported) can never silently drop the section.
+      hasTemplates: !!data.hasTemplates,
       hero: heroModel(data.hero)
     };
   }
@@ -199,6 +204,7 @@
       case 'resource': return { icon: '📁', title: '', description: '', status: 'Active' };
       case 'summary': return {};
       case 'schedule': return { rows: [] };
+      case 'link': return { url: '', description: '' };
       default: return {};
     }
   }
@@ -243,15 +249,40 @@
     };
   }
 
-  /** @typedef {{id:string, name:string, active:boolean, cover:string, notes:string, createdAt:number}} BizPlatform */
-  function platformModel(data) {
+  /** @typedef {{id:string, tabId:string, title:string, order:number, collapsed:boolean, createdAt:number}} WorkflowWeek */
+  function workflowWeekModel(data) {
     data = data || {};
     return {
-      id: data.id || uid('plat'),
-      name: typeof data.name === 'string' ? data.name : '',
-      active: data.active !== false,
-      cover: typeof data.cover === 'string' ? data.cover : '',
-      notes: typeof data.notes === 'string' ? data.notes : '',
+      id: data.id || uid('wfw'),
+      tabId: data.tabId || null,
+      title: typeof data.title === 'string' ? data.title : '',
+      order: typeof data.order === 'number' ? data.order : 0,
+      collapsed: !!data.collapsed,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+  /** @typedef {{id:string, weekId:string, tabId:string, title:string, status:string, order:number, createdAt:number}} WorkflowDay */
+  function workflowDayModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('wfd'),
+      weekId: data.weekId || null,
+      tabId: data.tabId || null,
+      title: typeof data.title === 'string' ? data.title : '',
+      status: WORKFLOW_DAY_STATUSES.indexOf(data.status) !== -1 ? data.status : 'Not started',
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+  /** @typedef {{id:string, dayId:string, text:string, checked:boolean, order:number, createdAt:number}} WorkflowChecklistItem */
+  function workflowChecklistItemModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('wfc'),
+      dayId: data.dayId || null,
+      text: typeof data.text === 'string' ? data.text : '',
+      checked: !!data.checked,
+      order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
@@ -291,12 +322,18 @@
   const Tabs = makeCollection(KEYS.tabs, tabModel);
   const Widgets = makeCollection(KEYS.widgets, widgetModel);
   const Tasks = makeCollection(KEYS.tasks, taskModel);
-  const Platforms = makeCollection(KEYS.platforms, platformModel);
+  const WorkflowWeeks = makeCollection(KEYS.workflowWeeks, workflowWeekModel);
+  const WorkflowDays = makeCollection(KEYS.workflowDays, workflowDayModel);
+  const WorkflowChecklist = makeCollection(KEYS.workflowChecklist, workflowChecklistItemModel);
 
   function removeTab(id) {
     Tabs.remove(id);
     Widgets.replaceAll(Widgets.list().filter(function (w) { return w.tabId !== id; }));
     Tasks.replaceAll(Tasks.list().filter(function (t) { return t.tabId !== id; }));
+    const removedDayIds = WorkflowDays.list().filter(function (d) { return d.tabId === id; }).map(function (d) { return d.id; });
+    WorkflowWeeks.replaceAll(WorkflowWeeks.list().filter(function (w) { return w.tabId !== id; }));
+    WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.tabId !== id; }));
+    WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return removedDayIds.indexOf(c.dayId) === -1; }));
   }
 
   // ============================================================
@@ -402,32 +439,123 @@
   }
 
   // ============================================================
+  // SELECTORS — Workflow (Weeks → Days → Checklist), same mechanic as
+  // index.html's Business Workflow feature, scoped to a tab instead of a
+  // "business" (this page has no multiple-businesses concept). `order` is
+  // a free-floating sort key — reordering swaps two siblings' `order`
+  // values rather than renumbering the whole list, same convention as
+  // every other reorderable list in this app.
+  // ============================================================
+  function weeksForTab(tabId) {
+    return WorkflowWeeks.list().filter(function (w) { return w.tabId === tabId; }).sort(function (a, b) { return a.order - b.order; });
+  }
+  function daysForWeek(weekId) {
+    return WorkflowDays.list().filter(function (d) { return d.weekId === weekId; }).sort(function (a, b) { return a.order - b.order; });
+  }
+  function checklistForDay(dayId) {
+    return WorkflowChecklist.list().filter(function (c) { return c.dayId === dayId; }).sort(function (a, b) { return a.order - b.order; });
+  }
+  function weekProgress(weekId) {
+    const days = daysForWeek(weekId);
+    const done = days.filter(function (d) { return d.status === 'Done'; }).length;
+    return { done: done, total: days.length, fraction: days.length ? done / days.length : 0 };
+  }
+  function nextOrder(list) {
+    return list.length ? Math.max.apply(null, list.map(function (x) { return x.order; })) + 1 : 0;
+  }
+  function swapOrder(list, id, dir) {
+    const idx = list.findIndex(function (x) { return x.id === id; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= list.length) return;
+    const a = list[idx], b = list[otherIdx];
+    const tmp = a.order; a.order = b.order; b.order = tmp;
+    return [a, b];
+  }
+
+  function addWorkflowWeek(tabId, data) { return WorkflowWeeks.add(Object.assign({}, data, { tabId: tabId, order: nextOrder(weeksForTab(tabId)) })); }
+  function updateWorkflowWeek(id, patch) { return WorkflowWeeks.update(id, patch); }
+  function removeWorkflowWeek(id) {
+    const dayIds = WorkflowDays.list().filter(function (d) { return d.weekId === id; }).map(function (d) { return d.id; });
+    WorkflowWeeks.remove(id);
+    WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.weekId !== id; }));
+    WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return dayIds.indexOf(c.dayId) === -1; }));
+  }
+  function moveWorkflowWeek(id, dir) {
+    const week = WorkflowWeeks.get(id); if (!week) return;
+    const changed = swapOrder(weeksForTab(week.tabId), id, dir);
+    if (changed) WorkflowWeeks.replaceAll(WorkflowWeeks.list().map(function (w) { const hit = changed.find(function (c) { return c.id === w.id; }); return hit || w; }));
+  }
+  /** Clones a week plus its days and their checklist items — the copy
+   * always resets to Not-started/unchecked, since duplicating is for
+   * reusing a week's day/checklist *structure* as a reusable template,
+   * not for snapshotting progress (same precedent as index.html's own
+   * duplicateWorkflowWeek()). */
+  function duplicateWorkflowWeek(weekId) {
+    const week = WorkflowWeeks.get(weekId); if (!week) return null;
+    const newWeek = addWorkflowWeek(week.tabId, { title: week.title + ' (Copy)', collapsed: false });
+    daysForWeek(weekId).forEach(function (day) {
+      const newDay = addWorkflowDay(newWeek.id, week.tabId, { title: day.title, status: 'Not started' });
+      checklistForDay(day.id).forEach(function (item) { addWorkflowChecklistItem(newDay.id, { text: item.text, checked: false }); });
+    });
+    return newWeek;
+  }
+
+  function addWorkflowDay(weekId, tabId, data) { return WorkflowDays.add(Object.assign({}, data, { weekId: weekId, tabId: tabId, order: nextOrder(daysForWeek(weekId)) })); }
+  function updateWorkflowDay(id, patch) { return WorkflowDays.update(id, patch); }
+  function removeWorkflowDay(id) {
+    WorkflowDays.remove(id);
+    WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return c.dayId !== id; }));
+  }
+  function moveWorkflowDay(id, dir) {
+    const day = WorkflowDays.get(id); if (!day) return;
+    const changed = swapOrder(daysForWeek(day.weekId), id, dir);
+    if (changed) WorkflowDays.replaceAll(WorkflowDays.list().map(function (d) { const hit = changed.find(function (c) { return c.id === d.id; }); return hit || d; }));
+  }
+  function duplicateWorkflowDay(dayId) {
+    const day = WorkflowDays.get(dayId); if (!day) return null;
+    const newDay = addWorkflowDay(day.weekId, day.tabId, { title: day.title, status: 'Not started' });
+    checklistForDay(dayId).forEach(function (item) { addWorkflowChecklistItem(newDay.id, { text: item.text, checked: false }); });
+    return newDay;
+  }
+
+  function addWorkflowChecklistItem(dayId, data) { return WorkflowChecklist.add(Object.assign({}, data, { dayId: dayId, order: nextOrder(checklistForDay(dayId)) })); }
+  function updateWorkflowChecklistItem(id, patch) { return WorkflowChecklist.update(id, patch); }
+  function removeWorkflowChecklistItem(id) { return WorkflowChecklist.remove(id); }
+  function moveWorkflowChecklistItem(id, dir) {
+    const item = WorkflowChecklist.get(id); if (!item) return;
+    const changed = swapOrder(checklistForDay(item.dayId), id, dir);
+    if (changed) WorkflowChecklist.replaceAll(WorkflowChecklist.list().map(function (c) { const hit = changed.find(function (x) { return x.id === c.id; }); return hit || c; }));
+  }
+
+  // ============================================================
   // SEED
   // ============================================================
   function seedDefaultBoard() {
     Tabs.replaceAll([]);
     Widgets.replaceAll([]);
     Tasks.replaceAll([]);
-    Platforms.replaceAll([]);
+    WorkflowWeeks.replaceAll([]);
+    WorkflowDays.replaceAll([]);
+    WorkflowChecklist.replaceAll([]);
 
     const contentTab = Tabs.add({
-      title: 'Content', order: 0, mode: 'tasks',
-      hero: heroModel({ eyebrow: 'CONTENT PLANNING', title: 'Say It.\nShip It.', subtext: 'Every post starts here — plan it, track it, ship it.', ctaLabel: 'VIEW TASKS' })
+      title: 'Content', order: 0, mode: 'board',
+      hero: heroModel({ eyebrow: 'CONTENT PLANNING', title: 'Say It.\nShip It.', subtext: 'Every post starts here — plan it, track it, ship it.', ctaLabel: 'VIEW BOARD' })
     });
     const ideasTab = Tabs.add({
-      title: 'Ideas', order: 1, mode: 'tasks',
-      hero: heroModel({ eyebrow: 'THE IDEA BANK', title: 'Capture It Now.\nRefine It Later.', subtext: 'Loose ideas, hooks, and things worth revisiting.', ctaLabel: 'VIEW IDEAS' })
+      title: 'Ideas', order: 1, mode: 'board',
+      hero: heroModel({ eyebrow: 'THE IDEA BANK', title: 'Capture It Now.\nRefine It Later.', subtext: 'Loose ideas, hooks, and things worth revisiting.', ctaLabel: 'VIEW BOARD' })
     });
     const platformsTab = Tabs.add({
-      title: 'Platforms', order: 2, mode: 'tasks', roster: 'platforms',
-      hero: heroModel({ eyebrow: 'WHERE WE SHOW UP', title: 'Every Platform.\nOne Home.', subtext: 'Track platform-specific work, and keep notes on each one.', ctaLabel: 'VIEW PLATFORMS' })
+      title: 'Platforms', order: 2, mode: 'board',
+      hero: heroModel({ eyebrow: 'WHERE WE SHOW UP', title: 'Every Platform.\nOne Home.', subtext: 'Track and toggle every platform we show up on.', ctaLabel: 'VIEW BOARD' })
     });
     const strategyTab = Tabs.add({
       title: 'Strategy', order: 3, mode: 'tasks',
       hero: heroModel({ eyebrow: 'THE BIG PICTURE', title: 'Plan Deliberately.\nGrow on Purpose.', subtext: 'The direction behind the day-to-day.', ctaLabel: 'VIEW STRATEGY' })
     });
     const resourcesTab = Tabs.add({
-      title: 'Resources', order: 4, mode: 'tasks',
+      title: 'Resources', order: 4, mode: 'board', hasTemplates: true,
       hero: heroModel({ eyebrow: 'THE TOOLKIT', title: 'Everything.\nIn One Place.', subtext: 'Brand assets, templates, and reference material.', ctaLabel: 'VIEW RESOURCES' })
     });
     const analyticsTab = Tabs.add({
@@ -439,36 +567,113 @@
       hero: heroModel({ eyebrow: 'HOUSEKEEPING', title: 'Clean Profile.\nMore Trust.', subtext: 'The quarterly checkup that keeps everything tidy.', ctaLabel: 'VIEW BOARD' })
     });
 
-    // ---------- Content tasks ----------
-    Tasks.add({ tabId: contentTab.id, title: 'Share Relatable Business Stories', status: 'done', priority: 'medium', dueDate: shiftedISO(-6) });
-    Tasks.add({ tabId: contentTab.id, title: '3 Time-Saving Marketing Tips for Small Business', status: 'done', priority: 'medium', dueDate: shiftedISO(-5) });
-    Tasks.add({ tabId: contentTab.id, title: 'How to Increase Website Traffic', status: 'in-progress', priority: 'high', dueDate: todayISO() });
-    Tasks.add({ tabId: contentTab.id, title: 'A Better Way to Advertise on Instagram', status: 'in-progress', priority: 'high', dueDate: shiftedISO(-1) });
-    Tasks.add({ tabId: contentTab.id, title: 'Celebrating 30K Followers', status: 'todo', priority: 'medium', dueDate: shiftedISO(2) });
-    Tasks.add({ tabId: contentTab.id, title: 'Plan Your Content in 30 Minutes', status: 'todo', priority: 'low', dueDate: shiftedISO(7) });
+    // ---------- Content (board-mode) ----------
+    let o0 = 0, o1 = 0, o2 = 0;
+    Widgets.add({ tabId: contentTab.id, column: 0, order: o0++, type: 'platform', title: 'Instagram', data: { active: true, cover: '' } });
+    Widgets.add({ tabId: contentTab.id, column: 1, order: o1++, type: 'platform', title: 'Tiktok', data: { active: true, cover: '' } });
+    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'platform', title: 'Youtube', data: { active: true, cover: '' } });
+    Widgets.add({
+      tabId: contentTab.id, column: 0, order: o0++, type: 'contentcard', title: 'Share Relatable Business Stories',
+      data: { title: 'Share Relatable Business Stories', cover: '', platform: 'Tiktok', status: 'published', tags: ['Self Growth', 'Video'], scheduledDate: shiftedISO(-6), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: true }] }
+    });
+    Widgets.add({
+      tabId: contentTab.id, column: 0, order: o0++, type: 'contentcard', title: 'How to Increase Website Traffic',
+      data: { title: 'How to Increase Website Traffic', cover: '', platform: 'Pinterest', status: 'ready', tags: ['Digital Marketing', 'Pin'], scheduledDate: todayISO(), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
+    });
+    Widgets.add({
+      tabId: contentTab.id, column: 1, order: o1++, type: 'contentcard', title: '3 Time-Saving Marketing Tips for Small Business',
+      data: { title: '3 Time-Saving Marketing Tips for Small Business', cover: '', platform: 'Pinterest', status: 'published', tags: ['Digital Marketing', 'Pin'], scheduledDate: shiftedISO(-5), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: true }] }
+    });
+    Widgets.add({
+      tabId: contentTab.id, column: 1, order: o1++, type: 'contentcard', title: 'Celebrating 30K Followers',
+      data: { title: 'Celebrating 30K Followers', cover: '', platform: 'Facebook', status: 'ready', tags: ['Others', 'Post'], scheduledDate: shiftedISO(2), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
+    });
+    Widgets.add({
+      tabId: contentTab.id, column: 2, order: o2++, type: 'contentcard', title: 'A Better Way to Advertise on Instagram',
+      data: { title: 'A Better Way to Advertise on Instagram', cover: '', platform: 'Youtube', status: 'writing-caption', tags: ['Digital Marketing', 'Shorts'], scheduledDate: shiftedISO(-1), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
+    });
+    Widgets.add({
+      tabId: contentTab.id, column: 2, order: o2++, type: 'contentcard', title: 'Plan Your Content in 30 Minutes',
+      data: { title: 'Plan Your Content in 30 Minutes', cover: '', platform: 'Twitter', status: 'not-started', tags: ['Productivity', 'Tweet'], scheduledDate: shiftedISO(7), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: false }, { id: uid('cl'), text: 'Copy needed', done: false }] }
+    });
+    const resourceDefs = [
+      { icon: '🎨', title: 'Design resources', description: 'Design templates, icons, fonts, filters, etc. for the visuals of your content', col: 0 },
+      { icon: '🪝', title: 'Hook', description: 'Create a collection for your inspiration and for future reference', col: 0 },
+      { icon: '🎬', title: 'Video footage', description: 'Prepare the video footage for your social media posts', col: 0 },
+      { icon: '🛠', title: 'Tools', description: 'Add your favorite social media tools and subscription', col: 0 },
+      { icon: '#️⃣', title: 'Hashtag', description: 'Create a list of your most used hashtags that you can copy and paste', col: 1 },
+      { icon: '💡', title: 'Inspiration', description: 'Create a collection for your inspiration and for future reference', col: 1 },
+      { icon: '📝', title: 'Notes', description: 'Save any notes or article you find interesting and important', col: 1 },
+      { icon: '🔗', title: 'Important link', description: 'Save bookmarks that are relevant to your social media accounts', col: 2 },
+      { icon: '🎧', title: 'Audio', description: 'Keep up with the trends and save trending audio', col: 2 },
+      { icon: '📐', title: 'Size Guide', description: 'The optimal image sizes for various platforms', col: 2 }
+    ];
+    const colOrder = [o0, o1, o2];
+    resourceDefs.forEach(function (r) {
+      Widgets.add({ tabId: contentTab.id, column: r.col, order: colOrder[r.col]++, type: 'resource', title: r.title, data: { icon: r.icon, title: r.title, description: r.description, status: 'Active' } });
+    });
+    o0 = colOrder[0]; o1 = colOrder[1]; o2 = colOrder[2];
+    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'summary', title: 'Content Overview', data: {} });
+    Widgets.add({
+      tabId: contentTab.id, column: 2, order: o2++, type: 'schedule', title: 'Posting Schedule',
+      data: {
+        rows: [
+          { id: uid('sr'), platform: 'Instagram', day: 'Monday', time: '15:00' },
+          { id: uid('sr'), platform: 'Instagram', day: 'Tuesday', time: '09:00' },
+          { id: uid('sr'), platform: 'Instagram', day: 'Saturday', time: '20:00' },
+          { id: uid('sr'), platform: 'Instagram', day: 'Sunday', time: '10:00' },
+          { id: uid('sr'), platform: 'Tiktok', day: 'Wednesday', time: '17:00' },
+          { id: uid('sr'), platform: 'Tiktok', day: 'Thursday', time: '19:00' },
+          { id: uid('sr'), platform: 'Youtube', day: 'Monday', time: '14:00' }
+        ]
+      }
+    });
+    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'photos', title: 'Gallery', data: { wide: false, slots: [] } });
 
-    // ---------- Ideas tasks ----------
-    Tasks.add({ tabId: ideasTab.id, title: 'Behind-the-scenes of a typical workday', status: 'todo', priority: 'low' });
-    Tasks.add({ tabId: ideasTab.id, title: 'Customer testimonial round-up', status: 'todo', priority: 'medium' });
-    Tasks.add({ tabId: ideasTab.id, title: 'Myth vs. fact post for our industry', status: 'todo', priority: 'low' });
+    // ---------- Ideas (board-mode) ----------
+    Widgets.add({
+      tabId: ideasTab.id, column: 0, order: 0, type: 'list', title: 'Content Ideas',
+      data: { items: [{ id: uid('it'), text: 'Behind-the-scenes of a typical workday' }, { id: uid('it'), text: 'Customer testimonial round-up' }, { id: uid('it'), text: 'Myth vs. fact post for our industry' }] }
+    });
+    Widgets.add({ tabId: ideasTab.id, column: 1, order: 0, type: 'note', title: 'Brain Dump', data: { body: "Loose ideas that don't have a home yet — revisit during the next content planning session." } });
+    Widgets.add({ tabId: ideasTab.id, column: 2, order: 0, type: 'infocard', title: 'Idea Bank', data: { icon: '💡', title: 'IDEA BANK', subtitle: 'Capture it now, refine it later.' } });
 
-    // ---------- Platforms tasks + roster ----------
-    Tasks.add({ tabId: platformsTab.id, title: 'Audit Instagram bio link', status: 'todo', priority: 'medium', dueDate: shiftedISO(3) });
-    Tasks.add({ tabId: platformsTab.id, title: 'Repurpose top TikTok into a Reel', status: 'todo', priority: 'low' });
-    Platforms.add({ name: 'Instagram', active: true, notes: 'Posting Mon/Wed/Fri mornings — engagement is highest 8–10am.' });
-    Platforms.add({ name: 'Tiktok', active: true, notes: '' });
-    Platforms.add({ name: 'Youtube', active: true, notes: '' });
-    Platforms.add({ name: 'Pinterest', active: false, notes: '' });
-    Platforms.add({ name: 'Facebook', active: false, notes: '' });
-    Platforms.add({ name: 'Twitter', active: false, notes: '' });
+    // ---------- Platforms (board-mode) ----------
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 0, type: 'platform', title: 'Instagram', data: { active: true, cover: '' } });
+    Widgets.add({ tabId: platformsTab.id, column: 1, order: 0, type: 'platform', title: 'Tiktok', data: { active: true, cover: '' } });
+    Widgets.add({ tabId: platformsTab.id, column: 2, order: 0, type: 'platform', title: 'Youtube', data: { active: true, cover: '' } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 1, type: 'platform', title: 'Pinterest', data: { active: false, cover: '' } });
+    Widgets.add({ tabId: platformsTab.id, column: 1, order: 1, type: 'platform', title: 'Facebook', data: { active: false, cover: '' } });
+    Widgets.add({ tabId: platformsTab.id, column: 2, order: 1, type: 'platform', title: 'Twitter', data: { active: false, cover: '' } });
 
-    // ---------- Strategy tasks ----------
+    // ---------- Strategy (tasks-mode — the one tab that keeps it) ----------
     Tasks.add({ tabId: strategyTab.id, title: 'Define target audience personas', status: 'todo', priority: 'high' });
     Tasks.add({ tabId: strategyTab.id, title: 'Audit competitor content', status: 'todo', priority: 'medium' });
 
-    // ---------- Resources tasks ----------
-    Tasks.add({ tabId: resourcesTab.id, title: 'Refresh brand kit colors', status: 'todo', priority: 'medium' });
-    Tasks.add({ tabId: resourcesTab.id, title: 'Build a reusable story template', status: 'todo', priority: 'low' });
+    // ---------- Resources (board-mode) — top section: Links & Notes ----------
+    Widgets.add({ tabId: resourcesTab.id, column: 0, order: 0, type: 'note', title: 'Quick Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
+    Widgets.add({ tabId: resourcesTab.id, column: 1, order: 0, type: 'link', title: 'Brand Guidelines', data: { url: '', description: 'Logo usage, color codes, and voice/tone guide.' } });
+    Widgets.add({ tabId: resourcesTab.id, column: 2, order: 0, type: 'link', title: 'Shared Drive', data: { url: '', description: 'Raw footage, exports, and source files.' } });
+
+    // ---------- Resources — bottom section: Templates (Workflow) ----------
+    const week1 = addWorkflowWeek(resourcesTab.id, { title: 'Week 1 — Launch Checklist' });
+    const w1d1 = addWorkflowDay(week1.id, resourcesTab.id, { title: 'Kickoff & brief', status: 'Done' });
+    addWorkflowChecklistItem(w1d1.id, { text: 'Confirm goal and audience', checked: true });
+    addWorkflowChecklistItem(w1d1.id, { text: 'Gather reference material', checked: true });
+    const w1d2 = addWorkflowDay(week1.id, resourcesTab.id, { title: 'Draft & review', status: 'In progress' });
+    addWorkflowChecklistItem(w1d2.id, { text: 'Write first draft', checked: true });
+    addWorkflowChecklistItem(w1d2.id, { text: 'Get feedback', checked: false });
+    const w1d3 = addWorkflowDay(week1.id, resourcesTab.id, { title: 'Finalize & ship', status: 'Not started' });
+    addWorkflowChecklistItem(w1d3.id, { text: 'Incorporate feedback', checked: false });
+    addWorkflowChecklistItem(w1d3.id, { text: 'Publish', checked: false });
+
+    const week2 = addWorkflowWeek(resourcesTab.id, { title: 'Week 2 — Repurpose & Recap' });
+    const w2d1 = addWorkflowDay(week2.id, resourcesTab.id, { title: 'Repurpose into 3 formats', status: 'Not started' });
+    addWorkflowChecklistItem(w2d1.id, { text: 'Cut a short-form clip', checked: false });
+    addWorkflowChecklistItem(w2d1.id, { text: 'Write a carousel version', checked: false });
+    const w2d2 = addWorkflowDay(week2.id, resourcesTab.id, { title: 'Recap performance', status: 'Not started' });
+    addWorkflowChecklistItem(w2d2.id, { text: 'Pull top-line metrics', checked: false });
+    addWorkflowChecklistItem(w2d2.id, { text: 'Note what to try next time', checked: false });
 
     // ---------- Analytics (board-mode) ----------
     Widgets.add({ tabId: analyticsTab.id, column: 0, order: 0, type: 'summary', title: 'Content Overview', data: {} });
@@ -488,7 +693,7 @@
 
   function seedIfEmpty() {
     if (storeGet(KEYS.seeded)) return;
-    if (Tabs.list().length || Widgets.list().length || Tasks.list().length || Platforms.list().length) { storeSet(KEYS.seeded, true); return; }
+    if (Tabs.list().length || Widgets.list().length || Tasks.list().length || WorkflowWeeks.list().length) { storeSet(KEYS.seeded, true); return; }
     seedDefaultBoard();
   }
 
@@ -512,17 +717,20 @@
     TASK_STATUSES: TASK_STATUSES,
     TASK_PRIORITIES: TASK_PRIORITIES,
     TASK_RECURRENCES: TASK_RECURRENCES,
+    WORKFLOW_DAY_STATUSES: WORKFLOW_DAY_STATUSES,
     uid: uid,
     todayISO: todayISO,
     formatDateShort: formatDateShort,
     compressImageDataUrl: compressImageDataUrl,
     isValidMediaUrl: isValidMediaUrl,
-    Models: { tab: tabModel, widget: widgetModel, task: taskModel, platform: platformModel },
+    Models: { tab: tabModel, widget: widgetModel, task: taskModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel },
     defaultWidgetData: defaultWidgetData,
     Tabs: Object.assign({}, Tabs, { remove: removeTab }),
     Widgets: Widgets,
     Tasks: Tasks,
-    Platforms: Platforms,
+    WorkflowWeeks: WorkflowWeeks,
+    WorkflowDays: WorkflowDays,
+    WorkflowChecklist: WorkflowChecklist,
     tabsSorted: tabsSorted,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
@@ -534,6 +742,24 @@
     sortTasks: sortTasks,
     groupTasksBuckets: groupTasksBuckets,
     spawnNextRecurrence: spawnNextRecurrence,
+    weeksForTab: weeksForTab,
+    daysForWeek: daysForWeek,
+    checklistForDay: checklistForDay,
+    weekProgress: weekProgress,
+    addWorkflowWeek: addWorkflowWeek,
+    updateWorkflowWeek: updateWorkflowWeek,
+    removeWorkflowWeek: removeWorkflowWeek,
+    moveWorkflowWeek: moveWorkflowWeek,
+    duplicateWorkflowWeek: duplicateWorkflowWeek,
+    addWorkflowDay: addWorkflowDay,
+    updateWorkflowDay: updateWorkflowDay,
+    removeWorkflowDay: removeWorkflowDay,
+    moveWorkflowDay: moveWorkflowDay,
+    duplicateWorkflowDay: duplicateWorkflowDay,
+    addWorkflowChecklistItem: addWorkflowChecklistItem,
+    updateWorkflowChecklistItem: updateWorkflowChecklistItem,
+    removeWorkflowChecklistItem: removeWorkflowChecklistItem,
+    moveWorkflowChecklistItem: moveWorkflowChecklistItem,
     seedDefaultBoard: seedDefaultBoard,
     seedIfEmpty: seedIfEmpty
   };
