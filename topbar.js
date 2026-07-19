@@ -183,6 +183,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">DREAM BOARD</span>
   </a>
+  <a href="business.html" class="topbar-pill" id="topbarBusiness">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">BUSINESS</span>
+  </a>
 </header>
 `;
 

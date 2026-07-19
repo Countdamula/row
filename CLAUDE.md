@@ -34,6 +34,7 @@ Vercel's static server) — see README.md.
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
+| `business.html` | Business Hub — a content-planning workspace built on Dream Board's same drag-and-drop board engine (editable subpages, a 3-column board of reorderable widgets, per-widget color-grading tint, Add Widget menu, reset-to-default), restyled light cream/rust to match a Notion "Content Hub" reference photo, with five widget types tailored to content planning (Platform, Content Plan Card, Resource, Content Summary, Posting Schedule) alongside Dream Board's original ten (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -182,6 +183,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
+   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:profile`, `business:active_tab`) — same session-only-video-slot exception as `dreamboard` above |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -219,6 +221,7 @@ using `sync.js`.
 | Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; all five tabs built — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
+| Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -3569,3 +3572,213 @@ between this app and either data loss or a wide-open write target:
     board — a tab renamed away from that exact title afterward simply
     won't match, which is expected for a targeted one-time cleanup, not
     a standing rule.
+
+- **New page: `business.html` ("Business Hub"), a content-planning
+  workspace built by reusing Dream Board's exact board engine, restyled
+  to match a Notion "Content Hub" reference photo.** Per an explicit
+  decision with the user (confirmed via clarifying questions before any
+  code was written): this is a brand-new standalone top-level page — not
+  a rebuild of the pre-existing "Businesses" sub-tab inside `index.html`'s
+  Main dashboard, which is untouched by this work and keeps its own
+  separate business/goal/task/workflow data model (see that tab's own
+  inventory, `docs/business-tab-inventory.md`, written before this page
+  existed). Genuinely new files, `business.html` + `business-data.js` —
+  new nav pill (`BUSINESS` → `business.html`, appended after
+  `DREAM BOARD` in `topbar.js`'s injected pill list — the only edit made
+  to `topbar.js`, same one-line-addition precedent every prior page
+  addition followed); new sync key (`appKey: 'business'`,
+  `syncedPrefixes: ['business:']`, wired via the standard shared
+  `initCloudSync` — same call pattern as every other page, nothing new
+  invented).
+  - **Board engine reused, not reimplemented**: `business-data.js` is
+    `dreamboard-data.js`'s exact shape — `Tabs`/`Widgets` flat collections
+    with a foreign-key `tabId`/`column`/`order` on each widget (not a
+    nested tree), the same `makeCollection` CRUD, the same
+    `reorderTab(tabId, columnsOfIds)` bulk-write-on-drag, the same
+    per-widget `tint` color-grading field (`'#rrggbb' | null`), and the
+    same empty-storage seed-race safety window in `business.html`'s
+    `init()` (`maybeSeedAfterSyncAttempt()`, deferred until either real
+    cloud data arrives via `onApplied` or a 5s window elapses) —
+    identical reasoning to `dreamboard.html`'s own copy of this fix (see
+    that page's changelog entries on the subject): seeding a fresh
+    default board before the cloud pull has a real chance to answer can
+    push a "local" board to Supabase that clobbers another device's real
+    data. `business.html`'s `renderBoard()`/`buildWidgetCard()`/
+    `wireSortable()` (SortableJS, same CDN version, same `.bw-drag-handle`-
+    scoped drag) are line-for-line the same engine as
+    `dreamboard.html`'s, just renamed `dw-`/`db-` → `bw-`/`bh-` class
+    prefixes and pointed at a light palette instead of dark glass (see
+    the palette note below).
+  - **One structural difference from Dream Board, by design**: Dream
+    Board gives every tab its own full-bleed cinematic hero (title/
+    subtext/cover photo per tab, since each tab reads as its own
+    "landing page"). The reference Content Hub photo instead has one
+    persistent header (banner photo, avatar, name, tagline) and a
+    left-hand "Subpages" list — so `business.html` has one global,
+    editable profile record (`business:profile` — `name`, `tagline`,
+    `bannerPhoto`, `avatarPhoto`, via `BusinessData.getProfile()`/
+    `saveProfile()`) instead of Dream Board's per-tab `hero`, and its
+    tabs (`BusinessData.tabModel` — `id`/`title`/`icon`/`order`, no
+    `hero` field at all) render as a sidebar nav (`.bh-subpage` rows
+    under "Subpages") instead of Dream Board's horizontal pill row.
+    Rename-in-place (click "✎", same commit-on-Enter/-blur pattern) and
+    a per-tab editable icon (a `contentEditable` emoji, same pattern as
+    Info Card's icon field) are both still fully editable, matching "make
+    everything adjustable, moveable, and editable just like in the Dream
+    Board tab."
+  - **The reference photo's right-hand sidebar (a content summary,
+    posting-schedule, and a small photo gallery) is not a separate layout
+    region** — it's simply which widgets the seed data placed in the
+    board's third column. The board itself is still one uniform 3-column
+    drag-and-drop grid, same as Dream Board's; a widget can be dragged
+    into or out of that column like any other, so the "sidebar" is a
+    seed-data arrangement, not a hardcoded second engine bolted onto the
+    first.
+  - **Five widget types tailored to content planning** (on top of Dream
+    Board's original ten — checklist/list/note/quote/affirmation/steps/
+    photos/calendar/feature/infocard — which are reused completely
+    verbatim, same field shapes, same defaults, available from the same
+    Add Widget menu):
+    - **Platform** (`{active, cover}`) — a toggleable platform card. The
+      platform's display name is deliberately just the widget's own
+      title (edited via the same card-header title control every widget
+      already has) rather than a second `data.name` field, so there's
+      only ever one source of truth for "which platform is this" — an
+      early draft had both and was simplified before shipping once the
+      duplication was noticed. Cover is optional (paste URL or upload,
+      through the same generalized photo modal below); with no cover set,
+      the card shows a big monogram letter (the title's first character)
+      on a gradient fill, echoing the reference photo's "I"/"T"/"Y"
+      editorial-letterform platform cards.
+    - **Content Plan Card** (`{title, cover, platform, status, tags,
+      scheduledDate, scheduledTime, checklist}`) — mirrors the reference
+      photo's content cards field-for-field: an optional cover, a
+      free-text platform line (deliberately *not* a foreign key into
+      Platform widgets — a platform card being renamed or deleted
+      shouldn't be able to break a content card's display, so this is a
+      label, not a relational reference), a status `<select>` (Not
+      started / Ready to post / Writing Caption / Published!, via
+      `BusinessData.CONTENT_STATUSES`), freeform colored tag chips
+      (add/remove, colors picked by hashing the tag text so the same tag
+      always gets the same color across cards — `tagColor()`), a
+      scheduled date + time, and a **live-computed due-line**
+      (`BusinessData.computeDueLabel()` — "Published!" once posted,
+      else "Due Today"/"Due Tomorrow"/"N Days Remaining"/"Due
+      yesterday"/"Due N days ago" derived fresh from `scheduledDate` vs.
+      today, never stored text that could go stale), plus an embedded
+      mini checklist reusing the exact same `buildItemListBody()`
+      component every Checklist/List/Affirmation widget already uses
+      (generalized to read/write a caller-specified `data` key instead
+      of always `items`, so this one function now serves five different
+      call sites instead of being duplicated a sixth time).
+    - **Resource** (`{icon, title, description, status}`) — icon/title/
+      description are inline-editable exactly like Info Card's fields;
+      status is a click-to-cycle pill (Active → Idle → Archived → Active
+      …, `BusinessData.RESOURCE_STATUSES`) colored via the existing
+      `--success`/`--bh-text-dim`/`--danger` tokens (no new colors).
+    - **Content Summary** (`summary` type, no persisted fields of its
+      own) — a genuinely live-computed rollup, not stored data: on every
+      render it reads every Content Plan Card on the *same tab*
+      (`BusinessData.contentCardsForTab()`) and computes total count, a
+      per-status breakdown with percentage bars (reusing the existing
+      `.bw-progress-bar`/`.bw-progress-fill` component from the Steps
+      Tracker widget), a count of genuinely overdue cards, and a count of
+      open (unchecked) checklist items across all of them — so it can
+      never drift out of sync with the cards it's summarizing, the same
+      "derived, not stored" precedent as this app's other computed
+      rollups (e.g. `index.html`'s Goal progress bars,
+      `household-data.js`'s selectors).
+    - **Posting Schedule** (`schedule` type, `{rows: [{id, platform, day,
+      time}]}`) — add a platform/day/time row via a small inline form
+      (no modal needed), delete any row with a hover-reveal ✕; rendered
+      **grouped by platform** ("Instagram schedule" / "Tiktok schedule" /
+      …, matching the reference photo's per-platform grouping) — the
+      grouping is computed at render time from the flat `rows` array,
+      not a nested stored structure, so adding a new platform's first
+      row automatically creates a new group heading with no separate
+      "add a group" step.
+    - A real bug caught and fixed *during* this build, before it ever
+      shipped: the Content Plan Card's and Content Summary's "is this
+      overdue" logic originally flagged "Due Today" as overdue (red)
+      alongside genuinely past-due cards, which both looks alarming for
+      something that isn't actually late yet and made the Content
+      Summary's "Overdue" count over-report. Fixed by giving "Due Today"
+      its own amber `is-today` state (a CSS class that already existed
+      in the stylesheet but was never actually applied by the JS — an
+      oversight from the first draft) distinct from red `is-overdue`,
+      and narrowing the Summary's overdue count to only genuinely past
+      dates. Caught by an actual headless screenshot showing a "Due
+      Today" card in red — not just a code read-through.
+  - **Photo modal generalized, not duplicated a third time**: Dream
+    Board's photo modal already had a `single` vs. multi-slot split
+    (Feature Card's one photo field vs. the Photos widget's `slots[]`
+    array); this page's `openPhotoModal(widgetId, opts)` gained one more
+    option, `opts.field`, naming which `widget.data` key a single-target
+    add writes to (`'photo'` for Feature Card, `'cover'` for Platform and
+    Content Plan Card) — the same modal, upload pipeline
+    (`compressImageDataUrl`), and paste-a-URL validation
+    (`isValidMediaUrl`) now serve four different widget types' cover
+    fields instead of one modal per field.
+  - **A real seed-data bug, caught by the first headless screenshot, not
+    by code review**: the initial seed used the reference photo's literal
+    dates (`2024-01-16` etc.) for its non-published Content Plan Cards.
+    Since `computeDueLabel()` computes relative to whatever "today"
+    actually is when the page loads, a fixed 2024 date read as "Due 908
+    days ago" the moment real time had moved past it — technically
+    correct math, but a seed board that ages into nonsense the longer it
+    sits unopened defeats the point of a seed. Fixed with a new
+    `shiftedISO(offsetDays)` helper in `business-data.js` (seed-only, not
+    part of the public API) so every non-published seed card's
+    `scheduledDate` is relative to whenever the board is actually first
+    seeded (`-6`/`-5` days for the two Published cards, whose due-line
+    ignores the date entirely anyway; `-1` day for the "Due yesterday"
+    card; `0`/today for the "Due Today" card; `+2`/`+7` days for the "2
+    Days Remaining"/"7 Days Remaining" cards) — so the default board
+    always reads correctly, matching the reference photo's due-label
+    variety, regardless of when it's actually opened for the first time.
+  - **Palette exception, explicit and deliberate**: own self-contained
+    `--bh-*` tokens (light cream/off-white background, white cards, one
+    rust/terracotta `--bh-accent`, plus this app's standard `--success`/
+    `--warning`/`--danger`/`--info` semantic roles reused rather than
+    recolored) — the same "explicit reference-photo instruction"
+    exception category as `dreamboard.html`'s dark cinematic theme,
+    `braindump.html`'s forest theme, or `gym.html`'s crimson grading (see
+    CLAUDE.md §6/DO NOT MODIFY rule 2), just a light theme this time,
+    scoped entirely to this one new file. No other page's tokens are
+    touched. The banner's scalloped/"pinked" bottom edge (a
+    `radial-gradient` CSS mask repeated horizontally) is this page's one
+    small original visual flourish beyond a straight recolor, matching
+    the reference photo's fabric-edge banner detail.
+  - **Content tab loosely mirrors the reference photo**; the other six
+    seeded subpages (Ideas/Platform/Strategy/Resources/Analytics/Audit)
+    get a modest thematic starter board each, not copied from any
+    reference — same "not a pixel-match for every tab" precedent
+    `dreamboard-data.js`'s `seedDefaultBoard()` already set for Dream
+    Board's four tabs.
+  - **Verified via headless Edge screenshots** (`--host-resolver-rules`
+    mapping the Supabase host to `0.0.0.0`, armed at launch before
+    navigation, per this file's established testing convention): the
+    Content tab's full board (3 platform cards, 6 content cards with
+    correct per-card status/tag/due-line rendering, 10 resource tiles,
+    the live Content Summary's stat rows/bars, the Posting Schedule
+    grouped correctly by platform, and the Gallery photo-grid widget with
+    its 1/2-column toggle) all rendered correctly, the sidebar's 7
+    subpages and the sync-status indicator rendered correctly, and the
+    "Due Today"/overdue-count bug above was caught and re-verified fixed
+    by a second screenshot pass. **Not verified this way**: interactive
+    drag-and-drop reordering, tab switching, and the other six subpages'
+    reused Dream-Board-type widgets (checklist/list/note/quote/
+    affirmation/steps/calendar/feature/infocard) — this environment's
+    headless Edge could not be driven interactively via CDP (every
+    attempt to open a remote-debugging port exited immediately rather
+    than accepting a connection, a stricter variant of the same
+    already-documented "automation gets absorbed/blocked" limitation
+    noted in `dreamboard.html`'s own changelog entries), so only
+    `--screenshot`/`--dump-dom`-style one-shot renders were possible, not
+    scripted clicks. Those code paths are unmodified, line-for-line
+    copies of `dreamboard.html`'s already-shipped implementations, which
+    is why they weren't re-derived from scratch here — but a real
+    click-through (drag a card between columns, rename a subpage, switch
+    tabs, open the tint popover) is still recommended before relying on
+    this page, same disclosed-limitation caveat `dreamboard.html`'s own
+    later entries already established for this environment.
