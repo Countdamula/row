@@ -3512,3 +3512,18 @@ between this app and either data loss or a wide-open write target:
     live browser. This fix is inherently hard to verify without a real
     mobile device/browser anyway, since the actual failure mode lives in
     OS-level picker behavior this environment can't reproduce.
+
+- **Dream Board: widened the empty-storage seed-race safety window from
+  2.5s to 5s, after a real report that the race from two entries above
+  recurred.** This is a further mitigation of the same disclosed,
+  fundamentally timing-based heuristic, not a new fix — `sync.js`'s pull
+  doesn't expose a "the pull attempt is done, here's whether remote data
+  existed" signal distinct from `onApplied` (which only fires when
+  something actually *changed*), so this page still can't tell "remote
+  is genuinely empty" apart from "remote pull hasn't resolved yet"
+  without a change to `sync.js` itself. 2.5s covers a typical Supabase
+  read; a slow/flaky mobile connection (DNS + TLS + the request itself)
+  can genuinely take longer than "typical," which is the most likely
+  explanation for the recurrence. A fully race-proof fix (no timing
+  heuristic at all) would mean touching `sync.js`, shared by four other
+  pages — not done here without being asked to specifically.

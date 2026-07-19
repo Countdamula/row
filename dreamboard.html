@@ -1769,10 +1769,16 @@ body::after {
       });
       if (tabs.length === 0) {
         // Nothing locally yet on this device. Give the cloud pull a
-        // generous window (Supabase reads typically resolve in well
-        // under a second) before assuming this is genuinely a first-ever
-        // use rather than just "hasn't synced down yet."
-        setTimeout(maybeSeedAfterSyncAttempt, 2500);
+        // window before assuming this is genuinely a first-ever use
+        // rather than just "hasn't synced down yet." Bumped from 2.5s to
+        // 5s after a real report of this still racing — a typical
+        // Supabase read resolves in under a second, but "typical" isn't
+        // "always": a slow/flaky mobile connection can genuinely take
+        // several seconds for DNS + TLS + the request itself. This is
+        // still a timing heuristic, not a guarantee — see the note on
+        // `maybeSeedAfterSyncAttempt()` for why a fully race-proof fix
+        // needs a change in sync.js itself.
+        setTimeout(maybeSeedAfterSyncAttempt, 5000);
       }
     } else if (tabs.length === 0) {
       // No cloud sync available at all (e.g. the Supabase SDK failed to
