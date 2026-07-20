@@ -4773,3 +4773,64 @@ between this app and either data loss or a wide-open write target:
   wasn't possible in this environment (see the build entry above for
   why), so the fix is verified by matching the known-working source
   it was supposed to be copied from, not by an interactive click test.
+
+- **AI & Tech (`aitech.html`) recolored from gold to teal, matching a
+  second reference photo** (a "Protected & Secure / Regulated /
+  Professional Support / Reliable" feature-card grid — dark near-black
+  cards with a soft cyan-teal glow, white bold titles, muted gray body
+  text). Per an explicit instruction to change only the aesthetic/colors
+  of "the databases and blocks" and delete nothing — this is a pure CSS
+  pass: no HTML structure, JS, or data model changed, and every existing
+  feature (filters, search, drag-reorder, modals, favorites, copy button,
+  the seed-race-safety sync wiring) is untouched. Same "this file's own
+  second reference-photo exception replacing the first" precedent
+  `dreamboard.html`'s own light→dark palette flip already set (see that
+  page's changelog) — not a new precedent for the rest of the app, and
+  not a change to Business Hub/Dream Board's own gold tokens, which this
+  file's `--at-*` tokens were only ever a private, same-file-scoped copy
+  of (CLAUDE.md §6/DO NOT MODIFY rule 2).
+  - **Token repoint, not a rename**: `--at-gold`/`--at-gold-bright` keep
+    their names (there's no shared cross-file contract depending on
+    them — DO NOT MODIFY rule 2 only protects the *shared* tokens in
+    `sync.js`/`topbar.js`) but now hold teal values (`#2dd4bf`/`#7ff3e3`)
+    instead of the original gold (`#c9a876`/`#e8cf9f`) — the same
+    "repoint an existing token's value instead of inventing a new one"
+    precedent `household.html`/`selfcare.html` used for their own
+    `--accent`. `--at-bg`/`--at-bg-deep`/`--at-paper-solid`/`--at-text*`/
+    `--at-hairline`/`--at-accent-tint` all shifted from warm (brown/
+    champagne-tinted near-black and off-white) to cool (teal-tinted
+    near-black and off-white) in the same pass, and every hardcoded
+    `rgba(201,168,118,*)`/`rgba(11,10,8,*)`/`rgba(5,4,3,*)`/`#24190c`
+    literal that wasn't already routed through a CSS variable (the
+    ambient body-glow gradients, the back-button/hero-photo-tools/modal
+    backdrop tints, the dark contrast-text color used on the gold
+    button/cover gradients) was swept to its teal equivalent by hand —
+    confirmed with a repo grep afterward that zero warm-gold literals
+    remain in the file. `--success`/`--warning`/`--danger`/`--info` were
+    left alone, same "status colors carry meaning, not brand accent"
+    precedent every other re-theme in this app already follows.
+    `theme-color` meta tag updated to match.
+  - **New, additive-only embellishment**: `.at-card::before`, a soft
+    radial teal glow positioned near the top-left of every card
+    (`.at-card` already has `overflow:hidden`, so it's clipped to the
+    card's rounded corners), with `.at-card > *` bumped to
+    `position:relative; z-index:1` so real content still paints above
+    it — a pure-CSS echo of the reference photo's illustrated
+    icon-glow artwork, no image asset added (consistent with this
+    repo's no-binary-assets convention). Applies uniformly to both the
+    Model gallery cards and Prompt cards, since both share the same
+    `.at-card` chassis.
+  - Fonts, layout, spacing, and every component's markup are unchanged —
+    only fills/borders/text colors and the one new glow layer moved.
+  - **Verified** via a headless-Edge `--dump-dom` pass (Supabase
+    blocked, per this file's standing testing rule): confirmed the
+    served page's `:root` block resolves to the new teal values, the
+    new `.at-card::before` rule is present, and the 9 seeded models/10
+    seeded prompts still render correctly with no drop in count — a
+    full-page screenshot could not be captured this round (headless
+    Edge's `--screenshot` flag intermittently failed to write a file in
+    this environment despite the browser exiting cleanly; retried
+    several times with fresh profiles before falling back to the
+    dump-dom + source-grep verification actually used), so this pass
+    was verified by confirming the served CSS values and unchanged
+    render counts rather than a visual screenshot comparison.
