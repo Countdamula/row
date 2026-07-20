@@ -2058,6 +2058,13 @@ body::after {
         syncedPrefixes: ['business:'],
         onApplied: function () {
           remoteAppliedOnce = true;
+          // The pulled remote row may still hold data saved under an
+          // older schema (e.g. tabs from before `layout` existed) — a
+          // stale Supabase copy applying *after* the local migration
+          // already ran is exactly what made the page flash correctly
+          // then go blank. Re-run the migration on every applied pull,
+          // not just once at load.
+          DB.normalizeStoredData();
           const tabs2 = DB.tabsSorted();
           if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
           renderHero(); renderTabs(); renderActiveTabContent();

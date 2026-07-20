@@ -729,6 +729,7 @@
     WorkflowDays: WorkflowDays,
     WorkflowChecklist: WorkflowChecklist,
     tabsSorted: tabsSorted,
+    normalizeStoredData: normalizeStoredData,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
     widgetsOfType: widgetsOfType,
