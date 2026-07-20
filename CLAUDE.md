@@ -36,6 +36,7 @@ Vercel's static server) — see README.md.
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
+| `anxiety.html` | Anxiety — this app's standard near-black/off-white palette (no reference photo was given, so no new aesthetic exception — DO NOT MODIFY §2), a shared cover banner, and two tabs: Breathwork (a CRUD gallery of paced-breathing techniques — inhale/hold/exhale/hold seconds, a "best for" goal tag, favorites — each playable through a full-screen animated breathing pacer with timestamp-based phase timing) and Tips & Techniques (a filterable/favoritable card library of grounding/cognitive/physical/social anxiety-management tips) (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -186,6 +187,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
+   | `anxiety` | `anxiety.html` (new) | everything prefixed `anxiety:` (`anxiety:breathwork`, `anxiety:tips`, `anxiety:active_tab`, `anxiety:seeded`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -225,6 +227,7 @@ using `sync.js`.
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
 | AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
+| Anxiety | `ANXIETY` → `anxiety.html` | `anxiety.html` + `anxiety-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -5138,3 +5141,95 @@ between this app and either data loss or a wide-open write target:
     reported bug's starting state) now correctly creates and renders all
     3 tabs and the Self-Care Checklist widget, instead of rendering an
     empty tab bar.
+
+- **New page: `anxiety.html` ("Anxiety"), a dedicated page with a
+  Breathwork section and a Tips & Techniques section.** Genuinely new
+  files, `anxiety.html` + `anxiety-data.js` — new nav pill (`ANXIETY` →
+  `anxiety.html`, appended after `AI & TECH` in `topbar.js`'s injected
+  pill list — the only edit made to `topbar.js`, same one-line-addition
+  precedent every prior page addition followed); new sync key
+  (`appKey: 'anxiety'`, `syncedPrefixes: ['anxiety:']`, wired via the
+  standard shared `initCloudSync` — same call pattern as every other
+  page, nothing new invented).
+  - **Palette: no exception this time.** No reference photo or aesthetic
+    instruction was given for this page, so — per DO NOT MODIFY §2 —
+    it stays on this app's actual standard palette (documented in §3):
+    near-black background, off-white text, the existing long-form
+    `--success`/`--warning`/`--danger`/`--info` semantic accents, and
+    `--accent` repointed to `--info`'s own blue value rather than a new
+    hue — the same call `household.html`/`selfcare.html`'s original
+    builds made for the same reason. The shared cover-banner component
+    (sunburst emblem, italic serif title, tracked-caps subtext, outlined
+    pill CTA, radiating-line divider — the same structure index.html/
+    gym.html/braindump.html/finance.html/household.html all already use)
+    was reused verbatim rather than inventing a new page-header pattern.
+  - **Two tabs, same underline-tab-bar/hash-router pattern as
+    `household.html`/`selfcare.html`'s original build** (`anxiety:active_tab`,
+    `#breathwork`/`#tips` hash deep-linking): **Breathwork** and
+    **Tips & Techniques**.
+  - **Breathwork** (`anxiety:breathwork`) — a CRUD gallery of
+    paced-breathing techniques: name, description, a "best for" goal tag
+    (Calm/Focus/Sleep/In the moment/Other, filterable via chips), a
+    4-phase seconds pattern (inhale/hold/exhale/hold — either hold can be
+    set to 0 to skip that phase entirely), a suggested cycle count, and a
+    favorite star. Seeded with four real, commonly-taught techniques (Box
+    Breathing 4-4-4-4, 4-7-8 Breathing, Coherent Breathing 5-0-5-0,
+    Extended Exhale 4-0-8-2), each tagged to a different goal so the
+    filter chips have something to demonstrate immediately.
+  - **The breathing pacer** (`#pacerModalBg`) is this page's one genuinely
+    new mechanism, not copied from anywhere else in this app: a "▶ Start"
+    button per technique opens a modal with an animated circle that grows
+    on inhale, holds, and shrinks on exhale/hold, a large phase label
+    (Inhale/Hold/Exhale) and countdown number, and a cycle counter ("Cycle
+    2 of 6"). Phase advancement is timestamp-based (`Date.now()` diffs on
+    a 200ms tick, with the phase-start time corrected for tick-interval
+    overshoot on every advance) rather than a naive tick counter, the same
+    drift-proofing precedent `gym.html`'s own workout timer already
+    established — a backgrounded/throttled tab can't desync the countdown
+    from real elapsed time. The circle's grow/shrink itself is delegated
+    to a single CSS `transition` set once per phase change (`transform:
+    scale(...)` + a `transition-duration` matching that phase's seconds),
+    not animated frame-by-frame in JS — consistent with this app's
+    no-animation-library convention (same spirit as `gym.html`'s
+    synthesized-beep timer or `dreamboard.html`'s CSS-only sunburst
+    emblems). Finishing all suggested cycles shows a small "✓ Nice work"
+    completion state instead of silently stopping; Stop is available at
+    any time mid-session.
+  - **Tips & Techniques** (`anxiety:tips`) — a filterable, favoritable card
+    library: title, category (Grounding/Cognitive/Physical/Social/Other,
+    filterable via chips), freeform body text, and a favorite star, plus
+    a "★ Favorites only" toggle and a title+body search box — the same
+    filter/search/favorite shape `selfcare.html`'s Meditations panel
+    already established for this app, reused rather than reinvented.
+    Seeded with seven real, generic anxiety-management techniques spread
+    across all four real categories (5-4-3-2-1 grounding, cold water on
+    the face/wrists, labeling a thought rather than arguing with it,
+    texting one person, progressive muscle relaxation, "what would I tell
+    a friend," feet-flat-on-the-floor grounding).
+  - **Seeding** (`anxiety-data.js`'s `seedIfEmpty()`) follows the same
+    seed-race-safety contract as every other synced page in this app
+    (Dream Board/Business Hub/Self-Care): it refuses to run if either
+    collection already has real content, and `anxiety.html`'s boot
+    sequence only calls it from a timed fallback after giving
+    `initCloudSync`'s cloud pull a real window first, not immediately —
+    so a fresh device can't push fabricated seed content over another
+    device's real data before it's had a chance to sync down.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules` mapping the Supabase host to `0.0.0.0`,
+    `--dump-dom` with an 8-second virtual time budget, per this file's
+    established testing convention): a fresh profile's default
+    (`#breathwork`) tab correctly rendered all 4 seeded techniques; a
+    second pass navigating straight to `#tips` correctly rendered the
+    Tips panel with all 7 seeded tips and hid the Breathwork panel; every
+    `$('id')` reference in the script was cross-matched against the
+    HTML's actual element ids (42 referenced, all resolved, none
+    orphaned); and both passes produced zero stderr output (no console
+    errors). Interactive testing (starting the pacer, dragging through a
+    full inhale/hold/exhale cycle, adding/editing/deleting a technique or
+    tip) was not possible this round — this environment's headless Edge
+    still gets absorbed into an already-running background instance
+    rather than launching in isolation with its own remote-debugging
+    port, the same disclosed limitation several other pages' changelog
+    entries in this file already note — so a real click-through,
+    especially of the pacer's timing, is recommended before relying on
+    this page heavily.

@@ -191,6 +191,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">AI &amp; TECH</span>
   </a>
+  <a href="anxiety.html" class="topbar-pill" id="topbarAnxiety">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">ANXIETY</span>
+  </a>
 </header>
 `;
 
