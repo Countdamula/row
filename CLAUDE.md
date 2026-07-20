@@ -34,7 +34,7 @@ Vercel's static server) — see README.md.
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
-| `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Content/Ideas/Platforms/Resources/Analytics/Audit are all board-mode — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Strategy alone is tasks-mode, a per-tab Tasks list mirroring index.html's Main-dashboard Tasks tab. Resources additionally has a Templates section below its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature (new — see changelog) |
+| `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -4078,3 +4078,151 @@ between this app and either data loss or a wide-open write target:
     quick-add — same disclosed interactive-CDP limitation as this page's
     two prior passes; those code paths were read through carefully but
     not click-tested.
+
+- **Business Hub rebuilt around a reference "Content Hub" screenshot:
+  Platform and Content Plan kept as genuinely separate databases, removed
+  Analytics/Strategy/Audit, and every platform card now opens its own
+  page of generated, editable, reorderable notes.** Per an explicit
+  follow-up request giving a second reference photo (a Notion "Content
+  Hub" — a Platform row, a Content Plan grid with This month/This
+  week/Today filters, a Useful Resources grid, and a right-hand Summary/
+  Posting Schedule/Gallery sidebar) with three specific instructions:
+  match that layout but keep the Platform and Content Plan databases
+  separate, drop the Analytics/Strategy/Audit tabs entirely, and make
+  every Platform database entry open into its own page of sections that
+  can be generated on demand and fully edited/reordered.
+  - **Tabs dropped from seven to four**: Content/Ideas/Platforms/
+    Resources only — Strategy (a Tasks-list tab from the immediately
+    preceding pass), Analytics, and Audit (both board-mode from the very
+    first pass) are all gone, along with their seed widgets/tasks. Since
+    Strategy was the *only* tab using the Tasks-list system from the
+    prior pass, removing it meant that whole system (`business:tasks`
+    collection, `taskModel`, `TASK_STATUSES`/`PRIORITIES`/`RECURRENCES`,
+    `buildTaskRow`/`renderTaskList`/the Add-Task and Task-Detail modals,
+    and every bit of Tasks CSS beyond the reusable `.bh-chip`/
+    `.bh-chip-row` pair) had no remaining caller — removed outright
+    rather than kept as unreachable dead code, the same call this page
+    already made once before when it undid its own Platforms-roster
+    detour: this is a genuine "drop the feature" request, not another
+    pass's orphaned leftovers (the precedent that actually protects
+    dead code, e.g. `pushWaterMergedToSupabase`). The `business:tasks`
+    Supabase field is now orphaned, left alone, same treatment as every
+    other superseded key in this app (`health`, `po_coach_weights`, etc.).
+  - **`BizTab` gained a `layout` field** (`'freeform' | 'content' |
+    'platforms'`, replacing the old `mode: 'board'|'tasks'` field wholesale
+    now that Tasks-mode has no tabs left using it): Ideas and Resources
+    stay `'freeform'` — Dream Board's unchanged 3-column drag-and-drop
+    engine (`columnsForTab`/`reorderTab`, unmodified). Content is
+    `'content'` and Platforms is `'platforms'` — two new fixed, sectioned
+    "database" layouts that replace the freeform board entirely on those
+    tabs, per the "keep the databases separate" instruction below.
+  - **The actual "keep them separate" mechanism**: a new pair of
+    selectors, `widgetsOfType(tabId, type)` / `reorderWidgetsOfType(tabId,
+    type, orderedIds)` (`business-data.js`), treats every `(tabId, type)`
+    pair as its own independently-ordered list — a widget's pre-existing
+    `column` field (0–2, Dream Board's 3-column slot) is simply ignored
+    for these two layouts. Concretely: the Content tab's Platform grid,
+    Content Plan grid, and Useful Resources grid are each rendered from
+    `DB.widgetsOfType(tabId, 'platform'|'contentcard'|'resource')`, each
+    into its own DOM container, each with its **own SortableJS instance**
+    (`wireSectionSortable()`, a new per-grid helper distinct from the
+    freeform board's single cross-column `wireSortable()`) — so dragging
+    to reorder a Platform card can never land it in the Content Plan grid
+    or vice versa; they are structurally incapable of merging, not just
+    visually separated. The Platforms tab reuses the exact same Platform
+    grid renderer standalone. `contentCardsForTab`/`platformsForTab` were
+    simplified to thin wrappers over `widgetsOfType` (gaining a stable
+    sort order as a side benefit, previously unsorted).
+  - **Content dashboard layout** (`#bhContentDashboard`, a new CSS grid,
+    `2fr` main column + `1fr` sidebar, collapsing to one column under
+    900px): **Platform** (filter chips Active/All, a "+ Add Platform"
+    button, a small-card grid) → **Content Plan** (filter chips This
+    month/This week/Today/All — default **All**, so a fresh page shows
+    every card rather than only this month's per an explicit UX call:
+    hiding cards by a silent default felt more surprising than useful
+    here) → **Useful Resources** (filter chips Active/All, default
+    Active, matching the reference photo) as the main column; **Summary**
+    (the existing auto-computed Content Overview widget) / **Posting
+    Schedule** / **Gallery** stacked in the sidebar, each rendered via a
+    new `renderSidebarGroup()` that shows a small "+ Add …" button in
+    place of the widget if it was ever deleted, so those three singleton
+    widgets can't be permanently lost with no way back. Every section/
+    grid still uses the exact same frosted-glass `.bw-card` chassis
+    (numbered index, drag handle, color-grading tint popover, delete) as
+    Dream Board's original board — reused verbatim, not reimplemented,
+    since sectioning by type changed *what's grouped where*, not the
+    card component itself. Platforms' own page is the identical Platform
+    grid/filter-chip component, alone on its own tab.
+  - **Content Plan's three named filters are computed, not stored**:
+    `filterContentCards(cards, mode)` — `'today'` matches
+    `scheduledDate === todayISO()`; `'week'` uses a Sunday-start 7-day
+    window (`inCurrentWeek()`); `'month'` matches the card's scheduled
+    date against today's calendar year+month. All three, plus the default
+    `'all'` (no filter), are transient UI state (module-scoped vars, not
+    persisted) — same "in-memory only" precedent as this app's other
+    view filters (e.g. Media's gallery sort/filter chips before they
+    gained a persisted mode).
+  - **Every Platform card opens its own page**: `buildPlatformWidgetBody()`
+    gained an "Open Page →" button (plus a small "N note sections" hint
+    when non-empty) that opens a new **Platform Detail modal**
+    (`#bhPlatformDetailModalBg`) — an editable name, an Active checkbox,
+    a click-to-upload cover (reusing the existing generalized photo
+    modal/`compressImageDataUrl` pipeline verbatim), and a **"+ Generate
+    Section" button** that appends a blank `{id, title, body, order,
+    createdAt}` note section to that platform's own new `data.sections[]`
+    array (`business-data.js`: `addPlatformSection`/`updatePlatformSection`/
+    `removePlatformSection`/`movePlatformSection`/`sectionsForWidget`,
+    the same flat-array-inline-on-the-record convention as a content
+    card's own inline checklist — no separate collection, so deleting the
+    platform deletes its sections with it, no orphan cleanup needed).
+    Each section renders as its own small card with an editable title
+    input and an autosizing textarea body (both autosave on blur) and
+    **up/down reorder arrows** — this codebase's established reordering
+    convention for lists that aren't drag-and-drop boards (Life Areas,
+    Overview notes, Workflow weeks/days all use the same swap-adjacent-
+    `order`-values idiom, reused here rather than adding a second
+    drag-and-drop mechanism inside a modal). "Generated with the click of
+    a button" was read as this app's existing add-a-blank-item vocabulary
+    (the same as index.html's own "+ Add Notes Section" feature) — not
+    as an AI/LLM content-generation feature, since this app has no active
+    LLM integration anywhere (`ANTHROPIC_API_KEY` is still an inactive
+    placeholder, per every prior entry noting this).
+  - **`refreshView()`** (new) is a single dispatcher — re-renders
+    whichever of the freeform board / Content dashboard / Platforms page
+    is actually active, based on the current tab's `layout` — that now
+    backs every widget-body mutation callback (checklist toggles, tag
+    add/remove, status cycles, photo slot changes, the active checkbox,
+    tint changes, title renames, etc.) instead of each calling the
+    freeform-board-only `renderBoard()` directly, since those same widget
+    types (platform/contentcard/resource/summary/schedule/photos) now
+    also render inside the sectioned dashboard, not just the freeform
+    board.
+  - **Verified via headless Edge** (`--host-resolver-rules` mapping the
+    Supabase host to `0.0.0.0`, quoted as a single argument this time —
+    an unquoted value containing spaces was silently mis-split by
+    `Start-Process -ArgumentList` in this environment's Windows
+    PowerShell 5.1 and produced a confusing "Multiple targets are not
+    supported in headless mode" launch failure before that was caught
+    and fixed): a `window.onerror`-instrumented, auto-driving scratch
+    copy (same established technique as this page's own earlier
+    `business_test_platforms2.html`-style harnesses) confirmed, in one
+    run: exactly 4 tabs (`Content/Ideas/Platforms/Resources`, no
+    Strategy/Analytics/Audit); no `#bhTasksPanel`/`#bhTaskModalBg` exist
+    anywhere in the DOM; the Content tab's Platform/Content Plan/Useful
+    Resources grids render 3/6/10 cards respectively under their default
+    filters; the sidebar's Summary/Schedule/Gallery each render their one
+    seeded widget; opening a platform's page, clicking "Generate Section"
+    twice, editing the first section's title/body, and closing the modal
+    left exactly 2 sections **persisted** in that widget's real stored
+    data (read directly back out of `window.BusinessData.Widgets.list()`,
+    not just re-inspected in the DOM) with the edited title/body intact;
+    the Platforms tab's own page renders its own 3 active platforms
+    (correctly a separate dataset from Content's own platform cards, not
+    a shared one); Ideas still renders the unchanged 3-column freeform
+    board; and Resources still shows its Links & Notes board with the
+    Templates/Workflow section visible below the divider. Zero JS errors
+    were caught at any point in the run. A full-page screenshot of the
+    Content tab on initial load additionally confirmed the visual layout
+    matches the reference screenshot's structure (Platform row → Content
+    Plan grid → Useful Resources grid, sidebar alongside) while clearly
+    being two independent grids, not one merged board.

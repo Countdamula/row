@@ -15,23 +15,28 @@
 <script src="business-data.js" defer></script>
 <style>
 /* =============================================================
-   Business Hub — restyled to be visually identical to Dream Board's dark,
-   cinematic "destination photographer" theme (near-black + warm
-   champagne/gold, italic serif display type, frosted-glass cards, a
-   per-tab full-bleed hero), per an explicit request that this page's
-   aesthetic match Dream Board exactly. Same category of one-off palette
-   exception as dreamboard.html/braindump.html/gym.html (CLAUDE.md §6/DO
-   NOT MODIFY rule 2) — scoped entirely to this file's own :root tokens,
-   no other page touched.
+   Business Hub — Dream Board's dark, cinematic "destination photographer"
+   theme (near-black + warm champagne/gold, italic serif display type,
+   frosted-glass cards, a per-tab full-bleed hero). Same category of
+   one-off palette exception as dreamboard.html/braindump.html/gym.html
+   (CLAUDE.md §6/DO NOT MODIFY rule 2) — scoped entirely to this file's
+   own :root tokens, no other page touched.
 
-   Two tab "modes" (`BusinessData` tab.mode):
-   - 'board' (Content/Ideas/Platforms/Resources/Analytics/Audit) — Dream
-     Board's original 3-column drag-and-drop widget board, unchanged
-     engine. Resources additionally has `hasTemplates: true`, which
-     renders a Templates/Workflow (Weeks → Days → Checklist) section
-     below its board.
-   - 'tasks' (Strategy only) — a per-tab Tasks list mirroring
-     index.html's Main-dashboard Tasks tab.
+   Four tabs, two layouts (`BusinessData` tab.layout):
+   - 'freeform' (Ideas / Resources) — Dream Board's original 3-column
+     drag-and-drop widget board, unchanged engine. Resources additionally
+     has `hasTemplates: true`, which renders a Templates/Workflow
+     (Weeks → Days → Checklist) section below a divider, under its board.
+   - 'content' (Content) — a fixed, sectioned dashboard: a Platform
+     database, a Content Plan database, and a Useful Resources database,
+     each independently filterable/orderable (never merged into one
+     freeform board), plus a sidebar (Content Summary, Posting Schedule,
+     Gallery).
+   - 'platforms' (Platforms) — the same Platform database component,
+     standalone, as its own page.
+   Every platform card can open its own "page" — a detail view holding
+   freeform notes sections, generated on demand and fully editable/
+   reorderable (see the Platform Detail modal below).
    ============================================================= */
 :root {
   --bh-bg: #0b0a08;
@@ -221,14 +226,33 @@ body::after {
 .bh-btn-ghost { background: transparent; color: var(--bh-text-mute); border: 1px solid var(--bh-hairline); }
 .bh-btn-ghost:hover { color: var(--bh-text); border-color: var(--bh-text-mute); }
 
-/* ===== Board (Analytics / Audit) ===== */
+/* ===== Board (Ideas / Resources — freeform layout) ===== */
 .bh-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
 @media (max-width: 900px) { .bh-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .bh-board { grid-template-columns: 1fr; } }
 .bh-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 40px; }
 
+/* ===== Content dashboard ('content' layout) / Platforms page
+   ('platforms' layout) — fixed, sectioned "database" grids, kept
+   deliberately separate from each other (own filter state, own Sortable
+   group per grid) rather than mixed into one freeform board. ===== */
+.bh-content-dashboard { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 26px; align-items: start; }
+@media (max-width: 900px) { .bh-content-dashboard { grid-template-columns: 1fr; } }
+.bh-db-main { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
+.bh-db-sidebar { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.bh-db-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.bh-db-section-title { font-family: var(--font-serif); font-size: 21px; font-weight: 600; color: var(--bh-text); }
+.bh-db-section-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bh-db-add-btn { font-size: 11px; padding: 7px 12px; }
+.bh-pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 14px; }
+.bh-cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(228px, 1fr)); gap: 16px; }
+.bh-res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 14px; }
+.bh-grid-empty { grid-column: 1 / -1; font-size: 12px; color: var(--bh-text-mute); font-style: italic; padding: 8px 2px; }
+.bh-platforms-page .bh-db-section-head { margin-bottom: 16px; }
+
 /* ===== Widget card chassis — frosted glass, identical technique to Dream
-   Board's .dw-card. ===== */
+   Board's .dw-card. Shared by both the freeform board and the sectioned
+   dashboard grids. ===== */
 .bw-card {
   position: relative; overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
@@ -343,7 +367,7 @@ body::after {
 .bw-cal-note-dot { position: absolute; bottom: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--bh-gold-bright); }
 
 /* ===== Platform / Content-plan / Resource / Summary / Schedule widget
-   types (still available on board-mode tabs via Add Widget) ===== */
+   types ===== */
 .bw-platform-body { display: flex; flex-direction: column; gap: 10px; }
 .bw-platform-cover { position: relative; aspect-ratio: 4 / 3; border-radius: var(--radius-md); overflow: hidden; background: linear-gradient(135deg, var(--bh-gold) 0%, var(--bh-gold-bright) 100%); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #24190c; font-size: 44px; font-weight: 700; }
 .bw-platform-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -351,6 +375,9 @@ body::after {
 .bw-platform-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bw-platform-active-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--bh-text-dim); cursor: pointer; }
 .bw-platform-active-label input { width: 15px; height: 15px; accent-color: var(--success); cursor: pointer; }
+.bw-platform-section-count { font-size: 10.5px; color: var(--bh-text-mute); }
+.bw-platform-open-btn { align-self: flex-start; background: transparent; border: 1px solid var(--bh-hairline); color: var(--bh-gold-bright); border-radius: 999px; padding: 5px 11px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.bw-platform-open-btn:hover { border-color: var(--bh-gold); background: var(--bh-accent-tint); }
 
 .bw-cc-cover { aspect-ratio: 16 / 10; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--bh-hairline); margin-bottom: 10px; cursor: pointer; position: relative; }
 .bw-cc-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -399,45 +426,7 @@ body::after {
 .bw-schedule-add-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
 .bw-schedule-add-row select, .bw-schedule-add-row input { border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 5px 6px; font-size: 11px; color: var(--bh-text); flex: 1; min-width: 68px; }
 
-/* ===== Tasks panel (Content / Ideas / Platforms / Strategy / Resources) —
-   mirrors index.html's Main-dashboard Tasks tab: view chips, a
-   filter/group/sort bar, a quick-add row, and checklist-style rows. ===== */
-.bh-tasks-panel { display: flex; flex-direction: column; gap: 16px; }
-.bh-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.bh-chip { background: var(--bh-paper); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--bh-text-mute); cursor: pointer; }
-.bh-chip:hover { color: var(--bh-text); }
-.bh-chip.active { background: var(--bh-accent-tint); color: var(--bh-gold-bright); border-color: var(--bh-gold); }
-.bh-task-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; }
-.bh-task-filter-bar select { background: var(--bh-paper); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; color: var(--bh-text-dim); }
-.bh-task-quickadd-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.bh-task-quickadd-row input[type="text"] { flex: 1; min-width: 160px; background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; color: var(--bh-text); }
-.bh-task-quickadd-row input[type="date"] { background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 12px; color: var(--bh-text); }
-
-.bh-task-group-head { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bh-gold); margin: 4px 0 2px; }
-.bh-task-list { display: flex; flex-direction: column; gap: 8px; }
-.bh-task-row { display: flex; flex-direction: column; gap: 0; }
-.bh-task-card {
-  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--bh-hairline);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-}
-.bh-task-card.is-done { opacity: 0.62; }
-.bh-task-check { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--bh-hairline); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--bh-gold-bright); font-size: 11px; }
-.bh-task-check.done { background: var(--bh-gold); border-color: var(--bh-gold); color: #24190c; }
-.bh-task-title { flex: 1; min-width: 0; font-size: 13.5px; cursor: pointer; word-break: break-word; }
-.bh-task-card.is-done .bh-task-title { text-decoration: line-through; color: var(--bh-text-mute); }
-.bh-task-pill { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
-.bh-task-pill.pri-low { background: rgba(125,211,252,0.14); color: var(--info); }
-.bh-task-pill.pri-medium { background: rgba(242,192,99,0.16); color: var(--warning); }
-.bh-task-pill.pri-high { background: rgba(255,107,107,0.16); color: var(--danger); }
-.bh-task-badge { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: var(--bh-accent-tint); color: var(--bh-gold-bright); }
-.bh-task-due { flex-shrink: 0; font-size: 11px; color: var(--bh-text-mute); font-family: var(--font-mono); }
-.bh-task-open, .bh-task-del { flex-shrink: 0; background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
-.bh-task-open:hover { color: var(--bh-gold-bright); background: var(--bh-accent-tint); }
-.bh-task-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
-.bh-task-empty { font-size: 12px; color: var(--bh-text-mute); font-style: italic; padding: 6px 2px; }
-
-/* ===== Link widget (Resources tab, and any board-mode tab) ===== */
+/* ===== Link widget (Resources tab, and any freeform-layout tab) ===== */
 .bw-link-body { display: flex; flex-direction: column; gap: 8px; }
 .bw-link-url-row { display: flex; gap: 6px; align-items: center; }
 .bw-link-url-input { flex: 1; min-width: 0; font-size: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-sm); padding: 7px 9px; color: var(--bh-text); }
@@ -449,7 +438,15 @@ body::after {
 .bw-link-open-btn[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
 .bw-link-desc { width: 100%; min-height: 54px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--bh-text-dim); }
 
-/* ===== Templates / Workflow section (Resources tab only) ===== */
+/* ===== Filter chip rows (Platform / Content Plan / Useful Resources /
+   Platforms page) ===== */
+.bh-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bh-chip { background: var(--bh-paper); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--bh-text-mute); cursor: pointer; }
+.bh-chip:hover { color: var(--bh-text); }
+.bh-chip.active { background: var(--bh-accent-tint); color: var(--bh-gold-bright); border-color: var(--bh-gold); }
+
+/* ===== Templates / Workflow section (Resources tab only — below a
+   divider, under the Links & Notes board) ===== */
 .bh-templates-section { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--bh-hairline); }
 .bh-templates-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .bh-roster-heading { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bh-gold); }
@@ -496,6 +493,7 @@ body::after {
 .modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
 .modal-bg.show { display: flex; }
 .modal { background: rgba(20, 17, 13, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.modal.bh-modal-wide { max-width: 560px; }
 .bh-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .bh-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--bh-text); }
 .bh-modal-close { background: transparent; border: none; font-size: 18px; color: var(--bh-text-mute); cursor: pointer; }
@@ -516,6 +514,20 @@ body::after {
 .bh-widget-menu-item:hover { background: var(--bh-accent-tint); border-color: var(--bh-gold); }
 .bh-widget-menu-item strong { font-size: 13px; }
 .bh-widget-menu-item span { font-size: 10.5px; color: var(--bh-text-mute); line-height: 1.35; }
+
+/* ===== Platform Detail modal — "a platform's own page": an editable
+   name/active/cover, and a set of freeform notes sections generated on
+   demand (a button adds a blank one), fully editable and reorderable via
+   up/down arrows (this codebase's established reorder convention). ===== */
+.bh-pfd-cover { aspect-ratio: 16 / 9; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--bh-hairline); margin-bottom: 14px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; color: var(--bh-text-mute); font-size: 12.5px; font-weight: 600; }
+.bh-pfd-cover img { width: 100%; height: 100%; object-fit: cover; }
+.bh-pfd-cover-change { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.45); color: #fff; border: none; border-radius: 999px; padding: 4px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.bh-pfd-sections-head { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+.bh-pf-section { border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 10px; }
+.bh-pf-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bh-pf-section-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
+.bh-pf-section-body { width: 100%; min-height: 60px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--bh-text); }
+.bh-pf-section-empty { font-size: 11.5px; color: var(--bh-text-mute); font-style: italic; padding: 6px 0 2px; }
 .bh-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .bh-autosave-hint { font-size: 10.5px; color: var(--bh-text-mute); margin-top: 6px; }
 </style>
@@ -563,49 +575,88 @@ body::after {
 
     <div class="bh-board" id="bhBoard"></div>
 
+    <div class="bh-content-dashboard" id="bhContentDashboard" style="display:none;">
+      <div class="bh-db-main">
+        <div class="bh-db-section">
+          <div class="bh-db-section-head">
+            <div class="bh-db-section-title">Platform</div>
+            <div class="bh-db-section-head-right">
+              <div class="bh-chip-row" id="bhPlatformFilterChips">
+                <button type="button" class="bh-chip active" data-filter="active">Active</button>
+                <button type="button" class="bh-chip" data-filter="all">All</button>
+              </div>
+              <button type="button" class="bh-btn-secondary bh-db-add-btn" id="bhContentAddPlatformBtn">+ Add Platform</button>
+            </div>
+          </div>
+          <div class="bh-pf-grid" id="bhContentPlatformGrid"></div>
+        </div>
+
+        <div class="bh-db-section">
+          <div class="bh-db-section-head">
+            <div class="bh-db-section-title">Content Plan</div>
+            <div class="bh-db-section-head-right">
+              <div class="bh-chip-row" id="bhContentPlanFilterChips">
+                <button type="button" class="bh-chip" data-filter="month">This month</button>
+                <button type="button" class="bh-chip" data-filter="week">This week</button>
+                <button type="button" class="bh-chip" data-filter="today">Today</button>
+                <button type="button" class="bh-chip active" data-filter="all">All</button>
+              </div>
+              <button type="button" class="bh-btn-secondary bh-db-add-btn" id="bhContentAddCardBtn">+ Add Content</button>
+            </div>
+          </div>
+          <div class="bh-cc-grid" id="bhContentPlanGrid"></div>
+        </div>
+
+        <div class="bh-db-section">
+          <div class="bh-db-section-head">
+            <div class="bh-db-section-title">Useful Resources</div>
+            <div class="bh-db-section-head-right">
+              <div class="bh-chip-row" id="bhResourceFilterChips">
+                <button type="button" class="bh-chip active" data-filter="active">Active</button>
+                <button type="button" class="bh-chip" data-filter="all">All</button>
+              </div>
+              <button type="button" class="bh-btn-secondary bh-db-add-btn" id="bhContentAddResourceBtn">+ Add Resource</button>
+            </div>
+          </div>
+          <div class="bh-res-grid" id="bhContentResourceGrid"></div>
+        </div>
+      </div>
+
+      <div class="bh-db-sidebar">
+        <div class="bh-db-section">
+          <div class="bh-db-section-head"><div class="bh-db-section-title">Summary</div></div>
+          <div id="bhContentSummaryWrap"></div>
+        </div>
+        <div class="bh-db-section">
+          <div class="bh-db-section-head"><div class="bh-db-section-title">Posting Schedule</div></div>
+          <div id="bhContentScheduleWrap"></div>
+        </div>
+        <div class="bh-db-section">
+          <div class="bh-db-section-head"><div class="bh-db-section-title">Gallery</div></div>
+          <div id="bhContentGalleryWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bh-platforms-page" id="bhPlatformsPage" style="display:none;">
+      <div class="bh-db-section">
+        <div class="bh-db-section-head">
+          <div class="bh-chip-row" id="bhPlatformsPageFilterChips">
+            <button type="button" class="bh-chip active" data-filter="active">Active</button>
+            <button type="button" class="bh-chip" data-filter="all">All</button>
+          </div>
+          <button type="button" class="bh-btn-secondary bh-db-add-btn" id="bhPlatformsAddBtn">+ Add Platform</button>
+        </div>
+        <div class="bh-pf-grid" id="bhPlatformsGrid"></div>
+      </div>
+    </div>
+
     <div class="bh-templates-section" id="bhTemplatesSection" style="display:none;">
       <div class="bh-templates-head">
         <div class="bh-roster-heading">Templates</div>
         <button type="button" class="bh-btn-secondary" id="bhAddWeekBtn">+ Add Week</button>
       </div>
       <div id="bhWorkflowWeeks"></div>
-    </div>
-
-    <div class="bh-tasks-panel" id="bhTasksPanel" style="display:none;">
-      <div class="bh-chip-row" id="bhTaskViewChips">
-        <button type="button" class="bh-chip active" data-view="today">Today</button>
-        <button type="button" class="bh-chip" data-view="all">All Tasks</button>
-      </div>
-      <div class="bh-task-filter-bar">
-        <select id="bhTaskFilterPriority">
-          <option value="">All Priorities</option>
-          <option value="high">High priority</option>
-          <option value="medium">Medium priority</option>
-          <option value="low">Low priority</option>
-        </select>
-        <select id="bhTaskFilterStatus">
-          <option value="">All Statuses</option>
-          <option value="todo">To do</option>
-          <option value="in-progress">In progress</option>
-          <option value="done">Done</option>
-        </select>
-        <select id="bhTaskGroupBy">
-          <option value="none">No grouping</option>
-          <option value="priority">Group by Priority</option>
-          <option value="status">Group by Status</option>
-        </select>
-        <select id="bhTaskSortBy">
-          <option value="due">Sort: Due date</option>
-          <option value="priority">Sort: Priority</option>
-        </select>
-      </div>
-      <div class="bh-task-quickadd-row">
-        <input type="text" id="bhTaskQuickTitle" placeholder="Add a task…">
-        <input type="date" id="bhTaskQuickDate">
-        <button type="button" class="bh-btn-primary" id="bhTaskQuickAddBtn">+ Add</button>
-      </div>
-      <div class="bh-task-list" id="bhTaskList"></div>
-      <div class="bh-task-empty" id="bhTaskEmpty" hidden>No tasks match this view/filter.</div>
     </div>
   </div>
 </div>
@@ -665,45 +716,19 @@ body::after {
   </div>
 </div>
 
-<div class="modal-bg" id="bhTaskModalBg">
-  <div class="modal">
-    <div class="bh-modal-head"><h3 id="bhTaskModalTitle">Add Task</h3><button type="button" class="bh-modal-close" id="bhTaskModalCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="field"><label>Title</label><input type="text" id="bhTaskTitleInput"></div>
-    <div class="field"><label>Note</label><input type="text" id="bhTaskNoteInput"></div>
-    <div class="field"><label>Status</label>
-      <select id="bhTaskStatusInput"><option value="todo">To do</option><option value="in-progress">In progress</option><option value="done">Done</option></select>
+<div class="modal-bg" id="bhPlatformDetailModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3>Platform Page</h3><button type="button" class="bh-modal-close" id="bhPlatformDetailCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="bh-pfd-cover" id="bhPlatformDetailCover"></div>
+    <div class="field"><label>Name</label><input type="text" id="bhPlatformDetailNameInput"></div>
+    <div class="field field-inline"><input type="checkbox" id="bhPlatformDetailActiveInput"><label style="margin:0;">Active</label></div>
+    <div class="bh-pfd-sections-head">
+      <div class="bh-roster-heading">Notes</div>
+      <button type="button" class="bh-btn-secondary" id="bhPlatformDetailAddSectionBtn">+ Generate Section</button>
     </div>
-    <div class="field"><label>Priority</label>
-      <select id="bhTaskPriorityInput"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
-    </div>
-    <div class="field"><label>Due date</label><input type="date" id="bhTaskDateInput"></div>
-    <div class="field"><label>Estimate (minutes)</label><input type="number" min="0" id="bhTaskEstimateInput" placeholder="e.g. 30"></div>
-    <div class="field field-inline"><input type="checkbox" id="bhTaskDailyInput"><label style="margin:0;">Daily action</label></div>
-    <div class="field"><label>Recurrence</label>
-      <select id="bhTaskRecurrenceInput">
-        <option value="none">None</option>
-        <option value="daily">Daily — regenerates the next day when completed</option>
-        <option value="weekly">Weekly — regenerates 7 days later when completed</option>
-      </select>
-    </div>
-    <div class="bh-modal-actions">
-      <button type="button" class="bh-btn-ghost" id="bhTaskModalCancel">Cancel</button>
-      <button type="button" class="bh-btn-primary" id="bhTaskModalSave">Save</button>
-    </div>
-    <span class="delete-link" id="bhTaskModalDelete" style="display:none;">Delete this task</span>
+    <div id="bhPlatformDetailSections"></div>
   </div>
 </div>
-
-<div class="modal-bg" id="bhTaskDetailModalBg">
-  <div class="modal">
-    <div class="bh-modal-head"><h3>Task</h3><button type="button" class="bh-modal-close" id="bhTaskDetailCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="field"><input type="text" id="bhTaskDetailTitleInput" placeholder="Task title…"></div>
-    <div class="bh-detail-meta-row" id="bhTaskDetailMetaRow"></div>
-    <div class="field"><label>Notes</label><textarea class="bh-modal-textarea" id="bhTaskDetailNoteInput" placeholder="Write freely — this autosaves as you type…"></textarea></div>
-    <div class="bh-autosave-hint">Autosaves as you type.</div>
-  </div>
-</div>
-
 
 <script>
 (function () {
@@ -736,15 +761,14 @@ body::after {
   const TINT_PRESETS = ['#e8927a', '#e3a8b0', '#7ea8c4', '#a89bd4', '#c9a876', '#9ab89a'];
   let sessionVideoBlobs = {};
 
-  // Tasks UI state (Strategy tab only — module-scoped, not persisted,
-  // same precedent as index.html's Main-dashboard Tasks tab module state)
-  let taskView = 'today';
-  let taskFilterPriority = '';
-  let taskFilterStatus = '';
-  let taskGroupBy = 'none';
-  let taskSortBy = 'due';
-  let taskModalEditingId = null;
-  let taskDetailId = null;
+  // Content dashboard / Platforms page filter state — transient, not
+  // persisted, same precedent as this app's other in-memory-only view
+  // filters (e.g. Media's gallery filters).
+  let contentPlatformFilter = 'active';
+  let contentPlanFilter = 'all';
+  let contentResourceFilter = 'active';
+  let platformsPageFilter = 'active';
+  let platformDetailId = null;
 
   // Workflow UI state (Resources tab's Templates section)
   let collapsedWeekIds = {};
@@ -752,14 +776,6 @@ body::after {
   function openModal(el) { el.classList.add('show'); }
   function closeModal(el) { el.classList.remove('show'); }
   function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
-  function debounce(fn, wait) {
-    let t = null;
-    return function () {
-      const args = arguments, ctx = this;
-      clearTimeout(t);
-      t = setTimeout(function () { fn.apply(ctx, args); }, wait);
-    };
-  }
 
   function wireInlineEdit(el, onCommit, opts) {
     opts = opts || {};
@@ -862,7 +878,7 @@ body::after {
       if (tabIdAtUpload !== activeTabId) return;
       patchHero({ photo: compressed, photoColor: color });
       renderHero();
-      renderBoard();
+      refreshView();
     };
     reader.readAsDataURL(file);
   }
@@ -922,14 +938,29 @@ body::after {
     renderTabs();
     renderActiveTabContent();
   }
+  function refreshView() {
+    const t = DB.Tabs.get(activeTabId);
+    const layout = t ? t.layout : 'freeform';
+    if (layout === 'content') renderContentDashboard();
+    else if (layout === 'platforms') renderPlatformsPage();
+    else renderBoard();
+  }
   function renderActiveTabContent() {
     const t = DB.Tabs.get(activeTabId);
-    const isBoard = t && t.mode === 'board';
-    $('bhBoard').style.display = isBoard ? 'grid' : 'none';
-    $('bhAddWidgetBtn').style.display = isBoard ? '' : 'none';
-    $('bhTasksPanel').style.display = isBoard ? 'none' : 'flex';
-    if (isBoard) { renderBoard(); renderWorkflow(); }
-    else { $('bhTemplatesSection').style.display = 'none'; renderTaskList(); }
+    const layout = t ? t.layout : 'freeform';
+    $('bhBoard').style.display = layout === 'freeform' ? 'grid' : 'none';
+    $('bhAddWidgetBtn').style.display = layout === 'freeform' ? '' : 'none';
+    $('bhContentDashboard').style.display = layout === 'content' ? 'grid' : 'none';
+    $('bhPlatformsPage').style.display = layout === 'platforms' ? 'block' : 'none';
+    if (layout === 'freeform') {
+      renderBoard();
+      $('bhTemplatesSection').style.display = (t && t.hasTemplates) ? 'block' : 'none';
+      if (t && t.hasTemplates) renderWorkflow();
+    } else {
+      $('bhTemplatesSection').style.display = 'none';
+      if (layout === 'content') renderContentDashboard();
+      else renderPlatformsPage();
+    }
   }
 
   // ============================================================
@@ -951,7 +982,7 @@ body::after {
       cb.setAttribute('aria-label', 'Mark done');
       cb.addEventListener('change', function () {
         const items = (widget.data[key] || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { done: cb.checked }) : x; });
-        mutateWidget(widget, { [key]: items }); renderBoard();
+        mutateWidget(widget, { [key]: items }); refreshView();
       });
       row.appendChild(cb);
     }
@@ -959,14 +990,14 @@ body::after {
     text.className = opts.cardStyle ? 'bw-affirm-text' : 'bw-item-text';
     text.contentEditable = 'true'; text.textContent = item.text;
     wireInlineEdit(text, function (newVal) {
-      if (!newVal) { const items = (widget.data[key] || []).filter(function (x) { return x.id !== item.id; }); mutateWidget(widget, { [key]: items }); renderBoard(); return; }
+      if (!newVal) { const items = (widget.data[key] || []).filter(function (x) { return x.id !== item.id; }); mutateWidget(widget, { [key]: items }); refreshView(); return; }
       const items = (widget.data[key] || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { text: newVal }) : x; });
       mutateWidget(widget, { [key]: items });
     }, { allowEmpty: true });
     row.appendChild(text);
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'bw-item-del'; del.setAttribute('aria-label', 'Delete item'); del.textContent = '×';
-    del.addEventListener('click', function () { const items = (widget.data[key] || []).filter(function (x) { return x.id !== item.id; }); mutateWidget(widget, { [key]: items }); renderBoard(); });
+    del.addEventListener('click', function () { const items = (widget.data[key] || []).filter(function (x) { return x.id !== item.id; }); mutateWidget(widget, { [key]: items }); refreshView(); });
     row.appendChild(del);
     return row;
   }
@@ -984,7 +1015,7 @@ body::after {
     function submit() {
       const val = input.value.trim(); if (!val) return;
       const items = (widget.data[key] || []).concat([{ id: DB.uid('it'), text: val, done: false }]);
-      mutateWidget(widget, { [key]: items }); input.value = ''; renderBoard();
+      mutateWidget(widget, { [key]: items }); input.value = ''; refreshView();
     }
     btn.addEventListener('click', submit);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
@@ -1016,14 +1047,14 @@ body::after {
     const row = document.createElement('div'); row.className = 'bw-steps-row';
     const countInput = document.createElement('input'); countInput.type = 'number'; countInput.min = '0'; countInput.className = 'bw-steps-input'; countInput.value = String(count);
     countInput.setAttribute('aria-label', 'Count today');
-    countInput.addEventListener('change', function () { const log = Object.assign({}, widget.data.log); log[today] = Math.max(0, Number(countInput.value) || 0); mutateWidget(widget, { log: log }); renderBoard(); });
+    countInput.addEventListener('change', function () { const log = Object.assign({}, widget.data.log); log[today] = Math.max(0, Number(countInput.value) || 0); mutateWidget(widget, { log: log }); refreshView(); });
     const lbl = document.createElement('span'); lbl.textContent = 'today';
     row.appendChild(countInput); row.appendChild(lbl);
     const goalRow = document.createElement('div'); goalRow.className = 'bw-steps-goal-row';
     const goalLbl = document.createElement('span'); goalLbl.textContent = 'Goal:';
     const goalInput = document.createElement('input'); goalInput.type = 'number'; goalInput.min = '1'; goalInput.className = 'bw-steps-goal-input'; goalInput.value = String(goal);
     goalInput.setAttribute('aria-label', 'Daily goal');
-    goalInput.addEventListener('change', function () { mutateWidget(widget, { goal: Math.max(1, Number(goalInput.value) || 1) }); renderBoard(); });
+    goalInput.addEventListener('change', function () { mutateWidget(widget, { goal: Math.max(1, Number(goalInput.value) || 1) }); refreshView(); });
     goalRow.appendChild(goalLbl); goalRow.appendChild(goalInput);
     const bar = document.createElement('div'); bar.className = 'bw-progress-bar';
     const fill = document.createElement('div'); fill.className = 'bw-progress-fill'; fill.style.width = pct + '%'; bar.appendChild(fill);
@@ -1060,7 +1091,7 @@ body::after {
     input.addEventListener('change', function () {
       const file = input.files[0]; document.body.removeChild(input); if (!file) return;
       if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
-      sessionVideoBlobs[slotId] = URL.createObjectURL(file); renderBoard();
+      sessionVideoBlobs[slotId] = URL.createObjectURL(file); refreshView();
     });
     input.click();
   }
@@ -1068,7 +1099,7 @@ body::after {
     const w = DB.Widgets.get(widgetId); if (!w) return;
     revokeSessionBlob(slotId);
     const slots = (w.data.slots || []).filter(function (s) { return s.id !== slotId; });
-    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) }); renderBoard();
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) }); refreshView();
   }
   function buildPhotosBody(widget) {
     const wrap = document.createElement('div');
@@ -1128,7 +1159,7 @@ body::after {
     let m = month + delta, y = year;
     if (m < 0) { m = 11; y -= 1; } else if (m > 11) { m = 0; y += 1; }
     const w = DB.Widgets.get(widgetId); if (!w) return;
-    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { viewYear: y, viewMonth: m }) }); renderBoard();
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { viewYear: y, viewMonth: m }) }); refreshView();
   }
   function buildCalendarBody(widget) {
     const wrap = document.createElement('div');
@@ -1176,9 +1207,19 @@ body::after {
     const row = document.createElement('div'); row.className = 'bw-platform-row';
     const label = document.createElement('label'); label.className = 'bw-platform-active-label';
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!widget.data.active;
-    cb.addEventListener('change', function () { mutateWidget(widget, { active: cb.checked }); });
+    cb.addEventListener('change', function () { mutateWidget(widget, { active: cb.checked }); refreshView(); });
     const span = document.createElement('span'); span.textContent = 'Active';
     label.appendChild(cb); label.appendChild(span); row.appendChild(label); wrap.appendChild(row);
+    const sectionCount = (widget.data.sections || []).length;
+    if (sectionCount) {
+      const cnt = document.createElement('div'); cnt.className = 'bw-platform-section-count';
+      cnt.textContent = sectionCount + (sectionCount === 1 ? ' note section' : ' note sections');
+      wrap.appendChild(cnt);
+    }
+    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bw-platform-open-btn'; openBtn.textContent = 'Open Page →';
+    openBtn.title = "Open this platform's page";
+    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openPlatformDetailModal(widget.id); });
+    wrap.appendChild(openBtn);
     return wrap;
   }
   function tagColor(tag) {
@@ -1208,7 +1249,7 @@ body::after {
     statusDot.style.background = statusColors[d.status] || 'var(--bh-text-mute)';
     const statusSelect = document.createElement('select'); statusSelect.className = 'bw-cc-status-select';
     DB.CONTENT_STATUSES.forEach(function (s) { const opt = document.createElement('option'); opt.value = s.key; opt.textContent = s.label; if (s.key === d.status) opt.selected = true; statusSelect.appendChild(opt); });
-    statusSelect.addEventListener('change', function () { mutateWidget(widget, { status: statusSelect.value }); renderBoard(); });
+    statusSelect.addEventListener('change', function () { mutateWidget(widget, { status: statusSelect.value }); refreshView(); });
     statusSelect.addEventListener('click', function (e) { e.stopPropagation(); });
     statusRow.appendChild(statusDot); statusRow.appendChild(statusSelect); wrap.appendChild(statusRow);
     const tagsWrap = document.createElement('div'); tagsWrap.className = 'bw-cc-tags';
@@ -1217,19 +1258,19 @@ body::after {
       const chip = document.createElement('span'); chip.className = 'bw-cc-tag'; chip.style.background = c.bg; chip.style.color = c.fg;
       const txt = document.createElement('span'); txt.textContent = tag; chip.appendChild(txt);
       const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', 'Remove tag');
-      del.addEventListener('click', function () { mutateWidget(widget, { tags: (d.tags || []).filter(function (t) { return t !== tag; }) }); renderBoard(); });
+      del.addEventListener('click', function () { mutateWidget(widget, { tags: (d.tags || []).filter(function (t) { return t !== tag; }) }); refreshView(); });
       chip.appendChild(del); tagsWrap.appendChild(chip);
     });
     wrap.appendChild(tagsWrap);
     const tagAdd = document.createElement('div'); tagAdd.className = 'bw-cc-tag-add';
     const tagInput = document.createElement('input'); tagInput.type = 'text'; tagInput.placeholder = '+ Add a tag…';
     tagInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); const val = tagInput.value.trim(); if (val && (d.tags || []).indexOf(val) === -1) { mutateWidget(widget, { tags: (d.tags || []).concat([val]) }); renderBoard(); } else tagInput.value = ''; }
+      if (e.key === 'Enter') { e.preventDefault(); const val = tagInput.value.trim(); if (val && (d.tags || []).indexOf(val) === -1) { mutateWidget(widget, { tags: (d.tags || []).concat([val]) }); refreshView(); } else tagInput.value = ''; }
     });
     tagAdd.appendChild(tagInput); wrap.appendChild(tagAdd);
     const dateRow = document.createElement('div'); dateRow.className = 'bw-cc-date-row';
     const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.value = d.scheduledDate || '';
-    dateInput.addEventListener('change', function () { mutateWidget(widget, { scheduledDate: dateInput.value }); renderBoard(); });
+    dateInput.addEventListener('change', function () { mutateWidget(widget, { scheduledDate: dateInput.value }); refreshView(); });
     const timeInput = document.createElement('input'); timeInput.type = 'time'; timeInput.value = d.scheduledTime || '';
     timeInput.addEventListener('change', function () { mutateWidget(widget, { scheduledTime: timeInput.value }); });
     dateRow.appendChild(dateInput); dateRow.appendChild(timeInput); wrap.appendChild(dateRow);
@@ -1257,7 +1298,7 @@ body::after {
     const statusIdx = DB.RESOURCE_STATUSES.indexOf(widget.data.status);
     pill.className = 'bw-status-pill' + (widget.data.status === 'Idle' ? ' is-idle' : widget.data.status === 'Archived' ? ' is-archived' : '');
     pill.textContent = widget.data.status || 'Active'; pill.title = 'Click to cycle status';
-    pill.addEventListener('click', function () { const next = DB.RESOURCE_STATUSES[(statusIdx + 1) % DB.RESOURCE_STATUSES.length] || 'Active'; mutateWidget(widget, { status: next }); renderBoard(); });
+    pill.addEventListener('click', function () { const next = DB.RESOURCE_STATUSES[(statusIdx + 1) % DB.RESOURCE_STATUSES.length] || 'Active'; mutateWidget(widget, { status: next }); refreshView(); });
     statusWrap.appendChild(pill); wrap.appendChild(statusWrap);
     return wrap;
   }
@@ -1309,7 +1350,7 @@ body::after {
         const row = document.createElement('div'); row.className = 'bw-schedule-row';
         const text = document.createElement('span'); text.textContent = r.day + ' · ' + formatTime(r.time);
         const del = document.createElement('button'); del.type = 'button'; del.className = 'bw-schedule-row-del'; del.textContent = '×'; del.setAttribute('aria-label', 'Remove');
-        del.addEventListener('click', function () { mutateWidget(widget, { rows: (widget.data.rows || []).filter(function (x) { return x.id !== r.id; }) }); renderBoard(); });
+        del.addEventListener('click', function () { mutateWidget(widget, { rows: (widget.data.rows || []).filter(function (x) { return x.id !== r.id; }) }); refreshView(); });
         row.appendChild(text); row.appendChild(del); wrap.appendChild(row);
       });
     });
@@ -1321,7 +1362,7 @@ body::after {
     addBtn.addEventListener('click', function () {
       const platform = platInput.value.trim(); if (!platform) return;
       const newRows = (widget.data.rows || []).concat([{ id: DB.uid('sr'), platform: platform, day: daySelect.value, time: timeInput.value }]);
-      mutateWidget(widget, { rows: newRows }); platInput.value = ''; renderBoard();
+      mutateWidget(widget, { rows: newRows }); platInput.value = ''; refreshView();
     });
     addRow.appendChild(platInput); addRow.appendChild(daySelect); addRow.appendChild(timeInput); addRow.appendChild(addBtn);
     wrap.appendChild(addRow);
@@ -1336,13 +1377,13 @@ body::after {
 
   // ===== Link widget — a title (the card's own title row) + URL + a
   // short description, for the Resources tab's "links, notes, etc." top
-  // section (usable on any board-mode tab like every other type). =====
+  // section (usable on any freeform-layout tab like every other type). =====
   function buildLinkBody(widget) {
     const wrap = document.createElement('div'); wrap.className = 'bw-link-body';
     const urlRow = document.createElement('div'); urlRow.className = 'bw-link-url-row';
     const urlInput = document.createElement('input'); urlInput.type = 'text'; urlInput.className = 'bw-link-url-input';
     urlInput.value = widget.data.url || ''; urlInput.placeholder = 'https://…';
-    urlInput.addEventListener('blur', function () { if (urlInput.value !== widget.data.url) { mutateWidget(widget, { url: urlInput.value }); renderBoard(); } });
+    urlInput.addEventListener('blur', function () { if (urlInput.value !== widget.data.url) { mutateWidget(widget, { url: urlInput.value }); refreshView(); } });
     urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') urlInput.blur(); });
     const openBtn = document.createElement('a'); openBtn.className = 'bw-link-open-btn'; openBtn.textContent = '↗ Open';
     const valid = DB.isValidMediaUrl(widget.data.url);
@@ -1358,17 +1399,19 @@ body::after {
   }
 
   // ============================================================
-  // BOARD (Analytics / Audit)
+  // WIDGET CARD CHASSIS — shared by the freeform board and every
+  // sectioned dashboard grid (Content Plan / Platform / Useful Resources /
+  // Platforms page / sidebar).
   // ============================================================
-  function toggleWidgetWide(widgetId) { const w = DB.Widgets.get(widgetId); if (!w) return; DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { wide: !w.data.wide }) }); renderBoard(); }
+  function toggleWidgetWide(widgetId) { const w = DB.Widgets.get(widgetId); if (!w) return; DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { wide: !w.data.wide }) }); refreshView(); }
   function deleteWidget(id) {
     if (!confirm('Delete this widget?')) return;
     const w = DB.Widgets.get(id);
     if (w && w.type === 'photos') { (w.data.slots || []).forEach(function (s) { revokeSessionBlob(s.id); }); }
-    DB.Widgets.remove(id); renderBoard();
+    DB.Widgets.remove(id); refreshView();
   }
   function effectiveTint(widget) { if (widget.tint) return widget.tint; if (widget.accent === 'blush') return '#c9a876'; return null; }
-  function setWidgetTint(widgetId, tint) { DB.Widgets.update(widgetId, { tint: tint }); renderBoard(); }
+  function setWidgetTint(widgetId, tint) { DB.Widgets.update(widgetId, { tint: tint }); refreshView(); }
   function previewWidgetTint(widgetId, hex) {
     const card = document.querySelector('.bw-card[data-widget-id="' + widgetId + '"]'); if (!card) return;
     card.style.setProperty('--tint', hex);
@@ -1378,7 +1421,7 @@ body::after {
     const wrap = document.createElement('div'); const eff = effectiveTint(widget);
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bw-tint-btn' + (eff ? '' : ' bw-tint-btn-empty');
     btn.title = 'Color grading'; btn.setAttribute('aria-label', 'Adjust color grading'); if (eff) btn.style.background = eff;
-    btn.addEventListener('click', function (e) { e.stopPropagation(); tintPopoverWidgetId = (tintPopoverWidgetId === widget.id) ? null : widget.id; renderBoard(); });
+    btn.addEventListener('click', function (e) { e.stopPropagation(); tintPopoverWidgetId = (tintPopoverWidgetId === widget.id) ? null : widget.id; refreshView(); });
     wrap.appendChild(btn); return wrap;
   }
   function buildTintPopover(widget) {
@@ -1422,7 +1465,7 @@ body::after {
     if (tintPopoverWidgetId === widget.id) { card.appendChild(buildTintPopover(widget)); }
     const titleRow = document.createElement('div'); titleRow.className = 'bw-card-title-row';
     const title = document.createElement('span'); title.className = 'bw-card-title'; title.contentEditable = 'true'; title.textContent = widget.title || '';
-    wireInlineEdit(title, function (v) { DB.Widgets.update(widget.id, { title: v }); renderBoard(); }, { allowEmpty: false });
+    wireInlineEdit(title, function (v) { DB.Widgets.update(widget.id, { title: v }); refreshView(); }, { allowEmpty: false });
     titleRow.appendChild(title); card.appendChild(titleRow);
     const body = document.createElement('div'); body.className = 'bw-card-body';
     switch (widget.type) {
@@ -1447,6 +1490,34 @@ body::after {
     return card;
   }
   function destroySortables() { sortableInstances.forEach(function (s) { try { s.destroy(); } catch (e) {} }); sortableInstances = []; }
+  function renderGridOrEmpty(containerEl, widgets, emptyText) {
+    containerEl.innerHTML = '';
+    if (!widgets.length) { const e = document.createElement('div'); e.className = 'bh-grid-empty'; e.textContent = emptyText; containerEl.appendChild(e); return; }
+    widgets.forEach(function (w, i) { containerEl.appendChild(buildWidgetCard(w, i + 1)); });
+  }
+  function wireSectionSortable(containerEl, tabId, type) {
+    if (typeof Sortable === 'undefined' || !containerEl) return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sortableInstances.push(new Sortable(containerEl, {
+      animation: reduced ? 0 : 150, handle: '.bw-drag-handle', ghostClass: 'bw-card-ghost',
+      onEnd: function () {
+        const ids = Array.from(containerEl.children).map(function (el) { return el.dataset.widgetId; }).filter(Boolean);
+        DB.reorderWidgetsOfType(tabId, type, ids);
+        refreshView();
+      }
+    }));
+  }
+  function addTypedWidget(tabId, type, title) {
+    if (!tabId) return;
+    const existing = DB.widgetsOfType(tabId, type);
+    DB.Widgets.add({ tabId: tabId, column: 0, order: existing.length, type: type, title: title, data: DB.defaultWidgetData(type) });
+    refreshView();
+  }
+
+  // ============================================================
+  // FREEFORM BOARD (Ideas / Resources — the top part of Resources' page,
+  // above the Templates divider)
+  // ============================================================
   function persistColumnOrder() {
     const cols = [];
     for (let i = 0; i < 3; i++) { const colEl = document.querySelector('#bhBoard .bh-col[data-col="' + i + '"]'); cols.push(Array.from(colEl.children).map(function (el) { return el.dataset.widgetId; })); }
@@ -1457,7 +1528,7 @@ body::after {
     const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const groupName = 'bhcol-' + activeTabId;
     document.querySelectorAll('#bhBoard .bh-col').forEach(function (col) {
-      sortableInstances.push(new Sortable(col, { group: groupName, handle: '.bw-drag-handle', animation: reduced ? 0 : 150, ghostClass: 'bw-card-ghost', onEnd: function () { persistColumnOrder(); renderBoard(); } }));
+      sortableInstances.push(new Sortable(col, { group: groupName, handle: '.bw-drag-handle', animation: reduced ? 0 : 150, ghostClass: 'bw-card-ghost', onEnd: function () { persistColumnOrder(); refreshView(); } }));
     });
   }
   function computeDisplayIndexes(cols) {
@@ -1470,7 +1541,7 @@ body::after {
     const board = $('bhBoard'); board.innerHTML = '';
     if (!activeTabId) return;
     const t = DB.Tabs.get(activeTabId);
-    if (!t || t.mode !== 'board') return;
+    if (!t || t.layout !== 'freeform') return;
     const cols = DB.columnsForTab(activeTabId);
     const indexMap = computeDisplayIndexes(cols);
     for (let i = 0; i < 3; i++) {
@@ -1486,7 +1557,7 @@ body::after {
     let colIdx = 0, minLen = cols[0].length;
     for (let i = 1; i < 3; i++) { if (cols[i].length < minLen) { minLen = cols[i].length; colIdx = i; } }
     DB.Widgets.add({ tabId: activeTabId, column: colIdx, order: cols[colIdx].length, type: type, title: title, data: DB.defaultWidgetData(type) });
-    closeModal($('bhAddWidgetModalBg')); renderBoard();
+    closeModal($('bhAddWidgetModalBg')); refreshView();
   }
   function wireAddWidgetMenu() {
     document.querySelectorAll('.bh-widget-menu-item').forEach(function (btn) {
@@ -1494,7 +1565,7 @@ body::after {
     });
   }
   function resetBoard() {
-    if (!confirm('Reset the Business Hub to its default subpages, tasks, and widgets? This deletes everything currently here.')) return;
+    if (!confirm('Reset the Business Hub to its default pages and widgets? This deletes everything currently here.')) return;
     Object.keys(sessionVideoBlobs).forEach(function (id) { try { URL.revokeObjectURL(sessionVideoBlobs[id]); } catch (e) {} });
     sessionVideoBlobs = {};
     collapsedWeekIds = {};
@@ -1503,6 +1574,163 @@ body::after {
     activeTabId = (tabs[0] || {}).id || null;
     storeSet(ACTIVE_TAB_KEY, activeTabId);
     renderHero(); renderTabs(); renderActiveTabContent();
+  }
+
+  // ============================================================
+  // CONTENT DASHBOARD ('content' layout) / PLATFORMS PAGE ('platforms'
+  // layout) — fixed, sectioned "database" grids. The Platform database
+  // and the Content Plan database are always rendered into separate
+  // containers with separate filter state and separate Sortable groups,
+  // so they can never merge into one mixed list.
+  // ============================================================
+  function inCurrentWeek(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr + 'T00:00:00');
+    const today = new Date(DB.todayISO() + 'T00:00:00');
+    const dow = today.getDay();
+    const start = new Date(today); start.setDate(today.getDate() - dow);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    return d >= start && d <= end;
+  }
+  function filterContentCards(cards, mode) {
+    if (mode === 'all') return cards;
+    const today = DB.todayISO();
+    if (mode === 'today') return cards.filter(function (c) { return c.data.scheduledDate === today; });
+    if (mode === 'week') return cards.filter(function (c) { return inCurrentWeek(c.data.scheduledDate); });
+    // month
+    const todayD = new Date(today + 'T00:00:00');
+    return cards.filter(function (c) {
+      if (!c.data.scheduledDate) return false;
+      const d = new Date(c.data.scheduledDate + 'T00:00:00');
+      return d.getFullYear() === todayD.getFullYear() && d.getMonth() === todayD.getMonth();
+    });
+  }
+  function renderSidebarGroup(containerId, type, addLabel) {
+    const wrap = $(containerId);
+    const widgets = DB.widgetsOfType(activeTabId, type);
+    if (!widgets.length) {
+      wrap.innerHTML = '';
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bh-btn-secondary bh-db-add-btn';
+      btn.textContent = addLabel;
+      btn.addEventListener('click', function () { addTypedWidget(activeTabId, type, WIDGET_TYPE_LABELS[type] || 'New Widget'); });
+      wrap.appendChild(btn);
+      return;
+    }
+    wrap.innerHTML = '';
+    widgets.forEach(function (w, i) { wrap.appendChild(buildWidgetCard(w, i + 1)); });
+    wireSectionSortable(wrap, activeTabId, type);
+  }
+  function renderContentDashboard() {
+    destroySortables();
+    if (!activeTabId) return;
+
+    let platforms = DB.widgetsOfType(activeTabId, 'platform');
+    if (contentPlatformFilter === 'active') platforms = platforms.filter(function (w) { return w.data.active; });
+    const pGrid = $('bhContentPlatformGrid');
+    renderGridOrEmpty(pGrid, platforms, 'No platforms match this filter.');
+    wireSectionSortable(pGrid, activeTabId, 'platform');
+
+    let cards = DB.widgetsOfType(activeTabId, 'contentcard');
+    cards = filterContentCards(cards, contentPlanFilter);
+    const cGrid = $('bhContentPlanGrid');
+    renderGridOrEmpty(cGrid, cards, 'Nothing scheduled for this view.');
+    wireSectionSortable(cGrid, activeTabId, 'contentcard');
+
+    let resources = DB.widgetsOfType(activeTabId, 'resource');
+    if (contentResourceFilter === 'active') resources = resources.filter(function (w) { return w.data.status === 'Active'; });
+    const rGrid = $('bhContentResourceGrid');
+    renderGridOrEmpty(rGrid, resources, 'No resources match this filter.');
+    wireSectionSortable(rGrid, activeTabId, 'resource');
+
+    renderSidebarGroup('bhContentSummaryWrap', 'summary', '+ Add Summary');
+    renderSidebarGroup('bhContentScheduleWrap', 'schedule', '+ Add Posting Schedule');
+    renderSidebarGroup('bhContentGalleryWrap', 'photos', '+ Add Gallery');
+  }
+  function renderPlatformsPage() {
+    destroySortables();
+    if (!activeTabId) return;
+    let platforms = DB.widgetsOfType(activeTabId, 'platform');
+    if (platformsPageFilter === 'active') platforms = platforms.filter(function (w) { return w.data.active; });
+    const grid = $('bhPlatformsGrid');
+    renderGridOrEmpty(grid, platforms, 'No platforms match this filter.');
+    wireSectionSortable(grid, activeTabId, 'platform');
+  }
+  function wireFilterChipRow(containerId, onSelect) {
+    const chips = document.querySelectorAll('#' + containerId + ' .bh-chip');
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        chips.forEach(function (c) { c.classList.toggle('active', c === chip); });
+        onSelect(chip.dataset.filter);
+        refreshView();
+      });
+    });
+  }
+
+  // ============================================================
+  // PLATFORM DETAIL MODAL — "a platform's own page": editable name/
+  // active/cover, plus freeform notes sections generated on demand
+  // (a button adds a blank one), fully editable and reorderable.
+  // ============================================================
+  function renderPlatformDetailCover(w) {
+    const el = $('bhPlatformDetailCover'); el.innerHTML = ''; el.onclick = null;
+    if (w.data.cover) {
+      const img = document.createElement('img'); img.src = w.data.cover; img.alt = ''; el.appendChild(img);
+      const change = document.createElement('button'); change.type = 'button'; change.className = 'bh-pfd-cover-change'; change.textContent = 'Change';
+      change.addEventListener('click', function (e) { e.stopPropagation(); openPhotoModal(w.id, { single: true, field: 'cover' }); });
+      el.appendChild(change);
+    } else {
+      el.textContent = '+ Add cover photo';
+      el.onclick = function () { openPhotoModal(w.id, { single: true, field: 'cover' }); };
+    }
+  }
+  function buildPlatformSectionCard(widgetId, section, index, total) {
+    const wrap = document.createElement('div'); wrap.className = 'bh-pf-section';
+    const head = document.createElement('div'); head.className = 'bh-pf-section-head';
+    const reorder = document.createElement('div'); reorder.className = 'bh-wf-reorder';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = index <= 0; up.setAttribute('aria-label', 'Move section up');
+    up.addEventListener('click', function () { DB.movePlatformSection(widgetId, section.id, -1); renderPlatformDetailSections(DB.Widgets.get(widgetId)); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = index >= total - 1; down.setAttribute('aria-label', 'Move section down');
+    down.addEventListener('click', function () { DB.movePlatformSection(widgetId, section.id, 1); renderPlatformDetailSections(DB.Widgets.get(widgetId)); });
+    reorder.appendChild(up); reorder.appendChild(down); head.appendChild(reorder);
+    const title = document.createElement('input'); title.type = 'text'; title.className = 'bh-pf-section-title-input'; title.value = section.title; title.placeholder = 'Section title…';
+    title.addEventListener('blur', function () { if (title.value !== section.title) DB.updatePlatformSection(widgetId, section.id, { title: title.value }); });
+    title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+    head.appendChild(title);
+    const actions = document.createElement('div'); actions.className = 'bh-wf-day-actions';
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-wf-del'; del.title = 'Delete section'; del.textContent = '✕';
+    del.addEventListener('click', function () {
+      if (!confirm('Delete this section?')) return;
+      DB.removePlatformSection(widgetId, section.id); renderPlatformDetailSections(DB.Widgets.get(widgetId));
+    });
+    actions.appendChild(del); head.appendChild(actions);
+    wrap.appendChild(head);
+    const body = document.createElement('textarea'); body.className = 'bh-pf-section-body'; body.value = section.body || ''; body.placeholder = 'Write freely…';
+    body.addEventListener('input', function () { autosize(body); });
+    body.addEventListener('blur', function () { DB.updatePlatformSection(widgetId, section.id, { body: body.value }); });
+    wrap.appendChild(body);
+    setTimeout(function () { autosize(body); }, 0);
+    return wrap;
+  }
+  function renderPlatformDetailSections(w) {
+    if (!w) return;
+    const wrap = $('bhPlatformDetailSections'); wrap.innerHTML = '';
+    const sections = DB.sectionsForWidget(w.id);
+    if (!sections.length) { const empty = document.createElement('div'); empty.className = 'bh-pf-section-empty'; empty.textContent = 'No sections yet — click "Generate Section" to add one.'; wrap.appendChild(empty); return; }
+    sections.forEach(function (section, i) { wrap.appendChild(buildPlatformSectionCard(w.id, section, i, sections.length)); });
+  }
+  function openPlatformDetailModal(widgetId) {
+    const w = DB.Widgets.get(widgetId); if (!w) return;
+    platformDetailId = widgetId;
+    $('bhPlatformDetailNameInput').value = w.title || '';
+    $('bhPlatformDetailActiveInput').checked = !!w.data.active;
+    renderPlatformDetailCover(w);
+    renderPlatformDetailSections(w);
+    openModal($('bhPlatformDetailModalBg'));
+  }
+  function closePlatformDetailModal() {
+    closeModal($('bhPlatformDetailModalBg'));
+    platformDetailId = null;
+    refreshView();
   }
 
   // ============================================================
@@ -1522,11 +1750,15 @@ body::after {
   function addSlotToWidget(widgetId, slot) {
     const w = DB.Widgets.get(widgetId); if (!w) return;
     const slots = (w.data.slots || []).concat([slot]);
-    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) }); renderBoard();
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) }); refreshView();
   }
   function setSingleFieldPhoto(widgetId, field, url) {
     const w = DB.Widgets.get(widgetId); if (!w) return;
-    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { [field]: url }) }); renderBoard();
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { [field]: url }) });
+    refreshView();
+    if (field === 'cover' && platformDetailId === widgetId && $('bhPlatformDetailModalBg').classList.contains('show')) {
+      renderPlatformDetailCover(DB.Widgets.get(widgetId));
+    }
   }
   function handleAddSlotSubmit() {
     const targetId = addSlotTargetWidgetId, single = addSlotSingleTarget, field = addSlotField;
@@ -1575,153 +1807,17 @@ body::after {
     const val = $('bhDayNoteInput').value.trim();
     if (val) notes[dayNoteTarget.dateStr] = val; else delete notes[dayNoteTarget.dateStr];
     DB.Widgets.update(dayNoteTarget.widgetId, { data: Object.assign({}, w.data, { notes: notes }) });
-    closeModal($('bhDayNoteModalBg')); renderBoard();
+    closeModal($('bhDayNoteModalBg')); refreshView();
   }
 
   // ============================================================
-  // TASKS (Strategy tab only) — mirrors index.html's Main-dashboard Tasks
-  // tab: view chips, filter/group/sort, a quick-add row, and simple
-  // checklist-style rows. No Life Area/Goal/
-  // Business/Habit dimension exists on this page, so those filters/
-  // selects from the Main-dashboard version are dropped — everything else
-  // (view chips, priority/status filters, group-by, sort-by, the
-  // quick-add row, and the row's own interactions) mirrors it directly.
-  // ============================================================
-  function buildTaskPriorityPill(priority) {
-    const pill = document.createElement('span'); pill.className = 'bh-task-pill pri-' + (priority || 'medium');
-    pill.textContent = priority || 'medium'; return pill;
-  }
-  function setTaskDone(task, done) {
-    if (done) {
-      DB.Tasks.update(task.id, { status: 'done', doneAt: Date.now() });
-      if (task.recurrence && task.recurrence !== 'none') DB.spawnNextRecurrence(task);
-    } else {
-      DB.Tasks.update(task.id, { status: 'todo', doneAt: null });
-    }
-  }
-  function buildTaskRow(task) {
-    const wrap = document.createElement('div'); wrap.className = 'bh-task-row';
-    const card = document.createElement('div'); card.className = 'bh-task-card' + (task.status === 'done' ? ' is-done' : '');
-
-    const check = document.createElement('button'); check.type = 'button';
-    check.className = 'bh-task-check' + (task.status === 'done' ? ' done' : '');
-    check.setAttribute('aria-label', task.status === 'done' ? 'Mark not done' : 'Mark done');
-    if (task.status === 'done') check.textContent = '✓';
-    check.addEventListener('click', function () { setTaskDone(task, task.status !== 'done'); renderTaskList(); });
-    card.appendChild(check);
-
-    const title = document.createElement('span'); title.className = 'bh-task-title'; title.textContent = task.title;
-    title.addEventListener('click', function () { openTaskModal(task); });
-    card.appendChild(title);
-
-    card.appendChild(buildTaskPriorityPill(task.priority));
-
-    if (task.isDailyAction) { const b = document.createElement('span'); b.className = 'bh-task-badge'; b.textContent = 'DAILY'; card.appendChild(b); }
-    if (task.recurrence && task.recurrence !== 'none') { const b = document.createElement('span'); b.className = 'bh-task-badge'; b.textContent = task.recurrence === 'weekly' ? '↻ Weekly' : '↻ Daily'; card.appendChild(b); }
-    if (task.dueDate) { const d = document.createElement('span'); d.className = 'bh-task-due'; d.textContent = DB.formatDateShort(task.dueDate); card.appendChild(d); }
-
-    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bh-task-open'; openBtn.title = "Open this task's notes"; openBtn.textContent = '📄';
-    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openTaskDetailModal(task.id); });
-    card.appendChild(openBtn);
-
-    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
-    del.addEventListener('click', function (e) { e.stopPropagation(); DB.Tasks.remove(task.id); renderTaskList(); });
-    card.appendChild(del);
-
-    wrap.appendChild(card);
-    return wrap;
-  }
-  function renderTaskList() {
-    const list = $('bhTaskList'); list.innerHTML = '';
-    if (!activeTabId) return;
-    let tasks = DB.tasksForTab(activeTabId);
-    const today = DB.todayISO();
-    if (taskView === 'today') tasks = tasks.filter(function (t) { return t.isDailyAction || t.dueDate === today; });
-    if (taskFilterPriority) tasks = tasks.filter(function (t) { return t.priority === taskFilterPriority; });
-    if (taskFilterStatus) tasks = tasks.filter(function (t) { return t.status === taskFilterStatus; });
-    tasks = DB.sortTasks(tasks, taskSortBy);
-    const buckets = DB.groupTasksBuckets(taskGroupBy, tasks);
-    buckets.forEach(function (b) {
-      if (b.label) { const head = document.createElement('div'); head.className = 'bh-task-group-head'; head.textContent = b.label + ' (' + b.tasks.length + ')'; list.appendChild(head); }
-      b.tasks.forEach(function (t) { list.appendChild(buildTaskRow(t)); });
-    });
-    $('bhTaskEmpty').hidden = tasks.length !== 0;
-  }
-  function quickAddTask() {
-    const titleInput = $('bhTaskQuickTitle'), dateInput = $('bhTaskQuickDate');
-    const title = titleInput.value.trim();
-    if (!title) return;
-    DB.Tasks.add({ tabId: activeTabId, title: title, dueDate: dateInput.value || '' });
-    titleInput.value = ''; dateInput.value = '';
-    renderTaskList();
-  }
-  function openTaskModal(task) {
-    taskModalEditingId = task ? task.id : null;
-    $('bhTaskModalTitle').textContent = task ? 'Edit Task' : 'Add Task';
-    $('bhTaskTitleInput').value = task ? task.title : '';
-    $('bhTaskNoteInput').value = task ? task.note : '';
-    $('bhTaskStatusInput').value = task ? task.status : 'todo';
-    $('bhTaskPriorityInput').value = task ? task.priority : 'medium';
-    $('bhTaskDateInput').value = task ? (task.dueDate || '') : '';
-    $('bhTaskEstimateInput').value = (task && task.estimateMinutes != null) ? String(task.estimateMinutes) : '';
-    $('bhTaskDailyInput').checked = task ? !!task.isDailyAction : false;
-    $('bhTaskRecurrenceInput').value = task ? task.recurrence : 'none';
-    $('bhTaskModalDelete').style.display = task ? 'block' : 'none';
-    openModal($('bhTaskModalBg'));
-  }
-  function saveTaskModal() {
-    const title = $('bhTaskTitleInput').value.trim();
-    if (!title) return;
-    const wasNotDone = taskModalEditingId ? (DB.Tasks.get(taskModalEditingId) || {}).status !== 'done' : true;
-    const newStatus = $('bhTaskStatusInput').value;
-    const fields = {
-      title: title, note: $('bhTaskNoteInput').value, status: newStatus, priority: $('bhTaskPriorityInput').value,
-      dueDate: $('bhTaskDateInput').value || '', estimateMinutes: $('bhTaskEstimateInput').value ? Number($('bhTaskEstimateInput').value) : null,
-      isDailyAction: $('bhTaskDailyInput').checked, recurrence: $('bhTaskRecurrenceInput').value,
-      doneAt: newStatus === 'done' ? Date.now() : null
-    };
-    let saved;
-    if (taskModalEditingId) saved = DB.Tasks.update(taskModalEditingId, Object.assign({ tabId: activeTabId }, fields));
-    else saved = DB.Tasks.add(Object.assign({ tabId: activeTabId }, fields));
-    if (wasNotDone && newStatus === 'done' && saved.recurrence !== 'none') DB.spawnNextRecurrence(saved);
-    closeModal($('bhTaskModalBg'));
-    renderTaskList();
-  }
-  function deleteTaskModal() {
-    if (!taskModalEditingId) return;
-    if (!confirm('Delete this task?')) return;
-    DB.Tasks.remove(taskModalEditingId);
-    closeModal($('bhTaskModalBg'));
-    renderTaskList();
-  }
-  function openTaskDetailModal(taskId) {
-    const t = DB.Tasks.get(taskId); if (!t) return;
-    taskDetailId = taskId;
-    $('bhTaskDetailTitleInput').value = t.title;
-    const meta = $('bhTaskDetailMetaRow'); meta.innerHTML = '';
-    meta.appendChild(buildTaskPriorityPill(t.priority));
-    if (t.dueDate) { const d = document.createElement('span'); d.className = 'bh-task-due'; d.textContent = DB.formatDateShort(t.dueDate); meta.appendChild(d); }
-    $('bhTaskDetailNoteInput').value = t.note || '';
-    openModal($('bhTaskDetailModalBg'));
-    setTimeout(function () { autosize($('bhTaskDetailNoteInput')); }, 0);
-  }
-  const autosaveTaskDetailNote = debounce(function () {
-    if (!taskDetailId) return;
-    DB.Tasks.update(taskDetailId, { note: $('bhTaskDetailNoteInput').value });
-  }, 500);
-  function closeTaskDetailModal() {
-    closeModal($('bhTaskDetailModalBg'));
-    taskDetailId = null;
-    renderTaskList();
-  }
-
-  // ============================================================
-  // TEMPLATES / WORKFLOW (Resources tab only) — Weeks → Days → Checklist,
-  // the same mechanic as index.html's Business Workflow feature (see that
-  // page's own "Amazon KDP" Workflow entries), rendered inline (no
-  // separate day-detail page — this page's Task Detail modal already
-  // covers "a freeform note," so Workflow days keep it simple: a title,
-  // a status, and a checklist).
+  // TEMPLATES / WORKFLOW (Resources tab only, below a divider under its
+  // Links & Notes board) — Weeks → Days → Checklist, the same mechanic as
+  // index.html's Business Workflow feature (see that page's own "Amazon
+  // KDP" Workflow entries), rendered inline (no separate day-detail page —
+  // this page's Platform Detail modal already covers "a freeform,
+  // generated, reorderable notes section," so Workflow days keep it
+  // simple: a title, a status, and a checklist).
   // ============================================================
   function buildWorkflowChecklistRow(item) {
     const row = document.createElement('div'); row.className = 'bw-plain-row';
@@ -1854,7 +1950,7 @@ body::after {
   function renderWorkflow() {
     const section = $('bhTemplatesSection');
     const t = DB.Tabs.get(activeTabId);
-    if (!t || t.mode !== 'board' || !t.hasTemplates) { section.style.display = 'none'; return; }
+    if (!t || t.layout !== 'freeform' || !t.hasTemplates) { section.style.display = 'none'; return; }
     section.style.display = 'block';
     const wrap = $('bhWorkflowWeeks'); wrap.innerHTML = '';
     const weeks = DB.weeksForTab(activeTabId);
@@ -1886,7 +1982,7 @@ body::after {
     $('bhHeroTitle').addEventListener('blur', function () { patchHero({ title: $('bhHeroTitle').value }); });
     $('bhHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
     $('bhHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
-    $('bhHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); patchHero({ photo: '', photoColor: '' }); renderHero(); renderBoard(); });
+    $('bhHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); patchHero({ photo: '', photoColor: '' }); renderHero(); refreshView(); });
     $('bhHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
     $('bhHeroCta').addEventListener('click', function () {
       $('bhTabs').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -1908,36 +2004,34 @@ body::after {
     $('bhDayNoteClearBtn').addEventListener('click', function () { $('bhDayNoteInput').value = ''; });
     $('bhDayNoteSaveBtn').addEventListener('click', saveDayNote);
 
-    // Tasks UI wiring
-    document.querySelectorAll('#bhTaskViewChips .bh-chip').forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        taskView = chip.dataset.view;
-        document.querySelectorAll('#bhTaskViewChips .bh-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
-        renderTaskList();
-      });
-    });
-    $('bhTaskFilterPriority').addEventListener('change', function () { taskFilterPriority = this.value; renderTaskList(); });
-    $('bhTaskFilterStatus').addEventListener('change', function () { taskFilterStatus = this.value; renderTaskList(); });
-    $('bhTaskGroupBy').addEventListener('change', function () { taskGroupBy = this.value; renderTaskList(); });
-    $('bhTaskSortBy').addEventListener('change', function () { taskSortBy = this.value; renderTaskList(); });
-    $('bhTaskQuickAddBtn').addEventListener('click', quickAddTask);
-    $('bhTaskQuickTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); quickAddTask(); } });
+    // Content dashboard / Platforms page wiring
+    $('bhContentAddPlatformBtn').addEventListener('click', function () { addTypedWidget(activeTabId, 'platform', 'New Platform'); });
+    $('bhContentAddCardBtn').addEventListener('click', function () { addTypedWidget(activeTabId, 'contentcard', 'New Content'); });
+    $('bhContentAddResourceBtn').addEventListener('click', function () { addTypedWidget(activeTabId, 'resource', 'New Resource'); });
+    $('bhPlatformsAddBtn').addEventListener('click', function () { addTypedWidget(activeTabId, 'platform', 'New Platform'); });
+    wireFilterChipRow('bhPlatformFilterChips', function (v) { contentPlatformFilter = v; });
+    wireFilterChipRow('bhContentPlanFilterChips', function (v) { contentPlanFilter = v; });
+    wireFilterChipRow('bhResourceFilterChips', function (v) { contentResourceFilter = v; });
+    wireFilterChipRow('bhPlatformsPageFilterChips', function (v) { platformsPageFilter = v; });
 
-    $('bhTaskModalCloseBtn').addEventListener('click', function () { closeModal($('bhTaskModalBg')); });
-    $('bhTaskModalCancel').addEventListener('click', function () { closeModal($('bhTaskModalBg')); });
-    $('bhTaskModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
-    $('bhTaskModalSave').addEventListener('click', saveTaskModal);
-    $('bhTaskModalDelete').addEventListener('click', deleteTaskModal);
-
-    $('bhTaskDetailCloseBtn').addEventListener('click', closeTaskDetailModal);
-    $('bhTaskDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closeTaskDetailModal(); });
-    $('bhTaskDetailTitleInput').addEventListener('blur', function () {
-      if (!taskDetailId) return;
+    // Platform Detail modal wiring
+    $('bhPlatformDetailCloseBtn').addEventListener('click', closePlatformDetailModal);
+    $('bhPlatformDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closePlatformDetailModal(); });
+    $('bhPlatformDetailNameInput').addEventListener('blur', function () {
+      if (!platformDetailId) return;
       const val = this.value.trim(); if (!val) return;
-      DB.Tasks.update(taskDetailId, { title: val });
-      renderTaskList();
+      DB.Widgets.update(platformDetailId, { title: val });
     });
-    $('bhTaskDetailNoteInput').addEventListener('input', function () { autosize(this); autosaveTaskDetailNote(); });
+    $('bhPlatformDetailActiveInput').addEventListener('change', function () {
+      if (!platformDetailId) return;
+      const w = DB.Widgets.get(platformDetailId); if (!w) return;
+      DB.Widgets.update(platformDetailId, { data: Object.assign({}, w.data, { active: this.checked }) });
+    });
+    $('bhPlatformDetailAddSectionBtn').addEventListener('click', function () {
+      if (!platformDetailId) return;
+      DB.addPlatformSection(platformDetailId);
+      renderPlatformDetailSections(DB.Widgets.get(platformDetailId));
+    });
 
     $('bhAddWeekBtn').addEventListener('click', function () {
       if (!activeTabId) return;
@@ -1950,7 +2044,7 @@ body::after {
     let remoteAppliedOnce = false;
     function maybeSeedAfterSyncAttempt() {
       if (remoteAppliedOnce) return;
-      if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.Tasks.list().length > 0 || DB.WorkflowWeeks.list().length > 0) return;
+      if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.WorkflowWeeks.list().length > 0) return;
       DB.seedIfEmpty();
       const freshTabs = DB.tabsSorted();
       activeTabId = (freshTabs[0] || {}).id || null;

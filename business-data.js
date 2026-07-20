@@ -7,21 +7,28 @@
 // business.html's initCloudSync({ syncedPrefixes: ['business:'] }) call
 // covers every collection with no per-key list.
 //
-// This page reuses Dream Board's exact board engine (Tabs + Widgets, a
-// per-tab hero, a 3-column drag-and-drop layout, per-widget color-grading
-// tint) verbatim for six of its seven tabs — Content/Ideas/Platforms/
-// Resources (restored to board-mode after a brief detour through a
-// Tasks-list-per-tab design) plus Analytics/Audit (always board-mode).
-// Only Strategy stays "tasks-mode" — a per-tab Tasks list mirroring
-// index.html's Main-dashboard Tasks tab (view chips, filter/group/sort,
-// quick-add, a checklist-style row, an Add/Edit modal, recurrence).
+// Each tab has a `layout`:
+//   - 'freeform' (Ideas / Resources) — Dream Board's exact board engine
+//     (Tabs + Widgets, a 3-column drag-and-drop layout, per-widget
+//     color-grading tint, an Add Widget menu). Resources additionally has
+//     `hasTemplates: true`, which renders a Templates/Workflow (Weeks →
+//     Days → Checklist) section below its board, the same mechanic as
+//     index.html's Business Workflow feature, scoped to this tab.
+//   - 'content' (Content) — a fixed, sectioned dashboard: a Platform
+//     database, a Content Plan database, and a Useful Resources database
+//     (each its own independent grid/filter — the two "databases" the
+//     page is built around are never merged into one freeform board),
+//     plus a sidebar (Content Summary, Posting Schedule, Gallery).
+//   - 'platforms' (Platforms) — the same Platform database component used
+//     standalone as its own page.
+// Strategy/Analytics/Audit (from an earlier pass) are not part of this
+// page anymore — see CLAUDE.md's changelog for that removal.
 //
-// The Resources tab additionally has a `hasTemplates` flag that renders a
-// second section below its board: a Workflow system (Weeks → Days →
-// Checklist items), the same mechanic as index.html's Business Workflow
-// feature (see that page's own "Amazon KDP" Workflow changelog entries) —
-// scoped to this tab rather than to a "business" record, since this page
-// has no multiple-businesses concept, just the one hub.
+// Every Platform widget can carry its own freeform "notes" sections
+// (`data.sections`), opened via a dedicated detail view in business.html —
+// generated on demand (a button adds a blank one), fully editable, and
+// reorderable (up/down, same convention as every other reorderable list in
+// this app).
 
 (function (global) {
   'use strict';
@@ -48,7 +55,6 @@
   const KEYS = {
     tabs: 'business:tabs',
     widgets: 'business:widgets',
-    tasks: 'business:tasks',
     workflowWeeks: 'business:workflowWeeks',
     workflowDays: 'business:workflowDays',
     workflowChecklist: 'business:workflowChecklist',
@@ -119,10 +125,9 @@
 
   // Dream Board's original ten widget types, reused verbatim (same field
   // shapes, same defaults), plus five tailored to content planning
-  // (platform/contentcard/resource/summary/schedule) and one more, `link`
-  // (a title + URL + description card — "things like links, notes, etc."
-  // for the top of the Resources tab specifically, though usable on any
-  // board-mode tab like every other type).
+  // (platform/contentcard/resource/summary/schedule) and `link` (a title +
+  // URL + description card, for the Resources tab's "links, notes, etc."
+  // top section — usable on any freeform-layout tab like every other type).
   const WIDGET_TYPES = [
     'checklist', 'list', 'note', 'quote', 'affirmation', 'steps', 'photos', 'calendar', 'feature', 'infocard',
     'platform', 'contentcard', 'resource', 'summary', 'schedule', 'link'
@@ -136,22 +141,6 @@
   ];
   const RESOURCE_STATUSES = ['Active', 'Idle', 'Archived'];
   const SCHEDULE_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  const TASK_STATUSES = [
-    { key: 'todo', label: 'To do' },
-    { key: 'in-progress', label: 'In progress' },
-    { key: 'done', label: 'Done' }
-  ];
-  const TASK_PRIORITIES = [
-    { key: 'low', label: 'Low' },
-    { key: 'medium', label: 'Medium' },
-    { key: 'high', label: 'High' }
-  ];
-  const TASK_RECURRENCES = [
-    { key: 'none', label: 'None' },
-    { key: 'daily', label: 'Daily — regenerates the next day when completed' },
-    { key: 'weekly', label: 'Weekly — regenerates 7 days later when completed' }
-  ];
   const WORKFLOW_DAY_STATUSES = ['Not started', 'In progress', 'Done', 'Blocked'];
 
   // Per-tab "hero" — a full-bleed cover section, same shape/behavior as
@@ -170,18 +159,19 @@
     };
   }
 
-  /** @typedef {{id:string, title:string, order:number, mode:'tasks'|'board', hasTemplates:boolean, hero:Object}} BizTab */
+  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms', hasTemplates:boolean, hero:Object}} BizTab */
   function tabModel(data) {
     data = data || {};
     return {
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      mode: data.mode === 'tasks' ? 'tasks' : 'board',
+      layout: (data.layout === 'content' || data.layout === 'platforms') ? data.layout : 'freeform',
       // Renders a Templates/Workflow (Weeks → Days → Checklist) section
       // below this tab's board — a dedicated field rather than matching
       // on `title`, so renaming the tab (rename-in-place is fully
-      // supported) can never silently drop the section.
+      // supported) can never silently drop the section. Only meaningful
+      // for 'freeform' tabs.
       hasTemplates: !!data.hasTemplates,
       hero: heroModel(data.hero)
     };
@@ -199,7 +189,9 @@
       case 'calendar': return { notes: {}, viewYear: null, viewMonth: null };
       case 'feature': return { photo: '', title: '', caption: '' };
       case 'infocard': return { icon: '🌍', title: '', subtitle: '' };
-      case 'platform': return { active: true, cover: '' };
+      // `sections` — this platform's own generated, editable, reorderable
+      // notes pages (see addPlatformSection() etc. below).
+      case 'platform': return { active: true, cover: '', sections: [] };
       case 'contentcard': return { title: '', cover: '', platform: '', status: 'not-started', tags: [], scheduledDate: '', scheduledTime: '', checklist: [] };
       case 'resource': return { icon: '📁', title: '', description: '', status: 'Active' };
       case 'summary': return {};
@@ -218,6 +210,10 @@
     return {
       id: data.id || uid('wdg'),
       tabId: data.tabId || null,
+      // `column` is only meaningful for 'freeform' tabs (Dream Board's
+      // 3-column board engine). 'content'/'platforms' tabs group widgets
+      // by `type` into fixed sections and sort within a (tabId, type)
+      // pair by `order` alone — see widgetsOfType()/reorderWidgetsOfType().
       column: typeof data.column === 'number' ? data.column : 0,
       order: typeof data.order === 'number' ? data.order : 0,
       type: type,
@@ -225,27 +221,6 @@
       accent: data.accent === 'blush' ? 'blush' : 'default',
       tint: typeof data.tint === 'string' ? data.tint : null,
       data: Object.assign({}, defaults, incoming)
-    };
-  }
-
-  /** @typedef {{id:string, tabId:string, title:string, note:string, status:string, priority:string, dueDate:string, estimateMinutes:?number, isDailyAction:boolean, recurrence:string, done:boolean, doneAt:?number, createdAt:number}} BizTask */
-  function taskModel(data) {
-    data = data || {};
-    const status = TASK_STATUSES.some(function (s) { return s.key === data.status; }) ? data.status : (data.done ? 'done' : 'todo');
-    return {
-      id: data.id || uid('task'),
-      tabId: data.tabId || null,
-      title: typeof data.title === 'string' ? data.title : '',
-      note: typeof data.note === 'string' ? data.note : '',
-      status: status,
-      priority: TASK_PRIORITIES.some(function (p) { return p.key === data.priority; }) ? data.priority : 'medium',
-      dueDate: typeof data.dueDate === 'string' ? data.dueDate : '',
-      estimateMinutes: (typeof data.estimateMinutes === 'number') ? data.estimateMinutes : null,
-      isDailyAction: !!data.isDailyAction,
-      recurrence: TASK_RECURRENCES.some(function (r) { return r.key === data.recurrence; }) ? data.recurrence : 'none',
-      done: status === 'done',
-      doneAt: (typeof data.doneAt === 'number') ? data.doneAt : null,
-      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
 
@@ -321,7 +296,6 @@
 
   const Tabs = makeCollection(KEYS.tabs, tabModel);
   const Widgets = makeCollection(KEYS.widgets, widgetModel);
-  const Tasks = makeCollection(KEYS.tasks, taskModel);
   const WorkflowWeeks = makeCollection(KEYS.workflowWeeks, workflowWeekModel);
   const WorkflowDays = makeCollection(KEYS.workflowDays, workflowDayModel);
   const WorkflowChecklist = makeCollection(KEYS.workflowChecklist, workflowChecklistItemModel);
@@ -329,7 +303,6 @@
   function removeTab(id) {
     Tabs.remove(id);
     Widgets.replaceAll(Widgets.list().filter(function (w) { return w.tabId !== id; }));
-    Tasks.replaceAll(Tasks.list().filter(function (t) { return t.tabId !== id; }));
     const removedDayIds = WorkflowDays.list().filter(function (d) { return d.tabId === id; }).map(function (d) { return d.id; });
     WorkflowWeeks.replaceAll(WorkflowWeeks.list().filter(function (w) { return w.tabId !== id; }));
     WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.tabId !== id; }));
@@ -337,7 +310,7 @@
   }
 
   // ============================================================
-  // SELECTORS — board (Dream Board engine, unchanged)
+  // SELECTORS — board (Dream Board engine, unchanged — 'freeform' tabs)
   // ============================================================
   function tabsSorted() {
     return Tabs.list().slice().sort(function (a, b) { return a.order - b.order; });
@@ -365,12 +338,30 @@
     });
     Widgets.replaceAll(all);
   }
-  function contentCardsForTab(tabId) {
-    return Widgets.list().filter(function (w) { return w.tabId === tabId && w.type === 'contentcard'; });
+
+  // ============================================================
+  // SELECTORS — sectioned "databases" ('content'/'platforms' tabs). Each
+  // (tabId, type) pair is its own independent, ordered list — this is what
+  // keeps the Platform database and the Content Plan database genuinely
+  // separate rather than columns of one mixed freeform board.
+  // ============================================================
+  function widgetsOfType(tabId, type) {
+    return Widgets.list()
+      .filter(function (w) { return w.tabId === tabId && w.type === type; })
+      .sort(function (a, b) { return a.order - b.order; });
   }
-  function platformsForTab(tabId) {
-    return Widgets.list().filter(function (w) { return w.tabId === tabId && w.type === 'platform'; });
+  function reorderWidgetsOfType(tabId, type, orderedIds) {
+    const all = Widgets.list();
+    const byId = {};
+    all.forEach(function (w) { byId[w.id] = w; });
+    orderedIds.forEach(function (id, idx) {
+      const w = byId[id];
+      if (w && w.tabId === tabId && w.type === type) w.order = idx;
+    });
+    Widgets.replaceAll(all);
   }
+  function contentCardsForTab(tabId) { return widgetsOfType(tabId, 'contentcard'); }
+  function platformsForTab(tabId) { return widgetsOfType(tabId, 'platform'); }
   function statusLabel(key) {
     const s = CONTENT_STATUSES.find(function (x) { return x.key === key; });
     return s ? s.label : 'Not started';
@@ -389,53 +380,49 @@
   }
 
   // ============================================================
-  // SELECTORS — Tasks (mirrors index.html Main dashboard's Tasks tab:
-  // sortTasks()/groupBuckets() there, adapted to this page's simpler
-  // dimension set — no Life Area/Goal/Business/Habit FKs exist here, so
-  // grouping/filtering is just priority/status, same semantics otherwise)
+  // Platform "pages" — every platform widget can carry its own set of
+  // freeform notes sections, generated on demand (a button adds a blank
+  // one) and fully editable/reorderable. Lives inline on the widget
+  // (`data.sections`), so deleting the platform deletes its sections with
+  // it — no separate collection or orphan cleanup needed, same precedent
+  // as e.g. a content card's inline checklist.
   // ============================================================
-  function tasksForTab(tabId) {
-    return Tasks.list().filter(function (t) { return t.tabId === tabId; });
+  function sectionsForWidget(widgetId) {
+    const w = Widgets.get(widgetId);
+    if (!w) return [];
+    return (w.data.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
   }
-  function sortTasks(list, mode) {
-    const priRank = { high: 3, medium: 2, low: 1 };
-    const copy = list.slice();
-    copy.sort(function (a, b) {
-      const ap = priRank[a.priority] || 2, bp = priRank[b.priority] || 2;
-      const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
-      if (mode === 'priority') {
-        if (bp !== ap) return bp - ap;
-        return ad < bd ? -1 : ad > bd ? 1 : 0;
-      }
-      if (ad !== bd) return ad < bd ? -1 : 1;
-      return bp - ap;
-    });
-    return copy;
+  function addPlatformSection(widgetId) {
+    const w = Widgets.get(widgetId);
+    if (!w) return null;
+    const sections = (w.data.sections || []).slice();
+    const order = sections.length ? Math.max.apply(null, sections.map(function (s) { return s.order; })) + 1 : 0;
+    const section = { id: uid('sec'), title: 'New Section', body: '', order: order, createdAt: Date.now() };
+    sections.push(section);
+    Widgets.update(widgetId, { data: Object.assign({}, w.data, { sections: sections }) });
+    return section;
   }
-  const TASK_GROUP_DIMS = {
-    priority: [{ key: 'high', label: 'High priority' }, { key: 'medium', label: 'Medium priority' }, { key: 'low', label: 'Low priority' }],
-    status: [{ key: 'todo', label: 'To do' }, { key: 'in-progress', label: 'In progress' }, { key: 'done', label: 'Done' }]
-  };
-  function groupTasksBuckets(dim, tasks) {
-    if (dim === 'none' || !TASK_GROUP_DIMS[dim]) return [{ key: null, label: null, tasks: tasks }];
-    return TASK_GROUP_DIMS[dim]
-      .map(function (b) { return { key: b.key, label: b.label, tasks: tasks.filter(function (t) { return t[dim] === b.key; }) }; })
-      .filter(function (b) { return b.tasks.length; });
+  function updatePlatformSection(widgetId, sectionId, patch) {
+    const w = Widgets.get(widgetId);
+    if (!w) return;
+    const sections = (w.data.sections || []).map(function (s) { return s.id === sectionId ? Object.assign({}, s, patch) : s; });
+    Widgets.update(widgetId, { data: Object.assign({}, w.data, { sections: sections }) });
   }
-  /** A follow-up task for a recurring task that was just marked done —
-   * same +1 day (daily) / +7 days (weekly) precedent as index.html's
-   * spawnNextRecurrence(), copying the fields that make sense to repeat
-   * and resetting to a fresh todo/not-done state. */
-  function spawnNextRecurrence(task) {
-    if (!task.recurrence || task.recurrence === 'none') return null;
-    const base = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : new Date();
-    base.setDate(base.getDate() + (task.recurrence === 'weekly' ? 7 : 1));
-    const nextDue = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0') + '-' + String(base.getDate()).padStart(2, '0');
-    return Tasks.add({
-      tabId: task.tabId, title: task.title, note: task.note, priority: task.priority,
-      dueDate: nextDue, estimateMinutes: task.estimateMinutes, isDailyAction: task.isDailyAction,
-      recurrence: task.recurrence, status: 'todo'
-    });
+  function removePlatformSection(widgetId, sectionId) {
+    const w = Widgets.get(widgetId);
+    if (!w) return;
+    const sections = (w.data.sections || []).filter(function (s) { return s.id !== sectionId; });
+    Widgets.update(widgetId, { data: Object.assign({}, w.data, { sections: sections }) });
+  }
+  function movePlatformSection(widgetId, sectionId, dir) {
+    const w = Widgets.get(widgetId);
+    if (!w) return;
+    const sections = (w.data.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
+    const idx = sections.findIndex(function (s) { return s.id === sectionId; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= sections.length) return;
+    const tmp = sections[idx].order; sections[idx].order = sections[otherIdx].order; sections[otherIdx].order = tmp;
+    Widgets.update(widgetId, { data: Object.assign({}, w.data, { sections: sections }) });
   }
 
   // ============================================================
@@ -533,89 +520,78 @@
   function seedDefaultBoard() {
     Tabs.replaceAll([]);
     Widgets.replaceAll([]);
-    Tasks.replaceAll([]);
     WorkflowWeeks.replaceAll([]);
     WorkflowDays.replaceAll([]);
     WorkflowChecklist.replaceAll([]);
 
     const contentTab = Tabs.add({
-      title: 'Content', order: 0, mode: 'board',
-      hero: heroModel({ eyebrow: 'CONTENT PLANNING', title: 'Say It.\nShip It.', subtext: 'Every post starts here — plan it, track it, ship it.', ctaLabel: 'VIEW BOARD' })
+      title: 'Content', order: 0, layout: 'content',
+      hero: heroModel({ eyebrow: 'CONTENT PLANNING', title: 'Say It.\nShip It.', subtext: 'Every post starts here — plan it, track it, ship it.', ctaLabel: 'VIEW CONTENT' })
     });
     const ideasTab = Tabs.add({
-      title: 'Ideas', order: 1, mode: 'board',
+      title: 'Ideas', order: 1, layout: 'freeform',
       hero: heroModel({ eyebrow: 'THE IDEA BANK', title: 'Capture It Now.\nRefine It Later.', subtext: 'Loose ideas, hooks, and things worth revisiting.', ctaLabel: 'VIEW BOARD' })
     });
     const platformsTab = Tabs.add({
-      title: 'Platforms', order: 2, mode: 'board',
-      hero: heroModel({ eyebrow: 'WHERE WE SHOW UP', title: 'Every Platform.\nOne Home.', subtext: 'Track and toggle every platform we show up on.', ctaLabel: 'VIEW BOARD' })
-    });
-    const strategyTab = Tabs.add({
-      title: 'Strategy', order: 3, mode: 'tasks',
-      hero: heroModel({ eyebrow: 'THE BIG PICTURE', title: 'Plan Deliberately.\nGrow on Purpose.', subtext: 'The direction behind the day-to-day.', ctaLabel: 'VIEW STRATEGY' })
+      title: 'Platforms', order: 2, layout: 'platforms',
+      hero: heroModel({ eyebrow: 'WHERE WE SHOW UP', title: 'Every Platform.\nOne Home.', subtext: 'Track and toggle every platform we show up on.', ctaLabel: 'VIEW PLATFORMS' })
     });
     const resourcesTab = Tabs.add({
-      title: 'Resources', order: 4, mode: 'board', hasTemplates: true,
+      title: 'Resources', order: 3, layout: 'freeform', hasTemplates: true,
       hero: heroModel({ eyebrow: 'THE TOOLKIT', title: 'Everything.\nIn One Place.', subtext: 'Brand assets, templates, and reference material.', ctaLabel: 'VIEW RESOURCES' })
     });
-    const analyticsTab = Tabs.add({
-      title: 'Analytics', order: 5, mode: 'board',
-      hero: heroModel({ eyebrow: 'STAY DATA-DRIVEN', title: 'Decide With\nNumbers.', subtext: 'Keep a pulse on what is actually working.', ctaLabel: 'VIEW BOARD' })
-    });
-    const auditTab = Tabs.add({
-      title: 'Audit', order: 6, mode: 'board',
-      hero: heroModel({ eyebrow: 'HOUSEKEEPING', title: 'Clean Profile.\nMore Trust.', subtext: 'The quarterly checkup that keeps everything tidy.', ctaLabel: 'VIEW BOARD' })
-    });
 
-    // ---------- Content (board-mode) ----------
-    let o0 = 0, o1 = 0, o2 = 0;
-    Widgets.add({ tabId: contentTab.id, column: 0, order: o0++, type: 'platform', title: 'Instagram', data: { active: true, cover: '' } });
-    Widgets.add({ tabId: contentTab.id, column: 1, order: o1++, type: 'platform', title: 'Tiktok', data: { active: true, cover: '' } });
-    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'platform', title: 'Youtube', data: { active: true, cover: '' } });
+    // ---------- Content — fixed dashboard: Platform database / Content
+    // Plan database / Useful Resources database (each independently
+    // ordered by type — see widgetsOfType()) plus a sidebar. ----------
+    Widgets.add({ tabId: contentTab.id, column: 0, order: 0, type: 'platform', title: 'Instagram', data: { active: true, cover: '', sections: [] } });
+    Widgets.add({ tabId: contentTab.id, column: 0, order: 1, type: 'platform', title: 'Tiktok', data: { active: true, cover: '', sections: [] } });
+    Widgets.add({ tabId: contentTab.id, column: 0, order: 2, type: 'platform', title: 'Youtube', data: { active: true, cover: '', sections: [] } });
+
     Widgets.add({
-      tabId: contentTab.id, column: 0, order: o0++, type: 'contentcard', title: 'Share Relatable Business Stories',
+      tabId: contentTab.id, column: 0, order: 0, type: 'contentcard', title: 'Share Relatable Business Stories',
       data: { title: 'Share Relatable Business Stories', cover: '', platform: 'Tiktok', status: 'published', tags: ['Self Growth', 'Video'], scheduledDate: shiftedISO(-6), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: true }] }
     });
     Widgets.add({
-      tabId: contentTab.id, column: 0, order: o0++, type: 'contentcard', title: 'How to Increase Website Traffic',
+      tabId: contentTab.id, column: 0, order: 1, type: 'contentcard', title: 'How to Increase Website Traffic',
       data: { title: 'How to Increase Website Traffic', cover: '', platform: 'Pinterest', status: 'ready', tags: ['Digital Marketing', 'Pin'], scheduledDate: todayISO(), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
     });
     Widgets.add({
-      tabId: contentTab.id, column: 1, order: o1++, type: 'contentcard', title: '3 Time-Saving Marketing Tips for Small Business',
+      tabId: contentTab.id, column: 0, order: 2, type: 'contentcard', title: '3 Time-Saving Marketing Tips for Small Business',
       data: { title: '3 Time-Saving Marketing Tips for Small Business', cover: '', platform: 'Pinterest', status: 'published', tags: ['Digital Marketing', 'Pin'], scheduledDate: shiftedISO(-5), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: true }] }
     });
     Widgets.add({
-      tabId: contentTab.id, column: 1, order: o1++, type: 'contentcard', title: 'Celebrating 30K Followers',
+      tabId: contentTab.id, column: 0, order: 3, type: 'contentcard', title: 'Celebrating 30K Followers',
       data: { title: 'Celebrating 30K Followers', cover: '', platform: 'Facebook', status: 'ready', tags: ['Others', 'Post'], scheduledDate: shiftedISO(2), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
     });
     Widgets.add({
-      tabId: contentTab.id, column: 2, order: o2++, type: 'contentcard', title: 'A Better Way to Advertise on Instagram',
+      tabId: contentTab.id, column: 0, order: 4, type: 'contentcard', title: 'A Better Way to Advertise on Instagram',
       data: { title: 'A Better Way to Advertise on Instagram', cover: '', platform: 'Youtube', status: 'writing-caption', tags: ['Digital Marketing', 'Shorts'], scheduledDate: shiftedISO(-1), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: true }, { id: uid('cl'), text: 'Copy needed', done: false }] }
     });
     Widgets.add({
-      tabId: contentTab.id, column: 2, order: o2++, type: 'contentcard', title: 'Plan Your Content in 30 Minutes',
+      tabId: contentTab.id, column: 0, order: 5, type: 'contentcard', title: 'Plan Your Content in 30 Minutes',
       data: { title: 'Plan Your Content in 30 Minutes', cover: '', platform: 'Twitter', status: 'not-started', tags: ['Productivity', 'Tweet'], scheduledDate: shiftedISO(7), scheduledTime: '19:00', checklist: [{ id: uid('cl'), text: 'Design needed', done: false }, { id: uid('cl'), text: 'Copy needed', done: false }] }
     });
+
     const resourceDefs = [
-      { icon: '🎨', title: 'Design resources', description: 'Design templates, icons, fonts, filters, etc. for the visuals of your content', col: 0 },
-      { icon: '🪝', title: 'Hook', description: 'Create a collection for your inspiration and for future reference', col: 0 },
-      { icon: '🎬', title: 'Video footage', description: 'Prepare the video footage for your social media posts', col: 0 },
-      { icon: '🛠', title: 'Tools', description: 'Add your favorite social media tools and subscription', col: 0 },
-      { icon: '#️⃣', title: 'Hashtag', description: 'Create a list of your most used hashtags that you can copy and paste', col: 1 },
-      { icon: '💡', title: 'Inspiration', description: 'Create a collection for your inspiration and for future reference', col: 1 },
-      { icon: '📝', title: 'Notes', description: 'Save any notes or article you find interesting and important', col: 1 },
-      { icon: '🔗', title: 'Important link', description: 'Save bookmarks that are relevant to your social media accounts', col: 2 },
-      { icon: '🎧', title: 'Audio', description: 'Keep up with the trends and save trending audio', col: 2 },
-      { icon: '📐', title: 'Size Guide', description: 'The optimal image sizes for various platforms', col: 2 }
+      { icon: '🎨', title: 'Design resources', description: 'Design templates, icons, fonts, filters, etc. for the visuals of your content' },
+      { icon: '#️⃣', title: 'Hashtag', description: 'Create a list of your most used hashtags that you can copy and paste' },
+      { icon: '🔗', title: 'Important link', description: 'Save bookmarks that are relevant to your social media accounts' },
+      { icon: '🪝', title: 'Hook', description: 'Create a collection for your inspiration and for future reference' },
+      { icon: '💡', title: 'Inspiration', description: 'Create a collection for your inspiration and for future reference' },
+      { icon: '🎧', title: 'Audio', description: 'Keep up with the trends and save trending audio' },
+      { icon: '🎬', title: 'Video footage', description: 'Prepare the video footage for your social media posts' },
+      { icon: '📝', title: 'Notes', description: 'Save any notes or article you find interesting and important' },
+      { icon: '📐', title: 'Size Guide', description: 'The optimal image sizes for various platforms' },
+      { icon: '🛠', title: 'Tools', description: 'Add your favorite social media tools and subscription' }
     ];
-    const colOrder = [o0, o1, o2];
-    resourceDefs.forEach(function (r) {
-      Widgets.add({ tabId: contentTab.id, column: r.col, order: colOrder[r.col]++, type: 'resource', title: r.title, data: { icon: r.icon, title: r.title, description: r.description, status: 'Active' } });
+    resourceDefs.forEach(function (r, i) {
+      Widgets.add({ tabId: contentTab.id, column: 0, order: i, type: 'resource', title: r.title, data: { icon: r.icon, title: r.title, description: r.description, status: 'Active' } });
     });
-    o0 = colOrder[0]; o1 = colOrder[1]; o2 = colOrder[2];
-    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'summary', title: 'Content Overview', data: {} });
+
+    Widgets.add({ tabId: contentTab.id, column: 0, order: 0, type: 'summary', title: 'Content Overview', data: {} });
     Widgets.add({
-      tabId: contentTab.id, column: 2, order: o2++, type: 'schedule', title: 'Posting Schedule',
+      tabId: contentTab.id, column: 0, order: 0, type: 'schedule', title: 'Posting Schedule',
       data: {
         rows: [
           { id: uid('sr'), platform: 'Instagram', day: 'Monday', time: '15:00' },
@@ -628,9 +604,9 @@
         ]
       }
     });
-    Widgets.add({ tabId: contentTab.id, column: 2, order: o2++, type: 'photos', title: 'Gallery', data: { wide: false, slots: [] } });
+    Widgets.add({ tabId: contentTab.id, column: 0, order: 0, type: 'photos', title: 'Gallery', data: { wide: false, slots: [] } });
 
-    // ---------- Ideas (board-mode) ----------
+    // ---------- Ideas (freeform board) ----------
     Widgets.add({
       tabId: ideasTab.id, column: 0, order: 0, type: 'list', title: 'Content Ideas',
       data: { items: [{ id: uid('it'), text: 'Behind-the-scenes of a typical workday' }, { id: uid('it'), text: 'Customer testimonial round-up' }, { id: uid('it'), text: 'Myth vs. fact post for our industry' }] }
@@ -638,24 +614,20 @@
     Widgets.add({ tabId: ideasTab.id, column: 1, order: 0, type: 'note', title: 'Brain Dump', data: { body: "Loose ideas that don't have a home yet — revisit during the next content planning session." } });
     Widgets.add({ tabId: ideasTab.id, column: 2, order: 0, type: 'infocard', title: 'Idea Bank', data: { icon: '💡', title: 'IDEA BANK', subtitle: 'Capture it now, refine it later.' } });
 
-    // ---------- Platforms (board-mode) ----------
-    Widgets.add({ tabId: platformsTab.id, column: 0, order: 0, type: 'platform', title: 'Instagram', data: { active: true, cover: '' } });
-    Widgets.add({ tabId: platformsTab.id, column: 1, order: 0, type: 'platform', title: 'Tiktok', data: { active: true, cover: '' } });
-    Widgets.add({ tabId: platformsTab.id, column: 2, order: 0, type: 'platform', title: 'Youtube', data: { active: true, cover: '' } });
-    Widgets.add({ tabId: platformsTab.id, column: 0, order: 1, type: 'platform', title: 'Pinterest', data: { active: false, cover: '' } });
-    Widgets.add({ tabId: platformsTab.id, column: 1, order: 1, type: 'platform', title: 'Facebook', data: { active: false, cover: '' } });
-    Widgets.add({ tabId: platformsTab.id, column: 2, order: 1, type: 'platform', title: 'Twitter', data: { active: false, cover: '' } });
+    // ---------- Platforms — its own dedicated Platform database page ----------
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 0, type: 'platform', title: 'Instagram', data: { active: true, cover: '', sections: [] } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 1, type: 'platform', title: 'Tiktok', data: { active: true, cover: '', sections: [] } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 2, type: 'platform', title: 'Youtube', data: { active: true, cover: '', sections: [] } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 3, type: 'platform', title: 'Pinterest', data: { active: false, cover: '', sections: [] } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 4, type: 'platform', title: 'Facebook', data: { active: false, cover: '', sections: [] } });
+    Widgets.add({ tabId: platformsTab.id, column: 0, order: 5, type: 'platform', title: 'Twitter', data: { active: false, cover: '', sections: [] } });
 
-    // ---------- Strategy (tasks-mode — the one tab that keeps it) ----------
-    Tasks.add({ tabId: strategyTab.id, title: 'Define target audience personas', status: 'todo', priority: 'high' });
-    Tasks.add({ tabId: strategyTab.id, title: 'Audit competitor content', status: 'todo', priority: 'medium' });
-
-    // ---------- Resources (board-mode) — top section: Links & Notes ----------
+    // ---------- Resources — top: Links & Notes (freeform board) ----------
     Widgets.add({ tabId: resourcesTab.id, column: 0, order: 0, type: 'note', title: 'Quick Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
     Widgets.add({ tabId: resourcesTab.id, column: 1, order: 0, type: 'link', title: 'Brand Guidelines', data: { url: '', description: 'Logo usage, color codes, and voice/tone guide.' } });
     Widgets.add({ tabId: resourcesTab.id, column: 2, order: 0, type: 'link', title: 'Shared Drive', data: { url: '', description: 'Raw footage, exports, and source files.' } });
 
-    // ---------- Resources — bottom section: Templates (Workflow) ----------
+    // ---------- Resources — bottom, below a divider: Templates (Workflow) ----------
     const week1 = addWorkflowWeek(resourcesTab.id, { title: 'Week 1 — Launch Checklist' });
     const w1d1 = addWorkflowDay(week1.id, resourcesTab.id, { title: 'Kickoff & brief', status: 'Done' });
     addWorkflowChecklistItem(w1d1.id, { text: 'Confirm goal and audience', checked: true });
@@ -675,25 +647,12 @@
     addWorkflowChecklistItem(w2d2.id, { text: 'Pull top-line metrics', checked: false });
     addWorkflowChecklistItem(w2d2.id, { text: 'Note what to try next time', checked: false });
 
-    // ---------- Analytics (board-mode) ----------
-    Widgets.add({ tabId: analyticsTab.id, column: 0, order: 0, type: 'summary', title: 'Content Overview', data: {} });
-    Widgets.add({ tabId: analyticsTab.id, column: 1, order: 0, type: 'checklist', title: 'Monthly Review', data: { items: [{ id: uid('it'), text: "Export last month's top posts", done: false }] } });
-    Widgets.add({ tabId: analyticsTab.id, column: 2, order: 0, type: 'infocard', title: 'Stay Data-Driven', data: { icon: '📊', title: 'STAY DATA-DRIVEN', subtitle: 'Decide with numbers, not vibes.' } });
-
-    // ---------- Audit (board-mode) ----------
-    Widgets.add({
-      tabId: auditTab.id, column: 0, order: 0, type: 'checklist', title: 'Quarterly Audit',
-      data: { items: [{ id: uid('it'), text: 'Review bio links on every platform', done: false }, { id: uid('it'), text: 'Check for broken links in old posts', done: false }] }
-    });
-    Widgets.add({ tabId: auditTab.id, column: 1, order: 0, type: 'note', title: 'Findings', data: { body: '' } });
-    Widgets.add({ tabId: auditTab.id, column: 2, order: 0, type: 'infocard', title: 'Housekeeping', data: { icon: '🔍', title: 'HOUSEKEEPING', subtitle: 'A clean profile builds trust.' } });
-
     storeSet(KEYS.seeded, true);
   }
 
   function seedIfEmpty() {
     if (storeGet(KEYS.seeded)) return;
-    if (Tabs.list().length || Widgets.list().length || Tasks.list().length || WorkflowWeeks.list().length) { storeSet(KEYS.seeded, true); return; }
+    if (Tabs.list().length || Widgets.list().length || WorkflowWeeks.list().length) { storeSet(KEYS.seeded, true); return; }
     seedDefaultBoard();
   }
 
@@ -714,34 +673,33 @@
     CONTENT_STATUSES: CONTENT_STATUSES,
     RESOURCE_STATUSES: RESOURCE_STATUSES,
     SCHEDULE_DAYS: SCHEDULE_DAYS,
-    TASK_STATUSES: TASK_STATUSES,
-    TASK_PRIORITIES: TASK_PRIORITIES,
-    TASK_RECURRENCES: TASK_RECURRENCES,
     WORKFLOW_DAY_STATUSES: WORKFLOW_DAY_STATUSES,
     uid: uid,
     todayISO: todayISO,
     formatDateShort: formatDateShort,
     compressImageDataUrl: compressImageDataUrl,
     isValidMediaUrl: isValidMediaUrl,
-    Models: { tab: tabModel, widget: widgetModel, task: taskModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel },
+    Models: { tab: tabModel, widget: widgetModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel },
     defaultWidgetData: defaultWidgetData,
     Tabs: Object.assign({}, Tabs, { remove: removeTab }),
     Widgets: Widgets,
-    Tasks: Tasks,
     WorkflowWeeks: WorkflowWeeks,
     WorkflowDays: WorkflowDays,
     WorkflowChecklist: WorkflowChecklist,
     tabsSorted: tabsSorted,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
+    widgetsOfType: widgetsOfType,
+    reorderWidgetsOfType: reorderWidgetsOfType,
     contentCardsForTab: contentCardsForTab,
     platformsForTab: platformsForTab,
     statusLabel: statusLabel,
     computeDueLabel: computeDueLabel,
-    tasksForTab: tasksForTab,
-    sortTasks: sortTasks,
-    groupTasksBuckets: groupTasksBuckets,
-    spawnNextRecurrence: spawnNextRecurrence,
+    sectionsForWidget: sectionsForWidget,
+    addPlatformSection: addPlatformSection,
+    updatePlatformSection: updatePlatformSection,
+    removePlatformSection: removePlatformSection,
+    movePlatformSection: movePlatformSection,
     weeksForTab: weeksForTab,
     daysForWeek: daysForWeek,
     checklistForDay: checklistForDay,
