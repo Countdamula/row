@@ -4471,3 +4471,22 @@ between this app and either data loss or a wide-open write target:
     new linked task appeared, then clicked the same button again and
     confirmed it correctly unlinked without deleting the task. Zero JS
     errors throughout.
+
+- **`business.html`'s `business-data.js` script tag gained a `?v=6` cache-
+  busting query string**, after the Workflow/Tasks upgrade above was
+  reported as "not showing up." Re-tested that exact change against
+  simulated real, previously-used data (existing Resources-tab Weeks/
+  Days from several pushes ago, missing the new `notes` field entirely,
+  no `business:tasks` key at all) and it rendered correctly with zero
+  errors — so the most likely explanation left is this repo's own
+  documented lack of any build step or cache-busting (see CLAUDE.md §1):
+  editing `business-data.js`'s *contents* never changes its *URL*, so a
+  browser (or an intermediate CDN cache) that already fetched the old
+  copy has no signal to refetch it, and would keep calling brand-new
+  functions like `taskForWorkflowDay` as `undefined` — silently breaking
+  the render with no visible error to the user. Bumping the query string
+  forces every browser to treat it as a new resource. This is a
+  narrower, more targeted fix than reworking this app's caching model
+  wholesale (out of scope here) — worth remembering for any future
+  `business-data.js` change: bump the `?v=` number again, or this same
+  "it's not showing up" report will likely recur.
