@@ -173,7 +173,14 @@
       // supported) can never silently drop the section. Only meaningful
       // for 'freeform' tabs.
       hasTemplates: !!data.hasTemplates,
-      hero: heroModel(data.hero)
+      hero: heroModel(data.hero),
+      // Which order/column (main vs. sidebar) this tab's six fixed
+      // dashboard sections render in — array of {key, column}, only
+      // meaningful for `layout: 'content'` tabs. `null` (the default)
+      // means "use the standard order" — business.html falls back to it
+      // whenever this is missing or doesn't cover exactly the known
+      // section keys, so it degrades safely rather than crashing.
+      sectionLayout: Array.isArray(data.sectionLayout) ? data.sectionLayout : null
     };
   }
 

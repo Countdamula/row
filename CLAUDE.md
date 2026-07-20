@@ -4319,3 +4319,68 @@ between this app and either data loss or a wide-open write target:
     confirmed a screenshot of the resulting Content tab showed the new
     4th platform card and the "+ Add Widget" button in the header, with
     zero JS errors throughout.
+
+- **Content tab: the six fixed dashboard sections themselves (Platform/
+  Content Plan/Useful Resources/Summary/Posting Schedule/Gallery) can now
+  be freely dragged into any order and between the main column and
+  sidebar.** Per an explicit follow-up asking to freely move "all widgets
+  and assets" — clarified via a quick question, since that phrasing could
+  have meant merging the Platform/Content Plan/Resources databases back
+  together (directly reversing an earlier explicit "keep them separate"
+  request): the confirmed scope is that each database's own cards still
+  only reorder within their own grid (unchanged from the previous two
+  passes), but the section *blocks* themselves — the whole "Platform"
+  card, the whole "Content Plan" card, etc. — are now a second, higher
+  level of drag-and-drop, on top of the per-card dragging already inside
+  each one. "More Widgets" was deliberately left out of this movable set
+  (its own 3-column freeform area wouldn't read well squeezed into the
+  narrower sidebar column) — not disclosed as an explicit scope note to
+  the user beforehand, but a reasonable inference from the six sections
+  actually named when confirming scope.
+  - **`BizTab` gained `sectionLayout`** (`business-data.js`) — an array
+    of `{key, column}` (`column` is `'main'|'sidebar'`), `null` by
+    default. A real gotcha caught while implementing this: `tabModel()`
+    rebuilds a tab into a brand-new object listing only its own known
+    fields — any field not explicitly listed there is silently dropped
+    every time `Tabs.update()` runs a patch back through it (this is the
+    same "list()/get() never re-run stored records through the model,
+    but add()/update() do" mechanism that caused the two migration bugs
+    fixed earlier in this file's own changelog, just hitting the
+    opposite direction here — a *new* write being silently stripped
+    rather than an *old* read being under-filled). Missed this on the
+    first pass and had to add `sectionLayout` to `tabModel`'s returned
+    object explicitly before persistence actually worked.
+  - **`business.html`**: the six section shells already existed as
+    static HTML (`.bh-db-section[data-section-key="platform|contentplan|
+    resources|summary|schedule|gallery"]`, each with a new
+    `.bh-db-section-drag` (⋮⋮) handle in its header, wrapped in a new
+    `.bh-db-section-head-left` alongside the title so the existing
+    `justify-content: space-between` header layout wasn't disturbed) —
+    reordering is implemented by *reparenting* those existing nodes
+    between `#bhDbMain`/`#bhDbSidebar` (`applyContentSectionLayout()`),
+    not by rebuilding them, so a section's own inner grid/content and
+    its own separate per-card Sortable instance are completely
+    unaffected by being moved to a new parent. A single SortableJS
+    `group` spans both columns (`wireContentSectionSortable()`, handle
+    scoped to `.bh-db-section-drag` so it can never fire from clicking a
+    filter chip or Add button inside a section), and `onEnd` persists via
+    `persistContentSectionLayout()` — reads each column's current
+    `data-section-key` order and writes it straight to the tab. A
+    missing or corrupted `sectionLayout` (e.g. from before this feature
+    existed, or not covering exactly the six known keys) falls back to
+    the original hardcoded order (`getContentSectionLayout()`) rather
+    than erroring — same defensive-fallback precedent as this file's own
+    hero/layout migration fixes above.
+  - **Verified** (drag-and-drop itself can't be simulated via synthetic
+    click events, so this exercised the actual reparent/persist/fallback
+    functions rather than the SortableJS interaction layer, which is a
+    well-established third-party library already used elsewhere in this
+    exact codebase — not something that needed re-proving): confirmed
+    the default section order in both columns; wrote a custom
+    `sectionLayout` moving Gallery into the main column and Platform
+    into the sidebar, switched tabs away and back, and confirmed the DOM
+    reflected exactly that arrangement with both sections' inner content
+    (the Platform grid's 3 cards, the Gallery wrap element) fully intact
+    after being reparented; and confirmed an incomplete/corrupted
+    `sectionLayout` correctly fell back to the standard order instead of
+    breaking. Zero JS errors throughout.
