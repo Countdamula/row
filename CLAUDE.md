@@ -5089,3 +5089,52 @@ between this app and either data loss or a wide-open write target:
     interactively) is still recommended before relying on this page
     heavily, same disclosed-limitation caveat this file's other entries
     already carry for this environment.
+
+- **Bugfix: Self-Care's tab bar rendered completely empty for anyone who
+  already had real journal/meditation data from before the rebuild above
+  — reported as "nothing shows up when I click on the tab."**
+  Root cause: `seedIfEmpty()` bundled two unrelated decisions into one
+  check — "should I create the new Tabs/Widgets board" and "should I add
+  sample journal/meditation content" — both gated on the same "is
+  literally everything empty" test. Anyone who'd used this page before
+  this rebuild already had real `JournalEntries`/`Meditations` (from the
+  prior Journals/Meditations-only build) but, since Tabs/Widgets never
+  existed until this rebuild, had none of those. `seedIfEmpty()` saw the
+  non-empty journal/meditation data, concluded "already set up," marked
+  `selfcare:seeded` true, and returned — permanently skipping Tab
+  creation. With zero Tabs, `renderTabs()` had nothing to render (no tab
+  buttons at all) and `renderBoard()`/the panels had nothing to show —
+  the same class of bug this file's own Dream Board (missing-hero crash)
+  and Business Hub (missing-`layout`/`hasTemplates`) entries already
+  document: a newly-required field/structure with no backfill for
+  records that predate it.
+  - **Fix**: split the one seed check into two independent functions.
+    `ensureTabsExist()` (new) creates the default Tabs (+ Widgets on the
+    main tab) if and only if none exist yet — it never reads or writes
+    `JournalEntries`/`Meditations`, so a user's real content can't block
+    it and it can't be blocked by real content. `seedSampleContentIfFresh()`
+    (new, replacing the old `seedIfEmpty()`) keeps the original "only for
+    a genuinely fresh install" caution for the sample journal/meditation
+    entries specifically, checking only those two collections, not Tabs/
+    Widgets. `seedDefaultBoard()` (the Reset-to-Default path) is
+    unaffected — still a full wipe-and-rebuild of everything.
+  - `selfcare.html`'s boot sequence now calls both functions from
+    `initCloudSync`'s `onApplied` callback (the moment the page actually
+    knows what's real from the cloud, not an arbitrary timer) and again
+    from the existing timed fallback (for when sync is unavailable or a
+    remote row doesn't exist yet at all) — same seed-race-safety window
+    as before, just no longer gated by a `remoteAppliedOnce` flag that
+    conflated "some sync activity happened" with "the Tabs specifically
+    arrived."
+  - **Verified two scenarios in headless Edge with Supabase blocked**
+    (`--host-resolver-rules` mapping the Supabase host to `0.0.0.0`,
+    `--dump-dom` with an 8-9s virtual time budget, per this file's
+    established testing convention): (1) a fresh, never-used profile
+    still seeds all 3 tabs, the 4 default widgets, and the sample
+    journal/meditation content correctly, unchanged from before this
+    fix; (2) a profile pre-seeded with real `selfcare:journalEntries`/
+    `selfcare:meditations` and `selfcare:seeded: true` but no
+    `selfcare:tabs`/`selfcare:widgets` at all (reproducing the exact
+    reported bug's starting state) now correctly creates and renders all
+    3 tabs and the Self-Care Checklist widget, instead of rendering an
+    empty tab bar.

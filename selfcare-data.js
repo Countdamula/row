@@ -244,8 +244,8 @@
    * every hero-reading function can assume `tab.hero` is always an object —
    * same precedent/rationale as dreamboard-data.js's normalizeTabs(), which
    * documents the exact crash this guards against. Runs once per load,
-   * right after seedIfEmpty(); a no-op on an already-correct or empty
-   * board, so it can never clobber real data. */
+   * automatically, at the bottom of this file; a no-op on an already-
+   * correct or empty board, so it can never clobber real data. */
   function normalizeTabs() {
     const tabs = Tabs.list();
     let changed = false;
@@ -304,14 +304,27 @@
   // database, and a photo gallery — deliberately not a pixel copy, same
   // "loosely mirror, don't copy verbatim" precedent as dreamboard-data.js's
   // own seedDefaultBoard()), plus a Journals tab and a Meditations tab
-  // (both `panel`-mode, no widgets of their own) with their own hero, plus
-  // a small starter set of journal entries/meditations so those two
-  // panels aren't empty on first load either.
+  // (both `panel`-mode, no widgets of their own) with their own hero.
+  //
+  // Split into two independent pieces on purpose, after a real bug: the
+  // first version of this rebuild bundled "create the Tabs/Widgets board"
+  // and "add sample journal/meditation content" into one seedIfEmpty()
+  // check that bailed out entirely the moment ANY collection (including
+  // JournalEntries/Meditations) already had data. For anyone who'd used
+  // this page before this rebuild — real journal entries or meditations
+  // already on their device/in Supabase, but no Tabs/Widgets at all,
+  // since those never existed until now — that meant Tabs were never
+  // created, ever: the tab bar rendered with zero buttons and nothing
+  // else could show, which read as "nothing shows up when I click the
+  // tab" (there was nothing to click). buildDefaultTabsAndWidgets()/
+  // ensureTabsExist() below fix the structural piece (create the Tabs a
+  // pre-existing user is missing) completely independently of whether
+  // real journal/meditation content already exists — the same "backfill
+  // a newly-required field/structure that older records never had"
+  // precedent this app's other pages have hit before (Dream Board's
+  // missing-hero crash, Business Hub's missing-layout/hasTemplates bug).
   // ============================================================
-  function seedDefaultBoard() {
-    Tabs.replaceAll([]);
-    Widgets.replaceAll([]);
-
+  function buildDefaultTabsAndWidgets() {
     const mainTab = Tabs.add({
       title: 'Self-Care', order: 0, panel: '',
       hero: {
@@ -376,6 +389,35 @@
       data: { wide: true, slots: [] }
     });
 
+    return { mainTab: mainTab, journalsTab: journalsTab, meditationsTab: meditationsTab };
+  }
+
+  /** Structural repair only: creates the Tabs (+ default Widgets on the
+   * main tab) if — and only if — none exist yet. Never reads or writes
+   * JournalEntries/Meditations, so it's always safe to call, on every
+   * load, for both a genuinely fresh install and an existing user who
+   * simply never had Tabs before this rebuild. Returns true if it created
+   * anything, false if Tabs already existed (no-op). */
+  function ensureTabsExist() {
+    if (Tabs.list().length > 0) return false;
+    buildDefaultTabsAndWidgets();
+    return true;
+  }
+
+  /** Adds a small starter set of journal entries/meditations — but only
+   * for a genuinely fresh install (nothing in EITHER collection yet).
+   * Guarded by KEYS.seeded so it only ever runs once; deliberately does
+   * NOT check Tabs/Widgets (those are handled separately by
+   * ensureTabsExist() and would otherwise make this permanently skip an
+   * existing user who has real content but is only missing Tabs — the
+   * exact bug this split fixes). Returns true if it added sample content. */
+  function seedSampleContentIfFresh() {
+    if (storeGet(KEYS.seeded)) return false;
+    if (JournalEntries.list().length || Meditations.list().length) {
+      storeSet(KEYS.seeded, true);
+      return false;
+    }
+
     JournalEntries.add({ topic: 'gratitude', title: 'Small things', body: 'Grateful for a slow morning coffee and no meetings before 10am.', date: todayISO(), tags: ['morning'] });
     JournalEntries.add({ topic: 'daily_reflection', title: 'Reset day', body: 'Felt scattered most of the day — noticing I skipped lunch again.', date: addDaysISO(todayISO(), -1), tags: ['work'] });
     JournalEntries.add({ topic: 'emotional_processing', title: 'Naming it', body: 'The knot in my chest before the call was anticipatory anxiety, not dread — helped to name it.', date: addDaysISO(todayISO(), -3), mood: 'anxious', tags: [] });
@@ -385,27 +427,44 @@
     Meditations.add({ title: 'Wind Down for Sleep', description: 'A slow, guided descent into sleep.', url: 'https://example.com/meditations/sleep-wind-down', type: 'sleep', durationMin: 20, tags: ['night'], isFavorite: false, notes: '' });
 
     storeSet(KEYS.seeded, true);
-    return { mainTab: mainTab, journalsTab: journalsTab, meditationsTab: meditationsTab };
+    return true;
   }
 
-  function seedIfEmpty() {
-    if (storeGet(KEYS.seeded)) return;
-    if (Tabs.list().length || Widgets.list().length || JournalEntries.list().length || Meditations.list().length) {
-      storeSet(KEYS.seeded, true);
-      return;
-    }
-    seedDefaultBoard();
+  /** Full reset (the "Reset to Default" button): wipes Tabs/Widgets and
+   * rebuilds them, and always (re-)adds the sample journal/meditation
+   * content regardless of the `seeded` flag — a reset is an explicit,
+   * user-initiated "restore everything to default," not a first-load
+   * heuristic, so it doesn't need seedSampleContentIfFresh()'s
+   * don't-clobber-real-content caution (selfcare.html's resetBoard()
+   * already clears JournalEntries/Meditations itself right before
+   * calling this). */
+  function seedDefaultBoard() {
+    Tabs.replaceAll([]);
+    Widgets.replaceAll([]);
+    buildDefaultTabsAndWidgets();
+
+    JournalEntries.add({ topic: 'gratitude', title: 'Small things', body: 'Grateful for a slow morning coffee and no meetings before 10am.', date: todayISO(), tags: ['morning'] });
+    JournalEntries.add({ topic: 'daily_reflection', title: 'Reset day', body: 'Felt scattered most of the day — noticing I skipped lunch again.', date: addDaysISO(todayISO(), -1), tags: ['work'] });
+    JournalEntries.add({ topic: 'emotional_processing', title: 'Naming it', body: 'The knot in my chest before the call was anticipatory anxiety, not dread — helped to name it.', date: addDaysISO(todayISO(), -3), mood: 'anxious', tags: [] });
+
+    Meditations.add({ title: '10-Minute Body Scan', description: 'A gentle full-body scan for releasing tension.', url: 'https://example.com/meditations/body-scan-10', type: 'body_scan', durationMin: 10, tags: ['relaxation'], isFavorite: true, notes: '' });
+    Meditations.add({ title: 'Box Breathing for Focus', description: '4-4-4-4 breathing to reset before deep work.', url: 'https://example.com/meditations/box-breathing', type: 'breathing', durationMin: 5, tags: ['work', 'quick'], isFavorite: false, notes: '' });
+    Meditations.add({ title: 'Wind Down for Sleep', description: 'A slow, guided descent into sleep.', url: 'https://example.com/meditations/sleep-wind-down', type: 'sleep', durationMin: 20, tags: ['night'], isFavorite: false, notes: '' });
+
+    storeSet(KEYS.seeded, true);
   }
 
-  // seedIfEmpty() is deliberately NOT called automatically here — same
-  // seed-race hazard dreamboard-data.js/business-data.js's own changelog
-  // entries document: seeding synchronously, before initCloudSync()'s
-  // cloud pull has a real chance to land, can push a freshly-seeded
-  // "default" board to Supabase and clobber another device's real data.
-  // selfcare.html calls seedIfEmpty() itself, only as a fallback after
-  // giving the cloud pull a real window first. normalizeTabs() stays
-  // automatic — it only backfills fields on records that already exist,
-  // so it's a no-op on empty storage and can't clobber anything.
+  // ensureTabsExist()/seedSampleContentIfFresh() are deliberately NOT
+  // called automatically here — same seed-race hazard dreamboard-data.js/
+  // business-data.js's own changelog entries document: acting before
+  // initCloudSync()'s cloud pull has a real chance to land can push
+  // freshly-created "default" data to Supabase and clobber another
+  // device's real data. selfcare.html calls both itself — eagerly from
+  // initCloudSync's onApplied callback (the moment we actually know
+  // what's real), and again from a timed fallback in case sync is
+  // unavailable or never fires. normalizeTabs() stays automatic — it only
+  // backfills fields on records that already exist, so it's a no-op on
+  // empty storage and can't clobber anything.
   normalizeTabs();
 
   // ============================================================
@@ -437,7 +496,8 @@
     reorderTab: reorderTab,
     entriesByTopic: entriesByTopic,
     seedDefaultBoard: seedDefaultBoard,
-    seedIfEmpty: seedIfEmpty,
+    ensureTabsExist: ensureTabsExist,
+    seedSampleContentIfFresh: seedSampleContentIfFresh,
     normalizeTabs: normalizeTabs
   };
 })(window);

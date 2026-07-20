@@ -1959,17 +1959,25 @@ body::after {
     $('scDayNoteClearBtn').addEventListener('click', function () { $('scDayNoteInput').value = ''; });
     $('scDayNoteSaveBtn').addEventListener('click', saveDayNote);
 
-    // Seeding is deliberately deferred until after the cloud pull has a
-    // real chance to answer — same seed-race hazard/fix as
-    // dreamboard.html/business.html (see selfcare-data.js's own comment).
-    let remoteAppliedOnce = false;
-    function maybeSeedAfterSyncAttempt() {
-      if (remoteAppliedOnce) return;
-      if (SC.Tabs.list().length > 0 || SC.Widgets.list().length > 0 || SC.JournalEntries.list().length > 0 || SC.Meditations.list().length > 0) return;
-      SC.seedIfEmpty();
-      const freshTabs = SC.tabsSorted();
-      activeTabId = (freshTabs[0] || {}).id || null;
-      storeSet(ACTIVE_TAB_KEY, activeTabId);
+    // Repair/seed pass. Two independent pieces, on purpose (see
+    // selfcare-data.js's own comment on the bug this fixes): creating the
+    // Tabs a pre-existing user is missing (ensureTabsExist() — safe any
+    // time, never touches Journal/Meditation data) is NOT the same
+    // decision as adding fake sample journal/meditation content
+    // (seedSampleContentIfFresh() — only for a genuinely empty install,
+    // still deferred behind the cloud pull so it can't fabricate content
+    // over real data that just hasn't arrived yet). Both are called from
+    // onApplied (the moment we actually know what's real from the cloud)
+    // and again from a timed fallback, in case sync is unavailable or
+    // never resolves (e.g. no remote row exists yet at all).
+    function repairAndRerender() {
+      const createdTabs = SC.ensureTabsExist();
+      const seededSamples = SC.seedSampleContentIfFresh();
+      if (createdTabs || seededSamples) {
+        const freshTabs = SC.tabsSorted();
+        if (!freshTabs.find(function (t) { return t.id === activeTabId; })) activeTabId = (freshTabs[0] || {}).id || null;
+        storeSet(ACTIVE_TAB_KEY, activeTabId);
+      }
       renderHero();
       renderTabs();
       renderActivePanel();
@@ -1980,18 +1988,13 @@ body::after {
         appKey: 'selfcare',
         syncedPrefixes: ['selfcare:'],
         onApplied: function () {
-          remoteAppliedOnce = true;
           SC.normalizeTabs();
-          const tabs2 = SC.tabsSorted();
-          if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
-          renderHero();
-          renderTabs();
-          renderActivePanel();
+          repairAndRerender();
         }
       });
-      if (tabs.length === 0) setTimeout(maybeSeedAfterSyncAttempt, 5000);
+      if (tabs.length === 0) setTimeout(repairAndRerender, 5000);
     } else if (tabs.length === 0) {
-      maybeSeedAfterSyncAttempt();
+      repairAndRerender();
     }
   }
 
