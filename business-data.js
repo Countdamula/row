@@ -398,12 +398,25 @@
     const remaining = Tabs.list();
     let changed = false;
     const patched = remaining.map(function (t) {
-      if (t.layout === 'content' || t.layout === 'platforms' || t.layout === 'freeform') return t;
-      changed = true;
-      let layout = 'freeform';
-      if (t.title === 'Content') layout = 'content';
-      else if (t.title === 'Platforms') layout = 'platforms';
-      return Object.assign({}, t, { layout: layout });
+      let next = t;
+      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'freeform')) {
+        let layout = 'freeform';
+        if (next.title === 'Content') layout = 'content';
+        else if (next.title === 'Platforms') layout = 'platforms';
+        next = Object.assign({}, next, { layout: layout });
+        changed = true;
+      }
+      // Resources is the one tab the Workflow Templates/Tasks section is
+      // gated on (`hasTemplates`) — a stale remote pull predating that
+      // feature (or predating `hasTemplates` even existing) can overwrite
+      // an already-correct local copy with one where it's false/missing,
+      // silently hiding the whole section with no error. Unlike `layout`
+      // above, nothing ever re-asserted this one, so it never healed.
+      if (next.title === 'Resources' && !next.hasTemplates) {
+        next = Object.assign({}, next, { hasTemplates: true });
+        changed = true;
+      }
+      return next;
     });
     if (changed) Tabs.replaceAll(patched);
 

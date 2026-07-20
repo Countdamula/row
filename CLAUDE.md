@@ -4591,3 +4591,46 @@ between this app and either data loss or a wide-open write target:
     Page blocks modal all present, zero JS errors) — this change cannot
     have introduced a new regression, whatever the actual root cause of
     the report turns out to be.
+
+- **Root cause found and fixed: `hasTemplates` was never re-asserted by
+  `normalizeStoredData()`, so a stale value silently hid the whole
+  Workflow Templates/Tasks section with no error.** Asking the user a
+  single targeted question ("Resources loads fine, but no Workflow
+  Templates/Tasks section") immediately pointed at the one boolean that
+  section is gated on — `renderActiveTabContent()`/`renderWorkflow()`
+  both check `t.hasTemplates` before showing `#bhTemplatesSection` at
+  all. `normalizeStoredData()`'s existing `layout` backfill only ever
+  ran on a tab missing a *valid* `layout` — a tab that already had one
+  (which every real tab does, having already been through the earlier
+  `layout` migration) returned unchanged from that function, `hasTemplates`
+  untouched, no matter what value it actually held. Nothing else in this
+  file ever re-asserted it either. A tab's `hasTemplates` can regress to
+  false/missing the same way `layout` once could: a stale Supabase pull
+  (from before `hasTemplates` existed, or from before the Workflow
+  feature was added to Resources) applies via `sync.js`'s `applyRemote()`
+  as a raw whole-array overwrite of `business:tabs`, and `onApplied`'s
+  call to `normalizeStoredData()` had nothing in it to catch this
+  specific field the way it already catches `layout`.
+  - **Fix**: `normalizeStoredData()` restructured to check `hasTemplates`
+    independently of the `layout` branch (previously an early-return
+    made the two mutually exclusive per tab) — any tab titled "Resources"
+    without `hasTemplates: true` gets it backfilled; every other tab is
+    left alone (this only ever *adds* the flag to the one tab that's
+    always supposed to have it, never removes it from anywhere, so it
+    can't accidentally grant Templates to Content/Ideas/Platforms).
+    Bumped to `business-data.js?v=8`.
+  - **Verified** against the exact reported symptom: seeded a Resources
+    tab with `hasTemplates: false` (otherwise fully current-shape —
+    correct `layout`, real weeks/days) and confirmed it now gets
+    backfilled to `true` on load, the Templates section becomes visible,
+    its week/day renders, and the Tasks list is present — while
+    confirming Content's `hasTemplates` correctly stayed `false` (the
+    fix is scoped to Resources only, not a blanket "always true").
+  - This is the same *shape* of bug as the two schema-migration fixes
+    earlier in this file (a newly-added field or a changed field's valid
+    values not being backfilled on already-existing records) — worth
+    remembering as a standing pattern for this page specifically: any
+    field this app starts relying on for a rendering decision needs an
+    explicit backfill in `normalizeStoredData()`, not just a default in
+    the model function, since `list()`/`get()` bypass the model and a
+    stale cloud pull can reintroduce the old value at any time.
