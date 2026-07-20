@@ -35,6 +35,7 @@ Vercel's static server) — see README.md.
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
+| `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -184,6 +185,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
+   | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -222,6 +224,7 @@ using `sync.js`.
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
+| AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -4634,3 +4637,116 @@ between this app and either data loss or a wide-open write target:
     explicit backfill in `normalizeStoredData()`, not just a default in
     the model function, since `list()`/`get()` bypass the model and a
     stale cloud pull can reintroduce the old value at any time.
+
+- **New page: `aitech.html` ("AI & Tech"), built to match Business Hub's
+  and Dream Board's aesthetic, with a Notion-like gallery database of AI
+  models and a second database of prompts tied to each model.** Per an
+  explicit request with a reference photo (a dark, glassy feature-card
+  grid) asking for the same look as those two pages. Genuinely new file,
+  plus a new companion data file, `aitech-data.js` — new nav pill
+  (`AI & TECH` → `aitech.html`, appended after `BUSINESS` in `topbar.js`'s
+  injected pill list — the only edit made to `topbar.js`, same
+  one-line-addition precedent every prior page addition followed); new
+  sync key (`appKey: 'aitech'`, `syncedPrefixes: ['aitech:']`, wired via
+  the standard shared `initCloudSync` — same call pattern as every other
+  page, nothing new invented).
+  - **Palette/component reuse, not reinvention**: `:root` token *values*
+    (`--at-bg`/`--at-gold`/`--at-gold-bright`/`--at-hairline`/etc.) are
+    copied verbatim from `business.html`'s own `--bh-*` tokens — the
+    same "explicit reference-photo/aesthetic-match instruction" exception
+    category as Dream Board/Business Hub's own dark cinematic theme
+    (CLAUDE.md §6/DO NOT MODIFY rule 2), just under this file's own
+    prefix since there's no shared stylesheet to import (no build step —
+    see §1). The card chassis (`.at-card`) is the same frosted-glass
+    recipe as Business Hub's `.bw-card`/Dream Board's `.dw-card`
+    (`background: rgba(255,255,255,0.08)` + `backdrop-filter: blur(22px)
+    saturate(1.6)`), with the same numbered index + drag-handle +
+    hover-reveal action row in the card header, and cards are
+    drag-reorderable via the same SortableJS CDN dependency and
+    `handle: '.at-drag-handle'` pattern as Business Hub's
+    `wireSectionSortable()`. The hero banner (sunburst-free eyebrow/
+    italic-serif-title/subtext/pill-CTA/cover-photo recipe) is the same
+    shape/behavior as Business Hub's per-tab hero, just a single global
+    instance (`aitech:hero`) since this page has no tabs.
+  - **Two genuinely separate "databases," never merged into one list** —
+    same precedent as `business.html`'s Platform/Content Plan/Useful
+    Resources split: **AI Models** (`aitech:models` — `id, name, icon,
+    cover, category, status, rating, description, url, tags[], order,
+    createdAt`) is a Notion-like gallery: a cover photo (upload or paste
+    URL, compressed via the same canvas-downscale recipe every other page
+    uses) or an emoji-icon fallback on a gold gradient tile, a status
+    badge (Active/Trial/Deprecated, colored via the existing `--success`/
+    `--warning`/`--danger` tokens — no new hues), a category chip (one of
+    nine fixed categories), a click-to-set 5-star rating, a description,
+    tag chips, and an "Open ↗" link (disabled via `aria-disabled` when
+    the URL doesn't pass the same `isValidMediaUrl()` http(s)-only check
+    every other link field in this app already uses). Filterable by
+    category chip row, an Active/All status toggle (defaulting to **All**
+    — a deliberate call, since "a gallery of all of the AI models I use"
+    reads as show-everything-by-default, not hide-inactive-by-default),
+    and a title search box. **Prompts** (`aitech:prompts` — `id,
+    modelId, title, body, tags[], favorite, order, createdAt`) is tied to
+    an individual model via a nullable `modelId` — filterable by a
+    per-model chip row (built dynamically from the live Models list, plus
+    an "Unlinked" chip that only appears once at least one prompt has no
+    model), a "★ Favorites only" toggle, and a title+body search box.
+    Each prompt card shows the linked model as a colored tag (hashed to a
+    consistent color per model name, the same `tagColor()`-style
+    technique `business.html` already uses for its content-card tags), a
+    monospace preview of the prompt body (clamped with a "Show more/less"
+    toggle past 160 characters), tag chips, and a "📋 Copy" button
+    (`navigator.clipboard.writeText`, with a brief "✓ Copied" state) —
+    the concrete "copy-ready" part of the request. Clicking a Model
+    card's "N prompts →" link jumps straight to the Prompts section
+    pre-filtered to that model, the same "click through to the filtered
+    other database" precedent `business.html`'s Workflow-day "→ Tasks"
+    link already established.
+  - **Deleting a model does not cascade-delete its prompts** — it nulls
+    out `modelId` back to "Unlinked" instead, the same null-out-the-
+    reference precedent `household-data.js`'s legion deletion and
+    `business-data.js`'s week/day deletion already established (a prompt
+    is still useful even if the model it was written for gets removed
+    from the roster).
+  - **Add/Edit modals** (`#atModelModalBg`/`#atPromptModalBg`, the plain
+    `.modal-bg`/`.modal` classes — already covered by `topbar.js`'s
+    existing `MODAL_SELECTORS`, no `topbar.js` CSS/JS edit needed) cover
+    every field, plus a Delete-with-confirm action from inside the modal
+    (mirroring every other CRUD modal in this app). Tags are added by
+    typing + Enter into a small input, removed via a chip's own ×,
+    same interaction as e.g. `business.html`'s content-card tags.
+  - **Seed data** (`seedDefaultData()`, guarded by `aitech:seeded`, same
+    empty-storage seed-race safety window as `dreamboard.html`/
+    `business.html`'s `maybeSeedAfterSyncAttempt()` — seeding
+    synchronously before `initCloudSync()`'s cloud pull gets a real
+    chance to land could push a freshly-seeded "default" set to Supabase
+    and clobber another device's real data) ships with 9 realistic
+    models (Claude, ChatGPT, Gemini, Perplexity, GitHub Copilot,
+    Midjourney, Runway, ElevenLabs, Notion AI — spanning Active/Trial/
+    Deprecated statuses and most of the fixed category list) and 10
+    prompts distributed across several of them, so the page demonstrates
+    both databases and their cross-linking without being empty on first
+    load.
+  - **Verified in headless Edge** (`--host-resolver-rules="MAP
+    jomlmvslzsmmzgjnqvbm.supabase.co 0.0.0.0"`, armed before navigation,
+    per this file's established testing convention — this run additionally
+    hit the already-documented "unquoted `--host-resolver-rules` value
+    gets mis-split by PowerShell's `Start-Process -ArgumentList`" pitfall
+    from `business.html`'s own changelog and was fixed the same way, by
+    keeping the flag+value as one array element): a `--dump-dom` pass
+    confirmed all 9 seeded models and 10 seeded prompts render with
+    correct status badges, category/model chips, star ratings, and tag
+    colors, and that the seed-race-safety path actually fires (Supabase
+    blocked, so the page falls back to `seedIfEmpty()` after its wait
+    window instead of staying empty); a full-page screenshot confirmed
+    the visual result reads as a clear match to Business Hub/Dream
+    Board's frosted-glass/gold aesthetic; and every `$('id')` reference
+    in the script was cross-matched against the HTML's actual element
+    ids (all 55 resolved, none orphaned) as a static check on the modal
+    wiring, since this environment's headless Edge could not be driven
+    interactively via a live CDP session this round either (the
+    `--remote-debugging-port` handshake did not come up in time) — the
+    same disclosed interactive-testing gap several other pages' changelog
+    entries in this file already note for this environment. A real
+    click-through (opening the Add Model/Add Prompt modals, dragging a
+    card, toggling a favorite/rating) is still recommended before relying
+    on this page heavily.

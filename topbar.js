@@ -187,6 +187,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">BUSINESS</span>
   </a>
+  <a href="aitech.html" class="topbar-pill" id="topbarAiTech">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">AI &amp; TECH</span>
+  </a>
 </header>
 `;
 

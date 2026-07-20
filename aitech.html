@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>AI &amp; Tech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="aitech-data.js" defer></script>
+<style>
+/* =============================================================
+   AI & Tech — same dark, cinematic "destination photographer" theme as
+   Business Hub / Dream Board (near-black + warm champagne/gold, italic
+   serif display type, frosted-glass cards, a full-bleed hero). Same
+   category of one-off palette exception as those pages (CLAUDE.md
+   §6/DO NOT MODIFY rule 2) — token VALUES copied verbatim from
+   business.html's own :root (an explicit "match this page's aesthetic"
+   request), scoped entirely to this file.
+
+   Two genuinely separate databases (never merged into one list, same
+   precedent as business.html's Platform/Content Plan/Useful Resources
+   split): AI Models (a Notion-like gallery) and Prompts (tied to a model
+   via modelId, nullable).
+   ============================================================= */
+:root {
+  --at-bg: #0b0a08;
+  --at-bg-deep: #050403;
+  --at-paper: rgba(255, 255, 255, 0.045);
+  --at-paper-solid: #16130f;
+  --at-gold: #c9a876;
+  --at-gold-bright: #e8cf9f;
+  --at-text: #f5f1e9;
+  --at-text-dim: rgba(245, 241, 233, 0.68);
+  --at-text-mute: rgba(245, 241, 233, 0.44);
+  --at-hairline: rgba(201, 168, 118, 0.22);
+  --at-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--at-bg-deep); color: var(--at-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--at-gold-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { padding: 0 16px; }
+
+.at-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  color: var(--at-text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+}
+.at-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--at-text); }
+
+.at-hero {
+  position: relative; min-height: 340px; display: flex; align-items: flex-end;
+  padding: 70px 24px 34px; overflow: hidden;
+}
+.at-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--at-paper-solid); }
+.at-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.at-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1;
+}
+.at-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.5); border: 1px dashed var(--at-hairline); color: var(--at-text-mute);
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.at-hero-photo-choice-btn:hover { color: var(--at-gold-bright); border-color: var(--at-gold); }
+.at-hero-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(5,4,3,0.15) 0%, rgba(5,4,3,0.55) 60%, rgba(5,4,3,0.92) 100%);
+}
+.at-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px;
+}
+.at-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; color: var(--at-text-dim);
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; cursor: pointer;
+}
+.at-hero-photo-tools button:hover { color: var(--at-gold-bright); border-color: var(--at-gold); }
+.at-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.at-hero-eyebrow {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--at-gold); margin-bottom: 12px; outline-offset: 3px;
+}
+.at-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--at-gold); margin-right: 10px; vertical-align: middle; }
+.at-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(30px, 6vw, 48px);
+  line-height: 1.08; color: var(--at-text); outline-offset: 4px; margin-bottom: 12px;
+}
+.at-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.at-hero-subtext {
+  font-size: 14.5px; line-height: 1.55; color: var(--at-text-dim); max-width: 480px; margin-bottom: 20px; outline-offset: 3px;
+}
+.at-hero-cta {
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--at-hairline); border-radius: 999px; padding: 10px 18px; cursor: pointer;
+}
+.at-hero-cta:hover { border-color: var(--at-gold); background: rgba(201,168,118,0.10); }
+.at-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--at-text); }
+.at-hero-cta-arrow { color: var(--at-gold-bright); font-size: 13px; }
+
+.at-toolbar-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 18px 0 26px;
+}
+.at-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--at-text-mute); display: flex; align-items: center; gap: 5px; margin-right: auto; }
+.at-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--at-text-mute); flex-shrink: 0; }
+.at-sync-status.is-saved .at-sync-status-dot { background: var(--success); }
+.at-sync-status.is-saved { color: var(--at-text-dim); }
+.at-sync-status.is-error, .at-sync-status.is-offline { color: var(--danger); }
+.at-sync-status.is-error .at-sync-status-dot, .at-sync-status.is-offline .at-sync-status-dot { background: var(--danger); animation: at-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes at-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.at-btn-primary, .at-btn-secondary, .at-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer;
+}
+.at-btn-primary { background: linear-gradient(180deg, var(--at-gold-bright) 0%, var(--at-gold) 100%); color: #24190c; border: 1px solid var(--at-gold); }
+.at-btn-primary:hover { opacity: 0.9; }
+.at-btn-secondary { background: var(--at-paper); color: var(--at-text-dim); border: 1px solid var(--at-hairline); }
+.at-btn-secondary:hover { color: var(--at-gold-bright); border-color: var(--at-gold); }
+.at-btn-ghost { background: transparent; color: var(--at-text-mute); border: 1px solid var(--at-hairline); }
+.at-btn-ghost:hover { color: var(--at-text); border-color: var(--at-text-mute); }
+
+/* ===== Section chassis (each "database") ===== */
+.at-section { margin-bottom: 40px; }
+.at-section + .at-section { padding-top: 32px; border-top: 1px solid var(--at-hairline); }
+.at-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.at-section-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.at-section-title { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--at-text); }
+.at-section-sub { font-size: 12px; color: var(--at-text-mute); }
+.at-section-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.at-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 18px; }
+.at-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.at-chip { background: var(--at-paper); border: 1px solid var(--at-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--at-text-mute); cursor: pointer; }
+.at-chip:hover { color: var(--at-text); }
+.at-chip.active { background: var(--at-accent-tint); color: var(--at-gold-bright); border-color: var(--at-gold); }
+.at-search-input {
+  flex: 1; min-width: 160px; max-width: 260px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--at-hairline); border-radius: 999px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--at-text);
+}
+.at-grid-empty { grid-column: 1 / -1; font-size: 12px; color: var(--at-text-mute); font-style: italic; padding: 10px 2px; }
+
+/* ===== Card chassis — identical frosted-glass technique to Business
+   Hub's .bw-card / Dream Board's .dw-card. ===== */
+.at-card {
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 16px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column;
+}
+.at-card-ghost { opacity: 0.4; border: 1px dashed var(--at-gold); background: rgba(201,168,118,0.12); }
+.sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.at-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.at-card-index { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--at-gold); }
+.at-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.at-card:hover .at-card-hover-actions, .at-card:focus-within .at-card-hover-actions { opacity: 1; }
+.at-drag-handle { flex-shrink: 0; cursor: grab; color: var(--at-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.at-drag-handle:active { cursor: grabbing; }
+.at-card-edit, .at-card-del, .at-card-fav { background: transparent; border: none; color: var(--at-text-mute); font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.at-card-edit:hover { color: var(--at-gold-bright); background: var(--at-accent-tint); }
+.at-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.at-card-fav.is-fav { color: var(--warning); }
+.at-card-fav:hover { color: var(--warning); }
+
+/* ===== Model gallery card ===== */
+.at-model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.at-model-cover { position: relative; aspect-ratio: 16 / 10; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 10px; background: linear-gradient(135deg, var(--at-gold) 0%, var(--at-gold-bright) 100%); display: flex; align-items: center; justify-content: center; font-size: 40px; color: #24190c; }
+.at-model-cover img { width: 100%; height: 100%; object-fit: cover; }
+.at-model-status-badge { position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: rgba(5,4,3,0.55); backdrop-filter: blur(4px); }
+.at-model-status-badge.is-active { color: var(--success); }
+.at-model-status-badge.is-trial { color: var(--warning); }
+.at-model-status-badge.is-deprecated { color: var(--danger); }
+.at-model-name { font-family: var(--font-serif); font-weight: 600; font-size: 19px; color: var(--at-text); margin-bottom: 4px; word-break: break-word; }
+.at-model-meta-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.at-model-category { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--at-gold-bright); background: var(--at-accent-tint); border-radius: 999px; padding: 3px 9px; }
+.at-model-stars { display: inline-flex; gap: 1px; }
+.at-model-stars button { background: none; border: none; padding: 0; cursor: pointer; font-size: 13px; color: var(--at-text-mute); line-height: 1; }
+.at-model-stars button.is-filled { color: var(--at-gold-bright); }
+.at-model-desc { font-size: 12.5px; line-height: 1.5; color: var(--at-text-dim); margin-bottom: 10px; flex: 1; }
+.at-model-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.at-model-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--at-text-dim); border: 1px solid var(--at-hairline); }
+.at-model-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.at-model-open-btn { background: transparent; border: 1px solid var(--at-hairline); color: var(--at-gold-bright); border-radius: 999px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.at-model-open-btn:hover { border-color: var(--at-gold); background: var(--at-accent-tint); }
+.at-model-open-btn[aria-disabled="true"] { opacity: 0.35; pointer-events: none; }
+.at-model-prompt-link { background: none; border: none; color: var(--at-text-mute); font-size: 11px; font-weight: 600; cursor: pointer; }
+.at-model-prompt-link:hover { color: var(--at-gold-bright); }
+
+/* ===== Prompt card ===== */
+.at-prompt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.at-prompt-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.at-prompt-title { font-family: var(--font-serif); font-weight: 600; font-size: 17px; color: var(--at-text); word-break: break-word; }
+.at-prompt-model-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-bottom: 10px; align-self: flex-start; }
+.at-prompt-model-tag.is-unlinked { background: rgba(245,241,233,0.08); color: var(--at-text-mute); border: 1px dashed var(--at-hairline); }
+.at-prompt-body { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: var(--at-text-dim); background: rgba(0,0,0,0.22); border: 1px solid var(--at-hairline); border-radius: var(--radius-sm); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; margin-bottom: 10px; max-height: 84px; overflow: hidden; position: relative; }
+.at-prompt-body.is-expanded { max-height: none; }
+.at-prompt-expand-btn { background: none; border: none; color: var(--at-gold-bright); font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; margin-bottom: 10px; align-self: flex-start; }
+.at-prompt-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.at-prompt-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.at-prompt-copy-btn { background: var(--at-accent-tint); border: 1px solid var(--at-hairline); color: var(--at-gold-bright); border-radius: 999px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.at-prompt-copy-btn:hover { border-color: var(--at-gold); }
+.at-prompt-copy-btn.is-copied { color: var(--success); border-color: var(--success); background: rgba(107,227,164,0.12); }
+
+/* ===== Modals ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: rgba(20, 17, 13, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.at-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.at-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--at-text); }
+.at-modal-close { background: transparent; border: none; font-size: 18px; color: var(--at-text-mute); cursor: pointer; }
+.at-modal-close:hover { color: var(--at-text); }
+.at-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--at-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--at-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--at-text); }
+.field textarea { resize: vertical; min-height: 90px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; }
+.field-inline { display: flex; align-items: center; gap: 8px; }
+.field-inline input[type="checkbox"] { width: auto; }
+.at-modal-stars { display: inline-flex; gap: 4px; }
+.at-modal-stars button { background: none; border: none; padding: 0; cursor: pointer; font-size: 20px; color: var(--at-text-mute); line-height: 1; }
+.at-modal-stars button.is-filled { color: var(--at-gold-bright); }
+.at-cover-preview { aspect-ratio: 16 / 10; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--at-hairline); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; color: var(--at-text-mute); font-size: 12px; }
+.at-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.at-tag-input-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.at-tag-input-row .at-model-tag button, .at-tag-editable button { background: none; border: none; color: inherit; opacity: 0.65; cursor: pointer; font-size: 10px; padding: 0 0 0 4px; }
+.delete-link { display: block; text-align: center; margin-top: 14px; font-size: 12px; color: var(--danger); cursor: pointer; }
+.delete-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="at-hero" id="atHero">
+    <div class="at-hero-media" id="atHeroMedia">
+      <img id="atHeroPhotoImg" style="display:none;" alt="">
+      <div class="at-hero-photo-choice" id="atHeroPhotoChoice">
+        <button type="button" class="at-hero-photo-choice-btn" id="atHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="at-hero-overlay"></div>
+    <a href="index.html" class="at-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="at-hero-photo-tools" id="atHeroPhotoTools" style="display:none;">
+      <button type="button" id="atHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="atHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="atHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="at-hero-content">
+      <div class="at-hero-eyebrow" id="atHeroEyebrow" contenteditable="true"></div>
+      <textarea class="at-hero-title" id="atHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="at-hero-subtext" id="atHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="at-hero-cta" id="atHeroCta">
+        <span class="at-hero-cta-label" id="atHeroCtaLabel" contenteditable="true"></span>
+        <span class="at-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="shell-inner">
+    <div class="at-toolbar-row">
+      <span class="at-sync-status" id="atSyncStatus"></span>
+      <button type="button" class="at-btn-ghost" id="atResetBtn">Reset to Default</button>
+    </div>
+
+    <div class="at-section" id="atModelsSection">
+      <div class="at-section-head">
+        <div class="at-section-title-wrap">
+          <div class="at-section-title">AI Models</div>
+          <div class="at-section-sub">Every AI model or tool currently in rotation.</div>
+        </div>
+        <div class="at-section-actions">
+          <button type="button" class="at-btn-primary" id="atAddModelBtn">+ Add Model</button>
+        </div>
+      </div>
+      <div class="at-filter-row">
+        <div class="at-chip-row" id="atModelCategoryChips"></div>
+        <div class="at-chip-row" id="atModelStatusChips">
+          <button type="button" class="at-chip" data-filter="active">Active</button>
+          <button type="button" class="at-chip active" data-filter="all">All</button>
+        </div>
+        <input type="text" class="at-search-input" id="atModelSearchInput" placeholder="Search models…">
+      </div>
+      <div class="at-model-grid" id="atModelGrid"></div>
+    </div>
+
+    <div class="at-section" id="atPromptsSection">
+      <div class="at-section-head">
+        <div class="at-section-title-wrap">
+          <div class="at-section-title">Prompts</div>
+          <div class="at-section-sub">Prompts tailored to each model — copy-ready.</div>
+        </div>
+        <div class="at-section-actions">
+          <button type="button" class="at-btn-primary" id="atAddPromptBtn">+ Add Prompt</button>
+        </div>
+      </div>
+      <div class="at-filter-row">
+        <div class="at-chip-row" id="atPromptModelChips"></div>
+        <div class="at-chip-row">
+          <button type="button" class="at-chip" id="atPromptFavChip">★ Favorites only</button>
+        </div>
+        <input type="text" class="at-search-input" id="atPromptSearchInput" placeholder="Search prompts…">
+      </div>
+      <div class="at-prompt-grid" id="atPromptGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="atModelModalBg">
+  <div class="modal">
+    <div class="at-modal-head"><h3 id="atModelModalTitle">Add Model</h3><button type="button" class="at-modal-close" id="atModelModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="at-cover-preview" id="atModelCoverPreview">No cover</div>
+    <div class="field"><label>Cover photo — upload</label><input type="file" id="atModelCoverFileInput" accept="image/*"></div>
+    <div class="field"><label>— or paste a URL</label><input type="text" id="atModelCoverUrlInput" placeholder="https://…"></div>
+    <div class="field"><label>Icon (emoji, shown if no cover)</label><input type="text" id="atModelIconInput" maxlength="4" placeholder="🤖"></div>
+    <div class="field"><label>Name</label><input type="text" id="atModelNameInput" placeholder="e.g. Claude"></div>
+    <div class="field"><label>Category</label><select id="atModelCategoryInput"></select></div>
+    <div class="field"><label>Status</label><select id="atModelStatusInput"></select></div>
+    <div class="field"><label>Rating</label><div class="at-modal-stars" id="atModelRatingStars"></div></div>
+    <div class="field"><label>Description</label><textarea id="atModelDescInput" style="font-family:var(--font);font-size:13.5px;min-height:70px;" placeholder="What it's used for…"></textarea></div>
+    <div class="field"><label>URL</label><input type="text" id="atModelUrlInput" placeholder="https://…"></div>
+    <div class="field"><label>Tags</label>
+      <div class="at-tag-input-row" id="atModelTagRow"></div>
+      <input type="text" id="atModelTagInput" placeholder="Type a tag and press Enter…">
+    </div>
+    <div class="at-modal-actions">
+      <button type="button" class="at-btn-ghost" id="atModelModalCancel">Cancel</button>
+      <button type="button" class="at-btn-primary" id="atModelModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="atModelModalDelete" style="display:none;">Delete this model</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="atPromptModalBg">
+  <div class="modal">
+    <div class="at-modal-head"><h3 id="atPromptModalTitle">Add Prompt</h3><button type="button" class="at-modal-close" id="atPromptModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="atPromptTitleInput" placeholder="e.g. Code Review Pass"></div>
+    <div class="field"><label>Model</label><select id="atPromptModelInput"></select></div>
+    <div class="field"><label>Prompt</label><textarea id="atPromptBodyInput" placeholder="Write the prompt…"></textarea></div>
+    <div class="field"><label>Tags</label>
+      <div class="at-tag-input-row" id="atPromptTagRow"></div>
+      <input type="text" id="atPromptTagInput" placeholder="Type a tag and press Enter…">
+    </div>
+    <div class="field field-inline"><input type="checkbox" id="atPromptFavoriteInput"><label style="margin:0;">Favorite</label></div>
+    <div class="at-modal-actions">
+      <button type="button" class="at-btn-ghost" id="atPromptModalCancel">Cancel</button>
+      <button type="button" class="at-btn-primary" id="atPromptModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="atPromptModalDelete" style="display:none;">Delete this prompt</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  let DB = null;
+  let sortableInstances = [];
+  let editingModelId = null;
+  let editingModelTags = [];
+  let editingModelRating = 0;
+  let editingPromptId = null;
+  let editingPromptTags = [];
+  let expandedPromptIds = {};
+
+  // Transient, in-memory-only filter state — same precedent as this app's
+  // other in-memory view filters (e.g. Media's gallery chips).
+  let modelCategoryFilter = 'all';
+  let modelStatusFilter = 'all';
+  let modelSearch = '';
+  let promptModelFilter = 'all';
+  let promptFavOnly = false;
+  let promptSearch = '';
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // ============================================================
+  // SYNC STATUS — same pattern as business.html's handleSaveEvent.
+  // ============================================================
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('atSyncStatus');
+    if (!el) return;
+    el.className = 'at-sync-status' + (mode ? ' is-' + mode : '');
+    el.textContent = '';
+    const dot = document.createElement('span'); dot.className = 'at-sync-status-dot';
+    const label = document.createElement('span'); label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Couldn't save — your browser's storage may be full."); return; }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+
+  // ============================================================
+  // HERO — same shape/behavior as business.html's per-tab hero, just a
+  // single global instance since this page has no tabs.
+  // ============================================================
+  function renderPageBg() {}
+  function renderHero() {
+    const hero = DB.getHero();
+    $('atHeroEyebrow').textContent = hero.eyebrow;
+    $('atHeroTitle').value = hero.title;
+    $('atHeroSubtext').textContent = hero.subtext;
+    $('atHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+    autosize($('atHeroTitle'));
+    const img = $('atHeroPhotoImg'), choice = $('atHeroPhotoChoice'), tools = $('atHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+  }
+  function openHeroFilePicker() { $('atHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        DB.saveHero({ photo: compressed });
+        renderHero();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // TAG HELPERS — shared render/wire pattern for both modals' tag rows.
+  // ============================================================
+  function renderTagRow(containerEl, tags, onRemove) {
+    containerEl.innerHTML = '';
+    tags.forEach(function (tag) {
+      const chip = document.createElement('span'); chip.className = 'at-model-tag';
+      const txt = document.createElement('span'); txt.textContent = tag; chip.appendChild(txt);
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', 'Remove tag');
+      del.addEventListener('click', function () { onRemove(tag); });
+      chip.appendChild(del);
+      containerEl.appendChild(chip);
+    });
+  }
+  function wireTagInput(inputEl, getTags, setTags, renderFn) {
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const val = inputEl.value.trim();
+      if (val && getTags().indexOf(val) === -1) { setTags(getTags().concat([val])); renderFn(); }
+      inputEl.value = '';
+    });
+  }
+  function renderModelTagRow() {
+    renderTagRow($('atModelTagRow'), editingModelTags, function (tag) {
+      editingModelTags = editingModelTags.filter(function (t) { return t !== tag; });
+      renderModelTagRow();
+    });
+  }
+  function renderPromptTagRow() {
+    renderTagRow($('atPromptTagRow'), editingPromptTags, function (tag) {
+      editingPromptTags = editingPromptTags.filter(function (t) { return t !== tag; });
+      renderPromptTagRow();
+    });
+  }
+
+  // ============================================================
+  // MODELS
+  // ============================================================
+  function hashToIndex(str, mod) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return h % mod;
+  }
+  function modelTagColor(name) {
+    const palette = [
+      { bg: 'rgba(107,227,164,0.14)', fg: '#6BE3A4' }, { bg: 'rgba(255,107,107,0.14)', fg: '#FF9B9B' },
+      { bg: 'rgba(125,211,252,0.14)', fg: '#7DD3FC' }, { bg: 'rgba(201,168,118,0.18)', fg: 'var(--at-gold-bright)' },
+      { bg: 'rgba(242,192,99,0.16)', fg: '#F2C063' }, { bg: 'rgba(245,241,233,0.10)', fg: 'var(--at-text-dim)' }
+    ];
+    return palette[hashToIndex(name || '', palette.length)];
+  }
+
+  function filteredModels() {
+    let list = DB.modelsSorted();
+    if (modelStatusFilter === 'active') list = list.filter(function (m) { return m.status === 'Active'; });
+    if (modelCategoryFilter !== 'all') list = list.filter(function (m) { return m.category === modelCategoryFilter; });
+    if (modelSearch) {
+      const q = modelSearch.toLowerCase();
+      list = list.filter(function (m) { return (m.name || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    return list;
+  }
+  function renderModelCategoryChips() {
+    const wrap = $('atModelCategoryChips');
+    wrap.innerHTML = '';
+    const allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'at-chip' + (modelCategoryFilter === 'all' ? ' active' : ''); allBtn.textContent = 'All Categories';
+    allBtn.addEventListener('click', function () { modelCategoryFilter = 'all'; renderModelCategoryChips(); renderModels(); });
+    wrap.appendChild(allBtn);
+    DB.MODEL_CATEGORIES.forEach(function (cat) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'at-chip' + (modelCategoryFilter === cat ? ' active' : ''); btn.textContent = cat;
+      btn.addEventListener('click', function () { modelCategoryFilter = cat; renderModelCategoryChips(); renderModels(); });
+      wrap.appendChild(btn);
+    });
+  }
+  function buildModelCard(model, displayIndex) {
+    const card = document.createElement('div'); card.className = 'at-card'; card.dataset.modelId = model.id;
+    const head = document.createElement('div'); head.className = 'at-card-head';
+    const index = document.createElement('span'); index.className = 'at-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const actions = document.createElement('div'); actions.className = 'at-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'at-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'at-card-edit'; editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    editBtn.addEventListener('click', function () { openModelModal(model.id); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'at-card-del'; delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (model.name || 'this model') + '"? Its prompts will be kept, just unlinked.')) return;
+      DB.Models.remove(model.id); renderModels(); renderPromptModelChips(); renderPrompts();
+    });
+    actions.appendChild(handle); actions.appendChild(editBtn); actions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(actions); card.appendChild(head);
+
+    const cover = document.createElement('div'); cover.className = 'at-model-cover';
+    if (model.cover) { const img = document.createElement('img'); img.src = model.cover; img.alt = ''; cover.appendChild(img); }
+    else { cover.textContent = model.icon || '🤖'; }
+    const badge = document.createElement('span'); badge.className = 'at-model-status-badge is-' + model.status.toLowerCase();
+    badge.textContent = model.status;
+    cover.appendChild(badge);
+    card.appendChild(cover);
+
+    const name = document.createElement('div'); name.className = 'at-model-name'; name.textContent = model.name || 'Untitled';
+    card.appendChild(name);
+
+    const metaRow = document.createElement('div'); metaRow.className = 'at-model-meta-row';
+    const catChip = document.createElement('span'); catChip.className = 'at-model-category'; catChip.textContent = model.category;
+    metaRow.appendChild(catChip);
+    const stars = document.createElement('div'); stars.className = 'at-model-stars';
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement('button'); s.type = 'button'; s.textContent = '★'; s.className = i <= model.rating ? 'is-filled' : '';
+      s.setAttribute('aria-label', 'Rate ' + i);
+      s.addEventListener('click', function () { DB.Models.update(model.id, { rating: model.rating === i ? 0 : i }); renderModels(); });
+      stars.appendChild(s);
+    }
+    metaRow.appendChild(stars);
+    card.appendChild(metaRow);
+
+    if (model.description) {
+      const desc = document.createElement('div'); desc.className = 'at-model-desc'; desc.textContent = model.description;
+      card.appendChild(desc);
+    } else {
+      const spacer = document.createElement('div'); spacer.style.flex = '1'; card.appendChild(spacer);
+    }
+
+    if (model.tags && model.tags.length) {
+      const tagsWrap = document.createElement('div'); tagsWrap.className = 'at-model-tags';
+      model.tags.forEach(function (t) {
+        const c = modelTagColor(t);
+        const chip = document.createElement('span'); chip.className = 'at-model-tag'; chip.style.background = c.bg; chip.style.color = c.fg; chip.style.border = 'none';
+        chip.textContent = t; tagsWrap.appendChild(chip);
+      });
+      card.appendChild(tagsWrap);
+    }
+
+    const footer = document.createElement('div'); footer.className = 'at-model-footer';
+    const openLink = document.createElement('a'); openLink.className = 'at-model-open-btn'; openLink.textContent = 'Open ↗';
+    if (DB.isValidMediaUrl(model.url)) { openLink.href = model.url; openLink.target = '_blank'; openLink.rel = 'noopener'; }
+    else { openLink.href = '#'; openLink.setAttribute('aria-disabled', 'true'); openLink.addEventListener('click', function (e) { e.preventDefault(); }); }
+    footer.appendChild(openLink);
+    const count = DB.promptCountForModel(model.id);
+    const promptLink = document.createElement('button'); promptLink.type = 'button'; promptLink.className = 'at-model-prompt-link';
+    promptLink.textContent = count + (count === 1 ? ' prompt →' : ' prompts →');
+    promptLink.addEventListener('click', function () {
+      promptModelFilter = model.id;
+      renderPromptModelChips(); renderPrompts();
+      $('atPromptsSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+    footer.appendChild(promptLink);
+    card.appendChild(footer);
+
+    return card;
+  }
+  function renderModels() {
+    const grid = $('atModelGrid');
+    const list = filteredModels();
+    grid.innerHTML = '';
+    if (!list.length) { const e = document.createElement('div'); e.className = 'at-grid-empty'; e.textContent = 'No models match this filter.'; grid.appendChild(e); return; }
+    list.forEach(function (m, i) { grid.appendChild(buildModelCard(m, i + 1)); });
+    wireModelSortable();
+  }
+  function wireModelSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sortableInstances.push(new Sortable($('atModelGrid'), {
+      animation: reduced ? 0 : 150, handle: '.at-drag-handle', ghostClass: 'at-card-ghost',
+      onEnd: function () {
+        const ids = Array.from($('atModelGrid').children).map(function (el) { return el.dataset.modelId; }).filter(Boolean);
+        DB.reorderModels(ids); renderModels();
+      }
+    }));
+  }
+
+  function renderModelCategorySelect() {
+    const sel = $('atModelCategoryInput'); sel.innerHTML = '';
+    DB.MODEL_CATEGORIES.forEach(function (c) { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; sel.appendChild(opt); });
+  }
+  function renderModelStatusSelect() {
+    const sel = $('atModelStatusInput'); sel.innerHTML = '';
+    DB.MODEL_STATUSES.forEach(function (s) { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; sel.appendChild(opt); });
+  }
+  function renderModelRatingStars() {
+    const wrap = $('atModelRatingStars'); wrap.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement('button'); s.type = 'button'; s.textContent = '★'; s.className = i <= editingModelRating ? 'is-filled' : '';
+      s.addEventListener('click', function () { editingModelRating = editingModelRating === i ? 0 : i; renderModelRatingStars(); });
+      wrap.appendChild(s);
+    }
+  }
+  function renderModelCoverPreview(url) {
+    const el = $('atModelCoverPreview');
+    el.innerHTML = '';
+    if (url) { const img = document.createElement('img'); img.src = url; el.appendChild(img); }
+    else { el.textContent = 'No cover'; }
+  }
+  function openModelModal(id) {
+    editingModelId = id || null;
+    const m = id ? DB.Models.get(id) : null;
+    $('atModelModalTitle').textContent = id ? 'Edit Model' : 'Add Model';
+    $('atModelNameInput').value = m ? m.name : '';
+    $('atModelIconInput').value = m ? m.icon : '🤖';
+    $('atModelCategoryInput').value = m ? m.category : DB.MODEL_CATEGORIES[0];
+    $('atModelStatusInput').value = m ? m.status : 'Active';
+    $('atModelDescInput').value = m ? m.description : '';
+    $('atModelUrlInput').value = m ? m.url : '';
+    $('atModelCoverUrlInput').value = (m && DB.isValidMediaUrl(m.cover)) ? m.cover : '';
+    renderModelCoverPreview(m ? m.cover : '');
+    editingModelTags = m ? m.tags.slice() : [];
+    editingModelRating = m ? m.rating : 0;
+    renderModelTagRow();
+    renderModelRatingStars();
+    $('atModelModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('atModelModalBg'));
+  }
+  function closeModelModal() { closeModal($('atModelModalBg')); editingModelId = null; }
+  function saveModelModal() {
+    const name = $('atModelNameInput').value.trim();
+    if (!name) { alert('Give this model a name first.'); return; }
+    const coverUrl = $('atModelCoverUrlInput').value.trim();
+    const patch = {
+      name: name,
+      icon: $('atModelIconInput').value.trim() || '🤖',
+      category: $('atModelCategoryInput').value,
+      status: $('atModelStatusInput').value,
+      description: $('atModelDescInput').value.trim(),
+      url: $('atModelUrlInput').value.trim(),
+      tags: editingModelTags,
+      rating: editingModelRating
+    };
+    if (coverUrl) {
+      if (!DB.isValidMediaUrl(coverUrl)) { alert('That cover URL doesn\'t look valid — use a full http(s) link, or leave it blank.'); return; }
+      patch.cover = coverUrl;
+    } else {
+      const preview = $('atModelCoverPreview').querySelector('img');
+      patch.cover = preview ? preview.src : '';
+    }
+    if (editingModelId) DB.Models.update(editingModelId, patch);
+    else DB.Models.add(Object.assign({}, patch, { order: DB.nextOrder(DB.modelsSorted()) }));
+    closeModelModal(); renderModels(); renderModelCategoryChips(); renderPromptModelChips(); renderPrompts();
+  }
+  function deleteModelModal() {
+    if (!editingModelId) return;
+    if (!confirm('Delete this model? Its prompts will be kept, just unlinked.')) return;
+    DB.Models.remove(editingModelId);
+    closeModelModal(); renderModels(); renderModelCategoryChips(); renderPromptModelChips(); renderPrompts();
+  }
+  function handleModelCoverFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 480, 0.82).then(function (compressed) {
+        renderModelCoverPreview(compressed);
+        $('atModelCoverUrlInput').value = '';
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // PROMPTS
+  // ============================================================
+  function filteredPrompts() {
+    let list = DB.promptsSorted();
+    if (promptModelFilter !== 'all') list = list.filter(function (p) { return p.modelId === promptModelFilter; });
+    if (promptFavOnly) list = list.filter(function (p) { return p.favorite; });
+    if (promptSearch) {
+      const q = promptSearch.toLowerCase();
+      list = list.filter(function (p) { return (p.title || '').toLowerCase().indexOf(q) !== -1 || (p.body || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    return list;
+  }
+  function renderPromptModelChips() {
+    const wrap = $('atPromptModelChips');
+    wrap.innerHTML = '';
+    const allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'at-chip' + (promptModelFilter === 'all' ? ' active' : ''); allBtn.textContent = 'All Models';
+    allBtn.addEventListener('click', function () { promptModelFilter = 'all'; renderPromptModelChips(); renderPrompts(); });
+    wrap.appendChild(allBtn);
+    DB.modelsSorted().forEach(function (m) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'at-chip' + (promptModelFilter === m.id ? ' active' : ''); btn.textContent = m.name;
+      btn.addEventListener('click', function () { promptModelFilter = m.id; renderPromptModelChips(); renderPrompts(); });
+      wrap.appendChild(btn);
+    });
+    const unlinkedCount = DB.Prompts.list().filter(function (p) { return !p.modelId; }).length;
+    if (unlinkedCount) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'at-chip' + (promptModelFilter === 'unlinked' ? ' active' : ''); btn.textContent = 'Unlinked';
+      btn.addEventListener('click', function () { promptModelFilter = 'unlinked'; renderPromptModelChips(); renderPrompts(); });
+      wrap.appendChild(btn);
+    }
+  }
+  function buildPromptCard(prompt, displayIndex) {
+    const card = document.createElement('div'); card.className = 'at-card'; card.dataset.promptId = prompt.id;
+    const head = document.createElement('div'); head.className = 'at-card-head';
+    const index = document.createElement('span'); index.className = 'at-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const actions = document.createElement('div'); actions.className = 'at-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'at-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'at-card-fav' + (prompt.favorite ? ' is-fav' : ''); favBtn.textContent = prompt.favorite ? '★' : '☆'; favBtn.setAttribute('aria-label', 'Toggle favorite');
+    favBtn.addEventListener('click', function () { DB.Prompts.update(prompt.id, { favorite: !prompt.favorite }); renderPrompts(); });
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'at-card-edit'; editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    editBtn.addEventListener('click', function () { openPromptModal(prompt.id); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'at-card-del'; delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (prompt.title || 'this prompt') + '"?')) return;
+      DB.Prompts.remove(prompt.id); renderPrompts(); renderModels();
+    });
+    actions.appendChild(handle); actions.appendChild(favBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(actions); card.appendChild(head);
+
+    const titleRow = document.createElement('div'); titleRow.className = 'at-prompt-title-row';
+    const title = document.createElement('div'); title.className = 'at-prompt-title'; title.textContent = prompt.title || 'Untitled prompt';
+    titleRow.appendChild(title); card.appendChild(titleRow);
+
+    const modelName = prompt.modelId ? DB.modelName(prompt.modelId) : null;
+    const modelTag = document.createElement('span');
+    if (modelName) { const c = modelTagColor(modelName); modelTag.className = 'at-prompt-model-tag'; modelTag.style.background = c.bg; modelTag.style.color = c.fg; modelTag.textContent = modelName; }
+    else { modelTag.className = 'at-prompt-model-tag is-unlinked'; modelTag.textContent = 'Unlinked'; }
+    card.appendChild(modelTag);
+
+    const body = document.createElement('div'); body.className = 'at-prompt-body' + (expandedPromptIds[prompt.id] ? ' is-expanded' : '');
+    body.textContent = prompt.body || '';
+    card.appendChild(body);
+    if ((prompt.body || '').length > 160) {
+      const expandBtn = document.createElement('button'); expandBtn.type = 'button'; expandBtn.className = 'at-prompt-expand-btn';
+      expandBtn.textContent = expandedPromptIds[prompt.id] ? 'Show less ▲' : 'Show more ▼';
+      expandBtn.addEventListener('click', function () { expandedPromptIds[prompt.id] = !expandedPromptIds[prompt.id]; renderPrompts(); });
+      card.appendChild(expandBtn);
+    }
+
+    if (prompt.tags && prompt.tags.length) {
+      const tagsWrap = document.createElement('div'); tagsWrap.className = 'at-prompt-tags';
+      prompt.tags.forEach(function (t) {
+        const chip = document.createElement('span'); chip.className = 'at-model-tag'; chip.textContent = t; tagsWrap.appendChild(chip);
+      });
+      card.appendChild(tagsWrap);
+    }
+
+    const footer = document.createElement('div'); footer.className = 'at-prompt-footer';
+    const spacer = document.createElement('span'); footer.appendChild(spacer);
+    const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'at-prompt-copy-btn'; copyBtn.textContent = '📋 Copy';
+    copyBtn.addEventListener('click', function () {
+      const finish = function () { copyBtn.textContent = '✓ Copied'; copyBtn.classList.add('is-copied'); setTimeout(function () { copyBtn.textContent = '📋 Copy'; copyBtn.classList.remove('is-copied'); }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(prompt.body || '').then(finish).catch(finish); }
+      else { finish(); }
+    });
+    footer.appendChild(copyBtn);
+    card.appendChild(footer);
+
+    return card;
+  }
+  function renderPrompts() {
+    const grid = $('atPromptGrid');
+    const list = filteredPrompts();
+    grid.innerHTML = '';
+    if (!list.length) { const e = document.createElement('div'); e.className = 'at-grid-empty'; e.textContent = 'No prompts match this filter.'; grid.appendChild(e); return; }
+    list.forEach(function (p, i) { grid.appendChild(buildPromptCard(p, i + 1)); });
+    wirePromptSortable();
+  }
+  function wirePromptSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sortableInstances.push(new Sortable($('atPromptGrid'), {
+      animation: reduced ? 0 : 150, handle: '.at-drag-handle', ghostClass: 'at-card-ghost',
+      onEnd: function () {
+        const ids = Array.from($('atPromptGrid').children).map(function (el) { return el.dataset.promptId; }).filter(Boolean);
+        DB.reorderPrompts(ids); renderPrompts();
+      }
+    }));
+  }
+
+  function renderPromptModelSelect() {
+    const sel = $('atPromptModelInput'); sel.innerHTML = '';
+    const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '— No model —'; sel.appendChild(noneOpt);
+    DB.modelsSorted().forEach(function (m) { const opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.name; sel.appendChild(opt); });
+  }
+  function openPromptModal(id, presetModelId) {
+    editingPromptId = id || null;
+    const p = id ? DB.Prompts.get(id) : null;
+    $('atPromptModalTitle').textContent = id ? 'Edit Prompt' : 'Add Prompt';
+    $('atPromptTitleInput').value = p ? p.title : '';
+    renderPromptModelSelect();
+    $('atPromptModelInput').value = p ? (p.modelId || '') : (presetModelId || '');
+    $('atPromptBodyInput').value = p ? p.body : '';
+    $('atPromptFavoriteInput').checked = p ? p.favorite : false;
+    editingPromptTags = p ? p.tags.slice() : [];
+    renderPromptTagRow();
+    $('atPromptModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('atPromptModalBg'));
+  }
+  function closePromptModal() { closeModal($('atPromptModalBg')); editingPromptId = null; }
+  function savePromptModal() {
+    const title = $('atPromptTitleInput').value.trim();
+    if (!title) { alert('Give this prompt a title first.'); return; }
+    const patch = {
+      title: title,
+      modelId: $('atPromptModelInput').value || null,
+      body: $('atPromptBodyInput').value,
+      tags: editingPromptTags,
+      favorite: $('atPromptFavoriteInput').checked
+    };
+    if (editingPromptId) DB.Prompts.update(editingPromptId, patch);
+    else DB.Prompts.add(Object.assign({}, patch, { order: DB.nextOrder(DB.promptsSorted()) }));
+    closePromptModal(); renderPrompts(); renderPromptModelChips(); renderModels();
+  }
+  function deletePromptModal() {
+    if (!editingPromptId) return;
+    if (!confirm('Delete this prompt?')) return;
+    DB.Prompts.remove(editingPromptId);
+    closePromptModal(); renderPrompts(); renderModels();
+  }
+
+  function resetAll() {
+    if (!confirm('Reset AI & Tech to its default models and prompts? This deletes everything currently here.')) return;
+    DB.seedDefaultData();
+    renderHero(); renderModelCategoryChips(); renderModels(); renderPromptModelChips(); renderPrompts();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    DB = window.AiTechData;
+    if (!DB) return;
+
+    renderHero();
+    renderModelCategoryChips();
+    renderModelCategorySelect();
+    renderModelStatusSelect();
+    renderModels();
+    renderPromptModelChips();
+    renderPrompts();
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('aitech:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
+
+    wireInlineEdit($('atHeroEyebrow'), function (v) { DB.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('atHeroSubtext'), function (v) { DB.saveHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('atHeroCtaLabel'), function (v) { DB.saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('atHeroTitle').addEventListener('input', function () { autosize($('atHeroTitle')); });
+    $('atHeroTitle').addEventListener('blur', function () { DB.saveHero({ title: $('atHeroTitle').value }); });
+    $('atHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('atHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('atHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); DB.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+    $('atHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+    $('atHeroCta').addEventListener('click', function () {
+      $('atModelsSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('atResetBtn').addEventListener('click', resetAll);
+
+    // Models filter/search wiring
+    document.querySelectorAll('#atModelStatusChips .at-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        modelStatusFilter = chip.dataset.filter;
+        document.querySelectorAll('#atModelStatusChips .at-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
+        renderModels();
+      });
+    });
+    $('atModelSearchInput').addEventListener('input', function () { modelSearch = this.value.trim(); renderModels(); });
+
+    // Models modal wiring
+    $('atAddModelBtn').addEventListener('click', function () { openModelModal(null); });
+    $('atModelModalCloseBtn').addEventListener('click', closeModelModal);
+    $('atModelModalCancel').addEventListener('click', closeModelModal);
+    $('atModelModalBg').addEventListener('click', function (e) { if (e.target === this) closeModelModal(); });
+    $('atModelModalSave').addEventListener('click', saveModelModal);
+    $('atModelModalDelete').addEventListener('click', deleteModelModal);
+    $('atModelCoverFileInput').addEventListener('change', handleModelCoverFile);
+    $('atModelCoverUrlInput').addEventListener('input', function () {
+      const v = this.value.trim();
+      if (v && DB.isValidMediaUrl(v)) renderModelCoverPreview(v);
+      else if (!v) renderModelCoverPreview('');
+    });
+    wireTagInput($('atModelTagInput'), function () { return editingModelTags; }, function (t) { editingModelTags = t; }, renderModelTagRow);
+
+    // Prompts filter/search wiring
+    $('atPromptFavChip').addEventListener('click', function () {
+      promptFavOnly = !promptFavOnly;
+      this.classList.toggle('active', promptFavOnly);
+      renderPrompts();
+    });
+    $('atPromptSearchInput').addEventListener('input', function () { promptSearch = this.value.trim(); renderPrompts(); });
+
+    // Prompts modal wiring
+    $('atAddPromptBtn').addEventListener('click', function () { openPromptModal(null, promptModelFilter !== 'all' && promptModelFilter !== 'unlinked' ? promptModelFilter : null); });
+    $('atPromptModalCloseBtn').addEventListener('click', closePromptModal);
+    $('atPromptModalCancel').addEventListener('click', closePromptModal);
+    $('atPromptModalBg').addEventListener('click', function (e) { if (e.target === this) closePromptModal(); });
+    $('atPromptModalSave').addEventListener('click', savePromptModal);
+    $('atPromptModalDelete').addEventListener('click', deletePromptModal);
+    wireTagInput($('atPromptTagInput'), function () { return editingPromptTags; }, function (t) { editingPromptTags = t; }, renderPromptTagRow);
+
+    // Empty-storage seed-race safety window — same reasoning as
+    // dreamboard.html/business.html's maybeSeedAfterSyncAttempt().
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Models.list().length > 0 || DB.Prompts.list().length > 0) return;
+      DB.seedIfEmpty();
+      renderHero(); renderModelCategoryChips(); renderModels(); renderPromptModelChips(); renderPrompts();
+    }
+
+    const startedEmpty = DB.Models.list().length === 0 && DB.Prompts.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'aitech',
+        syncedPrefixes: ['aitech:'],
+        onApplied: function () {
+          remoteAppliedOnce = true;
+          renderHero(); renderModelCategoryChips(); renderModels(); renderPromptModelChips(); renderPrompts();
+        }
+      });
+      if (startedEmpty) { setTimeout(maybeSeedAfterSyncAttempt, 5000); }
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
