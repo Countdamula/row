@@ -238,6 +238,7 @@ body::after {
    group per grid) rather than mixed into one freeform board. ===== */
 .bh-content-dashboard { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 26px; align-items: start; }
 @media (max-width: 900px) { .bh-content-dashboard { grid-template-columns: 1fr; } }
+.bh-db-extras { grid-column: 1 / -1; }
 .bh-db-main { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
 .bh-db-sidebar { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 .bh-db-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -636,6 +637,11 @@ body::after {
           <div id="bhContentGalleryWrap"></div>
         </div>
       </div>
+
+      <div class="bh-db-section bh-db-extras">
+        <div class="bh-db-section-head"><div class="bh-db-section-title">More Widgets</div></div>
+        <div class="bh-board" id="bhContentExtrasBoard"></div>
+      </div>
     </div>
 
     <div class="bh-platforms-page" id="bhPlatformsPage" style="display:none;">
@@ -949,7 +955,7 @@ body::after {
     const t = DB.Tabs.get(activeTabId);
     const layout = t ? t.layout : 'freeform';
     $('bhBoard').style.display = layout === 'freeform' ? 'grid' : 'none';
-    $('bhAddWidgetBtn').style.display = layout === 'freeform' ? '' : 'none';
+    $('bhAddWidgetBtn').style.display = (layout === 'freeform' || layout === 'content') ? '' : 'none';
     $('bhContentDashboard').style.display = layout === 'content' ? 'grid' : 'none';
     $('bhPlatformsPage').style.display = layout === 'platforms' ? 'block' : 'none';
     if (layout === 'freeform') {
@@ -1551,8 +1557,39 @@ body::after {
     }
     wireSortable();
   }
+  // Widget types the Content dashboard already gives a guaranteed home
+  // to (the Platform/Content Plan/Useful Resources grids, or the
+  // sidebar) — everything else added via the generic Add Widget menu on
+  // a 'content'-layout tab lands in the "More Widgets" freeform area
+  // instead, so it always has somewhere to actually render.
+  const SECTIONED_TYPES = ['platform', 'contentcard', 'resource', 'summary', 'schedule', 'photos'];
+  function extrasColumnsForTab(tabId) {
+    const cols = [[], [], []];
+    DB.Widgets.list()
+      .filter(function (w) { return w.tabId === tabId && SECTIONED_TYPES.indexOf(w.type) === -1; })
+      .forEach(function (w) {
+        const c = (w.column >= 0 && w.column <= 2) ? w.column : 0;
+        cols[c].push(w);
+      });
+    cols.forEach(function (col) { col.sort(function (a, b) { return a.order - b.order; }); });
+    return cols;
+  }
+  function addExtrasWidget(tabId, type, title) {
+    const cols = extrasColumnsForTab(tabId);
+    let colIdx = 0, minLen = cols[0].length;
+    for (let i = 1; i < 3; i++) { if (cols[i].length < minLen) { minLen = cols[i].length; colIdx = i; } }
+    DB.Widgets.add({ tabId: tabId, column: colIdx, order: cols[colIdx].length, type: type, title: title, data: DB.defaultWidgetData(type) });
+    refreshView();
+  }
   function addWidgetToActiveTab(type, title) {
     if (!activeTabId) return;
+    const t = DB.Tabs.get(activeTabId);
+    if (t && t.layout === 'content') {
+      if (SECTIONED_TYPES.indexOf(type) !== -1) addTypedWidget(activeTabId, type, title);
+      else addExtrasWidget(activeTabId, type, title);
+      closeModal($('bhAddWidgetModalBg'));
+      return;
+    }
     const cols = DB.columnsForTab(activeTabId);
     let colIdx = 0, minLen = cols[0].length;
     for (let i = 1; i < 3; i++) { if (cols[i].length < minLen) { minLen = cols[i].length; colIdx = i; } }
@@ -1645,6 +1682,48 @@ body::after {
     renderSidebarGroup('bhContentSummaryWrap', 'summary', '+ Add Summary');
     renderSidebarGroup('bhContentScheduleWrap', 'schedule', '+ Add Posting Schedule');
     renderSidebarGroup('bhContentGalleryWrap', 'photos', '+ Add Gallery');
+
+    renderContentExtrasBoard(activeTabId);
+  }
+  // "More Widgets" — a small freeform, drag-and-drop 3-column area (the
+  // same board engine as the Ideas/Resources freeform tabs, reused
+  // verbatim via DB.reorderTab) for any widget type the Content
+  // dashboard's three fixed databases and sidebar don't already have a
+  // dedicated home for — this is what makes "+ Add Widget" on the
+  // Content tab actually able to add a checklist/note/quote/etc.
+  function renderContentExtrasBoard(tabId) {
+    const board = $('bhContentExtrasBoard'); board.innerHTML = '';
+    if (!tabId) return;
+    const cols = extrasColumnsForTab(tabId);
+    if (!cols[0].length && !cols[1].length && !cols[2].length) {
+      const empty = document.createElement('div'); empty.className = 'bh-grid-empty';
+      empty.textContent = 'No extra widgets yet — use "+ Add Widget" above to add a checklist, note, quote, and more.';
+      board.appendChild(empty);
+      return;
+    }
+    const indexMap = computeDisplayIndexes(cols);
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.createElement('div'); colEl.className = 'bh-col'; colEl.dataset.col = String(i);
+      cols[i].forEach(function (w) { colEl.appendChild(buildWidgetCard(w, indexMap[w.id])); });
+      board.appendChild(colEl);
+    }
+    wireExtrasSortable(tabId);
+  }
+  function persistExtrasColumnOrder(tabId) {
+    const cols = [];
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.querySelector('#bhContentExtrasBoard .bh-col[data-col="' + i + '"]');
+      cols.push(Array.from(colEl.children).map(function (el) { return el.dataset.widgetId; }));
+    }
+    DB.reorderTab(tabId, cols);
+  }
+  function wireExtrasSortable(tabId) {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const groupName = 'bhextras-' + tabId;
+    document.querySelectorAll('#bhContentExtrasBoard .bh-col').forEach(function (col) {
+      sortableInstances.push(new Sortable(col, { group: groupName, handle: '.bw-drag-handle', animation: reduced ? 0 : 150, ghostClass: 'bw-card-ghost', onEnd: function () { persistExtrasColumnOrder(tabId); refreshView(); } }));
+    });
   }
   function renderPlatformsPage() {
     destroySortables();

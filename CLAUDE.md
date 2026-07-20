@@ -4226,3 +4226,96 @@ between this app and either data loss or a wide-open write target:
     matches the reference screenshot's structure (Platform row → Content
     Plan grid → Useful Resources grid, sidebar alongside) while clearly
     being two independent grids, not one merged board.
+
+- **Bugfix: Business Hub rendered completely blank for anyone who'd
+  already used it before this session's database-separation rebuild.**
+  `Tabs.list()`/`get()` return raw stored records — only `add()`/
+  `update()` ever run a record back through `tabModel()` (documented
+  precedent: this is the exact failure class Dream Board hit once for
+  its `hero` field). The rebuild above replaced `tabModel`'s old
+  `mode: 'board'|'tasks'` field with a new `layout` field, but a tab
+  already sitting in a real browser's `localStorage` from an earlier
+  session still only has the old `mode` field — every render path in
+  `business.html` branches strictly on `layout`, so `undefined` matched
+  no branch and nothing rendered. Fixed with `normalizeStoredData()`
+  (`business-data.js`) — backfills `layout` from a tab's `title`
+  (`'Content'`→`'content'`, `'Platforms'`→`'platforms'`, else
+  `'freeform'`) and drops the three retired tabs (Analytics/Strategy/
+  Audit) by name, cascading their widgets/tasks/workflow data. Run
+  automatically on every load (not gated behind the seed-race window,
+  unlike `seedIfEmpty()`) since it only ever transforms *existing* tabs
+  into a corrected shape and returns immediately when storage is empty —
+  it can't turn empty storage into populated storage, so it can't
+  clobber another device's real data the way a full reseed could.
+  Verified by pre-seeding a fresh profile's `localStorage` with
+  old-schema data (7 tabs, `mode` field, no `layout`) before loading the
+  page: the migrated result correctly showed 4 tabs with proper
+  `layout` values, the user's real pre-existing content survived
+  untouched, and the Content dashboard rendered instead of a blank
+  `bhBoard`.
+  - **Follow-up, same root cause**: the fix above only ran once, at
+    `business-data.js`'s own script-load time — but `business.html`'s
+    `onApplied` callback (fired after `initCloudSync`'s remote pull
+    resolves) re-renders from whatever the pull just wrote into
+    `localStorage` *without* re-running the migration. A real device's
+    Supabase row still held data pushed under the old schema from
+    before this update, so the sequence was: page loads → local
+    migration runs → renders correctly for a moment → the cloud pull
+    lands a second or two later and overwrites the freshly-migrated
+    tabs with the stale old-schema copy → `onApplied` renders again with
+    no `layout` field anywhere → blank. Fixed by exporting
+    `normalizeStoredData` from `business-data.js`'s public API and
+    calling it as the first line of `onApplied`, before reading tabs —
+    both entry points (initial load, and every subsequent applied pull)
+    now self-heal identically. Verified by stubbing `initCloudSync`
+    itself (network calls to Supabase can't be exercised in this
+    environment's testing setup, but the actual bug was never in the
+    network round-trip — it was in what `onApplied` did with whatever
+    data arrived) to apply old-schema data and invoke the real
+    `onApplied` ~1.5s after boot: the page correctly re-migrated to 4
+    tabs and kept rendering the Content dashboard, instead of reverting.
+
+- **Content tab ("`layout: 'content'`") gained a "+ Add Widget" button and
+  a "More Widgets" freeform area**, per an explicit follow-up — the
+  sectioned dashboard rebuild above deliberately hid the generic Add
+  Widget button on this tab (it only exposed inline "+ Add Platform/
+  Content/Resource" buttons scoped to each fixed database), which meant
+  there was no way to add any of this app's other widget types
+  (checklist/list/note/quote/affirmation/steps/calendar/feature/
+  infocard/link) to the Content page at all.
+  - **`SECTIONED_TYPES = ['platform','contentcard','resource','summary',
+    'schedule','photos']`** (business.html) — the widget types the
+    Content dashboard already gives a guaranteed, fixed home to (the
+    three database grids, or the sidebar's `renderSidebarGroup()`, which
+    already supports stacking multiple widgets of the same type). Every
+    *other* type now lands in a new **"More Widgets"** section — a
+    small freeform, drag-and-drop 3-column area (`#bhContentExtrasBoard`,
+    `grid-column: 1 / -1` so it spans the full dashboard width below
+    both the main column and sidebar) that's exactly Dream Board/Ideas/
+    Resources' existing board engine, reused rather than reimplemented:
+    `extrasColumnsForTab()` mirrors `columnsForTab()` but filters to
+    non-sectioned types first, and reordering persists via the
+    already-existing `DB.reorderTab(tabId, columnsOfIds)` unmodified —
+    that function only ever touches widgets whose ids are actually
+    passed in, so it can't disturb the Platform/Content Plan/Resource
+    widgets living outside this board's DOM even though they share the
+    same tab.
+  - `addWidgetToActiveTab(type, title)` — the function the shared Add
+    Widget modal already called on every layout — now checks the active
+    tab's `layout` first: on `'content'`, a `SECTIONED_TYPES` member
+    routes through the existing `addTypedWidget()` (same "+ Add
+    Platform" etc. path); anything else routes through the new
+    `addExtrasWidget()` into the More Widgets board. Freeform tabs
+    (Ideas/Resources) and the Platforms page are completely unaffected —
+    same code path as before this change.
+  - Verified in headless Edge (Supabase blocked): confirmed "+ Add
+    Widget" is now visible on the Content tab; added a Note, a Quote,
+    and a Checklist via the generic menu and confirmed all three
+    rendered in the new More Widgets board (`extrasTypes: ["note",
+    "quote","checklist"]`); added a Platform via that same generic menu
+    and confirmed it landed in the Platform database grid instead
+    (count went 3→4), not in More Widgets; confirmed all of the above
+    persisted correctly in `window.BusinessData.Widgets.list()`; and
+    confirmed a screenshot of the resulting Content tab showed the new
+    4th platform card and the "+ Add Widget" button in the header, with
+    zero JS errors throughout.
