@@ -4750,3 +4750,26 @@ between this app and either data loss or a wide-open write target:
     click-through (opening the Add Model/Add Prompt modals, dragging a
     card, toggling a favorite/rating) is still recommended before relying
     on this page heavily.
+
+- **Bugfix: AI & Tech's hero "+ Add a cover photo" button was
+  unclickable.** `.at-hero-overlay` (the dark gradient scrim drawn over
+  the hero, `z-index: 1`) was copied from `business.html`'s
+  `.bh-hero-overlay` by re-deriving the CSS from memory rather than
+  copying it byte-for-byte, and the copy silently dropped
+  `pointer-events: none` — the one property that lets clicks pass
+  through the overlay to `.at-hero-photo-choice`'s button underneath it.
+  Every other hero control kept working because it either sits in a
+  higher stacking context (`.at-hero-photo-tools` at `z-index: 5`,
+  `.at-hero-content`'s eyebrow/title/subtext/CTA at `z-index: 2`) or
+  isn't behind the overlay at all — only the pre-cover-photo "+ Add a
+  cover photo" empty-state button was affected, which is why it read as
+  "everything works except the cover photo." Fixed by adding the missing
+  `pointer-events: none` so `.at-hero-overlay` matches
+  `business.html`'s original rule exactly. Verified via a headless-Edge
+  `--dump-dom` pass (Supabase blocked) confirming the served page's
+  `<style>` block now contains `pointer-events: none` on that rule, with
+  no change to the 9 seeded models/10 seeded prompts rendering
+  correctly — a live click-through of the file-picker flow itself still
+  wasn't possible in this environment (see the build entry above for
+  why), so the fix is verified by matching the known-working source
+  it was supposed to be copied from, not by an interactive click test.
