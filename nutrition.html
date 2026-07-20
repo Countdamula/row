@@ -1858,19 +1858,35 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     // device's real one. Independent of Recipes/Stores/GroceryItems'
     // own seedIfEmpty(), which already ran synchronously at script-load
     // time (pre-existing behavior, unchanged by this rebuild).
-    let remoteAppliedOnce = false;
+    //
+    // Real bug fixed here: an earlier version tracked a `remoteAppliedOnce`
+    // flag and treated *any* onApplied firing as "remote data arrived, never
+    // seed." That's wrong for this page specifically — `nutrition:tabs`/
+    // `nutrition:widgets` are a brand-new addition layered onto a page that
+    // already synced other `nutrition:*` data (recipes/groceryItems/stores)
+    // long before this board engine existed. For any real existing user,
+    // onApplied fires immediately on load because their real recipes/
+    // grocery data comes down from the cloud — with no tabs in it at all,
+    // since none were ever pushed from any device. The old flag then
+    // permanently blocked ensureBoardTabsExist() from ever running, leaving
+    // both `.section[data-section]` blocks hidden forever (`showActivePanel()`
+    // has no panel to match with zero tabs) — the page rendered a hero and
+    // nothing else, no matter how long you waited. Fixed by dropping that
+    // flag entirely: ensureBoardTabsExist() is idempotent (it only ever
+    // creates tabs when none exist yet — see nutrition-data.js), so it's
+    // always safe to call after any sync activity; the only question that
+    // actually matters is "do tabs exist right now," checked directly.
     function afterTabsChanged() {
       const tabs = ND.tabsSorted();
       if (!tabs.find(function (t) { return t.id === activeTabId; })) activateInitialTab();
       renderHero(); renderTabs(); showActivePanel(); renderBoard();
     }
-    window.__ntOnRemoteApplied = function () { remoteAppliedOnce = true; afterTabsChanged(); };
+    window.__ntOnRemoteApplied = function () { ND.ensureBoardTabsExist(); afterTabsChanged(); };
     window.__ntAfterSyncAttempt = function (hasCloudSync) {
       if (ND.Tabs.list().length > 0) return; // something already local (this device, or a fast remote pull)
       if (!hasCloudSync) { ND.ensureBoardTabsExist(); afterTabsChanged(); return; }
       setTimeout(function () {
-        if (remoteAppliedOnce) return;
-        if (ND.Tabs.list().length > 0) return;
+        if (ND.Tabs.list().length > 0) return; // onApplied (or another load path) already created them
         ND.ensureBoardTabsExist();
         afterTabsChanged();
       }, 5000);
