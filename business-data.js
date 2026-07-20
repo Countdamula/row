@@ -58,6 +58,7 @@
     workflowWeeks: 'business:workflowWeeks',
     workflowDays: 'business:workflowDays',
     workflowChecklist: 'business:workflowChecklist',
+    tasks: 'business:tasks',
     seeded: 'business:seeded'
   };
 
@@ -142,6 +143,22 @@
   const RESOURCE_STATUSES = ['Active', 'Idle', 'Archived'];
   const SCHEDULE_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const WORKFLOW_DAY_STATUSES = ['Not started', 'In progress', 'Done', 'Blocked'];
+
+  const TASK_STATUSES = [
+    { key: 'todo', label: 'To do' },
+    { key: 'in-progress', label: 'In progress' },
+    { key: 'done', label: 'Done' }
+  ];
+  const TASK_PRIORITIES = [
+    { key: 'low', label: 'Low' },
+    { key: 'medium', label: 'Medium' },
+    { key: 'high', label: 'High' }
+  ];
+  const TASK_RECURRENCES = [
+    { key: 'none', label: 'None' },
+    { key: 'daily', label: 'Daily — regenerates the next day when completed' },
+    { key: 'weekly', label: 'Weekly — regenerates 7 days later when completed' }
+  ];
 
   // Per-tab "hero" — a full-bleed cover section, same shape/behavior as
   // dreamboard-data.js's heroModel (image cover only here — this page
@@ -243,7 +260,7 @@
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
-  /** @typedef {{id:string, weekId:string, tabId:string, title:string, status:string, order:number, createdAt:number}} WorkflowDay */
+  /** @typedef {{id:string, weekId:string, tabId:string, title:string, status:string, order:number, notes:string, createdAt:number}} WorkflowDay */
   function workflowDayModel(data) {
     data = data || {};
     return {
@@ -253,6 +270,33 @@
       title: typeof data.title === 'string' ? data.title : '',
       status: WORKFLOW_DAY_STATUSES.indexOf(data.status) !== -1 ? data.status : 'Not started',
       order: typeof data.order === 'number' ? data.order : 0,
+      // Freeform notes for this day, opened via the "📄 Open" day-detail
+      // modal in business.html — separate from the checklist, for
+      // longer-form context that doesn't fit a to-do line.
+      notes: typeof data.notes === 'string' ? data.notes : '',
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+  /** @typedef {{id:string, tabId:string, title:string, note:string, status:string, priority:string, dueDate:string, estimateMinutes:?number, isDailyAction:boolean, recurrence:string, workflowDayId:?string, done:boolean, doneAt:?number, createdAt:number}} BizTask */
+  function taskModel(data) {
+    data = data || {};
+    const status = TASK_STATUSES.some(function (s) { return s.key === data.status; }) ? data.status : (data.done ? 'done' : 'todo');
+    return {
+      id: data.id || uid('task'),
+      tabId: data.tabId || null,
+      title: typeof data.title === 'string' ? data.title : '',
+      note: typeof data.note === 'string' ? data.note : '',
+      status: status,
+      priority: TASK_PRIORITIES.some(function (p) { return p.key === data.priority; }) ? data.priority : 'medium',
+      dueDate: typeof data.dueDate === 'string' ? data.dueDate : '',
+      estimateMinutes: (typeof data.estimateMinutes === 'number') ? data.estimateMinutes : null,
+      isDailyAction: !!data.isDailyAction,
+      recurrence: TASK_RECURRENCES.some(function (r) { return r.key === data.recurrence; }) ? data.recurrence : 'none',
+      // Optional link back to the WorkflowDay this task was generated
+      // from (via "→ Tasks") — null for an ordinary, unlinked task.
+      workflowDayId: data.workflowDayId || null,
+      done: status === 'done',
+      doneAt: (typeof data.doneAt === 'number') ? data.doneAt : null,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
@@ -306,6 +350,7 @@
   const WorkflowWeeks = makeCollection(KEYS.workflowWeeks, workflowWeekModel);
   const WorkflowDays = makeCollection(KEYS.workflowDays, workflowDayModel);
   const WorkflowChecklist = makeCollection(KEYS.workflowChecklist, workflowChecklistItemModel);
+  const Tasks = makeCollection(KEYS.tasks, taskModel);
 
   function removeTab(id) {
     Tabs.remove(id);
@@ -314,6 +359,7 @@
     WorkflowWeeks.replaceAll(WorkflowWeeks.list().filter(function (w) { return w.tabId !== id; }));
     WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.tabId !== id; }));
     WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return removedDayIds.indexOf(c.dayId) === -1; }));
+    Tasks.replaceAll(Tasks.list().filter(function (t) { return t.tabId !== id; }));
   }
 
   // `Tabs.list()`/`get()` return raw stored records — they never get
@@ -352,6 +398,14 @@
       return Object.assign({}, t, { layout: layout });
     });
     if (changed) Tabs.replaceAll(patched);
+
+    // Tasks re-linked to a tab that no longer exists (e.g. from Strategy
+    // being removed in a session before Tasks was reintroduced) are
+    // harmless but permanently invisible — prune them the same way
+    // removeTab() already does for a tab removed just now.
+    const liveTabIds = Tabs.list().map(function (t) { return t.id; });
+    const orphanedTasks = Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) === -1; });
+    if (orphanedTasks.length) Tasks.replaceAll(Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) !== -1; }));
   }
 
   // ============================================================
@@ -511,6 +565,7 @@
     WorkflowWeeks.remove(id);
     WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.weekId !== id; }));
     WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return dayIds.indexOf(c.dayId) === -1; }));
+    Tasks.replaceAll(Tasks.list().map(function (t) { return dayIds.indexOf(t.workflowDayId) !== -1 ? Object.assign({}, t, { workflowDayId: null }) : t; }));
   }
   function moveWorkflowWeek(id, dir) {
     const week = WorkflowWeeks.get(id); if (!week) return;
@@ -537,11 +592,20 @@
   function removeWorkflowDay(id) {
     WorkflowDays.remove(id);
     WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return c.dayId !== id; }));
+    Tasks.replaceAll(Tasks.list().map(function (t) { return t.workflowDayId === id ? Object.assign({}, t, { workflowDayId: null }) : t; }));
   }
   function moveWorkflowDay(id, dir) {
     const day = WorkflowDays.get(id); if (!day) return;
     const changed = swapOrder(daysForWeek(day.weekId), id, dir);
     if (changed) WorkflowDays.replaceAll(WorkflowDays.list().map(function (d) { const hit = changed.find(function (c) { return c.id === d.id; }); return hit || d; }));
+  }
+  /** Relocates a day to a different week (keeping its status/notes/
+   * checklist untouched), appended at the end of the target week — same
+   * "move to a different parent list" idea as index.html's own
+   * moveWorkflowDayToWeek(). */
+  function moveWorkflowDayToWeek(dayId, targetWeekId) {
+    const day = WorkflowDays.get(dayId); if (!day || day.weekId === targetWeekId) return;
+    WorkflowDays.update(dayId, { weekId: targetWeekId, order: nextOrder(daysForWeek(targetWeekId)) });
   }
   function duplicateWorkflowDay(dayId) {
     const day = WorkflowDays.get(dayId); if (!day) return null;
@@ -560,6 +624,97 @@
   }
 
   // ============================================================
+  // SELECTORS — Tasks (mirrors index.html Main dashboard's Tasks tab,
+  // scoped down since this page has no Life Area/Goal/Business/Habit
+  // dimensions — just a per-tab list, filterable by priority/status, with
+  // a quick-add, recurrence, and a Task Detail modal for freeform notes).
+  // ============================================================
+  function tasksForTab(tabId) {
+    return Tasks.list().filter(function (t) { return t.tabId === tabId; });
+  }
+  function sortTasks(list, mode) {
+    const priRank = { high: 3, medium: 2, low: 1 };
+    const copy = list.slice();
+    copy.sort(function (a, b) {
+      const ap = priRank[a.priority] || 2, bp = priRank[b.priority] || 2;
+      const ad = a.dueDate || '9999-99-99', bd = b.dueDate || '9999-99-99';
+      if (mode === 'priority') {
+        if (bp !== ap) return bp - ap;
+        return ad < bd ? -1 : ad > bd ? 1 : 0;
+      }
+      if (ad !== bd) return ad < bd ? -1 : 1;
+      return bp - ap;
+    });
+    return copy;
+  }
+  /** A follow-up task for a recurring task that was just marked done —
+   * same +1 day (daily) / +7 days (weekly) precedent as index.html's
+   * spawnNextRecurrence(). */
+  function spawnNextRecurrence(task) {
+    if (!task.recurrence || task.recurrence === 'none') return null;
+    const base = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : new Date();
+    base.setDate(base.getDate() + (task.recurrence === 'weekly' ? 7 : 1));
+    const nextDue = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0') + '-' + String(base.getDate()).padStart(2, '0');
+    return Tasks.add({
+      tabId: task.tabId, title: task.title, note: task.note, priority: task.priority,
+      dueDate: nextDue, estimateMinutes: task.estimateMinutes, isDailyAction: task.isDailyAction,
+      recurrence: task.recurrence, status: 'todo'
+    });
+  }
+
+  // ============================================================
+  // Day ↔ Task linking — "→ Tasks" on a Workflow day creates (or reuses)
+  // a linked Task in this tab's Tasks list; status pushes are one-hop and
+  // non-recursive (only from the specific entry point that originated the
+  // change), same precedent as index.html's own pushDayStatusToLinkedTask/
+  // pushTaskStatusToLinkedDay — this prevents a Day→Task→Day ping-pong by
+  // construction, since neither push function ever calls the other's
+  // entry point.
+  // ============================================================
+  function taskForWorkflowDay(dayId) {
+    return Tasks.list().find(function (t) { return t.workflowDayId === dayId; }) || null;
+  }
+  /** Creates a linked Task for this day if one doesn't already exist
+   * (idempotent — re-clicking "→ Tasks" just returns the existing link,
+   * it never creates a duplicate). */
+  function sendWorkflowDayToTasks(dayId) {
+    const existing = taskForWorkflowDay(dayId);
+    if (existing) return existing;
+    const day = WorkflowDays.get(dayId); if (!day) return null;
+    return Tasks.add({
+      tabId: day.tabId, title: day.title || 'Untitled day', workflowDayId: dayId,
+      status: day.status === 'Done' ? 'done' : day.status === 'In progress' ? 'in-progress' : 'todo'
+    });
+  }
+  /** Unlinks (does not delete) the Task tied to this day. */
+  function unlinkWorkflowDayFromTask(dayId) {
+    const task = taskForWorkflowDay(dayId);
+    if (task) Tasks.update(task.id, { workflowDayId: null });
+  }
+  /** Day status → Task status. 'Blocked' has no Task equivalent and maps
+   * to 'todo', same as index.html's own mapping. */
+  function pushDayStatusToLinkedTask(dayId, dayStatus) {
+    const task = taskForWorkflowDay(dayId);
+    if (!task) return;
+    const mapped = dayStatus === 'Done' ? 'done' : dayStatus === 'In progress' ? 'in-progress' : 'todo';
+    Tasks.update(task.id, { status: mapped, doneAt: mapped === 'done' ? Date.now() : null });
+  }
+  /** Task status → Day status. Only pushes when the task is marked done
+   * (or un-done) — any other Task change leaves the Day's status alone,
+   * and in particular never overwrites an explicit 'Blocked' unless the
+   * task is actually done, same "Blocked-protection" precedent as
+   * index.html's own version of this function. */
+  function pushTaskStatusToLinkedDay(taskId) {
+    const task = Tasks.get(taskId);
+    if (!task || !task.workflowDayId) return;
+    const day = WorkflowDays.get(task.workflowDayId);
+    if (!day) return;
+    if (task.status === 'done') { WorkflowDays.update(day.id, { status: 'Done' }); return; }
+    if (day.status === 'Blocked') return;
+    WorkflowDays.update(day.id, { status: 'Not started' });
+  }
+
+  // ============================================================
   // SEED
   // ============================================================
   function seedDefaultBoard() {
@@ -568,6 +723,7 @@
     WorkflowWeeks.replaceAll([]);
     WorkflowDays.replaceAll([]);
     WorkflowChecklist.replaceAll([]);
+    Tasks.replaceAll([]);
 
     const contentTab = Tabs.add({
       title: 'Content', order: 0, layout: 'content',
@@ -692,6 +848,11 @@
     addWorkflowChecklistItem(w2d2.id, { text: 'Pull top-line metrics', checked: false });
     addWorkflowChecklistItem(w2d2.id, { text: 'Note what to try next time', checked: false });
 
+    // ---------- Resources — Tasks (a second section alongside Workflow
+    // Templates) ----------
+    sendWorkflowDayToTasks(w1d2.id); // "Draft & review" is already in progress — demonstrate a linked task
+    Tasks.add({ tabId: resourcesTab.id, title: 'Review brand guidelines before next campaign', status: 'todo', priority: 'medium' });
+
     storeSet(KEYS.seeded, true);
   }
 
@@ -723,18 +884,22 @@
     RESOURCE_STATUSES: RESOURCE_STATUSES,
     SCHEDULE_DAYS: SCHEDULE_DAYS,
     WORKFLOW_DAY_STATUSES: WORKFLOW_DAY_STATUSES,
+    TASK_STATUSES: TASK_STATUSES,
+    TASK_PRIORITIES: TASK_PRIORITIES,
+    TASK_RECURRENCES: TASK_RECURRENCES,
     uid: uid,
     todayISO: todayISO,
     formatDateShort: formatDateShort,
     compressImageDataUrl: compressImageDataUrl,
     isValidMediaUrl: isValidMediaUrl,
-    Models: { tab: tabModel, widget: widgetModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel },
+    Models: { tab: tabModel, widget: widgetModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel, task: taskModel },
     defaultWidgetData: defaultWidgetData,
     Tabs: Object.assign({}, Tabs, { remove: removeTab }),
     Widgets: Widgets,
     WorkflowWeeks: WorkflowWeeks,
     WorkflowDays: WorkflowDays,
     WorkflowChecklist: WorkflowChecklist,
+    Tasks: Tasks,
     tabsSorted: tabsSorted,
     normalizeStoredData: normalizeStoredData,
     columnsForTab: columnsForTab,
@@ -763,11 +928,20 @@
     updateWorkflowDay: updateWorkflowDay,
     removeWorkflowDay: removeWorkflowDay,
     moveWorkflowDay: moveWorkflowDay,
+    moveWorkflowDayToWeek: moveWorkflowDayToWeek,
     duplicateWorkflowDay: duplicateWorkflowDay,
     addWorkflowChecklistItem: addWorkflowChecklistItem,
     updateWorkflowChecklistItem: updateWorkflowChecklistItem,
     removeWorkflowChecklistItem: removeWorkflowChecklistItem,
     moveWorkflowChecklistItem: moveWorkflowChecklistItem,
+    tasksForTab: tasksForTab,
+    sortTasks: sortTasks,
+    spawnNextRecurrence: spawnNextRecurrence,
+    taskForWorkflowDay: taskForWorkflowDay,
+    sendWorkflowDayToTasks: sendWorkflowDayToTasks,
+    unlinkWorkflowDayFromTask: unlinkWorkflowDayFromTask,
+    pushDayStatusToLinkedTask: pushDayStatusToLinkedTask,
+    pushTaskStatusToLinkedDay: pushTaskStatusToLinkedDay,
     seedDefaultBoard: seedDefaultBoard,
     seedIfEmpty: seedIfEmpty
   };

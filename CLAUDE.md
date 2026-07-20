@@ -4384,3 +4384,90 @@ between this app and either data loss or a wide-open write target:
     after being reparented; and confirmed an incomplete/corrupted
     `sectionLayout` correctly fell back to the standard order instead of
     breaking. Zero JS errors throughout.
+
+- **Resources tab's Workflow upgraded to match index.html's actual
+  Business Workflow feature more closely, and split into two sections —
+  "Workflow Templates" and "Tasks."** Per an explicit request with a
+  reference screenshot of that fuller feature (per-day OPEN/→TASKS/
+  DUPLICATE buttons, reorderable checklist items, a "Move to week"
+  dropdown, an "Auto-sync days to Tasks" concept). The reference photo's
+  "Send to another project" (copying/moving a week to a different
+  *business*) was deliberately **not** ported — this page has no
+  multiple-businesses concept, only tabs, and Workflow only ever exists
+  on the Resources tab (`hasTemplates`), so there is no second "project"
+  to send a week to; fabricating one wasn't asked for and wasn't built.
+  - **`business-data.js`**: `WorkflowDay` gained a `notes` field
+    (freeform, for the new day-detail modal — separate from its
+    checklist). New `moveWorkflowDayToWeek(dayId, targetWeekId)`
+    relocates a day to a different week, appended at the end (status/
+    notes/checklist untouched). **Tasks is fully reintroduced**
+    (`taskModel`, `TASK_STATUSES/PRIORITIES/RECURRENCES`, the `Tasks`
+    collection, `tasksForTab`/`sortTasks`/`spawnNextRecurrence`) — the
+    same system removed two passes ago when the Strategy tab (its only
+    user at the time) was dropped; this time it's a section on Resources
+    rather than a whole tab-mode. `Task` gained `workflowDayId` (nullable
+    link to a `WorkflowDay`), plus a small one-hop, non-recursive sync
+    pair mirroring index.html's own: `pushDayStatusToLinkedTask(dayId,
+    status)` (Day → Task; 'Blocked' has no Task equivalent and maps to
+    'todo') and `pushTaskStatusToLinkedDay(taskId)` (Task → Day; only
+    pushes when the task is actually marked done, and never overwrites
+    an existing 'Blocked' day unless it is — same "Blocked-protection"
+    precedent). `sendWorkflowDayToTasks(dayId)`/`taskForWorkflowDay(dayId)`/
+    `unlinkWorkflowDayFromTask(dayId)` are idempotent (re-clicking "→
+    Tasks" never creates a duplicate; unlinking never deletes the task).
+    `removeWorkflowDay`/`removeWorkflowWeek` now also null out
+    `workflowDayId` on any task tied to what's being deleted, so a
+    delete can never leave a task silently pointing at nothing.
+    `normalizeStoredData()` additionally prunes any Task whose `tabId`
+    no longer matches a live tab — covers the case where Strategy was
+    already removed in a session *before* Tasks was reintroduced here,
+    leaving old orphaned task records that would otherwise have sat
+    invisibly in storage forever.
+  - **`business.html` Workflow upgrades**: checklist items gained ▲▼
+    reorder buttons (wired to the already-existing but previously-unused
+    `DB.moveWorkflowChecklistItem`) — this was a real gap in the earlier,
+    deliberately-simplified port, not a new capability invented from
+    scratch. Each day gained a "Move to week" dropdown (shown only when
+    the tab has more than one week, same "only show when it'd matter"
+    precedent as index.html's own version) and two new icon buttons in
+    its actions row: **📄 Open** (a day-detail modal, `#bhWorkflowDayNoteModalBg`,
+    with a freeform textarea that autosaves as you type — the "OPEN a
+    day's own page" from the reference photo, built as a modal rather
+    than a full separate page, same simplification precedent as this
+    page's Platform Detail view) and **→/✓ Tasks** (sends the day to the
+    new Tasks section, or unlinks it back — a small "📄 Workflow" badge
+    on the linked task ties the two sections together visually). The
+    day status `<select>` now also calls `pushDayStatusToLinkedTask`.
+  - **New "Tasks" section**, alongside "Workflow Templates" under the
+    same divider on the Resources tab: Today/All view chips, priority/
+    status filters, a quick-add row, and task rows (checkbox, priority
+    pill, DAILY/recurrence/Workflow-link badges, due date, a "📄" notes
+    button, delete) — essentially the same Tasks UI this page had before
+    (view chips, Add/Edit modal, autosaving Task Detail modal,
+    recurrence spawn-on-done), rebuilt from scratch since it had been
+    fully deleted two passes ago, now scoped to a section instead of a
+    tab-mode. `renderWorkflow()` always also calls the new
+    `renderResTaskList()`, so the two sections stay in sync from a
+    single call site.
+  - Seed data: the "Draft & review" day (Week 1, already "In progress")
+    is seeded pre-linked to a Task, and a second, unlinked task
+    ("Review brand guidelines before next campaign") demonstrates the
+    ordinary case — so a fresh install shows both states without any
+    manual setup.
+  - **Verified in headless Edge** (Supabase blocked): switched to
+    Resources and confirmed 2 seeded tasks appear under "All Tasks" (0
+    under "Today," correctly, since neither has a due date or is a daily
+    action) with one showing the Workflow-link badge; reordered a
+    checklist item and confirmed the swap persisted in storage; moved a
+    day to the other week via the dropdown and confirmed both its
+    `weekId` and the source week's day count updated correctly; opened
+    the day-detail modal, confirmed its title matched the right day (not
+    an adjacent one — an early test pass using ambiguous "first element"
+    DOM queries produced two apparent failures here that turned out to
+    be the test grabbing the wrong day's elements, not real bugs; adding
+    a `data-day-id` attribute and re-targeting precisely showed both
+    working correctly), typed a note, and confirmed it autosaved to the
+    day's real stored `notes` field; sent a day to Tasks and confirmed a
+    new linked task appeared, then clicked the same button again and
+    confirmed it correctly unlinked without deleting the task. Zero JS
+    errors throughout.
