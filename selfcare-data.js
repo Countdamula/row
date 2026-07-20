@@ -44,7 +44,11 @@
     widgets: 'selfcare:widgets',
     journalEntries: 'selfcare:journalEntries',
     meditations: 'selfcare:meditations',
-    seeded: 'selfcare:seeded'
+    anxietyBreathwork: 'selfcare:anxietyBreathwork',
+    anxietyTips: 'selfcare:anxietyTips',
+    seeded: 'selfcare:seeded',
+    anxietySeeded: 'selfcare:anxiety_seeded',
+    anxietyMigrated: 'selfcare:anxiety_migrated'
   };
 
   function uid(prefix) {
@@ -137,6 +141,60 @@
   }
 
   // ============================================================
+  // ANXIETY — Breathwork (paced-breathing techniques, played through the
+  // pacer in selfcare.html) and Tips & Techniques. Moved here verbatim
+  // from the now-deleted standalone anxiety.html/anxiety-data.js, per an
+  // explicit ask to fold the Anxiety page into its own tab inside
+  // Self-Care instead of being a top-level nav pill. Field shapes/model
+  // factories are unchanged from that page's own data layer — only the
+  // storage keys moved, from a top-level `anxiety:` prefix to
+  // `selfcare:anxietyBreathwork`/`selfcare:anxietyTips`, so both are
+  // covered by selfcare.html's existing `syncedPrefixes: ['selfcare:']`
+  // with no new sync wiring. The old `anxiety:*` keys are left alone in
+  // localStorage/Supabase, orphaned but untouched — same treatment as
+  // every other removed-page key elsewhere in this app — except that
+  // migrateLegacyAnxietyPage() (below) copies any real content out of
+  // them once, so a device that already used the standalone page doesn't
+  // lose it.
+  // ============================================================
+  const BREATHWORK_GOALS = ['calm', 'focus', 'sleep', 'panic', 'other'];
+  const BREATHWORK_GOAL_LABELS = { calm: 'Calm', focus: 'Focus', sleep: 'Sleep', panic: 'In the moment', other: 'Other' };
+
+  function breathworkModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('breath'),
+      name: data.name || '',
+      description: data.description || '',
+      inhaleSec: Math.max(1, Math.round(Number(data.inhaleSec)) || 4),
+      holdInSec: Math.max(0, Math.round(Number(data.holdInSec)) || 0),
+      exhaleSec: Math.max(1, Math.round(Number(data.exhaleSec)) || 4),
+      holdOutSec: Math.max(0, Math.round(Number(data.holdOutSec)) || 0),
+      cycles: Math.max(1, Math.round(Number(data.cycles)) || 6),
+      goal: BREATHWORK_GOALS.indexOf(data.goal) !== -1 ? data.goal : 'calm',
+      isFavorite: !!data.isFavorite,
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: data.createdAt || todayISO()
+    };
+  }
+
+  const ANXIETY_TIP_CATEGORIES = ['grounding', 'cognitive', 'physical', 'social', 'other'];
+  const ANXIETY_TIP_CATEGORY_LABELS = { grounding: 'Grounding', cognitive: 'Cognitive', physical: 'Physical', social: 'Social', other: 'Other' };
+
+  function anxietyTipModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('tip'),
+      title: data.title || '',
+      body: data.body || '',
+      category: ANXIETY_TIP_CATEGORIES.indexOf(data.category) !== -1 ? data.category : 'other',
+      isFavorite: !!data.isFavorite,
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: data.createdAt || todayISO()
+    };
+  }
+
+  // ============================================================
   // BOARD MODELS — Tabs + Widgets, copied structurally from
   // dreamboard-data.js (same field shapes, same defaults-per-type). Tabs
   // gained one additive field beyond Dream Board's: `panel`, `''` for a
@@ -166,7 +224,7 @@
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      panel: (data.panel === 'journals' || data.panel === 'meditations') ? data.panel : '',
+      panel: (data.panel === 'journals' || data.panel === 'meditations' || data.panel === 'anxiety') ? data.panel : '',
       hero: heroModel(data.hero)
     };
   }
@@ -237,6 +295,8 @@
 
   const JournalEntries = makeCollection(KEYS.journalEntries, journalEntryModel);
   const Meditations = makeCollection(KEYS.meditations, meditationModel);
+  const AnxietyBreathwork = makeCollection(KEYS.anxietyBreathwork, breathworkModel);
+  const AnxietyTips = makeCollection(KEYS.anxietyTips, anxietyTipModel);
   const Tabs = makeCollection(KEYS.tabs, tabModel);
   const Widgets = makeCollection(KEYS.widgets, widgetModel);
 
@@ -295,6 +355,12 @@
     return JournalEntries.list()
       .filter(function (e) { return !topic || e.topic === topic; })
       .sort(function (a, b) { return b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)); });
+  }
+  function anxietyBreathworkSorted() {
+    return AnxietyBreathwork.list().slice().sort(function (a, b) { return a.order - b.order || (a.createdAt || '').localeCompare(b.createdAt || ''); });
+  }
+  function anxietyTipsSorted() {
+    return AnxietyTips.list().slice().sort(function (a, b) { return a.order - b.order || (a.createdAt || '').localeCompare(b.createdAt || ''); });
   }
 
   // ============================================================
@@ -389,19 +455,52 @@
       data: { wide: true, slots: [] }
     });
 
+    ensureAnxietyTabExists();
+
     return { mainTab: mainTab, journalsTab: journalsTab, meditationsTab: meditationsTab };
   }
 
-  /** Structural repair only: creates the Tabs (+ default Widgets on the
-   * main tab) if — and only if — none exist yet. Never reads or writes
-   * JournalEntries/Meditations, so it's always safe to call, on every
-   * load, for both a genuinely fresh install and an existing user who
-   * simply never had Tabs before this rebuild. Returns true if it created
-   * anything, false if Tabs already existed (no-op). */
-  function ensureTabsExist() {
-    if (Tabs.list().length > 0) return false;
-    buildDefaultTabsAndWidgets();
+  function buildAnxietyTabHero() {
+    return {
+      eyebrow: 'IN THE MOMENT',
+      title: 'Breathe.\nGround. Return.',
+      subtext: 'A breathing pacer and a library of grounding techniques for when anxiety spikes.',
+      ctaLabel: 'START BREATHING', photo: '', photoColor: '', mediaType: 'image'
+    };
+  }
+
+  /** Structural repair for the Anxiety tab specifically, independent of
+   * ensureTabsExist() below: creates the tab (`panel: 'anxiety'`) if and
+   * only if no tab with that panel exists yet, appended after whatever
+   * tabs already exist. Written as its own function (not just inlined
+   * into buildDefaultTabsAndWidgets()) so it also repairs anyone who
+   * already has the Self-Care/Journals/Meditations tabs from before
+   * Anxiety moved into this page — otherwise ensureTabsExist()'s own
+   * "only act if Tabs.list().length === 0" guard would skip them forever,
+   * the exact bug the Tabs board itself hit once already (see the
+   * changelog entry above this one). Never reads or writes
+   * AnxietyBreathwork/AnxietyTips. Returns true if it created the tab. */
+  function ensureAnxietyTabExists() {
+    const tabs = Tabs.list();
+    if (tabs.some(function (t) { return t.panel === 'anxiety'; })) return false;
+    const maxOrder = tabs.reduce(function (m, t) { return Math.max(m, typeof t.order === 'number' ? t.order : 0); }, -1);
+    Tabs.add({ title: 'Anxiety', order: maxOrder + 1, panel: 'anxiety', hero: buildAnxietyTabHero() });
     return true;
+  }
+
+  /** Structural repair only: creates the Tabs (+ default Widgets on the
+   * main tab, + the Anxiety tab) if — and only if — none exist yet, and
+   * separately repairs a missing Anxiety tab even when the others already
+   * exist. Never reads or writes JournalEntries/Meditations/
+   * AnxietyBreathwork/AnxietyTips, so it's always safe to call, on every
+   * load, for both a genuinely fresh install and an existing user who
+   * simply never had Tabs (or the Anxiety tab specifically) before.
+   * Returns true if it created anything. */
+  function ensureTabsExist() {
+    let created = false;
+    if (Tabs.list().length === 0) { buildDefaultTabsAndWidgets(); created = true; }
+    if (ensureAnxietyTabExists()) created = true;
+    return created;
   }
 
   /** Adds a small starter set of journal entries/meditations — but only
@@ -430,14 +529,80 @@
     return true;
   }
 
+  const ANXIETY_SEED_BREATHWORK = [
+    { name: 'Box Breathing', description: 'Four equal phases — inhale, hold, exhale, hold — used by everyone from athletes to Navy SEALs to steady focus under pressure.', inhaleSec: 4, holdInSec: 4, exhaleSec: 4, holdOutSec: 4, cycles: 6, goal: 'focus', order: 0 },
+    { name: '4-7-8 Breathing', description: "Dr. Andrew Weil's technique — a longer exhale than inhale shifts the body toward rest. Good before sleep or when winding down from a spike.", inhaleSec: 4, holdInSec: 7, exhaleSec: 8, holdOutSec: 0, cycles: 4, goal: 'sleep', order: 1 },
+    { name: 'Coherent Breathing', description: 'A gentle, even 5-second in / 5-second out rhythm (about 6 breaths a minute) — a steady baseline for everyday calm, no holds to track.', inhaleSec: 5, holdInSec: 0, exhaleSec: 5, holdOutSec: 0, cycles: 8, goal: 'calm', order: 2 },
+    { name: 'Extended Exhale', description: 'A short inhale and a long, slow exhale — the fastest way to nudge the nervous system down when anxiety spikes in the moment.', inhaleSec: 4, holdInSec: 0, exhaleSec: 8, holdOutSec: 2, cycles: 6, goal: 'panic', order: 3 }
+  ];
+  const ANXIETY_SEED_TIPS = [
+    { title: '5-4-3-2-1 Grounding', body: 'Name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste. Pulls attention out of a spiraling thought and back into the room.', category: 'grounding', order: 0 },
+    { title: 'Cold water on your wrists or face', body: 'A quick burst of cold (splash your face, hold an ice cube, run cold water over your wrists) triggers the dive reflex and can blunt a panic spike within seconds.', category: 'physical', order: 1 },
+    { title: 'Name the thought, don’t argue with it', body: 'Instead of "this is stupid, stop thinking it," try "I’m noticing an anxious thought about X." Labeling creates a little distance without fighting it.', category: 'cognitive', order: 2 },
+    { title: 'Text one person', body: "You don't need a whole conversation. A single low-stakes message to someone you trust breaks the isolation a spiral thrives on.", category: 'social', order: 3 },
+    { title: 'Progressive muscle relaxation', body: 'Tense each muscle group for 5 seconds, then release, working head to toe. The contrast makes it easier to actually feel your body relax.', category: 'physical', order: 4 },
+    { title: 'Ask "what would I tell a friend?"', body: 'Anxious thoughts are often harsher than anything you’d say to someone else in the same spot. Borrowing that kinder voice is a real reframing tool, not just a platitude.', category: 'cognitive', order: 5 },
+    { title: 'Put both feet flat on the floor', body: 'A small, physical anchor. Notice the actual pressure of the floor under your feet for a few breaths — it’s hard to fully spiral while paying attention to something this concrete.', category: 'grounding', order: 6 }
+  ];
+
+  /** Same "only for a genuinely fresh Anxiety section" caution as
+   * seedSampleContentIfFresh(), but with its own independent flag/
+   * emptiness check (KEYS.anxietySeeded, AnxietyBreathwork/AnxietyTips
+   * only) — reusing KEYS.seeded here would repeat the exact bug fixed
+   * above, since an existing user's `selfcare:seeded` flag was very
+   * likely already set to true long before the Anxiety tab existed,
+   * which would make this silently never run for them. Returns true if
+   * it added sample content. */
+  function seedAnxietyContentIfFresh() {
+    if (storeGet(KEYS.anxietySeeded)) return false;
+    if (AnxietyBreathwork.list().length || AnxietyTips.list().length) {
+      storeSet(KEYS.anxietySeeded, true);
+      return false;
+    }
+    ANXIETY_SEED_BREATHWORK.forEach(function (t) { AnxietyBreathwork.add(t); });
+    ANXIETY_SEED_TIPS.forEach(function (t) { AnxietyTips.add(t); });
+    storeSet(KEYS.anxietySeeded, true);
+    return true;
+  }
+
+  /** One-time migration: a device that already used the standalone
+   * anxiety.html page (before it moved into this Self-Care tab) has real
+   * content sitting under the old top-level `anxiety:breathwork`/
+   * `anxiety:tips` keys — copies it into the new
+   * `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` collections once,
+   * so it isn't silently lost. Only copies in if the new collections are
+   * still empty (never overwrites anything already here), and marks
+   * KEYS.anxietySeeded true when it does, so seedAnxietyContentIfFresh()
+   * doesn't also layer demo content on top of real migrated content. The
+   * old `anxiety:*` keys are left in place afterward, orphaned but
+   * untouched — same treatment as every other removed-page key elsewhere
+   * in this app. Guarded by its own flag so it only ever runs once. */
+  function migrateLegacyAnxietyPage() {
+    if (storeGet(KEYS.anxietyMigrated)) return;
+    storeSet(KEYS.anxietyMigrated, true);
+    if (AnxietyBreathwork.list().length || AnxietyTips.list().length) return;
+    let legacyBreathwork = null, legacyTips = null;
+    try { legacyBreathwork = JSON.parse(localStorage.getItem('anxiety:breathwork') || 'null'); } catch (e) {}
+    try { legacyTips = JSON.parse(localStorage.getItem('anxiety:tips') || 'null'); } catch (e) {}
+    if (Array.isArray(legacyBreathwork) && legacyBreathwork.length) {
+      AnxietyBreathwork.replaceAll(legacyBreathwork.map(breathworkModel));
+      storeSet(KEYS.anxietySeeded, true);
+    }
+    if (Array.isArray(legacyTips) && legacyTips.length) {
+      AnxietyTips.replaceAll(legacyTips.map(anxietyTipModel));
+      storeSet(KEYS.anxietySeeded, true);
+    }
+  }
+
   /** Full reset (the "Reset to Default" button): wipes Tabs/Widgets and
-   * rebuilds them, and always (re-)adds the sample journal/meditation
-   * content regardless of the `seeded` flag — a reset is an explicit,
-   * user-initiated "restore everything to default," not a first-load
-   * heuristic, so it doesn't need seedSampleContentIfFresh()'s
+   * rebuilds them, and always (re-)adds the sample journal/meditation/
+   * breathwork/tips content regardless of the `seeded`/`anxietySeeded`
+   * flags — a reset is an explicit, user-initiated "restore everything to
+   * default," not a first-load heuristic, so it doesn't need
+   * seedSampleContentIfFresh()'s/seedAnxietyContentIfFresh()'s
    * don't-clobber-real-content caution (selfcare.html's resetBoard()
-   * already clears JournalEntries/Meditations itself right before
-   * calling this). */
+   * already clears JournalEntries/Meditations/AnxietyBreathwork/
+   * AnxietyTips itself right before calling this). */
   function seedDefaultBoard() {
     Tabs.replaceAll([]);
     Widgets.replaceAll([]);
@@ -451,21 +616,30 @@
     Meditations.add({ title: 'Box Breathing for Focus', description: '4-4-4-4 breathing to reset before deep work.', url: 'https://example.com/meditations/box-breathing', type: 'breathing', durationMin: 5, tags: ['work', 'quick'], isFavorite: false, notes: '' });
     Meditations.add({ title: 'Wind Down for Sleep', description: 'A slow, guided descent into sleep.', url: 'https://example.com/meditations/sleep-wind-down', type: 'sleep', durationMin: 20, tags: ['night'], isFavorite: false, notes: '' });
 
+    ANXIETY_SEED_BREATHWORK.forEach(function (t) { AnxietyBreathwork.add(t); });
+    ANXIETY_SEED_TIPS.forEach(function (t) { AnxietyTips.add(t); });
+
     storeSet(KEYS.seeded, true);
+    storeSet(KEYS.anxietySeeded, true);
   }
 
-  // ensureTabsExist()/seedSampleContentIfFresh() are deliberately NOT
-  // called automatically here — same seed-race hazard dreamboard-data.js/
-  // business-data.js's own changelog entries document: acting before
-  // initCloudSync()'s cloud pull has a real chance to land can push
-  // freshly-created "default" data to Supabase and clobber another
-  // device's real data. selfcare.html calls both itself — eagerly from
-  // initCloudSync's onApplied callback (the moment we actually know
-  // what's real), and again from a timed fallback in case sync is
-  // unavailable or never fires. normalizeTabs() stays automatic — it only
-  // backfills fields on records that already exist, so it's a no-op on
-  // empty storage and can't clobber anything.
+  // ensureTabsExist()/seedSampleContentIfFresh()/seedAnxietyContentIfFresh()
+  // are deliberately NOT called automatically here — same seed-race
+  // hazard dreamboard-data.js/business-data.js's own changelog entries
+  // document: acting before initCloudSync()'s cloud pull has a real
+  // chance to land can push freshly-created "default" data to Supabase
+  // and clobber another device's real data. selfcare.html calls all
+  // three itself — eagerly from initCloudSync's onApplied callback (the
+  // moment we actually know what's real), and again from a timed fallback
+  // in case sync is unavailable or never fires. normalizeTabs() and
+  // migrateLegacyAnxietyPage() stay automatic — normalizeTabs() only
+  // backfills fields on records that already exist, and
+  // migrateLegacyAnxietyPage() only ever relocates a value that's already
+  // sitting in this device's own local storage (never fabricates
+  // anything), so neither is subject to the same cross-device race and
+  // both are no-ops when there's nothing to do.
   normalizeTabs();
+  migrateLegacyAnxietyPage();
 
   // ============================================================
   // PUBLIC API
@@ -475,6 +649,10 @@
     JOURNAL_TOPICS: JOURNAL_TOPICS,
     MEDITATION_TYPES: MEDITATION_TYPES,
     WIDGET_TYPES: WIDGET_TYPES,
+    BREATHWORK_GOALS: BREATHWORK_GOALS,
+    BREATHWORK_GOAL_LABELS: BREATHWORK_GOAL_LABELS,
+    ANXIETY_TIP_CATEGORIES: ANXIETY_TIP_CATEGORIES,
+    ANXIETY_TIP_CATEGORY_LABELS: ANXIETY_TIP_CATEGORY_LABELS,
     uid: uid,
     todayISO: todayISO,
     addDaysISO: addDaysISO,
@@ -483,21 +661,29 @@
     Models: {
       journalEntry: journalEntryModel,
       meditation: meditationModel,
+      breathwork: breathworkModel,
+      anxietyTip: anxietyTipModel,
       tab: tabModel,
       widget: widgetModel
     },
     defaultWidgetData: defaultWidgetData,
     JournalEntries: JournalEntries,
     Meditations: Meditations,
+    AnxietyBreathwork: AnxietyBreathwork,
+    AnxietyTips: AnxietyTips,
     Tabs: Object.assign({}, Tabs, { remove: removeTab }),
     Widgets: Widgets,
     tabsSorted: tabsSorted,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
     entriesByTopic: entriesByTopic,
+    anxietyBreathworkSorted: anxietyBreathworkSorted,
+    anxietyTipsSorted: anxietyTipsSorted,
     seedDefaultBoard: seedDefaultBoard,
     ensureTabsExist: ensureTabsExist,
+    ensureAnxietyTabExists: ensureAnxietyTabExists,
     seedSampleContentIfFresh: seedSampleContentIfFresh,
+    seedAnxietyContentIfFresh: seedAnxietyContentIfFresh,
     normalizeTabs: normalizeTabs
   };
 })(window);

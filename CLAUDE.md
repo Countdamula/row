@@ -31,12 +31,11 @@ Vercel's static server) — see README.md.
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
-| `selfcare.html` | Self-Care — rebuilt around Dream Board's exact engine/aesthetic: a main "Self-Care" tab is a freeform drag-and-drop widget board (a self-care checklist, notes, a photo gallery, etc.), plus Journals (topic-filtered) and Meditations (linkable library) as their own dedicated, Dream-Board-restyled tabs. Water and Bucket List were removed entirely (rebuilt — see changelog) |
+| `selfcare.html` | Self-Care — rebuilt around Dream Board's exact engine/aesthetic: a main "Self-Care" tab is a freeform drag-and-drop widget board (a self-care checklist, notes, a photo gallery, etc.), plus Journals (topic-filtered), Meditations (linkable library), and Anxiety (Breathwork — a CRUD library of paced-breathing techniques played through an animated pacer — plus Tips & Techniques, moved in from the deleted standalone `anxiety.html`) as their own dedicated, Dream-Board-restyled tabs. Water and Bucket List were removed entirely (rebuilt — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
-| `anxiety.html` | Anxiety — this app's standard near-black/off-white palette (no reference photo was given, so no new aesthetic exception — DO NOT MODIFY §2), a shared cover banner, and two tabs: Breathwork (a CRUD gallery of paced-breathing techniques — inhale/hold/exhale/hold seconds, a "best for" goal tag, favorites — each playable through a full-screen animated breathing pacer with timestamp-based phase timing) and Tips & Techniques (a filterable/favoritable card library of grounding/cognitive/physical/social anxiety-management tips) (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -183,11 +182,10 @@ page's CSS is self-contained in its own `<style>` block):
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
-   | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (new — the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:active_tab`, `selfcare:seeded`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
+   | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` (new — the Anxiety tab, moved in from the deleted standalone `anxiety.html`), `selfcare:active_tab`, `selfcare:seeded`/`selfcare:anxiety_seeded`/`selfcare:anxiety_migrated`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) and the old top-level `anxiety:breathwork`/`anxiety:tips`/`anxiety:active_tab`/`anxiety:seeded` keys (the now-deleted standalone `anxiety.html`'s own row/key, folded into this one — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
-   | `anxiety` | `anxiety.html` (new) | everything prefixed `anxiety:` (`anxiety:breathwork`, `anxiety:tips`, `anxiety:active_tab`, `anxiety:seeded`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -222,12 +220,11 @@ using `sync.js`.
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
-| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed — see changelog) |
+| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed; the standalone Anxiety page was folded in as this page's 4th tab — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
 | AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
-| Anxiety | `ANXIETY` → `anxiety.html` | `anxiety.html` + `anxiety-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -5233,3 +5230,99 @@ between this app and either data loss or a wide-open write target:
     entries in this file already note — so a real click-through,
     especially of the pacer's timing, is recommended before relying on
     this page heavily.
+
+- **Anxiety moved from a standalone top-level page into its own tab
+  inside Self-Care, restyled to match.** Per an explicit follow-up ask:
+  `anxiety.html`/`anxiety-data.js` are deleted outright (not left as
+  unreachable dead code — this is the same session's own page being
+  relocated, the same "supersede, don't preserve" precedent as e.g.
+  `gym.html`'s Timer modal→panel conversion), the `ANXIETY` nav pill is
+  removed from `topbar.js`, and Breathwork + Tips & Techniques now live
+  as a 4th Self-Care tab (`panel: 'anxiety'`), reskinned to match the
+  other three Self-Care tabs' Dream-Board aesthetic (frosted-glass cards,
+  gold-on-near-black tokens, serif titles) rather than the standard
+  near-black/off-white palette the standalone page used.
+  - **Data moved into `selfcare-data.js` verbatim**: `breathworkModel`/
+    `anxietyTipModel` (renamed from `tipModel` to avoid any ambiguity with
+    a future "tip" concept elsewhere on this page) and their
+    `BREATHWORK_GOALS`/`ANXIETY_TIP_CATEGORIES` constants are unchanged
+    field-for-field from the deleted page's own data layer — only the
+    storage keys moved, from a top-level `anxiety:breathwork`/
+    `anxiety:tips` to `selfcare:anxietyBreathwork`/`selfcare:anxietyTips`,
+    so both ride the page's existing `syncedPrefixes: ['selfcare:']` with
+    no new sync wiring (DO NOT MODIFY §1: reuse `initCloudSync` exactly as
+    wired, don't invent a new mechanism).
+  - **A real migration, not just a rename**: since the standalone Anxiety
+    page had only just shipped, a real device could already have actual
+    user-created techniques/tips sitting under the old `anxiety:*` keys.
+    `migrateLegacyAnxietyPage()` (new, guarded by its own one-time flag)
+    copies that content into the new `selfcare:` collections once — only
+    if those collections are still empty, so it can never clobber
+    anything — and leaves the old `anxiety:*` keys in place afterward,
+    orphaned but untouched, same treatment as every other removed-page
+    key elsewhere in this app. Verified directly: seeded a device with 3
+    pre-existing Self-Care tabs (no Anxiety tab — it didn't exist yet)
+    plus real `anxiety:breathwork`/`anxiety:tips` content, loaded the
+    rebuilt page, and confirmed the real content ("My Real Custom
+    Technique," "My Real Custom Tip") landed in the new
+    `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` keys — not the
+    demo seed content — while the 3 existing tabs were left completely
+    unchanged and a 4th "Anxiety" tab was correctly appended at the end.
+  - **A second real bug found and fixed while building this repair,
+    before it shipped**: the Self-Care Tabs board already has a
+    documented precedent for "a newly-required structure that pre-
+    existing users don't have yet" (see the two entries above this one —
+    the missing-Tabs-board bug). Adding a 4th tab is the exact same class
+    of problem one level down, and the existing fix doesn't cover it:
+    `ensureTabsExist()` only acts when `Tabs.list().length === 0`, so an
+    existing 3-tab Self-Care user would never get the new Anxiety tab
+    created at all — no error, just a tab bar stuck at 3 forever, the
+    same "nothing shows up" failure mode already fixed once, recurring
+    one layer down. Fixed with `ensureAnxietyTabExists()` (new,
+    independent of `ensureTabsExist()`'s "totally empty" gate): checks
+    for a tab with `panel: 'anxiety'` specifically and appends one if
+    missing, regardless of how many other tabs already exist, never
+    touching Journal/Meditation/Widget/Breathwork/Tip content. Unlike
+    `ensureTabsExist()`'s "build everything from scratch" branch (which
+    must stay deferred behind the cloud-sync window, since replacing
+    *nothing* with a full default board risks clobbering another
+    device's real board if it races a real remote pull), appending one
+    new tab to an *already-populated* Tabs array can't clobber anything
+    that's already there — so `selfcare.html`'s `init()` now calls
+    `ensureAnxietyTabExists()` immediately at boot (guarded by
+    `SC.Tabs.list().length > 0`, so a genuinely fresh device isn't handed
+    a stray lone Anxiety tab before its own deferred full-board seed has
+    even had a chance to run), placed after `initCloudSync()` is wired so
+    the write is tracked "dirty" — same precedent as Dream Board's own
+    Vision Board video-fix repair. Verified this specific fix by seeding
+    the exact 3-tab-no-Anxiety scenario above and confirming the 4th tab
+    appeared without the fix's guard (`Tabs.list().length > 0`) ever
+    letting a fresh/empty device get a premature lone tab.
+  - **Verified via headless Edge, `*.supabase.co` mapped to `0.0.0.0`**
+    (per this file's established testing convention), three scenarios
+    read back through an iframe sharing the same `file://` origin (so
+    real `localStorage` state could be inspected directly rather than
+    guessed from rendered markup alone): (1) a completely fresh profile
+    correctly produced all 4 tabs (`Self-Care/Journals/Meditations/
+    Anxiety`, all with `panel` values as expected), 4 seeded breathwork
+    techniques, and 7 seeded tips; (2) a profile pre-seeded with 3 real
+    Self-Care tabs (no Anxiety) plus real legacy `anxiety:breathwork`/
+    `anxiety:tips` content correctly ended up with all 4 tabs (the 3
+    original ones byte-identical, the new Anxiety tab appended at
+    `order: 3`) and the real migrated breathwork/tip content, not demo
+    seed data; every `$('id')` reference in `selfcare.html`'s script was
+    cross-matched against the HTML's actual element ids (128 referenced,
+    all resolved, none orphaned); and every pass produced zero stderr
+    output (no console errors). A fourth attempt at confirming the
+    Anxiety panel's *visual* rendering via a two-stage iframe reload (set
+    `selfcare:active_tab` to the real generated Anxiety tab id, reload,
+    read the iframe's rendered DOM) hit a harness timing issue specific
+    to this environment's virtual-time-budget handling of iframe reloads
+    (`f.contentDocument` came back inaccessible in time) rather than a
+    page bug — the same rendering code path (grid building, filters, the
+    pacer) was already interactively confirmed correct when this was
+    still the standalone `anxiety.html` page earlier in this session, and
+    the panel's HTML structure was independently confirmed present in
+    every dump. A real click-through of the Anxiety tab specifically
+    (switching to it, toggling Breathwork/Tips, starting the pacer) is
+    still recommended before relying on this page heavily.

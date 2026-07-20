@@ -482,6 +482,53 @@ body::after {
 .med-fav-chip.active { background: rgba(242,192,99,0.16); color: var(--warning); border-color: rgba(242,192,99,0.4); }
 .med-fav-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sc-text-dim); font-weight: 600; margin: -4px 0 14px; cursor: pointer; }
 .med-fav-field input { accent-color: var(--warning); cursor: pointer; }
+
+/* ===== Anxiety — an in-panel Breathwork / Tips & Techniques switcher,
+   moved in from the now-deleted standalone anxiety.html per an explicit
+   ask, restyled to this page's Dream-Board aesthetic. Card grids reuse
+   .med-card's exact frosted-glass recipe verbatim (comma-grouped) rather
+   than a second copy of the same declarations. ===== */
+.anx-subtabs { margin-bottom: 16px; }
+.brw-grid, .tip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.med-card, .brw-card, .tip-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.08); -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255,255,255,0.16); border-radius: var(--radius-md);
+  padding: 16px 16px 14px;
+}
+.med-fav-btn, .brw-fav-btn, .tip-fav-btn { position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--sc-text-mute); padding: 2px; -webkit-tap-highlight-color: transparent; }
+.med-fav-btn:hover, .med-fav-btn.active, .brw-fav-btn:hover, .brw-fav-btn.active, .tip-fav-btn:hover, .tip-fav-btn.active { color: var(--warning); }
+.med-card-title, .brw-card-title, .tip-card-title { font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--sc-text); padding-right: 26px; margin-bottom: 8px; line-height: 1.3; }
+.brw-card-meta, .tip-card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.brw-pattern { font-size: 11px; color: var(--sc-text-mute); font-family: var(--font-mono); margin-bottom: 10px; }
+.brw-card-desc, .tip-card-body { font-size: 12.5px; color: var(--sc-text-dim); line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.brw-card-actions, .tip-card-actions { display: flex; align-items: center; gap: 8px; }
+.brw-card-actions .btn-primary, .brw-card-actions .btn-secondary, .tip-card-actions .btn-secondary { padding: 8px 10px; font-size: 12.5px; flex: 1; }
+.brw-del-btn, .tip-del-btn { background: none; border: none; color: var(--sc-text-mute); cursor: pointer; font-size: 14px; padding: 6px; flex-shrink: 0; }
+.brw-del-btn:hover, .tip-del-btn:hover { color: var(--danger); }
+.anx-field-hint { font-size: 11px; color: var(--sc-text-mute); margin-top: -6px; }
+.four-col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 480px) { .four-col { grid-template-columns: repeat(2, 1fr); } }
+
+/* ===== Breathing pacer ===== */
+.pacer-modal { max-width: 380px; text-align: center; }
+.pacer-technique-name { font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--sc-text-dim); margin-bottom: 4px; }
+.pacer-cycle-label { font-size: 11px; color: var(--sc-text-mute); font-family: var(--font-mono); margin-bottom: 22px; }
+.pacer-ring-wrap { position: relative; width: 220px; height: 220px; margin: 0 auto 22px; display: flex; align-items: center; justify-content: center; }
+.pacer-ring-static { position: absolute; inset: 0; border-radius: 50%; border: 1px dashed var(--sc-hairline); }
+.pacer-circle {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(201,168,118,0.55) 0%, rgba(201,168,118,0.18) 62%, rgba(201,168,118,0.05) 100%);
+  border: 1px solid rgba(201,168,118,0.5);
+  transform: scale(0.55);
+  box-shadow: 0 0 60px rgba(201,168,118,0.25);
+}
+.pacer-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.pacer-phase-label { font-size: 19px; font-weight: 800; letter-spacing: 0.04em; color: var(--sc-text); text-transform: uppercase; }
+.pacer-countdown { font-size: 34px; font-weight: 800; font-family: var(--font-mono); color: var(--sc-gold-bright); margin-top: 4px; }
+.pacer-done { font-size: 14px; color: var(--success); font-weight: 700; margin-bottom: 18px; }
+.pacer-actions { display: flex; gap: 8px; justify-content: center; }
+.pacer-actions button { flex: 1; }
 </style>
 </head>
 <body>
@@ -551,6 +598,31 @@ body::after {
       <div class="chip-row" id="medTypeChips"></div>
       <div class="chip-row" id="medDurationChips"></div>
       <div id="medGrid" class="med-grid"></div>
+    </div>
+
+    <div class="section sc-panel" data-section="anxiety" hidden>
+      <div class="chip-row anx-subtabs" id="anxSubTabs">
+        <button type="button" class="chip active" data-anxsub="breathwork">Breathwork</button>
+        <button type="button" class="chip" data-anxsub="tips">Tips &amp; Techniques</button>
+      </div>
+
+      <div id="anxBreathworkPanel">
+        <div class="sc-panel-toolbar">
+          <input type="text" id="brwSearchInput" class="sc-panel-search" placeholder="Search breathwork techniques…">
+          <button class="btn-primary" type="button" id="brwAddBtn">+ New Technique</button>
+        </div>
+        <div class="chip-row" id="brwGoalChips"></div>
+        <div id="brwGrid" class="brw-grid"></div>
+      </div>
+
+      <div id="anxTipsPanel" hidden>
+        <div class="sc-panel-toolbar">
+          <input type="text" id="tipSearchInput" class="sc-panel-search" placeholder="Search tips &amp; techniques…">
+          <button class="btn-primary" type="button" id="tipAddBtn">+ New Tip</button>
+        </div>
+        <div class="chip-row" id="tipCategoryChips"></div>
+        <div id="tipGrid" class="tip-grid"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -661,6 +733,70 @@ body::after {
       <button class="btn-primary" type="button" id="medModalSave">Save</button>
     </div>
     <span class="delete-link" id="medModalDelete" style="display:none">Delete this meditation</span>
+  </div>
+</div>
+
+<!-- ===== ANXIETY: BREATHWORK — add / edit ===== -->
+<div class="modal-bg" id="brwModalBg">
+  <div class="modal" id="brwModal">
+    <h3 id="brwModalTitle">New Breathing Technique</h3>
+    <div class="field"><label>Name</label><input type="text" id="brwNameInput" placeholder="e.g. Box Breathing"></div>
+    <div class="field"><label>Description</label><textarea id="brwDescInput" placeholder="What it's for, when to use it…" style="min-height:70px"></textarea></div>
+    <div class="field"><label>Best for</label><select id="brwGoalSelect"></select></div>
+    <div class="field">
+      <label>Pattern (seconds per phase)</label>
+      <div class="four-col">
+        <div><label class="anx-field-hint" style="display:block;margin-bottom:4px">Inhale</label><input type="text" inputmode="numeric" id="brwInhaleInput" value="4"></div>
+        <div><label class="anx-field-hint" style="display:block;margin-bottom:4px">Hold</label><input type="text" inputmode="numeric" id="brwHoldInInput" value="0"></div>
+        <div><label class="anx-field-hint" style="display:block;margin-bottom:4px">Exhale</label><input type="text" inputmode="numeric" id="brwExhaleInput" value="4"></div>
+        <div><label class="anx-field-hint" style="display:block;margin-bottom:4px">Hold</label><input type="text" inputmode="numeric" id="brwHoldOutInput" value="0"></div>
+      </div>
+      <div class="anx-field-hint">Leave a hold at 0 to skip that phase entirely.</div>
+    </div>
+    <div class="field"><label>Suggested cycles</label><input type="text" inputmode="numeric" id="brwCyclesInput" value="6"></div>
+    <label class="med-fav-field"><input type="checkbox" id="brwFavInput"> Mark as favorite</label>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="brwModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="brwModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="brwModalDelete" style="display:none">Delete this technique</span>
+  </div>
+</div>
+
+<!-- ===== ANXIETY: BREATHWORK — pacer ===== -->
+<div class="modal-bg" id="pacerModalBg">
+  <div class="modal pacer-modal" id="pacerModal">
+    <div class="pacer-technique-name" id="pacerTechniqueName"></div>
+    <div class="pacer-cycle-label" id="pacerCycleLabel"></div>
+    <div class="pacer-ring-wrap">
+      <div class="pacer-ring-static"></div>
+      <div class="pacer-circle" id="pacerCircle"></div>
+      <div class="pacer-center">
+        <div class="pacer-phase-label" id="pacerPhaseLabel">Ready</div>
+        <div class="pacer-countdown" id="pacerCountdown">—</div>
+      </div>
+    </div>
+    <div class="pacer-done" id="pacerDoneMsg" style="display:none">✓ Nice work — cycle complete.</div>
+    <div class="pacer-actions">
+      <button type="button" class="sc-btn-ghost" id="pacerCloseBtn">Close</button>
+      <button type="button" class="btn-primary" id="pacerStartStopBtn">Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ANXIETY: TIP — add / edit ===== -->
+<div class="modal-bg" id="tipModalBg">
+  <div class="modal" id="tipModal">
+    <h3 id="tipModalTitle">New Tip</h3>
+    <div class="field"><label>Title</label><input type="text" id="tipTitleInput" placeholder="e.g. 5-4-3-2-1 Grounding"></div>
+    <div class="field"><label>Category</label><select id="tipCategorySelect"></select></div>
+    <div class="field"><label>Details</label><textarea id="tipBodyInput" placeholder="What it is, how to do it…" style="min-height:120px"></textarea></div>
+    <label class="med-fav-field"><input type="checkbox" id="tipFavInput"> Mark as favorite</label>
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="tipModalCancel">Cancel</button>
+      <button class="btn-primary" type="button" id="tipModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="tipModalDelete" style="display:none">Delete this tip</span>
   </div>
 </div>
 
@@ -927,8 +1063,8 @@ body::after {
     renderActivePanel();
   }
   /** Shows whichever panel the active tab calls for (freeform board, or the
-   * dedicated Journals/Meditations UI), and toggles the board-only "+ Add
-   * Widget" control accordingly. */
+   * dedicated Journals/Meditations/Anxiety UI), and toggles the board-only
+   * "+ Add Widget" control accordingly. */
   function renderActivePanel() {
     const t = activeTabRecord();
     const panel = t ? t.panel : '';
@@ -936,8 +1072,10 @@ body::after {
     $('scAddWidgetBtn').style.display = panel ? 'none' : '';
     document.querySelector('.sc-panel[data-section="journals"]').hidden = panel !== 'journals';
     document.querySelector('.sc-panel[data-section="meditations"]').hidden = panel !== 'meditations';
+    document.querySelector('.sc-panel[data-section="anxiety"]').hidden = panel !== 'anxiety';
     if (panel === 'journals') renderJournalsSection();
     else if (panel === 'meditations') renderMeditationsSection();
+    else if (panel === 'anxiety') renderAnxietySection();
     else renderBoard();
   }
 
@@ -1900,6 +2038,371 @@ body::after {
   });
 
   // ============================================================
+  // ANXIETY — moved in from the now-deleted standalone anxiety.html per
+  // an explicit ask to fold it into its own tab inside Self-Care instead
+  // of a top-level nav pill. Logic is carried over verbatim (pattern
+  // summary, goal/category chip filters, the breathing pacer's
+  // timestamp-based phase timing); only class names/DOM ids and the
+  // `SC.` data-layer prefix changed to fit this page. An in-panel
+  // sub-nav (Breathwork / Tips & Techniques, transient — not persisted,
+  // same "small in-page toggle" precedent as other transient filters in
+  // this app) replaces the standalone page's own top-level hash-routed
+  // tabs, since the Anxiety *tab* itself is now the routed unit.
+  // ============================================================
+  var anxSubTab = 'breathwork';
+  function setAnxSubTab(name) {
+    anxSubTab = name;
+    Array.prototype.forEach.call($('anxSubTabs').querySelectorAll('.chip'), function (b) { b.classList.toggle('active', b.dataset.anxsub === name); });
+    $('anxBreathworkPanel').hidden = name !== 'breathwork';
+    $('anxTipsPanel').hidden = name !== 'tips';
+    if (name === 'breathwork') renderBrwGrid(); else renderTipGrid();
+  }
+  Array.prototype.forEach.call($('anxSubTabs').querySelectorAll('.chip'), function (btn) {
+    btn.addEventListener('click', function () { setAnxSubTab(btn.dataset.anxsub); });
+  });
+  function renderAnxietySection() {
+    renderBrwGoalChips();
+    renderTipCategoryChips();
+    setAnxSubTab(anxSubTab);
+  }
+
+  // ----- Breathwork -----
+  var brwGoalFilter = '';
+  var brwSearchQuery = '';
+  var brwEditingId = null;
+
+  function patternSummary(t) {
+    var parts = [];
+    parts.push(t.inhaleSec + 's in');
+    if (t.holdInSec) parts.push(t.holdInSec + 's hold');
+    parts.push(t.exhaleSec + 's out');
+    if (t.holdOutSec) parts.push(t.holdOutSec + 's hold');
+    return parts.join(' · ');
+  }
+  function renderBrwGoalChips() {
+    var row = $('brwGoalChips');
+    var goals = [''].concat(SC.BREATHWORK_GOALS);
+    row.innerHTML = goals.map(function (g) {
+      var label = g ? SC.BREATHWORK_GOAL_LABELS[g] : 'All';
+      var active = g === brwGoalFilter ? ' active' : '';
+      return '<button type="button" class="chip' + active + '" data-goal="' + g + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(row.querySelectorAll('.chip'), function (btn) {
+      btn.addEventListener('click', function () { brwGoalFilter = btn.dataset.goal; renderBrwGrid(); });
+    });
+  }
+  function brwCardHtml(t) {
+    var goalLabel = SC.BREATHWORK_GOAL_LABELS[t.goal] || t.goal;
+    return '' +
+      '<div class="brw-card" data-id="' + t.id + '">' +
+        '<button type="button" class="brw-fav-btn' + (t.isFavorite ? ' active' : '') + '" data-id="' + t.id + '" aria-label="Toggle favorite">' + (t.isFavorite ? '★' : '☆') + '</button>' +
+        '<div class="brw-card-title">' + escapeHtml(t.name || '(Untitled)') + '</div>' +
+        '<div class="brw-card-meta"><span class="tag">' + escapeHtml(goalLabel) + '</span><span class="tag">' + t.cycles + ' cycles</span></div>' +
+        '<div class="brw-pattern">' + escapeHtml(patternSummary(t)) + '</div>' +
+        (t.description ? '<div class="brw-card-desc">' + escapeHtml(t.description) + '</div>' : '') +
+        '<div class="brw-card-actions">' +
+          '<button type="button" class="btn-primary brw-start-btn" data-id="' + t.id + '">▶ Start</button>' +
+          '<button type="button" class="btn-secondary brw-edit-btn" data-id="' + t.id + '">Edit</button>' +
+          '<button type="button" class="brw-del-btn" data-id="' + t.id + '" aria-label="Delete">✕</button>' +
+        '</div>' +
+      '</div>';
+  }
+  function renderBrwGrid() {
+    var list = SC.anxietyBreathworkSorted();
+    if (brwGoalFilter) list = list.filter(function (t) { return t.goal === brwGoalFilter; });
+    var q = brwSearchQuery.trim().toLowerCase();
+    if (q) list = list.filter(function (t) { return (t.name || '').toLowerCase().indexOf(q) !== -1; });
+    var grid = $('brwGrid');
+    if (!list.length) {
+      var hasFilters = !!(q || brwGoalFilter);
+      var emptyText = hasFilters ? 'Nothing matches — try a different search or filter.' : 'Add your first breathing technique with the button above.';
+      grid.innerHTML = '<div class="sc-empty"><div class="sc-empty-icon">🫁</div><div class="sc-empty-title">No techniques yet</div><div class="sc-empty-text">' + emptyText + '</div></div>';
+      return;
+    }
+    grid.innerHTML = list.map(brwCardHtml).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('.brw-fav-btn'), function (btn) { btn.addEventListener('click', function () { toggleBrwFavorite(btn.dataset.id); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('.brw-start-btn'), function (btn) { btn.addEventListener('click', function () { openPacer(btn.dataset.id); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('.brw-edit-btn'), function (btn) { btn.addEventListener('click', function () { openBrwModal(SC.AnxietyBreathwork.get(btn.dataset.id)); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('.brw-del-btn'), function (btn) { btn.addEventListener('click', function () { deleteBrw(btn.dataset.id); }); });
+  }
+  function toggleBrwFavorite(id) {
+    var t = SC.AnxietyBreathwork.get(id);
+    if (!t) return;
+    SC.AnxietyBreathwork.update(id, { isFavorite: !t.isFavorite });
+    renderBrwGrid();
+  }
+  function deleteBrw(id) {
+    var t = SC.AnxietyBreathwork.get(id);
+    if (!t) return;
+    if (!confirm('Delete "' + (t.name || 'this technique') + '"? This cannot be undone.')) return;
+    SC.AnxietyBreathwork.remove(id);
+    renderBrwGrid();
+  }
+  $('brwSearchInput').addEventListener('input', function () { brwSearchQuery = this.value; renderBrwGrid(); });
+
+  function populateBrwGoalSelect() {
+    var sel = $('brwGoalSelect');
+    sel.innerHTML = SC.BREATHWORK_GOALS.map(function (g) { return '<option value="' + g + '">' + escapeHtml(SC.BREATHWORK_GOAL_LABELS[g]) + '</option>'; }).join('');
+  }
+  function openBrwModal(t) {
+    brwEditingId = t ? t.id : null;
+    $('brwModalTitle').textContent = t ? 'Edit Technique' : 'New Breathing Technique';
+    populateBrwGoalSelect();
+    $('brwNameInput').value = t ? t.name : '';
+    $('brwDescInput').value = t ? t.description : '';
+    $('brwGoalSelect').value = t ? t.goal : SC.BREATHWORK_GOALS[0];
+    $('brwInhaleInput').value = t ? t.inhaleSec : 4;
+    $('brwHoldInInput').value = t ? t.holdInSec : 0;
+    $('brwExhaleInput').value = t ? t.exhaleSec : 4;
+    $('brwHoldOutInput').value = t ? t.holdOutSec : 0;
+    $('brwCyclesInput').value = t ? t.cycles : 6;
+    $('brwFavInput').checked = !!(t && t.isFavorite);
+    $('brwModalDelete').style.display = t ? 'block' : 'none';
+    $('brwModalBg').classList.add('show');
+  }
+  function closeBrwModal() { $('brwModalBg').classList.remove('show'); brwEditingId = null; }
+  $('brwAddBtn').addEventListener('click', function () { openBrwModal(null); });
+  $('brwModalCancel').addEventListener('click', closeBrwModal);
+  $('brwModalBg').addEventListener('click', function (e) { if (e.target.id === 'brwModalBg') closeBrwModal(); });
+  $('brwModalSave').addEventListener('click', function () {
+    var name = $('brwNameInput').value.trim();
+    if (!name) { alert('Give this technique a name first.'); return; }
+    var patch = {
+      name: name,
+      description: $('brwDescInput').value.trim(),
+      goal: $('brwGoalSelect').value,
+      inhaleSec: Number($('brwInhaleInput').value) || 4,
+      holdInSec: Number($('brwHoldInInput').value) || 0,
+      exhaleSec: Number($('brwExhaleInput').value) || 4,
+      holdOutSec: Number($('brwHoldOutInput').value) || 0,
+      cycles: Number($('brwCyclesInput').value) || 6,
+      isFavorite: $('brwFavInput').checked
+    };
+    if (brwEditingId) SC.AnxietyBreathwork.update(brwEditingId, patch);
+    else SC.AnxietyBreathwork.add(patch);
+    closeBrwModal();
+    renderBrwGrid();
+  });
+  $('brwModalDelete').addEventListener('click', function () {
+    if (!brwEditingId) return;
+    var t = SC.AnxietyBreathwork.get(brwEditingId);
+    if (!confirm('Delete "' + (t && t.name || 'this technique') + '"? This cannot be undone.')) return;
+    SC.AnxietyBreathwork.remove(brwEditingId);
+    closeBrwModal();
+    renderBrwGrid();
+  });
+
+  // ----- Breathing pacer — timestamp-based phase timing (Date.now()
+  // diffs on a 200ms tick, phase-start corrected for tick overshoot on
+  // every advance), same drift-proofing precedent as gym.html's own
+  // workout timer. The circle's grow/shrink is a single CSS transition
+  // set once per phase change, not animated frame-by-frame in JS. -----
+  var pacerTechnique = null;
+  var pacerPhases = [];
+  var pacerPhaseIndex = 0;
+  var pacerCycleIndex = 1;
+  var pacerPhaseStartMs = 0;
+  var pacerRunning = false;
+  var pacerTickId = null;
+
+  function buildPacerPhases(t) {
+    var phases = [];
+    if (t.inhaleSec > 0) phases.push({ name: 'Inhale', seconds: t.inhaleSec, scale: 1 });
+    if (t.holdInSec > 0) phases.push({ name: 'Hold', seconds: t.holdInSec, scale: 1 });
+    if (t.exhaleSec > 0) phases.push({ name: 'Exhale', seconds: t.exhaleSec, scale: 0.55 });
+    if (t.holdOutSec > 0) phases.push({ name: 'Hold', seconds: t.holdOutSec, scale: 0.55 });
+    return phases.length ? phases : [{ name: 'Inhale', seconds: 4, scale: 1 }, { name: 'Exhale', seconds: 4, scale: 0.55 }];
+  }
+  function applyPacerPhaseVisual(phase) {
+    var circle = $('pacerCircle');
+    circle.style.transition = 'transform ' + phase.seconds + 's linear';
+    void circle.offsetWidth;
+    circle.style.transform = 'scale(' + phase.scale + ')';
+    $('pacerPhaseLabel').textContent = phase.name;
+  }
+  function pacerTick() {
+    if (!pacerRunning) return;
+    var phase = pacerPhases[pacerPhaseIndex];
+    var elapsedMs = Date.now() - pacerPhaseStartMs;
+    var remaining = phase.seconds - elapsedMs / 1000;
+    if (remaining <= 0) {
+      pacerPhaseIndex++;
+      if (pacerPhaseIndex >= pacerPhases.length) {
+        pacerPhaseIndex = 0;
+        pacerCycleIndex++;
+        if (pacerCycleIndex > pacerTechnique.cycles) { pacerFinish(); return; }
+      }
+      pacerPhaseStartMs = Date.now() + remaining * 1000;
+      applyPacerPhaseVisual(pacerPhases[pacerPhaseIndex]);
+      $('pacerCycleLabel').textContent = 'Cycle ' + pacerCycleIndex + ' of ' + pacerTechnique.cycles;
+      remaining = pacerPhases[pacerPhaseIndex].seconds - (Date.now() - pacerPhaseStartMs) / 1000;
+    }
+    $('pacerCountdown').textContent = String(Math.max(1, Math.ceil(remaining)));
+  }
+  function pacerFinish() {
+    pacerRunning = false;
+    clearInterval(pacerTickId);
+    $('pacerPhaseLabel').textContent = 'Done';
+    $('pacerCountdown').textContent = '✓';
+    $('pacerDoneMsg').style.display = 'block';
+    $('pacerStartStopBtn').textContent = 'Start Again';
+    $('pacerCircle').style.transition = 'transform 0.6s ease';
+    $('pacerCircle').style.transform = 'scale(0.8)';
+  }
+  function pacerStart() {
+    pacerPhases = buildPacerPhases(pacerTechnique);
+    pacerPhaseIndex = 0;
+    pacerCycleIndex = 1;
+    pacerRunning = true;
+    $('pacerDoneMsg').style.display = 'none';
+    $('pacerStartStopBtn').textContent = 'Stop';
+    $('pacerCycleLabel').textContent = 'Cycle 1 of ' + pacerTechnique.cycles;
+    var circle = $('pacerCircle');
+    circle.style.transition = 'none';
+    circle.style.transform = 'scale(0.55)';
+    void circle.offsetWidth;
+    pacerPhaseStartMs = Date.now();
+    applyPacerPhaseVisual(pacerPhases[0]);
+    clearInterval(pacerTickId);
+    pacerTickId = setInterval(pacerTick, 200);
+    pacerTick();
+  }
+  function pacerStop() {
+    pacerRunning = false;
+    clearInterval(pacerTickId);
+    $('pacerPhaseLabel').textContent = 'Ready';
+    $('pacerCountdown').textContent = '—';
+    $('pacerCycleLabel').textContent = '';
+    $('pacerDoneMsg').style.display = 'none';
+    $('pacerStartStopBtn').textContent = 'Start';
+    var circle = $('pacerCircle');
+    circle.style.transition = 'transform 0.4s ease';
+    circle.style.transform = 'scale(0.55)';
+  }
+  function openPacer(id) {
+    var t = SC.AnxietyBreathwork.get(id);
+    if (!t) return;
+    pacerTechnique = t;
+    $('pacerTechniqueName').textContent = t.name || 'Breathing';
+    pacerStop();
+    $('pacerModalBg').classList.add('show');
+  }
+  function closePacer() {
+    pacerRunning = false;
+    clearInterval(pacerTickId);
+    $('pacerModalBg').classList.remove('show');
+  }
+  $('pacerStartStopBtn').addEventListener('click', function () { if (pacerRunning) pacerStop(); else pacerStart(); });
+  $('pacerCloseBtn').addEventListener('click', closePacer);
+  $('pacerModalBg').addEventListener('click', function (e) { if (e.target.id === 'pacerModalBg') closePacer(); });
+
+  // ----- Tips & Techniques -----
+  var tipCategoryFilter = '';
+  var tipFavOnly = false;
+  var tipSearchQuery = '';
+  var tipEditingId = null;
+
+  function renderTipCategoryChips() {
+    var row = $('tipCategoryChips');
+    var cats = [''].concat(SC.ANXIETY_TIP_CATEGORIES);
+    var html = cats.map(function (c) {
+      var label = c ? SC.ANXIETY_TIP_CATEGORY_LABELS[c] : 'All';
+      var active = c === tipCategoryFilter ? ' active' : '';
+      return '<button type="button" class="chip' + active + '" data-cat="' + c + '">' + escapeHtml(label) + '</button>';
+    }).join('');
+    html += '<button type="button" class="chip med-fav-chip' + (tipFavOnly ? ' active' : '') + '" id="tipFavToggleChip">★ Favorites only</button>';
+    row.innerHTML = html;
+    Array.prototype.forEach.call(row.querySelectorAll('[data-cat]'), function (btn) {
+      btn.addEventListener('click', function () { tipCategoryFilter = btn.dataset.cat; renderTipGrid(); });
+    });
+    $('tipFavToggleChip').addEventListener('click', function () { tipFavOnly = !tipFavOnly; renderTipGrid(); });
+  }
+  function tipCardHtml(t) {
+    var catLabel = SC.ANXIETY_TIP_CATEGORY_LABELS[t.category] || t.category;
+    return '' +
+      '<div class="tip-card" data-id="' + t.id + '">' +
+        '<button type="button" class="tip-fav-btn' + (t.isFavorite ? ' active' : '') + '" data-id="' + t.id + '" aria-label="Toggle favorite">' + (t.isFavorite ? '★' : '☆') + '</button>' +
+        '<div class="tip-card-title">' + escapeHtml(t.title || '(Untitled)') + '</div>' +
+        '<div class="tip-card-meta"><span class="tag">' + escapeHtml(catLabel) + '</span></div>' +
+        '<div class="tip-card-body">' + escapeHtml(t.body) + '</div>' +
+        '<div class="tip-card-actions">' +
+          '<button type="button" class="btn-secondary tip-edit-btn" data-id="' + t.id + '">Edit</button>' +
+          '<button type="button" class="tip-del-btn" data-id="' + t.id + '" aria-label="Delete">✕</button>' +
+        '</div>' +
+      '</div>';
+  }
+  function renderTipGrid() {
+    var list = SC.anxietyTipsSorted();
+    if (tipCategoryFilter) list = list.filter(function (t) { return t.category === tipCategoryFilter; });
+    if (tipFavOnly) list = list.filter(function (t) { return t.isFavorite; });
+    var q = tipSearchQuery.trim().toLowerCase();
+    if (q) list = list.filter(function (t) { return (t.title || '').toLowerCase().indexOf(q) !== -1 || (t.body || '').toLowerCase().indexOf(q) !== -1; });
+    var grid = $('tipGrid');
+    if (!list.length) {
+      var hasFilters = !!(q || tipCategoryFilter || tipFavOnly);
+      var emptyText = hasFilters ? 'Nothing matches — try different filters or search.' : 'Add your first tip with the button above.';
+      grid.innerHTML = '<div class="sc-empty"><div class="sc-empty-icon">💡</div><div class="sc-empty-title">No tips yet</div><div class="sc-empty-text">' + emptyText + '</div></div>';
+      return;
+    }
+    grid.innerHTML = list.map(tipCardHtml).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('.tip-fav-btn'), function (btn) { btn.addEventListener('click', function () { toggleTipFavorite(btn.dataset.id); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('.tip-edit-btn'), function (btn) { btn.addEventListener('click', function () { openTipModal(SC.AnxietyTips.get(btn.dataset.id)); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('.tip-del-btn'), function (btn) { btn.addEventListener('click', function () { deleteTip(btn.dataset.id); }); });
+  }
+  function toggleTipFavorite(id) {
+    var t = SC.AnxietyTips.get(id);
+    if (!t) return;
+    SC.AnxietyTips.update(id, { isFavorite: !t.isFavorite });
+    renderTipGrid();
+  }
+  function deleteTip(id) {
+    var t = SC.AnxietyTips.get(id);
+    if (!t) return;
+    if (!confirm('Delete "' + (t.title || 'this tip') + '"? This cannot be undone.')) return;
+    SC.AnxietyTips.remove(id);
+    renderTipGrid();
+  }
+  $('tipSearchInput').addEventListener('input', function () { tipSearchQuery = this.value; renderTipGrid(); });
+
+  function populateTipCategorySelect() {
+    var sel = $('tipCategorySelect');
+    sel.innerHTML = SC.ANXIETY_TIP_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + escapeHtml(SC.ANXIETY_TIP_CATEGORY_LABELS[c]) + '</option>'; }).join('');
+  }
+  function openTipModal(t) {
+    tipEditingId = t ? t.id : null;
+    $('tipModalTitle').textContent = t ? 'Edit Tip' : 'New Tip';
+    populateTipCategorySelect();
+    $('tipTitleInput').value = t ? t.title : '';
+    $('tipCategorySelect').value = t ? t.category : SC.ANXIETY_TIP_CATEGORIES[0];
+    $('tipBodyInput').value = t ? t.body : '';
+    $('tipFavInput').checked = !!(t && t.isFavorite);
+    $('tipModalDelete').style.display = t ? 'block' : 'none';
+    $('tipModalBg').classList.add('show');
+  }
+  function closeTipModal() { $('tipModalBg').classList.remove('show'); tipEditingId = null; }
+  $('tipAddBtn').addEventListener('click', function () { openTipModal(null); });
+  $('tipModalCancel').addEventListener('click', closeTipModal);
+  $('tipModalBg').addEventListener('click', function (e) { if (e.target.id === 'tipModalBg') closeTipModal(); });
+  $('tipModalSave').addEventListener('click', function () {
+    var title = $('tipTitleInput').value.trim();
+    var body = $('tipBodyInput').value.trim();
+    if (!title) { alert('Give this tip a title first.'); return; }
+    var patch = { title: title, category: $('tipCategorySelect').value, body: body, isFavorite: $('tipFavInput').checked };
+    if (tipEditingId) SC.AnxietyTips.update(tipEditingId, patch);
+    else SC.AnxietyTips.add(patch);
+    closeTipModal();
+    renderTipGrid();
+  });
+  $('tipModalDelete').addEventListener('click', function () {
+    if (!tipEditingId) return;
+    var t = SC.AnxietyTips.get(tipEditingId);
+    if (!confirm('Delete "' + (t && t.title || 'this tip') + '"? This cannot be undone.')) return;
+    SC.AnxietyTips.remove(tipEditingId);
+    closeTipModal();
+    renderTipGrid();
+  });
+
+  // ============================================================
   // BOOT
   // ============================================================
   function init() {
@@ -1939,6 +2442,7 @@ body::after {
       const t = activeTabRecord();
       if (t && t.panel === 'journals') { $('jrAddBtn').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       else if (t && t.panel === 'meditations') { $('medAddBtn').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      else if (t && t.panel === 'anxiety') { setAnxSubTab('breathwork'); $('brwAddBtn').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       else { $('scBoard').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
     });
 
@@ -1959,21 +2463,24 @@ body::after {
     $('scDayNoteClearBtn').addEventListener('click', function () { $('scDayNoteInput').value = ''; });
     $('scDayNoteSaveBtn').addEventListener('click', saveDayNote);
 
-    // Repair/seed pass. Two independent pieces, on purpose (see
+    // Repair/seed pass. Independent pieces, on purpose (see
     // selfcare-data.js's own comment on the bug this fixes): creating the
-    // Tabs a pre-existing user is missing (ensureTabsExist() — safe any
-    // time, never touches Journal/Meditation data) is NOT the same
-    // decision as adding fake sample journal/meditation content
-    // (seedSampleContentIfFresh() — only for a genuinely empty install,
-    // still deferred behind the cloud pull so it can't fabricate content
-    // over real data that just hasn't arrived yet). Both are called from
-    // onApplied (the moment we actually know what's real from the cloud)
-    // and again from a timed fallback, in case sync is unavailable or
-    // never resolves (e.g. no remote row exists yet at all).
+    // Tabs a pre-existing user is missing — including the Anxiety tab for
+    // anyone who already had the other three (ensureTabsExist() — safe
+    // any time, never touches Journal/Meditation/Anxiety content) is NOT
+    // the same decision as adding fake sample content
+    // (seedSampleContentIfFresh()/seedAnxietyContentIfFresh() — only for
+    // a genuinely empty install, still deferred behind the cloud pull so
+    // it can't fabricate content over real data that just hasn't arrived
+    // yet). All three are called from onApplied (the moment we actually
+    // know what's real from the cloud) and again from a timed fallback,
+    // in case sync is unavailable or never resolves (e.g. no remote row
+    // exists yet at all).
     function repairAndRerender() {
       const createdTabs = SC.ensureTabsExist();
       const seededSamples = SC.seedSampleContentIfFresh();
-      if (createdTabs || seededSamples) {
+      const seededAnxiety = SC.seedAnxietyContentIfFresh();
+      if (createdTabs || seededSamples || seededAnxiety) {
         const freshTabs = SC.tabsSorted();
         if (!freshTabs.find(function (t) { return t.id === activeTabId; })) activeTabId = (freshTabs[0] || {}).id || null;
         storeSet(ACTIVE_TAB_KEY, activeTabId);
@@ -1995,6 +2502,30 @@ body::after {
       if (tabs.length === 0) setTimeout(repairAndRerender, 5000);
     } else if (tabs.length === 0) {
       repairAndRerender();
+    }
+
+    // Repairing a missing Anxiety tab specifically (as opposed to
+    // creating the whole board from scratch) is safe to do immediately,
+    // regardless of whether Tabs already existed at boot: it's purely
+    // additive to an already-populated Tabs array and never touches
+    // Journal/Meditation/Widget/Anxiety CONTENT, unlike
+    // ensureTabsExist()'s "Tabs.list().length === 0" branch above, which
+    // must stay deferred behind the cloud-pull window since it replaces
+    // "nothing" with a full default board that could otherwise race and
+    // clobber a real remote board. Only runs when Tabs already had at
+    // least one real entry at this point, so a genuinely fresh device
+    // isn't handed a stray lone Anxiety tab before its own deferred
+    // full-board seed above has even had a chance to fire. Placed after
+    // initCloudSync() so the write is tracked "dirty" and survives an
+    // immediate stale remote pull — same precedent as Dream Board's own
+    // Vision Board video-fix repair.
+    if (SC.Tabs.list().length > 0 && SC.ensureAnxietyTabExists()) {
+      const freshTabs2 = SC.tabsSorted();
+      if (!freshTabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (freshTabs2[0] || {}).id || null;
+      storeSet(ACTIVE_TAB_KEY, activeTabId);
+      renderHero();
+      renderTabs();
+      renderActivePanel();
     }
   }
 
