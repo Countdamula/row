@@ -6,43 +6,43 @@
 <meta name="theme-color" content="#0b0509">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
+/* =============================================================
+   Re-themed to match Dream Board's dark cinematic look (near-black +
+   warm champagne/gold, frosted-glass surfaces, italic serif display
+   type, per-page hero cover section) — an explicit, deliberate request
+   to match that page's own already-granted reference-photo exception
+   (see CLAUDE.md §6/DO NOT MODIFY rule 2 and dreamboard.html's
+   changelog), not a generic palette swap. The prior dusty-rose/wine
+   "boutique gallery" theme is retired; token *names* are kept where
+   existing selectors depend on them, values repointed to Dream Board's.
+   ============================================================= */
 :root {
-  --bg: #170a12;
-  --bg-deep: #0b0509;
-  --bg-card: rgba(255, 255, 255, 0.04);
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --border: rgba(255, 255, 255, 0.08);
-  --accent: #E07658;
-  --good: #6ee7b7;
-  --warn: #fbbf24;
-  --bad: #ff8a8a;
+  --bg: #0b0a08;
+  --bg-deep: #050403;
+  --bg-card: rgba(255, 255, 255, 0.08);
+  --text-primary: #f5f1e9;
+  --text-secondary: rgba(245, 241, 233, 0.68);
+  --text-tertiary: rgba(245, 241, 233, 0.44);
+  --border: rgba(201, 168, 118, 0.22);
+  --accent: #c9a876;
+  --accent-bright: #e8cf9f;
+  --accent-tint: rgba(201, 168, 118, 0.14);
+  --good: #6BE3A4;
+  --warn: #F2C063;
+  --bad: #FF6B6B;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius-lg: 18px;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* Re-graded to match two reference photos: a dark wine/black velvet
-     "Welcome / Enter Gently" hero (candles, roses, birdcage lanterns) and
-     a dark boutique gallery page (dusty-rose peonies, elegant serif
-     script). --tile-border and --pink-accent are the same two tokens the
-     original per-file exception introduced (see CLAUDE.md §6) — their
-     hues just moved from hot-pink/red-coral to dusty rose/wine to match
-     the new reference. --wine/--candle/--cream/--font-serif are new,
-     added for the hero banner only, same "explicit literal instruction"
-     exception as before, not a generic palette swap.
-  */
-  --tile-border: rgba(196, 110, 130, 0.32);
-  --pink-accent: #e08a9f;
-  --wine: #3d0f1a;
-  --candle: #e8a463;
-  --cream: #f3e8da;
-  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
   color-scheme: dark;
 }
 
@@ -62,9 +62,9 @@ body::before {
   inset: -10%;
   z-index: -2;
   background:
-    radial-gradient(60% 45% at 82% 12%, rgba(232, 164, 99, 0.10) 0%, transparent 55%),
-    radial-gradient(55% 45% at 18% 90%, rgba(224, 138, 159, 0.08) 0%, transparent 55%),
-    linear-gradient(180deg, #170a12 0%, #0b0509 100%);
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
   filter: blur(40px) saturate(1.05);
   pointer-events: none;
 }
@@ -73,139 +73,163 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 3px 3px;
-  opacity: 0.7;
+  opacity: 0.6;
   pointer-events: none;
 }
+/* Page-wide cover-photo backdrop — the active gallery's hero photo,
+   blurred/dimmed, shown behind the ENTIRE page so the frosted gallery
+   cards actually have something to blur/reveal, same technique and
+   same reasoning as Dream Board's #dbPageBg. Updated by renderPageBg()
+   whenever the active gallery or its photo changes. */
+#entPageBg {
+  position: fixed; inset: 0; z-index: -3;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
+  pointer-events: none;
+}
+
+:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; border-radius: 4px; }
 
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
 
-/* ===== Hero banner — abstract, not the reference photos' actual imagery
-   (no roses/candles/curtain assets exist to drop in). Re-creates the
-   mood in CSS only: a wine-red glow rising into near-black (the velvet
-   curtain photo) plus a soft dusty-rose corner glow (the floral gallery
-   photo), an elegant serif display title, and a thin rule + tracked-caps
-   subtext echoing "WELCOME — ENTER GENTLY". ===== */
-.ent-banner {
-  position: relative;
-  overflow: hidden;
-  padding: 76px 24px 56px;
-  text-align: center;
-  border-bottom: 1px solid var(--tile-border);
+/* ===== Hero — one per gallery ("mini page"), styled after Dream Board's
+   per-tab hero: full-bleed cover photo/video, dark gradient scrim,
+   tracked-caps eyebrow, large serif headline, subtext, frosted-glass
+   pill CTA, "scroll to explore" flourish. Swapped by renderHero()
+   whenever the active gallery changes. ===== */
+.ent-hero {
+  position: relative; min-height: 78vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 90px 20px 46px;
+}
+.ent-hero-media { position: absolute; inset: 0; z-index: 0; background: #16130f; }
+.ent-hero-media img, .ent-hero-media video { width: 100%; height: 100%; object-fit: cover; }
+.ent-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
+}
+.ent-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.4); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text-tertiary); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 9px 18px;
+}
+.ent-hero-photo-choice-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.ent-hero-reattach {
+  position: absolute; inset: 0; z-index: 1; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text-tertiary); background: rgba(0,0,0,0.3); text-align: center; padding: 20px;
+}
+.ent-hero-reattach-icon { font-size: 30px; }
+.ent-hero-reattach-label { font-size: 12.5px; font-weight: 600; }
+.ent-hero-reattach-btn {
+  background: rgba(11,10,8,0.6); border: 1px solid var(--border); color: var(--text-primary);
+  border-radius: 999px; padding: 7px 16px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.ent-hero-reattach-btn:hover { border-color: var(--accent); color: var(--accent-bright); }
+#entPageBgVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ent-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(120% 85% at 50% -15%, rgba(122, 20, 42, 0.55) 0%, rgba(11, 5, 9, 0.92) 55%, transparent 100%),
-    radial-gradient(38% 30% at 88% 18%, rgba(232, 164, 99, 0.16) 0%, transparent 65%),
-    radial-gradient(30% 26% at 10% 82%, rgba(224, 138, 159, 0.14) 0%, transparent 65%);
+    linear-gradient(180deg, rgba(5,4,3,0.55) 0%, rgba(5,4,3,0.15) 32%, rgba(5,4,3,0.35) 62%, rgba(5,4,3,0.92) 100%);
 }
-.ent-banner-grain {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 3px 3px;
-  opacity: 0.6;
+.ent-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 999px; color: var(--text-secondary);
+  font-family: var(--font); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.ent-banner-title {
-  position: relative; z-index: 1;
-  font-family: var(--font-serif);
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: clamp(38px, 9vw, 60px);
-  letter-spacing: 0.06em;
-  color: var(--cream);
-  text-shadow: 0 2px 30px rgba(0,0,0,0.6), 0 0 40px rgba(232,164,99,0.12);
+.ent-back-btn:hover, .ent-back-btn:active { background: rgba(11, 10, 8, 0.8); color: var(--text-primary); }
+.ent-back-btn svg { display: block; }
+.ent-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5;
+  display: flex; gap: 6px;
 }
-.ent-banner-rule {
-  position: relative; z-index: 1;
-  display: flex; align-items: center; gap: 10px; justify-content: center;
-  max-width: 220px; margin: 18px auto 0;
+.ent-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border);
+  color: var(--text-secondary); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer;
 }
-.ent-banner-rule::before, .ent-banner-rule::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--tile-border));
-}
-.ent-banner-rule::after { background: linear-gradient(90deg, var(--tile-border), transparent); }
-.ent-banner-rule span { font-size: 11px; color: var(--pink-accent); }
-.ent-banner-subtext {
-  position: relative; z-index: 1;
-  margin-top: 14px;
-  font-size: 10.5px; font-weight: 600;
-  letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--text-secondary);
-}
-.ent-banner-cta {
-  position: relative; z-index: 1;
-  display: inline-flex; align-items: center;
-  margin-top: 24px; padding: 12px 26px;
-  border: 1px solid var(--tile-border); border-radius: 999px;
-  background: transparent; color: var(--cream);
-  font-family: inherit; font-size: 11px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, border-color 0.15s;
-}
-.ent-banner-cta:hover { background: rgba(224,138,159,0.10); border-color: var(--pink-accent); }
+.ent-hero-photo-tools button:hover { color: var(--accent-bright); border-color: var(--accent); }
 
-.ent-section-divider {
-  width: 100%; height: 30px; margin: 22px 0 22px;
-  background: repeating-conic-gradient(rgba(224,138,159,0.16) 0deg 0.5deg, transparent 0.5deg 12deg);
-  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  opacity: 0.7;
+.ent-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.ent-hero-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent-bright); margin-bottom: 14px; outline-offset: 4px;
 }
-
-@media (max-width: 480px) {
-  .ent-banner { padding: 52px 16px 40px; }
+.ent-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--accent); margin-right: 10px; vertical-align: middle; }
+.ent-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-weight: 500; color: var(--text-primary);
+  font-size: clamp(34px, 8vw, 58px); line-height: 1.06; letter-spacing: -0.01em;
+  padding: 0; margin-bottom: 16px; text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+.ent-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.ent-hero-subtext {
+  font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 440px; margin-bottom: 26px;
+  outline-offset: 4px;
+}
+.ent-hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 13px 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ent-hero-cta:hover { border-color: var(--accent); background: rgba(201,168,118,0.10); }
+.ent-hero-cta-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-primary);
+}
+.ent-hero-cta-arrow { color: var(--accent-bright); font-size: 13px; }
+.ent-hero-scroll-hint {
+  position: absolute; right: 20px; bottom: 26px; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.ent-hero-scroll-hint span:first-child { writing-mode: vertical-rl; }
+.ent-hero-scroll-arrow {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center; color: var(--accent);
+  animation: ent-scroll-bounce 2.2s ease-in-out infinite;
+}
+@keyframes ent-scroll-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+@media (max-width: 620px) {
+  .ent-hero { min-height: 84vh; padding: 84px 16px 34px; }
+  .ent-hero-scroll-hint { display: none; }
 }
 
 .shell {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 24px 16px 60px;
+  padding: 0 0 60px;
 }
-
-/* ===== Back to dashboard ===== */
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px 8px 10px;
-  margin: 0 0 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.back-btn:hover, .back-btn:active {
-  background: rgba(255,255,255,0.07);
-  color: var(--text-primary);
-}
-.back-btn svg { display: block; }
+.shell-inner { padding: 24px 16px 0; }
 
 /* ===== Header ===== */
 .ent-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 16px; gap: 12px;
 }
-.ent-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+.ent-title { font-family: var(--font-serif); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); }
 .ent-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .ent-header-actions .btn-secondary, .ent-header-actions .sort-select { padding: 10px 16px; white-space: nowrap; }
 .btn-add {
   flex-shrink: 0;
   padding: 10px 16px;
-  border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 999px;
   font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(5,4,3,0.45);
   -webkit-tap-highlight-color: transparent;
 }
 .btn-add:hover { transform: translateY(-1px); }
@@ -226,20 +250,22 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 .chip.active {
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-color: transparent; font-weight: 800;
+  background: var(--accent-tint);
+  color: var(--accent-bright); border-color: var(--accent); font-weight: 800;
 }
 .chip.dashed { border-style: dashed; }
 
-/* Gallery-type switcher — the page's primary nav, uses the pink accent
-   for its active state so it reads as the "top level" choice, distinct
-   from the secondary status-filter chips below it. */
+/* Gallery-type switcher — the page's primary nav ("mini pages": Podcasts/
+   Stories/Entertainment/Playlists/Favorites), styled as Dream Board's own
+   tab-row pills so switching a gallery reads exactly like switching a
+   Dream Board tab — distinct sizing from the secondary status-filter
+   chips below it, same active-state recipe as .chip.active above. */
 .chip-row-gallery { margin-bottom: 10px; }
 .chip-gallery { font-size: 13.5px; padding: 9px 16px; }
 .chip-gallery.active {
-  background: linear-gradient(180deg, var(--pink-accent), var(--wine));
-  color: #fff; border-color: transparent;
-  box-shadow: 0 4px 14px rgba(224,138,159,0.30);
+  background: var(--accent-tint);
+  color: var(--accent-bright); border-color: var(--accent);
+  box-shadow: none;
 }
 
 /* ===== Gallery grid ===== */
@@ -254,16 +280,19 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .ent-card {
   background: var(--bg-card);
-  border: 1px solid var(--tile-border);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 14px 36px rgba(0,0,0,0.35);
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ent-card:hover {
   transform: translateY(-2px);
-  border-color: var(--pink-accent);
-  box-shadow: 0 8px 22px rgba(224,138,159,0.18);
+  border-color: var(--accent);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset, 0 8px 22px rgba(201,168,118,0.24);
 }
 .ent-cover {
   position: relative;
@@ -274,7 +303,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .ent-cover::after {
   content: '';
   position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(180deg, transparent 55%, rgba(11,5,9,0.55) 100%);
+  background: linear-gradient(180deg, transparent 55%, rgba(5,4,3,0.55) 100%);
   pointer-events: none;
 }
 .ent-cover-img {
@@ -315,7 +344,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .icon-btn-sm:hover { background: rgba(0,0,0,0.75); }
-.icon-btn-sm.fav-active { color: var(--pink-accent); border-color: var(--pink-accent); }
+.icon-btn-sm.fav-active { color: var(--accent-bright); border-color: var(--accent-bright); }
 .card-reorder {
   position: absolute; top: 6px; left: 6px; z-index: 3;
   display: flex; flex-direction: column; gap: 1px;
@@ -368,22 +397,24 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .ent-card-url:hover { color: var(--text-secondary); text-decoration: underline; }
 
-/* ===== Modal ===== */
+/* ===== Modal — real frosted glass over the page-wide cover-photo
+   backdrop, same recipe as Dream Board's .modal. ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  background: rgba(5,4,3,0.65);
   z-index: 100; align-items: center; justify-content: center;
   padding: 24px;
 }
 .modal-bg.show { display: flex; }
 .modal {
   width: 100%; max-width: 460px;
-  background: #111113;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 16px;
+  background: rgba(20, 17, 13, 0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: var(--radius-lg);
   padding: 22px; max-height: 88vh; overflow-y: auto;
 }
-.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; }
+.modal h3 { margin: 0 0 16px; font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--text-primary); }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .field > label {
   font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;
@@ -391,13 +422,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .field input[type="text"], .field input[type="url"], .field textarea {
   padding: 12px; border: 1px solid var(--border);
-  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  background: rgba(255,255,255,0.04); color: var(--text-primary);
   border-radius: 10px; font-family: inherit; font-size: 14px;
 }
 .field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
 .field input:focus, .field textarea:focus {
-  outline: none; border-color: rgba(255,255,255,0.40);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(201,168,118,0.14);
 }
 .field-hint { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; min-height: 1.4em; }
 .url-row { display: flex; gap: 8px; }
@@ -431,12 +462,12 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 .btn-primary {
   width: 100%; padding: 13px;
-  border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 12px;
   font-family: inherit; font-size: 14px; font-weight: 700;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(5,4,3,0.45);
   -webkit-tap-highlight-color: transparent;
 }
 .btn-primary:hover { transform: translateY(-1px); }
@@ -445,28 +476,37 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   padding: 11px 16px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.04);
-  color: var(--text-primary); border-radius: 12px;
+  color: var(--text-secondary); border-radius: 12px;
   font-family: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, border-color 0.15s;
 }
-.btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.btn-secondary:hover { color: var(--accent-bright); border-color: var(--accent); background: rgba(255,255,255,0.06); }
 .sort-select {
   padding: 11px 16px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.04);
-  color: var(--text-primary); border-radius: 12px;
+  color: var(--text-secondary); border-radius: 12px;
   font-family: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, border-color 0.15s;
 }
-.sort-select:hover { background: rgba(255,255,255,0.10); }
+.sort-select:hover { color: var(--accent-bright); border-color: var(--accent); background: rgba(255,255,255,0.06); }
 .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .modal-actions button { flex: 1; }
 .delete-link {
   display: block; text-align: center; margin-top: 12px;
   font-size: 12px; color: var(--bad); cursor: pointer;
   text-decoration: underline; padding: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -479,44 +519,71 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 </head>
 <body>
 
-<div class="ent-banner">
-  <div class="ent-banner-grain" aria-hidden="true"></div>
-  <div class="ent-banner-title">Entertainment</div>
-  <div class="ent-banner-rule" aria-hidden="true"><span>&#10022;</span></div>
-  <div class="ent-banner-subtext">Podcasts &middot; Stories &middot; Entertainment &middot; Playlists &middot; Favorites</div>
-  <button class="ent-banner-cta" type="button" id="entBannerCta">Browse the Collection</button>
-</div>
+<div id="entPageBg" aria-hidden="true"><video id="entPageBgVideo" muted loop playsinline style="display:none;"></video></div>
 
 <div class="shell">
-  <div class="ent-section-divider" aria-hidden="true"></div>
-
-  <a href="index.html" class="back-btn" aria-label="Back to dashboard">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-    Dashboard
-  </a>
-
-  <div class="ent-header">
-    <h1 class="ent-title">Media</h1>
-    <div class="ent-header-actions">
-      <select class="sort-select" id="entSortSelect" aria-label="Sort">
-        <option value="title-asc">Sort: Title A&rarr;Z</option>
-        <option value="title-desc">Sort: Title Z&rarr;A</option>
-        <option value="date-desc">Sort: Newest first</option>
-        <option value="date-asc">Sort: Oldest first</option>
-        <option value="rating-desc">Sort: Rating high&rarr;low</option>
-        <option value="manual">Sort: Manual</option>
-      </select>
-      <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
+  <div class="ent-hero" id="entHero">
+    <div class="ent-hero-media" id="entHeroMedia">
+      <img id="entHeroPhotoImg" style="display:none;" alt="">
+      <video id="entHeroVideoEl" style="display:none;" muted loop playsinline></video>
+      <div class="ent-hero-reattach" id="entHeroReattach" style="display:none;">
+        <div class="ent-hero-reattach-icon">🎬</div>
+        <div class="ent-hero-reattach-label">Video needs to be re-attached</div>
+        <button type="button" class="ent-hero-reattach-btn" id="entHeroReattachBtn">Re-attach</button>
+      </div>
+      <div class="ent-hero-photo-choice" id="entHeroPhotoChoice">
+        <button type="button" class="ent-hero-photo-choice-btn" id="entHeroAddPhotoBtn">+ Add a cover photo</button>
+        <button type="button" class="ent-hero-photo-choice-btn" id="entHeroAddVideoBtn">+ Add a cover video</button>
+      </div>
+    </div>
+    <div class="ent-hero-overlay"></div>
+    <a href="index.html" class="ent-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="ent-hero-photo-tools" id="entHeroPhotoTools" style="display:none;">
+      <button type="button" id="entHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="entHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="entHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="ent-hero-content">
+      <div class="ent-hero-eyebrow" id="entHeroEyebrow" contenteditable="true"></div>
+      <textarea class="ent-hero-title" id="entHeroTitle" rows="1" placeholder="Gallery title…"></textarea>
+      <div class="ent-hero-subtext" id="entHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="ent-hero-cta" id="entHeroCta">
+        <span class="ent-hero-cta-label" id="entHeroCtaLabel" contenteditable="true"></span>
+        <span class="ent-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+    <div class="ent-hero-scroll-hint" aria-hidden="true">
+      <span>SCROLL TO EXPLORE</span>
+      <span class="ent-hero-scroll-arrow">↓</span>
     </div>
   </div>
 
-  <div class="chip-row chip-row-gallery" id="galleryTabsRow"></div>
-  <div class="chip-row" id="entFilterRow"></div>
-  <div class="chip-row" id="progressFilterRow" hidden></div>
+  <div class="shell-inner">
+    <div class="ent-header">
+      <h1 class="ent-title">Media</h1>
+      <div class="ent-header-actions">
+        <select class="sort-select" id="entSortSelect" aria-label="Sort">
+          <option value="title-asc">Sort: Title A&rarr;Z</option>
+          <option value="title-desc">Sort: Title Z&rarr;A</option>
+          <option value="date-desc">Sort: Newest first</option>
+          <option value="date-asc">Sort: Oldest first</option>
+          <option value="rating-desc">Sort: Rating high&rarr;low</option>
+          <option value="manual">Sort: Manual</option>
+        </select>
+        <button class="btn-add" id="entAddBtn" type="button">+ Add</button>
+      </div>
+    </div>
 
-  <div class="ent-grid" id="entGrid"></div>
-  <p class="ent-empty" id="entEmpty" hidden>No items yet — tap "+ Add" to save your first link.</p>
+    <div class="chip-row chip-row-gallery" id="galleryTabsRow"></div>
+    <div class="chip-row" id="entFilterRow"></div>
+    <div class="chip-row" id="progressFilterRow" hidden></div>
 
+    <div class="ent-grid" id="entGrid"></div>
+    <p class="ent-empty" id="entEmpty" hidden>No items yet — tap "+ Add" to save your first link.</p>
+  </div>
 </div>
 
 <!-- Add / Edit Modal -->
@@ -657,6 +724,224 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ============================================================
+  // HERO — one per gallery ("mini page"), same eyebrow/title/subtext/
+  // CTA/cover-photo-or-video shape and mechanism as Dream Board's
+  // per-tab hero (see dreamboard.html). Stored under one key,
+  // `media:heroes` (an object keyed by gallery key), which already
+  // rides the existing `syncedPrefixes: ['media:']` initCloudSync
+  // config below — no sync.js changes needed. Cover photos start empty
+  // by default (same as a fresh Dream Board tab) — this page has no
+  // access to whatever photos already live in Dream Board's own
+  // Supabase row, so nothing is pre-filled here.
+  // ============================================================
+  var HERO_KEY = 'media:heroes';
+  var DEFAULT_HEROES = {
+    podcasts: { eyebrow: 'LISTEN & LEARN', title: 'Podcasts', subtext: 'Learning, photography, videography, true crime — everything worth pressing play on.', ctaLabel: 'BROWSE PODCASTS' },
+    stories: { eyebrow: 'GET LOST IN IT', title: 'Stories', subtext: 'Horror stories, spicy stories, immersive experiences — narratives that pull you in.', ctaLabel: 'BROWSE STORIES' },
+    entertainment: { eyebrow: 'JUST FOR FUN', title: 'Entertainment', subtext: 'Funny clips, gaming, scary videos, vlogs — everything else worth watching.', ctaLabel: 'BROWSE ENTERTAINMENT' },
+    playlists: { eyebrow: 'SET THE MOOD', title: 'Playlists', subtext: 'Chill, dark, EDM, fantasy, metal, ASMR — a soundtrack for every mood.', ctaLabel: 'BROWSE PLAYLISTS' },
+    favorites: { eyebrow: 'THE BEST OF IT ALL', title: 'Favorites', subtext: 'Everything you starred, gathered from every gallery in one place.', ctaLabel: 'BROWSE FAVORITES' }
+  };
+  // Uploaded video files never touch localStorage/Supabase (no backend to
+  // store them — see CLAUDE.md §2/§4) — object URLs live only in this map
+  // for the current tab lifetime, keyed by gallery key. A gallery with
+  // mediaType:'video' and no entry here (e.g. right after a reload)
+  // renders as a "re-attach" prompt, same as Dream Board's hero.
+  var sessionVideoBlobs = {};
+
+  function loadHeroes() {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(HERO_KEY)); } catch (e) {}
+    return (raw && typeof raw === 'object') ? raw : {};
+  }
+  function saveHeroes(all) {
+    try { localStorage.setItem(HERO_KEY, JSON.stringify(all)); } catch (e) {}
+  }
+  function currentHero() {
+    var all = loadHeroes();
+    var stored = all[activeGalleryKey] || {};
+    var def = DEFAULT_HEROES[activeGalleryKey] || DEFAULT_HEROES.podcasts;
+    return {
+      eyebrow: typeof stored.eyebrow === 'string' ? stored.eyebrow : def.eyebrow,
+      title: typeof stored.title === 'string' ? stored.title : def.title,
+      subtext: typeof stored.subtext === 'string' ? stored.subtext : def.subtext,
+      ctaLabel: typeof stored.ctaLabel === 'string' ? stored.ctaLabel : def.ctaLabel,
+      photo: typeof stored.photo === 'string' ? stored.photo : '',
+      photoColor: typeof stored.photoColor === 'string' ? stored.photoColor : '',
+      mediaType: stored.mediaType === 'video' ? 'video' : 'image'
+    };
+  }
+  function patchHero(patch) {
+    var all = loadHeroes();
+    all[activeGalleryKey] = Object.assign({}, currentHero(), patch);
+    saveHeroes(all);
+  }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    var original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      var val = el.textContent.trim();
+      if (!val) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+  function revokeHeroVideoBlob(key) {
+    if (sessionVideoBlobs[key]) { try { URL.revokeObjectURL(sessionVideoBlobs[key]); } catch (e) {} delete sessionVideoBlobs[key]; }
+  }
+  function renderPageBg() {
+    var hero = currentHero();
+    var bg = $('entPageBg'), video = $('entPageBgVideo');
+    if (hero.mediaType === 'video' && sessionVideoBlobs[activeGalleryKey]) {
+      bg.style.backgroundImage = 'none';
+      video.src = sessionVideoBlobs[activeGalleryKey];
+      video.style.display = 'block';
+      video.play().catch(function () {});
+    } else {
+      video.pause(); video.removeAttribute('src'); video.style.display = 'none';
+      bg.style.backgroundImage = hero.photo ? 'url("' + hero.photo + '")' : 'none';
+    }
+  }
+  function renderHero() {
+    var hero = currentHero();
+    $('entHeroEyebrow').textContent = hero.eyebrow;
+    $('entHeroTitle').value = hero.title;
+    $('entHeroSubtext').textContent = hero.subtext;
+    $('entHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+    autosize($('entHeroTitle'));
+
+    var img = $('entHeroPhotoImg'), video = $('entHeroVideoEl'), reattach = $('entHeroReattach'),
+      choice = $('entHeroPhotoChoice'), tools = $('entHeroPhotoTools');
+    img.style.display = 'none'; img.src = '';
+    video.pause(); video.style.display = 'none';
+    reattach.style.display = 'none';
+    choice.style.display = 'none';
+    tools.style.display = 'none';
+
+    if (hero.mediaType === 'video') {
+      var blobUrl = sessionVideoBlobs[activeGalleryKey];
+      if (blobUrl) {
+        video.src = blobUrl; video.style.display = 'block'; video.play().catch(function () {});
+      } else {
+        reattach.style.display = 'flex';
+      }
+      tools.style.display = 'flex';
+    } else if (hero.photo) {
+      img.src = hero.photo; img.style.display = 'block'; tools.style.display = 'flex';
+    } else {
+      choice.style.display = 'flex';
+    }
+    renderPageBg();
+  }
+  // Explicit 'image'|'video' rather than one input with a combined
+  // accept="image/*,video/*" — combined-type accept values are known to
+  // behave unpredictably in some mobile pickers (see Dream Board's own
+  // changelog on this exact bug). The two "+ Add a cover photo/video"
+  // buttons (and "Change," which reuses whichever kind is already set)
+  // each force a single, unambiguous accept value before opening.
+  function openHeroFilePicker(mediaKind) {
+    var input = $('entHeroPhotoInput');
+    input.accept = mediaKind === 'video' ? 'video/*' : 'image/*';
+    input.value = '';
+    input.click();
+  }
+  function reattachHeroVideo() {
+    var input = document.createElement('input');
+    input.type = 'file'; input.accept = 'video/*'; input.style.display = 'none';
+    document.body.appendChild(input);
+    var keyAtOpen = activeGalleryKey;
+    input.addEventListener('change', function () {
+      var file = input.files[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      revokeHeroVideoBlob(keyAtOpen);
+      sessionVideoBlobs[keyAtOpen] = URL.createObjectURL(file);
+      if (keyAtOpen === activeGalleryKey) renderHero();
+    });
+    input.click();
+  }
+  // Cheap average-RGB sample from a downscaled copy — same approximation
+  // Dream Board uses for its "match tab photo" tint option; not used for
+  // anything on this page yet, kept for parity with the mechanism being
+  // matched and in case a future tint feature wants it.
+  function extractDominantColor(dataUrl) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var size = 32;
+          var c = document.createElement('canvas');
+          c.width = size; c.height = size;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          var data = ctx.getImageData(0, 0, size, size).data;
+          var r = 0, g = 0, b = 0, count = 0;
+          for (var i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; count++; }
+          if (!count) { resolve(''); return; }
+          function toHex(v) { return Math.round(v / count).toString(16).padStart(2, '0'); }
+          resolve('#' + toHex(r) + toHex(g) + toHex(b));
+        } catch (e) { resolve(''); }
+      };
+      img.onerror = function () { resolve(''); };
+      img.src = dataUrl;
+    });
+  }
+  function handleHeroMediaFile() {
+    var file = $('entHeroPhotoInput').files[0];
+    if (!file) return;
+    var keyAtUpload = activeGalleryKey;
+    var isVideo = file.type.indexOf('video') === 0;
+    if (isVideo) {
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      revokeHeroVideoBlob(keyAtUpload);
+      sessionVideoBlobs[keyAtUpload] = URL.createObjectURL(file);
+      patchHero({ mediaType: 'video', photo: '', photoColor: '' });
+      renderHero();
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = async function () {
+      var compressed = await compressImageDataUrl(String(reader.result), 1100, 0.78);
+      var color = await extractDominantColor(compressed);
+      revokeHeroVideoBlob(keyAtUpload);
+      patchHero({ mediaType: 'image', photo: compressed, photoColor: color });
+      renderHero();
+    };
+    reader.readAsDataURL(file);
+  }
+  function wireHero() {
+    wireInlineEdit($('entHeroEyebrow'), function (val) { patchHero({ eyebrow: val }); });
+    wireInlineEdit($('entHeroSubtext'), function (val) { patchHero({ subtext: val }); }, { multiline: true });
+    wireInlineEdit($('entHeroCtaLabel'), function (val) { patchHero({ ctaLabel: val }); });
+    $('entHeroTitle').addEventListener('input', function () { autosize($('entHeroTitle')); });
+    $('entHeroTitle').addEventListener('blur', function () { patchHero({ title: $('entHeroTitle').value.trim() || DEFAULT_HEROES[activeGalleryKey].title }); renderHero(); });
+    $('entHeroAddPhotoBtn').addEventListener('click', function () { openHeroFilePicker('image'); });
+    $('entHeroAddVideoBtn').addEventListener('click', function () { openHeroFilePicker('video'); });
+    $('entHeroPhotoChangeBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      openHeroFilePicker(currentHero().mediaType === 'video' ? 'video' : 'image');
+    });
+    $('entHeroPhotoRemoveBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      revokeHeroVideoBlob(activeGalleryKey);
+      patchHero({ photo: '', photoColor: '', mediaType: 'image' });
+      renderHero();
+    });
+    $('entHeroReattachBtn').addEventListener('click', function (e) { e.stopPropagation(); reattachHeroVideo(); });
+    $('entHeroPhotoInput').addEventListener('change', handleHeroMediaFile);
+    $('entHeroCta').addEventListener('click', function () {
+      $('galleryTabsRow').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     });
   }
 
@@ -863,6 +1148,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         renderProgressFilterBar();
         updateAddBtnVisibility();
         renderGrid();
+        renderHero();
       }, false, 'chip-gallery'));
     });
   }
@@ -1191,9 +1477,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   }
 
   function wireModal() {
-    $('entBannerCta').addEventListener('click', function () {
-      $('galleryTabsRow').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
     $('entAddBtn').addEventListener('click', function () { openModal(null); });
     $('entModalCancel').addEventListener('click', closeModal);
     $('entModalBg').addEventListener('click', function (e) { if (e.target.id === 'entModalBg') closeModal(); });
@@ -1312,7 +1595,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     updateAddBtnVisibility();
     updateSortSelect();
     renderGrid();
+    renderHero();
     wireModal();
+    wireHero();
     wireSortSelect();
 
     if (typeof initCloudSync === 'function') {
@@ -1323,6 +1608,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         onApplied: function () {
           cards = loadCards();
           renderGrid();
+          renderHero();
         }
       });
     }

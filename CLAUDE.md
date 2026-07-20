@@ -28,7 +28,7 @@ Vercel's static server) — see README.md.
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
 | `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
-| `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists galleries (rebuilt — see changelog) |
+| `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
 | `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
@@ -178,7 +178,7 @@ page's CSS is self-contained in its own `<style>` block):
    |---|---|---|
    | `goals` | `index.html` | everything prefixed `goals:` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
-   | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1` (new — synced via a `media:` prefix) |
+   | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
@@ -250,11 +250,18 @@ documents what's actually here:
   specific visual instruction (a reference photo) rather than generic
   "themed to a palette" boilerplate: (1) `entertainment.html` (the Media
   page) got a thin-red tile border + a genuinely new pink accent color on
-  hover — this has since evolved further (see its own changelog) into a
-  dark wine/candlelit "boutique gallery" look (`--tile-border`/
-  `--pink-accent`/`--wine`/`--candle`/`--cream` tokens), which
-  `household.html` and `selfcare.html` were each later explicitly asked
-  to match — see their own changelog entries; (2) `braindump.html`
+  hover, which evolved into a dark wine/candlelit "boutique gallery" look
+  (`--tile-border`/`--pink-accent`/`--wine`/`--candle`/`--cream` tokens) —
+  `household.html` and `selfcare.html` were each later explicitly asked to
+  match *that* look, and still do (see their own changelog entries); Media
+  itself has since moved on again, explicitly re-themed a second time to
+  match Dream Board's dark cinematic near-black/gold look instead (see its
+  own changelog entry below) — `--tile-border`/`--pink-accent`/`--wine`/
+  `--candle`/`--cream` are gone from `entertainment.html` now, repointed
+  to gold-toned equivalents kept under the same token *names* it already
+  used (`--bg`/`--border`/`--accent`/etc.), so Household/Self-Care's own
+  copies of the old wine/rose look are unaffected — they weren't asked to
+  follow Media's second move; (2) `braindump.html`
   (Brain Dump) has its own self-contained dark forest-green/black +
   gold/copper theme (deep green radial-gradient
   background, gold serif-italic display type, a CSS sunburst emblem) —
@@ -4834,3 +4841,105 @@ between this app and either data loss or a wide-open write target:
     dump-dom + source-grep verification actually used), so this pass
     was verified by confirming the served CSS values and unchanged
     render counts rather than a visual screenshot comparison.
+
+- **Media (`entertainment.html`) re-themed to match Dream Board's dark
+  cinematic look, and gained a per-gallery hero cover section (its five
+  "mini pages" — Podcasts/Stories/Entertainment/Playlists/Favorites —
+  each now read as their own Dream-Board-style "page").** Per an explicit
+  request to make Media's aesthetic match Dream Board's exactly; purely a
+  visual/structural reskin — no gallery, filter, sort, favorite, rating,
+  or CRUD behavior was removed or changed. Cover photos start empty by
+  default (confirmed with the user): this page has no way to read what
+  photos already live in Dream Board's own Supabase row, so nothing was
+  pre-filled — the mechanism matches, the content doesn't.
+  - **Palette**: the dusty-rose/wine "boutique gallery" theme this page
+    carried since its own earlier re-theme (see §6/the changelog entries
+    above) is retired here specifically, in favor of Dream Board's actual
+    current near-black/champagne-gold values, copied 1:1 — `--tile-border`/
+    `--pink-accent`/`--wine`/`--candle`/`--cream` are gone; `--bg`/
+    `--bg-deep`/`--bg-card`/`--text-primary`/`--text-secondary`/
+    `--text-tertiary`/`--border`/`--accent`/`--good`/`--warn`/`--bad`/
+    `--font-serif` all kept their existing *names* (so every rule that
+    already referenced them needed no further edits) with values
+    repointed to Dream Board's, plus two new tokens, `--accent-bright`/
+    `--accent-tint`, matching Dream Board's `--db-gold-bright`/
+    `--db-accent-tint`. Cormorant Garamond (serif display type) is now
+    loaded via the same Google Fonts `<link>` Dream Board uses. This is
+    the same "explicit reference/aesthetic-match instruction" exception
+    category as every other per-file palette in this app (CLAUDE.md §6/
+    DO NOT MODIFY rule 2) — just matching a sibling page's own already-
+    granted exception instead of a fresh reference photo.
+  - **Per-gallery hero** (`.ent-hero`, new): the old static `.ent-banner`
+    (a fixed "Entertainment" title + fixed subtext) is replaced with a
+    full-bleed hero — eyebrow, an autosizing serif headline (editable via
+    a borderless `<textarea>`, same technique as Dream Board's), subtext,
+    a frosted pill CTA that scrolls down to the gallery tabs, and a cover
+    photo-or-video area with Change/Remove tools and a video re-attach
+    prompt — that swaps content every time the active gallery ("mini
+    page") changes, exactly mirroring how Dream Board's hero swaps per
+    tab. Implementation is a direct, line-for-line port of Dream Board's
+    hero mechanism (`currentHero()`/`patchHero()`/`renderHero()`/
+    `renderPageBg()`/`openHeroFilePicker()`/`reattachHeroVideo()`/
+    `extractDominantColor()`/`handleHeroMediaFile()`/`wireInlineEdit()`/
+    `sessionVideoBlobs`), adapted to key off `activeGalleryKey` instead of
+    a `tabId` — including the same session-only video-blob handling (a
+    video cover never touches `localStorage`/Supabase; a reload without
+    its blob shows the same "needs to be re-attached" prompt) and the
+    same combined-accept-type pitfall avoidance (two explicit "+ Add a
+    cover photo" / "+ Add a cover video" buttons, never one
+    `accept="image/*,video/*"` input) Dream Board's own changelog already
+    documented hitting once.
+  - **Data**: one new key, `media:heroes` — a plain object keyed by
+    gallery key (`podcasts`/`stories`/`entertainment`/`playlists`/
+    `favorites`), each value shaped like Dream Board's `hero` record
+    (`eyebrow`/`title`/`subtext`/`ctaLabel`/`photo`/`photoColor`/
+    `mediaType`). Already covered by the existing `syncedPrefixes:
+    ['media:']` in this page's `initCloudSync(...)` call — no `sync.js`
+    change, no new sync key list entry needed. Defaults (per-gallery
+    eyebrow/title/subtext/CTA text, tailored to each gallery, cover photo
+    always empty) live in code (`DEFAULT_HEROES`) and only get written to
+    `localStorage` once a field is actually edited — an untouched gallery
+    keeps showing its default text forever without ever writing a hero
+    record for it.
+  - **Page-wide cover-photo backdrop** (`#entPageBg`, new): the active
+    gallery's hero photo (or video), blurred and dimmed behind the entire
+    page — not just the hero — same `#dbPageBg` technique and same
+    reasoning as Dream Board (a frosted-glass card needs something with
+    color/texture behind it to actually read as glass). Empty when a
+    gallery has no cover set, same as before this change.
+  - **Gallery cards** (`.ent-card`) switched from a flat tinted fill to
+    real frosted glass (`background: rgba(255,255,255,0.08)` +
+    `backdrop-filter: blur(22px) saturate(1.6)`, white-hairline border,
+    gold border/glow on hover) — same recipe as Dream Board's `.dw-card`.
+    The gallery-switcher pills (`.chip-gallery`, this page's "mini page"
+    nav) and the secondary status/progress filter chips were restyled to
+    Dream Board's tab-pill look (tinted gold fill + gold border when
+    active, instead of the old solid pink→wine gradient). Buttons
+    (`.btn-add`/`.btn-primary`), the sort `<select>`, and the Add/Edit
+    modal (`.modal`/`.field`) were all re-graded to the same gold-
+    gradient/frosted-glass recipe Dream Board's own buttons/modal use.
+  - **Verified via headless Edge, `*.supabase.co` blocked at the network
+    layer before navigation** (`--host-resolver-rules="MAP *.supabase.co
+    0.0.0.0"`, passed as one quoted argument — the same PowerShell
+    argument-splitting pitfall `business.html`'s own changelog entry
+    already documented, hit and worked around again here) plus a live
+    CDP session (no interactive-testing gap this time — a
+    `remote-debugging-port` connection came up cleanly): confirmed a
+    fresh profile's default hero (Podcasts) renders its default eyebrow/
+    subtext/CTA text; clicking through Stories/Favorites correctly swaps
+    the hero's eyebrow/title per gallery; the Favorites gallery still
+    hides the "+ Add" button and still shows 0 items on an empty profile;
+    both hero photo/video add buttons and the page backdrop element are
+    present; inline-editing the eyebrow and blurring persists it to
+    `media:heroes` correctly; and, after seeding one realistic
+    `media:podcasts` card directly into `localStorage` and reloading —
+    the card renders with the correct title/rating stars/favorite-active
+    icon, the status filter row shows all 3 Podcasts statuses + All, the
+    progress filter row (Podcasts-only) is visible, and the same card
+    correctly aggregates into the Favorites gallery tagged "Podcasts ·
+    Learning". Zero JS exceptions across every check. Two headless Edge
+    instances were spun up for this (both explicitly launched with their
+    own `--user-data-dir`/`--remote-debugging-port`, confirmed via
+    `Win32_Process` command-line inspection before being stopped) and
+    torn down individually by PID afterward — no other running Edge
+    process on the machine was touched.
