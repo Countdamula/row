@@ -309,6 +309,44 @@
     WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return removedDayIds.indexOf(c.dayId) === -1; }));
   }
 
+  // `Tabs.list()`/`get()` return raw stored records — they never get
+  // re-run through tabModel() (only add()/update() do), so a tab saved
+  // under the pre-`layout` schema (the old `mode: 'board'|'tasks'` field)
+  // still has no `layout` field at all once loaded back. Every render
+  // path here branches strictly on `layout`, so a missing one matches no
+  // branch and the whole page renders blank — same failure class Dream
+  // Board hit once for its `hero` field (see that page's own changelog).
+  // This runs automatically on every load (not gated behind the
+  // seed-race window) because it only ever transforms *existing* tabs
+  // into a corrected shape — it can't turn empty storage into populated
+  // storage, so it can't race the cloud pull the way a full reseed
+  // could. It also drops the three tabs this app no longer has
+  // (Analytics/Strategy/Audit, from an earlier pass) so a device that
+  // hasn't loaded this update yet still converges to the same 4-tab,
+  // correctly-shaped result once it does — deterministic regardless of
+  // which device runs it first, same precedent as the Vision Board
+  // stuck-video-cover fix.
+  function normalizeStoredData() {
+    const tabs = Tabs.list();
+    if (!tabs.length) return;
+
+    const REMOVED_TITLES = ['Analytics', 'Strategy', 'Audit'];
+    tabs.filter(function (t) { return REMOVED_TITLES.indexOf(t.title) !== -1; })
+      .forEach(function (t) { removeTab(t.id); });
+
+    const remaining = Tabs.list();
+    let changed = false;
+    const patched = remaining.map(function (t) {
+      if (t.layout === 'content' || t.layout === 'platforms' || t.layout === 'freeform') return t;
+      changed = true;
+      let layout = 'freeform';
+      if (t.title === 'Content') layout = 'content';
+      else if (t.title === 'Platforms') layout = 'platforms';
+      return Object.assign({}, t, { layout: layout });
+    });
+    if (changed) Tabs.replaceAll(patched);
+  }
+
   // ============================================================
   // SELECTORS — board (Dream Board engine, unchanged — 'freeform' tabs)
   // ============================================================
@@ -663,6 +701,10 @@
   // board to Supabase and clobber another device's real data.
   // business.html's init() calls seedIfEmpty() itself, only as a fallback
   // after giving the cloud pull a real chance to land.
+
+  // normalizeStoredData(), unlike seedIfEmpty(), IS safe to run
+  // automatically here — see its own comment above for why.
+  normalizeStoredData();
 
   // ============================================================
   // PUBLIC API
