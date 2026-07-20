@@ -4490,3 +4490,68 @@ between this app and either data loss or a wide-open write target:
   wholesale (out of scope here) — worth remembering for any future
   `business-data.js` change: bump the `?v=` number again, or this same
   "it's not showing up" report will likely recur.
+
+- **Every Workflow day on the Resources tab now has its own "page" of
+  generated, moveable, editable note and code blocks** (bumped to
+  `business-data.js?v=7`). Per an explicit request: each day's existing
+  "📄 Open" page (a single freeform-note modal, from the Workflow
+  upgrade above) is replaced with a real multi-block page — two buttons,
+  "+ Generate Notes Section" and "+ Generate Code Block," each add a
+  blank block of that type; every block has an editable title, an
+  editable body, ▲▼ reorder, and delete. This mirrors index.html's own
+  richer Task/Day detail page (a drag-reorderable note/code block
+  editor, deliberately left out of the first Workflow port as a scope
+  cut) — implemented here with this app's up/down-arrow reorder
+  convention instead of drag, matching the Platform Detail page's
+  "generated sections" pattern (`addPlatformSection` etc.) rather than
+  inventing a third mechanism.
+  - **`business-data.js`**: `WorkflowDay` gained `blocks` — an inline
+    array of `{id, type:'note'|'code', title, body, order, createdAt}`,
+    the same on-the-record convention as a Platform widget's `sections`
+    (no separate collection, so deleting the day deletes its blocks with
+    it). New `blocksForDay`/`addWorkflowDayBlock`/`updateWorkflowDayBlock`/
+    `removeWorkflowDayBlock`/`moveWorkflowDayBlock`, structurally
+    identical to the Platform-section CRUD functions one section above
+    them in the file. The day's older single-string `notes` field (from
+    the previous round, one plain textarea) is kept in the model only so
+    it can be migrated forward — never read from again once migrated.
+  - **`business.html`**: the Day Page modal (`#bhWorkflowDayNoteModalBg`)
+    was rebuilt around `renderWorkflowDayBlocks()`/`buildWorkflowDayBlockCard()`
+    instead of one textarea; a code block's `<textarea>` gets
+    `wrap="off"` and `spellcheck="off"` plus a monospace/dark-background
+    style (`.bh-pf-section-code-body`) so it reads as code, with
+    horizontal scroll for long lines instead of wrapping. Both block
+    types autosave on blur (matching Platform Detail's sections, not the
+    debounced-on-keystroke behavior the single-textarea version had
+    before it) — same modal-detail convention across the app, not a
+    regression.
+  - **`migrateDayNotesToBlocks(day)`** — the first time a day's page is
+    opened after this update, if it has legacy `notes` content and no
+    blocks yet, that content becomes one initial note block (titled
+    "Notes") and `notes` is cleared — nothing written under the
+    previous, single-textarea version of this page is lost. Runs
+    automatically on open, not gated behind any flag, since (like this
+    file's other post-hoc migrations) it only ever backfills a day that
+    already exists into a corrected shape.
+  - **Scope note**: this was built for Workflow days specifically (the
+    "pages" the request's own wording matches most directly, and the
+    only place on the Resources tab with an existing "Open" concept to
+    extend) — Platform Detail pages (Content/Platforms tabs) and the
+    plain Links & Notes board widgets were left untouched, since neither
+    was named and both already have their own established, working
+    patterns.
+  - **Verified in headless Edge** (Supabase blocked): opened a fresh
+    day's page and confirmed the correct empty state; generated one note
+    block and one code block and confirmed their type tags, editable
+    title/body persisted correctly to the day's real stored `blocks`
+    array (not just the DOM); reordered the code block above the note
+    block and confirmed the persisted order matched; deleted a block and
+    confirmed the count dropped correctly; and — separately — wrote
+    legacy `notes` content onto a second day with `DB.updateWorkflowDay`
+    (simulating a day saved under the pre-blocks schema), reopened its
+    page, and confirmed it was migrated into exactly one note block with
+    the original text intact and `notes` cleared afterward. Zero JS
+    errors throughout. A screenshot additionally confirmed the visual
+    layout (numbered-free `.bh-pf-section` cards, NOTE/CODE tags,
+    monospace code styling) reads clearly against this page's dark
+    frosted-glass theme.

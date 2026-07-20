@@ -260,7 +260,7 @@
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
-  /** @typedef {{id:string, weekId:string, tabId:string, title:string, status:string, order:number, notes:string, createdAt:number}} WorkflowDay */
+  /** @typedef {{id:string, weekId:string, tabId:string, title:string, status:string, order:number, notes:string, blocks:Array, createdAt:number}} WorkflowDay */
   function workflowDayModel(data) {
     data = data || {};
     return {
@@ -270,10 +270,18 @@
       title: typeof data.title === 'string' ? data.title : '',
       status: WORKFLOW_DAY_STATUSES.indexOf(data.status) !== -1 ? data.status : 'Not started',
       order: typeof data.order === 'number' ? data.order : 0,
-      // Freeform notes for this day, opened via the "📄 Open" day-detail
-      // modal in business.html — separate from the checklist, for
-      // longer-form context that doesn't fit a to-do line.
+      // `notes` — a single legacy freeform string (the day-detail page's
+      // very first version, one textarea). Superseded by `blocks` below;
+      // kept only so a day saved under that earlier shape can be
+      // migrated forward the first time its page is opened (see
+      // business.html's migrateDayNotesToBlocks()) instead of losing
+      // whatever was already written there.
       notes: typeof data.notes === 'string' ? data.notes : '',
+      // This day's own "page" — generated on demand (a button adds a
+      // blank one), fully editable and reorderable, same convention as
+      // a Platform widget's `data.sections`. Each block:
+      // {id, type:'note'|'code', title, body, order, createdAt}.
+      blocks: Array.isArray(data.blocks) ? data.blocks : [],
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
@@ -522,6 +530,51 @@
     if (idx < 0 || otherIdx < 0 || otherIdx >= sections.length) return;
     const tmp = sections[idx].order; sections[idx].order = sections[otherIdx].order; sections[otherIdx].order = tmp;
     Widgets.update(widgetId, { data: Object.assign({}, w.data, { sections: sections }) });
+  }
+
+  // ============================================================
+  // A Workflow day's own "page" — freeform note/code blocks, generated
+  // on demand (a button adds a blank one), fully editable and
+  // reorderable. Same inline-array-on-the-record convention as a
+  // Platform widget's sections above — lives on the WorkflowDay itself,
+  // so deleting the day deletes its blocks with it.
+  // ============================================================
+  function blocksForDay(dayId) {
+    const day = WorkflowDays.get(dayId);
+    if (!day) return [];
+    return (day.blocks || []).slice().sort(function (a, b) { return a.order - b.order; });
+  }
+  function addWorkflowDayBlock(dayId, type) {
+    const day = WorkflowDays.get(dayId);
+    if (!day) return null;
+    const blocks = (day.blocks || []).slice();
+    const order = blocks.length ? Math.max.apply(null, blocks.map(function (b) { return b.order; })) + 1 : 0;
+    const block = { id: uid('blk'), type: type === 'code' ? 'code' : 'note', title: '', body: '', order: order, createdAt: Date.now() };
+    blocks.push(block);
+    WorkflowDays.update(dayId, { blocks: blocks });
+    return block;
+  }
+  function updateWorkflowDayBlock(dayId, blockId, patch) {
+    const day = WorkflowDays.get(dayId);
+    if (!day) return;
+    const blocks = (day.blocks || []).map(function (b) { return b.id === blockId ? Object.assign({}, b, patch) : b; });
+    WorkflowDays.update(dayId, { blocks: blocks });
+  }
+  function removeWorkflowDayBlock(dayId, blockId) {
+    const day = WorkflowDays.get(dayId);
+    if (!day) return;
+    const blocks = (day.blocks || []).filter(function (b) { return b.id !== blockId; });
+    WorkflowDays.update(dayId, { blocks: blocks });
+  }
+  function moveWorkflowDayBlock(dayId, blockId, dir) {
+    const day = WorkflowDays.get(dayId);
+    if (!day) return;
+    const blocks = (day.blocks || []).slice().sort(function (a, b) { return a.order - b.order; });
+    const idx = blocks.findIndex(function (b) { return b.id === blockId; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= blocks.length) return;
+    const tmp = blocks[idx].order; blocks[idx].order = blocks[otherIdx].order; blocks[otherIdx].order = tmp;
+    WorkflowDays.update(dayId, { blocks: blocks });
   }
 
   // ============================================================
@@ -915,6 +968,11 @@
     updatePlatformSection: updatePlatformSection,
     removePlatformSection: removePlatformSection,
     movePlatformSection: movePlatformSection,
+    blocksForDay: blocksForDay,
+    addWorkflowDayBlock: addWorkflowDayBlock,
+    updateWorkflowDayBlock: updateWorkflowDayBlock,
+    removeWorkflowDayBlock: removeWorkflowDayBlock,
+    moveWorkflowDayBlock: moveWorkflowDayBlock,
     weeksForTab: weeksForTab,
     daysForWeek: daysForWeek,
     checklistForDay: checklistForDay,

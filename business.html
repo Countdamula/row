@@ -12,7 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="business-data.js?v=6" defer></script>
+<script src="business-data.js?v=7" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -570,6 +570,8 @@ body::after {
 .bh-pf-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .bh-pf-section-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
 .bh-pf-section-body { width: 100%; min-height: 60px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--bh-text); }
+.bh-pf-section-code-body { width: 100%; min-height: 100px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(0,0,0,0.35); border-radius: var(--radius-sm); padding: 10px 12px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--bh-gold-bright); overflow-x: auto; }
+.bh-pf-section-type-tag { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bh-text-mute); padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--bh-hairline); }
 .bh-pf-section-empty { font-size: 11.5px; color: var(--bh-text-mute); font-style: italic; padding: 6px 0 2px; }
 .bh-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .bh-autosave-hint { font-size: 10.5px; color: var(--bh-text-mute); margin-top: 6px; }
@@ -834,10 +836,16 @@ body::after {
 </div>
 
 <div class="modal-bg" id="bhWorkflowDayNoteModalBg">
-  <div class="modal">
-    <div class="bh-modal-head"><h3>Notes for <span id="bhWfDayNoteTitleLabel"></span></h3><button type="button" class="bh-modal-close" id="bhWfDayNoteCloseBtn" aria-label="Close">&times;</button></div>
-    <textarea id="bhWfDayNoteInput" class="bh-modal-textarea" placeholder="Write freely — this autosaves as you type…"></textarea>
-    <div class="bh-autosave-hint">Autosaves as you type.</div>
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3>Day Page: <span id="bhWfDayNoteTitleLabel"></span></h3><button type="button" class="bh-modal-close" id="bhWfDayNoteCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="bh-pfd-sections-head">
+      <div class="bh-roster-heading">Blocks</div>
+      <div class="bh-db-section-head-right">
+        <button type="button" class="bh-btn-secondary" id="bhWfDayAddNoteBlockBtn">+ Generate Notes Section</button>
+        <button type="button" class="bh-btn-secondary" id="bhWfDayAddCodeBlockBtn">+ Generate Code Block</button>
+      </div>
+    </div>
+    <div id="bhWfDayBlocks"></div>
   </div>
 </div>
 
@@ -2204,22 +2212,84 @@ body::after {
 
     return wrap;
   }
+  // ===== Day Page — a Workflow day's own page of freeform note/code
+  // blocks, generated on demand and fully editable/reorderable. Same
+  // inline-array-plus-up/down-reorder convention as a Platform widget's
+  // notes sections (see buildPlatformSectionCard above) — reused here
+  // rather than inventing a second pattern. =====
   let workflowDayNoteTarget = null;
+  /** A day saved under the earlier single-textarea version of this page
+   * (`day.notes`) gets that content folded into one initial note block
+   * the first time its page is opened since — nothing written before
+   * this upgrade is lost. */
+  function migrateDayNotesToBlocks(day) {
+    if ((day.blocks || []).length || !day.notes) return;
+    const created = DB.addWorkflowDayBlock(day.id, 'note');
+    DB.updateWorkflowDayBlock(day.id, created.id, { title: 'Notes', body: day.notes });
+    DB.updateWorkflowDay(day.id, { notes: '' });
+  }
+  function buildWorkflowDayBlockCard(dayId, block, index, total) {
+    const wrap = document.createElement('div'); wrap.className = 'bh-pf-section';
+    const head = document.createElement('div'); head.className = 'bh-pf-section-head';
+    const reorder = document.createElement('div'); reorder.className = 'bh-wf-reorder';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = index <= 0; up.setAttribute('aria-label', 'Move block up');
+    up.addEventListener('click', function () { DB.moveWorkflowDayBlock(dayId, block.id, -1); renderWorkflowDayBlocks(dayId); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = index >= total - 1; down.setAttribute('aria-label', 'Move block down');
+    down.addEventListener('click', function () { DB.moveWorkflowDayBlock(dayId, block.id, 1); renderWorkflowDayBlocks(dayId); });
+    reorder.appendChild(up); reorder.appendChild(down); head.appendChild(reorder);
+
+    const typeTag = document.createElement('span'); typeTag.className = 'bh-pf-section-type-tag'; typeTag.textContent = block.type === 'code' ? 'Code' : 'Note';
+    head.appendChild(typeTag);
+
+    const title = document.createElement('input'); title.type = 'text'; title.className = 'bh-pf-section-title-input'; title.value = block.title;
+    title.placeholder = block.type === 'code' ? 'Code block title…' : 'Section title…';
+    title.addEventListener('blur', function () { if (title.value !== block.title) DB.updateWorkflowDayBlock(dayId, block.id, { title: title.value }); });
+    title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+    head.appendChild(title);
+
+    const actions = document.createElement('div'); actions.className = 'bh-wf-day-actions';
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-wf-del'; del.title = 'Delete block'; del.textContent = '✕';
+    del.addEventListener('click', function () {
+      if (!confirm('Delete this block?')) return;
+      DB.removeWorkflowDayBlock(dayId, block.id); renderWorkflowDayBlocks(dayId);
+    });
+    actions.appendChild(del); head.appendChild(actions);
+    wrap.appendChild(head);
+
+    const body = document.createElement('textarea');
+    body.className = block.type === 'code' ? 'bh-pf-section-code-body' : 'bh-pf-section-body';
+    body.value = block.body || '';
+    body.placeholder = block.type === 'code' ? 'Paste or write code…' : 'Write freely…';
+    if (block.type === 'code') { body.spellcheck = false; body.wrap = 'off'; }
+    body.addEventListener('input', function () { autosize(body); });
+    body.addEventListener('blur', function () { DB.updateWorkflowDayBlock(dayId, block.id, { body: body.value }); });
+    wrap.appendChild(body);
+    setTimeout(function () { autosize(body); }, 0);
+    return wrap;
+  }
+  function renderWorkflowDayBlocks(dayId) {
+    const wrap = $('bhWfDayBlocks'); wrap.innerHTML = '';
+    const blocks = DB.blocksForDay(dayId);
+    if (!blocks.length) {
+      const empty = document.createElement('div'); empty.className = 'bh-pf-section-empty';
+      empty.textContent = 'No blocks yet — generate a notes section or a code block above.';
+      wrap.appendChild(empty);
+      return;
+    }
+    blocks.forEach(function (block, i) { wrap.appendChild(buildWorkflowDayBlockCard(dayId, block, i, blocks.length)); });
+  }
   function openWorkflowDayNoteModal(dayId) {
     const day = DB.WorkflowDays.get(dayId); if (!day) return;
     workflowDayNoteTarget = dayId;
+    migrateDayNotesToBlocks(day);
     $('bhWfDayNoteTitleLabel').textContent = day.title || 'this day';
-    $('bhWfDayNoteInput').value = day.notes || '';
+    renderWorkflowDayBlocks(dayId);
     openModal($('bhWorkflowDayNoteModalBg'));
-    setTimeout(function () { autosize($('bhWfDayNoteInput')); }, 0);
   }
-  const autosaveWorkflowDayNote = debounce(function () {
-    if (!workflowDayNoteTarget) return;
-    DB.updateWorkflowDay(workflowDayNoteTarget, { notes: $('bhWfDayNoteInput').value });
-  }, 500);
   function closeWorkflowDayNoteModal() {
     closeModal($('bhWorkflowDayNoteModalBg'));
     workflowDayNoteTarget = null;
+    renderWorkflow();
   }
   function buildWorkflowWeek(week, index, total) {
     const wrap = document.createElement('div'); wrap.className = 'bh-wf-week';
@@ -2528,7 +2598,16 @@ body::after {
 
     $('bhWfDayNoteCloseBtn').addEventListener('click', closeWorkflowDayNoteModal);
     $('bhWorkflowDayNoteModalBg').addEventListener('click', function (e) { if (e.target === this) closeWorkflowDayNoteModal(); });
-    $('bhWfDayNoteInput').addEventListener('input', function () { autosize(this); autosaveWorkflowDayNote(); });
+    $('bhWfDayAddNoteBlockBtn').addEventListener('click', function () {
+      if (!workflowDayNoteTarget) return;
+      DB.addWorkflowDayBlock(workflowDayNoteTarget, 'note');
+      renderWorkflowDayBlocks(workflowDayNoteTarget);
+    });
+    $('bhWfDayAddCodeBlockBtn').addEventListener('click', function () {
+      if (!workflowDayNoteTarget) return;
+      DB.addWorkflowDayBlock(workflowDayNoteTarget, 'code');
+      renderWorkflowDayBlocks(workflowDayNoteTarget);
+    });
 
     // Tasks UI wiring (Resources tab, alongside Workflow Templates)
     document.querySelectorAll('#bhResTaskViewChips .bh-chip').forEach(function (chip) {
