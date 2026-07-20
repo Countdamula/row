@@ -4555,3 +4555,39 @@ between this app and either data loss or a wide-open write target:
     layout (numbered-free `.bh-pf-section` cards, NOTE/CODE tags,
     monospace code styling) reads clearly against this page's dark
     frosted-glass theme.
+
+- **Business Hub reported "still not showing up" after the Day Page
+  blocks feature above, despite the `?v=7` cache-bust.** Re-verified
+  extensively before touching anything: no duplicate element ids
+  anywhere in `business.html`; re-ran the full Workflow/Tasks/Day-blocks
+  test suite; specifically re-read `sync.js`'s `applyRemote()` (the one
+  piece of this page's behavior that can't be exercised locally, since
+  every test here deliberately blocks Supabase) to check whether an
+  older remote row missing newer keys (`business:tasks`, or Workflow
+  days missing `blocks`) could silently wipe or corrupt anything on
+  pull — it can't: `applyRemote()`'s delete-if-absent-from-remote loop
+  only ever removes a key that's *already present locally*, so a key
+  that was never locally written (e.g. `business:tasks` before its
+  first local write) is simply never touched, and every field this app
+  reads defensively (`|| []`, `|| ''`) regardless. No further code bug
+  was found.
+  - **What actually changed this round**: `business.html` gained
+    `<meta http-equiv="Cache-Control/Pragma/Expires">` "no-cache" tags.
+    The `?v=7` fix from the previous round only cache-busts the
+    *referenced* `business-data.js` file — it does nothing for
+    `business.html` itself, the top-level navigated document, which a
+    browser (or an intermediate cache) can just as easily be holding a
+    stale copy of. Since this repo has no server-side header control at
+    all (no `vercel.json`, confirmed — see CLAUDE.md §1's "zero-config
+    static hosting"), an HTML `<meta>` tag is the only lever available
+    from inside the file itself. Disclosed honestly: meta-tag cache
+    directives only influence how a *browser* re-requests the document
+    on a later visit — they cannot reach back and instruct a CDN edge
+    cache that already served a stale response before the browser ever
+    parsed this tag, so this is a partial mitigation, not a guaranteed
+    fix, for a class of problem this app's own "no build step" design
+    is inherently exposed to. Verified the page still loads and renders
+    identically after adding the tags (Resources tab, Tasks list, Day
+    Page blocks modal all present, zero JS errors) — this change cannot
+    have introduced a new regression, whatever the actual root cause of
+    the report turns out to be.
