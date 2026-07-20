@@ -35,7 +35,10 @@
     recipes: 'nutrition:recipes',
     recipeIngredients: 'nutrition:recipeIngredients',
     seeded: 'nutrition:seeded',
-    stepsMigratedV1: 'nutrition:stepsMigratedV1'
+    stepsMigratedV1: 'nutrition:stepsMigratedV1',
+    tabs: 'nutrition:tabs',
+    widgets: 'nutrition:widgets',
+    boardSeeded: 'nutrition:boardSeeded'
   };
 
   function uid(prefix) {
@@ -51,6 +54,42 @@
   function todayISO() {
     const d = new Date();
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  // ============================================================
+  // IMAGE COMPRESSION / URL VALIDATION — same canvas-downscale-then-JPEG
+  // recipe and http(s)-only URL check as dreamboard-data.js/
+  // household-data.js/etc. Used by the board engine below (hero cover
+  // photos, Photo/Video Grid + Feature Card widgets); the My Kitchen
+  // recipe/step image upload flow already has its own copy of this same
+  // recipe inline in nutrition.html and is left untouched.
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 640;
+    quality = quality == null ? 0.78 : quality;
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  function isValidMediaUrl(value) {
+    if (!value) return false;
+    try {
+      const u = new URL(String(value));
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (e) { return false; }
   }
 
   // ============================================================
@@ -86,6 +125,7 @@
    * @property {boolean} checked
    * @property {string} notes
    * @property {string} addedAt - ISO date (YYYY-MM-DD)
+   * @property {number} order - sort key for manual drag-reorder within a store group
    */
   function groceryItemModel(data) {
     data = data || {};
@@ -97,7 +137,8 @@
       storeId: data.storeId || null,
       checked: data.checked != null ? !!data.checked : false,
       notes: data.notes || '',
-      addedAt: data.addedAt || todayISO()
+      addedAt: data.addedAt || todayISO(),
+      order: data.order != null ? data.order : Date.now()
     };
   }
 
@@ -125,6 +166,7 @@
    * @property {boolean} isFavorite
    * @property {?string} imageUrl
    * @property {string} createdAt - ISO date (YYYY-MM-DD)
+   * @property {number} order - sort key for manual drag-reorder in the gallery
    */
   function recipeModel(data) {
     data = data || {};
@@ -140,7 +182,8 @@
       notes: data.notes || '',
       isFavorite: data.isFavorite != null ? !!data.isFavorite : false,
       imageUrl: data.imageUrl || null,
-      createdAt: data.createdAt || todayISO()
+      createdAt: data.createdAt || todayISO(),
+      order: data.order != null ? data.order : Date.now()
     };
   }
 
@@ -194,7 +237,8 @@
       storeSet(key, next);
       return next.length !== all.length;
     }
-    return { list: list, get: get, add: add, update: update, remove: remove };
+    function replaceAll(records) { storeSet(key, records); }
+    return { list: list, get: get, add: add, update: update, remove: remove, replaceAll: replaceAll };
   }
 
   const GroceryItems = makeCollection(KEYS.groceryItems, groceryItemModel);
@@ -244,6 +288,48 @@
       .sort(function (a, b) { return a.order - b.order; });
   }
 
+  /**
+   * Bulk drag-reorder for the My Kitchen gallery. `idsInOrder` is the new
+   * order of whichever recipes are currently *visible* (search/tag/
+   * favorites filters may hide others) — same technique already
+   * established by entertainment.html's Manual sort mode: recompute each
+   * visible recipe's slot position among the full order-sorted list, then
+   * drop the new visible order back into exactly those slots, so a
+   * filtered-out recipe sitting between two visible ones never gets its
+   * relative position disturbed by a drag it wasn't part of.
+   */
+  function reorderRecipesVisible(idsInOrder) {
+    const all = Recipes.list();
+    const sorted = all.slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    const visibleSet = {};
+    idsInOrder.forEach(function (id) { visibleSet[id] = true; });
+    let ptr = 0;
+    const result = sorted.map(function (r) {
+      if (visibleSet[r.id]) {
+        const id = idsInOrder[ptr++];
+        return all.find(function (x) { return x.id === id; });
+      }
+      return r;
+    });
+    result.forEach(function (r, idx) { r.order = idx; });
+    storeSet(KEYS.recipes, result);
+  }
+
+  /**
+   * Bulk drag-reorder for grocery items within a single store group (drag
+   * is scoped to one group at a time — reassigning an item's store is
+   * still done via its Edit modal's Store select, not by dragging it into
+   * a different store's group). `idsInOrder` is that group's new order;
+   * only those items' `order` fields are touched.
+   */
+  function reorderGroceryGroupItems(idsInOrder) {
+    const all = GroceryItems.list();
+    const byId = {};
+    all.forEach(function (i) { byId[i.id] = i; });
+    idsInOrder.forEach(function (id, idx) { if (byId[id]) byId[id].order = idx; });
+    storeSet(KEYS.groceryItems, all);
+  }
+
   // ============================================================
   // SELECTORS / ACTIONS — pure where possible; the few that mutate
   // storage are called out below.
@@ -260,12 +346,14 @@
     const unchecked = GroceryItems.list().filter(function (i) { return !i.checked; });
     const storeIds = stores.map(function (s) { return s.id; });
 
+    function byOrder(a, b) { return (a.order || 0) - (b.order || 0); }
+
     const groups = [];
     stores.forEach(function (s) {
-      const items = unchecked.filter(function (i) { return i.storeId === s.id; });
+      const items = unchecked.filter(function (i) { return i.storeId === s.id; }).sort(byOrder);
       if (items.length) groups.push({ storeId: s.id, storeName: s.name, color: s.color, items: items });
     });
-    const unassigned = unchecked.filter(function (i) { return !i.storeId || storeIds.indexOf(i.storeId) === -1; });
+    const unassigned = unchecked.filter(function (i) { return !i.storeId || storeIds.indexOf(i.storeId) === -1; }).sort(byOrder);
     if (unassigned.length) groups.push({ storeId: null, storeName: 'Unassigned', color: null, items: unassigned });
     return groups;
   }
@@ -330,6 +418,210 @@
     });
     return added;
   }
+
+  // ============================================================
+  // BOARD ENGINE — Tabs + Widgets, reused wholesale from dreamboard-data.js
+  // (same flat-array-with-foreign-key convention, same widget types, same
+  // per-tab "hero" cover, same reorderTab bulk-write) so the two Nutrition
+  // pages (My Kitchen / Grocery List) get a real "More Widgets" freeform
+  // drag-and-drop board of their own, on top of their existing
+  // recipe/grocery databases, plus a fully editable hero replacing the old
+  // static cover banner. See CLAUDE.md's Dream Board changelog entries for
+  // the full history/reasoning behind this exact shape.
+  //
+  // Nutrition's tabs are fixed (My Kitchen / Grocery List always exist,
+  // one per real page — there's no "add a tab" here, unlike Dream Board),
+  // so each DreamTab-equivalent also carries a `panel` field naming which
+  // dedicated page it belongs to ('kitchen' | 'grocery'), read by
+  // nutrition.html to know which section to show alongside that tab's
+  // hero + widget board.
+  // ============================================================
+  const WIDGET_TYPES = ['checklist', 'list', 'note', 'quote', 'affirmation', 'steps', 'photos', 'calendar', 'feature', 'infocard'];
+
+  const HERO_PRESETS = {
+    kitchen: { eyebrow: 'MY KITCHEN', title: 'Recipes,\nReady When You Are.', subtext: 'Every dish worth repeating — ingredients, steps, and the little notes that make it yours.', ctaLabel: 'BROWSE RECIPES', photo: '' },
+    grocery: { eyebrow: 'GROCERY LIST', title: 'Shop Once.\nForget Nothing.', subtext: "Organized by store, checked off as you go — everything you need, nothing you don't.", ctaLabel: 'VIEW LIST', photo: '' }
+  };
+  function defaultHero(panel) { return Object.assign({}, HERO_PRESETS[panel] || HERO_PRESETS.kitchen); }
+
+  function heroModel(data) {
+    data = data || {};
+    return {
+      eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
+      title: typeof data.title === 'string' ? data.title : '',
+      subtext: typeof data.subtext === 'string' ? data.subtext : '',
+      ctaLabel: typeof data.ctaLabel === 'string' ? data.ctaLabel : '',
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : '',
+      mediaType: data.mediaType === 'video' ? 'video' : 'image'
+    };
+  }
+
+  /** @typedef {{id:string, title:string, order:number, panel:string, hero:Object}} NutritionTab */
+  function tabModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('tab'),
+      title: typeof data.title === 'string' ? data.title : 'Untitled',
+      order: typeof data.order === 'number' ? data.order : 0,
+      panel: (data.panel === 'kitchen' || data.panel === 'grocery') ? data.panel : '',
+      hero: heroModel(data.hero)
+    };
+  }
+
+  function defaultWidgetData(type) {
+    switch (type) {
+      case 'checklist': return { items: [] };
+      case 'list': return { items: [] };
+      case 'note': return { body: '' };
+      case 'quote': return { text: '', author: '' };
+      case 'affirmation': return { items: [] };
+      case 'steps': return { goal: 10000, log: {} };
+      case 'photos': return { wide: false, slots: [] };
+      case 'calendar': return { notes: {}, viewYear: null, viewMonth: null };
+      case 'feature': return { photo: '', title: '', caption: '' };
+      case 'infocard': return { icon: '🍽', title: '', subtitle: '' };
+      default: return {};
+    }
+  }
+
+  /** @typedef {{id:string, tabId:string, column:number, order:number, type:string, title:string, tint:?string, data:Object}} NutritionWidget */
+  function widgetModel(data) {
+    data = data || {};
+    const type = WIDGET_TYPES.indexOf(data.type) !== -1 ? data.type : 'note';
+    const defaults = defaultWidgetData(type);
+    const incoming = (data.data && typeof data.data === 'object') ? data.data : {};
+    return {
+      id: data.id || uid('wdg'),
+      tabId: data.tabId || null,
+      column: typeof data.column === 'number' ? data.column : 0,
+      order: typeof data.order === 'number' ? data.order : 0,
+      type: type,
+      title: typeof data.title === 'string' ? data.title : '',
+      tint: typeof data.tint === 'string' ? data.tint : null,
+      data: Object.assign({}, defaults, incoming)
+    };
+  }
+
+  const Tabs = makeCollection(KEYS.tabs, tabModel);
+  const Widgets = makeCollection(KEYS.widgets, widgetModel);
+
+  // Same defensive backfill precedent as dreamboard-data.js's own
+  // normalizeTabs() (see that file's changelog note on the hero-missing
+  // crash it fixed once) — list()/get() never re-run a stored record
+  // through its model factory, only add()/update() do, so a tab written
+  // before some future field existed could otherwise read back with that
+  // field silently missing. Runs once per load; a no-op once every tab is
+  // already in the current shape.
+  function normalizeTabs() {
+    const tabs = Tabs.list();
+    let changed = false;
+    const fixed = tabs.map(function (t) {
+      if (t && t.hero && typeof t.hero === 'object' && (t.panel === 'kitchen' || t.panel === 'grocery')) return t;
+      changed = true;
+      return tabModel(t);
+    });
+    if (changed) Tabs.replaceAll(fixed);
+  }
+
+  function tabsSorted() {
+    return Tabs.list().slice().sort(function (a, b) { return a.order - b.order; });
+  }
+  function tabForPanel(panel) {
+    return Tabs.list().find(function (t) { return t.panel === panel; }) || null;
+  }
+  /** Widgets for one tab, grouped into 3 column arrays, each sorted by order. */
+  function columnsForTab(tabId) {
+    const cols = [[], [], []];
+    Widgets.list()
+      .filter(function (w) { return w.tabId === tabId; })
+      .forEach(function (w) {
+        const c = (w.column >= 0 && w.column <= 2) ? w.column : 0;
+        cols[c].push(w);
+      });
+    cols.forEach(function (col) { col.sort(function (a, b) { return a.order - b.order; }); });
+    return cols;
+  }
+  /** Bulk-persist a tab's full column layout after a drag-reorder — one
+   * write, not one per widget. Same shape as dreamboard-data.js's. */
+  function reorderTab(tabId, columnsOfIds) {
+    const all = Widgets.list();
+    const byId = {};
+    all.forEach(function (w) { byId[w.id] = w; });
+    columnsOfIds.forEach(function (ids, colIdx) {
+      ids.forEach(function (id, orderIdx) {
+        const w = byId[id];
+        if (w && w.tabId === tabId) { w.column = colIdx; w.order = orderIdx; }
+      });
+    });
+    Widgets.replaceAll(all);
+  }
+
+  function todayStepsCount(widget) {
+    if (!widget || widget.type !== 'steps') return 0;
+    return Number((widget.data.log || {})[todayISO()]) || 0;
+  }
+
+  /** A small, non-empty starter board per tab, so "More Widgets" never
+   * opens blank — same spirit as dreamboard-data.js's seedDefaultBoard(),
+   * loosely themed rather than load-bearing. Wipes/rebuilds ONLY the
+   * Tabs/Widgets collections — Recipes/RecipeIngredients/Stores/
+   * GroceryItems are completely separate collections and are never
+   * touched by this, so "Reset to Default" on the widget board can never
+   * delete a real recipe or grocery item. */
+  function seedDefaultBoard() {
+    Tabs.replaceAll([]);
+    Widgets.replaceAll([]);
+
+    const kitchenTab = Tabs.add({ title: 'My Kitchen', order: 0, panel: 'kitchen', hero: defaultHero('kitchen') });
+    const groceryTab = Tabs.add({ title: 'Grocery List', order: 1, panel: 'grocery', hero: defaultHero('grocery') });
+
+    Widgets.add({
+      tabId: kitchenTab.id, column: 0, order: 0, type: 'note', title: 'Meal Prep Ideas',
+      data: { body: 'Batch-cook grains and proteins on Sunday, keep a rotating list of go-to sauces, and freeze portions of anything that reheats well.' }
+    });
+    Widgets.add({
+      tabId: kitchenTab.id, column: 1, order: 0, type: 'checklist', title: 'Kitchen To-Dos',
+      data: { items: [{ id: uid('it'), text: 'Sharpen the knives', done: false }, { id: uid('it'), text: 'Clean out the spice rack', done: false }] }
+    });
+    Widgets.add({
+      tabId: kitchenTab.id, column: 2, order: 0, type: 'infocard', title: 'Cook Once, Eat Twice',
+      data: { icon: '🍲', title: 'COOK ONCE, EAT TWICE', subtitle: 'Double a recipe and freeze half.' }
+    });
+
+    Widgets.add({
+      tabId: groceryTab.id, column: 0, order: 0, type: 'checklist', title: 'Pantry Staples to Restock',
+      data: { items: [{ id: uid('it'), text: 'Olive oil', done: false }, { id: uid('it'), text: 'Rice', done: false }] }
+    });
+    Widgets.add({
+      tabId: groceryTab.id, column: 1, order: 0, type: 'note', title: 'Store Notes',
+      data: { body: 'Coop closes early on Sundays. Migros has better produce on weekday mornings.' }
+    });
+    Widgets.add({
+      tabId: groceryTab.id, column: 2, order: 0, type: 'infocard', title: 'Shop the Edges',
+      data: { icon: '🧺', title: 'SHOP THE EDGES', subtitle: 'Fresh food lives on the perimeter.' }
+    });
+
+    storeSet(KEYS.boardSeeded, true);
+  }
+
+  /** Creates the two fixed tabs (+ starter widgets) if neither exists yet —
+   * independent of seedIfEmpty() above, which only guards the Recipes/
+   * Stores/GroceryItems collections. A device that already has real
+   * recipes/grocery data from before this board engine existed would
+   * otherwise never get a Tabs row at all (seedIfEmpty() would see
+   * non-empty collections and skip), which would leave the page with no
+   * tab to render — same "newly-required structure with no backfill for
+   * pre-existing users" bug class documented in Business Hub's/
+   * Self-Care's own changelog entries, avoided here by keeping this check
+   * independent of every other collection's emptiness. */
+  function ensureBoardTabsExist() {
+    if (Tabs.list().length > 0) return false;
+    seedDefaultBoard();
+    return true;
+  }
+
+  normalizeTabs();
 
   // ============================================================
   // SEED DATA — a small, realistic starter set so a future UI has
@@ -455,11 +747,17 @@
   // ============================================================
   global.NutritionData = {
     KEYS: KEYS,
+    uid: uid,
+    todayISO: todayISO,
+    compressImageDataUrl: compressImageDataUrl,
+    isValidMediaUrl: isValidMediaUrl,
     Models: {
       store: storeModel,
       groceryItem: groceryItemModel,
       recipe: recipeModel,
-      recipeIngredient: recipeIngredientModel
+      recipeIngredient: recipeIngredientModel,
+      tab: tabModel,
+      widget: widgetModel
     },
     Stores: Stores,
     GroceryItems: GroceryItems,
@@ -472,6 +770,21 @@
     resetGroceryList: resetGroceryList,
     deleteCheckedGroceryItems: deleteCheckedGroceryItems,
     addRecipeIngredientsToGroceryList: addRecipeIngredientsToGroceryList,
-    seedIfEmpty: seedIfEmpty
+    reorderRecipesVisible: reorderRecipesVisible,
+    reorderGroceryGroupItems: reorderGroceryGroupItems,
+    seedIfEmpty: seedIfEmpty,
+    // ---- board engine (My Kitchen / Grocery List hero + widget board) ----
+    WIDGET_TYPES: WIDGET_TYPES,
+    defaultWidgetData: defaultWidgetData,
+    Tabs: Tabs,
+    Widgets: Widgets,
+    tabsSorted: tabsSorted,
+    tabForPanel: tabForPanel,
+    columnsForTab: columnsForTab,
+    reorderTab: reorderTab,
+    todayStepsCount: todayStepsCount,
+    seedDefaultBoard: seedDefaultBoard,
+    ensureBoardTabsExist: ensureBoardTabsExist,
+    normalizeTabs: normalizeTabs
   };
 })(window);

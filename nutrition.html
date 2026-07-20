@@ -6,39 +6,52 @@
 <meta name="theme-color" content="#0b0509">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Nutrition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="nutrition-data.js" defer></script>
 <style>
+/* =============================================================
+   Nutrition — rebuilt around a fully editable/moveable/adjustable board
+   (drag-reorderable recipe gallery + grocery items, a freeform "More
+   Widgets" board per page), then re-themed to match Dream Board's exact
+   dark cinematic aesthetic (near-black + warm champagne/gold, italic
+   serif display type, frosted-glass cards) — same one-off palette
+   exception category as Dream Board/Business Hub/AI & Tech/Self-Care (see
+   CLAUDE.md §6/DO NOT MODIFY rule 2). Token *names* kept from this file's
+   original wine/dusty-rose theme wherever already referenced throughout
+   this stylesheet (--bg, --accent, --border, --cream, etc.) — only the
+   *values* changed, same "repoint, don't rename" precedent Media's own
+   re-theme used. No other page's tokens are touched. */
 :root {
-  --bg: #170a12;
-  --bg-deep: #0b0509;
-  --bg-card: rgba(255, 255, 255, 0.035);
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --border: rgba(224, 138, 159, 0.18);
-  --accent: #e08a9f;
+  --bg: #0b0a08;
+  --bg-deep: #050403;
+  --bg-card: rgba(255, 255, 255, 0.045);
+  --paper-solid: #16130f;
+  --text-primary: #f5f1e9;
+  --text-secondary: rgba(245, 241, 233, 0.68);
+  --text-tertiary: rgba(245, 241, 233, 0.44);
+  --border: rgba(201, 168, 118, 0.22);
+  --accent: #c9a876;
+  --accent-bright: #e8cf9f;
+  --accent-tint: rgba(201, 168, 118, 0.14);
   --success: #6BE3A4;
   --warning: #F2C063;
   --danger: #FF6B6B;
   --info: #7DD3FC;
-  --cream: #f3e8da;
+  --cream: #f5f1e9;
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius-lg: 18px;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
   color-scheme: dark;
 }
-
-/* Reuses this app's shared near-black wine / dusty-rose aesthetic already
-   established by index.html (Main), entertainment.html (Media),
-   braindump.html (Brain Dump) and study.html (Study) — same base
-   gradient, same --accent hue, same cream button gradient — rather than
-   inventing a new palette for this new page. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -48,137 +61,176 @@ html, body {
   -webkit-font-smoothing: antialiased;
   min-height: 100%;
 }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+img, video { max-width: 100%; display: block; }
 body::before {
   content: '';
   position: fixed; inset: -10%; z-index: -2;
   background:
-    radial-gradient(60% 45% at 82% 12%, rgba(232, 164, 99, 0.10) 0%, transparent 55%),
-    radial-gradient(55% 45% at 18% 90%, rgba(224, 138, 159, 0.08) 0%, transparent 55%),
-    linear-gradient(180deg, #170a12 0%, #0b0509 100%);
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
   filter: blur(40px) saturate(1.05);
   pointer-events: none;
 }
 body::after {
   content: '';
   position: fixed; inset: 0; z-index: -1;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 3px 3px;
-  opacity: 0.7;
+  opacity: 0.6;
   pointer-events: none;
 }
+/* ===== Page-wide cover-photo backdrop — the active tab's hero photo,
+   blurred and dimmed behind the ENTIRE page (not just the hero), same
+   technique as Dream Board's #dbPageBg, so glass widget cards actually
+   have something colorful to blur/reveal. Empty when a tab has no cover
+   photo — the plain dark gradient above shows through unchanged. ===== */
+#ntPageBg {
+  position: fixed; inset: 0; z-index: -3;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
+  pointer-events: none;
+}
+#ntPageBgVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
-
-.shell { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
-
-/* ===== Cover / hero banner — same "website" structure as
-   braindump.html's .bd-banner and gym.html's .po-cover (sunburst emblem,
-   serif-italic display title, tracked-caps subtext, pill CTA, a
-   radiating-line divider below it), recolored with this file's own
-   wine/dusty-rose tokens (--accent) instead of braindump's gold or
-   gym's crimson. Replaces the old plain back-btn + <h1> header — those
-   pages don't have one either, since the hero banner is the page's
-   visual anchor and topbar.js's nav already covers "back to dashboard". ===== */
-.nutr-cover {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  padding: 56px 24px 44px;
-  text-align: center;
-  border-bottom: 1px solid var(--border);
-  background:
-    radial-gradient(120% 85% at 50% -15%, rgba(224, 138, 159, 0.30) 0%, rgba(11, 5, 9, 0.92) 55%, transparent 100%),
-    radial-gradient(38% 30% at 88% 18%, rgba(232, 164, 99, 0.12) 0%, transparent 65%),
-    radial-gradient(30% 26% at 10% 82%, rgba(224, 138, 159, 0.14) 0%, transparent 65%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 60%);
-}
-.nutr-cover-emblem { position: relative; z-index: 1; width: 64px; height: 64px; margin: 0 auto 20px; }
-.nutr-cover-emblem-rays {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 150px; height: 150px;
-  background: repeating-conic-gradient(rgba(224, 138, 159, 0.45) 0deg 0.7deg, transparent 0.7deg 15deg);
-  border-radius: 50%;
-  opacity: 0.85;
-}
-.nutr-cover-emblem-circle {
-  position: absolute; inset: 0;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-  background: #0e0509;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-serif); font-style: italic; font-size: 22px; color: var(--accent);
-}
-.nutr-cover-title {
-  position: relative; z-index: 1;
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
-  font-size: clamp(36px, 8.5vw, 56px);
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-  text-shadow: 0 2px 28px rgba(0,0,0,0.6);
-}
-.nutr-cover-subtext {
-  position: relative; z-index: 1;
-  margin-top: 16px;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: 0.32em; text-transform: uppercase;
-  color: var(--accent);
-  line-height: 2.2;
-}
-.nutr-cover-cta {
-  position: relative; z-index: 1;
-  display: inline-flex; align-items: center;
-  margin-top: 22px; padding: 12px 28px;
-  border: 1px solid rgba(224, 138, 159, 0.6); border-radius: 999px;
-  background: transparent; color: var(--accent);
-  font-family: inherit; font-size: 11px; font-weight: 700;
-  letter-spacing: 0.2em; text-transform: uppercase;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, border-color 0.15s;
-}
-.nutr-cover-cta:hover { background: rgba(224, 138, 159, 0.10); border-color: var(--accent); }
-@media (max-width: 480px) {
-  .nutr-cover { padding: 44px 16px 34px; }
+:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
 }
 
-/* Thin radiating-line divider — same technique as braindump.html's
-   .bd-divider / gym.html's .po-section-divider, recolored to this file's
-   --accent, used as a section break directly under the cover. */
-.nutr-section-divider {
-  width: 100%; height: 30px; margin: 4px 0 18px;
-  background: repeating-conic-gradient(rgba(224, 138, 159, 0.30) 0deg 0.5deg, transparent 0.5deg 12deg);
-  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  opacity: 0.7;
-}
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
 
-/* ===== Secondary nav — same tab/underline pattern as finance.html's
-   .fin-tab, restyled with this file's own tokens (My Kitchen / Grocery
-   List), plus a URL hash router so a section is directly linkable
-   (nutrition.html#kitchen, nutrition.html#grocery). ===== */
-.nutr-tabs { display: flex; gap: 22px; margin: 4px 0 22px; border-bottom: 1px solid var(--border); overflow-x: auto; }
-.nutr-tab {
-  background: none; border: none; padding: 6px 0 14px; margin-bottom: -1px;
-  font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
-  color: var(--text-tertiary); cursor: pointer; position: relative;
-  -webkit-tap-highlight-color: transparent;
+/* ===== Back button — floats over the hero, same recipe as Dream Board's
+   .db-back-btn/Business Hub's .bh-back-btn. ===== */
+.nt-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 999px; color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.nutr-tab:hover { color: var(--text-secondary); }
-.nutr-tab.active { color: var(--accent); }
-.nutr-tab.active::after {
-  content: '';
-  position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-  background: var(--accent); border-radius: 2px;
+.nt-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--text-primary); }
+.nt-back-btn svg { display: block; }
+
+/* ===== Hero — one per page (My Kitchen / Grocery List), styled after
+   Dream Board's exact reference: full-bleed cover photo, dark gradient
+   scrim, tracked-caps eyebrow, large serif headline, subtext, frosted-
+   glass pill CTA, "scroll to explore" flourish. Ported verbatim from
+   dreamboard.html's .db-hero* recipe (see that page's changelog), just
+   renamed to nt- so this file's CSS stays self-contained per this app's
+   no-import convention. ===== */
+.nt-hero {
+  position: relative; min-height: 62vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 90px 20px 40px;
 }
+.nt-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--paper-solid); }
+.nt-hero-media img, .nt-hero-media video { width: 100%; height: 100%; object-fit: cover; }
+.nt-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
+}
+.nt-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.4); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text-tertiary); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 9px 18px;
+}
+.nt-hero-photo-choice-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.nt-hero-reattach {
+  position: absolute; inset: 0; z-index: 1; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text-tertiary); background: rgba(0,0,0,0.3); text-align: center; padding: 20px;
+}
+.nt-hero-reattach-icon { font-size: 30px; }
+.nt-hero-reattach-label { font-size: 12.5px; font-weight: 600; }
+.nt-hero-reattach-btn {
+  background: rgba(11,10,8,0.6); border: 1px solid var(--border); color: var(--text-primary);
+  border-radius: 999px; padding: 7px 16px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.nt-hero-reattach-btn:hover { border-color: var(--accent); color: var(--accent-bright); }
+.nt-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.55) 0%, rgba(5,4,3,0.15) 32%, rgba(5,4,3,0.35) 62%, rgba(5,4,3,0.92) 100%);
+}
+.nt-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5;
+  display: flex; gap: 6px;
+}
+.nt-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); border: 1px solid var(--border);
+  color: var(--text-secondary); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer;
+}
+.nt-hero-photo-tools button:hover { color: var(--accent-bright); border-color: var(--accent); }
+.nt-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.nt-hero-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent-bright); margin-bottom: 14px; outline-offset: 4px;
+}
+.nt-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--accent); margin-right: 10px; vertical-align: middle; }
+.nt-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-weight: 500; color: var(--text-primary);
+  font-size: clamp(32px, 7.5vw, 54px); line-height: 1.06; letter-spacing: -0.01em;
+  padding: 0; margin-bottom: 16px; text-shadow: 0 4px 30px rgba(0,0,0,0.5); white-space: pre-line;
+}
+.nt-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.nt-hero-subtext { font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 440px; margin-bottom: 26px; outline-offset: 4px; }
+.nt-hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 13px 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.nt-hero-cta:hover { border-color: var(--accent); background: var(--accent-tint); }
+.nt-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-primary); }
+.nt-hero-cta-arrow { color: var(--accent-bright); font-size: 13px; }
+@media (max-width: 620px) { .nt-hero { min-height: 66vh; padding: 84px 16px 30px; } }
+
+/* ===== Tab row — My Kitchen / Grocery List, one pill each, same recipe
+   as Dream Board's .db-tabs. Fixed pair (no add/rename), so no tab-menu
+   affordance is needed. ===== */
+.nt-tabs-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 20px 0 14px; margin-bottom: 20px; border-bottom: 1px solid var(--border);
+}
+.nt-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.nt-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 8px 14px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-tertiary); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nt-tab:hover { color: var(--text-primary); }
+.nt-tab.active { background: var(--accent-tint); color: var(--accent-bright); border-color: var(--accent); }
+@media (max-width: 480px) { .nt-tabs-row { width: 100%; } }
 
 /* ===== Shared modal / form / button components — copied verbatim from
    study.html's recipe (same class names, same look), the established
    cross-file convention for these widgets rather than inventing new
    ones. topbar.js's MODAL_SELECTORS already treats .modal-bg as a modal
    for mobile full-screen + scroll-lock behavior. ===== */
-.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); z-index: 100; align-items: center; justify-content: center; padding: 24px; }
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(5,4,3,0.65); z-index: 100; align-items: center; justify-content: center; padding: 24px; }
 .modal-bg.show { display: flex; }
-.modal { width: 100%; max-width: 460px; background: #17090f; border: 1px solid var(--border); border-radius: 16px; padding: 22px; max-height: 88vh; overflow-y: auto; }
-.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; font-family: var(--font-serif); }
+.modal {
+  width: 100%; max-width: 460px;
+  background: rgba(20, 17, 13, 0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; max-height: 88vh; overflow-y: auto;
+}
+.modal h3 { margin: 0 0 16px; font-size: 20px; font-weight: 600; font-family: var(--font-serif); }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .field > label { font-size: 10.5px; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 .field input[type="text"], .field input[type="url"], .field select, .field textarea {
@@ -196,13 +248,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .url-row input { flex: 1; min-width: 0; }
 .cover-preview { max-width: 100%; max-height: 140px; border-radius: 10px; margin-top: 8px; object-fit: cover; display: none; }
 .btn-primary {
-  width: 100%; padding: 13px; border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700;
-  cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
+  width: 100%; padding: 13px; border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.btn-primary:hover { transform: translateY(-1px); }
+.btn-primary:hover { opacity: 0.9; }
 .btn-primary:active { transform: translateY(0) scale(0.98); }
 .btn-secondary {
   padding: 11px 16px; border: 1px solid var(--border); background: rgba(255,255,255,0.04);
@@ -228,12 +280,12 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-qa-unit { flex: 0 1 90px; min-width: 70px; }
 .nutr-qa-store { flex: 1 1 140px; min-width: 110px; }
 .nutr-qa-add {
-  padding: 9px 18px; border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 8px; font-family: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 9px 18px; border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 8px; font-family: inherit; font-size: 12.5px; font-weight: 700;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.nutr-qa-add:hover { transform: translateY(-1px); }
+.nutr-qa-add:hover { opacity: 0.9; }
 
 .nutr-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 18px; }
 .nutr-checked-banner {
@@ -260,6 +312,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 .nutr-item-row { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .nutr-item-row:last-child { border-bottom: none; }
+.nutr-item-row.nutr-item-ghost { opacity: 0.4; background: var(--accent-tint); border-radius: var(--radius-sm); }
+.nutr-item-drag { flex-shrink: 0; cursor: grab; color: var(--text-tertiary); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.nutr-item-drag:active { cursor: grabbing; }
 .nutr-item-check { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
 .nutr-item-body { flex: 1; min-width: 0; }
 .nutr-item-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
@@ -306,8 +361,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .chip:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 .chip.active {
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-color: transparent; font-weight: 800;
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-color: transparent; font-weight: 800;
 }
 .nutr-kitchen-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 14px; }
 .nutr-search-input {
@@ -318,27 +373,39 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-search-input:focus { outline: none; border-color: rgba(255,255,255,0.40); }
 .btn-add {
   flex-shrink: 0; padding: 10px 16px;
-  border: 1px solid rgba(243,232,218,0.85);
-  background: linear-gradient(180deg, var(--cream) 0%, #d9a0ae 100%);
-  color: #2a0d14; border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 999px;
   font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer; white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(61,15,26,0.45);
   -webkit-tap-highlight-color: transparent;
 }
-.btn-add:hover { transform: translateY(-1px); }
-.btn-add:active { transform: translateY(0) scale(0.97); }
+.btn-add:hover { opacity: 0.9; }
 
 /* Gallery — same class names/CSS as study.html's/entertainment.html's
    card grid, copied verbatim per this codebase's existing convention of
    duplicating that component per-file rather than importing it. */
 .ent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 8px; }
 .ent-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22); border-radius: var(--radius-lg);
   overflow: hidden; cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.ent-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 22px rgba(224,138,159,0.18); }
+.ent-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 22px rgba(201,168,118,0.22); }
+.ent-card.nutr-card-ghost { opacity: 0.4; border: 1px dashed var(--accent); background: var(--accent-tint); }
+.nutr-card-drag {
+  position: absolute; top: 6px; left: 6px; z-index: 3; cursor: grab;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #fff; border-radius: 8px; font-size: 12px; line-height: 1; letter-spacing: -1px;
+  -webkit-tap-highlight-color: transparent;
+}
+.nutr-card-drag:active { cursor: grabbing; }
 .ent-cover { position: relative; aspect-ratio: 16 / 10; background: rgba(255,255,255,0.04); overflow: hidden; }
 .ent-cover::after {
   content: ''; position: absolute; inset: 0; z-index: 1;
@@ -439,7 +506,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .nutr-toast {
   position: fixed; left: 50%; bottom: 28px; z-index: 200;
   transform: translateX(-50%) translateY(12px);
-  background: #17090f; border: 1px solid var(--border); color: var(--text-primary);
+  background: var(--paper-solid); border: 1px solid var(--border); color: var(--text-primary);
   padding: 12px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   opacity: 0; pointer-events: none; text-align: center;
@@ -448,6 +515,176 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .nutr-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* =============================================================
+   MORE WIDGETS — a freeform, drag-and-drop 3-column board per page (My
+   Kitchen / Grocery List each get their own, scoped by tabId), ported
+   verbatim from dreamboard.html's widget-card engine (see that page's
+   changelog for the full reasoning behind each piece: the numbered-card
+   chassis, the hover-reveal action row, the per-widget color-grading
+   popover, etc.) — same class names (.dw-*, .db-modal-head, .db-widget-
+   menu*, .db-btn-*) as Dream Board/Business Hub/AI & Tech/Self-Care,
+   copied per this app's own "duplicate the component per file, don't
+   import" convention rather than renamed, to keep the port low-risk.
+   ============================================================= */
+.nt-more-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 28px 0 14px; margin: 30px 0 18px; border-top: 1px solid var(--border);
+}
+.nt-more-heading h2 { font-family: var(--font-serif); font-size: 21px; font-weight: 600; color: var(--text-primary); }
+.nt-more-heading-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.db-btn-primary, .db-btn-secondary, .db-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; letter-spacing: 0.03em;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s; border: none;
+}
+.db-btn-primary { background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%); color: #24190c; border: 1px solid var(--accent); }
+.db-btn-primary:hover { opacity: 0.9; }
+.db-btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+.db-btn-secondary:hover { color: var(--accent-bright); border-color: var(--accent); }
+.db-btn-ghost { background: transparent; color: var(--text-tertiary); border: 1px solid var(--border); }
+.db-btn-ghost:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+
+.db-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .db-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .db-board { grid-template-columns: 1fr; } }
+.db-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 40px; }
+
+.dw-card {
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 16px 16px 18px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
+  --tint: transparent;
+}
+.dw-card::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: var(--tint); opacity: 0.32; }
+.dw-card-head, .dw-card-title-row, .dw-card-body { position: relative; z-index: 1; }
+.dw-card-ghost { opacity: 0.4; border: 1px dashed var(--accent); background: var(--accent-tint); }
+.sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+.dw-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dw-card-index { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent); }
+.dw-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.dw-card:hover .dw-card-hover-actions, .dw-card:focus-within .dw-card-hover-actions { opacity: 1; }
+.dw-drag-handle { flex-shrink: 0; cursor: grab; color: var(--text-tertiary); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.dw-drag-handle:active { cursor: grabbing; }
+.dw-card-del, .dw-wide-toggle { background: transparent; border: none; color: var(--text-tertiary); font-size: 14px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.dw-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.dw-wide-toggle { font-size: 9.5px; letter-spacing: 0.05em; }
+.dw-wide-toggle:hover { background: var(--accent-tint); color: var(--accent-bright); }
+
+.dw-tint-btn { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; padding: 0; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.5); background: transparent; }
+.dw-tint-btn-empty { background: repeating-conic-gradient(rgba(255,255,255,0.25) 0% 25%, transparent 0% 50%) 0 0/8px 8px; }
+.dw-tint-popover { margin: 8px 0 4px; padding: 10px; border-radius: var(--radius-md); background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.16); }
+.dw-tint-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+.dw-tint-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.dw-tint-swatch { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.dw-tint-swatch:hover { border-color: var(--accent-bright); }
+.dw-tint-swatch-photo:disabled { opacity: 0.3; cursor: not-allowed; }
+.dw-tint-custom-row { display: flex; align-items: center; gap: 10px; }
+.dw-tint-custom-row input[type="color"] { width: 44px; height: 34px; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 0; background: none; cursor: pointer; flex-shrink: 0; }
+.dw-tint-custom-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.dw-tint-custom-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.dw-tint-hex { flex: 1; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.03em; }
+.dw-tint-clear { background: transparent; border: 1px solid rgba(255,255,255,0.22); color: var(--text-secondary); border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.dw-tint-clear:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+
+.dw-card-title-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.dw-card-title { flex: 1; min-width: 0; font-family: var(--font-serif); font-weight: 600; font-size: 19px; color: var(--text-primary); outline-offset: 3px; word-break: break-word; }
+
+.dw-plain-list, .dw-affirm-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.dw-plain-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 8px; border-radius: var(--radius-sm); transition: background 0.15s; }
+.dw-plain-row:hover { background: rgba(255,255,255,0.03); }
+.dw-plain-row .dw-check-cb { margin-top: 3px; flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.dw-item-text { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; outline-offset: 3px; word-break: break-word; }
+.dw-item-done .dw-item-text { text-decoration: line-through; color: var(--text-tertiary); }
+.dw-item-del { flex-shrink: 0; background: transparent; border: none; color: var(--text-tertiary); opacity: 0; font-size: 14px; cursor: pointer; padding: 0 4px; transition: opacity 0.15s; }
+.dw-plain-row:hover .dw-item-del, .dw-affirm-row:hover .dw-item-del { opacity: 1; }
+.dw-item-del:hover { color: var(--danger); }
+
+.dw-affirm-row { position: relative; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 30px 12px 14px; }
+.dw-affirm-text { font-family: var(--font-serif); font-style: italic; font-size: 15px; line-height: 1.4; color: var(--text-primary); outline-offset: 3px; display: block; }
+.dw-affirm-row .dw-item-del { position: absolute; top: 6px; right: 6px; }
+
+.dw-additem-row { display: flex; gap: 6px; }
+.dw-additem-row input { flex: 1; min-width: 0; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; color: var(--text-primary); }
+.dw-additem-btn { flex-shrink: 0; background: var(--accent); color: #24190c; border: none; border-radius: var(--radius-sm); width: 32px; font-size: 15px; font-weight: 700; cursor: pointer; }
+
+.dw-note-textarea { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--border); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px; line-height: 1.55; color: var(--text-primary); }
+
+.dw-quote-body { padding: 6px 4px 2px; position: relative; }
+.dw-quote-body::before { content: '\201C'; position: absolute; top: -22px; left: -4px; font-family: var(--font-serif); font-size: 64px; color: var(--accent); opacity: 0.4; line-height: 1; }
+.dw-quote-text { position: relative; font-family: var(--font-serif); font-style: italic; font-size: 19px; line-height: 1.4; color: var(--text-primary); outline-offset: 4px; padding-top: 6px; }
+.dw-quote-author { margin-top: 10px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent-bright); text-transform: uppercase; outline-offset: 3px; }
+.dw-quote-author::before { content: '\2014\00A0'; }
+
+.dw-steps-body { display: flex; flex-direction: column; gap: 8px; }
+.dw-steps-row, .dw-steps-goal-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-tertiary); }
+.dw-steps-input { width: 90px; font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--text-primary); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; }
+.dw-steps-goal-input { width: 70px; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 6px; }
+.dw-progress-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; border: 1px solid var(--border); }
+.dw-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent) 0%, var(--accent-bright) 100%); border-radius: 999px; transition: width 0.3s ease; }
+.dw-steps-pct { font-size: 11px; color: var(--text-tertiary); font-weight: 600; }
+
+.dw-photo-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.dw-photo-grid-2 { grid-template-columns: 1fr 1fr; }
+.dw-photo-slot { position: relative; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--border); aspect-ratio: 4 / 3; }
+.dw-photo-slot img, .dw-photo-slot video { width: 100%; height: 100%; object-fit: cover; }
+.dw-photo-slot-empty, .dw-photo-slot-broken { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-tertiary); font-size: 11px; text-align: center; padding: 8px; }
+.dw-photo-broken-icon { font-size: 22px; }
+.dw-photo-reattach-btn { background: var(--paper-solid); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-primary); }
+.dw-slot-del { position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%; background: rgba(5,4,3,0.65); color: #fff; border: none; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dw-photo-addslot { aspect-ratio: 4 / 3; border: 1px dashed var(--text-tertiary); border-radius: var(--radius-md); background: transparent; color: var(--text-tertiary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.dw-photo-addslot:hover { background: rgba(255,255,255,0.03); color: var(--accent-bright); border-color: var(--accent); }
+.dw-photo-caption { margin-top: 10px; font-size: 10.5px; color: var(--text-tertiary); line-height: 1.5; }
+
+.dw-feature-photo { position: relative; border-radius: var(--radius-md); overflow: hidden; background: var(--paper-solid); border: 1px solid var(--border); aspect-ratio: 3 / 4; }
+.dw-feature-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dw-feature-photo-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(5,4,3,0.85) 100%); display: flex; flex-direction: column; justify-content: flex-end; padding: 14px; }
+.dw-feature-title { font-family: var(--font-serif); font-weight: 600; font-size: 18px; color: var(--text-primary); outline-offset: 3px; text-shadow: 0 2px 12px rgba(0,0,0,0.6); }
+.dw-feature-caption { margin-top: 4px; font-size: 11px; color: var(--text-secondary); outline-offset: 3px; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.dw-feature-addphoto { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; border: none; color: var(--text-tertiary); font-size: 12px; font-weight: 600; cursor: pointer; }
+.dw-feature-addphoto:hover { color: var(--accent-bright); }
+.dw-feature-photo-change { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(5,4,3,0.6); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 999px; padding: 4px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.dw-feature-photo-change:hover { color: var(--accent-bright); border-color: var(--accent); }
+
+.dw-infocard-body { text-align: center; padding: 10px 4px 4px; }
+.dw-infocard-icon { font-size: 26px; margin-bottom: 10px; outline-offset: 3px; }
+.dw-infocard-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-bright); outline-offset: 3px; }
+.dw-infocard-subtitle { margin-top: 6px; font-size: 12.5px; color: var(--text-secondary); outline-offset: 3px; }
+
+.dw-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dw-cal-nav { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 50%; width: 26px; height: 26px; font-size: 14px; cursor: pointer; color: var(--text-primary); }
+.dw-cal-label { font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--text-primary); }
+.dw-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.dw-cal-dow { font-size: 9.5px; font-weight: 700; color: var(--text-tertiary); text-align: center; padding-bottom: 4px; }
+.dw-cal-day { position: relative; aspect-ratio: 1; border: 1px solid transparent; border-radius: 7px; background: rgba(255,255,255,0.03); font-size: 11px; color: var(--text-primary); cursor: pointer; display: flex; align-items: flex-start; justify-content: flex-start; padding: 3px 4px; }
+.dw-cal-day:hover { border-color: var(--border); background: var(--accent-tint); }
+.dw-cal-day-empty { background: transparent; cursor: default; pointer-events: none; }
+.dw-cal-day-today { border-color: var(--accent); font-weight: 700; }
+.dw-cal-note-dot { position: absolute; bottom: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent-bright); }
+
+.db-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.db-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.db-modal-close { background: transparent; border: none; font-size: 18px; color: var(--text-tertiary); cursor: pointer; }
+.db-modal-close:hover { color: var(--text-primary); }
+.db-modal-or { text-align: center; font-size: 11px; color: var(--text-tertiary); margin: 10px 0; }
+.db-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.db-modal-textarea { width: 100%; min-height: 120px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px; resize: vertical; color: var(--text-primary); }
+.db-field { margin-bottom: 12px; }
+.db-field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-tertiary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.db-field input, .db-field select { width: 100%; border: 1px solid var(--border); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--text-primary); }
+.db-widget-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 420px) { .db-widget-menu { grid-template-columns: 1fr; } }
+.db-widget-menu-item { text-align: left; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; color: var(--text-primary); }
+.db-widget-menu-item:hover { background: var(--accent-tint); border-color: var(--accent); }
+.db-widget-menu-item strong { font-size: 13px; }
+.db-widget-menu-item span { font-size: 10.5px; color: var(--text-tertiary); line-height: 1.35; }
+
 @media (max-width: 480px) {
   .ent-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
   .card-title { font-size: 12.5px; }
@@ -455,56 +692,90 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 </style>
 </head>
 <body>
-
-<div class="nutr-cover">
-  <div class="nutr-cover-emblem">
-    <div class="nutr-cover-emblem-rays"></div>
-    <div class="nutr-cover-emblem-circle">N</div>
-  </div>
-  <div class="nutr-cover-title">Nutrition</div>
-  <div class="nutr-cover-subtext">Nourish<br>Prepare<br>Savor</div>
-  <button class="nutr-cover-cta" type="button" id="nutrCoverCtaBtn">Browse My Kitchen</button>
-</div>
+<div id="ntPageBg" aria-hidden="true"><video id="ntPageBgVideo" muted loop playsinline style="display:none;"></video></div>
 
 <div class="shell">
-  <div class="nutr-section-divider" aria-hidden="true"></div>
-
-  <div class="nutr-tabs" id="nutrTabs" role="tablist" aria-label="Nutrition sections">
-    <button type="button" class="nutr-tab active" data-section="kitchen" role="tab" aria-selected="true">My Kitchen</button>
-    <button type="button" class="nutr-tab" data-section="grocery" role="tab" aria-selected="false">Grocery List</button>
-  </div>
-
-  <section class="section" data-section="kitchen">
-    <div class="nutr-kitchen-toolbar">
-      <input type="text" id="nutrRecipeSearch" class="nutr-search-input" placeholder="Search title or ingredient…">
-      <button type="button" class="chip" id="nutrFavToggle">★ Favorites only</button>
-      <button type="button" class="btn-add" id="nutrAddRecipeBtn">+ Add Recipe</button>
-    </div>
-    <div class="chip-row" id="nutrTagFilterRow" hidden></div>
-    <div class="ent-grid" id="nutrRecipeGrid"></div>
-    <p class="nutr-empty" id="nutrRecipeEmpty" hidden></p>
-  </section>
-
-  <section class="section" data-section="grocery" hidden>
-    <div class="nutr-quick-add" id="nutrQuickAdd">
-      <input type="text" id="nutrQaName" class="nutr-qa-name" placeholder="Item name…">
-      <input type="text" id="nutrQaQty" class="nutr-qa-qty" placeholder="Qty">
-      <input type="text" id="nutrQaUnit" class="nutr-qa-unit" placeholder="Unit">
-      <select id="nutrQaStore" class="nutr-qa-store" aria-label="Store"></select>
-      <button type="button" id="nutrQaAddBtn" class="nutr-qa-add">+ Add</button>
-    </div>
-
-    <div class="nutr-toolbar">
-      <div class="nutr-checked-banner" id="nutrCheckedBanner" hidden></div>
-      <div class="nutr-toolbar-actions">
-        <button class="btn-secondary" id="nutrManageStoresBtn" type="button">Manage Stores</button>
-        <button class="btn-secondary" id="nutrResetListBtn" type="button">Reset list</button>
+  <div class="nt-hero" id="ntHero">
+    <div class="nt-hero-media" id="ntHeroMedia">
+      <img id="ntHeroPhotoImg" style="display:none;" alt="">
+      <video id="ntHeroVideoEl" style="display:none;" muted loop playsinline></video>
+      <div class="nt-hero-reattach" id="ntHeroReattach" style="display:none;">
+        <div class="nt-hero-reattach-icon">🎬</div>
+        <div class="nt-hero-reattach-label">Video needs to be re-attached</div>
+        <button type="button" class="nt-hero-reattach-btn" id="ntHeroReattachBtn">Re-attach</button>
+      </div>
+      <div class="nt-hero-photo-choice" id="ntHeroPhotoChoice">
+        <button type="button" class="nt-hero-photo-choice-btn" id="ntHeroAddPhotoBtn">+ Add a cover photo</button>
+        <button type="button" class="nt-hero-photo-choice-btn" id="ntHeroAddVideoBtn">+ Add a cover video</button>
       </div>
     </div>
+    <div class="nt-hero-overlay"></div>
+    <a href="index.html" class="nt-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="nt-hero-photo-tools" id="ntHeroPhotoTools" style="display:none;">
+      <button type="button" id="ntHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="ntHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="ntHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="nt-hero-content">
+      <div class="nt-hero-eyebrow" id="ntHeroEyebrow" contenteditable="true"></div>
+      <textarea class="nt-hero-title" id="ntHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="nt-hero-subtext" id="ntHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="nt-hero-cta" id="ntHeroCta">
+        <span class="nt-hero-cta-label" id="ntHeroCtaLabel" contenteditable="true"></span>
+        <span class="nt-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+  </div>
 
-    <div id="nutrGroceryGroups"></div>
-    <p class="nutr-empty" id="nutrGroceryEmpty" hidden></p>
-  </section>
+  <div class="shell-inner">
+    <div class="nt-tabs-row">
+      <div class="nt-tabs" id="ntTabs" role="tablist" aria-label="Nutrition pages"></div>
+    </div>
+
+    <section class="section" data-section="kitchen">
+      <div class="nutr-kitchen-toolbar">
+        <input type="text" id="nutrRecipeSearch" class="nutr-search-input" placeholder="Search title or ingredient…">
+        <button type="button" class="chip" id="nutrFavToggle">★ Favorites only</button>
+        <button type="button" class="btn-add" id="nutrAddRecipeBtn">+ Add Recipe</button>
+      </div>
+      <div class="chip-row" id="nutrTagFilterRow" hidden></div>
+      <div class="ent-grid" id="nutrRecipeGrid"></div>
+      <p class="nutr-empty" id="nutrRecipeEmpty" hidden></p>
+    </section>
+
+    <section class="section" data-section="grocery" hidden>
+      <div class="nutr-quick-add" id="nutrQuickAdd">
+        <input type="text" id="nutrQaName" class="nutr-qa-name" placeholder="Item name…">
+        <input type="text" id="nutrQaQty" class="nutr-qa-qty" placeholder="Qty">
+        <input type="text" id="nutrQaUnit" class="nutr-qa-unit" placeholder="Unit">
+        <select id="nutrQaStore" class="nutr-qa-store" aria-label="Store"></select>
+        <button type="button" id="nutrQaAddBtn" class="nutr-qa-add">+ Add</button>
+      </div>
+
+      <div class="nutr-toolbar">
+        <div class="nutr-checked-banner" id="nutrCheckedBanner" hidden></div>
+        <div class="nutr-toolbar-actions">
+          <button class="btn-secondary" id="nutrManageStoresBtn" type="button">Manage Stores</button>
+          <button class="btn-secondary" id="nutrResetListBtn" type="button">Reset list</button>
+        </div>
+      </div>
+
+      <div id="nutrGroceryGroups"></div>
+      <p class="nutr-empty" id="nutrGroceryEmpty" hidden></p>
+    </section>
+
+    <div class="nt-more-heading">
+      <h2>More Widgets</h2>
+      <div class="nt-more-heading-actions">
+        <button type="button" class="db-btn-secondary" id="ntAddWidgetBtn">+ Add Widget</button>
+        <button type="button" class="db-btn-ghost" id="ntResetBtn">Reset to Default</button>
+      </div>
+    </div>
+    <div class="db-board" id="ntBoard"></div>
+  </div>
 </div>
 
 <!-- Edit Item Modal -->
@@ -680,72 +951,938 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   </div>
 </div>
 
+<!-- More Widgets: Add Widget menu -->
+<div class="modal-bg" id="ntAddWidgetModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3>Add a widget</h3><button type="button" class="db-modal-close" id="ntAddWidgetCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="db-widget-menu">
+      <button type="button" class="db-widget-menu-item" data-wtype="feature"><strong>Feature Card</strong><span>A single numbered photo with a title and caption</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="infocard"><strong>Info Card</strong><span>A small icon, title, and one-line note</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="checklist"><strong>Checklist</strong><span>A to-do list — prep tasks, kitchen chores</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="list"><strong>List</strong><span>Plain items — pantry staples, meal ideas</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="note"><strong>Note</strong><span>A freeform block of text</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="quote"><strong>Quote</strong><span>A quote with an attribution</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="affirmation"><strong>Affirmation</strong><span>A set of affirmation cards</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="steps"><strong>Steps Tracker</strong><span>Today's steps vs. a daily goal</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="photos"><strong>Photo / Video Grid</strong><span>A grid of dish photos or clips</span></button>
+      <button type="button" class="db-widget-menu-item" data-wtype="calendar"><strong>Calendar</strong><span>This month, with a note per day</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- More Widgets: Photo / video slot modal (shared by Photos + Feature Card widgets) -->
+<div class="modal-bg" id="ntPhotoModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3 id="ntPhotoModalTitle">Add photo or video</h3><button type="button" class="db-modal-close" id="ntPhotoModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="db-field" id="ntSlotTypeField">
+      <label>Type</label>
+      <select id="ntSlotTypeSelect"><option value="image">Photo</option><option value="video">Video</option></select>
+    </div>
+    <div class="db-field">
+      <label>Upload a file</label>
+      <input type="file" id="ntSlotFileInput" accept="image/*,video/*">
+    </div>
+    <div class="db-modal-or">— or —</div>
+    <div class="db-field">
+      <label>Paste a URL</label>
+      <input type="text" id="ntSlotUrlInput" placeholder="https://…">
+    </div>
+    <div class="db-modal-actions"><button type="button" class="db-btn-primary" id="ntSlotAddBtn">Add</button></div>
+  </div>
+</div>
+
+<!-- More Widgets: Calendar day note modal -->
+<div class="modal-bg" id="ntDayNoteModalBg">
+  <div class="modal db-modal">
+    <div class="db-modal-head"><h3>Note for <span id="ntDayNoteDateLabel"></span></h3><button type="button" class="db-modal-close" id="ntDayNoteCloseBtn" aria-label="Close">&times;</button></div>
+    <textarea id="ntDayNoteInput" class="db-modal-textarea" placeholder="Add a note for this day…"></textarea>
+    <div class="db-modal-actions">
+      <button type="button" class="db-btn-ghost" id="ntDayNoteClearBtn">Clear</button>
+      <button type="button" class="db-btn-primary" id="ntDayNoteSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ============================================================
+// HERO + TABS + "MORE WIDGETS" BOARD — replaces the old static cover
+// banner + plain underline-tab router. My Kitchen / Grocery List are two
+// fixed NutritionData tabs (each carrying a `panel` field naming which
+// section below to show), each with its own fully editable Dream-Board-
+// style hero and its own freeform drag-and-drop widget board. Engine
+// ported from dreamboard.html (see that page's changelog for the full
+// reasoning behind each piece) — ND in place of DB, nt-prefixed ids in
+// place of db-prefixed ones, everything else line-for-line the same.
+// ============================================================
 (function () {
-  // ============================================================
-  // STORAGE — same localStorage shim used by every other page.
-  // ============================================================
-  function storeGet(key) {
-    try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
-    catch (e) { return null; }
-  }
-  function storeSet(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+
+  const ACTIVE_TAB_KEY = 'nutrition:active_tab';
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const WIDGET_TYPE_LABELS = {
+    checklist: 'New Checklist', list: 'New List', note: 'New Note', quote: 'New Quote',
+    affirmation: 'New Affirmation', steps: 'Daily Steps', photos: 'Photo / Video Grid', calendar: 'Calendar',
+    feature: 'New Feature Card', infocard: 'New Info Card'
+  };
+
+  let ND = null;
+  let activeTabId = null;
+  let sortableInstances = [];
+  let addSlotTargetWidgetId = null;
+  let addSlotSingleTarget = false;
+  let dayNoteTarget = null;
+  let tintPopoverWidgetId = null;
+  const TINT_PRESETS = ['#e8927a', '#e3a8b0', '#7ea8c4', '#a89bd4', '#c9a876', '#9ab89a'];
+  let sessionVideoBlobs = {};
+  let heroVideoBlobs = {};
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
   }
 
   // ============================================================
-  // SECONDARY NAV — My Kitchen / Grocery List. Active section persists
-  // in localStorage AND is reflected in the URL hash so a section is
-  // directly linkable/bookmarkable (e.g. nutrition.html#grocery) — same
-  // pattern as finance.html's tab router.
+  // HERO
   // ============================================================
-  const SECTION_KEY = 'nutrition_active_section';
-  const VALID_SECTIONS = ['kitchen', 'grocery'];
-  const tabs = document.querySelectorAll('.nutr-tab');
-  const sections = document.querySelectorAll('.section[data-section]');
-
-  function setActiveSection(name, opts) {
-    if (VALID_SECTIONS.indexOf(name) === -1) name = 'kitchen';
-    tabs.forEach(function (b) {
-      const active = b.dataset.section === name;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    sections.forEach(function (s) {
-      if (s.dataset.section === name) s.removeAttribute('hidden');
-      else s.setAttribute('hidden', '');
-    });
-    storeSet(SECTION_KEY, name);
-    if (!opts || !opts.skipHash) {
-      history.replaceState(null, '', '#' + name);
+  function currentTab() { return ND.Tabs.get(activeTabId); }
+  function currentHero() {
+    const t = currentTab();
+    return (t && t.hero) ? t.hero : { eyebrow: '', title: '', subtext: '', ctaLabel: '', photo: '', photoColor: '', mediaType: 'image' };
+  }
+  function patchHero(patch) {
+    if (!activeTabId) return;
+    const t = currentTab();
+    if (!t) return;
+    ND.Tabs.update(activeTabId, { hero: Object.assign({}, t.hero, patch) });
+  }
+  function revokeHeroVideoBlob(tabId) {
+    if (heroVideoBlobs[tabId]) { try { URL.revokeObjectURL(heroVideoBlobs[tabId]); } catch (e) {} delete heroVideoBlobs[tabId]; }
+  }
+  function renderPageBg() {
+    const hero = currentHero();
+    const bg = $('ntPageBg'), video = $('ntPageBgVideo');
+    if (hero.mediaType === 'video' && heroVideoBlobs[activeTabId]) {
+      bg.style.backgroundImage = 'none';
+      video.src = heroVideoBlobs[activeTabId];
+      video.style.display = 'block';
+      video.play().catch(function () {});
+    } else {
+      video.pause(); video.removeAttribute('src'); video.style.display = 'none';
+      bg.style.backgroundImage = hero.photo ? 'url("' + hero.photo + '")' : 'none';
     }
   }
-  tabs.forEach(function (b) { b.addEventListener('click', function () { setActiveSection(b.dataset.section); }); });
+  function renderHero() {
+    const hero = currentHero();
+    $('ntHeroEyebrow').textContent = hero.eyebrow;
+    $('ntHeroTitle').value = hero.title;
+    $('ntHeroSubtext').textContent = hero.subtext;
+    $('ntHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+    autosize($('ntHeroTitle'));
 
-  function sectionFromHash() {
-    const h = (location.hash || '').replace('#', '');
-    return VALID_SECTIONS.indexOf(h) !== -1 ? h : null;
+    const img = $('ntHeroPhotoImg'), video = $('ntHeroVideoEl'), reattach = $('ntHeroReattach'),
+      choice = $('ntHeroPhotoChoice'), tools = $('ntHeroPhotoTools');
+    img.style.display = 'none'; img.src = '';
+    video.pause(); video.style.display = 'none';
+    reattach.style.display = 'none';
+    choice.style.display = 'none';
+    tools.style.display = 'none';
+
+    if (hero.mediaType === 'video') {
+      const blobUrl = heroVideoBlobs[activeTabId];
+      if (blobUrl) { video.src = blobUrl; video.style.display = 'block'; video.play().catch(function () {}); }
+      else { reattach.style.display = 'flex'; }
+      tools.style.display = 'flex';
+    } else if (hero.photo) {
+      img.src = hero.photo; img.style.display = 'block'; tools.style.display = 'flex';
+    } else {
+      choice.style.display = 'flex';
+    }
+    renderPageBg();
   }
-  // Back/forward between hash states, or a hash edited by hand.
-  window.addEventListener('hashchange', function () {
-    const h = sectionFromHash();
-    if (h) setActiveSection(h, { skipHash: true });
-  });
-
-  const savedSection = storeGet(SECTION_KEY);
-  const initialSection = sectionFromHash() || (VALID_SECTIONS.indexOf(savedSection) !== -1 ? savedSection : 'kitchen');
-  setActiveSection(initialSection);
-
-  // Cover banner CTA — reuses this same section router, no new navigation
-  // mechanism (same technique as gym.html's coverCtaBtn / finance.html's
-  // coverCta, just scrolling to the tab bar instead of a specific card).
-  var coverCta = document.getElementById('nutrCoverCtaBtn');
-  if (coverCta) {
-    coverCta.addEventListener('click', function () {
-      setActiveSection('kitchen');
-      document.getElementById('nutrTabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function openHeroFilePicker(mediaKind) {
+    const input = $('ntHeroPhotoInput');
+    input.accept = mediaKind === 'video' ? 'video/*' : 'image/*';
+    input.value = '';
+    input.click();
+  }
+  function reattachHeroVideo() {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'video/*'; input.style.display = 'none';
+    document.body.appendChild(input);
+    const tabIdAtOpen = activeTabId;
+    input.addEventListener('change', function () {
+      const file = input.files[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      revokeHeroVideoBlob(tabIdAtOpen);
+      heroVideoBlobs[tabIdAtOpen] = URL.createObjectURL(file);
+      if (tabIdAtOpen === activeTabId) renderHero();
+    });
+    input.click();
+  }
+  function extractDominantColor(dataUrl) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const size = 32;
+          const c = document.createElement('canvas');
+          c.width = size; c.height = size;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; count++; }
+          if (!count) { resolve(''); return; }
+          const toHex = function (v) { return Math.round(v / count).toString(16).padStart(2, '0'); };
+          resolve('#' + toHex(r) + toHex(g) + toHex(b));
+        } catch (e) { resolve(''); }
+      };
+      img.onerror = function () { resolve(''); };
+      img.src = dataUrl;
     });
   }
+  function handleHeroMediaFile() {
+    const file = $('ntHeroPhotoInput').files[0];
+    if (!file) return;
+    const tabIdAtUpload = activeTabId;
+    const isVideo = file.type.indexOf('video') === 0;
+    if (isVideo) {
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      revokeHeroVideoBlob(tabIdAtUpload);
+      heroVideoBlobs[tabIdAtUpload] = URL.createObjectURL(file);
+      patchHero({ mediaType: 'video', photo: '', photoColor: '' });
+      renderHero();
+      renderBoard();
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const compressed = await ND.compressImageDataUrl(String(reader.result), 1100, 0.78);
+      const color = await extractDominantColor(compressed);
+      revokeHeroVideoBlob(tabIdAtUpload);
+      patchHero({ mediaType: 'image', photo: compressed, photoColor: color });
+      renderHero();
+      renderBoard();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // TABS + PANEL SWITCHING
+  // ============================================================
+  function renderTabs() {
+    const tabs = ND.tabsSorted();
+    const wrap = $('ntTabs');
+    wrap.innerHTML = '';
+    tabs.forEach(function (t) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'nt-tab' + (t.id === activeTabId ? ' active' : '');
+      btn.dataset.tabId = t.id;
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', t.id === activeTabId ? 'true' : 'false');
+      btn.textContent = t.title;
+      btn.addEventListener('click', function () { if (t.id !== activeTabId) switchTab(t.id); });
+      wrap.appendChild(btn);
+    });
+  }
+  function showActivePanel() {
+    const t = currentTab();
+    const panel = t ? t.panel : '';
+    document.querySelectorAll('.section[data-section]').forEach(function (s) {
+      s.hidden = s.dataset.section !== panel;
+    });
+  }
+  function switchTab(tabId) {
+    activeTabId = tabId;
+    storeSet(ACTIVE_TAB_KEY, tabId);
+    const t = currentTab();
+    if (t) history.replaceState(null, '', '#' + t.panel);
+    renderHero();
+    renderTabs();
+    showActivePanel();
+    renderBoard();
+  }
+
+  // ============================================================
+  // WIDGET BODIES (checklist/list/note/quote/affirmation/steps/photos/
+  // calendar/feature/infocard) — identical to dreamboard.html's, DB->ND.
+  // ============================================================
+  function mutateWidget(widget, dataPatch) { ND.Widgets.update(widget.id, { data: Object.assign({}, widget.data, dataPatch) }); }
+
+  function buildItemRow(widget, item, opts) {
+    const row = document.createElement('div');
+    row.className = opts.cardStyle ? 'dw-affirm-row' : 'dw-plain-row';
+    if (item.done) row.classList.add('dw-item-done');
+    if (opts.checkable) {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'dw-check-cb'; cb.checked = !!item.done;
+      cb.setAttribute('aria-label', 'Mark done');
+      cb.addEventListener('change', function () {
+        const items = (widget.data.items || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { done: cb.checked }) : x; });
+        mutateWidget(widget, { items: items });
+        renderBoard();
+      });
+      row.appendChild(cb);
+    }
+    const text = document.createElement('span');
+    text.className = opts.cardStyle ? 'dw-affirm-text' : 'dw-item-text';
+    text.contentEditable = 'true';
+    text.textContent = item.text;
+    wireInlineEdit(text, function (newVal) {
+      if (!newVal) {
+        const items = (widget.data.items || []).filter(function (x) { return x.id !== item.id; });
+        mutateWidget(widget, { items: items }); renderBoard(); return;
+      }
+      const items = (widget.data.items || []).map(function (x) { return x.id === item.id ? Object.assign({}, x, { text: newVal }) : x; });
+      mutateWidget(widget, { items: items });
+    }, { allowEmpty: true });
+    row.appendChild(text);
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'dw-item-del'; del.setAttribute('aria-label', 'Delete item'); del.textContent = '×';
+    del.addEventListener('click', function () {
+      const items = (widget.data.items || []).filter(function (x) { return x.id !== item.id; });
+      mutateWidget(widget, { items: items }); renderBoard();
+    });
+    row.appendChild(del);
+    return row;
+  }
+  function buildItemListBody(widget, opts) {
+    const wrap = document.createElement('div');
+    const list = document.createElement('div');
+    list.className = opts.cardStyle ? 'dw-affirm-list' : 'dw-plain-list';
+    (widget.data.items || []).forEach(function (item) { list.appendChild(buildItemRow(widget, item, opts)); });
+    wrap.appendChild(list);
+    const addRow = document.createElement('div'); addRow.className = 'dw-additem-row';
+    const input = document.createElement('input'); input.type = 'text'; input.placeholder = opts.cardStyle ? 'Add an affirmation…' : 'Add an item…';
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dw-additem-btn'; btn.setAttribute('aria-label', 'Add item'); btn.textContent = '+';
+    function submit() {
+      const val = input.value.trim();
+      if (!val) return;
+      const items = (widget.data.items || []).concat([{ id: ND.uid('it'), text: val, done: false }]);
+      mutateWidget(widget, { items: items }); renderBoard();
+    }
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    addRow.appendChild(input); addRow.appendChild(btn);
+    wrap.appendChild(addRow);
+    return wrap;
+  }
+  function buildNoteBody(widget) {
+    const ta = document.createElement('textarea');
+    ta.className = 'dw-note-textarea'; ta.value = widget.data.body || ''; ta.placeholder = 'Write freely…';
+    ta.addEventListener('input', function () { autosize(ta); });
+    ta.addEventListener('blur', function () { mutateWidget(widget, { body: ta.value }); });
+    setTimeout(function () { autosize(ta); }, 0);
+    return ta;
+  }
+  function buildQuoteBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-quote-body';
+    const q = document.createElement('div'); q.className = 'dw-quote-text'; q.contentEditable = 'true'; q.textContent = widget.data.text || 'Click to write a quote…';
+    wireInlineEdit(q, function (v) { mutateWidget(widget, { text: v }); }, { multiline: true, allowEmpty: true });
+    const a = document.createElement('div'); a.className = 'dw-quote-author'; a.contentEditable = 'true'; a.textContent = widget.data.author || 'Add an author';
+    wireInlineEdit(a, function (v) { mutateWidget(widget, { author: v }); }, { allowEmpty: true });
+    wrap.appendChild(q); wrap.appendChild(a);
+    return wrap;
+  }
+  function buildStepsBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-steps-body';
+    const today = ND.todayISO();
+    const count = Number((widget.data.log || {})[today]) || 0;
+    const goal = Math.max(1, Number(widget.data.goal) || 1);
+    const pct = Math.max(0, Math.min(100, Math.round((count / goal) * 100)));
+    const row = document.createElement('div'); row.className = 'dw-steps-row';
+    const countInput = document.createElement('input');
+    countInput.type = 'number'; countInput.min = '0'; countInput.className = 'dw-steps-input'; countInput.value = String(count);
+    countInput.setAttribute('aria-label', 'Steps today');
+    countInput.addEventListener('change', function () {
+      const log = Object.assign({}, widget.data.log);
+      log[today] = Math.max(0, Number(countInput.value) || 0);
+      mutateWidget(widget, { log: log }); renderBoard();
+    });
+    const lbl = document.createElement('span'); lbl.textContent = 'steps today';
+    row.appendChild(countInput); row.appendChild(lbl);
+    const goalRow = document.createElement('div'); goalRow.className = 'dw-steps-goal-row';
+    const goalLbl = document.createElement('span'); goalLbl.textContent = 'Goal:';
+    const goalInput = document.createElement('input');
+    goalInput.type = 'number'; goalInput.min = '1'; goalInput.className = 'dw-steps-goal-input'; goalInput.value = String(goal);
+    goalInput.setAttribute('aria-label', 'Daily step goal');
+    goalInput.addEventListener('change', function () { mutateWidget(widget, { goal: Math.max(1, Number(goalInput.value) || 1) }); renderBoard(); });
+    goalRow.appendChild(goalLbl); goalRow.appendChild(goalInput);
+    const bar = document.createElement('div'); bar.className = 'dw-progress-bar';
+    const fill = document.createElement('div'); fill.className = 'dw-progress-fill'; fill.style.width = pct + '%';
+    bar.appendChild(fill);
+    const pctLbl = document.createElement('div'); pctLbl.className = 'dw-steps-pct'; pctLbl.textContent = pct + '% of goal';
+    wrap.appendChild(row); wrap.appendChild(goalRow); wrap.appendChild(bar); wrap.appendChild(pctLbl);
+    return wrap;
+  }
+  function revokeSessionBlob(slotId) { if (sessionVideoBlobs[slotId]) { try { URL.revokeObjectURL(sessionVideoBlobs[slotId]); } catch (e) {} delete sessionVideoBlobs[slotId]; } }
+  function buildPhotoSlotEl(widget, slot) {
+    const el = document.createElement('div'); el.className = 'dw-photo-slot'; el.dataset.slotId = slot.id;
+    const liveUrl = (slot.type === 'video' && slot.sessionOnly) ? sessionVideoBlobs[slot.id] : slot.url;
+    if (liveUrl) {
+      let media;
+      if (slot.type === 'video') { media = document.createElement('video'); media.src = liveUrl; media.controls = true; media.playsInline = true; }
+      else { media = document.createElement('img'); media.src = liveUrl; media.alt = slot.name || ''; }
+      el.appendChild(media);
+    } else if (slot.type === 'video' && slot.sessionOnly) {
+      const ph = document.createElement('div'); ph.className = 'dw-photo-slot-broken';
+      const icon = document.createElement('div'); icon.className = 'dw-photo-broken-icon'; icon.textContent = '🎬';
+      const label = document.createElement('div'); label.textContent = 'Video needs to be re-attached';
+      const reBtn = document.createElement('button'); reBtn.type = 'button'; reBtn.className = 'dw-photo-reattach-btn'; reBtn.textContent = 'Re-attach';
+      reBtn.addEventListener('click', function () { reattachVideoSlot(widget.id, slot.id); });
+      ph.appendChild(icon); ph.appendChild(label); ph.appendChild(reBtn);
+      el.appendChild(ph);
+    } else {
+      const ph = document.createElement('div'); ph.className = 'dw-photo-slot-empty'; ph.textContent = 'No media';
+      el.appendChild(ph);
+    }
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'dw-slot-del'; del.setAttribute('aria-label', 'Remove'); del.textContent = '×';
+    del.addEventListener('click', function (e) { e.stopPropagation(); deletePhotoSlot(widget.id, slot.id); });
+    el.appendChild(del);
+    return el;
+  }
+  function reattachVideoSlot(widgetId, slotId) {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'video/*'; input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('change', function () {
+      const file = input.files[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+      sessionVideoBlobs[slotId] = URL.createObjectURL(file);
+      renderBoard();
+    });
+    input.click();
+  }
+  function deletePhotoSlot(widgetId, slotId) {
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    revokeSessionBlob(slotId);
+    const slots = (w.data.slots || []).filter(function (s) { return s.id !== slotId; });
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
+  function buildPhotosBody(widget) {
+    const wrap = document.createElement('div');
+    const grid = document.createElement('div');
+    grid.className = 'dw-photo-grid ' + (widget.data.wide ? 'dw-photo-grid-2' : 'dw-photo-grid-1');
+    (widget.data.slots || []).forEach(function (slot) { grid.appendChild(buildPhotoSlotEl(widget, slot)); });
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button'; addBtn.className = 'dw-photo-addslot'; addBtn.textContent = '+ Add photo / video';
+    addBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: false }); });
+    grid.appendChild(addBtn);
+    wrap.appendChild(grid);
+    const caption = document.createElement('div'); caption.className = 'dw-photo-caption';
+    caption.textContent = 'Photos are saved automatically. Videos are attached for this browser session only and will need to be re-attached after a reload.';
+    wrap.appendChild(caption);
+    return wrap;
+  }
+  function buildFeatureBody(widget) {
+    const wrap = document.createElement('div');
+    const photoWrap = document.createElement('div'); photoWrap.className = 'dw-feature-photo';
+    if (widget.data.photo) {
+      const img = document.createElement('img'); img.src = widget.data.photo; img.alt = '';
+      photoWrap.appendChild(img);
+      const changeBtn = document.createElement('button');
+      changeBtn.type = 'button'; changeBtn.className = 'dw-feature-photo-change'; changeBtn.textContent = 'Change';
+      changeBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: true }); });
+      photoWrap.appendChild(changeBtn);
+      const overlay = document.createElement('div'); overlay.className = 'dw-feature-photo-overlay';
+      const title = document.createElement('div'); title.className = 'dw-feature-title'; title.contentEditable = 'true'; title.textContent = widget.data.title || '';
+      wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: true });
+      const caption = document.createElement('div'); caption.className = 'dw-feature-caption'; caption.contentEditable = 'true'; caption.textContent = widget.data.caption || 'Add a caption…';
+      wireInlineEdit(caption, function (v) { mutateWidget(widget, { caption: v }); }, { allowEmpty: true });
+      overlay.appendChild(title); overlay.appendChild(caption);
+      photoWrap.appendChild(overlay);
+    } else {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'dw-feature-addphoto'; addBtn.textContent = '+ Add photo';
+      addBtn.addEventListener('click', function () { openPhotoModal(widget.id, { single: true }); });
+      photoWrap.appendChild(addBtn);
+    }
+    wrap.appendChild(photoWrap);
+    if (!widget.data.photo) {
+      const title = document.createElement('div'); title.className = 'dw-feature-title'; title.style.marginTop = '10px';
+      title.contentEditable = 'true'; title.textContent = widget.data.title || '';
+      wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: true });
+      const caption = document.createElement('div'); caption.className = 'dw-feature-caption'; caption.style.color = 'var(--text-tertiary)';
+      caption.contentEditable = 'true'; caption.textContent = widget.data.caption || 'Add a caption…';
+      wireInlineEdit(caption, function (v) { mutateWidget(widget, { caption: v }); }, { allowEmpty: true });
+      wrap.appendChild(title); wrap.appendChild(caption);
+    }
+    return wrap;
+  }
+  function buildInfoCardBody(widget) {
+    const wrap = document.createElement('div'); wrap.className = 'dw-infocard-body';
+    const icon = document.createElement('div'); icon.className = 'dw-infocard-icon'; icon.contentEditable = 'true'; icon.textContent = widget.data.icon || '✨';
+    wireInlineEdit(icon, function (v) { mutateWidget(widget, { icon: v }); }, { allowEmpty: false });
+    const title = document.createElement('div'); title.className = 'dw-infocard-title'; title.contentEditable = 'true'; title.textContent = widget.data.title || 'TITLE';
+    wireInlineEdit(title, function (v) { mutateWidget(widget, { title: v }); }, { allowEmpty: false });
+    const subtitle = document.createElement('div'); subtitle.className = 'dw-infocard-subtitle'; subtitle.contentEditable = 'true'; subtitle.textContent = widget.data.subtitle || 'Add a note…';
+    wireInlineEdit(subtitle, function (v) { mutateWidget(widget, { subtitle: v }); }, { allowEmpty: true });
+    wrap.appendChild(icon); wrap.appendChild(title); wrap.appendChild(subtitle);
+    return wrap;
+  }
+  function shiftCalMonth(widgetId, year, month, delta) {
+    let m = month + delta, y = year;
+    if (m < 0) { m = 11; y -= 1; } else if (m > 11) { m = 0; y += 1; }
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { viewYear: y, viewMonth: m }) });
+    renderBoard();
+  }
+  function buildCalendarBody(widget) {
+    const wrap = document.createElement('div');
+    const now = new Date();
+    const year = widget.data.viewYear != null ? widget.data.viewYear : now.getFullYear();
+    const month = widget.data.viewMonth != null ? widget.data.viewMonth : now.getMonth();
+    const head = document.createElement('div'); head.className = 'dw-cal-head';
+    const prevBtn = document.createElement('button'); prevBtn.type = 'button'; prevBtn.className = 'dw-cal-nav'; prevBtn.textContent = '‹'; prevBtn.setAttribute('aria-label', 'Previous month');
+    const label = document.createElement('span'); label.className = 'dw-cal-label'; label.textContent = MONTH_NAMES[month] + ' ' + year;
+    const nextBtn = document.createElement('button'); nextBtn.type = 'button'; nextBtn.className = 'dw-cal-nav'; nextBtn.textContent = '›'; nextBtn.setAttribute('aria-label', 'Next month');
+    prevBtn.addEventListener('click', function () { shiftCalMonth(widget.id, year, month, -1); });
+    nextBtn.addEventListener('click', function () { shiftCalMonth(widget.id, year, month, 1); });
+    head.appendChild(prevBtn); head.appendChild(label); head.appendChild(nextBtn);
+    wrap.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'dw-cal-grid';
+    ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].forEach(function (d) { const dow = document.createElement('div'); dow.className = 'dw-cal-dow'; dow.textContent = d; grid.appendChild(dow); });
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < firstDow; i++) { const blank = document.createElement('div'); blank.className = 'dw-cal-day dw-cal-day-empty'; grid.appendChild(blank); }
+    const todayStr = ND.todayISO();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const cell = document.createElement('button');
+      cell.type = 'button'; cell.className = 'dw-cal-day' + (dateStr === todayStr ? ' dw-cal-day-today' : '');
+      const num = document.createElement('span'); num.textContent = String(d);
+      cell.appendChild(num);
+      if (widget.data.notes && widget.data.notes[dateStr]) { const dot = document.createElement('span'); dot.className = 'dw-cal-note-dot'; cell.appendChild(dot); }
+      cell.addEventListener('click', function () { openDayNoteModal(widget.id, dateStr); });
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  // ============================================================
+  // CARD SHELL + BOARD RENDER
+  // ============================================================
+  function toggleWidgetWide(widgetId) {
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { wide: !w.data.wide }) });
+    renderBoard();
+  }
+  function deleteWidget(id) {
+    if (!confirm('Delete this widget?')) return;
+    const w = ND.Widgets.get(id);
+    if (w && w.type === 'photos') { (w.data.slots || []).forEach(function (s) { revokeSessionBlob(s.id); }); }
+    ND.Widgets.remove(id);
+    renderBoard();
+  }
+
+  function effectiveTint(widget) {
+    if (widget.tint === 'photo') {
+      const t = ND.Tabs.get(widget.tabId);
+      const color = t && t.hero && t.hero.photoColor;
+      return color || null;
+    }
+    if (widget.tint) return widget.tint;
+    return null;
+  }
+  function setWidgetTint(widgetId, tint) { ND.Widgets.update(widgetId, { tint: tint }); renderBoard(); }
+  function previewWidgetTint(widgetId, hex) {
+    const card = document.querySelector('.dw-card[data-widget-id="' + widgetId + '"]');
+    if (!card) return;
+    card.style.setProperty('--tint', hex);
+    const btn = card.querySelector('.dw-tint-btn');
+    if (btn) { btn.style.background = hex; btn.classList.remove('dw-tint-btn-empty'); }
+  }
+  function buildTintControls(widget) {
+    const wrap = document.createElement('div');
+    const eff = effectiveTint(widget);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'dw-tint-btn' + (eff ? '' : ' dw-tint-btn-empty');
+    btn.title = 'Color grading'; btn.setAttribute('aria-label', 'Adjust color grading');
+    if (eff) btn.style.background = eff;
+    btn.addEventListener('click', function (e) { e.stopPropagation(); tintPopoverWidgetId = (tintPopoverWidgetId === widget.id) ? null : widget.id; renderBoard(); });
+    wrap.appendChild(btn);
+    return wrap;
+  }
+  function buildTintPopover(widget) {
+    const pop = document.createElement('div'); pop.className = 'dw-tint-popover';
+    const presetsLabel = document.createElement('div'); presetsLabel.className = 'dw-tint-label'; presetsLabel.textContent = 'Quick colors';
+    pop.appendChild(presetsLabel);
+    const swatchRow = document.createElement('div'); swatchRow.className = 'dw-tint-swatches';
+    TINT_PRESETS.forEach(function (hex) {
+      const sw = document.createElement('button');
+      sw.type = 'button'; sw.className = 'dw-tint-swatch'; sw.style.background = hex;
+      sw.setAttribute('aria-label', 'Use this color');
+      sw.addEventListener('click', function () { setWidgetTint(widget.id, hex); });
+      swatchRow.appendChild(sw);
+    });
+    const tab = ND.Tabs.get(widget.tabId);
+    const photoColor = tab && tab.hero && tab.hero.photoColor;
+    const photoSw = document.createElement('button');
+    photoSw.type = 'button'; photoSw.className = 'dw-tint-swatch dw-tint-swatch-photo';
+    photoSw.textContent = '📷'; photoSw.disabled = !photoColor;
+    photoSw.title = photoColor ? "Match this page's cover photo" : 'Add a cover photo (not video) to this page first';
+    if (photoColor) photoSw.style.background = photoColor;
+    photoSw.addEventListener('click', function () { if (photoColor) setWidgetTint(widget.id, 'photo'); });
+    swatchRow.appendChild(photoSw);
+    pop.appendChild(swatchRow);
+    const customLabel = document.createElement('div'); customLabel.className = 'dw-tint-label'; customLabel.textContent = 'Custom color';
+    pop.appendChild(customLabel);
+    const customRow = document.createElement('div'); customRow.className = 'dw-tint-custom-row';
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    const eff = effectiveTint(widget);
+    const startHex = (eff && /^#[0-9a-f]{6}$/i.test(eff)) ? eff : '#c9a876';
+    colorInput.value = startHex;
+    colorInput.setAttribute('aria-label', 'Pick a custom color');
+    const hexReadout = document.createElement('span'); hexReadout.className = 'dw-tint-hex'; hexReadout.textContent = startHex.toUpperCase();
+    colorInput.addEventListener('input', function () { previewWidgetTint(widget.id, colorInput.value); hexReadout.textContent = colorInput.value.toUpperCase(); });
+    colorInput.addEventListener('change', function () { setWidgetTint(widget.id, colorInput.value); });
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.className = 'dw-tint-clear'; clearBtn.textContent = 'Clear';
+    clearBtn.addEventListener('click', function () { setWidgetTint(widget.id, null); });
+    customRow.appendChild(colorInput); customRow.appendChild(hexReadout); customRow.appendChild(clearBtn);
+    pop.appendChild(customRow);
+    return pop;
+  }
+  function buildWidgetCard(widget, displayIndex) {
+    const card = document.createElement('div');
+    card.className = 'dw-card';
+    card.dataset.widgetId = widget.id;
+    card.dataset.widgetType = widget.type;
+    card.style.setProperty('--tint', effectiveTint(widget) || 'transparent');
+    const head = document.createElement('div'); head.className = 'dw-card-head';
+    const index = document.createElement('span'); index.className = 'dw-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const hoverActions = document.createElement('div'); hoverActions.className = 'dw-card-hover-actions';
+    hoverActions.appendChild(buildTintControls(widget));
+    const handle = document.createElement('span'); handle.className = 'dw-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    hoverActions.appendChild(handle);
+    if (widget.type === 'photos') {
+      const wideBtn = document.createElement('button');
+      wideBtn.type = 'button'; wideBtn.className = 'dw-wide-toggle'; wideBtn.title = 'Toggle 1 / 2 column grid';
+      wideBtn.textContent = widget.data.wide ? '2 COL' : '1 COL';
+      wideBtn.addEventListener('click', function () { toggleWidgetWide(widget.id); });
+      hoverActions.appendChild(wideBtn);
+    }
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'dw-card-del'; delBtn.setAttribute('aria-label', 'Delete widget'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () { deleteWidget(widget.id); });
+    hoverActions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(hoverActions);
+    card.appendChild(head);
+    if (tintPopoverWidgetId === widget.id) { card.appendChild(buildTintPopover(widget)); }
+    const titleRow = document.createElement('div'); titleRow.className = 'dw-card-title-row';
+    const title = document.createElement('span'); title.className = 'dw-card-title'; title.contentEditable = 'true'; title.textContent = widget.title || '';
+    wireInlineEdit(title, function (v) { ND.Widgets.update(widget.id, { title: v }); }, { allowEmpty: false });
+    titleRow.appendChild(title);
+    card.appendChild(titleRow);
+    const body = document.createElement('div'); body.className = 'dw-card-body';
+    switch (widget.type) {
+      case 'checklist': body.appendChild(buildItemListBody(widget, { checkable: true, cardStyle: false })); break;
+      case 'list': body.appendChild(buildItemListBody(widget, { checkable: false, cardStyle: false })); break;
+      case 'affirmation': body.appendChild(buildItemListBody(widget, { checkable: false, cardStyle: true })); break;
+      case 'note': body.appendChild(buildNoteBody(widget)); break;
+      case 'quote': body.appendChild(buildQuoteBody(widget)); break;
+      case 'steps': body.appendChild(buildStepsBody(widget)); break;
+      case 'photos': body.appendChild(buildPhotosBody(widget)); break;
+      case 'calendar': body.appendChild(buildCalendarBody(widget)); break;
+      case 'feature': body.appendChild(buildFeatureBody(widget)); break;
+      case 'infocard': body.appendChild(buildInfoCardBody(widget)); break;
+    }
+    card.appendChild(body);
+    return card;
+  }
+  function destroySortables() { sortableInstances.forEach(function (s) { try { s.destroy(); } catch (e) {} }); sortableInstances = []; }
+  function persistColumnOrder() {
+    const cols = [];
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.querySelector('#ntBoard .db-col[data-col="' + i + '"]');
+      cols.push(Array.from(colEl.children).map(function (el) { return el.dataset.widgetId; }));
+    }
+    ND.reorderTab(activeTabId, cols);
+  }
+  function wireBoardSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const groupName = 'ntcol-' + activeTabId;
+    document.querySelectorAll('#ntBoard .db-col').forEach(function (col) {
+      sortableInstances.push(new Sortable(col, {
+        group: groupName, handle: '.dw-drag-handle', animation: reduced ? 0 : 150, ghostClass: 'dw-card-ghost',
+        onEnd: function () { persistColumnOrder(); renderBoard(); }
+      }));
+    });
+  }
+  function computeDisplayIndexes(cols) {
+    const indexMap = {};
+    let counter = 1;
+    const maxLen = Math.max(cols[0].length, cols[1].length, cols[2].length);
+    for (let row = 0; row < maxLen; row++) { for (let c = 0; c < 3; c++) { if (cols[c][row]) { indexMap[cols[c][row].id] = counter++; } } }
+    return indexMap;
+  }
+  function renderBoard() {
+    destroySortables();
+    const board = $('ntBoard');
+    board.innerHTML = '';
+    if (!activeTabId) return;
+    const cols = ND.columnsForTab(activeTabId);
+    const indexMap = computeDisplayIndexes(cols);
+    for (let i = 0; i < 3; i++) {
+      const colEl = document.createElement('div');
+      colEl.className = 'db-col'; colEl.dataset.col = String(i);
+      cols[i].forEach(function (w) { colEl.appendChild(buildWidgetCard(w, indexMap[w.id])); });
+      board.appendChild(colEl);
+    }
+    wireBoardSortable();
+  }
+
+  // ============================================================
+  // ADD WIDGET / RESET — Reset only wipes Tabs/Widgets (via
+  // ND.seedDefaultBoard()); Recipes/RecipeIngredients/Stores/
+  // GroceryItems are separate collections it never touches.
+  // ============================================================
+  function addWidgetToActiveTab(type, title) {
+    if (!activeTabId) return;
+    const cols = ND.columnsForTab(activeTabId);
+    let colIdx = 0, minLen = cols[0].length;
+    for (let i = 1; i < 3; i++) { if (cols[i].length < minLen) { minLen = cols[i].length; colIdx = i; } }
+    ND.Widgets.add({ tabId: activeTabId, column: colIdx, order: cols[colIdx].length, type: type, title: title, data: ND.defaultWidgetData(type) });
+    closeModal($('ntAddWidgetModalBg'));
+    renderBoard();
+  }
+  function wireAddWidgetMenu() {
+    document.querySelectorAll('.db-widget-menu-item').forEach(function (btn) {
+      btn.addEventListener('click', function () { const type = btn.dataset.wtype; addWidgetToActiveTab(type, WIDGET_TYPE_LABELS[type] || 'New Widget'); });
+    });
+  }
+  function resetBoard() {
+    if (!confirm('Reset the More Widgets boards to their defaults? This deletes every widget on both pages (your recipes and grocery list are not affected).')) return;
+    Object.keys(sessionVideoBlobs).forEach(function (id) { try { URL.revokeObjectURL(sessionVideoBlobs[id]); } catch (e) {} });
+    sessionVideoBlobs = {};
+    Object.keys(heroVideoBlobs).forEach(function (id) { try { URL.revokeObjectURL(heroVideoBlobs[id]); } catch (e) {} });
+    heroVideoBlobs = {};
+    ND.seedDefaultBoard();
+    const tabs = ND.tabsSorted();
+    const keep = tabs.find(function (t) { return t.id === activeTabId; });
+    activeTabId = keep ? keep.id : ((tabs[0] || {}).id || null);
+    storeSet(ACTIVE_TAB_KEY, activeTabId);
+    renderHero(); renderTabs(); showActivePanel(); renderBoard();
+  }
+
+  // ============================================================
+  // PHOTO MODAL
+  // ============================================================
+  function openPhotoModal(widgetId, opts) {
+    opts = opts || {};
+    addSlotTargetWidgetId = widgetId;
+    addSlotSingleTarget = !!opts.single;
+    $('ntPhotoModalTitle').textContent = addSlotSingleTarget ? 'Add photo' : 'Add photo or video';
+    $('ntSlotTypeField').style.display = addSlotSingleTarget ? 'none' : '';
+    $('ntSlotTypeSelect').value = 'image';
+    $('ntSlotFileInput').accept = (addSlotSingleTarget || $('ntSlotTypeSelect').value !== 'video') ? 'image/*' : 'video/*';
+    $('ntSlotFileInput').value = '';
+    $('ntSlotUrlInput').value = '';
+    openModal($('ntPhotoModalBg'));
+  }
+  function addSlotToWidget(widgetId, slot) {
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    const slots = (w.data.slots || []).concat([slot]);
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
+  function setFeaturePhoto(widgetId, url) {
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { photo: url }) });
+    renderBoard();
+  }
+  function handleAddSlotSubmit() {
+    const widgetId = addSlotTargetWidgetId;
+    const single = addSlotSingleTarget;
+    const file = $('ntSlotFileInput').files[0];
+    const urlVal = $('ntSlotUrlInput').value.trim();
+    const selectedType = single ? 'image' : $('ntSlotTypeSelect').value;
+    if (file) {
+      const isVideo = !single && (file.type.indexOf('video') === 0 || (file.type.indexOf('image') !== 0 && selectedType === 'video'));
+      if (isVideo) {
+        if (file.size > 8 * 1024 * 1024) { alert('Video files are capped at 8MB for this session-only feature.'); return; }
+        const slotId = ND.uid('slot');
+        sessionVideoBlobs[slotId] = URL.createObjectURL(file);
+        addSlotToWidget(widgetId, { id: slotId, type: 'video', url: '', sessionOnly: true, name: file.name });
+        closeModal($('ntPhotoModalBg'));
+      } else {
+        const reader = new FileReader();
+        reader.onload = async function () {
+          const compressed = await ND.compressImageDataUrl(String(reader.result), single ? 900 : 640, 0.8);
+          if (single) setFeaturePhoto(widgetId, compressed);
+          else addSlotToWidget(widgetId, { id: ND.uid('slot'), type: 'image', url: compressed, sessionOnly: false, name: file.name });
+          closeModal($('ntPhotoModalBg'));
+        };
+        reader.readAsDataURL(file);
+      }
+    } else if (urlVal) {
+      if (!ND.isValidMediaUrl(urlVal)) { alert('Please enter a valid http(s) URL.'); return; }
+      if (single) setFeaturePhoto(widgetId, urlVal);
+      else addSlotToWidget(widgetId, { id: ND.uid('slot'), type: selectedType, url: urlVal, sessionOnly: false, name: '' });
+      closeModal($('ntPhotoModalBg'));
+    } else {
+      alert('Choose a file or paste a URL first.');
+    }
+  }
+
+  // ============================================================
+  // DAY NOTE MODAL
+  // ============================================================
+  function openDayNoteModal(widgetId, dateStr) {
+    const w = ND.Widgets.get(widgetId);
+    if (!w) return;
+    dayNoteTarget = { widgetId: widgetId, dateStr: dateStr };
+    $('ntDayNoteDateLabel').textContent = dateStr;
+    $('ntDayNoteInput').value = (w.data.notes && w.data.notes[dateStr]) || '';
+    openModal($('ntDayNoteModalBg'));
+    setTimeout(function () { autosize($('ntDayNoteInput')); }, 0);
+  }
+  function saveDayNote() {
+    if (!dayNoteTarget) return;
+    const w = ND.Widgets.get(dayNoteTarget.widgetId);
+    if (!w) return;
+    const notes = Object.assign({}, w.data.notes);
+    const val = $('ntDayNoteInput').value.trim();
+    if (val) notes[dayNoteTarget.dateStr] = val; else delete notes[dayNoteTarget.dateStr];
+    ND.Widgets.update(dayNoteTarget.widgetId, { data: Object.assign({}, w.data, { notes: notes }) });
+    closeModal($('ntDayNoteModalBg'));
+    renderBoard();
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function activateInitialTab() {
+    const tabs = ND.tabsSorted();
+    const hashPanel = (location.hash || '').replace('#', '');
+    const savedTabId = storeGet(ACTIVE_TAB_KEY);
+    let chosen = null;
+    if (hashPanel === 'kitchen' || hashPanel === 'grocery') chosen = ND.tabForPanel(hashPanel);
+    if (!chosen) chosen = tabs.find(function (t) { return t.id === savedTabId; });
+    if (!chosen) chosen = tabs[0];
+    activeTabId = chosen ? chosen.id : null;
+  }
+
+  function init() {
+    ND = window.NutritionData;
+    if (!ND) return;
+
+    activateInitialTab();
+    renderHero();
+    renderTabs();
+    showActivePanel();
+    renderBoard();
+
+    wireInlineEdit($('ntHeroEyebrow'), function (v) { patchHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('ntHeroSubtext'), function (v) { patchHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('ntHeroCtaLabel'), function (v) { patchHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('ntHeroTitle').addEventListener('input', function () { autosize($('ntHeroTitle')); });
+    $('ntHeroTitle').addEventListener('blur', function () { patchHero({ title: $('ntHeroTitle').value }); });
+    $('ntHeroAddPhotoBtn').addEventListener('click', function () { openHeroFilePicker('image'); });
+    $('ntHeroAddVideoBtn').addEventListener('click', function () { openHeroFilePicker('video'); });
+    $('ntHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(currentHero().mediaType === 'video' ? 'video' : 'image'); });
+    $('ntHeroPhotoRemoveBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      revokeHeroVideoBlob(activeTabId);
+      patchHero({ photo: '', photoColor: '', mediaType: 'image' });
+      renderHero(); renderBoard();
+    });
+    $('ntHeroReattachBtn').addEventListener('click', function (e) { e.stopPropagation(); reattachHeroVideo(); });
+    $('ntHeroPhotoInput').addEventListener('change', handleHeroMediaFile);
+    $('ntHeroCta').addEventListener('click', function () {
+      const t = currentTab();
+      const target = t && document.querySelector('.section[data-section="' + t.panel + '"]');
+      (target || $('ntBoard')).scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('ntAddWidgetBtn').addEventListener('click', function () { openModal($('ntAddWidgetModalBg')); });
+    $('ntAddWidgetCloseBtn').addEventListener('click', function () { closeModal($('ntAddWidgetModalBg')); });
+    $('ntAddWidgetModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    wireAddWidgetMenu();
+    $('ntResetBtn').addEventListener('click', resetBoard);
+
+    $('ntPhotoModalCloseBtn').addEventListener('click', function () { closeModal($('ntPhotoModalBg')); });
+    $('ntPhotoModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    $('ntSlotAddBtn').addEventListener('click', handleAddSlotSubmit);
+    $('ntSlotTypeSelect').addEventListener('change', function () { $('ntSlotFileInput').accept = $('ntSlotTypeSelect').value === 'video' ? 'video/*' : 'image/*'; });
+
+    $('ntDayNoteCloseBtn').addEventListener('click', function () { closeModal($('ntDayNoteModalBg')); });
+    $('ntDayNoteModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+    $('ntDayNoteClearBtn').addEventListener('click', function () { $('ntDayNoteInput').value = ''; });
+    $('ntDayNoteSaveBtn').addEventListener('click', saveDayNote);
+
+    window.addEventListener('hashchange', function () {
+      const hashPanel = (location.hash || '').replace('#', '');
+      if (hashPanel !== 'kitchen' && hashPanel !== 'grocery') return;
+      const t = ND.tabForPanel(hashPanel);
+      if (t && t.id !== activeTabId) switchTab(t.id);
+    });
+
+    // Same seed-race-safety contract as dreamboard.html/business.html/
+    // aitech.html: don't seed the two fixed tabs (+ their starter widgets)
+    // until the cloud pull has had a real chance to answer, so an empty
+    // local device never pushes a freshly-seeded board over another
+    // device's real one. Independent of Recipes/Stores/GroceryItems'
+    // own seedIfEmpty(), which already ran synchronously at script-load
+    // time (pre-existing behavior, unchanged by this rebuild).
+    let remoteAppliedOnce = false;
+    function afterTabsChanged() {
+      const tabs = ND.tabsSorted();
+      if (!tabs.find(function (t) { return t.id === activeTabId; })) activateInitialTab();
+      renderHero(); renderTabs(); showActivePanel(); renderBoard();
+    }
+    window.__ntOnRemoteApplied = function () { remoteAppliedOnce = true; afterTabsChanged(); };
+    window.__ntAfterSyncAttempt = function (hasCloudSync) {
+      if (ND.Tabs.list().length > 0) return; // something already local (this device, or a fast remote pull)
+      if (!hasCloudSync) { ND.ensureBoardTabsExist(); afterTabsChanged(); return; }
+      setTimeout(function () {
+        if (remoteAppliedOnce) return;
+        if (ND.Tabs.list().length > 0) return;
+        ND.ensureBoardTabsExist();
+        afterTabsChanged();
+      }, 5000);
+    };
+    // If initCloudSync isn't available at all (e.g. the Supabase SDK
+    // failed to load), the bottom sync script's DOMContentLoaded listener
+    // never calls __ntAfterSyncAttempt — handle that case directly here.
+    if (typeof initCloudSync !== 'function') window.__ntAfterSyncAttempt(false);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 
@@ -808,6 +1945,14 @@ document.addEventListener('DOMContentLoaded', function () {
   function buildItemRow(item) {
     var row = document.createElement('div');
     row.className = 'nutr-item-row';
+    row.dataset.itemId = item.id;
+
+    var dragHandle = document.createElement('span');
+    dragHandle.className = 'nutr-item-drag';
+    dragHandle.setAttribute('aria-hidden', 'true');
+    dragHandle.title = 'Drag to reorder';
+    dragHandle.textContent = '⋮⋮';
+    row.appendChild(dragHandle);
 
     var checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -906,10 +2051,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var body = document.createElement('div');
     body.className = 'nutr-store-body';
+    body.dataset.storeKey = key;
     group.items.forEach(function (item) { body.appendChild(buildItemRow(item)); });
     wrap.appendChild(body);
 
     return wrap;
+  }
+
+  // Drag-reorder within a single store group (see NutritionData.
+  // reorderGroceryGroupItems — dragging never moves an item to a
+  // different store's group; that's still done via its Edit modal's
+  // Store select). Instances are destroyed and rebuilt every render,
+  // same convention as the Dream Board board engine's own
+  // destroySortables()/wireSortable() pair.
+  var grocerySortables = [];
+  function destroyGrocerySortables() {
+    grocerySortables.forEach(function (s) { try { s.destroy(); } catch (e) {} });
+    grocerySortables = [];
+  }
+  function wireGrocerySortable() {
+    if (typeof Sortable === 'undefined') return;
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelectorAll('#nutrGroceryGroups .nutr-store-body').forEach(function (body) {
+      grocerySortables.push(new Sortable(body, {
+        handle: '.nutr-item-drag', animation: reduced ? 0 : 150, ghostClass: 'nutr-item-ghost',
+        onEnd: function () {
+          var ids = Array.from(body.children).map(function (el) { return el.dataset.itemId; });
+          ND.reorderGroceryGroupItems(ids);
+          renderGroceryList();
+        }
+      }));
+    });
   }
 
   function renderGroceryList() {
@@ -924,6 +2096,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     resetBtn.disabled = checked === 0;
 
+    destroyGrocerySortables();
     groupsEl.innerHTML = '';
     if (!groups.length) {
       var hasAnyItems = ND.GroceryItems.list().length > 0;
@@ -936,6 +2109,7 @@ document.addEventListener('DOMContentLoaded', function () {
       emptyEl.hidden = true;
       groupsEl.hidden = false;
       groups.forEach(function (g) { groupsEl.appendChild(buildStoreGroup(g)); });
+      wireGrocerySortable();
     }
 
     populateStoreSelect(qaStoreSelect, qaStoreSelect.value);
@@ -1235,6 +2409,13 @@ document.addEventListener('DOMContentLoaded', function () {
     el.className = 'ent-card';
     el.dataset.id = recipe.id;
 
+    var dragHandle = document.createElement('span');
+    dragHandle.className = 'nutr-card-drag';
+    dragHandle.setAttribute('aria-hidden', 'true');
+    dragHandle.title = 'Drag to reorder';
+    dragHandle.textContent = '⋮⋮';
+    el.appendChild(dragHandle);
+
     var cover = document.createElement('div');
     cover.className = 'ent-cover';
     if (recipe.imageUrl) {
@@ -1305,12 +2486,34 @@ document.addEventListener('DOMContentLoaded', function () {
     return el;
   }
 
+  // Drag-reorder for the My Kitchen gallery (see NutritionData.
+  // reorderRecipesVisible — reordering only the currently-visible/
+  // filtered cards still updates their correct slot positions in the
+  // full, unfiltered order). Instance is destroyed and rebuilt every
+  // render, same convention as the Dream Board board engine's own
+  // destroySortables()/wireSortable() pair.
+  var recipeSortable = null;
+  function destroyRecipeSortable() { if (recipeSortable) { try { recipeSortable.destroy(); } catch (e) {} recipeSortable = null; } }
+  function wireRecipeSortable() {
+    if (typeof Sortable === 'undefined') return;
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    recipeSortable = new Sortable(gridEl, {
+      handle: '.nutr-card-drag', animation: reduced ? 0 : 150, ghostClass: 'nutr-card-ghost',
+      onEnd: function () {
+        var ids = Array.from(gridEl.children).map(function (el) { return el.dataset.id; });
+        ND.reorderRecipesVisible(ids);
+        renderKitchen();
+      }
+    });
+  }
+
   function renderKitchen() {
     renderTagFilterRow();
     favToggleBtn.classList.toggle('active', favoritesOnly);
 
-    var all = ND.Recipes.list();
+    var all = ND.Recipes.list().slice().sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     var filtered = all.filter(recipeMatchesFilters);
+    destroyRecipeSortable();
     gridEl.innerHTML = '';
     if (!filtered.length) {
       gridEmptyEl.hidden = false;
@@ -1322,6 +2525,7 @@ document.addEventListener('DOMContentLoaded', function () {
       gridEmptyEl.hidden = true;
       gridEl.hidden = false;
       filtered.forEach(function (r) { gridEl.appendChild(buildRecipeCard(r)); });
+      wireRecipeSortable();
     }
   }
 
@@ -1335,6 +2539,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   gridEl.addEventListener('click', function (e) {
+    if (e.target.closest('.nutr-card-drag')) return;
     var actionBtn = e.target.closest('[data-action]');
     var cardEl = e.target.closest('.ent-card');
     if (!cardEl) return;
@@ -1769,8 +2974,16 @@ document.addEventListener('DOMContentLoaded', function () {
   initCloudSync({
     appKey: 'nutrition',
     syncedPrefixes: ['nutrition:'],
-    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+    onApplied: function () {
+      window.dispatchEvent(new Event('storage'));
+      // Hook for the hero/tabs/widget-board engine's own seed-race-safety
+      // window (see that script's __ntOnRemoteApplied/__ntAfterSyncAttempt) —
+      // same single initCloudSync call/config as always, just a richer
+      // callback body, not a second sync mechanism.
+      if (typeof window.__ntOnRemoteApplied === 'function') window.__ntOnRemoteApplied();
+    }
   });
+  if (typeof window.__ntAfterSyncAttempt === 'function') window.__ntAfterSyncAttempt(true);
 });
 </script>
 </body>

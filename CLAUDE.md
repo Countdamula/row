@@ -36,6 +36,7 @@ Vercel's static server) — see README.md.
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
+| `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -186,6 +187,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
+   | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -225,6 +227,7 @@ using `sync.js`.
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
 | AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
+| Nutrition | `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -5326,3 +5329,98 @@ between this app and either data loss or a wide-open write target:
     every dump. A real click-through of the Anxiety tab specifically
     (switching to it, toggling Breathwork/Tips, starting the pacer) is
     still recommended before relying on this page heavily.
+
+- **Nutrition (`nutrition.html`/`nutrition-data.js`) rebuilt: everything on
+  both pages made editable/moveable/adjustable, then the whole tab re-themed
+  to match Dream Board's exact engine/aesthetic.** Per an explicit
+  two-part request — first make everything editable/moveable/adjustable,
+  then copy Dream Board's style onto every page in the tab. Nothing was
+  deleted: My Kitchen's recipe database (title/description/servings/prep+
+  cook time/tags/ingredients/steps-with-photos/notes/favorite/cover image)
+  and Grocery List's store-grouped items (quick-add, Manage Stores,
+  check-off, Add-to-Grocery-List bridge from a recipe) are the exact same
+  `NutritionData` collections and CRUD flows as before, untouched in
+  behavior — this pass only added capability and re-skinned.
+  - **Editable/moveable/adjustable, concretely**:
+    - `Recipe`/`GroceryItem` both gained an `order` field; the My Kitchen
+      gallery and each Grocery List store group are now real drag-and-drop
+      (SortableJS, already a dependency in this app via Dream Board/
+      Business Hub/AI & Tech — same CDN version, no new dependency added),
+      handle icon on each card/row. `NutritionData.reorderRecipesVisible()`
+      reorders only the currently *visible* (search/tag/favorites-filtered)
+      cards, remapping them back into their correct slot positions among
+      the full unfiltered order — same technique `entertainment.html`'s
+      own Manual sort mode already established for exactly this problem.
+      Grocery drag-reorder is deliberately scoped to *within* one store's
+      group only (`NutritionData.reorderGroceryGroupItems()`) — reassigning
+      an item to a different store is still done via its Edit modal's
+      Store select, not by dragging it across groups, a deliberate scope
+      cut to avoid the empty-group-has-no-drop-target edge case a full
+      cross-group drag would introduce.
+    - Both pages' old single static cover banner is replaced by a real,
+      per-page editable hero (eyebrow/headline/subtext/CTA/cover photo-or-
+      video), and each page gained its own freeform, drag-and-drop **"More
+      Widgets" board** (Add Widget menu, ten widget types, per-widget
+      color-grading tint, Reset to Default) sitting below its real content
+      — the same "fixed real content + a freeform board layered on for
+      full extensibility" shape Business Hub's own Content tab already
+      established (Platform/Content Plan/Useful Resources databases +
+      a "More Widgets" board). Reset only wipes the two Tabs/Widgets
+      records (`nutrition:tabs`/`nutrition:widgets`) — it can never touch
+      a real recipe, grocery item, or store, since those live in
+      completely separate `NutritionData` collections Reset never calls.
+  - **Board engine reused, not reimplemented**: `nutrition-data.js` gained
+    the exact `Tabs`/`Widgets` flat-collection engine from
+    `dreamboard-data.js` (same `hero`/`widgetModel`/`columnsForTab`/
+    `reorderTab`/`normalizeTabs` shapes), with one addition — each tab
+    carries a `panel` field (`'kitchen'` or `'grocery'`) naming which of
+    the two existing real pages it belongs to, since (unlike Dream Board)
+    Nutrition's tabs are fixed, not user-created/renamed/deleted; there's
+    no tab-add/rename UI here. `nutrition.html`'s hero/tabs/board script
+    is Dream Board's engine ported line-for-line (`ND` in place of `DB`,
+    `nt`-prefixed ids in place of `db`-prefixed ones) — same seed-race-
+    safety contract as Dream Board/Business Hub/AI & Tech
+    (`ensureBoardTabsExist()` only ever runs after `initCloudSync`'s cloud
+    pull has had a real 5-second window to answer, or immediately if the
+    Supabase SDK never loaded at all), wired via a small hook
+    (`window.__ntOnRemoteApplied`/`window.__ntAfterSyncAttempt`) added to
+    the existing single `initCloudSync({...})` call's `onApplied`
+    callback — same call, same config, just a richer callback body, not a
+    second sync mechanism (DO NOT MODIFY §1). `ensureBoardTabsExist()` is
+    independent of the pre-existing `seedIfEmpty()` (which only guards
+    Recipes/Stores/GroceryItems) specifically so a device with real,
+    pre-existing recipe/grocery data — which already has non-empty
+    collections — still gets its two Tabs created, rather than being
+    left with no tab to render at all (the same "newly-required structure
+    with no backfill for pre-existing users" bug class Business Hub's and
+    Self-Care's own changelog entries already document once each).
+  - **Aesthetic**: `nutrition.html`'s own `:root` token *names* were kept
+    (`--bg`, `--bg-deep`, `--accent`, `--border`, `--cream`, etc. — every
+    existing rule referencing them needed no further edits) with their
+    *values* repointed to Dream Board's exact near-black/champagne-gold
+    palette, Cormorant Garamond loaded the same way, the page-wide blurred
+    cover-photo backdrop (`#ntPageBg`) ported verbatim, and every existing
+    component (recipe/grocery modals, `.btn-primary`/`.btn-add`/
+    `.nutr-qa-add`/`.chip.active` gradient buttons, `.ent-card` gallery
+    tiles) recolored from the old wine/dusty-rose gradient to Dream
+    Board's gold one. Same one-off palette-exception category as Dream
+    Board/Business Hub/AI & Tech/Self-Care (CLAUDE.md §6/DO NOT MODIFY
+    rule 2) — no other page's tokens were touched.
+  - **Sync**: no `sync.js` changes and no new sync key — `nutrition:tabs`/
+    `nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` are
+    all already covered by the existing `initCloudSync({ appKey:
+    'nutrition', syncedPrefixes: ['nutrition:'] })` call, unchanged except
+    for the `onApplied` hook addition described above.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules` mapping the Supabase host to `0.0.0.0`,
+    armed before navigation, per this file's established testing
+    convention) via both a `--dump-dom` pass and a live CDP session:
+    both tabs render (2 tabs, correct panel visibility/hash routing on
+    click), the 3 seeded recipes and 3 seeded "More Widgets" per tab all
+    render with working drag handles, `nutrition:tabs`/`widgets`/
+    `recipes`/`groceryItems`/`stores` all persisted with the expected
+    counts, opening the Add Widget menu and adding a Note widget worked
+    end-to-end (board count went 3→4), computed CSS custom properties
+    resolved to the new gold values, no duplicate DOM ids, no horizontal
+    overflow at a 390px mobile viewport, and a checklist checkbox/the
+    hero CTA both responded with no console exceptions.
