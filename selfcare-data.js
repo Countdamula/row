@@ -1,39 +1,49 @@
 // selfcare-data.js
 //
-// Shared data foundation for an in-progress Self-Care tab: typed-by-JSDoc
-// models, a localStorage-backed data-access layer, and pure derived
-// selectors — same shape/conventions as household-data.js/finance-data.js
-// (see CLAUDE.md §4): plain localStorage, JSON-serialized, one key per
-// collection, no server/DB. All keys live under a `selfcare:` prefix so a
-// future selfcare.html's `initCloudSync({ syncedPrefixes: ['selfcare:'] })`
-// call (not wired up yet — no page exists yet) will cover every collection
-// here with no per-key list, same as household.html's call does today.
+// Data foundation for selfcare.html ("Self-Care"). Rebuilt: the Water and
+// Bucket List features (and their storage — selfcare:hydrationProfile,
+// selfcare:waterLog, selfcare:bucketList) are removed outright per an
+// explicit ask — those keys are simply never read/written by this file
+// anymore and are left orphaned in localStorage/Supabase untouched, same
+// treatment as every other removed-feature key elsewhere in this app (see
+// CLAUDE.md's Stack/Water and Projects/Study removal entries).
 //
-// This step is data-layer only — no UI reads this yet, and nothing else in
-// the app references `selfcare:`-prefixed keys or window.SelfCareData, so
-// this file cannot break any existing page.
+// The main Self-Care tab is now a Dream-Board-style drag-and-drop widget
+// board (Tabs + Widgets, each widget carrying its own tabId/column/order —
+// same flat-array-with-foreign-key convention as dreamboard-data.js/
+// business-data.js, copied verbatim: same model shapes, same
+// makeCollection CRUD, same columnsForTab/reorderTab, same seed-race-safe
+// seeding contract). Journals and Meditations keep their own dedicated
+// collections/models (unchanged) — those two tabs stay dedicated panels,
+// not freeform boards, restyled to match rather than rebuilt.
 
 (function (global) {
   'use strict';
 
   // ============================================================
-  // STORAGE — same storeGet/storeSet shim used by every other page
-  // in this app (finance.html, index.html, household-data.js, etc.).
+  // STORAGE — dispatches a `selfcare:save` event on every write (same
+  // honest local-write-status precedent as dreamboard-data.js's
+  // storeSet(), so selfcare.html can show a real save/offline/error
+  // status instead of guessing).
   // ============================================================
   function storeGet(key) {
     try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
     catch (e) { return null; }
   }
   function storeSet(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      try { window.dispatchEvent(new CustomEvent('selfcare:save', { detail: { key: key, ok: true } })); } catch (e2) {}
+    } catch (e) {
+      try { window.dispatchEvent(new CustomEvent('selfcare:save', { detail: { key: key, ok: false, error: e } })); } catch (e2) {}
+    }
   }
 
   const KEYS = {
+    tabs: 'selfcare:tabs',
+    widgets: 'selfcare:widgets',
     journalEntries: 'selfcare:journalEntries',
     meditations: 'selfcare:meditations',
-    hydrationProfile: 'selfcare:hydrationProfile',
-    waterLog: 'selfcare:waterLog',
-    bucketList: 'selfcare:bucketList',
     seeded: 'selfcare:seeded'
   };
 
@@ -41,13 +51,6 @@
     return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   }
 
-  // ============================================================
-  // DATE HELPERS — local-date-safe "YYYY-MM-DD" strings, same
-  // precedent as household-data.js/finance-data.js: never round-trip a
-  // bare date through `new Date(isoString)`, which parses as UTC
-  // midnight and can land on the wrong day depending on the browser's
-  // timezone.
-  // ============================================================
   function pad2(n) { return String(n).padStart(2, '0'); }
   function todayISO() {
     const d = new Date();
@@ -63,125 +66,45 @@
     d.setDate(d.getDate() + days);
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
-  /** Whole days from today to iso; negative = in the past. Null if iso is unparseable. */
-  function daysUntil(iso) {
-    const d = localDateFromISO(iso);
-    if (!d) return null;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return Math.round((d.getTime() - today.getTime()) / 86400000);
+
+  // ============================================================
+  // IMAGE COMPRESSION / URL VALIDATION — same canvas-downscale recipe and
+  // http(s)-only URL check every other page in this app already uses
+  // (household-data.js, dreamboard-data.js, gym.html, etc.).
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 640;
+    quality = quality == null ? 0.78 : quality;
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  function isValidMediaUrl(value) {
+    if (!value) return false;
+    try {
+      const u = new URL(String(value));
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (e) { return false; }
   }
 
   // ============================================================
-  // UNITS — the one shared helper for converting/formatting volume
-  // (ml|oz) and weight (kg|lb), mirroring FinanceCurrency/
-  // HouseholdCurrency's "config-free pure convert + format" shape.
-  // Storage is always in the metric base unit (ml for volume, kg for
-  // weight where relevant) — display unit is a per-record/profile
-  // preference, converted only at render time. There's no reusable
-  // cross-file unit helper to import (no build step / no shared JS
-  // modules in this app — gym.html's `unit()` is the closest existing
-  // precedent, but it's a page-scoped kg/lb label getter, not a
-  // conversion helper), so this is a small new one in the same spirit.
+  // JOURNALS — unchanged from the prior build.
   // ============================================================
-  const ML_PER_OZ = 29.5735;
-  const KG_PER_LB = 0.45359237;
-
-  const SelfCareUnits = {
-    Volume: {
-      mlToOz(ml) { return (Number(ml) || 0) / ML_PER_OZ; },
-      ozToMl(oz) { return (Number(oz) || 0) * ML_PER_OZ; },
-      /** Stored ml -> a whole-number amount in the given display unit ('ml'|'oz'). */
-      toDisplay(ml, unit) {
-        return unit === 'oz' ? Math.round(this.mlToOz(ml)) : Math.round(Number(ml) || 0);
-      },
-      /** A user-entered amount in the given display unit -> whole-number ml (the storage unit). */
-      fromDisplay(amount, unit) {
-        return unit === 'oz' ? Math.round(this.ozToMl(amount)) : Math.round(Number(amount) || 0);
-      },
-      /** "500 ml" / "17 oz" */
-      format(ml, unit) {
-        return this.toDisplay(ml, unit) + ' ' + (unit === 'oz' ? 'oz' : 'ml');
-      }
-    },
-    Weight: {
-      kgToLb(kg) { return (Number(kg) || 0) / KG_PER_LB; },
-      lbToKg(lb) { return (Number(lb) || 0) * KG_PER_LB; },
-      /** A weight entered in either unit -> kg (used internally by the water-goal formula). */
-      toKg(weight, unit) {
-        return unit === 'lb' ? this.lbToKg(weight) : (Number(weight) || 0);
-      },
-      /** "70 kg" / "154.3 lb" */
-      format(weight, unit) {
-        const rounded = Math.round((Number(weight) || 0) * 10) / 10;
-        return rounded + ' ' + (unit === 'lb' ? 'lb' : 'kg');
-      }
-    }
-  };
-
-  // ============================================================
-  // CURRENCY — the one shared helper for parsing user input into integer
-  // cents and formatting cents back for display, mirroring finance-data.js's
-  // FinanceCurrency / household-data.js's HouseholdCurrency (no
-  // multi-currency need for a personal bucket-list cost field, so this is
-  // the same recipe kept intentionally small).
-  // ============================================================
-  const CurrencyConfig = { currency: 'USD', locale: 'en-US' };
-  const SelfCareCurrency = {
-    configure(opts) {
-      if (opts && opts.currency) CurrencyConfig.currency = opts.currency;
-      if (opts && opts.locale) CurrencyConfig.locale = opts.locale;
-    },
-    /** "12.50", "1,234.56", 12.5, "-4.20" -> integer cents. Never a float. */
-    parseToCents(input) {
-      if (input == null || input === '') return 0;
-      if (typeof input === 'number') return Math.round(input * 100);
-      let s = String(input).trim();
-      const negative = s.indexOf('-') !== -1;
-      s = s.replace(/[^0-9.,]/g, '');
-      if (!s) return 0;
-      const lastSep = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
-      let intPart, fracPart;
-      if (lastSep === -1) { intPart = s; fracPart = ''; }
-      else {
-        intPart = s.slice(0, lastSep).replace(/[.,]/g, '');
-        fracPart = s.slice(lastSep + 1).replace(/[^0-9]/g, '');
-      }
-      const n = parseFloat((intPart || '0') + '.' + (fracPart || '0'));
-      if (isNaN(n)) return 0;
-      return Math.round((negative ? -1 : 1) * n * 100);
-    },
-    /** integer cents (or null) -> "$12.50" / "—". */
-    format(cents, opts) {
-      if (cents == null) return '—';
-      const currency = (opts && opts.currency) || CurrencyConfig.currency;
-      const locale = (opts && opts.locale) || CurrencyConfig.locale;
-      const amount = (Number(cents) || 0) / 100;
-      try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currency }).format(amount); }
-      catch (e) { return currency + ' ' + amount.toFixed(2); }
-    }
-  };
-
-  // ============================================================
-  // MODELS — no build step / no TypeScript in this repo, so "typed"
-  // means a JSDoc @typedef (for editor hints) plus a factory that
-  // fills every field with a sane default and coerces enums/numbers,
-  // matching household-data.js/finance-data.js's convention.
-  // ============================================================
-
   const JOURNAL_TOPICS = ['daily_reflection', 'self_discovery', 'emotional_processing', 'gratitude'];
 
-  /**
-   * @typedef {Object} JournalEntry
-   * @property {string} id
-   * @property {'daily_reflection'|'self_discovery'|'emotional_processing'|'gratitude'} topic
-   * @property {string} title
-   * @property {string} body - markdown text
-   * @property {?string} mood - freeform, nullable
-   * @property {string} date - ISO date (YYYY-MM-DD)
-   * @property {string[]} tags
-   * @property {string} createdAt - ISO date
-   */
   function journalEntryModel(data) {
     data = data || {};
     return {
@@ -198,18 +121,6 @@
 
   const MEDITATION_TYPES = ['breathing', 'sleep', 'anxiety', 'focus', 'body_scan', 'other'];
 
-  /**
-   * @typedef {Object} Meditation
-   * @property {string} id
-   * @property {string} title
-   * @property {string} description
-   * @property {string} url - web link
-   * @property {'breathing'|'sleep'|'anxiety'|'focus'|'body_scan'|'other'} type
-   * @property {?number} durationMin - nullable
-   * @property {string[]} tags
-   * @property {boolean} isFavorite
-   * @property {string} notes
-   */
   function meditationModel(data) {
     data = data || {};
     return {
@@ -225,96 +136,76 @@
     };
   }
 
-  const ACTIVITY_LEVELS = ['none', 'light', 'moderate', 'heavy'];
-  const CLIMATES = ['normal', 'hot'];
-  const HYDRATION_PROFILE_ID = 'hydration_profile';
+  // ============================================================
+  // BOARD MODELS — Tabs + Widgets, copied structurally from
+  // dreamboard-data.js (same field shapes, same defaults-per-type). Tabs
+  // gained one additive field beyond Dream Board's: `panel`, `''` for a
+  // freeform widget board (Dream Board's only mode) or `'journals'` /
+  // `'meditations'` for a tab that instead renders this page's own
+  // dedicated Journals/Meditations UI below its hero — those two tabs
+  // never carry widgets of their own.
+  // ============================================================
+  const WIDGET_TYPES = ['checklist', 'list', 'note', 'quote', 'affirmation', 'steps', 'photos', 'calendar', 'feature', 'infocard'];
 
-  /**
-   * @typedef {Object} HydrationProfile
-   * @property {string} id - fixed single-record id, always HYDRATION_PROFILE_ID
-   * @property {number} weight
-   * @property {'kg'|'lb'} weightUnit
-   * @property {?number} heightCm - nullable
-   * @property {number} age
-   * @property {?string} sex - nullable, freeform
-   * @property {'none'|'light'|'moderate'|'heavy'} activityLevel
-   * @property {'normal'|'hot'} climate
-   * @property {'ml'|'oz'} volumeUnit
-   * @property {?number} customGoalOverride - ml, nullable; wins over the computed formula when set
-   */
-  function hydrationProfileModel(data) {
+  function heroModel(data) {
     data = data || {};
     return {
-      id: HYDRATION_PROFILE_ID,
-      weight: Math.max(0, Number(data.weight) || 0),
-      weightUnit: data.weightUnit === 'lb' ? 'lb' : 'kg',
-      heightCm: data.heightCm == null || data.heightCm === '' ? null : Math.max(0, Number(data.heightCm) || 0),
-      age: Math.max(0, Math.round(Number(data.age)) || 0),
-      sex: data.sex || null,
-      activityLevel: ACTIVITY_LEVELS.indexOf(data.activityLevel) !== -1 ? data.activityLevel : 'none',
-      climate: CLIMATES.indexOf(data.climate) !== -1 ? data.climate : 'normal',
-      volumeUnit: data.volumeUnit === 'oz' ? 'oz' : 'ml',
-      customGoalOverride: data.customGoalOverride == null || data.customGoalOverride === '' ? null : Math.max(0, Math.round(Number(data.customGoalOverride)) || 0)
+      eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
+      title: typeof data.title === 'string' ? data.title : '',
+      subtext: typeof data.subtext === 'string' ? data.subtext : '',
+      ctaLabel: typeof data.ctaLabel === 'string' ? data.ctaLabel : '',
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : '',
+      mediaType: data.mediaType === 'video' ? 'video' : 'image'
     };
   }
 
-  const WATER_SOURCES = ['cup', 'bottle', 'custom'];
-
-  /**
-   * @typedef {Object} WaterLog
-   * @property {string} id
-   * @property {string} date - ISO date (YYYY-MM-DD)
-   * @property {number} amountMl - stored internally in ml regardless of the profile's display unit
-   * @property {'cup'|'bottle'|'custom'} source
-   */
-  function waterLogModel(data) {
+  function tabModel(data) {
     data = data || {};
     return {
-      id: data.id || uid('water'),
-      date: data.date || todayISO(),
-      amountMl: Math.max(0, Math.round(Number(data.amountMl)) || 0),
-      source: WATER_SOURCES.indexOf(data.source) !== -1 ? data.source : 'custom'
+      id: data.id || uid('tab'),
+      title: typeof data.title === 'string' ? data.title : 'Untitled',
+      order: typeof data.order === 'number' ? data.order : 0,
+      panel: (data.panel === 'journals' || data.panel === 'meditations') ? data.panel : '',
+      hero: heroModel(data.hero)
     };
   }
 
-  const BUCKET_CATEGORIES = ['relax', 'adventure', 'treat', 'social', 'creative', 'nature', 'other'];
-  const BUCKET_STATUSES = ['idea', 'planned', 'done'];
+  function defaultWidgetData(type) {
+    switch (type) {
+      case 'checklist': return { items: [] };
+      case 'list': return { items: [] };
+      case 'note': return { body: '' };
+      case 'quote': return { text: '', author: '' };
+      case 'affirmation': return { items: [] };
+      case 'steps': return { goal: 10000, log: {} };
+      case 'photos': return { wide: false, slots: [] };
+      case 'calendar': return { notes: {}, viewYear: null, viewMonth: null };
+      case 'feature': return { photo: '', title: '', caption: '' };
+      case 'infocard': return { icon: '🌿', title: '', subtitle: '' };
+      default: return {};
+    }
+  }
 
-  /**
-   * @typedef {Object} BucketItem
-   * @property {string} id
-   * @property {string} title
-   * @property {string} description
-   * @property {'relax'|'adventure'|'treat'|'social'|'creative'|'nature'|'other'} category
-   * @property {'idea'|'planned'|'done'} status
-   * @property {?string} targetDate - ISO date, nullable
-   * @property {?number} costCents - integer minor units, nullable
-   * @property {?string} url - nullable
-   * @property {?string} imageUrl - nullable
-   * @property {?string} completedDate - ISO date, nullable
-   * @property {string} notes
-   */
-  function bucketItemModel(data) {
+  function widgetModel(data) {
     data = data || {};
+    const type = WIDGET_TYPES.indexOf(data.type) !== -1 ? data.type : 'note';
+    const defaults = defaultWidgetData(type);
+    const incoming = (data.data && typeof data.data === 'object') ? data.data : {};
     return {
-      id: data.id || uid('bucket'),
-      title: data.title || '',
-      description: data.description || '',
-      category: BUCKET_CATEGORIES.indexOf(data.category) !== -1 ? data.category : 'other',
-      status: BUCKET_STATUSES.indexOf(data.status) !== -1 ? data.status : 'idea',
-      targetDate: data.targetDate || null,
-      costCents: data.costCents == null || data.costCents === '' ? null : Math.max(0, Math.round(Number(data.costCents)) || 0),
-      url: data.url || null,
-      imageUrl: data.imageUrl || null,
-      completedDate: data.completedDate || null,
-      notes: data.notes || ''
+      id: data.id || uid('wdg'),
+      tabId: data.tabId || null,
+      column: typeof data.column === 'number' ? data.column : 0,
+      order: typeof data.order === 'number' ? data.order : 0,
+      type: type,
+      title: typeof data.title === 'string' ? data.title : '',
+      tint: typeof data.tint === 'string' ? data.tint : null,
+      data: Object.assign({}, defaults, incoming)
     };
   }
 
   // ============================================================
-  // DATA ACCESS — list / get / add / update / remove per collection,
-  // copied verbatim from household-data.js/finance-data.js's
-  // makeCollection.
+  // GENERIC COLLECTION CRUD
   // ============================================================
   function makeCollection(key, model) {
     function list() { return storeGet(key) || []; }
@@ -330,9 +221,6 @@
       const all = list();
       const idx = all.findIndex(function (x) { return x.id === id; });
       if (idx < 0) return null;
-      // Re-run through the model factory so patched fields stay coerced
-      // (enums, numbers) and unknown/missing fields keep their
-      // defaults — same precedent as household-data.js's makeCollection.
       all[idx] = model(Object.assign({}, all[idx], patch, { id: id }));
       storeSet(key, all);
       return all[idx];
@@ -343,190 +231,182 @@
       storeSet(key, next);
       return next.length !== all.length;
     }
-    return { list: list, get: get, add: add, update: update, remove: remove };
+    function replaceAll(records) { storeSet(key, records); }
+    return { list: list, get: get, add: add, update: update, remove: remove, replaceAll: replaceAll };
   }
 
   const JournalEntries = makeCollection(KEYS.journalEntries, journalEntryModel);
   const Meditations = makeCollection(KEYS.meditations, meditationModel);
-  const WaterLog = makeCollection(KEYS.waterLog, waterLogModel);
-  const BucketList = makeCollection(KEYS.bucketList, bucketItemModel);
+  const Tabs = makeCollection(KEYS.tabs, tabModel);
+  const Widgets = makeCollection(KEYS.widgets, widgetModel);
 
-  // HydrationProfile is a single record, not a list, so it gets a plain
-  // get/save pair instead of makeCollection — "create" and "update" are
-  // the same upsert operation here since there's only ever one record.
-  function getHydrationProfile() {
-    return storeGet(KEYS.hydrationProfile) || null;
-  }
-  function saveHydrationProfile(patch) {
-    const current = getHydrationProfile() || {};
-    const next = hydrationProfileModel(Object.assign({}, current, patch));
-    storeSet(KEYS.hydrationProfile, next);
-    return next;
-  }
-
-  // ============================================================
-  // WATER RECOMMENDATION — a general hydration ESTIMATE, NOT medical
-  // advice: a simple, editable heuristic (ml/kg scaled by age bracket,
-  // plus flat activity/climate adjustments), not a clinical formula.
-  // If the profile has a customGoalOverride set, that value wins
-  // outright and none of the math below runs.
-  // ============================================================
-  const WATER_AGE_FACTOR_ML_PER_KG = [
-    { maxAge: 30, factor: 40 },
-    { maxAge: 55, factor: 35 },
-    { maxAge: 65, factor: 30 },
-    { maxAge: Infinity, factor: 25 }
-  ];
-  const WATER_ACTIVITY_ADJUSTMENT_ML = { none: 0, light: 250, moderate: 500, heavy: 750 };
-  const WATER_CLIMATE_ADJUSTMENT_ML = { normal: 0, hot: 500 };
-
-  /**
-   * Same inputs/math as recommendedDailyMl() (including the "override wins
-   * outright" behavior), but returns the itemized breakdown instead of just
-   * the final number — so a "how is this calculated?" UI can show its work
-   * without duplicating these private constants/formula itself. `base` is
-   * deliberately left unrounded internally so total's rounding matches
-   * recommendedDailyMl() exactly; only the returned baseMl is rounded, for
-   * display.
-   * @param {?HydrationProfile} profile
-   * @returns {?{isOverride: boolean, total: number, weightKg?: number, ageFactor?: number, baseMl?: number, activityAdjMl?: number, climateAdjMl?: number}}
-   */
-  function hydrationGoalBreakdown(profile) {
-    if (!profile) return null;
-    if (profile.customGoalOverride != null) return { isOverride: true, total: profile.customGoalOverride };
-
-    const weightKg = SelfCareUnits.Weight.toKg(profile.weight, profile.weightUnit);
-    const age = Number(profile.age) || 0;
-    const ageFactor = (WATER_AGE_FACTOR_ML_PER_KG.find(function (b) { return age < b.maxAge || age === b.maxAge; }) || WATER_AGE_FACTOR_ML_PER_KG[WATER_AGE_FACTOR_ML_PER_KG.length - 1]).factor;
-    const base = weightKg * ageFactor;
-    const activityAdj = WATER_ACTIVITY_ADJUSTMENT_ML[profile.activityLevel] || 0;
-    const climateAdj = WATER_CLIMATE_ADJUSTMENT_ML[profile.climate] || 0;
-
-    return {
-      isOverride: false,
-      weightKg: Math.round(weightKg * 10) / 10,
-      ageFactor: ageFactor,
-      baseMl: Math.round(base),
-      activityAdjMl: activityAdj,
-      climateAdjMl: climateAdj,
-      total: Math.round(base + activityAdj + climateAdj)
-    };
+  /** Backfills any tab missing `hero`/`panel` (e.g. a legacy record) so
+   * every hero-reading function can assume `tab.hero` is always an object —
+   * same precedent/rationale as dreamboard-data.js's normalizeTabs(), which
+   * documents the exact crash this guards against. Runs once per load,
+   * right after seedIfEmpty(); a no-op on an already-correct or empty
+   * board, so it can never clobber real data. */
+  function normalizeTabs() {
+    const tabs = Tabs.list();
+    let changed = false;
+    const fixed = tabs.map(function (t) {
+      if (t && t.hero && typeof t.hero === 'object' && typeof t.panel === 'string') return t;
+      changed = true;
+      return tabModel(t);
+    });
+    if (changed) Tabs.replaceAll(fixed);
   }
 
-  /** @param {?HydrationProfile} profile @returns {number} recommended daily intake in ml */
-  function recommendedDailyMl(profile) {
-    const breakdown = hydrationGoalBreakdown(profile);
-    return breakdown ? breakdown.total : 0;
+  function removeTab(id) {
+    Tabs.remove(id);
+    Widgets.replaceAll(Widgets.list().filter(function (w) { return w.tabId !== id; }));
   }
 
   // ============================================================
-  // DERIVED SELECTORS — pure functions over the collections above,
-  // re-derived on every call, not cached.
+  // SELECTORS
   // ============================================================
-
-  /** Entries for one topic (or all, if topic is falsy), newest date first. */
+  function tabsSorted() {
+    return Tabs.list().slice().sort(function (a, b) { return a.order - b.order; });
+  }
+  function columnsForTab(tabId) {
+    const cols = [[], [], []];
+    Widgets.list()
+      .filter(function (w) { return w.tabId === tabId; })
+      .forEach(function (w) {
+        const c = (w.column >= 0 && w.column <= 2) ? w.column : 0;
+        cols[c].push(w);
+      });
+    cols.forEach(function (col) { col.sort(function (a, b) { return a.order - b.order; }); });
+    return cols;
+  }
+  function reorderTab(tabId, columnsOfIds) {
+    const all = Widgets.list();
+    const byId = {};
+    all.forEach(function (w) { byId[w.id] = w; });
+    columnsOfIds.forEach(function (ids, colIdx) {
+      ids.forEach(function (id, orderIdx) {
+        const w = byId[id];
+        if (w && w.tabId === tabId) { w.column = colIdx; w.order = orderIdx; }
+      });
+    });
+    Widgets.replaceAll(all);
+  }
   function entriesByTopic(topic) {
     return JournalEntries.list()
       .filter(function (e) { return !topic || e.topic === topic; })
       .sort(function (a, b) { return b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)); });
   }
 
-  /** Sum of amountMl logged today. */
-  function todayIntakeMl() {
-    const today = todayISO();
-    return WaterLog.list()
-      .filter(function (w) { return w.date === today; })
-      .reduce(function (sum, w) { return sum + w.amountMl; }, 0);
-  }
-
-  /** todayIntakeMl() / today's goal (0 if no profile/goal is set yet). */
-  function todayProgress() {
-    const goal = recommendedDailyMl(getHydrationProfile());
-    return goal ? todayIntakeMl() / goal : 0;
-  }
-
-  /** Last `days` days (oldest first, ending today) as { date, totalMl, goalMl, progress }. */
-  function intakeHistory(days) {
-    const n = days == null ? 7 : days;
-    const goal = recommendedDailyMl(getHydrationProfile());
-    const today = todayISO();
-    const totalsByDate = {};
-    WaterLog.list().forEach(function (w) { totalsByDate[w.date] = (totalsByDate[w.date] || 0) + w.amountMl; });
-    const out = [];
-    for (let i = n - 1; i >= 0; i--) {
-      const date = addDaysISO(today, -i);
-      const totalMl = totalsByDate[date] || 0;
-      out.push({ date: date, totalMl: totalMl, goalMl: goal, progress: goal ? totalMl / goal : 0 });
-    }
-    return out;
-  }
-
-  /** BucketList items grouped by status — { idea: [...], planned: [...], done: [...] }. */
-  function bucketItemsByStatus() {
-    const groups = {};
-    BUCKET_STATUSES.forEach(function (s) { groups[s] = []; });
-    BucketList.list().forEach(function (item) { groups[item.status].push(item); });
-    return groups;
-  }
-
-  /** BucketList items grouped by category. */
-  function bucketItemsByCategory() {
-    const groups = {};
-    BUCKET_CATEGORIES.forEach(function (c) { groups[c] = []; });
-    BucketList.list().forEach(function (item) { groups[item.category].push(item); });
-    return groups;
-  }
-
   // ============================================================
-  // SEED DATA — a small, realistic starter set so a future UI has
-  // something to render. Runs once, guarded by selfcare:seeded, and
-  // only if every collection (and the hydration profile) is already
-  // empty/unset, so it can never clobber real data added later — same
-  // precedent as household-data.js/finance-data.js's seedIfEmpty().
-  // Dates are computed relative to today (not hardcoded) so the water
-  // history/journal selectors always have something meaningful to show
-  // regardless of when this runs. WaterLog is seeded alongside the
-  // profile (even though only entries/meditations/profile/bucket items
-  // were asked for) since a hydration profile with no logged water
-  // would leave todayProgress()/intakeHistory() with nothing to
-  // demonstrate.
+  // SEED — a modest default board for the main Self-Care tab (mirroring
+  // the reference "Fall Self Care Bucket List" Notion template's
+  // structure: an instructions note, a bonus callout, a checklist
+  // database, and a photo gallery — deliberately not a pixel copy, same
+  // "loosely mirror, don't copy verbatim" precedent as dreamboard-data.js's
+  // own seedDefaultBoard()), plus a Journals tab and a Meditations tab
+  // (both `panel`-mode, no widgets of their own) with their own hero, plus
+  // a small starter set of journal entries/meditations so those two
+  // panels aren't empty on first load either.
   // ============================================================
-  function seedIfEmpty() {
-    if (storeGet(KEYS.seeded)) return;
-    if (JournalEntries.list().length || Meditations.list().length || WaterLog.list().length
-      || BucketList.list().length || getHydrationProfile()) {
-      storeSet(KEYS.seeded, true);
-      return;
-    }
+  function seedDefaultBoard() {
+    Tabs.replaceAll([]);
+    Widgets.replaceAll([]);
 
-    const today = todayISO();
+    const mainTab = Tabs.add({
+      title: 'Self-Care', order: 0, panel: '',
+      hero: {
+        eyebrow: 'A SEASONAL RITUAL',
+        title: 'Slow Down.\nFill Your Own Cup.',
+        subtext: 'Small, restorative things worth making time for — a checklist to dip into whenever you need a nudge toward rest.',
+        ctaLabel: 'VIEW CHECKLIST', photo: '', photoColor: '', mediaType: 'image'
+      }
+    });
+    const journalsTab = Tabs.add({
+      title: 'Journals', order: 1, panel: 'journals',
+      hero: {
+        eyebrow: 'DAILY REFLECTION', title: 'Write It\nDown.',
+        subtext: 'Gratitude, emotional processing, self-discovery — a private page for whatever today needs.',
+        ctaLabel: 'NEW ENTRY', photo: '', photoColor: '', mediaType: 'image'
+      }
+    });
+    const meditationsTab = Tabs.add({
+      title: 'Meditations', order: 2, panel: 'meditations',
+      hero: {
+        eyebrow: 'BREATHE', title: 'A Moment\nof Stillness.',
+        subtext: 'A linkable library of guided sessions — breathing, sleep, focus, and grounding, all in one place.',
+        ctaLabel: 'BROWSE LIBRARY', photo: '', photoColor: '', mediaType: 'image'
+      }
+    });
 
-    JournalEntries.add({ topic: 'gratitude', title: 'Small things', body: 'Grateful for a slow morning coffee and no meetings before 10am.', date: today, tags: ['morning'] });
-    JournalEntries.add({ topic: 'daily_reflection', title: 'Reset day', body: 'Felt scattered most of the day — noticing I skipped lunch again.', date: addDaysISO(today, -1), tags: ['work'] });
-    JournalEntries.add({ topic: 'emotional_processing', title: 'Naming it', body: 'The knot in my chest before the call was anticipatory anxiety, not dread — helped to name it.', date: addDaysISO(today, -3), mood: 'anxious', tags: [] });
-    JournalEntries.add({ topic: 'self_discovery', title: 'Pattern noticed', body: 'I default to over-scheduling right after a good week, then burn out. Worth watching for.', date: addDaysISO(today, -6), tags: ['patterns'] });
+    Widgets.add({
+      tabId: mainTab.id, column: 0, order: 0, type: 'note', title: 'How To Use This Board',
+      data: { body: 'Check off a ritual whenever you have a spare hour — or drag in something better. Every card here is editable, reorderable, and yours to reshape.' }
+    });
+    Widgets.add({
+      tabId: mainTab.id, column: 0, order: 1, type: 'infocard', title: 'Bonus',
+      data: { icon: '🎁', title: 'BONUS', subtitle: 'Pair this with a weekly self-care planner for the ones that need more than a checkbox.' }
+    });
+
+    Widgets.add({
+      tabId: mainTab.id, column: 1, order: 0, type: 'checklist', title: 'Self-Care Checklist',
+      data: {
+        items: [
+          { id: uid('it'), text: '✏️ Journal about your plans for the season', done: false },
+          { id: uid('it'), text: '🍳 Take a cooking class', done: false },
+          { id: uid('it'), text: '🌌 Find the constellations out tonight and gaze at them', done: false },
+          { id: uid('it'), text: '🕯️ Light a candle that smells like the season', done: false },
+          { id: uid('it'), text: '🌷 Plant something', done: false },
+          { id: uid('it'), text: '👗 Do a closet audit', done: false },
+          { id: uid('it'), text: '🎬 Watch a themed movie night', done: false },
+          { id: uid('it'), text: '🖼️ Build a vision board', done: false },
+          { id: uid('it'), text: '🖐️ Try a 5-senses mindfulness reset', done: false },
+          { id: uid('it'), text: '🚲 Go for a hike or a bike ride', done: false },
+          { id: uid('it'), text: '🎨 Try mindful coloring', done: false },
+          { id: uid('it'), text: '📚 Read by candlelight or a fire', done: false },
+          { id: uid('it'), text: '🎵 Make a playlist for the season', done: false },
+          { id: uid('it'), text: '🍪 Bake something', done: false },
+          { id: uid('it'), text: '🧺 Have a picnic', done: false },
+          { id: uid('it'), text: '☕ Make a slow, good drink at home', done: false }
+        ]
+      }
+    });
+
+    Widgets.add({
+      tabId: mainTab.id, column: 2, order: 0, type: 'photos', title: 'Cozy Inspiration',
+      data: { wide: true, slots: [] }
+    });
+
+    JournalEntries.add({ topic: 'gratitude', title: 'Small things', body: 'Grateful for a slow morning coffee and no meetings before 10am.', date: todayISO(), tags: ['morning'] });
+    JournalEntries.add({ topic: 'daily_reflection', title: 'Reset day', body: 'Felt scattered most of the day — noticing I skipped lunch again.', date: addDaysISO(todayISO(), -1), tags: ['work'] });
+    JournalEntries.add({ topic: 'emotional_processing', title: 'Naming it', body: 'The knot in my chest before the call was anticipatory anxiety, not dread — helped to name it.', date: addDaysISO(todayISO(), -3), mood: 'anxious', tags: [] });
 
     Meditations.add({ title: '10-Minute Body Scan', description: 'A gentle full-body scan for releasing tension.', url: 'https://example.com/meditations/body-scan-10', type: 'body_scan', durationMin: 10, tags: ['relaxation'], isFavorite: true, notes: '' });
     Meditations.add({ title: 'Box Breathing for Focus', description: '4-4-4-4 breathing to reset before deep work.', url: 'https://example.com/meditations/box-breathing', type: 'breathing', durationMin: 5, tags: ['work', 'quick'], isFavorite: false, notes: '' });
     Meditations.add({ title: 'Wind Down for Sleep', description: 'A slow, guided descent into sleep.', url: 'https://example.com/meditations/sleep-wind-down', type: 'sleep', durationMin: 20, tags: ['night'], isFavorite: false, notes: '' });
-    Meditations.add({ title: 'Grounding for Anxiety', description: 'A 5-4-3-2-1 senses grounding exercise.', url: 'https://example.com/meditations/grounding-anxiety', type: 'anxiety', durationMin: 8, tags: [], isFavorite: false, notes: '' });
-
-    saveHydrationProfile({ weight: 70, weightUnit: 'kg', heightCm: 175, age: 29, sex: null, activityLevel: 'moderate', climate: 'normal', volumeUnit: 'ml', customGoalOverride: null });
-
-    WaterLog.add({ date: today, amountMl: 500, source: 'bottle' });
-    WaterLog.add({ date: today, amountMl: 250, source: 'cup' });
-    WaterLog.add({ date: addDaysISO(today, -1), amountMl: 1800, source: 'bottle' });
-    WaterLog.add({ date: addDaysISO(today, -2), amountMl: 2100, source: 'bottle' });
-    WaterLog.add({ date: addDaysISO(today, -3), amountMl: 1400, source: 'cup' });
-
-    BucketList.add({ title: 'Sunrise hike + journal at the summit', description: 'Combine movement with a reflection session.', category: 'nature', status: 'idea', targetDate: null, costCents: 0, url: null, imageUrl: null, completedDate: null, notes: '' });
-    BucketList.add({ title: 'Book a solo spa day', description: 'A full day, phone off.', category: 'relax', status: 'planned', targetDate: addDaysISO(today, 21), costCents: 15000, url: null, imageUrl: null, completedDate: null, notes: 'Look at the place downtown.' });
-    BucketList.add({ title: 'Pottery class with a friend', description: 'Try something new, together.', category: 'creative', status: 'idea', targetDate: null, costCents: null, url: null, imageUrl: null, completedDate: null, notes: '' });
-    BucketList.add({ title: 'Digital detox weekend', description: 'A full weekend with no screens.', category: 'relax', status: 'done', targetDate: null, costCents: 0, url: null, imageUrl: null, completedDate: addDaysISO(today, -14), notes: 'Went better than expected.' });
 
     storeSet(KEYS.seeded, true);
+    return { mainTab: mainTab, journalsTab: journalsTab, meditationsTab: meditationsTab };
   }
-  seedIfEmpty();
+
+  function seedIfEmpty() {
+    if (storeGet(KEYS.seeded)) return;
+    if (Tabs.list().length || Widgets.list().length || JournalEntries.list().length || Meditations.list().length) {
+      storeSet(KEYS.seeded, true);
+      return;
+    }
+    seedDefaultBoard();
+  }
+
+  // seedIfEmpty() is deliberately NOT called automatically here — same
+  // seed-race hazard dreamboard-data.js/business-data.js's own changelog
+  // entries document: seeding synchronously, before initCloudSync()'s
+  // cloud pull has a real chance to land, can push a freshly-seeded
+  // "default" board to Supabase and clobber another device's real data.
+  // selfcare.html calls seedIfEmpty() itself, only as a fallback after
+  // giving the cloud pull a real window first. normalizeTabs() stays
+  // automatic — it only backfills fields on records that already exist,
+  // so it's a no-op on empty storage and can't clobber anything.
+  normalizeTabs();
 
   // ============================================================
   // PUBLIC API
@@ -535,37 +415,29 @@
     KEYS: KEYS,
     JOURNAL_TOPICS: JOURNAL_TOPICS,
     MEDITATION_TYPES: MEDITATION_TYPES,
-    ACTIVITY_LEVELS: ACTIVITY_LEVELS,
-    CLIMATES: CLIMATES,
-    WATER_SOURCES: WATER_SOURCES,
-    BUCKET_CATEGORIES: BUCKET_CATEGORIES,
-    BUCKET_STATUSES: BUCKET_STATUSES,
-    Units: SelfCareUnits,
-    Currency: SelfCareCurrency,
+    WIDGET_TYPES: WIDGET_TYPES,
+    uid: uid,
+    todayISO: todayISO,
+    addDaysISO: addDaysISO,
+    compressImageDataUrl: compressImageDataUrl,
+    isValidMediaUrl: isValidMediaUrl,
     Models: {
       journalEntry: journalEntryModel,
       meditation: meditationModel,
-      hydrationProfile: hydrationProfileModel,
-      waterLog: waterLogModel,
-      bucketItem: bucketItemModel
+      tab: tabModel,
+      widget: widgetModel
     },
+    defaultWidgetData: defaultWidgetData,
     JournalEntries: JournalEntries,
     Meditations: Meditations,
-    WaterLog: WaterLog,
-    BucketList: BucketList,
-    getHydrationProfile: getHydrationProfile,
-    saveHydrationProfile: saveHydrationProfile,
-    recommendedDailyMl: recommendedDailyMl,
-    hydrationGoalBreakdown: hydrationGoalBreakdown,
+    Tabs: Object.assign({}, Tabs, { remove: removeTab }),
+    Widgets: Widgets,
+    tabsSorted: tabsSorted,
+    columnsForTab: columnsForTab,
+    reorderTab: reorderTab,
     entriesByTopic: entriesByTopic,
-    todayIntakeMl: todayIntakeMl,
-    todayProgress: todayProgress,
-    intakeHistory: intakeHistory,
-    bucketItemsByStatus: bucketItemsByStatus,
-    bucketItemsByCategory: bucketItemsByCategory,
-    todayISO: todayISO,
-    addDaysISO: addDaysISO,
-    daysUntil: daysUntil,
-    seedIfEmpty: seedIfEmpty
+    seedDefaultBoard: seedDefaultBoard,
+    seedIfEmpty: seedIfEmpty,
+    normalizeTabs: normalizeTabs
   };
 })(window);

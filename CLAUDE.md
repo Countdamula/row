@@ -31,7 +31,7 @@ Vercel's static server) — see README.md.
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
 | `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (new — see changelog) |
-| `selfcare.html` | Self-Care — Journals (topic-filtered), Meditations (linkable library), Water (personalized daily hydration tracker), Bucket List (groupable, with a "surprise me"), and Overview (a 4-tile daily snapshot of the other four) are all built — every tab on this page is now real (new — see changelog) |
+| `selfcare.html` | Self-Care — rebuilt around Dream Board's exact engine/aesthetic: a main "Self-Care" tab is a freeform drag-and-drop widget board (a self-care checklist, notes, a photo gallery, etc.), plus Journals (topic-filtered) and Meditations (linkable library) as their own dedicated, Dream-Board-restyled tabs. Water and Bucket List were removed entirely (rebuilt — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
@@ -182,7 +182,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
    | `braindump` | `braindump.html` (new) | `braindump:entries` |
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
-   | `selfcare` | `selfcare.html` (new) | everything prefixed `selfcare:` (`selfcare:journalEntries`, `selfcare:meditations`, `selfcare:hydrationProfile`, `selfcare:waterLog`, `selfcare:bucketList`, `selfcare:active_tab`) |
+   | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (new — the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:active_tab`, `selfcare:seeded`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
@@ -220,7 +220,7 @@ using `sync.js`.
 | Media | `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Brain Dump | `BRAIN DUMP` → `braindump.html` | `braindump.html` (new — see changelog) |
 | Household | `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (new — see changelog) |
-| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (new; all five tabs built — see changelog) |
+| Self-Care | `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
@@ -4943,3 +4943,149 @@ between this app and either data loss or a wide-open write target:
     `Win32_Process` command-line inspection before being stopped) and
     torn down individually by PID afterward — no other running Edge
     process on the machine was touched.
+
+- **Self-Care (`selfcare.html`) rebuilt: Water and Bucket List removed
+  entirely, and the whole tab was reconstructed around Dream Board's exact
+  engine and aesthetic.** Per an explicit two-part request: (1) remove
+  Water and Bucket List first, (2) rebuild the tab to match a reference
+  Notion "Fall Self Care Bucket List" template (cover photo with change/
+  reposition, a checkbox+title header, an instructions callout, a "bonus"
+  callout, a Table/Gallery/To Do/Done view switcher over a checklist
+  database, and a photo gallery grid below it) with everything editable,
+  freely moveable, and adjustable, then (3) apply Dream Board's exact
+  style/aesthetic to every page in the tab. Read literally, (2) and (3)
+  together point at the same solution already established twice elsewhere
+  in this app (Business Hub, AI & Tech): reuse Dream Board's drag-and-drop
+  widget-board engine wholesale for the structure/editability the
+  reference template calls for, then let Dream Board's actual dark-
+  cinematic tokens/components carry the "aesthetic" ask, rather than
+  recreating the reference photo's own light Notion palette.
+  - **Water and Bucket List are gone, not hidden.** Deleted from
+    `selfcare.html`: the `#wtrProfileCard`/`#wtrGoalCard`/`#wtrLogCard`/
+    `#wtrHistoryCard` markup and every `wtr-*` function (profile form,
+    goal ring, breakdown, quick-add, history), the `#wtrCustomModalBg`
+    modal, the `#bktModalBg`/`#bktSurpriseModalBg` modals and every
+    `bkt-*` function (grouping, filters, celebratory Mark Done, Surprise
+    Me), and both tabs' nav entries. Deleted from `selfcare-data.js`:
+    `SelfCareUnits`, `SelfCareCurrency`, `ACTIVITY_LEVELS`/`CLIMATES`/
+    `hydrationProfileModel`/`getHydrationProfile`/`saveHydrationProfile`/
+    `recommendedDailyMl`/`hydrationGoalBreakdown`, `WATER_SOURCES`/
+    `waterLogModel`/the `WaterLog` collection/`todayIntakeMl`/
+    `todayProgress`/`intakeHistory`, and `BUCKET_CATEGORIES`/
+    `BUCKET_STATUSES`/`bucketItemModel`/the `BucketList` collection/
+    `bucketItemsByStatus`/`bucketItemsByCategory`. The old Overview tab's
+    4-tile daily snapshot (which read from both of these, among others)
+    is gone along with them — Overview isn't a separate tab anymore at
+    all (see below). `selfcare:hydrationProfile`/`selfcare:waterLog`/
+    `selfcare:bucketList` were left alone in localStorage/Supabase,
+    orphaned but untouched — same treatment as every other removed-
+    feature key elsewhere in this app (the `health` row, `po_coach_weights`,
+    `ent:cards`, etc.), not something this pass was asked to clean up.
+  - **Data layer**: `selfcare-data.js` gained the same `Tabs`/`Widgets`
+    flat-collection board engine as `dreamboard-data.js`/`business-data.js`
+    — copied structurally, not reinvented: `tabModel` (`id`/`title`/
+    `order`/`hero`), `widgetModel` (`id`/`tabId`/`column`/`order`/`type`/
+    `title`/`tint`/`data`), the same 10 widget types (checklist/list/note/
+    quote/affirmation/steps/photos/calendar/feature/infocard),
+    `columnsForTab`/`reorderTab`, and the same `normalizeTabs()` hero-
+    backfill safety net Dream Board's own changelog documents needing
+    after a real crash there. One additive field beyond Dream Board's
+    shape: `tab.panel` (`''` for a freeform board, or `'journals'`/
+    `'meditations'` for a tab that instead renders this page's own
+    dedicated Journals/Meditations UI below its hero) — Journals and
+    Meditations keep their real, already-working dedicated features
+    (topic/type/duration filters, search, favorites, URL validation,
+    Markdown read view) rather than being flattened into generic widgets,
+    since neither was asked to change functionally, only visually.
+    `JournalEntries`/`Meditations` collections/models are unchanged
+    verbatim from the prior build.
+  - **Main tab ("Self-Care")** is a genuine freeform 3-column drag-and-
+    drop widget board — Dream Board's engine ported line-for-line
+    (hero eyebrow/title/subtext/CTA/cover photo-or-video, `#scPageBg`
+    page-wide blurred cover-photo backdrop, frosted-glass numbered widget
+    cards with a hover-reveal drag handle/color-grading tint popover/
+    delete, SortableJS cross-column drag-reorder, Add Widget menu, Reset
+    to Default, the same seed-race-safe cloud-sync-then-seed sequencing
+    as `dreamboard.html`/`business.html`'s own `maybeSeedAfterSyncAttempt()`)
+    — seeded to loosely mirror the reference template's structure, not a
+    pixel copy of it (same "loosely mirror, don't copy verbatim"
+    precedent `dreamboard-data.js`'s own `seedDefaultBoard()` already
+    set): a Note widget ("How To Use This Board"), an Info Card ("Bonus"),
+    a Checklist widget ("Self-Care Checklist," 16 emoji-prefixed seasonal
+    ritual items echoing the reference's own list without being a literal
+    copy — journaling, a cooking class, stargazing, candles, planting,
+    a closet audit, movie night, a vision board, a mindfulness reset, a
+    hike, mindful coloring, reading by firelight, a playlist, baking, a
+    picnic, a slow drink at home), and a Photo/Video Grid ("Cozy
+    Inspiration," empty by default, wide/2-column) — the "gallery" half
+    of the reference template's Table/Gallery/To Do/Done switcher. The
+    tab title is deliberately "Self-Care," not "Bucket List" — naming the
+    rebuilt tab after the exact feature that was just asked to be removed
+    would have read as reintroducing it under a new label.
+  - **A small, genuinely new addition to the widget engine**: Checklist-
+    type widgets (only — List/Affirmation are unaffected) gained a
+    transient, non-persisted All/To Do/Done chip row above their item
+    list (`checklistFilters`, keyed by widget id, module-scoped state,
+    same "transient UI filter, not stored data" precedent as
+    `business.html`'s Content Plan date filters) — the concrete answer to
+    the reference template's To Do/Done views, scoped to checklists
+    specifically since the Photos widget already serves as this board's
+    "Gallery" view and a literal fourth Table view wasn't built (the
+    Checklist itself already reads as the "database"). An empty filtered
+    view shows a short reassuring note ("Nothing left to do — nice.")
+    instead of a bare blank list.
+  - **Journals and Meditations** are now `panel`-mode tabs: each gets its
+    own hero (eyebrow/title/subtext/cover photo, same mechanism as the
+    board tab's hero) with the CTA scrolling to that panel's own "+ New
+    Entry"/"+ New Meditation" button instead of to a board. Below the
+    hero, both panels' actual UI/logic (topic/type/duration chip filters,
+    search, the Journal read-view modal with the Markdown-lite renderer,
+    the Meditation grid's favorite star/Open/Edit/Delete, both Add/Edit
+    modals) are carried over verbatim from the prior build — only the
+    CSS changed: `.jr-row`/`.med-card` are now real frosted glass (the
+    same `rgba(255,255,255,0.08)` + `backdrop-filter: blur(22px)
+    saturate(1.6)` recipe as the board's `.scw-card`), row/card titles
+    use the serif display font, `.chip`/`.chip.active`/`.tag`/
+    `.btn-primary`/`.modal`/`.field` were all re-graded to Dream Board's
+    gold-on-near-black palette, and the old dusty-rose/wine `--tile-
+    border`/`--pink-accent`/`--wine`/`--candle`/`--cream` tokens this
+    page carried from its earlier "match Media's boutique-gallery look"
+    re-theme (see that entry above) are gone, replaced by this file's own
+    private `--sc-*` copy of Dream Board's `--db-*` values — the same
+    "explicit aesthetic-match exception, this file's own token copy, not
+    a shared palette" category as Dream Board/Business Hub/AI & Tech
+    (CLAUDE.md §6/DO NOT MODIFY rule 2).
+  - **Sync unchanged**: `initCloudSync({ appKey: 'selfcare', syncedPrefixes:
+    ['selfcare:'] })` — same call, same appKey, same single prefix, so
+    every new `selfcare:tabs`/`selfcare:widgets` key is covered
+    automatically with no `sync.js` change and no new sync mechanism.
+  - **Verified via headless Edge, `*.supabase.co` mapped to `0.0.0.0`**
+    (`--host-resolver-rules`, armed at launch before navigation, per this
+    file's established testing convention): a `--dump-dom` pass with an
+    8-second virtual time budget (long enough to clear the 5-second seed-
+    race-safety window, which a shorter first attempt at 4 seconds missed
+    entirely — the board/tabs came back empty on that first try, which
+    was the seed-race guard correctly *not* firing yet, not a bug)
+    confirmed all three tabs render (Self-Care active by default, Journals,
+    Meditations), the seeded hero title populated, exactly the 4 seeded
+    widgets rendered with correct titles ("How To Use This Board,"
+    "Bonus," "Self-Care Checklist," "Cozy Inspiration"), and all 16
+    checklist items rendered. A follow-up attempt at live interactive
+    testing via a raw CDP-over-websocket session (the technique this
+    file's own earlier Self-Care entries — Meditations/Water/Bucket List
+    — used successfully) could not reach a remote-debugging port in this
+    session; a static cross-check was used instead, the same fallback
+    `aitech.html`'s own changelog entry already used for the same
+    limitation: every `$('id')` reference in the script was matched
+    against the HTML's actual element ids (84 referenced, all resolved,
+    none orphaned), and since several `$('id').addEventListener(...)`
+    calls run at top-level script-execution time (not inside `init()`),
+    any one of them throwing on a missing element would have aborted the
+    entire script before `init()` ever ran — the fact that tabs/board/
+    seed data all rendered correctly in the dump-dom pass is itself proof
+    the whole script executed cleanly end to end, not just the parts
+    after `init()`. A real click-through (dragging a widget, adding a
+    checklist item, toggling the To Do/Done filter, switching tabs
+    interactively) is still recommended before relying on this page
+    heavily, same disclosed-limitation caveat this file's other entries
+    already carry for this environment.
