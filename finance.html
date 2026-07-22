@@ -2,34 +2,55 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0b">
+<meta name="theme-color" content="#0b0a08">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Finances</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="finance-data.js" defer></script>
 <style>
+/* =============================================================
+   Finance — re-themed to match the app's now-standard dark cinematic
+   near-black/champagne-gold, frosted-glass-card aesthetic (Dream Board /
+   Business Hub / AI & Tech / Learning / Nutrition / Self-Care / Fitness
+   Studio). Same one-off palette-exception category as every other
+   re-themed page in this app (CLAUDE.md §6/DO NOT MODIFY rule 2) — this
+   file's own existing token *names* (--bg/--text-primary/--accent/etc.)
+   are kept and just repointed to the shared gold values, so every rule
+   that already referenced them (hundreds, across Accounts/Transactions/
+   Subscriptions/Income/Notes) cascades automatically with no further
+   edits. Structure/JS/data are untouched — colors, the cover banner, and
+   the tab row are the only things that changed. ============= */
 :root {
-  --bg: #0A0A0B;
-  --bg-deep: #050506;
-  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg: #0b0a08;
+  --bg-deep: #050403;
+  --bg-card: rgba(255, 255, 255, 0.045);
   --bg-secondary: rgba(255, 255, 255, 0.035);
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: transparent;
-  --glass-border-strong: transparent;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-border-strong: rgba(255, 255, 255, 0.30);
   --glass-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
-    0 12px 40px rgba(0, 0, 0, 0.45),
-    0 1px 2px rgba(0, 0, 0, 0.25);
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --text-quaternary: #4D4B47;
-  --border: transparent;
-  --border-soft: transparent;
-  --accent: #E07658;
+    0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+    0 14px 36px rgba(0, 0, 0, 0.35);
+  --text-primary: #f5f1e9;
+  --text-secondary: rgba(245, 241, 233, 0.68);
+  --text-tertiary: rgba(245, 241, 233, 0.44);
+  --text-quaternary: rgba(245, 241, 233, 0.30);
+  --border: rgba(201, 168, 118, 0.22);
+  --border-soft: rgba(201, 168, 118, 0.14);
+  --accent: #c9a876;
+  --accent-bright: #e8cf9f;
+  --accent-tint: rgba(201, 168, 118, 0.14);
+  --hairline: rgba(201, 168, 118, 0.22);
+  --paper-solid: #16130f;
   --success: #6BE3A4;
   --warning: #F2C063;
   --danger: #FF6B6B;
@@ -38,7 +59,7 @@
   --radius-lg: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
   color-scheme: dark;
 }
 
@@ -52,16 +73,17 @@ html, body {
   min-height: 100%;
 }
 
-/* Backdrop — black with subtle warm + cool washes */
+/* Backdrop — near-black with a champagne-gold glow, same recipe as
+   Dream Board/Business Hub/AI & Tech/Learning. */
 body::before {
   content: '';
   position: fixed;
   inset: -10%;
   z-index: -2;
   background:
-    radial-gradient(60% 45% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 55%),
-    radial-gradient(55% 45% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 55%),
-    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
   filter: blur(40px) saturate(1.05);
   pointer-events: none;
 }
@@ -70,27 +92,30 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
   background-size: 3px 3px;
-  opacity: 0.7;
+  opacity: 0.6;
   pointer-events: none;
 }
 
 .shell {
-  max-width: 880px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 16px 40px;
+  padding: 0 0 40px;
 }
+.shell-inner { padding: 0 16px; }
 
-/* ===== Back to dashboard ===== */
+/* ===== Back to dashboard — floats over the hero, same recipe as
+   Dream Board/Business Hub/AI & Tech/Learning's .*-back-btn. ===== */
 .fin-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 14px 8px 10px;
-  margin: 0 0 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(11, 10, 8, 0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--hairline);
   border-radius: 999px;
   color: var(--text-secondary);
   font-family: var(--font);
@@ -102,87 +127,96 @@ body::after {
   transition: background 0.15s ease, color 0.15s ease;
 }
 .fin-back-btn:hover, .fin-back-btn:active {
-  background: rgba(255,255,255,0.07);
+  background: rgba(11,10,8,0.8);
   color: var(--text-primary);
 }
 .fin-back-btn svg { display: block; }
 
-/* ===== Cover banner — same structure as index.html's .at-cover*
-   (itself matching gym.html's .po-cover-* / braindump.html's .bd-*):
-   sunburst emblem, italic serif title, tracked-caps subtext, outlined
-   pill CTA, radiating-line divider — recolored with this file's own
-   already-established --accent coral + near-black tokens rather than
-   importing any other page's gold/crimson palette. ===== */
-.fin-cover {
-  position: relative; width: 100%; overflow: hidden;
-  padding: 48px 24px 36px; text-align: center; border-radius: 20px;
-  margin-bottom: 22px; border: 1px solid rgba(224,118,88,0.18);
-  background:
-    radial-gradient(120% 85% at 50% -15%, rgba(224,118,88,0.28) 0%, rgba(5,5,6,0.92) 55%, transparent 100%),
-    radial-gradient(35% 30% at 85% 20%, rgba(180,180,200,0.10) 0%, transparent 65%),
-    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
+/* ===== Hero — full-bleed cinematic cover, same structure/technique as
+   Business Hub's .bh-hero / AI & Tech's .at-hero / Learning's .lh-hero:
+   an editable eyebrow/serif headline/subtext/CTA over an optional cover
+   photo, recolored with this file's own --accent (gold) rather than
+   importing another page's literal token names. ===== */
+.fin-hero {
+  position: relative; min-height: 66vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 90px 20px 40px;
 }
-.fin-cover-emblem { position: relative; width: 60px; height: 60px; margin: 0 auto 18px; }
-.fin-cover-emblem-rays {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 140px; height: 140px;
-  background: repeating-conic-gradient(rgba(224,118,88,0.5) 0deg 0.7deg, transparent 0.7deg 15deg);
-  border-radius: 50%; opacity: 0.85;
+.fin-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--paper-solid); }
+.fin-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.fin-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
 }
-.fin-cover-emblem-circle {
-  position: absolute; inset: 0; border: 1px solid var(--accent); border-radius: 50%;
-  background: #050506; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-serif); font-style: italic; font-size: 20px; color: var(--accent);
+.fin-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.4); border: 1px dashed var(--hairline); color: var(--text-tertiary);
+  border-radius: 999px; padding: 9px 18px; font-size: 12px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; font-family: inherit;
 }
-.fin-cover-title {
-  position: relative; z-index: 1; font-family: var(--font-serif); font-style: italic; font-weight: 400;
-  font-size: clamp(30px, 7vw, 46px); color: var(--text-primary); letter-spacing: -0.01em;
-  text-shadow: 0 2px 28px rgba(0,0,0,0.6);
+.fin-hero-photo-choice-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.fin-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.55) 0%, rgba(5,4,3,0.15) 32%, rgba(5,4,3,0.35) 62%, rgba(5,4,3,0.92) 100%);
 }
-.fin-cover-subtext {
-  position: relative; z-index: 1; margin-top: 14px; font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); line-height: 2.1;
+.fin-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5;
+  display: flex; gap: 6px;
 }
-.fin-cover-cta {
-  position: relative; z-index: 1; display: inline-flex; align-items: center;
-  margin-top: 18px; padding: 11px 26px; border: 1px solid rgba(224,118,88,0.35); border-radius: 999px;
-  background: transparent; color: var(--accent); font-family: inherit; font-size: 11px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, border-color 0.15s;
+.fin-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); border: 1px solid var(--hairline);
+  color: var(--text-secondary); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer; font-family: inherit;
 }
-.fin-cover-cta:hover { background: rgba(224,118,88,0.10); border-color: var(--accent); }
-@media (max-width: 480px) { .fin-cover { padding: 38px 16px 28px; } }
+.fin-hero-photo-tools button:hover { color: var(--accent-bright); border-color: var(--accent); }
+.fin-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.fin-hero-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent-bright); margin-bottom: 14px; outline-offset: 4px;
+}
+.fin-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--accent); margin-right: 10px; vertical-align: middle; }
+.fin-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-weight: 500; color: var(--text-primary);
+  font-size: clamp(32px, 7vw, 52px); line-height: 1.08; letter-spacing: -0.01em;
+  padding: 0; margin-bottom: 14px; text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+.fin-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.fin-hero-subtext {
+  font-size: 14px; line-height: 1.6; color: var(--text-secondary); max-width: 440px; margin-bottom: 24px;
+  outline-offset: 4px;
+}
+.fin-hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline); border-radius: 999px;
+  padding: 13px 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.fin-hero-cta:hover { border-color: var(--accent); background: rgba(201,168,118,0.10); }
+.fin-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-primary); }
+.fin-hero-cta-arrow { color: var(--accent-bright); font-size: 13px; }
+@media (max-width: 620px) { .fin-hero { min-height: 72vh; padding: 84px 16px 32px; } }
 
-.fin-section-divider {
-  width: 100%; height: 28px; margin: 4px 0 18px;
-  background: repeating-conic-gradient(rgba(224,118,88,0.35) 0deg 0.5deg, transparent 0.5deg 12deg);
-  -webkit-mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  mask: radial-gradient(circle at 50% 0%, #000 0%, #000 2%, transparent 2.4%);
-  opacity: 0.7;
-}
-
-/* ===== Section nav — top underline tabs, matching index.html's (Main
-   tab) .at-subnav/.at-tab pattern: text + colored underline for the
-   active tab, no icons/pill background, sitting above the content. ===== */
+/* ===== Section nav — gold pill tabs, same recipe as Business Hub's
+   .bh-tabs/.bh-tab. ===== */
 .fin-subnav {
   margin-bottom: 22px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 20px 0 14px;
+  border-bottom: 1px solid var(--hairline);
 }
-.fin-tabs { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; }
+.fin-tabs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .fin-tab {
-  background: none; border: none; padding: 6px 0; margin-bottom: 8px;
-  font-family: inherit; font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--hairline); border-radius: 999px;
+  padding: 8px 14px; margin-bottom: 0;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em;
   color: var(--text-tertiary); cursor: pointer; position: relative;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .fin-tab:hover { color: var(--text-secondary); }
-.fin-tab.active { color: var(--accent); }
-.fin-tab.active::after {
-  content: '';
-  position: absolute; left: 0; right: 0; bottom: -9px; height: 2px;
-  background: var(--accent);
-}
+.fin-tab.active { background: var(--accent-tint); color: var(--accent-bright); border-color: var(--accent); }
 
 /* Sections: hide non-active */
 .section[hidden] { display: none !important; }
@@ -232,8 +266,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   margin-bottom: 10px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
   box-shadow: var(--glass-shadow);
   position: relative;
   overflow: hidden;
@@ -278,48 +312,51 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   font-family: var(--font-mono);
 }
 
-/* ===== Buttons — shared pattern, copied from projects.html/entertainment.html ===== */
+/* ===== Buttons — gold gradient primary, same recipe as Business Hub's
+   .bh-btn-primary/.bh-btn-secondary. ===== */
 .btn-primary {
   padding: 11px 20px;
-  border: 1px solid rgba(255,255,255,0.85);
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  color: #24190c; border-radius: 12px;
   font-family: inherit; font-size: 13.5px; font-weight: 700;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(0,0,0,0.40);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 14px rgba(0,0,0,0.40);
   -webkit-tap-highlight-color: transparent;
 }
-.btn-primary:hover { transform: translateY(-1px); }
-.btn-primary:active { transform: translateY(0) scale(0.98); }
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:active { transform: scale(0.98); }
 .btn-secondary {
   padding: 10px 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary); border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-card);
+  color: var(--text-secondary); border-radius: 12px;
   font-family: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.btn-secondary:hover { color: var(--accent-bright); border-color: var(--accent); }
 
-/* ===== Modal — shared pattern, copied from projects.html/entertainment.html.
+/* ===== Modal — frosted glass, same recipe as Business Hub's .modal.
    topbar.js's MODAL_SELECTORS already includes `.modal-bg` generically, so
    mobile fullscreen + body-scroll-lock apply here with no topbar.js changes. ===== */
 .modal-bg {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  background: rgba(5,4,3,0.65); backdrop-filter: blur(6px);
   z-index: 300; align-items: center; justify-content: center;
   padding: 24px;
 }
 .modal-bg.show { display: flex; }
 .modal {
   width: 100%; max-width: 440px;
-  background: #111113;
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(20, 17, 13, 0.82);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: 16px;
   padding: 22px; max-height: 88vh; overflow-y: auto;
 }
-.modal h3 { margin: 0 0 16px; font-size: 17px; font-weight: 700; }
+.modal h3 { margin: 0 0 16px; font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--text-primary); }
 .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
 .modal-actions button { flex: 1; }
 .delete-link {
@@ -328,21 +365,21 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   text-decoration: underline; padding: 6px;
 }
 
-/* ===== Form fields — shared pattern, copied from projects.html ===== */
+/* ===== Form fields — same recipe as Business Hub's .field. ===== */
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .field > label {
   font-size: 10.5px; color: var(--text-tertiary); font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase;
 }
 .field input[type="text"], .field input[type="number"], .field select {
-  padding: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  padding: 12px; border: 1px solid var(--hairline);
+  background: rgba(255,255,255,0.04); color: var(--text-primary);
   border-radius: 10px; font-family: inherit; font-size: 14px;
   width: 100%;
 }
 .field input:focus, .field select:focus {
-  outline: none; border-color: rgba(255,255,255,0.40);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
@@ -576,25 +613,40 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 <body>
 <div class="shell">
 
-<!-- ===== BACK BUTTON ===== -->
-<a href="index.html" class="fin-back-btn" aria-label="Back to dashboard">
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-  <span>Back</span>
-</a>
-
-<!-- ===== COVER BANNER — same structure as Main/Fitness Studio/Brain Dump ===== -->
-<div class="fin-cover">
-  <div class="fin-cover-emblem">
-    <div class="fin-cover-emblem-rays"></div>
-    <div class="fin-cover-emblem-circle">F</div>
+<!-- ===== HERO — full-bleed cinematic cover, same structure as Business
+     Hub/AI & Tech/Learning's own hero: editable eyebrow/title/subtext/CTA
+     over an optional cover photo. ===== -->
+<div class="fin-hero" id="finHero">
+  <div class="fin-hero-media" id="finHeroMedia">
+    <img id="finHeroPhotoImg" style="display:none;" alt="">
+    <div class="fin-hero-photo-choice" id="finHeroPhotoChoice">
+      <button type="button" class="fin-hero-photo-choice-btn" id="finHeroAddPhotoBtn">+ Add a cover photo</button>
+    </div>
   </div>
-  <div class="fin-cover-title">Finance</div>
-  <div class="fin-cover-subtext">Clarity<br>Control<br>Growth</div>
-  <button class="fin-cover-cta" type="button" id="finCoverCtaBtn">Log a Transaction</button>
+  <div class="fin-hero-overlay"></div>
+  <a href="index.html" class="fin-back-btn" aria-label="Back to dashboard">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    <span>Back</span>
+  </a>
+  <div class="fin-hero-photo-tools" id="finHeroPhotoTools" style="display:none;">
+    <button type="button" id="finHeroPhotoChangeBtn">Change</button>
+    <button type="button" id="finHeroPhotoRemoveBtn">Remove</button>
+  </div>
+  <input type="file" id="finHeroPhotoInput" accept="image/*" style="display:none;">
+  <div class="fin-hero-content">
+    <div class="fin-hero-eyebrow" id="finHeroEyebrow" contenteditable="true"></div>
+    <textarea class="fin-hero-title" id="finHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+    <div class="fin-hero-subtext" id="finHeroSubtext" contenteditable="true"></div>
+    <button type="button" class="fin-hero-cta" id="finCoverCtaBtn">
+      <span class="fin-hero-cta-label" id="finHeroCtaLabel" contenteditable="true"></span>
+      <span class="fin-hero-cta-arrow" aria-hidden="true">↗</span>
+    </button>
+  </div>
 </div>
-<div class="fin-section-divider" aria-hidden="true"></div>
 
-<!-- ===== SECTION NAV — top underline tabs, matching index.html's (Main tab) sub-nav ===== -->
+<div class="shell-inner">
+
+<!-- ===== SECTION NAV — gold pill tabs, matching Business Hub's tab row ===== -->
 <div class="fin-subnav">
   <div class="fin-tabs" id="finTabs">
     <button type="button" class="fin-tab active" data-tab="overview">Overview</button>
@@ -853,7 +905,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div class="empty-state" id="noteEmpty">No notes yet — add your first section</div>
 </div>
 
-</div>
+</div><!-- /.shell-inner -->
+
+</div><!-- /.shell -->
 
 <!-- ===== ACCOUNT MODAL — create / edit ===== -->
 <div class="modal-bg" id="acctModalBg">
@@ -1161,10 +1215,99 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   const initialTab = tabFromHash() || (VALID_TABS.indexOf(savedTab) !== -1 ? savedTab : 'overview');
   setActiveTab(initialTab, { skipScroll: true });
 
-  // Cover banner CTA — reuses this same hash router, no new navigation mechanism.
+  // Hero CTA — reuses this same hash router, no new navigation mechanism.
   const coverCta = document.getElementById('finCoverCtaBtn');
   if (coverCta) coverCta.addEventListener('click', function () { setActiveTab('transactions'); });
 })();
+</script>
+
+<script>
+// ============================================================
+// HERO — editable eyebrow/title/subtext/CTA + cover photo, same
+// shape/behavior as Business Hub's/AI & Tech's/Learning's own hero.
+// Backed by FinanceData.getHero/saveHero (finance-data.js), so it
+// waits for DOMContentLoaded like the Accounts/Transactions/etc.
+// blocks below already do.
+// ============================================================
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof FinanceData === 'undefined') return;
+  var FD = FinanceData;
+  function $(id) { return document.getElementById(id); }
+
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // One-time default copy for a never-customized hero — not gated behind
+  // financev2:seeded (that flag only covers Accounts/Transactions/etc.),
+  // and deliberately not deferred behind a cloud-sync-wait window like
+  // this app's real per-tab seed boards are: this is trivial cover-banner
+  // copy, not user data, so a rare cross-device race just means two
+  // devices briefly show slightly different placeholder text, never data
+  // loss — proportionate caution for what's actually at stake here.
+  function ensureHeroDefaults() {
+    const hero = FD.getHero();
+    if (hero.eyebrow || hero.title || hero.subtext) return;
+    FD.saveHero({
+      eyebrow: 'MONEY, CLEARLY',
+      title: 'Clarity.\nControl. Growth.',
+      subtext: 'Accounts, transactions, budgets, and bills — all in one place.',
+      ctaLabel: 'LOG A TRANSACTION'
+    });
+  }
+
+  function renderHero() {
+    const hero = FD.getHero();
+    $('finHeroEyebrow').textContent = hero.eyebrow;
+    $('finHeroTitle').value = hero.title;
+    $('finHeroSubtext').textContent = hero.subtext;
+    $('finHeroCtaLabel').textContent = hero.ctaLabel || 'LOG A TRANSACTION';
+    autosize($('finHeroTitle'));
+    const img = $('finHeroPhotoImg'), choice = $('finHeroPhotoChoice'), tools = $('finHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+  }
+  function openHeroFilePicker() { $('finHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      FD.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        FD.saveHero({ photo: compressed });
+        renderHero();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  ensureHeroDefaults();
+  renderHero();
+
+  wireInlineEdit($('finHeroEyebrow'), function (v) { FD.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+  wireInlineEdit($('finHeroSubtext'), function (v) { FD.saveHero({ subtext: v }); }, { allowEmpty: true });
+  wireInlineEdit($('finHeroCtaLabel'), function (v) { FD.saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+  $('finHeroTitle').addEventListener('input', function () { autosize($('finHeroTitle')); });
+  $('finHeroTitle').addEventListener('blur', function () { FD.saveHero({ title: $('finHeroTitle').value }); });
+  $('finHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+  $('finHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+  $('finHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); FD.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+  $('finHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+});
 </script>
 
 <script>

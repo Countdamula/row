@@ -39,11 +39,59 @@
     incomeSources: 'financev2:incomeSources',
     notes: 'financev2:notes',
     seeded: 'financev2:seeded',
-    migratedCurrencyUsd: 'financev2:migratedCurrencyUsd'
+    migratedCurrencyUsd: 'financev2:migratedCurrencyUsd',
+    // Deliberately under the already-synced `finance:` prefix (see
+    // finance.html's initCloudSync syncedPrefixes), NOT `financev2:` —
+    // the hero banner is cosmetic page chrome, not test-sensitive
+    // Accounts/Transactions/etc. data, so there's no reason to hold it
+    // back from sync the way financev2:* currently is.
+    hero: 'finance:hero'
   };
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ============================================================
+  // HERO — single editable cover-banner record, same shape/behavior as
+  // aitech-data.js's/business-data.js's own hero record: this page has
+  // no tabs, so there's just one instance.
+  // ============================================================
+  function heroModel(data) {
+    data = data || {};
+    return {
+      eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
+      title: typeof data.title === 'string' ? data.title : '',
+      subtext: typeof data.subtext === 'string' ? data.subtext : '',
+      ctaLabel: typeof data.ctaLabel === 'string' ? data.ctaLabel : '',
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : ''
+    };
+  }
+  function getHero() { return heroModel(storeGet(KEYS.hero)); }
+  function saveHero(patch) { const next = heroModel(Object.assign({}, getHero(), patch)); storeSet(KEYS.hero, next); return next; }
+
+  // Same canvas-downscale recipe used for cover/hero photos throughout
+  // this app (entertainment.html/business.html/aitech.html/etc.).
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 480;
+    quality = quality == null ? 0.82 : quality;
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
   }
 
   // ============================================================
@@ -439,6 +487,9 @@
   global.FinanceData = {
     KEYS: KEYS,
     Currency: FinanceCurrency,
+    getHero: getHero,
+    saveHero: saveHero,
+    compressImageDataUrl: compressImageDataUrl,
     Models: {
       account: accountModel,
       transaction: transactionModel,
