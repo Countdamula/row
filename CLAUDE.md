@@ -5552,3 +5552,58 @@ between this app and either data loss or a wide-open write target:
     other pages' changelog entries in this file already note); a real
     click-through of those specific paths is recommended before relying
     on this feature heavily.
+
+- **Fitness Studio (`gym.html`) follow-up: replaced the old compact
+  `.po-cover` banner with a full-bleed cinematic hero ported line-for-
+  line from Dream Board's own hero/page-backdrop, and restyled the tab
+  row to Dream Board's individual pill-tab look** — per an explicit
+  "match the exact aesthetic" follow-up, since the previous pass's small
+  centered cover banner (sunburst emblem, ~340px tall) was the single
+  biggest structural difference left from Dream Board's actual ~78vh
+  full-bleed hero. This is a same-session supersession of this file's
+  own hero markup (the sunburst-emblem `.po-cover*` CSS/HTML was deleted
+  outright, not kept as dead code — the same precedent this file's own
+  Timer modal→panel conversion already established), not a second
+  parallel banner.
+  - **New hero** (`.gh-hero`, `gh-` prefix to avoid colliding with
+    anything else in this file): editable eyebrow/headline/subtext/CTA
+    (the exact same `wireInlineEditGw`/`autosizeGw` helpers this file's
+    Overview board already added, reused rather than duplicated), a
+    click-to-upload cover photo with Change/Remove tools, and a Back
+    button + "scroll to explore" flourish — structurally identical to
+    Dream Board's `.db-hero`. **Deliberately narrower in one way**: image
+    only, no video cover — this page has no session-video-blob
+    infrastructure (the "re-attach after reload" flow a video cover
+    needs), and adding it purely for aesthetic parity wasn't worth the
+    scope. New state fields, `state.hero = {eyebrow, title, subtext,
+    ctaLabel, photo}`, defaulted once in `normalize()` (guarded by
+    `hero === null`, so a pre-existing user's own edits are never
+    overwritten by a later normalize() run) and — like every other field
+    on this object — automatically covered by this file's existing
+    whole-object Supabase sync, no `sync.js`/key-list change needed.
+  - **Page-wide blurred cover-photo backdrop** (`#ghPageBg`, same
+    `blur(60px) saturate(1.35) brightness(0.55)` recipe as Dream Board's
+    `#dbPageBg`) sits behind the entire page, not just the hero, so the
+    Overview board's frosted-glass cards have something with color/
+    texture to actually read as glass — same reasoning as Dream Board's
+    own version.
+  - **Tab row restyled**: `.po-tabs` went from a full-width segmented
+    control (`flex:1` equal-width tabs, gold-gradient-filled active
+    state) to Dream Board's `.db-tabs` look — individual pill buttons
+    sized to their own content, a gold hairline border on every pill,
+    and a `var(--gold-tint)` fill + gold border on the active one,
+    sitting under a bottom hairline instead of its own bordered box.
+    This Week/Templates/Equipment/Timer's `data-panel`/click wiring is
+    completely unchanged, only the CSS moved.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP jomlmvslzsmmzgjnqvbm.supabase.co
+    0.0.0.0"`, armed before navigation): a `--dump-dom` + stderr capture
+    pass showed zero JS errors and no new duplicate DOM ids beyond the
+    same two pre-existing ones already noted in the entry above; full-
+    page screenshots confirmed the hero now visually matches Dream
+    Board's structure and proportions (eyebrow, italic serif headline,
+    subtext, frosted CTA pill, back button, scroll hint, empty-state
+    "+ Add a cover photo") and the tab row renders as individual gold-
+    outlined pills with Overview correctly active by default; the
+    Overview board, This Week grid, and every other pre-existing section
+    below the hero were confirmed still rendering with no content lost.
