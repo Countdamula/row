@@ -5968,3 +5968,49 @@ between this app and either data loss or a wide-open write target:
     above to confirm zero regressions — both still render all 5 tabs, 7
     day chips, and the seeded exercise card with no banner shown (since
     nothing failed for them).
+
+- **The actual root cause, found via the new error banner above**: the
+  user hit it for real on their own actual saved data and copied the
+  exact error — `ReferenceError: Cannot access 'BOARD_WIDGET_TYPES'
+  before initialization`, thrown from `normalizeBoardWidget()`, called
+  from `normalize()`, called from `loadState()` at boot. **Fixed for
+  real this time, not another guess.**
+  - **Cause**: `const BOARD_WIDGET_TYPES`/`BOARD_WIDGET_TYPE_LABELS`/
+    `BOARD_MONTH_NAMES` were declared down in the "OVERVIEW BOARD"
+    section, physically *after* `loadState()`/`normalize()` in the file
+    — but `normalize()` runs at boot, near the *top* of this script's
+    execution, well before the script's execution pointer ever reaches
+    that later `const` declaration line. A `const`/`let` binding is in
+    the "temporal dead zone" from the top of its scope until its own
+    declaration line actually executes — reading it before that point
+    throws a `ReferenceError`, even though the *function* that reads it
+    (`normalizeBoardWidget`) is hoisted and callable earlier. This is
+    exactly the class of bug the previous entry's new error-banner
+    mechanism exists to catch — and it worked on the first real report,
+    surfacing the precise error instead of another silent freeze.
+  - This was a pre-existing bug in the Overview-board rebuild itself
+    (see that changelog entry higher up) — it just happened to never
+    fire during that work's own testing, because every seed/test
+    scenario used there already had `boardSeeded: true` in a shape that
+    didn't specifically exercise this exact code path the same way the
+    user's real saved data did. It was *not* introduced or worsened by
+    either of the two preceding fix attempts in this section.
+  - **Fix**: moved all three `const` declarations up to the very top of
+    this script's IIFE, alongside `WEEKDAY_KEYS`/`WEEKDAY_LABELS`/
+    `WEEKDAY_ORDER` — well before `loadState()` is ever called — and
+    removed the old, now-duplicate declarations from their original
+    spot (leaving a comment pointing to the new location, since that
+    section's own surrounding comments still describe the Overview
+    board feature). No other identifier referenced inside `normalize()`/
+    `normalizeRoutine()`/`normalizeExercise()`/`normalizeEquipment()`/
+    `normalizeBoardWidget()` has this same ordering problem — checked
+    each one specifically; `CONFIG` (also read during a fresh-install
+    normalize()) is declared at the very top of the file, outside and
+    before this script's IIFE entirely, so it was never at risk.
+  - **Verified**: re-ran the same headless Edge test as the entry above
+    (fresh profile, Supabase blocked) — zero JS errors, no error banner
+    rendered, all 5 tabs/7 day chips/the seeded exercise card present.
+    The error-banner mechanism from the previous entry stays in place
+    as a permanent safety net for any *other* real-data shape this
+    file's `normalize()` hasn't anticipated — this fix only addresses
+    the one specific cause the user's own copied error identified.
