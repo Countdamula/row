@@ -6225,3 +6225,70 @@ between this app and either data loss or a wide-open write target:
     breaks it (`window.LearningData` stays `undefined`, `init()` bails
     immediately), which read at first as a mysterious "0 buttons found"
     result rather than the file-resolution problem it actually was.
+
+- **Learning & Knowledge Hub (`learning.html`) bugfix: touch scrolling on
+  the Topics/Resources card grids was accidentally reordering cards.**
+  Reported as "I accidentally keep moving them when I scroll on my
+  phone." Root cause: both `Sortable(...)` instances (the Topics gallery
+  and every per-type Resources grid) were configured with only `handle:
+  '.lh-drag-handle'` and no touch-specific tuning — on a touchscreen,
+  SortableJS can start tracking a drag the instant a touch lands on the
+  handle and moves at all, with no distinction between "the user meant to
+  drag this card" and "the user's thumb happened to land on the handle
+  while starting an ordinary scroll swipe" (the ⋮⋮ handle sits in the
+  card's top corner, exactly where a scrolling thumb often lands first).
+  Purely additive — no feature, button, or drag capability was removed;
+  cards are still fully reorderable by drag, just no longer by accident.
+  - **`delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6`** added
+    to both `Sortable(...)` calls (`wireTopicSortable()`'s
+    `$('lhTopicGrid')` instance and `renderResources()`'s per-type-group
+    `.lh-resource-grid` instances) — SortableJS's own documented mechanism
+    for exactly this ambiguity: on touch input only (`delayOnTouchOnly`,
+    so mouse/desktop drag is unaffected and still starts immediately), a
+    touch on the handle must be held for 150ms without moving more than 6
+    logical pixels before it's treated as a drag; a quick scroll swipe
+    starting on the handle is recognized as a scroll and cancels the
+    pending drag instead of hijacking it.
+  - **`.lh-card` gained `touch-action: pan-y`** (previously unset, so it
+    fell back to the browser default of `auto`, which is supposed to
+    allow normal scrolling but leaves more room for a touch-and-drag
+    library to contest the gesture) — explicitly tells the browser "a
+    touch anywhere on this card should be treated as a vertical scroll
+    gesture," reinforcing the delay fix above rather than replacing it.
+    **`.lh-drag-handle` gained `touch-action: none`** — the handle
+    itself is the one place a touch is allowed to be claimed for
+    dragging instead of scrolling, matching `handle: '.lh-drag-handle'`
+    already restricting where a drag can be picked up from.
+  - **`.modal` gained `-webkit-overflow-scrolling: touch` and
+    `overscroll-behavior: contain`** — addresses the second half of the
+    report ("make it easier to scroll down each page," referring to a
+    Resource's own detail "page"/modal, per this app's established
+    vocabulary for these generated-section modals): the first is the
+    standard iOS Safari flag for smooth momentum/inertial scrolling
+    inside a fixed-height `overflow-y: auto` container (already present
+    on modern engines by default in most cases, but explicit here for
+    older WebKit); the second stops a scroll that reaches the top/bottom
+    of the modal's content from "leaking" through to scroll the page
+    underneath it, which otherwise reads as the page jerking/jumping
+    once the modal's own scroll runs out — a source of exactly the kind
+    of "things move when I'm just trying to scroll" feeling being
+    reported, even though nothing there was drag-related.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP *.supabase.co 0.0.0.0"`, armed before
+    navigation, per [[feedback_block_supabase_before_browser_testing]]):
+    confirmed zero JS errors after the change (a scratch copy kept in
+    the real project directory so `learning-data.js`/`sync.js`/
+    `topbar.js` resolve, per the file-resolution lesson from the entry
+    above, deleted after testing), confirmed all 30 cards (11 seeded
+    topics + 19 seeded resources) and their drag handles still render
+    correctly with the new Sortable options accepted without throwing,
+    and confirmed a 390×844 mobile-viewport screenshot shows no layout
+    regression. Actual touch-drag timing (does a 150ms-held press still
+    pick a card up, does a quick swipe now correctly scroll instead)
+    could not be exercised directly — this environment's headless Edge
+    has no way to simulate a real multi-touch gesture with hold-then-move
+    timing, only synthetic `MouseEvent`/`click()` calls — so this fix
+    rests on SortableJS's own documented behavior for these options
+    (widely used elsewhere for exactly this complaint) rather than a
+    reproduced-and-fixed touch trace; a real phone test is the only way
+    to fully confirm the feel of it.

@@ -207,6 +207,12 @@ body::after {
   padding: 14px 14px 16px;
   box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
   display: flex; flex-direction: column;
+  /* Let a touch anywhere on the card pan/scroll the page vertically by
+     default — only the drag handle below opts out of that, via
+     touch-action: none, so a scroll swipe never gets mistaken for
+     picking the card up (paired with Sortable's delayOnTouchOnly so a
+     deliberate press-and-hold on the handle is what starts a drag). */
+  touch-action: pan-y;
 }
 .lh-card-ghost { opacity: 0.4; border: 1px dashed var(--lh-gold); background: rgba(201,168,118,0.12); }
 .sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -214,7 +220,7 @@ body::after {
 .lh-card-index { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--lh-gold); }
 .lh-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
 .lh-card:hover .lh-card-hover-actions, .lh-card:focus-within .lh-card-hover-actions { opacity: 1; }
-.lh-drag-handle { flex-shrink: 0; cursor: grab; color: var(--lh-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.lh-drag-handle { flex-shrink: 0; cursor: grab; color: var(--lh-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; touch-action: none; }
 .lh-drag-handle:active { cursor: grabbing; }
 .lh-card-edit, .lh-card-del, .lh-card-fav { background: transparent; border: none; color: var(--lh-text-mute); font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .lh-card-edit:hover { color: var(--lh-gold-bright); background: var(--lh-accent-tint); }
@@ -271,7 +277,7 @@ body::after {
 /* ===== Modals ===== */
 .modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
 .modal-bg.show { display: flex; }
-.modal { background: rgba(22, 19, 15, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.modal { background: rgba(22, 19, 15, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .modal.lh-modal-wide { max-width: 620px; }
 .lh-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .lh-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--lh-text); }
@@ -660,6 +666,7 @@ body::after {
     const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     topicSortable = new Sortable($('lhTopicGrid'), {
       animation: reduced ? 0 : 150, handle: '.lh-drag-handle', ghostClass: 'lh-card-ghost',
+      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
       onEnd: function () {
         const ids = Array.from($('lhTopicGrid').children).map(function (el) { return el.dataset.topicId; }).filter(Boolean);
         DB.reorderTopics(ids); renderTopics();
@@ -890,6 +897,7 @@ body::after {
       container.querySelectorAll('.lh-resource-grid').forEach(function (grid) {
         resourceSortables.push(new Sortable(grid, {
           animation: reduced ? 0 : 150, handle: '.lh-drag-handle', ghostClass: 'lh-card-ghost',
+          delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
           onEnd: function () {
             const ids = Array.from(grid.children).map(function (el) { return el.dataset.resourceId; }).filter(Boolean);
             DB.reorderResources(ids); renderResources();
