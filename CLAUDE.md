@@ -5887,3 +5887,84 @@ between this app and either data loss or a wide-open write target:
     seeded exercise card still renders correctly under Current Week, and
     a 390×844 mobile screenshot confirms the hero is back to its larger
     original proportions with no layout breakage below it.
+
+- **Fitness Studio (`gym.html`): the "won't let me click on anything / no
+  exercise info from earlier" report was still happening after the cache
+  mitigation above — turned out irrelevant, since the user opens this page
+  via `file:///.../gym.html` directly (a local file, not the Vercel
+  deploy), so there's no CDN/server cache in the picture at all. Root-
+  caused correctly this time and fixed with real error resilience, not
+  another guess.**
+  - **Why the symptom fits an uncaught exception exactly**: `let state =
+    loadState();` (which calls `normalize()` on whatever's actually in
+    this device's real `po_coach_v1`) sits near the very top of this
+    file's one big top-level IIFE — and essentially *every* button/tab/
+    card click handler in this file is wired by a top-level
+    `$('id').addEventListener(...)` call further down in the same
+    script. In JavaScript, an uncaught throw during a script's
+    synchronous top-level execution aborts everything after that line in
+    the same scope — so if `loadState()` throws on this device's actual
+    saved data (any shape `normalize()`'s existing per-field guards don't
+    anticipate — this file has been through a *lot* of schema changes
+    across its own changelog), literally none of the click handlers below
+    it would ever get registered, and `renderAll()` (which paints the
+    banner photo and the exercise cards) would never run either — while
+    the static HTML/CSS (hero, tab bar, empty banner box) still renders
+    fine, since that part needs no JS. That's "looks normal, nothing
+    responds, no exercise info, no banner photo" exactly, with zero
+    visible clue why, since nothing was ever shown on screen and nothing
+    reached the console via a path this file was checking.
+  - This was verified as the *specific* right shape of bug (not just a
+    plausible-sounding theory) by deliberately seeding a corrupted
+    `po_coach_v1` (a `null` entry inside `boardWidgets`, which
+    `normalizeBoardWidget()` would throw on trying to read `w.id` off)
+    into a scratch copy and confirming: before this fix, the page loaded
+    with a normal-looking hero/tabs/empty banner and zero interactivity
+    or exercise data — the exact reported symptom, reproduced on demand.
+    Extensive earlier testing (a fresh profile, and a hand-built
+    "realistic legacy" `po_coach_v1` predating every recent field) had
+    found no error, which is consistent with this: it takes a *specific*
+    kind of real-world data shape to trip it, not just "any old data,"
+    so those clean runs didn't rule this bug class out.
+  - **Fix, in two parts**:
+    1. `showBootErrorBanner(err, context)` (new) — renders a fixed,
+       high-contrast banner across the top of the page with the actual
+       error message + stack and a "Copy error details" button, instead
+       of the page silently doing nothing. Purely diagnostic — it never
+       touches `localStorage`, so real data can't be put at further risk
+       by showing it.
+    2. `let state = loadState();` is now wrapped in try/catch — on
+       failure it shows the banner and `return`s out of the whole IIFE
+       immediately, deliberately *not* falling back to a fresh default
+       state and continuing, since that would let the app run normally
+       right up until the next `saveState()` call (e.g. checking off a
+       set) silently overwrote the real, still-intact `po_coach_v1` with
+       a blank slate — turning a recoverable "won't load" into actual
+       data loss. Failing loud and inert, with real data untouched and
+       the exact error visible, was judged the safer trade.
+    3. `renderAll()`'s body was split into individually try/catch-wrapped
+       calls via a new `safeRender(fn, label)` helper, so a throw in any
+       *one* sub-render (e.g. the overview board) can no longer prevent
+       the others (e.g. the exercise cards, or the banner) from
+       rendering — every render call in `renderAll()` now runs
+       independently and reports its own label if it fails, instead of
+       the whole pass silently stopping at the first failure the way it
+       always has (this wasn't specific to the recent rebuilds — it was
+       true of `renderAll()` since it was first written, just never
+       triggered visibly until now).
+  - **Deliberately not attempted**: guessing at and patching whatever the
+    *actual* malformed field in the real `po_coach_v1` turns out to be —
+    without the real error text (which this fix now surfaces), further
+    edits to `normalize()` would be another blind guess, the same mistake
+    as the cache-mitigation entry above. The next step is reading back
+    whatever the banner's "Copy error details" button produces.
+  - **Verified** via a headless Edge pass with a corrupted `po_coach_v1`
+    seeded in (Supabase blocked, per
+    [[feedback_block_supabase_before_browser_testing]]): confirmed the
+    banner text renders on screen, confirmed `window.onerror` recorded
+    zero *uncaught* errors (the throw is now caught internally, as
+    intended, rather than propagating), and re-ran the existing fresh-
+    profile and realistic-legacy-data test cases from the two entries
+    above to confirm zero regressions — both still render all 5 tabs, 7
+    day chips, and the seeded exercise card with no banner shown (since
+    nothing failed for them).
