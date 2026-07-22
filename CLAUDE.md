@@ -5831,3 +5831,59 @@ between this app and either data loss or a wide-open write target:
     dump-dom + stderr check used in every prior entry in this section —
     zero JS errors, confirming this was a pure CSS change with no
     functional side effects.
+
+- **Fitness Studio (`gym.html`): hero size reverted back to the original
+  ~78vh/84vh per an explicit request, and a stale-cache mitigation added
+  after a report that the tab "won't let me click on any buttons or see
+  any exercise info from earlier."** Two independent changes:
+  - **Hero height**: `.gh-hero`'s `min-height` reverted from the
+    `clamp(220px, 34vh, 360px)`/`clamp(200px, 40vh, 320px)` mobile-safe
+    sizing (the entry immediately above) back to the original `78vh`/
+    `84vh`, with padding restored to match — a straight revert of that
+    entry's CSS, nothing else. This knowingly reintroduces the exact
+    near-full-viewport hero that entry's own testing flagged as reading
+    "blank" on a phone with no cover photo set; the user asked for the
+    size back explicitly, so this is honored as instructed rather than
+    second-guessed.
+  - **Click/render investigation**: extensively tested for an actual JS
+    bug via headless Edge (Supabase blocked at the network layer, per
+    [[feedback_block_supabase_before_browser_testing]]) using an
+    instrumented scratch copy with a `window.onerror`/
+    `unhandledrejection` capture and a post-load DOM inspection —
+    against both a fresh/empty profile and a seeded **realistic legacy
+    `po_coach_v1` shape** (routines/schedule/logs/currentRoutineId/
+    currentEx, deliberately missing every field added by the recent
+    Overview-board/hero/favorite/tab-architecture rebuilds — exactly
+    what a real pre-rebuild device would have). Both scenarios rendered
+    correctly with zero JS errors: `normalize()`'s existing per-field
+    backfills (`boardWidgets`/`boardSeeded`/`boardBanner`/`hero`/
+    `routine.favorite`/the schedule-shape migration) all handled the
+    missing-field case correctly, current week's exercise cards
+    (`weekExGrid`) populated with the seeded routine's real exercises in
+    both runs, and all 7 day chips / 5 tabs rendered. No reproducible
+    code-level cause was found.
+  - **Given that**, the most likely remaining explanation — and the same
+    root cause this exact codebase has already hit and fixed twice
+    before, for `business.html`'s own "still not showing up" reports
+    (see its two changelog entries on the subject) — is browser/CDN
+    caching of a stale document: this app has no build step and no
+    server-side cache-control (no `vercel.json`, confirmed — see
+    CLAUDE.md §1), so a previously-fetched, now-outdated copy of
+    `gym.html` (e.g. from mid-deploy, before this file's own recent
+    hotfixes landed) can keep being served with no signal to refetch.
+    Added the same `<meta http-equiv="Cache-Control/Pragma/Expires">`
+    "no-cache" tags `business.html` already carries. Disclosed honestly,
+    same caveat as that precedent: a meta tag only influences how the
+    *browser* re-requests the document on a later visit — it cannot
+    reach back and instruct a CDN edge cache that already served a stale
+    response before the tag was ever parsed, so this is a partial
+    mitigation for a class of problem this app's own "no build step"
+    design is inherently exposed to, not a guaranteed fix. A hard
+    refresh (or clearing the site's cache) is worth trying if the issue
+    persists after this update lands.
+  - **Verified**: re-ran the same headless instrumented test (fresh
+    profile, Supabase blocked) against the file with both changes
+    applied — zero JS errors, all 5 tabs and 7 day chips present, the
+    seeded exercise card still renders correctly under Current Week, and
+    a 390×844 mobile screenshot confirms the hero is back to its larger
+    original proportions with no layout breakage below it.
