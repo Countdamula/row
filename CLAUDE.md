@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
-| `gym.html` | Fitness Studio — manual routines/schedule, progressive-overload tracker |
+| `gym.html` | Fitness Studio — a new Overview tab (a freeform, drag-and-drop widget board built to match a reference Notion hub template, then re-themed to Dream Board's exact aesthetic — see changelog) is now the default landing tab, alongside the unchanged manual routines/schedule, progressive-overload tracker |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
@@ -271,16 +271,18 @@ documents what's actually here:
   **not** the app's near-black/off-white/green-amber-red-blue palette,
   and also not its own original light-cream theme (see its changelog:
   it was built light first, then explicitly re-themed dark to match a
-  second reference photo); (3) `gym.html` (Fitness Studio) had its
-  primary-action accent (buttons, active chips/toggles) re-graded from
-  white to a deep crimson gradient (`--crimson`/`--crimson-bright`), and
-  gained a fixed abstract background — a red glow rising from the
-  bottom edge into near-black at the top, a grain texture, and a thin
-  red circular arc — matching a reference photo's color grading. All
-  three exceptions are scoped to their own file's `:root`; no other
-  page's tokens changed, and `--good`/`--warn`/`--bad`'s semantic
-  meaning (success/warning/danger) was left alone in all three. See
-  each page's changelog entry.
+  second reference photo); (3) `gym.html` (Fitness Studio) originally had
+  its primary-action accent (buttons, active chips/toggles) re-graded from
+  white to a deep crimson gradient, matching a reference photo's color
+  grading — that crimson exception has since been **superseded**, per an
+  explicit request to copy Dream Board's dark cinematic near-black/gold
+  aesthetic onto every page in this tab: `--crimson`/`--crimson-bright`/
+  `--crimson-text` keep their names but now hold Dream Board's gold
+  values instead of crimson ones (see that changelog entry). All these
+  exceptions are scoped to their own file's `:root`; no other page's
+  tokens changed, and `--good`/`--warn`/`--bad`'s semantic meaning
+  (success/warning/danger), plus the unrelated day-of-week tag palette,
+  were left alone throughout. See each page's changelog entry.
 - No ORM/DB — `localStorage` + one generic Supabase table used as a sync
   relay, no relational schema.
 
@@ -5424,3 +5426,129 @@ between this app and either data loss or a wide-open write target:
     resolved to the new gold values, no duplicate DOM ids, no horizontal
     overflow at a 390px mobile viewport, and a checklist checkbox/the
     hero CTA both responded with no console exceptions.
+
+- **Fitness Studio (`gym.html`) gained a new Overview tab, rebuilt to
+  match a reference "Aesthetic Notion Template 2.0" hub photo (a
+  navigation row of arch-photo cards, Daily/Weekly/Monthly Planner lists,
+  a To Do list, an "a new era of me" banner, a Monthly overview calendar,
+  My Goals/Morning Routine/Evening Routine checklists, a Daily Quote, a
+  Daily steps tracker, and Affirmations), then the whole tab — Overview
+  plus the pre-existing This Week/Templates/Equipment/Timer/History/
+  Progress/Compare sections — was re-themed to match Dream Board's exact
+  engine/aesthetic. Per an explicit instruction, nothing already in this
+  tab was deleted: every routine, the weekly schedule, logs, equipment,
+  timer presets, workout history, and the progress/compare charts are
+  completely unchanged in behavior, just visually recolored along with
+  everything else.
+  - **Overview board**: a freeform, drag-and-drop 3-column widget board
+    (`.gw-*` classes, new), ported deliberately from Dream Board's own
+    widget engine (`dreamboard.html`/`dreamboard-data.js`) rather than
+    reinvented — same widget-card chassis (frosted glass, numbered index,
+    a hover-reveal drag handle/delete), same `wireInlineEdit`/`autosize`
+    helpers, same nine widget types (checklist/list/note/quote/
+    affirmation/steps/photos/calendar/infocard — `feature` and per-widget
+    color-grading tint were deliberately left out, a scope cut since this
+    board has one implicit board, not several tabs, and Photo Grid is
+    image-only, no video slot, to keep this addition focused). Reorder is
+    real drag-and-drop via SortableJS (already a dependency in this app
+    via Dream Board/Business Hub/AI & Tech/Nutrition — same CDN version,
+    no new dependency added), every widget's title/items/note/quote/
+    steps-goal/calendar-day-notes are inline-editable, and the board
+    itself is fully adjustable via "+ Add Widget" (a menu of all nine
+    types) and "Reset to Default." A small editable banner
+    (`.gw-banner`, `state.boardBanner`, default "A New Era of Me") sits
+    above the board, echoing the reference photo's own horizontal title
+    banner.
+  - **Data model, deliberately simpler than Dream Board's**: this tab has
+    no multiple-"tabs"-within-a-tab concept of its own, so there's no
+    `Tabs` collection or per-tab hero — just one flat array,
+    `state.boardWidgets` (`{id, column, order, type, title, data}`),
+    plus `state.boardBanner` and a one-time `state.boardSeeded` guard,
+    all added directly to this file's existing `po_coach_v1` state
+    object (`normalize()`'s fresh-install branch and its common
+    post-processing lines both extended, same "purely additive, safe
+    defaults via `normalize()`" precedent this file's own equipment/
+    timerSettings/bannerPhoto additions already established). Because
+    the whole `state` object is already synced as one JSONB blob (see
+    this file's inline Supabase sync block, `APP_KEY='po-coach'`,
+    `PC_SYNCED_KEYS=['po_coach_v1','po_coach_workout_done']`), no
+    `sync.js` change and no new synced-key entry were needed — the board
+    rides along automatically, the same way equipment/timer fields
+    already do. Twelve seed widgets (`buildDefaultBoardWidgets()`) are
+    distributed three-per-column across the three columns, fitness-
+    themed rather than copied verbatim from the reference photo's
+    generic Notion demo content (a judgment call, same precedent as
+    every other page's seed content in this file's own changelog) — e.g.
+    "My Goals" seeds bench/5K/protein/squat targets, "Daily Quote" seeds
+    a training quote, "Navigation" lists this app's own real sections
+    (This Week, Templates, Equipment, Timer, Workout History, Progress).
+  - **Tab wiring**: `TAB_NAMES` gained `'overview'` as its first entry
+    and new default (both the hash-routing fallback and the boot-time
+    `switchTab(...)` call moved from `'week'` to `'overview'`) — This
+    Week/Templates/Equipment/Timer keep their exact same `data-panel`
+    values and are otherwise untouched; the day pill's existing
+    "Tap to open This Week" behavior still explicitly opens the `week`
+    tab, unaffected. `renderAll()` gained two new calls,
+    `renderOverviewBanner()`/`renderOverviewBoard()`, so the board also
+    refreshes correctly after an incoming remote sync (`pcRerender()`
+    already calls `renderAll()`) — no separate sync-side change needed.
+  - **Aesthetic — supersedes this file's crimson theme**, per an
+    explicit request to copy Dream Board's exact style onto every page
+    in this tab (see the updated §6 discrepancy note above): `--crimson`/
+    `--crimson-bright`/`--crimson-text` keep their names (every existing
+    rule that already referenced them — `.po-tab.active`, `.po-btn-
+    primary`, `.po-reps-pill.active`, `.po-tw-done-btn`, `.po-modal-seg
+    button.active`, `.equip-type-chip.active`, the timer-flash keyframe,
+    etc. — cascades automatically) but now hold Dream Board's gold values
+    instead of crimson ones, plus two new tokens (`--gold-hairline`/
+    `--gold-tint`, mirroring Dream Board's `--db-hairline`/
+    `--db-accent-tint`) and `--font-serif` (Cormorant Garamond, loaded
+    the same Google Fonts `<link>` way Dream Board/Business Hub/AI &
+    Tech/Nutrition/Self-Care already do). The handful of hardcoded
+    crimson `rgba(178,58,77,…)` literals that weren't already routed
+    through a variable (the body background glow, `.po-cover`'s
+    gradient, the emblem rays, the section divider, `.po-btn-primary`'s
+    border) were swept to their gold equivalents by hand — confirmed
+    with a repo grep afterward that no crimson literal remains. `.card`
+    and `.po-modal` were converted from a flat solid fill to real
+    frosted glass (`rgba(255,255,255,0.06-0.08)` + `backdrop-filter:
+    blur(20-24px) saturate(1.4-1.5)`, gold hairline border), matching
+    Dream Board's `.dw-card`/`.modal` recipe, so every existing card and
+    modal across This Week/Templates/Equipment/Timer/the Add/Edit
+    modals/Settings picked up the new look automatically without their
+    own markup changing. `.po-cover`'s title/emblem switched from a
+    plain Georgia italic to `var(--font-serif)`, and its CTA button was
+    re-graded from a solid crimson-outline pill to Dream Board's frosted-
+    glass pill recipe. Left untouched, deliberately, same precedent as
+    the original crimson re-theme: `--good`/`--warn`/`--bad` (still
+    green/amber/red-coral — status meaning, not brand accent), the
+    day-of-week tag palette (`--day-*`, unrelated pastel system), and
+    the rest-day indicator's info-blue (`#7DD3FC`).
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP jomlmvslzsmmzgjnqvbm.supabase.co
+    0.0.0.0"`, armed before navigation, per this file's established
+    testing convention — this file's own inline sync block uses real,
+    hardcoded Supabase credentials, so this was not optional, per
+    [[feedback_block_supabase_before_browser_testing]]): a `--dump-dom`
+    pass confirmed the Overview tab renders by default, all 12 seeded
+    widgets render with the correct type-specific body (checklist boxes,
+    the calendar grid showing the current month with today highlighted,
+    the quote/steps/affirmation cards), the banner text populated
+    correctly, and every other tab's `data-panel` content (This Week's 7
+    day rows, Templates' routine `<option>`s, Equipment's gallery) is
+    still present and unchanged; a stderr capture during that pass
+    showed no JS errors; a duplicate-element-id scan found the same two
+    pre-existing duplicates this file already had before this change
+    (`cmpEmpty`, `oneRmUnit` — both pre-date this session, left alone,
+    out of scope here) and no new ones. Full-page screenshots of both
+    the Overview tab and the This Week tab confirmed the gold/near-black
+    frosted-glass look renders correctly and matches Dream Board's
+    aesthetic, with the pre-existing This Week grid, day-split chips,
+    and settings/timer icons all still fully intact and legible.
+    Interactive drag-and-drop reordering and the Add Widget/Photo/Day-
+    note modals' click paths were not exercised this round — this
+    environment's headless Edge could not be driven interactively via a
+    live CDP session this pass (the same disclosed limitation several
+    other pages' changelog entries in this file already note); a real
+    click-through of those specific paths is recommended before relying
+    on this feature heavily.
