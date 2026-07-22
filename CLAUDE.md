@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `index.html` | Goals command center (home page) — today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note |
-| `gym.html` | Fitness Studio — a new Overview tab (a freeform, drag-and-drop widget board built to match a reference Notion hub template, then re-themed to Dream Board's exact aesthetic — see changelog) is now the default landing tab, alongside the unchanged manual routines/schedule, progressive-overload tracker |
+| `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (new — see changelog) |
@@ -5607,3 +5607,138 @@ between this app and either data loss or a wide-open write target:
     outlined pills with Overview correctly active by default; the
     Overview board, This Week grid, and every other pre-existing section
     below the hero were confirmed still rendering with no content lost.
+
+- **Fitness Studio (`gym.html`) rebuilt around Self-Care's own tab
+  architecture, per an explicit request: "set it up just like the
+  Self-Care Tab."** Main tabs are now exactly **Overview / Current Week
+  / Templates / Equipment / Workout History & Compare Sessions** — Timer
+  is no longer a top-level tab (folded into a modal instead, see below),
+  and This Week was renamed and restructured. Every mapping the request
+  named was built as a literal, structural port of that Self-Care page,
+  not just a color match:
+  - **Overview ↔ Self-Care's main "Self-Care" tab** — already matched
+    from the prior pass (the Dream-Board-style freeform widget board);
+    left as-is here, no changes needed.
+  - **Current Week ↔ Self-Care's Anxiety page.** Anxiety's structure is
+    a chip-row sub-tab switcher (Breathwork / Tips & Techniques) over a
+    card grid; Current Week's new structure is the same mechanic scaled
+    to 7 chips, one per weekday (`.gy-chip-row`/`.gy-chip`, Mon..Sun via
+    the existing `WEEKDAY_ORDER`), each showing that day's exercises as
+    a grid of cards styled exactly like Self-Care's `.brw-card`/
+    `.tip-card` (new `.gy-card` recipe — frosted glass, serif title, tag
+    chips, a description clamp, a two-button action row). This replaces
+    two things outright, both same-session supersessions (not another
+    pass's orphaned feature, so deleted rather than left as dead code):
+    the old always-visible Mon-Sun list (`weekGridCard`/`renderWeekGrid()`)
+    and the read-only Day View modal (`dayViewModalBg`/
+    `openDayViewModal()`) — a day's exercises are now always on-screen as
+    cards instead of behind a separate view action. The Day *Edit* modal
+    (assign/reorder templates, label, clear to Rest) is unchanged and
+    reachable via a new "✎ Edit day" button next to the day header.
+    - **"Photos/videos, sets & reps, notes and descriptions" per
+      workout** — this was already the exercise data model
+      (`ex.media[]`, `ex.setsReps`/`sets`/`repMin`/`repMax`, `ex.notes`),
+      just never exposed as a card face before. Each card's "✎ Edit"
+      button opens the existing, completely unchanged exercise editor
+      (`exModalBg`) — no new fields were added; this is the same modal
+      Templates' routine editor already used.
+    - **"▶ Log Set"** opens a new modal (`logSetModalBg`) that is the
+      old always-inline "Log a set / Suggested next weight / Stats /
+      Trend / Set history" panel, *relocated*, not rewritten — the exact
+      same `renderForm()`/`renderRx()`/`renderStats()`/
+      `renderSparkline()`/`renderHistory()` functions this file already
+      had, called from `openLogSetModal(ex)` instead of running
+      permanently inline. `state.currentRoutineId`/`state.currentEx`
+      (this file's existing single-selected-exercise state) are now
+      driven by which day chip is active and which card was tapped,
+      instead of a `<select>` dropdown — the old `routineSelect`
+      dropdown was removed entirely (its change handler deleted); the
+      day's first assigned routine becomes `currentRoutineId`, matching
+      this file's own pre-existing "single-session logging flow drives
+      off the day's *first* template when more than one is assigned"
+      simplification (`todaysRoutine()`'s existing comment), not a new
+      limitation. `exSelect`/`noExMsg` stay in the DOM but hidden
+      (`display:none`) purely so `renderSelect()`'s existing logic
+      keeps working unchanged; "+ Add Exercise" (same `addExBtn` id)
+      moved to a visible button below the card grid.
+    - **Scope cut, disclosed**: the old rest-day "Log a workout anyway"
+      override is gone — a rest day now shows a Self-Care-`.sc-empty`-
+      style card ("Rest day — no workout scheduled") with just an
+      "✎ Edit day" button, since the card-per-exercise model has nothing
+      to show until a template is actually assigned. The done-checkbox
+      on a card (`state.exerciseDone`, keyed by real date) only renders
+      when the active day chip is today's actual weekday, since marking
+      a future/past day's card "done today" isn't meaningful.
+  - **Templates ↔ Self-Care's Meditations page.** Gained a search box, a
+    dynamic category filter chip row (built from whatever `category`
+    values already exist on `state.routines`) plus a "★ Favorites only"
+    chip, and a `.gy-grid` gallery of `.gy-card`s (title, meta tags,
+    day-of-week chips, View/Edit/Delete actions) replacing the old
+    stacked `.rt-card` list. Routines gained one new field,
+    `favorite` (boolean, defaulted via `normalizeRoutine()` — purely
+    additive, safe for existing routines), toggled by a `.gy-fav-btn`
+    star in each card's top-right corner exactly like Meditations'
+    "instant toggle, no modal needed" star.
+  - **Equipment ↔ Self-Care's Journals page.** Replaced the photo-
+    gallery grid (`.ent-grid`/`.ent-card`) with a stacked list of
+    `.gy-row`s (title + type on top, a notes preview clamped to 2
+    lines, a meta/tag row) — a deliberate, literal reading of "just
+    like the Journals page": equipment photos are still fully visible/
+    editable inside the equipment modal (unchanged), just not shown as
+    a row thumbnail, the same way a Journal row shows no image either.
+    Clicking a row opens the existing, unchanged equipment editor;
+    delete already lived inside that modal ("Delete this equipment"),
+    so no inline delete button was needed on the row (matching how
+    Journal rows have no inline delete either).
+  - **Workout History & Compare Sessions** — the three cards that used
+    to sit permanently below the tab system (per this file's own
+    earlier changelog note, "deliberately left outside the tab
+    system") now carry `data-panel="history"` and are a real tab like
+    every other one. Pure wiring change — none of their rendering
+    logic (`renderSessionHistory`/`renderProgressSection`/
+    `renderCompareSection`) was touched.
+  - **Timer dropped from the main tab row, converted back into a
+    modal** (`timerModalBg`) — this file's own history already shows
+    Timer moving modal→panel once before; this is the same mechanism
+    moving panel→modal again in the same spirit, not a feature removal.
+    `launchTimer()` now opens the modal instead of calling
+    `switchTab('timer')`; the header clock icon does the same; a new
+    "Close" button was added since an inline panel never needed one.
+    No timer logic (countdown/stopwatch/interval tick math, presets,
+    synthesized beep) was touched.
+  - **`TAB_NAMES`** is now `['overview', 'week', 'templates',
+    'equipment', 'history']`; the day pill's title changed from "Tap to
+    open This Week" to "Tap to open Current Week" and its click handler
+    now also resets `selectedWeekDayKey` to today before switching, so
+    it always lands on today's card grid, matching its old "scroll to
+    today's row" intent.
+  - **Left as harmless dead code, not cleaned up this pass**: the CSS
+    for the superseded `.exchk-*`/`.week-row*`/`.ent-grid`/`.ent-card`
+    components, and two now-unused JS functions (`equipTypeIcon()`,
+    `renderMediaGridReadonly()`) — none are reachable from any live code
+    path, but removing them wasn't essential to this rebuild and was
+    left for a future pass rather than risk unrelated edits under time
+    pressure.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP jomlmvslzsmmzgjnqvbm.supabase.co
+    0.0.0.0"`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]): a `--dump-dom`
+    + stderr capture pass showed zero JS errors and no new duplicate
+    DOM ids (one apparent "duplicate" — `weekEditDayBtn` — was confirmed
+    to be a false positive: the id string appears once as a real DOM
+    node and a second time only as JS *source text* inside the
+    `<script>` block, not a second element). Screenshots of Current
+    Week (`#week`), Templates (`#templates`), and Equipment
+    (`#equipment`) confirmed: the day-chip row with "Tue • Today"
+    active, a day header showing "Pull" + an "✎ Edit day" button, a
+    "Pull-ups" exercise card with its sets/reps meta chip and "▶ Log
+    Set"/"✎ Edit" actions rendering exactly like an Anxiety technique
+    card; Templates' search/category-chips/"★ Favorites only" toolbar
+    over a gallery of routine cards; and Equipment's search/type-chip
+    toolbar with its (empty, for a fresh profile) list. Interactive
+    clicks (opening the Log Set modal, tapping a day chip, toggling a
+    favorite star) were not exercised this round — this environment's
+    headless Edge still can't be driven interactively via a live CDP
+    session (the same disclosed limitation several other pages'
+    changelog entries in this file already note); a real click-through
+    is recommended before relying on this rebuild heavily.
