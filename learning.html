@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>Learning &amp; Knowledge Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="learning-data.js" defer></script>
+<style>
+/* =============================================================
+   Learning & Knowledge Hub — matches Dream Board / Business Hub / AI & Tech's
+   dark cinematic near-black + champagne-gold aesthetic (CLAUDE.md §6/DO NOT
+   MODIFY rule 2: reuse existing design tokens, no new hard-coded colors).
+   Same frosted-glass card technique, same Cormorant Garamond + Inter font
+   pairing, same editable hero, same sync-status indicator.
+
+   Two genuinely separate databases (never merged into one list, same
+   precedent as aitech.html's Models/Prompts split, business.html's
+   Platform/Content Plan/Useful Resources split):
+     - Topics    — a large gallery of research subjects (top database).
+     - Resources — Articles / Books / YouTube Videos (with transcripts) /
+       Social Media Posts / Additional Notes, tied to a topic via topicId
+       (nullable) — this is the "filtered/structured by" bottom database.
+   ============================================================= */
+:root {
+  --lh-bg: #0b0a08;
+  --lh-bg-deep: #050403;
+  --lh-paper: rgba(255, 255, 255, 0.045);
+  --lh-paper-solid: #16130f;
+  --lh-gold: #c9a876;
+  --lh-gold-bright: #e8cf9f;
+  --lh-text: #f5f1e9;
+  --lh-text-dim: rgba(245, 241, 233, 0.68);
+  --lh-text-mute: rgba(245, 241, 233, 0.44);
+  --lh-hairline: rgba(201, 168, 118, 0.22);
+  --lh-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--lh-bg-deep); color: var(--lh-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lh-gold-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { padding: 0 16px; }
+
+.lh-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  color: var(--lh-text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+}
+.lh-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--lh-text); }
+
+.lh-hero {
+  position: relative; min-height: 340px; display: flex; align-items: flex-end;
+  padding: 70px 24px 34px; overflow: hidden;
+}
+.lh-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--lh-paper-solid); }
+.lh-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.lh-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1;
+}
+.lh-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.5); border: 1px dashed var(--lh-hairline); color: var(--lh-text-mute);
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.lh-hero-photo-choice-btn:hover { color: var(--lh-gold-bright); border-color: var(--lh-gold); }
+.lh-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(11,10,8,0.15) 0%, rgba(11,10,8,0.55) 60%, rgba(5,4,3,0.92) 100%);
+}
+.lh-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px;
+}
+.lh-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; color: var(--lh-text-dim);
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; cursor: pointer;
+}
+.lh-hero-photo-tools button:hover { color: var(--lh-gold-bright); border-color: var(--lh-gold); }
+.lh-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.lh-hero-eyebrow {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--lh-gold); margin-bottom: 12px; outline-offset: 3px;
+}
+.lh-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--lh-gold); margin-right: 10px; vertical-align: middle; }
+.lh-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(30px, 6vw, 48px);
+  line-height: 1.08; color: var(--lh-text); outline-offset: 4px; margin-bottom: 12px;
+}
+.lh-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.lh-hero-subtext {
+  font-size: 14.5px; line-height: 1.55; color: var(--lh-text-dim); max-width: 480px; margin-bottom: 20px; outline-offset: 3px;
+}
+.lh-hero-cta {
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--lh-hairline); border-radius: 999px; padding: 10px 18px; cursor: pointer;
+}
+.lh-hero-cta:hover { border-color: var(--lh-gold); background: rgba(201,168,118,0.10); }
+.lh-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lh-text); }
+.lh-hero-cta-arrow { color: var(--lh-gold-bright); font-size: 13px; }
+
+.lh-toolbar-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 18px 0 26px;
+}
+.lh-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--lh-text-mute); display: flex; align-items: center; gap: 5px; margin-right: auto; }
+.lh-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lh-text-mute); flex-shrink: 0; }
+.lh-sync-status.is-saved .lh-sync-status-dot { background: var(--success); }
+.lh-sync-status.is-saved { color: var(--lh-text-dim); }
+.lh-sync-status.is-error, .lh-sync-status.is-offline { color: var(--danger); }
+.lh-sync-status.is-error .lh-sync-status-dot, .lh-sync-status.is-offline .lh-sync-status-dot { background: var(--danger); animation: lh-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes lh-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.lh-btn-primary, .lh-btn-secondary, .lh-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer;
+}
+.lh-btn-primary { background: linear-gradient(180deg, var(--lh-gold-bright) 0%, var(--lh-gold) 100%); color: #241d10; border: 1px solid var(--lh-gold); }
+.lh-btn-primary:hover { opacity: 0.9; }
+.lh-btn-secondary { background: var(--lh-paper); color: var(--lh-text-dim); border: 1px solid var(--lh-hairline); }
+.lh-btn-secondary:hover { color: var(--lh-gold-bright); border-color: var(--lh-gold); }
+.lh-btn-ghost { background: transparent; color: var(--lh-text-mute); border: 1px solid var(--lh-hairline); }
+.lh-btn-ghost:hover { color: var(--lh-text); border-color: var(--lh-text-mute); }
+
+/* ===== Section chassis (each "database") ===== */
+.lh-section { margin-bottom: 40px; }
+.lh-section + .lh-section { padding-top: 32px; border-top: 1px solid var(--lh-hairline); }
+.lh-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.lh-section-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.lh-section-title { font-family: var(--font-serif); font-size: 28px; font-weight: 600; color: var(--lh-text); }
+.lh-section-sub { font-size: 12px; color: var(--lh-text-mute); }
+.lh-section-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lh-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 18px; }
+.lh-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.lh-chip { background: var(--lh-paper); border: 1px solid var(--lh-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--lh-text-mute); cursor: pointer; }
+.lh-chip:hover { color: var(--lh-text); }
+.lh-chip.active { background: var(--lh-accent-tint); color: var(--lh-gold-bright); border-color: var(--lh-gold); }
+.lh-search-input {
+  flex: 1; min-width: 160px; max-width: 260px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--lh-hairline); border-radius: 999px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--lh-text);
+}
+.lh-grid-empty { grid-column: 1 / -1; font-size: 12px; color: var(--lh-text-mute); font-style: italic; padding: 10px 2px; }
+
+/* ===== Card chassis — identical frosted-glass technique to Business
+   Hub's .bw-card / Dream Board's .dw-card / AI & Tech's .at-card. ===== */
+.lh-card {
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 16px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column;
+}
+.lh-card-ghost { opacity: 0.4; border: 1px dashed var(--lh-gold); background: rgba(201,168,118,0.12); }
+.sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.lh-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.lh-card-index { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--lh-gold); }
+.lh-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.lh-card:hover .lh-card-hover-actions, .lh-card:focus-within .lh-card-hover-actions { opacity: 1; }
+.lh-drag-handle { flex-shrink: 0; cursor: grab; color: var(--lh-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.lh-drag-handle:active { cursor: grabbing; }
+.lh-card-edit, .lh-card-del, .lh-card-fav { background: transparent; border: none; color: var(--lh-text-mute); font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.lh-card-edit:hover { color: var(--lh-gold-bright); background: var(--lh-accent-tint); }
+.lh-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.lh-card-fav.is-fav { color: var(--warning); }
+.lh-card-fav:hover { color: var(--warning); }
+
+/* ===== Topic gallery card — deliberately large, per "large gallery view" ===== */
+.lh-topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.lh-topic-cover { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 12px; background: linear-gradient(135deg, var(--lh-gold) 0%, var(--lh-gold-bright) 100%); display: flex; align-items: center; justify-content: center; font-size: 52px; color: #241d10; }
+.lh-topic-cover img { width: 100%; height: 100%; object-fit: cover; }
+.lh-topic-name { font-family: var(--font-serif); font-weight: 600; font-size: 22px; line-height: 1.15; color: var(--lh-text); margin-bottom: 8px; word-break: break-word; }
+.lh-topic-desc { font-size: 13px; line-height: 1.55; color: var(--lh-text-dim); margin-bottom: 12px; flex: 1; }
+.lh-topic-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.lh-topic-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--lh-text-dim); border: 1px solid var(--lh-hairline); }
+.lh-topic-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.lh-topic-resource-link { background: var(--lh-accent-tint); border: 1px solid var(--lh-hairline); color: var(--lh-gold-bright); border-radius: 999px; padding: 6px 14px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.lh-topic-resource-link:hover { border-color: var(--lh-gold); }
+
+/* ===== Resource groups — the bottom database is "structured by" type:
+   one named subsection per RESOURCE_TYPE, each its own card grid. ===== */
+.lh-resource-group { margin-bottom: 28px; }
+.lh-resource-group-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.lh-resource-group-title { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--lh-text); }
+.lh-resource-group-count { font-family: var(--font-mono); font-size: 11px; color: var(--lh-text-mute); }
+.lh-resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.lh-resource-group-empty { font-size: 12px; color: var(--lh-text-mute); font-style: italic; padding: 4px 2px 2px; }
+
+.lh-type-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; margin-bottom: 8px; align-self: flex-start; }
+.lh-type-badge.is-article { color: var(--info); background: rgba(125,211,252,0.14); }
+.lh-type-badge.is-book { color: var(--success); background: rgba(107,227,164,0.14); }
+.lh-type-badge.is-video { color: var(--danger); background: rgba(255,107,107,0.14); }
+.lh-type-badge.is-social { color: var(--warning); background: rgba(242,192,99,0.16); }
+.lh-type-badge.is-note { color: var(--lh-gold-bright); background: var(--lh-accent-tint); }
+.lh-resource-title { font-family: var(--font-serif); font-weight: 600; font-size: 16.5px; color: var(--lh-text); margin-bottom: 4px; word-break: break-word; }
+.lh-resource-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.lh-resource-topic-tag { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.lh-resource-topic-tag.is-unlinked { background: rgba(245,241,233,0.08); color: var(--lh-text-mute); border: 1px dashed var(--lh-hairline); }
+.lh-resource-author { font-size: 11.5px; color: var(--lh-text-mute); }
+.lh-resource-notes { font-size: 12.5px; line-height: 1.5; color: var(--lh-text-dim); margin-bottom: 8px; max-height: 84px; overflow: hidden; position: relative; }
+.lh-resource-notes.is-expanded { max-height: none; }
+.lh-resource-transcript-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lh-text-mute); margin-bottom: 4px; }
+.lh-resource-transcript { font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; color: var(--lh-text-dim); background: rgba(0,0,0,0.22); border: 1px solid var(--lh-hairline); border-radius: var(--radius-sm); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; max-height: 84px; overflow: hidden; position: relative; }
+.lh-resource-transcript.is-expanded { max-height: none; }
+.lh-resource-expand-btn { background: none; border: none; color: var(--lh-gold-bright); font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; margin-bottom: 8px; align-self: flex-start; }
+.lh-resource-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+.lh-resource-open-btn { background: transparent; border: 1px solid var(--lh-hairline); color: var(--lh-gold-bright); border-radius: 999px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.lh-resource-open-btn:hover { border-color: var(--lh-gold); background: var(--lh-accent-tint); }
+.lh-resource-open-btn[aria-disabled="true"] { opacity: 0.35; pointer-events: none; }
+.lh-resource-copy-btn { background: var(--lh-accent-tint); border: 1px solid var(--lh-hairline); color: var(--lh-gold-bright); border-radius: 999px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.lh-resource-copy-btn:hover { border-color: var(--lh-gold); }
+.lh-resource-copy-btn.is-copied { color: var(--success); border-color: var(--success); background: rgba(107,227,164,0.12); }
+
+/* ===== Modals ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: rgba(22, 19, 15, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.lh-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.lh-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--lh-text); }
+.lh-modal-close { background: transparent; border: none; font-size: 18px; color: var(--lh-text-mute); cursor: pointer; }
+.lh-modal-close:hover { color: var(--lh-text); }
+.lh-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--lh-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--lh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--lh-text); }
+.field textarea { resize: vertical; min-height: 78px; font-family: var(--font); font-size: 13px; line-height: 1.5; }
+.field textarea.lh-mono-textarea { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; min-height: 90px; }
+.field-inline { display: flex; align-items: center; gap: 8px; }
+.field-inline input[type="checkbox"] { width: auto; }
+.lh-cover-preview { aspect-ratio: 16 / 9; border-radius: var(--radius-md); overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--lh-hairline); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; color: var(--lh-text-mute); font-size: 12px; }
+.lh-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.lh-tag-input-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.lh-tag-input-row .lh-topic-tag button { background: none; border: none; color: inherit; opacity: 0.65; cursor: pointer; font-size: 10px; padding: 0 0 0 4px; }
+.delete-link { display: block; text-align: center; margin-top: 14px; font-size: 12px; color: var(--danger); cursor: pointer; }
+.delete-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="lh-hero" id="lhHero">
+    <div class="lh-hero-media" id="lhHeroMedia">
+      <img id="lhHeroPhotoImg" style="display:none;" alt="">
+      <div class="lh-hero-photo-choice" id="lhHeroPhotoChoice">
+        <button type="button" class="lh-hero-photo-choice-btn" id="lhHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="lh-hero-overlay"></div>
+    <a href="index.html" class="lh-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="lh-hero-photo-tools" id="lhHeroPhotoTools" style="display:none;">
+      <button type="button" id="lhHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="lhHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="lhHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="lh-hero-content">
+      <div class="lh-hero-eyebrow" id="lhHeroEyebrow" contenteditable="true"></div>
+      <textarea class="lh-hero-title" id="lhHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="lh-hero-subtext" id="lhHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="lh-hero-cta" id="lhHeroCta">
+        <span class="lh-hero-cta-label" id="lhHeroCtaLabel" contenteditable="true"></span>
+        <span class="lh-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="shell-inner">
+    <div class="lh-toolbar-row">
+      <span class="lh-sync-status" id="lhSyncStatus"></span>
+      <button type="button" class="lh-btn-ghost" id="lhResetBtn">Reset to Default</button>
+    </div>
+
+    <div class="lh-section" id="lhTopicsSection">
+      <div class="lh-section-head">
+        <div class="lh-section-title-wrap">
+          <div class="lh-section-title">Topics</div>
+          <div class="lh-section-sub">Every subject currently being researched.</div>
+        </div>
+        <div class="lh-section-actions">
+          <button type="button" class="lh-btn-primary" id="lhAddTopicBtn">+ Add Topic</button>
+        </div>
+      </div>
+      <div class="lh-filter-row">
+        <input type="text" class="lh-search-input" id="lhTopicSearchInput" placeholder="Search topics…">
+      </div>
+      <div class="lh-topic-grid" id="lhTopicGrid"></div>
+    </div>
+
+    <div class="lh-section" id="lhResourcesSection">
+      <div class="lh-section-head">
+        <div class="lh-section-title-wrap">
+          <div class="lh-section-title">Resources</div>
+          <div class="lh-section-sub">Articles, books, videos, posts, and notes — per topic.</div>
+        </div>
+        <div class="lh-section-actions">
+          <button type="button" class="lh-btn-primary" id="lhAddResourceBtn">+ Add Resource</button>
+        </div>
+      </div>
+      <div class="lh-filter-row">
+        <div class="lh-chip-row" id="lhResourceTopicChips"></div>
+      </div>
+      <div class="lh-filter-row">
+        <div class="lh-chip-row" id="lhResourceTypeChips"></div>
+        <input type="text" class="lh-search-input" id="lhResourceSearchInput" placeholder="Search resources…">
+      </div>
+      <div id="lhResourceGroups"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="lhTopicModalBg">
+  <div class="modal">
+    <div class="lh-modal-head"><h3 id="lhTopicModalTitle">Add Topic</h3><button type="button" class="lh-modal-close" id="lhTopicModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="lh-cover-preview" id="lhTopicCoverPreview">No cover</div>
+    <div class="field"><label>Cover photo — upload</label><input type="file" id="lhTopicCoverFileInput" accept="image/*"></div>
+    <div class="field"><label>— or paste a URL</label><input type="text" id="lhTopicCoverUrlInput" placeholder="https://…"></div>
+    <div class="field"><label>Icon (emoji, shown if no cover)</label><input type="text" id="lhTopicIconInput" maxlength="4" placeholder="📚"></div>
+    <div class="field"><label>Title</label><input type="text" id="lhTopicTitleInput" placeholder="e.g. Human Psychology &amp; Neuroscience"></div>
+    <div class="field"><label>Description</label><textarea id="lhTopicDescInput" placeholder="What this topic covers…"></textarea></div>
+    <div class="field"><label>Tags</label>
+      <div class="lh-tag-input-row" id="lhTopicTagRow"></div>
+      <input type="text" id="lhTopicTagInput" placeholder="Type a tag and press Enter…">
+    </div>
+    <div class="lh-modal-actions">
+      <button type="button" class="lh-btn-ghost" id="lhTopicModalCancel">Cancel</button>
+      <button type="button" class="lh-btn-primary" id="lhTopicModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="lhTopicModalDelete" style="display:none;">Delete this topic</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="lhResourceModalBg">
+  <div class="modal">
+    <div class="lh-modal-head"><h3 id="lhResourceModalTitle">Add Resource</h3><button type="button" class="lh-modal-close" id="lhResourceModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="lhResourceTitleInput" placeholder="e.g. Atomic Habits"></div>
+    <div class="field"><label>Type</label><select id="lhResourceTypeInput"></select></div>
+    <div class="field"><label>Topic</label><select id="lhResourceTopicInput"></select></div>
+    <div class="field"><label>URL</label><input type="text" id="lhResourceUrlInput" placeholder="https://…"></div>
+    <div class="field" id="lhResourceAuthorField"><label id="lhResourceAuthorLabel">Author</label><input type="text" id="lhResourceAuthorInput" placeholder="Who made/wrote it…"></div>
+    <div class="field" id="lhResourceTranscriptField" style="display:none;"><label>Transcript</label><textarea id="lhResourceTranscriptInput" class="lh-mono-textarea" placeholder="Paste the video transcript…"></textarea></div>
+    <div class="field"><label id="lhResourceNotesLabel">Notes</label><textarea id="lhResourceNotesInput" placeholder="Key takeaways, quotes, thoughts…"></textarea></div>
+    <div class="field field-inline"><input type="checkbox" id="lhResourceFavoriteInput"><label style="margin:0;">Favorite</label></div>
+    <div class="lh-modal-actions">
+      <button type="button" class="lh-btn-ghost" id="lhResourceModalCancel">Cancel</button>
+      <button type="button" class="lh-btn-primary" id="lhResourceModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="lhResourceModalDelete" style="display:none;">Delete this resource</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+
+  let DB = null;
+  let topicSortable = null;
+  let resourceSortables = [];
+  let editingTopicId = null;
+  let editingTopicTags = [];
+  let editingResourceId = null;
+  let expandedResourceIds = {};
+
+  // Transient, in-memory-only filter state — same precedent as this app's
+  // other in-memory view filters (e.g. aitech.html's model/prompt chips).
+  let topicSearch = '';
+  let resourceTopicFilter = 'all';
+  let resourceTypeFilter = 'all';
+  let resourceSearch = '';
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // ============================================================
+  // SYNC STATUS — same pattern as aitech.html's handleSaveEvent.
+  // ============================================================
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('lhSyncStatus');
+    if (!el) return;
+    el.className = 'lh-sync-status' + (mode ? ' is-' + mode : '');
+    el.textContent = '';
+    const dot = document.createElement('span'); dot.className = 'lh-sync-status-dot';
+    const label = document.createElement('span'); label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Couldn't save — your browser's storage may be full."); return; }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+
+  // ============================================================
+  // HERO — same shape/behavior as aitech.html's hero, just a single global
+  // instance since this page has no tabs.
+  // ============================================================
+  function renderHero() {
+    const hero = DB.getHero();
+    $('lhHeroEyebrow').textContent = hero.eyebrow;
+    $('lhHeroTitle').value = hero.title;
+    $('lhHeroSubtext').textContent = hero.subtext;
+    $('lhHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+    autosize($('lhHeroTitle'));
+    const img = $('lhHeroPhotoImg'), choice = $('lhHeroPhotoChoice'), tools = $('lhHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+  }
+  function openHeroFilePicker() { $('lhHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        DB.saveHero({ photo: compressed });
+        renderHero();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // TAG HELPERS
+  // ============================================================
+  function renderTagRow(containerEl, tags, onRemove) {
+    containerEl.innerHTML = '';
+    tags.forEach(function (tag) {
+      const chip = document.createElement('span'); chip.className = 'lh-topic-tag';
+      const txt = document.createElement('span'); txt.textContent = tag; chip.appendChild(txt);
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', 'Remove tag');
+      del.addEventListener('click', function () { onRemove(tag); });
+      chip.appendChild(del);
+      containerEl.appendChild(chip);
+    });
+  }
+  function wireTagInput(inputEl, getTags, setTags, renderFn) {
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const val = inputEl.value.trim();
+      if (val && getTags().indexOf(val) === -1) { setTags(getTags().concat([val])); renderFn(); }
+      inputEl.value = '';
+    });
+  }
+  function renderTopicTagRow() {
+    renderTagRow($('lhTopicTagRow'), editingTopicTags, function (tag) {
+      editingTopicTags = editingTopicTags.filter(function (t) { return t !== tag; });
+      renderTopicTagRow();
+    });
+  }
+
+  // ============================================================
+  // TAG/TOPIC COLOR — hashed, consistent color per name, same technique as
+  // aitech.html's modelTagColor().
+  // ============================================================
+  function hashToIndex(str, mod) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return h % mod;
+  }
+  function topicTagColor(name) {
+    const palette = [
+      { bg: 'rgba(107,227,164,0.14)', fg: '#6BE3A4' }, { bg: 'rgba(255,107,107,0.14)', fg: '#FF9B9B' },
+      { bg: 'rgba(125,211,252,0.14)', fg: '#7DD3FC' }, { bg: 'rgba(201,168,118,0.18)', fg: 'var(--lh-gold-bright)' },
+      { bg: 'rgba(242,192,99,0.16)', fg: '#F2C063' }, { bg: 'rgba(245,241,233,0.10)', fg: 'var(--lh-text-dim)' }
+    ];
+    return palette[hashToIndex(name || '', palette.length)];
+  }
+
+  // ============================================================
+  // TOPICS (top database — large gallery view)
+  // ============================================================
+  function filteredTopics() {
+    let list = DB.topicsSorted();
+    if (topicSearch) {
+      const q = topicSearch.toLowerCase();
+      list = list.filter(function (t) { return (t.title || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    return list;
+  }
+  function buildTopicCard(topic, displayIndex) {
+    const card = document.createElement('div'); card.className = 'lh-card'; card.dataset.topicId = topic.id;
+    const head = document.createElement('div'); head.className = 'lh-card-head';
+    const index = document.createElement('span'); index.className = 'lh-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const actions = document.createElement('div'); actions.className = 'lh-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'lh-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'lh-card-edit'; editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    editBtn.addEventListener('click', function () { openTopicModal(topic.id); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'lh-card-del'; delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (topic.title || 'this topic') + '"? Its resources will be kept, just unlinked.')) return;
+      DB.Topics.remove(topic.id); renderTopics(); renderResourceTopicChips(); renderResources();
+    });
+    actions.appendChild(handle); actions.appendChild(editBtn); actions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(actions); card.appendChild(head);
+
+    const cover = document.createElement('div'); cover.className = 'lh-topic-cover';
+    if (topic.cover) { const img = document.createElement('img'); img.src = topic.cover; img.alt = ''; cover.appendChild(img); }
+    else { cover.textContent = topic.icon || '📚'; }
+    card.appendChild(cover);
+
+    const name = document.createElement('div'); name.className = 'lh-topic-name'; name.textContent = topic.title || 'Untitled';
+    card.appendChild(name);
+
+    if (topic.description) {
+      const desc = document.createElement('div'); desc.className = 'lh-topic-desc'; desc.textContent = topic.description;
+      card.appendChild(desc);
+    } else {
+      const spacer = document.createElement('div'); spacer.style.flex = '1'; card.appendChild(spacer);
+    }
+
+    if (topic.tags && topic.tags.length) {
+      const tagsWrap = document.createElement('div'); tagsWrap.className = 'lh-topic-tags';
+      topic.tags.forEach(function (t) {
+        const c = topicTagColor(t);
+        const chip = document.createElement('span'); chip.className = 'lh-topic-tag'; chip.style.background = c.bg; chip.style.color = c.fg; chip.style.border = 'none';
+        chip.textContent = t; tagsWrap.appendChild(chip);
+      });
+      card.appendChild(tagsWrap);
+    }
+
+    const footer = document.createElement('div'); footer.className = 'lh-topic-footer';
+    const count = DB.resourceCountForTopic(topic.id);
+    const link = document.createElement('button'); link.type = 'button'; link.className = 'lh-topic-resource-link';
+    link.textContent = count + (count === 1 ? ' resource →' : ' resources →');
+    link.addEventListener('click', function () {
+      resourceTopicFilter = topic.id;
+      renderResourceTopicChips(); renderResources();
+      $('lhResourcesSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+    footer.appendChild(link);
+    card.appendChild(footer);
+
+    return card;
+  }
+  function renderTopics() {
+    const grid = $('lhTopicGrid');
+    const list = filteredTopics();
+    grid.innerHTML = '';
+    if (!list.length) { const e = document.createElement('div'); e.className = 'lh-grid-empty'; e.textContent = 'No topics match this search.'; grid.appendChild(e); return; }
+    list.forEach(function (t, i) { grid.appendChild(buildTopicCard(t, i + 1)); });
+    wireTopicSortable();
+  }
+  function wireTopicSortable() {
+    if (typeof Sortable === 'undefined') return;
+    if (topicSortable) { topicSortable.destroy(); topicSortable = null; }
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    topicSortable = new Sortable($('lhTopicGrid'), {
+      animation: reduced ? 0 : 150, handle: '.lh-drag-handle', ghostClass: 'lh-card-ghost',
+      onEnd: function () {
+        const ids = Array.from($('lhTopicGrid').children).map(function (el) { return el.dataset.topicId; }).filter(Boolean);
+        DB.reorderTopics(ids); renderTopics();
+      }
+    });
+  }
+
+  function renderTopicCoverPreview(url) {
+    const el = $('lhTopicCoverPreview');
+    el.innerHTML = '';
+    if (url) { const img = document.createElement('img'); img.src = url; el.appendChild(img); }
+    else { el.textContent = 'No cover'; }
+  }
+  function openTopicModal(id) {
+    editingTopicId = id || null;
+    const t = id ? DB.Topics.get(id) : null;
+    $('lhTopicModalTitle').textContent = id ? 'Edit Topic' : 'Add Topic';
+    $('lhTopicTitleInput').value = t ? t.title : '';
+    $('lhTopicIconInput').value = t ? t.icon : '📚';
+    $('lhTopicDescInput').value = t ? t.description : '';
+    $('lhTopicCoverUrlInput').value = (t && DB.isValidMediaUrl(t.cover)) ? t.cover : '';
+    renderTopicCoverPreview(t ? t.cover : '');
+    editingTopicTags = t ? t.tags.slice() : [];
+    renderTopicTagRow();
+    $('lhTopicModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('lhTopicModalBg'));
+  }
+  function closeTopicModal() { closeModal($('lhTopicModalBg')); editingTopicId = null; }
+  function saveTopicModal() {
+    const title = $('lhTopicTitleInput').value.trim();
+    if (!title) { alert('Give this topic a title first.'); return; }
+    const coverUrl = $('lhTopicCoverUrlInput').value.trim();
+    const patch = {
+      title: title,
+      icon: $('lhTopicIconInput').value.trim() || '📚',
+      description: $('lhTopicDescInput').value.trim(),
+      tags: editingTopicTags
+    };
+    if (coverUrl) {
+      if (!DB.isValidMediaUrl(coverUrl)) { alert('That cover URL doesn\'t look valid — use a full http(s) link, or leave it blank.'); return; }
+      patch.cover = coverUrl;
+    } else {
+      const preview = $('lhTopicCoverPreview').querySelector('img');
+      patch.cover = preview ? preview.src : '';
+    }
+    if (editingTopicId) DB.Topics.update(editingTopicId, patch);
+    else DB.Topics.add(Object.assign({}, patch, { order: DB.nextOrder(DB.topicsSorted()) }));
+    closeTopicModal(); renderTopics(); renderResourceTopicChips(); renderResources();
+  }
+  function deleteTopicModal() {
+    if (!editingTopicId) return;
+    if (!confirm('Delete this topic? Its resources will be kept, just unlinked.')) return;
+    DB.Topics.remove(editingTopicId);
+    closeTopicModal(); renderTopics(); renderResourceTopicChips(); renderResources();
+  }
+  function handleTopicCoverFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 640, 0.82).then(function (compressed) {
+        renderTopicCoverPreview(compressed);
+        $('lhTopicCoverUrlInput').value = '';
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // RESOURCES (bottom database — structured by type, filtered by topic)
+  // ============================================================
+  function baseFilteredResources() {
+    let list = DB.resourcesSorted();
+    if (resourceTopicFilter === 'unlinked') list = list.filter(function (r) { return !r.topicId; });
+    else if (resourceTopicFilter !== 'all') list = list.filter(function (r) { return r.topicId === resourceTopicFilter; });
+    if (resourceSearch) {
+      const q = resourceSearch.toLowerCase();
+      list = list.filter(function (r) {
+        return (r.title || '').toLowerCase().indexOf(q) !== -1 ||
+          (r.notes || '').toLowerCase().indexOf(q) !== -1 ||
+          (r.author || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    return list;
+  }
+  function renderResourceTopicChips() {
+    const wrap = $('lhResourceTopicChips');
+    wrap.innerHTML = '';
+    const allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'lh-chip' + (resourceTopicFilter === 'all' ? ' active' : ''); allBtn.textContent = 'All Topics';
+    allBtn.addEventListener('click', function () { resourceTopicFilter = 'all'; renderResourceTopicChips(); renderResources(); });
+    wrap.appendChild(allBtn);
+    DB.topicsSorted().forEach(function (t) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lh-chip' + (resourceTopicFilter === t.id ? ' active' : ''); btn.textContent = t.title;
+      btn.addEventListener('click', function () { resourceTopicFilter = t.id; renderResourceTopicChips(); renderResources(); });
+      wrap.appendChild(btn);
+    });
+    const unlinkedCount = DB.Resources.list().filter(function (r) { return !r.topicId; }).length;
+    if (unlinkedCount) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lh-chip' + (resourceTopicFilter === 'unlinked' ? ' active' : ''); btn.textContent = 'Unlinked';
+      btn.addEventListener('click', function () { resourceTopicFilter = 'unlinked'; renderResourceTopicChips(); renderResources(); });
+      wrap.appendChild(btn);
+    }
+  }
+  function renderResourceTypeChips() {
+    const wrap = $('lhResourceTypeChips');
+    wrap.innerHTML = '';
+    const allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'lh-chip' + (resourceTypeFilter === 'all' ? ' active' : ''); allBtn.textContent = 'All Types';
+    allBtn.addEventListener('click', function () { resourceTypeFilter = 'all'; renderResourceTypeChips(); renderResources(); });
+    wrap.appendChild(allBtn);
+    DB.RESOURCE_TYPES.forEach(function (type) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'lh-chip' + (resourceTypeFilter === type ? ' active' : ''); btn.textContent = DB.RESOURCE_TYPE_LABELS[type];
+      btn.addEventListener('click', function () { resourceTypeFilter = type; renderResourceTypeChips(); renderResources(); });
+      wrap.appendChild(btn);
+    });
+  }
+  function buildResourceCard(resource, displayIndex) {
+    const card = document.createElement('div'); card.className = 'lh-card'; card.dataset.resourceId = resource.id;
+    const head = document.createElement('div'); head.className = 'lh-card-head';
+    const index = document.createElement('span'); index.className = 'lh-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const actions = document.createElement('div'); actions.className = 'lh-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'lh-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'lh-card-fav' + (resource.favorite ? ' is-fav' : ''); favBtn.textContent = resource.favorite ? '★' : '☆'; favBtn.setAttribute('aria-label', 'Toggle favorite');
+    favBtn.addEventListener('click', function () { DB.Resources.update(resource.id, { favorite: !resource.favorite }); renderResources(); });
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'lh-card-edit'; editBtn.setAttribute('aria-label', 'Edit'); editBtn.textContent = '✎';
+    editBtn.addEventListener('click', function () { openResourceModal(resource.id); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'lh-card-del'; delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (resource.title || 'this resource') + '"?')) return;
+      DB.Resources.remove(resource.id); renderResources(); renderTopics();
+    });
+    actions.appendChild(handle); actions.appendChild(favBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(actions); card.appendChild(head);
+
+    const badge = document.createElement('span'); badge.className = 'lh-type-badge is-' + resource.type;
+    badge.textContent = DB.RESOURCE_TYPE_SINGULAR[resource.type];
+    card.appendChild(badge);
+
+    const title = document.createElement('div'); title.className = 'lh-resource-title'; title.textContent = resource.title || 'Untitled';
+    card.appendChild(title);
+
+    const meta = document.createElement('div'); meta.className = 'lh-resource-meta';
+    const topicName = resource.topicId ? DB.topicName(resource.topicId) : null;
+    const topicTag = document.createElement('span');
+    if (topicName) { const c = topicTagColor(topicName); topicTag.className = 'lh-resource-topic-tag'; topicTag.style.background = c.bg; topicTag.style.color = c.fg; topicTag.textContent = topicName; }
+    else { topicTag.className = 'lh-resource-topic-tag is-unlinked'; topicTag.textContent = 'Unlinked'; }
+    meta.appendChild(topicTag);
+    if (resource.author) { const a = document.createElement('span'); a.className = 'lh-resource-author'; a.textContent = 'by ' + resource.author; meta.appendChild(a); }
+    card.appendChild(meta);
+
+    if (resource.type === 'video' && resource.transcript) {
+      const label = document.createElement('div'); label.className = 'lh-resource-transcript-label'; label.textContent = 'Transcript';
+      card.appendChild(label);
+      const block = document.createElement('div'); block.className = 'lh-resource-transcript' + (expandedResourceIds[resource.id] ? ' is-expanded' : '');
+      block.textContent = resource.transcript;
+      card.appendChild(block);
+      if (resource.transcript.length > 160) {
+        const expandBtn = document.createElement('button'); expandBtn.type = 'button'; expandBtn.className = 'lh-resource-expand-btn';
+        expandBtn.textContent = expandedResourceIds[resource.id] ? 'Show less ▲' : 'Show more ▼';
+        expandBtn.addEventListener('click', function () { expandedResourceIds[resource.id] = !expandedResourceIds[resource.id]; renderResources(); });
+        card.appendChild(expandBtn);
+      }
+    }
+
+    if (resource.notes) {
+      const notes = document.createElement('div'); notes.className = 'lh-resource-notes'; notes.textContent = resource.notes;
+      card.appendChild(notes);
+    } else {
+      const spacer = document.createElement('div'); spacer.style.flex = '1'; card.appendChild(spacer);
+    }
+
+    const footer = document.createElement('div'); footer.className = 'lh-resource-footer';
+    const openLink = document.createElement('a'); openLink.className = 'lh-resource-open-btn'; openLink.textContent = 'Open ↗';
+    if (DB.isValidMediaUrl(resource.url)) { openLink.href = resource.url; openLink.target = '_blank'; openLink.rel = 'noopener'; }
+    else { openLink.href = '#'; openLink.setAttribute('aria-disabled', 'true'); openLink.addEventListener('click', function (e) { e.preventDefault(); }); }
+    footer.appendChild(openLink);
+    if (resource.type === 'video' && resource.transcript) {
+      const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'lh-resource-copy-btn'; copyBtn.textContent = '📋 Copy Transcript';
+      copyBtn.addEventListener('click', function () {
+        const finish = function () { copyBtn.textContent = '✓ Copied'; copyBtn.classList.add('is-copied'); setTimeout(function () { copyBtn.textContent = '📋 Copy Transcript'; copyBtn.classList.remove('is-copied'); }, 1400); };
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(resource.transcript || '').then(finish).catch(finish); }
+        else { finish(); }
+      });
+      footer.appendChild(copyBtn);
+    }
+    card.appendChild(footer);
+
+    return card;
+  }
+  function buildResourceGroup(type, list) {
+    const wrap = document.createElement('div'); wrap.className = 'lh-resource-group';
+    const head = document.createElement('div'); head.className = 'lh-resource-group-head';
+    const title = document.createElement('div'); title.className = 'lh-resource-group-title'; title.textContent = DB.RESOURCE_TYPE_LABELS[type];
+    const count = document.createElement('div'); count.className = 'lh-resource-group-count'; count.textContent = String(list.length).padStart(2, '0');
+    head.appendChild(title); head.appendChild(count);
+    wrap.appendChild(head);
+    if (!list.length) {
+      const empty = document.createElement('div'); empty.className = 'lh-resource-group-empty'; empty.textContent = 'No ' + DB.RESOURCE_TYPE_LABELS[type].toLowerCase() + ' yet.';
+      wrap.appendChild(empty);
+      return wrap;
+    }
+    const grid = document.createElement('div'); grid.className = 'lh-resource-grid'; grid.dataset.groupType = type;
+    list.forEach(function (r, i) { grid.appendChild(buildResourceCard(r, i + 1)); });
+    wrap.appendChild(grid);
+    return wrap;
+  }
+  function renderResources() {
+    const container = $('lhResourceGroups');
+    resourceSortables.forEach(function (s) { s.destroy(); });
+    resourceSortables = [];
+    container.innerHTML = '';
+    const base = baseFilteredResources();
+    const types = resourceTypeFilter === 'all' ? DB.RESOURCE_TYPES : [resourceTypeFilter];
+    types.forEach(function (type) {
+      const list = base.filter(function (r) { return r.type === type; });
+      container.appendChild(buildResourceGroup(type, list));
+    });
+    if (typeof Sortable !== 'undefined') {
+      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      container.querySelectorAll('.lh-resource-grid').forEach(function (grid) {
+        resourceSortables.push(new Sortable(grid, {
+          animation: reduced ? 0 : 150, handle: '.lh-drag-handle', ghostClass: 'lh-card-ghost',
+          onEnd: function () {
+            const ids = Array.from(grid.children).map(function (el) { return el.dataset.resourceId; }).filter(Boolean);
+            DB.reorderResources(ids); renderResources();
+          }
+        }));
+      });
+    }
+  }
+
+  function renderResourceTypeSelect() {
+    const sel = $('lhResourceTypeInput'); sel.innerHTML = '';
+    DB.RESOURCE_TYPES.forEach(function (t) { const opt = document.createElement('option'); opt.value = t; opt.textContent = DB.RESOURCE_TYPE_SINGULAR[t]; sel.appendChild(opt); });
+  }
+  function renderResourceTopicSelect() {
+    const sel = $('lhResourceTopicInput'); sel.innerHTML = '';
+    const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '— No topic —'; sel.appendChild(noneOpt);
+    DB.topicsSorted().forEach(function (t) { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.title; sel.appendChild(opt); });
+  }
+  function updateResourceModalFieldsForType(type) {
+    $('lhResourceAuthorField').style.display = type === 'note' ? 'none' : 'block';
+    $('lhResourceAuthorLabel').textContent = type === 'video' ? 'Channel / Creator' : (type === 'social' ? 'Poster' : 'Author');
+    $('lhResourceTranscriptField').style.display = type === 'video' ? 'block' : 'none';
+    $('lhResourceNotesLabel').textContent = type === 'note' ? 'Note' : 'Notes / Takeaways';
+  }
+  function openResourceModal(id, presetTopicId) {
+    editingResourceId = id || null;
+    const r = id ? DB.Resources.get(id) : null;
+    $('lhResourceModalTitle').textContent = id ? 'Edit Resource' : 'Add Resource';
+    $('lhResourceTitleInput').value = r ? r.title : '';
+    renderResourceTypeSelect();
+    $('lhResourceTypeInput').value = r ? r.type : 'article';
+    renderResourceTopicSelect();
+    $('lhResourceTopicInput').value = r ? (r.topicId || '') : (presetTopicId || '');
+    $('lhResourceUrlInput').value = r ? r.url : '';
+    $('lhResourceAuthorInput').value = r ? r.author : '';
+    $('lhResourceTranscriptInput').value = r ? r.transcript : '';
+    $('lhResourceNotesInput').value = r ? r.notes : '';
+    $('lhResourceFavoriteInput').checked = r ? r.favorite : false;
+    updateResourceModalFieldsForType($('lhResourceTypeInput').value);
+    $('lhResourceModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('lhResourceModalBg'));
+  }
+  function closeResourceModal() { closeModal($('lhResourceModalBg')); editingResourceId = null; }
+  function saveResourceModal() {
+    const title = $('lhResourceTitleInput').value.trim();
+    if (!title) { alert('Give this resource a title first.'); return; }
+    const patch = {
+      title: title,
+      type: $('lhResourceTypeInput').value,
+      topicId: $('lhResourceTopicInput').value || null,
+      url: $('lhResourceUrlInput').value.trim(),
+      author: $('lhResourceAuthorInput').value.trim(),
+      transcript: $('lhResourceTranscriptInput').value,
+      notes: $('lhResourceNotesInput').value,
+      favorite: $('lhResourceFavoriteInput').checked
+    };
+    if (editingResourceId) DB.Resources.update(editingResourceId, patch);
+    else DB.Resources.add(Object.assign({}, patch, { order: DB.nextOrder(DB.resourcesSorted()) }));
+    closeResourceModal(); renderResources(); renderResourceTopicChips(); renderTopics();
+  }
+  function deleteResourceModal() {
+    if (!editingResourceId) return;
+    if (!confirm('Delete this resource?')) return;
+    DB.Resources.remove(editingResourceId);
+    closeResourceModal(); renderResources(); renderTopics();
+  }
+
+  function resetAll() {
+    if (!confirm('Reset Learning & Knowledge Hub to its default topics and resources? This deletes everything currently here.')) return;
+    DB.seedDefaultData();
+    renderHero(); renderTopics(); renderResourceTopicChips(); renderResourceTypeChips(); renderResources();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    DB = window.LearningData;
+    if (!DB) return;
+
+    renderHero();
+    renderTopics();
+    renderResourceTopicChips();
+    renderResourceTypeChips();
+    renderResources();
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('learning:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
+
+    wireInlineEdit($('lhHeroEyebrow'), function (v) { DB.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('lhHeroSubtext'), function (v) { DB.saveHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('lhHeroCtaLabel'), function (v) { DB.saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('lhHeroTitle').addEventListener('input', function () { autosize($('lhHeroTitle')); });
+    $('lhHeroTitle').addEventListener('blur', function () { DB.saveHero({ title: $('lhHeroTitle').value }); });
+    $('lhHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('lhHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('lhHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); DB.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+    $('lhHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+    $('lhHeroCta').addEventListener('click', function () {
+      $('lhTopicsSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('lhResetBtn').addEventListener('click', resetAll);
+
+    // Topics search wiring
+    $('lhTopicSearchInput').addEventListener('input', function () { topicSearch = this.value.trim(); renderTopics(); });
+
+    // Topics modal wiring
+    $('lhAddTopicBtn').addEventListener('click', function () { openTopicModal(null); });
+    $('lhTopicModalCloseBtn').addEventListener('click', closeTopicModal);
+    $('lhTopicModalCancel').addEventListener('click', closeTopicModal);
+    $('lhTopicModalBg').addEventListener('click', function (e) { if (e.target === this) closeTopicModal(); });
+    $('lhTopicModalSave').addEventListener('click', saveTopicModal);
+    $('lhTopicModalDelete').addEventListener('click', deleteTopicModal);
+    $('lhTopicCoverFileInput').addEventListener('change', handleTopicCoverFile);
+    $('lhTopicCoverUrlInput').addEventListener('input', function () {
+      const v = this.value.trim();
+      if (v && DB.isValidMediaUrl(v)) renderTopicCoverPreview(v);
+      else if (!v) renderTopicCoverPreview('');
+    });
+    wireTagInput($('lhTopicTagInput'), function () { return editingTopicTags; }, function (t) { editingTopicTags = t; }, renderTopicTagRow);
+
+    // Resources search wiring
+    $('lhResourceSearchInput').addEventListener('input', function () { resourceSearch = this.value.trim(); renderResources(); });
+
+    // Resources modal wiring
+    $('lhAddResourceBtn').addEventListener('click', function () { openResourceModal(null, resourceTopicFilter !== 'all' && resourceTopicFilter !== 'unlinked' ? resourceTopicFilter : null); });
+    $('lhResourceModalCloseBtn').addEventListener('click', closeResourceModal);
+    $('lhResourceModalCancel').addEventListener('click', closeResourceModal);
+    $('lhResourceModalBg').addEventListener('click', function (e) { if (e.target === this) closeResourceModal(); });
+    $('lhResourceModalSave').addEventListener('click', saveResourceModal);
+    $('lhResourceModalDelete').addEventListener('click', deleteResourceModal);
+    $('lhResourceTypeInput').addEventListener('change', function () { updateResourceModalFieldsForType(this.value); });
+
+    // Empty-storage seed-race safety window — same reasoning as
+    // aitech.html/dreamboard.html/business.html's maybeSeedAfterSyncAttempt().
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Topics.list().length > 0 || DB.Resources.list().length > 0) return;
+      DB.seedIfEmpty();
+      renderHero(); renderTopics(); renderResourceTopicChips(); renderResourceTypeChips(); renderResources();
+    }
+
+    const startedEmpty = DB.Topics.list().length === 0 && DB.Resources.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'learning',
+        syncedPrefixes: ['learning:'],
+        onApplied: function () {
+          remoteAppliedOnce = true;
+          renderHero(); renderTopics(); renderResourceTopicChips(); renderResourceTypeChips(); renderResources();
+        }
+      });
+      if (startedEmpty) { setTimeout(maybeSeedAfterSyncAttempt, 5000); }
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

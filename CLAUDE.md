@@ -37,6 +37,7 @@ Vercel's static server) — see README.md.
 | `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist) mirroring index.html's Business Workflow/Amazon-KDP feature. Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable (new — see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
 | `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
+| `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -188,6 +189,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
+   | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -228,6 +230,7 @@ using `sync.js`.
 | Business Hub | `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
 | AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Nutrition | `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
+| Learning & Knowledge Hub | `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -6037,3 +6040,117 @@ between this app and either data loss or a wide-open write target:
     `.po-shell`'s real rendered width is now `1100px` (up from `720px`)
     with `#weekExGrid` correspondingly wider — zero JS errors, no
     regressions to the fix from the two entries directly above.
+
+- **New page: `learning.html` ("Learning & Knowledge Hub"), built to match
+  Dream Board/Business Hub/AI & Tech's dark cinematic near-black/gold,
+  frosted-glass-card aesthetic — a large gallery database of research
+  Topics on top, and a Resources database "filtered/structured by" five
+  content types underneath, tied to a topic via a nullable foreign key.**
+  Genuinely new files, `learning.html` + `learning-data.js` — modeled
+  directly on `aitech.html`/`aitech-data.js`'s own Models/Prompts split
+  (the closest existing precedent for "two genuinely separate databases,
+  one linked to the other via a nullable id, already styled to match Dream
+  Board"), not built from scratch. New nav pill (`LEARNING` →
+  `learning.html`, appended after `AI & TECH` in `topbar.js`'s injected
+  pill list — the only edit made to `topbar.js`, same one-line-addition
+  precedent every prior page addition followed); new sync key (`appKey:
+  'learning'`, `syncedPrefixes: ['learning:']`, wired via the standard
+  shared `initCloudSync` — same call pattern as every other page, nothing
+  new invented).
+  - **Topics** (`learning:topics`) — the top database, a deliberately
+    **large** gallery view per the request (`.lh-topic-grid`,
+    `repeat(auto-fill, minmax(300px, 1fr))` with a 16:9 cover and 22px
+    serif title — noticeably bigger than `aitech.html`'s own 240px/16:10
+    Model gallery cards, since "large gallery view" was an explicit
+    instruction here, not just a stylistic match). Each topic has a cover
+    photo (upload or paste URL, compressed via this app's standard
+    canvas-downscale recipe) or an emoji-icon fallback on a gold gradient
+    tile, a title, a description, and freeform tag chips — full CRUD via
+    an Add/Edit modal, drag-reorderable (SortableJS, same CDN dependency
+    already used by Dream Board/Business Hub/AI & Tech/Nutrition), and
+    searchable by title. Seeded with the eleven topics named in the
+    request (Human Psychology & Neuroscience, Wealth Accumulation &
+    Entrepreneurship, Holistic Health & Alternative Healing, Persuasive
+    Communication & Writing, Astrology & Numerology, History,
+    Self-Development, Metaphysics & Quantum Physics, Spiritual Practices &
+    Esotericism, AI, Photography & Videography), each with an emoji icon,
+    a short description, and 1-2 tags — a starting point, not a fixed
+    list: "+ Add Topic" and per-card ✎/× actions make the set fully
+    editable/adjustable/extensible, per the request.
+  - **Resources** (`learning:resources`) — the bottom database, tied to a
+    topic via a nullable `topicId` (deleting a topic nulls out the
+    reference on its resources rather than deleting them, the same
+    null-out-the-reference precedent `aitech-data.js`'s model deletion,
+    `household-data.js`'s legion deletion, and `business-data.js`'s
+    week/day deletion already established). This is the literal
+    "filtered/structured by" mechanism the request asked for: each
+    resource has a `type` — `article`/`book`/`video`/`social`/`note` — and
+    whenever the type-filter chip row is at its default "All Types," the
+    section renders as five always-visible, independently-empty-stated
+    subsections (Articles / Books / YouTube Videos / Social Media Posts /
+    Additional Notes), each its own card grid with its own SortableJS
+    instance — structured by type, not just filterable by it. A topic chip
+    row (All Topics / one per topic / an "Unlinked" catch-all, same
+    pattern as `aitech.html`'s Prompt-model chips) narrows every
+    subsection to one topic at a time; a search box matches title, author,
+    and notes. Clicking a Topic card's "N resources →" link jumps straight
+    to the Resources section pre-filtered to that topic, the same
+    click-through-to-the-filtered-other-database precedent
+    `aitech.html`'s "N prompts →" link and `business.html`'s Workflow-day
+    "→ Tasks" link already established.
+  - **Per-type fields, since a book and a social post don't need the same
+    shape**: every resource has title/URL/notes; Author is hidden for
+    Additional Notes (a bare note doesn't have one) and relabeled per type
+    in the Add/Edit modal ("Channel / Creator" for videos, "Poster" for
+    social posts, "Author" otherwise); a Transcript field only appears for
+    the YouTube Video type — the concrete answer to "YouTube Videos with
+    transcripts" — shown on the card as a monospace, clamped block with a
+    Show more/less toggle (same pattern as `aitech.html`'s prompt-body
+    clamp) plus a dedicated "📋 Copy Transcript" button so a transcript is
+    actually copy-ready, not just stored. An "Open ↗" link is disabled
+    (`aria-disabled`) whenever the URL doesn't pass this app's standard
+    `isValidMediaUrl()` http(s)-only check, same guard every other
+    link/cover field in this app already uses.
+  - **Seed data** covers all eleven topics with at least one resource and
+    spreads all five resource types across several different topics (e.g.
+    Self-Development gets one of each type; AI gets an article, a video
+    with a sample transcript, and a note; Human Psychology & Neuroscience
+    gets a book and an article), so a fresh install demonstrates the full
+    "structured by type, filtered by topic" shape immediately rather than
+    landing empty. Guarded by the same empty-storage seed-race-safety
+    window as `aitech.html`/`dreamboard.html`/`business.html`
+    (`maybeSeedAfterSyncAttempt()`, deferred until either real cloud data
+    arrives via `onApplied` or a 5-second window elapses) — seeding
+    synchronously before the cloud pull has a real chance to answer could
+    push a freshly-seeded "default" board to Supabase and clobber another
+    device's real data.
+  - **Palette**: this file's own `--lh-*` tokens are a direct copy of
+    `business.html`'s gold values (`--bh-bg`/`--bh-gold`/etc.), not
+    `aitech.html`'s teal — per CLAUDE.md §6, AI & Tech's teal was itself a
+    one-off exception matched to *that page's own* separate reference
+    photo, whereas the near-black/champagne-gold look is the actual common
+    thread across Dream Board/Business Hub/Nutrition/Self-Care/Gym, so
+    that's the one this new page matches to satisfy "match the aesthetic
+    of everything to all of the other tabs." No other page's tokens were
+    touched (DO NOT MODIFY §2).
+  - **Verified via headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP *.supabase.co 0.0.0.0"`, armed before
+    navigation, per [[feedback_block_supabase_before_browser_testing]]):
+    a `--dump-dom` pass confirmed all 11 seeded topics render with correct
+    titles/icons/tags/resource counts, all 5 resource-type subsections
+    render with the correct seeded counts (5/4/3/2/5), and no duplicate
+    DOM ids exist anywhere on the page (including the newly-injected
+    `topbarLearning` nav pill). Full-page screenshots at both a
+    topics-only scroll position and a full-page height confirmed the
+    visual result matches Dream Board/Business Hub/AI & Tech's aesthetic
+    exactly (frosted-glass numbered cards, serif titles, gold hairline
+    borders, the sync-status indicator correctly reading "Synced"), and
+    separately confirmed the YouTube Videos group's transcript clamp/
+    "Show more"/"Copy Transcript" affordances and the Social Media
+    Posts/Additional Notes groups all render correctly. Interactive clicks
+    (opening the Add Topic/Add Resource modals, dragging a card, toggling
+    a filter chip) were not exercised this round — this environment's
+    headless Edge still can't reliably be driven interactively via a live
+    CDP session (the same disclosed limitation several other pages'
+    changelog entries in this file already note); a real click-through is
+    recommended before relying on this page heavily.
