@@ -5794,3 +5794,40 @@ between this app and either data loss or a wide-open write target:
     that it wasn't the user's own real browser window. It's unclear
     whether the user had Edge open at the time; worth being more
     careful about that check before doing this again.
+
+- **Fitness Studio (`gym.html`) bugfix, round two — the default-tab fix
+  above wasn't the actual problem.** Reported again as still broken;
+  this time, rather than guessing a third time, the user was asked two
+  quick clarifying questions (what happens on tap, and whether they're
+  on the live deployed site or a local file). Answers: the page looks
+  **mostly blank/empty from the start** — before tapping anything — and
+  they're on the **live deployed site**, not a local copy. That
+  pinpointed the real cause: `.gh-hero` (added two changelog entries
+  ago, to "match Dream Board's exact hero") is `min-height: 78vh`
+  (84vh on mobile) — on a phone, a hero that tall *is* almost the
+  entire visible screen, and with no cover photo set it's mostly a
+  dark gradient with small centered "+ Add a cover photo" text. That
+  reads exactly as "the page is blank," regardless of which tab is
+  selected underneath it — the previous fix (defaulting to Current Week
+  instead of Overview) didn't help because the hero sits *above* every
+  tab, not just Overview's.
+  - **Fix**: `.gh-hero`'s `min-height` dropped from `78vh`/`84vh` to
+    `clamp(220px, 34vh, 360px)` (`clamp(200px, 40vh, 320px)` on mobile)
+    and its padding was trimmed to match — same visual recipe (cover
+    photo, gradient scrim, gold eyebrow, serif title, subtext, frosted
+    CTA pill) at a height that doesn't bury the tab bar and real
+    workout data below the fold. This is a deliberate, disclosed
+    divergence from Dream Board's own hero proportions: Dream Board is
+    a vision-board landing page where the hero *is* most of the point;
+    Fitness Studio is a data-heavy daily-use tool where a returning
+    user needs to reach their real routines/schedule quickly, so the
+    "exact aesthetic" instruction from two entries ago is honored in
+    color/typography/component recipe, not in raw hero height.
+  - **Verified**: a 390×844 mobile screenshot (matching a typical phone
+    viewport) now shows the hero, the day pill, the page title, and the
+    full tab bar (with "Current Week" active) all within roughly one
+    screen's height — a dramatic change from the hero alone consuming
+    nearly the whole viewport before. Re-ran the same headless
+    dump-dom + stderr check used in every prior entry in this section —
+    zero JS errors, confirming this was a pure CSS change with no
+    functional side effects.
