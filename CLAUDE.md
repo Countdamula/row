@@ -341,6 +341,71 @@ between this app and either data loss or a wide-open write target:
      shared at runtime across every page — don't fork it per-page; edit it
      once in `topbar.js` if the nav itself needs to change.
 
+## Writing Dashboard
+
+**Status: scaffolding only, spec not yet written.** `docs/WRITING_DASHBOARD_SPEC.md`
+is a placeholder — read it before working here, but there's nothing to build
+from yet. Once the real spec lands there, treat it as the source of truth for
+this feature specifically (it does not override anything else in this file).
+
+**Scope, confirmed 2026-07-22**: a new tab inside `business.html` (Business
+Hub), alongside the existing Content / Ideas / Platforms / Resources tabs —
+*not* a standalone page, and *not* a client-side "route" (this app has no
+router of any kind — see §1).
+
+Rules for this feature, as given, with two adapted to fit this app's actual
+architecture (noted inline — flagged rather than silently followed, since
+both as originally phrased assumed a backend this app doesn't have):
+
+- **Ordering uses fractional-indexing string keys, never integer position
+  columns.** This is a new convention, scoped to this feature only — every
+  other reorderable list in this app (Life Areas, Workflow weeks/days, Dream
+  Board/Business Hub/AI & Tech/Nutrition/Self-Care board widgets, etc.) uses
+  a numeric `order` field with swap-adjacent-values reordering instead (see
+  `dreamboard-data.js`/`business-data.js`'s `move*()` functions for the
+  existing pattern). Fine to introduce here, but don't expect a sibling
+  feature's code to match it, and don't retrofit it onto anything else
+  without being asked.
+- **No hardcoded colors, fonts, or radii — read from theme CSS custom
+  properties.** Matches this app's existing DO NOT MODIFY rule 2 above.
+  Concretely: reuse `business.html`'s own `--bh-*` tokens (it already
+  matches Dream Board's dark cinematic near-black/gold aesthetic — see that
+  page's own changelog entries), don't introduce a new palette for this tab.
+- **Every table gets user_id + RLS. No exceptions, no "add it later."**
+  **Cannot be followed as literally written — flagging rather than adding
+  silently.** This app has no per-feature Supabase tables and no `user_id`
+  column anywhere: it's a single-user tool (§2, "No accounts, no server")
+  with exactly one generic table, `public.app_state` (`key`/`data`/
+  `updated_at`), and the DO NOT MODIFY section above explicitly prohibits
+  repurposing that table's `key` scheme or inventing a new sync mechanism
+  without being asked. In practice, Writing's data will live under
+  `business:*` `localStorage` keys (already covered by `business.html`'s
+  existing `initCloudSync({ appKey: 'business', syncedPrefixes:
+  ['business:'] })` call — reuse it, don't add a new sync call) inside the
+  shared `business` row, same as every other Business Hub tab. If a real
+  per-table/RLS backend is actually wanted for this feature specifically,
+  that's a standing architecture change bigger than one feature and needs
+  an explicit decision first, not something to build quietly inside this
+  section.
+- **Any drag/resize/collapse state must persist to Supabase. If it doesn't
+  survive a reload, the feature is not done.** Matches how every other
+  synced page here already works — write to the right `business:`-prefixed
+  `localStorage` key and `sync.js`'s push/pull handles the rest, same as
+  every other Business Hub tab.
+- **Do not modify files outside the writing dashboard feature folder
+  without asking first.** Note: this app has no per-feature folders (§1 —
+  flat top-level `.html`/`-data.js` files, no build step). Read as: don't
+  touch files outside `business.html`/`business-data.js` (and this spec
+  doc) without asking — same spirit, adapted to this repo's actual layout.
+- **Before saying a phase is done: typecheck, lint, and build must pass.**
+  This repo has no build step, no TypeScript, and no configured linter (§1
+  — no bundler, no compiler, no package.json). Read as: before saying a
+  phase is done, open the page in a browser and confirm it renders/works
+  with zero console errors — the closest equivalent this app actually has,
+  per this file's own established verification convention (see e.g. the
+  Templates/Workflow/Business Hub changelog entries' "verified in headless
+  Edge" notes).
+
 ## Changelog
 
 - **Stack and Water pages removed.** Deleted `health.html` (Stack) and
