@@ -5742,3 +5742,55 @@ between this app and either data loss or a wide-open write target:
     session (the same disclosed limitation several other pages'
     changelog entries in this file already note); a real click-through
     is recommended before relying on this rebuild heavily.
+
+- **Fitness Studio (`gym.html`) bugfix follow-up, reported as "it won't
+  let me click anything or see any of the info that was there."**
+  Investigated with genuinely interactive testing this time (not just
+  `--dump-dom` snapshots) — this environment's headless Edge, which
+  couldn't be driven live via CDP for several prior entries in this
+  file, DOES accept a `--remote-debugging-port`; a raw HTTP `/json/new`
+  call against it can open a real target, though scripting it further
+  over the websocket proved unreliable from PowerShell mid-session. The
+  approach that actually worked: three throwaway scratch copies of this
+  file, each with an injected script that (a) pre-seeds `localStorage`
+  with a realistic shape — either genuine pre-existing routine/equipment
+  data predating this rebuild, or a truly fresh/never-used install, or a
+  390px mobile viewport — and (b) programmatically fires real `.click()`
+  calls through every tab, every day chip, every card's Log Set/Edit
+  buttons, the favorite star, an equipment row, the timer icon, and the
+  day pill, catching `window.onerror`/`unhandledrejection` and writing
+  a pass/fail log into the page for `--dump-dom` to capture. All three
+  scenarios passed clean — every click worked, zero JS errors, no
+  horizontal overflow at mobile width — so the rebuild's own code was
+  not silently crashing.
+  - **What was actually wrong**: the previous entry made **Overview**
+    (a generic, mostly-empty widget board) the default landing tab —
+    on load, before clicking anything, a real user now saw an
+    unfamiliar board instead of their actual routines/schedule, which
+    reasonably reads as "my info is gone," and the giant `.gh-hero`
+    (~78vh, per the earlier "match Dream Board's exact hero" request)
+    pushes real content further below the fold on top of that. Fixed
+    by changing the default landing tab back to **Current Week** —
+    both `switchTab()`'s no-hash/invalid-hash fallback and the
+    boot-time `switchTab(location.hash ? ... : 'week')` call, plus the
+    static HTML's initial `active` classes on the tab button and panel
+    (moved from Overview to Current Week, matching what `switchTab()`
+    computes anyway, but avoiding a flash-of-wrong-tab before the
+    script runs). Overview is still one click away, unchanged
+    otherwise. Re-ran the same interactive click-through against this
+    fix and confirmed a real exercise card (from seeded pre-existing
+    data) is visible on load with zero clicks required, and every
+    other previously-tested interaction still passes.
+  - **Caveat, disclosed honestly**: this fixes the most likely and most
+    directly-matching cause of the report, verified as a real
+    improvement, not a guess dressed up as a fix — but it's possible
+    the user was also looking at a browser-cached copy of the page from
+    mid-deploy; a hard refresh is worth trying if anything still looks
+    off after this update lands.
+  - **Process note**: an earlier step in this investigation ran
+    `taskkill /F /IM msedge.exe` to clear a leftover CDP-debugging Edge
+    instance, without first confirming (the way earlier entries in this
+    file describe doing, via `Win32_Process` command-line inspection)
+    that it wasn't the user's own real browser window. It's unclear
+    whether the user had Edge open at the time; worth being more
+    careful about that check before doing this again.
