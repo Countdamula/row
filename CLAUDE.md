@@ -6154,3 +6154,74 @@ between this app and either data loss or a wide-open write target:
     CDP session (the same disclosed limitation several other pages'
     changelog entries in this file already note); a real click-through is
     recommended before relying on this page heavily.
+
+- **Learning & Knowledge Hub (`learning.html`) follow-up: a bigger hero
+  cover photo matching Dream Board exactly, and a "page" of generated,
+  editable, reorderable text/link sections on every Resource.** Two
+  changes requested together.
+  - **Hero size**: `.lh-hero` was copied from `aitech.html`'s single-row,
+    fixed-height recipe (`min-height: 340px`) when this page was first
+    built — per an explicit "make the cover photo bigger like in the Dream
+    Board Tab" ask, it's now a byte-for-byte match of `dreamboard.html`'s
+    actual hero recipe instead: `min-height: 78vh` (`84vh` under a new
+    `max-width: 620px` media query, matching Dream Board's own mobile
+    breakpoint), `flex-direction: column; justify-content: flex-end`,
+    `padding: 90px 20px 46px` (`84px 16px 34px` on mobile). No other hero
+    behavior changed — same editable eyebrow/title/subtext/CTA, same
+    upload-or-remove cover photo flow.
+  - **Resource "page"** — the concrete answer to "a big section... so I
+    can insert texts and links... paste the entire book... another
+    section dedicated for links and notes and favorite parts," applied
+    uniformly to every resource, of every type (article/book/video/
+    social/note), not built differently per type. Modeled directly on
+    `business.html`'s Platform Detail page (`addPlatformSection()`/
+    `updatePlatformSection()`/`removePlatformSection()`/
+    `movePlatformSection()`/`sectionsForWidget()`) — the same
+    "generated on demand, editable, reorderable" pattern, ported to a
+    Resource record instead of a Widget's `data` sub-object:
+    - `learning-data.js`: `Resource` gained an inline `sections: []`
+      array (`{id, title, body, order, createdAt}`, purely additive —
+      pre-existing resources default to `[]` via `resourceModel()`, no
+      migration needed) plus `sectionsForResource()`/
+      `addResourceSection()`/`updateResourceSection()`/
+      `removeResourceSection()`/`moveResourceSection()`. No separate
+      collection — deleting a resource deletes its sections with it,
+      same as Platform sections deleting with their widget.
+    - `learning.html`: every resource card gained a "📄 Open Page" button
+      (next to the existing "Open ↗" link) opening a new, wider modal
+      (`#lhResourceDetailModalBg`, `.modal.lh-modal-wide` — same
+      `max-width: 620px` widen-the-modal precedent as `business.html`'s
+      `.bh-modal-wide`) showing the resource's title/type/topic and its
+      section list, each section an editable title input + an
+      autosizing textarea body (both autosave on blur) with ▲▼ reorder
+      and a delete ✕ — plus a "+ Generate Section" button for adding
+      more, and a card-face hint ("N sections") once any exist.
+    - **The first time a resource's page is opened with zero sections**,
+      two starting sections are auto-created — "Full Text / Content" and
+      "Links, Notes & Favorite Parts" — giving every resource (seeded or
+      newly added) the same starting structure the request asked for
+      out of the box, while staying fully renameable/deletable/
+      addable afterward (this is a UI-level lazy-create on first open,
+      not a data migration, so it applies uniformly going forward
+      without touching `seedDefaultData()` or any already-stored
+      resource until its page is actually opened).
+  - **Verified via headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP *.supabase.co 0.0.0.0"`, armed before
+    navigation, per [[feedback_block_supabase_before_browser_testing]]):
+    a full-page screenshot confirmed the hero now matches Dream Board's
+    proportions; a scripted click-through (using a temporary scratch copy
+    of the file kept alongside its sibling `learning-data.js`/`sync.js`/
+    `topbar.js` so they'd actually resolve, deleted afterward) against a
+    fresh, never-synced profile confirmed all 38 "Open Page" buttons
+    render, clicking one opens the modal, and the two default sections
+    ("Full Text / Content", "Links, Notes & Favorite Parts") are created
+    correctly on first open — a screenshot of the open modal confirmed
+    the visual result matches Business Hub's Platform Detail page
+    aesthetic. One test-methodology note worth remembering for future
+    sessions in this environment: a scratch copy must either stay in the
+    real project directory (so its relative `<script src="...">` sibling
+    files resolve) or have those siblings copied alongside it — copying
+    just the one HTML file into a separate temp directory silently
+    breaks it (`window.LearningData` stays `undefined`, `init()` bails
+    immediately), which read at first as a mysterious "0 buttons found"
+    result rather than the file-resolution problem it actually was.

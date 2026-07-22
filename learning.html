@@ -103,9 +103,10 @@ body::after {
 .lh-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--lh-text); }
 
 .lh-hero {
-  position: relative; min-height: 340px; display: flex; align-items: flex-end;
-  padding: 70px 24px 34px; overflow: hidden;
+  position: relative; min-height: 78vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 90px 20px 46px;
 }
+@media (max-width: 620px) { .lh-hero { min-height: 84vh; padding: 84px 16px 34px; } }
 .lh-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--lh-paper-solid); }
 .lh-hero-media img { width: 100%; height: 100%; object-fit: cover; }
 .lh-hero-photo-choice {
@@ -271,6 +272,7 @@ body::after {
 .modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
 .modal-bg.show { display: flex; }
 .modal { background: rgba(22, 19, 15, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.modal.lh-modal-wide { max-width: 620px; }
 .lh-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .lh-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--lh-text); }
 .lh-modal-close { background: transparent; border: none; font-size: 18px; color: var(--lh-text-mute); cursor: pointer; }
@@ -289,6 +291,26 @@ body::after {
 .lh-tag-input-row .lh-topic-tag button { background: none; border: none; color: inherit; opacity: 0.65; cursor: pointer; font-size: 10px; padding: 0 0 0 4px; }
 .delete-link { display: block; text-align: center; margin-top: 14px; font-size: 12px; color: var(--danger); cursor: pointer; }
 .delete-link:hover { text-decoration: underline; }
+
+/* ===== Resource "page" — freeform, generated-on-demand text/link
+   sections (e.g. "Full Text", "Links, Notes & Favorite Parts"). Same
+   pattern/CSS recipe as business.html's Platform Detail page
+   (.bh-pf-section etc.), just lh-/"rsec"-prefixed. ===== */
+.lh-resource-detail-meta { font-size: 12px; color: var(--lh-text-mute); margin-bottom: 10px; }
+.lh-pfd-sections-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 10px; }
+.lh-roster-heading { font-family: var(--font-serif); font-size: 16px; font-weight: 600; color: var(--lh-text); }
+.lh-rsec { border: 1px solid var(--lh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 10px; }
+.lh-rsec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.lh-rsec-reorder { display: flex; gap: 2px; flex-shrink: 0; }
+.lh-rsec-reorder button { background: transparent; border: none; color: var(--lh-text-mute); font-size: 11px; cursor: pointer; padding: 2px 4px; }
+.lh-rsec-reorder button:hover:not(:disabled) { color: var(--lh-gold-bright); }
+.lh-rsec-reorder button:disabled { opacity: 0.25; cursor: default; }
+.lh-rsec-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--lh-text); outline-offset: 3px; }
+.lh-rsec-del { background: transparent; border: none; color: var(--lh-text-mute); font-size: 13px; cursor: pointer; padding: 2px 6px; flex-shrink: 0; }
+.lh-rsec-del:hover { color: var(--danger); }
+.lh-rsec-body { width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--lh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--lh-text); }
+.lh-rsec-empty { font-size: 11.5px; color: var(--lh-text-mute); font-style: italic; padding: 6px 0 2px; }
+.lh-resource-section-hint { font-size: 10.5px; color: var(--lh-text-mute); }
 </style>
 </head>
 <body>
@@ -405,6 +427,18 @@ body::after {
   </div>
 </div>
 
+<div class="modal-bg" id="lhResourceDetailModalBg">
+  <div class="modal lh-modal-wide">
+    <div class="lh-modal-head"><h3 id="lhResourceDetailTitle">Resource Page</h3><button type="button" class="lh-modal-close" id="lhResourceDetailCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="lh-resource-detail-meta" id="lhResourceDetailMeta"></div>
+    <div class="lh-pfd-sections-head">
+      <div class="lh-roster-heading">Sections</div>
+      <button type="button" class="lh-btn-secondary" id="lhResourceDetailAddSectionBtn">+ Generate Section</button>
+    </div>
+    <div id="lhResourceDetailSections"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -418,6 +452,7 @@ body::after {
   let editingTopicTags = [];
   let editingResourceId = null;
   let expandedResourceIds = {};
+  let resourceDetailId = null;
 
   // Transient, in-memory-only filter state — same precedent as this app's
   // other in-memory view filters (e.g. aitech.html's model/prompt chips).
@@ -801,6 +836,14 @@ body::after {
     if (DB.isValidMediaUrl(resource.url)) { openLink.href = resource.url; openLink.target = '_blank'; openLink.rel = 'noopener'; }
     else { openLink.href = '#'; openLink.setAttribute('aria-disabled', 'true'); openLink.addEventListener('click', function (e) { e.preventDefault(); }); }
     footer.appendChild(openLink);
+    const pageBtn = document.createElement('button'); pageBtn.type = 'button'; pageBtn.className = 'lh-resource-open-btn'; pageBtn.textContent = '📄 Open Page';
+    pageBtn.addEventListener('click', function () { openResourceDetailModal(resource.id); });
+    footer.appendChild(pageBtn);
+    if (resource.sections && resource.sections.length) {
+      const hint = document.createElement('span'); hint.className = 'lh-resource-section-hint';
+      hint.textContent = resource.sections.length + (resource.sections.length === 1 ? ' section' : ' sections');
+      footer.appendChild(hint);
+    }
     if (resource.type === 'video' && resource.transcript) {
       const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'lh-resource-copy-btn'; copyBtn.textContent = '📋 Copy Transcript';
       copyBtn.addEventListener('click', function () {
@@ -914,6 +957,73 @@ body::after {
     closeResourceModal(); renderResources(); renderTopics();
   }
 
+  // ============================================================
+  // RESOURCE "PAGE" — a big, freeform area per resource for pasting full
+  // text/links/notes, generated on demand and reorderable. Same pattern as
+  // business.html's Platform Detail page (addPlatformSection() etc.).
+  // ============================================================
+  function buildResourceSectionCard(resourceId, section, index, total) {
+    const wrap = document.createElement('div'); wrap.className = 'lh-rsec';
+    const head = document.createElement('div'); head.className = 'lh-rsec-head';
+    const reorder = document.createElement('div'); reorder.className = 'lh-rsec-reorder';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = index <= 0; up.setAttribute('aria-label', 'Move section up');
+    up.addEventListener('click', function () { DB.moveResourceSection(resourceId, section.id, -1); renderResourceDetailSections(resourceId); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = index >= total - 1; down.setAttribute('aria-label', 'Move section down');
+    down.addEventListener('click', function () { DB.moveResourceSection(resourceId, section.id, 1); renderResourceDetailSections(resourceId); });
+    reorder.appendChild(up); reorder.appendChild(down); head.appendChild(reorder);
+    const title = document.createElement('input'); title.type = 'text'; title.className = 'lh-rsec-title-input'; title.value = section.title; title.placeholder = 'Section title…';
+    title.addEventListener('blur', function () { if (title.value !== section.title) DB.updateResourceSection(resourceId, section.id, { title: title.value }); });
+    title.addEventListener('keydown', function (e) { if (e.key === 'Enter') title.blur(); });
+    head.appendChild(title);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'lh-rsec-del'; del.title = 'Delete section'; del.textContent = '✕';
+    del.addEventListener('click', function () {
+      if (!confirm('Delete this section?')) return;
+      DB.removeResourceSection(resourceId, section.id); renderResourceDetailSections(resourceId);
+    });
+    head.appendChild(del);
+    wrap.appendChild(head);
+    const body = document.createElement('textarea'); body.className = 'lh-rsec-body'; body.value = section.body || ''; body.placeholder = 'Paste or write freely — the full text, a link list, favorite quotes…';
+    body.addEventListener('input', function () { autosize(body); });
+    body.addEventListener('blur', function () { DB.updateResourceSection(resourceId, section.id, { body: body.value }); });
+    wrap.appendChild(body);
+    setTimeout(function () { autosize(body); }, 0);
+    return wrap;
+  }
+  function renderResourceDetailSections(resourceId) {
+    const wrap = $('lhResourceDetailSections');
+    wrap.innerHTML = '';
+    const sections = DB.sectionsForResource(resourceId);
+    if (!sections.length) {
+      const empty = document.createElement('div'); empty.className = 'lh-rsec-empty'; empty.textContent = 'No sections yet — click "Generate Section" to add one.';
+      wrap.appendChild(empty);
+      return;
+    }
+    sections.forEach(function (s, i) { wrap.appendChild(buildResourceSectionCard(resourceId, s, i, sections.length)); });
+  }
+  function openResourceDetailModal(id) {
+    const r = DB.Resources.get(id);
+    if (!r) return;
+    resourceDetailId = id;
+    // Every resource's page starts with the same two sections the first
+    // time it's opened — "paste the full text" + "links, notes & favorite
+    // parts" — per the request, applied uniformly to every resource type;
+    // still fully renameable/deletable/addable afterward.
+    if (!r.sections || !r.sections.length) {
+      DB.addResourceSection(id, 'Full Text / Content');
+      DB.addResourceSection(id, 'Links, Notes & Favorite Parts');
+    }
+    $('lhResourceDetailTitle').textContent = r.title || 'Resource Page';
+    const topicName = r.topicId ? DB.topicName(r.topicId) : null;
+    $('lhResourceDetailMeta').textContent = DB.RESOURCE_TYPE_SINGULAR[r.type] + (topicName ? ' · ' + topicName : ' · Unlinked');
+    renderResourceDetailSections(id);
+    openModal($('lhResourceDetailModalBg'));
+  }
+  function closeResourceDetailModal() {
+    closeModal($('lhResourceDetailModalBg'));
+    resourceDetailId = null;
+    renderResources();
+  }
+
   function resetAll() {
     if (!confirm('Reset Learning & Knowledge Hub to its default topics and resources? This deletes everything currently here.')) return;
     DB.seedDefaultData();
@@ -982,6 +1092,15 @@ body::after {
     $('lhResourceModalSave').addEventListener('click', saveResourceModal);
     $('lhResourceModalDelete').addEventListener('click', deleteResourceModal);
     $('lhResourceTypeInput').addEventListener('change', function () { updateResourceModalFieldsForType(this.value); });
+
+    // Resource "page" (generated sections) modal wiring
+    $('lhResourceDetailCloseBtn').addEventListener('click', closeResourceDetailModal);
+    $('lhResourceDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closeResourceDetailModal(); });
+    $('lhResourceDetailAddSectionBtn').addEventListener('click', function () {
+      if (!resourceDetailId) return;
+      DB.addResourceSection(resourceDetailId, 'New Section');
+      renderResourceDetailSections(resourceDetailId);
+    });
 
     // Empty-storage seed-race safety window — same reasoning as
     // aitech.html/dreamboard.html/business.html's maybeSeedAfterSyncAttempt().

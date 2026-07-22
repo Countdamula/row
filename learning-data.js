@@ -122,7 +122,7 @@
     note: 'Note'
   };
 
-  /** @typedef {{id:string, topicId:?string, type:string, title:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, order:number, createdAt:number}} Resource */
+  /** @typedef {{id:string, topicId:?string, type:string, title:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:{id:string,title:string,body:string,order:number,createdAt:number}[], order:number, createdAt:number}} Resource */
   function resourceModel(data) {
     data = data || {};
     return {
@@ -135,6 +135,12 @@
       transcript: typeof data.transcript === 'string' ? data.transcript : '',
       notes: typeof data.notes === 'string' ? data.notes : '',
       favorite: !!data.favorite,
+      // A resource's own "page" — freeform, generated-on-demand text/link
+      // sections (e.g. "Full Text", "Links, Notes & Favorite Parts"), same
+      // inline-on-the-record convention as business-data.js's Platform
+      // widget `sections` (addPlatformSection() etc.) — no separate
+      // collection, so deleting the resource deletes its sections with it.
+      sections: Array.isArray(data.sections) ? data.sections : [],
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
@@ -230,6 +236,53 @@
     const byId = {}; all.forEach(function (r) { byId[r.id] = r; });
     orderedIds.forEach(function (id, idx) { if (byId[id]) byId[id].order = idx; });
     Resources.replaceAll(all);
+  }
+
+  // ============================================================
+  // RESOURCE SECTIONS — a resource's own "page": freeform, generated-on-
+  // demand text/link sections. Same CRUD shape as business-data.js's
+  // addPlatformSection()/updatePlatformSection()/removePlatformSection()/
+  // movePlatformSection()/sectionsForWidget(), just inline on a Resource
+  // record instead of a Widget's `data` sub-object.
+  // ============================================================
+  function sectionsForResource(resourceId) {
+    const r = Resources.get(resourceId);
+    if (!r) return [];
+    return (r.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
+  }
+  function addResourceSection(resourceId, title) {
+    const r = Resources.get(resourceId);
+    if (!r) return null;
+    const sections = (r.sections || []).slice();
+    const order = sections.length ? Math.max.apply(null, sections.map(function (s) { return s.order; })) + 1 : 0;
+    const section = { id: uid('sec'), title: title || 'New Section', body: '', order: order, createdAt: Date.now() };
+    sections.push(section);
+    Resources.update(resourceId, { sections: sections });
+    return section;
+  }
+  function updateResourceSection(resourceId, sectionId, patch) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).map(function (s) { return s.id === sectionId ? Object.assign({}, s, patch) : s; });
+    Resources.update(resourceId, { sections: sections });
+  }
+  function removeResourceSection(resourceId, sectionId) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).filter(function (s) { return s.id !== sectionId; });
+    Resources.update(resourceId, { sections: sections });
+  }
+  function moveResourceSection(resourceId, sectionId, dir) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
+    const idx = sections.findIndex(function (s) { return s.id === sectionId; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= sections.length) return;
+    const tmp = sections[idx].order;
+    sections[idx].order = sections[otherIdx].order;
+    sections[otherIdx].order = tmp;
+    Resources.update(resourceId, { sections: sections });
   }
 
   // ============================================================
@@ -358,6 +411,11 @@
     nextOrder: nextOrder,
     reorderTopics: reorderTopics,
     reorderResources: reorderResources,
+    sectionsForResource: sectionsForResource,
+    addResourceSection: addResourceSection,
+    updateResourceSection: updateResourceSection,
+    removeResourceSection: removeResourceSection,
+    moveResourceSection: moveResourceSection,
     seedDefaultData: seedDefaultData,
     seedIfEmpty: seedIfEmpty
   };
