@@ -6014,3 +6014,26 @@ between this app and either data loss or a wide-open write target:
     as a permanent safety net for any *other* real-data shape this
     file's `normalize()` hasn't anticipated — this fix only addresses
     the one specific cause the user's own copied error identified.
+
+- **Fitness Studio (`gym.html`) widened, per an explicit "everything
+  feels too narrow on my screen" request.** `.po-shell` — the container
+  for everything below the hero (day pill, banner, tab bar, and every
+  tab panel: This Week's exercise grid, Templates' gallery, Equipment,
+  History) — was capped at `max-width: min(720px, 100vw)`, noticeably
+  narrower than this page's own sibling pages it's otherwise been
+  rebuilt to match: `dreamboard.html`/`business.html`/`selfcare.html`
+  all use `max-width: 1100px` for their equivalent `.shell` container.
+  Widened `.po-shell` to the same `min(1100px, 100vw)` for consistency
+  with that established precedent rather than picking a new number.
+  No other change was needed — `.gw-board` (the Overview widget board)
+  and `.gy-grid` (the Current Week/Templates card grids) were already
+  responsive (`repeat(3, minmax(0,1fr))` and `repeat(auto-fill,
+  minmax(240px,1fr))` respectively), so they automatically use the
+  extra width — wider cards / more columns per row — with no CSS of
+  their own to touch.
+  - **Verified**: a 1600×1000 desktop headless Edge screenshot (Supabase
+    blocked, per [[feedback_block_supabase_before_browser_testing]])
+    confirmed the visual result, and a computed-style check confirmed
+    `.po-shell`'s real rendered width is now `1100px` (up from `720px`)
+    with `#weekExGrid` correspondingly wider — zero JS errors, no
+    regressions to the fix from the two entries directly above.
