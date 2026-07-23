@@ -621,6 +621,7 @@ body::after {
   let topicSearch = '';
   let resourceTopicFilter = 'all';
   let resourceTypeFilter = 'all';
+  let resourceFavoritesOnly = false;
   let resourceSearch = '';
 
   function openModal(el) { el.classList.add('show'); }
@@ -912,6 +913,7 @@ body::after {
     let list = DB.resourcesSorted();
     if (resourceTopicFilter === 'unlinked') list = list.filter(function (r) { return !r.topicId; });
     else if (resourceTopicFilter !== 'all') list = list.filter(function (r) { return r.topicId === resourceTopicFilter; });
+    if (resourceFavoritesOnly) list = list.filter(function (r) { return !!r.favorite; });
     if (resourceSearch) {
       const q = resourceSearch.toLowerCase();
       list = list.filter(function (r) {
@@ -951,6 +953,9 @@ body::after {
       btn.addEventListener('click', function () { resourceTypeFilter = type; renderResourceTypeChips(); renderResources(); });
       wrap.appendChild(btn);
     });
+    const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'lh-chip' + (resourceFavoritesOnly ? ' active' : ''); favBtn.textContent = '★ Favorites Only';
+    favBtn.addEventListener('click', function () { resourceFavoritesOnly = !resourceFavoritesOnly; renderResourceTypeChips(); renderResources(); });
+    wrap.appendChild(favBtn);
   }
   function buildResourceCard(resource, displayIndex) {
     const card = document.createElement('div'); card.className = 'lh-card'; card.dataset.resourceId = resource.id;

@@ -7284,3 +7284,16 @@ both as originally phrased assumed a backend this app doesn't have):
     the article page, adding/reordering a divider, pasting a real image
     into a section, uploading a cover photo) — a real click-through is
     recommended before relying on this heavily.
+
+- **Learning & Knowledge Hub Resources gained a "★ Favorites Only" filter
+  chip.** Purely additive — the `favorite` field and its per-card star
+  toggle already existed; this just adds a way to filter by it. A new
+  transient (in-memory-only, same precedent as the existing topic/type
+  filters and search) `resourceFavoritesOnly` flag, toggled by a chip
+  appended to the end of the existing type-filter chip row
+  (`#lhResourceTypeChips`), composes with the topic/type/search filters
+  exactly like every other resource filter already does —
+  `baseFilteredResources()` gained one more `.filter()` line. Verified
+  statically (same fallback as the entry above, this environment's
+  headless Edge still unusable this session): zero duplicate DOM ids,
+  zero orphaned `$('id')` references, balanced script braces/parens.
