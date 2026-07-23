@@ -1186,9 +1186,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       storeSet('finance:photosMigratedV1', true);
       return;
     }
+    // Only mark this page "done" if the upload actually succeeded —
+    // upload() never rejects (it resolves to null on any failure, e.g.
+    // the bucket not existing yet), so setting the flag unconditionally
+    // here would permanently skip retrying after a failed attempt.
     window.PhotoStore.upload(heroPhoto).then(function (url) {
+      if (!url) return;
       storeSet('finance:photosMigratedV1', true);
-      if (url && FD.getHero().photo === heroPhoto) { FD.saveHero({ photo: url }); renderHero(); }
+      if (FD.getHero().photo === heroPhoto) { FD.saveHero({ photo: url }); renderHero(); }
     });
   }
 

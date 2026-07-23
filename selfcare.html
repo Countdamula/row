@@ -821,9 +821,10 @@ body::after {
       const photo = t.hero && t.hero.photo;
       if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
         jobs.push(window.PhotoStore.upload(photo).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = SC.Tabs.get(t.id);
           if (fresh && fresh.hero && fresh.hero.photo === photo) SC.Tabs.update(t.id, { hero: Object.assign({}, fresh.hero, { photo: url }) });
+          return true;
         }));
       }
     });
@@ -832,9 +833,10 @@ body::after {
         const val = w.data && w.data[field];
         if (typeof val === 'string' && val.indexOf('data:') === 0) {
           jobs.push(window.PhotoStore.upload(val).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             const fresh = SC.Widgets.get(w.id);
             if (fresh && fresh.data[field] === val) SC.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { [field]: url }) });
+            return true;
           }));
         }
       });
@@ -842,18 +844,23 @@ body::after {
         if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
           const slotId = slot.id, orig = slot.url;
           jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             const fresh = SC.Widgets.get(w.id);
-            if (!fresh) return;
+            if (!fresh) return false;
             const slots = (fresh.data.slots || []).map(function (s) { return s.id === slotId && s.url === orig ? Object.assign({}, s, { url: url }) : s; });
             SC.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { slots: slots }) });
+            return true;
           }));
         }
       });
     });
     if (!jobs.length) { storeSet('selfcare:photosMigratedV1', true); return; }
-    Promise.all(jobs).then(function () {
-      storeSet('selfcare:photosMigratedV1', true);
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) storeSet('selfcare:photosMigratedV1', true);
       renderActivePanel();
     });
   }

@@ -1034,9 +1034,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       const photo = t.hero && t.hero.photo;
       if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
         jobs.push(window.PhotoStore.upload(photo).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = ND.Tabs.get(t.id);
           if (fresh && fresh.hero && fresh.hero.photo === photo) ND.Tabs.update(t.id, { hero: Object.assign({}, fresh.hero, { photo: url }) });
+          return true;
         }));
       }
     });
@@ -1045,9 +1046,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         const val = w.data && w.data[field];
         if (typeof val === 'string' && val.indexOf('data:') === 0) {
           jobs.push(window.PhotoStore.upload(val).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             const fresh = ND.Widgets.get(w.id);
             if (fresh && fresh.data[field] === val) ND.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { [field]: url }) });
+            return true;
           }));
         }
       });
@@ -1055,11 +1057,12 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
           const slotId = slot.id, orig = slot.url;
           jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             const fresh = ND.Widgets.get(w.id);
-            if (!fresh) return;
+            if (!fresh) return false;
             const slots = (fresh.data.slots || []).map(function (s) { return s.id === slotId && s.url === orig ? Object.assign({}, s, { url: url }) : s; });
             ND.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { slots: slots }) });
+            return true;
           }));
         }
       });
@@ -1068,28 +1071,34 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       if (typeof r.imageUrl === 'string' && r.imageUrl.indexOf('data:') === 0) {
         const orig = r.imageUrl;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = ND.Recipes.get(r.id);
           if (fresh && fresh.imageUrl === orig) ND.Recipes.update(r.id, { imageUrl: url });
+          return true;
         }));
       }
       (r.steps || []).forEach(function (step, stepIdx) {
         if (typeof step.imageUrl === 'string' && step.imageUrl.indexOf('data:') === 0) {
           const orig = step.imageUrl;
           jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             const fresh = ND.Recipes.get(r.id);
-            if (!fresh || !fresh.steps[stepIdx] || fresh.steps[stepIdx].imageUrl !== orig) return;
+            if (!fresh || !fresh.steps[stepIdx] || fresh.steps[stepIdx].imageUrl !== orig) return false;
             const steps = fresh.steps.slice();
             steps[stepIdx] = Object.assign({}, steps[stepIdx], { imageUrl: url });
             ND.Recipes.update(r.id, { steps: steps });
+            return true;
           }));
         }
       });
     });
     if (!jobs.length) { storeSet('nutrition:photosMigratedV1', true); return; }
-    Promise.all(jobs).then(function () {
-      storeSet('nutrition:photosMigratedV1', true);
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) storeSet('nutrition:photosMigratedV1', true);
       renderKitchen();
       renderBoard();
     });

@@ -771,9 +771,10 @@ body::after {
       if (typeof b.sigilImageUrl === 'string' && b.sigilImageUrl.indexOf('data:') === 0) {
         const orig = b.sigilImageUrl;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = HD.Beings.get(b.id);
           if (fresh && fresh.sigilImageUrl === orig) HD.Beings.update(b.id, { sigilImageUrl: url });
+          return true;
         }));
       }
     });
@@ -781,9 +782,10 @@ body::after {
       if (typeof i.imageUrl === 'string' && i.imageUrl.indexOf('data:') === 0) {
         const orig = i.imageUrl;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = HD.Inventory.get(i.id);
           if (fresh && fresh.imageUrl === orig) HD.Inventory.update(i.id, { imageUrl: url });
+          return true;
         }));
       }
     });
@@ -791,15 +793,20 @@ body::after {
       if (typeof w.imageUrl === 'string' && w.imageUrl.indexOf('data:') === 0) {
         const orig = w.imageUrl;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = HD.Wishlist.get(w.id);
           if (fresh && fresh.imageUrl === orig) HD.Wishlist.update(w.id, { imageUrl: url });
+          return true;
         }));
       }
     });
     if (!jobs.length) { storeSet('household:photosMigratedV1', true); return; }
-    Promise.all(jobs).then(function () {
-      storeSet('household:photosMigratedV1', true);
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) storeSet('household:photosMigratedV1', true);
       renderBeingsSection(); renderInventorySection(); renderWishlistSection();
     });
   }

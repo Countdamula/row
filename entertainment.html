@@ -825,9 +825,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       var photo = heroes[key] && heroes[key].photo;
       if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
         jobs.push(window.PhotoStore.upload(photo).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           var fresh = loadHeroes();
           if (fresh[key] && fresh[key].photo === photo) { fresh[key] = Object.assign({}, fresh[key], { photo: url }); saveHeroes(fresh); }
+          return true;
         }));
       }
     });
@@ -836,7 +837,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         if (typeof card.thumbnail === 'string' && card.thumbnail.indexOf('data:') === 0) {
           var orig = card.thumbnail, cardId = card.id;
           jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-            if (!url) return;
+            if (!url) return false;
             var fresh = loadCards(g.key);
             var changed = false;
             var next = fresh.map(function (c) {
@@ -844,13 +845,18 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
               return c;
             });
             if (changed) saveCards(next, g.key);
+            return true;
           }));
         }
       });
     });
     if (!jobs.length) { try { localStorage.setItem('media:photosMigratedV1', 'true'); } catch (e) {} return; }
-    Promise.all(jobs).then(function () {
-      try { localStorage.setItem('media:photosMigratedV1', 'true'); } catch (e) {}
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) { try { localStorage.setItem('media:photosMigratedV1', 'true'); } catch (e) {} }
       cards = loadCards();
       renderGrid();
       renderHero();

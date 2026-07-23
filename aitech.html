@@ -444,22 +444,29 @@ body::after {
     const heroPhoto = DB.getHero().photo;
     if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
       jobs.push(window.PhotoStore.upload(heroPhoto).then(function (url) {
-        if (url && DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        if (!url) return false;
+        if (DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        return true;
       }));
     }
     DB.Models.list().forEach(function (m) {
       if (typeof m.cover === 'string' && m.cover.indexOf('data:') === 0) {
         const orig = m.cover;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           const fresh = DB.Models.get(m.id);
           if (fresh && fresh.cover === orig) DB.Models.update(m.id, { cover: url });
+          return true;
         }));
       }
     });
     if (!jobs.length) { storeSet('aitech:photosMigratedV1', true); return; }
-    Promise.all(jobs).then(function () {
-      storeSet('aitech:photosMigratedV1', true);
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) storeSet('aitech:photosMigratedV1', true);
       renderHero();
       renderModels();
     });

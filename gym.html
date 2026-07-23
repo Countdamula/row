@@ -2530,24 +2530,24 @@ img, video, canvas, svg { max-width: 100%; }
     const jobs = [];
     if (typeof state.bannerPhoto === 'string' && state.bannerPhoto.indexOf('data:') === 0) {
       const orig = state.bannerPhoto;
-      jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && state.bannerPhoto === orig) { state.bannerPhoto = url; saveState(); } }));
+      jobs.push(window.PhotoStore.upload(orig).then(url => { if (!url) return false; if (state.bannerPhoto === orig) { state.bannerPhoto = url; saveState(); } return true; }));
     }
     if (state.hero && typeof state.hero.photo === 'string' && state.hero.photo.indexOf('data:') === 0) {
       const orig = state.hero.photo;
-      jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && state.hero.photo === orig) { state.hero.photo = url; saveState(); } }));
+      jobs.push(window.PhotoStore.upload(orig).then(url => { if (!url) return false; if (state.hero.photo === orig) { state.hero.photo = url; saveState(); } return true; }));
     }
     (state.boardWidgets || []).forEach(w => {
       (w.data && w.data.slots || []).forEach(slot => {
         if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
           const orig = slot.url;
-          jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && slot.url === orig) { slot.url = url; saveState(); } }));
+          jobs.push(window.PhotoStore.upload(orig).then(url => { if (!url) return false; if (slot.url === orig) { slot.url = url; saveState(); } return true; }));
         }
       });
     });
     (state.equipment || []).forEach(item => {
       if (typeof item.photo === 'string' && item.photo.indexOf('data:') === 0) {
         const orig = item.photo;
-        jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && item.photo === orig) { item.photo = url; saveState(); } }));
+        jobs.push(window.PhotoStore.upload(orig).then(url => { if (!url) return false; if (item.photo === orig) { item.photo = url; saveState(); } return true; }));
       }
     });
     (state.routines || []).forEach(r => {
@@ -2555,15 +2555,18 @@ img, video, canvas, svg { max-width: 100%; }
         (ex.media || []).forEach(m => {
           if (typeof m.dataUrl === 'string' && m.dataUrl.indexOf('data:') === 0) {
             const orig = m.dataUrl;
-            jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && m.dataUrl === orig) { m.dataUrl = url; saveState(); } }));
+            jobs.push(window.PhotoStore.upload(orig).then(url => { if (!url) return false; if (m.dataUrl === orig) { m.dataUrl = url; saveState(); } return true; }));
           }
         });
       });
     });
     if (!jobs.length) { state.photosMigratedV1 = true; saveState(); return; }
-    Promise.all(jobs).then(() => {
-      state.photosMigratedV1 = true;
-      saveState();
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(results => {
+      if (results.every(ok => ok)) { state.photosMigratedV1 = true; saveState(); }
       renderAll();
     });
   }

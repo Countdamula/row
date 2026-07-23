@@ -1069,22 +1069,29 @@ body::after {
     var heroPhoto = DB.getHero().photo;
     if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
       jobs.push(window.PhotoStore.upload(heroPhoto).then(function (url) {
-        if (url && DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        if (!url) return false;
+        if (DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        return true;
       }));
     }
     DB.Topics.list().forEach(function (t) {
       if (typeof t.cover === 'string' && t.cover.indexOf('data:') === 0) {
         var orig = t.cover;
         jobs.push(window.PhotoStore.upload(orig).then(function (url) {
-          if (!url) return;
+          if (!url) return false;
           var fresh = DB.Topics.get(t.id);
           if (fresh && fresh.cover === orig) DB.Topics.update(t.id, { cover: url });
+          return true;
         }));
       }
     });
     if (!jobs.length) { try { localStorage.setItem('learning:photosMigratedV1', 'true'); } catch (e) {} return; }
-    Promise.all(jobs).then(function () {
-      try { localStorage.setItem('learning:photosMigratedV1', 'true'); } catch (e) {}
+    // Only mark this page "done" if every upload this pass kicked off
+    // actually succeeded — upload() never rejects (it resolves to null on
+    // any failure, e.g. the bucket not existing yet), so Promise.all alone
+    // would resolve even on total failure and permanently skip retrying.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) { try { localStorage.setItem('learning:photosMigratedV1', 'true'); } catch (e) {} }
       renderHero();
       renderTopics();
     });
