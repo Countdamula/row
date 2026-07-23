@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
 /* =============================================================
@@ -807,6 +808,54 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     all[activeGalleryKey] = Object.assign({}, currentHero(), patch);
     saveHeroes(all);
   }
+
+  // One-time backfill: uploads every already-stored base64 hero/card
+  // cover photo to Supabase Storage and replaces it with a tiny hosted
+  // URL, so this page's localStorage footprint actually shrinks instead
+  // of just staying flat from here on. Only marks itself done once every
+  // upload it kicked off has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore) return;
+    var already = false;
+    try { already = localStorage.getItem('media:photosMigratedV1') === 'true'; } catch (e) {}
+    if (already) return;
+    var jobs = [];
+    var heroes = loadHeroes();
+    Object.keys(heroes).forEach(function (key) {
+      var photo = heroes[key] && heroes[key].photo;
+      if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
+        jobs.push(window.PhotoStore.upload(photo).then(function (url) {
+          if (!url) return;
+          var fresh = loadHeroes();
+          if (fresh[key] && fresh[key].photo === photo) { fresh[key] = Object.assign({}, fresh[key], { photo: url }); saveHeroes(fresh); }
+        }));
+      }
+    });
+    GALLERIES.filter(function (g) { return !g.isFavorites; }).forEach(function (g) {
+      loadCards(g.key).forEach(function (card) {
+        if (typeof card.thumbnail === 'string' && card.thumbnail.indexOf('data:') === 0) {
+          var orig = card.thumbnail, cardId = card.id;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return;
+            var fresh = loadCards(g.key);
+            var changed = false;
+            var next = fresh.map(function (c) {
+              if (c.id === cardId && c.thumbnail === orig) { changed = true; return Object.assign({}, c, { thumbnail: url }); }
+              return c;
+            });
+            if (changed) saveCards(next, g.key);
+          }));
+        }
+      });
+    });
+    if (!jobs.length) { try { localStorage.setItem('media:photosMigratedV1', 'true'); } catch (e) {} return; }
+    Promise.all(jobs).then(function () {
+      try { localStorage.setItem('media:photosMigratedV1', 'true'); } catch (e) {}
+      cards = loadCards();
+      renderGrid();
+      renderHero();
+    });
+  }
   function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
   function wireInlineEdit(el, onCommit, opts) {
     opts = opts || {};
@@ -944,6 +993,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       revokeHeroVideoBlob(keyAtUpload);
       patchHero({ mediaType: 'image', photo: compressed, photoColor: color });
       renderHero();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (keyAtUpload !== activeGalleryKey) return;
+          patchHero({ mediaType: 'image', photo: url });
+          renderHero();
+        });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -1528,6 +1584,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         var compressed = await compressImageDataUrl(String(reader.result), 480, 0.82);
         currentThumbnail = compressed;
         updateCoverPreview();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (currentThumbnail === compressed) { currentThumbnail = url; updateCoverPreview(); }
+          });
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -1630,6 +1691,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     wireModal();
     wireHero();
     wireSortSelect();
+    setTimeout(migratePhotosToStorage, 3000);
 
     if (typeof initCloudSync === 'function') {
       initCloudSync({

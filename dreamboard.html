@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="dreamboard-data.js" defer></script>
 <style>
@@ -667,6 +668,57 @@ body::after {
   function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
   function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 
+  // One-time backfill: uploads every already-stored base64 hero/widget
+  // photo to Supabase Storage and replaces it with a tiny hosted URL, so
+  // this page's localStorage footprint (up to 4 hero photos plus every
+  // widget cover/photo/slot) actually shrinks instead of just staying flat
+  // from here on. Only marks itself done once every upload it kicked off
+  // has settled — offline or a not-yet-created bucket just means it tries
+  // again next load.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('dreamboard:photosMigratedV1')) return;
+    const jobs = [];
+    DB.tabsSorted().forEach(function (t) {
+      const photo = t.hero && t.hero.photo;
+      if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
+        jobs.push(window.PhotoStore.upload(photo).then(function (url) {
+          if (!url) return;
+          const fresh = DB.Tabs.get(t.id);
+          if (fresh && fresh.hero && fresh.hero.photo === photo) DB.Tabs.update(t.id, { hero: Object.assign({}, fresh.hero, { photo: url }) });
+        }));
+      }
+    });
+    DB.Widgets.list().forEach(function (w) {
+      ['cover', 'photo'].forEach(function (field) {
+        const val = w.data && w.data[field];
+        if (typeof val === 'string' && val.indexOf('data:') === 0) {
+          jobs.push(window.PhotoStore.upload(val).then(function (url) {
+            if (!url) return;
+            const fresh = DB.Widgets.get(w.id);
+            if (fresh && fresh.data[field] === val) DB.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { [field]: url }) });
+          }));
+        }
+      });
+      (w.data && w.data.slots || []).forEach(function (slot) {
+        if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
+          const slotId = slot.id, orig = slot.url;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return;
+            const fresh = DB.Widgets.get(w.id);
+            if (!fresh) return;
+            const slots = (fresh.data.slots || []).map(function (s) { return s.id === slotId && s.url === orig ? Object.assign({}, s, { url: url }) : s; });
+            DB.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { slots: slots }) });
+          }));
+        }
+      });
+    });
+    if (!jobs.length) { storeSet('dreamboard:photosMigratedV1', true); return; }
+    Promise.all(jobs).then(function () {
+      storeSet('dreamboard:photosMigratedV1', true);
+      renderBoard();
+    });
+  }
+
   const ACTIVE_TAB_KEY = 'dreamboard:active_tab';
   const LEGACY_BANNER_KEY = 'dreamboard:banner';
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -915,6 +967,18 @@ body::after {
       patchHero({ mediaType: 'image', photo: compressed, photoColor: color });
       renderHero();
       renderBoard();
+      // Swap the base64 string for a tiny hosted URL once uploaded, so this
+      // hero photo (one of up to 4 on this page) stops eating into the
+      // shared localStorage quota. No-ops silently (leaving the base64
+      // value above in place) if offline or the bucket isn't set up yet.
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (tabIdAtUpload !== activeTabId) return;
+          patchHero({ mediaType: 'image', photo: url });
+          renderHero();
+          renderBoard();
+        });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -1598,6 +1662,15 @@ body::after {
     DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { photo: url }) });
     renderBoard();
   }
+  // Replaces one photo/video grid slot's url in place (e.g. once a
+  // background PhotoStore upload finishes) without touching any of that
+  // slot's other fields or the rest of the widget's slots.
+  function updateSlotUrl(widgetId, slotId, url) {
+    const w = DB.Widgets.get(widgetId); if (!w) return;
+    const slots = (w.data.slots || []).map(function (s) { return s.id === slotId ? Object.assign({}, s, { url: url }) : s; });
+    DB.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
   function handleAddSlotSubmit() {
     const widgetId = addSlotTargetWidgetId;
     const single = addSlotSingleTarget;
@@ -1616,8 +1689,14 @@ body::after {
         const reader = new FileReader();
         reader.onload = async function () {
           const compressed = await DB.compressImageDataUrl(String(reader.result), single ? 900 : 640, 0.8);
-          if (single) setFeaturePhoto(widgetId, compressed);
-          else addSlotToWidget(widgetId, { id: DB.uid('slot'), type: 'image', url: compressed, sessionOnly: false, name: file.name });
+          if (single) {
+            setFeaturePhoto(widgetId, compressed);
+            if (window.PhotoStore) window.PhotoStore.upload(compressed, function (url) { setFeaturePhoto(widgetId, url); });
+          } else {
+            const slotId = DB.uid('slot');
+            addSlotToWidget(widgetId, { id: slotId, type: 'image', url: compressed, sessionOnly: false, name: file.name });
+            if (window.PhotoStore) window.PhotoStore.upload(compressed, function (url) { updateSlotUrl(widgetId, slotId, url); });
+          }
           closeModal($('dbPhotoModalBg'));
         };
         reader.readAsDataURL(file);
@@ -1686,6 +1765,7 @@ body::after {
     renderHero();
     renderTabs();
     renderBoard();
+    setTimeout(migratePhotosToStorage, 3000);
 
     setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
     window.addEventListener('dreamboard:save', handleSaveEvent);

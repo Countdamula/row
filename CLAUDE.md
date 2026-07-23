@@ -6545,3 +6545,144 @@ both as originally phrased assumed a backend this app doesn't have):
     (widely used elsewhere for exactly this complaint) rather than a
     reproduced-and-fixed touch trace; a real phone test is the only way
     to fully confirm the feel of it.
+
+- **Bugfix: the Writing Dashboard (Business Hub) was invisible on a live
+  device because the whole feature had only ever been merged into
+  `feat/writing-dashboard`, never into `main`** — the branch this
+  deployment actually serves. Fixed by fast-forward merging
+  `feat/writing-dashboard` into `main` and pushing (a clean fast-forward,
+  no conflicts, since `main` was a strict ancestor). Separately,
+  `business.html`'s `init()` and its cloud-sync `onApplied` callback
+  gained a `showBootErrorBanner()` safety net (a fixed, high-contrast
+  banner with a "Copy error details" button) around their bodies, matching
+  the precedent `gym.html` already established for this exact failure
+  class (a silent boot-time throw leaves the page looking blank with zero
+  visible clue why) — `business-data.js`/`writing-data.js` cache-busting
+  query strings were also bumped (`?v=10`/`?v=2`) per this app's own
+  established mitigation for stale-cached-copy reports.
+
+- **New shared file: `photo-store.js` — photos now upload to a Supabase
+  Storage bucket instead of living as base64 strings inside
+  `localStorage`, fixing a real, reproduced "browser storage is full"
+  failure.** Root cause, chased down from a user report that a newly
+  merged feature's tab wasn't appearing (see the bugfix entry above) even
+  after that was fixed: every page in this app shares one `localStorage`
+  origin (the same mechanism `index.html`'s "Connected Apps" tile already
+  depends on), which has a hard ~5MB browser-imposed ceiling — confirmed
+  live at **4.98 MB used**, with hero/widget/gallery/equipment photos
+  (stored as base64 `data:` strings, per this file's own established
+  `compressImageDataUrl()` convention) accounting for nearly all of it
+  (`po_coach_v1` alone: 1.15MB). Because every localStorage write already
+  goes through a `try/catch` that silently swallows a quota-exceeded
+  error (`storeSet()`'s original design, so a full disk never throws a
+  visible JS error), the actual symptom was invisible until traced: typing
+  a new Writing Dashboard chapter, a Learning entry, or anything else
+  that grows a page's JSON blob just silently failed to persist and
+  reverted on reload. Deleting ~30KB of already-orphaned keys (dead
+  features — Projects, Study, the old top-level Anxiety keys, etc.) was
+  nowhere near enough, since the user was sitting almost exactly at the
+  ceiling.
+  - **Decision made with the user before building this** (via a `/plan`
+    pass, since this touches nearly every page in the repo): keep photos
+    syncing across devices (don't let them silently go device-local-only),
+    and apply the fix to every page that stores photos in one pass, not
+    just the biggest offenders.
+  - **The actual fix is simpler than "move to IndexedDB," which was the
+    original framing** — research turned up that `sync.js` already syncs
+    whatever string value sits in a field, with no idea whether it's a
+    `data:` URL or a plain `https://` URL (several pages already have a
+    "paste an image URL instead of uploading" alternative for the exact
+    same fields, and those already sync/render completely normally
+    today). So: compress the image exactly as before, then upload the
+    compressed bytes to a new Supabase Storage bucket
+    (`dashboard-photos`), and store the resulting ~100-byte public URL in
+    the *exact same field* that used to hold the giant base64 string.
+    This needed **zero changes to any render/read code anywhere** (a URL
+    renders identically to a `data:` string in an `<img src>`), rides the
+    **existing** `sync.js` mechanism completely unchanged (no second sync
+    path, no IndexedDB, no new async rendering, nothing added to
+    `onApplied` — DO NOT MODIFY's sync-plumbing rule is honored by being
+    fully separate from it, not by touching it), and is fully
+    backward-compatible (an old, not-yet-migrated base64 value keeps
+    rendering exactly as it does today until it's naturally replaced).
+  - **`photo-store.js`** (new file, plain `<script defer>` IIFE matching
+    `sync.js`'s own style, added to the 10 pages that actually store
+    photos — `finance.html`, `business.html`, `dreamboard.html`,
+    `nutrition.html`, `selfcare.html`, `entertainment.html`, `gym.html`,
+    `aitech.html`, `learning.html`, `household.html`; `index.html` and
+    `braindump.html` have no photo fields and were left untouched):
+    reuses the identical hardcoded `SUPABASE_URL`/`SUPABASE_KEY` values
+    already duplicated in `sync.js`/`topbar.js`/`gym.html` — a 4th copy,
+    consistent with this app's own explicit precedent for these two
+    constants (DO NOT MODIFY: "don't let a rebuild introduce a fourth,
+    *different* copy" — the values match, which they do). Exposes one
+    function, `PhotoStore.upload(dataUrlOrBlob, onUploaded)` — fire-and-
+    forget (also returns a Promise, resolving to the URL or `null`, used
+    only by the backfill below to know when a batch has settled), converts
+    a base64 `data:` URL into a `Blob` (or accepts a raw Blob/File
+    directly, for `gym.html`'s one uncompressed-video call site), uploads
+    it to the `dashboard-photos` bucket under a random path, and calls
+    `onUploaded(publicUrl)` on confirmed success. Any failure (offline,
+    the bucket not created yet, a network error) is completely silent,
+    matching `sync.js`'s own `pushNow()`/`flushOnUnload()` failure
+    tolerance — the caller's already-saved local base64 value is simply
+    left as-is if this never calls back, so nothing regresses if upload
+    can't happen.
+  - **Prerequisite the user must do directly in their Supabase project —
+    not something this session could do from here**: per DO NOT MODIFY
+    (RLS/Storage policy SQL must come from the live project or be handed
+    to the user to run themselves, never invented from memory), a Storage
+    bucket named `dashboard-photos` needs to be created (Storage → New
+    bucket → toggle **Public bucket** on, so photos display via a plain
+    public URL) plus three policies granting the `anon` role insert/
+    update/delete on that bucket (a public bucket only grants public
+    *read* by default). Until this exists, every `PhotoStore.upload(...)`
+    call silently no-ops — by design, so shipping the code doesn't require
+    sequencing around the bucket's creation.
+  - **Every existing photo-upload call site** (~27 of them, inventoried
+    directly: hero photos on 8 pages, widget/slot photos on 5 board-engine
+    pages, gallery/model/topic/recipe covers, `gym.html`'s equipment/
+    exercise-media/banner photos including its one raw-base64-video site)
+    gained one additional line after its existing "save the compressed
+    base64 locally" call — nothing about the existing line changed:
+    ```js
+    <existingSaveCall>(compressed);              // unchanged, instant, offline-safe
+    PhotoStore.upload(compressed, function (url) { <existingSaveCall>(url); });
+    ```
+    Several call sites are drafts-in-a-modal (not yet committed to
+    storage) rather than a live record — those re-patch the draft
+    in-place if it's still open when the upload finishes (checked via
+    reference/value equality against the original compressed string, so a
+    since-changed or since-closed draft is never clobbered); if the draft
+    was already saved as base64 by the time upload completes, the one-time
+    backfill below catches it on a later load instead.
+  - **One-time backfill, per page** (`migratePhotosToStorage()`, guarded
+    by a `<prefix>:photosMigratedV1` flag, this app's own established
+    one-time-migration convention — e.g. `finance:migrated_v2`,
+    `media:migrated_v1`): walks that page's own already-stored records for
+    any field still holding a raw `data:` string, uploads each, and
+    replaces it with the hosted URL once done — this is the part that
+    actually reclaims the ~5MB already sitting in localStorage today, since
+    new uploads alone only stop it from growing further. Runs from a
+    `setTimeout(migratePhotosToStorage, 3000)` in each page's boot
+    sequence (non-blocking, doesn't delay first paint) and only sets its
+    guard flag once every upload it kicked off has actually settled
+    (`Promise.all(...)`) — a page that's offline or whose bucket isn't set
+    up yet just tries again next load instead of marking itself "done"
+    with nothing actually uploaded. `gym.html`'s version is the
+    highest-payoff, since `po_coach_v1` was by far the single biggest
+    contributor to the shared quota (banner photo, hero photo, Overview
+    board slots, every equipment item's photo, and every exercise's
+    reference media — image and video).
+  - **Verification, disclosed honestly**: static checks only in this
+    session (every call site's one-line addition grep-confirmed, the new
+    `<script src="photo-store.js" defer>` tag confirmed present on exactly
+    the 10 pages that need it, brace-balance re-confirmed on every edited
+    file). This environment's headless-Edge automation cannot reliably
+    drive a real file upload or a live Supabase Storage round-trip (a
+    long-documented limitation elsewhere in this file's own history) — a
+    real end-to-end check (upload a photo, confirm it shows on the other
+    device, confirm the localStorage total actually drops) has to happen
+    on the user's own devices, against their own newly-created bucket,
+    using the same size-report console snippet the user already used to
+    diagnose the original quota problem.

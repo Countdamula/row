@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="learning-data.js" defer></script>
 <style>
@@ -533,6 +534,13 @@ body::after {
       DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
         DB.saveHero({ photo: compressed });
         renderHero();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (DB.getHero().photo !== compressed) return;
+            DB.saveHero({ photo: url });
+            renderHero();
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
@@ -731,6 +739,12 @@ body::after {
       DB.compressImageDataUrl(reader.result, 640, 0.82).then(function (compressed) {
         renderTopicCoverPreview(compressed);
         $('lhTopicCoverUrlInput').value = '';
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            const img = $('lhTopicCoverPreview').querySelector('img');
+            if (img && img.src === compressed) renderTopicCoverPreview(url);
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
@@ -1041,6 +1055,41 @@ body::after {
   // ============================================================
   // INIT
   // ============================================================
+  // One-time backfill: uploads every already-stored base64 hero/topic
+  // cover photo to Supabase Storage and replaces it with a tiny hosted
+  // URL, so this page's localStorage footprint actually shrinks instead
+  // of just staying flat from here on. Only marks itself done once every
+  // upload it kicked off has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore) return;
+    var already = false;
+    try { already = localStorage.getItem('learning:photosMigratedV1') === 'true'; } catch (e) {}
+    if (already) return;
+    var jobs = [];
+    var heroPhoto = DB.getHero().photo;
+    if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
+      jobs.push(window.PhotoStore.upload(heroPhoto).then(function (url) {
+        if (url && DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+      }));
+    }
+    DB.Topics.list().forEach(function (t) {
+      if (typeof t.cover === 'string' && t.cover.indexOf('data:') === 0) {
+        var orig = t.cover;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return;
+          var fresh = DB.Topics.get(t.id);
+          if (fresh && fresh.cover === orig) DB.Topics.update(t.id, { cover: url });
+        }));
+      }
+    });
+    if (!jobs.length) { try { localStorage.setItem('learning:photosMigratedV1', 'true'); } catch (e) {} return; }
+    Promise.all(jobs).then(function () {
+      try { localStorage.setItem('learning:photosMigratedV1', 'true'); } catch (e) {}
+      renderHero();
+      renderTopics();
+    });
+  }
+
   function init() {
     DB = window.LearningData;
     if (!DB) return;
@@ -1050,6 +1099,7 @@ body::after {
     renderResourceTopicChips();
     renderResourceTypeChips();
     renderResources();
+    setTimeout(migratePhotosToStorage, 3000);
 
     setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
     window.addEventListener('learning:save', handleSaveEvent);

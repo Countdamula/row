@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="finance-data.js" defer></script>
 <style>
@@ -1173,6 +1174,24 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
+  // One-time backfill: uploads an already-stored base64 hero photo to
+  // Supabase Storage and replaces it with a tiny hosted URL, so this
+  // page's localStorage footprint actually shrinks instead of just
+  // staying flat from here on. Only marks itself done once the upload
+  // (if any) has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('finance:photosMigratedV1')) return;
+    const heroPhoto = FD.getHero().photo;
+    if (typeof heroPhoto !== 'string' || heroPhoto.indexOf('data:') !== 0) {
+      storeSet('finance:photosMigratedV1', true);
+      return;
+    }
+    window.PhotoStore.upload(heroPhoto).then(function (url) {
+      storeSet('finance:photosMigratedV1', true);
+      if (url && FD.getHero().photo === heroPhoto) { FD.saveHero({ photo: url }); renderHero(); }
+    });
+  }
+
   // ============================================================
   // SECONDARY NAV — Overview / Accounts / Transactions /
   // Subscriptions / Income. Active tab persists in localStorage
@@ -1290,6 +1309,13 @@ document.addEventListener('DOMContentLoaded', function () {
       FD.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
         FD.saveHero({ photo: compressed });
         renderHero();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (FD.getHero().photo !== compressed) return;
+            FD.saveHero({ photo: url });
+            renderHero();
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
@@ -1297,6 +1323,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   ensureHeroDefaults();
   renderHero();
+  setTimeout(migratePhotosToStorage, 3000);
 
   wireInlineEdit($('finHeroEyebrow'), function (v) { FD.saveHero({ eyebrow: v }); }, { allowEmpty: true });
   wireInlineEdit($('finHeroSubtext'), function (v) { FD.saveHero({ subtext: v }); }, { allowEmpty: true });

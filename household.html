@@ -8,6 +8,7 @@
 <title>Household</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="household-data.js" defer></script>
 <style>
@@ -757,6 +758,52 @@ body::after {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
+  // One-time backfill: uploads every already-stored base64 sigil/
+  // inventory/wishlist photo to Supabase Storage and replaces it with a
+  // tiny hosted URL, so this page's localStorage footprint actually
+  // shrinks instead of just staying flat from here on. Only marks itself
+  // done once every upload it kicked off has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('household:photosMigratedV1')) return;
+    const HD = window.HouseholdData;
+    const jobs = [];
+    HD.Beings.list().forEach(function (b) {
+      if (typeof b.sigilImageUrl === 'string' && b.sigilImageUrl.indexOf('data:') === 0) {
+        const orig = b.sigilImageUrl;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return;
+          const fresh = HD.Beings.get(b.id);
+          if (fresh && fresh.sigilImageUrl === orig) HD.Beings.update(b.id, { sigilImageUrl: url });
+        }));
+      }
+    });
+    HD.Inventory.list().forEach(function (i) {
+      if (typeof i.imageUrl === 'string' && i.imageUrl.indexOf('data:') === 0) {
+        const orig = i.imageUrl;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return;
+          const fresh = HD.Inventory.get(i.id);
+          if (fresh && fresh.imageUrl === orig) HD.Inventory.update(i.id, { imageUrl: url });
+        }));
+      }
+    });
+    HD.Wishlist.list().forEach(function (w) {
+      if (typeof w.imageUrl === 'string' && w.imageUrl.indexOf('data:') === 0) {
+        const orig = w.imageUrl;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return;
+          const fresh = HD.Wishlist.get(w.id);
+          if (fresh && fresh.imageUrl === orig) HD.Wishlist.update(w.id, { imageUrl: url });
+        }));
+      }
+    });
+    if (!jobs.length) { storeSet('household:photosMigratedV1', true); return; }
+    Promise.all(jobs).then(function () {
+      storeSet('household:photosMigratedV1', true);
+      renderBeingsSection(); renderInventorySection(); renderWishlistSection();
+    });
+  }
+
   function setActiveTab(name, opts) {
     if (VALID_TABS.indexOf(name) === -1) name = 'overview';
     tabs.forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
@@ -1096,6 +1143,12 @@ body::after {
     reader.onload = async function () {
       sigilDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
       renderSigilPreview();
+      if (window.PhotoStore) {
+        const compressed = sigilDraft;
+        window.PhotoStore.upload(compressed, function (url) {
+          if (sigilDraft === compressed) { sigilDraft = url; renderSigilPreview(); }
+        });
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -1370,6 +1423,12 @@ body::after {
     reader.onload = async function () {
       invPhotoDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
       renderInvPhotoPreview();
+      if (window.PhotoStore) {
+        const compressed = invPhotoDraft;
+        window.PhotoStore.upload(compressed, function (url) {
+          if (invPhotoDraft === compressed) { invPhotoDraft = url; renderInvPhotoPreview(); }
+        });
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -1556,6 +1615,12 @@ body::after {
     reader.onload = async function () {
       wishPhotoDraft = await window.HouseholdData.compressImageDataUrl(String(reader.result), 480, 0.82);
       renderWishPhotoPreview();
+      if (window.PhotoStore) {
+        const compressed = wishPhotoDraft;
+        window.PhotoStore.upload(compressed, function (url) {
+          if (wishPhotoDraft === compressed) { wishPhotoDraft = url; renderWishPhotoPreview(); }
+        });
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -1864,6 +1929,7 @@ body::after {
     const savedTab = storeGet(TAB_KEY);
     const initialTab = tabFromHash() || (VALID_TABS.indexOf(savedTab) !== -1 ? savedTab : 'overview');
     setActiveTab(initialTab, { skipScroll: true });
+    setTimeout(migratePhotosToStorage, 3000);
 
     if (typeof initCloudSync === 'function') {
       initCloudSync({

@@ -2172,6 +2172,7 @@ img, video, canvas, svg { max-width: 100%; }
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="photo-store.js" defer></script>
 <script>
 (function () {
   'use strict';
@@ -2290,12 +2291,25 @@ img, video, canvas, svg { max-width: 100%; }
       reader.onload = () => {
         const raw = String(reader.result);
         if (isVideo) {
-          mediaArr.push({ id: uid(), type: 'video', dataUrl: raw, name: file.name });
+          // Unlike every other page's session-only video handling, this one
+          // stores the full base64 video inline (no client-side transcoding
+          // is possible) — the single biggest per-item contributor to this
+          // page's localStorage footprint. Upload it to PhotoStore too, same
+          // as an image, so it shrinks to a hosted URL once uploaded.
+          const item = { id: uid(), type: 'video', dataUrl: raw, name: file.name };
+          mediaArr.push(item);
           onDone();
+          if (window.PhotoStore) {
+            window.PhotoStore.upload(raw, url => { item.dataUrl = url; onDone(); });
+          }
         } else {
           compressImageDataUrl(raw, 640, 0.75).then(compressed => {
-            mediaArr.push({ id: uid(), type: 'image', dataUrl: compressed, name: file.name });
+            const item = { id: uid(), type: 'image', dataUrl: compressed, name: file.name };
+            mediaArr.push(item);
             onDone();
+            if (window.PhotoStore) {
+              window.PhotoStore.upload(compressed, url => { item.dataUrl = url; onDone(); });
+            }
           });
         }
       };
@@ -2503,6 +2517,56 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   function saveState() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} }
+
+  // One-time backfill: uploads every already-stored base64 photo/video
+  // (banner, hero, Overview board slots, equipment photos, and every
+  // exercise's reference media) to Supabase Storage and replaces it with
+  // a tiny hosted URL. This page's po_coach_v1 blob was by far the
+  // single biggest contributor to the shared localStorage quota (over
+  // 1MB), so this is the highest-payoff of every page's backfill. Only
+  // marks itself done once every upload it kicked off has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || state.photosMigratedV1) return;
+    const jobs = [];
+    if (typeof state.bannerPhoto === 'string' && state.bannerPhoto.indexOf('data:') === 0) {
+      const orig = state.bannerPhoto;
+      jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && state.bannerPhoto === orig) { state.bannerPhoto = url; saveState(); } }));
+    }
+    if (state.hero && typeof state.hero.photo === 'string' && state.hero.photo.indexOf('data:') === 0) {
+      const orig = state.hero.photo;
+      jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && state.hero.photo === orig) { state.hero.photo = url; saveState(); } }));
+    }
+    (state.boardWidgets || []).forEach(w => {
+      (w.data && w.data.slots || []).forEach(slot => {
+        if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
+          const orig = slot.url;
+          jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && slot.url === orig) { slot.url = url; saveState(); } }));
+        }
+      });
+    });
+    (state.equipment || []).forEach(item => {
+      if (typeof item.photo === 'string' && item.photo.indexOf('data:') === 0) {
+        const orig = item.photo;
+        jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && item.photo === orig) { item.photo = url; saveState(); } }));
+      }
+    });
+    (state.routines || []).forEach(r => {
+      (r.exercises || []).forEach(ex => {
+        (ex.media || []).forEach(m => {
+          if (typeof m.dataUrl === 'string' && m.dataUrl.indexOf('data:') === 0) {
+            const orig = m.dataUrl;
+            jobs.push(window.PhotoStore.upload(orig).then(url => { if (url && m.dataUrl === orig) { m.dataUrl = url; saveState(); } }));
+          }
+        });
+      });
+    });
+    if (!jobs.length) { state.photosMigratedV1 = true; saveState(); return; }
+    Promise.all(jobs).then(() => {
+      state.photosMigratedV1 = true;
+      saveState();
+      renderAll();
+    });
+  }
 
   let state;
   try {
@@ -2908,6 +2972,14 @@ img, video, canvas, svg { max-width: 100%; }
         state.bannerPhoto = compressed;
         saveState();
         renderBanner();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, url => {
+            if (state.bannerPhoto !== compressed) return;
+            state.bannerPhoto = url;
+            saveState();
+            renderBanner();
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
@@ -3724,6 +3796,12 @@ img, video, canvas, svg { max-width: 100%; }
     boardMutateWidget(w, { slots: (w.data.slots || []).concat([slot]) });
     renderOverviewBoard();
   }
+  function boardUpdateSlotUrl(widgetId, slotId, url) {
+    const w = boardWidget(widgetId);
+    if (!w) return;
+    boardMutateWidget(w, { slots: (w.data.slots || []).map(s => s.id === slotId ? Object.assign({}, s, { url }) : s) });
+    renderOverviewBoard();
+  }
   function boardHandleAddSlotSubmit() {
     const widgetId = boardAddSlotTargetWidgetId;
     const file = $('gwSlotFileInput').files[0];
@@ -3732,7 +3810,9 @@ img, video, canvas, svg { max-width: 100%; }
       const reader = new FileReader();
       reader.onload = async () => {
         const compressed = await compressImageDataUrl(String(reader.result), 640, 0.8);
-        boardAddSlotToWidget(widgetId, { id: uid(), url: compressed, name: file.name });
+        const slotId = uid();
+        boardAddSlotToWidget(widgetId, { id: slotId, url: compressed, name: file.name });
+        if (window.PhotoStore) window.PhotoStore.upload(compressed, url => boardUpdateSlotUrl(widgetId, slotId, url));
         $('gwPhotoModalBg').classList.remove('show');
       };
       reader.readAsDataURL(file);
@@ -3810,6 +3890,13 @@ img, video, canvas, svg { max-width: 100%; }
       const compressed = await compressImageDataUrl(String(reader.result), 1100, 0.78);
       patchHero({ photo: compressed });
       renderHero();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, url => {
+          if (state.hero.photo !== compressed) return;
+          patchHero({ photo: url });
+          renderHero();
+        });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -4409,6 +4496,11 @@ img, video, canvas, svg { max-width: 100%; }
       compressImageDataUrl(String(reader.result), 480, 0.82).then(compressed => {
         equipPhotoDraft = compressed;
         renderEquipPhotoPreview();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, url => {
+            if (equipPhotoDraft === compressed) { equipPhotoDraft = url; renderEquipPhotoPreview(); }
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
@@ -5195,6 +5287,7 @@ img, video, canvas, svg { max-width: 100%; }
   initHero();
   initOverviewBoard();
   renderAll();
+  setTimeout(migratePhotosToStorage, 3000);
 
   // ============================================================
   // CLOUD SYNC via Supabase  (OPTIONAL — leave blank for local-only)

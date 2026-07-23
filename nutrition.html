@@ -12,6 +12,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="nutrition-data.js" defer></script>
 <style>
@@ -1021,6 +1022,79 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
   function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
 
+  // One-time backfill: uploads every already-stored base64 hero/widget/
+  // recipe photo to Supabase Storage and replaces it with a tiny hosted
+  // URL, so this page's localStorage footprint actually shrinks instead of
+  // just staying flat from here on. Only marks itself done once every
+  // upload it kicked off has settled.
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('nutrition:photosMigratedV1')) return;
+    const jobs = [];
+    ND.tabsSorted().forEach(function (t) {
+      const photo = t.hero && t.hero.photo;
+      if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
+        jobs.push(window.PhotoStore.upload(photo).then(function (url) {
+          if (!url) return;
+          const fresh = ND.Tabs.get(t.id);
+          if (fresh && fresh.hero && fresh.hero.photo === photo) ND.Tabs.update(t.id, { hero: Object.assign({}, fresh.hero, { photo: url }) });
+        }));
+      }
+    });
+    ND.Widgets.list().forEach(function (w) {
+      ['cover', 'photo'].forEach(function (field) {
+        const val = w.data && w.data[field];
+        if (typeof val === 'string' && val.indexOf('data:') === 0) {
+          jobs.push(window.PhotoStore.upload(val).then(function (url) {
+            if (!url) return;
+            const fresh = ND.Widgets.get(w.id);
+            if (fresh && fresh.data[field] === val) ND.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { [field]: url }) });
+          }));
+        }
+      });
+      (w.data && w.data.slots || []).forEach(function (slot) {
+        if (typeof slot.url === 'string' && slot.url.indexOf('data:') === 0) {
+          const slotId = slot.id, orig = slot.url;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return;
+            const fresh = ND.Widgets.get(w.id);
+            if (!fresh) return;
+            const slots = (fresh.data.slots || []).map(function (s) { return s.id === slotId && s.url === orig ? Object.assign({}, s, { url: url }) : s; });
+            ND.Widgets.update(w.id, { data: Object.assign({}, fresh.data, { slots: slots }) });
+          }));
+        }
+      });
+    });
+    ND.Recipes.list().forEach(function (r) {
+      if (typeof r.imageUrl === 'string' && r.imageUrl.indexOf('data:') === 0) {
+        const orig = r.imageUrl;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return;
+          const fresh = ND.Recipes.get(r.id);
+          if (fresh && fresh.imageUrl === orig) ND.Recipes.update(r.id, { imageUrl: url });
+        }));
+      }
+      (r.steps || []).forEach(function (step, stepIdx) {
+        if (typeof step.imageUrl === 'string' && step.imageUrl.indexOf('data:') === 0) {
+          const orig = step.imageUrl;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return;
+            const fresh = ND.Recipes.get(r.id);
+            if (!fresh || !fresh.steps[stepIdx] || fresh.steps[stepIdx].imageUrl !== orig) return;
+            const steps = fresh.steps.slice();
+            steps[stepIdx] = Object.assign({}, steps[stepIdx], { imageUrl: url });
+            ND.Recipes.update(r.id, { steps: steps });
+          }));
+        }
+      });
+    });
+    if (!jobs.length) { storeSet('nutrition:photosMigratedV1', true); return; }
+    Promise.all(jobs).then(function () {
+      storeSet('nutrition:photosMigratedV1', true);
+      renderKitchen();
+      renderBoard();
+    });
+  }
+
   const ACTIVE_TAB_KEY = 'nutrition:active_tab';
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const WIDGET_TYPE_LABELS = {
@@ -1184,6 +1258,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       patchHero({ mediaType: 'image', photo: compressed, photoColor: color });
       renderHero();
       renderBoard();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (tabIdAtUpload !== activeTabId) return;
+          patchHero({ mediaType: 'image', photo: url });
+          renderHero();
+          renderBoard();
+        });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -1724,6 +1806,12 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { photo: url }) });
     renderBoard();
   }
+  function updateSlotUrl(widgetId, slotId, url) {
+    const w = ND.Widgets.get(widgetId); if (!w) return;
+    const slots = (w.data.slots || []).map(function (s) { return s.id === slotId ? Object.assign({}, s, { url: url }) : s; });
+    ND.Widgets.update(widgetId, { data: Object.assign({}, w.data, { slots: slots }) });
+    renderBoard();
+  }
   function handleAddSlotSubmit() {
     const widgetId = addSlotTargetWidgetId;
     const single = addSlotSingleTarget;
@@ -1742,8 +1830,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         const reader = new FileReader();
         reader.onload = async function () {
           const compressed = await ND.compressImageDataUrl(String(reader.result), single ? 900 : 640, 0.8);
-          if (single) setFeaturePhoto(widgetId, compressed);
-          else addSlotToWidget(widgetId, { id: ND.uid('slot'), type: 'image', url: compressed, sessionOnly: false, name: file.name });
+          if (single) {
+            setFeaturePhoto(widgetId, compressed);
+            if (window.PhotoStore) window.PhotoStore.upload(compressed, function (url) { setFeaturePhoto(widgetId, url); });
+          } else {
+            const slotId = ND.uid('slot');
+            addSlotToWidget(widgetId, { id: slotId, type: 'image', url: compressed, sessionOnly: false, name: file.name });
+            if (window.PhotoStore) window.PhotoStore.upload(compressed, function (url) { updateSlotUrl(widgetId, slotId, url); });
+          }
           closeModal($('ntPhotoModalBg'));
         };
         reader.readAsDataURL(file);
@@ -1805,6 +1899,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     renderTabs();
     showActivePanel();
     renderBoard();
+    setTimeout(migratePhotosToStorage, 3000);
 
     wireInlineEdit($('ntHeroEyebrow'), function (v) { patchHero({ eyebrow: v }); }, { allowEmpty: true });
     wireInlineEdit($('ntHeroSubtext'), function (v) { patchHero({ subtext: v }); }, { allowEmpty: true });
@@ -2839,6 +2934,17 @@ document.addEventListener('DOMContentLoaded', function () {
             compressImageDataUrl(String(reader.result), 480, 0.82).then(function (compressed) {
               step.imageUrl = compressed;
               renderStepsDraft();
+              // Best-effort: if this draft is still open (not yet saved) when
+              // the upload finishes, swap in the tiny hosted URL in place so
+              // the eventual save writes the URL instead of the base64
+              // string. If the recipe's already been saved by then, the
+              // one-time photo backfill picks up the committed base64 value
+              // later instead.
+              if (window.PhotoStore) {
+                window.PhotoStore.upload(compressed, function (url) {
+                  if (step.imageUrl === compressed) { step.imageUrl = url; renderStepsDraft(); }
+                });
+              }
             });
           };
           reader.readAsDataURL(file);
@@ -2883,6 +2989,11 @@ document.addEventListener('DOMContentLoaded', function () {
       compressImageDataUrl(String(reader.result), 480, 0.82).then(function (compressed) {
         currentRecipeImage = compressed;
         updateRecipeImagePreview();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (currentRecipeImage === compressed) { currentRecipeImage = url; updateRecipeImagePreview(); }
+          });
+        }
       });
     };
     reader.readAsDataURL(file);
