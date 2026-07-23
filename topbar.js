@@ -195,6 +195,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">LEARNING</span>
   </a>
+  <a href="tasksnotes.html" class="topbar-pill" id="topbarTasksNotes">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">TASKS &amp; NOTES</span>
+  </a>
 </header>
 `;
 

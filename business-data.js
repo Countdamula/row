@@ -59,7 +59,6 @@
     workflowDays: 'business:workflowDays',
     workflowChecklist: 'business:workflowChecklist',
     tasks: 'business:tasks',
-    notes: 'business:notes',
     seeded: 'business:seeded'
   };
 
@@ -177,14 +176,14 @@
     };
   }
 
-  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms'|'writing'|'tasksnotes', hasTemplates:boolean, isWritingSubpage:boolean, hero:Object}} BizTab */
+  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms'|'writing', hasTemplates:boolean, isWritingSubpage:boolean, hero:Object}} BizTab */
   function tabModel(data) {
     data = data || {};
     return {
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      layout: (data.layout === 'content' || data.layout === 'platforms' || data.layout === 'writing' || data.layout === 'tasksnotes') ? data.layout : 'freeform',
+      layout: (data.layout === 'content' || data.layout === 'platforms' || data.layout === 'writing') ? data.layout : 'freeform',
       // Renders a Templates/Workflow (Weeks → Days → Checklist) section
       // below this tab's board — a dedicated field rather than matching
       // on `title`, so renaming the tab (rename-in-place is fully
@@ -315,21 +314,6 @@
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
   }
-  /** @typedef {{id:string, tabId:string, title:string, body:string, tags:Array<string>, order:number, createdAt:number, updatedAt:number}} BizNote */
-  function noteModel(data) {
-    data = data || {};
-    return {
-      id: data.id || uid('note'),
-      tabId: data.tabId || null,
-      title: typeof data.title === 'string' ? data.title : '',
-      body: typeof data.body === 'string' ? data.body : '',
-      tags: Array.isArray(data.tags) ? data.tags : [],
-      order: typeof data.order === 'number' ? data.order : 0,
-      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
-      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
-    };
-  }
-
   /** @typedef {{id:string, dayId:string, text:string, checked:boolean, order:number, createdAt:number}} WorkflowChecklistItem */
   function workflowChecklistItemModel(data) {
     data = data || {};
@@ -381,13 +365,6 @@
   const WorkflowDays = makeCollection(KEYS.workflowDays, workflowDayModel);
   const WorkflowChecklist = makeCollection(KEYS.workflowChecklist, workflowChecklistItemModel);
   const Tasks = makeCollection(KEYS.tasks, taskModel);
-  // Notes.update() gets one small addition beyond the generic makeCollection
-  // recipe — every update stamps `updatedAt`, so the Tasks & Notes tab's
-  // "newest first" ordering (see notesForTab() below) actually reflects
-  // when a note was last touched, not just when it was created.
-  const NotesBase = makeCollection(KEYS.notes, noteModel);
-  function updateNoteTouched(id, patch) { return NotesBase.update(id, Object.assign({}, patch, { updatedAt: Date.now() })); }
-  const Notes = Object.assign({}, NotesBase, { update: updateNoteTouched });
 
   function removeTab(id) {
     Tabs.remove(id);
@@ -397,7 +374,6 @@
     WorkflowDays.replaceAll(WorkflowDays.list().filter(function (d) { return d.tabId !== id; }));
     WorkflowChecklist.replaceAll(WorkflowChecklist.list().filter(function (c) { return removedDayIds.indexOf(c.dayId) === -1; }));
     Tasks.replaceAll(Tasks.list().filter(function (t) { return t.tabId !== id; }));
-    Notes.replaceAll(Notes.list().filter(function (n) { return n.tabId !== id; }));
   }
 
   // `Tabs.list()`/`get()` return raw stored records — they never get
@@ -429,12 +405,11 @@
     let changed = false;
     const patched = remaining.map(function (t) {
       let next = t;
-      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'writing' || next.layout === 'tasksnotes' || next.layout === 'freeform')) {
+      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'writing' || next.layout === 'freeform')) {
         let layout = 'freeform';
         if (next.title === 'Content') layout = 'content';
         else if (next.title === 'Platforms') layout = 'platforms';
         else if (next.title === 'Writing Dashboard') layout = 'writing';
-        else if (next.title === 'Tasks & Notes') layout = 'tasksnotes';
         next = Object.assign({}, next, { layout: layout });
         changed = true;
       }
@@ -459,8 +434,6 @@
     const liveTabIds = Tabs.list().map(function (t) { return t.id; });
     const orphanedTasks = Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) === -1; });
     if (orphanedTasks.length) Tasks.replaceAll(Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) !== -1; }));
-    const orphanedNotes = NotesBase.list().filter(function (note) { return liveTabIds.indexOf(note.tabId) === -1; });
-    if (orphanedNotes.length) NotesBase.replaceAll(NotesBase.list().filter(function (note) { return liveTabIds.indexOf(note.tabId) !== -1; }));
   }
 
   // A new tab (Writing Dashboard, layout:'writing') added in a later
@@ -521,41 +494,6 @@
     });
 
     return changed;
-  }
-
-  // Seed content for the Tasks & Notes tab — factored into its own
-  // function so both a fresh install (seedDefaultBoard(), below) and an
-  // existing device backfilled by ensureTasksNotesTabExists() get the same
-  // starting content, same "one seed function, two call sites" precedent
-  // as the Writing Dashboard's own ensureSubpage() seed closures above.
-  function seedTasksNotesContent(tabId) {
-    Widgets.add({ tabId: tabId, column: 0, order: 0, type: 'link', title: 'Shared Drive', data: { url: '', description: 'Working files, exports, and source assets.' } });
-    Widgets.add({ tabId: tabId, column: 0, order: 1, type: 'link', title: 'Team Calendar', data: { url: '', description: 'Deadlines, launches, and meetings at a glance.' } });
-    Notes.add({ tabId: tabId, title: 'Meeting Recap Template', body: 'Attendees:\nDecisions:\nAction items:', tags: ['template'] });
-    Notes.add({ tabId: tabId, title: 'Random Idea', body: "Something worth remembering that doesn't have a home yet — jot it here and sort it out later.", tags: ['misc'] });
-    Tasks.add({ tabId: tabId, title: "Review this week's priorities", status: 'todo', priority: 'medium', dueDate: todayISO() });
-    Tasks.add({ tabId: tabId, title: 'Clear out old notes and links', status: 'todo', priority: 'low' });
-  }
-
-  // A new tab (Tasks & Notes) added in a later session than
-  // seedDefaultBoard()'s own guard flag (business:seeded) does NOT get
-  // created for anyone who already has real Business Hub data — same
-  // failure class as ensureWritingDashboardExists() above (and every
-  // other "newly introduced tab is invisible on an already-seeded device"
-  // bug this app has hit before). Fixed the same way: append the tab
-  // directly, on every load, guarded only by "some tabs already exist" so
-  // a genuinely fresh/empty device isn't handed a stray tab before its own
-  // deferred full-board seed has run.
-  function ensureTasksNotesTabExists() {
-    const tabs = Tabs.list();
-    if (!tabs.length) return false;
-    if (tabs.some(function (t) { return t.layout === 'tasksnotes'; })) return false;
-    const tab = Tabs.add({
-      title: 'Tasks & Notes', order: nextOrder(Tabs.list()), layout: 'tasksnotes',
-      hero: heroModel({ eyebrow: 'STAY ON TOP OF IT', title: 'Every Task.\nEvery Note.', subtext: 'Links, notes, and a filtered task list — all in one place.', ctaLabel: 'VIEW TASKS' })
-    });
-    seedTasksNotesContent(tab.id);
-    return true;
   }
 
   // ============================================================
@@ -827,16 +765,6 @@
   function tasksForTab(tabId) {
     return Tasks.list().filter(function (t) { return t.tabId === tabId; });
   }
-  // ============================================================
-  // SELECTORS — Notes (Tasks & Notes tab's "full list database" — a flat,
-  // searchable/taggable collection, distinct from a freeform board's Note
-  // *widget*, which is a single freeform block on one tab, not a
-  // multi-record database). Newest-touched first, same "recently edited
-  // surfaces first" idea as most of this app's other list views.
-  // ============================================================
-  function notesForTab(tabId) {
-    return Notes.list().filter(function (n) { return n.tabId === tabId; }).sort(function (a, b) { return b.updatedAt - a.updatedAt; });
-  }
   function sortTasks(list, mode) {
     const priRank = { high: 3, medium: 2, low: 1 };
     const copy = list.slice();
@@ -1058,26 +986,13 @@
     sendWorkflowDayToTasks(w1d2.id); // "Draft & review" is already in progress — demonstrate a linked task
     Tasks.add({ tabId: resourcesTab.id, title: 'Review brand guidelines before next campaign', status: 'todo', priority: 'medium' });
 
-    // ---------- Tasks & Notes — a 5th tab (layout: 'tasksnotes'): a Links
-    // section (the 'link' widget type, same as Resources' own board),
-    // a full Notes database (a new, dedicated flat collection — distinct
-    // from a board's freeform Note widget, see notesForTab()'s own
-    // comment above), and a filtered Tasks list (this tab's own DB.Tasks
-    // rows, same system as Resources', just with no Workflow-day linking
-    // since this tab has no Workflow). ----------
-    const tasksNotesTab = Tabs.add({
-      title: 'Tasks & Notes', order: 4, layout: 'tasksnotes',
-      hero: heroModel({ eyebrow: 'STAY ON TOP OF IT', title: 'Every Task.\nEvery Note.', subtext: 'Links, notes, and a filtered task list — all in one place.', ctaLabel: 'VIEW TASKS' })
-    });
-    seedTasksNotesContent(tasksNotesTab.id);
-
-    // ---------- Writing Dashboard — a 6th tab, own rendering path in
+    // ---------- Writing Dashboard — a 5th tab, own rendering path in
     // business.html (layout: 'writing'). Its own manuscript/series/task/
     // binder/tracker data lives in writing-data.js (WritingData), seeded
     // separately by that file's own seedIfEmpty() — this tab record and
     // its 3 hidden sub-page tabs are all this file is responsible for. ----------
     Tabs.add({
-      title: 'Writing Dashboard', order: 5, layout: 'writing',
+      title: 'Writing Dashboard', order: 4, layout: 'writing',
       hero: heroModel({ eyebrow: 'THE WRITING DESK', title: 'Every Story.\nOne Desk.', subtext: 'Manuscripts, chapters, and progress — all in one place.', ctaLabel: 'VIEW MANUSCRIPTS' })
     });
 
@@ -1145,7 +1060,7 @@
     formatDateShort: formatDateShort,
     compressImageDataUrl: compressImageDataUrl,
     isValidMediaUrl: isValidMediaUrl,
-    Models: { tab: tabModel, widget: widgetModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel, task: taskModel, note: noteModel },
+    Models: { tab: tabModel, widget: widgetModel, workflowWeek: workflowWeekModel, workflowDay: workflowDayModel, workflowChecklistItem: workflowChecklistItemModel, task: taskModel },
     defaultWidgetData: defaultWidgetData,
     Tabs: Object.assign({}, Tabs, { remove: removeTab }),
     Widgets: Widgets,
@@ -1153,12 +1068,9 @@
     WorkflowDays: WorkflowDays,
     WorkflowChecklist: WorkflowChecklist,
     Tasks: Tasks,
-    Notes: Notes,
-    notesForTab: notesForTab,
     tabsSorted: tabsSorted,
     normalizeStoredData: normalizeStoredData,
     ensureWritingDashboardExists: ensureWritingDashboardExists,
-    ensureTasksNotesTabExists: ensureTasksNotesTabExists,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
     widgetsOfType: widgetsOfType,

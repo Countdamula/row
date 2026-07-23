@@ -38,6 +38,7 @@ Vercel's static server) — see README.md.
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
 | `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
+| `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -186,10 +187,11 @@ page's CSS is self-contained in its own `<style>` block):
    | `household` | `household.html` (new) | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` (new — the Anxiety tab, moved in from the deleted standalone `anxiety.html`), `selfcare:active_tab`, `selfcare:seeded`/`selfcare:anxiety_seeded`/`selfcare:anxiety_migrated`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) and the old top-level `anxiety:breathwork`/`anxiety:tips`/`anxiety:active_tab`/`anxiety:seeded` keys (the now-deleted standalone `anxiety.html`'s own row/key, folded into this one — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
-   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above |
+   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above. `business:notes` is now an **orphaned key** — it backed the Tasks & Notes tab's Notes database, which was moved out to its own page (`tasksnotes.html`, see changelog); a device that already used that tab has its real note data copied forward into `tasksnotes:notes` on first load of the new page, and `business:notes` itself was left alone, same orphaned-key treatment as every other removed-feature key elsewhere in this app |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
+   | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -231,6 +233,7 @@ using `sync.js`.
 | AI & Tech | `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Nutrition | `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
 | Learning & Knowledge Hub | `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
+| Tasks & Notes | `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -6686,3 +6689,108 @@ both as originally phrased assumed a backend this app doesn't have):
     on the user's own devices, against their own newly-created bucket,
     using the same size-report console snippet the user already used to
     diagnose the original quota problem.
+
+- **Tasks & Notes moved out of Business Hub into its own top-level page,
+  `tasksnotes.html`.** Per an explicit request — it used to be a 5th
+  Business Hub tab (`layout: 'tasksnotes'`, added in an earlier session:
+  Links via the shared widget-board engine, a dedicated Notes database,
+  and a filtered Tasks list). Removed from `business.html`/
+  `business-data.js` wholesale (the `'tasksnotes'` layout value, the
+  `bhTn*`-prefixed markup/modals/CSS, `DB.Notes`/`noteModel`/
+  `notesForTab()`/`ensureTasksNotesTabExists()`/`seedTasksNotesContent()`,
+  and the `business:notes` key) — `business.html`'s own tab count and
+  layout list already only ever documented 4 tabs
+  (Content/Ideas/Platforms/Resources) in this file's §1 table, so no
+  further edit was needed there; `business-data.js`'s cache-bust query
+  string was bumped to `?v=12` (this repo's established mitigation for
+  the "still not showing up" stale-cache class of report this exact
+  feature has already hit twice before — see the two `business.html`
+  entries above on the subject).
+  - **Genuinely new standalone page**, `tasksnotes.html` +
+    `tasksnotes-data.js` — same conventions as `aitech.html`/
+    `aitech-data.js` (the closest existing precedent: one page, no tabs,
+    one editable hero, multiple genuinely separate flat collections, real
+    frosted-glass `.tn-card` chassis, SortableJS drag-reorder, the same
+    empty-storage seed-race-safety window before falling back to sample
+    content). New nav pill (`TASKS & NOTES` → `tasksnotes.html`, appended
+    after `LEARNING` in `topbar.js`'s injected pill list — the only edit
+    made to `topbar.js`, same one-line-addition precedent every prior
+    page addition followed); new sync key (`appKey: 'tasksnotes'`,
+    `syncedPrefixes: ['tasksnotes:']`, wired via the standard shared
+    `initCloudSync` — same call pattern as every other page, nothing new
+    invented).
+  - **Palette**: this file's own `--tn-*` tokens are a direct copy of
+    `business.html`'s gold values (not AI & Tech's one-off teal
+    exception), matching Business Hub/Dream Board's dark cinematic
+    near-black/gold look — the page this feature came from — per CLAUDE.md
+    §6/DO NOT MODIFY rule 2, same "match the common thread, not the
+    one-off exception" call Learning Hub's own build already made for the
+    same reason.
+  - **Three genuinely separate "databases," carried over unchanged in
+    shape** (same precedent as `business.html`'s Platform/Content
+    Plan/Useful Resources split and `aitech-data.js`'s Models/Prompts
+    split — never merged into one list): **Links** (`tasksnotes:links`)
+    — a small drag-reorderable card grid, title/URL/description all
+    inline-editable directly on the card (no separate modal — same
+    "editable in place" interaction the old `link` widget type had);
+    **Notes** (`tasksnotes:notes`) — a full searchable/taggable list
+    (title/body/tags, search box, tag filter chips, an Add/Edit modal),
+    distinct from a single freeform note widget elsewhere in this app;
+    **Tasks** (`tasksnotes:tasks`) — the same status/priority/
+    recurrence/Today-vs-All-view/quick-add/Task-Detail-with-autosaving-
+    notes system as every other task list in this app (business.html's
+    own former Resources-tab Tasks section, index.html's Main-dashboard
+    Tasks tab), reimplemented as this page's own independent flat array
+    rather than a shared collection, since this page has no relationship
+    to Business Hub anymore. The old `workflowDayId` link field (which
+    only ever made sense against Business Hub's own Workflow feature) was
+    dropped — this page's Tasks are plain, unlinked tasks.
+  - **Real user data preserved via a one-time migration**
+    (`TasksNotesData.migrateFromBusinessHub()`), not silently orphaned —
+    a device that already used the old Business Hub tab has real Links/
+    Notes/Tasks sitting in `business.html`'s own localStorage keys
+    (`business:widgets` type `'link'`, `business:notes`, `business:tasks`,
+    all scoped via a `tabId` foreign key to the one tab titled "Tasks &
+    Notes"). Reads those raw keys directly (the same "read another page's
+    localStorage directly" precedent `index.html`'s Connected Apps tiles
+    already use — `business-data.js` no longer exposes a Notes collection
+    or recognizes the `'tasksnotes'` layout at all now that the tab was
+    removed from that page's own UI) and copies matching records into
+    this page's own collections once, guarded by a
+    `tasksnotes:migratedFromBusinessHub` flag and by only ever writing
+    when this page's own three collections are still empty — same "copy
+    once, leave the old keys orphaned-but-untouched afterward" precedent
+    `selfcare.html`'s `migrateLegacyAnxietyPage()` already established for
+    the standalone-Anxiety-page → Self-Care-tab move. `business:notes`/
+    the migrated `business:widgets`/`business:tasks` rows are left alone
+    in place afterward, orphaned but untouched, same treatment as every
+    other removed-feature key elsewhere in this app. Deliberately **not**
+    deferred behind the empty-storage seed-race-safety window the way
+    `seedIfEmpty()` is below it — this migration reads a different,
+    already-local `business:` prefix that this page's own cloud sync
+    never touches, so there's no remote-pull race to protect against;
+    `seedIfEmpty()`'s generic sample Links/Notes/Tasks only ever run as a
+    fallback once the migration has already had its chance and found
+    nothing (a genuinely fresh install, or a device that never used the
+    old tab).
+  - **Verified in headless Edge** (`--host-resolver-rules` mapping the
+    Supabase host to `0.0.0.0`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]): a fresh, never-
+    used profile correctly falls through to the seeded sample content
+    (2 links, 2 notes, the Today view correctly showing only the one
+    seeded task with today's due date) with zero console errors; a
+    separate pass pre-seeding realistic `business:tabs`/`business:widgets`/
+    `business:notes`/`business:tasks` (a tab titled "Tasks & Notes" with
+    one real link/note/task) and calling `migrateFromBusinessHub()`
+    directly confirmed the real records land correctly in the new
+    collections with their original ids/content intact, that a second
+    call is a correct no-op (idempotent — doesn't duplicate), and that
+    the old `business:notes` row is left completely untouched afterward.
+    The topbar's new `TASKS & NOTES` pill and the page's own back-button
+    (`href="business.html"`) were confirmed present; drag-and-drop
+    reordering of Link cards and the Note/Task Add/Edit modals' full
+    click-through were not exercised interactively this round — this
+    environment's headless Edge still cannot reliably be driven via a
+    live CDP session (the same disclosed limitation several other pages'
+    changelog entries in this file already note); a real click-through is
+    recommended before relying on this page heavily.

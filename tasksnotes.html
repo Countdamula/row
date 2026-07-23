@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>Tasks &amp; Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="tasksnotes-data.js" defer></script>
+<style>
+/* =============================================================
+   Tasks & Notes — a standalone page, moved out of Business Hub (it used
+   to be a 5th tab there, layout: 'tasksnotes'). Same dark cinematic
+   near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream
+   Board (this file's own private `--tn-*` copy of business.html's
+   `--bh-*` values — the common thread across most of this app's pages,
+   not AI & Tech's one-off teal exception, per CLAUDE.md §6). One page, no
+   tabs, one editable hero — same shell shape as aitech.html/learning.html.
+
+   Three genuinely separate "databases," never merged (same precedent as
+   business.html's Platform/Content Plan/Useful Resources split): Links
+   (a small drag-reorderable card grid), Notes (a full searchable/taggable
+   list), and Tasks (the same status/priority/recurrence system as every
+   other task list in this app, scoped to this page only).
+   ============================================================= */
+:root {
+  --tn-bg: #0b0a08;
+  --tn-bg-deep: #050403;
+  --tn-paper: rgba(255, 255, 255, 0.045);
+  --tn-paper-solid: #16130f;
+  --tn-gold: #c9a876;
+  --tn-gold-bright: #e8cf9f;
+  --tn-text: #f5f1e9;
+  --tn-text-dim: rgba(245, 241, 233, 0.68);
+  --tn-text-mute: rgba(245, 241, 233, 0.44);
+  --tn-hairline: rgba(201, 168, 118, 0.22);
+  --tn-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--tn-bg-deep); color: var(--tn-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--tn-gold-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+#tnPageBg {
+  position: fixed; inset: 0; z-index: -3;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
+  pointer-events: none;
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { padding: 0 16px; }
+
+.tn-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  color: var(--tn-text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+}
+.tn-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--tn-text); }
+
+/* ===== Hero — full-bleed, matching Dream Board/Business Hub's own hero
+   proportions exactly (see gym.html's changelog for why a data-heavy
+   daily-use page still keeps this at full height rather than shrinking
+   it: the request explicitly asks to match the aesthetic, and this page
+   is browsed occasionally, not the very first thing loaded every day). */
+.tn-hero {
+  position: relative; min-height: 78vh; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 90px 24px 46px; overflow: hidden;
+}
+@media (max-width: 620px) { .tn-hero { min-height: 84vh; padding: 84px 16px 34px; } }
+.tn-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--tn-paper-solid); }
+.tn-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.tn-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1;
+}
+.tn-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.5); border: 1px dashed var(--tn-hairline); color: var(--tn-text-mute);
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.tn-hero-photo-choice-btn:hover { color: var(--tn-gold-bright); border-color: var(--tn-gold); }
+.tn-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.15) 0%, rgba(5,4,3,0.55) 60%, rgba(5,4,3,0.92) 100%);
+}
+.tn-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px;
+}
+.tn-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; color: var(--tn-text-dim);
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; cursor: pointer;
+}
+.tn-hero-photo-tools button:hover { color: var(--tn-gold-bright); border-color: var(--tn-gold); }
+.tn-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.tn-hero-eyebrow {
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--tn-gold); margin-bottom: 12px; outline-offset: 3px;
+}
+.tn-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--tn-gold); margin-right: 10px; vertical-align: middle; }
+.tn-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(30px, 6vw, 48px);
+  line-height: 1.08; color: var(--tn-text); outline-offset: 4px; margin-bottom: 12px;
+}
+.tn-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.tn-hero-subtext {
+  font-size: 14.5px; line-height: 1.55; color: var(--tn-text-dim); max-width: 480px; margin-bottom: 20px; outline-offset: 3px;
+}
+.tn-hero-cta {
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--tn-hairline); border-radius: 999px; padding: 10px 18px; cursor: pointer;
+}
+.tn-hero-cta:hover { border-color: var(--tn-gold); background: rgba(201,168,118,0.10); }
+.tn-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tn-text); }
+.tn-hero-cta-arrow { color: var(--tn-gold-bright); font-size: 13px; }
+
+.tn-toolbar-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 18px 0 26px;
+}
+.tn-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--tn-text-mute); display: flex; align-items: center; gap: 5px; margin-right: auto; }
+.tn-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tn-text-mute); flex-shrink: 0; }
+.tn-sync-status.is-saved .tn-sync-status-dot { background: var(--success); }
+.tn-sync-status.is-saved { color: var(--tn-text-dim); }
+.tn-sync-status.is-error, .tn-sync-status.is-offline { color: var(--danger); }
+.tn-sync-status.is-error .tn-sync-status-dot, .tn-sync-status.is-offline .tn-sync-status-dot { background: var(--danger); animation: tn-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes tn-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.tn-btn-primary, .tn-btn-secondary, .tn-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer;
+}
+.tn-btn-primary { background: linear-gradient(180deg, var(--tn-gold-bright) 0%, var(--tn-gold) 100%); color: #24190c; border: 1px solid var(--tn-gold); }
+.tn-btn-primary:hover { opacity: 0.9; }
+.tn-btn-secondary { background: var(--tn-paper); color: var(--tn-text-dim); border: 1px solid var(--tn-hairline); }
+.tn-btn-secondary:hover { color: var(--tn-gold-bright); border-color: var(--tn-gold); }
+.tn-btn-ghost { background: transparent; color: var(--tn-text-mute); border: 1px solid var(--tn-hairline); }
+.tn-btn-ghost:hover { color: var(--tn-text); border-color: var(--tn-text-mute); }
+
+/* ===== Section chassis ===== */
+.tn-section { margin-bottom: 40px; }
+.tn-section + .tn-section { padding-top: 32px; border-top: 1px solid var(--tn-hairline); }
+.tn-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+.tn-section-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.tn-section-title { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--tn-text); }
+.tn-section-sub { font-size: 12px; color: var(--tn-text-mute); }
+.tn-section-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tn-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 18px; }
+.tn-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.tn-chip { background: var(--tn-paper); border: 1px solid var(--tn-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--tn-text-mute); cursor: pointer; }
+.tn-chip:hover { color: var(--tn-text); }
+.tn-chip.active { background: var(--tn-accent-tint); color: var(--tn-gold-bright); border-color: var(--tn-gold); }
+.tn-search-input {
+  flex: 1; min-width: 160px; max-width: 260px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--tn-hairline); border-radius: 999px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--tn-text);
+}
+.tn-grid-empty, .tn-empty { font-size: 12px; color: var(--tn-text-mute); font-style: italic; padding: 10px 2px; }
+
+/* ===== Card chassis — identical frosted-glass technique to Business
+   Hub's .bw-card / Dream Board's .dw-card / AI & Tech's .at-card. ===== */
+.tn-card {
+  position: relative; overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 16px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.14) inset, 0 14px 36px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column;
+}
+.tn-card-ghost { opacity: 0.4; border: 1px dashed var(--tn-gold); background: rgba(201,168,118,0.12); }
+.sortable-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.tn-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; }
+.tn-card-index { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--tn-gold); flex-shrink: 0; }
+.tn-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.55; transition: opacity 0.15s; }
+.tn-card:hover .tn-card-hover-actions, .tn-card:focus-within .tn-card-hover-actions { opacity: 1; }
+.tn-drag-handle { flex-shrink: 0; cursor: grab; color: var(--tn-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.tn-drag-handle:active { cursor: grabbing; }
+.tn-card-del { background: transparent; border: none; color: var(--tn-text-mute); font-size: 13px; line-height: 1; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.tn-card-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+
+/* ===== Link card ===== */
+.tn-link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.tn-link-title-input { width: 100%; background: transparent; border: none; font-family: var(--font-serif); font-weight: 600; font-size: 17px; color: var(--tn-text); margin-bottom: 8px; outline-offset: 3px; }
+.tn-link-title-input::placeholder { color: var(--tn-text-mute); }
+.tn-link-url-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.tn-link-url-input { flex: 1; min-width: 0; font-size: 12px; border: 1px solid var(--tn-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 7px 9px; color: var(--tn-text-dim); }
+.tn-link-open-btn { flex-shrink: 0; background: transparent; border: 1px solid var(--tn-hairline); color: var(--tn-gold-bright); border-radius: 999px; padding: 5px 12px; font-size: 10.5px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.tn-link-open-btn:hover { border-color: var(--tn-gold); background: var(--tn-accent-tint); }
+.tn-link-open-btn[aria-disabled="true"] { opacity: 0.35; pointer-events: none; }
+.tn-link-desc { width: 100%; min-height: 56px; resize: vertical; background: transparent; border: none; font-size: 12.5px; line-height: 1.5; color: var(--tn-text-dim); outline-offset: 3px; }
+.tn-link-desc::placeholder { color: var(--tn-text-mute); }
+
+/* ===== Notes ===== */
+.tn-note-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 16px 0 18px; }
+.tn-note-list { display: flex; flex-direction: column; gap: 8px; }
+.tn-note-card {
+  padding: 12px 14px; border-radius: var(--radius-md); background: rgba(255,255,255,0.05); border: 1px solid var(--tn-hairline);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); cursor: pointer;
+}
+.tn-note-card:hover { border-color: var(--tn-gold); }
+.tn-note-card-head { display: flex; align-items: flex-start; gap: 8px; }
+.tn-note-card-title { flex: 1; min-width: 0; font-family: var(--font-serif); font-size: 15.5px; font-weight: 600; color: var(--tn-text); word-break: break-word; }
+.tn-note-del { flex-shrink: 0; background: transparent; border: none; color: var(--tn-text-mute); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.tn-note-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+.tn-note-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.tn-note-card-body { font-size: 12.5px; line-height: 1.5; color: var(--tn-text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tn-note-card-meta { font-size: 10.5px; color: var(--tn-text-mute); font-family: var(--font-mono); margin-top: 6px; }
+.tn-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; background: rgba(255,255,255,0.06); color: var(--tn-text-dim); border: 1px solid var(--tn-hairline); }
+.tn-tag button { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; font-size: 10px; padding: 0; }
+.tn-tag button:hover { opacity: 1; color: var(--danger); }
+.tn-tag-input-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.tn-tag-add { display: flex; gap: 5px; margin-bottom: 8px; }
+
+/* ===== Tasks — same recipe as business.html's .bh-task-* components. ===== */
+.tn-task-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 12px; }
+.tn-task-filter-bar select { background: var(--tn-paper); border: 1px solid var(--tn-hairline); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; color: var(--tn-text-dim); }
+.tn-task-quickadd-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.tn-task-quickadd-row input[type="text"] { flex: 1; min-width: 160px; background: rgba(255,255,255,0.04); border: 1px solid var(--tn-hairline); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; color: var(--tn-text); }
+.tn-task-quickadd-row input[type="date"] { background: rgba(255,255,255,0.04); border: 1px solid var(--tn-hairline); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 12px; color: var(--tn-text); }
+.tn-task-list { display: flex; flex-direction: column; gap: 8px; }
+.tn-task-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.05); border: 1px solid var(--tn-hairline);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.tn-task-card.is-done { opacity: 0.62; }
+.tn-task-check { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--tn-hairline); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--tn-gold-bright); font-size: 11px; }
+.tn-task-check.done { background: var(--tn-gold); border-color: var(--tn-gold); color: #24190c; }
+.tn-task-title { flex: 1; min-width: 0; font-size: 13.5px; cursor: pointer; word-break: break-word; }
+.tn-task-card.is-done .tn-task-title { text-decoration: line-through; color: var(--tn-text-mute); }
+.tn-task-pill { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.tn-task-pill.pri-low { background: rgba(125,211,252,0.14); color: var(--info); }
+.tn-task-pill.pri-medium { background: rgba(242,192,99,0.16); color: var(--warning); }
+.tn-task-pill.pri-high { background: rgba(255,107,107,0.16); color: var(--danger); }
+.tn-task-badge { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: var(--tn-accent-tint); color: var(--tn-gold-bright); }
+.tn-task-due { flex-shrink: 0; font-size: 11px; color: var(--tn-text-mute); font-family: var(--font-mono); }
+.tn-task-open, .tn-task-del { flex-shrink: 0; background: transparent; border: none; color: var(--tn-text-mute); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.tn-task-open:hover { color: var(--tn-gold-bright); background: var(--tn-accent-tint); }
+.tn-task-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+
+/* ===== Modals ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: rgba(20, 17, 13, 0.72); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.tn-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.tn-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--tn-text); }
+.tn-modal-close { background: transparent; border: none; font-size: 18px; color: var(--tn-text-mute); cursor: pointer; }
+.tn-modal-close:hover { color: var(--tn-text); }
+.tn-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
+.tn-modal-textarea { width: 100%; min-height: 120px; border: 1px solid var(--tn-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13.5px; resize: vertical; color: var(--tn-text); }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--tn-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--tn-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--tn-text); }
+.field-inline { display: flex; align-items: center; gap: 8px; }
+.field-inline input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--tn-gold); cursor: pointer; }
+.tn-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.tn-autosave-hint { font-size: 10.5px; color: var(--tn-text-mute); margin-top: 6px; }
+.delete-link { display: block; margin-top: 10px; font-size: 12px; color: var(--danger); cursor: pointer; text-align: center; }
+.delete-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="tnPageBg"></div>
+<div class="shell">
+  <div class="tn-hero" id="tnHero">
+    <div class="tn-hero-media" id="tnHeroMedia">
+      <img id="tnHeroPhotoImg" style="display:none;" alt="">
+      <div class="tn-hero-photo-choice" id="tnHeroPhotoChoice">
+        <button type="button" class="tn-hero-photo-choice-btn" id="tnHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="tn-hero-overlay"></div>
+    <a href="business.html" class="tn-back-btn" aria-label="Back to Business Hub">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="tn-hero-photo-tools" id="tnHeroPhotoTools" style="display:none;">
+      <button type="button" id="tnHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="tnHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="tnHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="tn-hero-content">
+      <div class="tn-hero-eyebrow" id="tnHeroEyebrow" contenteditable="true"></div>
+      <textarea class="tn-hero-title" id="tnHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="tn-hero-subtext" id="tnHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="tn-hero-cta" id="tnHeroCta">
+        <span class="tn-hero-cta-label" id="tnHeroCtaLabel" contenteditable="true"></span>
+        <span class="tn-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="shell-inner">
+    <div class="tn-toolbar-row">
+      <span class="tn-sync-status" id="tnSyncStatus"></span>
+      <button type="button" class="tn-btn-ghost" id="tnResetBtn">Reset to Default</button>
+    </div>
+
+    <div class="tn-section" id="tnLinksSection">
+      <div class="tn-section-head">
+        <div class="tn-section-title-wrap">
+          <div class="tn-section-title">Links</div>
+          <div class="tn-section-sub">Shared drives, calendars, and anything else worth one click away.</div>
+        </div>
+        <div class="tn-section-actions">
+          <button type="button" class="tn-btn-primary" id="tnAddLinkBtn">+ Add Link</button>
+        </div>
+      </div>
+      <div class="tn-link-grid" id="tnLinkGrid"></div>
+    </div>
+
+    <div class="tn-section" id="tnNotesSection">
+      <div class="tn-section-head">
+        <div class="tn-section-title-wrap">
+          <div class="tn-section-title">Notes</div>
+          <div class="tn-section-sub">A full, searchable, taggable list — not just a single freeform note.</div>
+        </div>
+        <div class="tn-section-actions">
+          <button type="button" class="tn-btn-primary" id="tnAddNoteBtn">+ Add Note</button>
+        </div>
+      </div>
+      <div class="tn-note-toolbar">
+        <input type="text" id="tnNoteSearch" class="tn-search-input" placeholder="Search notes…">
+        <div class="tn-chip-row" id="tnNoteTagChips"></div>
+      </div>
+      <div class="tn-note-list" id="tnNoteList"></div>
+      <div class="tn-empty" id="tnNoteEmpty" hidden>No notes match this filter yet.</div>
+    </div>
+
+    <div class="tn-section" id="tnTasksSection">
+      <div class="tn-section-head">
+        <div class="tn-section-title-wrap">
+          <div class="tn-section-title">Tasks</div>
+          <div class="tn-section-sub">A filtered task list — status, priority, due dates, and recurrence.</div>
+        </div>
+      </div>
+      <div class="tn-task-filter-bar">
+        <div class="tn-chip-row" id="tnTaskViewChips">
+          <button type="button" class="tn-chip active" data-view="today">Today</button>
+          <button type="button" class="tn-chip" data-view="all">All Tasks</button>
+        </div>
+        <select id="tnTaskFilterPriority">
+          <option value="">All Priorities</option>
+          <option value="high">High priority</option>
+          <option value="medium">Medium priority</option>
+          <option value="low">Low priority</option>
+        </select>
+        <select id="tnTaskFilterStatus">
+          <option value="">All Statuses</option>
+          <option value="todo">To do</option>
+          <option value="in-progress">In progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="tn-task-quickadd-row">
+        <input type="text" id="tnTaskQuickTitle" placeholder="Add a task…">
+        <input type="date" id="tnTaskQuickDate">
+        <button type="button" class="tn-btn-primary" id="tnTaskQuickAddBtn">+ Add</button>
+      </div>
+      <div class="tn-task-list" id="tnTaskList"></div>
+      <div class="tn-empty" id="tnTaskEmpty" hidden>No tasks match this view/filter.</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="tnNoteModalBg">
+  <div class="modal">
+    <div class="tn-modal-head"><h3 id="tnNoteModalTitle">Add Note</h3><button type="button" class="tn-modal-close" id="tnNoteModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="tnNoteTitleInput" placeholder="Note title…"></div>
+    <div class="tn-tag-input-row" id="tnNoteTagList"></div>
+    <div class="tn-tag-add"><input type="text" id="tnNoteTagInput" placeholder="+ Add a tag…"></div>
+    <div class="field"><label>Body</label><textarea class="tn-modal-textarea" id="tnNoteBodyInput" placeholder="Write freely…"></textarea></div>
+    <div class="tn-modal-actions">
+      <button type="button" class="tn-btn-ghost" id="tnNoteModalCancel">Cancel</button>
+      <button type="button" class="tn-btn-primary" id="tnNoteModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="tnNoteModalDelete" style="display:none;">Delete this note</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="tnTaskModalBg">
+  <div class="modal">
+    <div class="tn-modal-head"><h3 id="tnTaskModalTitle">Add Task</h3><button type="button" class="tn-modal-close" id="tnTaskModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="tnTaskTitleInput"></div>
+    <div class="field"><label>Note</label><input type="text" id="tnTaskNoteInput"></div>
+    <div class="field"><label>Status</label>
+      <select id="tnTaskStatusInput"><option value="todo">To do</option><option value="in-progress">In progress</option><option value="done">Done</option></select>
+    </div>
+    <div class="field"><label>Priority</label>
+      <select id="tnTaskPriorityInput"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+    </div>
+    <div class="field"><label>Due date</label><input type="date" id="tnTaskDateInput"></div>
+    <div class="field"><label>Estimate (minutes)</label><input type="number" min="0" id="tnTaskEstimateInput" placeholder="e.g. 30"></div>
+    <div class="field field-inline"><input type="checkbox" id="tnTaskDailyInput"><label style="margin:0;">Daily action</label></div>
+    <div class="field"><label>Recurrence</label>
+      <select id="tnTaskRecurrenceInput">
+        <option value="none">None</option>
+        <option value="daily">Daily — regenerates the next day when completed</option>
+        <option value="weekly">Weekly — regenerates 7 days later when completed</option>
+      </select>
+    </div>
+    <div class="tn-modal-actions">
+      <button type="button" class="tn-btn-ghost" id="tnTaskModalCancel">Cancel</button>
+      <button type="button" class="tn-btn-primary" id="tnTaskModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="tnTaskModalDelete" style="display:none;">Delete this task</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="tnTaskDetailModalBg">
+  <div class="modal">
+    <div class="tn-modal-head"><h3>Task</h3><button type="button" class="tn-modal-close" id="tnTaskDetailCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><input type="text" id="tnTaskDetailTitleInput" placeholder="Task title…"></div>
+    <div class="tn-detail-meta-row" id="tnTaskDetailMetaRow"></div>
+    <div class="field"><label>Notes</label><textarea class="tn-modal-textarea" id="tnTaskDetailNoteInput" placeholder="Write freely — this autosaves as you type…"></textarea></div>
+    <div class="tn-autosave-hint">Autosaves as you type.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+
+  let DB = null;
+  let sortableInstances = [];
+
+  let editingNoteId = null;
+  let editingNoteTags = [];
+  let editingTaskId = null;
+  let taskDetailId = null;
+
+  let noteSearch = '';
+  let noteTagFilter = '';
+  let taskView = 'today';
+  let taskFilterPriority = '';
+  let taskFilterStatus = '';
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function debounce(fn, wait) {
+    let t = null;
+    return function () {
+      const args = arguments, ctx = this;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+    };
+  }
+  function hashToIndex(str, mod) { let h = 0; for (let i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) | 0; } return Math.abs(h) % mod; }
+  function tagColor(tag) {
+    const palette = [
+      { bg: 'rgba(107,227,164,0.14)', fg: '#6BE3A4' }, { bg: 'rgba(255,107,107,0.14)', fg: '#FF9B9B' },
+      { bg: 'rgba(125,211,252,0.14)', fg: '#7DD3FC' }, { bg: 'rgba(201,168,118,0.18)', fg: 'var(--tn-gold-bright)' },
+      { bg: 'rgba(242,192,99,0.16)', fg: '#F2C063' }, { bg: 'rgba(245,241,233,0.10)', fg: 'var(--tn-text-dim)' }
+    ];
+    return palette[hashToIndex(tag || '', palette.length)];
+  }
+
+  function wireInlineEdit(el, onCommit, opts) {
+    opts = opts || {};
+    let original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      const val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // One-time backfill: uploads every already-stored base64 hero photo to
+  // Supabase Storage and replaces it with a tiny hosted URL, same
+  // precedent as every other page's migratePhotosToStorage().
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('tasksnotes:photosMigratedV1')) return;
+    const jobs = [];
+    const heroPhoto = DB.getHero().photo;
+    if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
+      jobs.push(window.PhotoStore.upload(heroPhoto).then(function (url) {
+        if (!url) return false;
+        if (DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        return true;
+      }));
+    }
+    if (!jobs.length) { storeSet('tasksnotes:photosMigratedV1', true); return; }
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) storeSet('tasksnotes:photosMigratedV1', true);
+      renderHero();
+    });
+  }
+
+  // ============================================================
+  // SYNC STATUS — same pattern as aitech.html's handleSaveEvent.
+  // ============================================================
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('tnSyncStatus');
+    if (!el) return;
+    el.className = 'tn-sync-status' + (mode ? ' is-' + mode : '');
+    el.textContent = '';
+    const dot = document.createElement('span'); dot.className = 'tn-sync-status-dot';
+    const label = document.createElement('span'); label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Couldn't save — your browser's storage may be full."); return; }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+
+  // ============================================================
+  // HERO — same shape/behavior as aitech.html's single global hero.
+  // ============================================================
+  function renderHero() {
+    const hero = DB.getHero();
+    $('tnHeroEyebrow').textContent = hero.eyebrow;
+    $('tnHeroTitle').value = hero.title;
+    $('tnHeroSubtext').textContent = hero.subtext;
+    $('tnHeroCtaLabel').textContent = hero.ctaLabel || 'VIEW TASKS';
+    autosize($('tnHeroTitle'));
+    const img = $('tnHeroPhotoImg'), choice = $('tnHeroPhotoChoice'), tools = $('tnHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+    const bg = $('tnPageBg');
+    if (bg) bg.style.backgroundImage = hero.photo ? "url('" + hero.photo.replace(/'/g, "\\'") + "')" : '';
+  }
+  function openHeroFilePicker() { $('tnHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        DB.saveHero({ photo: compressed });
+        renderHero();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (DB.getHero().photo !== compressed) return;
+            DB.saveHero({ photo: url });
+            renderHero();
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // LINKS — a small drag-reorderable card grid (title/url/description
+  // inline-editable directly on the card, no separate modal — same
+  // "editable in place" shape this feature had as a widget-board 'link'
+  // type back when it lived inside business.html).
+  // ============================================================
+  function buildLinkCard(link, displayIndex) {
+    const card = document.createElement('div'); card.className = 'tn-card'; card.dataset.linkId = link.id;
+    const head = document.createElement('div'); head.className = 'tn-card-head';
+    const index = document.createElement('span'); index.className = 'tn-card-index'; index.textContent = String(displayIndex).padStart(2, '0');
+    const actions = document.createElement('div'); actions.className = 'tn-card-hover-actions';
+    const handle = document.createElement('span'); handle.className = 'tn-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'tn-card-del'; delBtn.setAttribute('aria-label', 'Delete'); delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (link.title || 'this link') + '"?')) return;
+      DB.Links.remove(link.id); renderLinks();
+    });
+    actions.appendChild(handle); actions.appendChild(delBtn);
+    head.appendChild(index); head.appendChild(actions); card.appendChild(head);
+
+    const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'tn-link-title-input';
+    titleInput.value = link.title || ''; titleInput.placeholder = 'Link title…';
+    titleInput.addEventListener('blur', function () { if (titleInput.value !== link.title) DB.Links.update(link.id, { title: titleInput.value }); });
+    titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') titleInput.blur(); });
+    card.appendChild(titleInput);
+
+    const urlRow = document.createElement('div'); urlRow.className = 'tn-link-url-row';
+    const urlInput = document.createElement('input'); urlInput.type = 'text'; urlInput.className = 'tn-link-url-input';
+    urlInput.value = link.url || ''; urlInput.placeholder = 'https://…';
+    urlInput.addEventListener('blur', function () { if (urlInput.value !== link.url) { DB.Links.update(link.id, { url: urlInput.value }); renderLinks(); } });
+    urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') urlInput.blur(); });
+    const openBtn = document.createElement('a'); openBtn.className = 'tn-link-open-btn'; openBtn.textContent = '↗ Open';
+    if (DB.isValidMediaUrl(link.url)) { openBtn.href = link.url; openBtn.target = '_blank'; openBtn.rel = 'noopener'; }
+    else { openBtn.href = '#'; openBtn.setAttribute('aria-disabled', 'true'); openBtn.addEventListener('click', function (e) { e.preventDefault(); }); }
+    urlRow.appendChild(urlInput); urlRow.appendChild(openBtn); card.appendChild(urlRow);
+
+    const desc = document.createElement('textarea'); desc.className = 'tn-link-desc'; desc.value = link.description || ''; desc.placeholder = 'What is this link for?';
+    desc.addEventListener('input', function () { autosize(desc); });
+    desc.addEventListener('blur', function () { DB.Links.update(link.id, { description: desc.value }); });
+    card.appendChild(desc);
+    setTimeout(function () { autosize(desc); }, 0);
+
+    return card;
+  }
+  function renderLinks() {
+    const grid = $('tnLinkGrid');
+    const list = DB.linksSorted();
+    grid.innerHTML = '';
+    if (!list.length) { const e = document.createElement('div'); e.className = 'tn-grid-empty'; e.textContent = 'No links yet — add one to get started.'; grid.appendChild(e); return; }
+    list.forEach(function (l, i) { grid.appendChild(buildLinkCard(l, i + 1)); });
+    wireLinkSortable();
+  }
+  function wireLinkSortable() {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sortableInstances.push(new Sortable($('tnLinkGrid'), {
+      animation: reduced ? 0 : 150, handle: '.tn-drag-handle', ghostClass: 'tn-card-ghost',
+      onEnd: function () {
+        const ids = Array.from($('tnLinkGrid').children).map(function (el) { return el.dataset.linkId; }).filter(Boolean);
+        DB.reorderLinks(ids); renderLinks();
+      }
+    }));
+  }
+
+  // ============================================================
+  // NOTES (full list database)
+  // ============================================================
+  function buildTagChip(tag, onRemove) {
+    const c = tagColor(tag);
+    const chip = document.createElement('span'); chip.className = 'tn-tag'; chip.style.background = c.bg; chip.style.color = c.fg;
+    const txt = document.createElement('span'); txt.textContent = tag; chip.appendChild(txt);
+    if (onRemove) {
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.setAttribute('aria-label', 'Remove tag');
+      del.addEventListener('click', onRemove); chip.appendChild(del);
+    }
+    return chip;
+  }
+  function buildNoteRow(note) {
+    const card = document.createElement('div'); card.className = 'tn-note-card';
+    card.addEventListener('click', function () { openNoteModal(note); });
+    const head = document.createElement('div'); head.className = 'tn-note-card-head';
+    const title = document.createElement('div'); title.className = 'tn-note-card-title'; title.textContent = note.title || 'Untitled';
+    head.appendChild(title);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'tn-note-del'; del.setAttribute('aria-label', 'Delete note'); del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete this note?')) return;
+      DB.Notes.remove(note.id); renderNotes();
+    });
+    head.appendChild(del);
+    card.appendChild(head);
+    if (note.tags && note.tags.length) {
+      const tagsWrap = document.createElement('div'); tagsWrap.className = 'tn-note-card-tags';
+      note.tags.forEach(function (tag) { tagsWrap.appendChild(buildTagChip(tag, null)); });
+      card.appendChild(tagsWrap);
+    }
+    if (note.body) { const body = document.createElement('div'); body.className = 'tn-note-card-body'; body.textContent = note.body; card.appendChild(body); }
+    const meta = document.createElement('div'); meta.className = 'tn-note-card-meta'; meta.textContent = 'Updated ' + DB.formatDateShort(new Date(note.updatedAt).toISOString().slice(0, 10));
+    card.appendChild(meta);
+    return card;
+  }
+  function renderNoteTagChips(notes) {
+    const wrap = $('tnNoteTagChips'); if (!wrap) return;
+    wrap.innerHTML = '';
+    const allTags = [];
+    notes.forEach(function (n) { (n.tags || []).forEach(function (tag) { if (allTags.indexOf(tag) === -1) allTags.push(tag); }); });
+    const allBtn = document.createElement('button'); allBtn.type = 'button'; allBtn.className = 'tn-chip' + (noteTagFilter ? '' : ' active'); allBtn.textContent = 'All';
+    allBtn.addEventListener('click', function () { noteTagFilter = ''; renderNotes(); });
+    wrap.appendChild(allBtn);
+    allTags.forEach(function (tag) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'tn-chip' + (noteTagFilter === tag ? ' active' : ''); btn.textContent = tag;
+      btn.addEventListener('click', function () { noteTagFilter = tag; renderNotes(); });
+      wrap.appendChild(btn);
+    });
+  }
+  function renderNotes() {
+    const list = $('tnNoteList'); if (!list) return;
+    const allNotes = DB.notesSorted();
+    renderNoteTagChips(allNotes);
+    let notes = allNotes;
+    if (noteTagFilter) notes = notes.filter(function (n) { return (n.tags || []).indexOf(noteTagFilter) !== -1; });
+    if (noteSearch) {
+      const q = noteSearch.toLowerCase();
+      notes = notes.filter(function (n) { return (n.title || '').toLowerCase().indexOf(q) !== -1 || (n.body || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    list.innerHTML = '';
+    notes.forEach(function (n) { list.appendChild(buildNoteRow(n)); });
+    $('tnNoteEmpty').hidden = notes.length !== 0;
+  }
+  function renderNoteModalTagList() {
+    const wrap = $('tnNoteTagList'); wrap.innerHTML = '';
+    editingNoteTags.forEach(function (tag) {
+      wrap.appendChild(buildTagChip(tag, function () { editingNoteTags = editingNoteTags.filter(function (t) { return t !== tag; }); renderNoteModalTagList(); }));
+    });
+  }
+  function openNoteModal(note) {
+    editingNoteId = note ? note.id : null;
+    editingNoteTags = note ? (note.tags || []).slice() : [];
+    $('tnNoteModalTitle').textContent = note ? 'Edit Note' : 'Add Note';
+    $('tnNoteTitleInput').value = note ? note.title : '';
+    $('tnNoteBodyInput').value = note ? note.body : '';
+    $('tnNoteTagInput').value = '';
+    renderNoteModalTagList();
+    $('tnNoteModalDelete').style.display = note ? 'block' : 'none';
+    openModal($('tnNoteModalBg'));
+  }
+  function closeNoteModal() { closeModal($('tnNoteModalBg')); editingNoteId = null; }
+  function saveNoteModal() {
+    const title = $('tnNoteTitleInput').value.trim();
+    if (!title) { alert('Give this note a title first.'); return; }
+    const fields = { title: title, body: $('tnNoteBodyInput').value, tags: editingNoteTags };
+    if (editingNoteId) DB.Notes.update(editingNoteId, fields);
+    else DB.Notes.add(fields);
+    closeNoteModal();
+    renderNotes();
+  }
+  function deleteNoteModal() {
+    if (!editingNoteId) return;
+    if (!confirm('Delete this note?')) return;
+    DB.Notes.remove(editingNoteId);
+    closeNoteModal();
+    renderNotes();
+  }
+
+  // ============================================================
+  // TASKS (filtered list)
+  // ============================================================
+  function buildTaskPriorityPill(priority) {
+    const pill = document.createElement('span'); pill.className = 'tn-task-pill pri-' + (priority || 'medium');
+    pill.textContent = priority || 'medium'; return pill;
+  }
+  function setTaskDone(task, done) {
+    if (done) {
+      DB.Tasks.update(task.id, { status: 'done', doneAt: Date.now() });
+      if (task.recurrence && task.recurrence !== 'none') DB.spawnNextRecurrence(task);
+    } else {
+      DB.Tasks.update(task.id, { status: 'todo', doneAt: null });
+    }
+  }
+  function buildTaskRow(task) {
+    const card = document.createElement('div'); card.className = 'tn-task-card' + (task.status === 'done' ? ' is-done' : '');
+
+    const check = document.createElement('button'); check.type = 'button';
+    check.className = 'tn-task-check' + (task.status === 'done' ? ' done' : '');
+    check.setAttribute('aria-label', task.status === 'done' ? 'Mark not done' : 'Mark done');
+    if (task.status === 'done') check.textContent = '✓';
+    check.addEventListener('click', function () { setTaskDone(task, task.status !== 'done'); renderTasks(); });
+    card.appendChild(check);
+
+    const title = document.createElement('span'); title.className = 'tn-task-title'; title.textContent = task.title;
+    title.addEventListener('click', function () { openTaskModal(task); });
+    card.appendChild(title);
+
+    card.appendChild(buildTaskPriorityPill(task.priority));
+
+    if (task.isDailyAction) { const b = document.createElement('span'); b.className = 'tn-task-badge'; b.textContent = 'DAILY'; card.appendChild(b); }
+    if (task.recurrence && task.recurrence !== 'none') { const b = document.createElement('span'); b.className = 'tn-task-badge'; b.textContent = task.recurrence === 'weekly' ? '↻ Weekly' : '↻ Daily'; card.appendChild(b); }
+    if (task.dueDate) { const d = document.createElement('span'); d.className = 'tn-task-due'; d.textContent = DB.formatDateShort(task.dueDate); card.appendChild(d); }
+
+    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'tn-task-open'; openBtn.title = "Open this task's notes"; openBtn.textContent = '📄';
+    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openTaskDetailModal(task.id); });
+    card.appendChild(openBtn);
+
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'tn-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
+    del.addEventListener('click', function (e) { e.stopPropagation(); DB.Tasks.remove(task.id); renderTasks(); });
+    card.appendChild(del);
+
+    return card;
+  }
+  function renderTasks() {
+    const list = $('tnTaskList'); if (!list) return;
+    list.innerHTML = '';
+    let tasks = DB.Tasks.list();
+    const today = DB.todayISO();
+    if (taskView === 'today') tasks = tasks.filter(function (x) { return x.isDailyAction || x.dueDate === today; });
+    if (taskFilterPriority) tasks = tasks.filter(function (x) { return x.priority === taskFilterPriority; });
+    if (taskFilterStatus) tasks = tasks.filter(function (x) { return x.status === taskFilterStatus; });
+    tasks = DB.sortTasks(tasks, 'due');
+    tasks.forEach(function (x) { list.appendChild(buildTaskRow(x)); });
+    $('tnTaskEmpty').hidden = tasks.length !== 0;
+  }
+  function quickAddTask() {
+    const titleInput = $('tnTaskQuickTitle'), dateInput = $('tnTaskQuickDate');
+    const title = titleInput.value.trim();
+    if (!title) return;
+    DB.Tasks.add({ title: title, dueDate: dateInput.value || '' });
+    titleInput.value = ''; dateInput.value = '';
+    renderTasks();
+  }
+  function openTaskModal(task) {
+    editingTaskId = task ? task.id : null;
+    $('tnTaskModalTitle').textContent = task ? 'Edit Task' : 'Add Task';
+    $('tnTaskTitleInput').value = task ? task.title : '';
+    $('tnTaskNoteInput').value = task ? task.note : '';
+    $('tnTaskStatusInput').value = task ? task.status : 'todo';
+    $('tnTaskPriorityInput').value = task ? task.priority : 'medium';
+    $('tnTaskDateInput').value = task ? (task.dueDate || '') : '';
+    $('tnTaskEstimateInput').value = (task && task.estimateMinutes != null) ? String(task.estimateMinutes) : '';
+    $('tnTaskDailyInput').checked = task ? !!task.isDailyAction : false;
+    $('tnTaskRecurrenceInput').value = task ? task.recurrence : 'none';
+    $('tnTaskModalDelete').style.display = task ? 'block' : 'none';
+    openModal($('tnTaskModalBg'));
+  }
+  function closeTaskModal() { closeModal($('tnTaskModalBg')); editingTaskId = null; }
+  function saveTaskModal() {
+    const title = $('tnTaskTitleInput').value.trim();
+    if (!title) { alert('Give this task a title first.'); return; }
+    const existing = editingTaskId ? DB.Tasks.get(editingTaskId) : null;
+    const wasNotDone = existing ? existing.status !== 'done' : true;
+    const newStatus = $('tnTaskStatusInput').value;
+    const fields = {
+      title: title, note: $('tnTaskNoteInput').value, status: newStatus, priority: $('tnTaskPriorityInput').value,
+      dueDate: $('tnTaskDateInput').value || '', estimateMinutes: $('tnTaskEstimateInput').value ? Number($('tnTaskEstimateInput').value) : null,
+      isDailyAction: $('tnTaskDailyInput').checked, recurrence: $('tnTaskRecurrenceInput').value,
+      doneAt: newStatus === 'done' ? Date.now() : null
+    };
+    let saved;
+    if (editingTaskId) saved = DB.Tasks.update(editingTaskId, fields);
+    else saved = DB.Tasks.add(fields);
+    if (wasNotDone && newStatus === 'done' && saved.recurrence !== 'none') DB.spawnNextRecurrence(saved);
+    closeTaskModal();
+    renderTasks();
+  }
+  function deleteTaskModal() {
+    if (!editingTaskId) return;
+    if (!confirm('Delete this task?')) return;
+    DB.Tasks.remove(editingTaskId);
+    closeTaskModal();
+    renderTasks();
+  }
+  function openTaskDetailModal(taskId) {
+    const t = DB.Tasks.get(taskId); if (!t) return;
+    taskDetailId = taskId;
+    $('tnTaskDetailTitleInput').value = t.title;
+    const meta = $('tnTaskDetailMetaRow'); meta.innerHTML = '';
+    meta.appendChild(buildTaskPriorityPill(t.priority));
+    if (t.dueDate) { const d = document.createElement('span'); d.className = 'tn-task-due'; d.textContent = DB.formatDateShort(t.dueDate); meta.appendChild(d); }
+    $('tnTaskDetailNoteInput').value = t.note || '';
+    openModal($('tnTaskDetailModalBg'));
+    setTimeout(function () { autosize($('tnTaskDetailNoteInput')); }, 0);
+  }
+  const autosaveTaskDetailNote = debounce(function () {
+    if (!taskDetailId) return;
+    DB.Tasks.update(taskDetailId, { note: $('tnTaskDetailNoteInput').value });
+  }, 500);
+  function closeTaskDetailModal() {
+    closeModal($('tnTaskDetailModalBg'));
+    taskDetailId = null;
+    renderTasks();
+  }
+
+  function resetAll() {
+    if (!confirm('Reset Tasks & Notes to its default links, notes, and tasks? This deletes everything currently here.')) return;
+    DB.seedDefaultData();
+    renderHero(); renderLinks(); renderNotes(); renderTasks();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    DB = window.TasksNotesData;
+    if (!DB) return;
+
+    // Copy real data forward from Business Hub's old "Tasks & Notes" tab,
+    // if this device ever used it — safe to call unconditionally (it
+    // no-ops once already run, and only ever writes when this page's own
+    // collections are still empty). See tasksnotes-data.js's own comment
+    // on migrateFromBusinessHub() for why this isn't deferred behind the
+    // cloud-sync race window the way seedIfEmpty() below is.
+    DB.migrateFromBusinessHub();
+
+    renderHero();
+    renderLinks();
+    renderNotes();
+    renderTasks();
+    setTimeout(migratePhotosToStorage, 3000);
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('tasksnotes:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
+
+    wireInlineEdit($('tnHeroEyebrow'), function (v) { DB.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('tnHeroSubtext'), function (v) { DB.saveHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('tnHeroCtaLabel'), function (v) { DB.saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('tnHeroTitle').addEventListener('input', function () { autosize($('tnHeroTitle')); });
+    $('tnHeroTitle').addEventListener('blur', function () { DB.saveHero({ title: $('tnHeroTitle').value }); });
+    $('tnHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('tnHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('tnHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); DB.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+    $('tnHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+    $('tnHeroCta').addEventListener('click', function () {
+      $('tnTasksSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('tnResetBtn').addEventListener('click', resetAll);
+
+    // Links wiring
+    $('tnAddLinkBtn').addEventListener('click', function () {
+      DB.Links.add({ title: 'New Link', order: DB.nextOrder(DB.linksSorted()) });
+      renderLinks();
+    });
+
+    // Notes wiring
+    $('tnAddNoteBtn').addEventListener('click', function () { openNoteModal(null); });
+    $('tnNoteSearch').addEventListener('input', function () { noteSearch = this.value; renderNotes(); });
+    $('tnNoteModalCloseBtn').addEventListener('click', closeNoteModal);
+    $('tnNoteModalCancel').addEventListener('click', closeNoteModal);
+    $('tnNoteModalBg').addEventListener('click', function (e) { if (e.target === this) closeNoteModal(); });
+    $('tnNoteModalSave').addEventListener('click', saveNoteModal);
+    $('tnNoteModalDelete').addEventListener('click', deleteNoteModal);
+    $('tnNoteTagInput').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const val = this.value.trim();
+      if (val && editingNoteTags.indexOf(val) === -1) { editingNoteTags.push(val); renderNoteModalTagList(); }
+      this.value = '';
+    });
+
+    // Tasks wiring
+    document.querySelectorAll('#tnTaskViewChips .tn-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        taskView = chip.dataset.view;
+        document.querySelectorAll('#tnTaskViewChips .tn-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
+        renderTasks();
+      });
+    });
+    $('tnTaskFilterPriority').addEventListener('change', function () { taskFilterPriority = this.value; renderTasks(); });
+    $('tnTaskFilterStatus').addEventListener('change', function () { taskFilterStatus = this.value; renderTasks(); });
+    $('tnTaskQuickAddBtn').addEventListener('click', quickAddTask);
+    $('tnTaskQuickTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); quickAddTask(); } });
+
+    $('tnTaskModalCloseBtn').addEventListener('click', closeTaskModal);
+    $('tnTaskModalCancel').addEventListener('click', closeTaskModal);
+    $('tnTaskModalBg').addEventListener('click', function (e) { if (e.target === this) closeTaskModal(); });
+    $('tnTaskModalSave').addEventListener('click', saveTaskModal);
+    $('tnTaskModalDelete').addEventListener('click', deleteTaskModal);
+
+    $('tnTaskDetailCloseBtn').addEventListener('click', closeTaskDetailModal);
+    $('tnTaskDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closeTaskDetailModal(); });
+    $('tnTaskDetailTitleInput').addEventListener('blur', function () {
+      if (!taskDetailId) return;
+      const val = this.value.trim(); if (!val) return;
+      DB.Tasks.update(taskDetailId, { title: val });
+      renderTasks();
+    });
+    $('tnTaskDetailNoteInput').addEventListener('input', function () { autosize(this); autosaveTaskDetailNote(); });
+
+    // Empty-storage seed-race safety window — same reasoning as
+    // aitech.html/dreamboard.html/business.html's maybeSeedAfterSyncAttempt().
+    // Only reached if the migration above found nothing (a genuinely
+    // fresh install, or a device that never used the old Business Hub
+    // tab), so it can't stomp on real migrated data either.
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Links.list().length > 0 || DB.Notes.list().length > 0 || DB.Tasks.list().length > 0) return;
+      DB.seedIfEmpty();
+      renderHero(); renderLinks(); renderNotes(); renderTasks();
+    }
+
+    const startedEmpty = DB.Links.list().length === 0 && DB.Notes.list().length === 0 && DB.Tasks.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'tasksnotes',
+        syncedPrefixes: ['tasksnotes:'],
+        onApplied: function () {
+          remoteAppliedOnce = true;
+          renderHero(); renderLinks(); renderNotes(); renderTasks();
+        }
+      });
+      if (startedEmpty) { setTimeout(maybeSeedAfterSyncAttempt, 5000); }
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
