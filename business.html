@@ -16,7 +16,7 @@
 <script src="sync.js" defer></script>
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="business-data.js?v=12" defer></script>
+<script src="business-data.js?v=13" defer></script>
 <script src="writing-data.js?v=2" defer></script>
 <style>
 /* =============================================================
@@ -578,6 +578,17 @@ body::after {
 .bh-pf-section-code-body { width: 100%; min-height: 100px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(0,0,0,0.35); border-radius: var(--radius-sm); padding: 10px 12px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--bh-gold-bright); overflow-x: auto; }
 .bh-pf-section-type-tag { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bh-text-mute); padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--bh-hairline); }
 .bh-pf-section-empty { font-size: 11.5px; color: var(--bh-text-mute); font-style: italic; padding: 6px 0 2px; }
+/* Writing Dashboard's Task Detail Text Section/Code Block bodies
+   autosize to show their entire text instead of a fixed-height box with
+   a manual resize handle — scoped to #wrTaskDetailBlocks specifically,
+   not the bare .bh-pf-section-body/-code-body classes, since those same
+   classes are also used by Platform Detail (business.html's Content/
+   Platforms tabs) and Workflow Day pages (Resources tab), which weren't
+   asked to change and keep their original fixed-height behavior. Same
+   "scope narrowly under a container, don't touch the shared class"
+   precedent as index.html's Habit Instructions field autosize fix. */
+#wrTaskDetailBlocks .bh-pf-section-body,
+#wrTaskDetailBlocks .bh-pf-section-code-body { resize: none; overflow: hidden; }
 .bh-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .bh-autosave-hint { font-size: 10.5px; color: var(--bh-text-mute); margin-top: 6px; }
 
@@ -671,7 +682,7 @@ body::after {
 .wr-note-section-actions { display: flex; gap: 3px; flex-shrink: 0; }
 .wr-note-section-actions button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 12px; padding: 3px 6px; border-radius: 6px; }
 .wr-note-section-actions button:hover { color: var(--bh-gold-bright); }
-.wr-note-section-body { width: 100%; min-height: 60px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--bh-text); }
+.wr-note-section-body { width: 100%; min-height: 60px; resize: none; overflow: hidden; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--bh-text); }
 
 .wr-idea-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .wr-idea-card { background: rgba(255,255,255,0.06); border: 1px solid var(--bh-hairline); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -3503,10 +3514,14 @@ body::after {
       head.appendChild(actions);
       card.appendChild(head);
       const body = document.createElement('textarea'); body.className = 'wr-note-section-body'; body.value = n.body; body.placeholder = 'Write freely…';
+      body.addEventListener('input', function () { autosize(body); });
       body.addEventListener('blur', function () { WD.updateManuscriptNote(wrMsDetailId, n.id, { body: body.value }); });
       card.appendChild(body);
       wrap.appendChild(card);
     });
+    // Autosize every note body to show its entire text — same
+    // needs-a-tick-after-append reasoning as renderWrTaskDetailBlocks().
+    setTimeout(function () { wrap.querySelectorAll('textarea').forEach(function (ta) { autosize(ta); }); }, 0);
   }
 
   // ---------- Ideas gallery ----------
@@ -3719,6 +3734,10 @@ body::after {
     const blocks = (t.blocks || []).slice().sort(function (a, b) { return a.order - b.order; });
     if (!blocks.length) { const e = document.createElement('div'); e.className = 'bh-pf-section-empty'; e.textContent = 'No blocks yet.'; wrap.appendChild(e); return; }
     blocks.forEach(function (b, i) { wrap.appendChild(buildWrTaskBlockCard(t.id, b, i === 0, i === blocks.length - 1)); });
+    // Autosize every block body to show its entire text — needs a tick
+    // after append (and, on first open, after the modal itself becomes
+    // visible) since `scrollHeight` reads 0 on a still-hidden element.
+    setTimeout(function () { wrap.querySelectorAll('textarea').forEach(function (ta) { autosize(ta); }); }, 0);
   }
   function buildWrTaskBlockCard(taskId, block, isFirst, isLast) {
     const card = document.createElement('div'); card.className = 'bh-pf-section';
@@ -3745,6 +3764,7 @@ body::after {
     const body = document.createElement('textarea'); body.className = block.type === 'code' ? 'bh-pf-section-code-body' : 'bh-pf-section-body';
     body.value = block.body; body.placeholder = block.type === 'code' ? '// code…' : 'Write freely…';
     if (block.type === 'code') body.spellcheck = false;
+    body.addEventListener('input', function () { autosize(body); });
     body.addEventListener('blur', function () { WD.updateWritingTaskBlock(taskId, block.id, { body: body.value }); });
     card.appendChild(body);
     return card;

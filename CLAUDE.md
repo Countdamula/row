@@ -6794,3 +6794,94 @@ both as originally phrased assumed a backend this app doesn't have):
     live CDP session (the same disclosed limitation several other pages'
     changelog entries in this file already note); a real click-through is
     recommended before relying on this page heavily.
+
+- **Business Hub (`business.html`/`business-data.js`): the leftover
+  "Tasks & Notes" tab is now cleaned up once its data has safely landed
+  on the new standalone page, and the Writing Dashboard's Text
+  Section/Code Block/note-section textareas now show their entire text
+  instead of a small fixed-height box.** Two follow-ups to the Tasks &
+  Notes move above, landed together; nothing was deleted from the
+  Writing Dashboard, per an explicit instruction.
+  - **Legacy tab cleanup**: moving Tasks & Notes out to `tasksnotes.html`
+    left a real gap — `normalizeStoredData()`'s existing layout-fallback
+    loop only ever converts an unrecognized `layout` value to `'freeform'`
+    (it has no concept of removing a tab outright, unlike the adjacent
+    `REMOVED_TITLES` array, which already hard-deletes Analytics/
+    Strategy/Audit), so any device that had already used the old tab kept
+    seeing a "Tasks & Notes" pill in Business Hub forever, now just an
+    empty-feeling plain freeform board instead of gone. Fixed with a new
+    check in `normalizeStoredData()`: a tab titled "Tasks & Notes" is
+    only removed (via the existing `removeTab()`, which already cascades
+    to its Widgets/Tasks) once `tasksnotes:migratedFromBusinessHub` —
+    `tasksnotes-data.js`'s own one-time migration flag — is confirmed
+    `true`, i.e. this device has actually opened the new page at least
+    once and copied its real Links/Notes/Tasks over first. Deliberately
+    **not** unconditional like `REMOVED_TITLES`: doing this without the
+    flag check would risk cascading away real, never-migrated widget/task
+    data the instant someone reopened Business Hub before ever visiting
+    the new page — the same "never delete before the data's confirmed to
+    have a new home" caution as every seed-race-safety window elsewhere
+    in this app. A device that hasn't visited `tasksnotes.html` yet
+    simply keeps seeing the tab (as an ordinary freeform board) until it
+    has. Verified directly (a standalone harness loading `business-data.js`
+    and calling the now-public `normalizeStoredData()`): a seeded legacy
+    tab with a real link widget and a real task survives completely
+    untouched when the migration flag is unset; the same seed, with the
+    flag set, correctly removes the tab and its widget/task while leaving
+    every other tab and the unrelated `business:notes` key alone; and a
+    profile with no legacy tab at all is a no-op.
+  - **Writing Dashboard textareas now autosize**: the Task Detail
+    modal's Text Section/Code Block bodies (`#wrTaskDetailBlocks
+    .bh-pf-section-body`/`.bh-pf-section-code-body`) and the Manuscript
+    Detail overlay's note-section bodies (`.wr-note-section-body`) were
+    all fixed-height boxes (`min-height: 60–100px`) with only a manual
+    drag-to-resize handle — reading a long block meant scrolling inside a
+    cramped textarea. Both now use this file's existing `autosize(ta)`
+    helper (already used elsewhere in this same file for the hero title,
+    the landing-page article's paragraph/callout blocks, etc.) — an
+    `input` listener grows the box live while typing, and each render
+    function calls `autosize()` on every textarea via `setTimeout(...,
+    0)` after appending (needs a tick since `scrollHeight` reads 0 on a
+    still-hidden/just-inserted element, same precedent this file's own
+    article-block/hero-title autosize calls already follow). The modal
+    itself already scrolls (`.modal { max-height: 86vh; overflow-y:
+    auto; }`), so a long block now reads top-to-bottom by scrolling the
+    modal, not by scrolling inside the textarea.
+  - **Scoped narrowly, not applied to the shared classes globally**:
+    `.bh-pf-section-body`/`.bh-pf-section-code-body` are also used by
+    Platform Detail (Content/Platforms tabs) and Workflow Day pages
+    (Resources tab) — neither was named in the request, and both keep
+    their original fixed-height/manual-resize CSS completely unchanged
+    (`resize: vertical`, no `overflow: hidden`), since the new
+    `resize: none; overflow: hidden` rule is scoped under the
+    `#wrTaskDetailBlocks` container id specifically, not the bare class —
+    same "scope narrowly under a container, don't touch the shared class"
+    precedent `index.html`'s Habit Instructions field autosize fix
+    already established. `.wr-note-section-body` needed no such scoping —
+    it's already a Writing-Dashboard-exclusive class, used nowhere else.
+    Verified via a fresh headless-Edge load (Supabase blocked) that the
+    base `.bh-pf-section-body`/`-code-body` rules in the served CSS still
+    read `resize: vertical` with the new override appearing only under
+    the `#wrTaskDetailBlocks` selector, and that Platform Detail's own
+    section-adding code path (`buildPlatformSectionCard`, line ~2633) and
+    the Workflow Day block code path (line ~2905) are untouched.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules="MAP jomlmvslzsmmzgjnqvbm.supabase.co
+    0.0.0.0"`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]): a fresh profile
+    correctly seeds and renders all 5 tabs (Content/Ideas/Platforms/
+    Resources/Writing Dashboard, no leftover Tasks & Notes pill, since a
+    fresh install never had one) with zero JS console errors. Interactive
+    verification of the autosize behavior itself (typing/opening a block
+    with real long text and confirming the textarea visibly grows) was
+    not exercised this round — this environment's headless Edge still
+    cannot reliably be driven via a live CDP session for real keystroke/
+    click interaction (the same disclosed limitation several other
+    pages' changelog entries in this file already note); the mechanism
+    itself (`autosize()` + `resize:none;overflow:hidden`) is the same one
+    already proven working elsewhere in this exact file (the landing
+    article's blocks, the hero title) and in `index.html`'s own Habit
+    Instructions fix, so this is a wiring change onto an already-working
+    mechanism, not a new one — still, a real click-through (open a task
+    with a long block, confirm it renders in full without an internal
+    scrollbar) is recommended before relying on this heavily.

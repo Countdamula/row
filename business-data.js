@@ -401,6 +401,24 @@
     tabs.filter(function (t) { return REMOVED_TITLES.indexOf(t.title) !== -1; })
       .forEach(function (t) { removeTab(t.id); });
 
+    // "Tasks & Notes" was moved out to its own standalone page
+    // (tasksnotes.html) — a leftover tab record here is now pure
+    // duplication (it just falls through to a plain 'freeform' board via
+    // the layout-fallback loop below, with no real Notes UI left to read
+    // from it at all). Unlike REMOVED_TITLES above, this one is gated on
+    // `tasksnotes:migratedFromBusinessHub` — tasksnotes-data.js's own
+    // one-time migration flag — being already true, i.e. this device has
+    // actually opened the new page at least once and copied its real
+    // Links/Notes/Tasks over first. Same "never delete before the data's
+    // confirmed to have a new home" caution as every seed-race-safety
+    // window elsewhere in this app: a device that hasn't visited
+    // tasksnotes.html yet keeps seeing this tab (as an ordinary freeform
+    // board) rather than risk cascading away real, never-migrated data.
+    const legacyTasksNotesTab = tabs.find(function (t) { return t.title === 'Tasks & Notes'; });
+    if (legacyTasksNotesTab && storeGet('tasksnotes:migratedFromBusinessHub')) {
+      removeTab(legacyTasksNotesTab.id);
+    }
+
     const remaining = Tabs.list();
     let changed = false;
     const patched = remaining.map(function (t) {
