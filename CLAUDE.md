@@ -6885,3 +6885,76 @@ both as originally phrased assumed a backend this app doesn't have):
     mechanism, not a new one — still, a real click-through (open a task
     with a long block, confirm it renders in full without an internal
     scrollbar) is recommended before relying on this heavily.
+
+- **Writing Dashboard's Tasks Inline Database: templates with sub-pages
+  can now collapse/expand, and every page (template or sub-page) can be
+  duplicated with its content fully intact.** Purely additive to
+  `writing-data.js`/`business.html` — nothing was deleted, per an
+  explicit instruction.
+  - **Collapse/expand**: `WritingTask` gained an additive `collapsed`
+    boolean field (default `false` — undefined on pre-existing tasks
+    reads falsy the same way, so no backfill/migration was needed, unlike
+    fields this app has needed to backfill before, e.g. `hasTemplates` —
+    a plain truthy check tolerates `undefined` fine, only a strict
+    `typeof`/enum check would have needed one). Only meaningful on a
+    template (a root task, `parentTaskId: null`) that actually has
+    sub-pages — `buildWrTaskRow()` now renders a ▼/▶ caret toggle button
+    (reusing the existing `.wr-task-add-sub` small-button class, no new
+    CSS) only for such rows, right before the existing up/down reorder
+    arrows. Clicking it flips `collapsed` via `WD.Tasks.update(...)` and
+    re-renders; `renderWrTaskTable()`'s existing loop (which already
+    walked `WD.childTasks(t.id)` to append each sub-page row under its
+    template) now skips that `forEach` entirely when `t.collapsed` is
+    true — the sub-page rows simply aren't appended to the DOM while
+    collapsed, matching this file's own "hide, don't destroy" convention
+    for every other collapse feature in this app (Workflow Weeks,
+    Self-Discovery groups).
+  - **Duplicate**: a new `WD.duplicateWritingTask(taskId)`
+    (`writing-data.js`) and a "⧉" button on every row (reusing the
+    existing `.bh-task-open` button styling, next to the existing "📄
+    Open" button) — for **a sub-page**, clones just that one task
+    (title/summary/status/priority/dueDate/blocks) into a new sibling
+    appended at the end of the same parent's children; for **a
+    template**, also clones every one of its sub-pages under the new
+    template (same "duplicating a parent brings its children along"
+    precedent `business-data.js`'s own `duplicateWorkflowWeek()` already
+    established for Workflow Weeks/Days). Every duplicated block gets a
+    fresh id (`uid('blk')`) so it's never accidentally shared with the
+    original. **Deliberately diverges from the Workflow duplicate
+    precedent in one way, per this request's own explicit wording**:
+    `duplicateWorkflowWeek()`/`duplicateWorkflowDay()` reset a day's
+    status to "Not started" and uncheck its items, since those exist to
+    reuse *structure* for a fresh sprint — here, "duplicate... with all
+    of its content intact" means status/priority/due date/summary/blocks
+    are all carried over completely unchanged, nothing reset. Only the
+    directly-clicked page gets a " (Copy)" suffix on its title (matching
+    `duplicateWorkflowWeek()`'s own top-level-only suffix convention) —
+    a template's cascaded sub-pages keep their original titles, same as
+    a duplicated week's real days keep theirs.
+  - **Verified**: a standalone harness loading `business-data.js` +
+    `writing-data.js` directly and calling `duplicateWritingTask()`
+    confirmed — duplicating a template with 2 sub-pages (one with a
+    code block, statuses `in-progress`/`done`/`todo`, a due date, a
+    summary) produces a new template titled "... (Copy)" with every
+    field/block intact and a fresh block id, 2 new sub-pages with their
+    original titles/statuses/blocks intact, and the original
+    template+sub-pages completely untouched and still present; duplicating
+    a single sub-page on its own produces one new sibling with its title
+    suffixed and every other field intact; the `collapsed` field defaults
+    `false` on a new task, toggles correctly, and reads falsy on a
+    simulated pre-existing record that predates the field entirely. A
+    full `business.html` load (headless Edge, Supabase blocked) with a
+    seeded collapsed template (2 hidden sub-pages) and an expanded
+    template (1 visible sub-page) as the active tab confirmed the two
+    hidden sub-page titles never appear in the rendered DOM at all (not
+    just visually hidden), the visible sub-page and both template rows
+    do render, exactly 2 caret toggle buttons appear (one per template,
+    both of which have children — none on the leaf sub-page rows), and
+    exactly 3 "⧉" duplicate buttons render, one per actually-visible row
+    — with zero JS console errors throughout. Interactive clicking of the
+    caret/duplicate buttons themselves was not exercised this round —
+    this environment's headless Edge still cannot reliably be driven via
+    a live CDP session for real click interaction (the same disclosed
+    limitation several other pages' changelog entries in this file
+    already note); a real click-through is recommended before relying on
+    this heavily.

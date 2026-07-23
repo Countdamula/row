@@ -17,7 +17,7 @@
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="business-data.js?v=13" defer></script>
-<script src="writing-data.js?v=2" defer></script>
+<script src="writing-data.js?v=3" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -3657,13 +3657,22 @@ body::after {
     roots.forEach(function (t, i) {
       wrap.appendChild(buildWrTaskRow(t, 0, i === 0, i === roots.length - 1));
       const children = WD.childTasks(t.id);
-      children.forEach(function (c, j) { wrap.appendChild(buildWrTaskRow(c, 1, j === 0, j === children.length - 1)); });
+      if (!t.collapsed) children.forEach(function (c, j) { wrap.appendChild(buildWrTaskRow(c, 1, j === 0, j === children.length - 1)); });
     });
     $('wrTaskTableEmpty').hidden = roots.length !== 0;
   }
   function buildWrTaskRow(task, depth, isFirst, isLast) {
     const wrap = document.createElement('div'); wrap.className = 'wr-task-table-row' + (depth ? ' wr-task-indent' : '');
     const card = document.createElement('div'); card.className = 'bh-task-card' + (task.status === 'done' ? ' is-done' : '');
+
+    const hasChildrenForCollapse = !task.parentTaskId && WD.childTasks(task.id).length;
+    if (hasChildrenForCollapse) {
+      const caret = document.createElement('button'); caret.type = 'button'; caret.className = 'wr-task-add-sub wr-task-collapse-btn'; caret.textContent = task.collapsed ? '▶' : '▼';
+      caret.title = task.collapsed ? 'Show sub-pages' : 'Hide sub-pages';
+      caret.setAttribute('aria-label', task.collapsed ? 'Show sub-pages' : 'Hide sub-pages');
+      caret.addEventListener('click', function (e) { e.stopPropagation(); WD.Tasks.update(task.id, { collapsed: !task.collapsed }); renderWrTaskTable(); });
+      card.appendChild(caret);
+    }
 
     const up = document.createElement('button'); up.type = 'button'; up.className = 'wr-task-add-sub'; up.textContent = '▲'; up.disabled = isFirst; up.setAttribute('aria-label', 'Move up');
     up.addEventListener('click', function () { WD.moveTask(task.id, -1); renderWrTaskTable(); });
@@ -3696,6 +3705,10 @@ body::after {
     const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bh-task-open'; openBtn.title = 'Open'; openBtn.textContent = '📄';
     openBtn.addEventListener('click', function (e) { e.stopPropagation(); openWrTaskDetail(task.id); });
     card.appendChild(openBtn);
+
+    const dup = document.createElement('button'); dup.type = 'button'; dup.className = 'bh-task-open'; dup.title = task.parentTaskId ? 'Duplicate this sub-page' : 'Duplicate this template (and its sub-pages)'; dup.textContent = '⧉';
+    dup.addEventListener('click', function (e) { e.stopPropagation(); WD.duplicateWritingTask(task.id); renderWrTaskTable(); renderWrBoard(); });
+    card.appendChild(dup);
 
     const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
     del.addEventListener('click', function (e) {

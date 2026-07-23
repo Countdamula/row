@@ -149,7 +149,7 @@
   }
 
   /** @typedef {{id, manuscriptId, parentTaskId, title, summary, status,
-   * priority, dueDate, blocks, order, createdAt}} WritingTask */
+   * priority, dueDate, blocks, collapsed, order, createdAt}} WritingTask */
   function writingTaskModel(data) {
     data = data || {};
     return {
@@ -162,6 +162,12 @@
       priority: TASK_PRIORITIES.indexOf(data.priority) !== -1 ? data.priority : 'medium',
       dueDate: typeof data.dueDate === 'string' ? data.dueDate : '',
       blocks: Array.isArray(data.blocks) ? data.blocks.map(taskBlockModel) : [],
+      // Only meaningful on a template (a root task, parentTaskId: null)
+      // that actually has sub-pages — toggles whether its children render
+      // in the Tasks Database table below it. Harmless/unused on a
+      // sub-page itself, same "field exists on the model, only read in
+      // the one place it applies" precedent as WorkflowWeek.collapsed.
+      collapsed: typeof data.collapsed === 'boolean' ? data.collapsed : false,
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
@@ -400,6 +406,43 @@
     const siblings = t.parentTaskId ? childTasks(t.parentTaskId) : rootTasks(t.manuscriptId || undefined).filter(function (x) { return x.manuscriptId === t.manuscriptId; });
     const changed = swapOrder(siblings, id, dir);
     if (changed) Tasks.replaceAll(Tasks.list().map(function (x) { const hit = changed.find(function (c) { return c.id === x.id; }); return hit || x; }));
+  }
+  /** Duplicates any page in the Tasks Database — a template (root task)
+   * or a single sub-page — with every field (status/priority/dueDate/
+   * summary/blocks) carried over exactly as-is, not reset. Deliberately
+   * different from duplicateWorkflowWeek()/duplicateWorkflowDay()'s own
+   * "reset to Not started/unchecked" precedent (business-data.js) — this
+   * one was explicitly asked to keep "all of its content intact", so
+   * nothing about the copy's progress is cleared. Duplicating a template
+   * also duplicates its sub-pages (same "duplicating a parent brings its
+   * children along" precedent as duplicateWorkflowWeek), each one
+   * appended under the new template with its title unchanged, matching
+   * how a duplicated week's real days keep their own titles too — only
+   * the directly-duplicated page itself (the template, or a standalone
+   * sub-page duplicated on its own) gets a " (Copy)" suffix. */
+  function duplicateWritingTask(taskId) {
+    const task = Tasks.get(taskId); if (!task) return null;
+    const isTemplate = !task.parentTaskId;
+    const siblings = isTemplate ? rootTasks(task.manuscriptId) : childTasks(task.parentTaskId);
+    const newTask = Tasks.add({
+      manuscriptId: task.manuscriptId, parentTaskId: task.parentTaskId,
+      title: task.title + ' (Copy)', summary: task.summary, status: task.status,
+      priority: task.priority, dueDate: task.dueDate,
+      blocks: (task.blocks || []).map(function (b) { return Object.assign({}, b, { id: uid('blk') }); }),
+      order: nextOrder(siblings)
+    });
+    if (isTemplate) {
+      childTasks(task.id).forEach(function (c) {
+        Tasks.add({
+          manuscriptId: c.manuscriptId, parentTaskId: newTask.id,
+          title: c.title, summary: c.summary, status: c.status,
+          priority: c.priority, dueDate: c.dueDate,
+          blocks: (c.blocks || []).map(function (b) { return Object.assign({}, b, { id: uid('blk') }); }),
+          order: c.order
+        });
+      });
+    }
+    return newTask;
   }
   function addWritingTaskBlock(taskId, type) {
     const task = Tasks.get(taskId); if (!task) return null;
@@ -761,6 +804,7 @@
     childTasks: childTasks,
     taskCountsForManuscript: taskCountsForManuscript,
     moveTask: moveTask,
+    duplicateWritingTask: duplicateWritingTask,
     addWritingTaskBlock: addWritingTaskBlock,
     updateWritingTaskBlock: updateWritingTaskBlock,
     removeWritingTaskBlock: removeWritingTaskBlock,
