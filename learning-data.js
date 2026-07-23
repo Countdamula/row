@@ -122,7 +122,8 @@
     note: 'Note'
   };
 
-  /** @typedef {{id:string, topicId:?string, type:string, title:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:{id:string,title:string,body:string,order:number,createdAt:number}[], order:number, createdAt:number}} Resource */
+  /** @typedef {{id:string, title:string, body:string, type:('text'|'divider'), images:{id:string,url:string,name:string}[], order:number, createdAt:number}} ResourceSection */
+  /** @typedef {{id:string, topicId:?string, type:string, title:string, subtitle:string, cover:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:ResourceSection[], order:number, createdAt:number}} Resource */
   function resourceModel(data) {
     data = data || {};
     return {
@@ -130,6 +131,13 @@
       topicId: data.topicId || null,
       type: RESOURCE_TYPES.indexOf(data.type) !== -1 ? data.type : 'article',
       title: typeof data.title === 'string' ? data.title : '',
+      // Short one-line dek shown under the headline on the article page —
+      // distinct from `notes` (this resource's private takeaways), same
+      // "subtitle" role as a real article's deck text.
+      subtitle: typeof data.subtitle === 'string' ? data.subtitle : '',
+      // Cover photo shown full-width on the article page, same upload-or-
+      // paste-a-URL + compress pipeline as topicModel's own `cover`.
+      cover: typeof data.cover === 'string' ? data.cover : '',
       url: typeof data.url === 'string' ? data.url : '',
       author: typeof data.author === 'string' ? data.author : '',
       transcript: typeof data.transcript === 'string' ? data.transcript : '',
@@ -140,6 +148,12 @@
       // inline-on-the-record convention as business-data.js's Platform
       // widget `sections` (addPlatformSection() etc.) — no separate
       // collection, so deleting the resource deletes its sections with it.
+      // Each section is either `type: 'text'` (a title + body + any pasted
+      // `images`) or `type: 'divider'` (a plain horizontal rule, no other
+      // fields) — pre-existing sections saved before this field existed
+      // have no `type`/`images` at all, so every read site treats a
+      // missing type as 'text' and a missing images array as [] rather
+      // than requiring a migration pass.
       sections: Array.isArray(data.sections) ? data.sections : [],
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
@@ -250,12 +264,21 @@
     if (!r) return [];
     return (r.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
   }
-  function addResourceSection(resourceId, title) {
+  function addResourceSection(resourceId, title, type) {
     const r = Resources.get(resourceId);
     if (!r) return null;
     const sections = (r.sections || []).slice();
     const order = sections.length ? Math.max.apply(null, sections.map(function (s) { return s.order; })) + 1 : 0;
-    const section = { id: uid('sec'), title: title || 'New Section', body: '', order: order, createdAt: Date.now() };
+    const isDivider = type === 'divider';
+    const section = {
+      id: uid('sec'),
+      title: isDivider ? '' : (title || 'New Section'),
+      body: '',
+      type: isDivider ? 'divider' : 'text',
+      images: [],
+      order: order,
+      createdAt: Date.now()
+    };
     sections.push(section);
     Resources.update(resourceId, { sections: sections });
     return section;
@@ -270,6 +293,44 @@
     const r = Resources.get(resourceId);
     if (!r) return;
     const sections = (r.sections || []).filter(function (s) { return s.id !== sectionId; });
+    Resources.update(resourceId, { sections: sections });
+  }
+  /** Appends a pasted/uploaded image to one section's own inline gallery —
+   * this is the "process photos pasted into a section" storage side; the
+   * actual clipboard-paste handling lives in learning.html. */
+  function addResourceSectionImage(resourceId, sectionId, image) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).map(function (s) {
+      if (s.id !== sectionId) return s;
+      const images = (s.images || []).slice();
+      images.push(image);
+      return Object.assign({}, s, { images: images });
+    });
+    Resources.update(resourceId, { sections: sections });
+  }
+  function removeResourceSectionImage(resourceId, sectionId, imageId) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).map(function (s) {
+      if (s.id !== sectionId) return s;
+      const images = (s.images || []).filter(function (im) { return im.id !== imageId; });
+      return Object.assign({}, s, { images: images });
+    });
+    Resources.update(resourceId, { sections: sections });
+  }
+  /** Replaces one section image's url in place (e.g. swapping a pasted
+   * base64 dataUrl for its hosted PhotoStore URL once upload settles) —
+   * only if that exact image is still present, so a since-removed image
+   * can't be silently re-added. */
+  function updateResourceSectionImageUrl(resourceId, sectionId, imageId, url) {
+    const r = Resources.get(resourceId);
+    if (!r) return;
+    const sections = (r.sections || []).map(function (s) {
+      if (s.id !== sectionId) return s;
+      const images = (s.images || []).map(function (im) { return im.id === imageId ? Object.assign({}, im, { url: url }) : im; });
+      return Object.assign({}, s, { images: images });
+    });
     Resources.update(resourceId, { sections: sections });
   }
   function moveResourceSection(resourceId, sectionId, dir) {
@@ -416,6 +477,9 @@
     updateResourceSection: updateResourceSection,
     removeResourceSection: removeResourceSection,
     moveResourceSection: moveResourceSection,
+    addResourceSectionImage: addResourceSectionImage,
+    removeResourceSectionImage: removeResourceSectionImage,
+    updateResourceSectionImageUrl: updateResourceSectionImageUrl,
     seedDefaultData: seedDefaultData,
     seedIfEmpty: seedIfEmpty
   };

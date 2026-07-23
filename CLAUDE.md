@@ -7192,3 +7192,95 @@ both as originally phrased assumed a backend this app doesn't have):
     once, there attributed to a DPI-scaling mismatch) — not trusted over
     the actual DOM measurement, which is what this fix is verified
     against.
+
+- **Learning & Knowledge Hub (`learning.html`) Resources database: a real
+  "read the article" page styled to match a reference photo of a
+  professional article/publication layout** (small eyebrow label, a large
+  bold headline, a one-line subtitle, an author byline between two
+  hairline dividers, a full-width cover photo, then body text), plus a
+  cover photo per Resource, insertable dividers between body sections, and
+  pasted-photo support inside a section's text box. Purely additive —
+  every existing Topic/Resource field, the type-structured grouping, drag-
+  reorder, search/filter chips, favorites, and the transcript copy button
+  are all unchanged; nothing was deleted.
+  - **Data** (`learning-data.js`): `Resource` gained `subtitle` (a short
+    dek shown under the headline) and `cover` (upload-or-paste-a-URL,
+    compressed via this app's standard canvas-downscale recipe — same
+    field shape as `Topic.cover`). Each `ResourceSection` gained `type`
+    (`'text'` default, or `'divider'` — a plain rule with no title/body)
+    and `images` (an array of `{id,url,name}`, populated by pasting a
+    photo into that section's body — see below). Pre-existing sections
+    saved before this update have neither field; every read site treats a
+    missing `type` as `'text'` and a missing `images` array as `[]`,
+    so no migration pass was needed. New:
+    `addResourceSectionImage`/`removeResourceSectionImage`/
+    `updateResourceSectionImageUrl` (the last one swaps a pasted image's
+    local dataURL for its PhotoStore-hosted URL once upload settles, only
+    if that exact image is still present). `addResourceSection()` gained
+    an optional third `type` argument.
+  - **The article page** (`#lhResourceDetailModalBg`, rebuilt from a small
+    centered modal into a full-page overlay — `.lh-article-page-bg`, the
+    same "a record's own page needs real room" convention as this app's
+    other full-page overlays, e.g. business.html's Manuscript Detail —
+    registered in `topbar.js`'s `MODAL_SELECTORS` for correct body-scroll-
+    lock, the one edit made to that shared file): eyebrow (the resource's
+    topic name, or its type label if unlinked), a large serif headline,
+    an optional subtitle, a byline row (an initial-letter avatar, the
+    author name, and the resource's creation date) sitting between two
+    `<hr>` dividers, a full-width cover photo (click-to-upload, same
+    Change/Remove tools as every other cover field in this app), then the
+    body — the resource's existing generated-on-demand sections, now
+    de-chromed to read like article copy (a small caps label instead of a
+    boxed title field, a borderless serif textarea that only gains a
+    visible outline on focus) rather than looking like form UI. "✎ Edit
+    Details" hands off to the ordinary Add/Edit Resource modal (which
+    gained the new Subtitle field and the same cover upload/paste-URL
+    fields as the Topic modal) — closes the article page first and
+    reopens it afterward on every exit path (Save/Delete/Cancel/backdrop
+    click), the same modal-stacking handoff precedent business.html's
+    Platform Detail → cover-photo-picker already established, since two
+    full-screen overlays can't sensibly stack at once.
+  - **Dividers**: a new "─ Add Divider" button next to "+ Add Text
+    Section" inserts a `type: 'divider'` section — renders as a plain
+    hairline rule with its own (hover-revealed) reorder/delete controls,
+    so text blocks and dividers can be freely interleaved and reordered
+    together as one list.
+  - **Pasted-photo processing**: every text section's body textarea has a
+    `paste` handler — if the clipboard contains an image (copied from
+    anywhere, not just a file picker), it's compressed via this app's
+    standard recipe, appended to that section's own inline thumbnail
+    gallery (click a thumbnail to open it full-size, hover for a remove
+    ×), and then uploaded to PhotoStore with the hosted URL swapped in
+    once that settles — the same "compress now, upload after" pattern
+    every cover-photo field on this page already uses. A plain text paste
+    is left completely untouched (nothing calls `preventDefault()` unless
+    an actual image was found in the clipboard), so normal typing/pasting
+    text into a section works exactly as before.
+  - **Grid cards** gained a cover-photo thumbnail (shown above the type
+    badge when a cover is set) and the "📄 Open Page" button was relabeled
+    "📖 Read Article" to match the new framing — same click behavior.
+  - **`migratePhotosToStorage()`** was extended to also sweep every
+    Resource's `cover` and every section's `images[]` for base64 `data:`
+    values and upload them, alongside the hero/topic-cover sweep it
+    already did — consistent with this page's existing one-time
+    localStorage-footprint-reduction pass.
+  - **Testing note, disclosed rather than glossed over**: this session's
+    attempts to drive headless Edge in this environment all failed before
+    reaching a page — even a bare `msedge --version` returned "Opening in
+    existing browser session" instead of executing, and multiple
+    `--headless=new` launches (with fresh isolated `--user-data-dir`
+    profiles, tried both via `Start-Process` and the call operator) exited
+    immediately with "Multiple targets are not supported in headless
+    mode" and produced no output at all — a stricter, more total version
+    of the same "automation gets absorbed into the one running instance"
+    limitation this file's own `dreamboard.html`/`business.html` entries
+    already document, not something a different flag combination could
+    work around this time. Verified statically instead, per that same
+    established fallback: zero duplicate DOM ids, zero orphaned `$('id')`
+    references (82 HTML ids vs. 79 referenced, no misses), and balanced
+    braces/parens in both `learning.html`'s script (290/290, 1168/1168),
+    its `<style>` block (216/216), and `learning-data.js` (166/166,
+    278/278). **Not verified this way**: an actual click-through (opening
+    the article page, adding/reordering a divider, pasting a real image
+    into a section, uploading a cover photo) — a real click-through is
+    recommended before relying on this heavily.
