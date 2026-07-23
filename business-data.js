@@ -176,20 +176,26 @@
     };
   }
 
-  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms', hasTemplates:boolean, hero:Object}} BizTab */
+  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms'|'writing', hasTemplates:boolean, isWritingSubpage:boolean, hero:Object}} BizTab */
   function tabModel(data) {
     data = data || {};
     return {
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      layout: (data.layout === 'content' || data.layout === 'platforms') ? data.layout : 'freeform',
+      layout: (data.layout === 'content' || data.layout === 'platforms' || data.layout === 'writing') ? data.layout : 'freeform',
       // Renders a Templates/Workflow (Weeks → Days → Checklist) section
       // below this tab's board — a dedicated field rather than matching
       // on `title`, so renaming the tab (rename-in-place is fully
       // supported) can never silently drop the section. Only meaningful
       // for 'freeform' tabs.
       hasTemplates: !!data.hasTemplates,
+      // A 'freeform' tab used as a hidden sub-page of the Writing
+      // Dashboard (Outlines / More Notes / Automation) — reuses the exact
+      // same board engine as Ideas/Resources, but is filtered out of the
+      // main `.bh-tabs` pill row by renderTabs() and instead reachable only
+      // from the Writing Dashboard's own sub-nav.
+      isWritingSubpage: !!data.isWritingSubpage,
       hero: heroModel(data.hero),
       // Which order/column (main vs. sidebar) this tab's six fixed
       // dashboard sections render in — array of {key, column}, only
@@ -399,10 +405,11 @@
     let changed = false;
     const patched = remaining.map(function (t) {
       let next = t;
-      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'freeform')) {
+      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'writing' || next.layout === 'freeform')) {
         let layout = 'freeform';
         if (next.title === 'Content') layout = 'content';
         else if (next.title === 'Platforms') layout = 'platforms';
+        else if (next.title === 'Writing Dashboard') layout = 'writing';
         next = Object.assign({}, next, { layout: layout });
         changed = true;
       }
@@ -427,6 +434,66 @@
     const liveTabIds = Tabs.list().map(function (t) { return t.id; });
     const orphanedTasks = Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) === -1; });
     if (orphanedTasks.length) Tasks.replaceAll(Tasks.list().filter(function (task) { return liveTabIds.indexOf(task.tabId) !== -1; }));
+  }
+
+  // A new tab (Writing Dashboard, layout:'writing') added in a later
+  // session than seedDefaultBoard()'s own guard flag (business:seeded)
+  // does NOT get created for anyone who already has real Business Hub
+  // data — seedIfEmpty() only ever runs once, and normalizeStoredData()
+  // above only fixes fields on tabs that already exist, it never adds a
+  // whole new tab. Same failure class this app has already hit (and
+  // fixed) more than once for other pages (Self-Care's missing Anxiety
+  // tab, this very file's own earlier hasTemplates backfill) — a newly
+  // introduced tab/section is invisible on any device that seeded before
+  // it existed. Fixed the same way: append the tab (and its hidden
+  // freeform sub-page tabs) directly, on every load, guarded only by
+  // "some tabs already exist" so a genuinely fresh/empty device isn't
+  // handed a stray tab before its own deferred full-board seed has run.
+  // Appending to an already-populated Tabs array can't clobber another
+  // device's real data the way seeding from scratch could, so this is
+  // safe to run unconditionally (not gated behind the empty-storage
+  // seed-race window seedIfEmpty() uses).
+  function ensureWritingDashboardExists() {
+    const tabs = Tabs.list();
+    if (!tabs.length) return false;
+    let changed = false;
+
+    if (!tabs.some(function (t) { return t.layout === 'writing'; })) {
+      Tabs.add({
+        title: 'Writing Dashboard', order: nextOrder(Tabs.list()), layout: 'writing',
+        hero: heroModel({ eyebrow: 'THE WRITING DESK', title: 'Every Story.\nOne Desk.', subtext: 'Manuscripts, chapters, and progress — all in one place.', ctaLabel: 'VIEW MANUSCRIPTS' })
+      });
+      changed = true;
+    }
+
+    function ensureSubpage(title, seedFn) {
+      if (Tabs.list().some(function (t) { return t.isWritingSubpage && t.title === title; })) return;
+      const tab = Tabs.add({ title: title, order: nextOrder(Tabs.list()), layout: 'freeform', isWritingSubpage: true });
+      seedFn(tab.id);
+      changed = true;
+    }
+    ensureSubpage('Outlines', function (tabId) {
+      Widgets.add({
+        tabId: tabId, column: 0, order: 0, type: 'note', title: 'Three-Act Structure',
+        data: { body: 'Act I — Setup (25%): ordinary world, inciting incident, first plot point.\nAct II — Confrontation (50%): rising action, midpoint twist, low point.\nAct III — Resolution (25%): climax, falling action, resolution.' }
+      });
+      Widgets.add({
+        tabId: tabId, column: 1, order: 0, type: 'checklist', title: 'Save the Cat Beat Sheet',
+        data: { items: ['Opening Image', 'Theme Stated', 'Set-Up', 'Catalyst', 'Debate', 'Break into Two', 'B Story', 'Fun and Games', 'Midpoint', 'Bad Guys Close In', 'All Is Lost', 'Dark Night of the Soul', 'Break into Three', 'Finale', 'Final Image'].map(function (t) { return { id: uid('it'), text: t }; }) }
+      });
+    });
+    ensureSubpage('More Notes', function (tabId) {
+      Widgets.add({ tabId: tabId, column: 0, order: 0, type: 'note', title: 'Research Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
+      Widgets.add({ tabId: tabId, column: 1, order: 0, type: 'link', title: 'Craft Article', data: { url: '', description: 'A link to a helpful writing-craft article or video.' } });
+    });
+    ensureSubpage('Automation Ideas', function (tabId) {
+      Widgets.add({
+        tabId: tabId, column: 0, order: 0, type: 'checklist', title: 'Potential Automations',
+        data: { items: ['Auto-post a "words written today" update', 'Auto-generate a chapter checklist from an outline template'].map(function (t) { return { id: uid('it'), text: t }; }) }
+      });
+    });
+
+    return changed;
   }
 
   // ============================================================
@@ -919,6 +986,41 @@
     sendWorkflowDayToTasks(w1d2.id); // "Draft & review" is already in progress — demonstrate a linked task
     Tasks.add({ tabId: resourcesTab.id, title: 'Review brand guidelines before next campaign', status: 'todo', priority: 'medium' });
 
+    // ---------- Writing Dashboard — a 5th tab, own rendering path in
+    // business.html (layout: 'writing'). Its own manuscript/series/task/
+    // binder/tracker data lives in writing-data.js (WritingData), seeded
+    // separately by that file's own seedIfEmpty() — this tab record and
+    // its 3 hidden sub-page tabs are all this file is responsible for. ----------
+    Tabs.add({
+      title: 'Writing Dashboard', order: 4, layout: 'writing',
+      hero: heroModel({ eyebrow: 'THE WRITING DESK', title: 'Every Story.\nOne Desk.', subtext: 'Manuscripts, chapters, and progress — all in one place.', ctaLabel: 'VIEW MANUSCRIPTS' })
+    });
+
+    // Outlines / More Notes / Automation Ideas — hidden "virtual" tabs
+    // (isWritingSubpage: true) reusing the exact same freeform board
+    // engine as Ideas/Resources with zero new widget code; excluded from
+    // the main `.bh-tabs` pill row, reachable only from the Writing
+    // Dashboard's own sub-nav.
+    const outlinesTab = Tabs.add({ title: 'Outlines', order: 100, layout: 'freeform', isWritingSubpage: true });
+    Widgets.add({
+      tabId: outlinesTab.id, column: 0, order: 0, type: 'note', title: 'Three-Act Structure',
+      data: { body: 'Act I — Setup (25%): ordinary world, inciting incident, first plot point.\nAct II — Confrontation (50%): rising action, midpoint twist, low point.\nAct III — Resolution (25%): climax, falling action, resolution.' }
+    });
+    Widgets.add({
+      tabId: outlinesTab.id, column: 1, order: 0, type: 'checklist', title: 'Save the Cat Beat Sheet',
+      data: { items: ['Opening Image', 'Theme Stated', 'Set-Up', 'Catalyst', 'Debate', 'Break into Two', 'B Story', 'Fun and Games', 'Midpoint', 'Bad Guys Close In', 'All Is Lost', 'Dark Night of the Soul', 'Break into Three', 'Finale', 'Final Image'].map(function (t) { return { id: uid('it'), text: t }; }) }
+    });
+
+    const moreNotesTab = Tabs.add({ title: 'More Notes', order: 101, layout: 'freeform', isWritingSubpage: true });
+    Widgets.add({ tabId: moreNotesTab.id, column: 0, order: 0, type: 'note', title: 'Research Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
+    Widgets.add({ tabId: moreNotesTab.id, column: 1, order: 0, type: 'link', title: 'Craft Article', data: { url: '', description: 'A link to a helpful writing-craft article or video.' } });
+
+    const automationTab = Tabs.add({ title: 'Automation Ideas', order: 102, layout: 'freeform', isWritingSubpage: true });
+    Widgets.add({
+      tabId: automationTab.id, column: 0, order: 0, type: 'checklist', title: 'Potential Automations',
+      data: { items: ['Auto-post a "words written today" update', 'Auto-generate a chapter checklist from an outline template'].map(function (t) { return { id: uid('it'), text: t }; }) }
+    });
+
     storeSet(KEYS.seeded, true);
   }
 
@@ -968,6 +1070,7 @@
     Tasks: Tasks,
     tabsSorted: tabsSorted,
     normalizeStoredData: normalizeStoredData,
+    ensureWritingDashboardExists: ensureWritingDashboardExists,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
     widgetsOfType: widgetsOfType,

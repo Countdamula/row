@@ -15,7 +15,8 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="business-data.js?v=8" defer></script>
+<script src="business-data.js?v=9" defer></script>
+<script src="writing-data.js?v=1" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -578,6 +579,187 @@ body::after {
 .bh-pf-section-empty { font-size: 11.5px; color: var(--bh-text-mute); font-style: italic; padding: 6px 0 2px; }
 .bh-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .bh-autosave-hint { font-size: 10.5px; color: var(--bh-text-mute); margin-top: 6px; }
+
+/* =============================================================
+   WRITING DASHBOARD (5th tab, layout: 'writing') — see
+   docs/WRITING_DASHBOARD_SPEC.md. Reuses the existing --bh-* tokens/
+   .bh-chip/.bh-btn-*/.field/.bh-pf-section* components throughout; new
+   --wr-* rules below are genuinely new layout shapes (series/manuscript
+   board, binder tree, index card, trackers), not a new palette. The
+   Theme Marketplace is the one sanctioned exception — an opt-in,
+   data-driven override system scoped to #bhWritingDashboard only via the
+   small set of --wr-theme-* custom properties it sets inline.
+   ============================================================= */
+#bhWritingDashboard { --wr-theme-bg: transparent; --wr-theme-accent: var(--bh-gold); --wr-theme-text: var(--bh-text); --wr-theme-font: var(--font-serif); }
+.wr-article { background: var(--wr-theme-bg, transparent); }
+.wr-article-title { width: 100%; background: transparent; border: none; resize: none; overflow: hidden; font-family: var(--wr-theme-font, var(--font-serif)); font-size: 28px; font-weight: 600; color: var(--wr-theme-text, var(--bh-text)); line-height: 1.25; margin-bottom: 10px; }
+.wr-article-add-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.wr-article-blocks { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.wr-article-block { position: relative; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 12px 14px; }
+.wr-article-block-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; opacity: 0.5; }
+.wr-article-block:hover .wr-article-block-actions { opacity: 1; }
+.wr-article-block-actions button { background: rgba(0,0,0,0.3); border: none; color: var(--bh-text-mute); border-radius: 6px; padding: 3px 7px; font-size: 11px; cursor: pointer; }
+.wr-article-block-actions button:hover { color: var(--bh-gold-bright); }
+.wr-block-heading { font-family: var(--wr-theme-font, var(--font-serif)); font-size: 20px; font-weight: 600; color: var(--wr-theme-accent, var(--bh-gold-bright)); background: transparent; border: none; width: 100%; outline-offset: 3px; }
+.wr-block-paragraph { font-size: 14px; line-height: 1.6; color: var(--wr-theme-text, var(--bh-text-dim)); background: transparent; border: none; width: 100%; resize: none; overflow: hidden; outline-offset: 3px; }
+.wr-callout { border-left: 3px solid var(--bh-gold); padding-left: 12px; }
+.wr-callout.style-info { border-color: var(--info); }
+.wr-callout.style-tip { border-color: var(--success); }
+.wr-callout.style-warning { border-color: var(--warning); }
+.wr-callout-style-select { position: absolute; top: 6px; right: 96px; font-size: 10.5px; background: rgba(0,0,0,0.3); color: var(--bh-text-mute); border: 1px solid var(--bh-hairline); border-radius: 6px; padding: 2px 4px; }
+
+.wr-subnav { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 16px; padding-top: 16px; border-top: 1px solid var(--bh-hairline); }
+.wr-subnav-tab { background: transparent; border: 1px solid var(--bh-hairline); color: var(--bh-text-mute); border-radius: 999px; padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.wr-subnav-tab.active { background: var(--bh-accent-tint); color: var(--bh-gold-bright); border-color: var(--bh-gold); }
+.wr-subpage-backbar { display: none; margin-bottom: 14px; }
+.wr-subpage-backbar button { background: transparent; border: 1px solid var(--bh-hairline); color: var(--bh-text-dim); border-radius: 999px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+.wr-subpage-backbar button:hover { color: var(--bh-gold-bright); border-color: var(--bh-gold); }
+
+.wr-view { display: none; }
+.wr-view.active { display: block; }
+.wr-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.wr-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.wr-series-group { margin-bottom: 26px; }
+.wr-series-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.wr-series-title { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--bh-gold-bright); background: transparent; border: none; outline-offset: 3px; min-width: 60px; }
+.wr-series-tint { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--bh-hairline); flex-shrink: 0; }
+.wr-series-actions { margin-left: auto; display: flex; gap: 4px; }
+.wr-series-actions button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 13px; padding: 3px 6px; border-radius: 6px; }
+.wr-series-actions button:hover { color: var(--bh-gold-bright); }
+.wr-ms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.wr-ms-card { background: rgba(255,255,255,0.08); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5); border: 1px solid var(--bh-hairline); border-radius: var(--radius-lg); padding: 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.wr-ms-card:hover { border-color: var(--bh-gold); }
+.wr-ms-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.wr-ms-card-title { font-family: var(--font-serif); font-size: 16.5px; font-weight: 600; color: var(--bh-text); }
+.wr-ms-status { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.wr-ms-status.status-active { background: rgba(107,227,164,0.16); color: var(--success); }
+.wr-ms-status.status-inactive { background: rgba(255,255,255,0.08); color: var(--bh-text-mute); }
+.wr-ms-status.status-idea { background: rgba(242,192,99,0.16); color: var(--warning); }
+.wr-ms-meta-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.wr-ms-meta-tag { font-size: 10.5px; color: var(--bh-text-mute); background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 2px 8px; }
+.wr-ms-stat-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--bh-text-dim); }
+.wr-ms-goal-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bh-text-dim); }
+.wr-ms-goal-row input[type="number"] { width: 60px; background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline); border-radius: 6px; padding: 3px 6px; color: var(--bh-text); font-size: 12px; }
+.wr-ms-progress-row { display: flex; align-items: center; gap: 8px; }
+.wr-ms-bar { flex: 1; height: 7px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.wr-ms-bar-fill { height: 100%; border-radius: 999px; background: var(--bh-gold); }
+.wr-ms-color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--bh-hairline); flex-shrink: 0; cursor: pointer; }
+.wr-ms-chapter-line { font-size: 11px; color: var(--bh-text-mute); }
+
+.wr-empty { font-size: 12.5px; color: var(--bh-text-mute); font-style: italic; padding: 10px 2px; }
+
+/* Full-page overlay (Manuscript Detail, Binder) — this app's established
+   #taskDetailPageBg/#workflowDayPageBg pattern from index.html, ported
+   here since business.html only had modal-bg overlays until now. */
+.wr-page-bg { display: none; position: fixed; inset: 0; z-index: 70; background: var(--bh-bg-deep); overflow-y: auto; }
+.wr-page-bg.show { display: block; }
+.wr-page { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+.wr-page-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.wr-page-back { background: transparent; border: 1px solid var(--bh-hairline); color: var(--bh-text-dim); border-radius: 999px; padding: 7px 16px; font-size: 12.5px; cursor: pointer; }
+.wr-page-back:hover { color: var(--bh-gold-bright); border-color: var(--bh-gold); }
+.wr-page-title-input { flex: 1; min-width: 160px; background: transparent; border: none; font-family: var(--font-serif); font-size: 24px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
+.wr-page-spacer { flex: 1; }
+.wr-page-section { margin-bottom: 22px; }
+.wr-page-section-title { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bh-gold); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.wr-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+
+.wr-note-section { border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 10px; }
+.wr-note-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.wr-note-section-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--bh-text); outline-offset: 3px; }
+.wr-note-section-actions { display: flex; gap: 3px; flex-shrink: 0; }
+.wr-note-section-actions button { background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 12px; padding: 3px 6px; border-radius: 6px; }
+.wr-note-section-actions button:hover { color: var(--bh-gold-bright); }
+.wr-note-section-body { width: 100%; min-height: 60px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--bh-text); }
+
+.wr-idea-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.wr-idea-card { background: rgba(255,255,255,0.06); border: 1px solid var(--bh-hairline); border-radius: var(--radius-lg); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.wr-idea-title { font-family: var(--font-serif); font-size: 15.5px; font-weight: 600; color: var(--bh-text); }
+.wr-idea-pitch { font-size: 12.5px; color: var(--bh-text-dim); line-height: 1.45; }
+.wr-idea-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.wr-idea-status-pill { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 999px; background: var(--bh-accent-tint); color: var(--bh-gold-bright); align-self: flex-start; }
+.wr-idea-actions { display: flex; gap: 6px; margin-top: auto; }
+
+.wr-theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.wr-theme-card { border: 2px solid var(--bh-hairline); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; text-align: center; }
+.wr-theme-card.active { border-color: var(--bh-gold); }
+.wr-theme-swatch { width: 100%; height: 48px; border-radius: var(--radius-sm); margin-bottom: 10px; }
+.wr-theme-name { font-size: 13px; font-weight: 600; color: var(--bh-text); }
+.wr-theme-editor { border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 16px; }
+.wr-theme-editor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.wr-color-field { display: flex; flex-direction: column; gap: 4px; }
+.wr-color-field input[type="color"] { width: 100%; height: 34px; border: 1px solid var(--bh-hairline); border-radius: 6px; background: transparent; cursor: pointer; }
+
+/* ===== Tasks Inline Database (Phase 2) — a "database table" rendered as
+   this app's established div-row idiom (.bh-task-card, reused verbatim)
+   rather than a literal <table>; parent "template" rows can have any
+   number of indented sub-page rows below them. ===== */
+.wr-task-table-row { margin-bottom: 6px; }
+.wr-task-indent { margin-left: 26px; }
+.wr-task-drag { cursor: grab; color: var(--bh-text-mute); font-size: 12px; flex-shrink: 0; }
+.wr-task-ms-tag { flex-shrink: 0; font-size: 10px; color: var(--bh-text-mute); background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 2px 8px; }
+.wr-task-summary-line { font-size: 11px; color: var(--bh-text-mute); margin: 2px 0 0 34px; font-style: italic; }
+.wr-task-add-sub { flex-shrink: 0; background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 12px; padding: 3px 6px; border-radius: 6px; }
+.wr-task-add-sub:hover { color: var(--bh-gold-bright); }
+
+/* ===== Manuscript Binder (Phase 3) — Scrivener-style binder tree +
+   3-panel editor + Project Targets + Composition Mode. ===== */
+.wr-targets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.wr-target-item { display: flex; flex-direction: column; gap: 6px; }
+.wr-target-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--bh-text-dim); }
+.wr-target-head input[type="number"] { width: 74px; background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline); border-radius: 6px; padding: 2px 6px; color: var(--bh-text); font-size: 12px; }
+.wr-binder-layout { display: grid; grid-template-columns: 220px 220px 1fr 240px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .wr-binder-layout { grid-template-columns: 1fr; } }
+.wr-binder-tree-col, .wr-binder-trackers-col, .wr-binder-notes-col { background: rgba(255,255,255,0.04); border: 1px solid var(--bh-hairline); border-radius: var(--radius-md); padding: 12px; max-height: 640px; overflow-y: auto; }
+.wr-binder-tree-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.wr-binder-add-btn { font-size: 10.5px; padding: 5px 8px; }
+.wr-binder-node { display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+.wr-binder-node:hover { background: rgba(255,255,255,0.05); }
+.wr-binder-node.active { background: var(--bh-accent-tint); border-color: var(--bh-gold); }
+.wr-binder-node.drag-over-before { box-shadow: inset 0 2px 0 var(--bh-gold-bright); }
+.wr-binder-node.drag-over-after { box-shadow: inset 0 -2px 0 var(--bh-gold-bright); }
+.wr-binder-node.drag-over-onto { background: var(--bh-accent-tint); }
+.wr-binder-node-icon { flex-shrink: 0; font-size: 12px; }
+.wr-binder-node-title { flex: 1; min-width: 0; background: transparent; border: none; color: var(--bh-text); font-size: 12.5px; }
+.wr-binder-node-wc { flex-shrink: 0; font-size: 9.5px; color: var(--bh-text-mute); font-family: var(--font-mono); }
+.wr-binder-node-del { flex-shrink: 0; background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; font-size: 11px; }
+.wr-binder-node-del:hover { color: var(--danger); }
+.wr-indexcard-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.wr-word-count { flex-shrink: 0; font-size: 11px; color: var(--bh-text-mute); font-family: var(--font-mono); }
+.wr-index-card { width: 100%; min-height: 500px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-md); padding: 16px; font-size: 14.5px; line-height: 1.7; color: var(--bh-text); font-family: var(--font-serif); }
+.wr-chapter-notes { width: 100%; min-height: 500px; resize: vertical; border: 1px solid var(--bh-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; color: var(--bh-text); margin-top: 8px; }
+.wr-tracker-section { margin-bottom: 16px; }
+.wr-tracker-head { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bh-gold); margin-bottom: 6px; }
+.wr-tracker-head button { background: transparent; border: 1px solid var(--bh-hairline); color: var(--bh-text-mute); border-radius: 6px; width: 20px; height: 20px; cursor: pointer; flex-shrink: 0; }
+.wr-tracker-list { display: flex; flex-direction: column; gap: 4px; }
+.wr-tracker-item { display: flex; justify-content: space-between; gap: 6px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); cursor: pointer; font-size: 11.5px; }
+.wr-tracker-item:hover { background: var(--bh-accent-tint); }
+.wr-tracker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wr-tracker-count { flex-shrink: 0; color: var(--bh-text-mute); font-size: 10px; }
+.wr-mention-row { border: 1px solid var(--bh-hairline); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px; }
+.wr-mention-node { font-size: 10.5px; color: var(--bh-gold-bright); font-weight: 700; flex-shrink: 0; }
+.wr-mention-snippet { flex: 1; font-size: 11.5px; color: var(--bh-text-dim); font-style: italic; }
+.wr-mention-del { flex-shrink: 0; background: transparent; border: none; color: var(--bh-text-mute); cursor: pointer; }
+
+.wr-composition-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: var(--bh-bg-deep); padding: 60px 10%; }
+.wr-composition-overlay.show { display: block; }
+.wr-composition-exit { position: fixed; top: 20px; right: 24px; background: rgba(255,255,255,0.06); border: 1px solid var(--bh-hairline); color: var(--bh-text-dim); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.wr-composition-wordcount { position: fixed; top: 24px; left: 24px; font-size: 12px; color: var(--bh-text-mute); font-family: var(--font-mono); }
+.wr-composition-textarea { width: 100%; height: 100%; background: transparent; border: none; color: var(--bh-text); font-family: var(--font-serif); font-size: 18px; line-height: 1.8; resize: none; outline: none; }
+
+/* ===== Compile & Export (Phase 4) ===== */
+.wr-compile-node-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12.5px; color: var(--bh-text-dim); }
+.wr-compile-formats { display: flex; flex-direction: column; gap: 8px; }
+.wr-print-view { display: none; }
+@media print {
+  body > *:not(.wr-print-view) { display: none !important; }
+  .wr-print-view { display: block !important; position: static; background: #fff; color: #000; max-width: 100%; }
+  .wr-print-view .wr-print-title-page { page-break-after: always; text-align: center; padding-top: 220px; }
+  .wr-print-view .wr-print-chapter { page-break-before: always; }
+  .wr-print-view .wr-print-chapter:first-of-type { page-break-before: avoid; }
+  .wr-print-view h1, .wr-print-view h2 { font-family: Georgia, "Times New Roman", serif; color: #000; }
+  .wr-print-view p { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-height: 1.6; white-space: pre-wrap; color: #000; }
+}
 </style>
 </head>
 <body>
@@ -621,6 +803,7 @@ body::after {
       </div>
     </div>
 
+    <div class="wr-subpage-backbar" id="wrSubpageBackBar"><button type="button" id="wrSubpageBackBtn">← Back to Writing Dashboard</button></div>
     <div class="bh-board" id="bhBoard"></div>
 
     <div class="bh-content-dashboard" id="bhContentDashboard" style="display:none;">
@@ -766,6 +949,117 @@ body::after {
         <div class="bh-task-empty" id="bhResTaskEmpty" hidden>No tasks match this view/filter.</div>
       </div>
     </div>
+
+    <div class="bh-writing-dashboard" id="bhWritingDashboard" style="display:none;">
+      <div class="wr-article" id="wrArticle">
+        <textarea class="wr-article-title" id="wrArticleTitle" rows="1" placeholder="Article title…"></textarea>
+        <div class="wr-article-add-row">
+          <button type="button" class="bh-btn-secondary" data-wr-add-block="heading">+ Heading</button>
+          <button type="button" class="bh-btn-secondary" data-wr-add-block="paragraph">+ Paragraph</button>
+          <button type="button" class="bh-btn-secondary" data-wr-add-block="callout">+ Callout</button>
+        </div>
+        <div class="wr-article-blocks" id="wrArticleBlocks"></div>
+      </div>
+
+      <div class="wr-subnav" id="wrSubnav">
+        <button type="button" class="wr-subnav-tab" data-wr-view="board">📚 Manuscripts</button>
+        <button type="button" class="wr-subnav-tab" data-wr-nav-subpage="Outlines">Outlines</button>
+        <button type="button" class="wr-subnav-tab" data-wr-view="ideas">Ideas</button>
+        <button type="button" class="wr-subnav-tab" data-wr-nav-subpage="More Notes">More Notes</button>
+        <button type="button" class="wr-subnav-tab" data-wr-view="themes">Theme Marketplace</button>
+        <button type="button" class="wr-subnav-tab" data-wr-nav-subpage="Automation Ideas">Automation</button>
+      </div>
+
+      <div class="wr-view" id="wrViewBoard">
+        <div class="wr-toolbar">
+          <div class="bh-chip-row" id="wrStatusFilterChips">
+            <button type="button" class="bh-chip active" data-filter="all">All</button>
+            <button type="button" class="bh-chip" data-filter="active">Active</button>
+            <button type="button" class="bh-chip" data-filter="inactive">Inactive</button>
+            <button type="button" class="bh-chip" data-filter="idea">Idea</button>
+          </div>
+          <div class="wr-toolbar-actions">
+            <button type="button" class="bh-btn-secondary" id="wrAddSeriesBtn">+ Add Series</button>
+            <button type="button" class="bh-btn-primary" id="wrAddManuscriptBtn">+ Add Manuscript</button>
+          </div>
+        </div>
+        <div id="wrSeriesGroups"></div>
+
+        <div class="wr-page-section" style="margin-top:30px;">
+          <div class="wr-page-section-title">
+            <span>Tasks Database</span>
+            <button type="button" class="bh-btn-secondary" id="wrTaskAddTemplateBtn">+ New Template</button>
+          </div>
+          <div class="wr-toolbar">
+            <div class="wr-toolbar-actions">
+              <select id="wrTaskFilterManuscript"><option value="">All Manuscripts</option></select>
+              <select id="wrTaskFilterStatus">
+                <option value="">All Statuses</option>
+                <option value="todo">To do</option>
+                <option value="in-progress">In progress</option>
+                <option value="done">Done</option>
+              </select>
+              <select id="wrTaskFilterPriority">
+                <option value="">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <input type="text" id="wrTaskSearchInput" placeholder="Search tasks…" style="background:rgba(255,255,255,0.05);border:1px solid var(--bh-hairline);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--bh-text);">
+          </div>
+          <div id="wrTaskTable"></div>
+          <div class="wr-empty" id="wrTaskTableEmpty" hidden>No tasks match this filter yet.</div>
+        </div>
+      </div>
+
+      <div class="wr-view" id="wrViewIdeas">
+        <div class="wr-toolbar">
+          <div class="bh-chip-row" id="wrIdeaStatusChips">
+            <button type="button" class="bh-chip active" data-filter="">All</button>
+            <button type="button" class="bh-chip" data-filter="spark">Spark</button>
+            <button type="button" class="bh-chip" data-filter="developing">Developing</button>
+            <button type="button" class="bh-chip" data-filter="shelved">Shelved</button>
+          </div>
+          <div class="wr-toolbar-actions">
+            <input type="text" id="wrIdeaSearchInput" placeholder="Search ideas…" style="background:rgba(255,255,255,0.05);border:1px solid var(--bh-hairline);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--bh-text);">
+            <button type="button" class="bh-btn-primary" id="wrAddIdeaBtn">+ Add Idea</button>
+          </div>
+        </div>
+        <div class="wr-idea-grid" id="wrIdeaGrid"></div>
+        <div class="wr-empty" id="wrIdeaEmpty" hidden>No ideas match this filter yet.</div>
+      </div>
+
+      <div class="wr-view" id="wrViewThemes">
+        <div class="wr-theme-grid" id="wrThemeGrid"></div>
+        <div class="wr-theme-editor">
+          <div class="bh-roster-heading" style="margin-bottom:12px;">Custom Theme</div>
+          <div class="wr-theme-editor-grid">
+            <div class="wr-color-field"><label style="font-size:11px;color:var(--bh-text-mute);">Background</label><input type="color" id="wrThemeBgInput"></div>
+            <div class="wr-color-field"><label style="font-size:11px;color:var(--bh-text-mute);">Card</label><input type="color" id="wrThemeCardInput"></div>
+            <div class="wr-color-field"><label style="font-size:11px;color:var(--bh-text-mute);">Accent</label><input type="color" id="wrThemeAccentInput"></div>
+            <div class="wr-color-field"><label style="font-size:11px;color:var(--bh-text-mute);">Text</label><input type="color" id="wrThemeTextInput"></div>
+          </div>
+          <div class="field">
+            <label>Font</label>
+            <select id="wrThemeFontSelect">
+              <option value="'Cormorant Garamond', serif">Cormorant Garamond (serif)</option>
+              <option value="Georgia, serif">Georgia (serif)</option>
+              <option value="Inter, sans-serif">Inter (sans-serif)</option>
+              <option value="ui-monospace, monospace">Monospace</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Background photo (optional)</label>
+            <input type="text" id="wrThemeBgPhotoInput" placeholder="https://… (or leave blank)">
+          </div>
+          <div class="bh-modal-actions">
+            <button type="button" class="bh-btn-ghost" id="wrThemeDeleteCustomBtn">Delete custom theme</button>
+            <button type="button" class="bh-btn-primary" id="wrThemeSaveCustomBtn">Save as custom theme</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -890,6 +1184,215 @@ body::after {
     <div class="bh-autosave-hint">Autosaves as you type.</div>
   </div>
 </div>
+
+<div class="modal-bg" id="wrSeriesModalBg">
+  <div class="modal">
+    <div class="bh-modal-head"><h3 id="wrSeriesModalTitle">Add Series</h3><button type="button" class="bh-modal-close" id="wrSeriesModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="wrSeriesTitleInput" placeholder="e.g. The Ashfall Trilogy"></div>
+    <div class="field"><label>Description</label><textarea id="wrSeriesDescInput" placeholder="What is this series about?"></textarea></div>
+    <div class="field"><label>Color tag</label><input type="color" id="wrSeriesTintInput" style="height:36px;cursor:pointer;"></div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="wrSeriesModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="wrSeriesModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="wrSeriesModalDelete" style="display:none;">Delete this series</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="wrManuscriptModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3 id="wrManuscriptModalTitle">Add Manuscript</h3><button type="button" class="bh-modal-close" id="wrManuscriptModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="wrMsTitleInput" placeholder="Manuscript or project title"></div>
+    <div class="field"><label>Series (optional)</label><select id="wrMsSeriesInput"><option value="">Standalone — no series</option></select></div>
+    <div class="field"><label>Kind</label><select id="wrMsKindInput"><option value="manuscript">Manuscript</option><option value="idea">Idea</option></select></div>
+    <div class="field"><label>Status</label><select id="wrMsStatusInput"><option value="active">Active</option><option value="inactive">Inactive</option><option value="idea">Idea</option></select></div>
+    <div class="field"><label>Platform</label><input type="text" id="wrMsPlatformInput" placeholder="e.g. Amazon KDP"></div>
+    <div class="field"><label>Niche</label><input type="text" id="wrMsNicheInput" placeholder="e.g. Epic Fantasy"></div>
+    <div class="field"><label>Estimated growth duration</label><input type="text" id="wrMsGrowthInput" placeholder="e.g. 6-12 months"></div>
+    <div class="field"><label>Goal revenue ($)</label><input type="number" min="0" step="1" id="wrMsRevenueInput"></div>
+    <div class="field"><label>Goal profit ($)</label><input type="number" min="0" step="1" id="wrMsProfitInput"></div>
+    <div class="field-inline" style="gap:10px;margin-bottom:12px;">
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Today's goal — current</label><input type="number" min="0" id="wrMsGoalCurrentInput"></div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Today's goal — target</label><input type="number" min="1" id="wrMsGoalTargetInput"></div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Unit</label><input type="text" id="wrMsGoalUnitInput" placeholder="words"></div>
+    </div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="wrManuscriptModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="wrManuscriptModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="wrManuscriptModalDelete" style="display:none;">Delete this manuscript</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="wrIdeaModalBg">
+  <div class="modal">
+    <div class="bh-modal-head"><h3 id="wrIdeaModalTitle">Add Idea</h3><button type="button" class="bh-modal-close" id="wrIdeaModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="wrIdeaTitleInput"></div>
+    <div class="field"><label>Pitch</label><textarea id="wrIdeaPitchInput" placeholder="One or two sentences…"></textarea></div>
+    <div class="field"><label>Tags (comma-separated)</label><input type="text" id="wrIdeaTagsInput" placeholder="Sci-Fi, Mystery"></div>
+    <div class="field"><label>Status</label><select id="wrIdeaStatusInput"><option value="spark">Spark</option><option value="developing">Developing</option><option value="shelved">Shelved</option></select></div>
+    <div class="field"><label>Notes</label><textarea id="wrIdeaNotesInput"></textarea></div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="wrIdeaModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="wrIdeaModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="wrIdeaModalDelete" style="display:none;">Delete this idea</span>
+  </div>
+</div>
+
+<div class="wr-page-bg" id="wrManuscriptDetailPageBg">
+  <div class="wr-page">
+    <div class="wr-page-topbar">
+      <button type="button" class="wr-page-back" id="wrMsDetailBackBtn">← Back</button>
+      <input type="text" class="wr-page-title-input" id="wrMsDetailTitleInput" placeholder="Manuscript title…">
+      <button type="button" class="bh-btn-secondary" id="wrMsDetailEditStatsBtn">✎ Edit Stats</button>
+      <button type="button" class="bh-btn-primary" id="wrMsDetailOpenBinderBtn">📖 Open Binder</button>
+      <button type="button" class="bh-btn-ghost" id="wrMsDetailDeleteBtn">✕ Delete</button>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">At a Glance</div>
+      <div class="wr-stat-grid" id="wrMsDetailStatGrid"></div>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">
+        <span>Tasks</span>
+        <button type="button" class="bh-btn-secondary" id="wrMsDetailOpenTasksBtn">📋 Open in Tasks Database</button>
+      </div>
+      <div id="wrMsDetailTasksSummary"></div>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">
+        <span>Notes</span>
+        <button type="button" class="bh-btn-secondary" id="wrMsDetailAddNoteBtn">+ Add Notes Section</button>
+      </div>
+      <div id="wrMsDetailNotes"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="wrTaskDetailModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3 id="wrTaskDetailModalTitle">Task</h3><button type="button" class="bh-modal-close" id="wrTaskDetailCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="wrTaskDetailTitleInput" placeholder="Task or template title…"></div>
+    <div class="field"><label>Manuscript</label><select id="wrTaskDetailManuscriptInput"><option value="">Unlinked</option></select></div>
+    <div class="field-inline" style="gap:10px;margin-bottom:12px;">
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Status</label>
+        <select id="wrTaskDetailStatusInput"><option value="todo">To do</option><option value="in-progress">In progress</option><option value="done">Done</option></select>
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Priority</label>
+        <select id="wrTaskDetailPriorityInput"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Due date</label><input type="date" id="wrTaskDetailDueInput"></div>
+    </div>
+    <div class="field"><label>Summary note</label><textarea id="wrTaskDetailSummaryInput" placeholder="A short summary of this task/page…"></textarea></div>
+    <div class="bh-pfd-sections-head">
+      <div class="bh-roster-heading">Blocks</div>
+      <div class="bh-db-section-head-right">
+        <button type="button" class="bh-btn-secondary" id="wrTaskDetailAddNoteBlockBtn">+ Generate Text Section</button>
+        <button type="button" class="bh-btn-secondary" id="wrTaskDetailAddCodeBlockBtn">+ Generate Code Block</button>
+      </div>
+    </div>
+    <div id="wrTaskDetailBlocks"></div>
+    <span class="delete-link" id="wrTaskDetailDeleteBtn">Delete this task</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="wrTrackerModalBg">
+  <div class="modal">
+    <div class="bh-modal-head"><h3 id="wrTrackerModalTitle">Add Item</h3><button type="button" class="bh-modal-close" id="wrTrackerModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Name</label><input type="text" id="wrTrackerNameInput"></div>
+    <div class="field" id="wrTrackerCategoryField" style="display:none;"><label>Category</label><select id="wrTrackerCategoryInput"></select></div>
+    <div class="field" id="wrTrackerDescField"><label>Description</label><textarea id="wrTrackerDescInput"></textarea></div>
+    <div class="field" id="wrTrackerBioField" style="display:none;"><label>Bio</label><textarea id="wrTrackerBioInput"></textarea></div>
+    <div class="field" id="wrTrackerTraitsField" style="display:none;"><label>Traits</label><textarea id="wrTrackerTraitsInput"></textarea></div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="wrTrackerModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="wrTrackerModalSave">Save</button>
+    </div>
+    <div class="bh-roster-heading" style="margin-top:14px;">Mentions</div>
+    <div id="wrTrackerMentionsList"></div>
+    <span class="delete-link" id="wrTrackerModalDelete" style="display:none;">Delete this item</span>
+  </div>
+</div>
+
+<div class="wr-page-bg" id="wrBinderPageBg">
+  <div class="wr-page" style="max-width:1400px;">
+    <div class="wr-page-topbar">
+      <button type="button" class="wr-page-back" id="wrBinderBackBtn">← Back</button>
+      <div id="wrBinderMsTitle" style="font-family:var(--font-serif);font-size:22px;font-weight:600;flex:1;"></div>
+      <button type="button" class="bh-btn-secondary" id="wrCompositionModeBtn">✍ Composition Mode</button>
+      <button type="button" class="bh-btn-primary" id="wrCompileBtn">📦 Compile & Export</button>
+    </div>
+
+    <div class="wr-page-section" id="wrTargetsSection">
+      <div class="wr-page-section-title"><span>Project Targets</span></div>
+      <div class="wr-targets-grid" id="wrTargetsGrid"></div>
+    </div>
+
+    <div class="wr-binder-layout" id="wrBinderLayout">
+      <div class="wr-binder-tree-col">
+        <div class="wr-binder-tree-head">
+          <div class="bh-roster-heading">Binder</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button type="button" class="bh-btn-secondary wr-binder-add-btn" data-node-type="part">+ Part</button>
+            <button type="button" class="bh-btn-secondary wr-binder-add-btn" data-node-type="chapter">+ Chapter</button>
+            <button type="button" class="bh-btn-secondary wr-binder-add-btn" data-node-type="scene">+ Scene</button>
+          </div>
+        </div>
+        <div id="wrBinderTree"></div>
+      </div>
+
+      <div class="wr-binder-trackers-col" id="wrBinderTrackersCol"></div>
+
+      <div class="wr-binder-indexcard-col">
+        <div class="wr-indexcard-head">
+          <input type="text" id="wrIndexCardTitle" placeholder="Chapter title…" style="flex:1;background:transparent;border:none;font-family:var(--font-serif);font-size:17px;font-weight:600;color:var(--bh-text);">
+          <span class="wr-word-count" id="wrIndexCardWordCount"></span>
+          <button type="button" class="bh-btn-ghost" id="wrMarkCurrentChapterBtn">★ Mark as Current Chapter</button>
+        </div>
+        <textarea class="wr-index-card" id="wrIndexCardBody" placeholder="Write your chapter here…"></textarea>
+      </div>
+
+      <div class="wr-binder-notes-col">
+        <div class="bh-roster-heading">Chapter Notes</div>
+        <textarea class="wr-chapter-notes" id="wrChapterNotesBody" placeholder="Notes about this chapter…"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wr-composition-overlay" id="wrCompositionOverlay">
+  <button type="button" class="wr-composition-exit" id="wrCompositionExitBtn">✕ Exit</button>
+  <span class="wr-composition-wordcount" id="wrCompositionWordCount"></span>
+  <textarea class="wr-composition-textarea" id="wrCompositionTextarea" placeholder="Write…"></textarea>
+</div>
+
+<div class="modal-bg" id="wrCompileModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3>Compile &amp; Export</h3><button type="button" class="bh-modal-close" id="wrCompileModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field-inline" style="margin-bottom:10px;">
+      <input type="checkbox" id="wrCompileSelectAll" checked>
+      <label style="margin:0;">Select all chapters</label>
+    </div>
+    <div id="wrCompileNodeList" style="max-height:240px;overflow-y:auto;border:1px solid var(--bh-hairline);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:12px;"></div>
+    <div class="field-inline" style="margin-bottom:14px;">
+      <input type="checkbox" id="wrCompileStandardFormat" checked>
+      <label style="margin:0;">Standard manuscript format (title page + chapter breaks)</label>
+    </div>
+    <div class="wr-compile-formats">
+      <button type="button" class="bh-btn-secondary" id="wrCompileTxtBtn">⬇ Plain Text (.txt)</button>
+      <button type="button" class="bh-btn-secondary" id="wrCompileRtfBtn">⬇ Rich Text (.rtf)</button>
+      <button type="button" class="bh-btn-secondary" id="wrCompileDocxBtn">⬇ Word (.docx)</button>
+      <button type="button" class="bh-btn-secondary" id="wrCompileEpubBtn">⬇ EPUB (.epub)</button>
+      <button type="button" class="bh-btn-primary" id="wrCompilePrintBtn">🖨 Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+
+<div id="wrPrintView" class="wr-print-view"></div>
 
 <script>
 (function () {
@@ -1056,7 +1559,11 @@ body::after {
   // TABS
   // ============================================================
   function renderTabs() {
-    const tabs = DB.tabsSorted();
+    // Writing Dashboard sub-pages (Outlines/More Notes/Automation Ideas)
+    // are real Tabs records — reusing the whole freeform board engine
+    // verbatim — but are reached only via the Writing Dashboard's own
+    // sub-nav, never the main pill row.
+    const tabs = DB.tabsSorted().filter(function (t) { return !t.isWritingSubpage; });
     const wrap = $('bhTabs');
     wrap.innerHTML = '';
     tabs.forEach(function (t) {
@@ -1112,6 +1619,7 @@ body::after {
     const layout = t ? t.layout : 'freeform';
     if (layout === 'content') renderContentDashboard();
     else if (layout === 'platforms') renderPlatformsPage();
+    else if (layout === 'writing') renderWritingDashboard();
     else renderBoard();
   }
   function renderActiveTabContent() {
@@ -1121,10 +1629,15 @@ body::after {
     $('bhAddWidgetBtn').style.display = (layout === 'freeform' || layout === 'content') ? '' : 'none';
     $('bhContentDashboard').style.display = layout === 'content' ? 'grid' : 'none';
     $('bhPlatformsPage').style.display = layout === 'platforms' ? 'block' : 'none';
+    $('bhWritingDashboard').style.display = layout === 'writing' ? 'block' : 'none';
+    $('wrSubpageBackBar').style.display = (t && t.isWritingSubpage) ? 'block' : 'none';
     if (layout === 'freeform') {
       renderBoard();
       $('bhTemplatesSection').style.display = (t && t.hasTemplates) ? 'block' : 'none';
       if (t && t.hasTemplates) renderWorkflow();
+    } else if (layout === 'writing') {
+      $('bhTemplatesSection').style.display = 'none';
+      renderWritingDashboard();
     } else {
       $('bhTemplatesSection').style.display = 'none';
       if (layout === 'content') renderContentDashboard();
@@ -2519,11 +3032,1197 @@ body::after {
   }
 
   // ============================================================
+  // WRITING DASHBOARD (5th tab, layout: 'writing') — its own manuscript/
+  // series/task/binder/tracker data lives in writing-data.js
+  // (window.WritingData, referenced here as WD). This tab's render
+  // dispatcher is renderWritingDashboard(), called from refreshView()/
+  // renderActiveTabContent() alongside the other three layouts.
+  // ============================================================
+  let WD = null;
+  let writingView = 'board'; // 'board' | 'ideas' | 'themes'
+  let wrStatusFilter = 'all';
+  let wrIdeaStatusFilter = '';
+  let wrIdeaSearch = '';
+  let wrSeriesModalEditingId = null;
+  let wrManuscriptModalEditingId = null;
+  let wrIdeaModalEditingId = null;
+  let wrMsDetailId = null;
+  let wrCustomThemeEditingId = null;
+  let wrSortables = [];
+
+  function formatCentsUSD(cents) {
+    const n = Math.round(Number(cents) || 0) / 100;
+    return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+  function destroyWrSortables() { wrSortables.forEach(function (s) { try { s.destroy(); } catch (e) {} }); wrSortables = []; }
+  function openWrPage(id) { $(id).classList.add('show'); }
+  function closeWrPage(id) { $(id).classList.remove('show'); }
+
+  function applyWritingTheme() {
+    const tokens = WD.activeThemeTokens();
+    const root = $('bhWritingDashboard');
+    root.style.setProperty('--wr-theme-accent', tokens.accent || 'var(--bh-gold)');
+    root.style.setProperty('--wr-theme-text', tokens.text || 'var(--bh-text)');
+    root.style.setProperty('--wr-theme-font', tokens.font || 'var(--font-serif)');
+    root.style.backgroundImage = tokens.bgPhoto ? 'linear-gradient(rgba(5,4,3,0.82), rgba(5,4,3,0.9)), url("' + tokens.bgPhoto + '")' : 'none';
+    root.style.backgroundSize = 'cover';
+  }
+
+  function renderWritingDashboard() {
+    if (!WD) return;
+    applyWritingTheme();
+    renderWrSubnav();
+    renderWrArticle();
+    ['wrViewBoard', 'wrViewIdeas', 'wrViewThemes'].forEach(function (id) { $(id).classList.remove('active'); });
+    if (writingView === 'ideas') { $('wrViewIdeas').classList.add('active'); renderWrIdeas(); }
+    else if (writingView === 'themes') { $('wrViewThemes').classList.add('active'); renderWrThemes(); }
+    else { writingView = 'board'; $('wrViewBoard').classList.add('active'); renderWrBoard(); }
+  }
+  function renderWrSubnav() {
+    document.querySelectorAll('#wrSubnav .wr-subnav-tab[data-wr-view]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.wrView === writingView);
+    });
+  }
+
+  // ---------- Article ("Your Novel in 30 Days") ----------
+  function renderWrArticle() {
+    const article = WD.getArticle();
+    const titleInput = $('wrArticleTitle');
+    if (document.activeElement !== titleInput) titleInput.value = article.title;
+    setTimeout(function () { autosize(titleInput); }, 0);
+    const wrap = $('wrArticleBlocks'); wrap.innerHTML = '';
+    const blocks = article.blocks.slice().sort(function (a, b) { return a.order - b.order; });
+    blocks.forEach(function (block, i) { wrap.appendChild(buildWrArticleBlock(block, i === 0, i === blocks.length - 1)); });
+  }
+  function buildWrArticleBlock(block, isFirst, isLast) {
+    const card = document.createElement('div'); card.className = 'wr-article-block';
+    const actions = document.createElement('div'); actions.className = 'wr-article-block-actions';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst; up.setAttribute('aria-label', 'Move up');
+    up.addEventListener('click', function () { WD.moveArticleBlock(block.id, -1); renderWrArticle(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast; down.setAttribute('aria-label', 'Move down');
+    down.addEventListener('click', function () { WD.moveArticleBlock(block.id, 1); renderWrArticle(); });
+    const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete block');
+    del.addEventListener('click', function () { WD.removeArticleBlock(block.id); renderWrArticle(); });
+    actions.appendChild(up); actions.appendChild(down); actions.appendChild(del);
+    card.appendChild(actions);
+    if (block.type === 'heading') {
+      const input = document.createElement('input'); input.type = 'text'; input.className = 'wr-block-heading'; input.value = block.text; input.placeholder = 'Heading…';
+      input.addEventListener('blur', function () { WD.updateArticleBlock(block.id, { text: input.value }); });
+      card.appendChild(input);
+    } else if (block.type === 'callout') {
+      card.classList.add('wr-callout', 'style-' + block.calloutStyle);
+      const sel = document.createElement('select'); sel.className = 'wr-callout-style-select';
+      WD.CALLOUT_STYLES.forEach(function (s) { const o = document.createElement('option'); o.value = s; o.textContent = s; if (s === block.calloutStyle) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', function () { WD.updateArticleBlock(block.id, { calloutStyle: sel.value }); renderWrArticle(); });
+      card.appendChild(sel);
+      const ta = document.createElement('textarea'); ta.className = 'wr-block-paragraph'; ta.value = block.text; ta.placeholder = 'Callout text…'; ta.rows = 1;
+      ta.addEventListener('input', function () { autosize(ta); });
+      ta.addEventListener('blur', function () { WD.updateArticleBlock(block.id, { text: ta.value }); });
+      card.appendChild(ta);
+      setTimeout(function () { autosize(ta); }, 0);
+    } else {
+      const ta = document.createElement('textarea'); ta.className = 'wr-block-paragraph'; ta.value = block.text; ta.placeholder = 'Write a paragraph…'; ta.rows = 1;
+      ta.addEventListener('input', function () { autosize(ta); });
+      ta.addEventListener('blur', function () { WD.updateArticleBlock(block.id, { text: ta.value }); });
+      card.appendChild(ta);
+      setTimeout(function () { autosize(ta); }, 0);
+    }
+    return card;
+  }
+
+  // ---------- Board (Series groups + Manuscript cards) ----------
+  function renderWrBoard() {
+    destroyWrSortables();
+    const wrap = $('wrSeriesGroups'); wrap.innerHTML = '';
+    const seriesList = WD.seriesSorted();
+    const groups = seriesList.map(function (s) { return { id: s.id, series: s }; }).concat([{ id: null, series: null }]);
+    let anyRendered = false;
+    groups.forEach(function (g) {
+      let manuscripts = WD.manuscriptsForSeries(g.id);
+      if (wrStatusFilter !== 'all') manuscripts = manuscripts.filter(function (m) { return m.status === wrStatusFilter; });
+      if (!manuscripts.length) return;
+      anyRendered = true;
+      wrap.appendChild(buildWrSeriesGroup(g.series, manuscripts));
+    });
+    if (!anyRendered) {
+      const empty = document.createElement('div'); empty.className = 'wr-empty';
+      empty.textContent = WD.allManuscriptsSorted().length ? 'No manuscripts match this filter.' : 'No manuscripts yet — tap "+ Add Manuscript" to start your first one.';
+      wrap.appendChild(empty);
+    }
+    renderWrTaskTable();
+  }
+  function buildWrSeriesGroup(series, manuscripts) {
+    const group = document.createElement('div'); group.className = 'wr-series-group';
+    const head = document.createElement('div'); head.className = 'wr-series-head';
+    if (series) {
+      const tint = document.createElement('span'); tint.className = 'wr-series-tint'; tint.style.background = series.tint || 'var(--bh-gold)';
+      head.appendChild(tint);
+      const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-series-title'; titleInput.value = series.title;
+      titleInput.addEventListener('blur', function () { const v = titleInput.value.trim(); if (v && v !== series.title) WD.Series.update(series.id, { title: v }); });
+      titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') titleInput.blur(); });
+      head.appendChild(titleInput);
+      const actions = document.createElement('div'); actions.className = 'wr-series-actions';
+      const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.textContent = '✎'; editBtn.title = 'Edit series'; editBtn.setAttribute('aria-label', 'Edit series');
+      editBtn.addEventListener('click', function () { openWrSeriesModal(series); });
+      const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.textContent = '+'; addBtn.title = 'Add a manuscript to this series'; addBtn.setAttribute('aria-label', 'Add a manuscript to this series');
+      addBtn.addEventListener('click', function () { openWrManuscriptModal(null, series.id); });
+      actions.appendChild(editBtn); actions.appendChild(addBtn);
+      head.appendChild(actions);
+    } else {
+      const label = document.createElement('div'); label.className = 'wr-series-title'; label.style.cursor = 'default'; label.textContent = 'Standalone';
+      head.appendChild(label);
+    }
+    group.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'wr-ms-grid'; grid.dataset.seriesId = series ? series.id : '';
+    manuscripts.forEach(function (m) { grid.appendChild(buildWrManuscriptCard(m)); });
+    group.appendChild(grid);
+    wireWrGridSortable(grid);
+    return group;
+  }
+  function wireWrGridSortable(gridEl) {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    wrSortables.push(new Sortable(gridEl, {
+      group: 'wr-manuscripts', animation: reduced ? 0 : 150, ghostClass: 'bw-card-ghost', handle: '.wr-ms-drag',
+      onEnd: function () { persistAllWrGrids(); renderWrBoard(); }
+    }));
+  }
+  function persistAllWrGrids() {
+    document.querySelectorAll('#wrSeriesGroups .wr-ms-grid').forEach(function (gridEl) {
+      const seriesId = gridEl.dataset.seriesId || null;
+      Array.from(gridEl.children).forEach(function (cardEl, idx) {
+        const id = cardEl.dataset.msId;
+        if (id) WD.Manuscripts.update(id, { seriesId: seriesId, order: idx });
+      });
+    });
+  }
+  function buildWrManuscriptCard(m) {
+    const card = document.createElement('div'); card.className = 'wr-ms-card'; card.dataset.msId = m.id;
+    card.addEventListener('click', function (e) { if (e.target.closest('.wr-ms-noclick')) return; openWrManuscriptDetail(m.id); });
+
+    const head = document.createElement('div'); head.className = 'wr-ms-card-head';
+    const handle = document.createElement('span'); handle.className = 'wr-ms-drag wr-ms-noclick'; handle.textContent = '⋮⋮';
+    handle.style.cssText = 'cursor:grab;color:var(--bh-text-mute);font-size:12px;flex-shrink:0;'; handle.title = 'Drag to reorder / move between series';
+    const title = document.createElement('div'); title.className = 'wr-ms-card-title'; title.style.flex = '1'; title.textContent = m.title;
+    const status = document.createElement('span'); status.className = 'wr-ms-status status-' + m.status; status.textContent = m.status;
+    head.appendChild(handle); head.appendChild(title); head.appendChild(status);
+    card.appendChild(head);
+
+    const metaRow = document.createElement('div'); metaRow.className = 'wr-ms-meta-row';
+    [m.platform, m.niche, m.estimatedGrowthDuration].filter(Boolean).forEach(function (v) { const tag = document.createElement('span'); tag.className = 'wr-ms-meta-tag'; tag.textContent = v; metaRow.appendChild(tag); });
+    if (metaRow.children.length) card.appendChild(metaRow);
+
+    if (m.goalRevenueCents || m.goalProfitCents) {
+      const g = document.createElement('div'); g.className = 'wr-ms-stat-row';
+      g.textContent = 'Revenue goal ' + formatCentsUSD(m.goalRevenueCents) + '  ·  Profit goal ' + formatCentsUSD(m.goalProfitCents);
+      card.appendChild(g);
+    }
+
+    const goalRow = document.createElement('div'); goalRow.className = 'wr-ms-goal-row wr-ms-noclick';
+    const cur = document.createElement('input'); cur.type = 'number'; cur.min = '0'; cur.value = String(m.todaysGoalCurrent);
+    cur.addEventListener('click', function (e) { e.stopPropagation(); });
+    cur.addEventListener('change', function () { WD.Manuscripts.update(m.id, { todaysGoalCurrent: Math.max(0, Number(cur.value) || 0) }); });
+    const slash = document.createElement('span'); slash.textContent = '/';
+    const tgt = document.createElement('input'); tgt.type = 'number'; tgt.min = '1'; tgt.value = String(m.todaysGoalTarget);
+    tgt.addEventListener('click', function (e) { e.stopPropagation(); });
+    tgt.addEventListener('change', function () { WD.Manuscripts.update(m.id, { todaysGoalTarget: Math.max(1, Number(tgt.value) || 1) }); });
+    const unit = document.createElement('span'); unit.textContent = m.todaysGoalUnit || 'words';
+    goalRow.appendChild(cur); goalRow.appendChild(slash); goalRow.appendChild(tgt); goalRow.appendChild(unit);
+    card.appendChild(goalRow);
+
+    const counts = WD.taskCountsForManuscript(m.id);
+    const statRow = document.createElement('div'); statRow.className = 'wr-ms-stat-row';
+    statRow.textContent = 'Tasks: ' + counts.completed + ' / ' + counts.total + ' done';
+    card.appendChild(statRow);
+
+    const progRow = document.createElement('div'); progRow.className = 'wr-ms-progress-row';
+    const pct = counts.total ? Math.round((counts.completed / counts.total) * 100) : 0;
+    const bar = document.createElement('div'); bar.className = 'wr-ms-bar';
+    const fill = document.createElement('div'); fill.className = 'wr-ms-bar-fill'; fill.style.width = pct + '%'; fill.style.background = m.progressBarColor || 'var(--bh-gold)';
+    bar.appendChild(fill); progRow.appendChild(bar);
+    const colorInput = document.createElement('input'); colorInput.type = 'color'; colorInput.className = 'wr-ms-color-swatch wr-ms-noclick';
+    colorInput.value = /^#[0-9a-f]{6}$/i.test(m.progressBarColor || '') ? m.progressBarColor : '#c9a876';
+    colorInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    colorInput.addEventListener('input', function () { fill.style.background = colorInput.value; });
+    colorInput.addEventListener('change', function () { WD.Manuscripts.update(m.id, { progressBarColor: colorInput.value }); });
+    progRow.appendChild(colorInput);
+    card.appendChild(progRow);
+
+    const chapterLine = document.createElement('div'); chapterLine.className = 'wr-ms-chapter-line';
+    const currentNode = m.currentBinderNodeId ? WD.BinderNodes.get(m.currentBinderNodeId) : null;
+    chapterLine.textContent = 'Current chapter: ' + (currentNode ? currentNode.title : 'Not set');
+    card.appendChild(chapterLine);
+    return card;
+  }
+
+  // ---------- Series modal ----------
+  function openWrSeriesModal(series) {
+    wrSeriesModalEditingId = series ? series.id : null;
+    $('wrSeriesModalTitle').textContent = series ? 'Edit Series' : 'Add Series';
+    $('wrSeriesTitleInput').value = series ? series.title : '';
+    $('wrSeriesDescInput').value = series ? series.description : '';
+    $('wrSeriesTintInput').value = /^#[0-9a-f]{6}$/i.test((series || {}).tint || '') ? series.tint : '#c9a876';
+    $('wrSeriesModalDelete').style.display = series ? 'block' : 'none';
+    openModal($('wrSeriesModalBg'));
+  }
+  function saveWrSeriesModal() {
+    const title = $('wrSeriesTitleInput').value.trim(); if (!title) return;
+    const fields = { title: title, description: $('wrSeriesDescInput').value, tint: $('wrSeriesTintInput').value };
+    if (wrSeriesModalEditingId) WD.Series.update(wrSeriesModalEditingId, fields);
+    else WD.Series.add(Object.assign({ order: WD.seriesSorted().length }, fields));
+    closeModal($('wrSeriesModalBg'));
+    renderWrBoard();
+  }
+  function deleteWrSeriesModal() {
+    if (!wrSeriesModalEditingId) return;
+    if (!confirm('Delete this series? Its manuscripts become Standalone, not deleted.')) return;
+    WD.Series.remove(wrSeriesModalEditingId);
+    closeModal($('wrSeriesModalBg'));
+    renderWrBoard();
+  }
+
+  // ---------- Manuscript modal ----------
+  function openWrManuscriptModal(manuscript, defaultSeriesId) {
+    wrManuscriptModalEditingId = manuscript ? manuscript.id : null;
+    $('wrManuscriptModalTitle').textContent = manuscript ? 'Edit Manuscript' : 'Add Manuscript';
+    const seriesSelect = $('wrMsSeriesInput');
+    seriesSelect.innerHTML = '<option value="">Standalone — no series</option>';
+    WD.seriesSorted().forEach(function (s) { const o = document.createElement('option'); o.value = s.id; o.textContent = s.title; seriesSelect.appendChild(o); });
+    seriesSelect.value = manuscript ? (manuscript.seriesId || '') : (defaultSeriesId || '');
+    $('wrMsTitleInput').value = manuscript ? manuscript.title : '';
+    $('wrMsKindInput').value = manuscript ? manuscript.kind : 'manuscript';
+    $('wrMsStatusInput').value = manuscript ? manuscript.status : 'active';
+    $('wrMsPlatformInput').value = manuscript ? manuscript.platform : '';
+    $('wrMsNicheInput').value = manuscript ? manuscript.niche : '';
+    $('wrMsGrowthInput').value = manuscript ? manuscript.estimatedGrowthDuration : '';
+    $('wrMsRevenueInput').value = manuscript ? Math.round(manuscript.goalRevenueCents / 100) : '';
+    $('wrMsProfitInput').value = manuscript ? Math.round(manuscript.goalProfitCents / 100) : '';
+    $('wrMsGoalCurrentInput').value = manuscript ? manuscript.todaysGoalCurrent : 0;
+    $('wrMsGoalTargetInput').value = manuscript ? manuscript.todaysGoalTarget : 1000;
+    $('wrMsGoalUnitInput').value = manuscript ? manuscript.todaysGoalUnit : 'words';
+    $('wrManuscriptModalDelete').style.display = manuscript ? 'block' : 'none';
+    openModal($('wrManuscriptModalBg'));
+  }
+  function saveWrManuscriptModal() {
+    const title = $('wrMsTitleInput').value.trim(); if (!title) return;
+    const fields = {
+      title: title,
+      seriesId: $('wrMsSeriesInput').value || null,
+      kind: $('wrMsKindInput').value,
+      status: $('wrMsStatusInput').value,
+      platform: $('wrMsPlatformInput').value,
+      niche: $('wrMsNicheInput').value,
+      estimatedGrowthDuration: $('wrMsGrowthInput').value,
+      goalRevenueCents: Math.round((Number($('wrMsRevenueInput').value) || 0) * 100),
+      goalProfitCents: Math.round((Number($('wrMsProfitInput').value) || 0) * 100),
+      todaysGoalCurrent: Math.max(0, Number($('wrMsGoalCurrentInput').value) || 0),
+      todaysGoalTarget: Math.max(1, Number($('wrMsGoalTargetInput').value) || 1),
+      todaysGoalUnit: $('wrMsGoalUnitInput').value.trim() || 'words'
+    };
+    if (wrManuscriptModalEditingId) WD.Manuscripts.update(wrManuscriptModalEditingId, fields);
+    else WD.Manuscripts.add(Object.assign({ order: WD.manuscriptsForSeries(fields.seriesId).length }, fields));
+    closeModal($('wrManuscriptModalBg'));
+    renderWrBoard();
+    if (wrMsDetailId) renderWrManuscriptDetail();
+  }
+  function deleteWrManuscriptModal() {
+    if (!wrManuscriptModalEditingId) return;
+    if (!confirm('Delete this manuscript? Its tasks, chapters, and trackers will be deleted too.')) return;
+    WD.Manuscripts.remove(wrManuscriptModalEditingId);
+    closeModal($('wrManuscriptModalBg'));
+    if (wrMsDetailId === wrManuscriptModalEditingId) { closeWrPage('wrManuscriptDetailPageBg'); wrMsDetailId = null; }
+    renderWrBoard();
+  }
+
+  // ---------- Manuscript Detail (full-page overlay) ----------
+  function openWrManuscriptDetail(id) {
+    wrMsDetailId = id;
+    renderWrManuscriptDetail();
+    openWrPage('wrManuscriptDetailPageBg');
+  }
+  function renderWrManuscriptDetail() {
+    const m = WD.Manuscripts.get(wrMsDetailId); if (!m) return;
+    $('wrMsDetailTitleInput').value = m.title;
+    const grid = $('wrMsDetailStatGrid'); grid.innerHTML = '';
+    function statField(label, value) {
+      const f = document.createElement('div'); f.className = 'field'; f.style.marginBottom = '0';
+      const l = document.createElement('label'); l.textContent = label; f.appendChild(l);
+      const v = document.createElement('div'); v.style.cssText = 'font-size:13.5px;color:var(--bh-text);padding-top:2px;'; v.textContent = value;
+      f.appendChild(v); return f;
+    }
+    grid.appendChild(statField('Status', m.status));
+    grid.appendChild(statField('Platform', m.platform || '—'));
+    grid.appendChild(statField('Niche', m.niche || '—'));
+    grid.appendChild(statField('Est. growth duration', m.estimatedGrowthDuration || '—'));
+    grid.appendChild(statField('Goal revenue', formatCentsUSD(m.goalRevenueCents)));
+    grid.appendChild(statField('Goal profit', formatCentsUSD(m.goalProfitCents)));
+    grid.appendChild(statField("Today's goal", m.todaysGoalCurrent + ' / ' + m.todaysGoalTarget + ' ' + (m.todaysGoalUnit || 'words')));
+    const currentNode = m.currentBinderNodeId ? WD.BinderNodes.get(m.currentBinderNodeId) : null;
+    grid.appendChild(statField('Current chapter', currentNode ? currentNode.title : 'Not set'));
+
+    const counts = WD.taskCountsForManuscript(m.id);
+    $('wrMsDetailTasksSummary').textContent = counts.total ? (counts.completed + ' of ' + counts.total + ' tasks done') : 'No tasks yet for this manuscript.';
+    renderWrManuscriptDetailNotes();
+  }
+  function renderWrManuscriptDetailNotes() {
+    const wrap = $('wrMsDetailNotes'); wrap.innerHTML = '';
+    const notes = WD.notesForManuscript(wrMsDetailId);
+    if (!notes.length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'No notes sections yet.'; wrap.appendChild(e); return; }
+    notes.forEach(function (n, i) {
+      const card = document.createElement('div'); card.className = 'wr-note-section';
+      const head = document.createElement('div'); head.className = 'wr-note-section-head';
+      const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-note-section-title-input'; titleInput.value = n.title;
+      titleInput.addEventListener('blur', function () { WD.updateManuscriptNote(wrMsDetailId, n.id, { title: titleInput.value.trim() || 'Untitled' }); });
+      head.appendChild(titleInput);
+      const actions = document.createElement('div'); actions.className = 'wr-note-section-actions';
+      const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = i === 0;
+      up.addEventListener('click', function () { WD.moveManuscriptNote(wrMsDetailId, n.id, -1); renderWrManuscriptDetailNotes(); });
+      const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = i === notes.length - 1;
+      down.addEventListener('click', function () { WD.moveManuscriptNote(wrMsDetailId, n.id, 1); renderWrManuscriptDetailNotes(); });
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕';
+      del.addEventListener('click', function () { WD.removeManuscriptNote(wrMsDetailId, n.id); renderWrManuscriptDetailNotes(); });
+      actions.appendChild(up); actions.appendChild(down); actions.appendChild(del);
+      head.appendChild(actions);
+      card.appendChild(head);
+      const body = document.createElement('textarea'); body.className = 'wr-note-section-body'; body.value = n.body; body.placeholder = 'Write freely…';
+      body.addEventListener('blur', function () { WD.updateManuscriptNote(wrMsDetailId, n.id, { body: body.value }); });
+      card.appendChild(body);
+      wrap.appendChild(card);
+    });
+  }
+
+  // ---------- Ideas gallery ----------
+  function renderWrIdeas() {
+    const grid = $('wrIdeaGrid'); grid.innerHTML = '';
+    let ideas = WD.Ideas.list().slice().sort(function (a, b) { return a.order - b.order; });
+    if (wrIdeaStatusFilter) ideas = ideas.filter(function (i) { return i.status === wrIdeaStatusFilter; });
+    if (wrIdeaSearch) { const q = wrIdeaSearch.toLowerCase(); ideas = ideas.filter(function (i) { return i.title.toLowerCase().indexOf(q) !== -1 || (i.pitch || '').toLowerCase().indexOf(q) !== -1; }); }
+    ideas.forEach(function (idea) { grid.appendChild(buildWrIdeaCard(idea)); });
+    $('wrIdeaEmpty').hidden = ideas.length !== 0;
+  }
+  function buildWrIdeaCard(idea) {
+    const card = document.createElement('div'); card.className = 'wr-idea-card';
+    const status = document.createElement('span'); status.className = 'wr-idea-status-pill'; status.textContent = idea.status; card.appendChild(status);
+    const title = document.createElement('div'); title.className = 'wr-idea-title'; title.textContent = idea.title; card.appendChild(title);
+    if (idea.pitch) { const p = document.createElement('div'); p.className = 'wr-idea-pitch'; p.textContent = idea.pitch; card.appendChild(p); }
+    if (idea.tags.length) {
+      const tagsRow = document.createElement('div'); tagsRow.className = 'wr-idea-tags';
+      idea.tags.forEach(function (t) { const tag = document.createElement('span'); tag.className = 'wr-ms-meta-tag'; tag.textContent = t; tagsRow.appendChild(tag); });
+      card.appendChild(tagsRow);
+    }
+    const actions = document.createElement('div'); actions.className = 'wr-idea-actions';
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bh-btn-secondary'; editBtn.textContent = '✎ Edit';
+    editBtn.addEventListener('click', function () { openWrIdeaModal(idea); });
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
+    return card;
+  }
+  function openWrIdeaModal(idea) {
+    wrIdeaModalEditingId = idea ? idea.id : null;
+    $('wrIdeaModalTitle').textContent = idea ? 'Edit Idea' : 'Add Idea';
+    $('wrIdeaTitleInput').value = idea ? idea.title : '';
+    $('wrIdeaPitchInput').value = idea ? idea.pitch : '';
+    $('wrIdeaTagsInput').value = idea ? idea.tags.join(', ') : '';
+    $('wrIdeaStatusInput').value = idea ? idea.status : 'spark';
+    $('wrIdeaNotesInput').value = idea ? idea.notes : '';
+    $('wrIdeaModalDelete').style.display = idea ? 'block' : 'none';
+    openModal($('wrIdeaModalBg'));
+  }
+  function saveWrIdeaModal() {
+    const title = $('wrIdeaTitleInput').value.trim(); if (!title) return;
+    const tags = $('wrIdeaTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    const fields = { title: title, pitch: $('wrIdeaPitchInput').value, tags: tags, status: $('wrIdeaStatusInput').value, notes: $('wrIdeaNotesInput').value };
+    if (wrIdeaModalEditingId) WD.Ideas.update(wrIdeaModalEditingId, fields);
+    else WD.Ideas.add(Object.assign({ order: WD.Ideas.list().length }, fields));
+    closeModal($('wrIdeaModalBg'));
+    renderWrIdeas();
+  }
+  function deleteWrIdeaModal() {
+    if (!wrIdeaModalEditingId) return;
+    if (!confirm('Delete this idea?')) return;
+    WD.Ideas.remove(wrIdeaModalEditingId);
+    closeModal($('wrIdeaModalBg'));
+    renderWrIdeas();
+  }
+
+  // ---------- Theme Marketplace ----------
+  function renderWrThemes() {
+    const theme = WD.getTheme();
+    const grid = $('wrThemeGrid'); grid.innerHTML = '';
+    WD.allThemes().forEach(function (t) {
+      const card = document.createElement('div'); card.className = 'wr-theme-card' + (t.id === theme.activeThemeId ? ' active' : '');
+      const swatch = document.createElement('div'); swatch.className = 'wr-theme-swatch';
+      swatch.style.background = 'linear-gradient(135deg, ' + t.tokens.bg + ' 0%, ' + t.tokens.accent + ' 100%)';
+      const name = document.createElement('div'); name.className = 'wr-theme-name'; name.textContent = t.name;
+      card.appendChild(swatch); card.appendChild(name);
+      card.addEventListener('click', function () { WD.setActiveTheme(t.id); renderWritingDashboard(); });
+      grid.appendChild(card);
+    });
+    const activeCustom = theme.customThemes.find(function (c) { return c.id === theme.activeThemeId; });
+    wrCustomThemeEditingId = activeCustom ? activeCustom.id : null;
+    const t = activeCustom ? activeCustom.tokens : WD.activeThemeTokens();
+    $('wrThemeBgInput').value = /^#[0-9a-f]{6}$/i.test(t.bg || '') ? t.bg : '#0d0b08';
+    $('wrThemeCardInput').value = '#1a1712';
+    $('wrThemeAccentInput').value = /^#[0-9a-f]{6}$/i.test(t.accent || '') ? t.accent : '#c9a876';
+    $('wrThemeTextInput').value = /^#[0-9a-f]{6}$/i.test(t.text || '') ? t.text : '#f5f1e9';
+    $('wrThemeFontSelect').value = t.font || "'Cormorant Garamond', serif";
+    $('wrThemeBgPhotoInput').value = t.bgPhoto || '';
+    $('wrThemeDeleteCustomBtn').style.display = activeCustom ? 'block' : 'none';
+  }
+  function saveWrCustomTheme() {
+    const id = wrCustomThemeEditingId || WD.uid('theme');
+    const theme = {
+      id: id, name: 'Custom Theme',
+      tokens: {
+        bg: $('wrThemeBgInput').value, card: 'rgba(255,255,255,0.08)', accent: $('wrThemeAccentInput').value,
+        text: $('wrThemeTextInput').value, font: $('wrThemeFontSelect').value, radius: '14px',
+        bgPhoto: $('wrThemeBgPhotoInput').value.trim()
+      }
+    };
+    WD.saveCustomTheme(theme);
+    WD.setActiveTheme(id);
+    renderWritingDashboard();
+  }
+  function deleteWrCustomTheme() {
+    if (!wrCustomThemeEditingId) return;
+    if (!confirm('Delete this custom theme?')) return;
+    WD.removeCustomTheme(wrCustomThemeEditingId);
+    renderWritingDashboard();
+  }
+
+  // ---------- Tasks Inline Database (Phase 2) — a "database table"
+  // rendered as this app's established div-row idiom (.bh-task-card,
+  // reused verbatim), living on the main board view below the manuscript
+  // board. A "template" is a root WritingTask (parentTaskId: null); its
+  // "sub-pages" are child WritingTasks. Reorder uses this app's up/down-
+  // arrow convention (same precedent as Workflow's own Weeks/Days, the
+  // closest nested-list analog in this file) rather than drag, since a
+  // careless cross-parent drag could otherwise corrupt the tree. ----------
+  let wrTaskFilterManuscript = '';
+  let wrTaskFilterStatus = '';
+  let wrTaskFilterPriority = '';
+  let wrTaskSearch = '';
+  let wrTaskDetailId = null;
+
+  function renderWrTaskTable() {
+    const manuscriptSelect = $('wrTaskFilterManuscript');
+    const currentVal = manuscriptSelect.value || wrTaskFilterManuscript;
+    manuscriptSelect.innerHTML = '<option value="">All Manuscripts</option>';
+    WD.allManuscriptsSorted().forEach(function (m) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.title; manuscriptSelect.appendChild(o); });
+    manuscriptSelect.value = currentVal; wrTaskFilterManuscript = manuscriptSelect.value;
+
+    let roots = WD.rootTasks().slice().sort(function (a, b) { return a.order - b.order; });
+    if (wrTaskFilterManuscript) roots = roots.filter(function (t) { return t.manuscriptId === wrTaskFilterManuscript; });
+    if (wrTaskFilterStatus) roots = roots.filter(function (t) { return t.status === wrTaskFilterStatus; });
+    if (wrTaskFilterPriority) roots = roots.filter(function (t) { return t.priority === wrTaskFilterPriority; });
+    if (wrTaskSearch) {
+      const q = wrTaskSearch.toLowerCase();
+      roots = roots.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1 || (t.summary || '').toLowerCase().indexOf(q) !== -1; });
+    }
+
+    const wrap = $('wrTaskTable'); wrap.innerHTML = '';
+    roots.forEach(function (t, i) {
+      wrap.appendChild(buildWrTaskRow(t, 0, i === 0, i === roots.length - 1));
+      const children = WD.childTasks(t.id);
+      children.forEach(function (c, j) { wrap.appendChild(buildWrTaskRow(c, 1, j === 0, j === children.length - 1)); });
+    });
+    $('wrTaskTableEmpty').hidden = roots.length !== 0;
+  }
+  function buildWrTaskRow(task, depth, isFirst, isLast) {
+    const wrap = document.createElement('div'); wrap.className = 'wr-task-table-row' + (depth ? ' wr-task-indent' : '');
+    const card = document.createElement('div'); card.className = 'bh-task-card' + (task.status === 'done' ? ' is-done' : '');
+
+    const up = document.createElement('button'); up.type = 'button'; up.className = 'wr-task-add-sub'; up.textContent = '▲'; up.disabled = isFirst; up.setAttribute('aria-label', 'Move up');
+    up.addEventListener('click', function () { WD.moveTask(task.id, -1); renderWrTaskTable(); });
+    const down = document.createElement('button'); down.type = 'button'; down.className = 'wr-task-add-sub'; down.textContent = '▼'; down.disabled = isLast; down.setAttribute('aria-label', 'Move down');
+    down.addEventListener('click', function () { WD.moveTask(task.id, 1); renderWrTaskTable(); });
+    card.appendChild(up); card.appendChild(down);
+
+    const check = document.createElement('button'); check.type = 'button'; check.className = 'bh-task-check' + (task.status === 'done' ? ' done' : '');
+    check.setAttribute('aria-label', task.status === 'done' ? 'Mark not done' : 'Mark done');
+    if (task.status === 'done') check.textContent = '✓';
+    check.addEventListener('click', function () { WD.Tasks.update(task.id, { status: task.status === 'done' ? 'todo' : 'done' }); renderWrTaskTable(); renderWrBoard(); });
+    card.appendChild(check);
+
+    const title = document.createElement('span'); title.className = 'bh-task-title'; title.textContent = task.title;
+    title.addEventListener('click', function () { openWrTaskDetail(task.id); });
+    card.appendChild(title);
+
+    if (!task.parentTaskId && WD.childTasks(task.id).length) { const badge = document.createElement('span'); badge.className = 'bh-task-badge'; badge.textContent = 'TEMPLATE'; card.appendChild(badge); }
+    const m = task.manuscriptId ? WD.Manuscripts.get(task.manuscriptId) : null;
+    const msTag = document.createElement('span'); msTag.className = 'wr-task-ms-tag'; msTag.textContent = m ? m.title : 'Unlinked'; card.appendChild(msTag);
+    const pri = document.createElement('span'); pri.className = 'bh-task-pill pri-' + task.priority; pri.textContent = task.priority; card.appendChild(pri);
+    if (task.dueDate) { const d = document.createElement('span'); d.className = 'bh-task-due'; d.textContent = DB.formatDateShort(task.dueDate); card.appendChild(d); }
+
+    if (!task.parentTaskId) {
+      const addSub = document.createElement('button'); addSub.type = 'button'; addSub.className = 'wr-task-add-sub'; addSub.title = 'Add a sub-page'; addSub.textContent = '+ Sub-page';
+      addSub.addEventListener('click', function () { WD.Tasks.add({ manuscriptId: task.manuscriptId, parentTaskId: task.id, title: 'New Sub-page', order: WD.childTasks(task.id).length }); renderWrTaskTable(); });
+      card.appendChild(addSub);
+    }
+
+    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bh-task-open'; openBtn.title = 'Open'; openBtn.textContent = '📄';
+    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openWrTaskDetail(task.id); });
+    card.appendChild(openBtn);
+
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const hasChildren = !task.parentTaskId && WD.childTasks(task.id).length;
+      if (!confirm(hasChildren ? 'Delete this template and all its sub-pages?' : 'Delete this task?')) return;
+      if (hasChildren) WD.childTasks(task.id).forEach(function (c) { WD.Tasks.remove(c.id); });
+      WD.Tasks.remove(task.id);
+      renderWrTaskTable(); renderWrBoard();
+    });
+    card.appendChild(del);
+
+    wrap.appendChild(card);
+    if (task.summary) { const s = document.createElement('div'); s.className = 'wr-task-summary-line'; s.textContent = task.summary; wrap.appendChild(s); }
+    return wrap;
+  }
+
+  function openWrTaskDetail(taskId) {
+    const t = WD.Tasks.get(taskId); if (!t) return;
+    wrTaskDetailId = taskId;
+    $('wrTaskDetailModalTitle').textContent = t.parentTaskId ? 'Sub-page' : 'Template';
+    $('wrTaskDetailTitleInput').value = t.title;
+    const sel = $('wrTaskDetailManuscriptInput'); sel.innerHTML = '<option value="">Unlinked</option>';
+    WD.allManuscriptsSorted().forEach(function (m) { const o = document.createElement('option'); o.value = m.id; o.textContent = m.title; sel.appendChild(o); });
+    sel.value = t.manuscriptId || '';
+    $('wrTaskDetailStatusInput').value = t.status;
+    $('wrTaskDetailPriorityInput').value = t.priority;
+    $('wrTaskDetailDueInput').value = t.dueDate || '';
+    $('wrTaskDetailSummaryInput').value = t.summary || '';
+    renderWrTaskDetailBlocks();
+    openModal($('wrTaskDetailModalBg'));
+  }
+  function renderWrTaskDetailBlocks() {
+    const t = WD.Tasks.get(wrTaskDetailId); if (!t) return;
+    const wrap = $('wrTaskDetailBlocks'); wrap.innerHTML = '';
+    const blocks = (t.blocks || []).slice().sort(function (a, b) { return a.order - b.order; });
+    if (!blocks.length) { const e = document.createElement('div'); e.className = 'bh-pf-section-empty'; e.textContent = 'No blocks yet.'; wrap.appendChild(e); return; }
+    blocks.forEach(function (b, i) { wrap.appendChild(buildWrTaskBlockCard(t.id, b, i === 0, i === blocks.length - 1)); });
+  }
+  function buildWrTaskBlockCard(taskId, block, isFirst, isLast) {
+    const card = document.createElement('div'); card.className = 'bh-pf-section';
+    const head = document.createElement('div'); head.className = 'bh-pf-section-head';
+    const tag = document.createElement('span'); tag.className = 'bh-pf-section-type-tag'; tag.textContent = block.type === 'code' ? 'CODE' : 'TEXT'; head.appendChild(tag);
+    const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'bh-pf-section-title-input'; titleInput.value = block.title; titleInput.placeholder = 'Section title…';
+    titleInput.addEventListener('blur', function () { WD.updateWritingTaskBlock(taskId, block.id, { title: titleInput.value }); });
+    head.appendChild(titleInput);
+    if (block.type === 'code') {
+      const lang = document.createElement('input'); lang.type = 'text'; lang.placeholder = 'language'; lang.value = block.language || '';
+      lang.style.cssText = 'width:90px;flex-shrink:0;background:transparent;border:1px solid var(--bh-hairline);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--bh-text-mute);';
+      lang.addEventListener('blur', function () { WD.updateWritingTaskBlock(taskId, block.id, { language: lang.value }); });
+      head.appendChild(lang);
+    }
+    const btnStyle = 'background:transparent;border:none;color:var(--bh-text-mute);cursor:pointer;font-size:12px;padding:3px 6px;flex-shrink:0;';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst; up.style.cssText = btnStyle;
+    up.addEventListener('click', function () { WD.moveWritingTaskBlock(taskId, block.id, -1); renderWrTaskDetailBlocks(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast; down.style.cssText = btnStyle;
+    down.addEventListener('click', function () { WD.moveWritingTaskBlock(taskId, block.id, 1); renderWrTaskDetailBlocks(); });
+    const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.style.cssText = btnStyle;
+    del.addEventListener('click', function () { if (!confirm('Delete this block?')) return; WD.removeWritingTaskBlock(taskId, block.id); renderWrTaskDetailBlocks(); });
+    head.appendChild(up); head.appendChild(down); head.appendChild(del);
+    card.appendChild(head);
+    const body = document.createElement('textarea'); body.className = block.type === 'code' ? 'bh-pf-section-code-body' : 'bh-pf-section-body';
+    body.value = block.body; body.placeholder = block.type === 'code' ? '// code…' : 'Write freely…';
+    if (block.type === 'code') body.spellcheck = false;
+    body.addEventListener('blur', function () { WD.updateWritingTaskBlock(taskId, block.id, { body: body.value }); });
+    card.appendChild(body);
+    return card;
+  }
+  function saveWrTaskDetailFields() {
+    if (!wrTaskDetailId) return;
+    WD.Tasks.update(wrTaskDetailId, {
+      title: $('wrTaskDetailTitleInput').value.trim() || 'Untitled',
+      manuscriptId: $('wrTaskDetailManuscriptInput').value || null,
+      status: $('wrTaskDetailStatusInput').value,
+      priority: $('wrTaskDetailPriorityInput').value,
+      dueDate: $('wrTaskDetailDueInput').value || '',
+      summary: $('wrTaskDetailSummaryInput').value
+    });
+    renderWrTaskTable(); renderWrBoard();
+  }
+  function closeWrTaskDetailModal() { closeModal($('wrTaskDetailModalBg')); wrTaskDetailId = null; }
+  function deleteWrTaskDetail() {
+    if (!wrTaskDetailId) return;
+    const t = WD.Tasks.get(wrTaskDetailId); if (!t) return;
+    const hasChildren = !t.parentTaskId && WD.childTasks(t.id).length;
+    if (!confirm(hasChildren ? 'Delete this template and all its sub-pages?' : 'Delete this task?')) return;
+    if (hasChildren) WD.childTasks(t.id).forEach(function (c) { WD.Tasks.remove(c.id); });
+    WD.Tasks.remove(t.id);
+    closeModal($('wrTaskDetailModalBg')); wrTaskDetailId = null;
+    renderWrTaskTable(); renderWrBoard();
+  }
+
+  // ---------- Manuscript Binder (Phase 3) — Scrivener-style Part/Chapter/
+  // Scene tree (BinderNode.orderKey, fractional-indexing — see
+  // writing-data.js's own note on why this list alone departs from this
+  // app's numeric-order convention), a 3-panel editor (Trackers | Index
+  // Card | Chapter Notes), a Project Targets tracker, and Composition
+  // Mode. ----------
+  let wrBinderManuscriptId = null;
+  let wrBinderActiveNodeId = null;
+  let wrBinderDragNodeId = null;
+  let wrTrackerModalKind = null;
+  let wrTrackerModalEditingId = null;
+
+  function openWrBinder(manuscriptId) {
+    wrBinderManuscriptId = manuscriptId;
+    const m = WD.Manuscripts.get(manuscriptId);
+    $('wrBinderMsTitle').textContent = m ? m.title : '';
+    wrBinderActiveNodeId = null;
+    if (m && m.currentBinderNodeId && WD.BinderNodes.get(m.currentBinderNodeId)) wrBinderActiveNodeId = m.currentBinderNodeId;
+    else { const first = WD.binderChildren(manuscriptId, null)[0]; if (first) wrBinderActiveNodeId = first.id; }
+    renderWrBinderTree();
+    renderWrBinderEditor();
+    openWrPage('wrBinderPageBg');
+  }
+  function closeWrBinder() {
+    closeWrPage('wrBinderPageBg');
+    if (wrMsDetailId) renderWrManuscriptDetail();
+    renderWrBoard();
+  }
+  function isWrBinderDescendantOf(candidateId, ancestorId) {
+    let cur = WD.BinderNodes.get(candidateId);
+    while (cur && cur.parentId) { if (cur.parentId === ancestorId) return true; cur = WD.BinderNodes.get(cur.parentId); }
+    return false;
+  }
+  function addBinderNodeFromToolbar(type) {
+    let parentId = null;
+    const active = wrBinderActiveNodeId ? WD.BinderNodes.get(wrBinderActiveNodeId) : null;
+    if (type === 'chapter' && active) parentId = active.type === 'part' ? active.id : active.parentId;
+    else if (type === 'scene' && active) parentId = active.type === 'scene' ? active.parentId : active.id;
+    const siblingCount = WD.binderChildren(wrBinderManuscriptId, parentId).length;
+    const node = WD.addBinderNode(wrBinderManuscriptId, parentId, type, type.charAt(0).toUpperCase() + type.slice(1) + ' ' + (siblingCount + 1));
+    wrBinderActiveNodeId = node.id;
+    renderWrBinderTree(); renderWrBinderEditor();
+  }
+  function renderWrBinderTree() {
+    const wrap = $('wrBinderTree'); wrap.innerHTML = '';
+    function walk(parentId, depth) {
+      WD.binderChildren(wrBinderManuscriptId, parentId).forEach(function (node) {
+        wrap.appendChild(buildWrBinderNodeRow(node, depth));
+        walk(node.id, depth + 1);
+      });
+    }
+    walk(null, 0);
+    if (!wrap.children.length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'No parts/chapters yet — add one above.'; wrap.appendChild(e); }
+  }
+  function buildWrBinderNodeRow(node, depth) {
+    const row = document.createElement('div'); row.className = 'wr-binder-node' + (node.id === wrBinderActiveNodeId ? ' active' : '');
+    row.style.paddingLeft = (6 + depth * 16) + 'px';
+    row.draggable = true; row.dataset.nodeId = node.id;
+    row.addEventListener('click', function () { wrBinderActiveNodeId = node.id; renderWrBinderTree(); renderWrBinderEditor(); });
+    row.addEventListener('dragstart', function (e) { wrBinderDragNodeId = node.id; e.dataTransfer.effectAllowed = 'move'; });
+    row.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      const rect = row.getBoundingClientRect(); const offset = e.clientY - rect.top;
+      row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-onto');
+      if (offset < rect.height * 0.25) row.classList.add('drag-over-before');
+      else if (offset > rect.height * 0.75) row.classList.add('drag-over-after');
+      else row.classList.add('drag-over-onto');
+    });
+    row.addEventListener('dragleave', function () { row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-onto'); });
+    row.addEventListener('drop', function (e) {
+      e.preventDefault();
+      const dragId = wrBinderDragNodeId;
+      const overOnto = row.classList.contains('drag-over-onto'), overBefore = row.classList.contains('drag-over-before');
+      row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-onto');
+      if (!dragId || dragId === node.id || isWrBinderDescendantOf(node.id, dragId)) return;
+      if (overOnto) WD.moveBinderNode(dragId, node.id, null);
+      else if (overBefore) WD.moveBinderNode(dragId, node.parentId, node.id);
+      else {
+        const siblings = WD.binderChildren(wrBinderManuscriptId, node.parentId);
+        const idx = siblings.findIndex(function (n) { return n.id === node.id; });
+        const nextSibling = siblings[idx + 1];
+        WD.moveBinderNode(dragId, node.parentId, nextSibling ? nextSibling.id : null);
+      }
+      renderWrBinderTree();
+    });
+    const icon = document.createElement('span'); icon.className = 'wr-binder-node-icon'; icon.textContent = node.type === 'part' ? '📁' : node.type === 'chapter' ? '📄' : '📝';
+    row.appendChild(icon);
+    const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-binder-node-title'; titleInput.value = node.title;
+    titleInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    titleInput.addEventListener('blur', function () {
+      WD.BinderNodes.update(node.id, { title: titleInput.value.trim() || 'Untitled' });
+      if (node.id === wrBinderActiveNodeId) $('wrIndexCardTitle').value = titleInput.value.trim() || 'Untitled';
+    });
+    row.appendChild(titleInput);
+    const wc = document.createElement('span'); wc.className = 'wr-binder-node-wc'; wc.textContent = WD.wordCount(node.content) + 'w';
+    row.appendChild(wc);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'wr-binder-node-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Delete "' + (node.title || 'this') + '"? Its sub-items will be deleted too.')) return;
+      WD.BinderNodes.remove(node.id);
+      if (wrBinderActiveNodeId === node.id) wrBinderActiveNodeId = null;
+      renderWrBinderTree(); renderWrBinderEditor();
+    });
+    row.appendChild(del);
+    return row;
+  }
+  function buildWrTargetBar(label, current, goal, onGoalChange) {
+    const wrap = document.createElement('div'); wrap.className = 'wr-target-item';
+    const head = document.createElement('div'); head.className = 'wr-target-head';
+    const l = document.createElement('span'); l.textContent = label; head.appendChild(l);
+    const curSpan = document.createElement('span'); curSpan.textContent = current.toLocaleString() + ' / '; head.appendChild(curSpan);
+    const goalInput = document.createElement('input'); goalInput.type = 'number'; goalInput.min = '1'; goalInput.value = String(goal);
+    goalInput.addEventListener('change', function () { onGoalChange(Math.max(1, Number(goalInput.value) || 1)); });
+    head.appendChild(goalInput);
+    wrap.appendChild(head);
+    const bar = document.createElement('div'); bar.className = 'wr-ms-bar';
+    const fill = document.createElement('div'); fill.className = 'wr-ms-bar-fill'; fill.style.width = Math.max(0, Math.min(100, Math.round((current / Math.max(1, goal)) * 100))) + '%';
+    bar.appendChild(fill); wrap.appendChild(bar);
+    return wrap;
+  }
+  function renderWrBinderTargets() {
+    const m = WD.Manuscripts.get(wrBinderManuscriptId); if (!m) return;
+    const grid = $('wrTargetsGrid'); grid.innerHTML = '';
+    const totalWords = WD.manuscriptTotalWordCount(wrBinderManuscriptId);
+    const node = wrBinderActiveNodeId ? WD.BinderNodes.get(wrBinderActiveNodeId) : null;
+    const chapterWords = node ? WD.wordCount(node.content) : 0;
+    const todayWords = WD.wordsWrittenToday(wrBinderManuscriptId);
+    grid.appendChild(buildWrTargetBar('Entire manuscript', totalWords, m.manuscriptWordGoal, function (v) { WD.Manuscripts.update(m.id, { manuscriptWordGoal: v }); renderWrBinderTargets(); }));
+    grid.appendChild(buildWrTargetBar(node ? ('Current chapter — ' + node.title) : 'Current chapter (none selected)', chapterWords, (node && node.wordGoal) || 2500, function (v) { if (node) { WD.BinderNodes.update(node.id, { wordGoal: v }); renderWrBinderTargets(); } }));
+    grid.appendChild(buildWrTargetBar('Daily writing', todayWords, m.todaysGoalTarget, function (v) { WD.Manuscripts.update(m.id, { todaysGoalTarget: v }); renderWrBinderTargets(); }));
+  }
+  function renderWrBinderEditor() {
+    renderWrBinderTargets();
+    renderWrBinderTrackersCol();
+    const node = wrBinderActiveNodeId ? WD.BinderNodes.get(wrBinderActiveNodeId) : null;
+    const titleInput = $('wrIndexCardTitle'), body = $('wrIndexCardBody'), notes = $('wrChapterNotesBody');
+    if (!node) {
+      titleInput.value = ''; titleInput.disabled = true;
+      body.value = ''; body.disabled = true;
+      notes.value = ''; notes.disabled = true;
+      $('wrIndexCardWordCount').textContent = '';
+      return;
+    }
+    titleInput.disabled = false; body.disabled = false; notes.disabled = false;
+    titleInput.value = node.title;
+    body.value = node.content;
+    notes.value = node.chapterNotes;
+    $('wrIndexCardWordCount').textContent = WD.wordCount(node.content) + ' words';
+  }
+  function trackerCollectionFor(kind) { return kind === 'plot' ? WD.PlotThreads : kind === 'continuity' ? WD.ContinuityItems : WD.Characters; }
+  function renderWrBinderTrackersCol() {
+    const col = $('wrBinderTrackersCol'); col.innerHTML = '';
+    const scanBtn = document.createElement('button'); scanBtn.type = 'button'; scanBtn.className = 'bh-btn-secondary'; scanBtn.style.cssText = 'width:100%;margin-bottom:8px;';
+    scanBtn.textContent = '🔍 Scan this chapter';
+    scanBtn.addEventListener('click', function () {
+      if (!wrBinderActiveNodeId) return;
+      const node = WD.BinderNodes.get(wrBinderActiveNodeId);
+      const added = WD.scanChapterForMentions(wrBinderManuscriptId, wrBinderActiveNodeId, node.content);
+      renderWrBinderTrackersCol();
+      const btn = document.querySelector('#wrBinderTrackersCol .bh-btn-secondary');
+      if (btn) { btn.textContent = added ? ('✓ Found ' + added + ' new mention' + (added === 1 ? '' : 's')) : '🔍 No new mentions found'; setTimeout(function () { if (btn) btn.textContent = '🔍 Scan this chapter'; }, 1800); }
+    });
+    col.appendChild(scanBtn);
+    const tagBtn = document.createElement('button'); tagBtn.type = 'button'; tagBtn.className = 'bh-btn-secondary'; tagBtn.style.cssText = 'width:100%;margin-bottom:14px;';
+    tagBtn.textContent = '🏷 Tag Selected Text…';
+    tagBtn.addEventListener('click', openWrTagSelectionMenu);
+    col.appendChild(tagBtn);
+    col.appendChild(buildWrTrackerSection('plot', 'Plot Threads'));
+    col.appendChild(buildWrTrackerSection('continuity', 'Continuity'));
+    col.appendChild(buildWrTrackerSection('character', 'Characters'));
+  }
+  function buildWrTrackerSection(kind, label) {
+    const section = document.createElement('div'); section.className = 'wr-tracker-section';
+    const head = document.createElement('div'); head.className = 'wr-tracker-head';
+    const title = document.createElement('span'); title.textContent = label; head.appendChild(title);
+    const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.textContent = '+'; addBtn.title = 'Add ' + label; addBtn.setAttribute('aria-label', 'Add ' + label);
+    addBtn.addEventListener('click', function () { openWrTrackerModal(kind, null); });
+    head.appendChild(addBtn);
+    section.appendChild(head);
+    const list = document.createElement('div'); list.className = 'wr-tracker-list';
+    const items = WD.trackersForManuscript(kind, wrBinderManuscriptId);
+    if (!items.length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'None yet.'; list.appendChild(e); }
+    items.forEach(function (t) {
+      const row = document.createElement('div'); row.className = 'wr-tracker-item';
+      const name = document.createElement('span'); name.className = 'wr-tracker-name'; name.textContent = t.name; row.appendChild(name);
+      const count = document.createElement('span'); count.className = 'wr-tracker-count'; const n = (t.mentions || []).length; count.textContent = n + (n === 1 ? ' mention' : ' mentions'); row.appendChild(count);
+      row.addEventListener('click', function () { openWrTrackerModal(kind, t); });
+      list.appendChild(row);
+    });
+    section.appendChild(list);
+    return section;
+  }
+  function openWrTagSelectionMenu() {
+    if (!wrBinderActiveNodeId) { alert('Select a chapter first.'); return; }
+    const body = $('wrIndexCardBody');
+    const snippet = body.value.slice(body.selectionStart, body.selectionEnd).trim();
+    if (!snippet) { alert('Select some text in the Index Card first, then tag it.'); return; }
+    const kind = (prompt('Tag as: type "plot", "continuity", or "character"', 'plot') || '').trim().toLowerCase();
+    if (['plot', 'continuity', 'character'].indexOf(kind) === -1) return;
+    const trackers = WD.trackersForManuscript(kind, wrBinderManuscriptId);
+    const names = trackers.map(function (t) { return t.name; }).join(', ');
+    const chosenName = prompt('Existing: ' + (names || '(none yet)') + '\nType an existing name to tag it, or a new name to create one:');
+    if (!chosenName) return;
+    let tracker = trackers.find(function (t) { return t.name.toLowerCase() === chosenName.trim().toLowerCase(); });
+    if (!tracker) tracker = trackerCollectionFor(kind).add({ manuscriptId: wrBinderManuscriptId, name: chosenName.trim(), order: trackers.length });
+    WD.addMention(kind, tracker.id, wrBinderActiveNodeId, snippet);
+    renderWrBinderTrackersCol();
+  }
+  function openWrTrackerModal(kind, tracker) {
+    wrTrackerModalKind = kind;
+    wrTrackerModalEditingId = tracker ? tracker.id : null;
+    $('wrTrackerModalTitle').textContent = (tracker ? 'Edit ' : 'Add ') + (kind === 'plot' ? 'Plot Thread' : kind === 'continuity' ? 'Continuity Item' : 'Character');
+    $('wrTrackerNameInput').value = tracker ? tracker.name : '';
+    $('wrTrackerCategoryField').style.display = kind === 'continuity' ? 'block' : 'none';
+    if (kind === 'continuity') {
+      const sel = $('wrTrackerCategoryInput'); sel.innerHTML = '';
+      WD.CONTINUITY_CATEGORIES.forEach(function (c) { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+      sel.value = tracker ? tracker.category : 'other';
+    }
+    $('wrTrackerDescField').style.display = kind === 'character' ? 'none' : 'block';
+    $('wrTrackerBioField').style.display = kind === 'character' ? 'block' : 'none';
+    $('wrTrackerTraitsField').style.display = kind === 'character' ? 'block' : 'none';
+    $('wrTrackerDescInput').value = tracker ? (tracker.description || '') : '';
+    $('wrTrackerBioInput').value = tracker ? (tracker.bio || '') : '';
+    $('wrTrackerTraitsInput').value = tracker ? (tracker.traits || '') : '';
+    $('wrTrackerModalDelete').style.display = tracker ? 'block' : 'none';
+    renderWrTrackerMentions(kind, tracker ? tracker.id : null);
+    openModal($('wrTrackerModalBg'));
+  }
+  function renderWrTrackerMentions(kind, trackerId) {
+    const wrap = $('wrTrackerMentionsList'); wrap.innerHTML = '';
+    const tracker = trackerId ? trackerCollectionFor(kind).get(trackerId) : null;
+    if (!tracker || !(tracker.mentions || []).length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'No mentions yet.'; wrap.appendChild(e); return; }
+    tracker.mentions.forEach(function (m) {
+      const row = document.createElement('div'); row.className = 'wr-mention-row';
+      const node = WD.BinderNodes.get(m.nodeId);
+      const label = document.createElement('div'); label.className = 'wr-mention-node'; label.textContent = node ? node.title : '(deleted chapter)'; row.appendChild(label);
+      const snip = document.createElement('div'); snip.className = 'wr-mention-snippet'; snip.textContent = '"' + m.snippet + '"'; row.appendChild(snip);
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'wr-mention-del'; del.textContent = '✕'; del.setAttribute('aria-label', 'Remove mention');
+      del.addEventListener('click', function () { WD.removeMention(kind, tracker.id, m.id); renderWrTrackerMentions(kind, trackerId); });
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+  function saveWrTrackerModal() {
+    const name = $('wrTrackerNameInput').value.trim(); if (!name) return;
+    const kind = wrTrackerModalKind;
+    const fields = { name: name };
+    if (kind === 'continuity') { fields.category = $('wrTrackerCategoryInput').value; fields.description = $('wrTrackerDescInput').value; }
+    else if (kind === 'character') { fields.bio = $('wrTrackerBioInput').value; fields.traits = $('wrTrackerTraitsInput').value; }
+    else { fields.description = $('wrTrackerDescInput').value; }
+    const coll = trackerCollectionFor(kind);
+    if (wrTrackerModalEditingId) coll.update(wrTrackerModalEditingId, fields);
+    else coll.add(Object.assign({ manuscriptId: wrBinderManuscriptId, order: WD.trackersForManuscript(kind, wrBinderManuscriptId).length }, fields));
+    closeModal($('wrTrackerModalBg'));
+    renderWrBinderTrackersCol();
+  }
+  function deleteWrTrackerModal() {
+    if (!wrTrackerModalEditingId) return;
+    if (!confirm('Delete this tracker item?')) return;
+    trackerCollectionFor(wrTrackerModalKind).remove(wrTrackerModalEditingId);
+    closeModal($('wrTrackerModalBg'));
+    renderWrBinderTrackersCol();
+  }
+  function enterCompositionMode() {
+    if (!wrBinderActiveNodeId) { alert('Select a chapter first.'); return; }
+    const node = WD.BinderNodes.get(wrBinderActiveNodeId);
+    $('wrCompositionTextarea').value = node.content;
+    $('wrCompositionWordCount').textContent = WD.wordCount(node.content) + ' words';
+    $('wrCompositionOverlay').classList.add('show');
+    setTimeout(function () { $('wrCompositionTextarea').focus(); }, 0);
+  }
+  function exitCompositionMode() {
+    if (wrBinderActiveNodeId) WD.BinderNodes.update(wrBinderActiveNodeId, { content: $('wrCompositionTextarea').value });
+    $('wrCompositionOverlay').classList.remove('show');
+    renderWrBinderEditor(); renderWrBinderTree();
+  }
+
+  // ---------- Compile & Export (Phase 4) — TXT/RTF/DOCX/EPUB generated
+  // client-side with no external library (DOCX/EPUB share one minimal
+  // stored-entry ZIP writer, since both formats are ZIP containers); PDF
+  // is a print-formatted view + the browser's native Print → Save as PDF
+  // (better typography than a hand-rolled PDF byte generator). ----------
+  function xmlEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); }
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+  }
+  function safeFilename(title) { return (title || 'manuscript').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'manuscript'; }
+
+  function openWrCompileModal() {
+    if (!wrBinderManuscriptId) return;
+    const list = $('wrCompileNodeList'); list.innerHTML = '';
+    const flat = WD.flattenBinderTree(wrBinderManuscriptId);
+    if (!flat.length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'No chapters yet — add some in the Binder first.'; list.appendChild(e); }
+    flat.forEach(function (entry) {
+      const row = document.createElement('div'); row.className = 'wr-compile-node-row'; row.style.paddingLeft = (entry.depth * 16) + 'px';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.className = 'wr-compile-node-cb'; cb.dataset.nodeId = entry.node.id;
+      const label = document.createElement('span'); label.textContent = (entry.node.type === 'part' ? '📁 ' : entry.node.type === 'chapter' ? '📄 ' : '📝 ') + entry.node.title;
+      row.appendChild(cb); row.appendChild(label);
+      list.appendChild(row);
+    });
+    $('wrCompileSelectAll').checked = true;
+    openModal($('wrCompileModalBg'));
+  }
+  function wrCompileSelectedNodes() {
+    return Array.from(document.querySelectorAll('#wrCompileNodeList .wr-compile-node-cb:checked'))
+      .map(function (cb) { return WD.BinderNodes.get(cb.dataset.nodeId); })
+      .filter(Boolean);
+  }
+  function wrCompileTitle() { const m = WD.Manuscripts.get(wrBinderManuscriptId); return m ? m.title : 'Untitled Manuscript'; }
+
+  // ----- Plain text -----
+  function compileNodesPlain(nodes, standardFormat, title) {
+    const parts = [];
+    if (standardFormat) { parts.push(title, '', ''); }
+    nodes.forEach(function (node) {
+      parts.push(node.title, '');
+      if (node.content) parts.push(node.content, '');
+    });
+    return parts.join('\n');
+  }
+  function exportWrCompileTxt() {
+    const nodes = wrCompileSelectedNodes(); if (!nodes.length) { alert('Select at least one chapter.'); return; }
+    const text = compileNodesPlain(nodes, $('wrCompileStandardFormat').checked, wrCompileTitle());
+    downloadBlob(new Blob([text], { type: 'text/plain' }), safeFilename(wrCompileTitle()) + '.txt');
+  }
+
+  // ----- RTF (hand-rolled, no library) -----
+  function rtfEscape(text) {
+    let out = '';
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i], code = text.charCodeAt(i);
+      if (ch === '\\' || ch === '{' || ch === '}') out += '\\' + ch;
+      else if (ch === '\n') out += '\\par\n';
+      else if (code > 126) out += '\\u' + code + '?';
+      else out += ch;
+    }
+    return out;
+  }
+  function buildRtfDocument(nodes, standardFormat, title) {
+    let body = '';
+    if (standardFormat) body += '{\\qc\\fs48\\b ' + rtfEscape(title) + '\\par}\\page\n';
+    nodes.forEach(function (node, i) {
+      if (i > 0 && standardFormat) body += '\\page\n';
+      body += '{\\fs32\\b ' + rtfEscape(node.title) + '\\par}\\par\n';
+      if (node.content) body += '{\\fs24 ' + rtfEscape(node.content) + '\\par}\\par\n';
+    });
+    return '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Georgia;}}\\f0\n' + body + '}';
+  }
+  function exportWrCompileRtf() {
+    const nodes = wrCompileSelectedNodes(); if (!nodes.length) { alert('Select at least one chapter.'); return; }
+    const rtf = buildRtfDocument(nodes, $('wrCompileStandardFormat').checked, wrCompileTitle());
+    downloadBlob(new Blob([rtf], { type: 'application/rtf' }), safeFilename(wrCompileTitle()) + '.rtf');
+  }
+
+  // ----- Minimal stored/uncompressed ZIP writer (shared by DOCX + EPUB —
+  // both formats are ZIP containers; STORE-method entries are valid per
+  // the ZIP spec and need no compression library). -----
+  const WR_CRC_TABLE = (function () {
+    const table = [];
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+  function wrCrc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = WR_CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+  function wrStrToBytes(str) { return new TextEncoder().encode(str); }
+  function wrDosDateTime() {
+    const now = new Date();
+    const time = ((now.getHours() & 0x1F) << 11) | ((now.getMinutes() & 0x3F) << 5) | ((now.getSeconds() >> 1) & 0x1F);
+    const date = (((now.getFullYear() - 1980) & 0x7F) << 9) | (((now.getMonth() + 1) & 0xF) << 5) | (now.getDate() & 0x1F);
+    return { time: time, date: date };
+  }
+  function wrU32(arr, o, v) { arr[o] = v & 0xFF; arr[o + 1] = (v >>> 8) & 0xFF; arr[o + 2] = (v >>> 16) & 0xFF; arr[o + 3] = (v >>> 24) & 0xFF; }
+  function wrU16(arr, o, v) { arr[o] = v & 0xFF; arr[o + 1] = (v >>> 8) & 0xFF; }
+  function buildZip(files) {
+    const dt = wrDosDateTime();
+    const localParts = [], centralParts = [];
+    let offset = 0;
+    files.forEach(function (file) {
+      const nameBytes = wrStrToBytes(file.name);
+      const data = file.data;
+      const crc = wrCrc32(data);
+      const localHeader = new Uint8Array(30 + nameBytes.length);
+      wrU32(localHeader, 0, 0x04034b50); wrU16(localHeader, 4, 20); wrU16(localHeader, 6, 0); wrU16(localHeader, 8, 0);
+      wrU16(localHeader, 10, dt.time); wrU16(localHeader, 12, dt.date); wrU32(localHeader, 14, crc);
+      wrU32(localHeader, 18, data.length); wrU32(localHeader, 22, data.length);
+      wrU16(localHeader, 26, nameBytes.length); wrU16(localHeader, 28, 0);
+      localHeader.set(nameBytes, 30);
+      localParts.push(localHeader, data);
+
+      const centralHeader = new Uint8Array(46 + nameBytes.length);
+      wrU32(centralHeader, 0, 0x02014b50); wrU16(centralHeader, 4, 20); wrU16(centralHeader, 6, 20);
+      wrU16(centralHeader, 8, 0); wrU16(centralHeader, 10, 0); wrU16(centralHeader, 12, dt.time); wrU16(centralHeader, 14, dt.date);
+      wrU32(centralHeader, 16, crc); wrU32(centralHeader, 20, data.length); wrU32(centralHeader, 24, data.length);
+      wrU16(centralHeader, 28, nameBytes.length); wrU16(centralHeader, 30, 0); wrU16(centralHeader, 32, 0);
+      wrU16(centralHeader, 34, 0); wrU16(centralHeader, 36, 0); wrU32(centralHeader, 38, 0); wrU32(centralHeader, 42, offset);
+      centralHeader.set(nameBytes, 46);
+      centralParts.push(centralHeader);
+
+      offset += localHeader.length + data.length;
+    });
+    const centralStart = offset;
+    let centralSize = 0; centralParts.forEach(function (p) { centralSize += p.length; });
+    const eocd = new Uint8Array(22);
+    wrU32(eocd, 0, 0x06054b50); wrU16(eocd, 4, 0); wrU16(eocd, 6, 0);
+    wrU16(eocd, 8, files.length); wrU16(eocd, 10, files.length);
+    wrU32(eocd, 12, centralSize); wrU32(eocd, 16, centralStart); wrU16(eocd, 20, 0);
+    const allParts = localParts.concat(centralParts, [eocd]);
+    let totalLen = 0; allParts.forEach(function (p) { totalLen += p.length; });
+    const out = new Uint8Array(totalLen);
+    let pos = 0; allParts.forEach(function (p) { out.set(p, pos); pos += p.length; });
+    return out;
+  }
+
+  // ----- DOCX (minimal OOXML, no library) -----
+  function buildDocxDocumentXml(nodes, standardFormat, title) {
+    let body = '';
+    function para(text, styleId) {
+      const style = styleId ? '<w:pPr><w:pStyle w:val="' + styleId + '"/></w:pPr>' : '';
+      return '<w:p>' + style + '<w:r><w:t xml:space="preserve">' + xmlEscape(text) + '</w:t></w:r></w:p>';
+    }
+    function pageBreak() { return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'; }
+    if (standardFormat) { body += para(title, 'Title'); body += pageBreak(); }
+    nodes.forEach(function (node, i) {
+      if (i > 0 && standardFormat) body += pageBreak();
+      body += para(node.title, 'Heading1');
+      (node.content || '').split(/\n+/).forEach(function (line) { if (line.trim()) body += para(line, null); });
+    });
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:body>' + body + '<w:sectPr/></w:body></w:document>';
+  }
+  function buildDocx(nodes, standardFormat, title) {
+    const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+      '</Types>';
+    const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+      '</Relationships>';
+    const docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '</Relationships>';
+    const stylesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>' +
+      '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr><w:rPr><w:b/><w:sz w:val="48"/></w:rPr></w:style>' +
+      '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>' +
+      '</w:styles>';
+    const documentXml = buildDocxDocumentXml(nodes, standardFormat, title);
+    const files = [
+      { name: '[Content_Types].xml', data: wrStrToBytes(contentTypes) },
+      { name: '_rels/.rels', data: wrStrToBytes(rootRels) },
+      { name: 'word/document.xml', data: wrStrToBytes(documentXml) },
+      { name: 'word/styles.xml', data: wrStrToBytes(stylesXml) },
+      { name: 'word/_rels/document.xml.rels', data: wrStrToBytes(docRels) }
+    ];
+    return buildZip(files);
+  }
+  function exportWrCompileDocx() {
+    const nodes = wrCompileSelectedNodes(); if (!nodes.length) { alert('Select at least one chapter.'); return; }
+    const bytes = buildDocx(nodes, $('wrCompileStandardFormat').checked, wrCompileTitle());
+    downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), safeFilename(wrCompileTitle()) + '.docx');
+  }
+
+  // ----- EPUB (minimal EPUB3, no library — same ZIP writer as DOCX) -----
+  function buildEpub(nodes, standardFormat, title) {
+    const uid = 'urn:uuid:' + WD.uid('epub');
+    const chapterFiles = [], manifestItems = [], spineItems = [], navPoints = [];
+    let playOrder = 1;
+    if (standardFormat) {
+      const titleHtml = '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>' + xmlEscape(title) + '</title></head><body><h1 style="text-align:center;margin-top:200px;">' + xmlEscape(title) + '</h1></body></html>';
+      chapterFiles.push({ name: 'OEBPS/title.xhtml', data: wrStrToBytes(titleHtml) });
+      manifestItems.push('<item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>');
+      spineItems.push('<itemref idref="title"/>');
+    }
+    nodes.forEach(function (node, i) {
+      const fname = 'chapter' + i + '.xhtml';
+      const paragraphs = (node.content || '').split(/\n+/).filter(function (l) { return l.trim(); }).map(function (l) { return '<p>' + xmlEscape(l) + '</p>'; }).join('\n');
+      const html = '<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>' + xmlEscape(node.title) + '</title></head><body><h1>' + xmlEscape(node.title) + '</h1>' + paragraphs + '</body></html>';
+      chapterFiles.push({ name: 'OEBPS/' + fname, data: wrStrToBytes(html) });
+      manifestItems.push('<item id="ch' + i + '" href="' + fname + '" media-type="application/xhtml+xml"/>');
+      spineItems.push('<itemref idref="ch' + i + '"/>');
+      navPoints.push('<navPoint id="np' + i + '" playOrder="' + (playOrder++) + '"><navLabel><text>' + xmlEscape(node.title) + '</text></navLabel><content src="' + fname + '"/></navPoint>');
+    });
+    const opf = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">' +
+      '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+      '<dc:identifier id="bookid">' + xmlEscape(uid) + '</dc:identifier>' +
+      '<dc:title>' + xmlEscape(title) + '</dc:title><dc:language>en</dc:language></metadata>' +
+      '<manifest>' + manifestItems.join('') + '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>' +
+      '<spine toc="ncx">' + spineItems.join('') + '</spine></package>';
+    const ncx = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">' +
+      '<head><meta name="dtb:uid" content="' + xmlEscape(uid) + '"/></head>' +
+      '<docTitle><text>' + xmlEscape(title) + '</text></docTitle>' +
+      '<navMap>' + navPoints.join('') + '</navMap></ncx>';
+    const container = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0">' +
+      '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>';
+    const files = [
+      { name: 'mimetype', data: wrStrToBytes('application/epub+zip') },
+      { name: 'META-INF/container.xml', data: wrStrToBytes(container) },
+      { name: 'OEBPS/content.opf', data: wrStrToBytes(opf) },
+      { name: 'OEBPS/toc.ncx', data: wrStrToBytes(ncx) }
+    ].concat(chapterFiles);
+    return buildZip(files);
+  }
+  function exportWrCompileEpub() {
+    const nodes = wrCompileSelectedNodes(); if (!nodes.length) { alert('Select at least one chapter.'); return; }
+    const bytes = buildEpub(nodes, $('wrCompileStandardFormat').checked, wrCompileTitle());
+    downloadBlob(new Blob([bytes], { type: 'application/epub+zip' }), safeFilename(wrCompileTitle()) + '.epub');
+  }
+
+  // ----- Print / Save as PDF (native browser print, per the confirmed
+  // choice — better typography than a hand-rolled PDF byte generator). -----
+  function exportWrCompilePrint() {
+    const nodes = wrCompileSelectedNodes(); if (!nodes.length) { alert('Select at least one chapter.'); return; }
+    const standardFormat = $('wrCompileStandardFormat').checked;
+    const title = wrCompileTitle();
+    const container = $('wrPrintView'); container.innerHTML = '';
+    if (standardFormat) {
+      const titlePage = document.createElement('div'); titlePage.className = 'wr-print-title-page';
+      const h1 = document.createElement('h1'); h1.textContent = title; titlePage.appendChild(h1);
+      container.appendChild(titlePage);
+    }
+    nodes.forEach(function (node) {
+      const chapterDiv = document.createElement('div'); chapterDiv.className = 'wr-print-chapter';
+      const h2 = document.createElement('h2'); h2.textContent = node.title; chapterDiv.appendChild(h2);
+      const p = document.createElement('p'); p.textContent = node.content || ''; chapterDiv.appendChild(p);
+      container.appendChild(chapterDiv);
+    });
+    window.print();
+  }
+
+  // ============================================================
   // BOOT
   // ============================================================
   function init() {
     DB = window.BusinessData;
     if (!DB) return;
+    WD = window.WritingData || null;
+    if (WD) {
+      const storedView = storeGet(WD.KEYS.activeView);
+      writingView = ['board', 'ideas', 'themes'].indexOf(storedView) !== -1 ? storedView : 'board';
+    }
+
+    // A device that already had real Business Hub data before the Writing
+    // Dashboard tab existed never re-runs the one-time seed, so it would
+    // never get the new tab otherwise — see ensureWritingDashboardExists()'s
+    // own comment in business-data.js. Safe to call unconditionally here
+    // (it no-ops on a genuinely empty/fresh device via its own guard).
+    DB.ensureWritingDashboardExists();
 
     const tabs = DB.tabsSorted();
     const savedTab = storeGet(ACTIVE_TAB_KEY);
@@ -2641,6 +4340,161 @@ body::after {
     });
     $('bhResTaskDetailNoteInput').addEventListener('input', function () { autosize(this); autosaveResTaskDetailNote(); });
 
+    // ---------- Writing Dashboard wiring ----------
+    if (WD) {
+      $('wrSubpageBackBtn').addEventListener('click', function () {
+        const writingTab = DB.tabsSorted().find(function (t) { return t.layout === 'writing'; });
+        if (writingTab) switchTab(writingTab.id);
+      });
+      document.querySelectorAll('#wrArticle [data-wr-add-block]').forEach(function (btn) {
+        btn.addEventListener('click', function () { WD.addArticleBlock(btn.dataset.wrAddBlock); renderWrArticle(); });
+      });
+      $('wrArticleTitle').addEventListener('input', function () { autosize($('wrArticleTitle')); });
+      $('wrArticleTitle').addEventListener('blur', function () { WD.saveArticleTitle($('wrArticleTitle').value); });
+
+      document.querySelectorAll('#wrSubnav [data-wr-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () { writingView = btn.dataset.wrView; storeSet(WD.KEYS.activeView, writingView); renderWritingDashboard(); });
+      });
+      document.querySelectorAll('#wrSubnav [data-wr-nav-subpage]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const tab = DB.tabsSorted().find(function (t) { return t.isWritingSubpage && t.title === btn.dataset.wrNavSubpage; });
+          if (tab) switchTab(tab.id);
+        });
+      });
+
+      wireFilterChipRow('wrStatusFilterChips', function (v) { wrStatusFilter = v; });
+      $('wrAddSeriesBtn').addEventListener('click', function () { openWrSeriesModal(null); });
+      $('wrAddManuscriptBtn').addEventListener('click', function () { openWrManuscriptModal(null, null); });
+
+      $('wrSeriesModalCloseBtn').addEventListener('click', function () { closeModal($('wrSeriesModalBg')); });
+      $('wrSeriesModalCancel').addEventListener('click', function () { closeModal($('wrSeriesModalBg')); });
+      $('wrSeriesModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('wrSeriesModalSave').addEventListener('click', saveWrSeriesModal);
+      $('wrSeriesModalDelete').addEventListener('click', deleteWrSeriesModal);
+
+      $('wrManuscriptModalCloseBtn').addEventListener('click', function () { closeModal($('wrManuscriptModalBg')); });
+      $('wrManuscriptModalCancel').addEventListener('click', function () { closeModal($('wrManuscriptModalBg')); });
+      $('wrManuscriptModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('wrManuscriptModalSave').addEventListener('click', saveWrManuscriptModal);
+      $('wrManuscriptModalDelete').addEventListener('click', deleteWrManuscriptModal);
+
+      $('wrMsDetailBackBtn').addEventListener('click', function () { closeWrPage('wrManuscriptDetailPageBg'); wrMsDetailId = null; renderWrBoard(); });
+      $('wrMsDetailTitleInput').addEventListener('blur', function () {
+        if (!wrMsDetailId) return;
+        const v = this.value.trim(); if (!v) return;
+        WD.Manuscripts.update(wrMsDetailId, { title: v });
+        renderWrBoard();
+      });
+      $('wrMsDetailEditStatsBtn').addEventListener('click', function () { const m = WD.Manuscripts.get(wrMsDetailId); if (m) openWrManuscriptModal(m, m.seriesId); });
+      $('wrMsDetailDeleteBtn').addEventListener('click', function () {
+        if (!wrMsDetailId) return;
+        if (!confirm('Delete this manuscript? Its tasks, chapters, and trackers will be deleted too.')) return;
+        WD.Manuscripts.remove(wrMsDetailId);
+        closeWrPage('wrManuscriptDetailPageBg'); wrMsDetailId = null;
+        renderWrBoard();
+      });
+      $('wrMsDetailAddNoteBtn').addEventListener('click', function () { if (!wrMsDetailId) return; WD.addManuscriptNote(wrMsDetailId); renderWrManuscriptDetailNotes(); });
+
+      wireFilterChipRow('wrIdeaStatusChips', function (v) { wrIdeaStatusFilter = v; });
+      $('wrIdeaSearchInput').addEventListener('input', function () { wrIdeaSearch = this.value; renderWrIdeas(); });
+      $('wrAddIdeaBtn').addEventListener('click', function () { openWrIdeaModal(null); });
+      $('wrIdeaModalCloseBtn').addEventListener('click', function () { closeModal($('wrIdeaModalBg')); });
+      $('wrIdeaModalCancel').addEventListener('click', function () { closeModal($('wrIdeaModalBg')); });
+      $('wrIdeaModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('wrIdeaModalSave').addEventListener('click', saveWrIdeaModal);
+      $('wrIdeaModalDelete').addEventListener('click', deleteWrIdeaModal);
+
+      $('wrThemeSaveCustomBtn').addEventListener('click', saveWrCustomTheme);
+      $('wrThemeDeleteCustomBtn').addEventListener('click', deleteWrCustomTheme);
+
+      // Tasks Inline Database
+      $('wrTaskFilterManuscript').addEventListener('change', function () { wrTaskFilterManuscript = this.value; renderWrTaskTable(); });
+      $('wrTaskFilterStatus').addEventListener('change', function () { wrTaskFilterStatus = this.value; renderWrTaskTable(); });
+      $('wrTaskFilterPriority').addEventListener('change', function () { wrTaskFilterPriority = this.value; renderWrTaskTable(); });
+      $('wrTaskSearchInput').addEventListener('input', function () { wrTaskSearch = this.value; renderWrTaskTable(); });
+      $('wrTaskAddTemplateBtn').addEventListener('click', function () {
+        const title = prompt('Template name?'); if (!title) return;
+        WD.Tasks.add({ title: title, order: WD.rootTasks().length });
+        renderWrTaskTable();
+      });
+      $('wrTaskDetailCloseBtn').addEventListener('click', closeWrTaskDetailModal);
+      $('wrTaskDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closeWrTaskDetailModal(); });
+      $('wrTaskDetailTitleInput').addEventListener('blur', saveWrTaskDetailFields);
+      $('wrTaskDetailManuscriptInput').addEventListener('change', saveWrTaskDetailFields);
+      $('wrTaskDetailStatusInput').addEventListener('change', saveWrTaskDetailFields);
+      $('wrTaskDetailPriorityInput').addEventListener('change', saveWrTaskDetailFields);
+      $('wrTaskDetailDueInput').addEventListener('change', saveWrTaskDetailFields);
+      $('wrTaskDetailSummaryInput').addEventListener('blur', saveWrTaskDetailFields);
+      $('wrTaskDetailAddNoteBlockBtn').addEventListener('click', function () { if (!wrTaskDetailId) return; WD.addWritingTaskBlock(wrTaskDetailId, 'note'); renderWrTaskDetailBlocks(); });
+      $('wrTaskDetailAddCodeBlockBtn').addEventListener('click', function () { if (!wrTaskDetailId) return; WD.addWritingTaskBlock(wrTaskDetailId, 'code'); renderWrTaskDetailBlocks(); });
+      $('wrTaskDetailDeleteBtn').addEventListener('click', deleteWrTaskDetail);
+
+      $('wrMsDetailOpenTasksBtn').addEventListener('click', function () {
+        if (!wrMsDetailId) return;
+        const targetMsId = wrMsDetailId;
+        closeWrPage('wrManuscriptDetailPageBg');
+        writingView = 'board'; storeSet(WD.KEYS.activeView, writingView);
+        wrTaskFilterManuscript = targetMsId;
+        renderWritingDashboard();
+        $('wrTaskFilterManuscript').value = targetMsId;
+        $('wrTaskTable').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      });
+
+      // Manuscript Binder (Phase 3)
+      $('wrMsDetailOpenBinderBtn').addEventListener('click', function () { if (wrMsDetailId) openWrBinder(wrMsDetailId); });
+      $('wrBinderBackBtn').addEventListener('click', closeWrBinder);
+      document.querySelectorAll('.wr-binder-add-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { addBinderNodeFromToolbar(btn.dataset.nodeType); });
+      });
+      $('wrMarkCurrentChapterBtn').addEventListener('click', function () {
+        if (!wrBinderManuscriptId || !wrBinderActiveNodeId) return;
+        WD.Manuscripts.update(wrBinderManuscriptId, { currentBinderNodeId: wrBinderActiveNodeId });
+        const btn = $('wrMarkCurrentChapterBtn'); const orig = btn.textContent;
+        btn.textContent = '✓ Marked!';
+        setTimeout(function () { btn.textContent = orig; }, 1200);
+      });
+      $('wrIndexCardTitle').addEventListener('blur', function () {
+        if (!wrBinderActiveNodeId) return;
+        const v = this.value.trim() || 'Untitled';
+        WD.BinderNodes.update(wrBinderActiveNodeId, { title: v });
+        renderWrBinderTree();
+      });
+      $('wrIndexCardBody').addEventListener('input', function () { $('wrIndexCardWordCount').textContent = WD.wordCount(this.value) + ' words'; });
+      $('wrIndexCardBody').addEventListener('blur', function () {
+        if (!wrBinderActiveNodeId) return;
+        WD.BinderNodes.update(wrBinderActiveNodeId, { content: this.value });
+        renderWrBinderTree(); renderWrBinderTargets();
+      });
+      $('wrChapterNotesBody').addEventListener('blur', function () {
+        if (!wrBinderActiveNodeId) return;
+        WD.BinderNodes.update(wrBinderActiveNodeId, { chapterNotes: this.value });
+      });
+      $('wrCompositionModeBtn').addEventListener('click', enterCompositionMode);
+      $('wrCompositionExitBtn').addEventListener('click', exitCompositionMode);
+      $('wrCompositionTextarea').addEventListener('input', function () { $('wrCompositionWordCount').textContent = WD.wordCount(this.value) + ' words'; });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('wrCompositionOverlay').classList.contains('show')) exitCompositionMode(); });
+
+      $('wrTrackerModalCloseBtn').addEventListener('click', function () { closeModal($('wrTrackerModalBg')); });
+      $('wrTrackerModalCancel').addEventListener('click', function () { closeModal($('wrTrackerModalBg')); });
+      $('wrTrackerModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('wrTrackerModalSave').addEventListener('click', saveWrTrackerModal);
+      $('wrTrackerModalDelete').addEventListener('click', deleteWrTrackerModal);
+
+      // Compile & Export (Phase 4)
+      $('wrCompileBtn').addEventListener('click', openWrCompileModal);
+      $('wrCompileModalCloseBtn').addEventListener('click', function () { closeModal($('wrCompileModalBg')); });
+      $('wrCompileModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('wrCompileSelectAll').addEventListener('change', function () {
+        const checked = this.checked;
+        document.querySelectorAll('#wrCompileNodeList .wr-compile-node-cb').forEach(function (cb) { cb.checked = checked; });
+      });
+      $('wrCompileTxtBtn').addEventListener('click', exportWrCompileTxt);
+      $('wrCompileRtfBtn').addEventListener('click', exportWrCompileRtf);
+      $('wrCompileDocxBtn').addEventListener('click', exportWrCompileDocx);
+      $('wrCompileEpubBtn').addEventListener('click', exportWrCompileEpub);
+      $('wrCompilePrintBtn').addEventListener('click', exportWrCompilePrint);
+    }
+
     // Empty-storage seed-race safety window — same reasoning as
     // dreamboard.html's maybeSeedAfterSyncAttempt().
     let remoteAppliedOnce = false;
@@ -2648,6 +4502,7 @@ body::after {
       if (remoteAppliedOnce) return;
       if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.WorkflowWeeks.list().length > 0) return;
       DB.seedIfEmpty();
+      if (WD) WD.seedIfEmpty();
       const freshTabs = DB.tabsSorted();
       activeTabId = (freshTabs[0] || {}).id || null;
       storeSet(ACTIVE_TAB_KEY, activeTabId);
@@ -2667,6 +4522,11 @@ body::after {
           // then go blank. Re-run the migration on every applied pull,
           // not just once at load.
           DB.normalizeStoredData();
+          // A pulled remote row can also still be missing the Writing
+          // Dashboard tab entirely (e.g. pushed from a device that hadn't
+          // loaded this update yet) — re-assert it on every applied pull,
+          // same reasoning as the initial-boot call above.
+          DB.ensureWritingDashboardExists();
           const tabs2 = DB.tabsSorted();
           if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
           renderHero(); renderTabs(); renderActiveTabContent();

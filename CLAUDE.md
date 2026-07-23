@@ -343,10 +343,12 @@ between this app and either data loss or a wide-open write target:
 
 ## Writing Dashboard
 
-**Status: scaffolding only, spec not yet written.** `docs/WRITING_DASHBOARD_SPEC.md`
-is a placeholder — read it before working here, but there's nothing to build
-from yet. Once the real spec lands there, treat it as the source of truth for
-this feature specifically (it does not override anything else in this file).
+**Status: built, 5th Business Hub tab, `layout: 'writing'` — see the
+changelog entry below for the full feature list.** `docs/WRITING_DASHBOARD_SPEC.md`
+now documents the real, implemented plan (it was scaffolding-only before this
+was built) — read it for the file-by-file breakdown; this section keeps the
+original scope note and the constraint adaptations below since they're still
+accurate.
 
 **Scope, confirmed 2026-07-22**: a new tab inside `business.html` (Business
 Hub), alongside the existing Content / Ideas / Platforms / Resources tabs —
@@ -407,6 +409,192 @@ both as originally phrased assumed a backend this app doesn't have):
   Edge" notes).
 
 ## Changelog
+
+- **New: Writing Dashboard — a 5th Business Hub tab (`layout: 'writing'`),
+  built from `docs/WRITING_DASHBOARD_SPEC.md`'s plan** — effectively its own
+  Scrivener-style manuscript editor plus a Notion-style project tracker,
+  scoped to writers who work in series/trilogies. Genuinely new companion
+  data file, `writing-data.js` (mirrors every other page's own
+  `<page>-data.js` sibling convention — `household.html`+`household-data.js`
+  etc. — rather than cramming this feature's ~10 new collections into the
+  already-1000-line `business-data.js`); every key it defines is still
+  `business:*`-prefixed (`business:writingSeries`, `business:writingManuscripts`,
+  `business:writingTasks`, `business:writingBinderNodes`,
+  `business:writingPlotThreads`/`ContinuityItems`/`Characters`,
+  `business:writingIdeas`, `business:writingArticle`, `business:writingTheme`),
+  so the existing `initCloudSync({ appKey: 'business', syncedPrefixes:
+  ['business:'] })` call already in `business.html` covers it with zero new
+  sync wiring — verified directly (dumped every `localStorage` key after a
+  full click-through and confirmed every Writing key carries the
+  `business:` prefix). `business-data.js` itself only gained a one-line
+  change — `tabModel()`'s `layout` whitelist gained `'writing'` — plus a 5th
+  seeded tab and 3 hidden `isWritingSubpage: true` tabs (see below).
+  - **Confirmed adaptations** (asked and agreed before building, since the
+    original ask assumed capabilities this app doesn't have): the Plot
+    Thread/Continuity/Character trackers "auto-fill" via a **tag-selected-
+    text button** (creates a mention from the Index Card's current text
+    selection) plus a **"🔍 Scan this chapter" button** (case-insensitive
+    substring-matches every existing tracker name against the chapter's
+    text and logs a mention per hit) — not real NLP/LLM extraction, since
+    this app has no active LLM key (`ANTHROPIC_API_KEY` is still an
+    inactive placeholder everywhere else in this file too). "Kindle-
+    compatible" export was dropped entirely per the user's own choice (true
+    `.mobi`/`.azw3` generation isn't feasible client-side — KindleGen is
+    discontinued). PDF export is a print-formatted view + the browser's
+    native Print → Save as PDF, not a hand-rolled PDF byte generator
+    (better typography, one extra click) — also the user's own choice.
+  - **Ordering, deliberately split** (matching this section's own
+    pre-existing note above): Series/Manuscript/WritingTask/note-sections/
+    article-blocks all use this app's standard numeric `order` + swap-
+    adjacent-values convention. `BinderNode.orderKey` alone uses fractional-
+    indexing string keys (a small self-contained base-36 midpoint generator,
+    `midKey()`, no external dependency) — the one place in this feature
+    where "drag anywhere in an arbitrarily deep tree" genuinely benefits
+    from it, since it avoids renumbering an entire subtree on every drag.
+  - **Landing page** (`#bhWritingDashboard`): an editable article/callout
+    section (default title "Your Novel in 30 Days," heading/paragraph/
+    callout blocks, add/reorder/delete) above a **visual board** — manuscript
+    cards grouped by Series (+ a trailing "Standalone" group), status filter
+    chips (All/Active/Inactive/Idea), SortableJS drag both within and across
+    series groups (cross-group drop reassigns `seriesId`). Each card shows
+    Platform/Niche/Est. growth duration, Goal Revenue/Profit, an editable
+    "750 / 1500 words" Today's Goal, Total/Completed Tasks, a completed-
+    tasks progress bar with an editable fill color (a plain `<input
+    type="color">`, not the widget board's tint-popover component), and
+    Current Chapter. Clicking a card opens a **Manuscript Detail overlay**
+    (this app's established `#taskDetailPageBg`-style full-page pattern,
+    new here as `.wr-page-bg`/`.wr-page` since `business.html` only had
+    modal-bg overlays before) with an editable stats form, multiple
+    editable/reorderable/deletable note sections (same convention as
+    `index.html`'s Overview notes / this file's own Platform sections), a
+    Tasks readout, and (once built) "📖 Open Binder."
+  - **Sub-nav** (`.wr-subnav`): Outlines / More Notes / Automation Ideas are
+    each a real, hidden `isWritingSubpage: true` Tabs record reusing the
+    *entire* existing freeform widget-board engine verbatim (drag, tint,
+    Add Widget menu) — `renderTabs()` filters them out of the main
+    `.bh-tabs` pill row, and a `.wr-subpage-backbar` shows "← Back to
+    Writing Dashboard" whenever one is the active tab. Ideas is a small
+    dedicated CRUD gallery (`WritingIdea` — title/pitch/tags/status/notes,
+    tag+status filter chips, search) since "filter them in various ways"
+    was a more precise ask than a generic board. Theme Marketplace is the
+    one sanctioned palette exception here (opt-in, data-driven — 5 built-in
+    preset records plus a custom color/font/background-photo editor, all
+    applied as `--wr-theme-*` custom properties scoped to
+    `#bhWritingDashboard` only, so it can never leak into the other 4 tabs).
+  - **Tasks Inline Database** (on the main board page, below the manuscript
+    board, per the request's own "still on the main page... below the
+    visual board" wording): a "database table" rendered as this app's
+    established div-row idiom (`.bh-task-card`, reused verbatim) rather
+    than a literal `<table>`. A "template" is a root `WritingTask`
+    (`parentTaskId: null`); its "sub-pages" are child tasks, indented below
+    it. Filterable by manuscript/status/priority/search; a manuscript's
+    Detail overlay "📋 Open in Tasks Database" link deep-links here
+    pre-filtered. **Reorder uses up/down arrows, not drag** — a deliberate,
+    disclosed scope adjustment from the original plan wording: a careless
+    cross-template drag could otherwise silently reparent a sub-page under
+    the wrong template, and this app's own closest nested-list precedent
+    (Workflow's Weeks/Days, same file) already made the same "arrows, not
+    drag, for a real parent/child tree" call. A Task Detail modal (title,
+    manuscript link, status/priority/due, an autosaving "summary note" —
+    shown on the row below the title) has "+ Generate Text Section"/"+
+    Generate Code Block" buttons appending editable/reorderable/deletable
+    blocks, reusing the exact `.bh-pf-section` component this file's own
+    Platform Detail / Workflow Day pages already established.
+  - **Manuscript Binder** (`#wrBinderPageBg`, opened via "📖 Open Binder" —
+    its own full-page view, not a modal): a Part→Chapter→Scene tree (native
+    HTML5 drag with a before/after/onto drop-position indicator, a cycle
+    guard so a node can't be dropped into its own descendant, inline-
+    editable titles, per-node live word counts, delete-with-cascade-
+    confirm) plus a 3-panel editor for the selected node — **Trackers**
+    (left: Plot Threads/Continuity/Characters mini-lists, "+ New," the tag-
+    selection/scan-chapter auto-fill above), **Index Card** (center: a
+    large autosaving textarea bound to the node's prose, live word count),
+    **Chapter Notes** (right: a separate autosaving textarea, distinct from
+    the manuscript-level note sections on the card). A **Project Targets**
+    row above the layout shows three editable-goal progress bars — entire
+    manuscript (summed word count across the whole tree vs. a new
+    `Manuscript.manuscriptWordGoal` field), current chapter (vs. that
+    node's own `wordGoal`), and daily writing (vs. `todaysGoalTarget`,
+    computed via a once-per-day `business:writingDailySnapshot` diff — a
+    documented simplification, no full revision history, same spirit as
+    `projects.html`'s burndown-chart fixed-scope assumption elsewhere in
+    this app's history). **Composition Mode** is a fixed fullscreen overlay
+    (Escape or "✕ Exit" to leave) showing only the Index Card text + a live
+    word count, hiding everything else via a separate `<textarea>` that
+    writes back to the real node on exit.
+  - **Compile & Export** (from the Binder's "📦 Compile & Export" button): a
+    picker over the flattened binder tree (checkboxes, default all-checked)
+    plus a "Standard manuscript format" toggle (title page + chapter page-
+    breaks). **TXT** and **RTF** (hand-rolled escaping, no library) are
+    trivial `Blob`+`<a download>`s. **DOCX and EPUB share one hand-rolled,
+    dependency-free stored/uncompressed ZIP writer** (local file headers +
+    central directory + a CRC32 lookup table — STORE-method entries are
+    valid per the ZIP spec, so no compression library was needed) — DOCX
+    is minimal but real OOXML (`[Content_Types].xml`, `_rels/.rels`,
+    `word/document.xml` with `word/styles.xml`-defined Title/Heading1
+    styles so Word doesn't need to guess at unstyled `w:pStyle`
+    references), EPUB is a real, valid EPUB3 (`mimetype` stored as the
+    first entry per spec, `META-INF/container.xml`, `OEBPS/content.opf` +
+    `toc.ncx`, one XHTML file per chapter). **PDF** is the confirmed
+    print-view approach: populates `#wrPrintView` (a fixed body-level
+    sibling, shown only under a `@media print` rule that hides everything
+    else) then calls `window.print()`.
+  - **Verified in headless Edge, `*.supabase.co` blocked at the network
+    layer** (`--host-resolver-rules`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]) via a real,
+    interactive click-through per phase (not just `--dump-dom` snapshots —
+    a same-origin iframe harness with `--allow-file-access-from-files`,
+    same technique this repo's pre-existing `_test_harness.html` already
+    used successfully for `gym.html`): series/manuscript CRUD, cross-series
+    drag reassignment logic, status filtering, note sections, Ideas CRUD,
+    Theme Marketplace preset application (confirmed the actual computed
+    `--wr-theme-accent` value changed), Outlines/More Notes/Automation
+    sub-page navigation (confirmed real reuse of the freeform board engine
+    — non-zero widget counts, zero new widget code), the Tasks table's
+    template/sub-page hierarchy and manuscript-linked task counts, the
+    Binder tree's add/select/word-count-on-blur/drag-with-cycle-guard,
+    tracker tag-selection and chapter-scan auto-fill (confirmed a real
+    mention got logged with the correct text snippet), Composition Mode's
+    round-trip back into the Index Card, and all five export formats
+    (TXT/RTF content verified by intercepting `HTMLAnchorElement.prototype
+    .click()` and `fetch()`-ing the resulting `blob:` URL back out instead
+    of letting headless mode attempt a real file-save dialog; DOCX/EPUB
+    verified as genuinely valid ZIPs with the correct internal part names
+    present in the raw bytes; PDF verified via a stubbed `window.print`
+    plus checking the populated print-view DOM). Reload-persistence was
+    confirmed three separate times (once per data-bearing phase) by
+    reloading the same iframe in place and re-reading the same state back
+    out of `localStorage` — not merely asserted. Zero console errors across
+    every pass, and the pre-existing Content/Ideas/Platforms/Resources tabs
+    were re-confirmed unaffected after each phase landed.
+
+- **Bugfix: the new Writing Dashboard tab was invisible on any device that
+  already had real Business Hub data from before this feature existed** —
+  reported as "I can't find it." Root cause: `seedDefaultBoard()`'s Writing
+  Dashboard tab (and its 3 hidden sub-page tabs) only ever gets created by
+  `seedIfEmpty()`, which is guarded by a one-time `business:seeded` flag —
+  on a device that had already used this page, that flag was already `true`
+  from before this session, so it silently never ran again, and
+  `normalizeStoredData()` (which runs on every load) only ever backfills
+  *fields* on tabs that already exist, it never adds a brand-new tab. Same
+  failure class this app has hit — and fixed — more than once before (this
+  file's own Self-Care "missing Anxiety tab" entry, and this exact page's
+  earlier `hasTemplates` backfill). Fixed with `ensureWritingDashboardExists()`
+  (new, `business-data.js`) — appends the Writing Dashboard tab (and any
+  missing sub-page tab, each independently) directly, guarded only by "some
+  tabs already exist" so a genuinely fresh/empty device isn't handed a
+  stray tab before its own deferred full-board seed runs. Called
+  unconditionally at the top of `business.html`'s `init()` (before tabs are
+  loaded for rendering) and again inside `onApplied` (a pulled remote row
+  can reintroduce an older tab list missing it too), matching the exact
+  two-call-site precedent the `hasTemplates`/Anxiety-tab fixes already
+  established. **Verified by reproducing the actual bug first**: pruned a
+  real, fully-seeded profile's `business:tabs`/`business:widgets` back down
+  to just the original 4 tabs (confirming `business:seeded` stayed `true`
+  throughout, so the one-time seed path genuinely could not have been what
+  restored it), reloaded, and confirmed all 8 tabs (4 original + Writing
+  Dashboard + 3 sub-pages) came back and the Writing Dashboard tab actually
+  renders on click.
 
 - **Stack and Water pages removed.** Deleted `health.html` (Stack) and
   `po-water.html` (Water) entirely, along with their `STACK`/`WATER` nav
