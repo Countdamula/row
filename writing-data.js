@@ -125,6 +125,11 @@
       todaysGoalTarget: typeof data.todaysGoalTarget === 'number' ? data.todaysGoalTarget : 1000,
       todaysGoalUnit: typeof data.todaysGoalUnit === 'string' ? data.todaysGoalUnit : 'words',
       progressBarColor: typeof data.progressBarColor === 'string' ? data.progressBarColor : '',
+      // A cover photo for this manuscript's own detail page and its
+      // board card — same upload-or-paste-flow shape as every other
+      // cover-photo field in this app (a data: URL locally, swapped for
+      // a tiny hosted URL once PhotoStore's upload resolves).
+      coverPhoto: typeof data.coverPhoto === 'string' ? data.coverPhoto : '',
       currentBinderNodeId: data.currentBinderNodeId || null,
       // Entire-manuscript word-count goal, shown in the Binder's Project
       // Targets tracker (Phase 3) — distinct from todaysGoalTarget (the

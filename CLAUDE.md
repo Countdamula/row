@@ -7026,3 +7026,83 @@ both as originally phrased assumed a backend this app doesn't have):
     for real click/dialog interaction (the same disclosed limitation
     several other pages' changelog entries in this file already note); a
     real click-through is recommended before relying on this heavily.
+
+- **Writing Dashboard: manuscripts can now have a cover photo (matching
+  the app's main-tab hero pattern), and the Tasks Database gained
+  dividers between every row plus a Templates/Tasks split by title.**
+  Purely additive to `writing-data.js`/`business.html` — nothing was
+  deleted, per an explicit instruction.
+  - **Manuscript cover photo**: `Manuscript` gained an additive
+    `coverPhoto` field (empty string default, safe for every existing
+    manuscript). The Manuscript Detail page gained its own cover banner
+    (`.wr-ms-cover`, new) at the very top of the page, above the topbar —
+    the same upload/change/remove interaction, gradient legibility
+    overlay, and compress-then-swap-for-a-hosted-URL flow as this file's
+    own tab-level `.bh-hero` (`renderHero()`/`openHeroFilePicker()`/
+    `handleHeroPhotoFile()`), just without the eyebrow/title/CTA text
+    overlay, since the page already has its own title input and controls
+    right below it — this is the literal "make it similar to the ones on
+    the main tabs" ask. New `renderWrMsCover()`/`openWrMsCoverFilePicker()`/
+    `handleWrMsCoverPhotoFile()` mirror those functions closely, scoped to
+    `wrMsDetailId` instead of `activeTabId`. The manuscript's board card
+    also gained a small 16:9 cover thumbnail (`.wr-ms-card-cover`, only
+    rendered when a cover photo is actually set — no empty placeholder
+    box on cards without one) sitting between the new accent bar and the
+    title row. `migratePhotosToStorage()` (this file's own one-time
+    base64→hosted-URL backfill sweep) now also scans
+    `WD.Manuscripts.list()` for `coverPhoto`, matching how it already
+    scans Tabs/Widgets — consistent with the established pattern, even
+    though a brand-new field has no legacy data to migrate; it only
+    matters for the rare "closed the tab before the async upload
+    finished" case.
+  - **Dividers between every task row**: `#wrTaskTable > .wr-task-table-row
+    + .wr-task-table-row` gained a hairline top border — since every
+    rendered row (root task or indented sub-page) is a flat sibling
+    inside `#wrTaskTable`, this puts a divider between every consecutive
+    pair of rows regardless of depth. Scoped to `#wrTaskTable`
+    specifically (the main Tasks Database), not the Manuscript Detail
+    page's own inline task list added in the previous session's entry —
+    that wasn't asked for, same "scope narrowly, don't touch what wasn't
+    requested" precedent this file has followed before (e.g. the Task
+    Detail block autosize fix).
+  - **Templates/Tasks split, same database**: `renderWrTaskTable()` now
+    partitions the already-filtered root tasks into two groups — any
+    root task whose *title* contains the word "template"
+    (case-insensitive substring match) vs. every other root task — each
+    under its own small header (`.wr-task-group-title`, "Templates (N)"/
+    "Tasks (N)", omitted when empty), still rendered into the exact same
+    `#wrTaskTable` container, not a separate section/page/tab. Deliberately
+    **distinct from the pre-existing "TEMPLATE" badge** (`buildWrTaskRow()`
+    already tags any root task that merely *has sub-pages* as a
+    "template," regardless of its title) — a task titled "Draft Chapter 3"
+    that happens to have a sub-page still gets the TEMPLATE badge (that
+    existing, unrelated concept) but lands in the "Tasks" group here,
+    since its title doesn't contain the word "template." A sub-page
+    always renders grouped under its own parent regardless of the
+    sub-page's own title — splitting a template from its sub-pages
+    would break the tree visually, so only root tasks are partitioned.
+    The adjacent-sibling divider rule above composes correctly with this:
+    a `.wr-task-group-title` header breaks the sibling chain, so no
+    divider appears directly under a group heading, only between actual
+    task rows.
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]): confirmed zero
+    duplicate DOM ids (including the eight new cover-photo element ids)
+    and zero JS console errors on a fresh load; a seeded manuscript (a
+    real base64 cover photo, 5 tasks — two titled "…Template," one
+    titled "Draft Chapter 3" with a real sub-page, one plain) screenshot-
+    confirmed: the card shows the real cover thumbnail correctly above
+    its title row, the board's "Tasks: 1 / 5 done" count is accurate,
+    the Tasks Database renders a "Templates (2)" group (both
+    template-titled tasks) followed by a "Tasks (2)" group, a visible
+    divider line between the two template rows, and "Draft Chapter 3"
+    correctly lands in the "Tasks" group while still showing its own
+    unrelated TEMPLATE badge (proving the two "template" concepts stayed
+    distinct). **Not verified this way**: actually clicking "+ Add a
+    cover photo" and completing a real file upload, and interactively
+    reordering rows within a group — this environment's headless Edge
+    still cannot reliably be driven via a live CDP session for real
+    click/file-picker interaction (the same disclosed limitation several
+    other pages' changelog entries in this file already note); a real
+    click-through is recommended before relying on this heavily.

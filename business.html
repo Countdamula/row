@@ -17,7 +17,7 @@
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="business-data.js?v=13" defer></script>
-<script src="writing-data.js?v=3" defer></script>
+<script src="writing-data.js?v=4" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -671,8 +671,33 @@ body::after {
 .wr-ms-bar-fill { height: 100%; border-radius: 999px; background: var(--bh-gold); transition: width 0.2s; }
 .wr-ms-color-swatch { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--bh-hairline); flex-shrink: 0; cursor: pointer; }
 .wr-ms-chapter-line { font-size: 12px; color: var(--bh-text-mute); padding-top: 2px; border-top: 1px solid var(--bh-hairline); margin-top: 2px; }
+/* Cover-photo thumbnail on the manuscript board card — only rendered
+   when the manuscript actually has a coverPhoto set (see
+   buildWrManuscriptCard()), same "no photo, no placeholder box" call as
+   the Links section's card-face treatment elsewhere in this app. */
+.wr-ms-card-cover { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius-md); overflow: hidden; margin-top: 2px; }
+.wr-ms-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .wr-empty { font-size: 12.5px; color: var(--bh-text-mute); font-style: italic; padding: 10px 2px; }
+
+/* Manuscript Detail page's own cover-photo banner — same upload/change/
+   remove interaction and visual recipe as this file's own tab-level
+   .bh-hero (photo, gradient legibility overlay, corner tools, centered
+   empty-state button), just shorter and without the eyebrow/title/CTA
+   text overlay, since the page already has its own title input and
+   controls in the topbar right below it. Breaks out of .wr-page's own
+   padding via a negative margin so it reads as a real banner rather
+   than a boxed-in thumbnail. */
+.wr-ms-cover { position: relative; height: 220px; margin: -24px -20px 20px; overflow: hidden; background: var(--bh-paper-solid); }
+@media (max-width: 620px) { .wr-ms-cover { height: 160px; margin: -24px -16px 18px; } }
+.wr-ms-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wr-ms-cover-overlay { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,4,3,0) 55%, rgba(5,4,3,0.55) 100%); }
+.wr-ms-cover-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.wr-ms-cover-choice-btn { background: rgba(11,10,8,0.4); border: 1px solid var(--bh-hairline); border-radius: 999px; color: var(--bh-text-mute); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em; cursor: pointer; padding: 9px 18px; }
+.wr-ms-cover-choice-btn:hover { color: var(--bh-gold-bright); border-color: var(--bh-gold); }
+.wr-ms-cover-tools { position: absolute; top: 12px; right: 12px; z-index: 2; display: flex; gap: 6px; }
+.wr-ms-cover-tools button { background: rgba(11,10,8,0.55); backdrop-filter: blur(10px); border: 1px solid var(--bh-hairline); color: var(--bh-text-dim); border-radius: 999px; padding: 6px 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; }
+.wr-ms-cover-tools button:hover { color: var(--bh-gold-bright); border-color: var(--bh-gold); }
 
 /* Full-page overlay (Manuscript Detail, Binder) — this app's established
    #taskDetailPageBg/#workflowDayPageBg pattern from index.html, ported
@@ -721,6 +746,18 @@ body::after {
    number of indented sub-page rows below them. ===== */
 .wr-task-table-row { margin-bottom: 6px; }
 .wr-task-indent { margin-left: 26px; }
+/* A hairline divider between every task row in the main Tasks Database
+   (scoped to #wrTaskTable specifically, not the Manuscript Detail
+   page's own inline task list, which wasn't asked for) — the adjacent-
+   sibling selector means a .wr-task-group-title header naturally breaks
+   the chain, so no divider appears directly under a group heading. */
+#wrTaskTable > .wr-task-table-row + .wr-task-table-row { border-top: 1px solid var(--bh-hairline); padding-top: 10px; margin-top: 4px; }
+/* Groups root tasks whose title contains the word "template" apart from
+   the rest, still inside the same #wrTaskTable database (see
+   renderWrTaskTable()) — not a new section/page, just a labeled split
+   within the existing list. */
+.wr-task-group-title { font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--bh-gold-bright); margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--bh-hairline); }
+.wr-task-group-title:first-child { margin-top: 0; }
 .wr-task-drag { cursor: grab; color: var(--bh-text-mute); font-size: 12px; flex-shrink: 0; }
 .wr-task-ms-tag { flex-shrink: 0; font-size: 10px; color: var(--bh-text-mute); background: rgba(255,255,255,0.05); border: 1px solid var(--bh-hairline); border-radius: 999px; padding: 2px 8px; }
 .wr-task-summary-line { font-size: 11px; color: var(--bh-text-mute); margin: 2px 0 0 34px; font-style: italic; }
@@ -1267,6 +1304,18 @@ body::after {
 
 <div class="wr-page-bg" id="wrManuscriptDetailPageBg">
   <div class="wr-page">
+    <div class="wr-ms-cover" id="wrMsDetailCover">
+      <img id="wrMsDetailCoverImg" style="display:none;" alt="">
+      <div class="wr-ms-cover-overlay"></div>
+      <div class="wr-ms-cover-choice" id="wrMsDetailCoverChoice">
+        <button type="button" class="wr-ms-cover-choice-btn" id="wrMsDetailAddCoverBtn">+ Add a cover photo</button>
+      </div>
+      <div class="wr-ms-cover-tools" id="wrMsDetailCoverTools" style="display:none;">
+        <button type="button" id="wrMsDetailCoverChangeBtn">Change</button>
+        <button type="button" id="wrMsDetailCoverRemoveBtn">Remove</button>
+      </div>
+      <input type="file" id="wrMsDetailCoverInput" accept="image/*" style="display:none;">
+    </div>
     <div class="wr-page-topbar">
       <button type="button" class="wr-page-back" id="wrMsDetailBackBtn">← Back</button>
       <input type="text" class="wr-page-title-input" id="wrMsDetailTitleInput" placeholder="Manuscript title…">
@@ -1511,6 +1560,19 @@ body::after {
         }
       });
     });
+    if (WD) {
+      WD.Manuscripts.list().forEach(function (m) {
+        if (typeof m.coverPhoto === 'string' && m.coverPhoto.indexOf('data:') === 0) {
+          const orig = m.coverPhoto;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return false;
+            const fresh = WD.Manuscripts.get(m.id);
+            if (fresh && fresh.coverPhoto === orig) WD.Manuscripts.update(m.id, { coverPhoto: url });
+            return true;
+          }));
+        }
+      });
+    }
     if (!jobs.length) { storeSet('business:photosMigratedV1', true); return; }
     // Only mark this page "done" if every upload this pass kicked off
     // actually succeeded — upload() never rejects (it resolves to null on
@@ -1519,6 +1581,7 @@ body::after {
     Promise.all(jobs).then(function (results) {
       if (results.every(function (ok) { return ok; })) storeSet('business:photosMigratedV1', true);
       refreshView();
+      if (WD) renderWrBoard();
     });
   }
 
@@ -3352,6 +3415,12 @@ body::after {
     accent.style.background = (seriesForAccent && seriesForAccent.tint) || m.progressBarColor || 'var(--bh-gold)';
     card.appendChild(accent);
 
+    if (m.coverPhoto) {
+      const cover = document.createElement('div'); cover.className = 'wr-ms-card-cover';
+      const img = document.createElement('img'); img.src = m.coverPhoto; img.alt = '';
+      cover.appendChild(img); card.appendChild(cover);
+    }
+
     const head = document.createElement('div'); head.className = 'wr-ms-card-head';
     const handle = document.createElement('span'); handle.className = 'wr-ms-drag wr-ms-noclick'; handle.textContent = '⋮⋮';
     handle.style.cssText = 'cursor:grab;color:var(--bh-text-mute);font-size:12px;flex-shrink:0;'; handle.title = 'Drag to reorder / move between series';
@@ -3495,6 +3564,7 @@ body::after {
   function renderWrManuscriptDetail() {
     const m = WD.Manuscripts.get(wrMsDetailId); if (!m) return;
     $('wrMsDetailTitleInput').value = m.title;
+    renderWrMsCover(m);
     const grid = $('wrMsDetailStatGrid'); grid.innerHTML = '';
     function statField(label, value) {
       const f = document.createElement('div'); f.className = 'field'; f.style.marginBottom = '0';
@@ -3516,6 +3586,41 @@ body::after {
     $('wrMsDetailTasksSummary').textContent = counts.total ? (counts.completed + ' of ' + counts.total + ' tasks done') : 'No tasks yet for this manuscript.';
     renderWrManuscriptDetailTasks();
     renderWrManuscriptDetailNotes();
+  }
+  // Manuscript cover photo — same upload/change/remove interaction and
+  // compress-then-swap-for-a-hosted-URL flow as this file's own tab-level
+  // hero (renderHero()/openHeroFilePicker()/handleHeroPhotoFile() above),
+  // scoped to one manuscript's coverPhoto field instead of a tab's hero.
+  function renderWrMsCover(m) {
+    const img = $('wrMsDetailCoverImg'), choice = $('wrMsDetailCoverChoice'), tools = $('wrMsDetailCoverTools');
+    if (m.coverPhoto) { img.src = m.coverPhoto; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+  }
+  function openWrMsCoverFilePicker() { const i = $('wrMsDetailCoverInput'); i.value = ''; i.click(); }
+  function handleWrMsCoverPhotoFile() {
+    const file = $('wrMsDetailCoverInput').files[0];
+    if (!file || !wrMsDetailId) return;
+    const msIdAtUpload = wrMsDetailId;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const compressed = await DB.compressImageDataUrl(String(reader.result), 1100, 0.78);
+      if (msIdAtUpload !== wrMsDetailId) return;
+      WD.Manuscripts.update(msIdAtUpload, { coverPhoto: compressed });
+      renderWrMsCover(WD.Manuscripts.get(msIdAtUpload));
+      renderWrBoard();
+      // Same "swap the base64 for a tiny hosted URL once it's up, no
+      // regression if it never calls back" precedent as the tab hero.
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (msIdAtUpload !== wrMsDetailId) return;
+          const fresh = WD.Manuscripts.get(msIdAtUpload);
+          if (fresh && fresh.coverPhoto === compressed) WD.Manuscripts.update(msIdAtUpload, { coverPhoto: url });
+          renderWrMsCover(WD.Manuscripts.get(msIdAtUpload));
+          renderWrBoard();
+        });
+      }
+    };
+    reader.readAsDataURL(file);
   }
   // Inline task list for the currently-open manuscript — reuses
   // buildWrTaskRow() verbatim (same check/reorder/collapse/duplicate/
@@ -3699,11 +3804,27 @@ body::after {
     }
 
     const wrap = $('wrTaskTable'); wrap.innerHTML = '';
-    roots.forEach(function (t, i) {
-      wrap.appendChild(buildWrTaskRow(t, 0, i === 0, i === roots.length - 1));
-      const children = WD.childTasks(t.id);
-      if (!t.collapsed) children.forEach(function (c, j) { wrap.appendChild(buildWrTaskRow(c, 1, j === 0, j === children.length - 1)); });
-    });
+    // Templates (any root task whose title contains the word "template",
+    // case-insensitive) are grouped apart from the rest — still the same
+    // #wrTaskTable database, just a labeled split within it, not a
+    // separate section/page. A sub-page always stays grouped under its
+    // own parent regardless of its own title, since splitting a template
+    // from its sub-pages would break the tree visually.
+    const templateRoots = roots.filter(function (t) { return /template/i.test(t.title); });
+    const otherRoots = roots.filter(function (t) { return !/template/i.test(t.title); });
+    function renderTaskGroup(label, list) {
+      if (!list.length) return;
+      const header = document.createElement('div'); header.className = 'wr-task-group-title';
+      header.textContent = label + ' (' + list.length + ')';
+      wrap.appendChild(header);
+      list.forEach(function (t, i) {
+        wrap.appendChild(buildWrTaskRow(t, 0, i === 0, i === list.length - 1));
+        const children = WD.childTasks(t.id);
+        if (!t.collapsed) children.forEach(function (c, j) { wrap.appendChild(buildWrTaskRow(c, 1, j === 0, j === children.length - 1)); });
+      });
+    }
+    renderTaskGroup('Templates', templateRoots);
+    renderTaskGroup('Tasks', otherRoots);
     $('wrTaskTableEmpty').hidden = roots.length !== 0;
   }
   function buildWrTaskRow(task, depth, isFirst, isLast, refreshFn) {
@@ -4641,6 +4762,17 @@ body::after {
       $('wrTaskDetailAddNoteBlockBtn').addEventListener('click', function () { if (!wrTaskDetailId) return; WD.addWritingTaskBlock(wrTaskDetailId, 'note'); renderWrTaskDetailBlocks(); });
       $('wrTaskDetailAddCodeBlockBtn').addEventListener('click', function () { if (!wrTaskDetailId) return; WD.addWritingTaskBlock(wrTaskDetailId, 'code'); renderWrTaskDetailBlocks(); });
       $('wrTaskDetailDeleteBtn').addEventListener('click', deleteWrTaskDetail);
+
+      $('wrMsDetailAddCoverBtn').addEventListener('click', openWrMsCoverFilePicker);
+      $('wrMsDetailCoverChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openWrMsCoverFilePicker(); });
+      $('wrMsDetailCoverRemoveBtn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!wrMsDetailId) return;
+        WD.Manuscripts.update(wrMsDetailId, { coverPhoto: '' });
+        renderWrMsCover(WD.Manuscripts.get(wrMsDetailId));
+        renderWrBoard();
+      });
+      $('wrMsDetailCoverInput').addEventListener('change', handleWrMsCoverPhotoFile);
 
       $('wrMsDetailAddTaskBtn').addEventListener('click', function () {
         if (!wrMsDetailId) return;
