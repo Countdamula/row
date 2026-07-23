@@ -15,8 +15,8 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="business-data.js?v=9" defer></script>
-<script src="writing-data.js?v=1" defer></script>
+<script src="business-data.js?v=10" defer></script>
+<script src="writing-data.js?v=2" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -1401,6 +1401,36 @@ body::after {
   function $(id) { return document.getElementById(id); }
   function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
   function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+
+  // A silent boot-time throw (e.g. from a real device's saved data hitting
+  // an edge case none of this feature's testing anticipated) otherwise
+  // leaves the page looking blank/half-rendered with zero visible clue why
+  // — the exact failure class this app has hit more than once before
+  // (gym.html's BOARD_WIDGET_TYPES temporal-dead-zone bug, Dream Board's
+  // missing-hero crash). Surface it instead of guessing at fixes blindly.
+  function showBootErrorBanner(err, context) {
+    try {
+      let banner = document.getElementById('bhBootErrorBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'bhBootErrorBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#3a0a0a;color:#ffdede;padding:14px 18px;font:13px/1.5 monospace;white-space:pre-wrap;max-height:50vh;overflow:auto;border-bottom:3px solid #ff5757;';
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+      const detail = (context ? '[' + context + '] ' : '') + (err && err.stack ? err.stack : String(err));
+      banner.textContent = '⚠ Business Hub failed to load correctly:\n' + detail + '\n';
+      const btn = document.createElement('button');
+      btn.textContent = 'Copy error details';
+      btn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#ff5757;color:#3a0a0a;border:0;border-radius:4px;font-weight:bold;cursor:pointer;';
+      btn.addEventListener('click', function () {
+        const text = detail;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {});
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy error details'; }, 1500);
+      });
+      banner.appendChild(btn);
+    } catch (e2) { /* if even the banner fails, there's nothing more we can do client-side */ }
+  }
 
   const ACTIVE_TAB_KEY = 'business:active_tab';
   const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -4209,8 +4239,16 @@ body::after {
   // BOOT
   // ============================================================
   function init() {
+    try {
+      initInner();
+    } catch (err) {
+      showBootErrorBanner(err, 'init');
+    }
+  }
+
+  function initInner() {
     DB = window.BusinessData;
-    if (!DB) return;
+    if (!DB) { showBootErrorBanner('window.BusinessData is undefined — business-data.js failed to load or threw before defining it.', 'init'); return; }
     WD = window.WritingData || null;
     if (WD) {
       const storedView = storeGet(WD.KEYS.activeView);
@@ -4514,22 +4552,26 @@ body::after {
         appKey: 'business',
         syncedPrefixes: ['business:'],
         onApplied: function () {
-          remoteAppliedOnce = true;
-          // The pulled remote row may still hold data saved under an
-          // older schema (e.g. tabs from before `layout` existed) — a
-          // stale Supabase copy applying *after* the local migration
-          // already ran is exactly what made the page flash correctly
-          // then go blank. Re-run the migration on every applied pull,
-          // not just once at load.
-          DB.normalizeStoredData();
-          // A pulled remote row can also still be missing the Writing
-          // Dashboard tab entirely (e.g. pushed from a device that hadn't
-          // loaded this update yet) — re-assert it on every applied pull,
-          // same reasoning as the initial-boot call above.
-          DB.ensureWritingDashboardExists();
-          const tabs2 = DB.tabsSorted();
-          if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
-          renderHero(); renderTabs(); renderActiveTabContent();
+          try {
+            remoteAppliedOnce = true;
+            // The pulled remote row may still hold data saved under an
+            // older schema (e.g. tabs from before `layout` existed) — a
+            // stale Supabase copy applying *after* the local migration
+            // already ran is exactly what made the page flash correctly
+            // then go blank. Re-run the migration on every applied pull,
+            // not just once at load.
+            DB.normalizeStoredData();
+            // A pulled remote row can also still be missing the Writing
+            // Dashboard tab entirely (e.g. pushed from a device that hadn't
+            // loaded this update yet) — re-assert it on every applied pull,
+            // same reasoning as the initial-boot call above.
+            DB.ensureWritingDashboardExists();
+            const tabs2 = DB.tabsSorted();
+            if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
+            renderHero(); renderTabs(); renderActiveTabContent();
+          } catch (err) {
+            showBootErrorBanner(err, 'onApplied (cloud sync)');
+          }
         }
       });
       if (tabs.length === 0) { setTimeout(maybeSeedAfterSyncAttempt, 5000); }
