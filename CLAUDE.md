@@ -7106,3 +7106,89 @@ both as originally phrased assumed a backend this app doesn't have):
     click/file-picker interaction (the same disclosed limitation several
     other pages' changelog entries in this file already note); a real
     click-through is recommended before relying on this heavily.
+
+- **Fixed a real mobile horizontal-overflow bug in `.bh-task-card`
+  (business.html) and its `.tn-task-card` counterpart (tasksnotes.html) —
+  the shared task-row component used by the Resources tab's Tasks
+  section, the Writing Dashboard's Tasks Database, the new Manuscript
+  Detail inline task list, and the standalone Tasks & Notes page.**
+  Prompted by "make everything show up nicely on my phone" — audited
+  everything built across this session (Tasks & Notes, the Writing
+  Dashboard's collapsible templates/duplicate/manuscript tasks/cover
+  photo/dividers/grouping) for real phone-width breakage, not by eye but
+  by measurement. Nothing was deleted.
+  - **Root cause, found by measurement, not guessing**: `.bh-task-card`
+    was `display:flex` with no `flex-wrap` — fine on desktop, but this
+    row can carry a dozen controls (reorder/collapse arrows, checkbox,
+    title, TEMPLATE badge, manuscript tag, priority pill, due date,
+    +Sub-page, open, duplicate, delete), and on a 390px phone viewport
+    those don't fit on one line. Without wrapping, the row (and with it,
+    the whole page) was forced wider than the viewport — a genuine
+    horizontal-scroll bug, not just a cosmetic squeeze. Confirmed via a
+    same-origin iframe harness (`--allow-file-access-from-files`,
+    Supabase blocked) that read `document.documentElement.scrollWidth`
+    against `window.innerWidth` and walked every element's
+    `getBoundingClientRect()` to name the actual overflowing nodes —
+    found `.bh-task-del`/`.bh-task-open`/`.wr-task-add-sub`/
+    `.wr-task-ms-tag`/`.bh-task-pill`/`.bh-task-due` all stacking past
+    the 390px edge, pushing `scrollWidth` to 796px.
+  - **Fix**: `.bh-task-card` gained `flex-wrap: wrap`, plus a
+    `max-width: 560px` rule giving `.bh-task-title` a forced 100%
+    flex-basis — this makes the title claim its own full-width line
+    (whatever small reorder/checkbox icons fit stay on the line above
+    it, and every badge/action button flows onto the line(s) below) —
+    no DOM/JS restructuring needed, and no shared row-building function
+    (`buildResTaskRow`/`buildWrTaskRow`/`buildTaskRow` in
+    `tasksnotes.html`) had to change. `.wr-task-ms-tag` (the manuscript-
+    name chip shown on Writing Dashboard task rows) also gained a
+    `max-width`/ellipsis so one long manuscript title can't blow out a
+    row by itself even once wrapping is available. `tasksnotes.html`'s
+    own `.tn-task-card` got the identical `flex-wrap`/title-flex-basis
+    treatment, scoped to its own narrower `max-width: 480px` breakpoint
+    (that page's task rows carry fewer controls than the Writing
+    Dashboard's, so needed a tighter trigger width to still look
+    intentional rather than wrapping unnecessarily early on a slightly
+    wider phone).
+  - **Also fixed while auditing**: `.wr-page-section-title` (the
+    Manuscript Detail page's "At a Glance"/"Tasks"/"Notes" section
+    headers, each pairing a label with one or more action buttons) had
+    no `flex-wrap` either — harmless on desktop, but a real risk once
+    this session's own "+ Add Task"/"📋 Open in Tasks Database" button
+    pair made that row wider; gained `flex-wrap: wrap` and a `gap` so it
+    degrades gracefully instead of squeezing.
+  - **What was already fine, confirmed rather than assumed**: the
+    manuscript board grid, cards (including the new cover-photo
+    thumbnail and accent bar), the Manuscript Detail page's cover-photo
+    banner, stat grid, and notes sections, and the global topbar nav
+    (which already has its own established `@media (max-width: 480px)`
+    horizontally-scrolling-strip behavior, `topbar.js`, untouched here
+    per DO NOT MODIFY — its pills reporting a `getBoundingClientRect()`
+    past the viewport edge during measurement is expected for a
+    horizontally-scrolled strip contained by its own `overflow-x: auto`,
+    not a real page-level overflow, confirmed by `documentElement
+    .scrollWidth` staying exactly at `innerWidth` once the real
+    `.bh-task-card` bug above was fixed).
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]), at a 390px
+    viewport, via the iframe-measurement harness described above: the
+    Writing Dashboard board view (`document.documentElement.scrollWidth
+    === window.innerWidth`, zero true overflow, confirmed by re-scanning
+    every element's bounding rect), the Tasks Database with realistic
+    long-title seeded tasks (was previously the exact reproduction case,
+    now clean), and the Manuscript Detail page — opened via a real
+    dispatched `click` event on a manuscript card, not just asserted, to
+    confirm its cover banner/inline task list/notes all render within
+    390px too — all passed with zero overflow; `tasksnotes.html` with
+    realistic long-title seeded links/notes/tasks also passed with zero
+    overflow and zero offending elements at all. A **known limitation
+    of this environment's headless-Edge `--screenshot` capture, not a
+    real bug**: a visual screenshot taken this same session showed
+    apparently shifted/garbled text — reproduced identically on
+    `aitech.html` (a page untouched this session) at the same viewport,
+    confirming it's a pre-existing headless-Edge rendering/capture
+    artifact in this environment (the same class of false alarm this
+    file's own Fitness Studio Overview-board entry already documented
+    once, there attributed to a DPI-scaling mismatch) — not trusted over
+    the actual DOM measurement, which is what this fix is verified
+    against.
