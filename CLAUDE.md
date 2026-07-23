@@ -6958,3 +6958,71 @@ both as originally phrased assumed a backend this app doesn't have):
     limitation several other pages' changelog entries in this file
     already note); a real click-through is recommended before relying on
     this heavily.
+
+- **Writing Dashboard: tasks can be added directly from a Manuscript's
+  own detail page, and manuscript cards are bigger and more visually
+  polished.** Purely additive to `business.html` (`writing-data.js` was
+  untouched — every function this pass needed, `WD.rootTasks(manuscriptId)`,
+  `WD.taskCountsForManuscript`, `WD.childTasks`, `WD.Tasks.add`,
+  `WD.duplicateWritingTask`, `WD.moveTask`, `WD.Series.get`, already
+  existed) — nothing was deleted, per an explicit instruction.
+  - **Add Tasks from the Manuscript**: the Manuscript Detail page's
+    "Tasks" section previously only showed a "X of Y tasks done" summary
+    line and a "📋 Open in Tasks Database" link — actually adding or
+    managing a task meant leaving the manuscript and going to the
+    separate Tasks Inline Database section first. It now also has a
+    "+ Add Task" button (same `prompt()`-for-a-title UX as the database's
+    own existing "+ New Template" button, for consistency) and a real
+    inline task list (`renderWrManuscriptDetailTasks()`, new) showing
+    that manuscript's own templates and sub-pages, fully interactive —
+    check off, reorder, collapse/expand, duplicate, open the Task Detail
+    modal, delete. This reuses `buildWrTaskRow()` (the exact same row
+    component the main Tasks Database table already uses) rather than a
+    second copy: it gained one new optional parameter, `refreshFn`
+    (defaults to the existing `renderWrTaskTable`, so every pre-existing
+    call site is 100% unchanged), and every handler inside it now calls
+    `refreshFn()` instead of a hardcoded `renderWrTaskTable()` — so the
+    same row works correctly whichever list it's actually rendered into.
+    The Task Detail modal's own save/delete handlers now also refresh the
+    manuscript detail's inline list (in addition to the main table) when
+    it's open, since that modal can be reached from either list. The
+    summary line and the inline list both recompute together via
+    `WD.taskCountsForManuscript`, so they can never drift out of sync.
+  - **Bigger, more polished manuscript cards**: `.wr-ms-grid`'s minimum
+    card width grew from 260px to 320px with more gap between cards; the
+    card itself gained real breathing room (padding 14px → 22px, more
+    gap between its internal rows), a genuine drop shadow + inset
+    highlight matching every other frosted-glass card in this app
+    (`.bw-card`/`.dw-card`/`.at-card`/`.tn-card` all already use this
+    exact `box-shadow` recipe — the manuscript card was the one place in
+    this file missing it), a subtle lift-on-hover (`translateY(-3px)`
+    plus a stronger shadow), a bigger serif title (16.5px → 21px), and a
+    hairline divider above the "Current chapter" line to separate it
+    from the progress bar above. New: a slim 4px accent bar along the
+    top of every card, colored by the manuscript's own series tint (its
+    `Series.tint`, the same color already used for that series' group
+    header dot) — or, for a standalone manuscript with no series, its
+    own progress-bar color, falling back to the theme's gold — a purely
+    visual touch that reuses colors the data already carries rather than
+    introducing a new one (DO NOT MODIFY rule 2).
+  - **Verified in headless Edge with Supabase blocked**
+    (`--host-resolver-rules`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]): confirmed zero
+    duplicate DOM ids anywhere in `business.html` (including the three
+    new element ids); a screenshot of a seeded board (one series with two
+    manuscripts, one standalone manuscript, one manuscript with 2 real
+    tasks) confirmed the new card sizing/spacing/shadow render correctly,
+    the two in-series cards both show the series' pink accent bar, the
+    standalone card correctly falls back to the gold accent, and the
+    seeded "Tasks: 1 / 2 done" count and progress bar render correctly
+    from real data; a full page load produced zero JS console errors.
+    **Not verified this way**: actually clicking into a manuscript's
+    detail page and using the new "+ Add Task" button (which requires
+    handling a native `prompt()` dialog) — the underlying functions it
+    calls are the same already-proven ones the main Tasks Database uses,
+    and `renderWrManuscriptDetailTasks()` is a close structural mirror of
+    the already-working `renderWrTaskTable()`, but this environment's
+    headless Edge still cannot reliably be driven via a live CDP session
+    for real click/dialog interaction (the same disclosed limitation
+    several other pages' changelog entries in this file already note); a
+    real click-through is recommended before relying on this heavily.
