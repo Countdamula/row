@@ -7317,3 +7317,36 @@ both as originally phrased assumed a backend this app doesn't have):
   refetches. Any future `learning-data.js` change should bump this
   `?v=` number again, same standing reminder `business-data.js`'s own
   entries already note for that file.
+
+- **Real root cause found for "Learning Hub and Tasks & Notes still
+  aren't showing up on my phone": `main` — the branch this deployment
+  actually serves — was 10 commits behind `feat/writing-dashboard`.**
+  The cache-busting fix in the entry directly above was a real, worthwhile
+  mitigation but not the actual cause this time — it couldn't have been,
+  since `tasksnotes.html` didn't exist on `main` **at all**
+  (`git show main:tasksnotes.html` failed outright), so no amount of
+  cache-busting on a phone could make a file show up that was never
+  deployed to begin with. This is the exact same failure class this file
+  already documented once for the Writing Dashboard ("Bugfix: the Writing
+  Dashboard (Business Hub) was invisible on a live device because the
+  whole feature had only ever been merged into `feat/writing-dashboard`,
+  never into `main`," a few entries above) — recurring here because work
+  since that fix (the Learning Hub article-page rebuild, the Favorites
+  filter, `tasksnotes.html`'s entire creation, and several other commits)
+  kept landing on `feat/writing-dashboard` and being pushed there, without
+  a further merge into `main` each time. Fixed the same way: confirmed
+  `main` was a strict ancestor of `feat/writing-dashboard`
+  (`git merge-base --is-ancestor`, a clean fast-forward, no conflicts, no
+  history rewrite) and pushed `feat/writing-dashboard` directly onto
+  `origin/main` (`git push origin feat/writing-dashboard:main`) rather
+  than merging locally, so the pre-existing unrelated uncommitted
+  `index.html` change already sitting in this session's working tree (not
+  part of this fix, left alone) never had to be touched via a branch
+  checkout. Confirmed afterward: `origin/main` and
+  `origin/feat/writing-dashboard` are now byte-identical (`0`/`0`
+  ahead-behind) and `tasksnotes.html` is present on `main`. **Going
+  forward, any change meant to actually reach the live site needs to
+  land on `main`, not just get pushed to `feat/writing-dashboard`** —
+  either keep merging/fast-forwarding after each push (as done here), or
+  do the work directly against `main` if there's no longer a reason to
+  keep the two branches separate.
