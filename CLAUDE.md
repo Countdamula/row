@@ -7297,3 +7297,23 @@ both as originally phrased assumed a backend this app doesn't have):
   statically (same fallback as the entry above, this environment's
   headless Edge still unusable this session): zero duplicate DOM ids,
   zero orphaned `$('id')` references, balanced script braces/parens.
+
+- **`learning-data.js` gained a `?v=2` cache-busting query string on
+  `learning.html`'s `<script src="...">` tag, after a report that a phone
+  wasn't reflecting the last two sessions' worth of changes to this
+  page.** Root cause and fix are the same as `business-data.js`'s own
+  documented `?v=N` history (see that file's changelog entries above):
+  this repo has no build step and no server-side cache-control (no
+  `vercel.json` — CLAUDE.md §1), so editing a script's *contents* never
+  changes its *URL* — a device that already fetched the old
+  `learning-data.js` has no signal to refetch it and keeps calling
+  whatever functions existed in that older copy. `learning.html` itself
+  already carries the `Cache-Control`/`Pragma`/`Expires` "no-cache" meta
+  tags from when it was first built, so only the un-versioned companion
+  data-file reference was missing this mitigation. No data was lost or
+  at risk here either way — every device's real `localStorage`/Supabase
+  data is untouched by this; a stale-cached *script* just means a device
+  keeps running older *code* against that same real data until it
+  refetches. Any future `learning-data.js` change should bump this
+  `?v=` number again, same standing reminder `business-data.js`'s own
+  entries already note for that file.
