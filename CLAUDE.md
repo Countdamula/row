@@ -8621,3 +8621,40 @@ both as originally phrased assumed a backend this app doesn't have):
     editing the eyebrow/title/subtext and confirming they persist on
     reload, confirming Reset to Default clears a customized hero back to
     the original copy) is recommended before relying on this feature.
+
+- **Bugfix: "+ Add a cover photo" on Build Your System silently did
+  nothing.** `<script src="system-data.js" defer>` had no cache-busting
+  query string — the same class of bug this app has hit and fixed
+  several times before on other pages' companion `-data.js` files
+  (`business-data.js`, `learning-data.js`; see those changelog entries):
+  editing a script's *contents* never changes its *URL*, so a browser
+  that had already cached `system-data.js` from the previous push (before
+  this session added `getHero`/`saveHero`/`compressImageDataUrl` to it)
+  had no signal to refetch it — `system.html` itself reloads fine (it
+  already carries the standard no-cache meta tags), but the *companion
+  data file* silently kept serving the older copy, leaving
+  `DB.compressImageDataUrl` undefined. Clicking "+ Add a cover photo"
+  still opened the OS file picker (that part doesn't touch `DB` at all),
+  but selecting a photo then hit `DB.compressImageDataUrl(...)` as a
+  `TypeError: ... is not a function` inside a `FileReader.onload`
+  callback — an uncaught exception there fails silently in most browsers
+  (logged to the console, nothing shown to the user), which is exactly
+  "nothing happens" from the user's side.
+  - Fixed by bumping the script reference to `system-data.js?v=2` (this
+    repo's own established mitigation for this exact bug class).
+  - Also hardened `handleHeroPhotoFile()` so the *next* failure of any
+    kind is visible instead of silent, rather than only fixing this one
+    instance: an explicit `typeof DB.compressImageDataUrl !== 'function'`
+    guard shows a clear "try a hard refresh" alert if a stale cache is
+    still in play, and the compress/save/upload chain is now wrapped in
+    try/catch plus a `.catch()` on the promise, each surfacing the real
+    error via `alert()` instead of swallowing it — matching this app's
+    own precedent (`gym.html`'s boot-error banner) of making a silent
+    failure diagnosable the first time it's reported, not guessed at
+    repeatedly.
+  - **Verified statically** (same disclosed environment limitation as
+    every other entry for this page): script braces/parens re-balanced
+    (310/310, 1391/1391) after the edit. **Not verified live** — if a
+    hard refresh doesn't resolve it, the new alert text will surface the
+    actual underlying error on the next report instead of another blind
+    guess.

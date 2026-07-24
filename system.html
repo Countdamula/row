@@ -12,7 +12,7 @@
 <script src="sync.js" defer></script>
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="system-data.js" defer></script>
+<script src="system-data.js?v=2" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -733,19 +733,34 @@ body::before {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
     if (!file || file.type.indexOf('image/') !== 0) return;
+    // Defensive check + visible failure instead of a silent no-op: if an
+    // older cached copy of system-data.js is still being served (this app
+    // has hit this exact class of bug before on other pages' companion
+    // -data.js files), DB.compressImageDataUrl won't exist yet.
+    if (typeof DB.compressImageDataUrl !== 'function') {
+      alert("Couldn't add the photo — this page may be running an outdated cached version. Try a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) and try again.");
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = function () { alert("Couldn't read that photo — try a different file."); };
     reader.onload = function () {
-      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
-        DB.saveHero({ photo: compressed });
-        renderHero();
-        if (window.PhotoStore) {
-          window.PhotoStore.upload(compressed, function (url) {
-            if (DB.getHero().photo !== compressed) return;
-            DB.saveHero({ photo: url });
-            renderHero();
-          });
-        }
-      });
+      try {
+        DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+          DB.saveHero({ photo: compressed });
+          renderHero();
+          if (window.PhotoStore) {
+            window.PhotoStore.upload(compressed, function (url) {
+              if (DB.getHero().photo !== compressed) return;
+              DB.saveHero({ photo: url });
+              renderHero();
+            });
+          }
+        }).catch(function (err) {
+          alert("Couldn't process that photo: " + (err && err.message ? err.message : err));
+        });
+      } catch (err) {
+        alert("Couldn't process that photo: " + (err && err.message ? err.message : err));
+      }
     };
     reader.readAsDataURL(file);
   }
