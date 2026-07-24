@@ -41,7 +41,7 @@ Vercel's static server) — see README.md.
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
-| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
+| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. Re-themed to match Main's (`index.html`) near-black/warm-gold frosted-glass-card aesthetic — see changelog. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -8440,3 +8440,106 @@ both as originally phrased assumed a backend this app doesn't have):
     a couple of different pages and confirming each stays scoped to its
     own page after a reload) is recommended before relying on this page
     heavily.
+
+- **Build Your System (`system.html`) re-themed to match Main's
+  (`index.html`) near-black/warm-gold, frosted-glass-card aesthetic**, per
+  an explicit follow-up request. Pure CSS/typography pass — no HTML
+  structure, JS, or data model changed; every one of the seven databases
+  plus the Vision record, the 4-tab/6-subpage layout, the up-to-3-goal
+  selection, the Notes blocks, and the Identity Prompts/AI Prompts all
+  work exactly as before. This supersedes the original build's own
+  "no reference photo/aesthetic instruction was given, so stays on the
+  app's standard palette" call (CLAUDE.md §6/DO NOT MODIFY rule 2 exists
+  for exactly this — silence isn't permission for a *new* palette, but an
+  *explicit* instruction is, and this request is explicit and named
+  Main specifically).
+  - **Palette repointed, same token names**: `--bg`/`--bg-deep`/
+    `--bg-card`/`--text-primary`/`--text-secondary`/`--text-tertiary`/
+    `--border`/`--accent`/`--accent-tint` all kept their existing *names*
+    (so every rule already referencing them needed no further edits) with
+    values switched from the original near-black/off-white/info-blue
+    recipe to Main's actual `--rt-bg`/`--rt-gold`/`--rt-text` values byte-
+    for-byte (`#0b0a08`/`#050403` background, `#c9a876`/`#e8cf9f` gold,
+    `#f5f1e9`-family text, `rgba(201,168,118,…)` hairline borders/tints) —
+    the same "repoint an existing token's value instead of inventing a
+    new one" precedent `household.html`'s/`aitech.html`'s own re-themes
+    already established. Two new tokens were added rather than reusing
+    existing ones for a genuinely new need: `--accent-bright` (the
+    lighter gold, for gradient tops/active-state text — Main's own
+    `--rt-gold-bright`) and `--accent-text` (`#24190c`, the dark text
+    color that sits *on* a gold-filled button/pill, matching Main's own
+    literal `#24190c` value used the same way). `--good`/`--warn`/`--bad`/
+    `--info` were left exactly as they were (green/amber/red-coral/blue)
+    — status meaning, not brand accent, the same "don't recolor semantic
+    tokens for an aesthetic pass" precedent every other re-theme in this
+    app already follows, and matches Main's own `--rt-good`/`--rt-warn`/
+    `--rt-bad`/`--rt-info` being the identical hex values, untouched.
+    Cormorant Garamond was loaded via the same Google Fonts `<link>` every
+    other page in this family already uses, applied to the page's big
+    title, every section title, and modal headers — matching Main's own
+    serif treatment on `.rt-hero-title`/`.rt-modal-head h3` — while body
+    copy, labels, and buttons stayed on the existing sans-serif `--font`,
+    same split Main itself uses (serif reserved for prominent display
+    type only, not applied everywhere).
+  - **Seven hardcoded blue literals** (`rgba(125,211,252,…)`, left over
+    from the original info-blue accent — used directly rather than
+    through `var(--accent)` in a handful of border-color declarations,
+    so simply repointing the CSS variable didn't reach them) were swept
+    to their gold equivalents by hand: the header's "selected goals"
+    banner border, the active Core-Systems/Identity-Shifting sub-chip
+    border, the "DAILY" action tag border, the Future Self Vision "most
+    powerful question" field's highlighted border, the active filter-chip
+    border (Mental System's category chips), and the active weekday-toggle
+    border (the Action modal's scheduled-days picker). Confirmed swept
+    with a repo-local regex scan afterward — zero remaining occurrences.
+  - **Component chrome**: `.bs-card` (every list-row card across all
+    seven databases) gained the same frosted-glass recipe as Main's own
+    `.rt-card`/this app's Dream-Board-family `.dw-card` (`backdrop-filter:
+    blur(16px) saturate(1.4)` over a translucent white fill, an inset
+    top-edge highlight) in place of its original flat `var(--bg-card)`
+    fill; `.modal`/`.modal-bg` got the identical treatment matching
+    Main's own `.modal` (`backdrop-filter: blur(24px) saturate(1.4)`,
+    `rgba(20,17,13,0.82)` fill). `.bs-btn-primary` switched from a plain
+    white gradient to Main's exact gold-gradient-with-dark-text recipe
+    (`linear-gradient(180deg, var(--accent-bright) 0%, var(--accent)
+    100%)`, `color: var(--accent-text)`). The page-wide ambient
+    `body::before` background glow was recolored from blue-tinted to
+    gold-tinted, matching the hue of Main's own `#rtPageBg`/ambient-glow
+    layers.
+  - **A real latent bug fixed in passing, not introduced by this pass**:
+    `body::before` was originally `z-index: -2` (a negative value) —
+    this exact app has a documented incident (`example.html`'s own
+    changelog entry) where a `position: fixed` layer with a *negative*
+    z-index silently fails to paint at all once `html`/`body` also
+    declare an explicit background color, which both `html, body` here
+    already do. Since Main's own equivalent layer (`#rtPageBg`) already
+    carries a code comment explaining exactly this and uses `z-index: 0`
+    plus DOM order instead, this page's `body::before` was switched to
+    the same `z-index: 0` (with `.shell` gaining an explicit `z-index: 1`
+    to guarantee it stacks above, matching Main's own `.wrap{z-index:1}`)
+    while re-theming it anyway — the same fix, applied here proactively
+    rather than waiting for a report of "the background doesn't show."
+  - **Deliberately not changed**: the 4-tab / 6-subpage structure (Top
+    Goals / Your System / Core Systems[Written/Visual/Mental] / Identity
+    Shifting[Anchors/Vision/Challenges]) was kept as-is rather than
+    restructured into Main's own single continuous 2-column card-grid
+    layout — "aesthetic" was read as palette/typography/component chrome,
+    not information architecture, and this page's own tabbed structure
+    already matches the established precedent of this app's other
+    multi-database pages in the same visual family (`aitech.html`,
+    `learning.html`, `tasksnotes.html`), none of which mirror Main's
+    single-page card-grid layout either. No cover photo/hero-photo-upload
+    capability was added (Main's hero has one, this page's plain-text
+    header doesn't) — that's a feature addition, not an aesthetic
+    property, and wasn't asked for.
+  - **Verified statically** (no interactive browser session was available
+    this round either, same disclosed limitation as this page's prior two
+    entries): `<style>` block braces re-balanced (149/149) after every
+    edit; the inline script's own braces/parens were re-confirmed
+    unchanged (260/260, 1264/1264 — no JS was touched this pass); every
+    HTML tag type re-confirmed open/close-balanced; a regex sweep
+    confirmed zero remaining `rgba(125,211,252,…)` occurrences anywhere in
+    the file. A real visual check (does the frosted-glass blur actually
+    render, does the serif font load, does the gold gradient button read
+    correctly against the new dark background) is recommended before
+    relying on the look of this page.
