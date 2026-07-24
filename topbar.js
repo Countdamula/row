@@ -231,6 +231,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-icon">⚙️</span>
     <span class="topbar-pill-label">SYSTEM</span>
   </a>
+  <a href="tasks.html" class="topbar-pill" id="topbarTasksDb">
+    <span class="topbar-pill-icon">🗂️</span>
+    <span class="topbar-pill-label">TASKS</span>
+  </a>
 </header>
 `;
 

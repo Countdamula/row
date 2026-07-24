@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>Tasks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="tasks-data.js" defer></script>
+<style>
+/* =============================================================
+   Tasks — a standalone page, genuinely new (not a rebuild of any
+   existing tab). One unified task database: native tasks side by side
+   with items pulled in (one-way, read-only) from Main (index.html's
+   Morning Call Sheet — Steps/Beliefs) and System (system.html — Actions/
+   Challenges). Same dark cinematic near-black/gold, frosted-glass-card
+   aesthetic as Business Hub/Dream Board/Tasks & Notes (this file's own
+   private `--td-*` copy of those pages' token values — the common
+   thread across most of this app's pages, per CLAUDE.md §6). One page,
+   no tabs, one editable hero.
+   ============================================================= */
+:root {
+  --td-bg: #0b0a08;
+  --td-bg-deep: #050403;
+  --td-paper: rgba(255, 255, 255, 0.045);
+  --td-paper-solid: #16130f;
+  --td-gold: #c9a876;
+  --td-gold-bright: #e8cf9f;
+  --td-text: #f5f1e9;
+  --td-text-dim: rgba(245, 241, 233, 0.68);
+  --td-text-mute: rgba(245, 241, 233, 0.44);
+  --td-hairline: rgba(201, 168, 118, 0.22);
+  --td-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--td-bg-deep); color: var(--td-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--td-gold-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+#tdPageBg {
+  position: fixed; inset: 0; z-index: -3;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
+  pointer-events: none;
+}
+
+/* Boot-error safety net — same pattern as gym.html/business.html/
+   system.html: a silent boot-time throw against a page reading foreign
+   localStorage shapes should never just leave a blank screen. */
+#tdBootError {
+  display: none; position: fixed; inset: 0; z-index: 999; background: rgba(5,4,3,0.96);
+  color: #ffb4b4; font-family: var(--font-mono); font-size: 12.5px; padding: 24px; overflow: auto; white-space: pre-wrap;
+}
+#tdBootError.show { display: block; }
+#tdBootError button { margin-top: 14px; background: var(--td-gold); color: #24190c; border: none; border-radius: 999px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 60px; }
+.shell-inner { padding: 0 16px; }
+
+.td-back-btn {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  color: var(--td-text-dim); text-decoration: none; font-size: 12.5px; font-weight: 600;
+}
+.td-back-btn:hover { background: rgba(11, 10, 8, 0.8); color: var(--td-text); }
+
+.td-hero {
+  position: relative; min-height: 42vh; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 78px 24px 34px; overflow: hidden;
+}
+@media (max-width: 620px) { .td-hero { min-height: 46vh; padding: 74px 16px 28px; } }
+.td-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--td-paper-solid); }
+.td-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.td-hero-photo-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.td-hero-photo-choice-btn { background: rgba(11,10,8,0.5); border: 1px dashed var(--td-hairline); color: var(--td-text-mute); border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.td-hero-photo-choice-btn:hover { color: var(--td-gold-bright); border-color: var(--td-gold); }
+.td-hero-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,4,3,0.15) 0%, rgba(5,4,3,0.6) 60%, rgba(5,4,3,0.93) 100%); }
+.td-hero-photo-tools { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px; }
+.td-hero-photo-tools button { background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; color: var(--td-text-dim); font-size: 11.5px; font-weight: 600; padding: 6px 12px; cursor: pointer; }
+.td-hero-photo-tools button:hover { color: var(--td-gold-bright); border-color: var(--td-gold); }
+.td-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.td-hero-eyebrow { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--td-gold); margin-bottom: 12px; outline-offset: 3px; }
+.td-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--td-gold); margin-right: 10px; vertical-align: middle; }
+.td-hero-title { display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden; font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(28px, 5.6vw, 44px); line-height: 1.1; color: var(--td-text); outline-offset: 4px; margin-bottom: 10px; }
+.td-hero-title::placeholder { color: rgba(245,241,233,0.35); }
+.td-hero-subtext { font-size: 14px; line-height: 1.55; color: var(--td-text-dim); max-width: 480px; margin-bottom: 18px; outline-offset: 3px; }
+.td-hero-cta { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border: 1px solid var(--td-hairline); border-radius: 999px; padding: 10px 18px; cursor: pointer; }
+.td-hero-cta:hover { border-color: var(--td-gold); background: rgba(201,168,118,0.10); }
+.td-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--td-text); }
+.td-hero-cta-arrow { color: var(--td-gold-bright); font-size: 13px; }
+
+.td-toolbar-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding: 18px 0 6px; }
+.td-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--td-text-mute); display: flex; align-items: center; gap: 5px; margin-right: auto; }
+.td-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--td-text-mute); flex-shrink: 0; }
+.td-sync-status.is-saved .td-sync-status-dot { background: var(--success); }
+.td-sync-status.is-saved { color: var(--td-text-dim); }
+.td-sync-status.is-error, .td-sync-status.is-offline { color: var(--danger); }
+.td-sync-status.is-error .td-sync-status-dot, .td-sync-status.is-offline .td-sync-status-dot { background: var(--danger); animation: td-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes td-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.td-last-synced { font-size: 10.5px; color: var(--td-text-mute); font-family: var(--font-mono); width: 100%; text-align: right; margin-top: -2px; }
+
+.td-btn-primary, .td-btn-secondary, .td-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer;
+}
+.td-btn-primary { background: linear-gradient(180deg, var(--td-gold-bright) 0%, var(--td-gold) 100%); color: #24190c; border: 1px solid var(--td-gold); }
+.td-btn-primary:hover { opacity: 0.9; }
+.td-btn-secondary { background: var(--td-paper); color: var(--td-text-dim); border: 1px solid var(--td-hairline); }
+.td-btn-secondary:hover { color: var(--td-gold-bright); border-color: var(--td-gold); }
+.td-btn-ghost { background: transparent; color: var(--td-text-mute); border: 1px solid var(--td-hairline); }
+.td-btn-ghost:hover { color: var(--td-text); border-color: var(--td-text-mute); }
+
+.td-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 18px 0 4px; }
+.td-section-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.td-section-title { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--td-text); }
+.td-section-sub { font-size: 12px; color: var(--td-text-mute); max-width: 520px; }
+
+.td-filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0 4px; }
+.td-filter-bar select { background: var(--td-paper); border: 1px solid var(--td-hairline); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; color: var(--td-text-dim); }
+.td-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.td-chip { background: var(--td-paper); border: 1px solid var(--td-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--td-text-mute); cursor: pointer; }
+.td-chip:hover { color: var(--td-text); }
+.td-chip.active { background: var(--td-accent-tint); color: var(--td-gold-bright); border-color: var(--td-gold); }
+.td-search-input { flex: 1; min-width: 160px; max-width: 240px; background: rgba(255,255,255,0.04); border: 1px solid var(--td-hairline); border-radius: 999px; padding: 7px 14px; font-size: 12.5px; color: var(--td-text); }
+
+.td-quickadd-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 18px; }
+.td-quickadd-row input[type="text"] { flex: 1; min-width: 180px; background: rgba(255,255,255,0.04); border: 1px solid var(--td-hairline); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; color: var(--td-text); }
+.td-quickadd-row input[type="date"] { background: rgba(255,255,255,0.04); border: 1px solid var(--td-hairline); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 12px; color: var(--td-text); }
+
+.td-empty { font-size: 12px; color: var(--td-text-mute); font-style: italic; padding: 10px 2px; }
+.td-task-list { display: flex; flex-direction: column; gap: 8px; padding-bottom: 30px; }
+
+/* ===== Task card — frosted glass, same recipe as tasksnotes.html's
+   .tn-task-card, plus a drag handle (this database is fully
+   drag-reorderable, unlike Tasks & Notes' plain sorted list) and a
+   source badge for imported items. ===== */
+.td-task-card {
+  display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--td-hairline);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;
+}
+.td-task-card.is-done { opacity: 0.6; }
+@media (max-width: 480px) { .td-task-title { flex-basis: 100%; } }
+.td-drag-handle { flex-shrink: 0; cursor: grab; color: var(--td-text-mute); font-size: 13px; line-height: 1; letter-spacing: -1px; padding: 4px; -webkit-tap-highlight-color: transparent; }
+.td-drag-handle:active { cursor: grabbing; }
+.td-task-ghost { opacity: 0.4; border: 1px dashed var(--td-gold); background: rgba(201,168,118,0.12); }
+.td-task-check { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--td-hairline); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--td-gold-bright); font-size: 11px; }
+.td-task-check.done { background: var(--td-gold); border-color: var(--td-gold); color: #24190c; }
+.td-task-title-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.td-task-title { font-size: 13.5px; word-break: break-word; }
+.td-task-card.is-done .td-task-title { text-decoration: line-through; color: var(--td-text-mute); }
+.td-task-source-meta { font-size: 10.5px; color: var(--td-text-mute); }
+.td-task-pill { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.td-task-pill.pri-low { background: rgba(125,211,252,0.14); color: var(--info); }
+.td-task-pill.pri-medium { background: rgba(242,192,99,0.16); color: var(--warning); }
+.td-task-pill.pri-high { background: rgba(255,107,107,0.16); color: var(--danger); }
+.td-task-badge { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: var(--td-accent-tint); color: var(--td-gold-bright); }
+.td-source-badge { flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 999px; border: 1px solid; }
+.td-days-mini { flex-shrink: 0; display: flex; gap: 2px; font-family: var(--font-mono); font-size: 9px; }
+.td-days-mini span { width: 15px; height: 15px; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--td-text-mute); }
+.td-days-mini span.on { background: var(--td-accent-tint); color: var(--td-gold-bright); }
+.td-task-due { flex-shrink: 0; font-size: 11px; color: var(--td-text-mute); font-family: var(--font-mono); }
+.td-task-del { flex-shrink: 0; background: transparent; border: none; color: var(--td-text-mute); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
+.td-task-del:hover { color: var(--danger); background: rgba(255,107,107,0.10); }
+
+/* ===== Modals ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: rgba(20, 17, 13, 0.78); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.td-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.td-modal-head h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; color: var(--td-text); }
+.td-modal-close { background: transparent; border: none; font-size: 18px; color: var(--td-text-mute); cursor: pointer; }
+.td-modal-close:hover { color: var(--td-text); }
+.td-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--td-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--td-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--td-text); }
+.field textarea { min-height: 80px; resize: vertical; }
+.field-inline { display: flex; align-items: center; gap: 8px; }
+.field-inline input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--td-gold); cursor: pointer; }
+.td-day-toggle-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.td-day-toggle { background: var(--td-paper); border: 1px solid var(--td-hairline); border-radius: 8px; padding: 6px 0; width: 34px; text-align: center; font-size: 11px; font-weight: 700; color: var(--td-text-mute); cursor: pointer; }
+.td-day-toggle.active { background: var(--td-accent-tint); color: var(--td-gold-bright); border-color: var(--td-gold); }
+.td-source-info { font-size: 11.5px; color: var(--td-text-dim); background: rgba(255,255,255,0.04); border: 1px solid var(--td-hairline); border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 12px; }
+.td-source-info b { color: var(--td-gold-bright); }
+.delete-link { display: block; margin-top: 10px; font-size: 12px; color: var(--danger); cursor: pointer; text-align: center; }
+.delete-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="tdBootError">
+  <div id="tdBootErrorText"></div>
+  <button type="button" id="tdBootErrorCopy">Copy error details</button>
+</div>
+<div id="tdPageBg"></div>
+<div class="shell">
+  <div class="td-hero" id="tdHero">
+    <div class="td-hero-media" id="tdHeroMedia">
+      <img id="tdHeroPhotoImg" style="display:none;" alt="">
+      <div class="td-hero-photo-choice" id="tdHeroPhotoChoice">
+        <button type="button" class="td-hero-photo-choice-btn" id="tdHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="td-hero-overlay"></div>
+    <a href="index.html" class="td-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="td-hero-photo-tools" id="tdHeroPhotoTools" style="display:none;">
+      <button type="button" id="tdHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="tdHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="tdHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="td-hero-content">
+      <div class="td-hero-eyebrow" id="tdHeroEyebrow" contenteditable="true"></div>
+      <textarea class="td-hero-title" id="tdHeroTitle" rows="1" placeholder="Your headline here…"></textarea>
+      <div class="td-hero-subtext" id="tdHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="td-hero-cta" id="tdHeroCta">
+        <span class="td-hero-cta-label" id="tdHeroCtaLabel" contenteditable="true"></span>
+        <span class="td-hero-cta-arrow" aria-hidden="true">↗</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="shell-inner">
+    <div class="td-toolbar-row">
+      <span class="td-sync-status" id="tdSyncStatus"></span>
+      <button type="button" class="td-btn-secondary" id="tdSyncSourcesBtn">⟳ Sync from Main &amp; System</button>
+      <button type="button" class="td-btn-ghost" id="tdResetBtn">Reset to Default</button>
+      <div class="td-last-synced" id="tdLastSynced"></div>
+    </div>
+
+    <div id="tdTasksSection">
+      <div class="td-section-head">
+        <div class="td-section-title-wrap">
+          <div class="td-section-title">Tasks</div>
+          <div class="td-section-sub">Native tasks, plus routine/task-shaped items pulled in from Main's Morning Call Sheet (Steps &amp; Beliefs) and System's Your System / Identity Shifting (Actions &amp; Challenges) — one merged board to work from each day. Pulling in is one-way and read-only: nothing is ever changed or deleted on Main or System.</div>
+        </div>
+      </div>
+
+      <div class="td-filter-bar">
+        <div class="td-chip-row" id="tdViewChips">
+          <button type="button" class="td-chip active" data-view="today">Today</button>
+          <button type="button" class="td-chip" data-view="all">All Tasks</button>
+        </div>
+        <div class="td-chip-row" id="tdSourceChips">
+          <button type="button" class="td-chip active" data-source="">All Sources</button>
+          <button type="button" class="td-chip" data-source="native">Native</button>
+          <button type="button" class="td-chip" data-source="main">From Main</button>
+          <button type="button" class="td-chip" data-source="system">From System</button>
+        </div>
+        <select id="tdFilterPriority">
+          <option value="">All Priorities</option>
+          <option value="high">High priority</option>
+          <option value="medium">Medium priority</option>
+          <option value="low">Low priority</option>
+        </select>
+        <select id="tdFilterStatus">
+          <option value="">All Statuses</option>
+          <option value="todo">To do</option>
+          <option value="in-progress">In progress</option>
+          <option value="done">Done</option>
+        </select>
+        <input type="text" id="tdSearchInput" class="td-search-input" placeholder="Search tasks…">
+      </div>
+
+      <div class="td-quickadd-row">
+        <input type="text" id="tdQuickTitle" placeholder="Add a task…">
+        <input type="date" id="tdQuickDate">
+        <button type="button" class="td-btn-primary" id="tdQuickAddBtn">+ Add</button>
+      </div>
+
+      <div class="td-task-list" id="tdTaskList"></div>
+      <div class="td-empty" id="tdTaskEmpty" hidden>No tasks match this view/filter.</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="tdTaskModalBg">
+  <div class="modal">
+    <div class="td-modal-head"><h3 id="tdTaskModalTitle">Add Task</h3><button type="button" class="td-modal-close" id="tdTaskModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="td-source-info" id="tdTaskSourceInfo" style="display:none;"></div>
+    <div class="field"><label>Title</label><input type="text" id="tdTaskTitleInput"></div>
+    <div class="field"><label>Note</label><textarea id="tdTaskNoteInput" placeholder="Write freely…"></textarea></div>
+    <div class="field"><label>Status</label>
+      <select id="tdTaskStatusInput"><option value="todo">To do</option><option value="in-progress">In progress</option><option value="done">Done</option></select>
+    </div>
+    <div class="field"><label>Priority</label>
+      <select id="tdTaskPriorityInput"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+    </div>
+    <div class="field"><label>Due date</label><input type="date" id="tdTaskDateInput"></div>
+    <div class="field field-inline"><input type="checkbox" id="tdTaskDailyInput"><label style="margin:0;">Daily action (always shows in Today)</label></div>
+    <div class="field"><label>Recurrence</label>
+      <select id="tdTaskRecurrenceInput">
+        <option value="none">None</option>
+        <option value="daily">Daily — regenerates the next day when completed</option>
+        <option value="weekly">Weekly — regenerates 7 days later when completed</option>
+      </select>
+    </div>
+    <div class="field"><label>Scheduled days (optional)</label>
+      <div class="td-day-toggle-row" id="tdTaskDaysRow"></div>
+    </div>
+    <div class="td-modal-actions">
+      <button type="button" class="td-btn-ghost" id="tdTaskModalCancel">Cancel</button>
+      <button type="button" class="td-btn-primary" id="tdTaskModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="tdTaskModalDelete" style="display:none;">Delete this task</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+
+  function showBootErrorBanner(err, context) {
+    try {
+      const el = $('tdBootError'), textEl = $('tdBootErrorText');
+      if (!el || !textEl) return;
+      const msg = 'Tasks failed to load (' + (context || 'boot') + ').\n\n' +
+        (err && err.stack ? err.stack : String(err)) +
+        '\n\nYour data is untouched — this is a display error only.';
+      textEl.textContent = msg;
+      el.classList.add('show');
+      const copyBtn = $('tdBootErrorCopy');
+      if (copyBtn) copyBtn.onclick = function () {
+        try { navigator.clipboard.writeText(msg); copyBtn.textContent = 'Copied!'; } catch (e2) {}
+      };
+    } catch (e3) {}
+  }
+
+  let DB = null;
+  let sortableInstance = null;
+
+  let editingTaskId = null;
+  let editingTaskDays = [];
+  let taskView = 'today';
+  let sourceFilter = '';
+  let priorityFilter = '';
+  let statusFilter = '';
+  let searchQuery = '';
+
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+  function sourceGroup(sourceType) {
+    if (sourceType === 'native') return 'native';
+    if (sourceType === 'main-step' || sourceType === 'main-belief') return 'main';
+    if (sourceType === 'system-action' || sourceType === 'system-challenge') return 'system';
+    return 'native';
+  }
+  function sourceColor(sourceType) {
+    const group = sourceGroup(sourceType);
+    if (group === 'main') return { bg: 'rgba(125,211,252,0.12)', fg: 'var(--info)', border: 'rgba(125,211,252,0.4)' };
+    if (group === 'system') return { bg: 'rgba(167,139,250,0.14)', fg: '#c4b5fd', border: 'rgba(167,139,250,0.4)' };
+    return { bg: 'var(--td-accent-tint)', fg: 'var(--td-gold-bright)', border: 'var(--td-gold)' };
+  }
+
+  // ============================================================
+  // SYNC STATUS
+  // ============================================================
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('tdSyncStatus');
+    if (!el) return;
+    el.className = 'td-sync-status' + (mode ? ' is-' + mode : '');
+    el.textContent = '';
+    const dot = document.createElement('span'); dot.className = 'td-sync-status-dot';
+    const label = document.createElement('span'); label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Couldn't save — your browser's storage may be full."); return; }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+  function renderLastSynced() {
+    const ts = storeGet('tasksdb:lastSyncedAt');
+    $('tdLastSynced').textContent = ts ? ('Last pulled from Main & System: ' + new Date(ts).toLocaleString()) : 'Never pulled from Main & System yet.';
+  }
+
+  // ============================================================
+  // HERO
+  // ============================================================
+  function renderHero() {
+    const hero = DB.getHero();
+    $('tdHeroEyebrow').textContent = hero.eyebrow;
+    $('tdHeroTitle').value = hero.title;
+    $('tdHeroSubtext').textContent = hero.subtext;
+    $('tdHeroCtaLabel').textContent = hero.ctaLabel || 'VIEW TASKS';
+    autosize($('tdHeroTitle'));
+    const img = $('tdHeroPhotoImg'), choice = $('tdHeroPhotoChoice'), tools = $('tdHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+    const bg = $('tdPageBg');
+    if (bg) bg.style.backgroundImage = hero.photo ? "url('" + hero.photo.replace(/'/g, "\\'") + "')" : '';
+  }
+  function openHeroFilePicker() { $('tdHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        DB.saveHero({ photo: compressed });
+        renderHero();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (DB.getHero().photo !== compressed) return;
+            DB.saveHero({ photo: url });
+            renderHero();
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || storeGet('tasksdb:photosMigratedV1')) return;
+    const heroPhoto = DB.getHero().photo;
+    if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
+      window.PhotoStore.upload(heroPhoto).then(function (url) {
+        if (url && DB.getHero().photo === heroPhoto) DB.saveHero({ photo: url });
+        storeSet('tasksdb:photosMigratedV1', true);
+        renderHero();
+      });
+    } else {
+      storeSet('tasksdb:photosMigratedV1', true);
+    }
+  }
+
+  // ============================================================
+  // TASKS
+  // ============================================================
+  function buildPriorityPill(priority) {
+    const pill = document.createElement('span'); pill.className = 'td-task-pill pri-' + (priority || 'medium');
+    pill.textContent = priority || 'medium'; return pill;
+  }
+  function buildSourceBadge(task) {
+    const c = sourceColor(task.sourceType);
+    const b = document.createElement('span'); b.className = 'td-source-badge';
+    b.style.background = c.bg; b.style.color = c.fg; b.style.borderColor = c.border;
+    b.textContent = DB.SOURCE_LABELS[task.sourceType] || 'Native';
+    if (task.sourceMeta) b.title = task.sourceMeta;
+    return b;
+  }
+  function buildDaysMini(days) {
+    const wrap = document.createElement('div'); wrap.className = 'td-days-mini';
+    DB.DAY_LABELS.forEach(function (label, idx) {
+      const s = document.createElement('span');
+      s.textContent = label[0];
+      if (days.indexOf(idx) !== -1) s.className = 'on';
+      wrap.appendChild(s);
+    });
+    return wrap;
+  }
+  function setTaskDone(task, done) {
+    if (done) {
+      DB.Items.update(task.id, { status: 'done', doneAt: Date.now() });
+      if (task.sourceType === 'native' && task.recurrence && task.recurrence !== 'none') DB.spawnNextRecurrence(task);
+    } else {
+      DB.Items.update(task.id, { status: 'todo', doneAt: null });
+    }
+  }
+  function buildTaskRow(task) {
+    const card = document.createElement('div'); card.className = 'td-task-card' + (task.status === 'done' ? ' is-done' : ''); card.dataset.taskId = task.id;
+
+    const handle = document.createElement('span'); handle.className = 'td-drag-handle'; handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to reorder'; handle.textContent = '⋮⋮';
+    card.appendChild(handle);
+
+    const check = document.createElement('button'); check.type = 'button';
+    check.className = 'td-task-check' + (task.status === 'done' ? ' done' : '');
+    check.setAttribute('aria-label', task.status === 'done' ? 'Mark not done' : 'Mark done');
+    if (task.status === 'done') check.textContent = '✓';
+    check.addEventListener('click', function () { setTaskDone(task, task.status !== 'done'); renderTasks(); });
+    card.appendChild(check);
+
+    const titleWrap = document.createElement('div'); titleWrap.className = 'td-task-title-wrap';
+    titleWrap.addEventListener('click', function () { openTaskModal(task); });
+    const title = document.createElement('span'); title.className = 'td-task-title'; title.textContent = task.title;
+    titleWrap.appendChild(title);
+    if (task.sourceMeta) { const m = document.createElement('span'); m.className = 'td-task-source-meta'; m.textContent = task.sourceMeta; titleWrap.appendChild(m); }
+    card.appendChild(titleWrap);
+
+    card.appendChild(buildSourceBadge(task));
+    card.appendChild(buildPriorityPill(task.priority));
+
+    if (task.isDailyAction) { const b = document.createElement('span'); b.className = 'td-task-badge'; b.textContent = 'DAILY'; card.appendChild(b); }
+    if (task.recurrence && task.recurrence !== 'none') { const b = document.createElement('span'); b.className = 'td-task-badge'; b.textContent = task.recurrence === 'weekly' ? '↻ Weekly' : '↻ Daily'; card.appendChild(b); }
+    if (task.scheduledDays && task.scheduledDays.length && task.scheduledDays.length < 7) card.appendChild(buildDaysMini(task.scheduledDays));
+    if (task.dueDate) { const d = document.createElement('span'); d.className = 'td-task-due'; d.textContent = DB.formatDateShort(task.dueDate); card.appendChild(d); }
+
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'td-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!confirm('Remove "' + (task.title || 'this task') + '" from this database? (This never touches Main or System — it only removes this database\'s own copy.)')) return;
+      DB.Items.remove(task.id); renderTasks();
+    });
+    card.appendChild(del);
+
+    return card;
+  }
+  function filteredTasks() {
+    let tasks = DB.itemsSorted();
+    const today = DB.todayISO();
+    if (taskView === 'today') tasks = tasks.filter(function (x) { return x.isDailyAction || x.dueDate === today; });
+    if (sourceFilter) tasks = tasks.filter(function (x) { return sourceGroup(x.sourceType) === sourceFilter; });
+    if (priorityFilter) tasks = tasks.filter(function (x) { return x.priority === priorityFilter; });
+    if (statusFilter) tasks = tasks.filter(function (x) { return x.status === statusFilter; });
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      tasks = tasks.filter(function (x) { return (x.title || '').toLowerCase().indexOf(q) !== -1 || (x.note || '').toLowerCase().indexOf(q) !== -1; });
+    }
+    return tasks;
+  }
+  function renderTasks() {
+    const list = $('tdTaskList'); if (!list) return;
+    const tasks = filteredTasks();
+    list.innerHTML = '';
+    tasks.forEach(function (x) { list.appendChild(buildTaskRow(x)); });
+    $('tdTaskEmpty').hidden = tasks.length !== 0;
+    wireTaskSortable();
+  }
+  function wireTaskSortable() {
+    if (typeof Sortable === 'undefined') return;
+    if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    sortableInstance = new Sortable($('tdTaskList'), {
+      animation: reduced ? 0 : 150, handle: '.td-drag-handle', ghostClass: 'td-task-ghost',
+      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
+      onEnd: function () {
+        const visibleIds = Array.from($('tdTaskList').children).map(function (el) { return el.dataset.taskId; }).filter(Boolean);
+        // Reorder is applied against the currently-visible (filtered) list,
+        // remapped back into the real underlying order — same technique
+        // entertainment.html's Manual sort mode already established for
+        // reordering under an active filter.
+        const all = DB.itemsSorted();
+        const visibleSet = {}; visibleIds.forEach(function (id, i) { visibleSet[id] = i; });
+        const untouched = all.filter(function (t) { return !(t.id in visibleSet); });
+        const reordered = visibleIds.map(function (id) { return all.find(function (t) { return t.id === id; }); }).filter(Boolean);
+        DB.reorderItems(reordered.concat(untouched).map(function (t) { return t.id; }));
+        renderTasks();
+      }
+    });
+  }
+  function quickAddTask() {
+    const titleInput = $('tdQuickTitle'), dateInput = $('tdQuickDate');
+    const title = titleInput.value.trim();
+    if (!title) return;
+    DB.Items.add({ title: title, dueDate: dateInput.value || '', sourceType: 'native', order: DB.nextOrder(DB.itemsSorted()) });
+    titleInput.value = ''; dateInput.value = '';
+    renderTasks();
+  }
+  function renderDayToggleRow() {
+    const wrap = $('tdTaskDaysRow'); wrap.innerHTML = '';
+    DB.DAY_LABELS.forEach(function (label, idx) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'td-day-toggle' + (editingTaskDays.indexOf(idx) !== -1 ? ' active' : '');
+      btn.textContent = label;
+      btn.addEventListener('click', function () {
+        const i = editingTaskDays.indexOf(idx);
+        if (i === -1) editingTaskDays.push(idx); else editingTaskDays.splice(i, 1);
+        renderDayToggleRow();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+  function openTaskModal(task) {
+    editingTaskId = task ? task.id : null;
+    editingTaskDays = task && task.scheduledDays ? task.scheduledDays.slice() : [];
+    $('tdTaskModalTitle').textContent = task ? 'Edit Task' : 'Add Task';
+    $('tdTaskTitleInput').value = task ? task.title : '';
+    $('tdTaskNoteInput').value = task ? task.note : '';
+    $('tdTaskStatusInput').value = task ? task.status : 'todo';
+    $('tdTaskPriorityInput').value = task ? task.priority : 'medium';
+    $('tdTaskDateInput').value = task ? (task.dueDate || '') : '';
+    $('tdTaskDailyInput').checked = task ? !!task.isDailyAction : false;
+    $('tdTaskRecurrenceInput').value = task ? task.recurrence : 'none';
+    renderDayToggleRow();
+    const srcInfo = $('tdTaskSourceInfo');
+    if (task && task.sourceType !== 'native') {
+      srcInfo.style.display = 'block';
+      srcInfo.innerHTML = '';
+      const b1 = document.createElement('b'); b1.textContent = 'Imported from ' + (DB.SOURCE_LABELS[task.sourceType] || task.sourceType) + '. ';
+      const rest = document.createTextNode('Edits here only change this database’s own copy — nothing is pushed back to Main or System. Use "⟳ Sync from Main & System" to pull in updates.');
+      srcInfo.appendChild(b1); srcInfo.appendChild(rest);
+    } else {
+      srcInfo.style.display = 'none';
+    }
+    $('tdTaskModalDelete').style.display = task ? 'block' : 'none';
+    openModal($('tdTaskModalBg'));
+  }
+  function closeTaskModal() { closeModal($('tdTaskModalBg')); editingTaskId = null; }
+  function saveTaskModal() {
+    const title = $('tdTaskTitleInput').value.trim();
+    if (!title) { alert('Give this task a title first.'); return; }
+    const existing = editingTaskId ? DB.Items.get(editingTaskId) : null;
+    const wasNotDone = existing ? existing.status !== 'done' : true;
+    const newStatus = $('tdTaskStatusInput').value;
+    const fields = {
+      title: title, note: $('tdTaskNoteInput').value, status: newStatus, priority: $('tdTaskPriorityInput').value,
+      dueDate: $('tdTaskDateInput').value || '', isDailyAction: $('tdTaskDailyInput').checked,
+      recurrence: $('tdTaskRecurrenceInput').value, scheduledDays: editingTaskDays.length ? editingTaskDays.slice() : null,
+      doneAt: newStatus === 'done' ? Date.now() : null
+    };
+    let saved;
+    if (editingTaskId) saved = DB.Items.update(editingTaskId, fields);
+    else saved = DB.Items.add(Object.assign({ sourceType: 'native', order: DB.nextOrder(DB.itemsSorted()) }, fields));
+    if (wasNotDone && newStatus === 'done' && saved.sourceType === 'native' && saved.recurrence !== 'none') DB.spawnNextRecurrence(saved);
+    closeTaskModal();
+    renderTasks();
+  }
+  function deleteTaskModal() {
+    if (!editingTaskId) return;
+    if (!confirm('Remove this task from the database? (This never touches Main or System.)')) return;
+    DB.Items.remove(editingTaskId);
+    closeTaskModal();
+    renderTasks();
+  }
+
+  function runSourceSync(isManual) {
+    const result = DB.importFromSources();
+    renderTasks();
+    renderLastSynced();
+    if (isManual) {
+      const btn = $('tdSyncSourcesBtn');
+      const original = btn.textContent;
+      btn.textContent = 'Imported ' + result.added + ' new · updated ' + result.updated;
+      setTimeout(function () { btn.textContent = original; }, 2600);
+    }
+  }
+
+  function resetAll() {
+    if (!confirm('Reset Tasks to its default native tasks? This deletes every task currently in this database — including anything pulled in from Main or System (their own real data is untouched either way).')) return;
+    DB.seedDefaultData();
+    renderHero(); renderTasks(); renderLastSynced();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function init() {
+    DB = window.TasksDbData;
+    if (!DB) { showBootErrorBanner('window.TasksDbData is undefined — tasks-data.js failed to load.', 'boot'); return; }
+
+    renderHero();
+    renderTasks();
+    renderLastSynced();
+    setTimeout(migratePhotosToStorage, 3000);
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('tasksdb:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
+
+    function wireInlineEdit(el, onCommit, opts) {
+      opts = opts || {};
+      let original = el.textContent;
+      el.addEventListener('focus', function () { original = el.textContent; });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+        else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+      });
+      el.addEventListener('blur', function () {
+        const val = el.textContent.trim();
+        if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+        if (val === original) return;
+        onCommit(val);
+      });
+    }
+    wireInlineEdit($('tdHeroEyebrow'), function (v) { DB.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('tdHeroSubtext'), function (v) { DB.saveHero({ subtext: v }); }, { allowEmpty: true });
+    wireInlineEdit($('tdHeroCtaLabel'), function (v) { DB.saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('tdHeroTitle').addEventListener('input', function () { autosize($('tdHeroTitle')); });
+    $('tdHeroTitle').addEventListener('blur', function () { DB.saveHero({ title: $('tdHeroTitle').value }); });
+    $('tdHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('tdHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('tdHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); DB.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+    $('tdHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
+    $('tdHeroCta').addEventListener('click', function () {
+      $('tdTasksSection').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('tdSyncSourcesBtn').addEventListener('click', function () { runSourceSync(true); });
+    $('tdResetBtn').addEventListener('click', resetAll);
+
+    document.querySelectorAll('#tdViewChips .td-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        taskView = chip.dataset.view;
+        document.querySelectorAll('#tdViewChips .td-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
+        renderTasks();
+      });
+    });
+    document.querySelectorAll('#tdSourceChips .td-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        sourceFilter = chip.dataset.source;
+        document.querySelectorAll('#tdSourceChips .td-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
+        renderTasks();
+      });
+    });
+    $('tdFilterPriority').addEventListener('change', function () { priorityFilter = this.value; renderTasks(); });
+    $('tdFilterStatus').addEventListener('change', function () { statusFilter = this.value; renderTasks(); });
+    $('tdSearchInput').addEventListener('input', function () { searchQuery = this.value; renderTasks(); });
+
+    $('tdQuickAddBtn').addEventListener('click', quickAddTask);
+    $('tdQuickTitle').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); quickAddTask(); } });
+
+    $('tdTaskModalCloseBtn').addEventListener('click', closeTaskModal);
+    $('tdTaskModalCancel').addEventListener('click', closeTaskModal);
+    $('tdTaskModalBg').addEventListener('click', function (e) { if (e.target === this) closeTaskModal(); });
+    $('tdTaskModalSave').addEventListener('click', saveTaskModal);
+    $('tdTaskModalDelete').addEventListener('click', deleteTaskModal);
+
+    // Empty-storage seed-race safety window — same reasoning as every
+    // other page in this app (dreamboard.html/business.html/aitech.html/
+    // tasksnotes.html's own maybeSeedAfterSyncAttempt()): don't seed OR
+    // run the first automatic import until the cloud pull has had a real
+    // chance to land, so a fresh device can't push fabricated content
+    // over another device's real data. A manual "⟳ Sync" click is always
+    // safe post-load and isn't gated by this.
+    let remoteAppliedOnce = false;
+    function maybeSeedOrImportAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Items.list().length > 0) return;
+      runSourceSync(false);
+      DB.seedIfEmpty();
+      renderHero(); renderTasks(); renderLastSynced();
+    }
+
+    const startedEmpty = DB.Items.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'tasksdb',
+        syncedPrefixes: ['tasksdb:'],
+        onApplied: function () {
+          remoteAppliedOnce = true;
+          renderHero(); renderTasks(); renderLastSynced();
+        }
+      });
+      if (startedEmpty) { setTimeout(maybeSeedOrImportAfterSyncAttempt, 5000); }
+    } else if (startedEmpty) {
+      maybeSeedOrImportAfterSyncAttempt();
+    }
+  }
+
+  function boot() {
+    try { init(); }
+    catch (err) { showBootErrorBanner(err, 'init()'); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

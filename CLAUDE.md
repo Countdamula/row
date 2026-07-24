@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `home.html` | Home — the dashboard's hub, and the topbar's leading pill. One continuous, scrollable page (not a hidden-tab-panel switcher — see changelog), with an editable cover photo, a native Weekly Schedule (per-task Mon–Sun checkboxes that reset each week, a progress bar, notes, filterable by day), a native Subconscious Reprogramming section (a daily ritual checklist, an Affirmations gallery with a practice-streak counter, and freeform Notes & Scripts), then Dream Board / Self-Care / Tasks & Notes / AI & Tech / Main / Main Pillar / Household / Brain Dump embedded inline, unmodified, in lazy-loaded, auto-resizing same-origin iframes — every one of those eight still exists as its own full standalone page too, "keeping the original tabs just in case" (rebuilt — see changelog) |
-| `index.html` | Main — Goals command center: today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note. This is the site's root/default document (see §1's "Routing" note) |
+| `index.html` | Main — Goals command center: today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note. This is the site's root/default document (see §1's "Routing" note). **Stale as of the Tasks-tab changelog entry near the bottom of this file: the live `index.html` no longer matches this description at all** — it's now a single-purpose "Morning Call Sheet" (a daily self-talk/affirmation ritual: a Running Order of steps, a Beliefs database, Today/Tonight journal entries, a practice log), storing everything under a `routine:` prefix (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:`. Flagged, not silently rewritten here — this row (and §4's matching `goals` row) needs a real re-audit pass of its own, out of scope for the session that found it |
 | `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
@@ -42,6 +42,7 @@ Vercel's static server) — see README.md.
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
 | `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. Re-themed to match Main's (`index.html`) near-black/warm-gold frosted-glass-card aesthetic, with a matching editable cover-photo hero (upload/change/remove, page-wide blurred backdrop) — see changelog. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
+| `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`) and System's Actions + Challenges (`system:actions`/`system:challenges`) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -199,7 +200,7 @@ page's CSS is self-contained in its own `<style>` block):
 
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
-   | `goals` | `index.html` | everything prefixed `goals:` |
+   | `goals` | `index.html` | everything prefixed `goals:` — **stale, see the flagged note on `index.html`'s own row in §1**: the live page writes nothing under `goals:` anymore. Its actual current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:'] })` call still uses the `goals` key name (unchanged) but now syncs everything under `routine:` instead (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`) — confirmed directly in the live file, not assumed |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
@@ -214,6 +215,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | `system` | `system.html` | everything prefixed `system:` (`system:goals`, `system:actions`, `system:processes`, `system:visualTools`, `system:mentalEntries`, `system:anchors`, `system:vision`, `system:challenges`, `system:pageNotes`, `system:identityPrompts`, `system:active_tab`, `system:seeded`) — new (see changelog) |
+   | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs` from `index.html`'s own `goals` row and `system:actions`/`system:challenges` from `system.html`'s own `system` row, to build imported `TaskItem` copies — those two rows' own sync/ownership are completely unaffected |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -264,6 +266,7 @@ using `sync.js`.
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
 | Main Pillar | 🎮 `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (briefly deleted, then restored from a dangling git blob since it had never been committed — see changelog) |
 | Build Your System | ⚙️ `SYSTEM` → `system.html` | `system.html` + `system-data.js` (new — see changelog) |
+| Tasks | 🗂️ `TASKS` → `tasks.html` | `tasks.html` + `tasks-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file. Main, Main Pillar, Household, and Brain Dump were
@@ -8851,3 +8854,172 @@ both as originally phrased assumed a backend this app doesn't have):
     surface color; and confirmed zero JS errors throughout. No other file
     in this app shares this specific comment text, so no other page needed
     the same fix.
+
+- **New page: `tasks.html` ("Tasks"), a genuinely new, standalone unified
+  Tasks database — native tasks plus a one-way, read-only import of
+  routine/task-shaped data from Main (`index.html`) and System
+  (`system.html`), merged into one board.** Per an explicit request:
+  build a Tasks tab that pulls in routine and task data from Main and
+  System without deleting anything on either page. Genuinely new files,
+  `tasks.html` + `tasks-data.js` — new nav pill (🗂️ `TASKS` →
+  `tasks.html`, appended after `SYSTEM` in `topbar.js`'s injected pill
+  list — the only edit made to `topbar.js`, same one-line-addition
+  precedent every prior page addition followed); new sync key (`appKey:
+  'tasksdb'`, `syncedPrefixes: ['tasksdb:']`, wired via the standard
+  shared `initCloudSync` — same call pattern as every other page, nothing
+  new invented).
+  - **A real, pre-existing discrepancy was found and flagged, not
+    silently worked around**: this file's own §1/§4/§5 tables (and the
+    Main-tab-rebuild changelog entries further up this file) describe
+    `index.html` as a Goals/Habits/Tasks/Life-Areas command center under
+    a `goals:` prefix. That description is now stale — confirmed by
+    reading the live file, not assumed: `index.html` is currently a
+    single-purpose "Morning Call Sheet" (title tag confirms it — a daily
+    self-talk/affirmation ritual: a Running Order of Steps, a Beliefs
+    database, Today/Tonight journal entries, a practice log), storing
+    everything under a `routine:` prefix
+    (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/
+    `hero`/`todayEntries`/`tonightEntries`) — its `initCloudSync(...)`
+    call still uses `appKey: 'goals'` (unchanged) but now syncs
+    `syncedPrefixes: ['routine:']` instead. It has **no task collection
+    of any kind**. Per this file's own §6 philosophy ("read the live
+    code as ground truth, not the older changelog text"), the §1/§4 rows
+    for `index.html`/`goals` were updated with a flagged note pointing at
+    this discrepancy rather than being silently rewritten wholesale — a
+    full re-audit of `index.html`'s own documentation is a separate,
+    larger task than what this session was asked to do. `home.html`
+    (referenced by several older changelog entries and by the `§4`
+    `home` row) does not currently exist in this repo either, confirmed
+    via a plain file listing — `tasks.html`'s back button points at
+    `index.html`, matching the *other* pages that already do this today
+    (`aitech.html`/`learning.html`/`dreamboard.html`/`selfcare.html`,
+    checked directly), not at the non-existent `home.html`.
+  - **Source mapping, a deliberate, disclosed interpretation given the
+    discrepancy above** — since Main has no actual "tasks," the closest
+    real things to "routine and any tasks data" on each source page were
+    identified from their real, current data shapes and pulled in as
+    four source types, alongside `native` (this database's own tasks):
+    - **`main-step`** ← `routine:steps` (Main's own "Running order" —
+      literally the routine's ordered sequence). Each step becomes a
+      daily (`isDailyAction: true`, all 7 `scheduledDays`) imported task,
+      since the whole call sheet runs every morning.
+    - **`main-belief`** ← `routine:beliefs` (a status-bearing database —
+      each belief already carries `status: 'Working On'|'Integrated'|
+      'Parked'`, the closest thing to "tasks data" Main actually has).
+      Mapped once, on first import only, to `in-progress`/`done`/`todo`
+      respectively — afterward this database's own status is treated as
+      the user's to manage locally, same "don't clobber a local edit on
+      re-sync" rule every imported field follows (see below).
+    - **`system-action`** ← `system:actions` (System's own daily/weekly
+      repeatable Actions — the page's literal "routine" data). Frequency
+      maps to `isDailyAction`/`recurrence`, and `scheduledDays` carries
+      through directly so the card can show which weekdays it applies to.
+    - **`system-challenge`** ← `system:challenges` (Install-Through-
+      Action Challenges — the one source with a real todo-shaped status,
+      `not-started`/`in-progress`/`done`, mapped 1:1). Unlike Beliefs,
+      a Challenge's status is treated as the primary signal and is kept
+      roughly in sync on every re-import, not just seeded once — closer
+      to "this literally is a task" than the other three source types.
+  - **One-way, read-only, non-destructive by construction**: import
+    (`TasksDbData.importFromSources()`, `tasks-data.js`) only ever calls
+    `storeGet()` against `routine:*`/`system:*` keys — it never calls
+    `localStorage.setItem`/`removeItem` on anything outside its own
+    `tasksdb:` prefix, so there is no code path in this feature that can
+    write to, corrupt, or delete anything on Main or System, regardless
+    of what a user does inside the Tasks page afterward (edit, delete, or
+    reorder an imported card only ever touches this database's own copy,
+    identified by a stable `(sourceType, sourceId)` pair). Deleting a
+    TaskItem here removes only this database's own record — re-running
+    "⟳ Sync from Main & System" will simply re-import it again next time,
+    same as any other upstream item. Re-importing an already-imported
+    item updates its display fields (title/schedule/source meta) from
+    upstream but explicitly preserves the local `status`, `order`, and
+    `note` fields the user has already touched here (`upsertImported()`
+    deletes those three keys from the patch before applying it) — the
+    one exception is `system-challenge`, whose status is deliberately
+    kept live-synced going forward, per the mapping note above.
+  - **One unified list, one render path**: native and imported tasks
+    share the exact same `TaskItem` model/collection
+    (`tasksdb:items`) and the same card component — a source badge
+    (color-coded by group: gold for native, blue for Main, purple for
+    System) and a small `sourceMeta` caption are the only things that
+    visually distinguish an imported card from a hand-added one.
+    Filterable by View (Today/All — Today matches `isDailyAction ||
+    dueDate === today`, so every imported daily Step/Action shows up
+    there automatically), Source (All/Native/From Main/From System),
+    Priority, Status, and a title+note search box — all compose.
+  - **Aesthetic, editable, moveable, adjustable — concretely**: this
+    file's own private `--td-*` copy of Business Hub/Dream Board/Tasks &
+    Notes' dark cinematic near-black/gold, frosted-glass-card look (the
+    common thread across most of this app's pages, per CLAUDE.md §6 —
+    not AI & Tech's one-off teal exception), an editable cover-photo
+    hero (upload/change/remove, page-wide blurred backdrop, same
+    mechanism as Tasks & Notes/AI & Tech's own hero), and every task
+    genuinely drag-reorderable via SortableJS — including native and
+    imported cards side by side in the same list — with the same
+    `delay`/`delayOnTouchOnly`/`touchStartThreshold` touch-scroll-safety
+    tuning `learning.html`'s own bugfix entry already established (drag
+    only starts from the `⋮⋮` handle after a brief hold, so scrolling
+    past a card on a phone can't accidentally reorder it). Reordering is
+    computed against the currently-*visible* (filtered) list and remapped
+    into the real underlying order — the same technique
+    `entertainment.html`'s Manual sort mode and `business.html`'s
+    Content-section-drag both already use for reordering correctly under
+    an active filter. Add/Edit is a single modal covering every field
+    (title, note, status, priority, due date, daily flag, recurrence, and
+    a 7-day scheduled-days toggle row that's editable regardless of a
+    task's source), with a read-only "Imported from …" callout shown only
+    on non-native tasks so it's always clear where a card came from and
+    that edits stay local.
+  - **Empty-storage seed-race safety, extended to the first automatic
+    import too, not just seeding**: same reasoning as every other page's
+    `maybeSeedAfterSyncAttempt()` (`dreamboard.html`/`business.html`/
+    `aitech.html`/`tasksnotes.html`) — seeding *or* auto-importing
+    synchronously before `initCloudSync()`'s cloud pull has a real chance
+    to land could push a freshly-imported "default" set to Supabase and
+    clobber another device's real data. `tasks.html`'s `init()` only ever
+    runs the first automatic `importFromSources()` (falling back to
+    `seedDefaultData()` only if that yields nothing) from
+    `maybeSeedOrImportAfterSyncAttempt()`, gated behind either a real
+    `onApplied` firing or a 5-second window elapsing, exactly mirroring
+    the established pattern. The manual "⟳ Sync from Main & System"
+    button is always available post-load and isn't gated by this at
+    all — every call it makes is additive-or-update-in-place against
+    this page's own already-loaded collection, which can't clobber
+    anything regardless of timing.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: since
+    this is a brand-new page reading two *other* pages' raw localStorage
+    shapes directly (`routine:steps`/`routine:beliefs`/`system:actions`/
+    `system:challenges`), an unexpected shape there throwing partway
+    through `init()` is a real, plausible failure mode this app has hit
+    for real before (`gym.html`'s `BOARD_WIDGET_TYPES` crash, `business
+    .html`'s missing-`layout` crash) — `init()`'s body is wrapped in
+    try/catch, surfacing a visible banner with the real error and a
+    "Copy error details" button instead of a silent blank page, same
+    `showBootErrorBanner()` shape those pages already established.
+  - **Verification, disclosed honestly**: this session had no way to
+    launch an isolated, interactive headless-browser session (no
+    browser-automation tooling reachable in this environment this
+    round). Verified statically instead, the same reduced-guarantee
+    fallback several other entries in this file already disclose for
+    this exact class of limitation: brace/paren balance confirmed on
+    both new files (`tasks-data.js`: 121/121 braces, 264/264 parens;
+    `tasks.html`: 272/272 braces, 727/727 parens across the whole file);
+    zero duplicate DOM ids anywhere in `tasks.html`; every `$('id')`
+    reference in the script cross-matched against real HTML element ids
+    with nothing unresolved; `topbar.js`'s new pill confirmed to reuse
+    the plain `.modal-bg`/`.modal` classes already covered by its
+    existing `MODAL_SELECTORS`, so no further edit was needed there; and
+    the real current shapes of `routine:steps`/`routine:beliefs`
+    (`index.html`) and `system:actions`/`system:challenges`
+    (`system-data.js`) were read directly from source before writing the
+    importer, not guessed at. **Not verified this way**: an actual
+    click-through (adding a native task, running "⟳ Sync from Main &
+    System" against real Step/Belief/Action/Challenge data and confirming
+    the right cards appear with correct badges/status mapping, dragging a
+    card to reorder under an active filter, editing an imported task and
+    confirming Main/System are genuinely untouched afterward, and
+    confirming the empty-storage seed-race path behaves correctly on a
+    fresh profile). A real click-through is recommended before relying on
+    this page heavily.
