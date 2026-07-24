@@ -8658,3 +8658,77 @@ both as originally phrased assumed a backend this app doesn't have):
     hard refresh doesn't resolve it, the new alert text will surface the
     actual underlying error on the next report instead of another blind
     guess.
+
+- **Build Your System: re-diagnosed the recurring "cover photo won't add"
+  report, matched the hero's readability to Main, and built a genuinely
+  new capability — the page's accent color now recolors itself from the
+  cover photo.** The previous entry's fix (`system-data.js?v=2` + a
+  visible alert on failure) was re-verified this pass, not assumed: a
+  same-origin iframe test harness (this repo's own established
+  `_test_harness.html`-style technique — `--allow-file-access-from-files`,
+  a real `DataTransfer`-based file selection dispatched at the actual
+  `#bsHeroPhotoInput`, not just a code read-through) confirmed the whole
+  upload → compress → save → render chain already completes correctly
+  with zero JS errors in a clean profile. Since the code itself checks
+  out, the most likely remaining explanation is this app's own repeatedly-
+  documented failure mode elsewhere (`business.html`'s/`gym.html`'s own
+  "still not showing up" entries) — a stale cached copy of the page on the
+  reporting device, which a meta no-cache tag can reduce but can't
+  fully rule out from here (see those entries' own disclosed caveat). A
+  hard refresh is the next troubleshooting step if it recurs.
+  - **Readability, matched literally to `index.html`'s own hero**: the
+    eyebrow letter-spacing (0.24em → 0.28em), title `clamp()` range
+    (26–40px → Main's actual 30–46px) and line-height (1.1 → 1.08), and
+    subtext font-size (14px → 14.5px) are now byte-identical to
+    `.rt-hero-eyebrow`/`.rt-hero-title`/`.rt-hero-subtext`. Beyond pure
+    parity, the hero overlay gradient was also strengthened (0.12/0.6/0.9
+    → 0.22/0.68/0.93 across its three stops) and the eyebrow/title/
+    subtext all gained a subtle `text-shadow` — insurance this page
+    specifically needs and Main's own hero doesn't (yet): a user-uploaded
+    cover photo can be bright anywhere in frame, unlike Main's hero, which
+    has never been given one to test against.
+  - **The actual new feature — "the page changes colors depending on the
+    cover photo"**: this didn't exist anywhere in this app before, despite
+    the visual similarity to Dream Board's `photoColor`/
+    `extractDominantColor()` — every other page that samples a cover
+    photo's color only ever offers it as an opt-in *per-widget* "match
+    this cover photo" tint swatch (`selfcare.html`/`nutrition.html`/
+    `dreamboard.html`'s own board-widget tint popover); none of them
+    auto-recolor the page itself. Built new: `extractDominantColor()`
+    (copied verbatim from `dreamboard.html`'s own cheap 32×32-canvas
+    average-RGB sampler) feeds `computeAccentFromPhotoColor()` (new), which
+    converts the sampled hex to HSL and clamps saturation to 32–62% and
+    lightness to 52–68% (68–86% for the "bright" variant) — a legible
+    band against this page's near-black background regardless of the
+    source photo's own actual tone — then `applyPageAccent()` (new, called
+    from `renderHero()` on every render) writes the result straight onto
+    `document.documentElement.style` as `--accent`/`--accent-bright`/
+    `--accent-rgb`, or clears all three (falling back to the stylesheet's
+    default gold) when there's no photo. **A near-grayscale photo
+    deliberately does not override the accent** (bails out below 8%
+    saturation) — a "dominant hue" sampled from a colorless image is
+    essentially arbitrary and would read as a stray bug, not an
+    intentional theme change. A new `--accent-rgb` custom property (the
+    r,g,b triplet backing `--accent`'s hex, since CSS itself can't convert
+    hex→rgb) replaces every hardcoded `rgba(201,168,118,X)` literal in the
+    stylesheet (`--border`, `--accent-tint`, the ambient `body::before`
+    glow, the hero's own background gradient, `.bs-primary-banner`,
+    `.bs-tag.is-accent`, `.bs-vision-field.is-power`) with
+    `rgba(var(--accent-rgb),X)` — so the *entire* page's gold accents
+    (buttons, borders, active tabs/chips, the ambient background wash,
+    not just the hero) genuinely shift together, not just one isolated
+    swatch. A one-time backfill in `boot()` samples the color for any
+    hero photo saved before this feature existed (nothing to migrate in
+    `system-data.js` itself — `photoColor` was already a shape-consistent,
+    just previously-unpopulated field on the hero model, same as
+    `aitech-data.js`'s own hero).
+  - **Verified end-to-end via the same iframe harness**: uploading a
+    strongly blue swatch (`#1560ff`) correctly recolored `--accent`/
+    `--accent-bright`/`--accent-rgb` to a clamped, legible blue
+    (`#4270d3`/`#7c9ce0`); uploading a perfectly desaturated gray swatch
+    correctly left both variables empty (falling back to the default
+    gold, confirming the grayscale-bailout rule); clicking "Remove"
+    correctly reset both back to empty and returned the hero to its
+    "+ Add a cover photo" empty state; zero JS errors across the whole
+    pass. `system-data.js` was not touched (no version bump needed) —
+    every change lives in `system.html`'s own CSS and inline script.

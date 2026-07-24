@@ -43,14 +43,21 @@
   --text-primary: #f5f1e9;
   --text-secondary: rgba(245,241,233,0.68);
   --text-tertiary: rgba(245,241,233,0.44);
-  --border: rgba(201,168,118,0.22);
+  /* --accent-rgb is the r,g,b triplet backing --accent's hex value — kept
+     as its own property (not derived from --accent in CSS, which can't
+     convert hex->rgb on its own) so every rgba(var(--accent-rgb), X)
+     literal below stays in sync whenever applyPageAccent() (in the page
+     script) overrides --accent/--accent-bright/--accent-rgb together from
+     a cover photo's sampled color. */
+  --accent-rgb: 201,168,118;
+  --border: rgba(var(--accent-rgb),0.22);
   --good: #6ee7b7;
   --warn: #fbbf24;
   --bad: #ff8a8a;
   --info: #7dd3fc;
   --accent: #c9a876;
   --accent-bright: #e8cf9f;
-  --accent-tint: rgba(201,168,118,0.14);
+  --accent-tint: rgba(var(--accent-rgb),0.14);
   --accent-text: #24190c;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -76,8 +83,8 @@ button, input, textarea, select { font-family: inherit; color: inherit; }
    Matches index.html's own #rtPageBg fix. */
 body::before {
   content: ''; position: fixed; inset: -10%; z-index: 0;
-  background: radial-gradient(55% 42% at 85% 6%, rgba(201,168,118,0.18) 0%, transparent 55%),
-              radial-gradient(50% 40% at 10% 95%, rgba(201,168,118,0.08) 0%, transparent 55%),
+  background: radial-gradient(55% 42% at 85% 6%, rgba(var(--accent-rgb),0.18) 0%, transparent 55%),
+              radial-gradient(50% 40% at 10% 95%, rgba(var(--accent-rgb),0.08) 0%, transparent 55%),
               linear-gradient(180deg, rgba(11,10,8,0.85) 0%, rgba(5,4,3,0.92) 100%);
   filter: blur(40px); pointer-events: none;
 }
@@ -101,8 +108,8 @@ body::before {
   position: relative; overflow: hidden; min-height: 300px; display: flex; align-items: flex-end;
   border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 64px 24px 30px; margin-bottom: 18px;
-  background: radial-gradient(ellipse at top left, rgba(201,168,118,0.18), transparent 55%),
-              radial-gradient(ellipse at bottom right, rgba(201,168,118,0.08), transparent 60%),
+  background: radial-gradient(ellipse at top left, rgba(var(--accent-rgb),0.18), transparent 55%),
+              radial-gradient(ellipse at bottom right, rgba(var(--accent-rgb),0.08), transparent 60%),
               rgba(255,255,255,0.04);
 }
 .bs-hero-media { position: absolute; inset: 0; z-index: 0; background: transparent; }
@@ -113,9 +120,15 @@ body::before {
   border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .bs-hero-photo-choice-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+/* Stronger, three-stop gradient (was 0.12/0.6/0.9) — a flat photo can be
+   bright enough anywhere in frame to threaten the eyebrow/title/subtext's
+   legibility, so this leans darker across more of the hero, matching the
+   "same level of readability as Main" ask; Main's own hero has no photo-
+   variability to guard against (it's optional there too, so the same
+   reasoning applies going forward if it ever gets a photo). */
 .bs-hero-overlay {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(5,4,3,0.12) 0%, rgba(5,4,3,0.6) 60%, rgba(5,4,3,0.9) 100%);
+  background: linear-gradient(180deg, rgba(5,4,3,0.22) 0%, rgba(5,4,3,0.68) 55%, rgba(5,4,3,0.93) 100%);
 }
 .bs-hero-photo-tools {
   position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px;
@@ -136,20 +149,26 @@ body::before {
 }
 .bs-back-btn:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
 
-.bs-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent-bright); margin-bottom: 10px; outline-offset: 4px; }
+/* Typographic scale + a text-shadow safety net matched to index.html's own
+   .rt-hero-eyebrow/.rt-hero-title/.rt-hero-subtext (same clamp range,
+   letter-spacing, and font-size) — "same level of readability as Main,"
+   plus the shadow, which Main's hero doesn't need since it has no
+   variable-brightness-photo legibility risk to guard against the way this
+   page's user-uploaded cover photo does. */
+.bs-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--accent-bright); margin-bottom: 14px; outline-offset: 4px; text-shadow: 0 1px 4px rgba(5,4,3,0.5); }
 .bs-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--accent); margin-right: 10px; vertical-align: middle; }
-.bs-title { font-family: var(--font-serif); font-weight: 500; font-size: clamp(26px, 4.6vw, 40px); letter-spacing: -0.01em; line-height: 1.1; margin-bottom: 10px; }
+.bs-title { font-family: var(--font-serif); font-weight: 500; font-size: clamp(30px, 5vw, 46px); letter-spacing: -0.01em; line-height: 1.08; margin-bottom: 12px; text-shadow: 0 2px 10px rgba(5,4,3,0.55); }
 .bs-hero-title-input {
   display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
   color: var(--text-primary); padding: 0; outline-offset: 4px;
 }
 .bs-hero-title-input::placeholder { color: var(--text-tertiary); }
-.bs-subtext { font-size: 14px; color: var(--text-secondary); line-height: 1.5; max-width: 480px; outline-offset: 3px; }
+.bs-subtext { font-size: 14.5px; color: var(--text-secondary); line-height: 1.5; max-width: 480px; outline-offset: 3px; text-shadow: 0 1px 4px rgba(5,4,3,0.45); }
 
 .bs-primary-banner {
   margin-top: 18px; padding: 14px 16px; border-radius: var(--radius-md);
-  background: rgba(201,168,118,0.16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  border: 1px solid rgba(201,168,118,0.4);
+  background: rgba(var(--accent-rgb),0.16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--accent-rgb),0.4);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .bs-primary-banner.is-empty { background: rgba(11,10,8,0.4); border-color: var(--border); }
@@ -228,7 +247,7 @@ body::before {
   padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border);
   white-space: nowrap;
 }
-.bs-tag.is-accent { background: var(--accent-tint); color: var(--accent-bright); border-color: rgba(201,168,118,0.35); }
+.bs-tag.is-accent { background: var(--accent-tint); color: var(--accent-bright); border-color: rgba(var(--accent-rgb),0.35); }
 .bs-tag.is-good { background: rgba(110,231,183,0.14); color: var(--good); border-color: rgba(110,231,183,0.3); }
 .bs-tag.is-warn { background: rgba(251,191,36,0.14); color: var(--warn); border-color: rgba(251,191,36,0.3); }
 .bs-tag.is-bad { background: rgba(255,138,138,0.14); color: var(--bad); border-color: rgba(255,138,138,0.3); }
@@ -283,7 +302,7 @@ body::before {
 .bs-vision-field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
 .bs-vision-field .bs-hint { font-size: 11px; color: var(--text-tertiary); font-weight: 400; margin-left: 6px; }
 .bs-vision-field textarea { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; line-height: 1.55; min-height: 64px; resize: vertical; }
-.bs-vision-field.is-power textarea { border-color: rgba(201,168,118,0.4); min-height: 90px; }
+.bs-vision-field.is-power textarea { border-color: rgba(var(--accent-rgb),0.4); min-height: 90px; }
 .bs-vision-saved-at { font-size: 11px; color: var(--text-tertiary); margin-top: -6px; margin-bottom: 14px; }
 
 /* ===== Challenge status pill ===== */
@@ -717,6 +736,101 @@ body::before {
     const hero = DB.getHero();
     bg.style.backgroundImage = hero.photo ? "url('" + hero.photo + "')" : '';
   }
+  // Cheap average-RGB color sample from a downscaled copy of the image —
+  // same technique as dreamboard.html's own extractDominantColor() (not a
+  // "true" dominant-color/quantization algorithm — this app has no build
+  // step to pull one in — just a fast, dependency-free approximation).
+  function extractDominantColor(dataUrl) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        try {
+          const size = 32;
+          const c = document.createElement('canvas');
+          c.width = size; c.height = size;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, size, size);
+          const data = ctx.getImageData(0, 0, size, size).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) { r += data[i]; g += data[i + 1]; b += data[i + 2]; count++; }
+          if (!count) { resolve(''); return; }
+          const toHex = function (v) { const h = Math.round(v / count).toString(16); return h.length < 2 ? '0' + h : h; };
+          resolve('#' + toHex(r) + toHex(g) + toHex(b));
+        } catch (e) { resolve(''); }
+      };
+      img.onerror = function () { resolve(''); };
+      img.src = dataUrl;
+    });
+  }
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    if (!m) return null;
+    return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0; const l = (max + min) / 2;
+    const d = max - min;
+    if (d !== 0) {
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h: h, s: s, l: l };
+  }
+  function hslToHex(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+    const toHex = function (v) { const h2 = Math.round((v + m) * 255).toString(16); return h2.length < 2 ? '0' + h2 : h2; };
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+  }
+  // The literal "page changes colors depending on the cover photo" ask —
+  // new to this app (every other page's photoColor sample only ever backs
+  // an opt-in per-widget "match this cover photo" tint swatch, never an
+  // automatic whole-page recolor — see CLAUDE.md's Dream Board changelog
+  // entries). Clamps saturation/lightness into a band that stays legible
+  // against this page's near-black background regardless of what the
+  // source photo actually looked like, and bails out (keeps the default
+  // gold) on a near-grayscale sample, where a "dominant hue" is essentially
+  // meaningless and would read as an arbitrary, buggy-looking accent color
+  // rather than an intentional one.
+  function computeAccentFromPhotoColor(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    if (hsl.s < 0.08) return null;
+    const s = Math.min(Math.max(hsl.s, 0.32), 0.62);
+    const l = Math.min(Math.max(hsl.l, 0.52), 0.68);
+    const brightL = Math.min(l + 0.14, 0.86);
+    const accentHex = hslToHex(hsl.h, s, l);
+    const accentRgb = hexToRgb(accentHex);
+    return {
+      accent: accentHex,
+      bright: hslToHex(hsl.h, s, brightL),
+      rgb: accentRgb.r + ',' + accentRgb.g + ',' + accentRgb.b
+    };
+  }
+  function applyPageAccent() {
+    const hero = DB.getHero();
+    const computed = hero.photo ? computeAccentFromPhotoColor(hero.photoColor) : null;
+    const root = document.documentElement.style;
+    if (computed) {
+      root.setProperty('--accent', computed.accent);
+      root.setProperty('--accent-bright', computed.bright);
+      root.setProperty('--accent-rgb', computed.rgb);
+    } else {
+      root.removeProperty('--accent');
+      root.removeProperty('--accent-bright');
+      root.removeProperty('--accent-rgb');
+    }
+  }
   function renderHero() {
     const hero = DB.getHero();
     $('bsHeroEyebrow').textContent = hero.eyebrow;
@@ -727,6 +841,7 @@ body::before {
     if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
     else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
     renderPageBg();
+    applyPageAccent();
   }
   function openHeroFilePicker() { $('bsHeroPhotoInput').click(); }
   function handleHeroPhotoFile(e) {
@@ -746,15 +861,17 @@ body::before {
     reader.onload = function () {
       try {
         DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
-          DB.saveHero({ photo: compressed });
-          renderHero();
-          if (window.PhotoStore) {
-            window.PhotoStore.upload(compressed, function (url) {
-              if (DB.getHero().photo !== compressed) return;
-              DB.saveHero({ photo: url });
-              renderHero();
-            });
-          }
+          return extractDominantColor(compressed).then(function (color) {
+            DB.saveHero({ photo: compressed, photoColor: color });
+            renderHero();
+            if (window.PhotoStore) {
+              window.PhotoStore.upload(compressed, function (url) {
+                if (DB.getHero().photo !== compressed) return;
+                DB.saveHero({ photo: url });
+                renderHero();
+              });
+            }
+          });
         }).catch(function (err) {
           alert("Couldn't process that photo: " + (err && err.message ? err.message : err));
         });
@@ -1667,6 +1784,21 @@ body::before {
     renderAllNotes();
     renderAllPrompts();
     setTimeout(migratePhotosToStorage, 3000);
+    // Backfill: a hero photo saved before this page had the "recolor from
+    // the cover photo" feature has no photoColor sample yet — compute and
+    // apply it once so an existing cover photo starts recoloring the page
+    // too, not just a newly-uploaded one.
+    (function backfillHeroPhotoColor() {
+      const hero = DB.getHero();
+      if (hero.photo && !hero.photoColor) {
+        extractDominantColor(hero.photo).then(function (color) {
+          if (!color) return;
+          if (DB.getHero().photo !== hero.photo) return;
+          DB.saveHero({ photoColor: color });
+          renderHero();
+        });
+      }
+    })();
 
     function isEmptyEverywhere() {
       return DB.Goals.list().length === 0 && DB.Actions.list().length === 0 && DB.Processes.list().length === 0 &&
