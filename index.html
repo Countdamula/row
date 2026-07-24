@@ -7,6 +7,7 @@
 <title>Main — Morning Call Sheet</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,8 +38,19 @@
     font-family:var(--font);font-size:15px;line-height:1.4;
     padding:20px 14px 70px;-webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1080px;margin:0 auto;}
+  .wrap{max-width:1080px;margin:0 auto;position:relative;z-index:1;}
   ::focus-visible{outline:2px solid var(--rt-gold-bright);outline-offset:2px;border-radius:4px;}
+
+  /* Page-wide blurred cover-photo backdrop. Uses z-index:0 (not a
+     negative value) and sits first in DOM order — this exact app has
+     previously hit a real bug where a fixed, negative-z-index layer
+     failed to paint at all when html/body also declare an explicit
+     background color (see example.html's changelog). z-index:0 plus
+     DOM order avoids that class of bug entirely. */
+  .rt-page-bg{
+    position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;
+    filter:blur(60px) saturate(1.3) brightness(.55);transform:scale(1.15);
+  }
 
   /* ===== hero ===== */
   .rt-hero{
@@ -49,6 +61,22 @@
       radial-gradient(ellipse at bottom right, rgba(201,168,118,.08), transparent 60%),
       var(--rt-paper-solid);
   }
+  .rt-hero-media{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;}
+  .rt-hero-overlay{position:absolute;inset:0;z-index:0;background:linear-gradient(180deg, rgba(5,4,3,.1) 0%, rgba(5,4,3,.72) 100%);pointer-events:none;}
+  .rt-hero-photo-choice{position:absolute;top:14px;right:14px;z-index:3;}
+  .rt-hero-photo-choice-btn{
+    background:rgba(11,10,8,.4);border:1px solid var(--rt-hairline);border-radius:999px;
+    color:var(--rt-text-mute);font-size:11.5px;font-weight:600;letter-spacing:.03em;
+    padding:8px 15px;cursor:pointer;font-family:var(--font);
+  }
+  .rt-hero-photo-choice-btn:hover{color:var(--rt-gold-bright);border-color:var(--rt-gold);}
+  .rt-hero-photo-tools{position:absolute;top:14px;right:14px;z-index:3;display:none;gap:8px;}
+  .rt-hero-photo-tools button{
+    background:rgba(11,10,8,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border:1px solid var(--rt-hairline);color:var(--rt-text-dim);border-radius:999px;padding:7px 12px;
+    font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);
+  }
+  .rt-hero-photo-tools button:hover{color:var(--rt-gold-bright);border-color:var(--rt-gold);}
   .rt-hero-inner{position:relative;z-index:1;max-width:640px;}
   .rt-hero-eyebrow{
     font-size:10.5px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;
@@ -114,6 +142,7 @@
   .rt-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
   .rt-section-head-left{display:flex;align-items:center;gap:10px;}
   .rt-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--rt-gold-bright);margin:0;}
+  .rt-subhead{font-size:9.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--rt-text-mute);margin:16px 0 8px;}
   .rt-section-drag{
     cursor:grab;color:var(--rt-text-mute);font-size:14px;line-height:1;letter-spacing:-1px;
     touch-action:none;-webkit-tap-highlight-color:transparent;
@@ -190,7 +219,7 @@
   .rt-hist b.ran{background:var(--rt-accent-tint);border-color:var(--rt-gold);color:var(--rt-gold-bright);}
   .rt-hist b.frog{background:linear-gradient(180deg,var(--rt-gold-bright) 0%, var(--rt-gold) 100%);border-color:var(--rt-gold);color:#24190c;}
 
-  /* ===== the five ===== */
+  /* ===== beliefs: recitation ===== */
   .rt-how{font-size:10.5px;color:var(--rt-text-mute);letter-spacing:.04em;margin-bottom:10px;}
   .rt-five{list-style:none;margin:0;padding:0;}
   .rt-five li{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--rt-hairline);}
@@ -208,11 +237,12 @@
     padding:5px 7px;cursor:pointer;white-space:nowrap;border-radius:6px;
   }
   .rt-caught[aria-pressed="true"]{background:linear-gradient(180deg,var(--rt-gold-bright) 0%, var(--rt-gold) 100%);border-color:var(--rt-gold);color:#24190c;}
-  .rt-line-del{
+  .rt-line-icon-btn{
     background:transparent;border:1px solid var(--rt-hairline);color:var(--rt-text-mute);
     font-size:10px;padding:5px 7px;cursor:pointer;border-radius:6px;
   }
-  .rt-line-del:hover{color:var(--rt-bad);border-color:var(--rt-bad);}
+  .rt-line-icon-btn:hover{color:var(--rt-gold-bright);border-color:var(--rt-gold);}
+  .rt-line-icon-btn.rt-danger:hover{color:var(--rt-bad);border-color:var(--rt-bad);}
   .rt-resist{
     font-size:11px;color:var(--rt-text-dim);line-height:1.5;margin:11px 0 0;
     padding-left:12px;border-left:2px solid var(--rt-gold);
@@ -225,6 +255,62 @@
   .rt-boxes{display:flex;gap:3px;flex-wrap:wrap;}
   .rt-boxes i{width:10px;height:10px;border:1px solid var(--rt-hairline);border-radius:2px;display:block;}
   .rt-boxes i.on{background:var(--rt-gold);border-color:var(--rt-gold);}
+
+  /* ===== beliefs: database ===== */
+  .rt-belief-db{margin-top:6px;padding-top:14px;border-top:1px solid var(--rt-hairline);}
+  .rt-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .rt-chip{
+    font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;border:1px solid var(--rt-hairline);color:var(--rt-text-mute);
+    padding:5px 10px;cursor:pointer;border-radius:999px;
+  }
+  .rt-chip.active{background:var(--rt-accent-tint);border-color:var(--rt-gold);color:var(--rt-gold-bright);}
+  .rt-search{
+    width:100%;font-family:var(--font);font-size:13px;color:var(--rt-text);
+    border:1px solid var(--rt-hairline);background:rgba(255,255,255,.04);border-radius:8px;
+    padding:8px 10px;margin-bottom:10px;
+  }
+  .rt-search::placeholder{color:var(--rt-text-mute);}
+  .rt-belief-list{list-style:none;margin:0;padding:0;max-height:280px;overflow-y:auto;}
+  .rt-belief-row{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+    padding:9px 0;border-bottom:1px solid var(--rt-hairline);
+  }
+  .rt-belief-row-text{font-size:13px;color:var(--rt-text-dim);line-height:1.4;margin:0 0 6px;}
+  .rt-belief-row-tags{display:flex;gap:6px;flex-wrap:wrap;}
+  .rt-tag{
+    font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    border:1px solid var(--rt-hairline);color:var(--rt-text-mute);padding:3px 7px;border-radius:999px;
+  }
+  .rt-tag-status-WorkingOn{color:var(--rt-gold-bright);border-color:var(--rt-gold);}
+  .rt-tag-status-Integrated{color:var(--rt-good);border-color:var(--rt-good);}
+  .rt-tag-status-Parked{color:var(--rt-text-mute);}
+
+  /* ===== journal templates ===== */
+  .rt-date-filter{
+    font-family:var(--font);font-size:11px;color:var(--rt-text);color-scheme:dark;
+    background:rgba(255,255,255,.04);border:1px solid var(--rt-hairline);border-radius:8px;padding:6px 8px;
+  }
+  .rt-journal-label{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--rt-text-mute);margin:14px 0 4px;}
+  .rt-journal-textarea{
+    width:100%;font-family:var(--font);font-size:13.5px;color:var(--rt-text);line-height:1.5;
+    border:none;border-bottom:1px solid var(--rt-hairline);background:transparent;padding:8px 0;resize:vertical;min-height:50px;
+  }
+  .rt-journal-textarea:focus{outline:none;border-bottom-color:var(--rt-gold);}
+  .rt-journal-textarea::placeholder{color:var(--rt-text-mute);}
+  .rt-example{
+    margin-top:14px;padding:14px 16px;border-radius:var(--radius-md);
+    background:rgba(201,168,118,.06);border:1px dashed var(--rt-hairline);
+  }
+  .rt-example-tag{
+    display:inline-block;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--rt-gold-bright);border:1px solid var(--rt-gold);border-radius:999px;padding:3px 9px;margin-bottom:10px;
+  }
+  .rt-example-label{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--rt-text-mute);margin:10px 0 3px;}
+  .rt-example-label:first-of-type{margin-top:0;}
+  .rt-example-text{font-size:13px;color:var(--rt-text-dim);line-height:1.5;margin:0;}
+  .rt-example-list{margin:0;padding-left:18px;}
+  .rt-example-list li{font-size:13px;color:var(--rt-text-dim);line-height:1.5;margin-bottom:3px;}
 
   /* ===== inputs ===== */
   .rt-writein{
@@ -245,9 +331,10 @@
   .rt-metric[aria-pressed="true"]{background:linear-gradient(180deg,var(--rt-gold-bright) 0%, var(--rt-gold) 100%);border-color:var(--rt-gold);color:#24190c;}
   .rt-metric[aria-pressed="true"] i{background:#24190c;border-color:#24190c;}
 
-  /* ===== evidence ===== */
+  /* ===== evidence / journal history (shared list styling) ===== */
   .rt-ev-list{margin:12px 0 0;padding:0;list-style:none;max-height:230px;overflow-y:auto;}
-  .rt-ev-list li{padding:8px 0;border-bottom:1px solid var(--rt-hairline);font-size:13.5px;line-height:1.45;color:var(--rt-text-dim);}
+  .rt-ev-list li{padding:8px 0;border-bottom:1px solid var(--rt-hairline);font-size:13.5px;line-height:1.45;color:var(--rt-text-dim);cursor:pointer;}
+  .rt-ev-list li:hover{color:var(--rt-text);}
   .rt-ev-list li span{display:block;font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--rt-gold-bright);margin-bottom:3px;}
   .rt-ev-empty{font-size:11.5px;color:var(--rt-text-mute);margin-top:12px;}
 
@@ -276,12 +363,14 @@
   .rt-modal-close:hover{color:var(--rt-text);}
   .rt-modal-field{margin-bottom:12px;}
   .rt-modal-field label{display:block;font-size:11px;font-weight:700;color:var(--rt-text-mute);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
-  .rt-modal-field input,.rt-modal-field textarea{
+  .rt-modal-field input,.rt-modal-field textarea,.rt-modal-field select{
     width:100%;border:1px solid var(--rt-hairline);background:rgba(255,255,255,.04);border-radius:var(--radius-sm);
     padding:9px 10px;font-size:13.5px;color:var(--rt-text);font-family:var(--font);
   }
-  .rt-modal-field textarea{resize:vertical;min-height:140px;line-height:1.5;}
+  .rt-modal-field select{-webkit-appearance:none;appearance:none;color-scheme:dark;}
+  .rt-modal-field textarea{resize:vertical;min-height:80px;line-height:1.5;}
   .rt-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .rt-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .rt-modal-actions{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:16px;}
   .rt-danger-link{background:transparent;border:none;color:var(--rt-bad);font-size:12px;font-weight:700;cursor:pointer;padding:6px 0;margin-right:auto;}
   .rt-danger-link:hover{text-decoration:underline;}
@@ -290,9 +379,20 @@
 </style>
 </head>
 <body>
+<div class="rt-page-bg" id="rtPageBg"></div>
 <div class="wrap">
 
   <header class="rt-hero" id="rtHero">
+    <div class="rt-hero-media" id="rtHeroMedia"></div>
+    <div class="rt-hero-overlay"></div>
+    <div class="rt-hero-photo-choice" id="rtHeroPhotoChoice">
+      <button type="button" class="rt-hero-photo-choice-btn" id="rtHeroAddPhotoBtn">+ Add a cover photo</button>
+    </div>
+    <div class="rt-hero-photo-tools" id="rtHeroPhotoTools">
+      <button type="button" id="rtHeroChangeBtn">Change</button>
+      <button type="button" id="rtHeroRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="rtHeroFileInput" accept="image/*" style="display:none">
     <div class="rt-hero-inner">
       <div class="rt-hero-eyebrow" id="rtEyebrow" contenteditable="true" spellcheck="false"></div>
       <textarea class="rt-hero-title" id="rtHeroTitle" rows="1" spellcheck="false"></textarea>
@@ -341,28 +441,51 @@
     <div class="rt-col" id="rtColRight">
       <section class="rt-section rt-card" data-key="five" id="rtSecFive">
         <div class="rt-section-head">
-          <div class="rt-section-head-left"><span class="rt-section-drag" title="Drag to move this section">⠿</span><p class="rt-eyebrow">The five · three times each</p></div>
-          <button type="button" class="rt-mini-btn" id="addLineBtn">+ Add a line</button>
+          <div class="rt-section-head-left"><span class="rt-section-drag" title="Drag to move this section">⠿</span><p class="rt-eyebrow">Beliefs · three times each</p></div>
+          <button type="button" class="rt-mini-btn" id="addBeliefBtn">+ Add a belief</button>
         </div>
         <div class="rt-how">flat — louder — to the one who doubted you</div>
+
+        <p class="rt-subhead">Today's recitation</p>
         <ol class="rt-five" id="five"></ol>
         <p class="rt-resist">Throat tightens, eyes go — stop and repeat that one twice more. That's the seam, and it's the one doing the work today. Mark it so you can see which lines stop catching.</p>
         <div class="rt-lockbar">
           <span class="rt-lockbar-txt">30-day lock</span>
           <div class="rt-boxes" id="lockBoxes"></div>
         </div>
-        <p class="rt-hint">Editing, adding, or removing a line restarts the 30 days. Dragging to reorder doesn't. That's the point of the lock.</p>
+        <p class="rt-hint">Editing, adding, or removing a belief here restarts the 30 days. Dragging to reorder doesn't. Only beliefs marked "Working On" show up in the recitation.</p>
+
+        <div class="rt-belief-db">
+          <p class="rt-subhead">Belief database</p>
+          <div class="rt-chip-row" id="beliefStatusChips"></div>
+          <div class="rt-chip-row" id="beliefCategoryChips"></div>
+          <input type="text" class="rt-search" id="beliefSearch" placeholder="Search beliefs, categories, or notes…">
+          <ul class="rt-belief-list" id="beliefList"></ul>
+          <p class="rt-hint" id="beliefEmpty" style="display:none">No beliefs match these filters.</p>
+        </div>
       </section>
 
       <section class="rt-section rt-card" data-key="today" id="rtSecToday">
         <div class="rt-section-head">
           <div class="rt-section-head-left"><span class="rt-section-drag" title="Drag to move this section">⠿</span><p class="rt-eyebrow">Today · present tense, specific</p></div>
+          <input type="date" class="rt-date-filter" id="todayDateFilter" title="View or write a different day's entry">
         </div>
         <input class="rt-writein" id="t0" placeholder="Something you do today — not something you are.">
         <input class="rt-writein" id="t1" placeholder="The kind of woman who…">
         <input class="rt-writein" id="t2" placeholder="One more.">
         <p class="rt-hint">Dated and specific beats grand and vague. Your subconscious can't verify "I am limitless." It can verify that you sent the email.</p>
         <input class="rt-writein" id="ifthen" placeholder="Optional — if [cue], then [action]">
+        <label class="rt-journal-label">Why this matters today</label>
+        <textarea class="rt-journal-textarea" id="todayWhy" rows="2" placeholder="One or two sentences tying today's intentions to why they're worth doing."></textarea>
+
+        <p class="rt-subhead">Past entries</p>
+        <ul class="rt-ev-list" id="todayHistList"></ul>
+        <p class="rt-ev-empty" id="todayHistEmpty">Nothing logged yet — today's entry will show up here once you write something.</p>
+
+        <div class="rt-example">
+          <div class="rt-example-tag">Example</div>
+          <div id="todayExampleBody"></div>
+        </div>
       </section>
 
       <section class="rt-section rt-card" data-key="metric" id="rtSecMetric">
@@ -376,11 +499,24 @@
       <section class="rt-section rt-card" data-key="tonight" id="rtSecTonight">
         <div class="rt-section-head">
           <div class="rt-section-head-left"><span class="rt-section-drag" title="Drag to move this section">⠿</span><p class="rt-eyebrow">Tonight</p></div>
+          <input type="date" class="rt-date-filter" id="tonightDateFilter" title="View or write a different day's entry">
         </div>
         <p class="rt-hint" style="margin-bottom:10px"><b style="color:var(--rt-text)">Hypnagogic, 5 min.</b> Hold one image of her doing an ordinary thing. Not the win — the Tuesday.</p>
-        <input class="rt-writein" id="ev" placeholder="Evidence log — one thing only the new version of you would have done.">
-        <ul class="rt-ev-list" id="evList"></ul>
-        <p class="rt-ev-empty" id="evEmpty">The log is the part worth re-reading. Everything else here is scaffolding.</p>
+        <label class="rt-journal-label" style="margin-top:0">Evidence — one thing only the new version of you would have done</label>
+        <textarea class="rt-journal-textarea" id="ev" rows="2" placeholder="What did she do today that the old version of you wouldn't have?"></textarea>
+        <label class="rt-journal-label">How did today actually go</label>
+        <textarea class="rt-journal-textarea" id="tonightReflection" rows="2" placeholder="A few honest sentences. Not a performance review."></textarea>
+        <label class="rt-journal-label">Grateful for</label>
+        <input class="rt-writein" id="tonightGratitude" placeholder="One thing, however small.">
+
+        <p class="rt-subhead">Past entries</p>
+        <ul class="rt-ev-list" id="tonightHistList"></ul>
+        <p class="rt-ev-empty" id="tonightHistEmpty">Nothing logged yet — tonight's entry will show up here once you write something.</p>
+
+        <div class="rt-example">
+          <div class="rt-example-tag">Example</div>
+          <div id="tonightExampleBody"></div>
+        </div>
       </section>
     </div>
   </div>
@@ -414,9 +550,32 @@
   </div>
 </div>
 
+<div class="modal-bg" id="beliefModalBg">
+  <div class="modal">
+    <div class="rt-modal-head"><h3 id="beliefModalTitle">Edit Belief</h3><button type="button" class="rt-modal-close" id="beliefModalClose">✕</button></div>
+    <div class="rt-modal-field"><label>Belief</label><textarea id="beliefText" rows="3" placeholder="The belief itself, stated as if already true."></textarea></div>
+    <div class="rt-grid2">
+      <div class="rt-modal-field"><label>Category</label><input type="text" id="beliefCategory" placeholder="e.g. Money, Identity, Body"></div>
+      <div class="rt-modal-field"><label>Status</label>
+        <select id="beliefStatus">
+          <option value="Working On">Working On</option>
+          <option value="Integrated">Integrated</option>
+          <option value="Parked">Parked</option>
+        </select>
+      </div>
+    </div>
+    <div class="rt-modal-field"><label>Notes</label><textarea id="beliefNotes" rows="3" placeholder="Where this came from, why it matters, evidence for it…"></textarea></div>
+    <div class="rt-modal-actions">
+      <button type="button" class="rt-danger-link" id="beliefDeleteBtn">Delete belief</button>
+      <button type="button" class="rt-btn-primary" id="beliefSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const CFG_KEY='routine:config', LOG_KEY='routine:log', LINES_KEY='routine:lines',
-      STEPS_KEY='routine:steps', LAYOUT_KEY='routine:sectionLayout', HERO_KEY='routine:hero';
+const CFG_KEY='routine:config', LOG_KEY='routine:log', LINES_KEY='routine:lines', BELIEFS_KEY='routine:beliefs',
+      STEPS_KEY='routine:steps', LAYOUT_KEY='routine:sectionLayout', HERO_KEY='routine:hero',
+      TODAY_KEY='routine:todayEntries', TONIGHT_KEY='routine:tonightEntries';
 
 const DEFAULT_LINES_TEXT=[
  "I turn pain into power. Every ounce of it.",
@@ -424,6 +583,16 @@ const DEFAULT_LINES_TEXT=[
  "I am the sovereign over my focus, my perception, my state.",
  "I don't wait for the perfect moment. I decide, I move, I repeat.",
  "I am both the artist and the muse."
+];
+
+const DEFAULT_BELIEFS=[
+ {id:'bl1',text:"I turn pain into power. Every ounce of it.",category:'Resilience',status:'Working On',notes:''},
+ {id:'bl2',text:"Their limits never became mine.",category:'Identity',status:'Working On',notes:''},
+ {id:'bl3',text:"I am the sovereign over my focus, my perception, my state.",category:'Focus',status:'Working On',notes:''},
+ {id:'bl4',text:"I don't wait for the perfect moment. I decide, I move, I repeat.",category:'Action',status:'Working On',notes:''},
+ {id:'bl5',text:"I am both the artist and the muse.",category:'Creativity',status:'Working On',notes:''},
+ {id:'bl6',text:"My worth isn't tied to how productive I was today.",category:'Identity',status:'Integrated',notes:"Sat with this for two months before it stopped needing effort."},
+ {id:'bl7',text:"Rest is not something I have to earn.",category:'Rest',status:'Parked',notes:"Circling back to this once the current project ships."}
 ];
 
 const DEFAULT_STEPS=[
@@ -464,18 +633,40 @@ const DEFAULT_LAYOUT=[
   {key:'five',column:'right'},{key:'today',column:'right'},
   {key:'metric',column:'right'},{key:'tonight',column:'right'}
 ];
-const DEFAULT_HERO={eyebrow:'MORNING CALL SHEET',title:'Morning Call Sheet',subtext:'Before the phone. Always.'};
+const DEFAULT_HERO={eyebrow:'MORNING CALL SHEET',title:'Morning Call Sheet',subtext:'Before the phone. Always.',photo:''};
+
+const EXAMPLE_TODAY={
+  id:'ex_today', date:'2020-01-01', isExample:true,
+  intentions:[
+    "I send the follow-up email to the client before noon.",
+    "I train for 30 minutes even if it's not perfect.",
+    "I say no to one thing that isn't mine to carry."
+  ],
+  ifthen:"If I open my phone before the routine is done, then I put it back down and finish the mirror step first.",
+  whyItMatters:"Because the version of me who gets this right doesn't wait to feel ready — she just starts, and today is a rehearsal for that."
+};
+const EXAMPLE_TONIGHT={
+  id:'ex_tonight', date:'2020-01-01', isExample:true,
+  evidence:"I finished the deck instead of waiting for the \"right\" mood to start it.",
+  reflection:"Slower morning than I wanted, but I still hit the frog by 7:40. The afternoon dip hit hard around 3pm.",
+  gratitude:"A quiet hour alone this evening to actually think."
+};
 
 let cfg={version:'hour',wake:'06:30',lockStart:today()};
 let log={};
-let lines=[];
+let beliefs=[];
 let steps=[];
 let sectionLayout=DEFAULT_LAYOUT.slice();
 let hero=Object.assign({},DEFAULT_HERO);
+let todayEntries=[];
+let tonightEntries=[];
+let todayViewDate=today();
+let tonightViewDate=today();
+let beliefFilterStatus='All', beliefFilterCategory='All';
 
 function uid(p){ return (p||'id')+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function dayEntry(){ if(!log[today()]) log[today()]={version:cfg.version,frog:false,caught:null,lines:['','',''],ifthen:'',ev:''}; return log[today()]; }
+function dayEntry(){ if(!log[today()]) log[today()]={version:cfg.version,frog:false,caught:null}; return log[today()]; }
 function fmt(mins){const h=Math.floor(mins/60)%24,m=mins%60;return ((h%12)||12)+':'+String(m).padStart(2,'0');}
 function wakeMins(){const[a,b]=cfg.wake.split(':').map(Number);return a*60+b;}
 function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
@@ -509,13 +700,23 @@ function save(){
     flash(ok1&&ok2?'Saved':'Not saved — storage may be full');
   },400);
 }
-function saveLines(){ storeSet(LINES_KEY,lines); }
+function saveBeliefs(){ storeSet(BELIEFS_KEY,beliefs); }
 function saveSteps(){ storeSet(STEPS_KEY,steps); }
 function saveLayout(){ storeSet(LAYOUT_KEY,sectionLayout); }
 let heroSaveTimer=null;
 function saveHero(){
   clearTimeout(heroSaveTimer);
   heroSaveTimer=setTimeout(()=>{ storeSet(HERO_KEY,hero); flash('Saved'); },400);
+}
+let todaySaveTimer=null;
+function saveTodayEntries(){
+  clearTimeout(todaySaveTimer);
+  todaySaveTimer=setTimeout(()=>{ storeSet(TODAY_KEY,todayEntries); flash('Saved'); },400);
+}
+let tonightSaveTimer=null;
+function saveTonightEntries(){
+  clearTimeout(tonightSaveTimer);
+  tonightSaveTimer=setTimeout(()=>{ storeSet(TONIGHT_KEY,tonightEntries); flash('Saved'); },400);
 }
 function flash(t){const s=document.getElementById('saved');s.textContent=t;clearTimeout(s._t);s._t=setTimeout(()=>s.textContent='',1800);}
 
@@ -528,23 +729,36 @@ function validLayout(l){
 
 function load(){
   const rawCfg=storeGet(CFG_KEY,{});
-  let migratedLines=null;
+  let legacyLinesFromCfg=null;
   if(Array.isArray(rawCfg.lines)){
-    // Legacy shape: the five lines used to live inline on cfg as plain
-    // strings. Migrate them out to their own key once, then drop the
-    // field from cfg going forward.
-    const existingLines=storeGet(LINES_KEY,null);
-    if(!existingLines){
-      migratedLines=rawCfg.lines.map(text=>({id:uid('ln'),text:text}));
-      storeSet(LINES_KEY,migratedLines);
-    }
+    // Very old shape: the five lines lived inline on cfg as plain strings.
+    legacyLinesFromCfg=rawCfg.lines;
     delete rawCfg.lines;
     storeSet(CFG_KEY,rawCfg);
   }
   cfg=Object.assign({version:'hour',wake:'06:30',lockStart:today()},rawCfg);
 
-  lines=migratedLines || storeGet(LINES_KEY,null);
-  if(!lines){ lines=DEFAULT_LINES_TEXT.map(text=>({id:uid('ln'),text:text})); storeSet(LINES_KEY,lines); }
+  // Beliefs: cascading migration from whichever older shape exists.
+  beliefs=storeGet(BELIEFS_KEY,null);
+  if(!beliefs){
+    const oldLines=storeGet(LINES_KEY,null); // {id,text} shape, one turn ago
+    if(oldLines){
+      beliefs=oldLines.map(l=>({id:l.id,text:l.text,category:'',status:'Working On',notes:''}));
+    }else if(legacyLinesFromCfg){
+      beliefs=legacyLinesFromCfg.map(text=>({id:uid('bl'),text:text,category:'',status:'Working On',notes:''}));
+    }else{
+      beliefs=DEFAULT_BELIEFS.map(b=>Object.assign({},b));
+    }
+    storeSet(BELIEFS_KEY,beliefs);
+  }else{
+    let changed=false;
+    beliefs.forEach(x=>{
+      if(x.category===undefined){x.category='';changed=true;}
+      if(x.status===undefined){x.status='Working On';changed=true;}
+      if(x.notes===undefined){x.notes='';changed=true;}
+    });
+    if(changed) storeSet(BELIEFS_KEY,beliefs);
+  }
 
   steps=storeGet(STEPS_KEY,null);
   if(!steps){ steps=DEFAULT_STEPS.map(s=>JSON.parse(JSON.stringify(s))); storeSet(STEPS_KEY,steps); }
@@ -559,15 +773,54 @@ function load(){
   Object.keys(log).forEach(d=>{
     const entry=log[d];
     if(entry && typeof entry.caught==='number'){
-      entry.caught=(lines[entry.caught] && lines[entry.caught].id) || null;
+      entry.caught=(beliefs[entry.caught] && beliefs[entry.caught].id) || null;
       migratedCaught=true;
     }
   });
   if(migratedCaught) storeSet(LOG_KEY,log);
 
+  todayEntries=storeGet(TODAY_KEY,null);
+  if(!todayEntries){ todayEntries=[Object.assign({},EXAMPLE_TODAY)]; storeSet(TODAY_KEY,todayEntries); }
+  else if(!todayEntries.some(e=>e.isExample)){ todayEntries.push(Object.assign({},EXAMPLE_TODAY)); storeSet(TODAY_KEY,todayEntries); }
+
+  tonightEntries=storeGet(TONIGHT_KEY,null);
+  if(!tonightEntries){ tonightEntries=[Object.assign({},EXAMPLE_TONIGHT)]; storeSet(TONIGHT_KEY,tonightEntries); }
+  else if(!tonightEntries.some(e=>e.isExample)){ tonightEntries.push(Object.assign({},EXAMPLE_TONIGHT)); storeSet(TONIGHT_KEY,tonightEntries); }
+
+  migrateLogJournalFields();
+
   document.getElementById('status').textContent='';
   renderAll();
   applySectionLayout();
+}
+
+// A prior version of this page kept today's 3 intentions / if-then / the
+// evening evidence line inline on the per-date ritual log record. Now
+// that they're their own separate journal collections, copy any real
+// content already sitting there forward once, so nothing written before
+// this update goes missing — it just moves to its new home.
+function migrateLogJournalFields(){
+  let changedToday=false, changedTonight=false;
+  Object.keys(log).forEach(date=>{
+    const entry=log[date];
+    if(!entry) return;
+    const oldLines=entry.lines;
+    const hasOldToday = (oldLines && (oldLines[0]||oldLines[1]||oldLines[2])) || entry.ifthen;
+    if(hasOldToday && !todayEntries.some(e=>e.date===date && !e.isExample)){
+      todayEntries.push({
+        id:uid('td'), date:date,
+        intentions:[(oldLines&&oldLines[0])||'',(oldLines&&oldLines[1])||'',(oldLines&&oldLines[2])||''],
+        ifthen:entry.ifthen||'', whyItMatters:'', isExample:false, createdAt:Date.now()
+      });
+      changedToday=true;
+    }
+    if(entry.ev && !tonightEntries.some(e=>e.date===date && !e.isExample)){
+      tonightEntries.push({id:uid('tn'),date:date,evidence:entry.ev,reflection:'',gratitude:'',isExample:false,createdAt:Date.now()});
+      changedTonight=true;
+    }
+  });
+  if(changedToday) storeSet(TODAY_KEY,todayEntries);
+  if(changedTonight) storeSet(TONIGHT_KEY,tonightEntries);
 }
 
 function renderHero(){
@@ -578,8 +831,45 @@ function renderHero(){
   if(document.activeElement!==title) title.value=hero.title;
   if(document.activeElement!==subtext) subtext.textContent=hero.subtext;
   autosizeTa(title);
+  renderHeroPhoto();
+}
+function renderHeroPhoto(){
+  const media=document.getElementById('rtHeroMedia');
+  const choice=document.getElementById('rtHeroPhotoChoice');
+  const tools=document.getElementById('rtHeroPhotoTools');
+  const pageBg=document.getElementById('rtPageBg');
+  if(hero.photo){
+    media.style.backgroundImage='url("'+hero.photo+'")';
+    pageBg.style.backgroundImage='url("'+hero.photo+'")';
+    choice.style.display='none';
+    tools.style.display='flex';
+  }else{
+    media.style.backgroundImage='';
+    pageBg.style.backgroundImage='';
+    choice.style.display='block';
+    tools.style.display='none';
+  }
 }
 function autosizeTa(ta){ ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
+
+function compressImageDataUrl(dataUrl, maxDim, quality){
+  maxDim=maxDim||1100; quality=quality==null?0.8:quality;
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      if(w>maxDim||h>maxDim){
+        if(w>=h){h=Math.round(h*(maxDim/w));w=maxDim;} else {w=Math.round(w*(maxDim/h));h=maxDim;}
+      }
+      const c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      try{ resolve(c.toDataURL('image/jpeg',quality)); }catch(e){ resolve(dataUrl); }
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
 
 function renderSteps(){
   const box=document.getElementById('steps');
@@ -634,38 +924,41 @@ function closeStepModal(){ document.getElementById('stepModalBg').classList.remo
 function renderFive(){
   const ol=document.getElementById('five');
   const e=dayEntry();
+  const working=beliefs.filter(b=>b.status==='Working On');
   ol.innerHTML='';
-  lines.forEach((line,i)=>{
+  working.forEach((belief,i)=>{
     const li=document.createElement('li');
-    li.dataset.id=line.id;
+    li.dataset.id=belief.id;
     li.innerHTML=`<span class="rt-five-num">${toRoman(i+1)}</span>
       <span class="rt-drag-handle" title="Drag to reorder">⠿</span>
-      <textarea rows="1" aria-label="Line ${i+1}">${escapeHtml(line.text)}</textarea>
+      <textarea rows="1" aria-label="Belief ${i+1}">${escapeHtml(belief.text)}</textarea>
       <div class="rt-line-actions">
-        <button type="button" class="rt-caught" aria-pressed="${e.caught===line.id}">caught</button>
-        <button type="button" class="rt-line-del" title="Remove line">✕</button>
+        <button type="button" class="rt-caught" aria-pressed="${e.caught===belief.id}">caught</button>
+        <button type="button" class="rt-line-icon-btn" title="Edit belief">✎</button>
+        <button type="button" class="rt-line-icon-btn rt-danger" title="Delete belief">✕</button>
       </div>`;
     const ta=li.querySelector('textarea');
     const grow=()=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';};
     setTimeout(grow,0);
     ta.addEventListener('input',grow);
     ta.addEventListener('change',()=>{
-      if(ta.value!==line.text){
-        if(confirm('Changing a line restarts the 30-day lock. Continue?')){
-          line.text=ta.value; cfg.lockStart=today(); saveLines(); save(); renderHeader();
-        }else{ ta.value=line.text; grow(); }
+      if(ta.value!==belief.text){
+        if(confirm('Changing a belief restarts the 30-day lock. Continue?')){
+          belief.text=ta.value; cfg.lockStart=today(); saveBeliefs(); save(); renderHeader(); renderBeliefDatabase();
+        }else{ ta.value=belief.text; grow(); }
       }
     });
     li.querySelector('.rt-caught').addEventListener('click',()=>{
       const en=dayEntry();
-      en.caught = en.caught===line.id ? null : line.id;
+      en.caught = en.caught===belief.id ? null : belief.id;
       save(); renderFive();
     });
-    li.querySelector('.rt-line-del').addEventListener('click',()=>{
-      if(!confirm('Remove this line? This restarts the 30-day lock.')) return;
-      lines=lines.filter(l=>l.id!==line.id);
-      cfg.lockStart=today(); saveLines(); save();
-      renderFive(); renderHeader();
+    li.querySelector('.rt-line-icon-btn:not(.rt-danger)').addEventListener('click',()=>openBeliefModal(belief.id));
+    li.querySelector('.rt-line-icon-btn.rt-danger').addEventListener('click',()=>{
+      if(!confirm('Delete this belief? This removes it from the database entirely, not just today\'s recitation.')) return;
+      beliefs=beliefs.filter(x=>x.id!==belief.id);
+      cfg.lockStart=today(); save(); saveBeliefs();
+      renderFive(); renderBeliefDatabase(); renderHeader();
     });
     ol.appendChild(li);
   });
@@ -675,6 +968,58 @@ function renderFive(){
   for(let i=0;i<30;i++){const b=document.createElement('i');if(i<done)b.className='on';boxes.appendChild(b);}
   document.getElementById('review').classList.toggle('show',done>=30);
 }
+
+function renderBeliefDatabase(){
+  const statusChips=document.getElementById('beliefStatusChips');
+  const catChips=document.getElementById('beliefCategoryChips');
+  const search=(document.getElementById('beliefSearch').value||'').toLowerCase();
+
+  const statuses=['All','Working On','Integrated','Parked'];
+  statusChips.innerHTML=statuses.map(s=>`<button type="button" class="rt-chip${beliefFilterStatus===s?' active':''}" data-status="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('');
+  statusChips.querySelectorAll('.rt-chip').forEach(b=>b.addEventListener('click',()=>{ beliefFilterStatus=b.dataset.status; renderBeliefDatabase(); }));
+
+  const cats=['All'].concat(Array.from(new Set(beliefs.map(b=>b.category).filter(Boolean))).sort());
+  catChips.innerHTML=cats.map(c=>`<button type="button" class="rt-chip${beliefFilterCategory===c?' active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('');
+  catChips.querySelectorAll('.rt-chip').forEach(b=>b.addEventListener('click',()=>{ beliefFilterCategory=b.dataset.cat; renderBeliefDatabase(); }));
+
+  let list=beliefs.slice();
+  if(beliefFilterStatus!=='All') list=list.filter(b=>b.status===beliefFilterStatus);
+  if(beliefFilterCategory!=='All') list=list.filter(b=>b.category===beliefFilterCategory);
+  if(search) list=list.filter(b=>(b.text||'').toLowerCase().includes(search)||(b.category||'').toLowerCase().includes(search)||(b.notes||'').toLowerCase().includes(search));
+
+  const ul=document.getElementById('beliefList');
+  ul.innerHTML='';
+  list.forEach(b=>{
+    const li=document.createElement('li');
+    li.className='rt-belief-row';
+    li.innerHTML=`<div class="rt-belief-row-main">
+        <p class="rt-belief-row-text">${escapeHtml(b.text)}</p>
+        <div class="rt-belief-row-tags">
+          ${b.category?`<span class="rt-tag">${escapeHtml(b.category)}</span>`:''}
+          <span class="rt-tag rt-tag-status-${b.status.replace(/\s+/g,'')}">${escapeHtml(b.status)}</span>
+        </div>
+      </div>
+      <button type="button" class="rt-step-edit" title="Edit belief">✎</button>`;
+    li.querySelector('.rt-step-edit').addEventListener('click',()=>openBeliefModal(b.id));
+    ul.appendChild(li);
+  });
+  document.getElementById('beliefEmpty').style.display=list.length?'none':'block';
+}
+
+let editingBeliefId=null;
+function openBeliefModal(id){
+  editingBeliefId=id||null;
+  const b=id?beliefs.find(x=>x.id===id):null;
+  document.getElementById('beliefModalTitle').textContent=b?'Edit Belief':'Add Belief';
+  document.getElementById('beliefText').value=b?b.text:'';
+  document.getElementById('beliefCategory').value=b?b.category:'';
+  document.getElementById('beliefStatus').value=b?b.status:'Working On';
+  document.getElementById('beliefNotes').value=b?b.notes:'';
+  document.getElementById('beliefDeleteBtn').style.display=b?'':'none';
+  document.getElementById('beliefModalBg').classList.add('show');
+  document.getElementById('beliefText').focus();
+}
+function closeBeliefModal(){ document.getElementById('beliefModalBg').classList.remove('show'); editingBeliefId=null; }
 
 function renderHeader(){
   const done=Math.max(0,daysBetween(cfg.lockStart,today()))+1;
@@ -696,30 +1041,116 @@ function renderHist(){
   }
 }
 
-function renderInputs(){
+function renderRitualControls(){
   const e=dayEntry();
-  ['t0','t1','t2'].forEach((id,i)=>{document.getElementById(id).value=e.lines[i]||'';});
-  document.getElementById('ifthen').value=e.ifthen||'';
   const fb=document.getElementById('frogBtn');
   fb.setAttribute('aria-pressed',e.frog?'true':'false');
   document.querySelectorAll('.rt-seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===cfg.version?'true':'false'));
   document.getElementById('wake').value=cfg.wake;
 }
 
-function renderEvidence(){
-  const ul=document.getElementById('evList');ul.innerHTML='';
-  const keys=Object.keys(log).filter(k=>log[k].ev&&log[k].ev.trim()).sort().reverse();
-  keys.forEach(k=>{
-    const li=document.createElement('li');
-    const d=new Date(k+'T00:00:00');
-    li.innerHTML=`<span>${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>${escapeHtml(log[k].ev)}`;
-    ul.appendChild(li);
-  });
-  document.getElementById('evEmpty').style.display=keys.length?'none':'block';
-  document.getElementById('ev').value=dayEntry().ev||'';
+/* ===== journal templates: shared helpers ===== */
+function getEntry(arr,date){ return arr.find(e=>e.date===date && !e.isExample) || null; }
+function ensureEntry(arr,date,blankFn){
+  let e=getEntry(arr,date);
+  if(!e){ e=blankFn(date); arr.push(e); }
+  return e;
+}
+function blankToday(date){ return {id:uid('td'),date:date,intentions:['','',''],ifthen:'',whyItMatters:'',isExample:false,createdAt:Date.now()}; }
+function blankTonight(date){ return {id:uid('tn'),date:date,evidence:'',reflection:'',gratitude:'',isExample:false,createdAt:Date.now()}; }
+function findExample(arr){ return arr.find(e=>e.isExample) || null; }
+
+function renderTodayJournal(){
+  const filter=document.getElementById('todayDateFilter');
+  filter.max=today();
+  if(document.activeElement!==filter) filter.value=todayViewDate;
+  const e=getEntry(todayEntries,todayViewDate) || blankToday(todayViewDate);
+  if(document.activeElement!==document.getElementById('t0')) document.getElementById('t0').value=e.intentions[0]||'';
+  if(document.activeElement!==document.getElementById('t1')) document.getElementById('t1').value=e.intentions[1]||'';
+  if(document.activeElement!==document.getElementById('t2')) document.getElementById('t2').value=e.intentions[2]||'';
+  if(document.activeElement!==document.getElementById('ifthen')) document.getElementById('ifthen').value=e.ifthen||'';
+  if(document.activeElement!==document.getElementById('todayWhy')) document.getElementById('todayWhy').value=e.whyItMatters||'';
+  renderTodayHistory();
+  renderTodayExample();
+}
+function renderTonightJournal(){
+  const filter=document.getElementById('tonightDateFilter');
+  filter.max=today();
+  if(document.activeElement!==filter) filter.value=tonightViewDate;
+  const e=getEntry(tonightEntries,tonightViewDate) || blankTonight(tonightViewDate);
+  if(document.activeElement!==document.getElementById('ev')) document.getElementById('ev').value=e.evidence||'';
+  if(document.activeElement!==document.getElementById('tonightReflection')) document.getElementById('tonightReflection').value=e.reflection||'';
+  if(document.activeElement!==document.getElementById('tonightGratitude')) document.getElementById('tonightGratitude').value=e.gratitude||'';
+  renderTonightHistory();
+  renderTonightExample();
 }
 
-function renderAll(){renderHero();renderSteps();renderFive();renderHeader();renderHist();renderInputs();renderEvidence();}
+function renderTodayHistory(){
+  const ul=document.getElementById('todayHistList');
+  ul.innerHTML='';
+  const real=todayEntries.filter(e=>!e.isExample && (e.intentions.some(x=>x&&x.trim())||(e.ifthen||'').trim()||(e.whyItMatters||'').trim()))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  real.forEach(e=>{
+    const li=document.createElement('li');
+    const snippet=(e.intentions.find(x=>x&&x.trim())||e.whyItMatters||e.ifthen||'').trim();
+    const d=new Date(e.date+'T00:00:00');
+    const label=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+(e.date===today()?' · Today':'');
+    li.innerHTML=`<span>${escapeHtml(label)}</span>${escapeHtml(snippet)}`;
+    li.addEventListener('click',()=>{ todayViewDate=e.date; renderTodayJournal(); });
+    ul.appendChild(li);
+  });
+  document.getElementById('todayHistEmpty').style.display=real.length?'none':'block';
+}
+function renderTonightHistory(){
+  const ul=document.getElementById('tonightHistList');
+  ul.innerHTML='';
+  const real=tonightEntries.filter(e=>!e.isExample && ((e.evidence||'').trim()||(e.reflection||'').trim()||(e.gratitude||'').trim()))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  real.forEach(e=>{
+    const li=document.createElement('li');
+    const snippet=(e.evidence||e.reflection||e.gratitude||'').trim();
+    const d=new Date(e.date+'T00:00:00');
+    const label=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+(e.date===today()?' · Today':'');
+    li.innerHTML=`<span>${escapeHtml(label)}</span>${escapeHtml(snippet)}`;
+    li.addEventListener('click',()=>{ tonightViewDate=e.date; renderTonightJournal(); });
+    ul.appendChild(li);
+  });
+  document.getElementById('tonightHistEmpty').style.display=real.length?'none':'block';
+}
+
+function renderTodayExample(){
+  const ex=findExample(todayEntries);
+  const body=document.getElementById('todayExampleBody');
+  if(!ex){ body.innerHTML=''; return; }
+  const lines=(ex.intentions||[]).filter(t=>t&&t.trim());
+  let html='';
+  if(lines.length) html+='<p class="rt-example-label">I will…</p><ul class="rt-example-list">'+lines.map(t=>`<li>${escapeHtml(t)}</li>`).join('')+'</ul>';
+  if(ex.ifthen) html+='<p class="rt-example-label">If / then</p><p class="rt-example-text">'+escapeHtml(ex.ifthen)+'</p>';
+  if(ex.whyItMatters) html+='<p class="rt-example-label">Why this matters today</p><p class="rt-example-text">'+escapeHtml(ex.whyItMatters)+'</p>';
+  body.innerHTML=html;
+}
+function renderTonightExample(){
+  const ex=findExample(tonightEntries);
+  const body=document.getElementById('tonightExampleBody');
+  if(!ex){ body.innerHTML=''; return; }
+  let html='';
+  if(ex.evidence) html+='<p class="rt-example-label">Evidence</p><p class="rt-example-text">'+escapeHtml(ex.evidence)+'</p>';
+  if(ex.reflection) html+='<p class="rt-example-label">How today went</p><p class="rt-example-text">'+escapeHtml(ex.reflection)+'</p>';
+  if(ex.gratitude) html+='<p class="rt-example-label">Grateful for</p><p class="rt-example-text">'+escapeHtml(ex.gratitude)+'</p>';
+  body.innerHTML=html;
+}
+
+function renderAll(){
+  renderHero();
+  renderSteps();
+  renderFive();
+  renderBeliefDatabase();
+  renderHeader();
+  renderHist();
+  renderRitualControls();
+  renderTodayJournal();
+  renderTonightJournal();
+}
 
 function applySectionLayout(){
   const cols={left:document.getElementById('rtColLeft'),right:document.getElementById('rtColRight')};
@@ -764,8 +1195,11 @@ function wireFiveSortable(){
     ghostClass:'rt-drag-ghost',
     onEnd:()=>{
       const ids=Array.from(document.getElementById('five').children).map(li=>li.dataset.id);
-      lines.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
-      saveLines(); renderFive();
+      const idSet=new Set(ids);
+      const reordered=ids.map(id=>beliefs.find(b=>b.id===id));
+      const rest=beliefs.filter(b=>!idSet.has(b.id));
+      beliefs=reordered.concat(rest);
+      saveBeliefs(); renderFive();
     }
   });
 }
@@ -784,30 +1218,29 @@ function wireSectionSortable(){
 
 /* ===== wiring ===== */
 document.querySelectorAll('.rt-seg button').forEach(b=>{
-  b.addEventListener('click',()=>{cfg.version=b.dataset.v;dayEntry().version=b.dataset.v;save();renderSteps();renderInputs();});
+  b.addEventListener('click',()=>{cfg.version=b.dataset.v;dayEntry().version=b.dataset.v;save();renderSteps();renderRitualControls();});
 });
 document.getElementById('wake').addEventListener('change',ev=>{cfg.wake=ev.target.value;save();renderSteps();});
-['t0','t1','t2'].forEach((id,i)=>{
-  document.getElementById(id).addEventListener('input',ev=>{dayEntry().lines[i]=ev.target.value;save();});
-});
-document.getElementById('ifthen').addEventListener('input',ev=>{dayEntry().ifthen=ev.target.value;save();});
-document.getElementById('ev').addEventListener('input',ev=>{dayEntry().ev=ev.target.value;save();});
-document.getElementById('ev').addEventListener('change',()=>{renderEvidence();});
 document.getElementById('frogBtn').addEventListener('click',()=>{
-  const e=dayEntry();e.frog=!e.frog;save();renderInputs();renderHist();renderHeader();
+  const e=dayEntry();e.frog=!e.frog;save();renderRitualControls();renderHist();renderHeader();
 });
 document.getElementById('resetLock').addEventListener('click',()=>{
   if(confirm('Restart the 30-day lock from today?')){cfg.lockStart=today();save();renderFive();renderHeader();}
 });
 document.getElementById('clearAll').addEventListener('click',()=>{
-  if(!confirm('Delete the evidence log and all history, and reset steps, lines, layout, and hero text back to their defaults? This cannot be undone.'))return;
+  if(!confirm('Delete all logged history and journal entries, and reset steps, beliefs, layout, and hero text back to their defaults? This cannot be undone.'))return;
   log={};
   cfg={version:'hour',wake:'06:30',lockStart:today()};
-  lines=DEFAULT_LINES_TEXT.map(text=>({id:uid('ln'),text:text}));
+  beliefs=DEFAULT_BELIEFS.map(b=>Object.assign({},b));
   steps=DEFAULT_STEPS.map(s=>JSON.parse(JSON.stringify(s)));
   sectionLayout=DEFAULT_LAYOUT.slice();
   hero=Object.assign({},DEFAULT_HERO);
-  storeSet(CFG_KEY,cfg);storeSet(LOG_KEY,log);storeSet(LINES_KEY,lines);storeSet(STEPS_KEY,steps);storeSet(LAYOUT_KEY,sectionLayout);storeSet(HERO_KEY,hero);
+  todayEntries=[Object.assign({},EXAMPLE_TODAY)];
+  tonightEntries=[Object.assign({},EXAMPLE_TONIGHT)];
+  todayViewDate=today(); tonightViewDate=today();
+  beliefFilterStatus='All'; beliefFilterCategory='All';
+  storeSet(CFG_KEY,cfg);storeSet(LOG_KEY,log);storeSet(BELIEFS_KEY,beliefs);storeSet(STEPS_KEY,steps);
+  storeSet(LAYOUT_KEY,sectionLayout);storeSet(HERO_KEY,hero);storeSet(TODAY_KEY,todayEntries);storeSet(TONIGHT_KEY,tonightEntries);
   renderAll();applySectionLayout();
 });
 
@@ -836,10 +1269,78 @@ document.getElementById('stepDeleteBtn').addEventListener('click',()=>{
   saveSteps(); renderSteps(); closeStepModal();
 });
 
-document.getElementById('addLineBtn').addEventListener('click',()=>{
-  lines.push({id:uid('ln'),text:'New line'});
-  cfg.lockStart=today(); saveLines(); save();
-  renderFive(); renderHeader();
+document.getElementById('addBeliefBtn').addEventListener('click',()=>openBeliefModal(null));
+document.getElementById('beliefModalClose').addEventListener('click',closeBeliefModal);
+document.getElementById('beliefModalBg').addEventListener('click',function(ev){ if(ev.target===this) closeBeliefModal(); });
+document.getElementById('beliefSearch').addEventListener('input',renderBeliefDatabase);
+document.getElementById('beliefSaveBtn').addEventListener('click',()=>{
+  const text=document.getElementById('beliefText').value.trim();
+  if(!text){ alert('Write the belief itself.'); return; }
+  const category=document.getElementById('beliefCategory').value.trim();
+  const status=document.getElementById('beliefStatus').value;
+  const notes=document.getElementById('beliefNotes').value.trim();
+  let affectsRecitation=false;
+  if(editingBeliefId){
+    const b=beliefs.find(x=>x.id===editingBeliefId);
+    const wasWorking=b.status==='Working On';
+    const textChanged=b.text!==text;
+    b.text=text; b.category=category; b.status=status; b.notes=notes;
+    const isWorking=status==='Working On';
+    affectsRecitation=(wasWorking||isWorking)&&(textChanged||wasWorking!==isWorking);
+  }else{
+    beliefs.push({id:uid('bl'),text:text,category:category,status:status,notes:notes});
+    affectsRecitation=(status==='Working On');
+  }
+  if(affectsRecitation){ cfg.lockStart=today(); save(); }
+  saveBeliefs();
+  renderFive(); renderBeliefDatabase(); renderHeader();
+  closeBeliefModal();
+});
+document.getElementById('beliefDeleteBtn').addEventListener('click',()=>{
+  if(!editingBeliefId) return;
+  if(!confirm('Delete this belief? This cannot be undone.')) return;
+  const b=beliefs.find(x=>x.id===editingBeliefId);
+  const wasWorking=b&&b.status==='Working On';
+  beliefs=beliefs.filter(x=>x.id!==editingBeliefId);
+  if(wasWorking){ cfg.lockStart=today(); save(); }
+  saveBeliefs(); renderFive(); renderBeliefDatabase(); renderHeader();
+  closeBeliefModal();
+});
+
+['t0','t1','t2'].forEach((id,i)=>{
+  document.getElementById(id).addEventListener('input',ev=>{
+    const e=ensureEntry(todayEntries,todayViewDate,blankToday);
+    e.intentions[i]=ev.target.value; saveTodayEntries();
+  });
+});
+document.getElementById('ifthen').addEventListener('input',ev=>{
+  const e=ensureEntry(todayEntries,todayViewDate,blankToday);
+  e.ifthen=ev.target.value; saveTodayEntries();
+});
+document.getElementById('todayWhy').addEventListener('input',ev=>{
+  const e=ensureEntry(todayEntries,todayViewDate,blankToday);
+  e.whyItMatters=ev.target.value; saveTodayEntries();
+});
+document.getElementById('todayDateFilter').addEventListener('change',ev=>{
+  todayViewDate=ev.target.value||today();
+  renderTodayJournal();
+});
+
+document.getElementById('ev').addEventListener('input',ev=>{
+  const e=ensureEntry(tonightEntries,tonightViewDate,blankTonight);
+  e.evidence=ev.target.value; saveTonightEntries();
+});
+document.getElementById('tonightReflection').addEventListener('input',ev=>{
+  const e=ensureEntry(tonightEntries,tonightViewDate,blankTonight);
+  e.reflection=ev.target.value; saveTonightEntries();
+});
+document.getElementById('tonightGratitude').addEventListener('input',ev=>{
+  const e=ensureEntry(tonightEntries,tonightViewDate,blankTonight);
+  e.gratitude=ev.target.value; saveTonightEntries();
+});
+document.getElementById('tonightDateFilter').addEventListener('change',ev=>{
+  tonightViewDate=ev.target.value||today();
+  renderTonightJournal();
 });
 
 (function(){
@@ -853,6 +1354,35 @@ document.getElementById('addLineBtn').addEventListener('click',()=>{
   document.getElementById('rtHeroCta').addEventListener('click',()=>{
     const target=document.getElementById('rtSecOrder');
     if(target) target.scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'start'});
+  });
+
+  function handleHeroFile(file){
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=function(){
+      compressImageDataUrl(String(reader.result), 1100, 0.8).then(function(compressed){
+        hero.photo=compressed;
+        renderHeroPhoto();
+        storeSet(HERO_KEY,hero);
+        if(window.PhotoStore && typeof PhotoStore.upload==='function'){
+          PhotoStore.upload(compressed, function(url){
+            if(url && hero.photo===compressed){ hero.photo=url; storeSet(HERO_KEY,hero); renderHeroPhoto(); }
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  const fileInput=document.getElementById('rtHeroFileInput');
+  document.getElementById('rtHeroAddPhotoBtn').addEventListener('click',()=>fileInput.click());
+  document.getElementById('rtHeroChangeBtn').addEventListener('click',()=>fileInput.click());
+  document.getElementById('rtHeroRemoveBtn').addEventListener('click',()=>{
+    if(!confirm('Remove the cover photo?')) return;
+    hero.photo=''; renderHeroPhoto(); storeSet(HERO_KEY,hero);
+  });
+  fileInput.addEventListener('change',function(ev){
+    handleHeroFile(ev.target.files && ev.target.files[0]);
+    ev.target.value='';
   });
 })();
 
