@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0B">
+<title>Build Your System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="system-data.js" defer></script>
+<style>
+/* =============================================================
+   Build Your System — no reference photo/aesthetic instruction was given
+   for this page, so per CLAUDE.md §6/DO NOT MODIFY rule 2 it stays on this
+   app's actual standard palette (documented in §3): near-black background,
+   off-white text, the existing --good/--warn/--bad/--info semantic accents,
+   --accent repointed to --info's own value rather than a new hue — the same
+   call household.html/selfcare.html's original builds made for the same
+   reason. Seven genuinely separate "databases" (never merged into one
+   list): Goals, Actions, Processes, VisualTools, MentalEntries, Anchors,
+   Challenges — plus a single evolving Vision record.
+   ============================================================= */
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.065);
+  --text-primary: #FAFAFA;
+  --text-secondary: rgba(255,255,255,0.62);
+  --text-tertiary: rgba(255,255,255,0.4);
+  --border: rgba(255,255,255,0.09);
+  --good: #6ee7b7;
+  --warn: #fbbf24;
+  --bad: #ff8a8a;
+  --info: #7dd3fc;
+  --accent: var(--info);
+  --accent-tint: rgba(125,211,252,0.14);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg-deep); color: var(--text-primary); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+body::before {
+  content: ''; position: fixed; inset: -10%; z-index: -2;
+  background: radial-gradient(55% 42% at 85% 6%, rgba(125,211,252,0.10) 0%, transparent 55%),
+              radial-gradient(50% 40% at 10% 95%, rgba(125,211,252,0.06) 0%, transparent 55%),
+              linear-gradient(180deg, rgba(10,10,11,0.85) 0%, rgba(5,5,6,0.92) 100%);
+  filter: blur(40px); pointer-events: none;
+}
+
+.shell { max-width: 1000px; margin: 0 auto; padding: 20px 16px 70px; position: relative; }
+
+.bs-back-btn {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
+  padding: 8px 14px 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text-secondary); text-decoration: none; font-size: 12.5px; font-weight: 600;
+}
+.bs-back-btn:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+
+.bs-header { margin-bottom: 18px; }
+.bs-eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.bs-title { font-size: clamp(24px, 4.4vw, 34px); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+.bs-subtext { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; max-width: 620px; }
+
+.bs-primary-banner {
+  margin-top: 16px; padding: 14px 16px; border-radius: var(--radius-md);
+  background: var(--accent-tint); border: 1px solid rgba(125,211,252,0.35);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.bs-primary-banner.is-empty { background: var(--bg-card); border-color: var(--border); }
+.bs-primary-banner-icon { font-size: 18px; }
+.bs-primary-banner-text { font-size: 13px; color: var(--text-secondary); }
+.bs-primary-banner-goal { font-weight: 700; color: var(--text-primary); }
+
+.bs-toolbar-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding: 14px 0 4px; }
+.bs-sync-status { font-size: 11px; font-weight: 600; color: var(--text-tertiary); display: flex; align-items: center; gap: 5px; margin-right: auto; }
+.bs-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); flex-shrink: 0; }
+.bs-sync-status.is-saved .bs-sync-status-dot { background: var(--good); }
+.bs-sync-status.is-saved { color: var(--text-secondary); }
+.bs-sync-status.is-error, .bs-sync-status.is-offline { color: var(--bad); }
+.bs-sync-status.is-error .bs-sync-status-dot, .bs-sync-status.is-offline .bs-sync-status-dot { background: var(--bad); animation: bs-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes bs-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.bs-btn-primary, .bs-btn-secondary, .bs-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.bs-btn-primary { background: linear-gradient(180deg, #ffffff 0%, #e4e4e4 100%); color: #0a0a0b; border: 1px solid #fff; }
+.bs-btn-primary:hover { opacity: 0.9; }
+.bs-btn-secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+.bs-btn-secondary:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+.bs-btn-ghost { background: transparent; color: var(--text-tertiary); border: 1px solid var(--border); }
+.bs-btn-ghost:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+.bs-btn-sm { padding: 5px 11px; font-size: 11px; }
+
+/* ===== Tabs ===== */
+.bs-tabs-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 0; margin-bottom: 22px; }
+.bs-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 4px; margin-right: 18px; font-size: 13px; font-weight: 700; color: var(--text-tertiary); cursor: pointer; letter-spacing: 0.01em; }
+.bs-tab:hover { color: var(--text-secondary); }
+.bs-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+.bs-panel { display: none; }
+.bs-panel.active { display: block; }
+
+/* ===== Sub-chip nav (within Core Systems / Identity Shifting) ===== */
+.bs-subnav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.bs-subchip { background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+.bs-subchip:hover { color: var(--text-primary); }
+.bs-subchip.active { background: var(--accent-tint); color: var(--accent); border-color: rgba(125,211,252,0.4); }
+.bs-subpanel { display: none; }
+.bs-subpanel.active { display: block; }
+
+/* ===== Sections ===== */
+.bs-section { margin-bottom: 34px; }
+.bs-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.bs-section-title { font-size: 19px; font-weight: 700; }
+.bs-section-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; max-width: 640px; }
+.bs-section-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.bs-callout { background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 14px 0; }
+.bs-callout strong { color: var(--text-primary); }
+.bs-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; padding: 10px 2px; }
+
+/* ===== Generic list card ===== */
+.bs-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.bs-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.bs-card:hover { background: var(--bg-card-hover); }
+.bs-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.bs-card-title-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.bs-card-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); word-break: break-word; }
+.bs-card-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.bs-card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.bs-icon-btn { background: transparent; border: none; color: var(--text-tertiary); font-size: 13px; line-height: 1; cursor: pointer; padding: 5px 7px; border-radius: 6px; }
+.bs-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.bs-icon-btn.is-del:hover { color: var(--bad); background: rgba(255,107,107,0.10); }
+.bs-icon-btn.is-star { color: var(--text-tertiary); }
+.bs-icon-btn.is-star.is-active { color: var(--warn); }
+.bs-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.bs-tag.is-accent { background: var(--accent-tint); color: var(--accent); border-color: rgba(125,211,252,0.35); }
+.bs-tag.is-good { background: rgba(110,231,183,0.14); color: var(--good); border-color: rgba(110,231,183,0.3); }
+.bs-tag.is-warn { background: rgba(251,191,36,0.14); color: var(--warn); border-color: rgba(251,191,36,0.3); }
+.bs-tag.is-bad { background: rgba(255,138,138,0.14); color: var(--bad); border-color: rgba(255,138,138,0.3); }
+.bs-tag-btn { cursor: pointer; }
+.bs-mva { font-size: 12px; color: var(--text-tertiary); font-style: italic; }
+.bs-mva strong { color: var(--text-secondary); font-style: normal; }
+
+/* ===== Generic "Notes" block — appears at the top of every page ===== */
+.bs-notes-wrap { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed var(--border); }
+.bs-notes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.bs-notes-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.02em; }
+.bs-note-card { gap: 4px; }
+.bs-note-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bs-note-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 2px 0; }
+.bs-note-title-input:focus { outline: none; }
+.bs-note-body-input { width: 100%; background: transparent; border: none; resize: none; overflow: hidden; font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); padding: 4px 0 0; min-height: 20px; }
+.bs-note-body-input:focus { outline: none; }
+.bs-note-body-input::placeholder { color: var(--text-tertiary); }
+
+/* ===== Prompts / AI Prompts (Identity Shifting) ===== */
+.bs-prompts-wrap { margin: 4px 0 22px; }
+.bs-prompt-group { margin-bottom: 14px; }
+.bs-prompt-group-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.bs-prompt-row { display: flex; align-items: center; gap: 6px; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.bs-prompt-row:last-child { border-bottom: none; }
+.bs-prompt-text-input { flex: 1; min-width: 0; background: transparent; border: none; font-size: 12.5px; color: var(--text-primary); padding: 4px 2px; }
+.bs-prompt-text-input:focus { outline: none; }
+.bs-quickadd-row input { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12.5px; margin-top: 6px; }
+.bs-goal-selected-count { font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); margin-top: 8px; }
+.bs-goal-selected-count.is-full { color: var(--warn); }
+
+/* ===== Week grid (Actions tracker) ===== */
+.bs-week-grid { display: flex; gap: 4px; margin-top: 4px; }
+.bs-week-cell {
+  width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text-tertiary); cursor: pointer;
+}
+.bs-week-cell:hover { border-color: var(--text-tertiary); }
+.bs-week-cell.is-unscheduled { opacity: 0.28; cursor: default; }
+.bs-week-cell.is-unscheduled:hover { border-color: var(--border); }
+.bs-week-cell.is-done { background: rgba(110,231,183,0.18); border-color: rgba(110,231,183,0.5); color: var(--good); }
+.bs-bar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 6px; }
+.bs-bar-fill { height: 100%; background: var(--good); border-radius: 4px; transition: width 0.2s; }
+.bs-bar-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* ===== Goal card ===== */
+.bs-goal-card.is-primary { border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.06); }
+.bs-goal-rank { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); font-weight: 700; }
+
+/* ===== Vision form ===== */
+.bs-vision-field { margin-bottom: 16px; }
+.bs-vision-field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.bs-vision-field .bs-hint { font-size: 11px; color: var(--text-tertiary); font-weight: 400; margin-left: 6px; }
+.bs-vision-field textarea { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; line-height: 1.55; min-height: 64px; resize: vertical; }
+.bs-vision-field.is-power textarea { border-color: rgba(125,211,252,0.4); min-height: 90px; }
+.bs-vision-saved-at { font-size: 11px; color: var(--text-tertiary); margin-top: -6px; margin-bottom: 14px; }
+
+/* ===== Challenge status pill ===== */
+.bs-status-pill { border: none; border-radius: 999px; padding: 4px 11px; font-size: 10.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.03em; }
+.bs-status-pill.st-not-started { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
+.bs-status-pill.st-in-progress { background: rgba(251,191,36,0.14); color: var(--warn); }
+.bs-status-pill.st-done { background: rgba(110,231,183,0.14); color: var(--good); }
+
+/* ===== Filter chip rows ===== */
+.bs-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.bs-chip { background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px; font-size: 11.5px; font-weight: 700; color: var(--text-tertiary); cursor: pointer; }
+.bs-chip:hover { color: var(--text-secondary); }
+.bs-chip.active { background: var(--accent-tint); color: var(--accent); border-color: rgba(125,211,252,0.4); }
+
+/* ===== Modals ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,5,6,0.72); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: #101012; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+.bs-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.bs-modal-head h3 { font-size: 18px; font-weight: 700; }
+.bs-modal-close { background: transparent; border: none; font-size: 18px; color: var(--text-tertiary); cursor: pointer; }
+.bs-modal-close:hover { color: var(--text-primary); }
+.bs-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-tertiary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--border); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--text-primary); }
+.field textarea { resize: vertical; min-height: 70px; }
+.field-inline { display: flex; align-items: center; gap: 8px; }
+.field-inline input[type="checkbox"] { width: auto; }
+.bs-day-picker { display: flex; gap: 5px; flex-wrap: wrap; }
+.bs-day-toggle { width: 34px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); font-size: 11px; font-weight: 700; color: var(--text-tertiary); cursor: pointer; }
+.bs-day-toggle.active { background: var(--accent-tint); color: var(--accent); border-color: rgba(125,211,252,0.4); }
+.delete-link { display: block; text-align: center; margin-top: 14px; font-size: 12px; color: var(--bad); cursor: pointer; }
+.delete-link:hover { text-decoration: underline; }
+
+@media (max-width: 560px) {
+  .bs-tabs-row { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .bs-tab { flex-shrink: 0; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <a href="index.html" class="bs-back-btn" aria-label="Back to dashboard">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    <span>Back</span>
+  </a>
+
+  <div class="bs-header">
+    <div class="bs-eyebrow">Build Your Own System</div>
+    <div class="bs-title">Dreams become measurable.</div>
+    <div class="bs-subtext">Ten goals, narrowed to one. One goal, turned into repeatable daily and weekly actions. Three systems — written, visual, mental — that keep you showing up.</div>
+    <div class="bs-primary-banner" id="bsPrimaryBanner"></div>
+  </div>
+
+  <div class="bs-toolbar-row">
+    <span class="bs-sync-status" id="bsSyncStatus"></span>
+    <button type="button" class="bs-btn-ghost" id="bsResetBtn">Reset to Default</button>
+  </div>
+
+  <div class="bs-tabs-row" id="bsTabs">
+    <button type="button" class="bs-tab" data-tab="goals">Top Goals</button>
+    <button type="button" class="bs-tab" data-tab="build">Your System</button>
+    <button type="button" class="bs-tab" data-tab="core">Three Core Systems</button>
+    <button type="button" class="bs-tab" data-tab="identity">Identity Shifting</button>
+  </div>
+
+  <!-- ========================= TAB 1: TOP GOALS ========================= -->
+  <div class="bs-panel" data-panel="goals">
+    <div class="bs-notes-wrap" id="bsGoalsNotes"></div>
+    <div class="bs-section">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Top 10 Goals</div>
+          <div class="bs-section-sub">Step 01. Write down your Top 10 Goals. Step 02. Choose up to 3 goals that will have the biggest impact on your life — star them to add them to your selection.</div>
+          <div class="bs-goal-selected-count" id="bsGoalSelectedCount"></div>
+        </div>
+        <div class="bs-section-actions">
+          <button type="button" class="bs-btn-primary" id="bsAddGoalBtn">+ Add Goal</button>
+        </div>
+      </div>
+      <div class="bs-list" id="bsGoalList"></div>
+    </div>
+  </div>
+
+  <!-- ========================= TAB 2: YOUR SYSTEM ========================= -->
+  <div class="bs-panel" data-panel="build">
+    <div class="bs-notes-wrap" id="bsBuildNotes"></div>
+    <div class="bs-section">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Build Your System</div>
+          <div class="bs-section-sub">Step 03. What actions do I need to repeat every day or every week to achieve this goal? Those repeated actions become your system.</div>
+        </div>
+        <div class="bs-section-actions">
+          <button type="button" class="bs-btn-primary" id="bsAddActionBtn">+ Add Action</button>
+        </div>
+      </div>
+      <div class="bs-callout">
+        <strong>Step 04 — Minimum Viable Action.</strong> Helps with procrastination. Ask: what's the smallest version of this habit I can complete even on my worst day? Write one sentence. Read one page. Do one push-up. Walk for five minutes.
+      </div>
+      <div class="bs-section-title" style="font-size:14px;margin-top:20px;">Daily Actions</div>
+      <div class="bs-list" id="bsDailyActionList"></div>
+      <div class="bs-section-title" style="font-size:14px;margin-top:22px;">Weekly Actions</div>
+      <div class="bs-list" id="bsWeeklyActionList"></div>
+    </div>
+  </div>
+
+  <!-- ========================= TAB 3: THREE CORE SYSTEMS ========================= -->
+  <div class="bs-panel" data-panel="core">
+    <div class="bs-subnav" id="bsCoreSubnav">
+      <button type="button" class="bs-subchip" data-sub="written">1. Written System</button>
+      <button type="button" class="bs-subchip" data-sub="visual">2. Visual System</button>
+      <button type="button" class="bs-subchip" data-sub="mental">3. Mental System</button>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="written">
+      <div class="bs-notes-wrap" id="bsWrittenNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-title">Written System</div>
+        <div class="bs-section-sub">Your action plan. Includes: Goals, Daily habits, Weekly habits, Repeatable processes. The four below are a live recap of what you've already built — edit Goals and Actions on their own tabs.</div>
+        <div id="bsWrittenRecap" style="margin-top:14px;"></div>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div>
+            <div class="bs-section-title" style="font-size:16px;">Repeatable Processes</div>
+            <div class="bs-section-sub">A named, multi-step routine you run again and again — distinct from a single habit.</div>
+          </div>
+          <div class="bs-section-actions"><button type="button" class="bs-btn-secondary bs-btn-sm" id="bsAddProcessBtn">+ Add Process</button></div>
+        </div>
+        <div class="bs-list" id="bsProcessList"></div>
+      </div>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="visual">
+      <div class="bs-notes-wrap" id="bsVisualNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-title">Visual System</div>
+        <div class="bs-section-sub">A way to track progress. Visible progress reinforces consistency. This week's live tracker, pulled from Your System's actions:</div>
+        <div class="bs-list" id="bsVisualTracker" style="margin-top:14px;"></div>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div>
+            <div class="bs-section-title" style="font-size:16px;">Visual Tracking Tools</div>
+            <div class="bs-section-sub">Whiteboard, habit tracker, calendar, scoreboard — whatever you actually use.</div>
+          </div>
+          <div class="bs-section-actions"><button type="button" class="bs-btn-secondary bs-btn-sm" id="bsAddToolBtn">+ Add Tool</button></div>
+        </div>
+        <div class="bs-list" id="bsToolList"></div>
+      </div>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="mental">
+      <div class="bs-notes-wrap" id="bsMentalNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div>
+            <div class="bs-section-title">Mental System</div>
+            <div class="bs-section-sub">Your internal operating system. Identity, self-talk, journaling, mindset, removing mental friction — this determines whether you continue showing up.</div>
+          </div>
+          <div class="bs-section-actions"><button type="button" class="bs-btn-primary" id="bsAddMentalBtn">+ Add Entry</button></div>
+        </div>
+        <div class="bs-chip-row" id="bsMentalChips"></div>
+        <div class="bs-list" id="bsMentalList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= TAB 4: IDENTITY SHIFTING ========================= -->
+  <div class="bs-panel" data-panel="identity">
+    <div class="bs-subnav" id="bsIdentitySubnav">
+      <button type="button" class="bs-subchip" data-sub="anchors">1. Identity Anchors</button>
+      <button type="button" class="bs-subchip" data-sub="vision">2. Future Self Vision</button>
+      <button type="button" class="bs-subchip" data-sub="challenges">3. Install Through Action</button>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="anchors">
+      <div class="bs-notes-wrap" id="bsAnchorsNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div>
+            <div class="bs-section-title">Identity Anchors</div>
+            <div class="bs-section-sub">Step 01. Identify your identity anchors — limiting beliefs you've carried for years that weigh you down. "I'm lazy." "I'm bad with money." These aren't facts. They're identities you've accepted.</div>
+          </div>
+          <div class="bs-section-actions"><button type="button" class="bs-btn-primary" id="bsAddAnchorBtn">+ Add Anchor</button></div>
+        </div>
+        <div class="bs-prompts-wrap" id="bsAnchorsPrompts"></div>
+        <div class="bs-list" id="bsAnchorList"></div>
+      </div>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="vision">
+      <div class="bs-notes-wrap" id="bsVisionNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-title">Future Self Vision</div>
+        <div class="bs-section-sub">Step 02. Create a compelling vision of your future self. Set a timer for 30 minutes. Describe your ideal week as if it were your life right now — not five or ten years from now.</div>
+        <div class="bs-prompts-wrap" id="bsVisionPrompts"></div>
+        <div class="bs-vision-saved-at" id="bsVisionSavedAt"></div>
+        <div style="margin-top:14px;">
+          <div class="bs-vision-field"><label>Who are you surrounded by?</label><textarea id="bsVisionSurroundedBy"></textarea></div>
+          <div class="bs-vision-field"><label>How do you carry yourself?</label><textarea id="bsVisionCarry"></textarea></div>
+          <div class="bs-vision-field"><label>What does your schedule look like?</label><textarea id="bsVisionSchedule"></textarea></div>
+          <div class="bs-vision-field"><label>What work do you do?</label><textarea id="bsVisionWork"></textarea></div>
+          <div class="bs-vision-field"><label>What hobbies do you have?</label><textarea id="bsVisionHobbies"></textarea></div>
+          <div class="bs-vision-field"><label>What do other people say about you?</label><textarea id="bsVisionOthersSay"></textarea></div>
+          <div class="bs-vision-field"><label>How do you spend your free time?</label><textarea id="bsVisionFreeTime"></textarea></div>
+          <div class="bs-vision-field is-power">
+            <label>What do I really want that I'm too afraid to admit? <span class="bs-hint">Don't write what sounds impressive. Don't write what other people expect. Write what you genuinely want.</span></label>
+            <textarea id="bsVisionAfraid"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bs-subpanel" data-subpanel="challenges">
+      <div class="bs-notes-wrap" id="bsChallengesNotes"></div>
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div>
+            <div class="bs-section-title">Install The New Identity Through Action</div>
+            <div class="bs-section-sub">Step 03. One hour of doing beats ten hours of planning. Challenge your identity through action — e.g. believe "I'm not charismatic"? Talk to everyone you meet.</div>
+          </div>
+          <div class="bs-section-actions"><button type="button" class="bs-btn-primary" id="bsAddChallengeBtn">+ Add Challenge</button></div>
+        </div>
+        <div class="bs-prompts-wrap" id="bsChallengesPrompts"></div>
+        <div class="bs-list" id="bsChallengeList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modals ===== -->
+<div class="modal-bg" id="bsGoalModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsGoalModalTitle">Add Goal</h3><button type="button" class="bs-modal-close" id="bsGoalModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Goal</label><input type="text" id="bsGoalTitleInput" placeholder="e.g. Build a business that replaces my income"></div>
+    <div class="field"><label>Notes</label><textarea id="bsGoalNotesInput" placeholder="Why this matters, what success looks like…"></textarea></div>
+    <div class="field field-inline"><input type="checkbox" id="bsGoalSelectedInput"><label style="margin:0;">Include in your Top Goals selection (max 3)</label></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsGoalModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsGoalModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsGoalModalDelete" style="display:none;">Delete this goal</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsActionModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsActionModalTitle">Add Action</h3><button type="button" class="bs-modal-close" id="bsActionModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Action</label><input type="text" id="bsActionTitleInput" placeholder="e.g. Write 300 words on the business"></div>
+    <div class="field"><label>Linked Goal</label><select id="bsActionGoalInput"></select></div>
+    <div class="field"><label>Frequency</label><select id="bsActionFrequencyInput"><option value="daily">Daily</option><option value="weekly">Weekly</option></select></div>
+    <div class="field"><label>Scheduled Days</label><div class="bs-day-picker" id="bsActionDayPicker"></div></div>
+    <div class="field"><label>Minimum Viable Action <span class="bs-hint" style="font-weight:400;">— the smallest version, for your worst day</span></label><input type="text" id="bsActionMvaInput" placeholder="e.g. Write one sentence."></div>
+    <div class="field"><label>Notes</label><textarea id="bsActionNotesInput" placeholder="When, where, any triggers…"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsActionModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsActionModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsActionModalDelete" style="display:none;">Delete this action</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsProcessModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsProcessModalTitle">Add Process</h3><button type="button" class="bs-modal-close" id="bsProcessModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="bsProcessTitleInput" placeholder="e.g. Weekly Reset"></div>
+    <div class="field"><label>Steps / Description</label><textarea id="bsProcessDescInput" placeholder="1. …&#10;2. …&#10;3. …" style="min-height:110px;"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsProcessModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsProcessModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsProcessModalDelete" style="display:none;">Delete this process</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsToolModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsToolModalTitle">Add Visual Tool</h3><button type="button" class="bs-modal-close" id="bsToolModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Type</label><select id="bsToolTypeInput"></select></div>
+    <div class="field"><label>Title</label><input type="text" id="bsToolTitleInput" placeholder="e.g. Kitchen whiteboard"></div>
+    <div class="field"><label>Description</label><textarea id="bsToolDescInput" placeholder="What it tracks, where it lives…"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsToolModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsToolModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsToolModalDelete" style="display:none;">Delete this tool</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsMentalModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsMentalModalTitle">Add Entry</h3><button type="button" class="bs-modal-close" id="bsMentalModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Category</label><select id="bsMentalCategoryInput"></select></div>
+    <div class="field"><label>Title</label><input type="text" id="bsMentalTitleInput" placeholder="e.g. When I miss a day"></div>
+    <div class="field"><label>Note</label><textarea id="bsMentalBodyInput" placeholder="Script, mantra, reminder…" style="min-height:100px;"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsMentalModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsMentalModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsMentalModalDelete" style="display:none;">Delete this entry</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsAnchorModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsAnchorModalTitle">Add Anchor</h3><button type="button" class="bs-modal-close" id="bsAnchorModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Limiting belief</label><input type="text" id="bsAnchorBeliefInput" placeholder="e.g. I'm bad with money"></div>
+    <div class="field"><label>Reframe</label><textarea id="bsAnchorReframeInput" placeholder="Who are you becoming instead?"></textarea></div>
+    <div class="field field-inline"><input type="checkbox" id="bsAnchorActiveInput" checked><label style="margin:0;">Still active (uncheck once you've moved past it)</label></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsAnchorModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsAnchorModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsAnchorModalDelete" style="display:none;">Delete this anchor</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="bsChallengeModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="bsChallengeModalTitle">Add Challenge</h3><button type="button" class="bs-modal-close" id="bsChallengeModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="bsChallengeTitleInput" placeholder="e.g. Track every expense for 7 days"></div>
+    <div class="field"><label>Linked anchor</label><select id="bsChallengeAnchorInput"></select></div>
+    <div class="field"><label>The action</label><textarea id="bsChallengeActionInput" placeholder="Exactly what you'll do…"></textarea></div>
+    <div class="field"><label>Frequency</label><select id="bsChallengeFrequencyInput"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="once">One-time</option></select></div>
+    <div class="field"><label>Status</label><select id="bsChallengeStatusInput"><option value="not-started">Not started</option><option value="in-progress">In progress</option><option value="done">Done</option></select></div>
+    <div class="field"><label>Notes</label><textarea id="bsChallengeNotesInput"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="bsChallengeModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="bsChallengeModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="bsChallengeModalDelete" style="display:none;">Delete this challenge</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function escapeText(s) { return s == null ? '' : String(s); }
+  function openModal(el) { el.classList.add('show'); }
+  function closeModal(el) { el.classList.remove('show'); }
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  let DB = null;
+  let editingGoalId = null;
+  let editingActionId = null;
+  let editingActionDays = [];
+  let editingProcessId = null;
+  let editingToolId = null;
+  let editingMentalId = null;
+  let editingAnchorId = null;
+  let editingChallengeId = null;
+
+  let activeTab = 'goals';
+  let activeCoreSub = 'written';
+  let activeIdentitySub = 'anchors';
+  let mentalCategoryFilter = 'all';
+  let visionSaveTimer = null;
+
+  // ============================================================
+  // SYNC STATUS — same pattern as aitech.html's handleSaveEvent.
+  // ============================================================
+  let syncStatusTimer = null;
+  function setSyncStatus(mode, text) {
+    const wrap = $('bsSyncStatus');
+    if (!wrap) return;
+    wrap.className = 'bs-sync-status' + (mode ? ' is-' + mode : '');
+    wrap.innerHTML = '';
+    wrap.appendChild(el('span', 'bs-sync-status-dot'));
+    wrap.appendChild(el('span', null, text));
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync when reconnected'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Couldn't save — your browser's storage may be full."); return; }
+    setSyncStatus('saved', 'Saved — syncing…');
+    clearTimeout(syncStatusTimer);
+    syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+
+  // ============================================================
+  // TABS / SUBNAV
+  // ============================================================
+  function switchTab(tab) {
+    const panels = document.querySelectorAll('.bs-panel');
+    const valid = Array.prototype.some.call(panels, function (p) { return p.dataset.panel === tab; });
+    activeTab = valid ? tab : 'goals';
+    document.querySelectorAll('#bsTabs .bs-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === activeTab); });
+    panels.forEach(function (p) { p.classList.toggle('active', p.dataset.panel === activeTab); });
+    try { localStorage.setItem(DB.KEYS.activeTab, activeTab); } catch (e) {}
+    try { history.replaceState(null, '', '#' + activeTab); } catch (e) {}
+    if (activeTab === 'build') renderActions();
+    if (activeTab === 'core') renderCoreSub();
+    if (activeTab === 'identity') renderIdentitySub();
+  }
+  function switchCoreSub(sub) {
+    activeCoreSub = sub;
+    document.querySelectorAll('#bsCoreSubnav .bs-subchip').forEach(function (b) { b.classList.toggle('active', b.dataset.sub === sub); });
+    document.querySelectorAll('[data-subpanel]').forEach(function (p) {
+      if (p.closest('[data-panel="core"]')) p.classList.toggle('active', p.dataset.subpanel === sub);
+    });
+    renderCoreSub();
+  }
+  function switchIdentitySub(sub) {
+    activeIdentitySub = sub;
+    document.querySelectorAll('#bsIdentitySubnav .bs-subchip').forEach(function (b) { b.classList.toggle('active', b.dataset.sub === sub); });
+    document.querySelectorAll('[data-subpanel]').forEach(function (p) {
+      if (p.closest('[data-panel="identity"]')) p.classList.toggle('active', p.dataset.subpanel === sub);
+    });
+    renderIdentitySub();
+  }
+  function renderCoreSub() {
+    if (activeCoreSub === 'written') renderWritten();
+    else if (activeCoreSub === 'visual') renderVisual();
+    else if (activeCoreSub === 'mental') { renderMentalChips(); renderMental(); }
+  }
+  function renderIdentitySub() {
+    if (activeIdentitySub === 'anchors') renderAnchors();
+    else if (activeIdentitySub === 'vision') renderVision();
+    else if (activeIdentitySub === 'challenges') { renderChallengeAnchorSelect(); renderChallenges(); }
+  }
+
+  // ============================================================
+  // TOP GOALS BANNER — up to DB.MAX_SELECTED_GOALS (3) goals at once.
+  // ============================================================
+  function renderSelectedGoalsBanner() {
+    const banner = $('bsPrimaryBanner');
+    banner.innerHTML = '';
+    const selected = DB.selectedGoalsSorted();
+    if (!selected.length) {
+      banner.classList.add('is-empty');
+      banner.appendChild(el('span', 'bs-primary-banner-icon', '🎯'));
+      banner.appendChild(el('span', 'bs-primary-banner-text', "You haven't selected any Top Goals yet — star up to 3 on the Top Goals tab."));
+      return;
+    }
+    banner.classList.remove('is-empty');
+    banner.appendChild(el('span', 'bs-primary-banner-icon', '🎯'));
+    const text = el('span', 'bs-primary-banner-text');
+    text.appendChild(document.createTextNode((selected.length === 1 ? 'Your Top Goal: ' : 'Your Top Goals: ')));
+    selected.forEach(function (g, i) {
+      if (i > 0) text.appendChild(document.createTextNode('  •  '));
+      text.appendChild(el('span', 'bs-primary-banner-goal', g.title || 'Untitled goal'));
+    });
+    banner.appendChild(text);
+  }
+
+  // ============================================================
+  // TAB 1 — GOALS
+  // ============================================================
+  function buildGoalCard(goal, rank) {
+    const card = el('div', 'bs-card bs-goal-card' + (goal.isSelected ? ' is-primary' : ''));
+    const top = el('div', 'bs-card-top');
+    const titleWrap = el('div', 'bs-card-title-wrap');
+    titleWrap.appendChild(el('span', 'bs-goal-rank', String(rank).padStart(2, '0')));
+    titleWrap.appendChild(el('span', 'bs-card-title', goal.title || 'Untitled goal'));
+    if (goal.isSelected) titleWrap.appendChild(el('span', 'bs-tag is-warn', '★ SELECTED'));
+    top.appendChild(titleWrap);
+
+    const actions = el('div', 'bs-card-actions');
+    const starBtn = el('button', 'bs-icon-btn is-star' + (goal.isSelected ? ' is-active' : ''), goal.isSelected ? '★' : '☆');
+    starBtn.type = 'button'; starBtn.title = 'Add to your Top Goals selection (max ' + DB.MAX_SELECTED_GOALS + ')';
+    starBtn.addEventListener('click', function () {
+      const result = DB.toggleGoalSelected(goal.id);
+      if (!result.ok && result.reason === 'limit') { alert('You can only select up to ' + DB.MAX_SELECTED_GOALS + ' goals at a time — deselect one first.'); return; }
+      renderGoals(); renderSelectedGoalsBanner();
+    });
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(DB.Goals, goal.id, -1); renderGoals(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(DB.Goals, goal.id, 1); renderGoals(); });
+    const editBtn = el('button', 'bs-icon-btn', '✎'); editBtn.type = 'button';
+    editBtn.addEventListener('click', function () { openGoalModal(goal.id); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (goal.title || 'this goal') + '"? Linked actions will be kept, just unlinked.')) return;
+      DB.Goals.remove(goal.id); renderGoals(); renderSelectedGoalsBanner();
+    });
+    [starBtn, upBtn, downBtn, editBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    top.appendChild(actions);
+    card.appendChild(top);
+
+    if (goal.notes) card.appendChild(el('div', 'bs-card-body', goal.notes));
+    return card;
+  }
+  function renderGoals() {
+    const list = $('bsGoalList');
+    const goals = DB.goalsSorted();
+    list.innerHTML = '';
+    if (!goals.length) { list.appendChild(el('div', 'bs-empty', 'No goals yet — add your first one.')); return; }
+    goals.forEach(function (g, i) { list.appendChild(buildGoalCard(g, i + 1)); });
+    const countEl = $('bsGoalSelectedCount');
+    if (countEl) {
+      const count = DB.selectedGoalCount();
+      countEl.textContent = 'Selected ' + count + '/' + DB.MAX_SELECTED_GOALS;
+      countEl.classList.toggle('is-full', count >= DB.MAX_SELECTED_GOALS);
+    }
+  }
+  function renderActionGoalSelect() {
+    const sel = $('bsActionGoalInput'); sel.innerHTML = '';
+    const noneOpt = el('option'); noneOpt.value = ''; noneOpt.textContent = '— No linked goal —'; sel.appendChild(noneOpt);
+    DB.goalsSorted().forEach(function (g) { const opt = el('option'); opt.value = g.id; opt.textContent = g.title + (g.isSelected ? ' ★' : ''); sel.appendChild(opt); });
+  }
+  function openGoalModal(id) {
+    editingGoalId = id || null;
+    const g = id ? DB.Goals.get(id) : null;
+    $('bsGoalModalTitle').textContent = id ? 'Edit Goal' : 'Add Goal';
+    $('bsGoalTitleInput').value = g ? g.title : '';
+    $('bsGoalNotesInput').value = g ? g.notes : '';
+    $('bsGoalSelectedInput').checked = g ? g.isSelected : false;
+    $('bsGoalModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsGoalModalBg'));
+  }
+  function closeGoalModal() { closeModal($('bsGoalModalBg')); editingGoalId = null; }
+  function saveGoalModal() {
+    const title = $('bsGoalTitleInput').value.trim();
+    if (!title) { alert('Give this goal a title first.'); return; }
+    const patch = { title: title, notes: $('bsGoalNotesInput').value.trim() };
+    let savedId = editingGoalId;
+    if (editingGoalId) DB.Goals.update(editingGoalId, patch);
+    else { const rec = DB.Goals.add(Object.assign({}, patch, { order: DB.nextOrder(DB.goalsSorted()) })); savedId = rec.id; }
+    const wantSelected = $('bsGoalSelectedInput').checked;
+    const applied = DB.setGoalSelected(savedId, wantSelected);
+    if (wantSelected && !applied) alert('This goal was saved, but you already have ' + DB.MAX_SELECTED_GOALS + ' goals selected — deselect one first if you want to add this one.');
+    closeGoalModal(); renderGoals(); renderSelectedGoalsBanner();
+  }
+  function deleteGoalModal() {
+    if (!editingGoalId) return;
+    if (!confirm('Delete this goal? Linked actions will be kept, just unlinked.')) return;
+    DB.Goals.remove(editingGoalId);
+    closeGoalModal(); renderGoals(); renderSelectedGoalsBanner();
+  }
+
+  // ============================================================
+  // TAB 2 — ACTIONS (Your System)
+  // ============================================================
+  function buildWeekGrid(action, onToggled) {
+    const wrap = el('div');
+    const grid = el('div', 'bs-week-grid');
+    DB.WEEKDAY_LABELS.forEach(function (label, idx) {
+      const scheduled = action.scheduledDays.indexOf(idx) !== -1;
+      const done = !!action.checks[idx];
+      const cell = el('button', 'bs-week-cell' + (scheduled ? '' : ' is-unscheduled') + (done ? ' is-done' : ''), label[0]);
+      cell.type = 'button'; cell.title = label + (scheduled ? '' : ' — not scheduled');
+      if (scheduled) cell.addEventListener('click', function () { DB.toggleActionCheck(action.id, idx); if (onToggled) onToggled(); });
+      grid.appendChild(cell);
+    });
+    wrap.appendChild(grid);
+    const progress = DB.actionWeekProgress(action);
+    const barRow = el('div', 'bs-bar-row');
+    const doneCount = action.scheduledDays.filter(function (d) { return !!action.checks[d]; }).length;
+    barRow.appendChild(el('span', null, doneCount + '/' + action.scheduledDays.length + ' this week'));
+    barRow.appendChild(el('span', null, Math.round(progress * 100) + '%'));
+    wrap.appendChild(barRow);
+    const bar = el('div', 'bs-bar');
+    const fill = el('div', 'bs-bar-fill'); fill.style.width = Math.round(progress * 100) + '%';
+    bar.appendChild(fill); wrap.appendChild(bar);
+    return wrap;
+  }
+  function buildActionCard(action, refreshFn) {
+    const card = el('div', 'bs-card');
+    const top = el('div', 'bs-card-top');
+    const titleWrap = el('div', 'bs-card-title-wrap');
+    titleWrap.appendChild(el('span', 'bs-card-title', action.title || 'Untitled action'));
+    titleWrap.appendChild(el('span', 'bs-tag' + (action.frequency === 'daily' ? ' is-accent' : ''), action.frequency === 'daily' ? 'DAILY' : 'WEEKLY'));
+    const goalName = action.goalId ? DB.goalName(action.goalId) : null;
+    if (goalName) titleWrap.appendChild(el('span', 'bs-tag', goalName));
+    top.appendChild(titleWrap);
+
+    const actions = el('div', 'bs-card-actions');
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(DB.Actions, action.id, -1); refreshFn(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(DB.Actions, action.id, 1); refreshFn(); });
+    const editBtn = el('button', 'bs-icon-btn', '✎'); editBtn.type = 'button';
+    editBtn.addEventListener('click', function () { openActionModal(action.id); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (action.title || 'this action') + '"?')) return;
+      DB.Actions.remove(action.id); refreshFn();
+    });
+    [upBtn, downBtn, editBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    top.appendChild(actions);
+    card.appendChild(top);
+
+    if (action.mva) {
+      const mva = el('div', 'bs-mva');
+      mva.appendChild(el('strong', null, 'MVA: '));
+      mva.appendChild(document.createTextNode(action.mva));
+      card.appendChild(mva);
+    }
+    if (action.notes) card.appendChild(el('div', 'bs-card-body', action.notes));
+    card.appendChild(buildWeekGrid(action, refreshFn));
+    return card;
+  }
+  function renderActions() {
+    DB.resetStaleWeeks();
+    const dailyList = $('bsDailyActionList'), weeklyList = $('bsWeeklyActionList');
+    dailyList.innerHTML = ''; weeklyList.innerHTML = '';
+    const daily = DB.actionsByFrequency('daily'), weekly = DB.actionsByFrequency('weekly');
+    if (!daily.length) dailyList.appendChild(el('div', 'bs-empty', 'No daily actions yet.'));
+    else daily.forEach(function (a) { dailyList.appendChild(buildActionCard(a, renderActions)); });
+    if (!weekly.length) weeklyList.appendChild(el('div', 'bs-empty', 'No weekly actions yet.'));
+    else weekly.forEach(function (a) { weeklyList.appendChild(buildActionCard(a, renderActions)); });
+  }
+  function renderActionDayPicker() {
+    const wrap = $('bsActionDayPicker'); wrap.innerHTML = '';
+    DB.WEEKDAY_LABELS.forEach(function (label, idx) {
+      const btn = el('button', 'bs-day-toggle' + (editingActionDays.indexOf(idx) !== -1 ? ' active' : ''), label[0]);
+      btn.type = 'button'; btn.title = label;
+      btn.addEventListener('click', function () {
+        const pos = editingActionDays.indexOf(idx);
+        if (pos !== -1) editingActionDays.splice(pos, 1); else editingActionDays.push(idx);
+        renderActionDayPicker();
+      });
+      wrap.appendChild(btn);
+    });
+  }
+  function defaultDaysForFrequency(freq) { return freq === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : [1]; }
+  function openActionModal(id) {
+    editingActionId = id || null;
+    const a = id ? DB.Actions.get(id) : null;
+    $('bsActionModalTitle').textContent = id ? 'Edit Action' : 'Add Action';
+    $('bsActionTitleInput').value = a ? a.title : '';
+    renderActionGoalSelect();
+    $('bsActionGoalInput').value = a ? (a.goalId || '') : ((DB.selectedGoalsSorted()[0] || {}).id || '');
+    $('bsActionFrequencyInput').value = a ? a.frequency : 'daily';
+    $('bsActionMvaInput').value = a ? a.mva : '';
+    $('bsActionNotesInput').value = a ? a.notes : '';
+    editingActionDays = a ? a.scheduledDays.slice() : defaultDaysForFrequency('daily');
+    renderActionDayPicker();
+    $('bsActionModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsActionModalBg'));
+  }
+  function closeActionModal() { closeModal($('bsActionModalBg')); editingActionId = null; }
+  function saveActionModal() {
+    const title = $('bsActionTitleInput').value.trim();
+    if (!title) { alert('Give this action a title first.'); return; }
+    const patch = {
+      title: title,
+      goalId: $('bsActionGoalInput').value || null,
+      frequency: $('bsActionFrequencyInput').value,
+      mva: $('bsActionMvaInput').value.trim(),
+      notes: $('bsActionNotesInput').value.trim(),
+      scheduledDays: editingActionDays.slice()
+    };
+    if (editingActionId) DB.Actions.update(editingActionId, patch);
+    else DB.Actions.add(Object.assign({}, patch, { order: DB.nextOrder(DB.actionsSorted()) }));
+    closeActionModal(); renderActions();
+  }
+  function deleteActionModal() {
+    if (!editingActionId) return;
+    if (!confirm('Delete this action?')) return;
+    DB.Actions.remove(editingActionId);
+    closeActionModal(); renderActions();
+  }
+
+  // ============================================================
+  // TAB 3 — THREE CORE SYSTEMS
+  // ============================================================
+  function renderWritten() {
+    const wrap = $('bsWrittenRecap');
+    wrap.innerHTML = '';
+    const goals = DB.goalsSorted();
+    const goalsCard = el('div', 'bs-card');
+    goalsCard.appendChild(el('div', 'bs-card-title', 'Goals (' + goals.length + ')'));
+    if (!goals.length) goalsCard.appendChild(el('div', 'bs-empty', 'No goals yet.'));
+    else goals.forEach(function (g) {
+      const row = el('div', 'bs-card-body');
+      row.textContent = (g.isSelected ? '★ ' : '• ') + (g.title || 'Untitled goal');
+      goalsCard.appendChild(row);
+    });
+    wrap.appendChild(goalsCard);
+
+    const daily = DB.actionsByFrequency('daily'), weekly = DB.actionsByFrequency('weekly');
+    const dailyCard = el('div', 'bs-card'); dailyCard.style.marginTop = '10px';
+    dailyCard.appendChild(el('div', 'bs-card-title', 'Daily Habits (' + daily.length + ')'));
+    if (!daily.length) dailyCard.appendChild(el('div', 'bs-empty', 'No daily actions yet.'));
+    else daily.forEach(function (a) { dailyCard.appendChild(el('div', 'bs-card-body', '• ' + (a.title || 'Untitled'))); });
+    wrap.appendChild(dailyCard);
+
+    const weeklyCard = el('div', 'bs-card'); weeklyCard.style.marginTop = '10px';
+    weeklyCard.appendChild(el('div', 'bs-card-title', 'Weekly Habits (' + weekly.length + ')'));
+    if (!weekly.length) weeklyCard.appendChild(el('div', 'bs-empty', 'No weekly actions yet.'));
+    else weekly.forEach(function (a) { weeklyCard.appendChild(el('div', 'bs-card-body', '• ' + (a.title || 'Untitled'))); });
+    wrap.appendChild(weeklyCard);
+
+    renderProcesses();
+  }
+  function buildSimpleCard(item, opts) {
+    // Generic row for Processes/Tools/MentalEntries — title + optional
+    // tag + body preview + up/down/edit/delete.
+    const card = el('div', 'bs-card');
+    const top = el('div', 'bs-card-top');
+    const titleWrap = el('div', 'bs-card-title-wrap');
+    titleWrap.appendChild(el('span', 'bs-card-title', item.title || 'Untitled'));
+    if (opts.tag) titleWrap.appendChild(el('span', 'bs-tag' + (opts.tagClass ? ' ' + opts.tagClass : ''), opts.tag));
+    top.appendChild(titleWrap);
+
+    const actions = el('div', 'bs-card-actions');
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(opts.coll, item.id, -1); opts.refresh(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(opts.coll, item.id, 1); opts.refresh(); });
+    const editBtn = el('button', 'bs-icon-btn', '✎'); editBtn.type = 'button';
+    editBtn.addEventListener('click', function () { opts.onEdit(item.id); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (item.title || 'this item') + '"?')) return;
+      opts.coll.remove(item.id); opts.refresh();
+    });
+    [upBtn, downBtn, editBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    top.appendChild(actions);
+    card.appendChild(top);
+    if (opts.body) card.appendChild(el('div', 'bs-card-body', opts.body));
+    return card;
+  }
+  function renderProcesses() {
+    const list = $('bsProcessList');
+    const items = DB.processesSorted();
+    list.innerHTML = '';
+    if (!items.length) { list.appendChild(el('div', 'bs-empty', 'No processes yet.')); return; }
+    items.forEach(function (p) {
+      list.appendChild(buildSimpleCard(p, { coll: DB.Processes, refresh: renderProcesses, onEdit: openProcessModal, body: p.description }));
+    });
+  }
+  function openProcessModal(id) {
+    editingProcessId = id || null;
+    const p = id ? DB.Processes.get(id) : null;
+    $('bsProcessModalTitle').textContent = id ? 'Edit Process' : 'Add Process';
+    $('bsProcessTitleInput').value = p ? p.title : '';
+    $('bsProcessDescInput').value = p ? p.description : '';
+    $('bsProcessModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsProcessModalBg'));
+  }
+  function closeProcessModal() { closeModal($('bsProcessModalBg')); editingProcessId = null; }
+  function saveProcessModal() {
+    const title = $('bsProcessTitleInput').value.trim();
+    if (!title) { alert('Give this process a title first.'); return; }
+    const patch = { title: title, description: $('bsProcessDescInput').value };
+    if (editingProcessId) DB.Processes.update(editingProcessId, patch);
+    else DB.Processes.add(Object.assign({}, patch, { order: DB.nextOrder(DB.processesSorted()) }));
+    closeProcessModal(); renderProcesses();
+  }
+  function deleteProcessModal() {
+    if (!editingProcessId) return;
+    if (!confirm('Delete this process?')) return;
+    DB.Processes.remove(editingProcessId);
+    closeProcessModal(); renderProcesses();
+  }
+
+  function renderVisual() {
+    const tracker = $('bsVisualTracker');
+    tracker.innerHTML = '';
+    DB.resetStaleWeeks();
+    const actions = DB.actionsSorted();
+    if (!actions.length) tracker.appendChild(el('div', 'bs-empty', 'No actions yet — add some on the Your System tab.'));
+    else actions.forEach(function (a) {
+      const card = el('div', 'bs-card');
+      const titleWrap = el('div', 'bs-card-title-wrap');
+      titleWrap.appendChild(el('span', 'bs-card-title', a.title || 'Untitled action'));
+      titleWrap.appendChild(el('span', 'bs-tag' + (a.frequency === 'daily' ? ' is-accent' : ''), a.frequency === 'daily' ? 'DAILY' : 'WEEKLY'));
+      card.appendChild(titleWrap);
+      card.appendChild(buildWeekGrid(a, renderVisual));
+      tracker.appendChild(card);
+    });
+    renderTools();
+  }
+  function renderTools() {
+    const list = $('bsToolList');
+    const items = DB.visualToolsSorted();
+    list.innerHTML = '';
+    if (!items.length) { list.appendChild(el('div', 'bs-empty', 'No tracking tools listed yet.')); return; }
+    items.forEach(function (t) {
+      list.appendChild(buildSimpleCard(t, { coll: DB.VisualTools, refresh: renderTools, onEdit: openToolModal, tag: t.type, body: t.description }));
+    });
+  }
+  function renderToolTypeSelect() {
+    const sel = $('bsToolTypeInput'); sel.innerHTML = '';
+    DB.VISUAL_TOOL_TYPES.forEach(function (t) { const opt = el('option'); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+  }
+  function openToolModal(id) {
+    editingToolId = id || null;
+    const t = id ? DB.VisualTools.get(id) : null;
+    $('bsToolModalTitle').textContent = id ? 'Edit Visual Tool' : 'Add Visual Tool';
+    renderToolTypeSelect();
+    $('bsToolTypeInput').value = t ? t.type : DB.VISUAL_TOOL_TYPES[0];
+    $('bsToolTitleInput').value = t ? t.title : '';
+    $('bsToolDescInput').value = t ? t.description : '';
+    $('bsToolModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsToolModalBg'));
+  }
+  function closeToolModal() { closeModal($('bsToolModalBg')); editingToolId = null; }
+  function saveToolModal() {
+    const title = $('bsToolTitleInput').value.trim();
+    if (!title) { alert('Give this tool a title first.'); return; }
+    const patch = { type: $('bsToolTypeInput').value, title: title, description: $('bsToolDescInput').value.trim() };
+    if (editingToolId) DB.VisualTools.update(editingToolId, patch);
+    else DB.VisualTools.add(Object.assign({}, patch, { order: DB.nextOrder(DB.visualToolsSorted()) }));
+    closeToolModal(); renderTools();
+  }
+  function deleteToolModal() {
+    if (!editingToolId) return;
+    if (!confirm('Delete this tool?')) return;
+    DB.VisualTools.remove(editingToolId);
+    closeToolModal(); renderTools();
+  }
+
+  function renderMentalChips() {
+    const wrap = $('bsMentalChips'); wrap.innerHTML = '';
+    const allBtn = el('button', 'bs-chip' + (mentalCategoryFilter === 'all' ? ' active' : ''), 'All'); allBtn.type = 'button';
+    allBtn.addEventListener('click', function () { mentalCategoryFilter = 'all'; renderMentalChips(); renderMental(); });
+    wrap.appendChild(allBtn);
+    DB.MENTAL_CATEGORIES.forEach(function (c) {
+      const btn = el('button', 'bs-chip' + (mentalCategoryFilter === c ? ' active' : ''), c); btn.type = 'button';
+      btn.addEventListener('click', function () { mentalCategoryFilter = c; renderMentalChips(); renderMental(); });
+      wrap.appendChild(btn);
+    });
+  }
+  function renderMental() {
+    const list = $('bsMentalList');
+    let items = DB.mentalEntriesSorted();
+    if (mentalCategoryFilter !== 'all') items = items.filter(function (m) { return m.category === mentalCategoryFilter; });
+    list.innerHTML = '';
+    if (!items.length) { list.appendChild(el('div', 'bs-empty', 'No entries in this category yet.')); return; }
+    items.forEach(function (m) {
+      list.appendChild(buildSimpleCard(m, { coll: DB.MentalEntries, refresh: renderMental, onEdit: openMentalModal, tag: m.category, body: m.body }));
+    });
+  }
+  function renderMentalCategorySelect() {
+    const sel = $('bsMentalCategoryInput'); sel.innerHTML = '';
+    DB.MENTAL_CATEGORIES.forEach(function (c) { const opt = el('option'); opt.value = c; opt.textContent = c; sel.appendChild(opt); });
+  }
+  function openMentalModal(id) {
+    editingMentalId = id || null;
+    const m = id ? DB.MentalEntries.get(id) : null;
+    $('bsMentalModalTitle').textContent = id ? 'Edit Entry' : 'Add Entry';
+    renderMentalCategorySelect();
+    $('bsMentalCategoryInput').value = m ? m.category : (mentalCategoryFilter !== 'all' ? mentalCategoryFilter : DB.MENTAL_CATEGORIES[0]);
+    $('bsMentalTitleInput').value = m ? m.title : '';
+    $('bsMentalBodyInput').value = m ? m.body : '';
+    $('bsMentalModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsMentalModalBg'));
+  }
+  function closeMentalModal() { closeModal($('bsMentalModalBg')); editingMentalId = null; }
+  function saveMentalModal() {
+    const title = $('bsMentalTitleInput').value.trim();
+    if (!title) { alert('Give this entry a title first.'); return; }
+    const patch = { category: $('bsMentalCategoryInput').value, title: title, body: $('bsMentalBodyInput').value.trim() };
+    if (editingMentalId) DB.MentalEntries.update(editingMentalId, patch);
+    else DB.MentalEntries.add(Object.assign({}, patch, { order: DB.nextOrder(DB.mentalEntriesSorted()) }));
+    closeMentalModal(); renderMentalChips(); renderMental();
+  }
+  function deleteMentalModal() {
+    if (!editingMentalId) return;
+    if (!confirm('Delete this entry?')) return;
+    DB.MentalEntries.remove(editingMentalId);
+    closeMentalModal(); renderMentalChips(); renderMental();
+  }
+
+  // ============================================================
+  // TAB 4 — IDENTITY SHIFTING
+  // ============================================================
+  function renderAnchors() {
+    const list = $('bsAnchorList');
+    const items = DB.anchorsSorted();
+    list.innerHTML = '';
+    if (!items.length) { list.appendChild(el('div', 'bs-empty', 'No anchors named yet.')); return; }
+    items.forEach(function (a) {
+      const tag = a.active ? 'ACTIVE' : 'RETIRED';
+      const tagClass = a.active ? 'is-warn' : 'is-good';
+      list.appendChild(buildSimpleCard(a, { coll: DB.Anchors, refresh: renderAnchors, onEdit: openAnchorModal, tag: tag, tagClass: tagClass, body: (a.belief || '') + (a.reframe ? '\n\n→ ' + a.reframe : '') }));
+    });
+  }
+  function openAnchorModal(id) {
+    editingAnchorId = id || null;
+    const a = id ? DB.Anchors.get(id) : null;
+    $('bsAnchorModalTitle').textContent = id ? 'Edit Anchor' : 'Add Anchor';
+    $('bsAnchorBeliefInput').value = a ? a.belief : '';
+    $('bsAnchorReframeInput').value = a ? a.reframe : '';
+    $('bsAnchorActiveInput').checked = a ? a.active : true;
+    $('bsAnchorModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsAnchorModalBg'));
+  }
+  function closeAnchorModal() { closeModal($('bsAnchorModalBg')); editingAnchorId = null; }
+  function saveAnchorModal() {
+    const belief = $('bsAnchorBeliefInput').value.trim();
+    if (!belief) { alert('Name the limiting belief first.'); return; }
+    const patch = { belief: belief, reframe: $('bsAnchorReframeInput').value.trim(), active: $('bsAnchorActiveInput').checked };
+    if (editingAnchorId) DB.Anchors.update(editingAnchorId, patch);
+    else DB.Anchors.add(Object.assign({}, patch, { order: DB.nextOrder(DB.anchorsSorted()) }));
+    closeAnchorModal(); renderAnchors();
+  }
+  function deleteAnchorModal() {
+    if (!editingAnchorId) return;
+    if (!confirm('Delete this anchor? Linked challenges will be kept, just unlinked.')) return;
+    DB.Anchors.remove(editingAnchorId);
+    closeAnchorModal(); renderAnchors();
+  }
+
+  function renderVision() {
+    const v = DB.getVision();
+    $('bsVisionSurroundedBy').value = v.surroundedBy;
+    $('bsVisionCarry').value = v.howYouCarryYourself;
+    $('bsVisionSchedule').value = v.schedule;
+    $('bsVisionWork').value = v.work;
+    $('bsVisionHobbies').value = v.hobbies;
+    $('bsVisionOthersSay').value = v.othersSay;
+    $('bsVisionFreeTime').value = v.freeTime;
+    $('bsVisionAfraid').value = v.afraidToAdmit;
+    $('bsVisionSavedAt').textContent = v.updatedAt ? 'Last updated ' + new Date(v.updatedAt).toLocaleDateString() : 'Not started yet — write whenever you\'re ready.';
+  }
+  function saveVisionField(field, value) {
+    const patch = {}; patch[field] = value;
+    DB.saveVision(patch);
+    clearTimeout(visionSaveTimer);
+    visionSaveTimer = setTimeout(function () { $('bsVisionSavedAt').textContent = 'Last updated ' + new Date().toLocaleDateString(); }, 400);
+  }
+
+  function renderChallengeAnchorSelect() {
+    const sel = $('bsChallengeAnchorInput'); sel.innerHTML = '';
+    const noneOpt = el('option'); noneOpt.value = ''; noneOpt.textContent = '— No linked anchor —'; sel.appendChild(noneOpt);
+    DB.anchorsSorted().forEach(function (a) { const opt = el('option'); opt.value = a.id; opt.textContent = a.belief || 'Untitled anchor'; sel.appendChild(opt); });
+  }
+  function buildChallengeCard(c) {
+    const card = el('div', 'bs-card');
+    const top = el('div', 'bs-card-top');
+    const titleWrap = el('div', 'bs-card-title-wrap');
+    titleWrap.appendChild(el('span', 'bs-card-title', c.title || 'Untitled challenge'));
+    const statusBtn = el('button', 'bs-status-pill st-' + c.status, c.status.replace('-', ' '));
+    statusBtn.type = 'button';
+    statusBtn.addEventListener('click', function () { DB.Challenges.update(c.id, { status: DB.nextChallengeStatus(c.status) }); renderChallenges(); });
+    titleWrap.appendChild(statusBtn);
+    top.appendChild(titleWrap);
+
+    const actions = el('div', 'bs-card-actions');
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(DB.Challenges, c.id, -1); renderChallenges(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(DB.Challenges, c.id, 1); renderChallenges(); });
+    const editBtn = el('button', 'bs-icon-btn', '✎'); editBtn.type = 'button';
+    editBtn.addEventListener('click', function () { openChallengeModal(c.id); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete "' + (c.title || 'this challenge') + '"?')) return;
+      DB.Challenges.remove(c.id); renderChallenges();
+    });
+    [upBtn, downBtn, editBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    top.appendChild(actions);
+    card.appendChild(top);
+
+    const anchorName = c.anchorId ? (function () { const a = DB.Anchors.get(c.anchorId); return a ? a.belief : null; })() : null;
+    if (anchorName) card.appendChild(el('div', 'bs-tag', '↳ ' + anchorName));
+    if (c.action) card.appendChild(el('div', 'bs-card-body', c.action));
+    return card;
+  }
+  function renderChallenges() {
+    const list = $('bsChallengeList');
+    const items = DB.challengesSorted();
+    list.innerHTML = '';
+    if (!items.length) { list.appendChild(el('div', 'bs-empty', 'No challenges yet.')); return; }
+    items.forEach(function (c) { list.appendChild(buildChallengeCard(c)); });
+  }
+  function openChallengeModal(id) {
+    editingChallengeId = id || null;
+    const c = id ? DB.Challenges.get(id) : null;
+    $('bsChallengeModalTitle').textContent = id ? 'Edit Challenge' : 'Add Challenge';
+    $('bsChallengeTitleInput').value = c ? c.title : '';
+    renderChallengeAnchorSelect();
+    $('bsChallengeAnchorInput').value = c ? (c.anchorId || '') : '';
+    $('bsChallengeActionInput').value = c ? c.action : '';
+    $('bsChallengeFrequencyInput').value = c ? c.frequency : 'daily';
+    $('bsChallengeStatusInput').value = c ? c.status : 'not-started';
+    $('bsChallengeNotesInput').value = c ? c.notes : '';
+    $('bsChallengeModalDelete').style.display = id ? 'block' : 'none';
+    openModal($('bsChallengeModalBg'));
+  }
+  function closeChallengeModal() { closeModal($('bsChallengeModalBg')); editingChallengeId = null; }
+  function saveChallengeModal() {
+    const title = $('bsChallengeTitleInput').value.trim();
+    if (!title) { alert('Give this challenge a title first.'); return; }
+    const patch = {
+      title: title,
+      anchorId: $('bsChallengeAnchorInput').value || null,
+      action: $('bsChallengeActionInput').value.trim(),
+      frequency: $('bsChallengeFrequencyInput').value,
+      status: $('bsChallengeStatusInput').value,
+      notes: $('bsChallengeNotesInput').value.trim()
+    };
+    if (editingChallengeId) DB.Challenges.update(editingChallengeId, patch);
+    else DB.Challenges.add(Object.assign({}, patch, { order: DB.nextOrder(DB.challengesSorted()) }));
+    closeChallengeModal(); renderChallenges();
+  }
+  function deleteChallengeModal() {
+    if (!editingChallengeId) return;
+    if (!confirm('Delete this challenge?')) return;
+    DB.Challenges.remove(editingChallengeId);
+    closeChallengeModal(); renderChallenges();
+  }
+
+  // ============================================================
+  // NOTES — a generic "+ Generate Notes Section" block rendered at the top
+  // of every page. "Generate" here is this app's existing add-a-blank-
+  // editable-section vocabulary (index.html's Overview notes, business.html's
+  // Platform Detail sections) — not AI generation, this app has no active
+  // LLM key anywhere.
+  // ============================================================
+  function autosize(ta) { if (!ta) return; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  const NOTES_PAGE_IDS = {
+    goals: 'bsGoalsNotes', build: 'bsBuildNotes', written: 'bsWrittenNotes', visual: 'bsVisualNotes',
+    mental: 'bsMentalNotes', anchors: 'bsAnchorsNotes', vision: 'bsVisionNotes', challenges: 'bsChallengesNotes'
+  };
+  function buildNoteCard(note, refresh) {
+    const card = el('div', 'bs-card bs-note-card');
+    const titleRow = el('div', 'bs-note-title-row');
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text'; titleInput.className = 'bs-note-title-input'; titleInput.value = note.title;
+    titleInput.addEventListener('blur', function () { DB.PageNotes.update(note.id, { title: this.value.trim() || 'Notes' }); });
+    titleRow.appendChild(titleInput);
+    const actions = el('div', 'bs-card-actions');
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(DB.PageNotes, note.id, -1); refresh(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(DB.PageNotes, note.id, 1); refresh(); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete this note?')) return;
+      DB.PageNotes.remove(note.id); refresh();
+    });
+    [upBtn, downBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    titleRow.appendChild(actions);
+    card.appendChild(titleRow);
+
+    const body = document.createElement('textarea');
+    body.className = 'bs-note-body-input'; body.placeholder = 'Write a note…'; body.value = note.body;
+    body.addEventListener('input', function () { autosize(this); });
+    body.addEventListener('blur', function () { DB.PageNotes.update(note.id, { body: this.value }); });
+    card.appendChild(body);
+    setTimeout(function () { autosize(body); }, 0);
+    return card;
+  }
+  function renderNotesBlock(page) {
+    const containerId = NOTES_PAGE_IDS[page];
+    const wrap = $(containerId);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const head = el('div', 'bs-notes-head');
+    head.appendChild(el('div', 'bs-notes-title', '📝 Notes'));
+    const addBtn = el('button', 'bs-btn-secondary bs-btn-sm', '+ Generate Notes Section'); addBtn.type = 'button';
+    addBtn.addEventListener('click', function () { DB.addPageNote(page); renderNotesBlock(page); });
+    head.appendChild(addBtn);
+    wrap.appendChild(head);
+    const notes = DB.notesForPage(page);
+    if (!notes.length) { wrap.appendChild(el('div', 'bs-empty', 'No notes yet — click "+ Generate Notes Section" to add one.')); return; }
+    const list = el('div', 'bs-list');
+    notes.forEach(function (n) { list.appendChild(buildNoteCard(n, function () { renderNotesBlock(page); })); });
+    wrap.appendChild(list);
+  }
+  function renderAllNotes() { Object.keys(NOTES_PAGE_IDS).forEach(function (page) { renderNotesBlock(page); }); }
+
+  // ============================================================
+  // IDENTITY PROMPTS — editable Reflection Prompts + copy-ready AI Prompts,
+  // rendered at the top of each Identity Shifting subpage. "AI Prompts" are
+  // copy-to-clipboard text meant to be pasted into an AI chat — same
+  // convention as aitech.html's Prompts database, not a live API call.
+  // ============================================================
+  const PROMPTS_SECTION_IDS = { anchors: 'bsAnchorsPrompts', vision: 'bsVisionPrompts', challenges: 'bsChallengesPrompts' };
+  function buildPromptRow(prompt, refresh, copyable) {
+    const row = el('div', 'bs-prompt-row');
+    const textInput = document.createElement('input');
+    textInput.type = 'text'; textInput.className = 'bs-prompt-text-input'; textInput.value = prompt.text;
+    textInput.addEventListener('blur', function () { DB.IdentityPrompts.update(prompt.id, { text: this.value.trim() }); });
+    row.appendChild(textInput);
+    const actions = el('div', 'bs-card-actions');
+    if (copyable) {
+      const copyBtn = el('button', 'bs-icon-btn', '📋'); copyBtn.type = 'button'; copyBtn.title = 'Copy';
+      copyBtn.addEventListener('click', function () {
+        const finish = function () { copyBtn.textContent = '✓'; setTimeout(function () { copyBtn.textContent = '📋'; }, 1200); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(textInput.value || '').then(finish).catch(finish);
+        else finish();
+      });
+      actions.appendChild(copyBtn);
+    }
+    const upBtn = el('button', 'bs-icon-btn', '↑'); upBtn.type = 'button';
+    upBtn.addEventListener('click', function () { DB.moveInCollection(DB.IdentityPrompts, prompt.id, -1); refresh(); });
+    const downBtn = el('button', 'bs-icon-btn', '↓'); downBtn.type = 'button';
+    downBtn.addEventListener('click', function () { DB.moveInCollection(DB.IdentityPrompts, prompt.id, 1); refresh(); });
+    const delBtn = el('button', 'bs-icon-btn is-del', '×'); delBtn.type = 'button';
+    delBtn.addEventListener('click', function () { DB.IdentityPrompts.remove(prompt.id); refresh(); });
+    [upBtn, downBtn, delBtn].forEach(function (b) { actions.appendChild(b); });
+    row.appendChild(actions);
+    return row;
+  }
+  function renderPromptGroup(section, kind, groupTitle) {
+    const listWrap = el('div', 'bs-prompt-group');
+    const titleRow = el('div', 'bs-prompt-group-title', groupTitle);
+    listWrap.appendChild(titleRow);
+    const list = el('div');
+    const items = DB.promptsFor(section, kind);
+    const refresh = function () { renderPromptsForSection(section); };
+    if (!items.length) list.appendChild(el('div', 'bs-empty', kind === 'ai' ? 'No AI prompts yet.' : 'No prompts yet.'));
+    else items.forEach(function (p) { list.appendChild(buildPromptRow(p, refresh, kind === 'ai')); });
+    listWrap.appendChild(list);
+    const addRow = el('div', 'bs-quickadd-row');
+    const addInput = document.createElement('input');
+    addInput.type = 'text'; addInput.placeholder = kind === 'ai' ? 'Add an AI prompt, press Enter…' : 'Add a prompt, press Enter…';
+    addInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      const val = this.value.trim();
+      if (!val) return;
+      DB.addIdentityPrompt(section, kind, val);
+      this.value = '';
+      renderPromptsForSection(section);
+    });
+    addRow.appendChild(addInput);
+    listWrap.appendChild(addRow);
+    return listWrap;
+  }
+  function renderPromptsForSection(section) {
+    const containerId = PROMPTS_SECTION_IDS[section];
+    const wrap = $(containerId);
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    wrap.appendChild(renderPromptGroup(section, 'prompt', '💭 Reflection Prompts'));
+    wrap.appendChild(renderPromptGroup(section, 'ai', '🤖 AI Prompts — copy into your favorite AI'));
+  }
+  function renderAllPrompts() { Object.keys(PROMPTS_SECTION_IDS).forEach(function (section) { renderPromptsForSection(section); }); }
+
+  // ============================================================
+  // RESET
+  // ============================================================
+  function resetAll() {
+    if (!confirm('Reset Build Your System to its default example data? This deletes everything currently here.')) return;
+    DB.seedDefaultData();
+    renderAllPanels();
+  }
+  function renderAllPanels() {
+    renderSelectedGoalsBanner();
+    renderGoals();
+    renderActions();
+    renderCoreSub();
+    renderIdentitySub();
+    renderAllNotes();
+    renderAllPrompts();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  function boot() {
+    DB = window.SystemData;
+    if (!DB) return;
+
+    let startTab = 'goals';
+    try {
+      const hash = (location.hash || '').replace('#', '');
+      const stored = localStorage.getItem(DB.KEYS.activeTab);
+      startTab = hash || stored || 'goals';
+    } catch (e) {}
+
+    document.querySelectorAll('#bsTabs .bs-tab').forEach(function (b) { b.addEventListener('click', function () { switchTab(b.dataset.tab); }); });
+    document.querySelectorAll('#bsCoreSubnav .bs-subchip').forEach(function (b) { b.addEventListener('click', function () { switchCoreSub(b.dataset.sub); }); });
+    document.querySelectorAll('#bsIdentitySubnav .bs-subchip').forEach(function (b) { b.addEventListener('click', function () { switchIdentitySub(b.dataset.sub); }); });
+    window.addEventListener('hashchange', function () {
+      const hash = (location.hash || '').replace('#', '');
+      if (hash) switchTab(hash);
+    });
+
+    $('bsResetBtn').addEventListener('click', resetAll);
+
+    // Goals wiring
+    $('bsAddGoalBtn').addEventListener('click', function () { openGoalModal(null); });
+    $('bsGoalModalCloseBtn').addEventListener('click', closeGoalModal);
+    $('bsGoalModalCancel').addEventListener('click', closeGoalModal);
+    $('bsGoalModalBg').addEventListener('click', function (e) { if (e.target === this) closeGoalModal(); });
+    $('bsGoalModalSave').addEventListener('click', saveGoalModal);
+    $('bsGoalModalDelete').addEventListener('click', deleteGoalModal);
+
+    // Actions wiring
+    $('bsAddActionBtn').addEventListener('click', function () { openActionModal(null); });
+    $('bsActionModalCloseBtn').addEventListener('click', closeActionModal);
+    $('bsActionModalCancel').addEventListener('click', closeActionModal);
+    $('bsActionModalBg').addEventListener('click', function (e) { if (e.target === this) closeActionModal(); });
+    $('bsActionModalSave').addEventListener('click', saveActionModal);
+    $('bsActionModalDelete').addEventListener('click', deleteActionModal);
+    $('bsActionFrequencyInput').addEventListener('change', function () {
+      if (!editingActionId) { editingActionDays = defaultDaysForFrequency(this.value); renderActionDayPicker(); }
+    });
+
+    // Processes wiring
+    $('bsAddProcessBtn').addEventListener('click', function () { openProcessModal(null); });
+    $('bsProcessModalCloseBtn').addEventListener('click', closeProcessModal);
+    $('bsProcessModalCancel').addEventListener('click', closeProcessModal);
+    $('bsProcessModalBg').addEventListener('click', function (e) { if (e.target === this) closeProcessModal(); });
+    $('bsProcessModalSave').addEventListener('click', saveProcessModal);
+    $('bsProcessModalDelete').addEventListener('click', deleteProcessModal);
+
+    // Visual tools wiring
+    $('bsAddToolBtn').addEventListener('click', function () { openToolModal(null); });
+    $('bsToolModalCloseBtn').addEventListener('click', closeToolModal);
+    $('bsToolModalCancel').addEventListener('click', closeToolModal);
+    $('bsToolModalBg').addEventListener('click', function (e) { if (e.target === this) closeToolModal(); });
+    $('bsToolModalSave').addEventListener('click', saveToolModal);
+    $('bsToolModalDelete').addEventListener('click', deleteToolModal);
+
+    // Mental entries wiring
+    $('bsAddMentalBtn').addEventListener('click', function () { openMentalModal(null); });
+    $('bsMentalModalCloseBtn').addEventListener('click', closeMentalModal);
+    $('bsMentalModalCancel').addEventListener('click', closeMentalModal);
+    $('bsMentalModalBg').addEventListener('click', function (e) { if (e.target === this) closeMentalModal(); });
+    $('bsMentalModalSave').addEventListener('click', saveMentalModal);
+    $('bsMentalModalDelete').addEventListener('click', deleteMentalModal);
+
+    // Anchors wiring
+    $('bsAddAnchorBtn').addEventListener('click', function () { openAnchorModal(null); });
+    $('bsAnchorModalCloseBtn').addEventListener('click', closeAnchorModal);
+    $('bsAnchorModalCancel').addEventListener('click', closeAnchorModal);
+    $('bsAnchorModalBg').addEventListener('click', function (e) { if (e.target === this) closeAnchorModal(); });
+    $('bsAnchorModalSave').addEventListener('click', saveAnchorModal);
+    $('bsAnchorModalDelete').addEventListener('click', deleteAnchorModal);
+
+    // Vision wiring — autosave on blur, same convention as this app's
+    // other single-record freeform notes.
+    [
+      ['bsVisionSurroundedBy', 'surroundedBy'], ['bsVisionCarry', 'howYouCarryYourself'],
+      ['bsVisionSchedule', 'schedule'], ['bsVisionWork', 'work'], ['bsVisionHobbies', 'hobbies'],
+      ['bsVisionOthersSay', 'othersSay'], ['bsVisionFreeTime', 'freeTime'], ['bsVisionAfraid', 'afraidToAdmit']
+    ].forEach(function (pair) {
+      $(pair[0]).addEventListener('blur', function () { saveVisionField(pair[1], this.value); });
+    });
+
+    // Challenges wiring
+    $('bsAddChallengeBtn').addEventListener('click', function () { openChallengeModal(null); });
+    $('bsChallengeModalCloseBtn').addEventListener('click', closeChallengeModal);
+    $('bsChallengeModalCancel').addEventListener('click', closeChallengeModal);
+    $('bsChallengeModalBg').addEventListener('click', function (e) { if (e.target === this) closeChallengeModal(); });
+    $('bsChallengeModalSave').addEventListener('click', saveChallengeModal);
+    $('bsChallengeModalDelete').addEventListener('click', deleteChallengeModal);
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('system:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
+
+    switchTab(startTab);
+    switchCoreSub('written');
+    switchIdentitySub('anchors');
+    renderSelectedGoalsBanner();
+    renderGoals();
+    renderAllNotes();
+    renderAllPrompts();
+
+    function isEmptyEverywhere() {
+      return DB.Goals.list().length === 0 && DB.Actions.list().length === 0 && DB.Processes.list().length === 0 &&
+        DB.VisualTools.list().length === 0 && DB.MentalEntries.list().length === 0 && DB.Anchors.list().length === 0 &&
+        DB.Challenges.list().length === 0 && !DB.getVision().updatedAt &&
+        DB.PageNotes.list().length === 0 && DB.IdentityPrompts.list().length === 0;
+    }
+    // Empty-storage seed-race safety window — same reasoning as
+    // dreamboard.html/business.html/aitech.html's maybeSeedAfterSyncAttempt().
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (!isEmptyEverywhere()) return;
+      DB.seedIfEmpty();
+      renderAllPanels();
+    }
+    const startedEmpty = isEmptyEverywhere();
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({
+        appKey: 'system',
+        syncedPrefixes: ['system:'],
+        onApplied: function () { remoteAppliedOnce = true; renderAllPanels(); }
+      });
+      if (startedEmpty) setTimeout(maybeSeedAfterSyncAttempt, 5000);
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+  }
+
+  // Boot-error safety net — a silent top-level throw would otherwise leave
+  // the page looking like static chrome with zero interactivity and no
+  // visible clue why (see CLAUDE.md's gym.html BOARD_WIDGET_TYPES entry).
+  function showBootErrorBanner(err) {
+    try {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#3a0d0d;color:#ffdada;padding:14px 16px;font:13px/1.5 monospace;white-space:pre-wrap;';
+      bar.textContent = 'Build Your System failed to load: ' + (err && err.message ? err.message : err);
+      document.body.appendChild(bar);
+    } catch (e2) {}
+  }
+  function safeBoot() { try { boot(); } catch (err) { showBootErrorBanner(err); } }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', safeBoot);
+  else safeBoot();
+})();
+</script>
+</body>
+</html>

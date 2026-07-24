@@ -227,6 +227,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-icon">🎮</span>
     <span class="topbar-pill-label">MAIN PILLAR</span>
   </a>
+  <a href="system.html" class="topbar-pill" id="topbarSystem">
+    <span class="topbar-pill-icon">⚙️</span>
+    <span class="topbar-pill-label">SYSTEM</span>
+  </a>
 </header>
 `;
 

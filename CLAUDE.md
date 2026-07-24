@@ -25,10 +25,13 @@ Vercel's static server) — see README.md.
 **Files, one per page:**
 | File | Page |
 |---|---|
-| `home.html` | Home — the dashboard's hub, and the topbar's leading pill. One continuous, scrollable page (not a hidden-tab-panel switcher — see changelog), with an editable cover photo, a native Weekly Schedule (per-task Mon–Sun checkboxes that reset each week, a progress bar, notes, filterable by day), a native Subconscious Reprogramming section (a daily ritual checklist, an Affirmations gallery with a practice-streak counter, and freeform Notes & Scripts), then Dream Board / Self-Care / Tasks & Notes / AI & Tech embedded inline, unmodified, in lazy-loaded, auto-resizing same-origin iframes — each of those four still exists as its own full standalone page too, "keeping the original tabs just in case" (rebuilt — see changelog) |
+| `home.html` | Home — the dashboard's hub, and the topbar's leading pill. One continuous, scrollable page (not a hidden-tab-panel switcher — see changelog), with an editable cover photo, a native Weekly Schedule (per-task Mon–Sun checkboxes that reset each week, a progress bar, notes, filterable by day), a native Subconscious Reprogramming section (a daily ritual checklist, an Affirmations gallery with a practice-streak counter, and freeform Notes & Scripts), then Dream Board / Self-Care / Tasks & Notes / AI & Tech / Main / Main Pillar / Household / Brain Dump embedded inline, unmodified, in lazy-loaded, auto-resizing same-origin iframes — every one of those eight still exists as its own full standalone page too, "keeping the original tabs just in case" (rebuilt — see changelog) |
+| `index.html` | Main — Goals command center: today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note. This is the site's root/default document (see §1's "Routing" note) |
 | `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
+| `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (see changelog) |
+| `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (see changelog) |
 | `selfcare.html` | Self-Care — rebuilt around Dream Board's exact engine/aesthetic: a main "Self-Care" tab is a freeform drag-and-drop widget board (a self-care checklist, notes, a photo gallery, etc.), plus Journals (topic-filtered), Meditations (linkable library), and Anxiety (Breathwork — a CRUD library of paced-breathing techniques played through an animated pacer — plus Tips & Techniques, moved in from the deleted standalone `anxiety.html`) as their own dedicated, Dream-Board-restyled tabs. Water and Bucket List were removed entirely (rebuilt — see changelog) |
 | `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
@@ -37,16 +40,23 @@ Vercel's static server) — see README.md.
 | `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
+| `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
+| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
 Study (`study.html`) were also removed — see the changelog note near the
 bottom of this file. **Main (`index.html`), Main Pillar (`mainpillar.html`
 + `mainpillar-data.js`), Household (`household.html` +
-`household-data.js`), and Brain Dump (`braindump.html`) were also removed**
-— per an explicit instruction, with no data migration (unlike the Dream
-Board/Self-Care/Tasks & Notes/AI & Tech merge into Home, which explicitly
-kept the originals) — see the changelog entry near the bottom of this file.
+`household-data.js`), and Brain Dump (`braindump.html`) were briefly
+deleted, then restored in a follow-up correction** — "delete" turned out
+to mean "fold into Home while keeping the originals," the same treatment
+Dream Board/Self-Care/Tasks & Notes/AI & Tech got the first time. All
+four are live pages again, both standalone (with their own nav pill) and
+embedded inside Home — see the changelog entry near the bottom of this
+file, which also covers a real near-miss: `mainpillar.html`/
+`mainpillar-data.js` had never been committed to git, so deleting them
+came within one `git gc` of being unrecoverable.
 All four filenames now exist only as tiny redirect-to-`home.html` stubs
 (no data/functionality/nav pill of their own) — added in a follow-up fix
 after old bookmarks/home-screen shortcuts to them (and to the bare site
@@ -94,11 +104,10 @@ sync, not for authenticating a person:
   intentional for a single-user tool, not an oversight to "fix" silently.
 
 **Files involved (the entirety of the "auth-ish" surface):**
-- `sync.js` — the shared sync client, used by `home.html`, `finance.html`,
-  `entertainment.html`, and most other top-level pages added since (this
-  line was already an abbreviated, non-exhaustive list before `index.html`/
-  `braindump.html` — both since removed — were the two examples named here;
-  not re-audited page-by-page as part of this pass).
+- `sync.js` — the shared sync client, used by `index.html`, `finance.html`,
+  `entertainment.html`, `braindump.html`, `home.html`, and most other
+  top-level pages (an abbreviated, non-exhaustive list, not re-audited
+  page-by-page as part of any one pass).
 - `gym.html` (inline `<script>`, ~line 2190–2386) — its own separate,
   hand-rolled Supabase sync using `APP_KEY = 'po-coach'`, not `sync.js`.
 - `topbar.js` — still contains `pushWaterMergedToSupabase`, a small
@@ -190,9 +199,12 @@ page's CSS is self-contained in its own `<style>` block):
 
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
+   | `goals` | `index.html` | everything prefixed `goals:` |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
+   | `braindump` | `braindump.html` | `braindump:entries` |
+   | `household` | `household.html` | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
    | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` (new — the Anxiety tab, moved in from the deleted standalone `anxiety.html`), `selfcare:active_tab`, `selfcare:seeded`/`selfcare:anxiety_seeded`/`selfcare:anxiety_migrated`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) and the old top-level `anxiety:breathwork`/`anxiety:tips`/`anxiety:active_tab`/`anxiety:seeded` keys (the now-deleted standalone `anxiety.html`'s own row/key, folded into this one — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
    | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above. `business:notes` is now an **orphaned key** — it backed the Tasks & Notes tab's Notes database, which was moved out to its own page (`tasksnotes.html`, see changelog); a device that already used that tab has its real note data copied forward into `tasksnotes:notes` on first load of the new page, and `business:notes` itself was left alone, same orphaned-key treatment as every other removed-feature key elsewhere in this app |
@@ -200,7 +212,9 @@ page's CSS is self-contained in its own `<style>` block):
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
-   | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The four embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
+   | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
+   | `system` | `system.html` | everything prefixed `system:` (`system:goals`, `system:actions`, `system:processes`, `system:visualTools`, `system:mentalEntries`, `system:anchors`, `system:vision`, `system:challenges`, `system:pageNotes`, `system:identityPrompts`, `system:active_tab`, `system:seeded`) — new (see changelog) |
+   | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -211,14 +225,10 @@ page's CSS is self-contained in its own `<style>` block):
    by `study.html`, syncing everything prefixed `study:`) are now likewise
    **orphaned rows** — left alone in Supabase, not cleaned up, same
    treatment as `health` (see the Projects/Study removal changelog entry).
-   **`goals` (previously `index.html`), `mainpillar` (previously
-   `mainpillar.html`, syncing everything prefixed `mainpillar:`), `household`
-   (previously `household.html`, syncing everything prefixed `household:`),
-   and `braindump` (previously `braindump.html`, syncing `braindump:entries`)
-   are now likewise orphaned rows** — those four pages were removed per an
-   explicit instruction, with no data migration (see the changelog entry
-   near the bottom of this file), left alone in Supabase, same treatment as
-   every other removed-page row above.
+   `goals`/`mainpillar`/`household`/`braindump` were briefly orphaned when
+   their pages were deleted, then became active rows again the moment those
+   pages were restored (see the changelog entry near the bottom of this
+   file) — nothing about their own key scheme ever changed in the interim.
 
    There are no other tables, no foreign keys, no migrations directory.
    Uploaded images (progress photos, project/media covers) are stored as
@@ -238,10 +248,13 @@ using `sync.js`.
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
 | Home | 🏠 `HOME` → `home.html` (leads the nav row — see changelog) | `home.html` + `home-data.js` (rebuilt into one continuous scrollable page — see changelog) |
+| Main | 🎯 `MAIN` → `index.html` | `index.html` (rebuilt as a command center — see changelog; briefly deleted, then restored — see the changelog entry near the bottom of this file) |
 | Fitness Studio | 🏋️ `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | 💰 `FINANCE` → `finance.html` | `finance.html` |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
+| Brain Dump | 🧠 `BRAIN DUMP` → `braindump.html` | `braindump.html` (briefly deleted, then restored — see changelog) |
 | Nutrition | 🍽️ `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
+| Household | 🧺 `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (briefly deleted, then restored — see changelog) |
 | Self-Care | 🌙 `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed; the standalone Anxiety page was folded in as this page's 4th tab — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | ✨ `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
@@ -249,10 +262,13 @@ using `sync.js`.
 | AI & Tech | 🤖 `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Learning & Knowledge Hub | 📚 `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
+| Main Pillar | 🎮 `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (briefly deleted, then restored from a dangling git blob since it had never been committed — see changelog) |
+| Build Your System | ⚙️ `SYSTEM` → `system.html` | `system.html` + `system-data.js` (new — see changelog) |
 
-Stack, Water, Projects, Study, Main (`index.html`), Main Pillar, Household,
-and Brain Dump were all removed — see changelog at the bottom of this
-file. `example.html` has no topbar pill (a pre-existing doc/code mismatch
+Stack, Water, Projects, and Study were removed — see changelog at the
+bottom of this file. Main, Main Pillar, Household, and Brain Dump were
+briefly removed and then restored (see changelog). `example.html` has no
+topbar pill (a pre-existing doc/code mismatch
 noted once already in this file's own Dream Board changelog entry, not
 something this pass touched).
 
@@ -280,10 +296,7 @@ documents what's actually here:
   hover, which evolved into a dark wine/candlelit "boutique gallery" look
   (`--tile-border`/`--pink-accent`/`--wine`/`--candle`/`--cream` tokens) —
   `household.html` and `selfcare.html` were each later explicitly asked to
-  match *that* look (see their own changelog entries) — `selfcare.html`
-  still does; `household.html` was removed entirely in a later pass (see
-  the Main/Main Pillar/Household/Brain Dump removal changelog entry), so
-  its copy of that look no longer exists. Media
+  match *that* look, and still do (see their own changelog entries); Media
   itself has since moved on again, explicitly re-themed a second time to
   match Dream Board's dark cinematic near-black/gold look instead (see its
   own changelog entry below) — `--tile-border`/`--pink-accent`/`--wine`/
@@ -291,10 +304,8 @@ documents what's actually here:
   to gold-toned equivalents kept under the same token *names* it already
   used (`--bg`/`--border`/`--accent`/etc.), so Household/Self-Care's own
   copies of the old wine/rose look are unaffected — they weren't asked to
-  follow Media's second move; (2) `braindump.html` (Brain Dump, removed
-  entirely in a later pass — see the Main/Main Pillar/Household/Brain
-  Dump removal changelog entry — described here for historical context
-  only) had its own self-contained dark forest-green/black +
+  follow Media's second move; (2) `braindump.html`
+  (Brain Dump) has its own self-contained dark forest-green/black +
   gold/copper theme (deep green radial-gradient
   background, gold serif-italic display type, a CSS sunburst emblem) —
   **not** the app's near-black/off-white/green-amber-red-blue palette,
@@ -329,8 +340,9 @@ between this app and either data loss or a wide-open write target:
 
 1. **Never rewrite, weaken, or bypass the existing sync/access-control
    plumbing.** Specifically, do not modify unless explicitly asked:
-   - `sync.js` (the shared `initCloudSync` helper — used by `home.html`,
-     `finance.html`, `entertainment.html`, and most other top-level pages).
+   - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
+     `finance.html`, `entertainment.html`, `braindump.html`, `home.html`,
+     and most other top-level pages).
    - The inline Supabase sync block in `gym.html` (~line 2190–2386,
      `APP_KEY = 'po-coach'`).
    - The inline Supabase push in `topbar.js`
@@ -8085,3 +8097,346 @@ both as originally phrased assumed a backend this app doesn't have):
     low-risk for all four (a static redirect can't clobber data or
     resurrect a feature), so covering all four now was cheaper than a
     round-trip to ask which one, given the report's generic phrasing.
+
+- **Correction: Main, Main Pillar, Household, and Brain Dump are back —
+  "delete all of these Tabs" turned out to mean "fold them into Home
+  too, the same way Dream Board/Self-Care/Tasks & Notes/AI & Tech were,"
+  not a real deletion.** All four are real, live, standalone pages again
+  (own nav pill, own data, own functionality, unchanged from before) —
+  the redirect stubs from the entry above are gone, replaced with their
+  actual content — **and** all four are now also embedded inside Home,
+  alongside the original four, exactly the same way.
+  - **A real near-miss, worth recording plainly**: `mainpillar.html` and
+    `mainpillar-data.js` had never once been committed to git — they were
+    sitting as uncommitted work from an earlier session for this entire
+    conversation (confirmed via `git log --all -- mainpillar.html`,
+    which returns nothing prior to this fix). Deleting them with a plain
+    `rm` therefore didn't just remove a tracked file's working-copy
+    contents (recoverable from git) — it deleted the *only* copy that
+    existed anywhere, full stop. They were recovered anyway, but only
+    because an earlier session had at some point run `git add` on them
+    (even though that add was never followed by a commit), which left
+    their contents sitting in git's object database as unreferenced
+    ("dangling") blobs — objects git keeps around until `git gc`
+    eventually prunes them, but doesn't surface anywhere in `git log`,
+    `git status`, or normal diffing once nothing in the index or any
+    commit points at them anymore. Recovered by running `git fsck
+    --unreachable` (119 dangling blobs), grepping each one's raw content
+    for a distinctive string (`MainPillarData`, `mainpillar:hunter`),
+    and — since three separate HTML blobs matched, evidently different
+    snapshots from across that earlier session's edits — diffing them
+    against each other to identify the most-fixed/final one specifically
+    (the one containing the `DOMContentLoaded` boot-order fix that
+    `mainpillar.html`'s own original changelog entry describes as the
+    last thing fixed before it shipped). Both recovered files were
+    verified brace/paren/bracket-balanced before being trusted. **This
+    was luck, not a safety net this app or this workflow actually
+    has** — a `git gc` at any point in between would have made this
+    permanent data loss with no recovery path at all. `index.html`,
+    `household.html`/`household-data.js`, and `braindump.html`, by
+    contrast, had all genuinely been committed before, so restoring them
+    was a plain `git show <pre-deletion-commit>:<file>`, no luck involved.
+  - **Every other page's "← Back" link, repointed from `index.html` to
+    `home.html` in the deletion pass, was left pointing at `home.html`**
+    — restoring the four pages didn't imply undoing that (Home is still
+    the hub; nothing about the nav redesign or the back-link repointing
+    was asked to be reverted). `household.html`'s and `mainpillar.html`'s
+    own back buttons — which still pointed at `index.html` in their
+    restored, pre-deletion content, since they'd never been touched by
+    that repointing pass in the first place — were updated to
+    `home.html` too, for the same consistency reason the other ten got
+    updated the first time. `braindump.html` has no in-page back link at
+    all (confirmed by grepping it for any `href="*.html"` — none exist;
+    it relies purely on the shared topbar for navigation), so nothing
+    needed changing there.
+  - **`topbar.js`'s MAIN pill and its progress badge are back**, restored
+    to their exact pre-deletion behavior (`getGoalsProgress()`/
+    `classifyStatus()`/`setPillStatus()`/`render()`/`activeDateKey()`,
+    the `storage`/`focus`/`visibilitychange` listeners, the 30s
+    `setInterval` refresh) but re-skinned to fit the redesigned pill
+    anatomy from the navigation-redesign entry above: the old version
+    colored a plain status dot green/amber/red; since that dot no longer
+    exists (replaced by a leading icon on every pill), `warn`/`miss`
+    status now colors the pill's border and its count-badge digits
+    instead — same status semantics, adapted home for them in the new
+    design rather than reverting the redesign to make room for the old
+    mechanism. All four pills got an icon matching the new scheme (🎯
+    Main, 🧠 Brain Dump, 🧺 Household, 🎮 Main Pillar) and were reinserted
+    into the row in their original relative order, with Home still
+    leading it. `highlightActivePill()`'s bare-root-URL fallback was
+    switched back from `'home.html'` to `'index.html'` — now that
+    `index.html` is a real page again, it's genuinely what a static host
+    serves at the bare site root, not Home.
+  - **Home (`home.html`) gained four more embedded sections** — Main,
+    Main Pillar, Household, and Brain Dump — appended after AI & Tech,
+    in the same order the original request named them in, using the
+    identical mechanism the first four already use (a lazy-loaded,
+    auto-resizing same-origin iframe, added to the `SECTIONS` array that
+    drives both the quick-jump nav and the scrollspy). No changes were
+    needed to the embedding *mechanism* itself — `initEmbeds()`/
+    `loadEmbedSection()`/`tameIframe()`/`autoResizeIframe()` all operate
+    generically over every `.hm-section[data-embed="true"]`, so the four
+    new sections picked up lazy-loading, topbar-hiding, and auto-resize
+    for free. Home now embeds all eight other top-level pages, none of
+    which had their own data/localStorage/Supabase sync touched by any
+    of this — same "embed the real page, don't reimplement it" approach
+    as the original four, now applied uniformly to all eight.
+  - **Verification, disclosed honestly**: no interactive browser testing
+    was available this round (same limitation as this feature's every
+    prior entry). Verified statically: brace/paren/bracket balance
+    confirmed on the two recovered files (`mainpillar.html`,
+    `mainpillar-data.js`) and the three git-restored files (`index.html`,
+    `household.html`, `braindump.html`) immediately after recovery, and
+    again on `home.html`/`topbar.js` after every edit in this pass; zero
+    duplicate DOM ids across `topbar.js`'s 17 element ids (15 pills + the
+    header + the count span) and `home.html`'s 53; every remaining
+    `href="index.html"`/`href="mainpillar.html"`/`href="household.html"`/
+    `href="braindump.html"` reference in the repo was re-audited (none
+    left pointing at anything broken); tag-balance (`div`/`button`/
+    `section`/`iframe`/etc.) reconfirmed on `home.html` after adding the
+    four new sections. **Not verified this way**: an actual click-through
+    of all four restored pages (confirming they render and function
+    exactly as before, especially `mainpillar.html`/`mainpillar-data.js`
+    given they were reconstructed from a recovered blob rather than a
+    normal git restore) and of Home's four new embedded sections. Given
+    the recovery involved picking among multiple similar dangling blobs
+    for `mainpillar.html`, a real click-through of that page specifically
+    is worth prioritizing before relying on it heavily.
+
+- **New page: `system.html` ("Build Your System"), implementing the
+  "Build Your Own System" + "Identity Shifting" framework as seven
+  genuinely separate, editable/adjustable databases (plus one single
+  evolving record), built from a detailed written spec.** Genuinely new
+  files, `system.html` + `system-data.js` — same conventions as
+  `aitech.html`/`aitech-data.js` (model-factory + `makeCollection` CRUD,
+  one localStorage key per collection, a shared `<page>:save` event so a
+  failed write is never silent) — new nav pill (`SYSTEM` → `system.html`,
+  appended after `MAIN PILLAR` in `topbar.js`'s injected pill list — the
+  only edit made to `topbar.js`, same one-line-addition precedent every
+  prior page addition followed); new sync key (`appKey: 'system'`,
+  `syncedPrefixes: ['system:']`, wired via the standard shared
+  `initCloudSync` — same call pattern as every other page, nothing new
+  invented).
+  - **Palette**: no reference photo/aesthetic instruction was given for
+    this page, so per CLAUDE.md §6/DO NOT MODIFY rule 2 it stays on this
+    app's actual standard palette (documented in §3) rather than adopting
+    the Dream-Board-family gold theme several *other* newer pages have —
+    near-black background, off-white text, the existing `--good`/`--warn`/
+    `--bad`/`--info` semantic accents, `--accent` repointed to `--info`'s
+    own value rather than a new hue, the same call `household.html`'s and
+    `selfcare.html`'s original builds made for the same reason. No cover
+    photo/hero — a plain text header (eyebrow/title/subtext) plus a live
+    "The One Goal" banner, kept deliberately simple since no photo/upload
+    capability was asked for and this page has no gallery-style content
+    that would need one.
+  - **Four tabs**, hash-routed + `system:active_tab`-persisted (same
+    `location.hash` / `localStorage` fallback pattern `household.html`
+    established): **Top Goals** (Steps 01–02) — `Goals` (`{title, notes,
+    isPrimary, order}`), a plain CRUD list with up/down reorder (this
+    app's standard non-drag-list convention — Life Areas, Workflow weeks,
+    etc.) and a ★ toggle that flags exactly one goal as "The One Goal"
+    (`setPrimaryGoal()` maps over every goal and clears the flag on all but
+    the chosen one in a single write — the same "exactly one active at a
+    time" shape this app already uses for e.g. a page's active tab).
+    **Your System** (Steps 03–04) — `Actions`
+    (`{goalId, title, frequency:'daily'|'weekly', mva, notes,
+    scheduledDays[], checks{}, checksWeekStart, totalCompletions, order}`),
+    grouped into Daily/Weekly sections, each new action defaults its
+    `goalId` to the current primary goal. The Minimum Viable Action is a
+    plain per-action text field with its own callout box quoting the
+    spec's own worst-day framing and examples. **Three Core Systems** — an
+    in-tab sub-chip nav (Written/Visual/Mental, plain JS toggle, not a
+    second hash level): *Written* is a live, read-only recap (Goals +
+    Daily actions + Weekly actions, computed fresh from the other tabs'
+    own data so it can never drift) plus an editable **Processes** database
+    (`{title, description}` — a named, freeform multi-step routine,
+    deliberately distinct from an individual Action per the spec's own
+    "Repeatable processes" wording); *Visual* is a real, live Mon–Sun
+    completion tracker over every Action (the same grid component
+    `buildWeekGrid()` is shared with the Your System tab's own action
+    cards — one implementation, two render sites, so checking a box in
+    either place updates the same underlying data) plus an editable
+    **Visual Tools** database (`{type: Whiteboard|Habit Tracker|
+    Calendar|Scoreboard|Other, title, description}`); *Mental* is a
+    category-filterable **Mental Entries** database (`{category:
+    Identity|Self-Talk|Journaling|Mindset|Removing Friction, title,
+    body}`). **Identity Shifting** — its own in-tab sub-chip nav
+    (Anchors/Vision/Challenges): **Identity Anchors** (`{belief, reframe,
+    active}`) — a CRUD list of limiting beliefs with an Active/Retired
+    toggle; **Future Self Vision** — a single evolving record (same
+    get/save-one-record shape as `aitech-data.js`'s hero, not date-keyed,
+    since it's meant to be revisited and refined) with one autosaving
+    field per guided question from the spec (who you're surrounded by,
+    how you carry yourself, schedule, work, hobbies, what others say, free
+    time) plus a visually distinguished "Most Powerful Question" field
+    ("What do I really want that I'm too afraid to admit?") carrying the
+    spec's own "don't write what sounds impressive" guidance as inline
+    hint text; **Challenges** (`{anchorId, title, action, frequency,
+    status: not-started|in-progress|done}`) — optionally linked to an
+    Anchor via a nullable `anchorId`, with a click-to-cycle status pill
+    (`nextChallengeStatus()`) instead of a dropdown for the common case.
+  - **Null-out-the-reference on delete, not cascade-delete**: deleting a
+    Goal nulls `Action.goalId` on any action that pointed at it rather
+    than deleting those actions; deleting an Anchor nulls
+    `Challenge.anchorId` the same way — same precedent `aitech-data.js`'s
+    model deletion, `household-data.js`'s legion deletion, and
+    `business-data.js`'s week/day deletion already established.
+  - **Weekly reset mechanism** (`resetStaleWeeks()`, `checksWeekStart`) is
+    the same Monday-stamp-and-clear pattern `home.html`'s Weekly Schedule
+    already established for its own per-task Mon–Sun checkboxes — reused
+    here rather than inventing a second version, since it's the exact
+    same "editable per-weekday checklist that resets each week" shape.
+    `totalCompletions` (incremented/decremented in lockstep with each
+    checkbox flip) is a small always-available lifetime tally, a
+    deliberately simpler stand-in for a full multi-week streak
+    computation (which `index.html`'s/`mainpillar.html`'s own habit
+    systems do implement, by walking date-keyed logs day-by-day) — this
+    page's actions aren't date-keyed, only week-keyed, so that richer
+    streak math doesn't apply the same way; flagged here as a disclosed
+    scope simplification rather than silently built as something it
+    isn't.
+  - **Reorder is up/down arrows everywhere, not drag** — no SortableJS
+    dependency was added for this page, since every list here is a plain
+    vertical stack (no gallery/board grid), and up/down arrows are this
+    app's own established convention for exactly that list shape (Life
+    Areas, Workflow weeks/days, Overview notes, etc.).
+  - **Boot sequence** wrapped in a `showBootErrorBanner()` safety net
+    (a fixed, high-contrast banner showing the real error instead of a
+    silent blank page) from the start, plus the same empty-storage
+    seed-race-safety window as `dreamboard.html`/`business.html`/
+    `aitech.html` (`maybeSeedAfterSyncAttempt()`, deferred until either
+    real cloud data arrives via `onApplied` or a 5-second window elapses)
+    — both fixes for failure classes this app has hit for real before
+    (`gym.html`'s `BOARD_WIDGET_TYPES` temporal-dead-zone crash;
+    `dreamboard.html`'s empty-device seed-vs-pull race), applied here from
+    the start instead of being discovered the same way a second time.
+  - **Testing note, disclosed rather than glossed over**: no interactive
+    browser testing was available this session (no `node`/`python` runtime
+    and no live CDP session reachable in this environment this round).
+    Verified statically instead: brace/paren balance confirmed on both new
+    files (`system-data.js`: 158/158 braces, 308/308 parens; `system.html`'s
+    inline script: 219/219 braces, 1092/1092 parens; its `<style>` block:
+    128/128 braces); every `$('id')` reference in the script (98 distinct)
+    cross-matched against the HTML's real element ids (101 distinct) with
+    zero unresolved — the 3 unmatched ids (`bsTabs`, `bsCoreSubnav`,
+    `bsIdentitySubnav`) are queried via `querySelectorAll` for their child
+    buttons, not `$()`, so that's expected, not a gap; zero duplicate DOM
+    ids anywhere in the file. This is a weaker guarantee than an actual
+    click-through, same disclosed caveat this file's own `dreamboard.html`/
+    `aitech.html`/`learning.html`/`mainpillar.html` entries already carry
+    for this exact class of environment limitation — a real click-through
+    (adding a goal and starring it as The One, adding a daily and a weekly
+    action with an MVA, checking off a few tracker cells on both the Your
+    System and Visual tabs and confirming they stay in sync, adding a
+    Process/Visual Tool/Mental Entry, filling in the Future Self Vision
+    fields and confirming they autosave and persist on reload, adding an
+    Anchor and a linked Challenge and cycling its status) is recommended
+    before relying on this page heavily.
+
+- **Build Your System (`system.html`) follow-up: Top Goals now supports
+  selecting up to 3 at once (was 1), Identity Shifting's three subpages
+  each gained an editable Reflection Prompts + copy-ready AI Prompts
+  database, and every one of the 8 tabs/subpages gained its own "+
+  Generate Notes Section" notes database pinned to the top.** Three
+  changes landed together per an explicit follow-up request.
+  - **Top Goals, up to 3 at once**: `Goal.isPrimary` (exactly one active)
+    is replaced by `Goal.isSelected` plus a new `MAX_SELECTED_GOALS = 3`
+    cap — `system-data.js`'s `goalModel()` reads `isSelected` if present,
+    falling back to the legacy `isPrimary` value otherwise, so anything
+    already saved under the original single-goal shape carries forward
+    without a separate migration pass. New `toggleGoalSelected(id)`
+    (returns `{ok:false, reason:'limit'}` instead of silently no-opping
+    once 3 are already selected — `system.html`'s star-button handler
+    alerts the user rather than failing silently) and `setGoalSelected(id,
+    selected)` (same cap, used by the Add/Edit Goal modal's checkbox — now
+    labeled "Include in your Top Goals selection (max 3)," `#bsGoalSelectedInput`,
+    renamed from `#bsGoalPrimaryInput`) replace `setPrimaryGoal()`
+    entirely. `primaryGoal()` → `selectedGoalsSorted()` (returns every
+    currently-selected goal, not just one) and `selectedGoalCount()`.
+    Every call site that assumed a single "The One Goal" was updated: the
+    header banner (`renderSelectedGoalsBanner()`, still `#bsPrimaryBanner`
+    — kept the element id since renaming it wasn't load-bearing — now
+    lists up to 3 titles joined with "•", or the empty-state prompt if
+    none are selected yet), a new "Selected X/3" counter under the Top
+    Goals section header (turns amber via `.is-full` once at the cap), the
+    Your System tab's goal `<select>` (label suffix changed from " (The
+    One)" to " ★"), a new Action's default `goalId` (now the *first*
+    selected goal rather than the sole primary one — same "pick the first
+    of N" simplification this app's own Business Hub Content-tab
+    "Today's Goal" default already uses in spirit), and the Written
+    System recap's "★ " prefix (now driven by `isSelected`).
+  - **Identity Prompts** (`system:identityPrompts`, new collection,
+    `{section: anchors|vision|challenges, kind: prompt|ai, text, order}`)
+    — two genuinely separate, independently-orderable lists per Identity
+    Shifting subpage: **Reflection Prompts** (plain guiding questions) and
+    **AI Prompts** (copy-ready text meant to be pasted into an AI chat —
+    same "copy-to-clipboard, not a live API call" convention as
+    `aitech.html`'s own Prompts database; this app still has no active LLM
+    key anywhere, per CLAUDE.md §1/§2). Each row is a single inline text
+    input (autosaves on blur, no modal — deliberately lighter-weight than
+    every other CRUD database on this page, since a prompt is realistically
+    one line), with up/down reorder, delete, and — AI Prompts only — a 📋
+    copy button (`navigator.clipboard.writeText`, same brief "✓ copied"
+    flash this app's other copy buttons already use). A quick-add text
+    input (type + Enter, no button) sits at the bottom of each list.
+    Seeded with 2 reflection prompts + 1 AI prompt per subpage, written to
+    match that subpage's own framework text (e.g. Anchors' AI prompt asks
+    for 5 limiting beliefs + reframes; Vision's asks for one-at-a-time
+    guided journaling questions; Challenges' asks for 10 belief-
+    contradicting actions ranked easiest-to-hardest).
+  - **Page Notes** (`system:pageNotes`, new collection, `{page: one of 8
+    tab/subpage keys, title, body, order}`) — a "+ Generate Notes Section"
+    button (this app's existing add-a-blank-editable-section vocabulary,
+    per `index.html`'s Overview notes / `business.html`'s Platform Detail
+    sections — explicitly *not* AI generation, flagged the same way
+    CLAUDE.md's own Writing Dashboard section already flags this exact
+    phrase) sits at the very top of every one of the 8 tabs/subpages (Top
+    Goals, Your System, Written, Visual, Mental, Anchors, Vision,
+    Challenges) — above all other content on that page, per the request's
+    own "appear at the top" wording. Each note is an editable title
+    (plain input, autosaves on blur) + an autosizing textarea body
+    (autosaves on blur, grows with content via a new shared `autosize()`
+    helper), with up/down reorder and delete. "Aesthetic" was read as
+    "styled to match the rest of the page" — reuses the existing
+    `.bs-card` chassis with transparent-background title/body fields
+    rather than introducing a new visual system (no per-note color
+    tinting or cover photo, unlike Dream Board's richer widget-board
+    engine — a deliberate scope match to how lightweight every other
+    piece of this page already is, not an oversight). Seeded with one
+    real note on the Top Goals page; the other 7 start empty (visible
+    only via the "+ Generate Notes Section" button), consistent with this
+    app's own precedent that a freshly-added section-generator feature
+    doesn't need to start pre-filled everywhere to prove it works.
+  - **Wiring**: `renderAllNotes()`/`renderAllPrompts()` (new, iterate the
+    8-page / 3-section lookup tables and re-render each block) are called
+    from `boot()`'s initial render pass and from `renderAllPanels()` (so
+    Reset-to-Default and an incoming cloud-sync `onApplied` both refresh
+    every notes/prompts block, not just the tab currently in view) — same
+    "render everything once, each block's own mutation handlers refresh
+    just themselves" pattern already used for Goals/Actions/etc. on this
+    page. `isEmptyEverywhere()` (the empty-storage seed-race-safety check)
+    was extended to also check `PageNotes`/`IdentityPrompts`, so a device
+    with only page notes/prompts already saved isn't mistaken for empty
+    and re-seeded over.
+  - **Testing note**: same environment limitation as this page's first
+    build — no interactive browser session was available this round
+    either. Verified statically: brace/paren balance re-confirmed on both
+    files after every edit (`system-data.js`: 187/187 braces, 372/372
+    parens; `system.html`'s script: 260/260 braces, 1264/1264 parens; its
+    `<style>` block: 148/148 braces); every `$('id')` reference (99
+    distinct) cross-matched against real HTML ids (113 distinct) with zero
+    unresolved — the 14 unmatched ids are the `bsTabs`/`bsCoreSubnav`/
+    `bsIdentitySubnav` subnav containers (queried via `querySelectorAll`,
+    as before) plus the 8 new notes containers and 3 new prompts
+    containers, all of which are looked up dynamically through the new
+    `NOTES_PAGE_IDS`/`PROMPTS_SECTION_IDS` tables rather than a literal
+    `$('id')` call — cross-checked by hand that every table value matches
+    a real container id, all 11 did; zero duplicate DOM ids; every HTML
+    tag type (div/button/select/textarea/span/label/input) confirmed
+    open/close-balanced across the whole file. A real click-through
+    (selecting a 3rd, then attempting a 4th goal and confirming the cap
+    alert fires; deselecting one and confirming a 4th can then be added;
+    adding/copying an AI Prompt; generating and editing a Notes section on
+    a couple of different pages and confirming each stays scoped to its
+    own page after a reload) is recommended before relying on this page
+    heavily.
