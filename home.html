@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0a08">
+<title>Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="home-data.js?v=1" defer></script>
+<style>
+/* =============================================================
+   Home — combines four existing pages (Dream Board / Tasks & Notes /
+   AI & Tech / Self-Care) into one tab by embedding them, unmodified, in
+   same-origin iframes (their own -data.js/localStorage/Supabase sync are
+   completely untouched — nothing was deleted from any of them), plus two
+   genuinely new sections built natively here: Weekly Schedule and
+   Subconscious Reprogramming.
+
+   Palette: this file's own --hm-* tokens are a direct copy of Dream
+   Board/Business Hub's dark cinematic near-black/gold values — the
+   "common thread" aesthetic shared by 3 of the 4 combined tabs (Dream
+   Board, Tasks & Notes, Self-Care all already use it; AI & Tech's teal is
+   its own one-off exception, see CLAUDE.md §6) — same one-off palette-
+   exception category as every other themed page in this app (DO NOT
+   MODIFY rule 2), scoped entirely to this file's own :root tokens.
+   ============================================================= */
+:root {
+  --hm-bg: #0b0a08;
+  --hm-bg-deep: #050403;
+  --hm-paper: rgba(255, 255, 255, 0.045);
+  --hm-paper-solid: #16130f;
+  --hm-gold: #c9a876;
+  --hm-gold-bright: #e8cf9f;
+  --hm-text: #f5f1e9;
+  --hm-text-dim: rgba(245, 241, 233, 0.68);
+  --hm-text-mute: rgba(245, 241, 233, 0.44);
+  --hm-hairline: rgba(201, 168, 118, 0.22);
+  --hm-accent-tint: rgba(201, 168, 118, 0.14);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --info: #7DD3FC;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-serif: "Cormorant Garamond", Georgia, "Iowan Old Style", serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--hm-bg-deep); color: var(--hm-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--hm-gold-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+body::before {
+  content: '';
+  position: fixed; inset: -10%; z-index: -2;
+  background:
+    radial-gradient(55% 42% at 82% 10%, rgba(201, 168, 118, 0.20) 0%, transparent 55%),
+    radial-gradient(50% 40% at 14% 92%, rgba(120, 90, 50, 0.16) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(11,10,8,0.78) 0%, rgba(5,4,3,0.88) 100%);
+  filter: blur(40px) saturate(1.05);
+  pointer-events: none;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 70px; }
+.shell-inner { padding: 0 16px; }
+
+.hm-back-btn {
+  position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 30;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px;
+  background: rgba(11, 10, 8, 0.7); backdrop-filter: blur(10px);
+  border: 1px solid var(--hm-hairline);
+  border-radius: 999px; color: var(--hm-text-dim);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.hm-back-btn:hover { background: rgba(11, 10, 8, 0.92); color: var(--hm-text); }
+
+/* ===== Compact header (deliberately NOT a full-viewport hero — a
+   too-tall hero above 6 tabs' worth of real content reads as "the page
+   is blank," the exact mistake CLAUDE.md's own Fitness Studio Overview
+   entry already documents hitting and fixing once) ===== */
+.hm-hero { padding: 64px 20px 26px; text-align: left; }
+.hm-hero-eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--hm-gold-bright); margin-bottom: 12px;
+}
+.hm-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--hm-gold); margin-right: 10px; vertical-align: middle; }
+.hm-hero-title {
+  font-family: var(--font-serif); font-weight: 500; color: var(--hm-text);
+  font-size: clamp(30px, 6vw, 44px); line-height: 1.08; letter-spacing: -0.01em;
+  margin-bottom: 10px; outline-offset: 4px; cursor: text;
+}
+.hm-hero-subtext { font-size: 14px; line-height: 1.6; color: var(--hm-text-dim); max-width: 620px; outline-offset: 4px; cursor: text; }
+
+/* ===== Tab row ===== */
+.hm-tabs-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 16px 0 14px; margin-bottom: 20px; border-bottom: 1px solid var(--hm-hairline);
+}
+.hm-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.hm-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--hm-paper); border: 1px solid var(--hm-hairline); border-radius: 999px;
+  padding: 8px 14px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--hm-text-mute); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.hm-tab:hover { color: var(--hm-text); }
+.hm-tab.active { background: var(--hm-accent-tint); color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--hm-text-mute); display: flex; align-items: center; gap: 5px; }
+.hm-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hm-text-mute); flex-shrink: 0; }
+.hm-sync-status.is-saved { color: var(--hm-text-dim); }
+.hm-sync-status.is-saved .hm-sync-status-dot { background: var(--success); }
+.hm-sync-status.is-error .hm-sync-status-dot { background: var(--danger); }
+
+.hm-btn-primary, .hm-btn-secondary, .hm-btn-ghost {
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 700;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; letter-spacing: 0.03em;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s; border: none;
+}
+.hm-btn-primary { background: linear-gradient(180deg, var(--hm-gold-bright) 0%, var(--hm-gold) 100%); color: #24190c; border: 1px solid var(--hm-gold); }
+.hm-btn-primary:hover { opacity: 0.9; }
+.hm-btn-secondary { background: var(--hm-paper); color: var(--hm-text-dim); border: 1px solid var(--hm-hairline); }
+.hm-btn-secondary:hover { color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-btn-secondary.is-done { color: var(--hm-gold-bright); border-color: var(--hm-gold); background: var(--hm-accent-tint); }
+.hm-btn-ghost { background: transparent; color: var(--hm-text-mute); border: 1px solid var(--hm-hairline); }
+.hm-btn-ghost:hover { color: var(--danger); border-color: var(--danger); }
+.hm-icon-btn { background: transparent; border: none; color: var(--hm-text-mute); font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.hm-icon-btn:hover { color: var(--hm-gold-bright); background: rgba(255,255,255,0.06); }
+
+/* ===== Panels ===== */
+.hm-panel { display: none; }
+.hm-panel.active { display: block; }
+.hm-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.hm-section-head h2 { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--hm-text); }
+.hm-section-head h3 { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--hm-text); }
+.hm-section-desc { font-size: 13px; color: var(--hm-text-dim); line-height: 1.6; margin-bottom: 16px; max-width: 680px; }
+.hm-subsection { margin: 30px 0; }
+.hm-subsection:first-of-type { margin-top: 6px; }
+.hm-empty { font-size: 12.5px; color: var(--hm-text-mute); font-style: italic; padding: 14px 4px; }
+
+/* ===== Embedded-page (iframe) panels ===== */
+.hm-iframe-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 4px 12px;
+}
+.hm-iframe-toolbar-label { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--hm-text); }
+.hm-iframe-toolbar a { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--hm-gold-bright); text-decoration: none; border-bottom: 1px solid var(--hm-hairline); padding-bottom: 1px; }
+.hm-iframe-toolbar a:hover { border-color: var(--hm-gold-bright); }
+.hm-iframe-wrap {
+  border: 1px solid var(--hm-hairline); border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--hm-paper-solid);
+}
+.hm-iframe { display: block; width: 100%; height: calc(100vh - 260px); min-height: 560px; border: 0; background: var(--hm-bg); }
+@media (max-width: 620px) { .hm-iframe { height: calc(100vh - 300px); min-height: 480px; } }
+
+/* ===== Shared card / chip / field components (same recipe as Business
+   Hub's .bw-card/.bh-chip/.field — frosted glass, gold hairline) ===== */
+.hm-card {
+  position: relative; border: 1px solid var(--hm-hairline); border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.06);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 16px; margin-bottom: 14px;
+}
+.hm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hm-chip { background: var(--hm-paper); border: 1px solid var(--hm-hairline); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--hm-text-mute); cursor: pointer; }
+.hm-chip:hover { color: var(--hm-text); }
+.hm-chip.active { background: var(--hm-accent-tint); color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-tag { display: inline-flex; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hm-text-mute); padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--hm-hairline); }
+.hm-card-hover-actions { display: flex; align-items: center; gap: 2px; opacity: 0.6; transition: opacity 0.15s; }
+.hm-card:hover .hm-card-hover-actions, .hm-card:focus-within .hm-card-hover-actions { opacity: 1; }
+
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--hm-text-mute); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13.5px; color: var(--hm-text); }
+.field textarea { resize: vertical; }
+.hm-day-toggle-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-modal-actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.modal h3 { font-family: var(--font-serif); font-size: 20px; font-weight: 600; margin-bottom: 14px; color: var(--hm-text); }
+
+/* ===== Weekly Schedule ===== */
+.hm-toolbar-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.hm-toolbar-row input[type="text"] { flex: 1; min-width: 160px; border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; color: var(--hm-text); }
+.hm-schedule-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.hm-schedule-card-title { font-family: var(--font-serif); font-weight: 600; font-size: 17px; color: var(--hm-text); cursor: pointer; }
+.hm-daycheck-row { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.hm-daycheck-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.hm-daycheck {
+  width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--hm-hairline); background: transparent;
+  color: var(--hm-text-mute); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hm-daycheck.done { background: var(--hm-gold); border-color: var(--hm-gold); color: #24190c; }
+.hm-daycheck.off { opacity: 0.25; cursor: default; }
+.hm-daycheck-label { font-size: 9px; color: var(--hm-text-mute); letter-spacing: 0.04em; }
+.hm-progress-row { display: flex; align-items: center; gap: 10px; margin: 10px 0 12px; }
+.hm-progress-bar { flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; border: 1px solid var(--hm-hairline); }
+.hm-progress-fill { height: 100%; background: linear-gradient(90deg, var(--hm-gold) 0%, var(--hm-gold-bright) 100%); border-radius: 999px; transition: width 0.3s ease; }
+.hm-progress-label { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--hm-text-mute); font-variant-numeric: tabular-nums; }
+.hm-schedule-notes { width: 100%; min-height: 52px; resize: vertical; border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 12.5px; line-height: 1.5; color: var(--hm-text-dim); }
+
+/* ===== Subconscious Reprogramming ===== */
+.hm-ritual-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--hm-hairline); }
+.hm-ritual-row:last-child { border-bottom: none; }
+.hm-check {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--hm-hairline); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--hm-gold-bright); font-size: 11px;
+}
+.hm-check.done { background: var(--hm-gold); border-color: var(--hm-gold); color: #24190c; }
+.hm-ritual-text { flex: 1; min-width: 0; font-size: 13.5px; word-break: break-word; }
+.hm-ritual-row.is-done .hm-ritual-text { text-decoration: line-through; color: var(--hm-text-mute); }
+.hm-ritual-del { background: transparent; border: none; color: var(--hm-text-mute); font-size: 11px; cursor: pointer; padding: 4px 6px; opacity: 0; transition: opacity 0.15s; }
+.hm-ritual-row:hover .hm-ritual-del { opacity: 1; }
+.hm-ritual-del:hover { color: var(--danger); }
+.hm-ritual-add-row { display: flex; gap: 8px; margin-top: 10px; }
+.hm-ritual-add-row input { flex: 1; border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 13px; color: var(--hm-text); }
+
+.hm-affirmation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.hm-affirmation-card { display: flex; flex-direction: column; gap: 10px; }
+.hm-affirmation-head { display: flex; align-items: center; justify-content: space-between; }
+.hm-fav-btn { background: transparent; border: none; color: var(--hm-text-mute); font-size: 16px; cursor: pointer; padding: 2px 4px; }
+.hm-fav-btn.active { color: var(--warning); }
+.hm-affirmation-text { font-family: var(--font-serif); font-size: 16.5px; line-height: 1.4; color: var(--hm-text); }
+.hm-affirmation-streak { font-size: 11.5px; color: var(--hm-gold-bright); font-weight: 700; }
+.hm-affirmation-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.hm-practice-btn { font-size: 11px; }
+
+.hm-pf-section { border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.04); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 10px; }
+.hm-pf-section-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.hm-pf-section-title-input { flex: 1; min-width: 0; background: transparent; border: none; font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--hm-text); outline-offset: 3px; }
+.hm-pf-section-body { width: 100%; min-height: 70px; resize: vertical; border: 1px solid var(--hm-hairline); background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; line-height: 1.55; color: var(--hm-text); }
+
+/* ===== Modal (plain .modal-bg/.modal — already covered by topbar.js's
+   MODAL_SELECTORS, no topbar.js CSS edit needed) ===== */
+.modal-bg { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(5,4,3,0.65); align-items: center; justify-content: center; padding: 20px; }
+.modal-bg.show { display: flex; }
+.modal { background: rgba(20, 17, 13, 0.86); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
+
+@media (max-width: 480px) {
+  .hm-affirmation-grid { grid-template-columns: 1fr; }
+  .hm-daycheck { width: 26px; height: 26px; }
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" class="hm-back-btn">← Back</a>
+
+<div class="shell">
+  <div class="shell-inner">
+
+    <header class="hm-hero">
+      <div class="hm-hero-eyebrow">COMMAND CENTER</div>
+      <h1 class="hm-hero-title" id="hmHeroTitle" contenteditable="true" spellcheck="false"></h1>
+      <div class="hm-hero-subtext" id="hmHeroSubtext" contenteditable="true" spellcheck="false"></div>
+    </header>
+
+    <div class="hm-tabs-row">
+      <div class="hm-tabs" id="hmTabs"></div>
+      <div class="hm-sync-status" id="hmSyncStatus"><span class="hm-sync-status-dot"></span><span id="hmSyncStatusText">Changes save automatically</span></div>
+    </div>
+
+    <div id="hmPanels">
+
+      <section class="hm-panel" data-panel="dreamboard">
+        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Dream Board</span><a href="dreamboard.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="dreamboard.html" title="Dream Board"></iframe></div>
+      </section>
+
+      <section class="hm-panel" data-panel="tasksnotes">
+        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Tasks &amp; Notes</span><a href="tasksnotes.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="tasksnotes.html" title="Tasks & Notes"></iframe></div>
+      </section>
+
+      <section class="hm-panel" data-panel="aitech">
+        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">AI &amp; Tech</span><a href="aitech.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="aitech.html" title="AI & Tech"></iframe></div>
+      </section>
+
+      <section class="hm-panel" data-panel="selfcare">
+        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Self-Care</span><a href="selfcare.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="selfcare.html" title="Self-Care"></iframe></div>
+      </section>
+
+      <section class="hm-panel" data-panel="schedule">
+        <div class="hm-section-head">
+          <h2>Weekly Schedule</h2>
+          <button type="button" class="hm-btn-primary" id="hmAddScheduleBtn">+ Add Task</button>
+        </div>
+        <p class="hm-section-desc">A recurring weekly checklist — each task carries its own Mon–Sun checkboxes, a progress bar, and notes. Checkboxes reset automatically at the start of a new week. Filter the list below to a single day.</p>
+        <div class="hm-chip-row" id="hmScheduleDayChips" style="margin-bottom:16px;"></div>
+        <div class="hm-empty" id="hmScheduleEmpty" style="display:none;">No schedule tasks match this filter yet.</div>
+        <div id="hmScheduleList"></div>
+      </section>
+
+      <section class="hm-panel" data-panel="subconscious">
+        <div class="hm-section-head"><h2>Reprogram Your Subconscious Mind</h2></div>
+        <p class="hm-section-desc">A dedicated space for the daily repetition-based work — a practice ritual, affirmations with a streak counter, and freeform scripts (visualizations, mantras, sleep programming).</p>
+
+        <div class="hm-subsection">
+          <div class="hm-section-head"><h3>Today's Ritual</h3></div>
+          <div class="hm-card">
+            <div id="hmRitualList"></div>
+            <div class="hm-ritual-add-row">
+              <input type="text" id="hmRitualInput" placeholder="Add a ritual step…">
+              <button type="button" class="hm-btn-secondary" id="hmRitualAddBtn">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hm-subsection">
+          <div class="hm-section-head">
+            <h3>Affirmations</h3>
+            <button type="button" class="hm-btn-primary" id="hmAddAffirmationBtn">+ Add Affirmation</button>
+          </div>
+          <div class="hm-toolbar-row">
+            <input type="text" id="hmAffirmationSearch" placeholder="Search affirmations…">
+          </div>
+          <div class="hm-chip-row" id="hmAffirmationCategoryChips" style="margin-bottom:8px;"></div>
+          <div class="hm-chip-row" style="margin-bottom:16px;"><button type="button" class="hm-chip" id="hmAffirmationFavChip">★ Favorites</button></div>
+          <div class="hm-empty" id="hmAffirmationEmpty" style="display:none;">No affirmations match.</div>
+          <div id="hmAffirmationGrid" class="hm-affirmation-grid"></div>
+        </div>
+
+        <div class="hm-subsection">
+          <div class="hm-section-head">
+            <h3>Notes &amp; Scripts</h3>
+            <button type="button" class="hm-btn-primary" id="hmAddSectionBtn">+ Generate Section</button>
+          </div>
+          <div id="hmSectionList"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Schedule task modal -->
+<div class="modal-bg" id="hmScheduleModalBg">
+  <div class="modal">
+    <h3>Schedule Task</h3>
+    <div class="field"><label>Title</label><input type="text" id="hmSchTitleInput" placeholder="e.g. Morning Workout"></div>
+    <div class="field"><label>Scheduled days</label><div class="hm-day-toggle-row" id="hmSchDaysToggle"></div></div>
+    <div class="field"><label>Notes</label><textarea id="hmSchNotesInput" rows="3" placeholder="Optional notes for this task…"></textarea></div>
+    <div class="hm-modal-actions">
+      <button type="button" class="hm-btn-ghost" id="hmSchDeleteBtn" style="display:none;">Delete</button>
+      <div style="flex:1;"></div>
+      <button type="button" class="hm-btn-secondary" id="hmSchCancelBtn">Cancel</button>
+      <button type="button" class="hm-btn-primary" id="hmSchSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Affirmation modal -->
+<div class="modal-bg" id="hmAffirmationModalBg">
+  <div class="modal">
+    <h3>Affirmation</h3>
+    <div class="field"><label>Text</label><textarea id="hmAffTextInput" rows="3" placeholder="I am…"></textarea></div>
+    <div class="field"><label>Category</label><select id="hmAffCategoryInput"></select></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="hmAffFavoriteInput" style="width:auto;"><label style="margin:0;text-transform:none;font-size:13px;">Favorite</label></div>
+    <div class="hm-modal-actions">
+      <button type="button" class="hm-btn-ghost" id="hmAffDeleteBtn" style="display:none;">Delete</button>
+      <div style="flex:1;"></div>
+      <button type="button" class="hm-btn-secondary" id="hmAffCancelBtn">Cancel</button>
+      <button type="button" class="hm-btn-primary" id="hmAffSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // A silent boot-time throw otherwise leaves the page looking blank with
+  // zero visible clue why — the exact failure class this app has hit more
+  // than once before (see CLAUDE.md's gym.html BOARD_WIDGET_TYPES entry,
+  // Dream Board's missing-hero crash, Business Hub's missing-layout bug).
+  // Surface it instead of guessing at fixes blindly.
+  function showBootErrorBanner(err, context) {
+    try {
+      let banner = document.getElementById('hmBootErrorBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'hmBootErrorBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#3a0a0a;color:#ffdede;padding:14px 18px;font:13px/1.5 monospace;white-space:pre-wrap;max-height:50vh;overflow:auto;border-bottom:3px solid #ff5757;';
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+      const detail = (context ? '[' + context + '] ' : '') + (err && err.stack ? err.stack : String(err));
+      banner.textContent = '⚠ Home failed to load correctly:\n' + detail + '\n';
+      const btn = document.createElement('button');
+      btn.textContent = 'Copy error details';
+      btn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#ff5757;color:#3a0a0a;border:0;border-radius:4px;font-weight:bold;cursor:pointer;';
+      btn.addEventListener('click', function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(detail).catch(function () {});
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy error details'; }, 1500);
+      });
+      banner.appendChild(btn);
+    } catch (e2) { /* if even the banner fails, there's nothing more we can do client-side */ }
+  }
+
+  // Deferred scripts (sync.js/topbar.js/home-data.js) only execute right
+  // before DOMContentLoaded, regardless of where their <script> tags sit
+  // in the document — booting immediately would read window.HomeData
+  // before it exists (the exact bug mainpillar.html hit once; see its
+  // CLAUDE.md changelog entry). Wait for DOMContentLoaded, same fix.
+  function boot() {
+    try {
+      if (!window.HomeData) { showBootErrorBanner('window.HomeData is undefined — home-data.js failed to load or threw before defining it.', 'boot'); return; }
+      const HD = window.HomeData;
+
+      function $(id) { return document.getElementById(id); }
+      function storeGet(key) { try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+      function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+      function smallIconBtn(label, onClick) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'hm-icon-btn'; b.textContent = label;
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+      const TABS = [
+        { key: 'dreamboard', label: 'Dream Board', iframe: true },
+        { key: 'tasksnotes', label: 'Tasks & Notes', iframe: true },
+        { key: 'aitech', label: 'AI & Tech', iframe: true },
+        { key: 'selfcare', label: 'Self-Care', iframe: true },
+        { key: 'schedule', label: 'Weekly Schedule', iframe: false },
+        { key: 'subconscious', label: 'Subconscious Mind', iframe: false }
+      ];
+      const TAB_KEYS = TABS.map(function (t) { return t.key; });
+
+      let activeTab = TAB_KEYS[0];
+      const fromHash = (location.hash || '').replace('#', '');
+      if (TAB_KEYS.indexOf(fromHash) !== -1) activeTab = fromHash;
+      else { const saved = storeGet(HD.KEYS.activeTab); if (TAB_KEYS.indexOf(saved) !== -1) activeTab = saved; }
+
+      // -------- Hero (compact — text only, no cover photo, see the
+      // header-size note above) --------
+      function initHero() {
+        const titleEl = $('hmHeroTitle');
+        const subEl = $('hmHeroSubtext');
+        const savedTitle = storeGet(HD.KEYS.heroTitle);
+        const savedSub = storeGet(HD.KEYS.heroSubtext);
+        titleEl.textContent = (typeof savedTitle === 'string' && savedTitle) ? savedTitle : 'Home';
+        subEl.textContent = (typeof savedSub === 'string' && savedSub) ? savedSub
+          : 'Dream Board, Tasks & Notes, AI & Tech, and Self-Care — plus your Weekly Schedule and subconscious reprogramming — all in one place.';
+        titleEl.addEventListener('blur', function () { storeSet(HD.KEYS.heroTitle, titleEl.textContent.trim() || 'Home'); });
+        subEl.addEventListener('blur', function () { storeSet(HD.KEYS.heroSubtext, subEl.textContent.trim()); });
+      }
+
+      // -------- Tabs / panels --------
+      function renderTabs() {
+        const wrap = $('hmTabs');
+        wrap.innerHTML = '';
+        TABS.forEach(function (t) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'hm-tab' + (t.key === activeTab ? ' active' : '');
+          btn.textContent = t.label;
+          btn.addEventListener('click', function () { switchTab(t.key); });
+          wrap.appendChild(btn);
+        });
+      }
+      function switchTab(key) {
+        if (TAB_KEYS.indexOf(key) === -1) key = TAB_KEYS[0];
+        activeTab = key;
+        storeSet(HD.KEYS.activeTab, key);
+        try { history.replaceState(null, '', '#' + key); } catch (e) {}
+        renderTabs();
+        document.querySelectorAll('.hm-panel').forEach(function (p) {
+          p.classList.toggle('active', p.getAttribute('data-panel') === key);
+        });
+        ensureIframeLoaded(key);
+        if (key === 'schedule') renderSchedule();
+        if (key === 'subconscious') renderSubconscious();
+      }
+
+      // -------- Embedded pages (lazy-loaded iframes, one per combined
+      // tab). Every embedded page keeps its own full functionality/sync
+      // — nothing about dreamboard.html/tasksnotes.html/aitech.html/
+      // selfcare.html or their data is modified. Best-effort: hide the
+      // embedded page's own topbar so it doesn't look like a nested
+      // second nav bar — a purely runtime DOM tweak inside that one
+      // iframe instance (same-origin only; silently skipped otherwise,
+      // leaving the nested topbar visible, which is harmless). --------
+      const iframeLoaded = {};
+      function ensureIframeLoaded(tab) {
+        if (iframeLoaded[tab]) return;
+        const panel = document.querySelector('.hm-panel[data-panel="' + tab + '"]');
+        if (!panel) return;
+        const frame = panel.querySelector('iframe.hm-iframe');
+        if (!frame) return;
+        iframeLoaded[tab] = true;
+        frame.addEventListener('load', function () { tameIframe(frame); });
+        frame.src = frame.getAttribute('data-src');
+      }
+      function tameIframe(frame) {
+        try {
+          const doc = frame.contentDocument;
+          if (!doc) return;
+          let style = doc.getElementById('hmIframeOverride');
+          if (!style) {
+            style = doc.createElement('style');
+            style.id = 'hmIframeOverride';
+            doc.head.appendChild(style);
+          }
+          style.textContent = '.topbar{display:none !important;}';
+        } catch (e) { /* cross-origin or not ready yet — leave it as-is */ }
+      }
+
+      // ===================================================================
+      // WEEKLY SCHEDULE
+      // ===================================================================
+      let scheduleDayFilter = 'all';
+      function renderScheduleDayChips() {
+        const wrap = $('hmScheduleDayChips');
+        wrap.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.type = 'button'; allBtn.className = 'hm-chip' + (scheduleDayFilter === 'all' ? ' active' : '');
+        allBtn.textContent = 'All Days';
+        allBtn.addEventListener('click', function () { scheduleDayFilter = 'all'; renderScheduleDayChips(); renderScheduleList(); });
+        wrap.appendChild(allBtn);
+        HD.WEEKDAY_KEYS.forEach(function (day) {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'hm-chip' + (scheduleDayFilter === day ? ' active' : '');
+          b.textContent = HD.WEEKDAY_LABELS[day];
+          b.addEventListener('click', function () { scheduleDayFilter = day; renderScheduleDayChips(); renderScheduleList(); });
+          wrap.appendChild(b);
+        });
+      }
+      function renderScheduleList() {
+        HD.resetStaleWeeks();
+        const list = scheduleDayFilter === 'all' ? HD.scheduleTasksSorted() : HD.tasksForDay(scheduleDayFilter);
+        const container = $('hmScheduleList');
+        container.innerHTML = '';
+        $('hmScheduleEmpty').style.display = list.length ? 'none' : 'block';
+        list.forEach(function (t) { container.appendChild(buildScheduleCard(t)); });
+      }
+      function buildScheduleCard(t) {
+        const card = document.createElement('div');
+        card.className = 'hm-card';
+
+        const head = document.createElement('div');
+        head.className = 'hm-schedule-card-head';
+        const title = document.createElement('div');
+        title.className = 'hm-schedule-card-title';
+        title.textContent = t.title || '(untitled)';
+        title.addEventListener('click', function () { openScheduleModal(t); });
+        head.appendChild(title);
+
+        const actions = document.createElement('div');
+        actions.className = 'hm-card-hover-actions';
+        actions.appendChild(smallIconBtn('▲', function () { HD.moveScheduleTask(t.id, -1); renderScheduleList(); }));
+        actions.appendChild(smallIconBtn('▼', function () { HD.moveScheduleTask(t.id, 1); renderScheduleList(); }));
+        actions.appendChild(smallIconBtn('✎', function () { openScheduleModal(t); }));
+        head.appendChild(actions);
+        card.appendChild(head);
+
+        const dayRow = document.createElement('div');
+        dayRow.className = 'hm-daycheck-row';
+        HD.WEEKDAY_KEYS.forEach(function (day) {
+          const scheduled = t.scheduledDays.indexOf(day) !== -1;
+          const wrap = document.createElement('div');
+          wrap.className = 'hm-daycheck-wrap';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'hm-daycheck' + (t.checks[day] ? ' done' : '') + (scheduled ? '' : ' off');
+          btn.textContent = HD.WEEKDAY_LETTERS[day];
+          btn.disabled = !scheduled;
+          if (scheduled) btn.addEventListener('click', function () { HD.toggleScheduleCheck(t.id, day); renderScheduleList(); });
+          const lbl = document.createElement('div');
+          lbl.className = 'hm-daycheck-label';
+          lbl.textContent = HD.WEEKDAY_LABELS[day];
+          wrap.appendChild(btn); wrap.appendChild(lbl);
+          dayRow.appendChild(wrap);
+        });
+        card.appendChild(dayRow);
+
+        const prog = HD.scheduleTaskProgress(t);
+        const progWrap = document.createElement('div');
+        progWrap.className = 'hm-progress-row';
+        const bar = document.createElement('div'); bar.className = 'hm-progress-bar';
+        const fill = document.createElement('div'); fill.className = 'hm-progress-fill';
+        fill.style.width = (prog.total ? Math.round((prog.done / prog.total) * 100) : 0) + '%';
+        bar.appendChild(fill);
+        const label = document.createElement('div'); label.className = 'hm-progress-label';
+        label.textContent = prog.done + '/' + prog.total + ' this week';
+        progWrap.appendChild(bar); progWrap.appendChild(label);
+        card.appendChild(progWrap);
+
+        const notes = document.createElement('textarea');
+        notes.className = 'hm-schedule-notes';
+        notes.placeholder = 'Notes for this task…';
+        notes.value = t.notes;
+        notes.addEventListener('blur', function () { HD.ScheduleTasks.update(t.id, { notes: notes.value }); });
+        card.appendChild(notes);
+
+        return card;
+      }
+      function renderSchedule() { renderScheduleDayChips(); renderScheduleList(); }
+
+      let schEditingId = null;
+      let schDraftDays = [];
+      function renderSchDaysToggle() {
+        const wrap = $('hmSchDaysToggle');
+        wrap.innerHTML = '';
+        HD.WEEKDAY_KEYS.forEach(function (day) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'hm-chip' + (schDraftDays.indexOf(day) !== -1 ? ' active' : '');
+          b.textContent = HD.WEEKDAY_LABELS[day];
+          b.addEventListener('click', function () {
+            const idx = schDraftDays.indexOf(day);
+            if (idx === -1) schDraftDays.push(day); else schDraftDays.splice(idx, 1);
+            renderSchDaysToggle();
+          });
+          wrap.appendChild(b);
+        });
+      }
+      function openScheduleModal(task) {
+        schEditingId = task ? task.id : null;
+        schDraftDays = task ? task.scheduledDays.slice() : HD.WEEKDAY_KEYS.slice();
+        $('hmSchTitleInput').value = task ? task.title : '';
+        $('hmSchNotesInput').value = task ? task.notes : '';
+        renderSchDaysToggle();
+        $('hmSchDeleteBtn').style.display = task ? '' : 'none';
+        $('hmScheduleModalBg').classList.add('show');
+        setTimeout(function () { $('hmSchTitleInput').focus(); }, 0);
+      }
+      function closeScheduleModal() { $('hmScheduleModalBg').classList.remove('show'); }
+      $('hmAddScheduleBtn').addEventListener('click', function () { openScheduleModal(null); });
+      $('hmSchCancelBtn').addEventListener('click', closeScheduleModal);
+      $('hmScheduleModalBg').addEventListener('click', function (e) { if (e.target === this) closeScheduleModal(); });
+      $('hmSchSaveBtn').addEventListener('click', function () {
+        const title = $('hmSchTitleInput').value.trim();
+        if (!title) { alert('Give this task a title first.'); return; }
+        const patch = { title: title, notes: $('hmSchNotesInput').value, scheduledDays: schDraftDays.length ? schDraftDays.slice() : HD.WEEKDAY_KEYS.slice() };
+        if (schEditingId) HD.ScheduleTasks.update(schEditingId, patch);
+        else HD.ScheduleTasks.add(Object.assign({}, patch, { order: HD.nextOrder(HD.ScheduleTasks.list()), checksWeekStart: HD.mondayISO() }));
+        closeScheduleModal();
+        renderScheduleList();
+      });
+      $('hmSchDeleteBtn').addEventListener('click', function () {
+        if (!schEditingId) return;
+        if (!confirm('Delete this schedule task?')) return;
+        HD.ScheduleTasks.remove(schEditingId);
+        closeScheduleModal();
+        renderScheduleList();
+      });
+
+      // ===================================================================
+      // SUBCONSCIOUS REPROGRAMMING
+      // ===================================================================
+      function renderRitualList() {
+        HD.resetRitualIfNewDay();
+        const items = HD.ritualItemsSorted();
+        const wrap = $('hmRitualList');
+        wrap.innerHTML = '';
+        if (!items.length) {
+          const empty = document.createElement('div'); empty.className = 'hm-empty'; empty.textContent = 'No ritual steps yet — add one below.';
+          wrap.appendChild(empty);
+          return;
+        }
+        items.forEach(function (item) {
+          const row = document.createElement('div');
+          row.className = 'hm-ritual-row' + (item.checked ? ' is-done' : '');
+          const check = document.createElement('button');
+          check.type = 'button'; check.className = 'hm-check' + (item.checked ? ' done' : '');
+          check.setAttribute('aria-label', 'Toggle done');
+          check.textContent = item.checked ? '✓' : '';
+          check.addEventListener('click', function () { HD.RitualItems.update(item.id, { checked: !item.checked }); renderRitualList(); });
+          const text = document.createElement('div');
+          text.className = 'hm-ritual-text'; text.textContent = item.text;
+          const del = document.createElement('button');
+          del.type = 'button'; del.className = 'hm-ritual-del'; del.textContent = '✕';
+          del.addEventListener('click', function () { HD.RitualItems.remove(item.id); renderRitualList(); });
+          row.appendChild(check); row.appendChild(text); row.appendChild(del);
+          wrap.appendChild(row);
+        });
+      }
+      function addRitualItem() {
+        const input = $('hmRitualInput');
+        const text = input.value.trim();
+        if (!text) return;
+        HD.RitualItems.add({ text: text, order: HD.nextOrder(HD.RitualItems.list()) });
+        input.value = '';
+        renderRitualList();
+      }
+      $('hmRitualAddBtn').addEventListener('click', addRitualItem);
+      $('hmRitualInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') addRitualItem(); });
+
+      let affirmationSearch = '';
+      let affirmationCategoryFilter = 'All';
+      let affirmationFavoritesOnly = false;
+      function renderAffirmationCategoryChips() {
+        const wrap = $('hmAffirmationCategoryChips');
+        wrap.innerHTML = '';
+        ['All'].concat(HD.AFFIRMATION_CATEGORIES).forEach(function (cat) {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'hm-chip' + (affirmationCategoryFilter === cat ? ' active' : '');
+          b.textContent = cat;
+          b.addEventListener('click', function () { affirmationCategoryFilter = cat; renderAffirmationCategoryChips(); renderAffirmations(); });
+          wrap.appendChild(b);
+        });
+      }
+      function renderAffirmations() {
+        const q = affirmationSearch.trim().toLowerCase();
+        let list = HD.affirmationsSorted();
+        if (affirmationCategoryFilter !== 'All') list = list.filter(function (a) { return a.category === affirmationCategoryFilter; });
+        if (affirmationFavoritesOnly) list = list.filter(function (a) { return a.favorite; });
+        if (q) list = list.filter(function (a) { return a.text.toLowerCase().indexOf(q) !== -1; });
+        const grid = $('hmAffirmationGrid');
+        grid.innerHTML = '';
+        $('hmAffirmationEmpty').style.display = list.length ? 'none' : 'block';
+        const today = HD.todayISO();
+        list.forEach(function (a) { grid.appendChild(buildAffirmationCard(a, today)); });
+      }
+      function buildAffirmationCard(a, today) {
+        const card = document.createElement('div');
+        card.className = 'hm-card hm-affirmation-card';
+
+        const head = document.createElement('div');
+        head.className = 'hm-affirmation-head';
+        const cat = document.createElement('span'); cat.className = 'hm-tag'; cat.textContent = a.category;
+        head.appendChild(cat);
+        const favBtn = document.createElement('button');
+        favBtn.type = 'button'; favBtn.className = 'hm-fav-btn' + (a.favorite ? ' active' : '');
+        favBtn.textContent = a.favorite ? '★' : '☆';
+        favBtn.addEventListener('click', function () { HD.Affirmations.update(a.id, { favorite: !a.favorite }); renderAffirmations(); });
+        head.appendChild(favBtn);
+        card.appendChild(head);
+
+        const text = document.createElement('div'); text.className = 'hm-affirmation-text'; text.textContent = a.text;
+        card.appendChild(text);
+
+        if (a.currentStreak > 0) {
+          const streak = document.createElement('div'); streak.className = 'hm-affirmation-streak';
+          streak.textContent = '🔥 ' + a.currentStreak + ' day streak' + (a.bestStreak > a.currentStreak ? ' · best ' + a.bestStreak : '');
+          card.appendChild(streak);
+        }
+
+        const actionsRow = document.createElement('div'); actionsRow.className = 'hm-affirmation-actions';
+        const practicedToday = a.practiceDate === today;
+        const practiceBtn = document.createElement('button');
+        practiceBtn.type = 'button';
+        practiceBtn.className = 'hm-btn-secondary hm-practice-btn' + (practicedToday ? ' is-done' : '');
+        practiceBtn.textContent = practicedToday ? ('✓ Practiced Today · ' + a.practiceCountToday) : '✓ Mark Practiced';
+        practiceBtn.addEventListener('click', function () { HD.markAffirmationPracticed(a.id); renderAffirmations(); });
+        actionsRow.appendChild(practiceBtn);
+        actionsRow.appendChild(smallIconBtn('✎', function () { openAffirmationModal(a); }));
+        card.appendChild(actionsRow);
+
+        return card;
+      }
+
+      let affEditingId = null;
+      function openAffirmationModal(a) {
+        affEditingId = a ? a.id : null;
+        $('hmAffTextInput').value = a ? a.text : '';
+        const sel = $('hmAffCategoryInput');
+        sel.innerHTML = '';
+        HD.AFFIRMATION_CATEGORIES.forEach(function (cat) {
+          const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat;
+          sel.appendChild(opt);
+        });
+        sel.value = a ? a.category : 'Confidence';
+        $('hmAffFavoriteInput').checked = a ? a.favorite : false;
+        $('hmAffDeleteBtn').style.display = a ? '' : 'none';
+        $('hmAffirmationModalBg').classList.add('show');
+        setTimeout(function () { $('hmAffTextInput').focus(); }, 0);
+      }
+      function closeAffirmationModal() { $('hmAffirmationModalBg').classList.remove('show'); }
+      $('hmAddAffirmationBtn').addEventListener('click', function () { openAffirmationModal(null); });
+      $('hmAffCancelBtn').addEventListener('click', closeAffirmationModal);
+      $('hmAffirmationModalBg').addEventListener('click', function (e) { if (e.target === this) closeAffirmationModal(); });
+      $('hmAffSaveBtn').addEventListener('click', function () {
+        const text = $('hmAffTextInput').value.trim();
+        if (!text) { alert('Write the affirmation text first.'); return; }
+        const patch = { text: text, category: $('hmAffCategoryInput').value, favorite: $('hmAffFavoriteInput').checked };
+        if (affEditingId) HD.Affirmations.update(affEditingId, patch);
+        else HD.Affirmations.add(Object.assign({}, patch, { order: HD.nextOrder(HD.Affirmations.list()) }));
+        closeAffirmationModal();
+        renderAffirmations();
+      });
+      $('hmAffDeleteBtn').addEventListener('click', function () {
+        if (!affEditingId) return;
+        if (!confirm('Delete this affirmation?')) return;
+        HD.Affirmations.remove(affEditingId);
+        closeAffirmationModal();
+        renderAffirmations();
+      });
+      $('hmAffirmationSearch').addEventListener('input', function () { affirmationSearch = this.value; renderAffirmations(); });
+      $('hmAffirmationFavChip').addEventListener('click', function () {
+        affirmationFavoritesOnly = !affirmationFavoritesOnly;
+        this.classList.toggle('active', affirmationFavoritesOnly);
+        renderAffirmations();
+      });
+
+      function renderReprogramSections() {
+        const wrap = $('hmSectionList');
+        wrap.innerHTML = '';
+        const sections = HD.reprogramSectionsSorted();
+        if (!sections.length) {
+          const empty = document.createElement('div'); empty.className = 'hm-empty';
+          empty.textContent = 'No sections yet — generate one to start writing scripts, mantras, or notes.';
+          wrap.appendChild(empty);
+          return;
+        }
+        sections.forEach(function (s) {
+          const card = document.createElement('div'); card.className = 'hm-pf-section';
+          const head = document.createElement('div'); head.className = 'hm-pf-section-head';
+          const titleInput = document.createElement('input');
+          titleInput.type = 'text'; titleInput.className = 'hm-pf-section-title-input'; titleInput.value = s.title;
+          titleInput.addEventListener('blur', function () { HD.ReprogramSections.update(s.id, { title: titleInput.value.trim() || 'Untitled Section' }); });
+          head.appendChild(titleInput);
+          head.appendChild(smallIconBtn('▲', function () { HD.moveReprogramSection(s.id, -1); renderReprogramSections(); }));
+          head.appendChild(smallIconBtn('▼', function () { HD.moveReprogramSection(s.id, 1); renderReprogramSections(); }));
+          head.appendChild(smallIconBtn('✕', function () {
+            if (!confirm('Delete this section?')) return;
+            HD.ReprogramSections.remove(s.id);
+            renderReprogramSections();
+          }));
+          card.appendChild(head);
+
+          const body = document.createElement('textarea');
+          body.className = 'hm-pf-section-body';
+          body.value = s.body;
+          body.addEventListener('input', function () { autosize(body); });
+          body.addEventListener('blur', function () { HD.ReprogramSections.update(s.id, { body: body.value }); });
+          card.appendChild(body);
+          wrap.appendChild(card);
+          setTimeout(function () { autosize(body); }, 0);
+        });
+      }
+      $('hmAddSectionBtn').addEventListener('click', function () {
+        HD.ReprogramSections.add({ title: 'New Section', body: '', order: HD.nextOrder(HD.ReprogramSections.list()) });
+        renderReprogramSections();
+      });
+
+      function renderSubconscious() {
+        renderRitualList();
+        renderAffirmationCategoryChips();
+        renderAffirmations();
+        renderReprogramSections();
+      }
+
+      // -------- Sync status indicator (mirrors business.html's
+      // #bhSyncStatus — reads home-data.js's 'home:save' events plus the
+      // browser's online/offline state; can only confirm this device's
+      // own local write succeeded, not the cross-device Supabase push
+      // itself, same disclosed scope as every other page's version) --------
+      function setSyncStatus(state, text) {
+        const el = $('hmSyncStatus');
+        el.classList.remove('is-saved', 'is-error');
+        if (state) el.classList.add(state);
+        $('hmSyncStatusText').textContent = text;
+      }
+      window.addEventListener('home:save', function (e) {
+        if (e.detail && e.detail.ok === false) { setSyncStatus('is-error', "Couldn't save — your browser's storage may be full"); return; }
+        setSyncStatus('is-saved', 'Saved — syncing…');
+        setTimeout(function () { setSyncStatus('is-saved', 'Synced'); }, 1800);
+      });
+      window.addEventListener('offline', function () { setSyncStatus('is-error', 'Offline — will sync when reconnected'); });
+      window.addEventListener('online', function () { setSyncStatus('is-saved', 'Synced'); });
+
+      // -------- Boot sequence --------
+      initHero();
+      renderTabs();
+      switchTab(activeTab);
+
+      // Empty-storage seed-race safety window — same reasoning as
+      // dreamboard.html's/business.html's maybeSeedAfterSyncAttempt():
+      // seeding synchronously before the cloud pull has a real chance to
+      // answer could push a freshly-seeded "default" set to Supabase and
+      // clobber another device's real data.
+      let remoteAppliedOnce = false;
+      function maybeSeedAfterSyncAttempt() {
+        if (remoteAppliedOnce) return;
+        if (HD.ScheduleTasks.list().length || HD.Affirmations.list().length || HD.ReprogramSections.list().length || HD.RitualItems.list().length) return;
+        HD.seedIfEmpty();
+        if (activeTab === 'schedule') renderSchedule();
+        if (activeTab === 'subconscious') renderSubconscious();
+      }
+
+      if (typeof initCloudSync === 'function') {
+        initCloudSync({
+          appKey: 'home',
+          syncedPrefixes: ['home:'],
+          onApplied: function () {
+            try {
+              remoteAppliedOnce = true;
+              const savedTab = storeGet(HD.KEYS.activeTab);
+              if (TAB_KEYS.indexOf(savedTab) !== -1 && savedTab !== activeTab) switchTab(savedTab);
+              initHero();
+              if (activeTab === 'schedule') renderSchedule();
+              if (activeTab === 'subconscious') renderSubconscious();
+            } catch (err) { showBootErrorBanner(err, 'onApplied (cloud sync)'); }
+          }
+        });
+        setTimeout(maybeSeedAfterSyncAttempt, 5000);
+      } else {
+        maybeSeedAfterSyncAttempt();
+      }
+    } catch (err) {
+      showBootErrorBanner(err, 'boot');
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

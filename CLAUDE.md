@@ -39,6 +39,8 @@ Vercel's static server) — see README.md.
 | `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
+| `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (new — see changelog) |
+| `home.html` | Home — combines four *existing* pages (Dream Board / Tasks & Notes / AI & Tech / Self-Care) into one tab by embedding them, unmodified, in same-origin iframes (nothing in those pages or their data was touched), plus two genuinely new sections built natively here: a Weekly Schedule (per-task Mon–Sun checkboxes that reset each week, a progress bar, notes, filterable by day) and a Subconscious Reprogramming section (a daily ritual checklist, an Affirmations gallery with a practice-streak counter, and freeform Notes & Scripts). `home.html` + `home-data.js`, its own top-level page/nav pill, its own `home:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -192,6 +194,8 @@ page's CSS is self-contained in its own `<style>` block):
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
+   | `mainpillar` | `mainpillar.html` (new) | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
+   | `home` | `home.html` (new) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:active_tab`, `home:seeded`. The four embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -234,6 +238,8 @@ using `sync.js`.
 | Nutrition | `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
 | Learning & Knowledge Hub | `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 | Tasks & Notes | `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
+| Main Pillar | `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (new — see changelog) |
+| Home | `HOME` → `home.html` | `home.html` + `home-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file.
@@ -7469,3 +7475,361 @@ both as originally phrased assumed a backend this app doesn't have):
     a new tab field, a new function, a new seed block, new render-dispatch
     branches alongside the existing ones), and the pre-existing Content/
     Ideas/Platforms/Resources/Writing Dashboard tabs are untouched.
+
+- **New page: `mainpillar.html` ("Main Pillar"), a gamified daily command
+  center themed after Solo Leveling's "System" UI, built from a detailed
+  written spec** (Today/Weekly/Monthly/Year dashboards, a Whoop-fed habit
+  tracker, an AI-context journal, a Win of the Day archive, AI-generated
+  Morning/Weekly/Monthly/Yearly briefs, Smart Goal Allocation, Habit Streak
+  Analytics, and a Favorites memory archive). Genuinely new files,
+  `mainpillar.html` + `mainpillar-data.js` — new nav pill (`MAIN PILLAR` →
+  `mainpillar.html`, appended after `TASKS & NOTES` in `topbar.js`'s
+  injected pill list — the only edit made to `topbar.js`, same
+  one-line-addition precedent every prior page addition followed); new
+  sync key (`appKey: 'mainpillar'`, `syncedPrefixes: ['mainpillar:']`,
+  wired via the standard shared `initCloudSync` — same call pattern as
+  every other page, nothing new invented).
+  - **Confirmed scope, asked up front rather than guessed** (this request
+    described capabilities the app's actual architecture — no backend, no
+    cron, no active AI key, per §1/§2 — can't literally provide, the same
+    "flag rather than silently follow" precedent the Writing Dashboard
+    section above already established):
+    - **Placement**: a brand-new standalone page with its own `mainpillar:*`
+      data, not a rebuild of `index.html`. `index.html`'s own Goals command
+      center (habits, monthly/yearly allocation engine, journal, Life
+      Areas, Businesses, Self-Discovery) is completely untouched — some
+      concepts (habit streaks, goal allocation) now exist in both places
+      with separate data, by design; this page is the newer,
+      gamified/Whoop-aware system, not a replacement.
+    - **Whoop integration**: real OAuth needs a client secret, which can't
+      safely live in static client JS the way Supabase's public anon key
+      can (§2). Built as manual/pasted-in fields (`mainpillar:whoop:<date>`
+      — recovery/strain/sleep score/sleep hours/efficiency/HRV/RHR/SpO2/
+      skin temp/resp rate/notes, via a "Log Today's Whoop Data" modal) —
+      the real API can be wired in later once a backend decision is made;
+      nothing in the data model or UI would need to change, only how that
+      one record gets populated.
+    - **AI features** (Morning/Weekly/Monthly/Yearly Briefs): reuses this
+      app's one established pattern for this — a direct client-side
+      `fetch()` to `https://api.anthropic.com/v1/messages` with an
+      `ANTHROPIC_API_KEY` constant — following the same inactive-placeholder-
+      key convention as every other AI-shaped feature this file's own
+      history describes (`ANTHROPIC_API_KEY` here is literally
+      `'PASTE-YOUR-ANTHROPIC-API-KEY-HERE'`, matching the app's existing
+      `'PASTE-'`-prefix sentinel convention already used for
+      `TOPBAR_SUPABASE_KEY` in `topbar.js`). **Genuinely new, beyond just
+      reusing the pattern**: every brief-generating call
+      (`callAI(prompt)`) falls back to a locally-computed template summary
+      (`localFallbackDailyBrief()` and inline equivalents for the weekly/
+      monthly/yearly briefs) built directly from real Whoop/habit/task
+      data whenever the API call returns `null` — offline, no key, a bad
+      key, or a CORS/network failure all degrade to the same fallback
+      rather than a dead button — so the feature is genuinely useful with
+      zero configuration, not just a stub waiting for a key. Each cached
+      brief (`mainpillar:brief:<scope>:<periodKey>`) carries an `isAI`
+      flag so the UI can honestly label a result "AI-GENERATED" vs.
+      "AUTO-SUMMARY" rather than implying real AI ran when it didn't.
+    - **Automatic 8am email/push**: this app has no server and no cron of
+      any kind (§1) — there is nothing that can run at a fixed time if the
+      page isn't open. Built as generate-on-open instead: the Morning
+      Brief auto-generates (`maybeGenerateMorningBrief()`, called from
+      `renderAll()` on every load) the first time the page opens after
+      today's Whoop data exists, cached for the rest of the day, with a
+      manual "Regenerate" button — no email, no push, no backend. If real
+      scheduled delivery is wanted later, that's a standing architecture
+      addition (a real cron + an email API), not something built quietly
+      here.
+  - **Gamification (Solo Leveling framing), genuinely new to this app**:
+    a five-stat "Hunter" system (`mainpillar:hunter` — STR/VIT/INT/AGI/SEN,
+    mapped to physical training / sleep-recovery / learning-creative work /
+    tasks shipped / journaling-mindfulness respectively) that every
+    XP-earning action feeds into — completing a habit (its own configured
+    XP, into its own configured stat), completing a task (flat XP into
+    AGI), the first Win of the Day logged each day (small XP into SEN),
+    and the first journal save with real text each day (small XP into
+    INT). `xpForLevel(L) = 100*(L-1)*L/2` is a plain, documented RPG curve
+    (not a claim of any real formula) so leveling gets meaningfully slower
+    at higher levels; Rank (E through S) is derived purely from Level, no
+    separate stored field. A full-screen "LEVEL UP" overlay
+    (`.mp-levelup-bg`, styled to match the page's own System-HUD aesthetic)
+    fires automatically whenever a render detects the computed level has
+    passed `hunter.lastSeenLevel`, auto-dismissing (and acknowledging)
+    after ~2.6s or on click — this is genuinely new UI, not reused from
+    `example.html`'s existing "Solo Leveling: Beyond the System"-themed
+    notification (that page's `.sy-notify` component is a static demo, not
+    a real event-driven system).
+  - **Palette/component techniques, an explicit aesthetic exception**: own
+    self-contained `--mp-*` tokens (near-black background, cyan/purple
+    glow accents, gold for XP/rank) — the same "explicit gamification/
+    aesthetic-match instruction" exception category as every other themed
+    page in this app (CLAUDE.md §6/DO NOT MODIFY rule 2), reusing this
+    exact codebase's own already-established System-HUD *techniques*
+    (`example.html`'s clip-path notched-corner panels, CRT scanline
+    overlay, `sy-notify`-style bordered notification blocks) under this
+    page's own token prefix, rather than inventing a fresh visual
+    language from scratch. `--good`/`--warn`/`--bad` semantic roles were
+    kept as plain green/amber/red (not cyan-ified) for the same
+    "status colors carry meaning, not brand accent" reason `gym.html`'s
+    own crimson re-theme already established. A Google Fonts pairing new
+    to this repo — Rajdhani (display) + Chakra Petch (mono/HUD labels) —
+    was loaded for a techy, gamer-HUD feel; every other page's existing
+    font pairing (system sans + SF Mono stack, or Cormorant Garamond on
+    the Dream-Board-family pages) was left untouched.
+  - **Data model** (`mainpillar-data.js`, same model-factory +
+    `makeCollection` + pure-selector conventions as every other page's own
+    `-data.js`): flat collections for `Habits`/`Tasks`/`Projects`/`Wins`/
+    `Goals`/`Favorites`, plus date-keyed records for `whoop:<date>`/
+    `habitlog:<date>`/`journal:<date>` and scope-keyed records for
+    `brief:<scope>:<periodKey>`. `applyAutoCompletes(dateStr)` — a habit
+    can optionally be wired to a Whoop field + threshold (e.g. "Sleep 7+
+    hours" auto-completes once `sleepHours >= 7` is logged for the day);
+    it's idempotent (routes through the same `setHabitLogDone()` path a
+    manual checkbox uses, which no-ops once already true) so it's safe to
+    call on every render/save, and is called both after every Whoop save
+    and at the top of every `renderAll()` so a value arriving via cloud
+    sync from another device retroactively completes the right quests
+    too, not just a same-device manual save.
+  - **Smart Goal Allocation** (`computeGoalAllocation()`) is a genuinely
+    separate, self-contained implementation of the same idea as
+    `index.html`'s own monthly/yearly goal-allocation engine — not a port
+    of that code, since this page's goals are entirely separate data
+    (`mainpillar:goals`/`mainpillar:goalLog:<goalId>`, own periods/own
+    logged-progress). Same behavior in spirit: a target split evenly
+    across the remaining periods of its scope (yearly → 12 months,
+    monthly → ~4-5 Sunday-start weeks), with a per-goal `rollover` setting
+    (`roll` onto just the next period, or `redistribute` evenly across
+    every remaining period) reconciling any already-past period's
+    shortfall forward on every read — so a missed month doesn't fail the
+    goal outright, the same "adapts automatically rather than failing"
+    behavior the request specifically asked for.
+  - **Habit Streak Analytics**: `computeHabitStreaks()` (current/best,
+    walked day-by-day from the habit's own creation date, same algorithm
+    shape as `index.html`'s own `computeHabitStreaks()` but against this
+    page's separate habit/log data) and `habitConsistency()` (% of
+    scheduled days completed over an arbitrary date range) back three
+    surfaces at once: the per-quest streak badge on Today's Daily Quests,
+    the Habit Streak Analytics list on the Goals tab (current/best/30-day
+    consistency per habit), and every heat-map cell on the Monthly/Year
+    tabs (`dayHabitScore()` — % of that day's scheduled quests completed).
+  - **Monthly/Year heat maps**: four independent month-grid heat maps
+    (Recovery/Strain/Sleep/Quest Consistency) on the Monthly tab, plus a
+    53-column GitHub-contribution-style full-year grid on the Year tab —
+    same "no charting library, hand-rolled `<div>` grid" convention this
+    app has used for every other visualization (`projects.html`'s own
+    contribution grid, `gym.html`'s sparklines, etc.). Every cell, on
+    every heat map, is clickable and opens a shared **Day Detail modal**
+    (`#mpDayModalBg`) showing that date's Whoop tiles, that day's quest
+    checklist, journal text, and any wins logged — the literal "clicking
+    any day opens the daily report/journal/Whoop metrics" ask.
+  - **Favorites** (`mainpillar:favorites`) is a deliberately simple gallery
+    — type chips (Post/Photo/Video/Moment/Note), search, a paste-a-URL
+    cover field (no upload/compression pipeline, unlike most other
+    galleries in this app — a deliberate scope cut consistent with how
+    e.g. `selfcare.html`'s Bucket List cover field was kept simple for the
+    same reason) — explicitly framed as a memory archive, not a
+    productivity surface, per the request's own "focuses on preserving
+    meaningful life memories" framing.
+  - **Yearly AI Review** is built now, not left as a stub, despite the
+    request's own spec text labeling it "planned future feature" — since
+    it uses the exact same `callAI()`/fallback-template mechanism as every
+    other brief here, withholding it would have meant deliberately
+    building a worse version of something already built for consistency's
+    sake. The Year tab's notification panel is seeded with a plain
+    explanatory placeholder ("generate it once you have a few months of
+    data logged") until the button is pressed at least once, so it doesn't
+    read as a broken/empty feature on a fresh install.
+  - **A real bug caught and fixed before shipping, not by browser testing
+    (which wasn't available — see below) but by re-reading the script
+    load order**: `mainpillar-data.js`/`sync.js`/`topbar.js` all load with
+    `defer`, so they only execute once the document has finished parsing —
+    right before `DOMContentLoaded`. The page's own inline `<script>` (no
+    `src`, so `defer` has no effect on it per spec) executes immediately
+    as the parser reaches it, which is *earlier* than that — so the
+    original version's top-level boot call (`switchTab(...); renderAll();
+    seedRaceSafeInit();`, plus a `state.activeTab` initializer that called
+    `MD()`) would have run before `window.MainPillarData` existed at all,
+    throwing on the very first real load. Fixed by moving that state
+    initializer to a plain `localStorage.getItem(...)` read (it never
+    actually needed the data-layer file) and wrapping the whole boot call
+    in `document.addEventListener('DOMContentLoaded', function(){...})`
+    — the same pattern `household.html`/`aitech.html` already use for
+    exactly this reason. Every `$('id')`/click-handler binding elsewhere
+    in the script was already safe as-is (DOM nodes above the script tag
+    exist by parse time; a handler body that calls `MD()` only runs later,
+    on an actual click, which is always after `DOMContentLoaded`).
+  - **Verification, disclosed honestly**: this session's headless-Edge
+    automation could not be used at all — every launch attempt (isolated
+    `--user-data-dir`, `--host-resolver-rules` blocking `*.supabase.co`,
+    both `--dump-dom` and a `--remote-debugging-port` attempt) failed
+    immediately with `"Multiple targets are not supported in headless
+    mode"`, the same absorbed-into-an-already-running-background-instance
+    failure mode several other pages' changelog entries in this file
+    already document for this environment; a real, pre-existing
+    `--no-startup-window` Edge process on the user's own profile was
+    found running and deliberately left untouched rather than killed, per
+    this file's own established caution around background browser
+    instances that might be the user's real session. Verified statically
+    instead, the same fallback several other entries in this file already
+    use: brace/paren balance confirmed on both new files (186/186 braces
+    and 480/480 parens in `mainpillar-data.js`; 220/220 braces and
+    1216/1216 parens in `mainpillar.html`'s inline script, re-confirmed
+    after the boot-order fix above; 156/156 braces in its `<style>`
+    block); zero duplicate DOM ids across 133 unique element ids; every
+    one of the 115 `$('id')` references and all 51 `D.xxx`/`MD().xxx`
+    calls into `MainPillarData`'s public API cross-matched and resolved
+    with nothing missing. Given the boot-order bug the script-load-order
+    re-read alone caught, this is a meaningfully weaker guarantee than an
+    actual click-through — more so than usual for this disclosed caveat
+    this file's own `dreamboard.html`/`aitech.html`/`learning.html`/
+    `youtube-data.js` entries already carry for this exact environment
+    limitation — a real test (logging a day of Whoop data, checking off a
+    quest and confirming XP/streak/level-up behavior, generating a brief
+    with no key configured to confirm the fallback text reads sensibly,
+    clicking through a heat-map cell to the Day Detail modal, logging
+    progress against a Smart Goal and confirming the allocation math)
+    is recommended before relying on this page heavily.
+
+- **New page: `home.html` ("Home") — combines four *existing* pages
+  (Dream Board / Tasks & Notes / AI & Tech / Self-Care) into one tab,
+  plus a Weekly Schedule section and a Subconscious Reprogramming
+  section.** Per an explicit instruction, **nothing in any existing tab
+  or page was deleted** — every one of the four combined pages is
+  reused completely unmodified.
+  - **How "combine" was actually implemented**: `home.html` embeds
+    `dreamboard.html`/`tasksnotes.html`/`aitech.html`/`selfcare.html` as
+    four of its six sub-tabs, each in a same-origin `<iframe>`, lazily
+    loaded (the `src` is only set the first time that sub-tab is opened,
+    so switching to Home doesn't cold-start four pages' worth of Supabase
+    Realtime subscriptions at once). This was a deliberate choice over
+    re-implementing all four systems' UI/logic a second time inside one
+    new file — that would have meant duplicating Dream Board's/Business
+    Hub's own widget-board engine, Tasks & Notes' three databases, AI &
+    Tech's Models/Prompts split, and Self-Care's five tabs, all over
+    again, with real risk of the two copies drifting apart. Embedding the
+    real, live pages instead means: zero duplicated logic, zero risk of
+    divergence, and each embedded page keeps its own full functionality
+    exactly as it already works, including its own existing
+    `initCloudSync(...)` call under its own existing Supabase `key`
+    (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`, all untouched — see
+    §4). Each embedded panel also has an "Open full page ↗" link
+    (`target="_blank"`) as an escape hatch, since an iframe is
+    necessarily more cramped than the real page.
+  - **One small, disclosed, non-destructive runtime tweak**: on load,
+    each iframe gets a best-effort `<style>` injected into *its own*
+    `contentDocument` (same-origin only, wrapped in try/catch — silently
+    skipped if that ever fails, e.g. cross-origin) that hides `.topbar`
+    inside that one embedded instance, so Home doesn't show two stacked
+    nav bars. This does **not** touch `topbar.js` or any of the four
+    embedded pages' own files on disk — it's a one-time DOM mutation
+    scoped to the specific iframe document rendered inside Home, gone the
+    moment that iframe reloads or Home is closed. If it ever silently
+    fails, the only visible effect is the nested topbar staying visible
+    — harmless, not a functional regression.
+  - **Weekly Schedule** (new, native — `home-data.js`'s `ScheduleTasks`
+    collection): a small database of recurring tasks, each with a
+    Mon–Sun row of checkboxes, a progress bar, and a notes field, per the
+    request's own wording. A task's `scheduledDays[]` (which weekdays it
+    actually applies to — unscheduled days render as a dimmed,
+    unclickable checkbox rather than being hidden, so the 7-day shape
+    stays visually consistent across tasks) is set from a 7-chip toggle
+    row in the Add/Edit modal. **Checkboxes reset automatically at the
+    start of a new week**: each task carries a `checksWeekStart` stamp
+    (that week's Monday date); `HomeData.resetStaleWeeks()` runs on every
+    render of this tab and, for any task whose stamp doesn't match the
+    real current Monday, clears its checks back to unchecked and updates
+    the stamp — title/notes/scheduledDays are untouched, only the
+    checkbox state is weekly-scoped. The progress bar is
+    checked-days-÷-scheduled-days for the current week, computed fresh on
+    every render, never stored. **"Filtered by day"** (the request's own
+    phrase) is a chip row — All Days + one chip per weekday — that
+    narrows the task list to only tasks scheduled on the selected day;
+    composes with nothing else since this is the only filter dimension
+    asked for. Reordering is up/down arrows (this app's standard
+    swap-adjacent-`order`-values convention for non-drag lists, e.g. Life
+    Areas/Workflow weeks — chosen over adding a SortableJS instance for
+    one small list).
+  - **Subconscious Reprogramming** (new, native — three more
+    `home-data.js` collections), three sub-sections under one tab:
+    - **Today's Ritual** — a small checklist (`RitualItems`) that resets
+      every day (a `home:ritualDate` stamp, same reset-via-date-stamp
+      mechanism as the Weekly Schedule's own weekly reset, just daily) —
+      quick-add a step, check it off, delete it.
+    - **Affirmations** (`Affirmations`) — a filterable gallery (category
+      chips, a Favorites-only chip, search) with a "✓ Mark
+      Practiced"/"✓ Practiced Today · N" button per card. Clicking it logs
+      one practice rep for today via `HomeData.markAffirmationPracticed()`:
+      the first rep of a new day advances the streak (continues it if
+      yesterday was also practiced, else resets to 1) and raises the
+      best-streak high-water mark; every additional rep the same day just
+      increments today's count — the concrete "practice-streak counter"
+      piece of "reprogramming the subconscious," since repetition is the
+      actual mechanism most of these techniques rely on.
+    - **Notes & Scripts** (`ReprogramSections`) — a freeform "+ Generate
+      Section" list (editable title + autosizing body textarea, up/down
+      reorder, delete), the same generated-on-demand-notes-section
+      pattern `business.html`'s Platform Detail page already established
+      — for visualization scripts, mantras, or sleep-programming notes,
+      seeded with one example of each.
+  - **Seeding, sync, and boot**, all following this app's already-
+    established conventions rather than inventing new ones: `home-data.js`
+    is the same `makeCollection`/model-factory shape as
+    `aitech-data.js`/`business-data.js`; `home.html` calls
+    `initCloudSync({ appKey: 'home', syncedPrefixes: ['home:'] })` (a
+    brand-new `key`, since this page's own two new sections are genuinely
+    new data with nowhere else to live — the four embedded pages'
+    existing `key`s are never touched); seeding is deferred behind the
+    same empty-storage seed-race-safety window as
+    `dreamboard.html`/`business.html`/`aitech.html` (`maybeSeedAfterSync
+    Attempt()`, only runs once the cloud pull has had a real 5-second
+    window to answer, or immediately if the Supabase SDK never loaded);
+    and the whole boot sequence is wrapped in `document.addEventListener
+    ('DOMContentLoaded', boot)` (not run immediately at parse time) plus a
+    `showBootErrorBanner()` safety net — both fixes for failure classes
+    this app has hit for real before (`mainpillar.html`'s deferred-script
+    load-order bug; `gym.html`'s `BOARD_WIDGET_TYPES` temporal-dead-zone
+    crash) — applied here from the start instead of being discovered the
+    same way a second time.
+  - **Header, deliberately compact, not a full-viewport hero**: every
+    other Dream-Board-family page's hero is 66–78vh; Home's header is a
+    plain padded title block (editable eyebrow/title/subtext, no cover
+    photo). This is a disclosed, deliberate divergence from that family
+    look, not an oversight — `gym.html`'s own changelog already documents
+    a real bug report ("the page looks blank") traced directly to a
+    too-tall hero burying a data-heavy page's real content below the
+    fold; Home sits six tabs deep with two of them holding real new
+    functionality, so the same mistake was avoided from the start rather
+    than shipped and fixed later.
+  - **Palette**: this file's own `--hm-*` tokens are a direct copy of
+    Dream Board/Business Hub's near-black/gold values — the "common
+    thread" aesthetic shared by 3 of the 4 combined tabs (Dream Board,
+    Tasks & Notes, and Self-Care all already use it; AI & Tech's teal is
+    its own separate one-off exception, per CLAUDE.md §6) — same
+    aesthetic-match reasoning Learning Hub's and Tasks & Notes' own
+    changelog entries already used when making the identical call. No
+    other page's tokens were touched (DO NOT MODIFY rule 2).
+  - `topbar.js` gained one new pill (`HOME` → `home.html`, appended after
+    `MAIN PILLAR` — the only edit made to that shared file, same
+    one-line-addition precedent every prior page addition followed). No
+    `MODAL_SELECTORS` edit was needed — Home's two modals use the plain
+    `.modal-bg`/`.modal` classes already covered by that array.
+  - **Verification, disclosed honestly**: this session had no way to
+    launch an isolated, interactive headless-Edge/CDP session (no
+    browser-automation tooling was available at all in this environment
+    this round, not even the `--dump-dom`-only fallback several other
+    entries in this file used when interactive CDP specifically was
+    unavailable). Verified statically instead, the same reduced-guarantee
+    fallback this file's own `dreamboard.html`/`aitech.html`/
+    `learning.html`/`mainpillar.html` entries already disclose for this
+    exact class of limitation: brace/paren/bracket balance confirmed on
+    both new files (`home.html`'s inline script and `home-data.js` both
+    balance to zero); zero duplicate DOM ids across all 35 element ids in
+    `home.html`; and all 34 distinct `$('id')` references in the script
+    cross-matched against real element ids with nothing unresolved. **Not
+    verified this way**: an actual click-through (switching every tab and
+    confirming the right iframe/panel shows, adding a schedule task and
+    toggling its checkboxes, confirming a stale week's checkboxes reset,
+    marking an affirmation practiced twice in one day vs. across two
+    consecutive days to confirm the streak math, generating and editing a
+    Notes & Scripts section, and confirming the iframe topbar-hiding
+    tweak degrades harmlessly when it can't apply). A real click-through
+    is recommended before relying on this page heavily.

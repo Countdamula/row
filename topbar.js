@@ -199,6 +199,14 @@ body.topbar-modal-open {
     <span class="topbar-pill-dot"></span>
     <span class="topbar-pill-label">TASKS &amp; NOTES</span>
   </a>
+  <a href="mainpillar.html" class="topbar-pill" id="topbarMainPillar">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">MAIN PILLAR</span>
+  </a>
+  <a href="home.html" class="topbar-pill" id="topbarHome">
+    <span class="topbar-pill-dot"></span>
+    <span class="topbar-pill-label">HOME</span>
+  </a>
 </header>
 `;
 
