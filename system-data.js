@@ -71,12 +71,64 @@
     challenges: 'system:challenges',
     pageNotes: 'system:pageNotes',
     identityPrompts: 'system:identityPrompts',
+    hero: 'system:hero',
     activeTab: 'system:active_tab',
     seeded: 'system:seeded'
   };
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ============================================================
+  // IMAGE COMPRESSION — same canvas-downscale recipe every other page in
+  // this app already uses (aitech-data.js, etc.).
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 480;
+    quality = quality == null ? 0.82 : quality;
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+
+  // ============================================================
+  // HERO — a single, editable cover-photo record, same get/save-one-record
+  // shape as aitech-data.js's hero. Defaults bake in this page's original
+  // static header copy, so the header reads correctly even before the
+  // seed-race-safety window's first sync/seed pass has run.
+  // ============================================================
+  /** @typedef {{eyebrow:string, title:string, subtext:string, ctaLabel:string, photo:string, photoColor:string}} SysHero */
+  function heroModel(data) {
+    data = data || {};
+    function s(v, fallback) { return typeof v === 'string' && v !== '' ? v : fallback; }
+    return {
+      eyebrow: s(data.eyebrow, 'Build Your Own System'),
+      title: s(data.title, 'Dreams become measurable.'),
+      subtext: s(data.subtext, 'Ten goals, narrowed to three. Repeatable daily and weekly actions. Three systems — written, visual, mental — that keep you showing up.'),
+      ctaLabel: s(data.ctaLabel, 'START BUILDING'),
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      photoColor: typeof data.photoColor === 'string' ? data.photoColor : ''
+    };
+  }
+  function getHero() { return heroModel(storeGet(KEYS.hero)); }
+  function saveHero(patch) {
+    const next = heroModel(Object.assign({}, getHero(), patch));
+    storeSet(KEYS.hero, next);
+    return next;
   }
 
   // ============================================================
@@ -481,6 +533,7 @@
     PageNotes.replaceAll([]);
     IdentityPrompts.replaceAll([]);
     storeSet(KEYS.vision, null);
+    storeSet(KEYS.hero, null);
 
     const goalDefs = [
       'Build a business that replaces my income',
@@ -565,6 +618,9 @@
     uid: uid,
     nextOrder: nextOrder,
     moveInCollection: moveInCollection,
+    compressImageDataUrl: compressImageDataUrl,
+    getHero: getHero,
+    saveHero: saveHero,
     todayISO: todayISO,
     currentMondayISO: currentMondayISO,
 

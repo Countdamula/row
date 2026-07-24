@@ -41,7 +41,7 @@ Vercel's static server) — see README.md.
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
-| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. Re-themed to match Main's (`index.html`) near-black/warm-gold frosted-glass-card aesthetic — see changelog. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
+| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. Re-themed to match Main's (`index.html`) near-black/warm-gold frosted-glass-card aesthetic, with a matching editable cover-photo hero (upload/change/remove, page-wide blurred backdrop) — see changelog. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -8543,3 +8543,81 @@ both as originally phrased assumed a backend this app doesn't have):
     render, does the serif font load, does the gold gradient button read
     correctly against the new dark background) is recommended before
     relying on the look of this page.
+
+- **Build Your System (`system.html`) gained a real cover-photo hero**,
+  per an explicit follow-up asking for "the cover photo design" — the
+  plain text header (eyebrow/title/subtext as static markup) is replaced
+  with the same upload-a-cover-photo hero mechanism `aitech.html`'s/
+  `index.html`'s own heroes already use: an optional uploaded photo with
+  a legibility gradient overlay, editable eyebrow/title/subtext on top,
+  Change/Remove tools once a photo is set, and a page-wide blurred
+  backdrop (`#bsPageBg`) keyed to the same photo, matching `index.html`'s
+  own `#rtPageBg`. Nothing else on the page changed — same seven
+  databases, same 4 tabs/6 subpages, same up-to-3-goal selection, same
+  Notes/Prompts blocks, all untouched.
+  - **Data**: `system-data.js` gained a `hero` record (`{eyebrow, title,
+    subtext, ctaLabel, photo, photoColor}`, `KEYS.hero = 'system:hero'`),
+    `getHero()`/`saveHero()` (get/save-a-single-record shape, same as
+    `aitech-data.js`'s hero), and `compressImageDataUrl()` (the same
+    canvas-downscale-before-storage recipe every other page's cover photo
+    already uses). `photoColor` is carried on the model but not actively
+    used — same vestigial-but-shape-consistent field `aitech-data.js`'s
+    own hero already has (never populated there either). Already covered
+    by the existing `initCloudSync({ syncedPrefixes: ['system:'] })`
+    call — no new sync key, no `sync.js` change.
+  - **Sensible defaults baked into the model, not left blank**:
+    `heroModel()`'s defaults are this page's own original static copy
+    ("Build Your Own System" / "Dreams become measurable." / the original
+    subtext sentence) rather than empty strings — so the header reads
+    correctly the instant the page loads, even before the empty-storage
+    seed-race-safety window's first sync/seed pass has had a chance to
+    run, the same problem this app's other hero-bearing pages don't have
+    to solve since they only ever showed a "+ Add a cover photo" empty
+    state pre-seed, not real body copy. `seedDefaultData()` (Reset to
+    Default) clears the hero back to these defaults via `storeSet(KEYS.hero,
+    null)`, so a customized hero is also reset along with everything else.
+  - **Upload pipeline**: `photo-store.js` was added to this page for the
+    first time (`<script src="photo-store.js" defer>`) — the compressed
+    photo is saved locally immediately (`compressImageDataUrl(…, 1100,
+    0.78)`, the same "wide hero" preset `aitech.html`'s own hero uses),
+    then swapped for a tiny Supabase-Storage-hosted URL once the upload
+    settles, same two-step pattern as every other page's cover photo in
+    this app (see the earlier `photo-store.js` changelog entry on why —
+    keeps this page's own localStorage footprint from growing the way
+    embedded base64 images otherwise would). A `migratePhotosToStorage()`
+    one-time backfill (guarded by a `system:photosMigratedV1` flag, called
+    from a 3s `setTimeout` at boot) catches a hero photo saved before the
+    upload finished on a prior session.
+  - **Deliberately modest hero height** (`min-height: 300px`, not a
+    full-viewport hero like Dream Board's or the ~78vh figure Main's own
+    hero briefly used) — this app has a documented real bug report
+    (`gym.html`'s own changelog: a near-full-viewport hero with no photo
+    set reads as "the page is blank") traced directly to an oversized
+    hero burying a data-heavy page's real content below the fold; since
+    this page is a dense, tab-based multi-database tool (not a vision-
+    board landing page), the same mistake was avoided from the start
+    rather than shipped and fixed later a second time.
+  - **The back button and the "Selected Goals" banner both moved inside
+    the hero** (the back button now floats over the photo, frosted-glass
+    style, same `position: absolute` treatment as every other hero's back
+    button in this app; the goals banner sits inside `.bs-hero-content`
+    below the subtext, with its own translucent/blurred fill so it stays
+    legible over an arbitrary photo) — both were previously plain page
+    elements above/below a static header; neither was deleted or had its
+    own behavior changed, only repositioned.
+  - **Verified statically** (no interactive browser session was available
+    this round either, same disclosed limitation as this page's prior
+    entries): `<style>` block braces re-balanced (162/162); the inline
+    script's braces/parens re-balanced (305/305, 1378/1378); every
+    `$('id')` reference (110 distinct) cross-matched against real HTML ids
+    (126 distinct) with zero unresolved — the newly-unmatched ids
+    (`bsHero`, `bsHeroMedia`) are pure container elements never queried
+    directly, same expected-unused category as the page's existing
+    Notes/Prompts containers; zero duplicate DOM ids; every HTML tag type
+    (including the new `<header>`/`<img>`/`<a>` in the hero) confirmed
+    open/close-balanced, with `<img>` correctly counted as a legitimate
+    unclosed void element. A real click-through (uploading a photo,
+    confirming the page-wide backdrop and Change/Remove tools appear,
+    editing the eyebrow/title/subtext and confirming they persist on
+    reload, confirming Reset to Default clears a customized hero back to
+    the original copy) is recommended before relying on this feature.

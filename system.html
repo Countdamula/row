@@ -10,6 +10,7 @@
 <title>Build Your System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="system-data.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,25 +84,75 @@ body::before {
 
 .shell { max-width: 1000px; margin: 0 auto; padding: 20px 16px 70px; position: relative; z-index: 1; }
 
+/* Page-wide blurred cover-photo backdrop, keyed to the hero photo — same
+   technique as index.html's #rtPageBg / Dream Board's #dbPageBg. z-index:0
+   plus DOM order (not a negative z-index) — see the body::before comment
+   above for why. Empty (no background-image) when no photo is set, same
+   as every other page using this pattern. */
+.bs-page-bg {
+  position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center;
+  filter: blur(60px) saturate(1.3) brightness(0.55); transform: scale(1.15); pointer-events: none;
+}
+
+/* ===== Cover-photo hero, same recipe as aitech.html's/index.html's own
+   hero: an optional uploaded photo, a legibility gradient overlay, and
+   editable eyebrow/title/subtext on top. ===== */
+.bs-hero {
+  position: relative; overflow: hidden; min-height: 300px; display: flex; align-items: flex-end;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 64px 24px 30px; margin-bottom: 18px;
+  background: radial-gradient(ellipse at top left, rgba(201,168,118,0.18), transparent 55%),
+              radial-gradient(ellipse at bottom right, rgba(201,168,118,0.08), transparent 60%),
+              rgba(255,255,255,0.04);
+}
+.bs-hero-media { position: absolute; inset: 0; z-index: 0; background: transparent; }
+.bs-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.bs-hero-photo-choice { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.bs-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.45); border: 1px dashed var(--border); color: var(--text-tertiary);
+  border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.bs-hero-photo-choice-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.bs-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.12) 0%, rgba(5,4,3,0.6) 60%, rgba(5,4,3,0.9) 100%);
+}
+.bs-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 6px;
+}
+.bs-hero-photo-tools button {
+  background: rgba(11,10,8,0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary);
+  font-size: 11.5px; font-weight: 600; padding: 6px 12px; cursor: pointer;
+}
+.bs-hero-photo-tools button:hover { color: var(--accent-bright); border-color: var(--accent); }
+.bs-hero-content { position: relative; z-index: 2; max-width: 640px; width: 100%; }
 .bs-back-btn {
-  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px;
-  padding: 8px 14px 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px;
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px 8px 10px; background: rgba(11,10,8,0.45); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 999px;
   color: var(--text-secondary); text-decoration: none; font-size: 12.5px; font-weight: 600;
 }
 .bs-back-btn:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
 
-.bs-header { margin-bottom: 18px; }
-.bs-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent-bright); margin-bottom: 10px; }
+.bs-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent-bright); margin-bottom: 10px; outline-offset: 4px; }
 .bs-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--accent); margin-right: 10px; vertical-align: middle; }
 .bs-title { font-family: var(--font-serif); font-weight: 500; font-size: clamp(26px, 4.6vw, 40px); letter-spacing: -0.01em; line-height: 1.1; margin-bottom: 10px; }
-.bs-subtext { font-size: 14px; color: var(--text-secondary); line-height: 1.5; max-width: 620px; }
+.bs-hero-title-input {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  color: var(--text-primary); padding: 0; outline-offset: 4px;
+}
+.bs-hero-title-input::placeholder { color: var(--text-tertiary); }
+.bs-subtext { font-size: 14px; color: var(--text-secondary); line-height: 1.5; max-width: 480px; outline-offset: 3px; }
 
 .bs-primary-banner {
-  margin-top: 16px; padding: 14px 16px; border-radius: var(--radius-md);
-  background: var(--accent-tint); border: 1px solid rgba(201,168,118,0.35);
+  margin-top: 18px; padding: 14px 16px; border-radius: var(--radius-md);
+  background: rgba(201,168,118,0.16); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border: 1px solid rgba(201,168,118,0.4);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
-.bs-primary-banner.is-empty { background: var(--bg-card); border-color: var(--border); }
+.bs-primary-banner.is-empty { background: rgba(11,10,8,0.4); border-color: var(--border); }
 .bs-primary-banner-icon { font-size: 18px; }
 .bs-primary-banner-text { font-size: 13px; color: var(--text-secondary); }
 .bs-primary-banner-goal { font-weight: 700; color: var(--text-primary); }
@@ -278,18 +329,32 @@ body::before {
 </style>
 </head>
 <body>
+<div class="bs-page-bg" id="bsPageBg"></div>
 <div class="shell">
-  <a href="index.html" class="bs-back-btn" aria-label="Back to dashboard">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-    <span>Back</span>
-  </a>
-
-  <div class="bs-header">
-    <div class="bs-eyebrow">Build Your Own System</div>
-    <div class="bs-title">Dreams become measurable.</div>
-    <div class="bs-subtext">Ten goals, narrowed to one. One goal, turned into repeatable daily and weekly actions. Three systems — written, visual, mental — that keep you showing up.</div>
-    <div class="bs-primary-banner" id="bsPrimaryBanner"></div>
-  </div>
+  <header class="bs-hero" id="bsHero">
+    <div class="bs-hero-media" id="bsHeroMedia">
+      <img id="bsHeroPhotoImg" style="display:none;" alt="">
+      <div class="bs-hero-photo-choice" id="bsHeroPhotoChoice">
+        <button type="button" class="bs-hero-photo-choice-btn" id="bsHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="bs-hero-overlay"></div>
+    <a href="index.html" class="bs-back-btn" aria-label="Back to dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      <span>Back</span>
+    </a>
+    <div class="bs-hero-photo-tools" id="bsHeroPhotoTools" style="display:none;">
+      <button type="button" id="bsHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="bsHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="bsHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="bs-hero-content">
+      <div class="bs-eyebrow" id="bsHeroEyebrow" contenteditable="true" spellcheck="false"></div>
+      <textarea class="bs-title bs-hero-title-input" id="bsHeroTitle" rows="1" spellcheck="false" placeholder="Your headline here…"></textarea>
+      <div class="bs-subtext" id="bsHeroSubtext" contenteditable="true" spellcheck="false"></div>
+      <div class="bs-primary-banner" id="bsPrimaryBanner"></div>
+    </div>
+  </header>
 
   <div class="bs-toolbar-row">
     <span class="bs-sync-status" id="bsSyncStatus"></span>
@@ -587,6 +652,23 @@ body::before {
     if (text != null) node.textContent = text;
     return node;
   }
+  // Same commit-on-blur/Enter, revert-on-Escape contenteditable helper as
+  // aitech.html's/business.html's own hero eyebrow/subtext fields.
+  function wireInlineEdit(target, onCommit, opts) {
+    opts = opts || {};
+    let original = target.textContent;
+    target.addEventListener('focus', function () { original = target.textContent; });
+    target.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); target.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); target.textContent = original; target.blur(); }
+    });
+    target.addEventListener('blur', function () {
+      const val = target.textContent.trim();
+      if (!val && opts.allowEmpty === false) { target.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
 
   let DB = null;
   let editingGoalId = null;
@@ -622,6 +704,69 @@ body::before {
     setSyncStatus('saved', 'Saved — syncing…');
     clearTimeout(syncStatusTimer);
     syncStatusTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1800);
+  }
+
+  // ============================================================
+  // HERO — cover photo + editable eyebrow/title/subtext, same shape and
+  // behavior as aitech.html's own hero. renderPageBg() drives the page-
+  // wide blurred backdrop keyed to the same photo.
+  // ============================================================
+  function renderPageBg() {
+    const bg = $('bsPageBg');
+    if (!bg) return;
+    const hero = DB.getHero();
+    bg.style.backgroundImage = hero.photo ? "url('" + hero.photo + "')" : '';
+  }
+  function renderHero() {
+    const hero = DB.getHero();
+    $('bsHeroEyebrow').textContent = hero.eyebrow;
+    $('bsHeroTitle').value = hero.title;
+    $('bsHeroSubtext').textContent = hero.subtext;
+    autosize($('bsHeroTitle'));
+    const img = $('bsHeroPhotoImg'), choice = $('bsHeroPhotoChoice'), tools = $('bsHeroPhotoTools');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+    renderPageBg();
+  }
+  function openHeroFilePicker() { $('bsHeroPhotoInput').click(); }
+  function handleHeroPhotoFile(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 1100, 0.78).then(function (compressed) {
+        DB.saveHero({ photo: compressed });
+        renderHero();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (DB.getHero().photo !== compressed) return;
+            DB.saveHero({ photo: url });
+            renderHero();
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  // One-time backfill: uploads an already-stored base64 hero photo to
+  // Supabase Storage and replaces it with a tiny hosted URL, same
+  // localStorage-footprint-reduction pass every other page's hero already
+  // runs (see aitech.html's own migratePhotosToStorage()).
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore) return;
+    let migrated = false;
+    try { migrated = localStorage.getItem('system:photosMigratedV1') === 'true'; } catch (e) {}
+    if (migrated) return;
+    const heroPhoto = DB.getHero().photo;
+    if (typeof heroPhoto === 'string' && heroPhoto.indexOf('data:') === 0) {
+      window.PhotoStore.upload(heroPhoto).then(function (url) {
+        if (url && DB.getHero().photo === heroPhoto) { DB.saveHero({ photo: url }); renderHero(); }
+        if (url) { try { localStorage.setItem('system:photosMigratedV1', 'true'); } catch (e) {} }
+      });
+    } else {
+      try { localStorage.setItem('system:photosMigratedV1', 'true'); } catch (e) {}
+    }
   }
 
   // ============================================================
@@ -1380,6 +1525,7 @@ body::before {
     renderAllPanels();
   }
   function renderAllPanels() {
+    renderHero();
     renderSelectedGoalsBanner();
     renderGoals();
     renderActions();
@@ -1412,6 +1558,16 @@ body::before {
     });
 
     $('bsResetBtn').addEventListener('click', resetAll);
+
+    // Hero wiring
+    wireInlineEdit($('bsHeroEyebrow'), function (v) { DB.saveHero({ eyebrow: v }); }, { allowEmpty: true });
+    wireInlineEdit($('bsHeroSubtext'), function (v) { DB.saveHero({ subtext: v }); }, { allowEmpty: true });
+    $('bsHeroTitle').addEventListener('input', function () { autosize($('bsHeroTitle')); });
+    $('bsHeroTitle').addEventListener('blur', function () { DB.saveHero({ title: $('bsHeroTitle').value }); });
+    $('bsHeroAddPhotoBtn').addEventListener('click', openHeroFilePicker);
+    $('bsHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openHeroFilePicker(); });
+    $('bsHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); DB.saveHero({ photo: '', photoColor: '' }); renderHero(); });
+    $('bsHeroPhotoInput').addEventListener('change', handleHeroPhotoFile);
 
     // Goals wiring
     $('bsAddGoalBtn').addEventListener('click', function () { openGoalModal(null); });
@@ -1490,10 +1646,12 @@ body::before {
     switchTab(startTab);
     switchCoreSub('written');
     switchIdentitySub('anchors');
+    renderHero();
     renderSelectedGoalsBanner();
     renderGoals();
     renderAllNotes();
     renderAllPrompts();
+    setTimeout(migratePhotosToStorage, 3000);
 
     function isEmptyEverywhere() {
       return DB.Goals.list().length === 0 && DB.Actions.list().length === 0 && DB.Processes.list().length === 0 &&
