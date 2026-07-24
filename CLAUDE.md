@@ -7350,3 +7350,122 @@ both as originally phrased assumed a backend this app doesn't have):
   either keep merging/fast-forwarding after each push (as done here), or
   do the work directly against `main` if there's no longer a reason to
   keep the two branches separate.
+
+- **New: YouTube Dashboard — a 6th Business Hub tab (`layout: 'youtube'`),
+  built to host and manage multiple YouTube channels, with a layout
+  deliberately modeled on the Writing Dashboard's own shape** (a landing
+  board of grouped entities with goal/progress cards, a Tasks Inline
+  Database, an idea gallery, and a per-entity "planner" page) rather than
+  a pixel-for-pixel port — a nested Scrivener-style binder tree, Plot/
+  Continuity/Character trackers, Composition Mode, a Theme Marketplace,
+  and Compile & Export don't have a natural channel-management equivalent,
+  so those were deliberately left out rather than forced in. Genuinely new
+  companion data file, `youtube-data.js` (mirrors `writing-data.js`'s own
+  sibling-file convention — same `makeCollection`/model-factory pattern,
+  same numeric `order` + swap-adjacent-values reordering throughout, since
+  a channel's video list is flat, not a nested tree, so it never needed
+  BinderNode's fractional-indexing `orderKey`); every key it defines is
+  still `business:*`-prefixed (`business:ytNetworks`, `business:ytChannels`,
+  `business:ytTasks`, `business:ytVideos`, `business:ytIdeas`,
+  `business:ytArticle`, plus the small `business:ytActiveView`/
+  `ytActiveChannelId`/`ytActiveVideoId`/`ytSeeded` state keys), so the
+  existing `initCloudSync({ appKey: 'business', syncedPrefixes:
+  ['business:'] })` call already in `business.html` covers it with zero
+  new sync wiring. `business-data.js` itself only gained the same small,
+  additive set of changes the Writing Dashboard's own tab needed the first
+  time: `'youtube'` added to `tabModel()`'s `layout` whitelist (and to
+  `normalizeStoredData()`'s layout-fallback/title-matching loop), a new
+  `isYoutubeSubpage` tab field (mirroring `isWritingSubpage`, filtered out
+  of the main `.bh-tabs` pill row by `renderTabs()` the same way), a new
+  `ensureYoutubeDashboardExists()` (mirroring `ensureWritingDashboardExists()`
+  line-for-line — appends the tab and its 3 hidden sub-page tabs directly
+  on every load, guarded only by "some tabs already exist" so a genuinely
+  fresh device isn't handed a stray tab before its own deferred seed runs,
+  same fix this app has already needed more than once for a newly-added
+  tab on an already-seeded device), and a matching seed block in
+  `seedDefaultBoard()` (tab `order: 5`, sub-page tabs at `order: 200–202`
+  so they can never collide with the Writing Dashboard's own `100–102`).
+  - **Entity mapping, deliberately parallel to the Writing Dashboard's own
+    Series→Manuscript→BinderNode chain**: **Network** (Series equivalent —
+    an optional grouping for channels, e.g. "Main Channels") → **Channel**
+    (Manuscript equivalent — niche, content format, upload frequency,
+    subscriber current/goal, revenue goal, a "Today's Goal" current/
+    target/unit trio, a total-videos-published goal, a cover photo, a
+    "Current Video" pointer, editable/reorderable/deletable notes
+    sections, the same drag-reorderable/color-graded/cover-photo'd board
+    card as a Manuscript's) → **Video** (the Binder's node equivalent,
+    deliberately flattened — a channel's upload queue is a flat list, not
+    a Part/Chapter/Scene tree, so it's a plain reorderable array with a
+    free-text `playlist` label instead of a foreign key, same "label, not
+    a relation" precedent as `business-data.js`'s Content Plan Card
+    `platform` field). **Video Ideas** (`YtIdea`) mirrors `WritingIdea`
+    field-for-field (title/pitch/tags/status/notes). The **Tasks Inline
+    Database** is the identical template/sub-page mechanic (a root task
+    with `parentTaskId: null` is a "template," children are its
+    "sub-pages," up/down-arrow reorder not drag, collapse/duplicate/
+    generated note-and-code blocks all present) with `channelId` in place
+    of `manuscriptId`.
+  - **Video Planner** (opened via a channel's "📺 Open Video Planner"
+    button, a `.wr-page-bg` full-page overlay reusing that exact class —
+    same component, not a new one) is the Binder's proportional
+    replacement: a **Channel Targets** row (two progress bars — total
+    videos published vs. an editable goal, and the channel's own Today's
+    Goal) above a 2-column layout (new CSS, `.yt-planner-layout` —
+    Writing's Binder is a 4-column Part/Chapter/Scene tree editor; a
+    channel's flat video list needs no tree column, so 2 columns is
+    enough) — a left video list (inline-editable titles, ▲▼ reorder,
+    delete, a status-emoji icon, reusing `.wr-binder-node`'s exact CSS)
+    and a right editor panel: a title field, a meta grid (status/publish
+    date/playlist/tags/video URL/a paste-a-URL thumbnail field — no file-
+    upload picker for the thumbnail specifically, a deliberate "keep it
+    simple" scope cut for one minor field, consistent with how several
+    other simple link-style fields elsewhere in this app are paste-URL-
+    only), a Script textarea with a live word count (reusing
+    `WD`'s/`YT`'s shared plain-whitespace-split `wordCount()`), and a
+    separate Video Notes textarea — the same Index-Card-plus-Chapter-
+    Notes shape as the Binder's own editor, just without the tree/
+    trackers/Composition-Mode/Compile-Export machinery around it.
+  - **Almost no new CSS** — the entire visual layer reuses the Writing
+    Dashboard's own `.wr-*`/`.bh-task-card`/`.bh-pf-section*` component
+    classes verbatim (board/series-group/manuscript-card/idea-card/task-
+    row/binder-tree-col/index-card shapes are generic layout patterns, not
+    writing-specific, despite their `wr-`/`ms` naming), per this file's own
+    DO NOT MODIFY rule 2 ("reuse existing component patterns before
+    inventing new class names") — confirmed directly rather than assumed,
+    by grepping every reused class name to make sure each one actually has
+    a CSS rule already defined. Only three genuinely new rules were added:
+    `.yt-planner-layout` (the 2-column planner grid), a `#ytTaskTable`-
+    scoped task-row divider (mirroring the existing `#wrTaskTable`-scoped
+    one), and `.yt-video-row-meta` (a small mono publish-date label on
+    each video row). No new color tokens anywhere.
+  - **Verification, disclosed honestly**: this session's headless-Edge
+    automation could not be used at all this round — every launch attempt
+    (both the "gets absorbed into an already-running background instance"
+    failure mode and, this time, a variant where the process never even
+    spawned/produced output) was confirmed via `Win32_Process` command-line
+    inspection to be hitting a real, pre-existing background Edge instance
+    (`--no-startup-window`, the user's own profile) rather than a fresh
+    isolated one — that process was left completely untouched, per this
+    file's own established caution around not killing a background browser
+    instance that might be the user's real session. Verified statically
+    instead, the same fallback several other entries in this file already
+    use when this environment's headless Edge is unusable: `<div>`/
+    `<button>`/`<select>`/`<textarea>`/`<span>` tag-open/close counts all
+    balanced across `business.html`; brace/paren counts balanced across
+    `business.html`'s script and style blocks, `business-data.js`, and
+    `youtube-data.js`; every `$('id')` reference in the script (339
+    distinct) cross-matched against real HTML element ids (370 distinct) —
+    zero unresolved; zero duplicate DOM ids anywhere in the file; and every
+    `YT.*` member referenced from `business.html` cross-checked by hand
+    against `youtube-data.js`'s public API object — all present. This is a
+    weaker guarantee than an actual click-through, same disclosed caveat
+    this file's own `dreamboard.html`/`aitech.html`/`learning.html` entries
+    already carry for this exact environment limitation — a real test
+    (adding a network/channel/video/task/idea, opening the Video Planner,
+    switching sub-pages) is recommended before relying on this feature
+    heavily.
+  - Nothing existing was deleted or restructured — every edit to
+    `business-data.js`/`business.html` was additive (new whitelist entries,
+    a new tab field, a new function, a new seed block, new render-dispatch
+    branches alongside the existing ones), and the pre-existing Content/
+    Ideas/Platforms/Resources/Writing Dashboard tabs are untouched.

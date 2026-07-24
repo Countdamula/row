@@ -16,8 +16,9 @@
 <script src="sync.js" defer></script>
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="business-data.js?v=13" defer></script>
+<script src="business-data.js?v=14" defer></script>
 <script src="writing-data.js?v=4" defer></script>
+<script src="youtube-data.js?v=1" defer></script>
 <style>
 /* =============================================================
    Business Hub — Dream Board's dark, cinematic "destination photographer"
@@ -833,6 +834,24 @@ body::after {
   .wr-print-view h1, .wr-print-view h2 { font-family: Georgia, "Times New Roman", serif; color: #000; }
   .wr-print-view p { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-height: 1.6; white-space: pre-wrap; color: #000; }
 }
+
+/* =============================================================
+   YOUTUBE DASHBOARD (6th tab, layout: 'youtube') — deliberately reuses the
+   Writing Dashboard's own .wr-*/.bh-task-card component classes verbatim
+   (board/series-group/manuscript-card/idea/task-row/binder-tree-col/
+   index-card shapes are all generic layout patterns, not writing-specific,
+   despite their `wr-`/`ms` naming) rather than duplicating a near-identical
+   CSS file — same "reuse existing component patterns before inventing new
+   class names" rule this file's own DO NOT MODIFY §2 already requires.
+   Only the two rules below are genuinely new: a 2-column Video Planner
+   layout (Writing's Binder is a 4-column Part/Chapter/Scene tree editor;
+   a channel's video list has no tree to show, so 2 columns is enough) and
+   a matching task-row divider for the YouTube Tasks Database's own id.
+   ============================================================= */
+.yt-planner-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .yt-planner-layout { grid-template-columns: 1fr; } }
+#ytTaskTable > .wr-task-table-row + .wr-task-table-row { border-top: 1px solid var(--bh-hairline); padding-top: 10px; margin-top: 4px; }
+.yt-video-row-meta { font-size: 9.5px; color: var(--bh-text-mute); font-family: var(--font-mono); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -877,6 +896,7 @@ body::after {
     </div>
 
     <div class="wr-subpage-backbar" id="wrSubpageBackBar"><button type="button" id="wrSubpageBackBtn">← Back to Writing Dashboard</button></div>
+    <div class="wr-subpage-backbar" id="ytSubpageBackBar"><button type="button" id="ytSubpageBackBtn">← Back to YouTube Dashboard</button></div>
     <div class="bh-board" id="bhBoard"></div>
 
     <div class="bh-content-dashboard" id="bhContentDashboard" style="display:none;">
@@ -1131,6 +1151,86 @@ body::after {
             <button type="button" class="bh-btn-primary" id="wrThemeSaveCustomBtn">Save as custom theme</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="bh-writing-dashboard" id="bhYoutubeDashboard" style="display:none;">
+      <div class="wr-article" id="ytArticle">
+        <textarea class="wr-article-title" id="ytArticleTitle" rows="1" placeholder="Article title…"></textarea>
+        <div class="wr-article-add-row">
+          <button type="button" class="bh-btn-secondary" data-yt-add-block="heading">+ Heading</button>
+          <button type="button" class="bh-btn-secondary" data-yt-add-block="paragraph">+ Paragraph</button>
+          <button type="button" class="bh-btn-secondary" data-yt-add-block="callout">+ Callout</button>
+        </div>
+        <div class="wr-article-blocks" id="ytArticleBlocks"></div>
+      </div>
+
+      <div class="wr-subnav" id="ytSubnav">
+        <button type="button" class="wr-subnav-tab" data-yt-view="board">📺 Channels</button>
+        <button type="button" class="wr-subnav-tab" data-yt-nav-subpage="Content Calendar">Content Calendar</button>
+        <button type="button" class="wr-subnav-tab" data-yt-view="ideas">Video Ideas</button>
+        <button type="button" class="wr-subnav-tab" data-yt-nav-subpage="More Video Notes">More Video Notes</button>
+        <button type="button" class="wr-subnav-tab" data-yt-nav-subpage="Growth Ideas">Growth Ideas</button>
+      </div>
+
+      <div class="wr-view" id="ytViewBoard">
+        <div class="wr-toolbar">
+          <div class="bh-chip-row" id="ytStatusFilterChips">
+            <button type="button" class="bh-chip active" data-filter="all">All</button>
+            <button type="button" class="bh-chip" data-filter="active">Active</button>
+            <button type="button" class="bh-chip" data-filter="inactive">Inactive</button>
+            <button type="button" class="bh-chip" data-filter="idea">Idea</button>
+          </div>
+          <div class="wr-toolbar-actions">
+            <button type="button" class="bh-btn-secondary" id="ytAddNetworkBtn">+ Add Network</button>
+            <button type="button" class="bh-btn-primary" id="ytAddChannelBtn">+ Add Channel</button>
+          </div>
+        </div>
+        <div id="ytNetworkGroups"></div>
+
+        <div class="wr-page-section" style="margin-top:30px;">
+          <div class="wr-page-section-title">
+            <span>Tasks Database</span>
+            <button type="button" class="bh-btn-secondary" id="ytTaskAddTemplateBtn">+ New Template</button>
+          </div>
+          <div class="wr-toolbar">
+            <div class="wr-toolbar-actions">
+              <select id="ytTaskFilterChannel"><option value="">All Channels</option></select>
+              <select id="ytTaskFilterStatus">
+                <option value="">All Statuses</option>
+                <option value="todo">To do</option>
+                <option value="in-progress">In progress</option>
+                <option value="done">Done</option>
+              </select>
+              <select id="ytTaskFilterPriority">
+                <option value="">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <input type="text" id="ytTaskSearchInput" placeholder="Search tasks…" style="background:rgba(255,255,255,0.05);border:1px solid var(--bh-hairline);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--bh-text);">
+          </div>
+          <div id="ytTaskTable"></div>
+          <div class="wr-empty" id="ytTaskTableEmpty" hidden>No tasks match this filter yet.</div>
+        </div>
+      </div>
+
+      <div class="wr-view" id="ytViewIdeas">
+        <div class="wr-toolbar">
+          <div class="bh-chip-row" id="ytIdeaStatusChips">
+            <button type="button" class="bh-chip active" data-filter="">All</button>
+            <button type="button" class="bh-chip" data-filter="spark">Spark</button>
+            <button type="button" class="bh-chip" data-filter="developing">Developing</button>
+            <button type="button" class="bh-chip" data-filter="shelved">Shelved</button>
+          </div>
+          <div class="wr-toolbar-actions">
+            <input type="text" id="ytIdeaSearchInput" placeholder="Search video ideas…" style="background:rgba(255,255,255,0.05);border:1px solid var(--bh-hairline);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--bh-text);">
+            <button type="button" class="bh-btn-primary" id="ytAddIdeaBtn">+ Add Idea</button>
+          </div>
+        </div>
+        <div class="wr-idea-grid" id="ytIdeaGrid"></div>
+        <div class="wr-empty" id="ytIdeaEmpty" hidden>No video ideas match this filter yet.</div>
       </div>
     </div>
   </div>
@@ -1484,6 +1584,178 @@ body::after {
 
 <div id="wrPrintView" class="wr-print-view"></div>
 
+<div class="modal-bg" id="ytNetworkModalBg">
+  <div class="modal">
+    <div class="bh-modal-head"><h3 id="ytNetworkModalTitle">Add Network</h3><button type="button" class="bh-modal-close" id="ytNetworkModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="ytNetworkTitleInput" placeholder="e.g. Main Channels"></div>
+    <div class="field"><label>Description</label><textarea id="ytNetworkDescInput" placeholder="What ties these channels together?"></textarea></div>
+    <div class="field"><label>Color tag</label><input type="color" id="ytNetworkTintInput" style="height:36px;cursor:pointer;"></div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="ytNetworkModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="ytNetworkModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="ytNetworkModalDelete" style="display:none;">Delete this network</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="ytChannelModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3 id="ytChannelModalTitle">Add Channel</h3><button type="button" class="bh-modal-close" id="ytChannelModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="ytChTitleInput" placeholder="Channel name"></div>
+    <div class="field"><label>Network (optional)</label><select id="ytChNetworkInput"><option value="">Standalone — no network</option></select></div>
+    <div class="field"><label>Status</label><select id="ytChStatusInput"><option value="active">Active</option><option value="inactive">Inactive</option><option value="idea">Idea</option></select></div>
+    <div class="field"><label>Niche</label><input type="text" id="ytChNicheInput" placeholder="e.g. Tech Reviews"></div>
+    <div class="field"><label>Content format</label><input type="text" id="ytChFormatInput" placeholder="e.g. Long-form, Shorts, Livestreams"></div>
+    <div class="field"><label>Upload frequency</label><input type="text" id="ytChFrequencyInput" placeholder="e.g. 2x per week"></div>
+    <div class="field"><label>Goal revenue ($)</label><input type="number" min="0" step="1" id="ytChRevenueInput"></div>
+    <div class="field-inline" style="gap:10px;margin-bottom:12px;">
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Subscriber goal</label><input type="number" min="0" id="ytChSubGoalInput"></div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Subscribers now</label><input type="number" min="0" id="ytChSubCurrentInput"></div>
+    </div>
+    <div class="field"><label>Total videos goal</label><input type="number" min="1" id="ytChTotalVideosGoalInput"></div>
+    <div class="field-inline" style="gap:10px;margin-bottom:12px;">
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Today's goal — current</label><input type="number" min="0" id="ytChGoalCurrentInput"></div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Today's goal — target</label><input type="number" min="1" id="ytChGoalTargetInput"></div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Unit</label><input type="text" id="ytChGoalUnitInput" placeholder="videos scripted"></div>
+    </div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="ytChannelModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="ytChannelModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="ytChannelModalDelete" style="display:none;">Delete this channel</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="ytIdeaModalBg">
+  <div class="modal">
+    <div class="bh-modal-head"><h3 id="ytIdeaModalTitle">Add Idea</h3><button type="button" class="bh-modal-close" id="ytIdeaModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="ytIdeaTitleInput"></div>
+    <div class="field"><label>Pitch</label><textarea id="ytIdeaPitchInput" placeholder="One or two sentences…"></textarea></div>
+    <div class="field"><label>Tags (comma-separated)</label><input type="text" id="ytIdeaTagsInput" placeholder="Series, Community"></div>
+    <div class="field"><label>Status</label><select id="ytIdeaStatusInput"><option value="spark">Spark</option><option value="developing">Developing</option><option value="shelved">Shelved</option></select></div>
+    <div class="field"><label>Notes</label><textarea id="ytIdeaNotesInput"></textarea></div>
+    <div class="bh-modal-actions">
+      <button type="button" class="bh-btn-ghost" id="ytIdeaModalCancel">Cancel</button>
+      <button type="button" class="bh-btn-primary" id="ytIdeaModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="ytIdeaModalDelete" style="display:none;">Delete this idea</span>
+  </div>
+</div>
+
+<div class="wr-page-bg" id="ytChannelDetailPageBg">
+  <div class="wr-page">
+    <div class="wr-ms-cover" id="ytChDetailCover">
+      <img id="ytChDetailCoverImg" style="display:none;" alt="">
+      <div class="wr-ms-cover-overlay"></div>
+      <div class="wr-ms-cover-choice" id="ytChDetailCoverChoice">
+        <button type="button" class="wr-ms-cover-choice-btn" id="ytChDetailAddCoverBtn">+ Add a cover photo</button>
+      </div>
+      <div class="wr-ms-cover-tools" id="ytChDetailCoverTools" style="display:none;">
+        <button type="button" id="ytChDetailCoverChangeBtn">Change</button>
+        <button type="button" id="ytChDetailCoverRemoveBtn">Remove</button>
+      </div>
+      <input type="file" id="ytChDetailCoverInput" accept="image/*" style="display:none;">
+    </div>
+    <div class="wr-page-topbar">
+      <button type="button" class="wr-page-back" id="ytChDetailBackBtn">← Back</button>
+      <input type="text" class="wr-page-title-input" id="ytChDetailTitleInput" placeholder="Channel name…">
+      <button type="button" class="bh-btn-secondary" id="ytChDetailEditStatsBtn">✎ Edit Stats</button>
+      <button type="button" class="bh-btn-primary" id="ytChDetailOpenPlannerBtn">📺 Open Video Planner</button>
+      <button type="button" class="bh-btn-ghost" id="ytChDetailDeleteBtn">✕ Delete</button>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">At a Glance</div>
+      <div class="wr-stat-grid" id="ytChDetailStatGrid"></div>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">
+        <span>Tasks</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="bh-btn-secondary" id="ytChDetailAddTaskBtn">+ Add Task</button>
+          <button type="button" class="bh-btn-secondary" id="ytChDetailOpenTasksBtn">📋 Open in Tasks Database</button>
+        </div>
+      </div>
+      <div id="ytChDetailTasksSummary"></div>
+      <div id="ytChDetailTasksList"></div>
+      <div class="wr-empty" id="ytChDetailTasksEmpty" hidden>No tasks yet for this channel — click "+ Add Task" to start one.</div>
+    </div>
+
+    <div class="wr-page-section">
+      <div class="wr-page-section-title">
+        <span>Notes</span>
+        <button type="button" class="bh-btn-secondary" id="ytChDetailAddNoteBtn">+ Add Notes Section</button>
+      </div>
+      <div id="ytChDetailNotes"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="ytTaskDetailModalBg">
+  <div class="modal bh-modal-wide">
+    <div class="bh-modal-head"><h3 id="ytTaskDetailModalTitle">Task</h3><button type="button" class="bh-modal-close" id="ytTaskDetailCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="ytTaskDetailTitleInput" placeholder="Task or template title…"></div>
+    <div class="field"><label>Channel</label><select id="ytTaskDetailChannelInput"><option value="">Unlinked</option></select></div>
+    <div class="field-inline" style="gap:10px;margin-bottom:12px;">
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Status</label>
+        <select id="ytTaskDetailStatusInput"><option value="todo">To do</option><option value="in-progress">In progress</option><option value="done">Done</option></select>
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Priority</label>
+        <select id="ytTaskDetailPriorityInput"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0;"><label>Due date</label><input type="date" id="ytTaskDetailDueInput"></div>
+    </div>
+    <div class="field"><label>Summary note</label><textarea id="ytTaskDetailSummaryInput" placeholder="A short summary of this task/page…"></textarea></div>
+    <div class="bh-pfd-sections-head">
+      <div class="bh-roster-heading">Blocks</div>
+      <div class="bh-db-section-head-right">
+        <button type="button" class="bh-btn-secondary" id="ytTaskDetailAddNoteBlockBtn">+ Generate Text Section</button>
+        <button type="button" class="bh-btn-secondary" id="ytTaskDetailAddCodeBlockBtn">+ Generate Code Block</button>
+      </div>
+    </div>
+    <div id="ytTaskDetailBlocks"></div>
+    <span class="delete-link" id="ytTaskDetailDeleteBtn">Delete this task</span>
+  </div>
+</div>
+
+<div class="wr-page-bg" id="ytVideoPlannerPageBg">
+  <div class="wr-page" style="max-width:1200px;">
+    <div class="wr-page-topbar">
+      <button type="button" class="wr-page-back" id="ytPlannerBackBtn">← Back</button>
+      <div id="ytPlannerChannelTitle" style="font-family:var(--font-serif);font-size:22px;font-weight:600;flex:1;"></div>
+      <button type="button" class="bh-btn-primary" id="ytPlannerAddVideoBtn">+ Add Video</button>
+    </div>
+
+    <div class="wr-page-section" id="ytTargetsSection">
+      <div class="wr-page-section-title"><span>Channel Targets</span></div>
+      <div class="wr-targets-grid" id="ytTargetsGrid"></div>
+    </div>
+
+    <div class="yt-planner-layout" id="ytPlannerLayout">
+      <div class="wr-binder-tree-col">
+        <div class="wr-binder-tree-head">
+          <div class="bh-roster-heading">Videos</div>
+        </div>
+        <div id="ytVideoList"></div>
+        <div class="wr-empty" id="ytVideoListEmpty" hidden>No videos yet — click "+ Add Video" to plan your first one.</div>
+      </div>
+
+      <div class="wr-binder-indexcard-col">
+        <div class="wr-indexcard-head">
+          <input type="text" id="ytVideoTitleInput" placeholder="Video title…" style="flex:1;background:transparent;border:none;font-family:var(--font-serif);font-size:17px;font-weight:600;color:var(--bh-text);">
+          <span class="wr-word-count" id="ytScriptWordCount"></span>
+          <button type="button" class="bh-btn-ghost" id="ytMarkCurrentVideoBtn">★ Mark as Current Video</button>
+        </div>
+        <div class="wr-stat-grid" id="ytVideoMetaGrid" style="margin-bottom:12px;"></div>
+        <textarea class="wr-index-card" id="ytVideoScriptBody" placeholder="Write your script here…"></textarea>
+        <div class="bh-roster-heading" style="margin-top:10px;">Video Notes</div>
+        <textarea class="wr-chapter-notes" id="ytVideoNotesBody" placeholder="Notes about this video…"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -1584,6 +1856,19 @@ body::after {
         }
       });
     }
+    if (YT) {
+      YT.Channels.list().forEach(function (c) {
+        if (typeof c.coverPhoto === 'string' && c.coverPhoto.indexOf('data:') === 0) {
+          const orig = c.coverPhoto;
+          jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return false;
+            const fresh = YT.Channels.get(c.id);
+            if (fresh && fresh.coverPhoto === orig) YT.Channels.update(c.id, { coverPhoto: url });
+            return true;
+          }));
+        }
+      });
+    }
     if (!jobs.length) { storeSet('business:photosMigratedV1', true); return; }
     // Only mark this page "done" if every upload this pass kicked off
     // actually succeeded — upload() never rejects (it resolves to null on
@@ -1593,6 +1878,7 @@ body::after {
       if (results.every(function (ok) { return ok; })) storeSet('business:photosMigratedV1', true);
       refreshView();
       if (WD) renderWrBoard();
+      if (YT) renderYtBoard();
     });
   }
 
@@ -1765,11 +2051,12 @@ body::after {
   // TABS
   // ============================================================
   function renderTabs() {
-    // Writing Dashboard sub-pages (Outlines/More Notes/Automation Ideas)
-    // are real Tabs records — reusing the whole freeform board engine
-    // verbatim — but are reached only via the Writing Dashboard's own
+    // Writing Dashboard sub-pages (Outlines/More Notes/Automation Ideas) and
+    // YouTube Dashboard sub-pages (Content Calendar/More Video Notes/Growth
+    // Ideas) are real Tabs records — reusing the whole freeform board
+    // engine verbatim — but are reached only via their own dashboard's
     // sub-nav, never the main pill row.
-    const tabs = DB.tabsSorted().filter(function (t) { return !t.isWritingSubpage; });
+    const tabs = DB.tabsSorted().filter(function (t) { return !t.isWritingSubpage && !t.isYoutubeSubpage; });
     const wrap = $('bhTabs');
     wrap.innerHTML = '';
     tabs.forEach(function (t) {
@@ -1826,6 +2113,7 @@ body::after {
     if (layout === 'content') renderContentDashboard();
     else if (layout === 'platforms') renderPlatformsPage();
     else if (layout === 'writing') renderWritingDashboard();
+    else if (layout === 'youtube') renderYoutubeDashboard();
     else renderBoard();
   }
   function renderActiveTabContent() {
@@ -1836,7 +2124,9 @@ body::after {
     $('bhContentDashboard').style.display = layout === 'content' ? 'grid' : 'none';
     $('bhPlatformsPage').style.display = layout === 'platforms' ? 'block' : 'none';
     $('bhWritingDashboard').style.display = layout === 'writing' ? 'block' : 'none';
+    $('bhYoutubeDashboard').style.display = layout === 'youtube' ? 'block' : 'none';
     $('wrSubpageBackBar').style.display = (t && t.isWritingSubpage) ? 'block' : 'none';
+    $('ytSubpageBackBar').style.display = (t && t.isYoutubeSubpage) ? 'block' : 'none';
     if (layout === 'freeform') {
       renderBoard();
       $('bhTemplatesSection').style.display = (t && t.hasTemplates) ? 'block' : 'none';
@@ -1844,6 +2134,9 @@ body::after {
     } else if (layout === 'writing') {
       $('bhTemplatesSection').style.display = 'none';
       renderWritingDashboard();
+    } else if (layout === 'youtube') {
+      $('bhTemplatesSection').style.display = 'none';
+      renderYoutubeDashboard();
     } else {
       $('bhTemplatesSection').style.display = 'none';
       if (layout === 'content') renderContentDashboard();
@@ -4543,6 +4836,798 @@ body::after {
   }
 
   // ============================================================
+  // YOUTUBE DASHBOARD (6th tab, layout: 'youtube') — its own network/
+  // channel/task/video data lives in youtube-data.js (window.YoutubeData,
+  // referenced here as YT). This tab's render dispatcher is
+  // renderYoutubeDashboard(), called from refreshView()/
+  // renderActiveTabContent() alongside the other layouts. Deliberately
+  // mirrors the Writing Dashboard's own board/task-database/idea-gallery
+  // code above almost line-for-line (Network↔Series, Channel↔Manuscript,
+  // Video Planner↔Binder, simplified to a flat reorderable list since a
+  // channel's videos don't need Part/Chapter/Scene nesting) — see
+  // youtube-data.js's own top-of-file note on what was deliberately left
+  // out (a nested binder tree, trackers, Composition Mode, a Theme
+  // Marketplace, Compile & Export) and why.
+  // ============================================================
+  let YT = null;
+  let youtubeView = 'board'; // 'board' | 'ideas'
+  let ytStatusFilter = 'all';
+  let ytIdeaStatusFilter = '';
+  let ytIdeaSearch = '';
+  let ytNetworkModalEditingId = null;
+  let ytChannelModalEditingId = null;
+  let ytIdeaModalEditingId = null;
+  let ytChDetailId = null;
+  let ytSortables = [];
+
+  function destroyYtSortables() { ytSortables.forEach(function (s) { try { s.destroy(); } catch (e) {} }); ytSortables = []; }
+  function openYtPage(id) { $(id).classList.add('show'); }
+  function closeYtPage(id) { $(id).classList.remove('show'); }
+
+  function renderYoutubeDashboard() {
+    if (!YT) return;
+    renderYtSubnav();
+    renderYtArticle();
+    ['ytViewBoard', 'ytViewIdeas'].forEach(function (id) { $(id).classList.remove('active'); });
+    if (youtubeView === 'ideas') { $('ytViewIdeas').classList.add('active'); renderYtIdeas(); }
+    else { youtubeView = 'board'; $('ytViewBoard').classList.add('active'); renderYtBoard(); }
+  }
+  function renderYtSubnav() {
+    document.querySelectorAll('#ytSubnav .wr-subnav-tab[data-yt-view]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.ytView === youtubeView);
+    });
+  }
+
+  // ---------- Article ("Grow Your Channel in 30 Days") ----------
+  function renderYtArticle() {
+    const article = YT.getArticle();
+    const titleInput = $('ytArticleTitle');
+    if (document.activeElement !== titleInput) titleInput.value = article.title;
+    setTimeout(function () { autosize(titleInput); }, 0);
+    const wrap = $('ytArticleBlocks'); wrap.innerHTML = '';
+    const blocks = article.blocks.slice().sort(function (a, b) { return a.order - b.order; });
+    blocks.forEach(function (block, i) { wrap.appendChild(buildYtArticleBlock(block, i === 0, i === blocks.length - 1)); });
+  }
+  function buildYtArticleBlock(block, isFirst, isLast) {
+    const card = document.createElement('div'); card.className = 'wr-article-block';
+    const actions = document.createElement('div'); actions.className = 'wr-article-block-actions';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst; up.setAttribute('aria-label', 'Move up');
+    up.addEventListener('click', function () { YT.moveArticleBlock(block.id, -1); renderYtArticle(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast; down.setAttribute('aria-label', 'Move down');
+    down.addEventListener('click', function () { YT.moveArticleBlock(block.id, 1); renderYtArticle(); });
+    const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.setAttribute('aria-label', 'Delete block');
+    del.addEventListener('click', function () { YT.removeArticleBlock(block.id); renderYtArticle(); });
+    actions.appendChild(up); actions.appendChild(down); actions.appendChild(del);
+    card.appendChild(actions);
+    if (block.type === 'heading') {
+      const input = document.createElement('input'); input.type = 'text'; input.className = 'wr-block-heading'; input.value = block.text; input.placeholder = 'Heading…';
+      input.addEventListener('blur', function () { YT.updateArticleBlock(block.id, { text: input.value }); });
+      card.appendChild(input);
+    } else if (block.type === 'callout') {
+      card.classList.add('wr-callout', 'style-' + block.calloutStyle);
+      const sel = document.createElement('select'); sel.className = 'wr-callout-style-select';
+      YT.CALLOUT_STYLES.forEach(function (s) { const o = document.createElement('option'); o.value = s; o.textContent = s; if (s === block.calloutStyle) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', function () { YT.updateArticleBlock(block.id, { calloutStyle: sel.value }); renderYtArticle(); });
+      card.appendChild(sel);
+      const ta = document.createElement('textarea'); ta.className = 'wr-block-paragraph'; ta.value = block.text; ta.placeholder = 'Callout text…'; ta.rows = 1;
+      ta.addEventListener('input', function () { autosize(ta); });
+      ta.addEventListener('blur', function () { YT.updateArticleBlock(block.id, { text: ta.value }); });
+      card.appendChild(ta);
+      setTimeout(function () { autosize(ta); }, 0);
+    } else {
+      const ta = document.createElement('textarea'); ta.className = 'wr-block-paragraph'; ta.value = block.text; ta.placeholder = 'Write a paragraph…'; ta.rows = 1;
+      ta.addEventListener('input', function () { autosize(ta); });
+      ta.addEventListener('blur', function () { YT.updateArticleBlock(block.id, { text: ta.value }); });
+      card.appendChild(ta);
+      setTimeout(function () { autosize(ta); }, 0);
+    }
+    return card;
+  }
+
+  // ---------- Board (Network groups + Channel cards) ----------
+  function renderYtBoard() {
+    destroyYtSortables();
+    const wrap = $('ytNetworkGroups'); wrap.innerHTML = '';
+    const networkList = YT.networksSorted();
+    const groups = networkList.map(function (n) { return { id: n.id, network: n }; }).concat([{ id: null, network: null }]);
+    let anyRendered = false;
+    groups.forEach(function (g) {
+      let channels = YT.channelsForNetwork(g.id);
+      if (ytStatusFilter !== 'all') channels = channels.filter(function (c) { return c.status === ytStatusFilter; });
+      if (!channels.length) return;
+      anyRendered = true;
+      wrap.appendChild(buildYtNetworkGroup(g.network, channels));
+    });
+    if (!anyRendered) {
+      const empty = document.createElement('div'); empty.className = 'wr-empty';
+      empty.textContent = YT.allChannelsSorted().length ? 'No channels match this filter.' : 'No channels yet — tap "+ Add Channel" to start your first one.';
+      wrap.appendChild(empty);
+    }
+    renderYtTaskTable();
+  }
+  function buildYtNetworkGroup(network, channels) {
+    const group = document.createElement('div'); group.className = 'wr-series-group';
+    const head = document.createElement('div'); head.className = 'wr-series-head';
+    if (network) {
+      const tint = document.createElement('span'); tint.className = 'wr-series-tint'; tint.style.background = network.tint || 'var(--bh-gold)';
+      head.appendChild(tint);
+      const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-series-title'; titleInput.value = network.title;
+      titleInput.addEventListener('blur', function () { const v = titleInput.value.trim(); if (v && v !== network.title) YT.Networks.update(network.id, { title: v }); });
+      titleInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') titleInput.blur(); });
+      head.appendChild(titleInput);
+      const actions = document.createElement('div'); actions.className = 'wr-series-actions';
+      const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.textContent = '✎'; editBtn.title = 'Edit network'; editBtn.setAttribute('aria-label', 'Edit network');
+      editBtn.addEventListener('click', function () { openYtNetworkModal(network); });
+      const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.textContent = '+'; addBtn.title = 'Add a channel to this network'; addBtn.setAttribute('aria-label', 'Add a channel to this network');
+      addBtn.addEventListener('click', function () { openYtChannelModal(null, network.id); });
+      actions.appendChild(editBtn); actions.appendChild(addBtn);
+      head.appendChild(actions);
+    } else {
+      const label = document.createElement('div'); label.className = 'wr-series-title'; label.style.cursor = 'default'; label.textContent = 'Standalone';
+      head.appendChild(label);
+    }
+    group.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'wr-ms-grid'; grid.dataset.networkId = network ? network.id : '';
+    channels.forEach(function (c) { grid.appendChild(buildYtChannelCard(c)); });
+    group.appendChild(grid);
+    wireYtGridSortable(grid);
+    return group;
+  }
+  function wireYtGridSortable(gridEl) {
+    if (typeof Sortable === 'undefined') return;
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ytSortables.push(new Sortable(gridEl, {
+      group: 'yt-channels', animation: reduced ? 0 : 150, ghostClass: 'bw-card-ghost', handle: '.wr-ms-drag',
+      onEnd: function () { persistAllYtGrids(); renderYtBoard(); }
+    }));
+  }
+  function persistAllYtGrids() {
+    document.querySelectorAll('#ytNetworkGroups .wr-ms-grid').forEach(function (gridEl) {
+      const networkId = gridEl.dataset.networkId || null;
+      Array.from(gridEl.children).forEach(function (cardEl, idx) {
+        const id = cardEl.dataset.chId;
+        if (id) YT.Channels.update(id, { networkId: networkId, order: idx });
+      });
+    });
+  }
+  function buildYtChannelCard(c) {
+    const card = document.createElement('div'); card.className = 'wr-ms-card'; card.dataset.chId = c.id;
+    card.addEventListener('click', function (e) { if (e.target.closest('.wr-ms-noclick')) return; openYtChannelDetail(c.id); });
+
+    const networkForAccent = c.networkId ? YT.Networks.get(c.networkId) : null;
+    const accent = document.createElement('div'); accent.className = 'wr-ms-card-accent';
+    accent.style.background = (networkForAccent && networkForAccent.tint) || c.progressBarColor || 'var(--bh-gold)';
+    card.appendChild(accent);
+
+    if (c.coverPhoto) {
+      const cover = document.createElement('div'); cover.className = 'wr-ms-card-cover';
+      const img = document.createElement('img'); img.src = c.coverPhoto; img.alt = '';
+      cover.appendChild(img); card.appendChild(cover);
+    }
+
+    const head = document.createElement('div'); head.className = 'wr-ms-card-head';
+    const handle = document.createElement('span'); handle.className = 'wr-ms-drag wr-ms-noclick'; handle.textContent = '⋮⋮';
+    handle.style.cssText = 'cursor:grab;color:var(--bh-text-mute);font-size:12px;flex-shrink:0;'; handle.title = 'Drag to reorder / move between networks';
+    const title = document.createElement('div'); title.className = 'wr-ms-card-title'; title.style.flex = '1'; title.textContent = c.title;
+    const status = document.createElement('span'); status.className = 'wr-ms-status status-' + c.status; status.textContent = c.status;
+    head.appendChild(handle); head.appendChild(title); head.appendChild(status);
+    card.appendChild(head);
+
+    const metaRow = document.createElement('div'); metaRow.className = 'wr-ms-meta-row';
+    [c.contentFormat, c.niche, c.uploadFrequency].filter(Boolean).forEach(function (v) { const tag = document.createElement('span'); tag.className = 'wr-ms-meta-tag'; tag.textContent = v; metaRow.appendChild(tag); });
+    if (metaRow.children.length) card.appendChild(metaRow);
+
+    const subStat = document.createElement('div'); subStat.className = 'wr-ms-stat-row';
+    subStat.textContent = 'Subscribers ' + (c.subscriberCurrent || 0).toLocaleString() + ' / ' + (c.goalSubscribers || 0).toLocaleString() + (c.goalRevenueCents ? '  ·  Revenue goal ' + formatCentsUSD(c.goalRevenueCents) : '');
+    card.appendChild(subStat);
+
+    const goalRow = document.createElement('div'); goalRow.className = 'wr-ms-goal-row wr-ms-noclick';
+    const cur = document.createElement('input'); cur.type = 'number'; cur.min = '0'; cur.value = String(c.todaysGoalCurrent);
+    cur.addEventListener('click', function (e) { e.stopPropagation(); });
+    cur.addEventListener('change', function () { YT.Channels.update(c.id, { todaysGoalCurrent: Math.max(0, Number(cur.value) || 0) }); });
+    const slash = document.createElement('span'); slash.textContent = '/';
+    const tgt = document.createElement('input'); tgt.type = 'number'; tgt.min = '1'; tgt.value = String(c.todaysGoalTarget);
+    tgt.addEventListener('click', function (e) { e.stopPropagation(); });
+    tgt.addEventListener('change', function () { YT.Channels.update(c.id, { todaysGoalTarget: Math.max(1, Number(tgt.value) || 1) }); });
+    const unit = document.createElement('span'); unit.textContent = c.todaysGoalUnit || 'videos scripted';
+    goalRow.appendChild(cur); goalRow.appendChild(slash); goalRow.appendChild(tgt); goalRow.appendChild(unit);
+    card.appendChild(goalRow);
+
+    const counts = YT.taskCountsForChannel(c.id);
+    const statRow = document.createElement('div'); statRow.className = 'wr-ms-stat-row';
+    statRow.textContent = 'Tasks: ' + counts.completed + ' / ' + counts.total + ' done';
+    card.appendChild(statRow);
+
+    const progRow = document.createElement('div'); progRow.className = 'wr-ms-progress-row';
+    const pct = counts.total ? Math.round((counts.completed / counts.total) * 100) : 0;
+    const bar = document.createElement('div'); bar.className = 'wr-ms-bar';
+    const fill = document.createElement('div'); fill.className = 'wr-ms-bar-fill'; fill.style.width = pct + '%'; fill.style.background = c.progressBarColor || 'var(--bh-gold)';
+    bar.appendChild(fill); progRow.appendChild(bar);
+    const colorInput = document.createElement('input'); colorInput.type = 'color'; colorInput.className = 'wr-ms-color-swatch wr-ms-noclick';
+    colorInput.value = /^#[0-9a-f]{6}$/i.test(c.progressBarColor || '') ? c.progressBarColor : '#c9a876';
+    colorInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    colorInput.addEventListener('input', function () { fill.style.background = colorInput.value; });
+    colorInput.addEventListener('change', function () { YT.Channels.update(c.id, { progressBarColor: colorInput.value }); });
+    progRow.appendChild(colorInput);
+    card.appendChild(progRow);
+
+    const videoLine = document.createElement('div'); videoLine.className = 'wr-ms-chapter-line';
+    const currentVideo = c.currentVideoId ? YT.Videos.get(c.currentVideoId) : null;
+    videoLine.textContent = 'Current video: ' + (currentVideo ? currentVideo.title : 'Not set');
+    card.appendChild(videoLine);
+    return card;
+  }
+
+  // ---------- Network modal ----------
+  function openYtNetworkModal(network) {
+    ytNetworkModalEditingId = network ? network.id : null;
+    $('ytNetworkModalTitle').textContent = network ? 'Edit Network' : 'Add Network';
+    $('ytNetworkTitleInput').value = network ? network.title : '';
+    $('ytNetworkDescInput').value = network ? network.description : '';
+    $('ytNetworkTintInput').value = /^#[0-9a-f]{6}$/i.test((network || {}).tint || '') ? network.tint : '#c9a876';
+    $('ytNetworkModalDelete').style.display = network ? 'block' : 'none';
+    openModal($('ytNetworkModalBg'));
+  }
+  function saveYtNetworkModal() {
+    const title = $('ytNetworkTitleInput').value.trim(); if (!title) return;
+    const fields = { title: title, description: $('ytNetworkDescInput').value, tint: $('ytNetworkTintInput').value };
+    if (ytNetworkModalEditingId) YT.Networks.update(ytNetworkModalEditingId, fields);
+    else YT.Networks.add(Object.assign({ order: YT.networksSorted().length }, fields));
+    closeModal($('ytNetworkModalBg'));
+    renderYtBoard();
+  }
+  function deleteYtNetworkModal() {
+    if (!ytNetworkModalEditingId) return;
+    if (!confirm('Delete this network? Its channels become Standalone, not deleted.')) return;
+    YT.Networks.remove(ytNetworkModalEditingId);
+    closeModal($('ytNetworkModalBg'));
+    renderYtBoard();
+  }
+
+  // ---------- Channel modal ----------
+  function openYtChannelModal(channel, defaultNetworkId) {
+    ytChannelModalEditingId = channel ? channel.id : null;
+    $('ytChannelModalTitle').textContent = channel ? 'Edit Channel' : 'Add Channel';
+    const networkSelect = $('ytChNetworkInput');
+    networkSelect.innerHTML = '<option value="">Standalone — no network</option>';
+    YT.networksSorted().forEach(function (n) { const o = document.createElement('option'); o.value = n.id; o.textContent = n.title; networkSelect.appendChild(o); });
+    networkSelect.value = channel ? (channel.networkId || '') : (defaultNetworkId || '');
+    $('ytChTitleInput').value = channel ? channel.title : '';
+    $('ytChStatusInput').value = channel ? channel.status : 'active';
+    $('ytChNicheInput').value = channel ? channel.niche : '';
+    $('ytChFormatInput').value = channel ? channel.contentFormat : '';
+    $('ytChFrequencyInput').value = channel ? channel.uploadFrequency : '';
+    $('ytChRevenueInput').value = channel ? Math.round(channel.goalRevenueCents / 100) : '';
+    $('ytChSubGoalInput').value = channel ? channel.goalSubscribers : 10000;
+    $('ytChSubCurrentInput').value = channel ? channel.subscriberCurrent : 0;
+    $('ytChTotalVideosGoalInput').value = channel ? channel.totalVideosGoal : 100;
+    $('ytChGoalCurrentInput').value = channel ? channel.todaysGoalCurrent : 0;
+    $('ytChGoalTargetInput').value = channel ? channel.todaysGoalTarget : 3;
+    $('ytChGoalUnitInput').value = channel ? channel.todaysGoalUnit : 'videos scripted';
+    $('ytChannelModalDelete').style.display = channel ? 'block' : 'none';
+    openModal($('ytChannelModalBg'));
+  }
+  function saveYtChannelModal() {
+    const title = $('ytChTitleInput').value.trim(); if (!title) return;
+    const fields = {
+      title: title,
+      networkId: $('ytChNetworkInput').value || null,
+      status: $('ytChStatusInput').value,
+      niche: $('ytChNicheInput').value,
+      contentFormat: $('ytChFormatInput').value,
+      uploadFrequency: $('ytChFrequencyInput').value,
+      goalRevenueCents: Math.round((Number($('ytChRevenueInput').value) || 0) * 100),
+      goalSubscribers: Math.max(0, Number($('ytChSubGoalInput').value) || 0),
+      subscriberCurrent: Math.max(0, Number($('ytChSubCurrentInput').value) || 0),
+      totalVideosGoal: Math.max(1, Number($('ytChTotalVideosGoalInput').value) || 1),
+      todaysGoalCurrent: Math.max(0, Number($('ytChGoalCurrentInput').value) || 0),
+      todaysGoalTarget: Math.max(1, Number($('ytChGoalTargetInput').value) || 1),
+      todaysGoalUnit: $('ytChGoalUnitInput').value.trim() || 'videos scripted'
+    };
+    if (ytChannelModalEditingId) YT.Channels.update(ytChannelModalEditingId, fields);
+    else YT.Channels.add(Object.assign({ order: YT.channelsForNetwork(fields.networkId).length }, fields));
+    closeModal($('ytChannelModalBg'));
+    renderYtBoard();
+    if (ytChDetailId) renderYtChannelDetail();
+  }
+  function deleteYtChannelModal() {
+    if (!ytChannelModalEditingId) return;
+    if (!confirm('Delete this channel? Its tasks and videos will be deleted too.')) return;
+    YT.Channels.remove(ytChannelModalEditingId);
+    closeModal($('ytChannelModalBg'));
+    if (ytChDetailId === ytChannelModalEditingId) { closeYtPage('ytChannelDetailPageBg'); ytChDetailId = null; }
+    renderYtBoard();
+  }
+
+  // ---------- Channel Detail (full-page overlay) ----------
+  function openYtChannelDetail(id) {
+    ytChDetailId = id;
+    renderYtChannelDetail();
+    openYtPage('ytChannelDetailPageBg');
+  }
+  function renderYtChannelDetail() {
+    const c = YT.Channels.get(ytChDetailId); if (!c) return;
+    $('ytChDetailTitleInput').value = c.title;
+    renderYtChCover(c);
+    const grid = $('ytChDetailStatGrid'); grid.innerHTML = '';
+    function statField(label, value) {
+      const f = document.createElement('div'); f.className = 'field'; f.style.marginBottom = '0';
+      const l = document.createElement('label'); l.textContent = label; f.appendChild(l);
+      const v = document.createElement('div'); v.style.cssText = 'font-size:13.5px;color:var(--bh-text);padding-top:2px;'; v.textContent = value;
+      f.appendChild(v); return f;
+    }
+    grid.appendChild(statField('Status', c.status));
+    grid.appendChild(statField('Niche', c.niche || '—'));
+    grid.appendChild(statField('Content format', c.contentFormat || '—'));
+    grid.appendChild(statField('Upload frequency', c.uploadFrequency || '—'));
+    grid.appendChild(statField('Subscribers', (c.subscriberCurrent || 0).toLocaleString() + ' / ' + (c.goalSubscribers || 0).toLocaleString()));
+    grid.appendChild(statField('Goal revenue', formatCentsUSD(c.goalRevenueCents)));
+    grid.appendChild(statField("Today's goal", c.todaysGoalCurrent + ' / ' + c.todaysGoalTarget + ' ' + (c.todaysGoalUnit || 'videos scripted')));
+    const stats = YT.channelVideoStats(c.id);
+    grid.appendChild(statField('Videos published', stats.published + ' / ' + c.totalVideosGoal));
+    const currentVideo = c.currentVideoId ? YT.Videos.get(c.currentVideoId) : null;
+    grid.appendChild(statField('Current video', currentVideo ? currentVideo.title : 'Not set'));
+
+    const counts = YT.taskCountsForChannel(c.id);
+    $('ytChDetailTasksSummary').textContent = counts.total ? (counts.completed + ' of ' + counts.total + ' tasks done') : 'No tasks yet for this channel.';
+    renderYtChannelDetailTasks();
+    renderYtChannelDetailNotes();
+  }
+  // Channel cover photo — same upload/change/remove interaction and
+  // compress-then-swap-for-a-hosted-URL flow as the Writing Dashboard's own
+  // Manuscript cover (renderWrMsCover()/openWrMsCoverFilePicker()/
+  // handleWrMsCoverPhotoFile() above), scoped to one channel's coverPhoto
+  // field instead of a manuscript's.
+  function renderYtChCover(c) {
+    const img = $('ytChDetailCoverImg'), choice = $('ytChDetailCoverChoice'), tools = $('ytChDetailCoverTools');
+    if (c.coverPhoto) { img.src = c.coverPhoto; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; }
+  }
+  function openYtChCoverFilePicker() { const i = $('ytChDetailCoverInput'); i.value = ''; i.click(); }
+  function handleYtChCoverPhotoFile() {
+    const file = $('ytChDetailCoverInput').files[0];
+    if (!file || !ytChDetailId) return;
+    const chIdAtUpload = ytChDetailId;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const compressed = await DB.compressImageDataUrl(String(reader.result), 1100, 0.78);
+      if (chIdAtUpload !== ytChDetailId) return;
+      YT.Channels.update(chIdAtUpload, { coverPhoto: compressed });
+      renderYtChCover(YT.Channels.get(chIdAtUpload));
+      renderYtBoard();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (chIdAtUpload !== ytChDetailId) return;
+          const fresh = YT.Channels.get(chIdAtUpload);
+          if (fresh && fresh.coverPhoto === compressed) YT.Channels.update(chIdAtUpload, { coverPhoto: url });
+          renderYtChCover(YT.Channels.get(chIdAtUpload));
+          renderYtBoard();
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+  // Inline task list for the currently-open channel — reuses
+  // buildYtTaskRow() verbatim (same check/reorder/collapse/duplicate/
+  // delete/open behavior as the main Tasks Database table), scoped to just
+  // this channel's own root tasks.
+  function renderYtChannelDetailTasks() {
+    if (!ytChDetailId) return;
+    const wrap = $('ytChDetailTasksList'); if (!wrap) return;
+    const counts = YT.taskCountsForChannel(ytChDetailId);
+    $('ytChDetailTasksSummary').textContent = counts.total ? (counts.completed + ' of ' + counts.total + ' tasks done') : 'No tasks yet for this channel.';
+    wrap.innerHTML = '';
+    const roots = YT.rootTasks(ytChDetailId).slice().sort(function (a, b) { return a.order - b.order; });
+    roots.forEach(function (t, i) {
+      wrap.appendChild(buildYtTaskRow(t, 0, i === 0, i === roots.length - 1, renderYtChannelDetailTasks));
+      const children = YT.childTasks(t.id);
+      if (!t.collapsed) children.forEach(function (c, j) { wrap.appendChild(buildYtTaskRow(c, 1, j === 0, j === children.length - 1, renderYtChannelDetailTasks)); });
+    });
+    $('ytChDetailTasksEmpty').hidden = roots.length !== 0;
+  }
+  function renderYtChannelDetailNotes() {
+    const wrap = $('ytChDetailNotes'); wrap.innerHTML = '';
+    const notes = YT.notesForChannel(ytChDetailId);
+    if (!notes.length) { const e = document.createElement('div'); e.className = 'wr-empty'; e.textContent = 'No notes sections yet.'; wrap.appendChild(e); return; }
+    notes.forEach(function (n, i) {
+      const card = document.createElement('div'); card.className = 'wr-note-section';
+      const head = document.createElement('div'); head.className = 'wr-note-section-head';
+      const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-note-section-title-input'; titleInput.value = n.title;
+      titleInput.addEventListener('blur', function () { YT.updateChannelNote(ytChDetailId, n.id, { title: titleInput.value.trim() || 'Untitled' }); });
+      head.appendChild(titleInput);
+      const actions = document.createElement('div'); actions.className = 'wr-note-section-actions';
+      const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = i === 0;
+      up.addEventListener('click', function () { YT.moveChannelNote(ytChDetailId, n.id, -1); renderYtChannelDetailNotes(); });
+      const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = i === notes.length - 1;
+      down.addEventListener('click', function () { YT.moveChannelNote(ytChDetailId, n.id, 1); renderYtChannelDetailNotes(); });
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕';
+      del.addEventListener('click', function () { YT.removeChannelNote(ytChDetailId, n.id); renderYtChannelDetailNotes(); });
+      actions.appendChild(up); actions.appendChild(down); actions.appendChild(del);
+      head.appendChild(actions);
+      card.appendChild(head);
+      const body = document.createElement('textarea'); body.className = 'wr-note-section-body'; body.value = n.body; body.placeholder = 'Write freely…';
+      body.addEventListener('input', function () { autosize(body); });
+      body.addEventListener('blur', function () { YT.updateChannelNote(ytChDetailId, n.id, { body: body.value }); });
+      card.appendChild(body);
+      wrap.appendChild(card);
+    });
+    setTimeout(function () { wrap.querySelectorAll('textarea').forEach(function (ta) { autosize(ta); }); }, 0);
+  }
+
+  // ---------- Video Ideas gallery ----------
+  function renderYtIdeas() {
+    const grid = $('ytIdeaGrid'); grid.innerHTML = '';
+    let ideas = YT.Ideas.list().slice().sort(function (a, b) { return a.order - b.order; });
+    if (ytIdeaStatusFilter) ideas = ideas.filter(function (i) { return i.status === ytIdeaStatusFilter; });
+    if (ytIdeaSearch) { const q = ytIdeaSearch.toLowerCase(); ideas = ideas.filter(function (i) { return i.title.toLowerCase().indexOf(q) !== -1 || (i.pitch || '').toLowerCase().indexOf(q) !== -1; }); }
+    ideas.forEach(function (idea) { grid.appendChild(buildYtIdeaCard(idea)); });
+    $('ytIdeaEmpty').hidden = ideas.length !== 0;
+  }
+  function buildYtIdeaCard(idea) {
+    const card = document.createElement('div'); card.className = 'wr-idea-card';
+    const status = document.createElement('span'); status.className = 'wr-idea-status-pill'; status.textContent = idea.status; card.appendChild(status);
+    const title = document.createElement('div'); title.className = 'wr-idea-title'; title.textContent = idea.title; card.appendChild(title);
+    if (idea.pitch) { const p = document.createElement('div'); p.className = 'wr-idea-pitch'; p.textContent = idea.pitch; card.appendChild(p); }
+    if (idea.tags.length) {
+      const tagsRow = document.createElement('div'); tagsRow.className = 'wr-idea-tags';
+      idea.tags.forEach(function (t) { const tag = document.createElement('span'); tag.className = 'wr-ms-meta-tag'; tag.textContent = t; tagsRow.appendChild(tag); });
+      card.appendChild(tagsRow);
+    }
+    const actions = document.createElement('div'); actions.className = 'wr-idea-actions';
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bh-btn-secondary'; editBtn.textContent = '✎ Edit';
+    editBtn.addEventListener('click', function () { openYtIdeaModal(idea); });
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
+    return card;
+  }
+  function openYtIdeaModal(idea) {
+    ytIdeaModalEditingId = idea ? idea.id : null;
+    $('ytIdeaModalTitle').textContent = idea ? 'Edit Idea' : 'Add Idea';
+    $('ytIdeaTitleInput').value = idea ? idea.title : '';
+    $('ytIdeaPitchInput').value = idea ? idea.pitch : '';
+    $('ytIdeaTagsInput').value = idea ? idea.tags.join(', ') : '';
+    $('ytIdeaStatusInput').value = idea ? idea.status : 'spark';
+    $('ytIdeaNotesInput').value = idea ? idea.notes : '';
+    $('ytIdeaModalDelete').style.display = idea ? 'block' : 'none';
+    openModal($('ytIdeaModalBg'));
+  }
+  function saveYtIdeaModal() {
+    const title = $('ytIdeaTitleInput').value.trim(); if (!title) return;
+    const tags = $('ytIdeaTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    const fields = { title: title, pitch: $('ytIdeaPitchInput').value, tags: tags, status: $('ytIdeaStatusInput').value, notes: $('ytIdeaNotesInput').value };
+    if (ytIdeaModalEditingId) YT.Ideas.update(ytIdeaModalEditingId, fields);
+    else YT.Ideas.add(Object.assign({ order: YT.Ideas.list().length }, fields));
+    closeModal($('ytIdeaModalBg'));
+    renderYtIdeas();
+  }
+  function deleteYtIdeaModal() {
+    if (!ytIdeaModalEditingId) return;
+    if (!confirm('Delete this video idea?')) return;
+    YT.Ideas.remove(ytIdeaModalEditingId);
+    closeModal($('ytIdeaModalBg'));
+    renderYtIdeas();
+  }
+
+  // ---------- Tasks Inline Database — identical mechanic to the Writing
+  // Dashboard's own (see its own top-of-section comment above): a
+  // "template" is a root YtTask (parentTaskId: null); its "sub-pages" are
+  // child YtTasks. Reorder uses up/down arrows, not drag. ----------
+  let ytTaskFilterChannel = '';
+  let ytTaskFilterStatus = '';
+  let ytTaskFilterPriority = '';
+  let ytTaskSearch = '';
+  let ytTaskDetailId = null;
+
+  function renderYtTaskTable() {
+    const channelSelect = $('ytTaskFilterChannel');
+    const currentVal = channelSelect.value || ytTaskFilterChannel;
+    channelSelect.innerHTML = '<option value="">All Channels</option>';
+    YT.allChannelsSorted().forEach(function (c) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.title; channelSelect.appendChild(o); });
+    channelSelect.value = currentVal; ytTaskFilterChannel = channelSelect.value;
+
+    let roots = YT.rootTasks().slice().sort(function (a, b) { return a.order - b.order; });
+    if (ytTaskFilterChannel) roots = roots.filter(function (t) { return t.channelId === ytTaskFilterChannel; });
+    if (ytTaskFilterStatus) roots = roots.filter(function (t) { return t.status === ytTaskFilterStatus; });
+    if (ytTaskFilterPriority) roots = roots.filter(function (t) { return t.priority === ytTaskFilterPriority; });
+    if (ytTaskSearch) {
+      const q = ytTaskSearch.toLowerCase();
+      roots = roots.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1 || (t.summary || '').toLowerCase().indexOf(q) !== -1; });
+    }
+
+    const wrap = $('ytTaskTable'); wrap.innerHTML = '';
+    const templateRoots = roots.filter(function (t) { return /template/i.test(t.title); });
+    const otherRoots = roots.filter(function (t) { return !/template/i.test(t.title); });
+    function renderTaskGroup(label, list) {
+      if (!list.length) return;
+      const header = document.createElement('div'); header.className = 'wr-task-group-title';
+      header.textContent = label + ' (' + list.length + ')';
+      wrap.appendChild(header);
+      list.forEach(function (t, i) {
+        wrap.appendChild(buildYtTaskRow(t, 0, i === 0, i === list.length - 1));
+        const children = YT.childTasks(t.id);
+        if (!t.collapsed) children.forEach(function (c, j) { wrap.appendChild(buildYtTaskRow(c, 1, j === 0, j === children.length - 1)); });
+      });
+    }
+    renderTaskGroup('Templates', templateRoots);
+    renderTaskGroup('Tasks', otherRoots);
+    $('ytTaskTableEmpty').hidden = roots.length !== 0;
+  }
+  function buildYtTaskRow(task, depth, isFirst, isLast, refreshFn) {
+    refreshFn = refreshFn || renderYtTaskTable;
+    const wrap = document.createElement('div'); wrap.className = 'wr-task-table-row' + (depth ? ' wr-task-indent' : '');
+    const card = document.createElement('div'); card.className = 'bh-task-card' + (task.status === 'done' ? ' is-done' : '');
+
+    const hasChildrenForCollapse = !task.parentTaskId && YT.childTasks(task.id).length;
+    if (hasChildrenForCollapse) {
+      const caret = document.createElement('button'); caret.type = 'button'; caret.className = 'wr-task-add-sub wr-task-collapse-btn'; caret.textContent = task.collapsed ? '▶' : '▼';
+      caret.title = task.collapsed ? 'Show sub-pages' : 'Hide sub-pages';
+      caret.setAttribute('aria-label', task.collapsed ? 'Show sub-pages' : 'Hide sub-pages');
+      caret.addEventListener('click', function (e) { e.stopPropagation(); YT.Tasks.update(task.id, { collapsed: !task.collapsed }); refreshFn(); });
+      card.appendChild(caret);
+    }
+
+    const up = document.createElement('button'); up.type = 'button'; up.className = 'wr-task-add-sub'; up.textContent = '▲'; up.disabled = isFirst; up.setAttribute('aria-label', 'Move up');
+    up.addEventListener('click', function () { YT.moveTask(task.id, -1); refreshFn(); });
+    const down = document.createElement('button'); down.type = 'button'; down.className = 'wr-task-add-sub'; down.textContent = '▼'; down.disabled = isLast; down.setAttribute('aria-label', 'Move down');
+    down.addEventListener('click', function () { YT.moveTask(task.id, 1); refreshFn(); });
+    card.appendChild(up); card.appendChild(down);
+
+    const check = document.createElement('button'); check.type = 'button'; check.className = 'bh-task-check' + (task.status === 'done' ? ' done' : '');
+    check.setAttribute('aria-label', task.status === 'done' ? 'Mark not done' : 'Mark done');
+    if (task.status === 'done') check.textContent = '✓';
+    check.addEventListener('click', function () { YT.Tasks.update(task.id, { status: task.status === 'done' ? 'todo' : 'done' }); refreshFn(); renderYtBoard(); });
+    card.appendChild(check);
+
+    const title = document.createElement('span'); title.className = 'bh-task-title'; title.textContent = task.title;
+    title.addEventListener('click', function () { openYtTaskDetail(task.id); });
+    card.appendChild(title);
+
+    if (!task.parentTaskId && YT.childTasks(task.id).length) { const badge = document.createElement('span'); badge.className = 'bh-task-badge'; badge.textContent = 'TEMPLATE'; card.appendChild(badge); }
+    const c = task.channelId ? YT.Channels.get(task.channelId) : null;
+    const chTag = document.createElement('span'); chTag.className = 'wr-task-ms-tag'; chTag.textContent = c ? c.title : 'Unlinked'; card.appendChild(chTag);
+    const pri = document.createElement('span'); pri.className = 'bh-task-pill pri-' + task.priority; pri.textContent = task.priority; card.appendChild(pri);
+    if (task.dueDate) { const d = document.createElement('span'); d.className = 'bh-task-due'; d.textContent = DB.formatDateShort(task.dueDate); card.appendChild(d); }
+
+    if (!task.parentTaskId) {
+      const addSub = document.createElement('button'); addSub.type = 'button'; addSub.className = 'wr-task-add-sub'; addSub.title = 'Add a sub-page'; addSub.textContent = '+ Sub-page';
+      addSub.addEventListener('click', function () { YT.Tasks.add({ channelId: task.channelId, parentTaskId: task.id, title: 'New Sub-page', order: YT.childTasks(task.id).length }); refreshFn(); });
+      card.appendChild(addSub);
+    }
+
+    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bh-task-open'; openBtn.title = 'Open'; openBtn.textContent = '📄';
+    openBtn.addEventListener('click', function (e) { e.stopPropagation(); openYtTaskDetail(task.id); });
+    card.appendChild(openBtn);
+
+    const dup = document.createElement('button'); dup.type = 'button'; dup.className = 'bh-task-open'; dup.title = task.parentTaskId ? 'Duplicate this sub-page' : 'Duplicate this template (and its sub-pages)'; dup.textContent = '⧉';
+    dup.addEventListener('click', function (e) { e.stopPropagation(); YT.duplicateYtTask(task.id); refreshFn(); renderYtBoard(); });
+    card.appendChild(dup);
+
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'bh-task-del'; del.setAttribute('aria-label', 'Delete'); del.textContent = '✕';
+    del.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const hasChildren = !task.parentTaskId && YT.childTasks(task.id).length;
+      if (!confirm(hasChildren ? 'Delete this template and all its sub-pages?' : 'Delete this task?')) return;
+      if (hasChildren) YT.childTasks(task.id).forEach(function (c2) { YT.Tasks.remove(c2.id); });
+      YT.Tasks.remove(task.id);
+      refreshFn(); renderYtBoard();
+    });
+    card.appendChild(del);
+
+    wrap.appendChild(card);
+    if (task.summary) { const s = document.createElement('div'); s.className = 'wr-task-summary-line'; s.textContent = task.summary; wrap.appendChild(s); }
+    return wrap;
+  }
+
+  function openYtTaskDetail(taskId) {
+    const t = YT.Tasks.get(taskId); if (!t) return;
+    ytTaskDetailId = taskId;
+    $('ytTaskDetailModalTitle').textContent = t.parentTaskId ? 'Sub-page' : 'Template';
+    $('ytTaskDetailTitleInput').value = t.title;
+    const sel = $('ytTaskDetailChannelInput'); sel.innerHTML = '<option value="">Unlinked</option>';
+    YT.allChannelsSorted().forEach(function (c) { const o = document.createElement('option'); o.value = c.id; o.textContent = c.title; sel.appendChild(o); });
+    sel.value = t.channelId || '';
+    $('ytTaskDetailStatusInput').value = t.status;
+    $('ytTaskDetailPriorityInput').value = t.priority;
+    $('ytTaskDetailDueInput').value = t.dueDate || '';
+    $('ytTaskDetailSummaryInput').value = t.summary || '';
+    renderYtTaskDetailBlocks();
+    openModal($('ytTaskDetailModalBg'));
+  }
+  function renderYtTaskDetailBlocks() {
+    const t = YT.Tasks.get(ytTaskDetailId); if (!t) return;
+    const wrap = $('ytTaskDetailBlocks'); wrap.innerHTML = '';
+    const blocks = (t.blocks || []).slice().sort(function (a, b) { return a.order - b.order; });
+    if (!blocks.length) { const e = document.createElement('div'); e.className = 'bh-pf-section-empty'; e.textContent = 'No blocks yet.'; wrap.appendChild(e); return; }
+    blocks.forEach(function (b, i) { wrap.appendChild(buildYtTaskBlockCard(t.id, b, i === 0, i === blocks.length - 1)); });
+    setTimeout(function () { wrap.querySelectorAll('textarea').forEach(function (ta) { autosize(ta); }); }, 0);
+  }
+  function buildYtTaskBlockCard(taskId, block, isFirst, isLast) {
+    const card = document.createElement('div'); card.className = 'bh-pf-section';
+    const head = document.createElement('div'); head.className = 'bh-pf-section-head';
+    const tag = document.createElement('span'); tag.className = 'bh-pf-section-type-tag'; tag.textContent = block.type === 'code' ? 'CODE' : 'TEXT'; head.appendChild(tag);
+    const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'bh-pf-section-title-input'; titleInput.value = block.title; titleInput.placeholder = 'Section title…';
+    titleInput.addEventListener('blur', function () { YT.updateYtTaskBlock(taskId, block.id, { title: titleInput.value }); });
+    head.appendChild(titleInput);
+    if (block.type === 'code') {
+      const lang = document.createElement('input'); lang.type = 'text'; lang.placeholder = 'language'; lang.value = block.language || '';
+      lang.style.cssText = 'width:90px;flex-shrink:0;background:transparent;border:1px solid var(--bh-hairline);border-radius:6px;padding:3px 6px;font-size:11px;color:var(--bh-text-mute);';
+      lang.addEventListener('blur', function () { YT.updateYtTaskBlock(taskId, block.id, { language: lang.value }); });
+      head.appendChild(lang);
+    }
+    const btnStyle = 'background:transparent;border:none;color:var(--bh-text-mute);cursor:pointer;font-size:12px;padding:3px 6px;flex-shrink:0;';
+    const up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst; up.style.cssText = btnStyle;
+    up.addEventListener('click', function () { YT.moveYtTaskBlock(taskId, block.id, -1); renderYtTaskDetailBlocks(); });
+    const down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast; down.style.cssText = btnStyle;
+    down.addEventListener('click', function () { YT.moveYtTaskBlock(taskId, block.id, 1); renderYtTaskDetailBlocks(); });
+    const del = document.createElement('button'); del.type = 'button'; del.textContent = '✕'; del.style.cssText = btnStyle;
+    del.addEventListener('click', function () { if (!confirm('Delete this block?')) return; YT.removeYtTaskBlock(taskId, block.id); renderYtTaskDetailBlocks(); });
+    head.appendChild(up); head.appendChild(down); head.appendChild(del);
+    card.appendChild(head);
+    const body = document.createElement('textarea'); body.className = block.type === 'code' ? 'bh-pf-section-code-body' : 'bh-pf-section-body';
+    body.value = block.body; body.placeholder = block.type === 'code' ? '// code…' : 'Write freely…';
+    if (block.type === 'code') body.spellcheck = false;
+    body.addEventListener('input', function () { autosize(body); });
+    body.addEventListener('blur', function () { YT.updateYtTaskBlock(taskId, block.id, { body: body.value }); });
+    card.appendChild(body);
+    return card;
+  }
+  function saveYtTaskDetailFields() {
+    if (!ytTaskDetailId) return;
+    YT.Tasks.update(ytTaskDetailId, {
+      title: $('ytTaskDetailTitleInput').value.trim() || 'Untitled',
+      channelId: $('ytTaskDetailChannelInput').value || null,
+      status: $('ytTaskDetailStatusInput').value,
+      priority: $('ytTaskDetailPriorityInput').value,
+      dueDate: $('ytTaskDetailDueInput').value || '',
+      summary: $('ytTaskDetailSummaryInput').value
+    });
+    renderYtTaskTable(); renderYtBoard();
+    if (ytChDetailId) renderYtChannelDetailTasks();
+  }
+  function closeYtTaskDetailModal() { closeModal($('ytTaskDetailModalBg')); ytTaskDetailId = null; }
+  function deleteYtTaskDetail() {
+    if (!ytTaskDetailId) return;
+    const t = YT.Tasks.get(ytTaskDetailId); if (!t) return;
+    const hasChildren = !t.parentTaskId && YT.childTasks(t.id).length;
+    if (!confirm(hasChildren ? 'Delete this template and all its sub-pages?' : 'Delete this task?')) return;
+    if (hasChildren) YT.childTasks(t.id).forEach(function (c) { YT.Tasks.remove(c.id); });
+    YT.Tasks.remove(t.id);
+    closeModal($('ytTaskDetailModalBg')); ytTaskDetailId = null;
+    renderYtTaskTable(); renderYtBoard();
+    if (ytChDetailId) renderYtChannelDetailTasks();
+  }
+
+  // ---------- Video Planner (per-channel, flat reorderable video list +
+  // a 2-panel editor) — the Video-management analog of the Writing
+  // Dashboard's Manuscript Binder, deliberately simplified: a channel's
+  // videos are a flat list (no Part/Chapter/Scene nesting), so this uses
+  // this app's standard numeric order + up/down-arrow reorder instead of
+  // fractional indexing / real drag-and-drop. ----------
+  let ytPlannerChannelId = null;
+  let ytPlannerActiveVideoId = null;
+
+  function openYtVideoPlanner(channelId) {
+    ytPlannerChannelId = channelId;
+    const videos = YT.videosForChannel(channelId);
+    ytPlannerActiveVideoId = videos.length ? videos[0].id : null;
+    renderYtVideoPlanner();
+    openYtPage('ytVideoPlannerPageBg');
+  }
+  function closeYtVideoPlanner() { closeYtPage('ytVideoPlannerPageBg'); ytPlannerChannelId = null; ytPlannerActiveVideoId = null; }
+  function renderYtVideoPlanner() {
+    const c = YT.Channels.get(ytPlannerChannelId); if (!c) return;
+    $('ytPlannerChannelTitle').textContent = c.title;
+    renderYtTargets();
+    renderYtVideoList();
+    renderYtVideoEditor();
+  }
+  function buildYtTargetBar(label, current, goal, onGoalChange) {
+    const wrap = document.createElement('div'); wrap.className = 'wr-target-item';
+    const head = document.createElement('div'); head.className = 'wr-target-head';
+    const l = document.createElement('span'); l.textContent = label; head.appendChild(l);
+    const curSpan = document.createElement('span'); curSpan.textContent = current.toLocaleString() + ' / '; head.appendChild(curSpan);
+    const goalInput = document.createElement('input'); goalInput.type = 'number'; goalInput.min = '1'; goalInput.value = String(goal);
+    goalInput.addEventListener('change', function () { onGoalChange(Math.max(1, Number(goalInput.value) || 1)); });
+    head.appendChild(goalInput);
+    wrap.appendChild(head);
+    const bar = document.createElement('div'); bar.className = 'wr-ms-bar';
+    const fill = document.createElement('div'); fill.className = 'wr-ms-bar-fill'; fill.style.width = Math.max(0, Math.min(100, Math.round((current / Math.max(1, goal)) * 100))) + '%';
+    bar.appendChild(fill); wrap.appendChild(bar);
+    return wrap;
+  }
+  function renderYtTargets() {
+    const c = YT.Channels.get(ytPlannerChannelId); if (!c) return;
+    const grid = $('ytTargetsGrid'); grid.innerHTML = '';
+    const stats = YT.channelVideoStats(ytPlannerChannelId);
+    grid.appendChild(buildYtTargetBar('Total videos published', stats.published, c.totalVideosGoal, function (v) { YT.Channels.update(c.id, { totalVideosGoal: v }); renderYtTargets(); }));
+    grid.appendChild(buildYtTargetBar("Today's goal — " + (c.todaysGoalUnit || 'videos scripted'), c.todaysGoalCurrent, c.todaysGoalTarget, function (v) { YT.Channels.update(c.id, { todaysGoalTarget: v }); renderYtTargets(); }));
+  }
+  function renderYtVideoList() {
+    const wrap = $('ytVideoList'); wrap.innerHTML = '';
+    const videos = YT.videosForChannel(ytPlannerChannelId);
+    $('ytVideoListEmpty').hidden = videos.length !== 0;
+    const STATUS_ICON = { idea: '💡', scripting: '✎', filming: '🎬', editing: '✂️', scheduled: '🗓', published: '✅' };
+    videos.forEach(function (v, i) {
+      const row = document.createElement('div'); row.className = 'wr-binder-node' + (v.id === ytPlannerActiveVideoId ? ' active' : '');
+      const icon = document.createElement('span'); icon.className = 'wr-binder-node-icon'; icon.textContent = STATUS_ICON[v.status] || '💡'; row.appendChild(icon);
+      const titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'wr-binder-node-title'; titleInput.value = v.title;
+      titleInput.addEventListener('click', function (e) { e.stopPropagation(); });
+      titleInput.addEventListener('blur', function () { const val = titleInput.value.trim() || 'Untitled'; YT.Videos.update(v.id, { title: val }); renderYtVideoList(); if (v.id === ytPlannerActiveVideoId) $('ytVideoTitleInput').value = val; });
+      row.appendChild(titleInput);
+      const meta = document.createElement('span'); meta.className = 'yt-video-row-meta'; meta.textContent = v.publishDate ? DB.formatDateShort(v.publishDate) : '';
+      row.appendChild(meta);
+      const up = document.createElement('button'); up.type = 'button'; up.className = 'wr-binder-node-del'; up.textContent = '▲'; up.title = 'Move up'; up.disabled = i === 0;
+      up.addEventListener('click', function (e) { e.stopPropagation(); YT.moveVideo(v.id, -1); renderYtVideoList(); });
+      row.appendChild(up);
+      const down = document.createElement('button'); down.type = 'button'; down.className = 'wr-binder-node-del'; down.textContent = '▼'; down.title = 'Move down'; down.disabled = i === videos.length - 1;
+      down.addEventListener('click', function (e) { e.stopPropagation(); YT.moveVideo(v.id, 1); renderYtVideoList(); });
+      row.appendChild(down);
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'wr-binder-node-del'; del.textContent = '✕'; del.title = 'Delete video';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!confirm('Delete this video?')) return;
+        YT.Videos.remove(v.id);
+        if (ytPlannerActiveVideoId === v.id) { const remaining = YT.videosForChannel(ytPlannerChannelId); ytPlannerActiveVideoId = remaining.length ? remaining[0].id : null; }
+        renderYtVideoList(); renderYtVideoEditor(); renderYtTargets();
+      });
+      row.appendChild(del);
+      row.addEventListener('click', function () { ytPlannerActiveVideoId = v.id; renderYtVideoList(); renderYtVideoEditor(); });
+      wrap.appendChild(row);
+    });
+  }
+  function renderYtVideoEditor() {
+    const v = ytPlannerActiveVideoId ? YT.Videos.get(ytPlannerActiveVideoId) : null;
+    const titleInput = $('ytVideoTitleInput'), script = $('ytVideoScriptBody'), notes = $('ytVideoNotesBody'), metaGrid = $('ytVideoMetaGrid');
+    if (!v) {
+      titleInput.value = ''; titleInput.disabled = true;
+      script.value = ''; script.disabled = true;
+      notes.value = ''; notes.disabled = true;
+      metaGrid.innerHTML = '';
+      $('ytScriptWordCount').textContent = '';
+      return;
+    }
+    titleInput.disabled = false; script.disabled = false; notes.disabled = false;
+    titleInput.value = v.title;
+    script.value = v.script;
+    notes.value = v.notes;
+    $('ytScriptWordCount').textContent = YT.wordCount(v.script) + ' words';
+
+    metaGrid.innerHTML = '';
+    function metaField(label, inputEl) {
+      const f = document.createElement('div'); f.className = 'field'; f.style.marginBottom = '0';
+      const l = document.createElement('label'); l.textContent = label; f.appendChild(l);
+      f.appendChild(inputEl); return f;
+    }
+    const statusSel = document.createElement('select');
+    YT.VIDEO_STATUSES.forEach(function (s) { const o = document.createElement('option'); o.value = s; o.textContent = s; if (s === v.status) o.selected = true; statusSel.appendChild(o); });
+    statusSel.addEventListener('change', function () { YT.Videos.update(v.id, { status: statusSel.value }); renderYtVideoList(); renderYtTargets(); });
+    metaGrid.appendChild(metaField('Status', statusSel));
+
+    const dateInput = document.createElement('input'); dateInput.type = 'date'; dateInput.value = v.publishDate || '';
+    dateInput.addEventListener('change', function () { YT.Videos.update(v.id, { publishDate: dateInput.value }); renderYtVideoList(); });
+    metaGrid.appendChild(metaField('Publish date', dateInput));
+
+    const playlistInput = document.createElement('input'); playlistInput.type = 'text'; playlistInput.value = v.playlist; playlistInput.placeholder = 'e.g. Budget Tech';
+    playlistInput.addEventListener('blur', function () { YT.Videos.update(v.id, { playlist: playlistInput.value }); });
+    metaGrid.appendChild(metaField('Playlist', playlistInput));
+
+    const tagsInput = document.createElement('input'); tagsInput.type = 'text'; tagsInput.value = v.tags.join(', '); tagsInput.placeholder = 'comma, separated';
+    tagsInput.addEventListener('blur', function () { YT.Videos.update(v.id, { tags: tagsInput.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean) }); });
+    metaGrid.appendChild(metaField('Tags', tagsInput));
+
+    const urlInput = document.createElement('input'); urlInput.type = 'text'; urlInput.value = v.videoUrl; urlInput.placeholder = 'https://youtube.com/watch?v=…';
+    urlInput.addEventListener('blur', function () { YT.Videos.update(v.id, { videoUrl: urlInput.value }); });
+    metaGrid.appendChild(metaField('Video URL (once published)', urlInput));
+
+    // Thumbnail is a pasted image URL, not an upload — same "keep it
+    // simple" call as this app's own Link widget/Video URL field above,
+    // rather than wiring a whole file-picker modal for one minor field.
+    const thumbInput = document.createElement('input'); thumbInput.type = 'text'; thumbInput.value = v.thumbnail; thumbInput.placeholder = 'https://… (paste a thumbnail image URL)';
+    thumbInput.addEventListener('blur', function () { YT.Videos.update(v.id, { thumbnail: thumbInput.value }); });
+    metaGrid.appendChild(metaField('Thumbnail URL', thumbInput));
+  }
+
+  // ============================================================
   // BOOT
   // ============================================================
   function init() {
@@ -4561,13 +5646,20 @@ body::after {
       const storedView = storeGet(WD.KEYS.activeView);
       writingView = ['board', 'ideas', 'themes'].indexOf(storedView) !== -1 ? storedView : 'board';
     }
+    YT = window.YoutubeData || null;
+    if (YT) {
+      const storedYtView = storeGet(YT.KEYS.activeView);
+      youtubeView = ['board', 'ideas'].indexOf(storedYtView) !== -1 ? storedYtView : 'board';
+    }
 
     // A device that already had real Business Hub data before the Writing
     // Dashboard tab existed never re-runs the one-time seed, so it would
     // never get the new tab otherwise — see ensureWritingDashboardExists()'s
     // own comment in business-data.js. Safe to call unconditionally here
-    // (it no-ops on a genuinely empty/fresh device via its own guard).
+    // (it no-ops on a genuinely empty/fresh device via its own guard). Same
+    // reasoning for the YouTube Dashboard tab.
     DB.ensureWritingDashboardExists();
+    DB.ensureYoutubeDashboardExists();
 
     const tabs = DB.tabsSorted();
     const savedTab = storeGet(ACTIVE_TAB_KEY);
@@ -4857,6 +5949,153 @@ body::after {
       $('wrCompilePrintBtn').addEventListener('click', exportWrCompilePrint);
     }
 
+    // ---------- YouTube Dashboard wiring ----------
+    if (YT) {
+      $('ytSubpageBackBtn').addEventListener('click', function () {
+        const youtubeTab = DB.tabsSorted().find(function (t) { return t.layout === 'youtube'; });
+        if (youtubeTab) switchTab(youtubeTab.id);
+      });
+      document.querySelectorAll('#ytArticle [data-yt-add-block]').forEach(function (btn) {
+        btn.addEventListener('click', function () { YT.addArticleBlock(btn.dataset.ytAddBlock); renderYtArticle(); });
+      });
+      $('ytArticleTitle').addEventListener('input', function () { autosize($('ytArticleTitle')); });
+      $('ytArticleTitle').addEventListener('blur', function () { YT.saveArticleTitle($('ytArticleTitle').value); });
+
+      document.querySelectorAll('#ytSubnav [data-yt-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () { youtubeView = btn.dataset.ytView; storeSet(YT.KEYS.activeView, youtubeView); renderYoutubeDashboard(); });
+      });
+      document.querySelectorAll('#ytSubnav [data-yt-nav-subpage]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const tab = DB.tabsSorted().find(function (t) { return t.isYoutubeSubpage && t.title === btn.dataset.ytNavSubpage; });
+          if (tab) switchTab(tab.id);
+        });
+      });
+
+      wireFilterChipRow('ytStatusFilterChips', function (v) { ytStatusFilter = v; });
+      $('ytAddNetworkBtn').addEventListener('click', function () { openYtNetworkModal(null); });
+      $('ytAddChannelBtn').addEventListener('click', function () { openYtChannelModal(null, null); });
+
+      $('ytNetworkModalCloseBtn').addEventListener('click', function () { closeModal($('ytNetworkModalBg')); });
+      $('ytNetworkModalCancel').addEventListener('click', function () { closeModal($('ytNetworkModalBg')); });
+      $('ytNetworkModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('ytNetworkModalSave').addEventListener('click', saveYtNetworkModal);
+      $('ytNetworkModalDelete').addEventListener('click', deleteYtNetworkModal);
+
+      $('ytChannelModalCloseBtn').addEventListener('click', function () { closeModal($('ytChannelModalBg')); });
+      $('ytChannelModalCancel').addEventListener('click', function () { closeModal($('ytChannelModalBg')); });
+      $('ytChannelModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('ytChannelModalSave').addEventListener('click', saveYtChannelModal);
+      $('ytChannelModalDelete').addEventListener('click', deleteYtChannelModal);
+
+      $('ytChDetailBackBtn').addEventListener('click', function () { closeYtPage('ytChannelDetailPageBg'); ytChDetailId = null; renderYtBoard(); });
+      $('ytChDetailTitleInput').addEventListener('blur', function () {
+        if (!ytChDetailId) return;
+        const v = this.value.trim(); if (!v) return;
+        YT.Channels.update(ytChDetailId, { title: v });
+        renderYtBoard();
+      });
+      $('ytChDetailEditStatsBtn').addEventListener('click', function () { const c = YT.Channels.get(ytChDetailId); if (c) openYtChannelModal(c, c.networkId); });
+      $('ytChDetailDeleteBtn').addEventListener('click', function () {
+        if (!ytChDetailId) return;
+        if (!confirm('Delete this channel? Its tasks and videos will be deleted too.')) return;
+        YT.Channels.remove(ytChDetailId);
+        closeYtPage('ytChannelDetailPageBg'); ytChDetailId = null;
+        renderYtBoard();
+      });
+      $('ytChDetailAddNoteBtn').addEventListener('click', function () { if (!ytChDetailId) return; YT.addChannelNote(ytChDetailId); renderYtChannelDetailNotes(); });
+
+      wireFilterChipRow('ytIdeaStatusChips', function (v) { ytIdeaStatusFilter = v; });
+      $('ytIdeaSearchInput').addEventListener('input', function () { ytIdeaSearch = this.value; renderYtIdeas(); });
+      $('ytAddIdeaBtn').addEventListener('click', function () { openYtIdeaModal(null); });
+      $('ytIdeaModalCloseBtn').addEventListener('click', function () { closeModal($('ytIdeaModalBg')); });
+      $('ytIdeaModalCancel').addEventListener('click', function () { closeModal($('ytIdeaModalBg')); });
+      $('ytIdeaModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(this); });
+      $('ytIdeaModalSave').addEventListener('click', saveYtIdeaModal);
+      $('ytIdeaModalDelete').addEventListener('click', deleteYtIdeaModal);
+
+      // Tasks Inline Database
+      $('ytTaskFilterChannel').addEventListener('change', function () { ytTaskFilterChannel = this.value; renderYtTaskTable(); });
+      $('ytTaskFilterStatus').addEventListener('change', function () { ytTaskFilterStatus = this.value; renderYtTaskTable(); });
+      $('ytTaskFilterPriority').addEventListener('change', function () { ytTaskFilterPriority = this.value; renderYtTaskTable(); });
+      $('ytTaskSearchInput').addEventListener('input', function () { ytTaskSearch = this.value; renderYtTaskTable(); });
+      $('ytTaskAddTemplateBtn').addEventListener('click', function () {
+        const title = prompt('Template name?'); if (!title) return;
+        YT.Tasks.add({ title: title, order: YT.rootTasks().length });
+        renderYtTaskTable();
+      });
+      $('ytTaskDetailCloseBtn').addEventListener('click', closeYtTaskDetailModal);
+      $('ytTaskDetailModalBg').addEventListener('click', function (e) { if (e.target === this) closeYtTaskDetailModal(); });
+      $('ytTaskDetailTitleInput').addEventListener('blur', saveYtTaskDetailFields);
+      $('ytTaskDetailChannelInput').addEventListener('change', saveYtTaskDetailFields);
+      $('ytTaskDetailStatusInput').addEventListener('change', saveYtTaskDetailFields);
+      $('ytTaskDetailPriorityInput').addEventListener('change', saveYtTaskDetailFields);
+      $('ytTaskDetailDueInput').addEventListener('change', saveYtTaskDetailFields);
+      $('ytTaskDetailSummaryInput').addEventListener('blur', saveYtTaskDetailFields);
+      $('ytTaskDetailAddNoteBlockBtn').addEventListener('click', function () { if (!ytTaskDetailId) return; YT.addYtTaskBlock(ytTaskDetailId, 'note'); renderYtTaskDetailBlocks(); });
+      $('ytTaskDetailAddCodeBlockBtn').addEventListener('click', function () { if (!ytTaskDetailId) return; YT.addYtTaskBlock(ytTaskDetailId, 'code'); renderYtTaskDetailBlocks(); });
+      $('ytTaskDetailDeleteBtn').addEventListener('click', deleteYtTaskDetail);
+
+      $('ytChDetailAddCoverBtn').addEventListener('click', openYtChCoverFilePicker);
+      $('ytChDetailCoverChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openYtChCoverFilePicker(); });
+      $('ytChDetailCoverRemoveBtn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (!ytChDetailId) return;
+        YT.Channels.update(ytChDetailId, { coverPhoto: '' });
+        renderYtChCover(YT.Channels.get(ytChDetailId));
+        renderYtBoard();
+      });
+      $('ytChDetailCoverInput').addEventListener('change', handleYtChCoverPhotoFile);
+
+      $('ytChDetailAddTaskBtn').addEventListener('click', function () {
+        if (!ytChDetailId) return;
+        const title = prompt('Task name?'); if (!title) return;
+        YT.Tasks.add({ channelId: ytChDetailId, title: title, order: YT.rootTasks(ytChDetailId).length });
+        renderYtChannelDetailTasks(); renderYtBoard();
+      });
+      $('ytChDetailOpenTasksBtn').addEventListener('click', function () {
+        if (!ytChDetailId) return;
+        const targetChId = ytChDetailId;
+        closeYtPage('ytChannelDetailPageBg');
+        youtubeView = 'board'; storeSet(YT.KEYS.activeView, youtubeView);
+        ytTaskFilterChannel = targetChId;
+        renderYoutubeDashboard();
+        $('ytTaskFilterChannel').value = targetChId;
+        $('ytTaskTable').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      });
+
+      // Video Planner
+      $('ytChDetailOpenPlannerBtn').addEventListener('click', function () { if (ytChDetailId) openYtVideoPlanner(ytChDetailId); });
+      $('ytPlannerBackBtn').addEventListener('click', closeYtVideoPlanner);
+      $('ytPlannerAddVideoBtn').addEventListener('click', function () {
+        if (!ytPlannerChannelId) return;
+        const v = YT.addVideo(ytPlannerChannelId, 'New Video');
+        ytPlannerActiveVideoId = v.id;
+        renderYtVideoList(); renderYtVideoEditor(); renderYtTargets();
+      });
+      $('ytMarkCurrentVideoBtn').addEventListener('click', function () {
+        if (!ytPlannerChannelId || !ytPlannerActiveVideoId) return;
+        YT.Channels.update(ytPlannerChannelId, { currentVideoId: ytPlannerActiveVideoId });
+        const btn = $('ytMarkCurrentVideoBtn'); const orig = btn.textContent;
+        btn.textContent = '✓ Marked!';
+        setTimeout(function () { btn.textContent = orig; }, 1200);
+      });
+      $('ytVideoTitleInput').addEventListener('blur', function () {
+        if (!ytPlannerActiveVideoId) return;
+        const v = this.value.trim() || 'Untitled';
+        YT.Videos.update(ytPlannerActiveVideoId, { title: v });
+        renderYtVideoList();
+      });
+      $('ytVideoScriptBody').addEventListener('input', function () { $('ytScriptWordCount').textContent = YT.wordCount(this.value) + ' words'; });
+      $('ytVideoScriptBody').addEventListener('blur', function () {
+        if (!ytPlannerActiveVideoId) return;
+        YT.Videos.update(ytPlannerActiveVideoId, { script: this.value });
+      });
+      $('ytVideoNotesBody').addEventListener('blur', function () {
+        if (!ytPlannerActiveVideoId) return;
+        YT.Videos.update(ytPlannerActiveVideoId, { notes: this.value });
+      });
+    }
+
     setTimeout(migratePhotosToStorage, 3000);
 
     // Empty-storage seed-race safety window — same reasoning as
@@ -4867,6 +6106,7 @@ body::after {
       if (DB.Tabs.list().length > 0 || DB.Widgets.list().length > 0 || DB.WorkflowWeeks.list().length > 0) return;
       DB.seedIfEmpty();
       if (WD) WD.seedIfEmpty();
+      if (YT) YT.seedIfEmpty();
       const freshTabs = DB.tabsSorted();
       activeTabId = (freshTabs[0] || {}).id || null;
       storeSet(ACTIVE_TAB_KEY, activeTabId);
@@ -4890,8 +6130,10 @@ body::after {
             // A pulled remote row can also still be missing the Writing
             // Dashboard tab entirely (e.g. pushed from a device that hadn't
             // loaded this update yet) — re-assert it on every applied pull,
-            // same reasoning as the initial-boot call above.
+            // same reasoning as the initial-boot call above. Same for the
+            // YouTube Dashboard tab.
             DB.ensureWritingDashboardExists();
+            DB.ensureYoutubeDashboardExists();
             const tabs2 = DB.tabsSorted();
             if (!tabs2.find(function (t) { return t.id === activeTabId; })) activeTabId = (tabs2[0] || {}).id || null;
             renderHero(); renderTabs(); renderActiveTabContent();

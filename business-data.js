@@ -176,14 +176,14 @@
     };
   }
 
-  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms'|'writing', hasTemplates:boolean, isWritingSubpage:boolean, hero:Object}} BizTab */
+  /** @typedef {{id:string, title:string, order:number, layout:'freeform'|'content'|'platforms'|'writing'|'youtube', hasTemplates:boolean, isWritingSubpage:boolean, isYoutubeSubpage:boolean, hero:Object}} BizTab */
   function tabModel(data) {
     data = data || {};
     return {
       id: data.id || uid('tab'),
       title: typeof data.title === 'string' ? data.title : 'Untitled',
       order: typeof data.order === 'number' ? data.order : 0,
-      layout: (data.layout === 'content' || data.layout === 'platforms' || data.layout === 'writing') ? data.layout : 'freeform',
+      layout: (data.layout === 'content' || data.layout === 'platforms' || data.layout === 'writing' || data.layout === 'youtube') ? data.layout : 'freeform',
       // Renders a Templates/Workflow (Weeks → Days → Checklist) section
       // below this tab's board — a dedicated field rather than matching
       // on `title`, so renaming the tab (rename-in-place is fully
@@ -196,6 +196,9 @@
       // main `.bh-tabs` pill row by renderTabs() and instead reachable only
       // from the Writing Dashboard's own sub-nav.
       isWritingSubpage: !!data.isWritingSubpage,
+      // Same idea, for the YouTube Dashboard's own sub-nav (Content
+      // Calendar / More Video Notes / Growth Ideas).
+      isYoutubeSubpage: !!data.isYoutubeSubpage,
       hero: heroModel(data.hero),
       // Which order/column (main vs. sidebar) this tab's six fixed
       // dashboard sections render in — array of {key, column}, only
@@ -423,11 +426,12 @@
     let changed = false;
     const patched = remaining.map(function (t) {
       let next = t;
-      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'writing' || next.layout === 'freeform')) {
+      if (!(next.layout === 'content' || next.layout === 'platforms' || next.layout === 'writing' || next.layout === 'youtube' || next.layout === 'freeform')) {
         let layout = 'freeform';
         if (next.title === 'Content') layout = 'content';
         else if (next.title === 'Platforms') layout = 'platforms';
         else if (next.title === 'Writing Dashboard') layout = 'writing';
+        else if (next.title === 'YouTube Dashboard') layout = 'youtube';
         next = Object.assign({}, next, { layout: layout });
         changed = true;
       }
@@ -508,6 +512,53 @@
       Widgets.add({
         tabId: tabId, column: 0, order: 0, type: 'checklist', title: 'Potential Automations',
         data: { items: ['Auto-post a "words written today" update', 'Auto-generate a chapter checklist from an outline template'].map(function (t) { return { id: uid('it'), text: t }; }) }
+      });
+    });
+
+    return changed;
+  }
+
+  // Same reasoning/mechanism as ensureWritingDashboardExists() just above —
+  // a tab added in a later session than seedDefaultBoard()'s own guard flag
+  // (business:seeded) does NOT get created for anyone who already has real
+  // Business Hub data. Appending to an already-populated Tabs array can't
+  // clobber another device's real data the way seeding from scratch could,
+  // so this is safe to run unconditionally (not gated behind the
+  // empty-storage seed-race window seedIfEmpty() uses).
+  function ensureYoutubeDashboardExists() {
+    const tabs = Tabs.list();
+    if (!tabs.length) return false;
+    let changed = false;
+
+    if (!tabs.some(function (t) { return t.layout === 'youtube'; })) {
+      Tabs.add({
+        title: 'YouTube Dashboard', order: nextOrder(Tabs.list()), layout: 'youtube',
+        hero: heroModel({ eyebrow: 'THE CREATOR DESK', title: 'Every Channel.\nOne Desk.', subtext: 'Channels, videos, and progress — all in one place.', ctaLabel: 'VIEW CHANNELS' })
+      });
+      changed = true;
+    }
+
+    function ensureSubpage(title, seedFn) {
+      if (Tabs.list().some(function (t) { return t.isYoutubeSubpage && t.title === title; })) return;
+      const tab = Tabs.add({ title: title, order: nextOrder(Tabs.list()), layout: 'freeform', isYoutubeSubpage: true });
+      seedFn(tab.id);
+      changed = true;
+    }
+    ensureSubpage('Content Calendar', function (tabId) {
+      Widgets.add({ tabId: tabId, column: 0, order: 0, type: 'calendar', title: 'Upload Calendar', data: { notes: {}, viewYear: null, viewMonth: null } });
+      Widgets.add({
+        tabId: tabId, column: 1, order: 0, type: 'checklist', title: 'Batching Routine',
+        data: { items: ['Script 3 videos in one sitting', 'Film every script for the week in one day', 'Edit one video per weekday', 'Publish on the same 2 days every week'].map(function (t) { return { id: uid('it'), text: t }; }) }
+      });
+    });
+    ensureSubpage('More Video Notes', function (tabId) {
+      Widgets.add({ tabId: tabId, column: 0, order: 0, type: 'note', title: 'Research Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
+      Widgets.add({ tabId: tabId, column: 1, order: 0, type: 'link', title: 'Trending Audio / Formats', data: { url: '', description: 'A link to something worth referencing later.' } });
+    });
+    ensureSubpage('Growth Ideas', function (tabId) {
+      Widgets.add({
+        tabId: tabId, column: 0, order: 0, type: 'list', title: 'Growth Experiments',
+        data: { items: [{ id: uid('it'), text: 'Try a re-recorded intro under 5 seconds' }, { id: uid('it'), text: 'Test a new thumbnail style for one week' }, { id: uid('it'), text: 'Collab with a channel in an adjacent niche' }] }
       });
     });
 
@@ -1039,6 +1090,38 @@
       data: { items: ['Auto-post a "words written today" update', 'Auto-generate a chapter checklist from an outline template'].map(function (t) { return { id: uid('it'), text: t }; }) }
     });
 
+    // ---------- YouTube Dashboard — a 6th tab, own rendering path in
+    // business.html (layout: 'youtube'). Its own network/channel/task/
+    // video data lives in youtube-data.js (YoutubeData), seeded separately
+    // by that file's own seedIfEmpty() — this tab record and its 3 hidden
+    // sub-page tabs are all this file is responsible for. ----------
+    Tabs.add({
+      title: 'YouTube Dashboard', order: 5, layout: 'youtube',
+      hero: heroModel({ eyebrow: 'THE CREATOR DESK', title: 'Every Channel.\nOne Desk.', subtext: 'Channels, videos, and progress — all in one place.', ctaLabel: 'VIEW CHANNELS' })
+    });
+
+    // Content Calendar / More Video Notes / Growth Ideas — hidden "virtual"
+    // tabs (isYoutubeSubpage: true) reusing the exact same freeform board
+    // engine as Ideas/Resources/Outlines with zero new widget code;
+    // excluded from the main `.bh-tabs` pill row, reachable only from the
+    // YouTube Dashboard's own sub-nav.
+    const calendarTab = Tabs.add({ title: 'Content Calendar', order: 200, layout: 'freeform', isYoutubeSubpage: true });
+    Widgets.add({ tabId: calendarTab.id, column: 0, order: 0, type: 'calendar', title: 'Upload Calendar', data: { notes: {}, viewYear: null, viewMonth: null } });
+    Widgets.add({
+      tabId: calendarTab.id, column: 1, order: 0, type: 'checklist', title: 'Batching Routine',
+      data: { items: ['Script 3 videos in one sitting', 'Film every script for the week in one day', 'Edit one video per weekday', 'Publish on the same 2 days every week'].map(function (t) { return { id: uid('it'), text: t }; }) }
+    });
+
+    const moreVideoNotesTab = Tabs.add({ title: 'More Video Notes', order: 201, layout: 'freeform', isYoutubeSubpage: true });
+    Widgets.add({ tabId: moreVideoNotesTab.id, column: 0, order: 0, type: 'note', title: 'Research Notes', data: { body: 'Anything worth remembering that does not have a home yet.' } });
+    Widgets.add({ tabId: moreVideoNotesTab.id, column: 1, order: 0, type: 'link', title: 'Trending Audio / Formats', data: { url: '', description: 'A link to something worth referencing later.' } });
+
+    const growthIdeasTab = Tabs.add({ title: 'Growth Ideas', order: 202, layout: 'freeform', isYoutubeSubpage: true });
+    Widgets.add({
+      tabId: growthIdeasTab.id, column: 0, order: 0, type: 'list', title: 'Growth Experiments',
+      data: { items: [{ id: uid('it'), text: 'Try a re-recorded intro under 5 seconds' }, { id: uid('it'), text: 'Test a new thumbnail style for one week' }, { id: uid('it'), text: 'Collab with a channel in an adjacent niche' }] }
+    });
+
     storeSet(KEYS.seeded, true);
   }
 
@@ -1089,6 +1172,7 @@
     tabsSorted: tabsSorted,
     normalizeStoredData: normalizeStoredData,
     ensureWritingDashboardExists: ensureWritingDashboardExists,
+    ensureYoutubeDashboardExists: ensureYoutubeDashboardExists,
     columnsForTab: columnsForTab,
     reorderTab: reorderTab,
     widgetsOfType: widgetsOfType,
