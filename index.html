@@ -1,28 +1,546 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="refresh" content="0; url=home.html">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Redirecting to Home…</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EDECE8">
+<title>Main — Morning Call Sheet</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Archivo+Narrow:wght@400;500;600;700&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body { background:#050403; color:#f5f1e9; font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
-    display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; text-align:center; padding:24px; }
-  a { color:#e8cf9f; }
+  :root{
+    --paper:#F7F6F3;
+    --card:#FFFFFF;
+    --ink:#16181C;
+    --soft:#5A5D64;
+    --faint:#8B8D93;
+    --rule:#DCDAD4;
+    --accent:#33475B;
+    --accent-tint:#E7EBEF;
+    --display:"Bodoni Moda","Didot",serif;
+    --util:"Archivo Narrow",Arial,sans-serif;
+    --body:"Archivo",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#EDECE8;color:var(--ink);
+    font-family:var(--body);font-size:15px;line-height:1.4;
+    padding:20px 14px 70px;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:var(--util);font-size:9.5px;font-weight:700;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--faint);
+    margin:0 0 9px;
+  }
+
+  /* masthead */
+  .masthead{
+    background:var(--paper);border:1px solid var(--rule);
+    padding:16px 18px;display:flex;flex-wrap:wrap;gap:14px;
+    align-items:flex-end;justify-content:space-between;
+  }
+  .masthead h1{
+    font-family:var(--display);font-weight:400;font-size:30px;
+    margin:0;line-height:1;letter-spacing:-.01em;
+  }
+  .masthead .sub{
+    font-family:var(--util);font-size:10.5px;font-weight:600;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+    margin-top:6px;
+  }
+  .meta{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;}
+  .stat{text-align:right;}
+  .stat .num{font-family:var(--display);font-size:27px;line-height:1;}
+  .stat .lbl{
+    font-family:var(--util);font-size:9px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+    margin-top:4px;
+  }
+
+  /* controls */
+  .controls{
+    background:var(--paper);border:1px solid var(--rule);border-top:none;
+    padding:11px 18px;display:flex;flex-wrap:wrap;gap:18px;align-items:center;
+  }
+  .seg{display:flex;border:1px solid var(--ink);}
+  .seg button{
+    font-family:var(--util);font-size:10.5px;font-weight:700;
+    letter-spacing:.12em;text-transform:uppercase;
+    background:transparent;color:var(--ink);border:none;
+    padding:7px 13px;cursor:pointer;
+  }
+  .seg button+button{border-left:1px solid var(--ink);}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .field{
+    font-family:var(--util);font-size:10px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--faint);
+    display:flex;align-items:center;gap:8px;
+  }
+  .field input[type=time]{
+    font-family:var(--util);font-size:13px;font-weight:700;color:var(--ink);
+    border:none;border-bottom:1px solid var(--rule);background:transparent;
+    padding:2px 0;letter-spacing:0;
+  }
+
+  /* grid */
+  .cols{display:grid;grid-template-columns:340px 1fr;gap:16px;margin-top:16px;align-items:start;}
+  .panel{background:var(--card);border:1px solid var(--rule);padding:16px 18px;}
+
+  /* steps */
+  .step{border-bottom:1px solid var(--rule);}
+  .step:last-of-type{border-bottom:none;}
+  .step > button{
+    width:100%;display:grid;grid-template-columns:40px 1fr 26px 14px;
+    align-items:baseline;gap:7px;text-align:left;
+    background:transparent;border:none;padding:9px 0;cursor:pointer;font:inherit;
+  }
+  .step > button:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+  .step .t{font-family:var(--util);font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .step .n{font-family:var(--util);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;}
+  .step .m{font-family:var(--util);font-size:10px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums;}
+  .step .chev{font-size:10px;color:var(--faint);text-align:right;}
+  .step[data-open="true"] .chev{transform:rotate(90deg);display:inline-block;}
+  .step .detail{display:none;padding:0 0 12px 47px;}
+  .step[data-open="true"] .detail{display:block;}
+  .step .detail p{font-size:13px;line-height:1.5;color:var(--soft);margin:0 0 7px;}
+  .step .detail p b{color:var(--ink);font-weight:600;}
+  .step.off{opacity:.34;}
+
+  .frogrow{
+    display:grid;grid-template-columns:40px 1fr;gap:7px;
+    background:var(--accent);color:var(--paper);padding:9px 10px;margin-top:8px;
+  }
+  .frogrow .t,.frogrow .n{color:var(--paper);}
+  .frogrow .n{font-weight:700;}
+
+  /* five */
+  .lines-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .how{font-family:var(--util);font-size:10.5px;color:var(--faint);letter-spacing:.04em;}
+  ol.five{list-style:none;margin:10px 0 0;padding:0;counter-reset:l;}
+  ol.five li{
+    counter-increment:l;display:grid;grid-template-columns:24px 1fr 78px;
+    gap:9px;align-items:start;padding:7px 0;border-bottom:1px solid var(--rule);
+  }
+  ol.five li::before{
+    content:counter(l,upper-roman);font-family:var(--util);font-size:10px;
+    font-weight:700;color:var(--accent);letter-spacing:.06em;padding-top:7px;
+  }
+  ol.five textarea{
+    font-family:var(--display);font-size:17px;line-height:1.28;
+    border:none;background:transparent;resize:none;overflow:hidden;
+    width:100%;padding:3px 0;color:var(--ink);
+  }
+  ol.five textarea:focus{outline:none;background:#FAF8F2;box-shadow:0 0 0 6px #FAF8F2;}
+  .caught{
+    font-family:var(--util);font-size:9px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;background:transparent;border:1px solid var(--rule);
+    color:var(--faint);padding:5px 6px;cursor:pointer;margin-top:5px;white-space:nowrap;
+  }
+  .caught[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .caught:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .resist{
+    font-family:var(--util);font-size:11px;color:var(--soft);line-height:1.5;
+    margin:11px 0 0;padding-left:12px;border-left:2px solid var(--accent);
+  }
+  .lockbar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--rule);
+  }
+  .lockbar .txt{font-family:var(--util);font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);}
+  .boxes{display:flex;gap:3px;flex-wrap:wrap;}
+  .boxes i{width:10px;height:10px;border:1px solid var(--rule);display:block;}
+  .boxes i.on{background:var(--accent);border-color:var(--accent);}
+
+  /* inputs */
+  .writein{
+    width:100%;font-family:var(--body);font-size:14px;color:var(--ink);
+    border:none;border-bottom:1px solid var(--rule);background:transparent;
+    padding:7px 0;margin-top:4px;
+  }
+  .writein:focus{outline:none;border-bottom-color:var(--accent);}
+  .writein::placeholder{color:#B9BABE;}
+
+  .hint{font-family:var(--util);font-size:11px;color:var(--faint);line-height:1.5;margin:5px 0 0;}
+
+  /* metric */
+  .metric{
+    display:flex;align-items:center;gap:11px;margin-top:4px;
+    background:transparent;border:1.5px solid var(--ink);
+    padding:11px 13px;cursor:pointer;width:100%;text-align:left;
+    font-family:var(--util);font-size:12px;font-weight:700;
+    letter-spacing:.11em;text-transform:uppercase;color:var(--ink);
+  }
+  .metric i{width:15px;height:15px;border:1.5px solid var(--ink);display:block;flex:none;}
+  .metric[aria-pressed="true"]{background:var(--ink);color:var(--paper);}
+  .metric[aria-pressed="true"] i{background:var(--paper);border-color:var(--paper);}
+  .metric:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* evidence */
+  .ev-list{margin:12px 0 0;padding:0;list-style:none;max-height:230px;overflow-y:auto;}
+  .ev-list li{padding:8px 0;border-bottom:1px solid var(--rule);font-size:13.5px;line-height:1.45;}
+  .ev-list li span{
+    display:block;font-family:var(--util);font-size:9px;font-weight:700;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin-bottom:3px;
+  }
+  .ev-empty{font-family:var(--util);font-size:11.5px;color:var(--faint);margin-top:12px;}
+
+  /* history */
+  .hist{display:flex;gap:3px;flex-wrap:wrap;margin-top:10px;}
+  .hist b{
+    width:19px;height:24px;border:1px solid var(--rule);display:flex;
+    align-items:flex-end;justify-content:center;font-family:var(--util);
+    font-size:8px;font-weight:700;color:var(--faint);padding-bottom:2px;
+  }
+  .hist b.ran{background:var(--accent-tint);border-color:#BFC9D2;color:var(--accent);}
+  .hist b.frog{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .review{
+    background:var(--accent);color:#fff;padding:13px 16px;margin-top:16px;
+    font-family:var(--util);font-size:12.5px;line-height:1.5;display:none;
+  }
+  .review.show{display:block;}
+
+  .foot{
+    display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;
+    margin-top:16px;padding-top:12px;border-top:1px solid var(--rule);
+  }
+  .ghost{
+    font-family:var(--util);font-size:10px;font-weight:700;letter-spacing:.13em;
+    text-transform:uppercase;background:transparent;border:1px solid var(--rule);
+    color:var(--faint);padding:8px 12px;cursor:pointer;
+  }
+  .ghost:hover{border-color:var(--ink);color:var(--ink);}
+  .ghost:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .status{font-family:var(--util);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);align-self:center;}
+
+  @media (max-width:860px){
+    .cols{grid-template-columns:1fr;}
+    ol.five li{grid-template-columns:20px 1fr;}
+    ol.five li .caught{grid-column:2;justify-self:start;}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;}}
 </style>
-<script>location.replace('home.html');</script>
 </head>
 <body>
-<!--
-  index.html used to be the Goals command center ("Main"). It was removed
-  per an explicit request (see CLAUDE.md's changelog) and Home
-  (home.html) is now this dashboard's hub. This stub exists only because
-  index.html is this static site's root document — any bookmark or
-  home-screen shortcut pointing at the bare site URL (or at index.html
-  directly) would otherwise 404 with no explanation. It carries no
-  functionality, data, or nav entry of its own — just a redirect.
--->
-<p>This page has moved. <a href="home.html">Continue to Home →</a></p>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Morning Call Sheet</h1>
+      <div class="sub">Before the phone. Always.</div>
+    </div>
+    <div class="meta">
+      <div class="stat"><div class="num" id="dayNum">—</div><div class="lbl">Day of 30</div></div>
+      <div class="stat"><div class="num" id="ran30">—</div><div class="lbl">Run / last 30</div></div>
+      <div class="stat"><div class="num" id="frog30">—</div><div class="lbl">Frog started</div></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Version">
+      <button data-v="floor" aria-pressed="false">Floor · 10</button>
+      <button data-v="hour" aria-pressed="true">Hour</button>
+      <button data-v="full" aria-pressed="false">Full · 80</button>
+    </div>
+    <label class="field">Wake <input type="time" id="wake" value="06:30"></label>
+    <span class="status" id="status">Loading…</span>
+  </div>
+
+  <div class="cols">
+
+    <!-- LEFT -->
+    <div class="panel">
+      <p class="eyebrow">Running order</p>
+      <div id="steps"></div>
+      <div class="frogrow"><span class="t" id="frogTime">7:30</span><span class="n">Frog — start it</span></div>
+      <p class="hint">Tap a step for the detail. Nothing here is a checkbox on purpose — the only thing worth logging is whether the frog started.</p>
+
+      <p class="eyebrow" style="margin-top:20px">Last 30 days</p>
+      <div class="hist" id="hist"></div>
+      <p class="hint">Filled = frog started. Tinted = routine ran, frog didn't. Days run, not a streak — one miss shouldn't reset anything.</p>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="panel">
+        <div class="lines-head">
+          <p class="eyebrow" style="margin:0">The five · three times each</p>
+          <span class="how">flat — louder — to the one who doubted you</span>
+        </div>
+        <ol class="five" id="five"></ol>
+        <p class="resist">Throat tightens, eyes go — stop and repeat that one twice more. That's the seam, and it's the one doing the work today. Mark it so you can see which lines stop catching.</p>
+        <div class="lockbar">
+          <span class="txt">30-day lock</span>
+          <div class="boxes" id="lockBoxes"></div>
+        </div>
+        <p class="hint">Editing a line restarts the 30 days. That's the point of the lock.</p>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <p class="eyebrow">Today · present tense, specific</p>
+        <input class="writein" id="t0" placeholder="Something you do today — not something you are.">
+        <input class="writein" id="t1" placeholder="The kind of woman who…">
+        <input class="writein" id="t2" placeholder="One more.">
+        <p class="hint">Dated and specific beats grand and vague. Your subconscious can't verify "I am limitless." It can verify that you sent the email.</p>
+        <input class="writein" id="ifthen" placeholder="Optional — if [cue], then [action]">
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <p class="eyebrow">The only metric</p>
+        <button class="metric" id="frogBtn" aria-pressed="false"><i></i> Frog started on time</button>
+        <p class="hint">If this stays empty for a week, the routine has become the avoidance. Drop to the floor version and let the frog earn the hour back.</p>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <p class="eyebrow">Tonight</p>
+        <p class="hint" style="margin-bottom:10px"><b style="color:var(--ink)">Hypnagogic, 5 min.</b> Hold one image of her doing an ordinary thing. Not the win — the Tuesday.</p>
+        <input class="writein" id="ev" placeholder="Evidence log — one thing only the new version of you would have done.">
+        <ul class="ev-list" id="evList"></ul>
+        <p class="ev-empty" id="evEmpty">The log is the part worth re-reading. Everything else here is scaffolding.</p>
+      </div>
+
+      <div class="review" id="review">
+        <b>Day 30.</b> Read the evidence log start to finish. Check which lines stopped catching — those have probably integrated, and can be replaced. Then relock for another 30.
+      </div>
+
+      <div class="foot">
+        <button class="ghost" id="resetLock">Restart the 30 days</button>
+        <button class="ghost" id="clearAll">Clear all data</button>
+        <span class="status" id="saved"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CFG='routine:config', LOG='routine:log';
+
+const DEFAULT_LINES=[
+ "I turn pain into power. Every ounce of it.",
+ "Their limits never became mine.",
+ "I am the sovereign over my focus, my perception, my state.",
+ "I don't wait for the perfect moment. I decide, I move, I repeat.",
+ "I am both the artist and the muse."
+];
+
+const STEPS=[
+ {id:'int',name:'Intention',mins:{floor:1,hour:1,full:1},
+  d:["No phone. No email. No scrolling. A few deep breaths, gratitude, a prayer, or just sitting.",
+     "<b>Never scales.</b> One minute in every version. It's the cheapest step and the one that decides whether the rest happens — once you've taken outside input you're not talking to the same nervous system."]},
+ {id:'mov',name:'Move',mins:{floor:3,hour:25,full:30},
+  d:["Workout, yoga, or a brisk walk. Enough to raise your heart rate, not enough to leave you depleted for the frog.",
+     "<b>The purpose is clearing restlessness, not training stimulus.</b> That's why it comes first — most people fail at meditation because they sit down still full of energy.",
+     "<b>This is the swing variable.</b> When the hour becomes fifty minutes, cut here — not the sit. Fifteen minutes does most of what twenty-five does for this purpose. If fitness is a real goal, train it as its own session later in the day."]},
+ {id:'cold',name:'Cold',mins:{floor:0,hour:3,full:3},
+  d:["Optional. Post-workout is the tolerable window — warm core, elevated circulation.",
+     "<b>Skip entirely when sick.</b> The most skippable step here; treat it as a bonus, never a requirement."]},
+ {id:'brt',name:'Breath',mins:{floor:3,hour:5,full:5},
+  d:["Rhythmic breathing to settle. In the hour version this is a bridge into the sit rather than a standalone practice — it's what makes the next twelve minutes work.",
+     "<b>Short on time:</b> half-counts. <b>Anxious, mind spinning:</b> take it to ten minutes and borrow them from movement.",
+     "On the floor version this replaces meditation entirely — three minutes of sitting is mostly spent settling, but breath acts fast and needs no runway."]},
+ {id:'sit',name:'Sit',mins:{floor:0,hour:12,full:20},
+  d:["Seated meditation. The first real payoff of the hour.",
+     "<b>Below roughly ten minutes you spend the whole sit settling.</b> Past it, you get actual sitting — which is why this doesn't appear in the floor version at all.",
+     "Don't shorten this to protect the workout. It's the reason you're running the hour rather than the ten."]},
+ {id:'pag',name:'Page',mins:{floor:0,hour:8,full:12},
+  d:["Brain dump whatever's loud, then plan the day.",
+     "<b>Eight minutes is the threshold.</b> Enough to surface something and resolve it — at three you either write nothing, or open something you can't close.",
+     "Self-awareness is still elevated from the sit. That's what you're spending here."]},
+ {id:'mir',name:'Mirror',mins:{floor:3,hour:5,full:5},
+  d:["<b>Eye contact, steady breathing, one minute.</b> Then one honest sentence out loud about your current state. Not a fix — true. \"I'm tired and a little scared about today.\"",
+     "<b>Then immediately:</b> \"And I'm not leaving. I'm here with you.\" You're proving the promise before you ask yourself to believe anything. Skipping this is what makes affirmations feel like lying to your face.",
+     "<b>The five, three times each.</b> Flat, then louder, then like you're telling someone who doubted you. Pause between them and let the meaning land in your body before moving on.",
+     "<b>Then the three present-tense lines</b> about today specifically. Hands over your heart or your face — anchoring the state to touch means you can recall it later by repeating the gesture.",
+     "<b>Close quietly:</b> \"I'm proud of you. Let's go.\" Then walk away. Don't linger and undo it by drifting back into inspecting your face."]}
+];
+
+let cfg={version:'hour',wake:'06:30',lines:[...DEFAULT_LINES],lockStart:today()};
+let log={};
+
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function dayEntry(){ if(!log[today()]) log[today()]={version:cfg.version,frog:false,caught:null,lines:['','',''],ifthen:'',ev:''}; return log[today()]; }
+function fmt(mins){const h=Math.floor(mins/60)%24,m=mins%60;return ((h%12)||12)+':'+String(m).padStart(2,'0');}
+function wakeMins(){const[a,b]=cfg.wake.split(':').map(Number);return a*60+b;}
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+
+/* Storage: plain localStorage under the routine: prefix, so sync.js's
+   existing localStorage.setItem monkey-patch (armed below via
+   initCloudSync) picks up every write automatically — no separate sync
+   mechanism, per this app's own DO NOT MODIFY convention. */
+function storeGet(key, fallback){
+  try{ const raw=localStorage.getItem(key); return raw?JSON.parse(raw):fallback; }catch(e){ return fallback; }
+}
+function storeSet(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){ return false; }
+}
+
+let saveTimer=null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    const ok1=storeSet(CFG,cfg);
+    const ok2=storeSet(LOG,log);
+    flash(ok1&&ok2?'Saved':'Not saved — storage may be full');
+  },400);
+}
+function flash(t){const s=document.getElementById('saved');s.textContent=t;clearTimeout(s._t);s._t=setTimeout(()=>s.textContent='',1800);}
+
+function load(){
+  cfg=Object.assign(cfg, storeGet(CFG,{}));
+  log=storeGet(LOG,{})||{};
+  document.getElementById('status').textContent='';
+  renderAll();
+}
+
+function renderSteps(){
+  const box=document.getElementById('steps');
+  let t=wakeMins();
+  box.innerHTML='';
+  STEPS.forEach(s=>{
+    const m=s.mins[cfg.version];
+    const el=document.createElement('div');
+    el.className='step'+(m===0?' off':'');
+    el.dataset.open='false';
+    el.innerHTML=`<button type="button" aria-expanded="false">
+        <span class="t">${m===0?'—':fmt(t)}</span>
+        <span class="n">${s.name}</span>
+        <span class="m">${m===0?'skip':m}</span>
+        <span class="chev">›</span>
+      </button>
+      <div class="detail">${s.d.map(p=>`<p>${p}</p>`).join('')}</div>`;
+    const btn=el.querySelector('button');
+    btn.addEventListener('click',()=>{
+      const open=el.dataset.open==='true';
+      el.dataset.open=open?'false':'true';
+      btn.setAttribute('aria-expanded',open?'false':'true');
+    });
+    box.appendChild(el);
+    t+=m;
+  });
+  document.getElementById('frogTime').textContent=fmt(t);
+}
+
+function renderFive(){
+  const ol=document.getElementById('five');
+  const e=dayEntry();
+  ol.innerHTML='';
+  cfg.lines.forEach((line,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<textarea rows="1" aria-label="Line ${i+1}">${line.replace(/</g,'&lt;')}</textarea>
+      <button class="caught" aria-pressed="${e.caught===i}">caught</button>`;
+    const ta=li.querySelector('textarea');
+    const grow=()=>{ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';};
+    setTimeout(grow,0);
+    ta.addEventListener('input',()=>{grow();});
+    ta.addEventListener('change',()=>{
+      if(ta.value!==cfg.lines[i]){
+        if(confirm('Changing a line restarts the 30-day lock. Continue?')){
+          cfg.lines[i]=ta.value; cfg.lockStart=today(); save(); renderHeader();
+        }else{ ta.value=cfg.lines[i]; grow(); }
+      }
+    });
+    const cb=li.querySelector('.caught');
+    cb.addEventListener('click',()=>{
+      const en=dayEntry();
+      en.caught = en.caught===i ? null : i;
+      save(); renderFive();
+    });
+    ol.appendChild(li);
+  });
+  const boxes=document.getElementById('lockBoxes');
+  const done=Math.min(30,Math.max(0,daysBetween(cfg.lockStart,today())));
+  boxes.innerHTML='';
+  for(let i=0;i<30;i++){const b=document.createElement('i');if(i<done)b.className='on';boxes.appendChild(b);}
+  document.getElementById('review').classList.toggle('show',done>=30);
+}
+
+function renderHeader(){
+  const done=Math.max(0,daysBetween(cfg.lockStart,today()))+1;
+  document.getElementById('dayNum').textContent=Math.min(done,30);
+  const keys=Object.keys(log).filter(d=>daysBetween(d,today())<30&&daysBetween(d,today())>=0);
+  document.getElementById('ran30').textContent=keys.length;
+  document.getElementById('frog30').textContent=keys.filter(d=>log[d].frog).length;
+}
+
+function renderHist(){
+  const h=document.getElementById('hist');h.innerHTML='';
+  for(let i=29;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const b=document.createElement('b');
+    b.textContent=d.getDate();
+    if(log[key]) b.className=log[key].frog?'frog':'ran';
+    h.appendChild(b);
+  }
+}
+
+function renderInputs(){
+  const e=dayEntry();
+  ['t0','t1','t2'].forEach((id,i)=>{document.getElementById(id).value=e.lines[i]||'';});
+  document.getElementById('ifthen').value=e.ifthen||'';
+  const fb=document.getElementById('frogBtn');
+  fb.setAttribute('aria-pressed',e.frog?'true':'false');
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===cfg.version?'true':'false'));
+  document.getElementById('wake').value=cfg.wake;
+}
+
+function renderEvidence(){
+  const ul=document.getElementById('evList');ul.innerHTML='';
+  const keys=Object.keys(log).filter(k=>log[k].ev&&log[k].ev.trim()).sort().reverse();
+  keys.forEach(k=>{
+    const li=document.createElement('li');
+    const d=new Date(k+'T00:00:00');
+    li.innerHTML=`<span>${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>${log[k].ev.replace(/</g,'&lt;')}`;
+    ul.appendChild(li);
+  });
+  document.getElementById('evEmpty').style.display=keys.length?'none':'block';
+  document.getElementById('ev').value=dayEntry().ev||'';
+}
+
+function renderAll(){renderSteps();renderFive();renderHeader();renderHist();renderInputs();renderEvidence();}
+
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.addEventListener('click',()=>{cfg.version=b.dataset.v;dayEntry().version=b.dataset.v;save();renderSteps();renderInputs();});
+});
+document.getElementById('wake').addEventListener('change',ev=>{cfg.wake=ev.target.value;save();renderSteps();});
+['t0','t1','t2'].forEach((id,i)=>{
+  document.getElementById(id).addEventListener('input',ev=>{dayEntry().lines[i]=ev.target.value;save();});
+});
+document.getElementById('ifthen').addEventListener('input',ev=>{dayEntry().ifthen=ev.target.value;save();});
+document.getElementById('ev').addEventListener('input',ev=>{dayEntry().ev=ev.target.value;save();});
+document.getElementById('ev').addEventListener('change',()=>{renderEvidence();});
+document.getElementById('frogBtn').addEventListener('click',()=>{
+  const e=dayEntry();e.frog=!e.frog;save();renderInputs();renderHist();renderHeader();
+});
+document.getElementById('resetLock').addEventListener('click',()=>{
+  if(confirm('Restart the 30-day lock from today?')){cfg.lockStart=today();save();renderFive();renderHeader();}
+});
+document.getElementById('clearAll').addEventListener('click',()=>{
+  if(!confirm('Delete the evidence log and all history? This cannot be undone.'))return;
+  log={};cfg={version:'hour',wake:'06:30',lines:[...DEFAULT_LINES],lockStart:today()};
+  storeSet(CFG,cfg);storeSet(LOG,log);
+  renderAll();
+});
+
+load();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  if (typeof initCloudSync !== 'function') return;
+  initCloudSync({
+    appKey: 'goals',
+    syncedPrefixes: ['routine:'],
+    onApplied: function () { load(); }
+  });
+});
+</script>
 </body>
 </html>
