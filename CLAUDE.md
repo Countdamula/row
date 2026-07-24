@@ -47,6 +47,11 @@ bottom of this file. **Main (`index.html`), Main Pillar (`mainpillar.html`
 — per an explicit instruction, with no data migration (unlike the Dream
 Board/Self-Care/Tasks & Notes/AI & Tech merge into Home, which explicitly
 kept the originals) — see the changelog entry near the bottom of this file.
+All four filenames now exist only as tiny redirect-to-`home.html` stubs
+(no data/functionality/nav pill of their own) — added in a follow-up fix
+after old bookmarks/home-screen shortcuts to them (and to the bare site
+root, which `index.html` used to serve) started 404ing; see that
+changelog entry.
 
 **Shared, non-page files:**
 - `topbar.js` — injects the shared top nav bar (pills) into every page that
@@ -8054,3 +8059,29 @@ both as originally phrased assumed a backend this app doesn't have):
     build, but worth re-confirming after being moved out of a hidden
     panel into an always-rendered section). A real click-through is
     recommended before relying on this page heavily.
+
+- **Bugfix: reported as "Your file couldn't be accessed" — a real
+  consequence of the Main/Main Pillar/Household/Brain Dump removal above,
+  not a new bug.** `index.html` was this static site's root document (the
+  file a host serves at the bare site URL with no path — this repo has no
+  `vercel.json`/server config to redirect that, see §1); deleting it
+  outright meant any bookmark or home-screen shortcut pointing at the bare
+  root, or directly at `index.html`/`mainpillar.html`/`household.html`/
+  `braindump.html`, now 404s instead of resolving — exactly the risk
+  flagged (but not yet fixed) in that removal's own changelog entry above.
+  - **Fix**: re-created all four filenames as tiny, functionality-free
+    redirect stubs — a `<meta http-equiv="refresh" content="0;
+    url=home.html">` plus `location.replace('home.html')` (works with JS
+    disabled via the meta tag; the JS version avoids adding a history
+    entry when it's available) and a plain "This page has moved" link as
+    a no-JS/no-meta-refresh fallback. Each carries **no data, no
+    functionality, and no nav pill** — the actual features are still
+    fully gone, per the original request; these are pure "this moved, go
+    here" breadcrumbs, the same purpose a real server's 301 redirect
+    would serve if this repo had server-side routing (it doesn't — see
+    §1, "no server-side rendering").
+  - Deliberately not gated behind confirming exactly which of the four
+    filenames the user actually hit — the fix is identical and equally
+    low-risk for all four (a static redirect can't clobber data or
+    resurrect a feature), so covering all four now was cheaper than a
+    round-trip to ask which one, given the report's generic phrasing.
