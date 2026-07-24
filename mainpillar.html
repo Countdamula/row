@@ -2,24 +2,1592 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="refresh" content="0; url=home.html">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Redirecting to Home…</title>
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#05070c">
+<title>Main Pillar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body { background:#050403; color:#f5f1e9; font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
-    display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; text-align:center; padding:24px; }
-  a { color:#e8cf9f; }
+:root{
+  --mp-bg:#05070c; --mp-bg-deep:#020304;
+  --mp-cyan:#49e0ff; --mp-cyan-bright:#9df3ff; --mp-cyan-dim:rgba(73,224,255,0.35); --mp-cyan-faint:rgba(73,224,255,0.12);
+  --mp-purple:#b073f0; --mp-purple-dim:rgba(176,115,240,0.35);
+  --mp-gold:#ffd166; --mp-gold-dim:rgba(255,209,102,0.35);
+  --mp-good:#6ee7b7; --mp-warn:#fbbf24; --mp-bad:#ff6b6b;
+  --mp-text:#eaf6ff; --mp-text-dim:rgba(234,246,255,0.62); --mp-text-mute:rgba(234,246,255,0.36);
+  --mp-panel:rgba(8,16,24,0.74); --mp-panel-2:rgba(10,20,30,0.55);
+  --mp-hairline:rgba(73,224,255,0.20);
+  --font-display:'Rajdhani',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-mono:'Chakra Petch',ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--mp-bg);color:var(--mp-text);font-family:var(--font-display);min-height:100%;}
+body{
+  padding-bottom:64px;
+  background:
+    radial-gradient(ellipse 900px 500px at 12% -8%, rgba(176,115,240,0.14), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 92% 0%, rgba(73,224,255,0.14), transparent 60%),
+    linear-gradient(180deg, var(--mp-bg-deep) 0%, var(--mp-bg) 100%);
+}
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, transparent 1px, transparent 3px);
+}
+body::after{
+  content:''; position:fixed; left:0; right:0; height:120px; pointer-events:none; z-index:0;
+  background:linear-gradient(180deg, transparent, rgba(73,224,255,0.05), transparent);
+  animation:mp-sweep 9s linear infinite;
+}
+@keyframes mp-sweep{ 0%{top:-20%;} 100%{top:120%;} }
+@media (prefers-reduced-motion:reduce){ body::after{animation:none; display:none;} }
+
+a{color:inherit;}
+.mp-shell{position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:18px 16px 40px; padding-top:calc(18px + env(safe-area-inset-top));}
+.mp-back{display:inline-flex; align-items:center; gap:6px; color:var(--mp-text-dim); text-decoration:none; font-size:13px; font-weight:600; letter-spacing:.04em; margin-bottom:14px;}
+.mp-back:hover{color:var(--mp-cyan-bright);}
+
+/* ---------------- Status Window (hero) ---------------- */
+.mp-status{
+  position:relative; border:1px solid var(--mp-cyan-faint); background:var(--mp-panel);
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
+  padding:22px 22px 20px; margin-bottom:18px; overflow:hidden;
+}
+.mp-status::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(120deg, rgba(73,224,255,0.08), transparent 40%, rgba(176,115,240,0.08));
+}
+.mp-status-top{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; position:relative;}
+.mp-status-id{display:flex; align-items:center; gap:12px;}
+.mp-rank-badge{
+  width:52px; height:52px; border-radius:50%; border:2px solid var(--mp-gold); color:var(--mp-gold);
+  display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; font-family:var(--font-mono);
+  box-shadow:0 0 16px var(--mp-gold-dim); flex-shrink:0;
+}
+.mp-hunter-name{font-size:22px; font-weight:700; letter-spacing:.02em; outline:none; border-bottom:1px dashed transparent;}
+.mp-hunter-name:focus{border-color:var(--mp-cyan-dim);}
+.mp-hunter-title{font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mp-cyan);}
+.mp-level-chip{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; color:var(--mp-cyan-bright);
+  border:1px solid var(--mp-cyan-dim); border-radius:2px; padding:4px 10px; background:rgba(73,224,255,0.06);
+}
+.mp-xp-row{margin-top:16px; position:relative;}
+.mp-xp-label{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.12em; color:var(--mp-text-mute); margin-bottom:5px; text-transform:uppercase;}
+.mp-xp-track{height:10px; border:1px solid var(--mp-cyan-faint); border-radius:2px; overflow:hidden; background:rgba(255,255,255,0.03);}
+.mp-xp-fill{height:100%; background:linear-gradient(90deg, var(--mp-purple), var(--mp-cyan)); box-shadow:0 0 10px var(--mp-cyan-dim);}
+.mp-stats-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:18px; position:relative;}
+.mp-stat{border:1px solid var(--mp-cyan-faint); border-radius:2px; padding:8px 8px 9px; background:rgba(255,255,255,0.02);}
+.mp-stat-head{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; letter-spacing:.08em; color:var(--mp-text-dim); margin-bottom:5px;}
+.mp-stat-head b{color:var(--mp-cyan-bright);}
+.mp-stat-track{height:5px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden;}
+.mp-stat-fill{height:100%; background:var(--mp-purple);}
+@media (max-width:620px){ .mp-stats-grid{grid-template-columns:repeat(3,1fr);} .mp-hunter-name{font-size:18px;} }
+
+/* ---------------- Tabs ---------------- */
+.mp-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:10px;}
+.mp-tab{
+  font-family:var(--font-mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:600;
+  color:var(--mp-text-dim); background:transparent; border:1px solid var(--mp-cyan-faint); border-radius:2px;
+  padding:7px 14px; cursor:pointer;
+}
+.mp-tab.active{color:var(--mp-cyan-bright); border-color:var(--mp-cyan-dim); background:rgba(73,224,255,0.08); box-shadow:0 0 10px rgba(73,224,255,0.12) inset;}
+.mp-tabpanel{display:none;}
+.mp-tabpanel.active{display:block;}
+
+/* ---------------- Generic panel / card ---------------- */
+.mp-panel{
+  border:1px solid var(--mp-cyan-faint); background:var(--mp-panel-2); border-radius:3px; padding:16px; margin-bottom:14px;
+}
+.mp-panel-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+.mp-panel-title{font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--mp-cyan); display:flex; align-items:center; gap:8px;}
+.mp-panel-title .mp-ic{font-size:15px;}
+.mp-grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.mp-grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+@media (max-width:760px){ .mp-grid2{grid-template-columns:1fr;} .mp-grid3{grid-template-columns:1fr 1fr;} }
+
+.mp-btn{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; font-weight:600; text-transform:uppercase;
+  border:1px solid var(--mp-cyan-dim); background:rgba(73,224,255,0.08); color:var(--mp-cyan-bright);
+  border-radius:2px; padding:7px 12px; cursor:pointer;
+}
+.mp-btn:hover{background:rgba(73,224,255,0.16);}
+.mp-btn-ghost{background:transparent; border-color:var(--mp-hairline); color:var(--mp-text-dim);}
+.mp-btn-danger{border-color:rgba(255,107,107,0.5); color:var(--mp-bad); background:rgba(255,107,107,0.06);}
+.mp-btn-sm{padding:4px 9px; font-size:10px;}
+.mp-icon-btn{background:transparent; border:1px solid var(--mp-hairline); color:var(--mp-text-dim); border-radius:2px; width:26px; height:26px; cursor:pointer; font-size:12px; line-height:1;}
+.mp-icon-btn:hover{color:var(--mp-cyan-bright); border-color:var(--mp-cyan-dim);}
+
+/* ---------------- Whoop tiles ---------------- */
+.mp-whoop-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:10px;}
+.mp-whoop-tile{border:1px solid var(--mp-cyan-faint); border-radius:2px; padding:10px 8px; text-align:center; background:rgba(255,255,255,0.02);}
+.mp-whoop-tile .v{font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--mp-cyan-bright);}
+.mp-whoop-tile .l{font-family:var(--font-mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--mp-text-mute); margin-top:3px;}
+.mp-whoop-tile.zone-good .v{color:var(--mp-good);}
+.mp-whoop-tile.zone-warn .v{color:var(--mp-warn);}
+.mp-whoop-tile.zone-bad .v{color:var(--mp-bad);}
+@media (max-width:700px){ .mp-whoop-grid{grid-template-columns:repeat(3,1fr);} }
+
+/* ---------------- Quest / habit rows ---------------- */
+.mp-quest-row{
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--mp-hairline); border-radius:2px;
+  background:rgba(255,255,255,0.015); margin-bottom:7px;
+}
+.mp-quest-row.done{border-color:rgba(110,231,183,0.35); background:rgba(110,231,183,0.05);}
+.mp-quest-check{
+  width:22px; height:22px; border:1.5px solid var(--mp-cyan-dim); border-radius:50%; flex-shrink:0; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:12px; color:transparent; background:transparent;
+}
+.mp-quest-row.done .mp-quest-check{background:var(--mp-good); border-color:var(--mp-good); color:#04140c;}
+.mp-quest-icon{font-size:16px; flex-shrink:0;}
+.mp-quest-body{flex:1; min-width:0;}
+.mp-quest-name{font-weight:600; font-size:14px;}
+.mp-quest-row.done .mp-quest-name{text-decoration:line-through; color:var(--mp-text-dim);}
+.mp-quest-meta{font-family:var(--font-mono); font-size:10px; letter-spacing:.04em; color:var(--mp-text-mute); display:flex; gap:8px; margin-top:2px; flex-wrap:wrap;}
+.mp-quest-xp{font-family:var(--font-mono); font-size:11px; color:var(--mp-gold); flex-shrink:0;}
+.mp-quest-auto{font-size:10px; color:var(--mp-purple); border:1px solid var(--mp-purple-dim); border-radius:2px; padding:1px 5px;}
+.mp-quest-actions{display:flex; gap:5px; flex-shrink:0;}
+.mp-streak-badge{color:var(--mp-cyan);}
+
+/* ---------------- Task rows ---------------- */
+.mp-task-row{display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--mp-hairline); border-radius:2px; margin-bottom:6px; background:rgba(255,255,255,0.015);}
+.mp-task-row.done .mp-task-title{text-decoration:line-through; color:var(--mp-text-dim);}
+.mp-task-check{width:18px; height:18px; border:1.5px solid var(--mp-cyan-dim); border-radius:3px; cursor:pointer; flex-shrink:0; background:transparent; display:flex; align-items:center; justify-content:center; color:transparent; font-size:11px;}
+.mp-task-row.done .mp-task-check{background:var(--mp-cyan); border-color:var(--mp-cyan); color:#04141c;}
+.mp-task-title{flex:1; min-width:0; font-size:13.5px; font-weight:600;}
+.mp-task-meta{font-family:var(--font-mono); font-size:10px; color:var(--mp-text-mute); display:flex; gap:8px; flex-shrink:0;}
+.mp-pill-priority{border-radius:2px; padding:1px 6px; font-size:9.5px; letter-spacing:.04em;}
+.pri-High{color:var(--mp-bad); border:1px solid rgba(255,107,107,.4);}
+.pri-Medium{color:var(--mp-warn); border:1px solid rgba(251,191,36,.4);}
+.pri-Low{color:var(--mp-text-mute); border:1px solid var(--mp-hairline);}
+
+/* ---------------- Journal / Win / Brief ---------------- */
+textarea.mp-textarea, input.mp-input, select.mp-select{
+  width:100%; background:rgba(255,255,255,0.03); border:1px solid var(--mp-hairline); color:var(--mp-text);
+  border-radius:2px; padding:9px 10px; font-family:var(--font-display); font-size:13.5px; resize:vertical;
+}
+textarea.mp-textarea{min-height:90px;}
+textarea.mp-textarea:focus, input.mp-input:focus, select.mp-select:focus{outline:none; border-color:var(--mp-cyan-dim);}
+.mp-field-label{font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--mp-text-mute); margin-bottom:5px; display:block;}
+.mp-win-item{border-left:2px solid var(--mp-gold-dim); padding:6px 0 6px 10px; margin-bottom:6px;}
+.mp-win-item .d{font-family:var(--font-mono); font-size:9.5px; color:var(--mp-text-mute);}
+.mp-win-item .t{font-size:13px;}
+
+.mp-notify{
+  position:relative; border:1px solid var(--mp-cyan-dim); background:rgba(73,224,255,0.05);
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  padding:16px 16px 14px;
+}
+.mp-notify-head{display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--mp-cyan-bright); margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--mp-cyan-faint);}
+.mp-notify-body{font-size:14px; line-height:1.65; white-space:pre-wrap;}
+.mp-notify-body h4{font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--mp-purple); margin:12px 0 4px;}
+.mp-notify-body h4:first-child{margin-top:0;}
+.mp-badge-ai{font-size:9.5px; font-family:var(--font-mono); color:var(--mp-purple); border:1px solid var(--mp-purple-dim); border-radius:2px; padding:1px 6px; margin-left:auto;}
+
+/* ---------------- Level up overlay ---------------- */
+.mp-levelup-bg{position:fixed; inset:0; z-index:999; display:none; align-items:center; justify-content:center; background:rgba(2,3,4,0.72); backdrop-filter:blur(3px);}
+.mp-levelup-bg.show{display:flex;}
+.mp-levelup-card{
+  border:1px solid var(--mp-gold); background:var(--mp-panel); padding:32px 40px; text-align:center;
+  clip-path:polygon(20px 0,100% 0,100% calc(100% - 20px),calc(100% - 20px) 100%,0 100%,0 20px);
+  box-shadow:0 0 40px rgba(255,209,102,0.25); animation:mp-levelup-pop .35s cubic-bezier(.2,1,.3,1);
+}
+@keyframes mp-levelup-pop{ from{transform:scale(.85); opacity:0;} to{transform:scale(1); opacity:1;} }
+.mp-levelup-eyebrow{font-family:var(--font-mono); font-size:12px; letter-spacing:.3em; color:var(--mp-cyan);}
+.mp-levelup-title{font-size:44px; font-weight:700; color:var(--mp-gold); margin:6px 0; text-shadow:0 0 20px rgba(255,209,102,.5);}
+.mp-levelup-sub{font-family:var(--font-mono); font-size:12px; color:var(--mp-text-dim);}
+
+/* ---------------- Heatmap ---------------- */
+.mp-heatmap{display:grid; grid-template-columns:repeat(auto-fill,minmax(0,1fr)); gap:3px;}
+.mp-heat-cell{aspect-ratio:1; border-radius:2px; background:rgba(255,255,255,0.05); cursor:pointer; position:relative;}
+.mp-heat-cell:hover{outline:1px solid var(--mp-cyan-dim);}
+.mp-heat-cell.empty{cursor:default; opacity:.3;}
+.mp-heat-legend{display:flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:9.5px; color:var(--mp-text-mute); margin-top:8px;}
+.mp-heat-legend .sw{width:10px; height:10px; border-radius:2px;}
+
+/* ---------------- Goal allocation ---------------- */
+.mp-goal-card{border:1px solid var(--mp-hairline); border-radius:2px; padding:12px; margin-bottom:10px; background:rgba(255,255,255,0.015);}
+.mp-goal-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.mp-goal-title{font-weight:700; font-size:15px;}
+.mp-goal-meta{font-family:var(--font-mono); font-size:10.5px; color:var(--mp-text-mute);}
+.mp-bar-track{height:8px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; margin-top:8px;}
+.mp-bar-fill{height:100%; background:linear-gradient(90deg,var(--mp-purple),var(--mp-cyan));}
+.mp-goal-periods{display:flex; gap:4px; flex-wrap:wrap; margin-top:9px;}
+.mp-goal-period{font-family:var(--font-mono); font-size:9px; padding:3px 6px; border-radius:2px; border:1px solid var(--mp-hairline); color:var(--mp-text-mute);}
+.mp-goal-period.current{border-color:var(--mp-cyan-dim); color:var(--mp-cyan-bright);}
+.mp-goal-period.met{color:var(--mp-good); border-color:rgba(110,231,183,.4);}
+.mp-goal-period.short{color:var(--mp-bad); border-color:rgba(255,107,107,.4);}
+
+/* ---------------- Streak analytics ---------------- */
+.mp-streak-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border:1px solid var(--mp-hairline); border-radius:2px; margin-bottom:6px;}
+.mp-streak-nums{display:flex; gap:14px; font-family:var(--font-mono); font-size:12px;}
+.mp-streak-nums b{color:var(--mp-cyan-bright);}
+
+/* ---------------- Favorites gallery ---------------- */
+.mp-fav-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px;}
+.mp-fav-card{border:1px solid var(--mp-hairline); border-radius:3px; overflow:hidden; background:rgba(255,255,255,0.02); cursor:pointer;}
+.mp-fav-cover{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:rgba(255,255,255,0.04);}
+.mp-fav-cover-fallback{width:100%; aspect-ratio:4/3; display:flex; align-items:center; justify-content:center; font-size:34px; background:linear-gradient(135deg, rgba(176,115,240,.15), rgba(73,224,255,.15));}
+.mp-fav-body{padding:9px 10px;}
+.mp-fav-title{font-weight:700; font-size:13px;}
+.mp-fav-meta{font-family:var(--font-mono); font-size:9.5px; color:var(--mp-text-mute); margin-top:3px;}
+
+/* ---------------- Chip rows ---------------- */
+.mp-chip-row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+.mp-chip{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; border:1px solid var(--mp-hairline); color:var(--mp-text-dim); border-radius:2px; padding:5px 10px; cursor:pointer; background:transparent;}
+.mp-chip.active{border-color:var(--mp-cyan-dim); color:var(--mp-cyan-bright); background:rgba(73,224,255,0.08);}
+
+/* ---------------- Modals ---------------- */
+.modal-bg{position:fixed; inset:0; background:rgba(2,3,4,0.75); display:none; align-items:flex-start; justify-content:center; z-index:400; padding:40px 14px; overflow-y:auto;}
+.modal-bg.show{display:flex;}
+.modal{
+  width:100%; max-width:520px; border:1px solid var(--mp-cyan-faint); background:#070c12; border-radius:4px;
+  padding:20px; max-height:86vh; overflow-y:auto;
+}
+.modal h3{margin:0 0 14px; font-size:16px; letter-spacing:.04em; color:var(--mp-cyan-bright);}
+.mp-field{margin-bottom:12px;}
+.mp-modal-actions{display:flex; justify-content:space-between; align-items:center; margin-top:16px; gap:10px;}
+.mp-modal-actions-right{display:flex; gap:8px;}
+.mp-weekday-picker{display:flex; gap:4px; flex-wrap:wrap;}
+.mp-weekday-picker button{width:34px; height:30px; border-radius:2px; border:1px solid var(--mp-hairline); background:transparent; color:var(--mp-text-dim); font-family:var(--font-mono); font-size:11px; cursor:pointer;}
+.mp-weekday-picker button.active{border-color:var(--mp-cyan-dim); color:var(--mp-cyan-bright); background:rgba(73,224,255,.1);}
+
+.mp-empty{color:var(--mp-text-mute); font-size:13px; font-style:italic; padding:6px 2px;}
+.mp-picker-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px;}
+.mp-picker-label{font-family:var(--font-mono); font-size:13px; letter-spacing:.06em; color:var(--mp-cyan-bright);}
+
+.mp-boot-error{position:fixed; top:0; left:0; right:0; z-index:9999; background:#3a0a0a; color:#ffdada; padding:14px 16px; font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; display:none;}
 </style>
-<script>location.replace('home.html');</script>
 </head>
 <body>
-<!--
-  Main Pillar was removed per an explicit request (see CLAUDE.md's
-  changelog) — no data, functionality, or nav entry remain. This stub
-  exists only so an old bookmark/home-screen shortcut to this exact
-  filename doesn't 404 with no explanation; it just redirects to Home.
--->
-<p>This page has moved. <a href="home.html">Continue to Home →</a></p>
+
+<a class="mp-back" href="index.html">← Back</a>
+
+<div class="mp-shell">
+
+  <!-- ================= STATUS WINDOW ================= -->
+  <div class="mp-status">
+    <div class="mp-status-top">
+      <div class="mp-status-id">
+        <div class="mp-rank-badge" id="mpRankBadge">E</div>
+        <div>
+          <div class="mp-hunter-name" id="mpHunterName" contenteditable="true" spellcheck="false">Hunter</div>
+          <div class="mp-hunter-title">MAIN PILLAR · SYSTEM ONLINE</div>
+        </div>
+      </div>
+      <div class="mp-level-chip" id="mpLevelChip">LV 1</div>
+    </div>
+    <div class="mp-xp-row">
+      <div class="mp-xp-label"><span id="mpXpLabel">0 / 100 XP</span><span id="mpXpPct">0%</span></div>
+      <div class="mp-xp-track"><div class="mp-xp-fill" id="mpXpFill" style="width:0%"></div></div>
+    </div>
+    <div class="mp-stats-grid" id="mpStatsGrid"></div>
+  </div>
+
+  <!-- ================= TABS ================= -->
+  <div class="mp-tabs" id="mpTabs">
+    <button class="mp-tab" data-tab="today">Today</button>
+    <button class="mp-tab" data-tab="weekly">Weekly</button>
+    <button class="mp-tab" data-tab="monthly">Monthly</button>
+    <button class="mp-tab" data-tab="year">Year</button>
+    <button class="mp-tab" data-tab="goals">Goals</button>
+    <button class="mp-tab" data-tab="favorites">Favorites</button>
+  </div>
+
+  <!-- ================= TODAY ================= -->
+  <div class="mp-tabpanel" data-panel="today">
+
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">📡</span> Whoop Biometrics</div>
+        <button class="mp-btn" id="mpWhoopLogBtn">Log Today's Data</button>
+      </div>
+      <div class="mp-whoop-grid" id="mpWhoopGrid"></div>
+    </div>
+
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">⚔️</span> Daily Quests</div>
+        <button class="mp-btn" id="mpAddHabitBtn">+ New Quest</button>
+      </div>
+      <div id="mpHabitList"></div>
+    </div>
+
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">📋</span> Project Tasks</div>
+        <button class="mp-btn" id="mpAddTaskBtn">+ New Task</button>
+      </div>
+      <div class="mp-field-label">Due Today</div>
+      <div id="mpTasksToday"></div>
+      <div class="mp-field-label" style="margin-top:12px;">Upcoming</div>
+      <div id="mpTasksUpcoming"></div>
+    </div>
+
+    <div class="mp-grid2">
+      <div class="mp-panel">
+        <div class="mp-panel-head"><div class="mp-panel-title"><span class="mp-ic">🤖</span> AI Journal</div></div>
+        <div class="mp-field-label">What happened today? Why did recovery change? Why were habits missed? — context for future recommendations, not a diary.</div>
+        <textarea class="mp-textarea" id="mpJournalInput" placeholder="Log context for the AI here…"></textarea>
+      </div>
+      <div class="mp-panel">
+        <div class="mp-panel-head"><div class="mp-panel-title"><span class="mp-ic">🏆</span> Win of the Day</div></div>
+        <input class="mp-input" id="mpWinInput" placeholder="One good thing that happened today…" style="margin-bottom:8px;">
+        <button class="mp-btn mp-btn-sm" id="mpWinAddBtn">+ Log Win</button>
+        <div id="mpWinsToday" style="margin-top:10px;"></div>
+        <div class="mp-field-label" style="margin-top:12px;">Search Archive</div>
+        <input class="mp-input" id="mpWinSearch" placeholder="Search past wins…" style="margin-bottom:8px;">
+        <div id="mpWinArchive" style="max-height:220px; overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">🔔</span> Morning Brief <span class="mp-badge-ai" id="mpBriefBadge"></span></div>
+        <button class="mp-btn mp-btn-sm" id="mpBriefRegenBtn">Regenerate</button>
+      </div>
+      <div class="mp-notify" id="mpBriefPanel">
+        <div class="mp-notify-head"><span>! Notification</span></div>
+        <div class="mp-notify-body" id="mpBriefBody">Log today's Whoop data to generate your Morning Brief.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= WEEKLY ================= -->
+  <div class="mp-tabpanel" data-panel="weekly">
+    <div class="mp-panel">
+      <div class="mp-picker-row">
+        <button class="mp-icon-btn" id="mpWeekPrev">←</button>
+        <div class="mp-picker-label" id="mpWeekLabel">Week</div>
+        <button class="mp-icon-btn" id="mpWeekNext">→</button>
+      </div>
+      <div class="mp-grid3" id="mpWeekStats"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-title" style="margin-bottom:10px;"><span class="mp-ic">📈</span> Recovery &amp; Quest Trend</div>
+      <div id="mpWeekTrend"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">🤖</span> Weekly Brief <span class="mp-badge-ai" id="mpWeeklyBriefBadge"></span></div>
+        <button class="mp-btn mp-btn-sm" id="mpWeeklyBriefBtn">Generate</button>
+      </div>
+      <div class="mp-notify"><div class="mp-notify-head"><span>! Notification</span></div>
+        <div class="mp-notify-body" id="mpWeeklyBriefBody">Not generated yet this week.</div></div>
+    </div>
+  </div>
+
+  <!-- ================= MONTHLY ================= -->
+  <div class="mp-tabpanel" data-panel="monthly">
+    <div class="mp-panel">
+      <div class="mp-picker-row">
+        <button class="mp-icon-btn" id="mpMonthPrev">←</button>
+        <div class="mp-picker-label" id="mpMonthLabel">Month</div>
+        <button class="mp-icon-btn" id="mpMonthNext">→</button>
+      </div>
+      <div class="mp-grid3" id="mpMonthStats"></div>
+    </div>
+    <div class="mp-grid2">
+      <div class="mp-panel"><div class="mp-panel-title" style="margin-bottom:10px;">Recovery Heat Map</div><div class="mp-heatmap" id="mpHeatRecovery"></div></div>
+      <div class="mp-panel"><div class="mp-panel-title" style="margin-bottom:10px;">Strain Heat Map</div><div class="mp-heatmap" id="mpHeatStrain"></div></div>
+      <div class="mp-panel"><div class="mp-panel-title" style="margin-bottom:10px;">Sleep Heat Map</div><div class="mp-heatmap" id="mpHeatSleep"></div></div>
+      <div class="mp-panel"><div class="mp-panel-title" style="margin-bottom:10px;">Quest Consistency</div><div class="mp-heatmap" id="mpHeatHabit"></div></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-title" style="margin-bottom:10px;">Monthly Goals</div>
+      <div id="mpMonthlyGoals"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">🤖</span> Monthly Brief <span class="mp-badge-ai" id="mpMonthlyBriefBadge"></span></div>
+        <button class="mp-btn mp-btn-sm" id="mpMonthlyBriefBtn">Generate</button>
+      </div>
+      <div class="mp-notify"><div class="mp-notify-head"><span>! Notification</span></div>
+        <div class="mp-notify-body" id="mpMonthlyBriefBody">Not generated yet this month.</div></div>
+    </div>
+  </div>
+
+  <!-- ================= YEAR ================= -->
+  <div class="mp-tabpanel" data-panel="year">
+    <div class="mp-panel">
+      <div class="mp-picker-row">
+        <button class="mp-icon-btn" id="mpYearPrev">←</button>
+        <div class="mp-picker-label" id="mpYearLabel">Year</div>
+        <button class="mp-icon-btn" id="mpYearNext">→</button>
+      </div>
+      <div class="mp-grid3" id="mpYearStats"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-title" style="margin-bottom:10px;">Consistency Map</div>
+      <div class="mp-heatmap" id="mpYearHeat" style="grid-template-columns:repeat(53,1fr);"></div>
+      <div class="mp-heat-legend">
+        <span>Less</span>
+        <span class="sw" style="background:rgba(255,255,255,0.05)"></span>
+        <span class="sw" style="background:rgba(73,224,255,0.25)"></span>
+        <span class="sw" style="background:rgba(73,224,255,0.55)"></span>
+        <span class="sw" style="background:rgba(73,224,255,0.9)"></span>
+        <span>More</span>
+      </div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-title" style="margin-bottom:10px;">Monthly Breakdown</div>
+      <div id="mpYearMonths"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">🤖</span> Yearly AI Review <span class="mp-badge-ai" id="mpYearlyBriefBadge"></span></div>
+        <button class="mp-btn mp-btn-sm" id="mpYearlyBriefBtn">Generate</button>
+      </div>
+      <div class="mp-notify"><div class="mp-notify-head"><span>! Notification</span></div>
+        <div class="mp-notify-body" id="mpYearlyBriefBody">First cut of the Yearly Review — generate it once you have a few months of data logged.</div></div>
+    </div>
+  </div>
+
+  <!-- ================= GOALS ================= -->
+  <div class="mp-tabpanel" data-panel="goals">
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">🎯</span> Smart Goal Allocation</div>
+        <button class="mp-btn" id="mpAddGoalBtn">+ New Goal</button>
+      </div>
+      <div id="mpGoalsList"></div>
+    </div>
+    <div class="mp-panel">
+      <div class="mp-panel-title" style="margin-bottom:10px;"><span class="mp-ic">🔥</span> Habit Streak Analytics</div>
+      <div id="mpStreakList"></div>
+    </div>
+  </div>
+
+  <!-- ================= FAVORITES ================= -->
+  <div class="mp-tabpanel" data-panel="favorites">
+    <div class="mp-panel">
+      <div class="mp-panel-head">
+        <div class="mp-panel-title"><span class="mp-ic">💎</span> Favorites Archive</div>
+        <button class="mp-btn" id="mpAddFavBtn">+ Add</button>
+      </div>
+      <div class="mp-chip-row" id="mpFavTypeChips"></div>
+      <input class="mp-input" id="mpFavSearch" placeholder="Search favorites…" style="margin-bottom:12px;">
+      <div class="mp-fav-grid" id="mpFavGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<div class="modal-bg" id="mpWhoopModalBg">
+  <div class="modal">
+    <h3>Log Today's Whoop Data</h3>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">Recovery %</label><input class="mp-input" id="mpwRecovery" type="number" min="0" max="100"></div>
+      <div class="mp-field"><label class="mp-field-label">Strain (0–21)</label><input class="mp-input" id="mpwStrain" type="number" min="0" max="21" step="0.1"></div>
+      <div class="mp-field"><label class="mp-field-label">Sleep Score %</label><input class="mp-input" id="mpwSleepScore" type="number" min="0" max="100"></div>
+      <div class="mp-field"><label class="mp-field-label">Sleep Hours</label><input class="mp-input" id="mpwSleepHours" type="number" min="0" max="24" step="0.1"></div>
+      <div class="mp-field"><label class="mp-field-label">Sleep Efficiency %</label><input class="mp-input" id="mpwSleepEff" type="number" min="0" max="100"></div>
+      <div class="mp-field"><label class="mp-field-label">HRV (ms)</label><input class="mp-input" id="mpwHrv" type="number" min="0"></div>
+      <div class="mp-field"><label class="mp-field-label">Resting HR (bpm)</label><input class="mp-input" id="mpwRhr" type="number" min="0"></div>
+      <div class="mp-field"><label class="mp-field-label">SpO2 %</label><input class="mp-input" id="mpwSpo2" type="number" min="0" max="100"></div>
+      <div class="mp-field"><label class="mp-field-label">Skin Temp</label><input class="mp-input" id="mpwSkinTemp" type="number" step="0.1"></div>
+      <div class="mp-field"><label class="mp-field-label">Resp. Rate</label><input class="mp-input" id="mpwRespRate" type="number" step="0.1"></div>
+    </div>
+    <div class="mp-field"><label class="mp-field-label">Notes</label><textarea class="mp-textarea" id="mpwNotes" placeholder="Anything Whoop's app itself flagged…"></textarea></div>
+    <div class="mp-modal-actions">
+      <button class="mp-btn mp-btn-ghost" id="mpWhoopCancel">Cancel</button>
+      <button class="mp-btn" id="mpWhoopSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="mpHabitModalBg">
+  <div class="modal">
+    <h3 id="mpHabitModalTitle">New Quest</h3>
+    <div class="mp-field"><label class="mp-field-label">Name</label><input class="mp-input" id="mphName"></div>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">Icon (emoji)</label><input class="mp-input" id="mphIcon" maxlength="4"></div>
+      <div class="mp-field"><label class="mp-field-label">Stat</label>
+        <select class="mp-select" id="mphCategory"></select>
+      </div>
+    </div>
+    <div class="mp-field"><label class="mp-field-label">Frequency</label>
+      <select class="mp-select" id="mphFrequency">
+        <option value="daily">Every day</option>
+        <option value="weekdays">Specific days</option>
+        <option value="everyNDays">Every N days</option>
+      </select>
+    </div>
+    <div class="mp-field" id="mphWeekdaysField"><label class="mp-field-label">Days</label><div class="mp-weekday-picker" id="mphWeekdays"></div></div>
+    <div class="mp-field" id="mphEveryNField" style="display:none;"><label class="mp-field-label">Every N days</label><input class="mp-input" id="mphEveryN" type="number" min="1"></div>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">XP value</label><input class="mp-input" id="mphXp" type="number" min="1"></div>
+      <div class="mp-field"><label class="mp-field-label">Target streak (optional)</label><input class="mp-input" id="mphTargetStreak" type="number" min="0"></div>
+    </div>
+    <div class="mp-field"><label class="mp-field-label">Automatically complete from Whoop</label>
+      <select class="mp-select" id="mphAutoSource"></select>
+    </div>
+    <div class="mp-field" id="mphThresholdField" style="display:none;"><label class="mp-field-label">Threshold</label><input class="mp-input" id="mphThreshold" type="number" step="0.1"></div>
+    <div class="mp-modal-actions">
+      <button class="mp-btn mp-btn-danger" id="mpHabitDelete" style="display:none;">Delete</button>
+      <div class="mp-modal-actions-right">
+        <button class="mp-btn mp-btn-ghost" id="mpHabitCancel">Cancel</button>
+        <button class="mp-btn" id="mpHabitSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="mpTaskModalBg">
+  <div class="modal">
+    <h3 id="mpTaskModalTitle">New Task</h3>
+    <div class="mp-field"><label class="mp-field-label">Title</label><input class="mp-input" id="mptTitle"></div>
+    <div class="mp-field"><label class="mp-field-label">Note</label><textarea class="mp-textarea" id="mptNote"></textarea></div>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">Project</label><select class="mp-select" id="mptProject"></select></div>
+      <div class="mp-field"><label class="mp-field-label">Priority</label>
+        <select class="mp-select" id="mptPriority"><option>Low</option><option selected>Medium</option><option>High</option></select>
+      </div>
+      <div class="mp-field"><label class="mp-field-label">Due date</label><input class="mp-input" id="mptDue" type="date"></div>
+      <div class="mp-field"><label class="mp-field-label">XP value</label><input class="mp-input" id="mptXp" type="number" min="1" value="15"></div>
+    </div>
+    <div class="mp-modal-actions">
+      <button class="mp-btn mp-btn-danger" id="mpTaskDelete" style="display:none;">Delete</button>
+      <div class="mp-modal-actions-right">
+        <button class="mp-btn mp-btn-ghost" id="mpTaskCancel">Cancel</button>
+        <button class="mp-btn" id="mpTaskSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="mpGoalModalBg">
+  <div class="modal">
+    <h3 id="mpGoalModalTitle">New Goal</h3>
+    <div class="mp-field"><label class="mp-field-label">Title</label><input class="mp-input" id="mpgTitle"></div>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">Target</label><input class="mp-input" id="mpgTarget" type="number" min="1"></div>
+      <div class="mp-field"><label class="mp-field-label">Unit</label><input class="mp-input" id="mpgUnit" placeholder="books, sessions…"></div>
+      <div class="mp-field"><label class="mp-field-label">Scope</label>
+        <select class="mp-select" id="mpgScope"><option value="yearly">Yearly</option><option value="monthly">Monthly</option></select>
+      </div>
+      <div class="mp-field"><label class="mp-field-label">If behind</label>
+        <select class="mp-select" id="mpgRollover"><option value="redistribute">Redistribute across remaining periods</option><option value="roll">Roll onto next period</option></select>
+      </div>
+    </div>
+    <div class="mp-modal-actions">
+      <button class="mp-btn mp-btn-danger" id="mpGoalDelete" style="display:none;">Delete</button>
+      <div class="mp-modal-actions-right">
+        <button class="mp-btn mp-btn-ghost" id="mpGoalCancel">Cancel</button>
+        <button class="mp-btn" id="mpGoalSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="mpFavModalBg">
+  <div class="modal">
+    <h3 id="mpFavModalTitle">Add Favorite</h3>
+    <div class="mp-field"><label class="mp-field-label">Title</label><input class="mp-input" id="mpfTitle"></div>
+    <div class="mp-grid2">
+      <div class="mp-field"><label class="mp-field-label">Type</label><select class="mp-select" id="mpfType"></select></div>
+      <div class="mp-field"><label class="mp-field-label">Date</label><input class="mp-input" id="mpfDate" type="date"></div>
+    </div>
+    <div class="mp-field"><label class="mp-field-label">Cover / photo URL</label><input class="mp-input" id="mpfCover" placeholder="https://…"></div>
+    <div class="mp-field"><label class="mp-field-label">Link URL (optional)</label><input class="mp-input" id="mpfUrl" placeholder="https://…"></div>
+    <div class="mp-field"><label class="mp-field-label">Note</label><textarea class="mp-textarea" id="mpfNote"></textarea></div>
+    <div class="mp-field"><label class="mp-field-label">Tags (comma separated)</label><input class="mp-input" id="mpfTags"></div>
+    <div class="mp-modal-actions">
+      <button class="mp-btn mp-btn-danger" id="mpFavDelete" style="display:none;">Delete</button>
+      <div class="mp-modal-actions-right">
+        <button class="mp-btn mp-btn-ghost" id="mpFavCancel">Cancel</button>
+        <button class="mp-btn" id="mpFavSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="mpDayModalBg">
+  <div class="modal">
+    <h3 id="mpDayModalTitle">Day Detail</h3>
+    <div id="mpDayModalBody"></div>
+    <div class="mp-modal-actions"><div></div><button class="mp-btn mp-btn-ghost" id="mpDayModalClose">Close</button></div>
+  </div>
+</div>
+
+<div class="mp-levelup-bg" id="mpLevelUpBg">
+  <div class="mp-levelup-card">
+    <div class="mp-levelup-eyebrow">✦ LEVEL UP ✦</div>
+    <div class="mp-levelup-title" id="mpLevelUpNum">LV 2</div>
+    <div class="mp-levelup-sub">You have grown stronger.</div>
+  </div>
+</div>
+
+<div class="mp-boot-error" id="mpBootError"></div>
+
+<script src="mainpillar-data.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script>
+(function(){
+  'use strict';
+
+  // Placeholder key, matching this app's established "PASTE-" sentinel
+  // convention (see topbar.js's TOPBAR_SUPABASE_KEY check) — inactive
+  // until a real key is dropped in. Same client-side-fetch pattern this
+  // app already uses elsewhere for AI features.
+  var ANTHROPIC_API_KEY = 'PASTE-YOUR-ANTHROPIC-API-KEY-HERE';
+  var AI_MODEL = 'claude-sonnet-4-5-20250929';
+
+  function $(id){ return document.getElementById(id); }
+  function MD(){ return window.MainPillarData; }
+
+  function showBootErrorBanner(err, context){
+    try {
+      var el = $('mpBootError');
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = 'Main Pillar failed to load (' + context + '): ' + (err && err.message ? err.message : err) +
+        (err && err.stack ? '\n\n' + err.stack : '') + '\n\nCopy this and share it so it can be fixed.';
+    } catch(e2) {}
+  }
+
+  // ---------------------------------------------------------------------
+  // AI call — reuses this app's established client-side-fetch pattern.
+  // Returns a Promise<string|null> — null if no key configured or the
+  // call failed (offline, bad key, CORS, etc.) so callers can fall back
+  // to a local template summary instead of showing a dead button.
+  // ---------------------------------------------------------------------
+  function callAI(prompt){
+    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY.indexOf('PASTE-') === 0) return Promise.resolve(null);
+    return fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: 700,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){
+        if (!data || !data.content || !data.content[0]) return null;
+        return data.content[0].text || null;
+      })
+      .catch(function(){ return null; });
+  }
+
+  // ---------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------
+  var state = {
+    activeTab: localStorage.getItem('mainpillar:active_tab') || 'today',
+    weekKey: null, monthKey: null, yearKey: null,
+    dayModalDate: null
+  };
+
+  function switchTab(tab){
+    state.activeTab = tab;
+    localStorage.setItem('mainpillar:active_tab', tab);
+    document.querySelectorAll('.mp-tab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+    document.querySelectorAll('.mp-tabpanel').forEach(function(p){ p.classList.toggle('active', p.getAttribute('data-panel') === tab); });
+    if (tab === 'weekly') renderWeekly();
+    if (tab === 'monthly') renderMonthly();
+    if (tab === 'year') renderYear();
+    if (tab === 'goals') renderGoalsTab();
+    if (tab === 'favorites') renderFavorites();
+  }
+
+  // ---------------------------------------------------------------------
+  // Status window
+  // ---------------------------------------------------------------------
+  function renderStatusWindow(){
+    var D = MD();
+    var h = D.loadHunter();
+    var xp = D.xpProgress(D.totalXP(h));
+    $('mpRankBadge').textContent = xp.rank;
+    $('mpLevelChip').textContent = 'LV ' + xp.level;
+    $('mpXpLabel').textContent = xp.into + ' / ' + xp.span + ' XP';
+    $('mpXpPct').textContent = xp.pct + '%';
+    $('mpXpFill').style.width = xp.pct + '%';
+    var name = localStorage.getItem('mainpillar:hunterName');
+    if (name) $('mpHunterName').textContent = name;
+
+    var grid = $('mpStatsGrid');
+    grid.innerHTML = '';
+    D.STATS.forEach(function(s){
+      var val = h.statXP[s] || 0;
+      var pct = Math.min(100, Math.round((val % 100) ? (val % 100) : (val > 0 ? 100 : 0)));
+      var div = document.createElement('div');
+      div.className = 'mp-stat';
+      div.innerHTML = '<div class="mp-stat-head"><span>' + s + '</span><b>' + val + '</b></div><div class="mp-stat-track"><div class="mp-stat-fill" style="width:' + pct + '%"></div></div>';
+      div.title = D.STAT_LABELS[s] + ' — ' + D.STAT_HINTS[s];
+      grid.appendChild(div);
+    });
+
+    if (xp.level > h.lastSeenLevel) {
+      $('mpLevelUpNum').textContent = 'LV ' + xp.level;
+      $('mpLevelUpBg').classList.add('show');
+      setTimeout(function(){ $('mpLevelUpBg').classList.remove('show'); D.ackLevelSeen(); }, 2600);
+      $('mpLevelUpBg').onclick = function(){ $('mpLevelUpBg').classList.remove('show'); D.ackLevelSeen(); };
+    }
+  }
+  function afterXpAction(res){
+    renderStatusWindow();
+    if (res && res.leveledUp) { /* renderStatusWindow already shows the overlay */ }
+  }
+
+  $('mpHunterName').addEventListener('blur', function(){
+    localStorage.setItem('mainpillar:hunterName', $('mpHunterName').textContent.trim() || 'Hunter');
+  });
+
+  // ---------------------------------------------------------------------
+  // Whoop tile row + modal
+  // ---------------------------------------------------------------------
+  function renderWhoopToday(){
+    var D = MD();
+    var w = D.whoopFor(D.todayISO());
+    var grid = $('mpWhoopGrid');
+    var tiles = [
+      { k: 'recovery', label: 'Recovery', suffix: '%', zone: true },
+      { k: 'strain', label: 'Strain', suffix: '' },
+      { k: 'sleepScore', label: 'Sleep Score', suffix: '%' },
+      { k: 'sleepHours', label: 'Sleep', suffix: 'h' },
+      { k: 'hrv', label: 'HRV', suffix: 'ms' }
+    ];
+    grid.innerHTML = '';
+    tiles.forEach(function(t){
+      var v = w ? w[t.k] : null;
+      var div = document.createElement('div');
+      div.className = 'mp-whoop-tile';
+      if (t.zone && v !== null && v !== undefined) div.className += ' zone-' + D.recoveryZone(v);
+      div.innerHTML = '<div class="v">' + (v === null || v === undefined ? '—' : v + t.suffix) + '</div><div class="l">' + t.label + '</div>';
+      grid.appendChild(div);
+    });
+  }
+  function openWhoopModal(){
+    var D = MD();
+    var w = D.whoopFor(D.todayISO()) || {};
+    ['recovery','strain','sleepScore','sleepHours','sleepEfficiency','hrv','rhr','spo2','skinTemp','respRate'].forEach(function(f){
+      var el = $('mpw' + f.charAt(0).toUpperCase() + f.slice(1));
+      if (el) el.value = (w[f] === null || w[f] === undefined) ? '' : w[f];
+    });
+    $('mpwNotes').value = w.notes || '';
+    $('mpWhoopModalBg').classList.add('show');
+  }
+  $('mpWhoopLogBtn').addEventListener('click', openWhoopModal);
+  $('mpWhoopCancel').addEventListener('click', function(){ $('mpWhoopModalBg').classList.remove('show'); });
+  $('mpWhoopModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpWhoopModalBg') $('mpWhoopModalBg').classList.remove('show'); });
+  $('mpWhoopSave').addEventListener('click', function(){
+    var D = MD();
+    function num(id){ var v = $(id).value; return v === '' ? null : Number(v); }
+    D.saveWhoopFor(D.todayISO(), {
+      recovery: num('mpwRecovery'), strain: num('mpwStrain'), sleepScore: num('mpwSleepScore'),
+      sleepHours: num('mpwSleepHours'), sleepEfficiency: num('mpwSleepEff'), hrv: num('mpwHrv'),
+      rhr: num('mpwRhr'), spo2: num('mpwSpo2'), skinTemp: num('mpwSkinTemp'), respRate: num('mpwRespRate'),
+      notes: $('mpwNotes').value
+    });
+    $('mpWhoopModalBg').classList.remove('show');
+    renderWhoopToday();
+    var leveled = D.applyAutoCompletes(D.todayISO());
+    renderHabits();
+    renderStatusWindow();
+    if (leveled.length) afterXpAction(leveled[leveled.length - 1]);
+    maybeGenerateMorningBrief();
+  });
+
+  // ---------------------------------------------------------------------
+  // Daily Quests (habits)
+  // ---------------------------------------------------------------------
+  var habitEditingId = null;
+  function renderHabits(){
+    var D = MD();
+    var today = D.todayISO();
+    var dow = D.keyToDate(today).getDay();
+    var list = D.Habits.list().filter(function(h){ return D.isHabitScheduled(h, dow, today); })
+      .sort(function(a,b){ return a.order - b.order; });
+    var wrap = $('mpHabitList');
+    wrap.innerHTML = '';
+    if (!list.length) { wrap.innerHTML = '<div class="mp-empty">No quests scheduled today.</div>'; return; }
+    var log = D.habitLogFor(today);
+    list.forEach(function(h){
+      var done = !!log[h.id];
+      var streaks = D.computeHabitStreaks(h);
+      var row = document.createElement('div');
+      row.className = 'mp-quest-row' + (done ? ' done' : '');
+      row.innerHTML =
+        '<button class="mp-quest-check">' + (done ? '✓' : '') + '</button>' +
+        '<span class="mp-quest-icon">' + h.icon + '</span>' +
+        '<div class="mp-quest-body">' +
+          '<div class="mp-quest-name">' + escapeHtml(h.name) + '</div>' +
+          '<div class="mp-quest-meta"><span class="mp-streak-badge">🔥 ' + streaks.current + '</span><span>' + D.STAT_LABELS[h.category] + '</span>' +
+            (h.autoSource ? '<span class="mp-quest-auto">AUTO</span>' : '') + '</div>' +
+        '</div>' +
+        '<div class="mp-quest-xp">+' + h.xp + ' XP</div>' +
+        '<div class="mp-quest-actions"><button class="mp-icon-btn mp-edit">✎</button></div>';
+      row.querySelector('.mp-quest-check').addEventListener('click', function(){
+        var res = D.toggleHabitToday(h.id, today);
+        renderHabits();
+        if (res) afterXpAction(res);
+      });
+      row.querySelector('.mp-edit').addEventListener('click', function(){ openHabitModal(h); });
+      wrap.appendChild(row);
+    });
+  }
+  function fillHabitCategorySelect(){
+    var D = MD(); var sel = $('mphCategory'); sel.innerHTML = '';
+    D.STATS.forEach(function(s){ var o = document.createElement('option'); o.value = s; o.textContent = s + ' — ' + D.STAT_LABELS[s]; sel.appendChild(o); });
+  }
+  function fillAutoSourceSelect(){
+    var D = MD(); var sel = $('mphAutoSource'); sel.innerHTML = '';
+    D.AUTO_SOURCES.forEach(function(s){ var o = document.createElement('option'); o.value = s.value; o.textContent = s.label; sel.appendChild(o); });
+  }
+  function renderWeekdayPicker(selected){
+    var wrap = $('mphWeekdays'); wrap.innerHTML = '';
+    ['S','M','T','W','T','F','S'].forEach(function(l, i){
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = l;
+      if (selected.indexOf(i) !== -1) b.classList.add('active');
+      b.addEventListener('click', function(){ b.classList.toggle('active'); });
+      b.dataset.dow = i;
+      wrap.appendChild(b);
+    });
+  }
+  function openHabitModal(h){
+    habitEditingId = h ? h.id : null;
+    $('mpHabitModalTitle').textContent = h ? 'Edit Quest' : 'New Quest';
+    fillHabitCategorySelect(); fillAutoSourceSelect();
+    $('mphName').value = h ? h.name : '';
+    $('mphIcon').value = h ? h.icon : '⚔️';
+    $('mphCategory').value = h ? h.category : 'AGI';
+    $('mphFrequency').value = h ? h.frequency : 'daily';
+    $('mphXp').value = h ? h.xp : 10;
+    $('mphTargetStreak').value = h ? (h.targetStreak || '') : '';
+    $('mphEveryN').value = h ? (h.everyNDays || 2) : 2;
+    $('mphAutoSource').value = h ? (h.autoSource || '') : '';
+    $('mphThreshold').value = h ? (h.autoThreshold || '') : '';
+    renderWeekdayPicker(h ? (h.weekdays || []) : [1,2,3,4,5,6,0]);
+    toggleHabitFreqFields();
+    toggleHabitAutoField();
+    $('mpHabitDelete').style.display = h ? 'inline-block' : 'none';
+    $('mpHabitModalBg').classList.add('show');
+  }
+  function toggleHabitFreqFields(){
+    var f = $('mphFrequency').value;
+    $('mphWeekdaysField').style.display = f === 'weekdays' ? 'block' : 'none';
+    $('mphEveryNField').style.display = f === 'everyNDays' ? 'block' : 'none';
+  }
+  function toggleHabitAutoField(){
+    $('mphThresholdField').style.display = $('mphAutoSource').value ? 'block' : 'none';
+  }
+  $('mphFrequency').addEventListener('change', toggleHabitFreqFields);
+  $('mphAutoSource').addEventListener('change', toggleHabitAutoField);
+  $('mpAddHabitBtn').addEventListener('click', function(){ openHabitModal(null); });
+  $('mpHabitCancel').addEventListener('click', function(){ $('mpHabitModalBg').classList.remove('show'); });
+  $('mpHabitModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpHabitModalBg') $('mpHabitModalBg').classList.remove('show'); });
+  $('mpHabitSave').addEventListener('click', function(){
+    var D = MD();
+    var name = $('mphName').value.trim();
+    if (!name) { alert('Name is required.'); return; }
+    var weekdays = Array.prototype.slice.call($('mphWeekdays').querySelectorAll('button.active')).map(function(b){ return Number(b.dataset.dow); });
+    var data = {
+      name: name, icon: $('mphIcon').value.trim() || '⚔️', category: $('mphCategory').value,
+      frequency: $('mphFrequency').value, weekdays: weekdays, everyNDays: Number($('mphEveryN').value) || 2,
+      xp: Number($('mphXp').value) || 10, targetStreak: Number($('mphTargetStreak').value) || 0,
+      autoSource: $('mphAutoSource').value, autoThreshold: Number($('mphThreshold').value) || 0
+    };
+    if (habitEditingId) D.Habits.update(habitEditingId, data);
+    else D.Habits.add(Object.assign({ order: Date.now() }, data));
+    $('mpHabitModalBg').classList.remove('show');
+    renderHabits();
+  });
+  $('mpHabitDelete').addEventListener('click', function(){
+    if (!habitEditingId) return;
+    if (!confirm('Delete this quest?')) return;
+    MD().Habits.remove(habitEditingId);
+    $('mpHabitModalBg').classList.remove('show');
+    renderHabits();
+  });
+
+  // ---------------------------------------------------------------------
+  // Tasks
+  // ---------------------------------------------------------------------
+  var taskEditingId = null;
+  function fillProjectSelect(){
+    var D = MD(); var sel = $('mptProject'); sel.innerHTML = '<option value="">— none —</option>';
+    D.Projects.list().forEach(function(p){ var o = document.createElement('option'); o.value = p.id; o.textContent = p.icon + ' ' + p.name; sel.appendChild(o); });
+  }
+  function buildTaskRow(t, refresh){
+    var D = MD();
+    var row = document.createElement('div');
+    row.className = 'mp-task-row' + (t.done ? ' done' : '');
+    var proj = t.projectId ? D.Projects.get(t.projectId) : null;
+    row.innerHTML =
+      '<button class="mp-task-check">' + (t.done ? '✓' : '') + '</button>' +
+      '<div class="mp-task-title">' + escapeHtml(t.title) + '</div>' +
+      '<div class="mp-task-meta">' +
+        (proj ? '<span>' + proj.icon + ' ' + escapeHtml(proj.name) + '</span>' : '') +
+        '<span class="mp-pill-priority pri-' + t.priority + '">' + t.priority + '</span>' +
+        (t.dueDate ? '<span>' + t.dueDate + '</span>' : '') +
+      '</div>';
+    row.querySelector('.mp-task-check').addEventListener('click', function(e){
+      e.stopPropagation();
+      var res = D.setTaskDone(t.id, !t.done);
+      refresh();
+      if (res) afterXpAction(res);
+    });
+    row.addEventListener('click', function(){ openTaskModal(t); });
+    return row;
+  }
+  function renderTasksToday(){
+    var D = MD();
+    var wrap = $('mpTasksToday'); wrap.innerHTML = '';
+    var list = D.tasksDueOn(D.todayISO());
+    if (!list.length) { wrap.innerHTML = '<div class="mp-empty">Nothing due today.</div>'; }
+    list.forEach(function(t){ wrap.appendChild(buildTaskRow(t, renderTasksToday)); });
+  }
+  function renderTasksUpcoming(){
+    var D = MD();
+    var wrap = $('mpTasksUpcoming'); wrap.innerHTML = '';
+    var list = D.tasksUpcoming(D.todayISO(), 8);
+    if (!list.length) { wrap.innerHTML = '<div class="mp-empty">Nothing on the horizon.</div>'; }
+    list.forEach(function(t){ wrap.appendChild(buildTaskRow(t, renderTasksUpcoming)); });
+  }
+  function openTaskModal(t){
+    taskEditingId = t ? t.id : null;
+    $('mpTaskModalTitle').textContent = t ? 'Edit Task' : 'New Task';
+    fillProjectSelect();
+    $('mptTitle').value = t ? t.title : '';
+    $('mptNote').value = t ? t.note : '';
+    $('mptProject').value = t ? (t.projectId || '') : '';
+    $('mptPriority').value = t ? t.priority : 'Medium';
+    $('mptDue').value = t ? t.dueDate : '';
+    $('mptXp').value = t ? t.xp : 15;
+    $('mpTaskDelete').style.display = t ? 'inline-block' : 'none';
+    $('mpTaskModalBg').classList.add('show');
+  }
+  $('mpAddTaskBtn').addEventListener('click', function(){ openTaskModal(null); });
+  $('mpTaskCancel').addEventListener('click', function(){ $('mpTaskModalBg').classList.remove('show'); });
+  $('mpTaskModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpTaskModalBg') $('mpTaskModalBg').classList.remove('show'); });
+  $('mpTaskSave').addEventListener('click', function(){
+    var D = MD();
+    var title = $('mptTitle').value.trim();
+    if (!title) { alert('Title is required.'); return; }
+    var data = {
+      title: title, note: $('mptNote').value, projectId: $('mptProject').value || null,
+      priority: $('mptPriority').value, dueDate: $('mptDue').value, xp: Number($('mptXp').value) || 15
+    };
+    if (taskEditingId) D.Tasks.update(taskEditingId, data);
+    else D.Tasks.add(data);
+    $('mpTaskModalBg').classList.remove('show');
+    renderTasksToday(); renderTasksUpcoming();
+  });
+  $('mpTaskDelete').addEventListener('click', function(){
+    if (!taskEditingId) return;
+    if (!confirm('Delete this task?')) return;
+    MD().Tasks.remove(taskEditingId);
+    $('mpTaskModalBg').classList.remove('show');
+    renderTasksToday(); renderTasksUpcoming();
+  });
+
+  // ---------------------------------------------------------------------
+  // AI Journal
+  // ---------------------------------------------------------------------
+  function renderJournal(){
+    var D = MD();
+    $('mpJournalInput').value = D.journalFor(D.todayISO()).text || '';
+  }
+  $('mpJournalInput').addEventListener('blur', function(){
+    var D = MD();
+    var res = D.saveJournalFor(D.todayISO(), $('mpJournalInput').value);
+    if (res) afterXpAction(res);
+  });
+
+  // ---------------------------------------------------------------------
+  // Win of the Day
+  // ---------------------------------------------------------------------
+  function renderWinsToday(){
+    var D = MD();
+    var wrap = $('mpWinsToday'); wrap.innerHTML = '';
+    D.winsForDate(D.todayISO()).forEach(function(w){
+      var div = document.createElement('div'); div.className = 'mp-win-item';
+      div.innerHTML = '<div class="d">' + w.date + '</div><div class="t">' + escapeHtml(w.text) + '</div>';
+      wrap.appendChild(div);
+    });
+  }
+  function renderWinArchive(){
+    var D = MD();
+    var q = $('mpWinSearch').value.trim().toLowerCase();
+    var wrap = $('mpWinArchive'); wrap.innerHTML = '';
+    var list = D.Wins.list().sort(function(a,b){ return b.date.localeCompare(a.date); });
+    if (q) list = list.filter(function(w){ return w.text.toLowerCase().indexOf(q) !== -1 || (w.tags||[]).join(' ').toLowerCase().indexOf(q) !== -1; });
+    list.slice(0, 60).forEach(function(w){
+      var div = document.createElement('div'); div.className = 'mp-win-item';
+      div.innerHTML = '<div class="d">' + w.date + '</div><div class="t">' + escapeHtml(w.text) + '</div>';
+      wrap.appendChild(div);
+    });
+    if (!list.length) wrap.innerHTML = '<div class="mp-empty">No wins logged yet.</div>';
+  }
+  $('mpWinAddBtn').addEventListener('click', function(){
+    var D = MD();
+    var text = $('mpWinInput').value.trim();
+    if (!text) return;
+    var r = D.addWin(D.todayISO(), text, []);
+    $('mpWinInput').value = '';
+    renderWinsToday(); renderWinArchive();
+    if (r.xpRes) afterXpAction(r.xpRes);
+  });
+  $('mpWinSearch').addEventListener('input', renderWinArchive);
+
+  // ---------------------------------------------------------------------
+  // Morning Brief
+  // ---------------------------------------------------------------------
+  function buildDailyBriefPrompt(dateStr){
+    var D = MD();
+    var w = D.whoopFor(dateStr) || {};
+    var yDate = D.addDaysToKey(dateStr, -1);
+    var habitsToday = D.Habits.list().filter(function(h){ return D.isHabitScheduled(h, D.keyToDate(dateStr).getDay(), dateStr); });
+    var log = D.habitLogFor(dateStr);
+    var missed = habitsToday.filter(function(h){ return !log[h.id]; }).map(function(h){ return h.name; });
+    var journal = D.journalFor(yDate).text || D.journalFor(dateStr).text || '';
+    var tasksToday = D.tasksDueOn(dateStr).map(function(t){ return t.title; });
+    return 'You are a personal performance coach writing a short "Morning Brief" for a gamified productivity dashboard, styled like a Solo Leveling system notification. ' +
+      'Recovery: ' + (w.recovery != null ? w.recovery + '%' : 'not logged') + '. Strain yesterday: ' + (w.strain != null ? w.strain : 'n/a') + '. ' +
+      'Sleep score: ' + (w.sleepScore != null ? w.sleepScore + '%' : 'n/a') + ', sleep hours: ' + (w.sleepHours != null ? w.sleepHours : 'n/a') + '. ' +
+      'Habits missed recently: ' + (missed.join(', ') || 'none') + '. Tasks due today: ' + (tasksToday.join(', ') || 'none') + '. ' +
+      'Recent journal context: ' + (journal || 'none') + '. ' +
+      'Write four short sections with markdown-style headers (Recovery Analysis, Habit Review, Workout Guidance, Project Priorities), each 1-3 sentences, direct and motivating.';
+  }
+  function localFallbackDailyBrief(dateStr){
+    var D = MD();
+    var w = D.whoopFor(dateStr) || {};
+    var habitsToday = D.Habits.list().filter(function(h){ return D.isHabitScheduled(h, D.keyToDate(dateStr).getDay(), dateStr); });
+    var log = D.habitLogFor(dateStr);
+    var missed = habitsToday.filter(function(h){ return !log[h.id]; }).map(function(h){ return h.name; });
+    var tasksToday = D.tasksDueOn(dateStr);
+    var lines = [];
+    lines.push('## Recovery Analysis');
+    lines.push(w.recovery != null
+      ? 'Recovery is ' + w.recovery + '% (' + D.recoveryZone(w.recovery) + '). Sleep: ' + (w.sleepHours != null ? w.sleepHours + 'h at ' + (w.sleepScore != null ? w.sleepScore + '% quality' : 'unknown quality') : 'not logged') + '.'
+      : 'No Whoop data logged yet today — log it to unlock a real recovery read.');
+    lines.push('## Habit Review');
+    lines.push(missed.length ? 'Still open today: ' + missed.join(', ') + '.' : (habitsToday.length ? 'Every scheduled quest is already logged. Strong start.' : 'No quests scheduled today.'));
+    lines.push('## Workout Guidance');
+    lines.push(w.recovery != null && w.recovery < 34 ? 'Recovery is low — favor mobility or a light session today.' : 'Recovery supports a normal training load if one is scheduled.');
+    lines.push('## Project Priorities');
+    lines.push(tasksToday.length ? tasksToday.map(function(t){ return t.title; }).join(', ') + ' due today.' : 'Nothing due today — good window for upcoming work.');
+    return lines.join('\n');
+  }
+  function renderBriefHtml(elId, badgeId, text, isAI){
+    $(badgeId).textContent = isAI ? 'AI-GENERATED' : 'AUTO-SUMMARY';
+    var html = text.split('\n').map(function(line){
+      if (line.indexOf('## ') === 0) return '<h4>' + escapeHtml(line.slice(3)) + '</h4>';
+      return escapeHtml(line);
+    }).join('<br>');
+    $(elId).innerHTML = html;
+  }
+  function maybeGenerateMorningBrief(){
+    var D = MD();
+    var today = D.todayISO();
+    var w = D.whoopFor(today);
+    if (!w) return;
+    var cached = D.getBrief('daily', today);
+    if (cached) { renderBriefHtml('mpBriefBody', 'mpBriefBadge', cached.text, cached.isAI); return; }
+    generateDailyBrief();
+  }
+  function generateDailyBrief(){
+    var D = MD();
+    var today = D.todayISO();
+    $('mpBriefBody').textContent = 'Generating…';
+    callAI(buildDailyBriefPrompt(today)).then(function(text){
+      var isAI = !!text;
+      var finalText = text || localFallbackDailyBrief(today);
+      D.saveBrief('daily', today, finalText);
+      var cached = D.getBrief('daily', today);
+      D.storeSet('mainpillar:brief:daily:' + today, { text: finalText, generatedAt: Date.now(), isAI: isAI });
+      renderBriefHtml('mpBriefBody', 'mpBriefBadge', finalText, isAI);
+    });
+  }
+  $('mpBriefRegenBtn').addEventListener('click', generateDailyBrief);
+
+  // ---------------------------------------------------------------------
+  // Weekly tab
+  // ---------------------------------------------------------------------
+  function renderWeekly(){
+    var D = MD();
+    if (!state.weekKey) state.weekKey = D.weekStartKey(D.todayISO());
+    var from = state.weekKey, to = D.addDaysToKey(from, 6);
+    $('mpWeekLabel').textContent = from + ' → ' + to;
+    var s = D.statsForRange(from, to);
+    var stats = $('mpWeekStats'); stats.innerHTML = '';
+    [
+      ['Avg Recovery', s.avgRecovery != null ? s.avgRecovery + '%' : '—'],
+      ['Avg Strain', s.avgStrain != null ? s.avgStrain : '—'],
+      ['Avg Sleep', s.avgSleepHours != null ? s.avgSleepHours + 'h' : '—'],
+      ['Quest Completion', s.habitCompletionPct != null ? s.habitCompletionPct + '%' : '—'],
+      ['Tasks Done', s.tasksDone],
+      ['Wins Logged', s.winsCount]
+    ].forEach(function(pair){
+      var d = document.createElement('div'); d.className = 'mp-whoop-tile';
+      d.innerHTML = '<div class="v">' + pair[1] + '</div><div class="l">' + pair[0] + '</div>';
+      stats.appendChild(d);
+    });
+    var trend = $('mpWeekTrend'); trend.innerHTML = '';
+    var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;align-items:flex-end;height:90px;';
+    s.days.forEach(function(d){
+      var score = D.dayHabitScore(d);
+      var w = D.whoopFor(d);
+      var recov = w && w.recovery != null ? w.recovery : 0;
+      var col = document.createElement('div'); col.style.cssText = 'flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;';
+      col.innerHTML =
+        '<div style="width:100%;background:linear-gradient(180deg,var(--mp-cyan),var(--mp-purple));height:' + Math.max(2, recov) + '%;border-radius:2px;"></div>' +
+        '<div style="font-family:var(--font-mono);font-size:9px;color:var(--mp-text-mute);">' + d.slice(8) + '</div>' +
+        '<div style="font-family:var(--font-mono);font-size:9px;color:var(--mp-cyan);">' + (score != null ? score + '%' : '—') + '</div>';
+      row.appendChild(col);
+    });
+    trend.appendChild(row);
+    var cached = D.getBrief('weekly', from);
+    if (cached) renderBriefHtml('mpWeeklyBriefBody', 'mpWeeklyBriefBadge', cached.text, cached.isAI);
+    else { $('mpWeeklyBriefBody').textContent = 'Not generated yet this week.'; $('mpWeeklyBriefBadge').textContent = ''; }
+  }
+  $('mpWeekPrev').addEventListener('click', function(){ var D = MD(); if (!state.weekKey) state.weekKey = D.weekStartKey(D.todayISO()); state.weekKey = D.addDaysToKey(state.weekKey, -7); renderWeekly(); });
+  $('mpWeekNext').addEventListener('click', function(){ var D = MD(); if (!state.weekKey) state.weekKey = D.weekStartKey(D.todayISO()); state.weekKey = D.addDaysToKey(state.weekKey, 7); renderWeekly(); });
+  $('mpWeeklyBriefBtn').addEventListener('click', function(){
+    var D = MD();
+    var from = state.weekKey, to = D.addDaysToKey(from, 6);
+    var s = D.statsForRange(from, to);
+    $('mpWeeklyBriefBody').textContent = 'Generating…';
+    var prompt = 'Write a short weekly review for a gamified habit/health dashboard. This week: avg recovery ' + s.avgRecovery + '%, avg strain ' + s.avgStrain + ', quest completion ' + s.habitCompletionPct + '%, ' + s.tasksDone + ' tasks done, ' + s.winsCount + ' wins logged. Give 2-3 sentences of trends, then a short "suggested focus for next week" line.';
+    callAI(prompt).then(function(text){
+      var isAI = !!text;
+      var finalText = text || ('This week: recovery averaged ' + (s.avgRecovery != null ? s.avgRecovery + '%' : 'n/a') + ', quests completed at ' + (s.habitCompletionPct != null ? s.habitCompletionPct + '%' : 'n/a') + ', ' + s.tasksDone + ' tasks closed, ' + s.winsCount + ' wins logged.\nSuggested focus: shore up whichever quest slipped most this week.');
+      D.saveBrief('weekly', from, finalText);
+      D.storeSet('mainpillar:brief:weekly:' + from, { text: finalText, generatedAt: Date.now(), isAI: isAI });
+      renderBriefHtml('mpWeeklyBriefBody', 'mpWeeklyBriefBadge', finalText, isAI);
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Monthly tab
+  // ---------------------------------------------------------------------
+  function buildHeatmap(elId, monthKey, valueFn, colorFn){
+    var D = MD();
+    var days = D.daysInMonth(monthKey);
+    var el = $(elId); el.innerHTML = '';
+    el.style.gridTemplateColumns = 'repeat(7,1fr)';
+    for (var i = 1; i <= days; i++) {
+      var dk = monthKey + '-' + String(i).padStart(2,'0');
+      var v = valueFn(dk);
+      var cell = document.createElement('div');
+      cell.className = 'mp-heat-cell';
+      cell.style.background = colorFn(v);
+      cell.title = dk + (v != null ? (': ' + v) : ': no data');
+      cell.addEventListener('click', function(dkClosure){ return function(){ openDayModal(dkClosure); }; }(dk));
+      el.appendChild(cell);
+    }
+  }
+  function cyanColor(v, max){
+    if (v === null || v === undefined) return 'rgba(255,255,255,0.05)';
+    var t = Math.max(0, Math.min(1, v / max));
+    return 'rgba(73,224,255,' + (0.12 + t * 0.75) + ')';
+  }
+  function renderMonthly(){
+    var D = MD();
+    if (!state.monthKey) state.monthKey = D.monthKeyOf(D.todayISO());
+    $('mpMonthLabel').textContent = D.monthLabel(state.monthKey);
+    var days = D.daysInMonth(state.monthKey);
+    var from = state.monthKey + '-01', to = state.monthKey + '-' + String(days).padStart(2,'0');
+    var s = D.statsForRange(from, to);
+    var stats = $('mpMonthStats'); stats.innerHTML = '';
+    [
+      ['Avg Recovery', s.avgRecovery != null ? s.avgRecovery + '%' : '—'],
+      ['Avg Sleep', s.avgSleepHours != null ? s.avgSleepHours + 'h' : '—'],
+      ['Quest Completion', s.habitCompletionPct != null ? s.habitCompletionPct + '%' : '—'],
+      ['Tasks Done', s.tasksDone], ['Wins Logged', s.winsCount], ['Avg Strain', s.avgStrain != null ? s.avgStrain : '—']
+    ].forEach(function(pair){
+      var d = document.createElement('div'); d.className = 'mp-whoop-tile';
+      d.innerHTML = '<div class="v">' + pair[1] + '</div><div class="l">' + pair[0] + '</div>';
+      stats.appendChild(d);
+    });
+    buildHeatmap('mpHeatRecovery', state.monthKey, function(dk){ var w = D.whoopFor(dk); return w ? w.recovery : null; }, function(v){ return cyanColor(v, 100); });
+    buildHeatmap('mpHeatStrain', state.monthKey, function(dk){ var w = D.whoopFor(dk); return w ? w.strain : null; }, function(v){ return cyanColor(v, 21); });
+    buildHeatmap('mpHeatSleep', state.monthKey, function(dk){ var w = D.whoopFor(dk); return w ? w.sleepScore : null; }, function(v){ return cyanColor(v, 100); });
+    buildHeatmap('mpHeatHabit', state.monthKey, function(dk){ return D.dayHabitScore(dk); }, function(v){ return cyanColor(v, 100); });
+
+    var goalsWrap = $('mpMonthlyGoals'); goalsWrap.innerHTML = '';
+    var monthlyGoals = D.Goals.list().filter(function(g){ return g.scope === 'monthly'; });
+    if (!monthlyGoals.length) goalsWrap.innerHTML = '<div class="mp-empty">No monthly goals yet — add one in the Goals tab.</div>';
+    monthlyGoals.forEach(function(g){ goalsWrap.appendChild(buildGoalCard(g)); });
+
+    var cached = D.getBrief('monthly', state.monthKey);
+    if (cached) renderBriefHtml('mpMonthlyBriefBody', 'mpMonthlyBriefBadge', cached.text, cached.isAI);
+    else { $('mpMonthlyBriefBody').textContent = 'Not generated yet this month.'; $('mpMonthlyBriefBadge').textContent = ''; }
+  }
+  $('mpMonthPrev').addEventListener('click', function(){ var D = MD(); if (!state.monthKey) state.monthKey = D.monthKeyOf(D.todayISO()); state.monthKey = D.addMonthsToKey(state.monthKey, -1); renderMonthly(); });
+  $('mpMonthNext').addEventListener('click', function(){ var D = MD(); if (!state.monthKey) state.monthKey = D.monthKeyOf(D.todayISO()); state.monthKey = D.addMonthsToKey(state.monthKey, 1); renderMonthly(); });
+  $('mpMonthlyBriefBtn').addEventListener('click', function(){
+    var D = MD();
+    var days = D.daysInMonth(state.monthKey);
+    var from = state.monthKey + '-01', to = state.monthKey + '-' + String(days).padStart(2,'0');
+    var s = D.statsForRange(from, to);
+    $('mpMonthlyBriefBody').textContent = 'Generating…';
+    var prompt = 'Write a short monthly review for a gamified habit/health dashboard covering ' + D.monthLabel(state.monthKey) + '. Avg recovery ' + s.avgRecovery + '%, avg sleep ' + s.avgSleepHours + 'h, quest completion ' + s.habitCompletionPct + '%, ' + s.tasksDone + ' tasks done. Cover trends, one weakness, one recommendation for next month, 4-6 sentences total.';
+    callAI(prompt).then(function(text){
+      var isAI = !!text;
+      var finalText = text || ('Trends for ' + D.monthLabel(state.monthKey) + ': recovery averaged ' + (s.avgRecovery != null ? s.avgRecovery + '%' : 'n/a') + ', quests completed at ' + (s.habitCompletionPct != null ? s.habitCompletionPct + '%' : 'n/a') + '.\nWeakness: whichever quest/metric had the lowest completion this month.\nRecommendation: carry the strongest habit into next month and rebuild the weakest one from a smaller version.');
+      D.storeSet('mainpillar:brief:monthly:' + state.monthKey, { text: finalText, generatedAt: Date.now(), isAI: isAI });
+      renderBriefHtml('mpMonthlyBriefBody', 'mpMonthlyBriefBadge', finalText, isAI);
+    });
+  });
+
+  function openDayModal(dateKey){
+    var D = MD();
+    var w = D.whoopFor(dateKey);
+    var journal = D.journalFor(dateKey);
+    var wins = D.winsForDate(dateKey);
+    var dow = D.keyToDate(dateKey).getDay();
+    var habitsThatDay = D.Habits.list().filter(function(h){ return D.isHabitScheduled(h, dow, dateKey); });
+    var log = D.habitLogFor(dateKey);
+    $('mpDayModalTitle').textContent = dateKey;
+    var html = '';
+    html += '<div class="mp-field-label">Whoop</div>';
+    html += w ? ('<div class="mp-whoop-grid" style="margin-bottom:12px;">' +
+      ['recovery','strain','sleepScore','sleepHours','hrv'].map(function(k){
+        return '<div class="mp-whoop-tile"><div class="v">' + (w[k] != null ? w[k] : '—') + '</div><div class="l">' + k + '</div></div>';
+      }).join('') + '</div>') : '<div class="mp-empty">No Whoop data logged.</div>';
+    html += '<div class="mp-field-label">Quests</div>';
+    html += habitsThatDay.length ? habitsThatDay.map(function(h){ return '<div style="font-size:13px;margin-bottom:3px;">' + (log[h.id] ? '✅' : '⬜') + ' ' + escapeHtml(h.name) + '</div>'; }).join('') : '<div class="mp-empty">None scheduled.</div>';
+    html += '<div class="mp-field-label" style="margin-top:10px;">Journal</div><div style="font-size:13px;white-space:pre-wrap;">' + (escapeHtml(journal.text || '') || '<span class="mp-empty">Empty</span>') + '</div>';
+    html += '<div class="mp-field-label" style="margin-top:10px;">Wins</div>' + (wins.length ? wins.map(function(w2){ return '<div class="mp-win-item"><div class="t">' + escapeHtml(w2.text) + '</div></div>'; }).join('') : '<div class="mp-empty">None logged.</div>');
+    $('mpDayModalBody').innerHTML = html;
+    $('mpDayModalBg').classList.add('show');
+  }
+  $('mpDayModalClose').addEventListener('click', function(){ $('mpDayModalBg').classList.remove('show'); });
+  $('mpDayModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpDayModalBg') $('mpDayModalBg').classList.remove('show'); });
+
+  // ---------------------------------------------------------------------
+  // Year tab
+  // ---------------------------------------------------------------------
+  function renderYear(){
+    var D = MD();
+    if (!state.yearKey) state.yearKey = D.yearKeyOf(D.todayISO());
+    $('mpYearLabel').textContent = state.yearKey;
+    var from = state.yearKey + '-01-01', to = state.yearKey + '-12-31';
+    var s = D.statsForRange(from, to);
+    var stats = $('mpYearStats'); stats.innerHTML = '';
+    [
+      ['Avg Recovery', s.avgRecovery != null ? s.avgRecovery + '%' : '—'],
+      ['Quest Completion', s.habitCompletionPct != null ? s.habitCompletionPct + '%' : '—'],
+      ['Tasks Done', s.tasksDone], ['Wins Logged', s.winsCount],
+      ['Avg Sleep', s.avgSleepHours != null ? s.avgSleepHours + 'h' : '—'],
+      ['Avg Strain', s.avgStrain != null ? s.avgStrain : '—']
+    ].forEach(function(pair){
+      var d = document.createElement('div'); d.className = 'mp-whoop-tile';
+      d.innerHTML = '<div class="v">' + pair[1] + '</div><div class="l">' + pair[0] + '</div>';
+      stats.appendChild(d);
+    });
+    // Contribution-grid style full year, GitHub-convention: columns = weeks, rows = weekday
+    var heat = $('mpYearHeat'); heat.innerHTML = '';
+    heat.style.gridTemplateColumns = 'repeat(53, 1fr)';
+    heat.style.gridAutoFlow = 'column';
+    heat.style.gridTemplateRows = 'repeat(7, 1fr)';
+    var cursor = from;
+    var jan1Dow = D.keyToDate(from).getDay();
+    for (var i = 0; i < jan1Dow; i++) { var pad = document.createElement('div'); pad.className = 'mp-heat-cell empty'; heat.appendChild(pad); }
+    while (cursor <= to) {
+      var score = D.dayHabitScore(cursor);
+      var cell = document.createElement('div');
+      cell.className = 'mp-heat-cell';
+      cell.style.background = cyanColor(score, 100);
+      cell.title = cursor + (score != null ? (': ' + score + '%') : ': no quests');
+      cell.addEventListener('click', function(dkClosure){ return function(){ openDayModal(dkClosure); }; }(cursor));
+      heat.appendChild(cell);
+      cursor = D.addDaysToKey(cursor, 1);
+    }
+    var monthsWrap = $('mpYearMonths'); monthsWrap.innerHTML = '';
+    for (var m = 1; m <= 12; m++) {
+      var mk = state.yearKey + '-' + String(m).padStart(2,'0');
+      var mdays = D.daysInMonth(mk);
+      var mFrom = mk + '-01', mTo = mk + '-' + String(mdays).padStart(2,'0');
+      var ms = D.statsForRange(mFrom, mTo);
+      var row = document.createElement('div'); row.className = 'mp-streak-row';
+      row.innerHTML = '<span>' + D.monthLabel(mk) + '</span><span class="mp-streak-nums"><span>Recovery <b>' + (ms.avgRecovery != null ? ms.avgRecovery + '%' : '—') + '</b></span><span>Quests <b>' + (ms.habitCompletionPct != null ? ms.habitCompletionPct + '%' : '—') + '</b></span></span>';
+      monthsWrap.appendChild(row);
+    }
+    var cached = D.getBrief('yearly', state.yearKey);
+    if (cached) renderBriefHtml('mpYearlyBriefBody', 'mpYearlyBriefBadge', cached.text, cached.isAI);
+  }
+  $('mpYearPrev').addEventListener('click', function(){ var D = MD(); if (!state.yearKey) state.yearKey = D.yearKeyOf(D.todayISO()); state.yearKey = String(Number(state.yearKey) - 1); renderYear(); });
+  $('mpYearNext').addEventListener('click', function(){ var D = MD(); if (!state.yearKey) state.yearKey = D.yearKeyOf(D.todayISO()); state.yearKey = String(Number(state.yearKey) + 1); renderYear(); });
+  $('mpYearlyBriefBtn').addEventListener('click', function(){
+    var D = MD();
+    var from = state.yearKey + '-01-01', to = state.yearKey + '-12-31';
+    var s = D.statsForRange(from, to);
+    $('mpYearlyBriefBody').textContent = 'Generating…';
+    var prompt = 'Write a short year-end review for a gamified habit/health dashboard covering ' + state.yearKey + '. Avg recovery ' + s.avgRecovery + '%, quest completion ' + s.habitCompletionPct + '%, ' + s.tasksDone + ' tasks done, ' + s.winsCount + ' wins logged. Cover: lessons learned, health trends, productivity patterns, and 2 recommendations for next year. 6-8 sentences.';
+    callAI(prompt).then(function(text){
+      var isAI = !!text;
+      var finalText = text || ('Year in review for ' + state.yearKey + ': recovery averaged ' + (s.avgRecovery != null ? s.avgRecovery + '%' : 'n/a') + ', quests completed at ' + (s.habitCompletionPct != null ? s.habitCompletionPct + '%' : 'n/a') + ', ' + s.tasksDone + ' tasks shipped, ' + s.winsCount + ' wins archived.\nRecommendation: keep logging Whoop data consistently — the more days logged, the sharper next year\'s review gets.');
+      D.storeSet('mainpillar:brief:yearly:' + state.yearKey, { text: finalText, generatedAt: Date.now(), isAI: isAI });
+      renderBriefHtml('mpYearlyBriefBody', 'mpYearlyBriefBadge', finalText, isAI);
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Goals tab: Smart Goal Allocation + Habit Streak Analytics
+  // ---------------------------------------------------------------------
+  var goalEditingId = null;
+  function buildGoalCard(g){
+    var D = MD();
+    var summary = D.goalProgressSummary(g);
+    var card = document.createElement('div'); card.className = 'mp-goal-card';
+    card.innerHTML =
+      '<div class="mp-goal-top"><div><div class="mp-goal-title">' + escapeHtml(g.title) + '</div>' +
+      '<div class="mp-goal-meta">' + g.scope.toUpperCase() + ' · ' + summary.loggedTotal + ' / ' + g.target + ' ' + escapeHtml(g.unit) + '</div></div>' +
+      '<div style="display:flex;gap:6px;"><button class="mp-btn mp-btn-sm mp-log-btn">+ Log</button><button class="mp-icon-btn mp-edit-goal">✎</button></div></div>' +
+      '<div class="mp-bar-track"><div class="mp-bar-fill" style="width:' + summary.pct + '%"></div></div>';
+    var periods = document.createElement('div'); periods.className = 'mp-goal-periods';
+    summary.rows.forEach(function(r){
+      var met = r.logged >= r.allocated - 0.001;
+      var span = document.createElement('span');
+      span.className = 'mp-goal-period' + (r.isCurrent ? ' current' : '') + (r.isPast ? (met ? ' met' : ' short') : '');
+      span.textContent = r.periodKey.slice(5) + ': ' + Math.round(r.logged) + '/' + Math.round(r.allocated);
+      periods.appendChild(span);
+    });
+    card.appendChild(periods);
+    card.querySelector('.mp-log-btn').addEventListener('click', function(){
+      var amt = prompt('Log progress toward "' + g.title + '" (' + g.unit + '):', '1');
+      if (amt === null) return;
+      var n = Number(amt);
+      if (isNaN(n)) return;
+      D.logGoalProgress(g.id, D.currentPeriodKeyFor(g), n);
+      renderGoalsTab(); renderMonthly();
+    });
+    card.querySelector('.mp-edit-goal').addEventListener('click', function(){ openGoalModal(g); });
+    return card;
+  }
+  function renderGoalsTab(){
+    var D = MD();
+    var wrap = $('mpGoalsList'); wrap.innerHTML = '';
+    var list = D.Goals.list();
+    if (!list.length) wrap.innerHTML = '<div class="mp-empty">No goals yet.</div>';
+    list.forEach(function(g){ wrap.appendChild(buildGoalCard(g)); });
+
+    var streakWrap = $('mpStreakList'); streakWrap.innerHTML = '';
+    var habits = D.Habits.list();
+    if (!habits.length) streakWrap.innerHTML = '<div class="mp-empty">No quests yet.</div>';
+    var last30From = D.addDaysToKey(D.todayISO(), -30);
+    habits.forEach(function(h){
+      var streaks = D.computeHabitStreaks(h);
+      var consistency = D.habitConsistency(h, last30From, D.todayISO());
+      var row = document.createElement('div'); row.className = 'mp-streak-row';
+      row.innerHTML = '<span>' + h.icon + ' ' + escapeHtml(h.name) + '</span>' +
+        '<span class="mp-streak-nums"><span>Current <b>🔥' + streaks.current + '</b></span><span>Best <b>' + streaks.best + '</b></span><span>30d <b>' + (consistency != null ? consistency + '%' : '—') + '</b></span></span>';
+      streakWrap.appendChild(row);
+    });
+  }
+  function openGoalModal(g){
+    goalEditingId = g ? g.id : null;
+    $('mpGoalModalTitle').textContent = g ? 'Edit Goal' : 'New Goal';
+    $('mpgTitle').value = g ? g.title : '';
+    $('mpgTarget').value = g ? g.target : 12;
+    $('mpgUnit').value = g ? g.unit : '';
+    $('mpgScope').value = g ? g.scope : 'yearly';
+    $('mpgRollover').value = g ? g.rollover : 'redistribute';
+    $('mpGoalDelete').style.display = g ? 'inline-block' : 'none';
+    $('mpGoalModalBg').classList.add('show');
+  }
+  $('mpAddGoalBtn').addEventListener('click', function(){ openGoalModal(null); });
+  $('mpGoalCancel').addEventListener('click', function(){ $('mpGoalModalBg').classList.remove('show'); });
+  $('mpGoalModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpGoalModalBg') $('mpGoalModalBg').classList.remove('show'); });
+  $('mpGoalSave').addEventListener('click', function(){
+    var D = MD();
+    var title = $('mpgTitle').value.trim();
+    if (!title) { alert('Title is required.'); return; }
+    var scope = $('mpgScope').value;
+    var data = {
+      title: title, target: Number($('mpgTarget').value) || 1, unit: $('mpgUnit').value.trim() || 'x',
+      scope: scope, rollover: $('mpgRollover').value,
+      startPeriod: scope === 'yearly' ? D.yearKeyOf(D.todayISO()) : D.monthKeyOf(D.todayISO())
+    };
+    if (goalEditingId) D.Goals.update(goalEditingId, data);
+    else D.Goals.add(data);
+    $('mpGoalModalBg').classList.remove('show');
+    renderGoalsTab();
+  });
+  $('mpGoalDelete').addEventListener('click', function(){
+    if (!goalEditingId) return;
+    if (!confirm('Delete this goal?')) return;
+    MD().Goals.remove(goalEditingId);
+    $('mpGoalModalBg').classList.remove('show');
+    renderGoalsTab();
+  });
+
+  // ---------------------------------------------------------------------
+  // Favorites
+  // ---------------------------------------------------------------------
+  var favEditingId = null;
+  var favFilterType = 'all';
+  function renderFavTypeChips(){
+    var D = MD();
+    var wrap = $('mpFavTypeChips'); wrap.innerHTML = '';
+    var all = document.createElement('button'); all.className = 'mp-chip' + (favFilterType === 'all' ? ' active' : ''); all.textContent = 'All';
+    all.addEventListener('click', function(){ favFilterType = 'all'; renderFavorites(); });
+    wrap.appendChild(all);
+    D.FAVORITE_TYPES.forEach(function(t){
+      var b = document.createElement('button'); b.className = 'mp-chip' + (favFilterType === t ? ' active' : ''); b.textContent = D.FAVORITE_TYPE_LABELS[t];
+      b.addEventListener('click', function(){ favFilterType = t; renderFavorites(); });
+      wrap.appendChild(b);
+    });
+  }
+  function renderFavorites(){
+    renderFavTypeChips();
+    var D = MD();
+    var q = $('mpFavSearch').value.trim().toLowerCase();
+    var list = D.Favorites.list().filter(function(f){
+      if (favFilterType !== 'all' && f.type !== favFilterType) return false;
+      if (!q) return true;
+      return (f.title + ' ' + f.note + ' ' + (f.tags||[]).join(' ')).toLowerCase().indexOf(q) !== -1;
+    }).sort(function(a,b){ return b.order - a.order; });
+    var grid = $('mpFavGrid'); grid.innerHTML = '';
+    if (!list.length) { grid.innerHTML = '<div class="mp-empty">No favorites yet.</div>'; return; }
+    list.forEach(function(f){
+      var card = document.createElement('div'); card.className = 'mp-fav-card';
+      card.innerHTML =
+        (f.cover ? '<img class="mp-fav-cover" src="' + escapeAttr(f.cover) + '" loading="lazy">' : '<div class="mp-fav-cover-fallback">' + favTypeIcon(f.type) + '</div>') +
+        '<div class="mp-fav-body"><div class="mp-fav-title">' + escapeHtml(f.title || '(untitled)') + '</div>' +
+        '<div class="mp-fav-meta">' + D.FAVORITE_TYPE_LABELS[f.type] + ' · ' + f.date + '</div></div>';
+      card.addEventListener('click', function(){ openFavModal(f); });
+      grid.appendChild(card);
+    });
+  }
+  function favTypeIcon(t){ return { post: '📱', photo: '🖼️', video: '🎬', moment: '✨', note: '📝' }[t] || '💎'; }
+  function fillFavTypeSelect(){
+    var D = MD(); var sel = $('mpfType'); sel.innerHTML = '';
+    D.FAVORITE_TYPES.forEach(function(t){ var o = document.createElement('option'); o.value = t; o.textContent = D.FAVORITE_TYPE_LABELS[t]; sel.appendChild(o); });
+  }
+  function openFavModal(f){
+    favEditingId = f ? f.id : null;
+    $('mpFavModalTitle').textContent = f ? 'Edit Favorite' : 'Add Favorite';
+    fillFavTypeSelect();
+    $('mpfTitle').value = f ? f.title : '';
+    $('mpfType').value = f ? f.type : 'moment';
+    $('mpfDate').value = f ? f.date : MD().todayISO();
+    $('mpfCover').value = f ? f.cover : '';
+    $('mpfUrl').value = f ? f.url : '';
+    $('mpfNote').value = f ? f.note : '';
+    $('mpfTags').value = f ? (f.tags||[]).join(', ') : '';
+    $('mpFavDelete').style.display = f ? 'inline-block' : 'none';
+    $('mpFavModalBg').classList.add('show');
+  }
+  $('mpAddFavBtn').addEventListener('click', function(){ openFavModal(null); });
+  $('mpFavCancel').addEventListener('click', function(){ $('mpFavModalBg').classList.remove('show'); });
+  $('mpFavModalBg').addEventListener('click', function(e){ if (e.target.id === 'mpFavModalBg') $('mpFavModalBg').classList.remove('show'); });
+  $('mpFavSearch').addEventListener('input', renderFavorites);
+  $('mpFavSave').addEventListener('click', function(){
+    var D = MD();
+    var title = $('mpfTitle').value.trim();
+    var data = {
+      title: title, type: $('mpfType').value, date: $('mpfDate').value || D.todayISO(),
+      cover: $('mpfCover').value.trim(), url: $('mpfUrl').value.trim(), note: $('mpfNote').value,
+      tags: $('mpfTags').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean)
+    };
+    if (favEditingId) D.Favorites.update(favEditingId, data);
+    else D.Favorites.add(data);
+    $('mpFavModalBg').classList.remove('show');
+    renderFavorites();
+  });
+  $('mpFavDelete').addEventListener('click', function(){
+    if (!favEditingId) return;
+    if (!confirm('Delete this favorite?')) return;
+    MD().Favorites.remove(favEditingId);
+    $('mpFavModalBg').classList.remove('show');
+    renderFavorites();
+  });
+
+  // ---------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  // ---------------------------------------------------------------------
+  // Tab wiring
+  // ---------------------------------------------------------------------
+  document.querySelectorAll('.mp-tab').forEach(function(b){
+    b.addEventListener('click', function(){ switchTab(b.getAttribute('data-tab')); });
+  });
+
+  // ---------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------
+  function renderAll(){
+    MD().applyAutoCompletes(MD().todayISO());
+    renderStatusWindow();
+    renderWhoopToday();
+    renderHabits();
+    renderTasksToday();
+    renderTasksUpcoming();
+    renderJournal();
+    renderWinsToday();
+    renderWinArchive();
+    maybeGenerateMorningBrief();
+  }
+
+  function seedRaceSafeInit(){
+    var D = MD();
+    var remoteApplied = false;
+    function maybeSeed(){
+      if (remoteApplied) return;
+      if (!D.isEmpty()) return;
+      D.seedIfEmpty();
+      renderAll();
+    }
+    try {
+      if (typeof window.initCloudSync === 'function') {
+        window.initCloudSync({
+          appKey: 'mainpillar',
+          syncedPrefixes: ['mainpillar:'],
+          onApplied: function(){
+            remoteApplied = true;
+            renderAll();
+          }
+        });
+        setTimeout(maybeSeed, 5000);
+      } else {
+        maybeSeed();
+      }
+    } catch (e) {
+      maybeSeed();
+    }
+  }
+
+  // mainpillar-data.js / sync.js / topbar.js all load with `defer`, so they
+  // only run once the document has finished parsing — right before
+  // DOMContentLoaded. This inline script (no `src`, so `defer` doesn't
+  // apply to it) executes immediately as the parser reaches it, which is
+  // earlier than that. Any code that touches window.MainPillarData or
+  // window.initCloudSync has to wait for DOMContentLoaded, same pattern
+  // household.html/aitech.html use for their own boot sequence — element
+  // lookups ($('id')) and click-handler wiring don't need to wait, since
+  // the DOM nodes above this script tag already exist by parse time.
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      switchTab(state.activeTab);
+      renderAll();
+      seedRaceSafeInit();
+    } catch (err) {
+      showBootErrorBanner(err, 'init()');
+    }
+  });
+})();
+</script>
 </body>
 </html>
