@@ -67,6 +67,26 @@
   box-shadow: 0 0 0 1px rgba(217, 184, 120, 0.22), 0 6px 16px rgba(217, 184, 120, 0.14);
 }
 .topbar-pill.active .topbar-pill-label { color: var(--tb-accent-bright); }
+/* Main's progress badge (today's Goals/habits done vs. total) — the only
+   pill with a live count. Re-adapted to this redesign's icon+label
+   anatomy (the old version colored a plain status dot; there's no dot
+   here anymore, so warn/miss color the count digits and the pill's
+   border instead — same status meaning, new visual home for it). */
+.topbar-pill-count {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px; font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.topbar-pill.warn { border-color: rgba(251, 191, 36, 0.45); }
+.topbar-pill.warn .topbar-pill-count { color: #fbbf24; }
+.topbar-pill.miss { border-color: rgba(255, 138, 138, 0.55); }
+.topbar-pill.miss .topbar-pill-count { color: #ff8a8a; animation: topbar-miss-pulse 1.6s ease-in-out infinite; }
+@keyframes topbar-miss-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50%      { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0); }
+}
 /* Below 700px, an 11-pill wrapping cloud starts eating too many rows of
    vertical space for a phone-sized viewport — switch to a horizontally
    scrollable single-row strip instead: every pill keeps its natural
@@ -141,18 +161,19 @@ body.topbar-modal-open {
 `;
 
   // -------- HTML --------
-  // Home leads the row (this is now the dashboard's hub — see
-  // CLAUDE.md's Home tab changelog entries). Main/Main Pillar/
-  // Household/Brain Dump were removed per an explicit request — their
-  // pages, data files, and pills are gone; each one's Supabase row
-  // (`goals`/`mainpillar`/`household`/`braindump`) was left orphaned in
-  // place, not cleaned up, same treatment as every other removed-page
-  // key elsewhere in this app.
+  // Main leads the row now. Home (the old aggregator hub that embedded
+  // Dream Board/Self-Care/Tasks & Notes/AI & Tech/Main/Main Pillar/
+  // Household/Brain Dump in iframes, plus its own native Weekly Schedule/
+  // Subconscious Reprogramming sections) was deleted outright and its pill
+  // removed — Main took over its role as the leading landing pill. Every
+  // page Home used to embed still has its own standalone pill below,
+  // unaffected by Home's removal.
   const html = `
 <header class="topbar" id="topbar" role="navigation" aria-label="Quick navigation">
-  <a href="home.html" class="topbar-pill" id="topbarHome">
-    <span class="topbar-pill-icon">🏠</span>
-    <span class="topbar-pill-label">HOME</span>
+  <a href="index.html" class="topbar-pill" id="topbarGoals">
+    <span class="topbar-pill-icon">🎯</span>
+    <span class="topbar-pill-label">MAIN</span>
+    <span class="topbar-pill-count" id="topbarGoalsCount">—/—</span>
   </a>
   <a href="gym.html" class="topbar-pill" id="topbarGym">
     <span class="topbar-pill-icon">🏋️</span>
@@ -166,9 +187,17 @@ body.topbar-modal-open {
     <span class="topbar-pill-icon">🎬</span>
     <span class="topbar-pill-label">MEDIA</span>
   </a>
+  <a href="braindump.html" class="topbar-pill" id="topbarBrainDump">
+    <span class="topbar-pill-icon">🧠</span>
+    <span class="topbar-pill-label">BRAIN DUMP</span>
+  </a>
   <a href="nutrition.html" class="topbar-pill" id="topbarNutrition">
     <span class="topbar-pill-icon">🍽️</span>
     <span class="topbar-pill-label">NUTRITION</span>
+  </a>
+  <a href="household.html" class="topbar-pill" id="topbarHousehold">
+    <span class="topbar-pill-icon">🧺</span>
+    <span class="topbar-pill-label">HOUSEHOLD</span>
   </a>
   <a href="selfcare.html" class="topbar-pill" id="topbarSelfCare">
     <span class="topbar-pill-icon">🌙</span>
@@ -194,6 +223,10 @@ body.topbar-modal-open {
     <span class="topbar-pill-icon">✅</span>
     <span class="topbar-pill-label">TASKS &amp; NOTES</span>
   </a>
+  <a href="mainpillar.html" class="topbar-pill" id="topbarMainPillar">
+    <span class="topbar-pill-icon">🎮</span>
+    <span class="topbar-pill-label">MAIN PILLAR</span>
+  </a>
 </header>
 `;
 
@@ -216,7 +249,7 @@ body.topbar-modal-open {
   // off-screen pills you're actually on.
   function highlightActivePill() {
     let path = window.location.pathname.split('/').pop();
-    if (!path) path = 'home.html';
+    if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
     const pills = document.querySelectorAll('.topbar-pill');
     pills.forEach((p) => {
       if (p.getAttribute('href') === path) {
@@ -226,6 +259,64 @@ body.topbar-modal-open {
         }
       }
     });
+  }
+
+  // -------- Main pill's live progress badge (today's Goals/habits) --------
+  function activeDateKey() {
+    const now = new Date();
+    const d = new Date(now);
+    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  function getGoalsProgress() {
+    const dateStr = activeDateKey();
+    let goals = [];
+    try { goals = JSON.parse(localStorage.getItem('goals:' + dateStr)) || []; } catch (e) {}
+    let total = Array.isArray(goals) ? goals.length : 0;
+    let done = total ? goals.filter(g => g && g.done).length : 0;
+
+    // Also fold in today's scheduled recurring habits (goals:habits +
+    // goals:habit-log:<date>), so the pill reflects the full day, not just
+    // the freeform checklist.
+    try {
+      const habits = JSON.parse(localStorage.getItem('goals:habits')) || [];
+      if (Array.isArray(habits) && habits.length) {
+        const dow = new Date(dateStr + 'T00:00:00').getDay();
+        const scheduled = habits.filter(h => Array.isArray(h.weekdays) && h.weekdays.indexOf(dow) !== -1);
+        if (scheduled.length) {
+          const log = JSON.parse(localStorage.getItem('goals:habit-log:' + dateStr)) || {};
+          total += scheduled.length;
+          done += scheduled.filter(h => log[h.id]).length;
+        }
+      }
+    } catch (e) {}
+
+    return { done, total };
+  }
+  function classifyStatus(done, total) {
+    if (total === 0) return 'idle';
+    if (done >= total) return 'good';
+    if (done >= total * 0.5) return 'warn';
+    // Past 6pm and still under half → flag as missed
+    const h = new Date().getHours();
+    if (h >= 18 && done < total * 0.5) return 'miss';
+    return 'warn';
+  }
+  function setPillStatus(pillEl, status) {
+    pillEl.classList.remove('good', 'warn', 'miss');
+    if (status === 'warn' || status === 'miss') pillEl.classList.add(status);
+  }
+  function render() {
+    const goalsEl = document.getElementById('topbarGoals');
+    if (!goalsEl) return; // not injected yet
+
+    const g = getGoalsProgress();
+    const countEl = document.getElementById('topbarGoalsCount');
+    if (countEl) countEl.textContent = g.total ? g.done + '/' + g.total : '0/0';
+
+    setPillStatus(goalsEl, classifyStatus(g.done, g.total));
   }
 
   // pushWaterMergedToSupabase / TOPBAR_SUPABASE_URL / TOPBAR_SUPABASE_KEY
@@ -306,8 +397,19 @@ body.topbar-modal-open {
   function boot() {
     injectStyleAndHTML();
     highlightActivePill();
+    render();
     lockGestures();
     startModalLock();
+
+    // Re-render Main's badge when localStorage changes from another
+    // tab/window OR when the page becomes visible (sync may have pulled
+    // in the background).
+    window.addEventListener('storage', render);
+    window.addEventListener('focus', render);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+    // Periodic refresh so the count stays current after midnight rollover etc.
+    setInterval(render, 30 * 1000);
   }
 
   if (document.readyState === 'loading') {
