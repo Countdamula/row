@@ -8776,3 +8776,78 @@ both as originally phrased assumed a backend this app doesn't have):
     recolored); and confirmed the Change button, which occupies the same
     top-right slot once a photo is set, is itself also hit-testable and
     not obstructed. Zero JS errors throughout.
+
+- **Build Your System lightened, per an explicit "make the page not so
+  dark" request, and a real, pre-existing latent CSS defect found and
+  fixed along the way.** The near-black `#0b0a08`/`#050403` background
+  pair (from this page's original "match Main" re-theme, predating this
+  session) is now a warmer, noticeably lighter charcoal —
+  `--bg: #241f19` / `--bg-deep: #171310` — still a dark-mode page (this
+  app's `--text-primary`/`--text-secondary`/`--text-tertiary` off-white
+  tokens keep enormous contrast headroom either way; lightening the
+  background if anything *reduces* light-on-dark contrast slightly, and
+  there was plenty to spare), just less of a void. Two new tokens,
+  `--bg-rgb`/`--bg-deep-rgb` (the r,g,b triplets backing those two hex
+  values, the same "CSS can't derive hex→rgb on its own" reasoning as the
+  existing `--accent-rgb`), replace every hardcoded `rgba(11,10,8,X)`/
+  `rgba(5,4,3,X)` literal in the stylesheet (the ambient background wash,
+  the hero overlay gradient, the floating back/tools/choice-button pills,
+  the eyebrow/title/subtext text-shadows, the empty-state banner, the
+  modal backdrop) with `rgba(var(--bg-rgb),X)`/`rgba(var(--bg-deep-rgb),X)`
+  — so the whole page's chrome stays in sync with the two base tokens
+  instead of each carrying its own stale copy. The modal surface color
+  (previously `rgba(20,17,13,0.82)`, a literal tied to the old bg) was
+  manually relit to `rgba(46,40,32,0.85)`, proportionally lighter to
+  match. `--bg-card`/`--bg-card-hover` (white-overlay tokens) were bumped
+  slightly (0.045→0.06, 0.075→0.09) so cards keep clear definition against
+  the now-lighter base. `<meta name="theme-color">` updated to match.
+  - **A real bug found and fixed along the way, unrelated to the
+    lightening itself and predating this session**: the top-of-file
+    documentation comment (`/* Build Your System — re-themed to match
+    Main's... */`) contained the literal text `--bg/--text-*/--border/` —
+    the `*` immediately followed by `/` is a genuine CSS comment-closing
+    sequence, with zero awareness that it's "inside prose." CSS comments
+    have no escape mechanism: the first `*/` anywhere ends the comment,
+    full stop. Confirmed via careful bisection (building minimal, always-
+    comment-balanced repros with `printf`/`cat`, never a bash heredoc,
+    since an early pass wasted real time chasing a *second*, unrelated
+    false lead — unquoted heredocs re-interpreting backticks already
+    present in this same comment block) that this single stray sequence
+    was enough to break the entire `:root` custom-property block's
+    parseability in at least one real CSS engine (the exact headless Edge
+    build available in this environment): once the comment closes early,
+    the remaining prose gets tokenized as literal (garbage) CSS up to the
+    *next* accidental `*/`, corrupting whatever selector the parser was
+    mid-way through assembling — in this file's case, dropping the entire
+    `:root { --bg: ...; --accent: ...; }` rule, which cascades into every
+    `var(--xxx)` reference on the page silently resolving to nothing.
+    Confirmed this predates today's session (reproduced identically
+    against the pre-lightening commit) and reworded the comment (spelled
+    out `--bg`, `--text` (primary/secondary/tertiary), `--border`,
+    `--accent` instead of the slash-separated shorthand) so no `*/`
+    sequence appears anywhere in the file outside a real, intended,
+    whitespace-preceded comment terminator — confirmed via
+    `grep -noP '\S\*/'` returning nothing. Whether this ever visibly broke
+    the page in the user's own real browser is unclear (real engines may
+    recover from a dropped rule more gracefully than this environment's
+    particular build, and the user's own report — "make it not so dark,"
+    not "the page has no styling at all" — suggests it likely didn't), but
+    it's a real defect regardless of whether it was actively biting
+    anyone, and is now fixed outright rather than left as a latent
+    landmine for the next round of comment-writing.
+  - **Verified end-to-end** via the same iframe-harness technique as this
+    file's other entries this session, plus a dedicated isolation pass for
+    the comment bug specifically (minimal, deliberately comment-balanced
+    CSS snippets built via `printf`/`cat`, confirming the exact single
+    line responsible before touching the real file): confirmed `--bg`/
+    `--bg-deep`/`--bg-card`/etc. all now resolve correctly in computed
+    style (previously reading as fully unresolved — transparent
+    background, black text, `0px` border-radius on `.bs-card`, now
+    correctly `12px`); confirmed the cover-photo button (from the
+    previous two entries' fixes) is still hit-testable and not obstructed
+    after the palette change; confirmed the photo-driven accent-recolor
+    feature still works end-to-end (upload → `--accent` recolors
+    correctly); confirmed a modal opens with the new, correctly-lighter
+    surface color; and confirmed zero JS errors throughout. No other file
+    in this app shares this specific comment text, so no other page needed
+    the same fix.
