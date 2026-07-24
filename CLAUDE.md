@@ -8732,3 +8732,47 @@ both as originally phrased assumed a backend this app doesn't have):
     "+ Add a cover photo" empty state; zero JS errors across the whole
     pass. `system-data.js` was not touched (no version bump needed) —
     every change lives in `system.html`'s own CSS and inline script.
+
+- **Bugfix: "+ Add a cover photo" was genuinely unclickable, sitting
+  visually behind the hero title — a real regression from the previous
+  entry's own readability pass, not a caching issue this time.** Found by
+  measurement, not a guess: the previous session's synthetic test called
+  `.click()` directly on the button element, which bypasses real hit-
+  testing entirely and cannot detect "something else is covering it" —
+  this pass instead measured actual `getBoundingClientRect()`s and used
+  `document.elementFromPoint()` at the button's own rendered coordinates,
+  the same thing a real mouse click does. That confirmed a genuine
+  overlap: `.bs-hero-photo-choice` was centered across the *entire* hero
+  box (`inset:0`, flex-centered — the same convention `aitech.html`/
+  `business.html`/`dreamboard.html`/`learning.html`/`tasksnotes.html` all
+  already use successfully), but the previous entry's typography bump
+  (matching Main's larger hero title `clamp()`) made the bottom-anchored
+  title textarea tall enough to physically overlap the centered button —
+  and since the title field autosizes with whatever the user actually
+  types (`autosize()` in `renderHero()`), a taller hero alone (the fix
+  the sibling pages effectively rely on, via their own taller `min-height`)
+  would only ever be a partial, content-length-dependent fix, not a real
+  one.
+  - **Fix**: `.bs-hero-photo-choice` moved from full-hero-center to the
+    same top-right slot `.bs-hero-photo-tools`/`.bs-back-btn` already use
+    (`top: max(14px, safe-area)`, `right: max(14px, safe-area)`), matching
+    how `index.html`'s own `.rt-hero-photo-choice` places this exact
+    button — genuinely clear of the bottom-anchored content regardless of
+    how long the title/eyebrow/subtext grow, not just clear of today's
+    default copy. Also bumped its `z-index` from 1 to 5 (matching the
+    tools/back-button slot it now shares) as a second, independent layer
+    of insurance beyond the repositioning itself.
+  - **Verified via real hit-testing, not another `.click()` bypass**:
+    measured the button's and the hero content's bounding rects before
+    the fix (confirmed a real overlap — the button's rect sat inside the
+    title textarea's rect) and after (confirmed zero overlap); then
+    dispatched an actual `MouseEvent('click')` at
+    `document.elementFromPoint()`'s own result for the button's rendered
+    center (not the button reference directly) and confirmed it resolves
+    to the button itself, not an obstructing element; re-ran the full
+    upload → compress → sample-color → recolor-the-page → render chain
+    the same way (a real hit-tested click, not `.click()`) and confirmed
+    it still completes correctly (photoColor sampled, `--accent`
+    recolored); and confirmed the Change button, which occupies the same
+    top-right slot once a photo is set, is itself also hit-testable and
+    not obstructed. Zero JS errors throughout.
