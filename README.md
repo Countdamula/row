@@ -14,23 +14,25 @@ Open any `.html` file directly in your browser — no build step, no install.
 
 | File | What it is |
 |---|---|
-| [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
+| [home.html](home.html) | Home — the hub. One continuous, scrollable page: a cover photo, a native Weekly Schedule, a native Subconscious Reprogramming section, then Dream Board / Self-Care / Tasks & Notes / AI & Tech embedded inline (each also still exists as its own standalone page below) |
 | [finance.html](finance.html) | Finances |
-| [gym.html](gym.html) | Progressive overload gym tracker |
+| [gym.html](gym.html) | Fitness Studio — progressive overload gym tracker |
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
-| [braindump.html](braindump.html) | Brain Dump — freeform daily thoughts/emotions journal |
 | [nutrition.html](nutrition.html) | Nutrition — My Kitchen / Grocery List |
 | [learning.html](learning.html) | Learning & Knowledge Hub — Topics gallery + Articles/Books/Videos/Posts/Notes |
-| [household.html](household.html) | Household — Energy Beings roster, Inventory, Wishlist, Chores |
 | [selfcare.html](selfcare.html) | Self-Care — Journals, Meditations, Water tracker, Bucket List |
 | [dreamboard.html](dreamboard.html) | Dream Board — a drag-and-drop vision board (checklists, calendar, photo/video grid, affirmations, and more) |
-| [mainpillar.html](mainpillar.html) | Main Pillar — gamified daily command center (Whoop biometrics, quest-style habits, tasks, AI journal/briefs, Weekly/Monthly/Year dashboards, Smart Goal Allocation, Favorites archive) |
-| [home.html](home.html) | Home — combines Dream Board, Tasks & Notes, AI & Tech, and Self-Care into one tab (embedded, unmodified), plus a native Weekly Schedule and a Subconscious Reprogramming section |
+| [business.html](business.html) | Business Hub — content planning, a Writing Dashboard, and a YouTube channel-management dashboard |
+| [aitech.html](aitech.html) | AI & Tech — an AI Models gallery + a linked Prompts database |
+| [tasksnotes.html](tasksnotes.html) | Tasks & Notes — Links / Notes / Tasks |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 
 Each app stores its own state in browser `localStorage`. No accounts, no server.
 
+Main (the old Goals-tracker home page), Main Pillar, Household, and Brain
+Dump were removed per an explicit request — Home (above) is now the hub.
+
 ## Building from scratch
 
-[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate `index.html` — paste it into Claude if you want to rebuild that page yourself.
+[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate the original `index.html` home page — kept for history, though that page was later removed (see above); paste it into Claude if you want to rebuild something similar yourself.

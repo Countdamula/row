@@ -13,16 +13,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="home-data.js?v=1" defer></script>
+<script src="home-data.js?v=2" defer></script>
 <style>
 /* =============================================================
-   Home — combines four existing pages (Dream Board / Tasks & Notes /
-   AI & Tech / Self-Care) into one tab by embedding them, unmodified, in
-   same-origin iframes (their own -data.js/localStorage/Supabase sync are
-   completely untouched — nothing was deleted from any of them), plus two
-   genuinely new sections built natively here: Weekly Schedule and
-   Subconscious Reprogramming.
+   Home — the dashboard's hub. One continuous, scrollable page (not a
+   hidden-tab-panel switcher — see the changelog note in CLAUDE.md on why
+   that changed) made of six sections, in order: Weekly Schedule,
+   Subconscious Reprogramming (both native to this file), then Dream
+   Board / Self-Care / Tasks & Notes / AI & Tech — each of those four
+   embedded, unmodified, in a same-origin iframe (their own -data.js/
+   localStorage/Supabase sync are completely untouched; nothing was
+   deleted from any of them, and each still exists as its own standalone
+   top-level page too — "keeping the original tabs just in case," per an
+   explicit instruction).
 
    Palette: this file's own --hm-* tokens are a direct copy of Dream
    Board/Business Hub's dark cinematic near-black/gold values — the
@@ -57,6 +62,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 html, body { background: var(--hm-bg-deep); color: var(--hm-text); font-family: var(--font); min-height: 100%; -webkit-font-smoothing: antialiased; }
 html, body { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
@@ -85,58 +91,97 @@ body::after {
   pointer-events: none;
 }
 
-.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 70px; }
+.shell { max-width: 1100px; margin: 0 auto; padding: 0 0 80px; }
 .shell-inner { padding: 0 16px; }
 
-.hm-back-btn {
-  position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 30;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px 8px 10px;
-  background: rgba(11, 10, 8, 0.7); backdrop-filter: blur(10px);
-  border: 1px solid var(--hm-hairline);
-  border-radius: 999px; color: var(--hm-text-dim);
-  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
-  text-decoration: none; -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, color 0.15s ease;
+/* ===== Hero — a real cover photo, but deliberately not a full-viewport
+   78vh hero. gym.html's own changelog documents a real bug report ("the
+   page looks blank") traced to exactly that on a data-heavy page — Home
+   is six sections deep with two of them holding real functionality, so
+   the hero is sized to look good with a photo without burying everything
+   else below the fold. ===== */
+.hm-hero {
+  position: relative; min-height: clamp(260px, 38vh, 440px);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  overflow: hidden; padding: 70px 20px 30px;
 }
-.hm-back-btn:hover { background: rgba(11, 10, 8, 0.92); color: var(--hm-text); }
-
-/* ===== Compact header (deliberately NOT a full-viewport hero — a
-   too-tall hero above 6 tabs' worth of real content reads as "the page
-   is blank," the exact mistake CLAUDE.md's own Fitness Studio Overview
-   entry already documents hitting and fixing once) ===== */
-.hm-hero { padding: 64px 20px 26px; text-align: left; }
+.hm-hero-media { position: absolute; inset: 0; z-index: 0; background: var(--hm-paper-solid); }
+.hm-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.hm-hero-photo-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
+}
+.hm-hero-photo-choice-btn {
+  background: rgba(11,10,8,0.4); border: 1px solid var(--hm-hairline); border-radius: 999px;
+  color: var(--hm-text-mute); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 9px 18px;
+}
+.hm-hero-photo-choice-btn:hover { color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.55) 0%, rgba(5,4,3,0.15) 32%, rgba(5,4,3,0.35) 62%, rgba(5,4,3,0.92) 100%);
+}
+.hm-hero-photo-tools {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5;
+  display: flex; gap: 6px;
+}
+.hm-hero-photo-tools button {
+  background: rgba(11, 10, 8, 0.55); backdrop-filter: blur(10px); border: 1px solid var(--hm-hairline);
+  color: var(--hm-text-dim); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer;
+}
+.hm-hero-photo-tools button:hover { color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-hero-content { position: relative; z-index: 2; max-width: 640px; }
 .hm-hero-eyebrow {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--hm-gold-bright); margin-bottom: 12px;
+  color: var(--hm-gold-bright); margin-bottom: 12px; outline-offset: 4px;
 }
 .hm-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--hm-gold); margin-right: 10px; vertical-align: middle; }
 .hm-hero-title {
   font-family: var(--font-serif); font-weight: 500; color: var(--hm-text);
-  font-size: clamp(30px, 6vw, 44px); line-height: 1.08; letter-spacing: -0.01em;
-  margin-bottom: 10px; outline-offset: 4px; cursor: text;
+  font-size: clamp(30px, 6vw, 46px); line-height: 1.08; letter-spacing: -0.01em;
+  margin-bottom: 10px; outline-offset: 4px; cursor: text; text-shadow: 0 4px 30px rgba(0,0,0,0.5);
 }
-.hm-hero-subtext { font-size: 14px; line-height: 1.6; color: var(--hm-text-dim); max-width: 620px; outline-offset: 4px; cursor: text; }
+.hm-hero-subtext { font-size: 14px; line-height: 1.6; color: var(--hm-text-dim); max-width: 560px; outline-offset: 4px; cursor: text; }
+@media (max-width: 620px) { .hm-hero { padding: 64px 16px 26px; } }
 
-/* ===== Tab row ===== */
-.hm-tabs-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-  padding: 16px 0 14px; margin-bottom: 20px; border-bottom: 1px solid var(--hm-hairline);
-}
-.hm-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-.hm-tab {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--hm-paper); border: 1px solid var(--hm-hairline); border-radius: 999px;
-  padding: 8px 14px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--hm-text-mute); cursor: pointer;
-  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.hm-tab:hover { color: var(--hm-text); }
-.hm-tab.active { background: var(--hm-accent-tint); color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+.hm-status-row { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
 .hm-sync-status { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: var(--hm-text-mute); display: flex; align-items: center; gap: 5px; }
 .hm-sync-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hm-text-mute); flex-shrink: 0; }
 .hm-sync-status.is-saved { color: var(--hm-text-dim); }
 .hm-sync-status.is-saved .hm-sync-status-dot { background: var(--success); }
 .hm-sync-status.is-error .hm-sync-status-dot { background: var(--danger); }
+
+/* ===== Quick-jump nav — a row of anchors that smooth-scroll to each
+   section below, instead of the hidden-panel tab switcher this page
+   used before. Scrolling is the primary way through Home now; this is
+   the fast lane for jumping straight to one part of it. ===== */
+.hm-jumpnav-wrap { padding: 14px 16px 22px; border-bottom: 1px solid var(--hm-hairline); }
+.hm-jumpnav { display: flex; gap: 8px; flex-wrap: wrap; }
+.hm-jump-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--hm-paper); border: 1px solid var(--hm-hairline); border-radius: 999px;
+  padding: 8px 14px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--hm-text-mute);
+  cursor: pointer; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.hm-jump-chip:hover { color: var(--hm-text); }
+.hm-jump-chip.active { background: var(--hm-accent-tint); color: var(--hm-gold-bright); border-color: var(--hm-gold); }
+
+/* ===== Sections — one continuous page, each with its own scroll anchor
+   (offset so a sticky topbar never covers a section's own heading) and
+   a hairline divider between sections instead of a page break. ===== */
+.hm-section { padding: 34px 0; scroll-margin-top: 96px; }
+.hm-section + .hm-section { border-top: 1px solid var(--hm-hairline); }
+.hm-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.hm-section-head h2 { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--hm-text); }
+.hm-section-head h3 { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--hm-text); }
+.hm-section-desc { font-size: 13px; color: var(--hm-text-dim); line-height: 1.6; margin-bottom: 16px; max-width: 680px; }
+.hm-subsection { margin: 30px 0; }
+.hm-subsection:first-of-type { margin-top: 6px; }
+.hm-empty { font-size: 12.5px; color: var(--hm-text-mute); font-style: italic; padding: 14px 4px; }
+.hm-open-full { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--hm-gold-bright); text-decoration: none; border-bottom: 1px solid var(--hm-hairline); padding-bottom: 1px; white-space: nowrap; }
+.hm-open-full:hover { border-color: var(--hm-gold-bright); }
 
 .hm-btn-primary, .hm-btn-secondary, .hm-btn-ghost {
   border-radius: 999px; padding: 9px 16px; font-size: 12px; font-weight: 700;
@@ -153,31 +198,17 @@ body::after {
 .hm-icon-btn { background: transparent; border: none; color: var(--hm-text-mute); font-size: 12px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .hm-icon-btn:hover { color: var(--hm-gold-bright); background: rgba(255,255,255,0.06); }
 
-/* ===== Panels ===== */
-.hm-panel { display: none; }
-.hm-panel.active { display: block; }
-.hm-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.hm-section-head h2 { font-family: var(--font-serif); font-size: 26px; font-weight: 600; color: var(--hm-text); }
-.hm-section-head h3 { font-family: var(--font-serif); font-size: 19px; font-weight: 600; color: var(--hm-text); }
-.hm-section-desc { font-size: 13px; color: var(--hm-text-dim); line-height: 1.6; margin-bottom: 16px; max-width: 680px; }
-.hm-subsection { margin: 30px 0; }
-.hm-subsection:first-of-type { margin-top: 6px; }
-.hm-empty { font-size: 12.5px; color: var(--hm-text-mute); font-style: italic; padding: 14px 4px; }
-
-/* ===== Embedded-page (iframe) panels ===== */
-.hm-iframe-toolbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 8px 4px 12px;
-}
-.hm-iframe-toolbar-label { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--hm-text); }
-.hm-iframe-toolbar a { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--hm-gold-bright); text-decoration: none; border-bottom: 1px solid var(--hm-hairline); padding-bottom: 1px; }
-.hm-iframe-toolbar a:hover { border-color: var(--hm-gold-bright); }
+/* ===== Embedded-page (iframe) sections — auto-resized (via JS) to match
+   their own content height, so the whole page scrolls as one continuous
+   flow instead of fighting a second, nested scrollbar inside a fixed-
+   height box. A generous min-height avoids a layout jump before the
+   first measurement lands. ===== */
 .hm-iframe-wrap {
   border: 1px solid var(--hm-hairline); border-radius: var(--radius-lg); overflow: hidden;
   background: var(--hm-paper-solid);
 }
-.hm-iframe { display: block; width: 100%; height: calc(100vh - 260px); min-height: 560px; border: 0; background: var(--hm-bg); }
-@media (max-width: 620px) { .hm-iframe { height: calc(100vh - 300px); min-height: 480px; } }
+.hm-iframe { display: block; width: 100%; min-height: 600px; border: 0; background: var(--hm-bg); }
+.hm-iframe-loading { padding: 40px 16px; text-align: center; font-size: 12.5px; color: var(--hm-text-mute); }
 
 /* ===== Shared card / chip / field components (same recipe as Business
    Hub's .bw-card/.bh-chip/.field — frosted glass, gold hairline) ===== */
@@ -262,53 +293,61 @@ body::after {
 .modal-bg.show { display: flex; }
 .modal { background: rgba(20, 17, 13, 0.86); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-lg); padding: 22px; width: 100%; max-width: 460px; max-height: 86vh; overflow-y: auto; }
 
+/* ===== Back-to-top — a long, scroll-first page benefits from a quick
+   way back up, since there's no tab click to reset scroll position. ===== */
+.hm-to-top {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 25; width: 42px; height: 42px; border-radius: 50%;
+  background: rgba(11,10,8,0.75); backdrop-filter: blur(10px); border: 1px solid var(--hm-hairline);
+  color: var(--hm-gold-bright); font-size: 16px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  transition: opacity 0.2s ease;
+}
+.hm-to-top.show { display: flex; }
+.hm-to-top:hover { border-color: var(--hm-gold); }
+
 @media (max-width: 480px) {
   .hm-affirmation-grid { grid-template-columns: 1fr; }
   .hm-daycheck { width: 26px; height: 26px; }
+  .hm-section { scroll-margin-top: 78px; }
 }
 </style>
 </head>
 <body>
 
-<a href="index.html" class="hm-back-btn">← Back</a>
-
 <div class="shell">
-  <div class="shell-inner">
+  <div class="shell-inner" style="padding:0;">
 
-    <header class="hm-hero">
-      <div class="hm-hero-eyebrow">COMMAND CENTER</div>
-      <h1 class="hm-hero-title" id="hmHeroTitle" contenteditable="true" spellcheck="false"></h1>
-      <div class="hm-hero-subtext" id="hmHeroSubtext" contenteditable="true" spellcheck="false"></div>
+    <header class="hm-hero" id="hmHero">
+      <div class="hm-hero-media" id="hmHeroMedia"></div>
+      <div class="hm-hero-photo-choice" id="hmHeroPhotoChoice">
+        <button type="button" class="hm-hero-photo-choice-btn" id="hmAddHeroPhotoBtn">+ Add a cover photo</button>
+      </div>
+      <div class="hm-hero-overlay"></div>
+      <div class="hm-hero-photo-tools" id="hmHeroPhotoTools" style="display:none;">
+        <button type="button" id="hmChangeHeroPhotoBtn">Change</button>
+        <button type="button" id="hmRemoveHeroPhotoBtn">Remove</button>
+      </div>
+      <div class="hm-hero-content">
+        <div class="hm-hero-eyebrow">COMMAND CENTER</div>
+        <h1 class="hm-hero-title" id="hmHeroTitle" contenteditable="true" spellcheck="false"></h1>
+        <div class="hm-hero-subtext" id="hmHeroSubtext" contenteditable="true" spellcheck="false"></div>
+      </div>
+      <input type="file" id="hmHeroPhotoInput" accept="image/*" style="display:none;">
     </header>
 
-    <div class="hm-tabs-row">
-      <div class="hm-tabs" id="hmTabs"></div>
+    <div class="hm-status-row">
       <div class="hm-sync-status" id="hmSyncStatus"><span class="hm-sync-status-dot"></span><span id="hmSyncStatusText">Changes save automatically</span></div>
     </div>
 
-    <div id="hmPanels">
+    <div class="hm-jumpnav-wrap">
+      <nav class="hm-jumpnav" id="hmJumpNav" aria-label="Jump to section"></nav>
+    </div>
 
-      <section class="hm-panel" data-panel="dreamboard">
-        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Dream Board</span><a href="dreamboard.html" target="_blank" rel="noopener">Open full page ↗</a></div>
-        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="dreamboard.html" title="Dream Board"></iframe></div>
-      </section>
+    <div class="shell-inner">
 
-      <section class="hm-panel" data-panel="tasksnotes">
-        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Tasks &amp; Notes</span><a href="tasksnotes.html" target="_blank" rel="noopener">Open full page ↗</a></div>
-        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="tasksnotes.html" title="Tasks & Notes"></iframe></div>
-      </section>
-
-      <section class="hm-panel" data-panel="aitech">
-        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">AI &amp; Tech</span><a href="aitech.html" target="_blank" rel="noopener">Open full page ↗</a></div>
-        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="aitech.html" title="AI & Tech"></iframe></div>
-      </section>
-
-      <section class="hm-panel" data-panel="selfcare">
-        <div class="hm-iframe-toolbar"><span class="hm-iframe-toolbar-label">Self-Care</span><a href="selfcare.html" target="_blank" rel="noopener">Open full page ↗</a></div>
-        <div class="hm-iframe-wrap"><iframe class="hm-iframe" data-src="selfcare.html" title="Self-Care"></iframe></div>
-      </section>
-
-      <section class="hm-panel" data-panel="schedule">
+      <section class="hm-section" data-embed="false" id="section-schedule">
         <div class="hm-section-head">
           <h2>Weekly Schedule</h2>
           <button type="button" class="hm-btn-primary" id="hmAddScheduleBtn">+ Add Task</button>
@@ -319,7 +358,7 @@ body::after {
         <div id="hmScheduleList"></div>
       </section>
 
-      <section class="hm-panel" data-panel="subconscious">
+      <section class="hm-section" data-embed="false" id="section-subconscious">
         <div class="hm-section-head"><h2>Reprogram Your Subconscious Mind</h2></div>
         <p class="hm-section-desc">A dedicated space for the daily repetition-based work — a practice ritual, affirmations with a streak counter, and freeform scripts (visualizations, mantras, sleep programming).</p>
 
@@ -357,9 +396,31 @@ body::after {
         </div>
       </section>
 
+      <section class="hm-section" data-embed="true" id="section-dreamboard">
+        <div class="hm-section-head"><h2>Dream Board</h2><a class="hm-open-full" href="dreamboard.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><div class="hm-iframe-loading">Scroll to load…</div><iframe class="hm-iframe" data-src="dreamboard.html" title="Dream Board" scrolling="no" style="display:none;"></iframe></div>
+      </section>
+
+      <section class="hm-section" data-embed="true" id="section-selfcare">
+        <div class="hm-section-head"><h2>Self-Care</h2><a class="hm-open-full" href="selfcare.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><div class="hm-iframe-loading">Scroll to load…</div><iframe class="hm-iframe" data-src="selfcare.html" title="Self-Care" scrolling="no" style="display:none;"></iframe></div>
+      </section>
+
+      <section class="hm-section" data-embed="true" id="section-tasksnotes">
+        <div class="hm-section-head"><h2>Tasks &amp; Notes</h2><a class="hm-open-full" href="tasksnotes.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><div class="hm-iframe-loading">Scroll to load…</div><iframe class="hm-iframe" data-src="tasksnotes.html" title="Tasks & Notes" scrolling="no" style="display:none;"></iframe></div>
+      </section>
+
+      <section class="hm-section" data-embed="true" id="section-aitech">
+        <div class="hm-section-head"><h2>AI &amp; Tech</h2><a class="hm-open-full" href="aitech.html" target="_blank" rel="noopener">Open full page ↗</a></div>
+        <div class="hm-iframe-wrap"><div class="hm-iframe-loading">Scroll to load…</div><iframe class="hm-iframe" data-src="aitech.html" title="AI & Tech" scrolling="no" style="display:none;"></iframe></div>
+      </section>
+
     </div>
   </div>
 </div>
+
+<button type="button" class="hm-to-top" id="hmToTop" aria-label="Back to top">↑</button>
 
 <!-- Schedule task modal -->
 <div class="modal-bg" id="hmScheduleModalBg">
@@ -425,11 +486,12 @@ body::after {
     } catch (e2) { /* if even the banner fails, there's nothing more we can do client-side */ }
   }
 
-  // Deferred scripts (sync.js/topbar.js/home-data.js) only execute right
-  // before DOMContentLoaded, regardless of where their <script> tags sit
-  // in the document — booting immediately would read window.HomeData
-  // before it exists (the exact bug mainpillar.html hit once; see its
-  // CLAUDE.md changelog entry). Wait for DOMContentLoaded, same fix.
+  // Deferred scripts (sync.js/photo-store.js/topbar.js/home-data.js) only
+  // execute right before DOMContentLoaded, regardless of where their
+  // <script> tags sit in the document — booting immediately would read
+  // window.HomeData before it exists (the exact bug mainpillar.html hit
+  // once; see its CLAUDE.md changelog entry). Wait for DOMContentLoaded,
+  // same fix.
   function boot() {
     try {
       if (!window.HomeData) { showBootErrorBanner('window.HomeData is undefined — home-data.js failed to load or threw before defining it.', 'boot'); return; }
@@ -446,23 +508,47 @@ body::after {
       }
       function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
 
-      const TABS = [
-        { key: 'dreamboard', label: 'Dream Board', iframe: true },
-        { key: 'tasksnotes', label: 'Tasks & Notes', iframe: true },
-        { key: 'aitech', label: 'AI & Tech', iframe: true },
-        { key: 'selfcare', label: 'Self-Care', iframe: true },
-        { key: 'schedule', label: 'Weekly Schedule', iframe: false },
-        { key: 'subconscious', label: 'Subconscious Mind', iframe: false }
-      ];
-      const TAB_KEYS = TABS.map(function (t) { return t.key; });
+      // -------- Hero (cover photo + editable eyebrow/title/subtext) --------
+      function renderHeroPhoto() {
+        const photo = storeGet(HD.KEYS.heroPhoto);
+        const media = $('hmHeroMedia');
+        const choice = $('hmHeroPhotoChoice');
+        const tools = $('hmHeroPhotoTools');
+        if (photo) {
+          media.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = photo; img.alt = '';
+          media.appendChild(img);
+          choice.style.display = 'none';
+          tools.style.display = 'flex';
+        } else {
+          media.innerHTML = '';
+          choice.style.display = 'flex';
+          tools.style.display = 'none';
+        }
+      }
+      function openHeroFilePicker() { $('hmHeroPhotoInput').click(); }
+      function handleHeroPhotoFile(file) {
+        if (!file || file.type.indexOf('image/') !== 0) return;
+        const reader = new FileReader();
+        reader.onload = function () {
+          HD.compressImageDataUrl(reader.result, 1400, 0.82).then(function (compressed) {
+            storeSet(HD.KEYS.heroPhoto, compressed);
+            renderHeroPhoto();
+            if (window.PhotoStore && window.PhotoStore.upload) {
+              window.PhotoStore.upload(compressed, function (url) {
+                if (storeGet(HD.KEYS.heroPhoto) === compressed) { storeSet(HD.KEYS.heroPhoto, url); renderHeroPhoto(); }
+              });
+            }
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+      $('hmAddHeroPhotoBtn').addEventListener('click', openHeroFilePicker);
+      $('hmChangeHeroPhotoBtn').addEventListener('click', openHeroFilePicker);
+      $('hmRemoveHeroPhotoBtn').addEventListener('click', function () { storeSet(HD.KEYS.heroPhoto, ''); renderHeroPhoto(); });
+      $('hmHeroPhotoInput').addEventListener('change', function () { if (this.files && this.files[0]) handleHeroPhotoFile(this.files[0]); this.value = ''; });
 
-      let activeTab = TAB_KEYS[0];
-      const fromHash = (location.hash || '').replace('#', '');
-      if (TAB_KEYS.indexOf(fromHash) !== -1) activeTab = fromHash;
-      else { const saved = storeGet(HD.KEYS.activeTab); if (TAB_KEYS.indexOf(saved) !== -1) activeTab = saved; }
-
-      // -------- Hero (compact — text only, no cover photo, see the
-      // header-size note above) --------
       function initHero() {
         const titleEl = $('hmHeroTitle');
         const subEl = $('hmHeroSubtext');
@@ -470,55 +556,83 @@ body::after {
         const savedSub = storeGet(HD.KEYS.heroSubtext);
         titleEl.textContent = (typeof savedTitle === 'string' && savedTitle) ? savedTitle : 'Home';
         subEl.textContent = (typeof savedSub === 'string' && savedSub) ? savedSub
-          : 'Dream Board, Tasks & Notes, AI & Tech, and Self-Care — plus your Weekly Schedule and subconscious reprogramming — all in one place.';
+          : 'Everything in one place — Dream Board, Self-Care, Tasks & Notes, and AI & Tech, plus your Weekly Schedule and subconscious reprogramming. Scroll down, or jump straight to a section below.';
         titleEl.addEventListener('blur', function () { storeSet(HD.KEYS.heroTitle, titleEl.textContent.trim() || 'Home'); });
         subEl.addEventListener('blur', function () { storeSet(HD.KEYS.heroSubtext, subEl.textContent.trim()); });
+        renderHeroPhoto();
       }
 
-      // -------- Tabs / panels --------
-      function renderTabs() {
-        const wrap = $('hmTabs');
+      // -------- Quick-jump nav + scrollspy --------
+      const SECTIONS = [
+        { key: 'schedule', label: 'Weekly Schedule' },
+        { key: 'subconscious', label: 'Subconscious Mind' },
+        { key: 'dreamboard', label: 'Dream Board' },
+        { key: 'selfcare', label: 'Self-Care' },
+        { key: 'tasksnotes', label: 'Tasks & Notes' },
+        { key: 'aitech', label: 'AI & Tech' }
+      ];
+      function renderJumpNav() {
+        const wrap = $('hmJumpNav');
         wrap.innerHTML = '';
-        TABS.forEach(function (t) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'hm-tab' + (t.key === activeTab ? ' active' : '');
-          btn.textContent = t.label;
-          btn.addEventListener('click', function () { switchTab(t.key); });
-          wrap.appendChild(btn);
+        SECTIONS.forEach(function (s) {
+          const a = document.createElement('a');
+          a.href = '#section-' + s.key;
+          a.className = 'hm-jump-chip';
+          a.textContent = s.label;
+          a.dataset.key = s.key;
+          a.addEventListener('click', function (e) {
+            e.preventDefault();
+            const el = $('section-' + s.key);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+          wrap.appendChild(a);
         });
       }
-      function switchTab(key) {
-        if (TAB_KEYS.indexOf(key) === -1) key = TAB_KEYS[0];
-        activeTab = key;
-        storeSet(HD.KEYS.activeTab, key);
-        try { history.replaceState(null, '', '#' + key); } catch (e) {}
-        renderTabs();
-        document.querySelectorAll('.hm-panel').forEach(function (p) {
-          p.classList.toggle('active', p.getAttribute('data-panel') === key);
+      function setActiveJumpChip(key) {
+        document.querySelectorAll('.hm-jump-chip').forEach(function (a) {
+          a.classList.toggle('active', a.dataset.key === key);
         });
-        ensureIframeLoaded(key);
-        if (key === 'schedule') renderSchedule();
-        if (key === 'subconscious') renderSubconscious();
+      }
+      function initScrollspy() {
+        if (!('IntersectionObserver' in window)) return;
+        const spy = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) setActiveJumpChip(entry.target.id.replace('section-', ''));
+          });
+        }, { root: null, rootMargin: '-35% 0px -55% 0px', threshold: 0 });
+        SECTIONS.forEach(function (s) { const el = $('section-' + s.key); if (el) spy.observe(el); });
       }
 
-      // -------- Embedded pages (lazy-loaded iframes, one per combined
-      // tab). Every embedded page keeps its own full functionality/sync
-      // — nothing about dreamboard.html/tasksnotes.html/aitech.html/
-      // selfcare.html or their data is modified. Best-effort: hide the
-      // embedded page's own topbar so it doesn't look like a nested
-      // second nav bar — a purely runtime DOM tweak inside that one
-      // iframe instance (same-origin only; silently skipped otherwise,
-      // leaving the nested topbar visible, which is harmless). --------
+      // -------- Back-to-top --------
+      function initToTop() {
+        const btn = $('hmToTop');
+        window.addEventListener('scroll', function () {
+          btn.classList.toggle('show', window.scrollY > 700);
+        }, { passive: true });
+        btn.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      }
+
+      // -------- Embedded pages (lazy-loaded, auto-resized iframes) --------
+      // Every embedded page keeps its own full functionality/sync —
+      // nothing about dreamboard.html/tasksnotes.html/aitech.html/
+      // selfcare.html or their data is modified. Loading is deferred
+      // until a section actually scrolls near the viewport (an
+      // IntersectionObserver with a generous rootMargin, so it starts
+      // just before it's visible) rather than loading all four at once.
       const iframeLoaded = {};
-      function ensureIframeLoaded(tab) {
-        if (iframeLoaded[tab]) return;
-        const panel = document.querySelector('.hm-panel[data-panel="' + tab + '"]');
-        if (!panel) return;
-        const frame = panel.querySelector('iframe.hm-iframe');
+      function loadEmbedSection(section) {
+        const key = section.id.replace('section-', '');
+        if (iframeLoaded[key]) return;
+        iframeLoaded[key] = true;
+        const frame = section.querySelector('iframe.hm-iframe');
+        const loading = section.querySelector('.hm-iframe-loading');
         if (!frame) return;
-        iframeLoaded[tab] = true;
-        frame.addEventListener('load', function () { tameIframe(frame); });
+        frame.addEventListener('load', function () {
+          frame.style.display = 'block';
+          if (loading) loading.remove();
+          tameIframe(frame);
+          autoResizeIframe(frame);
+        });
         frame.src = frame.getAttribute('data-src');
       }
       function tameIframe(frame) {
@@ -533,6 +647,44 @@ body::after {
           }
           style.textContent = '.topbar{display:none !important;}';
         } catch (e) { /* cross-origin or not ready yet — leave it as-is */ }
+      }
+      function autoResizeIframe(frame) {
+        try {
+          const doc = frame.contentDocument;
+          if (!doc) return;
+          function resize() {
+            try {
+              const h = Math.max(
+                doc.documentElement ? doc.documentElement.scrollHeight : 0,
+                doc.body ? doc.body.scrollHeight : 0
+              );
+              if (h) frame.style.height = h + 'px';
+            } catch (e) {}
+          }
+          resize();
+          if (window.ResizeObserver && doc.body) {
+            const ro = new ResizeObserver(resize);
+            ro.observe(doc.body);
+          }
+          // Embedded pages render widgets/cards asynchronously after
+          // their own load event (cloud-sync pulls, seed timers) — a few
+          // follow-up measurements catch content that grows after the
+          // ResizeObserver's first pass.
+          [300, 800, 1500, 3000, 6000].forEach(function (ms) { setTimeout(resize, ms); });
+        } catch (e) {}
+      }
+      function initEmbeds() {
+        const sections = document.querySelectorAll('.hm-section[data-embed="true"]');
+        if (!('IntersectionObserver' in window)) {
+          sections.forEach(loadEmbedSection);
+          return;
+        }
+        const io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) loadEmbedSection(entry.target);
+          });
+        }, { root: null, rootMargin: '500px 0px 500px 0px', threshold: 0.01 });
+        sections.forEach(function (s) { io.observe(s); });
       }
 
       // ===================================================================
@@ -892,8 +1044,12 @@ body::after {
 
       // -------- Boot sequence --------
       initHero();
-      renderTabs();
-      switchTab(activeTab);
+      renderJumpNav();
+      initScrollspy();
+      initToTop();
+      initEmbeds();
+      renderSchedule();
+      renderSubconscious();
 
       // Empty-storage seed-race safety window — same reasoning as
       // dreamboard.html's/business.html's maybeSeedAfterSyncAttempt():
@@ -905,8 +1061,8 @@ body::after {
         if (remoteAppliedOnce) return;
         if (HD.ScheduleTasks.list().length || HD.Affirmations.list().length || HD.ReprogramSections.list().length || HD.RitualItems.list().length) return;
         HD.seedIfEmpty();
-        if (activeTab === 'schedule') renderSchedule();
-        if (activeTab === 'subconscious') renderSubconscious();
+        renderSchedule();
+        renderSubconscious();
       }
 
       if (typeof initCloudSync === 'function') {
@@ -916,11 +1072,9 @@ body::after {
           onApplied: function () {
             try {
               remoteAppliedOnce = true;
-              const savedTab = storeGet(HD.KEYS.activeTab);
-              if (TAB_KEYS.indexOf(savedTab) !== -1 && savedTab !== activeTab) switchTab(savedTab);
               initHero();
-              if (activeTab === 'schedule') renderSchedule();
-              if (activeTab === 'subconscious') renderSubconscious();
+              renderSchedule();
+              renderSubconscious();
             } catch (err) { showBootErrorBanner(err, 'onApplied (cloud sync)'); }
           }
         });
@@ -928,6 +1082,25 @@ body::after {
       } else {
         maybeSeedAfterSyncAttempt();
       }
+
+      // One-time backfill: if the hero photo is still a raw base64 string
+      // (saved before PhotoStore uploaded it, or before this device ever
+      // got a chance to), upload it and swap in the tiny hosted URL —
+      // same "shrink what's already in localStorage" precedent as every
+      // other page's own migratePhotosToStorage().
+      function migrateHeroPhotoToStorage() {
+        if (!window.PhotoStore || storeGet('home:photosMigratedV1')) return;
+        const photo = storeGet(HD.KEYS.heroPhoto);
+        if (typeof photo === 'string' && photo.indexOf('data:') === 0) {
+          window.PhotoStore.upload(photo, function (url) {
+            if (url && storeGet(HD.KEYS.heroPhoto) === photo) { storeSet(HD.KEYS.heroPhoto, url); renderHeroPhoto(); }
+            storeSet('home:photosMigratedV1', true);
+          });
+        } else {
+          storeSet('home:photosMigratedV1', true);
+        }
+      }
+      setTimeout(migrateHeroPhotoToStorage, 4000);
     } catch (err) {
       showBootErrorBanner(err, 'boot');
     }

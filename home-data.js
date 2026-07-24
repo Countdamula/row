@@ -51,12 +51,52 @@
     ritualDate: 'home:ritualDate',
     heroTitle: 'home:heroTitle',
     heroSubtext: 'home:heroSubtext',
-    activeTab: 'home:active_tab',
+    heroPhoto: 'home:heroPhoto',
     seeded: 'home:seeded'
   };
+  // `home:active_tab` (from this page's first build, when it was a
+  // 6-panel tab-switcher) is now orphaned — Home was rebuilt into one
+  // continuous scrollable page in the same feature's next pass, the same
+  // same-session-supersession precedent as e.g. gym.html's Timer
+  // modal→panel conversion, so the mechanism it backed no longer exists.
+  // Left alone on any device that already wrote it, same treatment as
+  // every other orphaned key elsewhere in this app.
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ============================================================
+  // IMAGE COMPRESSION / URL VALIDATION — same canvas-downscale recipe and
+  // http(s)-only URL guard as every other page in this app (see
+  // aitech-data.js's identical copy).
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 1100;
+    quality = quality == null ? 0.8 : quality;
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { resolve(c.toDataURL('image/jpeg', quality)); } catch (e) { resolve(dataUrl); }
+      };
+      img.onerror = function () { resolve(dataUrl); };
+      img.src = dataUrl;
+    });
+  }
+  function isValidMediaUrl(value) {
+    if (!value) return false;
+    try {
+      const u = new URL(String(value));
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (e) { return false; }
   }
   function pad2(n) { return String(n).padStart(2, '0'); }
   function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
@@ -365,6 +405,8 @@
     WEEKDAY_LETTERS: WEEKDAY_LETTERS,
     AFFIRMATION_CATEGORIES: AFFIRMATION_CATEGORIES,
     uid: uid,
+    compressImageDataUrl: compressImageDataUrl,
+    isValidMediaUrl: isValidMediaUrl,
     todayISO: todayISO,
     mondayISO: mondayISO,
     ScheduleTasks: ScheduleTasks,
