@@ -11,6 +11,7 @@
 <script src="topbar.js" defer></script>
 <script src="system-data.js?v=2" defer></script>
 <script src="fitness-data.js?v=1" defer></script>
+<script src="mainselfcare-data.js?v=1" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -661,6 +662,32 @@
   .fit-media-lightbox-bg.show { display: flex; }
   .fit-media-lightbox-bg img, .fit-media-lightbox-bg video { max-width: 92vw; max-height: 88vh; border-radius: var(--radius-md); }
   .fit-media-lightbox-close { position: absolute; top: 18px; right: 22px; background: transparent; border: none; color: #fff; font-size: 26px; cursor: pointer; }
+
+  /* =============================================================
+     Self-Care (5th main tab) — a dedicated, native self-care system
+     inside Main, separate from the standalone selfcare.html page of the
+     same name. Reuses .bs-*/.fit-* components already established
+     above; only genuinely new shapes (the breathwork pacer) get new
+     classes below.
+     ============================================================= */
+  .sci-check-row { display: flex; align-items: center; gap: 10px; }
+  .sci-check-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+  .sci-check-row.is-done .sci-check-text { text-decoration: line-through; color: var(--text-tertiary); }
+  .sci-check-text { flex: 1; font-size: 13.5px; color: var(--text-primary); }
+
+  .sci-med-meta, .sci-brw-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .sci-db-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width:760px){ .sci-db-cols{ grid-template-columns: 1fr; } }
+
+  .sci-pacer-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 10px 0 4px; }
+  .sci-pacer-circle {
+    width: 160px; height: 160px; border-radius: 50%; border: 2px solid var(--accent);
+    background: var(--accent-tint); display: flex; align-items: center; justify-content: center;
+    transform: scale(0.7); transition: transform 1s linear;
+  }
+  .sci-pacer-count { font-size: 34px; font-weight: 700; color: var(--text-primary); font-family: var(--font); }
+  .sci-pacer-phase { font-size: 15px; font-weight: 700; color: var(--accent-bright); text-transform: uppercase; letter-spacing: 0.06em; }
+  .sci-pacer-cycle { font-size: 12px; color: var(--text-tertiary); }
 </style>
 </head>
 <body>
@@ -696,6 +723,7 @@
     <button type="button" class="rt-maintab" data-maintab="system">Your System</button>
     <button type="button" class="rt-maintab" data-maintab="subconscious">Subconscious Reprogramming</button>
     <button type="button" class="rt-maintab" data-maintab="fitness">Fitness Studio</button>
+    <button type="button" class="rt-maintab" data-maintab="selfcare">Self-Care</button>
   </div>
 
   <div class="rt-maintabpanel active" data-mainpanel="ritual">
@@ -1105,6 +1133,131 @@
       </div>
     </div>
   </div><!-- /rt-maintabpanel[fitness] -->
+
+  <!-- ========================= MAIN TAB: SELF-CARE ========================= -->
+  <div class="rt-maintabpanel" data-mainpanel="selfcare">
+    <div class="bs-toolbar-row">
+      <span class="bs-sync-status" id="sciSyncStatus"></span>
+      <button type="button" class="bs-btn-ghost" id="sciResetBtn">Reset to Default</button>
+    </div>
+    <p class="rt-hint" style="margin:-4px 0 14px;">A dedicated Self-Care system native to Main — its own checklist/journal/meditation/breathwork data, separate from the standalone "Self-Care" page reachable from the top nav.</p>
+
+    <div class="bs-tabs-row" id="sciTabsRow">
+      <button type="button" class="bs-tab" data-scitab="checklist">Checklist</button>
+      <button type="button" class="bs-tab" data-scitab="journal">Journal</button>
+      <button type="button" class="bs-tab" data-scitab="meditation">Meditations &amp; Breathwork</button>
+    </div>
+
+    <!-- TAB: CHECKLIST -->
+    <div class="bs-panel" data-scipanel="checklist">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Self-Care Checklist</div>
+          <div class="bs-section-sub">Small, repeatable things worth doing for yourself.</div>
+        </div>
+      </div>
+      <div class="bs-quickadd-row"><input type="text" id="sciChecklistAddInput" placeholder="Add an item, press Enter…"></div>
+      <div class="bs-list" id="sciChecklistList" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- TAB: JOURNAL -->
+    <div class="bs-panel" data-scipanel="journal" id="sciJournalPanel">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Journal</div>
+          <div class="bs-section-sub">Three templates: Brain Dump (Emotional Processing + Daily Reflection combined), Gratitude, and Day Planner. Linked from the Morning Ritual tab's "Page" step.</div>
+        </div>
+      </div>
+      <div class="bs-section-actions" style="margin:10px 0 4px;">
+        <button type="button" class="bs-btn-primary bs-btn-sm" id="sciNewBraindumpBtn">+ Brain Dump</button>
+        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciNewGratitudeBtn">+ Gratitude</button>
+        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciNewDayplannerBtn">+ Day Planner</button>
+      </div>
+      <div class="bs-list" id="sciJournalList" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- TAB: MEDITATIONS & BREATHWORK -->
+    <div class="bs-panel" data-scipanel="meditation">
+      <div class="sci-db-cols">
+        <div class="bs-section" id="sciMeditationSection">
+          <div class="bs-section-head">
+            <div>
+              <div class="bs-section-title" style="font-size:18px;">Meditations</div>
+              <div class="bs-section-sub">Linked from the Morning Ritual tab's "Sit" step.</div>
+            </div>
+            <div class="bs-section-actions"><button type="button" class="bs-btn-primary bs-btn-sm" id="sciAddMeditationBtn">+ Add</button></div>
+          </div>
+          <div class="bs-list" id="sciMeditationList" style="margin-top:12px;"></div>
+        </div>
+        <div class="bs-section" id="sciBreathworkSection">
+          <div class="bs-section-head">
+            <div>
+              <div class="bs-section-title" style="font-size:18px;">Breathwork</div>
+              <div class="bs-section-sub">Linked from the Morning Ritual tab's "Breath" step.</div>
+            </div>
+            <div class="bs-section-actions"><button type="button" class="bs-btn-primary bs-btn-sm" id="sciAddBreathworkBtn">+ Add</button></div>
+          </div>
+          <div class="bs-list" id="sciBreathworkList" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /rt-maintabpanel[selfcare] -->
+</div>
+
+<div class="modal-bg" id="sciMeditationModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="sciMeditationModalTitle">Add Meditation</h3><button type="button" class="bs-modal-close" id="sciMeditationModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Title</label><input type="text" id="sciMeditationTitleInput" placeholder="e.g. Body Scan — 10 min"></div>
+    <div class="field"><label>Type</label><select id="sciMeditationTypeInput"></select></div>
+    <div class="field"><label>Duration (minutes)</label><input type="number" min="0" id="sciMeditationDurationInput"></div>
+    <div class="field"><label>Link</label><input type="text" id="sciMeditationUrlInput" placeholder="https://…"></div>
+    <div class="field"><label>Description</label><textarea id="sciMeditationDescInput"></textarea></div>
+    <div class="field field-inline"><input type="checkbox" id="sciMeditationFavoriteInput"><label style="margin:0;">Favorite</label></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="sciMeditationModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="sciMeditationModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="sciMeditationModalDelete" style="display:none;">Delete this meditation</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="sciBreathworkModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="sciBreathworkModalTitle">Add Breathwork Technique</h3><button type="button" class="bs-modal-close" id="sciBreathworkModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Name</label><input type="text" id="sciBreathworkNameInput" placeholder="e.g. Box Breathing"></div>
+    <div class="field"><label>Best for</label><select id="sciBreathworkGoalInput"></select></div>
+    <div class="rt-grid3">
+      <div class="field"><label>Inhale (sec)</label><input type="number" min="0" id="sciBreathworkInhaleInput" value="4"></div>
+      <div class="field"><label>Hold (sec)</label><input type="number" min="0" id="sciBreathworkHoldInput" value="4"></div>
+      <div class="field"><label>Exhale (sec)</label><input type="number" min="0" id="sciBreathworkExhaleInput" value="4"></div>
+    </div>
+    <div class="rt-grid2">
+      <div class="field"><label>Hold after exhale (sec)</label><input type="number" min="0" id="sciBreathworkHold2Input" value="4"></div>
+      <div class="field"><label>Cycles</label><input type="number" min="1" id="sciBreathworkCyclesInput" value="6"></div>
+    </div>
+    <div class="field"><label>Description</label><textarea id="sciBreathworkDescInput"></textarea></div>
+    <div class="field field-inline"><input type="checkbox" id="sciBreathworkFavoriteInput"><label style="margin:0;">Favorite</label></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="sciBreathworkModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="sciBreathworkModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="sciBreathworkModalDelete" style="display:none;">Delete this technique</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="sciPacerModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="sciPacerModalTitle">Breathe</h3><button type="button" class="bs-modal-close" id="sciPacerModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="sci-pacer-stage">
+      <div class="sci-pacer-circle" id="sciPacerCircle"><div class="sci-pacer-count" id="sciPacerCount">—</div></div>
+      <div class="sci-pacer-phase" id="sciPacerPhase">Ready</div>
+      <div class="sci-pacer-cycle" id="sciPacerCycle"></div>
+    </div>
+    <div class="bs-modal-actions" style="justify-content:center;">
+      <button type="button" class="bs-btn-secondary" id="sciPacerStartBtn">▶ Start</button>
+      <button type="button" class="bs-btn-ghost" id="sciPacerStopBtn">Stop</button>
+    </div>
+  </div>
 </div>
 
 <div class="fit-media-lightbox-bg" id="fitMediaLightboxBg">
@@ -1386,6 +1539,18 @@ const DEFAULT_STEPS=[
      "**Close quietly:** \"I'm proud of you. Let's go.\" Then walk away. Don't linger and undo it by drifting back into inspecting your face."]}
 ];
 
+// Maps a Running Order step id to the Self-Care main tab section it
+// links out to (Breathe -> Breathwork, Sit -> Meditations, Page -> the
+// Journal, per the explicit request mapping) — declared here, near the
+// top of the script, not inside renderSteps() itself, since it must
+// exist before renderSteps() is ever called at boot (the same temporal-
+// dead-zone mistake gym.html's own BOARD_WIDGET_TYPES bug already
+// demonstrated once for this exact class of ordering error).
+const STEP_SELFCARE_LINKS={
+  brt:{subtab:'meditation',section:'sciBreathworkSection',icon:'🌬️',title:'Open Breathwork'},
+  sit:{subtab:'meditation',section:'sciMeditationSection',icon:'🧘',title:'Open Meditations'},
+  pag:{subtab:'journal',section:'sciJournalPanel',icon:'📓',title:'Open Journal'}
+};
 const SECTION_KEYS=['order','history','five','today','metric','tonight'];
 const SECTION_DOM_ID={order:'rtSecOrder',history:'rtSecHistory',five:'rtSecFive',today:'rtSecToday',metric:'rtSecMetric',tonight:'rtSecTonight'};
 const DEFAULT_LAYOUT=[
@@ -1650,6 +1815,7 @@ function renderSteps(){
           <span class="rt-step-chev">›</span>
         </button>
         ${s.id==='mov'?'<button type="button" class="bs-icon-btn" id="stepFitnessLinkBtn" title="Open Fitness Studio">🏋️</button>':''}
+        ${STEP_SELFCARE_LINKS[s.id]?'<button type="button" class="bs-icon-btn" data-scilink="'+s.id+'" title="'+STEP_SELFCARE_LINKS[s.id].title+'">'+STEP_SELFCARE_LINKS[s.id].icon+'</button>':''}
         <button type="button" class="rt-step-edit" title="Edit step">✎</button>
       </div>
       <div class="rt-step-detail">${(s.detail||[]).map(p=>`<p>${mdLite(p)}</p>`).join('')}</div>`;
@@ -1663,6 +1829,10 @@ function renderSteps(){
     if(s.id==='mov'){
       const fitBtn=el.querySelector('#stepFitnessLinkBtn');
       if(fitBtn) fitBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); switchMainTab('fitness'); document.getElementById('rtMainTabs').scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'start'}); });
+    }
+    if(STEP_SELFCARE_LINKS[s.id]){
+      const sciBtn=el.querySelector('[data-scilink="'+s.id+'"]');
+      if(sciBtn) sciBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); const link=STEP_SELFCARE_LINKS[s.id]; openSelfCareSection(link.subtab, link.section); });
     }
     box.appendChild(el);
     t+=m;
@@ -2243,7 +2413,7 @@ function handleSaveEvent(e) {
 // ============================================================
 function switchMainTab(tab, opts) {
   opts = opts || {};
-  const valid = ['ritual', 'system', 'subconscious', 'fitness'].indexOf(tab) !== -1;
+  const valid = ['ritual', 'system', 'subconscious', 'fitness', 'selfcare'].indexOf(tab) !== -1;
   activeMainTab = valid ? tab : 'ritual';
   document.querySelectorAll('#rtMainTabs .rt-maintab').forEach(function (b) { b.classList.toggle('active', b.dataset.maintab === activeMainTab); });
   document.querySelectorAll('.rt-maintabpanel').forEach(function (p) { p.classList.toggle('active', p.dataset.mainpanel === activeMainTab); });
@@ -2252,6 +2422,7 @@ function switchMainTab(tab, opts) {
   if (activeMainTab === 'system') { renderSelectedGoalsBanner(); renderSysTabContent(); }
   if (activeMainTab === 'subconscious') { renderIdentitySub(); }
   if (activeMainTab === 'fitness' && FIT) { renderFitTabContent(); }
+  if (activeMainTab === 'selfcare' && MSC) { renderSciTabContent(); }
 }
 function renderSysTabContent() {
   if (activeTab === 'goals') renderGoals();
@@ -2263,13 +2434,13 @@ function initMainTabs() {
   try {
     const hash = (location.hash || '').replace('#', '');
     const stored = localStorage.getItem('routine:main_tab');
-    if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(hash) !== -1) startTab = hash;
-    else if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(stored) !== -1) startTab = stored;
+    if (['ritual', 'system', 'subconscious', 'fitness', 'selfcare'].indexOf(hash) !== -1) startTab = hash;
+    else if (['ritual', 'system', 'subconscious', 'fitness', 'selfcare'].indexOf(stored) !== -1) startTab = stored;
   } catch (e) {}
   document.querySelectorAll('#rtMainTabs .rt-maintab').forEach(function (b) { b.addEventListener('click', function () { switchMainTab(b.dataset.maintab); }); });
   window.addEventListener('hashchange', function () {
     const hash = (location.hash || '').replace('#', '');
-    if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(hash) !== -1) switchMainTab(hash, { silentHash: true });
+    if (['ritual', 'system', 'subconscious', 'fitness', 'selfcare'].indexOf(hash) !== -1) switchMainTab(hash, { silentHash: true });
   });
   switchMainTab(startTab, { silentHash: true });
 }
@@ -3688,6 +3859,427 @@ function showFitBootErrorBanner(err) {
 }
 function safeBootFitnessStudio() { try { bootFitnessStudio(); } catch (err) { showFitBootErrorBanner(err); } }
 
+// ============================================================
+// SELF-CARE (5th main tab) — a native, dedicated self-care system inside
+// Main. Separate data/collections from the standalone selfcare.html page
+// of the same name (see CLAUDE.md) — nothing here reads or writes
+// selfcare.html's own `selfcare:` data.
+// ============================================================
+let MSC = null;
+let activeSciTab = 'checklist';
+let editingSciMedId = null, editingSciBrwId = null;
+let sciPacer = { technique: null, phases: [], phaseIdx: 0, phaseStart: 0, cycle: 1, timer: null, running: false };
+
+function switchSciTab(tab) {
+  const panels = document.querySelectorAll('[data-mainpanel="selfcare"] .bs-panel');
+  const valid = Array.prototype.some.call(panels, function (p) { return p.dataset.scipanel === tab; });
+  activeSciTab = valid ? tab : 'checklist';
+  document.querySelectorAll('#sciTabsRow .bs-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.scitab === activeSciTab); });
+  panels.forEach(function (p) { p.classList.toggle('active', p.dataset.scipanel === activeSciTab); });
+  try { localStorage.setItem(MSC.KEYS.activeTab, activeSciTab); } catch (e) {}
+  renderSciTabContent();
+}
+function renderSciTabContent() {
+  if (!MSC) return;
+  if (activeSciTab === 'checklist') renderSciChecklist();
+  else if (activeSciTab === 'journal') renderSciJournal();
+  else if (activeSciTab === 'meditation') { renderSciMeditations(); renderSciBreathwork(); }
+}
+function renderAllSelfCarePanels() { renderSciTabContent(); }
+
+// ---------- CHECKLIST ----------
+function renderSciChecklist() {
+  const box = $('sciChecklistList'); if (!box) return;
+  const sorted = MSC.checklistSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">Nothing on the checklist yet.</div>'; }
+  sorted.forEach(function (item, i) {
+    const row = document.createElement('div'); row.className = 'bs-card sci-check-row' + (item.done ? ' is-done' : '');
+    const check = document.createElement('input'); check.type = 'checkbox'; check.checked = item.done;
+    check.addEventListener('change', function () { MSC.toggleChecklistItem(item.id); renderSciChecklist(); });
+    const text = document.createElement('span'); text.className = 'sci-check-text'; text.textContent = item.text;
+    const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+    const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.ChecklistItems, item.id, -1); renderSciChecklist(); });
+    const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sorted.length - 1;
+    downBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.ChecklistItems, item.id, 1); renderSciChecklist(); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'bs-icon-btn is-del'; delBtn.textContent = '✕';
+    delBtn.addEventListener('click', function () { MSC.ChecklistItems.remove(item.id); renderSciChecklist(); });
+    actions.appendChild(upBtn); actions.appendChild(downBtn); actions.appendChild(delBtn);
+    row.appendChild(check); row.appendChild(text); row.appendChild(actions);
+    box.appendChild(row);
+  });
+}
+function addSciChecklistItem() {
+  const input = $('sciChecklistAddInput');
+  const text = input.value.trim();
+  if (!text) return;
+  MSC.ChecklistItems.add({ text: text, order: MSC.nextOrder(MSC.ChecklistItems.list()) });
+  input.value = '';
+  renderSciChecklist();
+}
+
+// ---------- JOURNAL ----------
+function buildSciJournalSectionEl(entry, section, i, sortedLen) {
+  const card = document.createElement('div'); card.className = 'bs-card bs-note-card';
+  const titleRow = document.createElement('div'); titleRow.className = 'bs-note-title-row';
+  const titleInput = document.createElement('input'); titleInput.className = 'bs-note-title-input'; titleInput.value = section.label;
+  titleInput.addEventListener('blur', function () { MSC.updateJournalSection(entry.id, section.id, { label: this.value }); });
+  const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+  const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+  upBtn.addEventListener('click', function () { MSC.moveJournalSection(entry.id, section.id, -1); renderSciJournal(); });
+  const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sortedLen - 1;
+  downBtn.addEventListener('click', function () { MSC.moveJournalSection(entry.id, section.id, 1); renderSciJournal(); });
+  const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'bs-icon-btn is-del'; delBtn.textContent = '✕';
+  delBtn.addEventListener('click', function () { if (confirm('Delete this section?')) { MSC.removeJournalSection(entry.id, section.id); renderSciJournal(); } });
+  actions.appendChild(upBtn); actions.appendChild(downBtn); actions.appendChild(delBtn);
+  titleRow.appendChild(titleInput); titleRow.appendChild(actions);
+  const body = document.createElement('textarea'); body.className = 'bs-note-body-input'; body.value = section.body; body.rows = 1;
+  const grow = function () { body.style.height = 'auto'; body.style.height = body.scrollHeight + 'px'; };
+  setTimeout(grow, 0);
+  body.addEventListener('input', grow);
+  body.addEventListener('blur', function () { MSC.updateJournalSection(entry.id, section.id, { body: this.value }); });
+  card.appendChild(titleRow); card.appendChild(body);
+  return card;
+}
+function buildSciJournalEntryCard(entry) {
+  const templateLabel = (MSC.JOURNAL_TEMPLATES.find(function (t) { return t.key === entry.template; }) || {}).label || entry.template;
+  const card = document.createElement('div'); card.className = 'bs-card';
+  const top = document.createElement('div'); top.className = 'bs-card-top';
+  const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+  const tag = document.createElement('span'); tag.className = 'bs-tag is-accent'; tag.textContent = templateLabel;
+  const dateSpan = document.createElement('span'); dateSpan.className = 'bs-card-title'; dateSpan.textContent = entry.date;
+  titleWrap.appendChild(tag); titleWrap.appendChild(dateSpan);
+  const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'bs-icon-btn is-del'; delBtn.textContent = '✕';
+  delBtn.addEventListener('click', function () { if (confirm('Delete this journal entry?')) { MSC.JournalEntries.remove(entry.id); renderSciJournal(); } });
+  top.appendChild(titleWrap); top.appendChild(delBtn);
+  card.appendChild(top);
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text'; titleInput.placeholder = 'Untitled entry'; titleInput.value = entry.title;
+  titleInput.style.cssText = 'width:100%;background:transparent;border:none;font-size:13.5px;color:var(--text-primary);margin:6px 0;font-family:var(--font);';
+  titleInput.addEventListener('blur', function () { MSC.JournalEntries.update(entry.id, { title: this.value }); });
+  card.appendChild(titleInput);
+  const sorted = entry.sections.slice().sort(function (a, b) { return a.order - b.order; });
+  sorted.forEach(function (s, i) { card.appendChild(buildSciJournalSectionEl(entry, s, i, sorted.length)); });
+  const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'bs-btn-secondary bs-btn-sm'; addBtn.style.marginTop = '8px'; addBtn.textContent = '+ Add Section';
+  addBtn.addEventListener('click', function () { MSC.addJournalSection(entry.id); renderSciJournal(); });
+  card.appendChild(addBtn);
+  return card;
+}
+function renderSciJournal() {
+  const box = $('sciJournalList'); if (!box) return;
+  const sorted = MSC.journalEntriesSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No journal entries yet — start one above.</div>'; }
+  sorted.forEach(function (entry) { box.appendChild(buildSciJournalEntryCard(entry)); });
+}
+function newSciJournalEntry(template) { MSC.addJournalEntry(template); renderSciJournal(); }
+
+// ---------- MEDITATIONS ----------
+function renderSciMeditationTypeSelect() {
+  const sel = $('sciMeditationTypeInput'); if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '';
+  MSC.MEDITATION_TYPES.forEach(function (t) { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+  sel.value = current || MSC.MEDITATION_TYPES[0];
+}
+function openSciMeditationModal(id) {
+  editingSciMedId = id || null;
+  const m = id ? MSC.Meditations.get(id) : null;
+  renderSciMeditationTypeSelect();
+  $('sciMeditationModalTitle').textContent = m ? 'Edit Meditation' : 'Add Meditation';
+  $('sciMeditationTitleInput').value = m ? m.title : '';
+  $('sciMeditationTypeInput').value = m ? m.type : MSC.MEDITATION_TYPES[0];
+  $('sciMeditationDurationInput').value = m && m.durationMin !== null ? m.durationMin : '';
+  $('sciMeditationUrlInput').value = m ? m.url : '';
+  $('sciMeditationDescInput').value = m ? m.description : '';
+  $('sciMeditationFavoriteInput').checked = m ? m.favorite : false;
+  $('sciMeditationModalDelete').style.display = m ? 'block' : 'none';
+  $('sciMeditationModalBg').classList.add('show');
+}
+function closeSciMeditationModal() { $('sciMeditationModalBg').classList.remove('show'); editingSciMedId = null; }
+function saveSciMeditationModal() {
+  const title = $('sciMeditationTitleInput').value.trim();
+  if (!title) { alert('Give the meditation a title.'); return; }
+  const url = $('sciMeditationUrlInput').value.trim();
+  if (url && !MSC.isValidMediaUrl(url)) { alert('Link must be a valid http(s) URL.'); return; }
+  const durationRaw = $('sciMeditationDurationInput').value;
+  const patch = {
+    title: title, type: $('sciMeditationTypeInput').value,
+    durationMin: durationRaw === '' ? null : (parseInt(durationRaw, 10) || 0),
+    url: url, description: $('sciMeditationDescInput').value.trim(),
+    favorite: $('sciMeditationFavoriteInput').checked
+  };
+  if (editingSciMedId) MSC.Meditations.update(editingSciMedId, patch);
+  else MSC.Meditations.add(Object.assign({}, patch, { order: MSC.nextOrder(MSC.Meditations.list()) }));
+  closeSciMeditationModal();
+  renderSciMeditations();
+}
+function deleteSciMeditationModal() {
+  if (!editingSciMedId) return;
+  if (!confirm('Delete this meditation?')) return;
+  MSC.Meditations.remove(editingSciMedId);
+  closeSciMeditationModal();
+  renderSciMeditations();
+}
+function buildSciMeditationCard(m, i, sortedLen) {
+  const card = document.createElement('div'); card.className = 'bs-card';
+  const top = document.createElement('div'); top.className = 'bs-card-top';
+  const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+  titleWrap.innerHTML = '<span class="bs-card-title">' + escapeHtml(m.title || 'Untitled') + '</span><span class="bs-tag">' + escapeHtml(m.type) + '</span>' + (m.durationMin ? '<span class="bs-tag">' + m.durationMin + ' min</span>' : '');
+  const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+  const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'bs-icon-btn is-star' + (m.favorite ? ' is-active' : ''); favBtn.textContent = m.favorite ? '★' : '☆';
+  favBtn.addEventListener('click', function () { MSC.Meditations.update(m.id, { favorite: !m.favorite }); renderSciMeditations(); });
+  const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-icon-btn'; editBtn.textContent = '✎';
+  editBtn.addEventListener('click', function () { openSciMeditationModal(m.id); });
+  const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+  upBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Meditations, m.id, -1); renderSciMeditations(); });
+  const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sortedLen - 1;
+  downBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Meditations, m.id, 1); renderSciMeditations(); });
+  actions.appendChild(favBtn); actions.appendChild(editBtn); actions.appendChild(upBtn); actions.appendChild(downBtn);
+  top.appendChild(titleWrap); top.appendChild(actions);
+  card.appendChild(top);
+  if (m.description) { const body = document.createElement('div'); body.className = 'bs-card-body'; body.textContent = m.description; card.appendChild(body); }
+  if (MSC.isValidMediaUrl(m.url)) {
+    const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'bs-btn-secondary bs-btn-sm'; openBtn.style.marginTop = '6px'; openBtn.textContent = '↗ Open';
+    openBtn.addEventListener('click', function () { window.open(m.url, '_blank', 'noopener'); });
+    card.appendChild(openBtn);
+  }
+  return card;
+}
+function renderSciMeditations() {
+  const box = $('sciMeditationList'); if (!box) return;
+  const sorted = MSC.meditationsSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No meditations logged yet.</div>'; }
+  sorted.forEach(function (m, i) { box.appendChild(buildSciMeditationCard(m, i, sorted.length)); });
+}
+
+// ---------- BREATHWORK ----------
+function renderSciBreathworkGoalSelect() {
+  const sel = $('sciBreathworkGoalInput'); if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '';
+  MSC.BREATHWORK_GOALS.forEach(function (g) { const opt = document.createElement('option'); opt.value = g; opt.textContent = g; sel.appendChild(opt); });
+  sel.value = current || MSC.BREATHWORK_GOALS[0];
+}
+function openSciBreathworkModal(id) {
+  editingSciBrwId = id || null;
+  const b = id ? MSC.Breathwork.get(id) : null;
+  renderSciBreathworkGoalSelect();
+  $('sciBreathworkModalTitle').textContent = b ? 'Edit Breathwork Technique' : 'Add Breathwork Technique';
+  $('sciBreathworkNameInput').value = b ? b.name : '';
+  $('sciBreathworkGoalInput').value = b ? b.goal : MSC.BREATHWORK_GOALS[0];
+  $('sciBreathworkInhaleInput').value = b ? b.inhaleSec : 4;
+  $('sciBreathworkHoldInput').value = b ? b.holdSec : 4;
+  $('sciBreathworkExhaleInput').value = b ? b.exhaleSec : 4;
+  $('sciBreathworkHold2Input').value = b ? b.hold2Sec : 4;
+  $('sciBreathworkCyclesInput').value = b ? b.cycles : 6;
+  $('sciBreathworkDescInput').value = b ? b.description : '';
+  $('sciBreathworkFavoriteInput').checked = b ? b.favorite : false;
+  $('sciBreathworkModalDelete').style.display = b ? 'block' : 'none';
+  $('sciBreathworkModalBg').classList.add('show');
+}
+function closeSciBreathworkModal() { $('sciBreathworkModalBg').classList.remove('show'); editingSciBrwId = null; }
+function saveSciBreathworkModal() {
+  const name = $('sciBreathworkNameInput').value.trim();
+  if (!name) { alert('Give the technique a name.'); return; }
+  const patch = {
+    name: name, goal: $('sciBreathworkGoalInput').value,
+    inhaleSec: parseInt($('sciBreathworkInhaleInput').value, 10) || 0,
+    holdSec: parseInt($('sciBreathworkHoldInput').value, 10) || 0,
+    exhaleSec: parseInt($('sciBreathworkExhaleInput').value, 10) || 0,
+    hold2Sec: parseInt($('sciBreathworkHold2Input').value, 10) || 0,
+    cycles: parseInt($('sciBreathworkCyclesInput').value, 10) || 1,
+    description: $('sciBreathworkDescInput').value.trim(),
+    favorite: $('sciBreathworkFavoriteInput').checked
+  };
+  if (editingSciBrwId) MSC.Breathwork.update(editingSciBrwId, patch);
+  else MSC.Breathwork.add(Object.assign({}, patch, { order: MSC.nextOrder(MSC.Breathwork.list()) }));
+  closeSciBreathworkModal();
+  renderSciBreathwork();
+}
+function deleteSciBreathworkModal() {
+  if (!editingSciBrwId) return;
+  if (!confirm('Delete this technique?')) return;
+  MSC.Breathwork.remove(editingSciBrwId);
+  closeSciBreathworkModal();
+  renderSciBreathwork();
+}
+function buildSciBreathworkCard(b, i, sortedLen) {
+  const card = document.createElement('div'); card.className = 'bs-card';
+  const top = document.createElement('div'); top.className = 'bs-card-top';
+  const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+  titleWrap.innerHTML = '<span class="bs-card-title">' + escapeHtml(b.name || 'Untitled') + '</span><span class="bs-tag">' + escapeHtml(b.goal) + '</span>';
+  const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+  const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'bs-icon-btn is-star' + (b.favorite ? ' is-active' : ''); favBtn.textContent = b.favorite ? '★' : '☆';
+  favBtn.addEventListener('click', function () { MSC.Breathwork.update(b.id, { favorite: !b.favorite }); renderSciBreathwork(); });
+  const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-icon-btn'; editBtn.textContent = '✎';
+  editBtn.addEventListener('click', function () { openSciBreathworkModal(b.id); });
+  const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+  upBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Breathwork, b.id, -1); renderSciBreathwork(); });
+  const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sortedLen - 1;
+  downBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Breathwork, b.id, 1); renderSciBreathwork(); });
+  actions.appendChild(favBtn); actions.appendChild(editBtn); actions.appendChild(upBtn); actions.appendChild(downBtn);
+  top.appendChild(titleWrap); top.appendChild(actions);
+  card.appendChild(top);
+  const meta = document.createElement('div'); meta.className = 'sci-brw-meta';
+  meta.textContent = b.inhaleSec + '-' + b.holdSec + '-' + b.exhaleSec + '-' + b.hold2Sec + ' · ' + b.cycles + ' cycles';
+  card.appendChild(meta);
+  if (b.description) { const body = document.createElement('div'); body.className = 'bs-card-body'; body.textContent = b.description; card.appendChild(body); }
+  const startBtn = document.createElement('button'); startBtn.type = 'button'; startBtn.className = 'bs-btn-secondary bs-btn-sm'; startBtn.style.marginTop = '6px'; startBtn.textContent = '▶ Start';
+  startBtn.addEventListener('click', function () { openSciPacer(b.id); });
+  card.appendChild(startBtn);
+  return card;
+}
+function renderSciBreathwork() {
+  const box = $('sciBreathworkList'); if (!box) return;
+  const sorted = MSC.breathworkSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No breathwork techniques logged yet.</div>'; }
+  sorted.forEach(function (b, i) { box.appendChild(buildSciBreathworkCard(b, i, sorted.length)); });
+}
+
+// ---------- BREATHWORK PACER — timestamp-based (not a naive tick
+// counter) so a backgrounded/throttled tab can't drift, same precedent
+// gym.html's own workout timer already established. ----------
+function stopSciPacer(){
+  if (sciPacer.timer) clearInterval(sciPacer.timer);
+  sciPacer.timer = null; sciPacer.running = false;
+}
+function openSciPacer(breathworkId){
+  const b = MSC.Breathwork.get(breathworkId);
+  if (!b) return;
+  stopSciPacer();
+  const phases = [];
+  if (b.inhaleSec > 0) phases.push({ name: 'Inhale', seconds: b.inhaleSec, scale: 1 });
+  if (b.holdSec > 0) phases.push({ name: 'Hold', seconds: b.holdSec, scale: 1 });
+  if (b.exhaleSec > 0) phases.push({ name: 'Exhale', seconds: b.exhaleSec, scale: 0.7 });
+  if (b.hold2Sec > 0) phases.push({ name: 'Hold', seconds: b.hold2Sec, scale: 0.7 });
+  sciPacer = { technique: b, phases: phases.length ? phases : [{ name: 'Inhale', seconds: 4, scale: 1 }], phaseIdx: 0, phaseStart: 0, cycle: 1, timer: null, running: false };
+  $('sciPacerModalTitle').textContent = b.name || 'Breathe';
+  $('sciPacerCircle').style.transform = 'scale(0.7)';
+  $('sciPacerPhase').textContent = 'Ready';
+  $('sciPacerCount').textContent = '—';
+  $('sciPacerCycle').textContent = 'Cycle 1 of ' + b.cycles;
+  $('sciPacerModalBg').classList.add('show');
+}
+function closeSciPacer(){ stopSciPacer(); $('sciPacerModalBg').classList.remove('show'); }
+function startSciPacer(){
+  if (!sciPacer.technique || sciPacer.running) return;
+  sciPacer.running = true; sciPacer.phaseIdx = 0; sciPacer.cycle = 1;
+  sciPacer.phaseStart = Date.now();
+  applySciPacerPhase();
+  sciPacer.timer = setInterval(tickSciPacer, 200);
+}
+function applySciPacerPhase(){
+  const phase = sciPacer.phases[sciPacer.phaseIdx];
+  $('sciPacerCircle').style.transitionDuration = phase.seconds + 's';
+  $('sciPacerCircle').style.transform = 'scale(' + phase.scale + ')';
+  $('sciPacerPhase').textContent = phase.name;
+  $('sciPacerCycle').textContent = 'Cycle ' + sciPacer.cycle + ' of ' + sciPacer.technique.cycles;
+}
+function tickSciPacer(){
+  if (!sciPacer.running) return;
+  const phase = sciPacer.phases[sciPacer.phaseIdx];
+  const elapsed = (Date.now() - sciPacer.phaseStart) / 1000;
+  const remaining = Math.max(0, Math.ceil(phase.seconds - elapsed));
+  $('sciPacerCount').textContent = remaining;
+  if (elapsed >= phase.seconds) {
+    sciPacer.phaseIdx++;
+    if (sciPacer.phaseIdx >= sciPacer.phases.length) {
+      sciPacer.phaseIdx = 0;
+      sciPacer.cycle++;
+      if (sciPacer.cycle > sciPacer.technique.cycles) {
+        stopSciPacer();
+        $('sciPacerPhase').textContent = '✓ Nice work';
+        $('sciPacerCount').textContent = '—';
+        return;
+      }
+    }
+    sciPacer.phaseStart = Date.now() - (elapsed - phase.seconds) * 1000;
+    applySciPacerPhase();
+  }
+}
+
+function resetSelfCare() {
+  if (!confirm('Reset Self-Care (Checklist, Journal, Meditations, and Breathwork) to its defaults? This deletes everything currently in it.')) return;
+  MSC.seedDefaultData();
+  renderSciTabContent();
+}
+
+// ---------- LINKS FROM MORNING RITUAL (Breathe/Sit/Page steps) ----------
+function openSelfCareSection(subtab, sectionId) {
+  switchMainTab('selfcare');
+  switchSciTab(subtab);
+  setTimeout(function () {
+    const target = sectionId ? document.getElementById(sectionId) : document.getElementById('sciTabsRow');
+    if (target) target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }, 60);
+}
+
+// ---------- SEED-RACE SAFETY ----------
+function isSelfCareEmptyEverywhere() { return MSC.isEmpty(); }
+let selfcareRemoteAppliedOnce = false;
+function maybeSeedSelfCareAfterSyncAttempt() {
+  if (selfcareRemoteAppliedOnce) return;
+  if (!isSelfCareEmptyEverywhere()) return;
+  MSC.seedIfEmpty();
+  if (activeMainTab === 'selfcare') renderSciTabContent();
+}
+function setupSelfCareSeedRaceSafety() {
+  if (typeof initCloudSync !== 'function') { MSC.seedIfEmpty(); return; }
+  setTimeout(maybeSeedSelfCareAfterSyncAttempt, 5000);
+}
+
+function bootSelfCareMain() {
+  MSC = window.MainSelfCareData;
+  if (!MSC) return;
+
+  let startTab = 'checklist';
+  try { startTab = localStorage.getItem(MSC.KEYS.activeTab) || 'checklist'; } catch (e) {}
+
+  document.querySelectorAll('#sciTabsRow .bs-tab').forEach(function (b) { b.addEventListener('click', function () { switchSciTab(b.dataset.scitab); }); });
+  $('sciResetBtn').addEventListener('click', resetSelfCare);
+
+  $('sciChecklistAddInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') addSciChecklistItem(); });
+
+  $('sciNewBraindumpBtn').addEventListener('click', function () { newSciJournalEntry('braindump'); });
+  $('sciNewGratitudeBtn').addEventListener('click', function () { newSciJournalEntry('gratitude'); });
+  $('sciNewDayplannerBtn').addEventListener('click', function () { newSciJournalEntry('dayplanner'); });
+
+  $('sciAddMeditationBtn').addEventListener('click', function () { openSciMeditationModal(null); });
+  $('sciMeditationModalCloseBtn').addEventListener('click', closeSciMeditationModal);
+  $('sciMeditationModalCancel').addEventListener('click', closeSciMeditationModal);
+  $('sciMeditationModalBg').addEventListener('click', function (e) { if (e.target === this) closeSciMeditationModal(); });
+  $('sciMeditationModalSave').addEventListener('click', saveSciMeditationModal);
+  $('sciMeditationModalDelete').addEventListener('click', deleteSciMeditationModal);
+
+  $('sciAddBreathworkBtn').addEventListener('click', function () { openSciBreathworkModal(null); });
+  $('sciBreathworkModalCloseBtn').addEventListener('click', closeSciBreathworkModal);
+  $('sciBreathworkModalCancel').addEventListener('click', closeSciBreathworkModal);
+  $('sciBreathworkModalBg').addEventListener('click', function (e) { if (e.target === this) closeSciBreathworkModal(); });
+  $('sciBreathworkModalSave').addEventListener('click', saveSciBreathworkModal);
+  $('sciBreathworkModalDelete').addEventListener('click', deleteSciBreathworkModal);
+
+  $('sciPacerModalCloseBtn').addEventListener('click', closeSciPacer);
+  $('sciPacerModalBg').addEventListener('click', function (e) { if (e.target === this) closeSciPacer(); });
+  $('sciPacerStartBtn').addEventListener('click', startSciPacer);
+  $('sciPacerStopBtn').addEventListener('click', stopSciPacer);
+
+  switchSciTab(startTab);
+  setupSelfCareSeedRaceSafety();
+}
+function showSciBootErrorBanner(err) {
+  try {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#3a0d0d;color:#ffdada;padding:14px 16px;font:13px/1.5 monospace;white-space:pre-wrap;';
+    bar.textContent = 'Self-Care failed to load: ' + (err && err.message ? err.message : err);
+    document.body.appendChild(bar);
+  } catch (e2) {}
+}
+function safeBootSelfCareMain() { try { bootSelfCareMain(); } catch (err) { showSciBootErrorBanner(err); } }
+
 function bootSystemMerge() {
   DB = window.SystemData;
   if (!DB) return;
@@ -3802,14 +4394,16 @@ document.addEventListener('DOMContentLoaded', function () {
   wireSectionSortable();
   safeBootSystemMerge();
   safeBootFitnessStudio();
+  safeBootSelfCareMain();
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'goals',
-    syncedPrefixes: ['routine:', 'system:', 'fitness:'],
+    syncedPrefixes: ['routine:', 'system:', 'fitness:', 'mainselfcare:'],
     onApplied: function () {
       load(); wireStepsSortable(); wireFiveSortable(); wireSectionSortable();
       if (DB) { systemRemoteAppliedOnce = true; renderAllSystemPanels(); }
       if (FIT) { fitnessRemoteAppliedOnce = true; renderAllFitnessPanels(); }
+      if (MSC) { selfcareRemoteAppliedOnce = true; renderAllSelfCarePanels(); }
     }
   });
 });

@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `home.html` | **This file was deleted** (see the "Delete Home tab" changelog entry) — this row is stale left over from an earlier pass and is flagged rather than silently removed, since a full re-audit of this table wasn't in scope for the session that noticed. Its former role (topbar's leading pill) now belongs to `index.html`; every page it used to embed still exists as its own standalone page, untouched by its removal. |
-| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now four top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main, genuinely separate data from the standalone `gym.html` page of the same name: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
+| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now five top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below, and the "Breath"/"Sit"/"Page" steps each carry their own small button jumping into the Self-Care tab below — Breath → Breathwork, Sit → Meditations, Page → the Journal), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main, genuinely separate data from the standalone `gym.html` page of the same name: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry), and **Self-Care** (new, native to this page — companion file `mainselfcare-data.js` — a dedicated self-care system inside Main, genuinely separate data from the standalone `selfcare.html` page of the same name: a Checklist, a Journal with three templates — Brain Dump (Emotional Processing + Daily Reflection combined into one), Gratitude, and Day Planner — each generating a different default set of editable, reorderable, generate-more-on-demand sections, and a Meditations + Breathwork page holding two genuinely separate databases side by side, the latter with a real animated breathing pacer — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
 | `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
@@ -199,7 +199,7 @@ page's CSS is self-contained in its own `<style>` block):
 
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
-   | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:', 'fitness:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab), everything under `system:` (the Top Goals/Your System/Three Core Systems/Identity Shifting merge — see that changelog entry — the Your System and Subconscious Reprogramming tabs), **and everything under `fitness:`** (`fitness:templates`, `fitness:equipment`, `fitness:progression`, `fitness:day:<date>`, `fitness:active_tab`, `fitness:active_day`, `fitness:seeded` — the Fitness Studio tab, see that changelog entry) — confirmed directly in the live file, not assumed |
+   | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:', 'fitness:', 'mainselfcare:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab), everything under `system:` (the Top Goals/Your System/Three Core Systems/Identity Shifting merge — see that changelog entry — the Your System and Subconscious Reprogramming tabs), everything under `fitness:` (`fitness:templates`, `fitness:equipment`, `fitness:progression`, `fitness:day:<date>`, `fitness:active_tab`, `fitness:active_day`, `fitness:seeded` — the Fitness Studio tab, see that changelog entry), **and everything under `mainselfcare:`** (`mainselfcare:checklist`, `mainselfcare:journalEntries`, `mainselfcare:meditations`, `mainselfcare:breathwork`, `mainselfcare:active_tab`, `mainselfcare:seeded` — the Self-Care tab, deliberately a different prefix than the standalone `selfcare.html` page's own `selfcare:` prefix so the two can never collide, see that changelog entry) — confirmed directly in the live file, not assumed |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
@@ -9438,4 +9438,143 @@ both as originally phrased assumed a backend this app doesn't have):
     review, deleting equipment and confirming the reference is nulled
     rather than the exercise disappearing, comparing two logged
     sessions, and clicking the Move step's 🏋️ button). A real
+    click-through is recommended before relying on this feature heavily.
+
+- **Main (`index.html`) gained a 5th main tab: Self-Care — a dedicated,
+  native self-care system, genuinely separate from the standalone
+  `selfcare.html` page of the same name.** Per an explicit request for a
+  self-care checklist, a Journal (Brain Dump/Gratitude/Day Planner
+  templates) linked from the "Brain Dump" of the Morning Ritual, and a
+  Meditations + Breathwork page — with the Ritual tab's Breathe/Sit/Page
+  steps linking back to it. Genuinely new companion file,
+  `mainselfcare-data.js` (same conventions as `fitness-data.js`/
+  `system-data.js`) — every key it defines is `mainselfcare:`-prefixed
+  (deliberately a *different* prefix than the standalone `selfcare.html`
+  page's own `selfcare:` prefix, so the two can never collide even
+  though `initCloudSync`'s `syncedPrefixes` is a flat list — reusing
+  `selfcare:` here would have risked two unrelated pages' collections
+  clashing under the same key names), so the existing
+  `initCloudSync({ appKey: 'goals', syncedPrefixes: [...] })` call in
+  `index.html` covers it with zero new sync mechanism once
+  `'mainselfcare:'` was added to that list.
+  - **Confirmed reading of "the Brain Dump Task"**: the Morning Ritual's
+    Running Order has no step literally named "Brain Dump" — but the
+    pre-existing "Page" step's own detail text already reads "Brain dump
+    whatever's loud, then plan the day," and the request separately named
+    Breathe/Sit/Page as the three steps linking into this tab, with
+    Breathe and Sit each given an explicit destination (Breathwork,
+    Meditations). By elimination, "the Brain Dump Task" is this app's own
+    nickname for the Page step, and Page's link therefore opens the
+    Journal — not a link out to the standalone `braindump.html` page,
+    which is a different, unrelated feature this request never named.
+  - **Self-Care Checklist** (`mainselfcare:checklist`) — a plain CRUD
+    checklist (add via a quick-add input, check off, delete, up/down
+    reorder) — the simplest of the three sections, since the request
+    gave no further shape for it beyond "a self-care checklist," matching
+    this app's own simplest existing precedent for the same idea (Dream
+    Board's Checklist widget has no forced daily reset either).
+  - **Journal** (`mainselfcare:journalEntries`) — three "+ New" buttons,
+    one per template, each creating an entry pre-populated with a
+    different default set of labeled sections
+    (`defaultSectionsForTemplate()`): **Brain Dump** combines Emotional
+    Processing ("what am I feeling, and why?") and Daily Reflection
+    ("what happened today, what went well, what didn't, what did I
+    learn?") into one entry's two sections, exactly as the request
+    specified; **Gratitude** ("what am I grateful for today?" / "why does
+    it matter?"); **Day Planner** ("top priorities" / "schedule / time
+    blocks" / "notes"). Every section is independently editable (title +
+    an autosizing body, both autosave on blur), reorderable (up/down
+    arrows), deletable, and a "+ Add Section" button generates more —
+    the same "generated, editable, reorderable notes sections on demand"
+    pattern already established elsewhere in this app (`business.html`'s
+    Platform Detail pages, `system.html`'s Page Notes), reused rather
+    than invented fresh a third time.
+  - **Meditations + Breathwork** — "both should be separate Databases but
+    on the same page" was read literally: one sub-tab
+    (`data-scitab="meditation"`), two independent collections
+    (`mainselfcare:meditations`/`mainselfcare:breathwork`) rendered
+    side by side in their own column each (`.sci-db-cols`, collapsing to
+    stacked on narrow viewports), each with its own Add button, its own
+    card list, and its own CRUD modal — never merged into one list, the
+    same "genuinely separate databases on one page" precedent
+    `aitech.html`'s Models/Prompts and `learning.html`'s Topics/Resources
+    already established. **Meditations**: title, a fixed type list,
+    duration, a paste-a-link URL (validated http(s)-only, same
+    `isValidMediaUrl()` guard every other link field in this app already
+    uses), a description, a favorite star, and an "↗ Open" button
+    (`window.open(url, '_blank', 'noopener')`) — closely mirroring
+    `selfcare.html`'s own Meditations tab, but genuinely separate data.
+    **Breathwork**: name, a "best for" goal (Calm/Focus/Sleep/In the
+    moment/Other), a 4-phase seconds pattern (inhale/hold/exhale/hold —
+    any phase can be 0 to skip it), a cycle count, a description, and a
+    favorite star — same field shape as `selfcare.html`'s own Anxiety >
+    Breathwork database, a small independent copy of it, not shared data.
+  - **Breathing pacer** (`#sciPacerModalBg`) — a real, working animated
+    pacer, not just a static list: a "▶ Start" button per technique opens
+    a modal with a circle that grows on inhale, holds, and shrinks on
+    exhale/hold (a single CSS `transition` per phase change, not a
+    frame-by-frame JS animation — this app's own established no-
+    animation-library convention), a phase label, a live countdown
+    number, and a cycle counter. Phase advancement is timestamp-based
+    (`Date.now()` diffs on a 200ms tick, corrected for tick-interval
+    overshoot on every advance), the same drift-proofing precedent
+    `gym.html`'s own workout timer and `selfcare.html`'s own Anxiety
+    pacer already established — a backgrounded/throttled tab can't
+    desync the countdown from real elapsed time. Completing all cycles
+    shows a small "✓ Nice work" state instead of silently stopping.
+  - **Breathe/Sit/Page step links** — `renderSteps()` gained a small
+    `STEP_SELFCARE_LINKS` lookup (declared near the top of the script,
+    before `load()`/`renderSteps()` are ever called — the same
+    temporal-dead-zone mistake `gym.html`'s own `BOARD_WIDGET_TYPES` bug
+    already demonstrated once, deliberately avoided here from the start)
+    mapping `brt`→Breathwork, `sit`→Meditations, `pag`→the Journal, each
+    rendering a small icon button (🌬️/🧘/📓) next to that step's existing
+    Edit (✎) button. Clicking one calls a new shared
+    `openSelfCareSection(subtab, sectionId)` — switches to the Self-Care
+    main tab, switches to the right sub-tab, and scrolls the named
+    section into view — the same "jump to and reveal the right spot"
+    shape `jumpToRitual()` already established for the Subconscious
+    Reprogramming tab's own Quick Links, just pointed the other
+    direction (Ritual → Self-Care instead of Subconscious → Ritual). No
+    other step gained a button, and none of the three steps' own name/
+    detail text/schedule slot were touched.
+  - **Palette**: no new tokens — every component (checklist rows, journal
+    entry/section cards, meditation/breathwork cards) reuses the existing
+    `.bs-*` vocabulary verbatim; the only genuinely new CSS is the
+    pacer's circle/phase/count/cycle display and a two-column layout for
+    the Meditations/Breathwork sub-tab, both built entirely from this
+    page's existing `--bg-card`/`--text-*`/`--border`/`--accent*` aliases,
+    per DO NOT MODIFY rule 2.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]:
+    `bootSelfCareMain()` is wrapped in try/catch
+    (`safeBootSelfCareMain()`), matching the exact precedent
+    `system.html`'s/`gym.html`'s/`fitness-data.js`'s own boot-error
+    entries already established.
+  - **Empty-storage seed-race safety** (`maybeSeedSelfCareAfterSyncAttempt()`,
+    deferred 5 seconds behind `initCloudSync`'s cloud pull, or immediate
+    if the Supabase SDK never loaded) — same reasoning as every other
+    page in this app: seeding default checklist/journal/meditation/
+    breathwork data before the cloud pull has a real chance to answer
+    could push a freshly-seeded set to Supabase and clobber another
+    device's real data. Seed data (5 checklist items, 2 meditations, 2
+    breathwork techniques) is a small starting point, not copied from
+    any reference, fully editable/deletable.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session was available in this environment this round (no
+    `node`/`python`/`python3`, no reachable headless-browser session), so
+    this was verified statically only, the same reduced-guarantee
+    fallback several other entries in this file already disclose for
+    this exact class of limitation: brace/paren balance confirmed on both
+    `mainselfcare-data.js` and the newly-added portion of `index.html`'s
+    inline script; zero duplicate DOM ids introduced; every new `$('id')`
+    reference cross-matched against the newly-added HTML element ids with
+    nothing unresolved. **Not verified this way**: an actual click-through
+    (adding/checking/reordering a checklist item, creating one entry per
+    journal template and confirming each gets the right default sections,
+    editing/reordering/adding sections on an entry, adding a meditation
+    and a breathwork technique, starting the pacer and watching it
+    actually count down through a full cycle including the "✓ Nice work"
+    completion state, and clicking each of the Breathe/Sit/Page step
+    buttons to confirm they land in the right sub-tab/section). A real
     click-through is recommended before relying on this feature heavily.
