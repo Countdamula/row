@@ -29,7 +29,6 @@
       label: 'Command Center',
       items: [
         { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true },
-        { href: 'system.html', icon: '⚙️', label: 'Build Your System', id: 'topbarSystem' },
         { href: 'mainpillar.html', icon: '🎮', label: 'Main Pillar', id: 'topbarMainPillar' },
         { href: 'tasks.html', icon: '🗂️', label: 'Tasks', id: 'topbarTasksDb' },
         { href: 'tasksnotes.html', icon: '✅', label: 'Tasks & Notes', id: 'topbarTasksNotes' },

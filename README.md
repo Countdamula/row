@@ -15,7 +15,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | File | What it is |
 |---|---|
 | [home.html](home.html) | Home — the hub. One continuous, scrollable page: a cover photo, a native Weekly Schedule, a native Subconscious Reprogramming section, then Main / Dream Board / Self-Care / Tasks & Notes / AI & Tech / Main Pillar / Household / Brain Dump embedded inline (each also still exists as its own standalone page below) |
-| [index.html](index.html) | Main — Goals tracker (recurring habits + streaks, a freeform daily checklist, monthly/yearly goals with an allocation engine, a daily journal note) |
+| [index.html](index.html) | Main — a Morning Call Sheet ritual (Running Order, Beliefs, Today/Tonight journals), now combined with three tabs: Morning Ritual (the above), Your System (Top Goals, daily/weekly Actions, Written/Visual/Mental Core Systems), and Subconscious Reprogramming (Identity Shifting — Anchors/Future Self Vision/Challenges — plus quick links back into the Ritual tab) |
 | [finance.html](finance.html) | Finances |
 | [gym.html](gym.html) | Fitness Studio — progressive overload gym tracker |
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
@@ -29,7 +29,6 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [aitech.html](aitech.html) | AI & Tech — an AI Models gallery + a linked Prompts database |
 | [tasksnotes.html](tasksnotes.html) | Tasks & Notes — Links / Notes / Tasks |
 | [mainpillar.html](mainpillar.html) | Main Pillar — gamified daily command center (Whoop biometrics, quest-style habits, tasks, AI journal/briefs, Weekly/Monthly/Year dashboards, Smart Goal Allocation, Favorites archive) |
-| [system.html](system.html) | Build Your System — Top 10 Goals, a daily/weekly action system with a Minimum Viable Action per habit, Written/Visual/Mental Core Systems, and an Identity Shifting workspace (anchors, a Future Self Vision, install-through-action challenges) |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 

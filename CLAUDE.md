@@ -25,8 +25,8 @@ Vercel's static server) — see README.md.
 **Files, one per page:**
 | File | Page |
 |---|---|
-| `home.html` | Home — the dashboard's hub, and the topbar's leading pill. One continuous, scrollable page (not a hidden-tab-panel switcher — see changelog), with an editable cover photo, a native Weekly Schedule (per-task Mon–Sun checkboxes that reset each week, a progress bar, notes, filterable by day), a native Subconscious Reprogramming section (a daily ritual checklist, an Affirmations gallery with a practice-streak counter, and freeform Notes & Scripts), then Dream Board / Self-Care / Tasks & Notes / AI & Tech / Main / Main Pillar / Household / Brain Dump embedded inline, unmodified, in lazy-loaded, auto-resizing same-origin iframes — every one of those eight still exists as its own full standalone page too, "keeping the original tabs just in case" (rebuilt — see changelog) |
-| `index.html` | Main — Goals command center: today summary, recurring habits + streaks, freeform daily checklist, monthly/yearly goals with an allocation engine, and a daily journal note. This is the site's root/default document (see §1's "Routing" note). **Stale as of the Tasks-tab changelog entry near the bottom of this file: the live `index.html` no longer matches this description at all** — it's now a single-purpose "Morning Call Sheet" (a daily self-talk/affirmation ritual: a Running Order of steps, a Beliefs database, Today/Tonight journal entries, a practice log), storing everything under a `routine:` prefix (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:`. Flagged, not silently rewritten here — this row (and §4's matching `goals` row) needs a real re-audit pass of its own, out of scope for the session that found it |
+| `home.html` | **This file was deleted** (see the "Delete Home tab" changelog entry) — this row is stale left over from an earlier pass and is flagged rather than silently removed, since a full re-audit of this table wasn't in scope for the session that noticed. Its former role (topbar's leading pill) now belongs to `index.html`; every page it used to embed still exists as its own standalone page, untouched by its removal. |
+| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now three top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), and **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a new Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before this merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
 | `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
@@ -41,8 +41,7 @@ Vercel's static server) — see README.md.
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
-| `system.html` | Build Your System — a goal-narrowing/habit-installation framework page: Top 10 Goals (up to 3 flaggable as your active selection — see changelog), Your System (daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun completion tracker), Three Core Systems (Written = a read-only recap of Goals/Daily/Weekly habits plus an editable Repeatable Processes database, Visual = the live action tracker plus an editable Visual Tools database, Mental = a category-filterable Mental System Entries database), and Identity Shifting (Identity Anchors, a single evolving guided Future Self Vision record, and Install-Through-Action Challenges — each of these three also has its own editable Reflection Prompts + copy-ready AI Prompts database). Every one of the 8 tabs/subpages also has its own "+ Generate Notes Section" freeform notes database at the top. Re-themed to match Main's (`index.html`) near-black/warm-gold frosted-glass-card aesthetic, with a matching editable cover-photo hero (upload/change/remove, page-wide blurred backdrop) — see changelog. `system.html` + `system-data.js`, its own top-level page/nav pill, its own `system:*` data (new — see changelog) |
-| `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`) and System's Actions + Challenges (`system:actions`/`system:challenges`) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
+| `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`) and System's Actions + Challenges (`system:actions`/`system:challenges`, still that exact prefix — see the merge changelog entry on why the prefix name didn't change even though `system.html` itself did) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -200,7 +199,7 @@ page's CSS is self-contained in its own `<style>` block):
 
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
-   | `goals` | `index.html` | everything prefixed `goals:` — **stale, see the flagged note on `index.html`'s own row in §1**: the live page writes nothing under `goals:` anymore. Its actual current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:'] })` call still uses the `goals` key name (unchanged) but now syncs everything under `routine:` instead (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`) — confirmed directly in the live file, not assumed |
+   | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab) **and, since the Top Goals/Your System/Three Core Systems/Identity Shifting merge, everything under `system:` too** (see that changelog entry — the Your System and Subconscious Reprogramming tabs) — confirmed directly in the live file, not assumed |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
@@ -214,8 +213,8 @@ page's CSS is self-contained in its own `<style>` block):
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
-   | `system` | `system.html` | everything prefixed `system:` (`system:goals`, `system:actions`, `system:processes`, `system:visualTools`, `system:mentalEntries`, `system:anchors`, `system:vision`, `system:challenges`, `system:pageNotes`, `system:identityPrompts`, `system:active_tab`, `system:seeded`) — new (see changelog) |
-   | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs` from `index.html`'s own `goals` row and `system:actions`/`system:challenges` from `system.html`'s own `system` row, to build imported `TaskItem` copies — those two rows' own sync/ownership are completely unaffected |
+   | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
+   | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs` and `system:actions`/`system:challenges`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entry — the `system:` prefix and its data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -265,12 +264,15 @@ using `sync.js`.
 | Learning & Knowledge Hub | 📚 `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
 | Main Pillar | 🎮 `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (briefly deleted, then restored from a dangling git blob since it had never been committed — see changelog) |
-| Build Your System | ⚙️ `SYSTEM` → `system.html` | `system.html` + `system-data.js` (new — see changelog) |
 | Tasks | 🗂️ `TASKS` → `tasks.html` | `tasks.html` + `tasks-data.js` (new — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
-bottom of this file. Main, Main Pillar, Household, and Brain Dump were
-briefly removed and then restored (see changelog). `example.html` has no
+bottom of this file. Home and Build Your System (`system.html`) were
+later removed too — Home outright (see its own changelog entry), Build
+Your System by being merged wholesale into `index.html`'s new Your
+System/Subconscious Reprogramming tabs (see that changelog entry). Main,
+Main Pillar, Household, and Brain Dump were briefly removed and then
+restored (see changelog). `example.html` has no
 topbar pill (a pre-existing doc/code mismatch
 noted once already in this file's own Dream Board changelog entry, not
 something this pass touched).
@@ -9115,3 +9117,155 @@ both as originally phrased assumed a backend this app doesn't have):
     array (one entry per page, each with an `href`/`icon`/`label`/`id`),
     rendered into the drawer's grouped markup at boot, still the one
     single place to edit if the page list itself ever changes.
+
+- **Build Your System (`system.html`) merged wholesale into `index.html`
+  (Main), which gained a real tab system for the first time — Morning
+  Ritual / Your System / Subconscious Reprogramming — per an explicit
+  request to combine Top Goals, Your System, and Three Core Systems with
+  the Main page, and to give Subconscious Reprogramming its own tab
+  hosting Identity Shifting plus quick links back to items already living
+  on the Morning Ritual tab (the Mirror exercise, Today, Beliefs, the
+  5-min Hypnagogic, and the Evidence Journal).** `system.html` is deleted
+  outright — every one of its four tabs had somewhere new to live, so
+  nothing was left behind to justify keeping it as its own page (the same
+  "nothing's left, so the page goes" call this app already made for
+  Anxiety's standalone page and for Home once its content had somewhere
+  else to live). `system-data.js` is **unmodified and still in active
+  use** — every `system:*` collection (`Goals`/`Actions`/`Processes`/
+  `VisualTools`/`MentalEntries`/`Anchors`/`Vision`/`Challenges`/
+  `PageNotes`/`IdentityPrompts`) and its localStorage key names are
+  completely unchanged; only which page loads the script, renders it, and
+  syncs it moved. This means `tasks.html`'s existing one-way import of
+  `system:actions`/`system:challenges` (see that page's own changelog
+  entry) needed **zero changes** — it reads those two keys directly from
+  `localStorage`, never from `system.html` the file, and they're still
+  exactly where it left them.
+  - **Three new top-level tabs, added to `index.html` for the first time
+    ever** (`.rt-maintabs-row`/`.rt-maintab`/`.rt-maintabpanel`, this
+    page's own new component — every other tabbed page in this app,
+    e.g. `selfcare.html`/`household.html`, already had this shape;
+    `index.html` itself never did, since it was always a single
+    continuous ritual page until now): **Morning Ritual** (the default/
+    landing tab — the pre-existing Running Order/History/Beliefs/Today/
+    Metric/Tonight sections, completely unchanged, still drag-reorderable
+    via the same `sectionLayout`/SortableJS mechanism as before), **Your
+    System**, and **Subconscious Reprogramming**. Persisted via a new
+    `routine:main_tab` key (already covered by the existing `syncedPrefixes:
+    ['routine:', ...]` — no new sync-key entry needed) plus URL-hash
+    routing (`#ritual`/`#system`/`#subconscious`), the same
+    hash-plus-localStorage-fallback pattern this app's other tabbed pages
+    already use. The hero's "Begin the routine ↓" CTA now switches to the
+    Morning Ritual tab first (in case it's clicked from elsewhere) before
+    scrolling to the Running Order section, matching the CTA's original
+    intent unchanged otherwise.
+  - **"Your System" tab** = Top Goals + Your System (Actions) + Three Core
+    Systems, ported from `system.html` with its own inner sub-tab row
+    (`.bs-tabs-row`/`.bs-tab` — reused verbatim, including Three Core
+    Systems' own Written/Visual/Mental subnav) — genuinely unchanged in
+    behavior: the same up-to-3 goal star-selection cap, the same
+    Minimum-Viable-Action daily/weekly Actions with a live Mon–Sun
+    tracker, the same Written recap / Visual tracker+tools / Mental
+    category-filtered entries, and the same per-page "+ Generate Notes
+    Section" database on every one of these pages. A small toolbar (sync
+    status + "Reset to Default") sits above the sub-tabs, with an added
+    hint that Reset wipes Your System's data *and* Subconscious
+    Reprogramming's Identity Shifting data together, since both still
+    share one `system-data.js` dataset with one `seedDefaultData()`.
+  - **"Subconscious Reprogramming" tab** = a new Quick Links row (5 pill
+    buttons — 🪞 Mirror Exercise, ☀️ Today, 💭 Beliefs, 🌙 5-Min Hypnagogic,
+    📓 Evidence Journal) followed by Identity Shifting (Anchors/Future
+    Self Vision/Install-Through-Action Challenges + their own
+    Notes/Prompts databases), also ported verbatim from `system.html`.
+    **The Quick Links deliberately don't duplicate any of the five items
+    — they jump back to the Morning Ritual tab, where each one already
+    lives, and open/focus the right spot**: Mirror finds the Running
+    Order step by its stable `id:'mir'` (falls back to just opening the
+    Running Order section if that step's ever been renamed away or
+    deleted — steps only carry an id, never a locked name, so this is a
+    graceful degrade, not a broken link), Today/Beliefs scroll straight
+    to their sections, 5-Min Hypnagogic scrolls to a newly-added
+    `#hypnagogicHint` anchor on that exact hint line inside Tonight, and
+    Evidence Journal scrolls to Tonight and focuses the `#ev` textarea
+    directly. Identity Shifting's own subnav (Anchors/Vision/Challenges)
+    is unchanged; its outer `bs-panel` (previously one of four top-level
+    `system.html` tabs) is now permanently `active` in this tab instead of
+    being switched by a tab click, since this whole main tab *is* Identity
+    Shifting plus the Quick Links — the "Your System" sub-tab switcher's
+    panel-toggle query was scoped to `[data-mainpanel="system"] .bs-panel`
+    specifically so it can't reach over and hide this permanently-active
+    panel.
+  - **Palette**: no new tokens — `index.html`'s own `:root` gained a
+    handful of alias custom properties (`--bg-card`, `--text-primary`/
+    `-secondary`/`-tertiary`, `--border`, `--good`/`--warn`/`--bad`/
+    `--info`, `--accent`/`--accent-bright`/`--accent-tint`/`--accent-text`)
+    pointing at this page's existing `--rt-*` values, so every one of
+    `system.html`'s own `bs-*` component classes could be copied in
+    verbatim — same class names, same CSS — without a second palette or a
+    risky find-replace across ~700 lines of ported markup/JS. Confirmed
+    before pasting that none of `system.html`'s function/variable names
+    (`DB`, `activeTab`, `editingGoalId`, `switchTab`, `renderGoals`, etc.)
+    collided with anything already in `index.html`. `system.html`'s own
+    hero/cover-photo/photo-driven-accent-recolor feature was **not**
+    ported — `index.html` already has one hero, shared across all three
+    tabs now, so a second one would have been redundant; that hero's
+    photo-driven accent-recolor feature (`extractDominantColor`/
+    `computeAccentFromPhotoColor`/`applyPageAccent`) went with it, since
+    it only ever existed to recolor around that specific hero.
+  - **Sync**: `index.html`'s existing `initCloudSync({ appKey: 'goals',
+    syncedPrefixes: ['routine:'] })` call gained `'system:'` as a second
+    entry in `syncedPrefixes` — the same call, same `appKey`, no new
+    mechanism. This is a deliberate, disclosed exception to the DO NOT
+    MODIFY rule against repurposing an existing key's sync scheme: instead
+    of migrating `system:*` data to a new prefix (which would have meant
+    touching `tasks.html`'s importer and risking a real migration bug),
+    the existing `system:*` localStorage keys are left completely
+    untouched and now simply ride along under the `goals` Supabase row
+    instead of the now-gone `system` row — same "no data migration
+    needed, only which row syncs it changes" consolidation this app used
+    once before for Anxiety folding into Self-Care. The orphaned `key=
+    'system'` Supabase row was left alone, not cleaned up, same treatment
+    as every other orphaned row in this app (`health`, `projects`,
+    `study`, etc.). A new, independent empty-storage seed-race-safety
+    window (`isSystemDataEmptyEverywhere()`/
+    `maybeSeedSystemAfterSyncAttempt()`/`setupSystemSeedRaceSafety()`,
+    mirroring `dreamboard.html`/`business.html`/`aitech.html`'s own
+    `maybeSeedAfterSyncAttempt()`) guards the ported system data
+    specifically — seeding it before the shared `initCloudSync` pull has
+    a real chance to answer could otherwise push a freshly-seeded
+    "default" set to Supabase and clobber another device's real data,
+    same reasoning as every other page that already does this.
+  - **`topbar.js`**: the `⚙️ SYSTEM` → `system.html` entry was removed
+    from `NAV_GROUPS`'s Command Center group (the only edit made to that
+    file) — the sidebar-drawer nav (see the entry directly above this
+    one) now lists 16 pages instead of 17. `README.md`'s file table was
+    updated to match (the `system.html` row removed, `index.html`'s row
+    rewritten to describe the new three-tab structure).
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: the
+    ported code's own `bootSystemMerge()` is wrapped in try/catch
+    (`safeBootSystemMerge()`), showing a visible banner with the real
+    error instead of leaving this entire new half of the page looking
+    like static chrome with zero interactivity, matching the precedent
+    `system.html` itself already established (and `gym.html`'s/
+    `business.html`'s own boot-error entries before it).
+  - **Verification, disclosed honestly**: this environment had no working
+    JS/Python runtime and no reachable headless-browser session this
+    round (`node`/`python`/`python3` all unavailable; no live CDP
+    session), so this was verified statically only, the same reduced-
+    guarantee fallback several other entries in this file already
+    disclose for this exact class of limitation: brace/paren/bracket
+    balance confirmed across both inline `<script>` blocks combined
+    (563/563 braces, 2298/2298 parens, 105/105 brackets); zero duplicate
+    DOM ids across the whole file; every `$('id')`/`getElementById('id')`
+    reference (176 distinct) cross-matched against real HTML element ids
+    (199 distinct) with zero unresolved; and open/close tag-count parity
+    confirmed for `<div>` (242/242), `<button>` (72/72), `<textarea>`
+    (24/24), and `<select>` (8/8) across the whole file. **Not verified
+    this way**: an actual click-through (switching all three main tabs,
+    confirming Your System's goal/action/core-systems CRUD and
+    Subconscious Reprogramming's identity CRUD both still work exactly as
+    they did on the old standalone page, clicking each of the five Quick
+    Links and confirming it lands in the right spot — especially the
+    Mirror step's open-and-scroll behavior — and confirming the Reset to
+    Default button's new combined-scope confirm text). A real
+    click-through is recommended before relying on this merge heavily.
