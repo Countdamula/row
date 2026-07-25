@@ -381,6 +381,41 @@
   }
 
   // ============================================================
+  // HERO — one large, editable cover-photo banner per page (all five:
+  // the four content pages plus Favorites), same eyebrow/title/subtext/
+  // cover-photo shape and upload-or-remove mechanism as every other
+  // page's own hero in this app (business.html's per-tab hero,
+  // dreamboard.html, aitech.html, tasks.html, etc.). Stored under one
+  // key, `enthub:heroes` — a plain object keyed by page key — already
+  // covered by the existing `syncedPrefixes: ['enthub:']`, no new sync
+  // key needed. Cover photos start empty by default; nothing is
+  // pre-filled.
+  // ============================================================
+  /** @typedef {{eyebrow:string, title:string, subtext:string, photo:string}} EntHero */
+  function heroModel(data) {
+    data = data || {};
+    return {
+      eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
+      title: typeof data.title === 'string' ? data.title : '',
+      subtext: typeof data.subtext === 'string' ? data.subtext : '',
+      photo: typeof data.photo === 'string' ? data.photo : ''
+    };
+  }
+  function getHero(pageKey, defaults) {
+    const all = storeGet('enthub:heroes') || {};
+    const stored = all[pageKey];
+    if (stored) return heroModel(stored);
+    return heroModel(defaults);
+  }
+  function saveHero(pageKey, patch) {
+    const all = storeGet('enthub:heroes') || {};
+    const next = heroModel(Object.assign({}, heroModel(all[pageKey]), patch));
+    all[pageKey] = next;
+    storeSet('enthub:heroes', all);
+    return next;
+  }
+
+  // ============================================================
   // SYNC BOOTSTRAP — one shared helper so all five pages wire up the
   // exact same appKey/prefix and the exact same seed-race-safety window
   // (deferred until either real cloud data arrives via onApplied or a
@@ -441,6 +476,8 @@
     seedIfEmpty: seedIfEmpty,
     bootSync: bootSync,
     slugForSubtopic: slugForSubtopic,
-    subtopicForSlug: subtopicForSlug
+    subtopicForSlug: subtopicForSlug,
+    getHero: getHero,
+    saveHero: saveHero
   };
 })(window);

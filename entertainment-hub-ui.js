@@ -95,13 +95,61 @@
       }
       .eh-back-btn:hover { background: rgba(11,10,8,0.8); color: var(--eh-text); }
       .eh-shell { position: relative; z-index: 1; }
-      .eh-content { max-width: 1220px; margin: 0 auto; padding: 90px 20px 70px; }
-      @media (max-width: 620px) { .eh-content { padding-top: 78px; } }
+      .eh-content { max-width: 1220px; margin: 0 auto; padding: 30px 20px 70px; }
 
-      .eh-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-      .eh-header-eyebrow { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--eh-gold); display: block; margin-bottom: 6px; }
-      .eh-header-title { font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(28px, 4.4vw, 42px); line-height: 1.05; }
-      .eh-header-sub { font-size: 13px; color: var(--eh-text-dim); max-width: 60ch; margin-top: 8px; line-height: 1.5; }
+      /* ===== Hero — one large, editable cover-photo banner per page ===== */
+      #ehPageBg {
+        /* z-index: 0 (not negative) — this exact environment has a
+           documented bug where a fixed element with a negative z-index
+           silently fails to paint once html/body declare an explicit
+           background color, which they do above (see example.html's own
+           changelog entry on this). Stacking below .eh-shell (z-index 1)
+           is guaranteed by the lower z-index value alone, no DOM-order
+           trick needed since the two never share a z-index. */
+        position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center;
+        filter: blur(60px) saturate(1.35) brightness(0.5); transform: scale(1.15);
+        transition: background-image 0.3s ease; pointer-events: none;
+      }
+      .eh-hero {
+        position: relative; z-index: 1; overflow: hidden;
+        min-height: clamp(300px, 48vh, 480px);
+        display: flex; flex-direction: column; justify-content: flex-end;
+        padding: 92px 20px 40px;
+      }
+      @media (max-width: 620px) { .eh-hero { padding-top: 78px; min-height: clamp(260px, 52vh, 420px); } }
+      .eh-hero-media { position: absolute; inset: 0; z-index: 0; background: linear-gradient(150deg, #201a12, #0d0a06); }
+      .eh-hero-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .eh-hero-overlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(5,4,3,0.1) 0%, rgba(5,4,3,0.55) 58%, rgba(5,4,3,0.94) 100%); pointer-events: none; }
+      .eh-hero-content { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; width: 100%; }
+      .eh-hero-eyebrow {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0.16em;
+        text-transform: uppercase; color: var(--eh-gold); display: inline-block; margin-bottom: 8px; outline: none;
+        text-shadow: 0 1px 8px rgba(5,4,3,0.8);
+      }
+      .eh-hero-title {
+        display: block; width: 100%; background: transparent; border: none; color: var(--eh-text);
+        font-family: var(--font-serif); font-style: italic; font-weight: 600; font-size: clamp(30px, 5.2vw, 48px);
+        line-height: 1.06; padding: 0; resize: none; overflow: hidden; outline: none;
+        text-shadow: 0 2px 14px rgba(5,4,3,0.85);
+      }
+      .eh-hero-subtext {
+        font-size: 13.5px; color: var(--eh-text-dim); max-width: 62ch; margin-top: 10px; line-height: 1.55; outline: none;
+        text-shadow: 0 1px 8px rgba(5,4,3,0.8);
+      }
+      .eh-hero-photo-tools { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 5; display: flex; gap: 8px; }
+      .eh-hero-photo-tools .eh-btn-secondary { background: rgba(11,10,8,0.55); backdrop-filter: blur(8px); }
+      .eh-hero-photo-choice {
+        position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center;
+      }
+      .eh-hero-add-photo-btn {
+        display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
+        border: 1px dashed var(--eh-hairline); border-radius: 999px; cursor: pointer;
+        background: rgba(11,10,8,0.4); backdrop-filter: blur(6px); color: var(--eh-text-dim);
+        font-size: 13px; font-weight: 600;
+      }
+      .eh-hero-add-photo-btn:hover { border-color: var(--eh-gold); color: var(--eh-gold-bright); }
+
+      .eh-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
       .eh-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .eh-search {
         background: rgba(255,255,255,0.04); border: 1px solid var(--eh-hairline); border-radius: 999px;
@@ -249,6 +297,116 @@
     if (!EH.isValidMediaUrl(url)) return false;
     window.open(url, '_blank', 'noopener');
     return true;
+  }
+
+  // ============================================================
+  // HERO — one large, editable cover-photo banner per page (all five),
+  // same upload-or-paste-a-photo / Change / Remove mechanism and
+  // page-wide blurred backdrop every other hero-bearing page in this app
+  // already uses (business.html's per-tab hero, dreamboard.html,
+  // aitech.html, tasks.html, etc.) — built once here and reused by every
+  // one of the five Entertainment pages rather than five separate copies.
+  // ============================================================
+  function ensurePageBg() {
+    let bg = $('ehPageBg');
+    if (!bg) {
+      bg = document.createElement('div');
+      bg.id = 'ehPageBg';
+      document.body.appendChild(bg);
+    }
+    return bg;
+  }
+  function renderPageBg(photo) {
+    const bg = ensurePageBg();
+    bg.style.backgroundImage = photo ? ('url("' + photo + '")') : 'none';
+  }
+
+  function buildHero(container, pageKey, defaults) {
+    ensurePageBg();
+    const hero = document.createElement('div');
+    hero.className = 'eh-hero';
+    hero.id = 'ehHero';
+    hero.innerHTML = `
+      <div class="eh-hero-media" id="ehHeroMedia"></div>
+      <div class="eh-hero-overlay"></div>
+      <div class="eh-hero-photo-tools" id="ehHeroPhotoTools" style="display:none;">
+        <button type="button" class="eh-btn-secondary" id="ehHeroChangeBtn">Change</button>
+        <button type="button" class="eh-btn-secondary" id="ehHeroRemoveBtn">Remove</button>
+      </div>
+      <div class="eh-hero-photo-choice" id="ehHeroPhotoChoice">
+        <button type="button" class="eh-hero-add-photo-btn" id="ehHeroAddBtn">+ Add a cover photo</button>
+      </div>
+      <input type="file" id="ehHeroFile" accept="image/*" style="display:none;">
+      <div class="eh-hero-content">
+        <span class="eh-hero-eyebrow" id="ehHeroEyebrow" contenteditable="true" spellcheck="false"></span>
+        <textarea class="eh-hero-title" id="ehHeroTitle" rows="1" spellcheck="false"></textarea>
+        <p class="eh-hero-subtext" id="ehHeroSubtext" contenteditable="true" spellcheck="false"></p>
+      </div>
+    `;
+    container.appendChild(hero);
+
+    let hero_ = EH.getHero(pageKey, defaults);
+
+    function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+    function renderMedia() {
+      const media = $('ehHeroMedia');
+      media.innerHTML = '';
+      if (hero_.photo) {
+        const img = document.createElement('img');
+        img.src = hero_.photo; img.alt = '';
+        media.appendChild(img);
+        $('ehHeroPhotoTools').style.display = 'flex';
+        $('ehHeroPhotoChoice').style.display = 'none';
+      } else {
+        $('ehHeroPhotoTools').style.display = 'none';
+        $('ehHeroPhotoChoice').style.display = 'flex';
+      }
+      renderPageBg(hero_.photo);
+    }
+
+    function populate() {
+      $('ehHeroEyebrow').textContent = hero_.eyebrow;
+      $('ehHeroTitle').value = hero_.title;
+      $('ehHeroSubtext').textContent = hero_.subtext;
+      renderMedia();
+      setTimeout(function () { autosize($('ehHeroTitle')); }, 0);
+    }
+    populate();
+
+    // Merge against the currently-displayed hero_ (which may still be
+    // showing unsaved defaults, not yet persisted anywhere) rather than
+    // whatever's already in storage — otherwise the very first edit to
+    // just one field (e.g. the eyebrow) would wipe every other
+    // still-default field back to empty the moment it's persisted.
+    function save(patch) { hero_ = EH.saveHero(pageKey, Object.assign({}, hero_, patch)); }
+
+    $('ehHeroEyebrow').addEventListener('blur', function () { save({ eyebrow: $('ehHeroEyebrow').textContent.trim() }); });
+    $('ehHeroSubtext').addEventListener('blur', function () { save({ subtext: $('ehHeroSubtext').textContent.trim() }); });
+    $('ehHeroTitle').addEventListener('input', function () { autosize($('ehHeroTitle')); });
+    $('ehHeroTitle').addEventListener('blur', function () { save({ title: $('ehHeroTitle').value.trim() }); });
+
+    function openPicker() { $('ehHeroFile').click(); }
+    $('ehHeroAddBtn').addEventListener('click', openPicker);
+    $('ehHeroChangeBtn').addEventListener('click', openPicker);
+    $('ehHeroRemoveBtn').addEventListener('click', function () { save({ photo: '' }); renderMedia(); });
+    $('ehHeroFile').addEventListener('change', function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function () {
+        const compressed = await EH.compressImageDataUrl(String(reader.result), 1400, 0.82);
+        save({ photo: compressed });
+        renderMedia();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (hero_.photo === compressed) { save({ photo: url }); renderMedia(); }
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
   }
 
   // ============================================================
@@ -585,24 +743,24 @@
     shell.className = 'eh-shell';
     shell.innerHTML = `
       <a href="index.html" class="eh-back-btn" aria-label="Back to dashboard"><span>←</span><span>Back</span></a>
+      <div id="ehHeroSlot"></div>
       <div class="eh-content">
-        <header class="eh-header">
-          <div>
-            <span class="eh-header-eyebrow">Entertainment · ${cfg.label}</span>
-            <h1 class="eh-header-title">${cfg.icon} ${cfg.label}</h1>
-            <p class="eh-header-sub">Paste a link and everything fetchable fills itself in. Drag to reorder, click a card to open it, star to rate, and tap the ☆ to send it straight to Favorites.</p>
-          </div>
-          <div class="eh-header-actions">
-            <input type="search" class="eh-search" id="ehSearchInput" placeholder="Search ${cfg.label.toLowerCase()}…">
-            <button type="button" class="eh-btn-primary" id="ehAddBtn">+ Add</button>
-          </div>
-        </header>
+        <div class="eh-toolbar">
+          <input type="search" class="eh-search" id="ehSearchInput" placeholder="Search ${cfg.label.toLowerCase()}…">
+          <button type="button" class="eh-btn-primary" id="ehAddBtn">+ Add</button>
+        </div>
         <div class="eh-subtabs" id="ehSubtabs"></div>
         <div class="eh-grid" id="ehGrid"></div>
         <div class="eh-empty" id="ehEmpty" style="display:none;"></div>
       </div>
     `;
     document.body.appendChild(shell);
+
+    buildHero($('ehHeroSlot'), pageKey, {
+      eyebrow: 'Entertainment · ' + cfg.label,
+      title: cfg.icon + '  ' + cfg.label,
+      subtext: 'Paste a link and everything fetchable fills itself in. Drag to reorder, click a card to open it, star to rate, and tap the ☆ to send it straight to Favorites.'
+    });
 
     // Sub-topic (or Favorites) is read with the same priority order this
     // app's other nested nav entries already use: a real URL hash first
@@ -720,23 +878,23 @@
     shell.className = 'eh-shell';
     shell.innerHTML = `
       <a href="index.html" class="eh-back-btn" aria-label="Back to dashboard"><span>←</span><span>Back</span></a>
+      <div id="ehHeroSlot"></div>
       <div class="eh-content">
-        <header class="eh-header">
-          <div>
-            <span class="eh-header-eyebrow">Entertainment · Favorites</span>
-            <h1 class="eh-header-title">★ Favorites</h1>
-            <p class="eh-header-sub">Every item you’ve starred, from Podcasts, Stories, Entertainment, and Playlists — filter by page, edit or unfavorite in place.</p>
-          </div>
-          <div class="eh-header-actions">
-            <input type="search" class="eh-search" id="ehSearchInput" placeholder="Search favorites…">
-          </div>
-        </header>
+        <div class="eh-toolbar">
+          <input type="search" class="eh-search" id="ehSearchInput" placeholder="Search favorites…">
+        </div>
         <div class="eh-subtabs" id="ehSubtabs"></div>
         <div class="eh-grid" id="ehGrid"></div>
         <div class="eh-empty" id="ehEmpty" style="display:none;"></div>
       </div>
     `;
     document.body.appendChild(shell);
+
+    buildHero($('ehHeroSlot'), 'favorites', {
+      eyebrow: 'Entertainment · Favorites',
+      title: '★  Favorites',
+      subtext: 'Every item you’ve starred, from Podcasts, Stories, Entertainment, and Playlists — filter by page, edit or unfavorite in place.'
+    });
 
     // Same hash-first, localStorage-fallback priority as the gallery
     // pages' own sub-topic tabs — topbar.js's children links deep-link

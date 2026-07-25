@@ -10101,3 +10101,64 @@ both as originally phrased assumed a backend this app doesn't have):
     page and confirming it's gone from both places, and confirming the
     hash-deep-link/`hashchange` wiring on all five pages). A real
     click-through is recommended before relying on this feature heavily.
+
+- **Entertainment folder follow-up: each of the five pages gained a
+  large, editable cover-photo hero, matching every other hero-bearing
+  page in this app.** The previous entry shipped each page with only a
+  small static eyebrow/title/subtext block, no photo — this pass adds
+  the same upload-or-remove cover-photo mechanism as `business.html`'s
+  per-tab hero/`dreamboard.html`/`aitech.html`/`tasks.html` (click-to-
+  upload when empty, Change/Remove once set, an editable eyebrow/
+  autosizing-title/subtext, and a page-wide blurred backdrop continuing
+  the photo's color down behind the gallery grid below it).
+  - **Data**: `entertainment-hub-data.js` gained `heroModel()`/
+    `getHero(pageKey, defaults)`/`saveHero(pageKey, patch)`, stored under
+    one new key, `enthub:heroes` (a plain object keyed by page —
+    `podcasts`/`stories`/`entertainment`/`playlists`/`favorites`) —
+    already covered by the existing `syncedPrefixes: ['enthub:']`, no new
+    sync key. Cover photos start empty by default, same as every other
+    page's hero in this app.
+  - **UI**: `entertainment-hub-ui.js` gained `buildHero()` (one shared
+    implementation, called by both `initGalleryPage()` and
+    `initFavoritesPage()` — all five pages, not five copies), reusing the
+    same `EH.compressImageDataUrl()`/`PhotoStore.upload()` two-step
+    pipeline (compress and save locally first, swap for a hosted URL once
+    upload settles) every other cover-photo field in this app already
+    uses. The old plain static header was replaced by the hero plus a
+    slim toolbar row (search/+Add) underneath it.
+  - **A real bug caught and fixed before shipping**: the hero's `save()`
+    originally merged an edit's `patch` against whatever was already in
+    `enthub:heroes` storage — but a freshly-opened page with no saved
+    hero yet is still *displaying* its default eyebrow/title/subtext text
+    (`getHero()`'s own defaults fallback), never persisted anywhere. The
+    very first edit to just one field (e.g. typing a new eyebrow) would
+    have saved `{eyebrow: <new value>}` merged against an empty stored
+    record, silently wiping the still-default title/subtext back to
+    empty the instant it saved. Fixed by merging against the
+    currently-displayed in-memory `hero_` object instead of re-reading
+    storage, so an edit to one field can never blank out another
+    still-default one.
+  - **A second real bug caught and fixed before shipping**: `#ehPageBg`
+    (the page-wide blurred backdrop) was initially given `z-index: -1` —
+    this exact repo already has a documented, reproduced bug for exactly
+    this shape of mistake (see `example.html`'s own changelog entry): a
+    `position: fixed` layer with a *negative* z-index silently fails to
+    paint at all once `html`/`body` also declare an explicit background
+    color, which this file's own injected styles already do
+    (`html, body { background: var(--eh-bg-deep); }`). Fixed by using
+    `z-index: 0` instead (matching `body::before`'s own already-correct
+    value in this same file) — stacking below `.eh-shell` (`z-index: 1`)
+    is guaranteed by the lower value alone, no DOM-order trick needed.
+    Caught by recalling this app's own prior incident with this exact
+    failure mode rather than by browser testing.
+  - **Verification, disclosed honestly**: same as the entry above — no
+    interactive browser/CDP session was available this round either, so
+    this was verified statically: brace/paren balance and a full
+    `$('id')`-to-declared-id cross-check (script-driven, not by eye) both
+    confirmed clean after every edit, including after each of the two
+    bugfixes above. A real click-through (uploading a cover photo on each
+    of the five pages, confirming Change/Remove work, confirming the
+    photo genuinely renders as the fixed backdrop behind the grid rather
+    than silently failing to paint, and confirming an eyebrow-only edit
+    no longer blanks the title/subtext) is recommended before relying on
+    this heavily.
