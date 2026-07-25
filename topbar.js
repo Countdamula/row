@@ -110,17 +110,36 @@
       ],
     },
     {
-      key: 'create',
-      label: 'Create & Grow',
+      // New nav folder: every "business model" page lives here, plus an
+      // overview page connecting them (see business-overview.html's own
+      // header comment). Business Hub (business.html, unchanged, still
+      // hosting Content/Ideas/Platforms/Resources) moved into this group
+      // from "Create & Grow" below — nothing about that page itself
+      // changed, only which group its nav entry sits in. Writing
+      // Dashboard and YouTube Dashboard each also gained their own
+      // top-level entry here (business-writing.html/business-youtube.html
+      // — thin, same-origin-iframe wrapper pages around business.html's
+      // own #writing/#youtube tabs, so both still work exactly as they
+      // already did on Business Hub itself, completely unmodified — see
+      // CLAUDE.md's Business folder changelog entry).
+      key: 'business',
+      label: 'Business',
       items: [
-        { href: 'business.html', icon: '💼', label: 'Business Hub', id: 'topbarBusiness', children: [
+        { href: 'business-overview.html', icon: '🗺️', label: 'Business Overview', id: 'topbarBusinessOverview' },
+        { href: 'business.html', icon: '💼', label: 'Content Hub', id: 'topbarBusiness', children: [
           { hash: 'content', label: 'Content' },
           { hash: 'ideas', label: 'Ideas' },
           { hash: 'platforms', label: 'Platforms' },
           { hash: 'resources', label: 'Resources' },
-          { hash: 'writing', label: 'Writing Dashboard' },
-          { hash: 'youtube', label: 'YouTube Dashboard' },
         ] },
+        { href: 'business-writing.html', icon: '📖', label: 'Writing Dashboard', id: 'topbarBusinessWriting' },
+        { href: 'business-youtube.html', icon: '📺', label: 'YouTube Dashboard', id: 'topbarBusinessYoutube' },
+      ],
+    },
+    {
+      key: 'create',
+      label: 'Create & Grow',
+      items: [
         { href: 'dreamboard.html', icon: '✨', label: 'Dream Board', id: 'topbarDreamBoard', children: [
           { hash: 'vision-board', label: 'Vision Board' },
           { hash: 'reflections', label: 'Reflections' },

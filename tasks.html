@@ -16,14 +16,16 @@
 <script src="sync.js" defer></script>
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
-<script src="tasks-data.js" defer></script>
+<script src="tasks-data.js?v=2" defer></script>
 <style>
 /* =============================================================
    Tasks — a standalone page, genuinely new (not a rebuild of any
    existing tab). One unified task database: native tasks side by side
    with items pulled in (one-way, read-only) from Main (index.html's
-   Morning Call Sheet — Steps/Beliefs) and System (system.html — Actions/
-   Challenges). Same dark cinematic near-black/gold, frosted-glass-card
+   Morning Call Sheet — Steps/Beliefs, plus Fitness Studio's exercises),
+   System (system.html — Actions/Challenges), and every Business page
+   (business.html's Content Hub/Writing Dashboard/YouTube Dashboard — see
+   the Business nav folder). Same dark cinematic near-black/gold, frosted-glass-card
    aesthetic as Business Hub/Dream Board/Tasks & Notes (this file's own
    private `--td-*` copy of those pages' token values — the common
    thread across most of this app's pages, per CLAUDE.md §6). One page,
@@ -278,7 +280,7 @@ body::after {
   <div class="shell-inner">
     <div class="td-toolbar-row">
       <span class="td-sync-status" id="tdSyncStatus"></span>
-      <button type="button" class="td-btn-secondary" id="tdSyncSourcesBtn">⟳ Sync from Main &amp; System</button>
+      <button type="button" class="td-btn-secondary" id="tdSyncSourcesBtn">⟳ Sync from Main, System &amp; Business</button>
       <button type="button" class="td-btn-ghost" id="tdResetBtn">Reset to Default</button>
       <div class="td-last-synced" id="tdLastSynced"></div>
     </div>
@@ -287,7 +289,7 @@ body::after {
       <div class="td-section-head">
         <div class="td-section-title-wrap">
           <div class="td-section-title">Tasks</div>
-          <div class="td-section-sub">Native tasks, plus routine/task-shaped items pulled in from Main's Morning Call Sheet (Steps &amp; Beliefs) and System's Your System / Identity Shifting (Actions &amp; Challenges) — one merged board to work from each day. Pulling in is one-way and read-only: nothing is ever changed or deleted on Main or System.</div>
+          <div class="td-section-sub">Native tasks, plus routine/task-shaped items pulled in from Main's Morning Call Sheet (Steps &amp; Beliefs), System's Your System / Identity Shifting (Actions &amp; Challenges), and every Business page's own tasks (Content Hub, Writing Dashboard, YouTube Dashboard) — one merged board to work from each day. Pulling in is one-way and read-only: nothing is ever changed or deleted on Main, System, or Business.</div>
         </div>
       </div>
 
@@ -301,6 +303,7 @@ body::after {
           <button type="button" class="td-chip" data-source="native">Native</button>
           <button type="button" class="td-chip" data-source="main">From Main</button>
           <button type="button" class="td-chip" data-source="system">From System</button>
+          <button type="button" class="td-chip" data-source="business">From Business</button>
         </div>
         <select id="tdFilterPriority">
           <option value="">All Priorities</option>
@@ -423,12 +426,14 @@ body::after {
     if (sourceType === 'native') return 'native';
     if (sourceType === 'main-step' || sourceType === 'main-belief' || sourceType === 'fitness-exercise') return 'main';
     if (sourceType === 'system-action' || sourceType === 'system-challenge') return 'system';
+    if (sourceType === 'business-task' || sourceType === 'writing-task' || sourceType === 'youtube-task') return 'business';
     return 'native';
   }
   function sourceColor(sourceType) {
     const group = sourceGroup(sourceType);
     if (group === 'main') return { bg: 'rgba(125,211,252,0.12)', fg: 'var(--info)', border: 'rgba(125,211,252,0.4)' };
     if (group === 'system') return { bg: 'rgba(167,139,250,0.14)', fg: '#c4b5fd', border: 'rgba(167,139,250,0.4)' };
+    if (group === 'business') return { bg: 'rgba(107,227,164,0.14)', fg: 'var(--success)', border: 'rgba(107,227,164,0.4)' };
     return { bg: 'var(--td-accent-tint)', fg: 'var(--td-gold-bright)', border: 'var(--td-gold)' };
   }
 
@@ -454,7 +459,7 @@ body::after {
   }
   function renderLastSynced() {
     const ts = storeGet('tasksdb:lastSyncedAt');
-    $('tdLastSynced').textContent = ts ? ('Last pulled from Main & System: ' + new Date(ts).toLocaleString()) : 'Never pulled from Main & System yet.';
+    $('tdLastSynced').textContent = ts ? ('Last pulled from Main, System & Business: ' + new Date(ts).toLocaleString()) : 'Never pulled from Main, System & Business yet.';
   }
 
   // ============================================================
@@ -660,7 +665,7 @@ body::after {
       srcInfo.style.display = 'block';
       srcInfo.innerHTML = '';
       const b1 = document.createElement('b'); b1.textContent = 'Imported from ' + (DB.SOURCE_LABELS[task.sourceType] || task.sourceType) + '. ';
-      const rest = document.createTextNode('Edits here only change this database’s own copy — nothing is pushed back to Main or System. Use "⟳ Sync from Main & System" to pull in updates.');
+      const rest = document.createTextNode('Edits here only change this database’s own copy — nothing is pushed back to Main, System, or Business. Use "⟳ Sync from Main, System & Business" to pull in updates.');
       srcInfo.appendChild(b1); srcInfo.appendChild(rest);
     } else {
       srcInfo.style.display = 'none';
@@ -709,7 +714,7 @@ body::after {
   }
 
   function resetAll() {
-    if (!confirm('Reset Tasks to its default native tasks? This deletes every task currently in this database — including anything pulled in from Main or System (their own real data is untouched either way).')) return;
+    if (!confirm('Reset Tasks to its default native tasks? This deletes every task currently in this database — including anything pulled in from Main, System, or Business (their own real data is untouched either way).')) return;
     DB.seedDefaultData();
     renderHero(); renderTasks(); renderLastSynced();
   }

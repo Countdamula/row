@@ -25,7 +25,10 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [learning.html](learning.html) | Learning & Knowledge Hub — Topics gallery + Articles/Books/Videos/Posts/Notes |
 | [selfcare.html](selfcare.html) | Self-Care — Journals, Meditations, Water tracker, Bucket List |
 | [dreamboard.html](dreamboard.html) | Dream Board — a drag-and-drop vision board (checklists, calendar, photo/video grid, affirmations, and more) |
-| [business.html](business.html) | Business Hub — content planning, a Writing Dashboard, and a YouTube channel-management dashboard |
+| [business.html](business.html) | Content Hub — content planning (Content/Ideas/Platforms/Resources), still hosting its own Writing Dashboard and YouTube Dashboard tabs too — unchanged; now grouped under the "Business" nav folder |
+| [business-overview.html](business-overview.html) | Business Overview — the "Business" nav folder's landing page: live stats connecting Content Hub, Writing Dashboard, and YouTube Dashboard, plus a rollup of every task any of them own |
+| [business-writing.html](business-writing.html) | Writing Dashboard — its own top-level page in the "Business" folder (a thin, same-origin embed of business.html's own Writing Dashboard tab — same data, same features, nothing duplicated) |
+| [business-youtube.html](business-youtube.html) | YouTube Dashboard — its own top-level page in the "Business" folder (a thin, same-origin embed of business.html's own YouTube Dashboard tab — same data, same features, nothing duplicated) |
 | [aitech.html](aitech.html) | AI & Tech — an AI Models gallery + a linked Prompts database |
 | [tasksnotes.html](tasksnotes.html) | Tasks & Notes — Links / Notes / Tasks |
 | [mainpillar.html](mainpillar.html) | Main Pillar — gamified daily command center (Whoop biometrics, quest-style habits, tasks, AI journal/briefs, Weekly/Monthly/Year dashboards, Smart Goal Allocation, Favorites archive) |

@@ -9,23 +9,31 @@
 //
 // This is a genuinely new, standalone Tasks database — one unified
 // TaskItem collection, native tasks side by side with items *imported*
-// (one-way, read-only pull) from two other pages:
+// (one-way, read-only pull) from several other pages:
 //   - Main (index.html) — a "Morning Call Sheet" (routine:*). It has no
 //     task collection of its own; the closest things to "routine data"
 //     and "any tasks data" are its Steps (routine:steps — the routine's
 //     own ordered "Running order") and its Beliefs (routine:beliefs — a
 //     database of belief statements, each carrying its own working
-//     status). Both are pulled in.
+//     status). Both are pulled in, plus Fitness Studio's own exercises
+//     (fitness:templates — Main's 4th tab, see importFromFitness()).
 //   - System (system.html) — Actions (system:actions, the page's own
 //     daily/weekly repeatable "routine" items) and Challenges
 //     (system:challenges, install-through-action items with a real
 //     todo-shaped status). Both are pulled in.
+//   - Business Hub, Writing Dashboard, YouTube Dashboard (business.html's
+//     own three tabs/layouts) — business:tasks (the Resources tab's own
+//     Tasks section), business:writingTasks, and business:ytTasks. All
+//     three business pages route their own tasks into this one database
+//     this way, per the "connect all tasks to the general Tasks database"
+//     ask behind the Business nav folder — see importFromBusiness()/
+//     importFromWriting()/importFromYoutube().
 //
-// Import is strictly read-only against those two pages' localStorage —
-// this file never writes to a `routine:` or `system:` key, so nothing
-// from Main or System can ever be lost, altered, or deleted by this
-// feature. Re-running the import (Sync from Main & System) updates the
-// mutable display fields (title/status/schedule/etc.) on an
+// Import is strictly read-only against those pages' own localStorage —
+// this file never writes to a `routine:`/`system:`/`business:` key, so
+// nothing on any of those pages can ever be lost, altered, or deleted by
+// this feature. Re-running the import (Sync from Main, System & Business)
+// updates the mutable display fields (title/status/schedule/etc.) on an
 // already-imported TaskItem in place, keyed by (sourceType, sourceId),
 // and adds anything new — it never removes a TaskItem just because its
 // source item vanished, since that copy is this database's own data now.
@@ -126,7 +134,10 @@
     'main-belief': 'Main · Beliefs',
     'system-action': 'System · Actions',
     'system-challenge': 'System · Challenges',
-    'fitness-exercise': 'Main · Fitness Studio'
+    'fitness-exercise': 'Main · Fitness Studio',
+    'business-task': 'Business · Content Hub',
+    'writing-task': 'Business · Writing Dashboard',
+    'youtube-task': 'Business · YouTube Dashboard'
   };
 
   /** @typedef {{id:string, title:string, note:string, status:string, priority:string, dueDate:string, isDailyAction:boolean, recurrence:string, scheduledDays:?number[], doneAt:?number, order:number, sourceType:string, sourceId:?string, sourceMeta:string, createdAt:number, updatedAt:number}} TaskItem */
@@ -392,14 +403,106 @@
     return { added: added, updated: updated };
   }
 
+  // Business Hub (business.html's own Resources-tab Tasks section,
+  // business:tasks) — one imported task per BizTask, tagged with its
+  // owning tab's title (business:tabs) for context. Read-only, same as
+  // every other source: never writes to a `business:` key.
+  function importFromBusiness() {
+    let added = 0, updated = 0;
+    const tasksList = storeGet('business:tasks');
+    const tabs = storeGet('business:tabs');
+    const tabTitleById = {};
+    if (Array.isArray(tabs)) tabs.forEach(function (t) { if (t && t.id) tabTitleById[t.id] = t.title || 'Untitled'; });
+    if (Array.isArray(tasksList)) {
+      tasksList.forEach(function (t) {
+        if (!t || !t.id) return;
+        const isNew = upsertImported('business-task', t.id, {
+          title: t.title || 'Untitled task',
+          isDailyAction: !!t.isDailyAction,
+          recurrence: (t.recurrence === 'daily' || t.recurrence === 'weekly') ? t.recurrence : 'none',
+          dueDate: typeof t.dueDate === 'string' ? t.dueDate : '',
+          priority: t.priority || 'medium',
+          sourceMeta: 'Task' + (tabTitleById[t.tabId] ? ' · ' + tabTitleById[t.tabId] : '')
+        });
+        if (isNew) {
+          const rec = findBySource('business-task', t.id);
+          if (rec) Items.update(rec.id, { status: (t.status === 'done' || t.status === 'in-progress') ? t.status : 'todo' });
+        }
+        isNew ? added++ : updated++;
+      });
+    }
+    return { added: added, updated: updated };
+  }
+
+  // Writing Dashboard (business.html, layout:'writing' — business:writingTasks)
+  // — one imported task per WritingTask (both root "templates" and their
+  // sub-pages), tagged with its manuscript's title. Read-only, same as
+  // every other source: never writes to a `business:` key.
+  function importFromWriting() {
+    let added = 0, updated = 0;
+    const tasksList = storeGet('business:writingTasks');
+    const manuscripts = storeGet('business:writingManuscripts');
+    const msTitleById = {};
+    if (Array.isArray(manuscripts)) manuscripts.forEach(function (m) { if (m && m.id) msTitleById[m.id] = m.title || 'Untitled'; });
+    if (Array.isArray(tasksList)) {
+      tasksList.forEach(function (t) {
+        if (!t || !t.id) return;
+        const isNew = upsertImported('writing-task', t.id, {
+          title: t.title || 'Untitled task',
+          dueDate: typeof t.dueDate === 'string' ? t.dueDate : '',
+          priority: t.priority || 'medium',
+          sourceMeta: (t.parentTaskId ? 'Sub-page' : 'Template') + (msTitleById[t.manuscriptId] ? ' · ' + msTitleById[t.manuscriptId] : '')
+        });
+        if (isNew) {
+          const rec = findBySource('writing-task', t.id);
+          if (rec) Items.update(rec.id, { status: (t.status === 'done' || t.status === 'in-progress') ? t.status : 'todo' });
+        }
+        isNew ? added++ : updated++;
+      });
+    }
+    return { added: added, updated: updated };
+  }
+
+  // YouTube Dashboard (business.html, layout:'youtube' — business:ytTasks)
+  // — one imported task per YtTask (both root "templates" and their
+  // sub-pages), tagged with its channel's title. Read-only, same as every
+  // other source: never writes to a `business:` key.
+  function importFromYoutube() {
+    let added = 0, updated = 0;
+    const tasksList = storeGet('business:ytTasks');
+    const channels = storeGet('business:ytChannels');
+    const chTitleById = {};
+    if (Array.isArray(channels)) channels.forEach(function (c) { if (c && c.id) chTitleById[c.id] = c.title || 'Untitled'; });
+    if (Array.isArray(tasksList)) {
+      tasksList.forEach(function (t) {
+        if (!t || !t.id) return;
+        const isNew = upsertImported('youtube-task', t.id, {
+          title: t.title || 'Untitled task',
+          dueDate: typeof t.dueDate === 'string' ? t.dueDate : '',
+          priority: t.priority || 'medium',
+          sourceMeta: (t.parentTaskId ? 'Sub-page' : 'Template') + (chTitleById[t.channelId] ? ' · ' + chTitleById[t.channelId] : '')
+        });
+        if (isNew) {
+          const rec = findBySource('youtube-task', t.id);
+          if (rec) Items.update(rec.id, { status: (t.status === 'done' || t.status === 'in-progress') ? t.status : 'todo' });
+        }
+        isNew ? added++ : updated++;
+      });
+    }
+    return { added: added, updated: updated };
+  }
+
   function importFromSources() {
     const main = importFromMain();
     const system = importFromSystem();
     const fitness = importFromFitness();
+    const business = importFromBusiness();
+    const writing = importFromWriting();
+    const youtube = importFromYoutube();
     storeSet(KEYS.lastSyncedAt, Date.now());
     return {
-      added: main.added + system.added + fitness.added,
-      updated: main.updated + system.updated + fitness.updated
+      added: main.added + system.added + fitness.added + business.added + writing.added + youtube.added,
+      updated: main.updated + system.updated + fitness.updated + business.updated + writing.updated + youtube.updated
     };
   }
 

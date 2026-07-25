@@ -259,7 +259,10 @@ using `sync.js`.
 | Self-Care | 🌙 `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed; the standalone Anxiety page was folded in as this page's 4th tab — see changelog) |
 | Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | ✨ `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
-| Business Hub | 💼 `BUSINESS` → `business.html` | `business.html` + `business-data.js` (new — see changelog) |
+| Business Hub / Content Hub | 💼 `Business` nav folder → `business.html` | `business.html` + `business-data.js` (unchanged; still hosts Content/Ideas/Platforms/Resources and, internally, the Writing Dashboard/YouTube Dashboard tabs too — regrouped under a new "Business" nav folder, see changelog) |
+| Business Overview | 🗺️ `Business` nav folder → `business-overview.html` | `business-overview.html` (new, no companion data file — read-only, computes everything live from business.html/writing-data.js/youtube-data.js's own real localStorage keys — see changelog) |
+| Writing Dashboard (standalone) | 📖 `Business` nav folder → `business-writing.html` | `business-writing.html` (new — a thin same-origin iframe wrapper around `business.html#writing`; the real Writing Dashboard tab/data are completely unchanged — see changelog) |
+| YouTube Dashboard (standalone) | 📺 `Business` nav folder → `business-youtube.html` | `business-youtube.html` (new — a thin same-origin iframe wrapper around `business.html#youtube`; the real YouTube Dashboard tab/data are completely unchanged — see changelog) |
 | AI & Tech | 🤖 `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Learning & Knowledge Hub | 📚 `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
@@ -9807,3 +9810,149 @@ both as originally phrased assumed a backend this app doesn't have):
     backfill actually uploads a pre-existing base64 cover on next load).
     A real click-through is recommended before relying on this feature
     heavily.
+
+- **New nav folder: "Business" — an overview page connecting Business
+  Hub's three business models, each now also reachable as its own
+  top-level page, with every one of their tasks flowing into the shared
+  Tasks database.** Per an explicit request, with an explicit "do not
+  delete anything" constraint: `business.html`/`business-data.js` and
+  every one of their tabs (Content/Ideas/Platforms/Resources, plus the
+  Writing Dashboard and YouTube Dashboard tabs, `writing-data.js`/
+  `youtube-data.js`) are completely untouched — not one line of any of
+  those four files changed. "Business model" was read as the three
+  genuinely distinct systems already living inside Business Hub: the
+  original content-planning workspace (Content/Ideas/Platforms/
+  Resources), Writing Dashboard (a Scrivener-style manuscript business),
+  and YouTube Dashboard (a channel-management business) — each already
+  had its own dedicated, separate localStorage-key namespace and (for
+  Writing/YouTube) its own companion `-data.js` file before this change,
+  so this pass didn't need to separate any data, only give two of the
+  three their own top-level page and add a new one that connects all
+  three.
+  - **`business-writing.html`/`business-youtube.html`** (new) — each a
+    thin, same-origin `<iframe>` wrapper around `business.html#writing`/
+    `business.html#youtube` (both hashes already worked before this
+    change — Business Hub's own tab router already matches a tab by
+    title, per its pre-existing `tabIdForHash()`). This is the same
+    "embed the real page, don't reimplement it" approach this app's own
+    (now-removed) `home.html` already used successfully to embed four
+    other full pages inside one — zero duplicated logic, zero risk of
+    the embedded copy drifting from the real one, and every existing
+    feature (the manuscript/channel board, the Binder/Video Planner,
+    Compile & Export, Theme Marketplace, the Tasks Inline Database, drag-
+    reorder, cloud sync — literally everything) keeps working exactly as
+    it already did, since it's the real `business.html` document loaded
+    inside the iframe, running its own real `sync.js`/`initCloudSync`
+    call under the same `key: 'business'` Supabase row, completely
+    unmodified. Each wrapper has a small header (page title, a "←
+    Business" link to the new overview page, and an "Open full page ↗"
+    link straight to `business.html#writing`/`#youtube` as an escape
+    hatch) and, same as this app's own former `home.html`, a best-effort
+    same-origin style injection into the iframe's own document hiding
+    its nested topbar launcher/back-button so there's no doubled nav
+    chrome — wrapped in try/catch, silently skipped if it ever fails,
+    same disclosed precedent as that page's own version of this
+    technique.
+  - **`business-overview.html`** (new, no companion data file) — the
+    literal "overview page that connects all of the separate business
+    pages" ask. Deliberately read-only and stateless: every number on it
+    is computed live, on render, straight from Content Hub's/Writing
+    Dashboard's/YouTube Dashboard's own real localStorage keys
+    (`business:tabs`/`widgets`/`tasks`, `business:writingSeries`/
+    `writingManuscripts`/`writingTasks`, `business:ytNetworks`/
+    `ytChannels`/`ytTasks`) — the same "read another page's localStorage
+    directly, never re-run its own seed/migration code" precedent
+    `index.html`'s former Connected Apps tiles and `tasks-data.js`'s own
+    importers already established — so this page writes nothing of its
+    own, needs no Supabase key/sync call at all, and can never desync
+    from or clobber the pages it summarizes. Three cards (Content Hub/
+    Writing Dashboard/YouTube Dashboard — page count or series/
+    manuscript or network/channel counts, plus a tasks-done fraction,
+    each linking straight to its real page) plus one combined Tasks
+    panel (a progress bar + done/in-progress/to-do breakdown across all
+    three business pages' own raw task collections, with an "Open Tasks
+    Database →" link) — re-renders live on a `storage` event so a change
+    made in another tab shows up here without a manual reload. Same
+    near-black/gold token subset as `business.html`'s own `--bh-*`
+    tokens, copied under this file's own `--bo-*` prefix (DO NOT MODIFY
+    rule 2 — reuse existing tokens, no new palette).
+  - **`topbar.js`** gained a new `business` nav group ("Business"),
+    inserted between "Life & Wellness" and "Create & Grow": Business
+    Overview, Content Hub (`business.html`, moved here from "Create &
+    Grow" — same `id`, same hash-children for its remaining Content/
+    Ideas/Platforms/Resources tabs, just relabeled from "Business Hub" to
+    "Content Hub" and regrouped; nothing about the page itself changed),
+    Writing Dashboard (`business-writing.html`), and YouTube Dashboard
+    (`business-youtube.html`). The `writing`/`youtube` hash-children
+    entries that used to sit under Business Hub's own nav node were
+    removed from that node (since those two now have real, dedicated nav
+    entries of their own) — the hashes themselves still work fine
+    directly against `business.html` (used by both wrapper pages' "Open
+    full page ↗" links), only the sidebar's own link list for them
+    moved.
+  - **"Connect all tasks to the general Tasks database"** —
+    `tasks-data.js` gained three more one-way, read-only import sources
+    (mirroring the exact `upsertImported()`/`findBySource()` pattern its
+    existing Main/System/Fitness importers already use — see that file's
+    own header comment, updated to match): `importFromBusiness()`
+    (`business:tasks` — the Resources tab's own Tasks section, tagged
+    with its owning tab's title via `business:tabs`), `importFromWriting()`
+    (`business:writingTasks` — both root "templates" and their sub-pages,
+    tagged with their manuscript's title via `business:writingManuscripts`),
+    and `importFromYoutube()` (`business:ytTasks`, tagged with its
+    channel's title via `business:ytChannels`) — all three called from
+    the existing `importFromSources()`, so `tasks.html`'s pre-existing
+    "⟳ Sync" button and its empty-storage seed-race-safe first-import
+    path picked them up with zero further wiring. New `SOURCE_LABELS`
+    entries (`business-task`/`writing-task`/`youtube-task`, each labeled
+    "Business · <page>"). Strictly read-only against `business:*`, same
+    guarantee as every other source: this file never writes to a
+    `business:` key, so nothing on any Business page can ever be lost,
+    altered, or deleted by this feature — re-running the sync updates
+    display fields on an already-imported copy in place (status/order/
+    note stay locally owned, same "preserve local edits" rule as every
+    other source) and adds anything new.
+  - **`tasks.html`** gained a 4th source-filter chip ("From Business",
+    `sourceGroup()`/`sourceColor()` extended to recognize all three new
+    `sourceType`s as one `'business'` group, colored with this file's
+    existing `--success` green token rather than a new hue, per DO NOT
+    MODIFY rule 2) and every visible "Main & System" string (the sync
+    button's label, the last-synced line, the imported-task detail
+    banner, the Reset confirm text, the section subtitle, the file's own
+    top-of-file doc comment) was updated to "Main, System & Business" to
+    match. Bumped `tasks-data.js?v=2` on `tasks.html`'s own script tag —
+    this repo's own established mitigation for the "a companion `-data.js`
+    file's cached copy doesn't reflect a code change" class of report
+    (`business-data.js`/`learning-data.js` both hit this before — see
+    their own changelog entries).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment this
+    round (confirmed via a direct `node -e` attempt), so this was
+    verified statically only, the same reduced-guarantee fallback several
+    other entries in this file already disclose for this exact class of
+    limitation: brace/paren balance confirmed on every touched/new file
+    (`topbar.js`'s own raw paren count carries the same pre-existing
+    5-paren prose-comment false positive this file's own earlier entries
+    already documented for this exact file — confirmed unchanged by
+    diffing against the pre-edit copy via `git stash`, not just asserted);
+    zero duplicate nav-item `id`s across `topbar.js`'s full `NAV_GROUPS`
+    array; confirmed `business.html`'s real, current tab-hash routing
+    (`#writing`/`#youtube`) and its real `business:writingManuscripts`/
+    `business:ytChannels`/`business:tasks`/`business:writingTasks`/
+    `business:ytTasks` key names and field shapes directly from
+    `business-data.js`/`writing-data.js`/`youtube-data.js` before writing
+    the overview page's readers and the new task importers, not assumed
+    from this file's own (occasionally stale) prose. **Not verified this
+    way**: an actual click-through (opening the Business nav folder and
+    confirming all four entries navigate correctly, confirming both
+    iframe wrapper pages load `business.html` and land on the right tab
+    with no doubled nav chrome, confirming the overview page's live stats
+    match real data and its `storage`-event re-render fires from a second
+    tab, and confirming a real "⟳ Sync" run on `tasks.html` pulls in a
+    real Content Hub/Writing/YouTube task with the correct source badge
+    and tag). A real click-through is recommended before relying on this
+    feature heavily. Also disclosed: this session's own uncommitted,
+    pre-existing changes to `index.html`/`mainselfcare-data.js` (present
+    in the working tree before this session started, unrelated to this
+    feature) were deliberately left untouched and unstaged — not part of
+    this commit.
