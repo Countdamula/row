@@ -9722,3 +9722,88 @@ both as originally phrased assumed a backend this app doesn't have):
     16 pages. A real click-through is recommended before relying on this
     redesign heavily, same disclosed-limitation caveat several other
     entries in this file already carry for this exact environment.
+
+- **Both Meditations databases gained a link auto-fetch, matching the
+  Media tab's own YouTube/Spotify oEmbed auto-fill.** Per an explicit
+  request — "Change the Meditations database to auto-fill in info and
+  photos when I insert the video link - just like in the Media Tab" —
+  applied to **both** genuinely separate Meditations databases in this
+  app, since neither was named specifically and both are literally
+  called "Meditations": `selfcare.html`'s own Meditations tab
+  (`selfcare-data.js`) and `index.html`'s embedded Self-Care tab's
+  Meditations & Breathwork section (`mainselfcare-data.js`). Purely
+  additive to both — every existing field, filter, favorite toggle, and
+  the Breathwork database sitting alongside Meditations on both pages
+  are untouched.
+  - **The technique, ported directly from `entertainment.html`**:
+    `detectSource(url)` (YouTube/Spotify hostname sniffing),
+    `getYouTubeId(url)`, and `fetchPreview(url, source)` (YouTube's
+    `oembed` endpoint for title + thumbnail, Spotify's for title +
+    thumbnail) — copied line-for-line into both files under
+    page-scoped names (`detectMedSource`/`fetchMedPreview` in
+    `selfcare.html`, `detectSciMedSource`/`fetchSciMedPreview` in
+    `index.html`) rather than shared, since neither page has a way to
+    import code from another (`entertainment.html`'s own script isn't
+    a module). A "Fetch" button next to the URL field (also triggered
+    automatically on blur) calls it; the title only gets overwritten if
+    the user hasn't already typed one by hand (`medTitleManuallyEdited`/
+    `sciMedTitleManuallyEdited`, same flag `entertainment.html`'s own
+    `titleManuallyEdited` already uses), and a hint line reports whether
+    a preview was found — or, for a non-YouTube/Spotify link, says so
+    and that the cover can still be set manually.
+  - **New field: `cover`** (`meditationModel` in both `-data.js` files) —
+    neither Meditations database had any image field before this;
+    additive with a safe `''` default for every already-saved meditation.
+    Populated from the oEmbed thumbnail, or set by hand via a paste-a-URL
+    field or an upload button, same "image or video preview + paste-URL-
+    or-upload controls" component `entertainment.html`'s own cover picker
+    already established — rebuilt with each page's own CSS tokens rather
+    than importing Media's (`--sc-*` in `selfcare.html`, this file's
+    existing `--bg-card`/`--border`/`--text-tertiary` aliases in
+    `index.html`), per DO NOT MODIFY rule 2. An uploaded file is
+    compressed (`compressImageDataUrl`, already present in both files)
+    then handed to `PhotoStore.upload()` (already loaded on both pages)
+    the same two-step "save locally now, swap for a hosted URL once the
+    upload settles" pattern every other cover-photo field in this app
+    already uses — an oEmbed thumbnail, being an already-hosted remote
+    URL, skips that step entirely, same as Media's own auto-fetched
+    thumbnails.
+  - **Card display**: `selfcare.html`'s gallery-style `.med-card` gained
+    an edge-to-edge `.med-card-cover` image bled to the card's top
+    corners (mirroring how a cover reads on a gallery tile elsewhere in
+    this app); `index.html`'s own Meditations list uses a compact
+    row-style `.bs-card`, so it instead gained a small 34px square
+    `.sci-med-thumb` inline next to the title. Both are built via DOM
+    property assignment (`img.src = m.cover`), never string-concatenated
+    into `innerHTML`, since a meditation's cover can be an arbitrary
+    user-pasted URL — the same "DOM not markup" precedent this app's own
+    Habit-media bugfix already established for exactly this class of
+    field, applied here from the start rather than being discovered as a
+    bug later.
+  - **`selfcare.html`'s existing one-time `migratePhotosToStorage()`
+    backfill was extended** to also sweep `SC.Meditations` for any
+    `cover` still holding a base64 `data:` value and upload it, alongside
+    the hero/widget photos it already swept — consistent with that
+    page's established pattern. `index.html` has no equivalent sweep
+    function to extend (new covers there are already either a hosted
+    oEmbed URL or go through `PhotoStore.upload()` immediately on
+    manual upload, so there's no lingering base64 case to backfill).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session was available in this environment this round, so this was
+    verified statically: brace/paren balance confirmed on all four
+    touched files (`selfcare.html`, `selfcare-data.js`, `index.html`,
+    `mainselfcare-data.js`); zero duplicate DOM ids in either HTML file
+    (the only repeated `id="..."` matches found are expected per-record
+    template-string ids in `selfcare.html`'s dynamic card renderers, a
+    pre-existing pattern, not something this pass introduced); every new
+    `$('sciMeditation*')`/`$('med*')` reference cross-matched against a
+    real element id in its own file with nothing unresolved; confirmed
+    `compressImageDataUrl`'s call signature in `index.html` matches how
+    it's called here. **Not verified this way**: an actual click-through
+    (pasting a real YouTube/Spotify link and confirming the title/cover
+    auto-fill, confirming a non-video link shows the right fallback hint,
+    uploading a cover by hand, confirming the cover renders correctly on
+    both pages' card/row styles, and confirming the `selfcare.html`
+    backfill actually uploads a pre-existing base64 cover on next load).
+    A real click-through is recommended before relying on this feature
+    heavily.

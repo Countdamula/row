@@ -584,6 +584,22 @@
   .field textarea { resize: vertical; min-height: 70px; }
   .field-inline { display: flex; align-items: center; gap: 8px; }
   .field-inline input[type="checkbox"] { width: auto; }
+  /* Meditation link auto-fetch + cover picker — same YouTube/Spotify
+     oEmbed technique entertainment.html's Media tab already uses, rebuilt
+     with this page's own tokens (DO NOT MODIFY rule 2: no new hard-coded
+     colors, reuse existing design tokens). */
+  .sci-med-url-row { display: flex; gap: 8px; }
+  .sci-med-url-row input { flex: 1 1 auto; min-width: 0; }
+  .sci-field-hint { font-size: 11px; color: var(--text-tertiary); line-height: 1.4; min-height: 1.3em; margin-top: 4px; }
+  .sci-med-cover-row { display: flex; gap: 12px; align-items: flex-start; }
+  .sci-med-cover-preview {
+    width: 76px; height: 76px; border-radius: var(--radius-sm); object-fit: cover;
+    background: var(--bg-card); border: 1px solid var(--border); flex-shrink: 0; display: none;
+  }
+  .sci-med-cover-controls { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .sci-med-cover-controls input { width: 100%; box-sizing: border-box; }
+  .sci-med-upload-btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; }
+  .sci-med-thumb { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
   .bs-day-picker { display: flex; gap: 5px; flex-wrap: wrap; }
   .bs-day-toggle { width: 34px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); font-size: 11px; font-weight: 700; color: var(--text-tertiary); cursor: pointer; font-family: var(--font); }
   .bs-day-toggle.active { background: var(--accent-tint); color: var(--accent-bright); border-color: var(--accent); }
@@ -1208,9 +1224,29 @@
   <div class="modal">
     <div class="bs-modal-head"><h3 id="sciMeditationModalTitle">Add Meditation</h3><button type="button" class="bs-modal-close" id="sciMeditationModalCloseBtn" aria-label="Close">&times;</button></div>
     <div class="field"><label>Title</label><input type="text" id="sciMeditationTitleInput" placeholder="e.g. Body Scan — 10 min"></div>
+    <div class="field">
+      <label>Link</label>
+      <div class="sci-med-url-row">
+        <input type="text" id="sciMeditationUrlInput" placeholder="Paste a YouTube or Spotify link">
+        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciMeditationFetchBtn">Fetch</button>
+      </div>
+      <div class="sci-field-hint" id="sciMeditationUrlHint"></div>
+    </div>
+    <div class="field">
+      <label>Cover</label>
+      <div class="sci-med-cover-row">
+        <img id="sciMeditationCoverPreview" class="sci-med-cover-preview" alt="">
+        <div class="sci-med-cover-controls">
+          <input type="text" id="sciMeditationCoverUrlInput" placeholder="Paste image URL">
+          <label class="bs-btn-secondary bs-btn-sm sci-med-upload-btn">
+            Upload cover
+            <input type="file" id="sciMeditationCoverFile" accept="image/*" hidden>
+          </label>
+        </div>
+      </div>
+    </div>
     <div class="field"><label>Type</label><select id="sciMeditationTypeInput"></select></div>
     <div class="field"><label>Duration (minutes)</label><input type="number" min="0" id="sciMeditationDurationInput"></div>
-    <div class="field"><label>Link</label><input type="text" id="sciMeditationUrlInput" placeholder="https://…"></div>
     <div class="field"><label>Description</label><textarea id="sciMeditationDescInput"></textarea></div>
     <div class="field field-inline"><input type="checkbox" id="sciMeditationFavoriteInput"><label style="margin:0;">Favorite</label></div>
     <div class="bs-modal-actions">
@@ -3868,7 +3904,85 @@ function safeBootFitnessStudio() { try { bootFitnessStudio(); } catch (err) { sh
 let MSC = null;
 let activeSciTab = 'checklist';
 let editingSciMedId = null, editingSciBrwId = null;
+let sciMedCurrentCover = '', sciMedTitleManuallyEdited = false;
 let sciPacer = { technique: null, phases: [], phaseIdx: 0, phaseStart: 0, cycle: 1, timer: null, running: false };
+
+// -------- link preview auto-fetch — same YouTube/Spotify oEmbed
+// technique entertainment.html's Media tab already uses, ported here so
+// pasting a meditation's video link auto-fills its title and cover
+// thumbnail the same way. --------
+function detectSciMedSource(url) {
+  try {
+    const u = new URL(url);
+    const h = u.hostname.replace(/^www\./, '');
+    if (h === 'youtu.be' || h.endsWith('youtube.com')) return 'youtube';
+    if (h.endsWith('spotify.com')) return 'spotify';
+  } catch (e) {}
+  return null;
+}
+function getSciMedYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.indexOf('youtu.be') !== -1) return u.pathname.slice(1).split('/')[0] || null;
+    if (u.hostname.indexOf('youtube.com') !== -1) {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
+      if (m) return m[2];
+    }
+  } catch (e) {}
+  return null;
+}
+async function fetchSciMedPreview(url, source) {
+  const result = { title: '', thumbnail: '' };
+  if (source === 'youtube') {
+    const id = getSciMedYouTubeId(url);
+    if (id) result.thumbnail = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
+    try {
+      const res = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent(url) + '&format=json');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.title) result.title = data.title;
+        if (data.thumbnail_url) result.thumbnail = data.thumbnail_url;
+      }
+    } catch (e) {}
+    return result;
+  }
+  if (source === 'spotify') {
+    try {
+      const res2 = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(url));
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2.title) result.title = data2.title;
+        if (data2.thumbnail_url) result.thumbnail = data2.thumbnail_url;
+      }
+    } catch (e) {}
+    return result;
+  }
+  return result;
+}
+function updateSciMedCoverPreview() {
+  const img = $('sciMeditationCoverPreview');
+  if (!img) return;
+  if (sciMedCurrentCover) { img.src = sciMedCurrentCover; img.style.display = 'block'; }
+  else { img.removeAttribute('src'); img.style.display = 'none'; }
+}
+async function maybeAutoFetchSciMedPreview() {
+  const url = $('sciMeditationUrlInput').value.trim();
+  const hint = $('sciMeditationUrlHint');
+  if (!url) return;
+  const source = detectSciMedSource(url);
+  if (!source) {
+    hint.textContent = "Doesn't look like a YouTube or Spotify link — you can still save it and set the cover manually.";
+    return;
+  }
+  hint.textContent = 'Fetching preview…';
+  const preview = await fetchSciMedPreview(url, source);
+  if (!sciMedTitleManuallyEdited && preview.title) $('sciMeditationTitleInput').value = preview.title;
+  if (preview.thumbnail) { sciMedCurrentCover = preview.thumbnail; updateSciMedCoverPreview(); }
+  hint.textContent = (preview.title || preview.thumbnail)
+    ? ''
+    : "Couldn't auto-fetch a preview — paste an image URL or upload a cover below.";
+}
 
 function switchSciTab(tab) {
   const panels = document.querySelectorAll('[data-mainpanel="selfcare"] .bs-panel');
@@ -3989,6 +4103,11 @@ function openSciMeditationModal(id) {
   renderSciMeditationTypeSelect();
   $('sciMeditationModalTitle').textContent = m ? 'Edit Meditation' : 'Add Meditation';
   $('sciMeditationTitleInput').value = m ? m.title : '';
+  $('sciMeditationUrlHint').textContent = '';
+  $('sciMeditationCoverUrlInput').value = '';
+  sciMedCurrentCover = m ? (m.cover || '') : '';
+  sciMedTitleManuallyEdited = !!(m && m.title);
+  updateSciMedCoverPreview();
   $('sciMeditationTypeInput').value = m ? m.type : MSC.MEDITATION_TYPES[0];
   $('sciMeditationDurationInput').value = m && m.durationMin !== null ? m.durationMin : '';
   $('sciMeditationUrlInput').value = m ? m.url : '';
@@ -4007,7 +4126,7 @@ function saveSciMeditationModal() {
   const patch = {
     title: title, type: $('sciMeditationTypeInput').value,
     durationMin: durationRaw === '' ? null : (parseInt(durationRaw, 10) || 0),
-    url: url, description: $('sciMeditationDescInput').value.trim(),
+    url: url, cover: sciMedCurrentCover, description: $('sciMeditationDescInput').value.trim(),
     favorite: $('sciMeditationFavoriteInput').checked
   };
   if (editingSciMedId) MSC.Meditations.update(editingSciMedId, patch);
@@ -4026,7 +4145,21 @@ function buildSciMeditationCard(m, i, sortedLen) {
   const card = document.createElement('div'); card.className = 'bs-card';
   const top = document.createElement('div'); top.className = 'bs-card-top';
   const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
-  titleWrap.innerHTML = '<span class="bs-card-title">' + escapeHtml(m.title || 'Untitled') + '</span><span class="bs-tag">' + escapeHtml(m.type) + '</span>' + (m.durationMin ? '<span class="bs-tag">' + m.durationMin + ' min</span>' : '');
+  if (m.cover) {
+    // Built via DOM property assignment, not innerHTML — m.cover is a
+    // user-pasted URL, same "DOM not markup" precedent this app already
+    // established for other pasted-URL image fields (e.g. Habit media).
+    const thumb = document.createElement('img');
+    thumb.className = 'sci-med-thumb';
+    thumb.alt = '';
+    thumb.loading = 'lazy';
+    thumb.src = m.cover;
+    titleWrap.appendChild(thumb);
+  }
+  const titleSpan = document.createElement('span'); titleSpan.className = 'bs-card-title'; titleSpan.textContent = m.title || 'Untitled';
+  const typeTag = document.createElement('span'); typeTag.className = 'bs-tag'; typeTag.textContent = m.type;
+  titleWrap.appendChild(titleSpan); titleWrap.appendChild(typeTag);
+  if (m.durationMin) { const durTag = document.createElement('span'); durTag.className = 'bs-tag'; durTag.textContent = m.durationMin + ' min'; titleWrap.appendChild(durTag); }
   const actions = document.createElement('div'); actions.className = 'bs-card-actions';
   const favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'bs-icon-btn is-star' + (m.favorite ? ' is-active' : ''); favBtn.textContent = m.favorite ? '★' : '☆';
   favBtn.addEventListener('click', function () { MSC.Meditations.update(m.id, { favorite: !m.favorite }); renderSciMeditations(); });
@@ -4254,6 +4387,29 @@ function bootSelfCareMain() {
   $('sciMeditationModalBg').addEventListener('click', function (e) { if (e.target === this) closeSciMeditationModal(); });
   $('sciMeditationModalSave').addEventListener('click', saveSciMeditationModal);
   $('sciMeditationModalDelete').addEventListener('click', deleteSciMeditationModal);
+  $('sciMeditationUrlInput').addEventListener('change', maybeAutoFetchSciMedPreview);
+  $('sciMeditationFetchBtn').addEventListener('click', maybeAutoFetchSciMedPreview);
+  $('sciMeditationTitleInput').addEventListener('input', function () { sciMedTitleManuallyEdited = true; });
+  $('sciMeditationCoverUrlInput').addEventListener('change', function () {
+    const v = $('sciMeditationCoverUrlInput').value.trim();
+    if (v) { sciMedCurrentCover = v; updateSciMedCoverPreview(); }
+  });
+  $('sciMeditationCoverFile').addEventListener('change', function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const compressed = await compressImageDataUrl(String(reader.result), 480, 0.82);
+      sciMedCurrentCover = compressed;
+      updateSciMedCoverPreview();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (sciMedCurrentCover === compressed) { sciMedCurrentCover = url; updateSciMedCoverPreview(); }
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  });
 
   $('sciAddBreathworkBtn').addEventListener('click', function () { openSciBreathworkModal(null); });
   $('sciBreathworkModalCloseBtn').addEventListener('click', closeSciBreathworkModal);

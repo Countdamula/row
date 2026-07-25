@@ -132,6 +132,12 @@
       title: data.title || '',
       description: data.description || '',
       url: data.url || '',
+      // Cover thumbnail — auto-filled from the video link's oEmbed preview
+      // (same YouTube/Spotify oEmbed technique entertainment.html's Media
+      // tab already uses), or a pasted image URL / uploaded photo. Purely
+      // additive: undefined on any meditation saved before this field
+      // existed, read as '' everywhere it's used.
+      cover: data.cover || '',
       type: MEDITATION_TYPES.indexOf(data.type) !== -1 ? data.type : 'other',
       durationMin: data.durationMin == null || data.durationMin === '' ? null : Math.max(0, Math.round(Number(data.durationMin)) || 0),
       tags: Array.isArray(data.tags) ? data.tags.filter(function (t) { return typeof t === 'string' && t; }) : [],

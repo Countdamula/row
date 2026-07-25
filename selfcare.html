@@ -397,6 +397,24 @@ body::after {
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
 
+/* Meditation link auto-fetch + cover picker — same "paste a link, fetch a
+   preview, or set the cover by hand" pattern entertainment.html's Media
+   tab already uses, rebuilt with this page's own tokens/classes rather
+   than importing that file's CSS (DO NOT MODIFY rule 2: reuse this
+   file's own design tokens, no new hard-coded colors). */
+.med-url-row { display: flex; gap: 8px; }
+.med-url-row input { flex: 1 1 auto; min-width: 0; }
+.field-hint { font-size: 11.5px; color: var(--sc-text-mute); line-height: 1.4; min-height: 1.4em; margin-top: 2px; }
+.med-cover-row { display: flex; gap: 12px; align-items: flex-start; }
+.med-cover-preview {
+  width: 84px; height: 84px; border-radius: 10px; object-fit: cover;
+  background: var(--sc-paper); border: 1px solid var(--sc-hairline);
+  flex-shrink: 0; display: none;
+}
+.med-cover-controls { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.med-cover-controls input { width: 100%; box-sizing: border-box; }
+.med-upload-btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; }
+
 .sc-widget-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 @media (max-width: 420px) { .sc-widget-menu { grid-template-columns: 1fr; } }
 .sc-widget-menu-item { text-align: left; background: rgba(255,255,255,0.03); border: 1px solid var(--sc-hairline); border-radius: var(--radius-md); padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; color: var(--sc-text); }
@@ -468,6 +486,10 @@ body::after {
   background: rgba(255, 255, 255, 0.08); -webkit-backdrop-filter: blur(22px) saturate(1.6); backdrop-filter: blur(22px) saturate(1.6);
   border: 1px solid rgba(255,255,255,0.16); border-radius: var(--radius-md);
   padding: 16px 16px 14px;
+}
+.med-card-cover {
+  display: block; width: calc(100% + 32px); height: 140px; object-fit: cover;
+  margin: -16px -16px 12px; border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .med-fav-btn { position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1; color: var(--sc-text-mute); padding: 2px; -webkit-tap-highlight-color: transparent; }
 .med-fav-btn:hover, .med-fav-btn.active { color: var(--warning); }
@@ -721,7 +743,27 @@ body::after {
     <h3 id="medModalTitle">New Meditation</h3>
     <div class="field"><label>Title</label><input type="text" id="medTitleInput" placeholder="e.g. 10-Minute Body Scan"></div>
     <div class="field"><label>Description</label><textarea id="medDescInput" placeholder="What this session is for…" style="min-height:80px"></textarea></div>
-    <div class="field"><label>Web link (URL)</label><input type="text" id="medUrlInput" placeholder="https://…"></div>
+    <div class="field">
+      <label>Web link (URL)</label>
+      <div class="med-url-row">
+        <input type="text" id="medUrlInput" placeholder="Paste a YouTube or Spotify link">
+        <button type="button" class="btn-secondary" id="medFetchBtn">Fetch</button>
+      </div>
+      <div class="field-hint" id="medUrlHint"></div>
+    </div>
+    <div class="field">
+      <label>Cover</label>
+      <div class="med-cover-row">
+        <img id="medCoverPreview" class="med-cover-preview" alt="">
+        <div class="med-cover-controls">
+          <input type="text" id="medCoverUrlInput" placeholder="Paste image URL">
+          <label class="btn-secondary med-upload-btn">
+            Upload cover
+            <input type="file" id="medCoverFile" accept="image/*" hidden>
+          </label>
+        </div>
+      </div>
+    </div>
     <div class="two-col">
       <div class="field"><label>Type</label><select id="medTypeSelect"></select></div>
       <div class="field"><label>Duration (minutes, optional)</label><input type="text" inputmode="numeric" id="medDurationInput" placeholder="e.g. 10"></div>
@@ -853,6 +895,17 @@ body::after {
           }));
         }
       });
+    });
+    SC.Meditations.list().forEach(function (m) {
+      if (typeof m.cover === 'string' && m.cover.indexOf('data:') === 0) {
+        const orig = m.cover;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return false;
+          const fresh = SC.Meditations.get(m.id);
+          if (fresh && fresh.cover === orig) SC.Meditations.update(m.id, { cover: url });
+          return true;
+        }));
+      }
     });
     if (!jobs.length) { storeSet('selfcare:photosMigratedV1', true); return; }
     // Only mark this page "done" if every upload this pass kicked off
@@ -2001,8 +2054,85 @@ body::after {
     { key: 'long', label: 'Over 20 min', test: function (d) { return d != null && d > 20; } }
   ];
   var medTypeFilter = '', medDurationFilter = '', medFavOnly = false, medSearchQuery = '', medEditingId = null;
+  var medCurrentCover = '', medTitleManuallyEdited = false;
 
   function isValidMeditationUrl(url) { try { var u = new URL(url); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; } }
+
+  // -------- link preview auto-fetch — same YouTube/Spotify oEmbed
+  // technique entertainment.html's Media tab already uses, ported here so
+  // pasting a meditation's video link auto-fills its title and cover
+  // thumbnail the same way. --------
+  function detectMedSource(url) {
+    try {
+      var u = new URL(url);
+      var h = u.hostname.replace(/^www\./, '');
+      if (h === 'youtu.be' || h.endsWith('youtube.com')) return 'youtube';
+      if (h.endsWith('spotify.com')) return 'spotify';
+    } catch (e) {}
+    return null;
+  }
+  function getMedYouTubeId(url) {
+    try {
+      var u = new URL(url);
+      if (u.hostname.indexOf('youtu.be') !== -1) return u.pathname.slice(1).split('/')[0] || null;
+      if (u.hostname.indexOf('youtube.com') !== -1) {
+        if (u.pathname === '/watch') return u.searchParams.get('v');
+        var m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
+        if (m) return m[2];
+      }
+    } catch (e) {}
+    return null;
+  }
+  async function fetchMedPreview(url, source) {
+    var result = { title: '', thumbnail: '' };
+    if (source === 'youtube') {
+      var id = getMedYouTubeId(url);
+      if (id) result.thumbnail = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
+      try {
+        var res = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent(url) + '&format=json');
+        if (res.ok) {
+          var data = await res.json();
+          if (data.title) result.title = data.title;
+          if (data.thumbnail_url) result.thumbnail = data.thumbnail_url;
+        }
+      } catch (e) {}
+      return result;
+    }
+    if (source === 'spotify') {
+      try {
+        var res2 = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(url));
+        if (res2.ok) {
+          var data2 = await res2.json();
+          if (data2.title) result.title = data2.title;
+          if (data2.thumbnail_url) result.thumbnail = data2.thumbnail_url;
+        }
+      } catch (e) {}
+      return result;
+    }
+    return result;
+  }
+  function updateMedCoverPreview() {
+    var img = $('medCoverPreview');
+    if (medCurrentCover) { img.src = medCurrentCover; img.style.display = 'block'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; }
+  }
+  async function maybeAutoFetchMedPreview() {
+    var url = $('medUrlInput').value.trim();
+    var hint = $('medUrlHint');
+    if (!url) return;
+    var source = detectMedSource(url);
+    if (!source) {
+      hint.textContent = "Doesn't look like a YouTube or Spotify link — you can still save it and set the cover manually.";
+      return;
+    }
+    hint.textContent = 'Fetching preview…';
+    var preview = await fetchMedPreview(url, source);
+    if (!medTitleManuallyEdited && preview.title) $('medTitleInput').value = preview.title;
+    if (preview.thumbnail) { medCurrentCover = preview.thumbnail; updateMedCoverPreview(); }
+    hint.textContent = (preview.title || preview.thumbnail)
+      ? ''
+      : "Couldn't auto-fetch a preview — paste an image URL or upload a cover below.";
+  }
 
   function renderMedFilterChips() {
     var typeRow = $('medTypeChips');
@@ -2028,8 +2158,10 @@ body::after {
     var typeLabel = MED_TYPE_LABELS[m.type] || m.type;
     var durationLabel = m.durationMin != null ? m.durationMin + ' min' : 'No duration set';
     var tagsHtml = m.tags.map(function (t) { return '<span class="tag">' + escapeHtml(t) + '</span>'; }).join('');
+    var coverHtml = m.cover ? '<img class="med-card-cover" src="' + escapeHtml(m.cover) + '" alt="" loading="lazy">' : '';
     return '' +
       '<div class="med-card" data-id="' + m.id + '">' +
+        coverHtml +
         '<button type="button" class="med-fav-btn' + (m.isFavorite ? ' active' : '') + '" data-id="' + m.id + '" aria-label="' + (m.isFavorite ? 'Remove favorite' : 'Mark favorite') + '">' + (m.isFavorite ? '★' : '☆') + '</button>' +
         '<div class="med-card-title">' + escapeHtml(m.title || '(Untitled)') + '</div>' +
         '<div class="med-card-meta"><span class="tag">' + escapeHtml(typeLabel) + '</span><span class="med-card-duration">' + escapeHtml(durationLabel) + '</span></div>' +
@@ -2099,6 +2231,11 @@ body::after {
     $('medTitleInput').value = m ? m.title : '';
     $('medDescInput').value = m ? m.description : '';
     $('medUrlInput').value = m ? m.url : '';
+    $('medUrlHint').textContent = '';
+    $('medCoverUrlInput').value = '';
+    medCurrentCover = m ? (m.cover || '') : '';
+    medTitleManuallyEdited = !!(m && m.title);
+    updateMedCoverPreview();
     $('medTypeSelect').value = m ? m.type : SC.MEDITATION_TYPES[0];
     $('medDurationInput').value = m && m.durationMin != null ? String(m.durationMin) : '';
     $('medTagsInput').value = m && m.tags.length ? m.tags.join(', ') : '';
@@ -2107,6 +2244,29 @@ body::after {
     $('medModalDelete').style.display = m ? 'block' : 'none';
     $('medModalBg').classList.add('show');
   }
+  $('medUrlInput').addEventListener('change', maybeAutoFetchMedPreview);
+  $('medFetchBtn').addEventListener('click', maybeAutoFetchMedPreview);
+  $('medTitleInput').addEventListener('input', function () { medTitleManuallyEdited = true; });
+  $('medCoverUrlInput').addEventListener('change', function () {
+    var v = $('medCoverUrlInput').value.trim();
+    if (v) { medCurrentCover = v; updateMedCoverPreview(); }
+  });
+  $('medCoverFile').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = async function () {
+      var compressed = await SC.compressImageDataUrl(String(reader.result), 480, 0.82);
+      medCurrentCover = compressed;
+      updateMedCoverPreview();
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          if (medCurrentCover === compressed) { medCurrentCover = url; updateMedCoverPreview(); }
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  });
   function closeMedModal() { $('medModalBg').classList.remove('show'); medEditingId = null; }
   $('medAddBtn').addEventListener('click', function () { openMeditationModal(null); });
   $('medModalCancel').addEventListener('click', closeMedModal);
@@ -2123,7 +2283,7 @@ body::after {
     var tags = $('medTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
     var isFavorite = $('medFavInput').checked;
     var notes = $('medNotesInput').value.trim();
-    var patch = { title: title, description: description, url: url, type: type, durationMin: durationMin, tags: tags, isFavorite: isFavorite, notes: notes };
+    var patch = { title: title, description: description, url: url, cover: medCurrentCover, type: type, durationMin: durationMin, tags: tags, isFavorite: isFavorite, notes: notes };
     if (medEditingId) SC.Meditations.update(medEditingId, patch);
     else SC.Meditations.add(patch);
     closeMedModal();

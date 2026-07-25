@@ -225,6 +225,12 @@
       title: typeof data.title === 'string' ? data.title : '',
       description: typeof data.description === 'string' ? data.description : '',
       url: typeof data.url === 'string' ? data.url : '',
+      // Cover thumbnail — auto-filled from the video link's oEmbed preview
+      // (same YouTube/Spotify oEmbed technique entertainment.html's Media
+      // tab already uses), or a pasted image URL / uploaded photo. Purely
+      // additive: undefined on any meditation saved before this field
+      // existed, read as '' everywhere it's used.
+      cover: typeof data.cover === 'string' ? data.cover : '',
       type: MEDITATION_TYPES.indexOf(data.type) !== -1 ? data.type : MEDITATION_TYPES[0],
       durationMin: typeof data.durationMin === 'number' ? data.durationMin : null,
       favorite: !!data.favorite,
