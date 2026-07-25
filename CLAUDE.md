@@ -215,6 +215,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
    | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs`, `system:actions`/`system:challenges`, and (new) `fitness:templates`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entries — those prefixes and their data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
+   | `enthub` | `ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html` (new) | everything prefixed `enthub:` (`enthub:podcasts`, `enthub:stories`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, plus each page's own device-local `enthub:<page>:activeSubtopic`/`enthub:favorites:activePage` UI-state keys) — one shared row across all five pages, same "one row covers several logically separate pages" precedent the `goals` row already uses (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -253,6 +254,11 @@ using `sync.js`.
 | Fitness Studio | 🏋️ `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | 💰 `FINANCE` → `finance.html` | `finance.html` |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
+| Entertainment (folder) → Favorites | ⭐ `Entertainment` nav folder → `ent-favorites.html` | `ent-favorites.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new, entirely separate from `entertainment.html`/"Media" above — see changelog) |
+| Entertainment (folder) → Podcasts | 🎙️ `Entertainment` nav folder → `ent-podcasts.html` | `ent-podcasts.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
+| Entertainment (folder) → Stories | 📖 `Entertainment` nav folder → `ent-stories.html` | `ent-stories.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
+| Entertainment (folder) → Playlists | 🎧 `Entertainment` nav folder → `ent-playlists.html` | `ent-playlists.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
+| Entertainment (folder) → Entertainment | 🎬 `Entertainment` nav folder → `ent-entertainment.html` | `ent-entertainment.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
 | Brain Dump | 🧠 `BRAIN DUMP` → `braindump.html` | `braindump.html` (briefly deleted, then restored — see changelog) |
 | Nutrition | 🍽️ `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
 | Household | 🧺 `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (briefly deleted, then restored — see changelog) |
@@ -9956,3 +9962,142 @@ both as originally phrased assumed a backend this app doesn't have):
     in the working tree before this session started, unrelated to this
     feature) were deliberately left untouched and unstaged — not part of
     this commit.
+
+- **New nav folder: "Entertainment," right below Command Center — five
+  genuinely new, standalone pages (Favorites/Podcasts/Stories/Playlists/
+  Entertainment), each with its own sub-page topics, sharing one gallery
+  engine, with favorites synced live to a central Favorites page.** Per
+  an explicit request naming both the five top-level pages and each
+  content page's own sub-topics. "Make completely new pages" was read
+  literally — unlike the Business folder (which reused `business.html`
+  via iframe embeds), this is a from-scratch build, and the pre-existing
+  `entertainment.html` ("Media," its own separate Podcasts/Stories/
+  Entertainment/Playlists/Favorites gallery tabs) is completely
+  untouched — different files, different `media:*`/`key:'entertainment'`
+  Supabase row, nothing shared or repurposed.
+  - **Two new shared files, not five divergent copies**: since all four
+    content pages are structurally identical (a gallery + sub-topic tabs
+    + an Add/Edit modal), `entertainment-hub-data.js` (models/collections/
+    selectors/oEmbed-fetch, one flat collection per content page —
+    `enthub:podcasts`/`enthub:stories`/`enthub:entertainment`/
+    `enthub:playlists`) and `entertainment-hub-ui.js` (injects its own
+    `<style>` and body markup at runtime — the same self-contained
+    "build it and append it" pattern `topbar.js` already uses for the
+    shared nav) are loaded by all five HTML files, each of which is just
+    a thin shell (script tags + a one-line boot call,
+    `EntHubUI.initGalleryPage('podcasts')` etc.) — this avoids four
+    near-identical ~800-line files that could silently drift apart, and
+    means a future fix/feature only needs to land once.
+  - **Sub-topics, exactly as specified, plus a "★ Favorites" tab on every
+    content page** (a filter, not a stored category — same "favorite is a
+    field, not its own database" precedent `entertainment.html`'s own
+    Favorites tab already established): Podcasts — Learning, Photography
+    / Videography, True Crime, Business; Stories — Horror Stories, Spicy
+    Stories, Immersive Experience; Entertainment — Gaming, Scary Videos,
+    Vlog-Like; Playlists — Chill, Binaural Beats, Dark / Gothic / Horror
+    / Romance, EDM / Electronic, Fantasy ("FFantasy" in the request read
+    as a typo for Fantasy). Each sub-topic (plus Favorites) is a real,
+    deep-linkable URL hash (`ent-podcasts.html#true-crime`, etc.,
+    slug-generated deterministically from the sub-topic name so nothing
+    needs to be hand-kept in sync) — `topbar.js`'s new "entertainment" nav
+    group lists every real sub-topic as a nested child link, the same
+    Notion-style-nesting convention every other multi-tab page in this
+    app's nav already uses.
+  - **Seed content**: a light starter set (1–2 items per sub-topic, real
+    recognizable show/podcast names as placeholder titles where that made
+    sense — e.g. Huberman Lab, Crime Junkie, How I Built This) so no
+    sub-topic loads empty, but **no URL or cover was fabricated for any
+    seed item** — that would look like a genuinely auto-fetched preview
+    when it isn't. Every seed item starts with an empty `url`/`cover`
+    (icon fallback shown instead), meant to be replaced by pasting the
+    real link. Same empty-storage seed-race-safety window as every other
+    page in this app (`EntHub.bootSync()`, new — a small shared helper
+    since all five pages use the identical `appKey:'enthub'`/
+    `syncedPrefixes:['enthub:']` config, deferred until either real cloud
+    data arrives via `onApplied` or a 5-second window elapses).
+  - **Auto-fill, honestly scoped**: pasting a YouTube or Spotify link
+    (`EntHub.fetchPreview()`, the exact `detectSource`/`getYouTubeId`/
+    oEmbed-fetch technique `entertainment.html`'s own `fetchPreview()`
+    already uses, both public keyless endpoints — no backend/API key
+    exists or is needed) genuinely auto-fills Title, Author/Creator, and
+    Cover. **"The Page it belongs to" auto-fills too, but not from the
+    URL** — it's stamped automatically from whichever sub-topic tab is
+    active when you click "+ Add," so you don't have to re-pick it.
+    **Description and Length do not auto-fill from either provider's
+    oEmbed response — neither exposes them, full stop** (confirmed by
+    reading `entertainment.html`'s own already-shipped fetch code, which
+    never populated them either, only `title`/`thumbnail_url`/
+    `author_name`) — both stay manual, editable fields, and the modal
+    says so directly ("Description and length aren't provided by
+    YouTube/Spotify previews — add them by hand") rather than silently
+    leaving them blank with no explanation. Flagged here rather than
+    silently claimed as a working auto-fill, per this app's own
+    established "confirmed adaptation" discipline for exactly this class
+    of request.
+  - **Gallery card, per the request's own feature list**: a large 4:3
+    cover (edge-to-edge, a bottom scrim for legibility, an icon fallback
+    when no cover is set), an italic serif ("article-like," matching the
+    large-serif-title convention Business Hub/AI & Tech/Learning Hub's
+    own galleries already use) title, creator byline, sub-topic tag,
+    a clamped description, a length badge, and a **glowing 5-star
+    rating** — filled stars render gold with a `drop-shadow` glow
+    (`rgba(232,207,159,0.85)`, this app's own existing gold token, not a
+    new color) and are directly clickable on the card itself (click the
+    same star again to clear a rating) — no need to open the modal just
+    to rate something. **Clicking anywhere on a card** (outside its own
+    interactive controls) opens the real link in a new tab
+    (`window.open(url,'_blank','noopener')`) if one is set, or opens the
+    Edit modal if it isn't yet — never a dead click. A ☆/★ button in the
+    card's top-right corner toggles favorite status instantly (no modal),
+    with the same gold glow treatment when on. Every card is **fully
+    editable** (✎ opens the same Add/Edit modal used for creating one) and
+    **drag-reorderable** (SortableJS, handle-based, with the same
+    `delay`/`delayOnTouchOnly`/`touchStartThreshold` touch-scroll-safety
+    tuning `learning.html`'s own bugfix entry already established, so
+    scrolling past a card on a phone can't accidentally reorder it) —
+    reordering is computed against the currently-visible (sub-topic- and
+    search-filtered) list, then remapped into the real underlying array
+    order, the same technique `entertainment.html`'s own Manual sort mode
+    and `tasks.html`'s reorder-under-filter fix already use, so dragging
+    within one sub-topic can never scramble another sub-topic's items
+    sitting between them in storage.
+  - **Favorites page** (`ent-favorites.html`) owns no collection of its
+    own — `EntHub.allFavorites()` reads every `favorite:true` item across
+    all four content collections live, tags each with a transient
+    (never-persisted) `_pageKey`, and renders them through the exact same
+    card component (with a page-source badge added). "Filtered by page,"
+    per the request: an "All pages" chip plus one chip per content page.
+    Un-favoriting, editing, re-rating, and deleting all write straight
+    back into the item's real, owning collection (`EH.collectionFor(item
+    ._pageKey)`) — there is exactly one copy of each item's data,
+    everywhere, never a second synced copy that could drift.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]:
+    `EntHubUI.initGalleryPage()`/`initFavoritesPage()` both wrap their
+    real bodies in try/catch (`runSafely()`, new), showing a visible
+    banner with the real error and a "Copy error details" button instead
+    of a silently blank page, matching the precedent `gym.html`/
+    `business.html`/`tasks.html`/`mainpillar.html`/`home.html` already
+    established for exactly this failure class. Each HTML shell also
+    checks `window.EntHubUI` exists before calling into it, so a failed
+    script load (e.g. a stale cache) surfaces a plain alert instead of a
+    silent no-op.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment this
+    round, so this was verified statically only, the same reduced-
+    guarantee fallback several other entries in this file already
+    disclose for this exact class of limitation: brace/paren balance
+    confirmed on both new shared files and all five HTML shells; zero
+    duplicate DOM ids introduced anywhere in `topbar.js`'s `NAV_GROUPS`;
+    every sub-topic's hand-written nav hash was checked by hand against
+    `slugify()`'s actual output for that exact sub-topic string (all 15
+    matched); confirmed `entertainment.html`'s real, currently-shipped
+    `fetchPreview()` implementation before replicating it, rather than
+    assuming its shape from this file's own prose. **Not verified this
+    way**: an actual click-through (pasting a real YouTube/Spotify link
+    and confirming the auto-fill/hint text, dragging a card to reorder,
+    starring an item and confirming it appears correctly on the Favorites
+    page filtered by its source page, unfavoriting from the Favorites
+    page and confirming it's gone from both places, and confirming the
+    hash-deep-link/`hashchange` wiring on all five pages). A real
+    click-through is recommended before relying on this feature heavily.

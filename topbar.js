@@ -71,6 +71,55 @@
       ],
     },
     {
+      // New nav folder, right below Command Center: five genuinely new,
+      // standalone pages (not a rebuild of the pre-existing
+      // entertainment.html/"Media" page, which is untouched and keeps
+      // its own separate nav entry down in "Create & Grow" below) — one
+      // shared gallery engine (entertainment-hub-ui.js) renders all
+      // five, each backed by its own `enthub:*` collection
+      // (entertainment-hub-data.js). Favorites owns no collection of its
+      // own — it's a live aggregation of every item favorited across the
+      // other four, filterable by source page.
+      key: 'entertainment',
+      label: 'Entertainment',
+      items: [
+        { href: 'ent-favorites.html', icon: '⭐', label: 'Favorites', id: 'topbarEntFavorites', children: [
+          { hash: 'all', label: 'All Pages' },
+          { hash: 'podcasts', label: '🎙️ Podcasts' },
+          { hash: 'stories', label: '📖 Stories' },
+          { hash: 'playlists', label: '🎧 Playlists' },
+          { hash: 'entertainment', label: '🎬 Entertainment' },
+        ] },
+        { href: 'ent-podcasts.html', icon: '🎙️', label: 'Podcasts', id: 'topbarEntPodcasts', children: [
+          { hash: 'learning', label: 'Learning' },
+          { hash: 'photography-videography', label: 'Photography / Videography' },
+          { hash: 'true-crime', label: 'True Crime' },
+          { hash: 'business', label: 'Business' },
+          { hash: 'favorites', label: '★ Favorites' },
+        ] },
+        { href: 'ent-stories.html', icon: '📖', label: 'Stories', id: 'topbarEntStories', children: [
+          { hash: 'horror-stories', label: 'Horror Stories' },
+          { hash: 'spicy-stories', label: 'Spicy Stories' },
+          { hash: 'immersive-experience', label: 'Immersive Experience' },
+          { hash: 'favorites', label: '★ Favorites' },
+        ] },
+        { href: 'ent-playlists.html', icon: '🎧', label: 'Playlists', id: 'topbarEntPlaylists', children: [
+          { hash: 'chill', label: 'Chill' },
+          { hash: 'binaural-beats', label: 'Binaural Beats' },
+          { hash: 'dark-gothic-horror-romance', label: 'Dark / Gothic / Horror / Romance' },
+          { hash: 'edm-electronic', label: 'EDM / Electronic' },
+          { hash: 'fantasy', label: 'Fantasy' },
+          { hash: 'favorites', label: '★ Favorites' },
+        ] },
+        { href: 'ent-entertainment.html', icon: '🎬', label: 'Entertainment', id: 'topbarEntEntertainment', children: [
+          { hash: 'gaming', label: 'Gaming' },
+          { hash: 'scary-videos', label: 'Scary Videos' },
+          { hash: 'vlog-like', label: 'Vlog-Like' },
+          { hash: 'favorites', label: '★ Favorites' },
+        ] },
+      ],
+    },
+    {
       key: 'life',
       label: 'Life & Wellness',
       items: [
