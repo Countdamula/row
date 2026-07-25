@@ -9023,3 +9023,95 @@ both as originally phrased assumed a backend this app doesn't have):
     confirming the empty-storage seed-race path behaves correctly on a
     fresh profile). A real click-through is recommended before relying on
     this page heavily.
+
+- **`topbar.js` (shared nav, every page) rebuilt from a horizontal pill
+  row into a collapsible sidebar-drawer nav, built to match a reference
+  screenshot of a sidebar app** (a brand mark, a search box, and grouped/
+  collapsible sections with a tree-line-indented item list) — per an
+  explicit request that every one of this app's real pages be reachable
+  in at most two clicks. All 17 real `.html` pages in this repo are now
+  listed in nav (previously 16 — `example.html` never had a pill at all,
+  a pre-existing doc/code mismatch this file had already flagged once;
+  it's now included, filed under a new "More" group), grouped into four
+  categories — **Command Center** (Main, Build Your System, Main Pillar,
+  Tasks, Tasks & Notes), **Life & Wellness** (Fitness Studio, Nutrition,
+  Self-Care, Household, Finance, Brain Dump), **Create & Grow** (Business
+  Hub, Dream Board, AI & Tech, Learning Hub, Media), and **More**
+  (Example) — instead of one flat row.
+  - **Built as an overlay drawer, not a permanently-docked sidebar** —
+    a deliberate, disclosed scope adaptation from the reference photo's
+    own layout (which docks the sidebar and shifts page content over):
+    this app has 17 independent, hand-built pages, each with its own
+    bespoke layout, hero banners, and full-viewport fixed background
+    layers (see §1/§3) — permanently reserving body space for a docked
+    sidebar (via a global injected `body { padding-left: … }`, which
+    `topbar.js` *could* do, the same way its existing mobile-lockdown CSS
+    already applies global rules across every page) can't be verified
+    safe against clipping/overlapping something on every one of them
+    without live visual testing of all 17, which wasn't feasible to do
+    exhaustively in this pass. An overlay drawer — opened by a small,
+    always-visible launcher pill fixed in the top-left corner (brand mark
+    + the current page's name, so you always know where you are without
+    opening it) — gets the exact same grouped/searchable sidebar look and
+    is zero-risk to every existing page's layout, since nothing about the
+    page underneath the drawer ever moves or resizes. This still meets
+    the "two clicks" requirement exactly as the reference photo's own
+    collapsible-group interaction does: open the drawer (1) + click a
+    page (2) in the worst case, and usually just one click, since a
+    page's own group always force-expands on load even if it was
+    previously collapsed, and every group starts expanded by default.
+  - **Palette**: reuses this app's own already-established near-black/
+    gold accent tokens (the exact same `#0a0a0b` background and
+    `#d9b878`/`#f0dcae` gold the prior pill-row redesign already used)
+    rather than the reference photo's own blue/white palette — per DO
+    NOT MODIFY rule 2 (reuse existing design tokens, no new hard-coded
+    colors) and §6 (gold, not blue, is this app's real common accent).
+  - **Search**: a live filter box in the drawer narrows every group's
+    items by label substring match, auto-expanding any group with a
+    match and hiding groups with none (with an empty-state message);
+    Enter navigates straight to the first visible match, the same
+    "search narrows a filtered list, Enter jumps to the top result"
+    interaction this app's other search boxes already use elsewhere.
+  - **Collapse state** persists per-browser (`topbar:navCollapsed`, a new
+    localStorage key, device-local only — not synced, same as the
+    pre-existing `*:active_tab` UI-state keys scattered across this app,
+    none of which sync either), and is always overridden for whichever
+    group contains the current page on load, so getting back to a
+    sibling page in that same group is never more than one click even if
+    every group had previously been manually collapsed.
+  - **Main's live progress badge** (today's Goals/habits done-vs-total)
+    is preserved — same `getGoalsProgress()`/`classifyStatus()` logic,
+    unchanged — now shown two ways: the full "X/Y" count next to the Main
+    item inside the drawer (same `#topbarGoalsCount` id, same warn/miss
+    color logic), and a small colored status dot on the launcher's brand
+    mark (amber/red, pulsing on miss) so the day's status is visible at a
+    glance without opening the drawer at all.
+  - **Untouched, per DO NOT MODIFY**: `pushWaterMergedToSupabase`,
+    `TOPBAR_SUPABASE_URL`/`TOPBAR_SUPABASE_KEY`, `MODAL_SELECTORS` and
+    `startModalLock()`'s body-scroll-lock mechanism, and the mobile
+    zoom/scrollbar lockdown CSS — all carried over byte-for-byte. A
+    repo-wide grep confirmed no other page references the old
+    `.topbar-pill`/`#topbar` classes/ids directly (only `<script
+    src="topbar.js">` tags and comments about `MODAL_SELECTORS`), so
+    none of the 17 pages needed any edit of their own for this redesign.
+  - **Verified in headless Edge** (`--host-resolver-rules` mapping the
+    Supabase host to `0.0.0.0`, armed before navigation, per
+    [[feedback_block_supabase_before_browser_testing]]), via real
+    dispatched clicks/keydowns/input events (not just a DOM/static read):
+    all 17 expected page hrefs present with zero missing and zero
+    duplicates across 4 groups; the launcher opens the drawer and locks
+    body scroll; the scrim, the close button, and the Escape key each
+    close it; the search box's "finance" query correctly narrows to
+    exactly one item resolving to `finance.html` and clearing it restores
+    all 17; a group's collapse/expand toggle round-trips correctly; and,
+    loading a page named `finance.html` with its own group pre-collapsed
+    in localStorage, the Finance item is correctly marked active, the
+    launcher's page label reads "Finance", and its group is correctly
+    force-expanded despite the pre-set collapsed state — zero JS console
+    errors across every pass.
+  - The "Nav pill markup lives in one place: the `html` template string
+    inside `topbar.js`" note elsewhere in this file is superseded by this
+    entry — nav content now lives in `topbar.js`'s own `NAV_GROUPS` data
+    array (one entry per page, each with an `href`/`icon`/`label`/`id`),
+    rendered into the drawer's grouped markup at boot, still the one
+    single place to edit if the page list itself ever changes.

@@ -1,5 +1,5 @@
 // =============================================================
-// Persistent dashboard top bar.
+// Persistent dashboard navigation.
 // Drop this on any page with:
 //     <script src="topbar.js" defer></script>
 // It self-injects HTML + CSS and reads progress from the same
@@ -14,104 +14,252 @@
   const TOPBAR_SUPABASE_URL = 'https://jomlmvslzsmmzgjnqvbm.supabase.co';
   const TOPBAR_SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
 
+  // -------- Nav data --------
+  // Every page in the dashboard, grouped the way a real sidebar app groups
+  // its sections (see the reference screenshot this redesign was built to
+  // match) instead of one long flat row. Every one of the 17 real .html
+  // pages in this repo is listed here — including example.html, which
+  // never had a nav entry before this redesign — so every page is reachable
+  // in at most two clicks from anywhere: open the nav (1) + click a page
+  // (2), or, since a page's own group auto-expands on load and every other
+  // group starts expanded too, usually just one click.
+  const NAV_GROUPS = [
+    {
+      key: 'command',
+      label: 'Command Center',
+      items: [
+        { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true },
+        { href: 'system.html', icon: '⚙️', label: 'Build Your System', id: 'topbarSystem' },
+        { href: 'mainpillar.html', icon: '🎮', label: 'Main Pillar', id: 'topbarMainPillar' },
+        { href: 'tasks.html', icon: '🗂️', label: 'Tasks', id: 'topbarTasksDb' },
+        { href: 'tasksnotes.html', icon: '✅', label: 'Tasks & Notes', id: 'topbarTasksNotes' },
+      ],
+    },
+    {
+      key: 'life',
+      label: 'Life & Wellness',
+      items: [
+        { href: 'gym.html', icon: '🏋️', label: 'Fitness Studio', id: 'topbarGym' },
+        { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition' },
+        { href: 'selfcare.html', icon: '🌙', label: 'Self-Care', id: 'topbarSelfCare' },
+        { href: 'household.html', icon: '🧺', label: 'Household', id: 'topbarHousehold' },
+        { href: 'finance.html', icon: '💰', label: 'Finance', id: 'topbarFinance' },
+        { href: 'braindump.html', icon: '🧠', label: 'Brain Dump', id: 'topbarBrainDump' },
+      ],
+    },
+    {
+      key: 'create',
+      label: 'Create & Grow',
+      items: [
+        { href: 'business.html', icon: '💼', label: 'Business Hub', id: 'topbarBusiness' },
+        { href: 'dreamboard.html', icon: '✨', label: 'Dream Board', id: 'topbarDreamBoard' },
+        { href: 'aitech.html', icon: '🤖', label: 'AI & Tech', id: 'topbarAiTech' },
+        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning' },
+        { href: 'entertainment.html', icon: '🎬', label: 'Media', id: 'topbarEntertainment' },
+      ],
+    },
+    {
+      key: 'more',
+      label: 'More',
+      items: [
+        { href: 'example.html', icon: '🧪', label: 'Example', id: 'topbarExample' },
+      ],
+    },
+  ];
+
   // -------- CSS --------
-  // Redesigned nav: a centered, wrapping "chip cloud" of naturally-sized
-  // pills on desktop/tablet (instead of stretching every pill to fill an
-  // equal-width slot, which squeezed labels as more pages were added)
-  // plus a leading icon per pill for faster visual scanning, a warmer
-  // gold active-state (this app's own common accent across most pages —
-  // see CLAUDE.md §6), and a soft elevation shadow. Phones keep the
-  // established horizontally-scrolling strip (a wrapping multi-row nav
-  // eats too much vertical space on a narrow screen), just with roomier
-  // touch targets.
+  // Redesigned as a collapsible sidebar nav (matching the look of a
+  // reference "sidebar app" screenshot the user supplied: a brand mark, a
+  // search box, and grouped/collapsible sections with a tree-line
+  // indentation for nested items) rather than the previous horizontal pill
+  // row. Built as an overlay drawer — fixed position, opened by a small
+  // always-visible launcher pill — rather than a permanently-docked sidebar
+  // that would shift every page's own content over. This app has 17
+  // independent, hand-built pages with their own bespoke layouts, hero
+  // banners, and full-viewport background layers (see CLAUDE.md §1/§3);
+  // permanently reserving body space for a docked sidebar can't be safely
+  // verified not to clip/overlap something on every one of them without
+  // live visual testing, which isn't available in this environment. An
+  // overlay drawer gets the exact same look and grouped/searchable
+  // structure with zero risk to any existing page's layout, since nothing
+  // about the page underneath ever moves. Palette reuses this app's own
+  // already-established near-black/gold accent (the same tokens the prior
+  // pill-row design already used) rather than the reference photo's own
+  // blue/white palette — per CLAUDE.md DO NOT MODIFY rule 2 (reuse existing
+  // design tokens, no new hard-coded colors) and §6 (this app's real common
+  // accent is gold, not blue).
   const css = `
-.topbar {
-  position: sticky; top: 0; z-index: 40;
-  display: flex; flex-wrap: wrap; gap: 8px;
-  justify-content: center; align-items: center;
-  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
-  /* Fully opaque so each page's body background can't bleed through
-     and tint the bar a different color. Matches the dashboard's base
-     dark background so the bar feels continuous with the page chrome. */
-  background: #0a0a0b;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-  --tb-accent: #d9b878;
-  --tb-accent-bright: #f0dcae;
-}
-.topbar-pill {
-  flex: 0 0 auto;
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 9px 15px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+.tb-launcher {
+  position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left));
+  z-index: 2600;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 9px 14px 9px 10px;
+  background: rgba(10, 10, 11, 0.72);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  text-decoration: none;
   color: #FAFAFA;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.topbar-pill:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); transform: translateY(-1px); }
-.topbar-pill-icon { font-size: 13px; line-height: 1; flex-shrink: 0; opacity: 0.9; }
-.topbar-pill-label {
-  font-size: 10.5px; font-weight: 700;
-  letter-spacing: 0.13em; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
-  flex-shrink: 0; white-space: nowrap;
-  transition: color 0.15s ease;
+.tb-launcher:hover { border-color: rgba(217, 184, 120, 0.55); transform: translateY(-1px); }
+.tb-launcher-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(155deg, #d9b878 0%, #f0dcae 100%);
+  color: #23180a; font-size: 13px; font-weight: 700;
+  position: relative;
 }
-.topbar-pill.active {
-  background: linear-gradient(180deg, rgba(217, 184, 120, 0.22) 0%, rgba(217, 184, 120, 0.09) 100%);
-  border-color: var(--tb-accent);
-  box-shadow: 0 0 0 1px rgba(217, 184, 120, 0.22), 0 6px 16px rgba(217, 184, 120, 0.14);
+.tb-launcher-dot {
+  position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: transparent; border: 2px solid rgba(10,10,11,0.9);
+  transition: background 0.2s ease;
 }
-.topbar-pill.active .topbar-pill-label { color: var(--tb-accent-bright); }
-/* Main's progress badge (today's Goals/habits done vs. total) — the only
-   pill with a live count. Re-adapted to this redesign's icon+label
-   anatomy (the old version colored a plain status dot; there's no dot
-   here anymore, so warn/miss color the count digits and the pill's
-   border instead — same status meaning, new visual home for it). */
-.topbar-pill-count {
+.tb-launcher-dot.warn { background: #fbbf24; }
+.tb-launcher-dot.miss { background: #ff8a8a; animation: tb-miss-pulse 1.6s ease-in-out infinite; }
+@keyframes tb-miss-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  50%      { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+.tb-launcher-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.tb-launcher-eyebrow {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+.tb-launcher-page {
+  font-size: 11.5px; font-weight: 700; color: #f0dcae; letter-spacing: 0.01em;
+  max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tb-launcher-chevron { font-size: 10px; color: rgba(255,255,255,0.4); margin-left: 2px; }
+
+.tb-scrim {
+  position: fixed; inset: 0; z-index: 2500;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.tb-scrim.show { opacity: 1; pointer-events: auto; }
+
+.tb-sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 2700;
+  width: min(300px, 86vw);
+  display: flex; flex-direction: column;
+  background: #0a0a0b;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+  transform: translateX(-100%);
+  transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tb-sidebar.open { transform: translateX(0); }
+
+.tb-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tb-brand-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(155deg, #d9b878 0%, #f0dcae 100%);
+  color: #23180a; font-size: 15px; font-weight: 700;
+  box-shadow: 0 4px 14px rgba(217, 184, 120, 0.28);
+}
+.tb-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.tb-brand-title { font-size: 14.5px; font-weight: 700; color: #FAFAFA; letter-spacing: 0.01em; }
+.tb-brand-subtitle { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.03em; }
+.tb-close-btn {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.65); font-size: 13px; cursor: pointer; flex-shrink: 0;
+}
+.tb-close-btn:hover { background: rgba(255,255,255,0.09); color: #fff; }
+
+.tb-search-wrap { padding: 14px 16px 8px; }
+.tb-search {
+  width: 100%; box-sizing: border-box;
+  padding: 9px 12px; font-size: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px; color: #FAFAFA;
+  font-family: inherit;
+}
+.tb-search::placeholder { color: rgba(255,255,255,0.35); }
+.tb-search:focus { outline: none; border-color: rgba(217, 184, 120, 0.5); background: rgba(255,255,255,0.07); }
+
+.tb-groups { flex: 1 1 auto; overflow-y: auto; padding: 6px 10px 18px; }
+.tb-group { margin-top: 10px; }
+.tb-group-head {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; background: none; border: none; cursor: pointer;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  font-family: inherit;
+}
+.tb-group-head:hover { color: rgba(255, 255, 255, 0.65); }
+.tb-group-head-count {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px; font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  font-size: 9.5px; font-weight: 700; color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.06); border-radius: 999px;
+  padding: 1px 6px;
 }
-.topbar-pill.warn { border-color: rgba(251, 191, 36, 0.45); }
-.topbar-pill.warn .topbar-pill-count { color: #fbbf24; }
-.topbar-pill.miss { border-color: rgba(255, 138, 138, 0.55); }
-.topbar-pill.miss .topbar-pill-count { color: #ff8a8a; animation: topbar-miss-pulse 1.6s ease-in-out infinite; }
-@keyframes topbar-miss-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-  50%      { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0); }
+.tb-group-chevron { margin-left: auto; font-size: 10px; transition: transform 0.18s ease; color: rgba(255,255,255,0.35); }
+.tb-group.collapsed .tb-group-chevron { transform: rotate(-90deg); }
+.tb-group-items {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-left: 15px; padding-left: 11px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
-/* Below 700px, an 11-pill wrapping cloud starts eating too many rows of
-   vertical space for a phone-sized viewport — switch to a horizontally
-   scrollable single-row strip instead: every pill keeps its natural
-   content width so its label always stays fully legible, and the row
-   scrolls rather than wraps. Desktop/tablet are untouched. */
-@media (max-width: 700px) {
-  .topbar {
-    justify-content: flex-start;
-    padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
-    flex-wrap: nowrap; gap: 8px;
-    overflow-x: auto; overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none; -ms-overflow-style: none;
-    /* Fade at both edges hints there's more to scroll, same affordance
-       most mobile tab-strip UIs use. */
-    mask-image: linear-gradient(90deg, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
-  }
-  .topbar::-webkit-scrollbar { display: none; height: 0; }
-  .topbar-pill {
-    padding: 11px 15px; gap: 7px;
-    scroll-snap-align: start;
-  }
-  .topbar-pill-label { font-size: 10.5px; letter-spacing: 0.10em; }
+.tb-group.collapsed .tb-group-items { display: none; }
+
+.tb-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 9px;
+  text-decoration: none; color: rgba(255, 255, 255, 0.78);
+  font-size: 12.5px; font-weight: 600;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.tb-item:hover { background: rgba(255, 255, 255, 0.055); color: #fff; }
+.tb-item-icon { font-size: 13px; line-height: 1; flex-shrink: 0; opacity: 0.9; }
+.tb-item-label { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-item-count {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px; font-weight: 700; color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0; white-space: nowrap;
+}
+.tb-item.active {
+  background: linear-gradient(180deg, rgba(217, 184, 120, 0.2) 0%, rgba(217, 184, 120, 0.08) 100%);
+  color: #f0dcae;
+}
+.tb-item.active::before {
+  content: ''; position: absolute; left: -12px; top: 3px; bottom: 3px; width: 2px;
+  background: #d9b878; border-radius: 2px;
+}
+.tb-item.warn .tb-item-count { color: #fbbf24; }
+.tb-item.miss .tb-item-count { color: #ff8a8a; }
+.tb-item.tb-hide { display: none; }
+.tb-group.tb-hide { display: none; }
+.tb-empty-state {
+  padding: 16px 10px; text-align: center; font-size: 12px;
+  color: rgba(255,255,255,0.35); display: none;
+}
+.tb-empty-state.show { display: block; }
+
+body.tb-drawer-open { overflow: hidden; }
+
+@media (max-width: 480px) {
+  .tb-launcher-page { max-width: 32vw; }
+  .tb-sidebar { width: 88vw; }
 }
 
 /* === Global mobile lockdown ===
@@ -161,85 +309,70 @@ body.topbar-modal-open {
 `;
 
   // -------- HTML --------
-  // Main leads the row now. Home (the old aggregator hub that embedded
-  // Dream Board/Self-Care/Tasks & Notes/AI & Tech/Main/Main Pillar/
-  // Household/Brain Dump in iframes, plus its own native Weekly Schedule/
-  // Subconscious Reprogramming sections) was deleted outright and its pill
-  // removed — Main took over its role as the leading landing pill. Every
-  // page Home used to embed still has its own standalone pill below,
-  // unaffected by Home's removal.
+  function buildGroupHtml(group) {
+    const items = group.items.map((item) => {
+      const countHtml = item.withCount
+        ? `<span class="tb-item-count" id="${item.id}Count">—/—</span>`
+        : '';
+      return `<a href="${item.href}" class="tb-item" id="${item.id}" data-label="${item.label.toLowerCase()}">
+        <span class="tb-item-icon">${item.icon}</span>
+        <span class="tb-item-label">${item.label}</span>
+        ${countHtml}
+      </a>`;
+    }).join('');
+    return `
+    <div class="tb-group" data-group="${group.key}">
+      <button type="button" class="tb-group-head" data-group-toggle="${group.key}">
+        <span>${group.label}</span>
+        <span class="tb-group-head-count">${group.items.length}</span>
+        <span class="tb-group-chevron">⌄</span>
+      </button>
+      <div class="tb-group-items">${items}</div>
+    </div>`;
+  }
+
   const html = `
-<header class="topbar" id="topbar" role="navigation" aria-label="Quick navigation">
-  <a href="index.html" class="topbar-pill" id="topbarGoals">
-    <span class="topbar-pill-icon">🎯</span>
-    <span class="topbar-pill-label">MAIN</span>
-    <span class="topbar-pill-count" id="topbarGoalsCount">—/—</span>
-  </a>
-  <a href="gym.html" class="topbar-pill" id="topbarGym">
-    <span class="topbar-pill-icon">🏋️</span>
-    <span class="topbar-pill-label">STUDIO</span>
-  </a>
-  <a href="finance.html" class="topbar-pill" id="topbarFinance">
-    <span class="topbar-pill-icon">💰</span>
-    <span class="topbar-pill-label">FINANCE</span>
-  </a>
-  <a href="entertainment.html" class="topbar-pill" id="topbarEntertainment">
-    <span class="topbar-pill-icon">🎬</span>
-    <span class="topbar-pill-label">MEDIA</span>
-  </a>
-  <a href="braindump.html" class="topbar-pill" id="topbarBrainDump">
-    <span class="topbar-pill-icon">🧠</span>
-    <span class="topbar-pill-label">BRAIN DUMP</span>
-  </a>
-  <a href="nutrition.html" class="topbar-pill" id="topbarNutrition">
-    <span class="topbar-pill-icon">🍽️</span>
-    <span class="topbar-pill-label">NUTRITION</span>
-  </a>
-  <a href="household.html" class="topbar-pill" id="topbarHousehold">
-    <span class="topbar-pill-icon">🧺</span>
-    <span class="topbar-pill-label">HOUSEHOLD</span>
-  </a>
-  <a href="selfcare.html" class="topbar-pill" id="topbarSelfCare">
-    <span class="topbar-pill-icon">🌙</span>
-    <span class="topbar-pill-label">SELF-CARE</span>
-  </a>
-  <a href="dreamboard.html" class="topbar-pill" id="topbarDreamBoard">
-    <span class="topbar-pill-icon">✨</span>
-    <span class="topbar-pill-label">DREAM BOARD</span>
-  </a>
-  <a href="business.html" class="topbar-pill" id="topbarBusiness">
-    <span class="topbar-pill-icon">💼</span>
-    <span class="topbar-pill-label">BUSINESS</span>
-  </a>
-  <a href="aitech.html" class="topbar-pill" id="topbarAiTech">
-    <span class="topbar-pill-icon">🤖</span>
-    <span class="topbar-pill-label">AI &amp; TECH</span>
-  </a>
-  <a href="learning.html" class="topbar-pill" id="topbarLearning">
-    <span class="topbar-pill-icon">📚</span>
-    <span class="topbar-pill-label">LEARNING</span>
-  </a>
-  <a href="tasksnotes.html" class="topbar-pill" id="topbarTasksNotes">
-    <span class="topbar-pill-icon">✅</span>
-    <span class="topbar-pill-label">TASKS &amp; NOTES</span>
-  </a>
-  <a href="mainpillar.html" class="topbar-pill" id="topbarMainPillar">
-    <span class="topbar-pill-icon">🎮</span>
-    <span class="topbar-pill-label">MAIN PILLAR</span>
-  </a>
-  <a href="system.html" class="topbar-pill" id="topbarSystem">
-    <span class="topbar-pill-icon">⚙️</span>
-    <span class="topbar-pill-label">SYSTEM</span>
-  </a>
-  <a href="tasks.html" class="topbar-pill" id="topbarTasksDb">
-    <span class="topbar-pill-icon">🗂️</span>
-    <span class="topbar-pill-label">TASKS</span>
-  </a>
-</header>
+<button type="button" class="tb-launcher" id="tbLauncher" aria-label="Open navigation" aria-expanded="false">
+  <span class="tb-launcher-mark">✦<span class="tb-launcher-dot" id="tbLauncherDot"></span></span>
+  <span class="tb-launcher-text">
+    <span class="tb-launcher-eyebrow">Dashboard</span>
+    <span class="tb-launcher-page" id="tbLauncherPage">Menu</span>
+  </span>
+  <span class="tb-launcher-chevron">▾</span>
+</button>
+<div class="tb-scrim" id="tbScrim"></div>
+<aside class="tb-sidebar" id="tbSidebar" role="navigation" aria-label="Quick navigation">
+  <div class="tb-brand">
+    <span class="tb-brand-mark">✦</span>
+    <span class="tb-brand-text">
+      <span class="tb-brand-title">Personal Dashboard</span>
+      <span class="tb-brand-subtitle">Quick navigation</span>
+    </span>
+    <button type="button" class="tb-close-btn" id="tbCloseBtn" aria-label="Close navigation">✕</button>
+  </div>
+  <div class="tb-search-wrap">
+    <input type="text" class="tb-search" id="tbSearchInput" placeholder="Search pages…" autocomplete="off" spellcheck="false">
+  </div>
+  <nav class="tb-groups" id="tbGroups">
+    ${NAV_GROUPS.map(buildGroupHtml).join('')}
+    <div class="tb-empty-state" id="tbEmptyState">No pages match “<span id="tbEmptyQuery"></span>”</div>
+  </nav>
+</aside>
 `;
 
+  let tbCollapsedGroups = [];
+  function loadCollapsedGroups() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('topbar:navCollapsed'));
+      tbCollapsedGroups = Array.isArray(raw) ? raw : [];
+    } catch (e) { tbCollapsedGroups = []; }
+  }
+  function saveCollapsedGroups() {
+    try { localStorage.setItem('topbar:navCollapsed', JSON.stringify(tbCollapsedGroups)); } catch (e) {}
+  }
+
   function injectStyleAndHTML() {
-    if (document.getElementById('topbar')) return; // already injected
+    if (document.getElementById('tbSidebar')) return; // already injected
     const style = document.createElement('style');
     style.id = 'topbar-style';
     style.textContent = css;
@@ -247,29 +380,137 @@ body.topbar-modal-open {
 
     const wrap = document.createElement('div');
     wrap.innerHTML = html.trim();
-    document.body.insertBefore(wrap.firstChild, document.body.firstChild);
+    // Insert every top-level node (launcher button, scrim, sidebar) at the
+    // very start of body, in document order, same "self-injects" contract
+    // as before.
+    const nodes = Array.prototype.slice.call(wrap.childNodes);
+    nodes.reverse().forEach((node) => document.body.insertBefore(node, document.body.firstChild));
+
+    loadCollapsedGroups();
+    applyCollapsedState();
   }
 
-  // Marks the current page's pill so it's visually distinct from the rest,
-  // and — since the mobile layout scrolls horizontally instead of
-  // squeezing everything onto one screen — scrolls it into view so
-  // landing on e.g. Self-Care doesn't leave you wondering which of the
-  // off-screen pills you're actually on.
-  function highlightActivePill() {
-    let path = window.location.pathname.split('/').pop();
-    if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
-    const pills = document.querySelectorAll('.topbar-pill');
-    pills.forEach((p) => {
-      if (p.getAttribute('href') === path) {
-        p.classList.add('active');
-        if (typeof p.scrollIntoView === 'function') {
-          p.scrollIntoView({ inline: 'center', block: 'nearest' });
-        }
-      }
+  function applyCollapsedState() {
+    document.querySelectorAll('.tb-group').forEach((groupEl) => {
+      const key = groupEl.getAttribute('data-group');
+      groupEl.classList.toggle('collapsed', tbCollapsedGroups.indexOf(key) !== -1);
     });
   }
 
-  // -------- Main pill's live progress badge (today's Goals/habits) --------
+  function toggleGroup(key) {
+    const idx = tbCollapsedGroups.indexOf(key);
+    if (idx === -1) tbCollapsedGroups.push(key); else tbCollapsedGroups.splice(idx, 1);
+    saveCollapsedGroups();
+    applyCollapsedState();
+  }
+
+  // Marks the current page's pill so it's visually distinct from the rest,
+  // sets the launcher's "current page" label, and makes sure the current
+  // page's own group is never left collapsed on load — so getting back to
+  // whatever else is in that same group never costs more than one click.
+  function highlightActivePill() {
+    let path = window.location.pathname.split('/').pop();
+    if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
+    const items = document.querySelectorAll('.tb-item');
+    const launcherPage = document.getElementById('tbLauncherPage');
+    items.forEach((p) => {
+      if (p.getAttribute('href') === path) {
+        p.classList.add('active');
+        if (launcherPage) launcherPage.textContent = p.querySelector('.tb-item-label').textContent;
+        const group = p.closest('.tb-group');
+        if (group) {
+          const key = group.getAttribute('data-group');
+          const idx = tbCollapsedGroups.indexOf(key);
+          if (idx !== -1) { tbCollapsedGroups.splice(idx, 1); saveCollapsedGroups(); }
+        }
+      }
+    });
+    applyCollapsedState();
+  }
+
+  // -------- Drawer open/close --------
+  function openDrawer() {
+    const sidebar = document.getElementById('tbSidebar');
+    const scrim = document.getElementById('tbScrim');
+    const launcher = document.getElementById('tbLauncher');
+    if (!sidebar) return;
+    sidebar.classList.add('open');
+    if (scrim) scrim.classList.add('show');
+    document.body.classList.add('tb-drawer-open');
+    if (launcher) launcher.setAttribute('aria-expanded', 'true');
+    const search = document.getElementById('tbSearchInput');
+    if (search) setTimeout(() => search.focus(), 260);
+  }
+  function closeDrawer() {
+    const sidebar = document.getElementById('tbSidebar');
+    const scrim = document.getElementById('tbScrim');
+    const launcher = document.getElementById('tbLauncher');
+    if (!sidebar) return;
+    sidebar.classList.remove('open');
+    if (scrim) scrim.classList.remove('show');
+    document.body.classList.remove('tb-drawer-open');
+    if (launcher) launcher.setAttribute('aria-expanded', 'false');
+  }
+  function isDrawerOpen() {
+    const sidebar = document.getElementById('tbSidebar');
+    return !!(sidebar && sidebar.classList.contains('open'));
+  }
+
+  function wireDrawer() {
+    const launcher = document.getElementById('tbLauncher');
+    const closeBtn = document.getElementById('tbCloseBtn');
+    const scrim = document.getElementById('tbScrim');
+    if (launcher) launcher.addEventListener('click', () => { isDrawerOpen() ? closeDrawer() : openDrawer(); });
+    if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+    if (scrim) scrim.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isDrawerOpen()) closeDrawer(); });
+
+    document.querySelectorAll('.tb-group-head').forEach((headEl) => {
+      headEl.addEventListener('click', () => toggleGroup(headEl.getAttribute('data-group-toggle')));
+    });
+
+    const searchInput = document.getElementById('tbSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => applySearchFilter(searchInput.value));
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const firstMatch = document.querySelector('.tb-item:not(.tb-hide)');
+        if (firstMatch) window.location.href = firstMatch.getAttribute('href');
+      });
+    }
+  }
+
+  function applySearchFilter(rawQuery) {
+    const query = (rawQuery || '').trim().toLowerCase();
+    const groups = document.querySelectorAll('.tb-group');
+    const empty = document.getElementById('tbEmptyState');
+    const emptyQuery = document.getElementById('tbEmptyQuery');
+    let anyVisible = false;
+
+    if (!query) {
+      groups.forEach((g) => { g.classList.remove('tb-hide'); });
+      document.querySelectorAll('.tb-item').forEach((it) => it.classList.remove('tb-hide'));
+      applyCollapsedState();
+      if (empty) empty.classList.remove('show');
+      return;
+    }
+
+    groups.forEach((groupEl) => {
+      let groupHasMatch = false;
+      groupEl.querySelectorAll('.tb-item').forEach((item) => {
+        const matches = (item.getAttribute('data-label') || '').indexOf(query) !== -1;
+        item.classList.toggle('tb-hide', !matches);
+        if (matches) { groupHasMatch = true; anyVisible = true; }
+      });
+      groupEl.classList.toggle('tb-hide', !groupHasMatch);
+      if (groupHasMatch) groupEl.classList.remove('collapsed');
+    });
+
+    if (empty) empty.classList.toggle('show', !anyVisible);
+    if (emptyQuery) emptyQuery.textContent = rawQuery;
+  }
+
+  // -------- Live progress badge (today's Goals/habits) --------
   function activeDateKey() {
     const now = new Date();
     const d = new Date(now);
@@ -286,7 +527,7 @@ body.topbar-modal-open {
     let done = total ? goals.filter(g => g && g.done).length : 0;
 
     // Also fold in today's scheduled recurring habits (goals:habits +
-    // goals:habit-log:<date>), so the pill reflects the full day, not just
+    // goals:habit-log:<date>), so the badge reflects the full day, not just
     // the freeform checklist.
     try {
       const habits = JSON.parse(localStorage.getItem('goals:habits')) || [];
@@ -324,7 +565,14 @@ body.topbar-modal-open {
     const countEl = document.getElementById('topbarGoalsCount');
     if (countEl) countEl.textContent = g.total ? g.done + '/' + g.total : '0/0';
 
-    setPillStatus(goalsEl, classifyStatus(g.done, g.total));
+    const status = classifyStatus(g.done, g.total);
+    setPillStatus(goalsEl, status);
+
+    const dot = document.getElementById('tbLauncherDot');
+    if (dot) {
+      dot.classList.remove('warn', 'miss');
+      if (status === 'warn' || status === 'miss') dot.classList.add(status);
+    }
   }
 
   // pushWaterMergedToSupabase / TOPBAR_SUPABASE_URL / TOPBAR_SUPABASE_KEY
@@ -404,6 +652,7 @@ body.topbar-modal-open {
   // -------- Boot --------
   function boot() {
     injectStyleAndHTML();
+    wireDrawer();
     highlightActivePill();
     render();
     lockGestures();
