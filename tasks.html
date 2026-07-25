@@ -396,6 +396,25 @@ body::after {
   let statusFilter = '';
   let searchQuery = '';
 
+  // Reflects the Today/All Tasks view chip in the URL hash (Notion-style
+  // sidebar deep links, e.g. tasks.html#all) — additive only, same
+  // hash-mirroring convention already established elsewhere in this app.
+  // Neither view is persisted to localStorage (there was none before this),
+  // so a plain reload with no hash still defaults to 'today' as it always
+  // has.
+  function setTaskView(view) {
+    taskView = view;
+    document.querySelectorAll('#tdViewChips .td-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.view === view);
+    });
+    renderTasks();
+    try { history.replaceState(null, '', '#' + view); } catch (e) {}
+  }
+  window.addEventListener('hashchange', function () {
+    const h = (location.hash || '').replace(/^#/, '');
+    if ((h === 'today' || h === 'all') && h !== taskView) setTaskView(h);
+  });
+
   function openModal(el) { el.classList.add('show'); }
   function closeModal(el) { el.classList.remove('show'); }
   function autosize(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
@@ -702,6 +721,14 @@ body::after {
     DB = window.TasksDbData;
     if (!DB) { showBootErrorBanner('window.TasksDbData is undefined — tasks-data.js failed to load.', 'boot'); return; }
 
+    const initialHash = (location.hash || '').replace(/^#/, '');
+    if (initialHash === 'today' || initialHash === 'all') {
+      taskView = initialHash;
+      document.querySelectorAll('#tdViewChips .td-chip').forEach(function (c) {
+        c.classList.toggle('active', c.dataset.view === initialHash);
+      });
+    }
+
     renderHero();
     renderTasks();
     renderLastSynced();
@@ -744,11 +771,7 @@ body::after {
     $('tdResetBtn').addEventListener('click', resetAll);
 
     document.querySelectorAll('#tdViewChips .td-chip').forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        taskView = chip.dataset.view;
-        document.querySelectorAll('#tdViewChips .td-chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
-        renderTasks();
-      });
+      chip.addEventListener('click', function () { setTaskView(chip.dataset.view); });
     });
     document.querySelectorAll('#tdSourceChips .td-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {

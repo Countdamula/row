@@ -1006,6 +1006,19 @@ body::after {
     renderPrompts();
     setTimeout(migratePhotosToStorage, 3000);
 
+    // Notion-style sidebar deep links (e.g. aitech.html#prompts) — this
+    // page has no tab system, just two stacked sections, so a "sub-page"
+    // link here just scrolls to the right one. Purely additive.
+    const HASH_TO_SECTION = { models: 'atModelsSection', prompts: 'atPromptsSection' };
+    function scrollToHashSection() {
+      const key = (location.hash || '').replace(/^#/, '');
+      const sectionId = HASH_TO_SECTION[key];
+      const el = sectionId && document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }
+    if (location.hash) setTimeout(scrollToHashSection, 60);
+    window.addEventListener('hashchange', scrollToHashSection);
+
     setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
     window.addEventListener('aitech:save', handleSaveEvent);
     window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });

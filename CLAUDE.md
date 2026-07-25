@@ -9578,3 +9578,147 @@ both as originally phrased assumed a backend this app doesn't have):
     completion state, and clicking each of the Breathe/Sit/Page step
     buttons to confirm they land in the right sub-tab/section). A real
     click-through is recommended before relying on this feature heavily.
+
+- **Navigation (`topbar.js`) redesigned again: Notion-style nested
+  sub-pages under every top-level page.** Per an explicit request — "Main
+  Page, then sub-pages of all of the pages in the Main Page... like how
+  Notion has a main page which can have subpages. Do the same with the
+  Media Tab. Do the same with the Nutrition Tab. Same with all the Tabs
+  and pages." — every top-level nav item that has more than one internal
+  view now shows an expandable, indented list of that page's own tabs/
+  sections directly under it in the drawer, exactly like a Notion sidebar
+  nests a page's sub-pages. Purely additive per the request's own "do not
+  delete anything" instruction: every existing tab/gallery/section, every
+  existing localStorage-based tab-memory key, and every existing button/
+  click handler on every page is untouched — the only new capability is a
+  second, URL-hash-based way to land on the same view, layered on top.
+  - **`topbar.js` data model**: `NAV_GROUPS` items gained an optional
+    `children: [{hash, label}]` array — one entry per that page's own
+    tab/section, where `hash` is the literal URL fragment
+    (`<href>#<hash>`) that page now reads on load to land there. 12 of the
+    16 pages got children (every page with more than one internal view);
+    Brain Dump and Example (genuinely single-view pages) and none of the
+    other 2 leaf pages have any, so they render exactly as before —
+    a plain, non-expandable row.
+  - **Rendering**: every nav item is now wrapped in a `.tb-node` (new);
+    an item with children gets a small chevron toggle
+    (`.tb-node-toggle`) and an indented `.tb-subitems` list, collapsed by
+    default (a fresh Notion sidebar only expands the page you've actually
+    opened) and persisted per-node in a new `topbar:navExpanded`
+    localStorage key (mirroring the existing `topbar:navCollapsed` group
+    state, just inverted default and keyed by href instead of group key).
+    `highlightActivePill()` now also matches `location.hash` against a
+    node's sub-items, marking the active one and force-expanding its
+    parent node — the same "current context is never left hidden"
+    guarantee the existing group-auto-expand behavior already gave for
+    groups. A new `window.addEventListener('hashchange',
+    highlightActivePill)` keeps the drawer's active sub-item in sync live
+    as a page switches its own internal tab without a full reload.
+    Search (`applySearchFilter`) now matches against both a node's own
+    label and its children's labels — a node is shown if either matches,
+    a matching child auto-expands its parent (a parent-only match leaves
+    the node exactly as collapsed/expanded as the user left it), and
+    Enter-to-navigate prefers the parent page if it matched, else the
+    first matching child.
+  - **Per-page hash wiring — three tiers**, each disclosed here since the
+    underlying pages use three genuinely different tab-identification
+    schemes (confirmed by reading each page's actual code before wiring
+    anything, not assumed):
+    1. **Already hash-based, zero page-side changes needed**:
+       `index.html` (Main's 5 tabs — Morning Ritual/Your System/
+       Subconscious Reprogramming/Fitness Studio/Self-Care — this is the
+       literal "Main Page, then sub-pages of all of the pages in the
+       Main Page" from the request), `gym.html` (Overview/Current Week/
+       Templates/Equipment/History & Compare), `nutrition.html` (My
+       Kitchen/Grocery List), `household.html` (Overview/Energy Beings/
+       Inventory/Wishlist/Chores), `finance.html` (Overview/Accounts/
+       Transactions/Subscriptions/Income/Notes) — all five already read
+       `location.hash` on load and `history.replaceState` on tab switch,
+       so their nav children just point straight at each page's own
+       existing, already-working hash keys. **Not further nested**: Main's
+       own "Your System" (Written/Visual/Mental), "Fitness Studio"
+       (Current Week/Templates/Equipment/History), and "Self-Care"
+       (Checklist/Journal/Meditations & Breathwork) sub-tabs each have
+       their *own* second level of internal tabs, localStorage-only, no
+       hash — a deliberate scope cut disclosed here rather than silently
+       skipped: going a 3rd level deep would have meant adding hash
+       plumbing to three more independent tab systems inside one already-
+       large file, and the 2-level Main breakdown already satisfies the
+       request's own literal wording.
+    2. **Additive hash support added, fixed string tab keys** (each
+       page's existing localStorage-based tab memory left completely
+       intact — hash is a second, higher-priority entry point, read on
+       boot and via a new `hashchange` listener, `history.replaceState`
+       on every switch so tab-switching never piles up history entries):
+       `mainpillar.html` (Today/Weekly/Monthly/Year/Goals/Favorites — new
+       `MP_TAB_KEYS` array), `tasks.html` (Today/All Tasks — this page
+       had no persistence at all for this filter before, hash is now the
+       only thing that survives a reload, via a new `setTaskView()`
+       helper factored out of the inline click handler), `selfcare.html`
+       (Self-Care/Journals/Meditations/Anxiety — tabs here are dynamic
+       records, but each of these four specifically carries a fixed
+       `panel` field, so the hash maps to `panel` via a small
+       `PANEL_TO_HASH`/`HASH_TO_PANEL` lookup rather than a raw tab id;
+       `''` — the freeform board's own panel value — maps to the hash
+       `main`, since an empty hash isn't a usable link), `entertainment.html`
+       / Media (Podcasts/Stories/Entertainment/Playlists/Favorites — this
+       page had no hash support and no dedicated switch function at all
+       before; factored the inline gallery-tab click handler into a new
+       `switchGallery(key)` function, reused by both the tab click and the
+       new hash read/hashchange listener).
+    3. **Additive hash support added, dynamic-id tabs matched by title**:
+       `business.html` (Content/Ideas/Platforms/Resources/Writing
+       Dashboard/YouTube Dashboard) and `dreamboard.html` (Vision Board/
+       Reflections/Quarterly Goals/Monthly Breakdown) both identify a tab
+       by a generated id, not a fixed key, since tabs there are user-
+       renameable/addable/deletable — so the hash instead matches a tab's
+       *default* title, case-insensitively (`tabIdForHash()`, new in
+       both files), the same "match by name" technique business.html's
+       own pre-existing Writing/YouTube sub-nav (`data-wr-nav-subpage`)
+       already used to jump to a tab. A tab renamed away from its
+       original title, or deleted, simply fails to match and everything
+       falls back silently to whatever tab/localStorage already resolves
+       — no data risk either way, confirmed by design (the lookup only
+       ever reads `DB.tabsSorted()`, never writes). **Not nested
+       further**: Writing Dashboard's own hidden sub-pages (Outlines/More
+       Notes/Automation Ideas/Theme Marketplace) and YouTube Dashboard's
+       (Content Calendar/More Video Notes/Growth Ideas) are one level
+       deeper still and were left out of the nav for the same "2 levels,
+       not 3" scope cut as index.html's own inner sub-tabs above.
+    4. **Anchor-scroll, not real tabs**: `aitech.html` (AI Models/
+       Prompts), `learning.html` (Topics/Resources), and
+       `tasksnotes.html` (Links/Notes/Tasks) are each a single continuous
+       page with named `id`-bearing sections, not a tab system at all —
+       for these, a "sub-page" link is a hash that triggers a
+       `scrollIntoView` to the right section on load and on hashchange
+       (reusing each page's own existing reduced-motion-aware smooth-
+       scroll convention already used for their in-page CTA buttons),
+       rather than switching any actual view state.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment
+    this round (confirmed via `which`/`-v` checks), so this was verified
+    statically only: brace/paren balance confirmed on every one of the
+    10 touched files (`topbar.js` plus the 9 pages with page-side hash
+    changes) — all balanced except `topbar.js`'s raw paren grep-count,
+    which is a pre-existing false positive from parens embedded in prose
+    comments (confirmed by a full manual read-through of the file
+    top-to-bottom, not just the grep count, before and after editing);
+    confirmed zero accidental duplicate identifier declarations across
+    every new `const`/`function` name introduced in each file (each
+    appears exactly once); confirmed every page's `DB`/`SC`-equivalent
+    data-layer variable is assigned before the new hash-lookup code that
+    reads it runs, in every file, so the added code can't throw on a
+    variable that isn't set up yet; confirmed the nav's 16 `href` entries
+    match the repo's actual 16 `.html` files exactly (one-for-one, no
+    stale/missing entries) and every hash key referenced in
+    `NAV_GROUPS`' `children` matches a real hash/section-id each page's
+    own boot code now actually recognizes. **Not verified this way**: an
+    actual click-through of the drawer itself (opening a node's chevron,
+    confirming a sub-page link navigates and lands on the right tab/
+    scroll position, confirming the active sub-item highlights and its
+    parent auto-expands, confirming search still narrows correctly with
+    the new nested markup, confirming the business.html/dreamboard.html
+    title-matching degrades gracefully against a renamed tab) across all
+    16 pages. A real click-through is recommended before relying on this
+    redesign heavily, same disclosed-limitation caveat several other
+    entries in this file already carry for this exact environment.

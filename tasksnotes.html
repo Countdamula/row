@@ -937,6 +937,20 @@ body::after {
     renderTasks();
     setTimeout(migratePhotosToStorage, 3000);
 
+    // Notion-style sidebar deep links (e.g. tasksnotes.html#tasks) — this
+    // page has no tab system, just three stacked sections, so a "sub-page"
+    // link here just scrolls to the right one. Purely additive: no section
+    // ever moved, nothing else about the page changed.
+    const HASH_TO_SECTION = { links: 'tnLinksSection', notes: 'tnNotesSection', tasks: 'tnTasksSection' };
+    function scrollToHashSection() {
+      const key = (location.hash || '').replace(/^#/, '');
+      const sectionId = HASH_TO_SECTION[key];
+      const el = sectionId && document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }
+    if (location.hash) setTimeout(scrollToHashSection, 60);
+    window.addEventListener('hashchange', scrollToHashSection);
+
     setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
     window.addEventListener('tasksnotes:save', handleSaveEvent);
     window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });

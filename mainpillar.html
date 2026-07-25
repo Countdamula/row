@@ -690,6 +690,8 @@ textarea.mp-textarea:focus, input.mp-input:focus, select.mp-select:focus{outline
     dayModalDate: null
   };
 
+  var MP_TAB_KEYS = ['today', 'weekly', 'monthly', 'year', 'goals', 'favorites'];
+
   function switchTab(tab){
     state.activeTab = tab;
     localStorage.setItem('mainpillar:active_tab', tab);
@@ -700,7 +702,18 @@ textarea.mp-textarea:focus, input.mp-input:focus, select.mp-select:focus{outline
     if (tab === 'year') renderYear();
     if (tab === 'goals') renderGoalsTab();
     if (tab === 'favorites') renderFavorites();
+    // Reflect the active tab in the URL hash (Notion-style sidebar deep
+    // links, e.g. mainpillar.html#weekly), same additive hash-mirroring
+    // convention already used elsewhere in this app (gym.html/household.html
+    // /finance.html/nutrition.html). replaceState — never pushState — so
+    // switching tabs doesn't pile up browser-history entries.
+    try { history.replaceState(null, '', '#' + tab); } catch (e) {}
   }
+
+  window.addEventListener('hashchange', function(){
+    var h = (location.hash || '').replace(/^#/, '');
+    if (MP_TAB_KEYS.indexOf(h) !== -1 && h !== state.activeTab) switchTab(h);
+  });
 
   // ---------------------------------------------------------------------
   // Status window
@@ -1580,6 +1593,8 @@ textarea.mp-textarea:focus, input.mp-input:focus, select.mp-select:focus{outline
   // the DOM nodes above this script tag already exist by parse time.
   document.addEventListener('DOMContentLoaded', function(){
     try {
+      var initialHash = (location.hash || '').replace(/^#/, '');
+      if (MP_TAB_KEYS.indexOf(initialHash) !== -1) state.activeTab = initialHash;
       switchTab(state.activeTab);
       renderAll();
       seedRaceSafeInit();

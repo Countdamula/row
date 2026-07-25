@@ -17,32 +17,95 @@
   // -------- Nav data --------
   // Every page in the dashboard, grouped the way a real sidebar app groups
   // its sections (see the reference screenshot this redesign was built to
-  // match) instead of one long flat row. Every one of the 17 real .html
+  // match) instead of one long flat row. Every one of the 16 real .html
   // pages in this repo is listed here — including example.html, which
   // never had a nav entry before this redesign — so every page is reachable
   // in at most two clicks from anywhere: open the nav (1) + click a page
   // (2), or, since a page's own group auto-expands on load and every other
   // group starts expanded too, usually just one click.
+  //
+  // Notion-style nesting: any item may carry a `children` array — each
+  // child is one of that page's own internal tabs/sections, rendered as an
+  // indented, independently-collapsible sub-list under its parent, exactly
+  // like a Notion sidebar shows a page's sub-pages. A child's `hash` is the
+  // literal URL fragment that page reads on load to land on that tab
+  // (`<href>#<hash>`), e.g. `gym.html#templates`. Every page listed with
+  // children was either already reading `location.hash` on load (index,
+  // gym, nutrition, household, finance — zero page-side changes needed) or
+  // had one added specifically to support this (mainpillar, tasks,
+  // tasksnotes, selfcare, business, dreamboard, aitech, learning,
+  // entertainment — each additive only, alongside whatever
+  // localStorage-based tab memory that page already had; see each page's
+  // own boot code for the added hash-read/hashchange wiring). Leaf pages
+  // with no internal tabs at all (Brain Dump, Example) simply have no
+  // `children` and render as a plain, non-expandable row, same as before.
   const NAV_GROUPS = [
     {
       key: 'command',
       label: 'Command Center',
       items: [
-        { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true },
-        { href: 'mainpillar.html', icon: '🎮', label: 'Main Pillar', id: 'topbarMainPillar' },
-        { href: 'tasks.html', icon: '🗂️', label: 'Tasks', id: 'topbarTasksDb' },
-        { href: 'tasksnotes.html', icon: '✅', label: 'Tasks & Notes', id: 'topbarTasksNotes' },
+        { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true, children: [
+          { hash: 'ritual', label: 'Morning Ritual' },
+          { hash: 'system', label: 'Your System' },
+          { hash: 'subconscious', label: 'Subconscious Reprogramming' },
+          { hash: 'fitness', label: 'Fitness Studio' },
+          { hash: 'selfcare', label: 'Self-Care' },
+        ] },
+        { href: 'mainpillar.html', icon: '🎮', label: 'Main Pillar', id: 'topbarMainPillar', children: [
+          { hash: 'today', label: 'Today' },
+          { hash: 'weekly', label: 'Weekly' },
+          { hash: 'monthly', label: 'Monthly' },
+          { hash: 'year', label: 'Year' },
+          { hash: 'goals', label: 'Goals' },
+          { hash: 'favorites', label: 'Favorites' },
+        ] },
+        { href: 'tasks.html', icon: '🗂️', label: 'Tasks', id: 'topbarTasksDb', children: [
+          { hash: 'today', label: 'Today' },
+          { hash: 'all', label: 'All Tasks' },
+        ] },
+        { href: 'tasksnotes.html', icon: '✅', label: 'Tasks & Notes', id: 'topbarTasksNotes', children: [
+          { hash: 'links', label: 'Links' },
+          { hash: 'notes', label: 'Notes' },
+          { hash: 'tasks', label: 'Tasks' },
+        ] },
       ],
     },
     {
       key: 'life',
       label: 'Life & Wellness',
       items: [
-        { href: 'gym.html', icon: '🏋️', label: 'Fitness Studio', id: 'topbarGym' },
-        { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition' },
-        { href: 'selfcare.html', icon: '🌙', label: 'Self-Care', id: 'topbarSelfCare' },
-        { href: 'household.html', icon: '🧺', label: 'Household', id: 'topbarHousehold' },
-        { href: 'finance.html', icon: '💰', label: 'Finance', id: 'topbarFinance' },
+        { href: 'gym.html', icon: '🏋️', label: 'Fitness Studio', id: 'topbarGym', children: [
+          { hash: 'overview', label: 'Overview' },
+          { hash: 'week', label: 'Current Week' },
+          { hash: 'templates', label: 'Templates' },
+          { hash: 'equipment', label: 'Equipment' },
+          { hash: 'history', label: 'History & Compare' },
+        ] },
+        { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition', children: [
+          { hash: 'kitchen', label: 'My Kitchen' },
+          { hash: 'grocery', label: 'Grocery List' },
+        ] },
+        { href: 'selfcare.html', icon: '🌙', label: 'Self-Care', id: 'topbarSelfCare', children: [
+          { hash: 'main', label: 'Self-Care' },
+          { hash: 'journals', label: 'Journals' },
+          { hash: 'meditations', label: 'Meditations' },
+          { hash: 'anxiety', label: 'Anxiety' },
+        ] },
+        { href: 'household.html', icon: '🧺', label: 'Household', id: 'topbarHousehold', children: [
+          { hash: 'overview', label: 'Overview' },
+          { hash: 'beings', label: 'Energy Beings' },
+          { hash: 'inventory', label: 'Inventory' },
+          { hash: 'wishlist', label: 'Wishlist' },
+          { hash: 'chores', label: 'Chores' },
+        ] },
+        { href: 'finance.html', icon: '💰', label: 'Finance', id: 'topbarFinance', children: [
+          { hash: 'overview', label: 'Overview' },
+          { hash: 'accounts', label: 'Accounts' },
+          { hash: 'transactions', label: 'Transactions' },
+          { hash: 'subscriptions', label: 'Subscriptions' },
+          { hash: 'income', label: 'Income' },
+          { hash: 'notes', label: 'Notes' },
+        ] },
         { href: 'braindump.html', icon: '🧠', label: 'Brain Dump', id: 'topbarBrainDump' },
       ],
     },
@@ -50,11 +113,35 @@
       key: 'create',
       label: 'Create & Grow',
       items: [
-        { href: 'business.html', icon: '💼', label: 'Business Hub', id: 'topbarBusiness' },
-        { href: 'dreamboard.html', icon: '✨', label: 'Dream Board', id: 'topbarDreamBoard' },
-        { href: 'aitech.html', icon: '🤖', label: 'AI & Tech', id: 'topbarAiTech' },
-        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning' },
-        { href: 'entertainment.html', icon: '🎬', label: 'Media', id: 'topbarEntertainment' },
+        { href: 'business.html', icon: '💼', label: 'Business Hub', id: 'topbarBusiness', children: [
+          { hash: 'content', label: 'Content' },
+          { hash: 'ideas', label: 'Ideas' },
+          { hash: 'platforms', label: 'Platforms' },
+          { hash: 'resources', label: 'Resources' },
+          { hash: 'writing', label: 'Writing Dashboard' },
+          { hash: 'youtube', label: 'YouTube Dashboard' },
+        ] },
+        { href: 'dreamboard.html', icon: '✨', label: 'Dream Board', id: 'topbarDreamBoard', children: [
+          { hash: 'vision-board', label: 'Vision Board' },
+          { hash: 'reflections', label: 'Reflections' },
+          { hash: 'quarterly-goals', label: 'Quarterly Goals' },
+          { hash: 'monthly-breakdown', label: 'Monthly Breakdown' },
+        ] },
+        { href: 'aitech.html', icon: '🤖', label: 'AI & Tech', id: 'topbarAiTech', children: [
+          { hash: 'models', label: 'AI Models' },
+          { hash: 'prompts', label: 'Prompts' },
+        ] },
+        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
+          { hash: 'topics', label: 'Topics' },
+          { hash: 'resources', label: 'Resources' },
+        ] },
+        { href: 'entertainment.html', icon: '🎬', label: 'Media', id: 'topbarEntertainment', children: [
+          { hash: 'podcasts', label: 'Podcasts' },
+          { hash: 'stories', label: 'Stories' },
+          { hash: 'entertainment', label: 'Entertainment' },
+          { hash: 'playlists', label: 'Playlists' },
+          { hash: 'favorites', label: 'Favorites' },
+        ] },
       ],
     },
     {
@@ -246,8 +333,41 @@
 }
 .tb-item.warn .tb-item-count { color: #fbbf24; }
 .tb-item.miss .tb-item-count { color: #ff8a8a; }
-.tb-item.tb-hide { display: none; }
 .tb-group.tb-hide { display: none; }
+
+/* Notion-style nested sub-pages: a .tb-node wraps every top-level page's
+   row plus (when it has any) an expand toggle and an indented sub-list of
+   that page's own internal tabs/sections. */
+.tb-node { display: flex; flex-direction: column; }
+.tb-item-row { display: flex; align-items: center; }
+.tb-item-row .tb-item { flex: 1 1 auto; }
+.tb-node-toggle {
+  width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0; margin-right: 2px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; color: rgba(255, 255, 255, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-node-toggle:hover { background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.75); }
+.tb-node-chevron { font-size: 11px; display: inline-block; transition: transform 0.16s ease; }
+.tb-node.tb-expanded .tb-node-chevron { transform: rotate(90deg); }
+.tb-subitems {
+  display: none; flex-direction: column; gap: 1px;
+  margin: 1px 0 4px 27px; padding-left: 11px;
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tb-node.tb-expanded .tb-subitems { display: flex; }
+.tb-subitem {
+  display: block; padding: 6px 9px; border-radius: 7px;
+  text-decoration: none; color: rgba(255, 255, 255, 0.55);
+  font-size: 11.5px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.tb-subitem:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+.tb-subitem.active { background: rgba(217, 184, 120, 0.16); color: #f0dcae; }
+.tb-subitem.tb-hide { display: none; }
+.tb-node.tb-hide { display: none; }
 .tb-empty-state {
   padding: 16px 10px; text-align: center; font-size: 12px;
   color: rgba(255,255,255,0.35); display: none;
@@ -308,17 +428,35 @@ body.topbar-modal-open {
 `;
 
   // -------- HTML --------
+  function buildItemHtml(item) {
+    const countHtml = item.withCount
+      ? `<span class="tb-item-count" id="${item.id}Count">—/—</span>`
+      : '';
+    const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+    const toggleHtml = hasChildren
+      ? `<button type="button" class="tb-node-toggle" data-node-toggle="${item.href}" aria-label="Expand ${item.label} sub-pages"><span class="tb-node-chevron">›</span></button>`
+      : '';
+    const childrenHtml = hasChildren
+      ? `<div class="tb-subitems">` + item.children.map((c) =>
+          `<a href="${item.href}#${c.hash}" class="tb-subitem" data-label="${c.label.toLowerCase()}">${c.label}</a>`
+        ).join('') + `</div>`
+      : '';
+    return `
+    <div class="tb-node${hasChildren ? ' tb-has-children' : ''}" data-node="${item.href}">
+      <div class="tb-item-row">
+        <a href="${item.href}" class="tb-item" id="${item.id}" data-label="${item.label.toLowerCase()}">
+          <span class="tb-item-icon">${item.icon}</span>
+          <span class="tb-item-label">${item.label}</span>
+          ${countHtml}
+        </a>
+        ${toggleHtml}
+      </div>
+      ${childrenHtml}
+    </div>`;
+  }
+
   function buildGroupHtml(group) {
-    const items = group.items.map((item) => {
-      const countHtml = item.withCount
-        ? `<span class="tb-item-count" id="${item.id}Count">—/—</span>`
-        : '';
-      return `<a href="${item.href}" class="tb-item" id="${item.id}" data-label="${item.label.toLowerCase()}">
-        <span class="tb-item-icon">${item.icon}</span>
-        <span class="tb-item-label">${item.label}</span>
-        ${countHtml}
-      </a>`;
-    }).join('');
+    const items = group.items.map(buildItemHtml).join('');
     return `
     <div class="tb-group" data-group="${group.key}">
       <button type="button" class="tb-group-head" data-group-toggle="${group.key}">
@@ -370,6 +508,35 @@ body.topbar-modal-open {
     try { localStorage.setItem('topbar:navCollapsed', JSON.stringify(tbCollapsedGroups)); } catch (e) {}
   }
 
+  // Sub-page nodes are the opposite default of groups: a node's children
+  // start COLLAPSED (an href, not a key, identifies it) — same as a fresh
+  // Notion sidebar, where you only see the sub-pages of whatever you've
+  // actually opened before. `highlightActivePill()` force-expands whichever
+  // node contains the current page (and, if a hash is present, whichever
+  // one contains the current hash) so the active context is never hidden.
+  let tbExpandedNodes = [];
+  function loadExpandedNodes() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('topbar:navExpanded'));
+      tbExpandedNodes = Array.isArray(raw) ? raw : [];
+    } catch (e) { tbExpandedNodes = []; }
+  }
+  function saveExpandedNodes() {
+    try { localStorage.setItem('topbar:navExpanded', JSON.stringify(tbExpandedNodes)); } catch (e) {}
+  }
+  function applyExpandedState() {
+    document.querySelectorAll('.tb-node.tb-has-children').forEach((nodeEl) => {
+      const key = nodeEl.getAttribute('data-node');
+      nodeEl.classList.toggle('tb-expanded', tbExpandedNodes.indexOf(key) !== -1);
+    });
+  }
+  function toggleNode(key) {
+    const idx = tbExpandedNodes.indexOf(key);
+    if (idx === -1) tbExpandedNodes.push(key); else tbExpandedNodes.splice(idx, 1);
+    saveExpandedNodes();
+    applyExpandedState();
+  }
+
   function injectStyleAndHTML() {
     if (document.getElementById('tbSidebar')) return; // already injected
     const style = document.createElement('style');
@@ -386,7 +553,9 @@ body.topbar-modal-open {
     nodes.reverse().forEach((node) => document.body.insertBefore(node, document.body.firstChild));
 
     loadCollapsedGroups();
+    loadExpandedNodes();
     applyCollapsedState();
+    applyExpandedState();
   }
 
   function applyCollapsedState() {
@@ -403,13 +572,22 @@ body.topbar-modal-open {
     applyCollapsedState();
   }
 
-  // Marks the current page's pill so it's visually distinct from the rest,
-  // sets the launcher's "current page" label, and makes sure the current
-  // page's own group is never left collapsed on load — so getting back to
-  // whatever else is in that same group never costs more than one click.
+  // Marks the current page's pill (and, if a hash matches one of its
+  // sub-pages, that sub-item too) so both are visually distinct from the
+  // rest, sets the launcher's "current page" label, and makes sure the
+  // current page's own group AND its own sub-page node are never left
+  // collapsed on load — so getting back to whatever else is in that same
+  // group/node never costs more than one click. Also re-run on every
+  // in-page hashchange (a page switching its own internal tab without a
+  // full reload) so the drawer's active sub-item stays in sync live.
   function highlightActivePill() {
     let path = window.location.pathname.split('/').pop();
     if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
+    const hash = (window.location.hash || '').replace(/^#/, '');
+
+    document.querySelectorAll('.tb-item.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.tb-subitem.active').forEach((el) => el.classList.remove('active'));
+
     const items = document.querySelectorAll('.tb-item');
     const launcherPage = document.getElementById('tbLauncherPage');
     items.forEach((p) => {
@@ -424,7 +602,21 @@ body.topbar-modal-open {
         }
       }
     });
+
+    const currentNode = document.querySelector('.tb-node[data-node="' + path.replace(/"/g, '') + '"]');
+    if (currentNode && currentNode.classList.contains('tb-has-children')) {
+      const key = currentNode.getAttribute('data-node');
+      if (tbExpandedNodes.indexOf(key) === -1) { tbExpandedNodes.push(key); saveExpandedNodes(); }
+      if (hash) {
+        const targetHref = path + '#' + hash;
+        currentNode.querySelectorAll('.tb-subitem').forEach((sub) => {
+          if (sub.getAttribute('href') === targetHref) sub.classList.add('active');
+        });
+      }
+    }
+
     applyCollapsedState();
+    applyExpandedState();
   }
 
   // -------- Drawer open/close --------
@@ -468,13 +660,28 @@ body.topbar-modal-open {
       headEl.addEventListener('click', () => toggleGroup(headEl.getAttribute('data-group-toggle')));
     });
 
+    document.querySelectorAll('.tb-node-toggle').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleNode(btn.getAttribute('data-node-toggle'));
+      });
+    });
+
     const searchInput = document.getElementById('tbSearchInput');
     if (searchInput) {
       searchInput.addEventListener('input', () => applySearchFilter(searchInput.value));
       searchInput.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
-        const firstMatch = document.querySelector('.tb-item:not(.tb-hide)');
-        if (firstMatch) window.location.href = firstMatch.getAttribute('href');
+        const query = (searchInput.value || '').trim().toLowerCase();
+        const firstNode = document.querySelector('.tb-node:not(.tb-hide)');
+        if (!firstNode) return;
+        const itemLink = firstNode.querySelector('.tb-item-row .tb-item');
+        const parentMatches = itemLink && (itemLink.getAttribute('data-label') || '').indexOf(query) !== -1;
+        if (parentMatches) { window.location.href = itemLink.getAttribute('href'); return; }
+        const firstSub = firstNode.querySelector('.tb-subitem:not(.tb-hide)');
+        if (firstSub) { window.location.href = firstSub.getAttribute('href'); return; }
+        if (itemLink) window.location.href = itemLink.getAttribute('href');
       });
     }
   }
@@ -488,18 +695,31 @@ body.topbar-modal-open {
 
     if (!query) {
       groups.forEach((g) => { g.classList.remove('tb-hide'); });
-      document.querySelectorAll('.tb-item').forEach((it) => it.classList.remove('tb-hide'));
+      document.querySelectorAll('.tb-node').forEach((n) => n.classList.remove('tb-hide'));
+      document.querySelectorAll('.tb-subitem').forEach((s) => s.classList.remove('tb-hide'));
       applyCollapsedState();
+      applyExpandedState();
       if (empty) empty.classList.remove('show');
       return;
     }
 
     groups.forEach((groupEl) => {
       let groupHasMatch = false;
-      groupEl.querySelectorAll('.tb-item').forEach((item) => {
-        const matches = (item.getAttribute('data-label') || '').indexOf(query) !== -1;
-        item.classList.toggle('tb-hide', !matches);
-        if (matches) { groupHasMatch = true; anyVisible = true; }
+      groupEl.querySelectorAll('.tb-node').forEach((nodeEl) => {
+        const itemLink = nodeEl.querySelector('.tb-item-row .tb-item');
+        const parentMatches = !!(itemLink && (itemLink.getAttribute('data-label') || '').indexOf(query) !== -1);
+        let anyChildMatches = false;
+        nodeEl.querySelectorAll('.tb-subitems .tb-subitem').forEach((sub) => {
+          const subMatches = (sub.getAttribute('data-label') || '').indexOf(query) !== -1;
+          sub.classList.toggle('tb-hide', !subMatches);
+          if (subMatches) anyChildMatches = true;
+        });
+        const nodeMatches = parentMatches || anyChildMatches;
+        nodeEl.classList.toggle('tb-hide', !nodeMatches);
+        if (nodeMatches) { groupHasMatch = true; anyVisible = true; }
+        // Only auto-expand on a *child* match — a parent-only match keeps
+        // the node exactly as collapsed/expanded as the user left it.
+        if (anyChildMatches) nodeEl.classList.add('tb-expanded');
       });
       groupEl.classList.toggle('tb-hide', !groupHasMatch);
       if (groupHasMatch) groupEl.classList.remove('collapsed');
@@ -663,6 +883,11 @@ body.topbar-modal-open {
     window.addEventListener('storage', render);
     window.addEventListener('focus', render);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+    // Keep the drawer's active sub-item in sync as the current page
+    // switches its own internal tab (which changes location.hash without
+    // a full reload).
+    window.addEventListener('hashchange', highlightActivePill);
 
     // Periodic refresh so the count stays current after midnight rollover etc.
     setInterval(render, 30 * 1000);

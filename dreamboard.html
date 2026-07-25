@@ -1040,13 +1040,39 @@ body::after {
     if (val) DB.Tabs.update(id, { title: val });
     renderTabs();
   }
+  // Notion-style sidebar deep links (e.g. dreamboard.html#quarterly-goals).
+  // Tabs here are dynamic records (generated id, user-renameable/addable/
+  // deletable) — not fixed keys — so the hash instead matches against each
+  // tab's *default* title, slugified (lowercased, spaces→hyphens), the same
+  // "match by name, fall back silently if renamed" precedent business.html's
+  // own title-based tab hash uses. A tab renamed away from its original
+  // title, or deleted, simply won't match, and everything falls back to
+  // whatever tab/localStorage already resolves — no data risk either way.
+  const HASH_TO_TAB_TITLE = {
+    'vision-board': 'Vision Board', 'reflections': 'Reflections',
+    'quarterly-goals': 'Quarterly Goals', 'monthly-breakdown': 'Monthly Breakdown'
+  };
+  function slugifyTabTitle(title) { return (title || '').trim().toLowerCase().replace(/\s+/g, '-'); }
+  function tabIdForHash(hash) {
+    const wantTitle = HASH_TO_TAB_TITLE[hash];
+    if (!wantTitle) return null;
+    const match = DB.tabsSorted().find(function (t) { return (t.title || '').toLowerCase() === wantTitle.toLowerCase(); });
+    return match ? match.id : null;
+  }
   function switchTab(tabId) {
     activeTabId = tabId;
     storeSet(ACTIVE_TAB_KEY, tabId);
     renderHero();
     renderTabs();
     renderBoard();
+    const t = DB.Tabs.get(tabId);
+    if (t && t.title) { try { history.replaceState(null, '', '#' + slugifyTabTitle(t.title)); } catch (e) {} }
   }
+  window.addEventListener('hashchange', function () {
+    const key = (location.hash || '').replace(/^#/, '');
+    const tabId = tabIdForHash(key);
+    if (tabId && tabId !== activeTabId) switchTab(tabId);
+  });
 
   // ============================================================
   // WIDGET BODIES
@@ -1768,7 +1794,8 @@ body::after {
 
     const tabs = DB.tabsSorted();
     const savedTab = storeGet(ACTIVE_TAB_KEY);
-    activeTabId = (tabs.find(function (t) { return t.id === savedTab; }) || tabs[0] || {}).id || null;
+    const hashTabId = tabIdForHash((location.hash || '').replace(/^#/, ''));
+    activeTabId = hashTabId || (tabs.find(function (t) { return t.id === savedTab; }) || tabs[0] || {}).id || null;
     renderHero();
     renderTabs();
     renderBoard();

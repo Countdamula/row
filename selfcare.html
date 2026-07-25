@@ -1120,13 +1120,37 @@ body::after {
     renderTabs();
   }
   function activeTabRecord() { return SC.Tabs.get(activeTabId); }
+  // Notion-style sidebar deep links (e.g. selfcare.html#journals). A tab
+  // here is identified by a generated id, not a fixed string, so the hash
+  // instead encodes the tab's `panel` field (the one stable, fixed key each
+  // of this page's four tabs already carries) — '' (the freeform board)
+  // maps to 'main' since an empty hash isn't a usable link. Purely
+  // additive: falls back silently to whatever tab/localStorage already
+  // resolves if the hash doesn't match anything (e.g. a since-renamed or
+  // never-created tab).
+  const PANEL_TO_HASH = { '': 'main', journals: 'journals', meditations: 'meditations', anxiety: 'anxiety' };
+  const HASH_TO_PANEL = { main: '', journals: 'journals', meditations: 'meditations', anxiety: 'anxiety' };
+  function tabIdForHash(hash) {
+    if (!Object.prototype.hasOwnProperty.call(HASH_TO_PANEL, hash)) return null;
+    const wantPanel = HASH_TO_PANEL[hash];
+    const match = SC.tabsSorted().find(function (t) { return (t.panel || '') === wantPanel; });
+    return match ? match.id : null;
+  }
   function switchTab(tabId) {
     activeTabId = tabId;
     storeSet(ACTIVE_TAB_KEY, tabId);
     renderHero();
     renderTabs();
     renderActivePanel();
+    const t = activeTabRecord();
+    const hashKey = t && Object.prototype.hasOwnProperty.call(PANEL_TO_HASH, t.panel || '') ? PANEL_TO_HASH[t.panel || ''] : null;
+    if (hashKey) { try { history.replaceState(null, '', '#' + hashKey); } catch (e) {} }
   }
+  window.addEventListener('hashchange', function () {
+    const key = (location.hash || '').replace(/^#/, '');
+    const tabId = tabIdForHash(key);
+    if (tabId && tabId !== activeTabId) switchTab(tabId);
+  });
   /** Shows whichever panel the active tab calls for (freeform board, or the
    * dedicated Journals/Meditations/Anxiety UI), and toggles the board-only
    * "+ Add Widget" control accordingly. */
@@ -2488,7 +2512,8 @@ body::after {
 
     const tabs = SC.tabsSorted();
     const savedTab = storeGet(ACTIVE_TAB_KEY);
-    activeTabId = (tabs.find(function (t) { return t.id === savedTab; }) || tabs[0] || {}).id || null;
+    const hashTabId = tabIdForHash((location.hash || '').replace(/^#/, ''));
+    activeTabId = hashTabId || (tabs.find(function (t) { return t.id === savedTab; }) || tabs[0] || {}).id || null;
     renderHero();
     renderTabs();
     renderActivePanel();

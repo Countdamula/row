@@ -1222,22 +1222,38 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function updateAddBtnVisibility() {
     $('entAddBtn').style.display = activeGallery().isFavorites ? 'none' : '';
   }
+  // Notion-style sidebar deep links (e.g. entertainment.html#stories) — the
+  // gallery keys already match the hash values 1:1, so this is a thin
+  // wrapper around what the tab click handler already did inline, plus
+  // mirroring the choice into the URL hash and reacting to hashchange.
+  // Purely additive: localStorage persistence (ACTIVE_GALLERY_KEY) is
+  // unchanged, this just gives it a second, URL-based entry point.
+  function switchGallery(key) {
+    if (!GALLERIES.some(function (g) { return g.key === key; })) return;
+    activeGalleryKey = key;
+    activeStatus = 'All';
+    activeProgress = 'All';
+    try { localStorage.setItem(ACTIVE_GALLERY_KEY, activeGalleryKey); } catch (e) {}
+    cards = loadCards();
+    renderGalleryTabs();
+    renderFilterBar();
+    renderProgressFilterBar();
+    updateAddBtnVisibility();
+    renderGrid();
+    renderHero();
+    try { history.replaceState(null, '', '#' + key); } catch (e) {}
+  }
+  window.addEventListener('hashchange', function () {
+    var h = (location.hash || '').replace(/^#/, '');
+    if (h && h !== activeGalleryKey) switchGallery(h);
+  });
+
   function renderGalleryTabs() {
     var row = $('galleryTabsRow');
     row.innerHTML = '';
     GALLERIES.forEach(function (g) {
       row.appendChild(makeChip(g.icon + ' ' + g.label, g.key === activeGalleryKey, function () {
-        activeGalleryKey = g.key;
-        activeStatus = 'All';
-        activeProgress = 'All';
-        try { localStorage.setItem(ACTIVE_GALLERY_KEY, activeGalleryKey); } catch (e) {}
-        cards = loadCards();
-        renderGalleryTabs();
-        renderFilterBar();
-        renderProgressFilterBar();
-        updateAddBtnVisibility();
-        renderGrid();
-        renderHero();
+        switchGallery(g.key);
       }, false, 'chip-gallery'));
     });
   }
@@ -1674,9 +1690,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
   document.addEventListener('DOMContentLoaded', function () {
     migrateLegacyMedia();
+    var hashGallery = (location.hash || '').replace(/^#/, '');
     var savedGallery = null;
     try { savedGallery = localStorage.getItem(ACTIVE_GALLERY_KEY); } catch (e) {}
-    if (savedGallery && GALLERIES.some(function (g) { return g.key === savedGallery; })) activeGalleryKey = savedGallery;
+    if (hashGallery && GALLERIES.some(function (g) { return g.key === hashGallery; })) activeGalleryKey = hashGallery;
+    else if (savedGallery && GALLERIES.some(function (g) { return g.key === savedGallery; })) activeGalleryKey = savedGallery;
     var savedSortMode = null;
     try { savedSortMode = localStorage.getItem(SORT_MODE_KEY); } catch (e) {}
     if (savedSortMode && SORT_MODES.indexOf(savedSortMode) !== -1) {
