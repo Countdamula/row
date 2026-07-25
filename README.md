@@ -15,7 +15,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | File | What it is |
 |---|---|
 | [home.html](home.html) | Home — the hub. One continuous, scrollable page: a cover photo, a native Weekly Schedule, a native Subconscious Reprogramming section, then Main / Dream Board / Self-Care / Tasks & Notes / AI & Tech / Main Pillar / Household / Brain Dump embedded inline (each also still exists as its own standalone page below) |
-| [index.html](index.html) | Main — a Morning Call Sheet ritual (Running Order, Beliefs, Today/Tonight journals), now combined with three tabs: Morning Ritual (the above), Your System (Top Goals, daily/weekly Actions, Written/Visual/Mental Core Systems), and Subconscious Reprogramming (Identity Shifting — Anchors/Future Self Vision/Challenges — plus quick links back into the Ritual tab) |
+| [index.html](index.html) | Main — a Morning Call Sheet ritual (Running Order, Beliefs, Today/Tonight journals), now combined with four tabs: Morning Ritual (the above — its "Move" step links out to the 4th tab), Your System (Top Goals, daily/weekly Actions, Written/Visual/Mental Core Systems), Subconscious Reprogramming (Identity Shifting — Anchors/Future Self Vision/Challenges — plus quick links back into the Ritual tab), and Fitness Studio (Templates/Equipment/Current Week with pre-workout coaching + post-workout review/comparison — its own data, separate from the standalone gym.html page of the same name) |
 | [finance.html](finance.html) | Finances |
 | [gym.html](gym.html) | Fitness Studio — progressive overload gym tracker |
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |

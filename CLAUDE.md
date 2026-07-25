@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `home.html` | **This file was deleted** (see the "Delete Home tab" changelog entry) — this row is stale left over from an earlier pass and is flagged rather than silently removed, since a full re-audit of this table wasn't in scope for the session that noticed. Its former role (topbar's leading pill) now belongs to `index.html`; every page it used to embed still exists as its own standalone page, untouched by its removal. |
-| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now three top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), and **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a new Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before this merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
+| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now four top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main, genuinely separate data from the standalone `gym.html` page of the same name: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
 | `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
 | `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
@@ -41,7 +41,7 @@ Vercel's static server) — see README.md.
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
-| `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`) and System's Actions + Challenges (`system:actions`/`system:challenges`, still that exact prefix — see the merge changelog entry on why the prefix name didn't change even though `system.html` itself did) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
+| `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`), Main's Fitness Studio exercises (`fitness:templates` — one imported task per exercise, scheduled on its template's assigned weekday(s), source-grouped as "Main" since Fitness Studio lives inside Main), and System's Actions + Challenges (`system:actions`/`system:challenges`, still that exact prefix — see the merge changelog entry on why the prefix name didn't change even though `system.html` itself did) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -199,7 +199,7 @@ page's CSS is self-contained in its own `<style>` block):
 
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
-   | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab) **and, since the Top Goals/Your System/Three Core Systems/Identity Shifting merge, everything under `system:` too** (see that changelog entry — the Your System and Subconscious Reprogramming tabs) — confirmed directly in the live file, not assumed |
+   | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:', 'fitness:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab), everything under `system:` (the Top Goals/Your System/Three Core Systems/Identity Shifting merge — see that changelog entry — the Your System and Subconscious Reprogramming tabs), **and everything under `fitness:`** (`fitness:templates`, `fitness:equipment`, `fitness:progression`, `fitness:day:<date>`, `fitness:active_tab`, `fitness:active_day`, `fitness:seeded` — the Fitness Studio tab, see that changelog entry) — confirmed directly in the live file, not assumed |
    | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
    | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
@@ -214,7 +214,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
-   | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs` and `system:actions`/`system:challenges`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entry — the `system:` prefix and its data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
+   | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs`, `system:actions`/`system:challenges`, and (new) `fitness:templates`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entries — those prefixes and their data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -9269,3 +9269,173 @@ both as originally phrased assumed a backend this app doesn't have):
     Mirror step's open-and-scroll behavior — and confirming the Reset to
     Default button's new combined-scope confirm text). A real
     click-through is recommended before relying on this merge heavily.
+
+- **Main (`index.html`) gained a 4th main tab: Fitness Studio — a
+  dedicated, native fitness system, genuinely separate from the
+  standalone `gym.html` page of the same name.** Per an explicit request
+  for pre-workout coaching, automatic logging, post-workout review,
+  workout comparison, adjustable templates, an equipment database, and a
+  Current Week page linked with Tasks and the "Move" step — confirmed
+  the request meant a new tab inside Main (not a rebuild of `gym.html`,
+  which already covers most of the same ground under the identical
+  "Fitness Studio" name — see that page's own long changelog history)
+  by reading the request's own wording ("in the Main Page as well") and
+  its "Move task" reference, which turned out to be the pre-existing
+  `id:'mov'` Running Order step in Main's own Morning Ritual tab (`"Move"
+  — Workout, yoga, or a brisk walk`), not a task in `tasks.html` or
+  anywhere else. Genuinely new companion file, `fitness-data.js` (same
+  model-factory + `makeCollection` + pure-selector conventions as every
+  other `-data.js` in this app), loaded alongside `system-data.js` —
+  every key it defines is `fitness:`-prefixed (`fitness:templates`,
+  `fitness:equipment`, `fitness:progression`, `fitness:day:<date>` —
+  the same individual-date-keyed-key convention as `mainpillar:whoop:
+  <date>` — `fitness:active_tab`, `fitness:active_day`, `fitness:seeded`),
+  so the existing `initCloudSync({ appKey: 'goals', syncedPrefixes:
+  ['routine:', 'system:'] })` call already in `index.html` covers it
+  with zero new sync mechanism once `'fitness:'` was added to that list.
+  - **Confirmed adaptations** (flagged rather than silently followed,
+    same "flag rather than force-fit" precedent as every other AI-shaped
+    feature in this app, e.g. the Writing Dashboard section/Main
+    Pillar's own briefs): "Pre-Workout Coaching" and "Post-Workout
+    Review" are locally-computed, template-based text — not a live LLM
+    call, since this app has no active AI key anywhere (`ANTHROPIC_API_KEY`
+    is still an inactive placeholder everywhere else it's mentioned in
+    this file). "Automatic Workout Logging" means the Log Set modal
+    pre-fills weight/reps from a computed suggestion and a timestamp is
+    stamped automatically — there is no wearable/device integration to
+    log from, same disclosed scope as everywhere else in this app.
+  - **Pre-Workout Coaching** (`FitnessData.coachingForDay()`) — for each
+    of the day's exercises: a "why this exercise" line (the exercise's
+    own `notes` field if set, else a generic progressive-overload
+    framing naming its template) and a "why this weight" line, computed
+    from a simplified version of `gym.html`'s own "last logged set +
+    rep-range threshold → hold/add-weight/deload" prescription engine
+    (`FitnessData.suggestedWeight()` — stored as a flat
+    `fitness:progression` map keyed by exercise id, not a full per-
+    session history), plus an overall strategy line (today's template
+    name(s), total sets, an estimated-volume figure, and a pacing note).
+    A rest day (no template assigned) shows a plain rest-day message
+    instead.
+  - **Templates** (`fitness:templates`) — name, a free-text gym/type
+    label, a color (6-swatch picker reusing this app's existing
+    `--good`/`--warn`/`--bad`/`--info`/`--rt-gold`/`--accent-bright`
+    tokens as swatch colors, no new hex values, per DO NOT MODIFY rule
+    2), a multi-weekday picker (`.bs-day-picker`/`.bs-day-toggle`,
+    reused verbatim from the Your System tab's Action scheduler), and an
+    inline, ordered `exercises[]` array (no separate collection, so
+    deleting a template deletes its exercises with it) — each exercise
+    with sets/rep range/rest seconds/notes/a linked equipment id/target
+    weight/photo URL/video URL, added via its own separate Exercise
+    modal (opened both from within the Template editor and directly from
+    a Current Week card's "Edit" button, mirroring `gym.html`'s own
+    established "same exercise-entry modal reachable from two places"
+    precedent), reorderable via up/down arrows (this app's standard
+    non-drag-list convention, not SortableJS — no drag dependency was
+    added for this feature).
+  - **Equipment** (`fitness:equipment`) — name, a fixed type list, a
+    comma-separated weights list, notes; linked to an exercise via a
+    nullable `equipmentId`. Deleting equipment nulls that reference on
+    every exercise that used it rather than deleting the exercise — the
+    same null-out-the-reference precedent `aitech-data.js`'s model
+    deletion, `household-data.js`'s legion deletion, and
+    `business-data.js`'s Workflow week/day deletion already established.
+  - **Current Week** — a Sun–Sat chip row (today marked "· Today"; data
+    keys off `Date.getDay()`, matching `system-data.js`'s own
+    `WEEKDAY_LABELS` convention) drives which day's template(s) render
+    as exercise cards: a done checkbox (keyed by date + exercise id, so
+    it resets naturally on a new date with no rollover logic needed),
+    a sets×reps/rest/equipment+weight meta line, up to two small
+    clickable media-thumbnail buttons (photo and/or video, each opening
+    a shared lightbox overlay) — built via DOM `.src` property
+    assignment rather than string-concatenated `innerHTML`, the same
+    HTML-injection-avoidance precedent `index.html`'s own Habit media
+    bugfix already established for exactly this class of user-pasted-URL
+    field — a "Log Set" button (opens the Log Set modal, pre-filled from
+    the same suggested-weight engine the coaching panel uses) and an
+    "Edit" button (opens that exercise's own modal in place). "✓ Mark
+    Workout Complete" computes and stores the Post-Workout Review.
+  - **Post-Workout Review** (`FitnessData.markWorkoutComplete()`) —
+    compliance % (sets logged ÷ sets prescribed, clamped at 100%), an
+    average rep-completion % (logged reps vs. each exercise's rep-range
+    midpoint), total volume, and a plain-language fatigue note derived
+    from the rep-completion figure — stored on that date's day record
+    and also folded forward into the `fitness:progression` map (each
+    exercise's `lastAvgReps`) so it genuinely shapes the *next* session's
+    coaching/weight-suggestion rather than being a one-off report.
+  - **Workout Comparison** (History & Compare tab) — every date with at
+    least one logged set (found by scanning `fitness:day:*` keys
+    directly, the same "read raw localStorage keys" convention this
+    app's former Connected Apps tiles and `tasks-data.js`'s own import
+    already use), each showing set count/volume/duration/complete
+    status; a two-session picker computes duration (last-minus-first
+    log timestamp) and volume directly, and **best-effort reads
+    `mainpillar:whoop:<date>` for recovery/strain/HRV** on that date if
+    Main Pillar has any logged there — shown as "Not logged on Main
+    Pillar" otherwise rather than a blank or an error, since this
+    feature has no biometric device integration of its own and Main
+    Pillar's own manually-pasted Whoop fields are the only source of
+    that data anywhere in this app.
+  - **"Move" step link** — `renderSteps()` now renders a small 🏋️
+    icon button (reusing the existing `.bs-icon-btn` class) next to the
+    Edit (✎) button, only on the Running Order step whose `id === 'mov'`
+    (the pre-existing "Move" step, unchanged text) — clicking it calls
+    `switchMainTab('fitness')` and scrolls the tab row into view. This
+    is the literal "which the Move task links back to" part of the
+    request; no other step gained this button, and the Move step's own
+    name/detail text/schedule slot were left completely untouched.
+  - **Tasks (`tasks.html`) import extended** — `tasks-data.js` gained a
+    5th one-way, read-only source, `fitness-exercise`
+    (`importFromFitness()`, mirroring `importFromSystem()`'s own
+    `system-action` pattern exactly): one imported task per exercise,
+    titled "`<exercise name> — <template name>`", scheduled on that
+    exercise's own template's assigned weekday(s) (or unscheduled if the
+    template has none set yet), source-badged and grouped under "Main"
+    in `tasks.html`'s existing Source filter (`sourceGroup()` gained
+    `fitness-exercise` alongside `main-step`/`main-belief`, since Fitness
+    Studio lives inside Main, not a separate page) — same read-only
+    guarantee as every other source: this import never writes to a
+    `fitness:` key, and re-running "⟳ Sync from Main & System" updates
+    display fields on an already-imported copy in place without
+    disturbing the user's own local status/order/note edits on it,
+    exactly like every other imported source already works.
+  - **Palette**: no new tokens anywhere — every new component (day chips,
+    exercise cards, coaching callout, stat tiles, compare columns, color
+    swatches, media lightbox) is either a direct reuse of the existing
+    `.bs-*` component vocabulary already established for the Your
+    System/Subconscious Reprogramming tabs, or a small new class built
+    entirely from this page's existing `--bg-card`/`--text-*`/`--border`/
+    `--accent*`/`--good`/`--warn`/`--bad`/`--info`/`--rt-gold` aliases —
+    per DO NOT MODIFY rule 2.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]:
+    `bootFitnessStudio()` is wrapped in try/catch (`safeBootFitnessStudio()`),
+    showing a visible banner with the real error instead of a silent
+    blank tab, matching the exact precedent `system.html`'s/`gym.html`'s/
+    `business.html`'s own boot-error entries already established.
+  - **Empty-storage seed-race safety** (`maybeSeedFitnessAfterSyncAttempt()`,
+    deferred 5 seconds behind `initCloudSync`'s cloud pull, or immediate
+    if the Supabase SDK never loaded) — same reasoning as every other
+    page in this app: seeding a default set of Templates/Equipment
+    before the cloud pull has a real chance to answer could push a
+    freshly-seeded board to Supabase and clobber another device's real
+    data. Seed data is a small 3-template (Push/Pull/Legs) example
+    spread across 6 of the 7 weekdays, not copied from any reference —
+    a starting point, fully editable/deletable.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session was available in this environment this round (no
+    `node`/`python`/`python3`, no reachable headless-browser session),
+    so this was verified statically only, the same reduced-guarantee
+    fallback several other entries in this file already disclose for
+    this exact class of limitation: brace/paren balance confirmed on
+    both `fitness-data.js` and the newly-added portion of `index.html`'s
+    inline script; zero duplicate DOM ids introduced; every new
+    `$('id')` reference cross-matched against the newly-added HTML
+    element ids with nothing unresolved. **Not verified this way**: an
+    actual click-through (creating a template with exercises and weekday
+    assignment, confirming Current Week's cards render correctly for
+    that day, logging a set and confirming the suggested-weight/coaching
+    text updates next time, marking a workout complete and reading the
+    review, deleting equipment and confirming the reference is nulled
+    rather than the exercise disappearing, comparing two logged
+    sessions, and clicking the Move step's 🏋️ button). A real
+    click-through is recommended before relying on this feature heavily.

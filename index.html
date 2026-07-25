@@ -10,6 +10,7 @@
 <script src="photo-store.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="system-data.js?v=2" defer></script>
+<script src="fitness-data.js?v=1" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -599,6 +600,67 @@
     cursor: pointer; font-family: var(--font);
   }
   .rt-quicklink:hover { color: var(--rt-gold-bright); border-color: var(--rt-gold); background: var(--accent-tint); }
+
+  /* =============================================================
+     Fitness Studio (4th main tab) — a dedicated, native fitness system
+     inside Main, separate from the standalone gym.html page of the same
+     name. Reuses every .bs-* component (cards/chips/modals/day-picker)
+     already established above rather than inventing a second visual
+     language — only genuinely new shapes get new classes below.
+     ============================================================= */
+  .fit-color-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .fit-color-gold { background: var(--rt-gold); }
+  .fit-color-good { background: var(--good); }
+  .fit-color-warn { background: var(--warn); }
+  .fit-color-bad { background: var(--bad); }
+  .fit-color-info { background: var(--info); }
+  .fit-color-accent-bright { background: var(--accent-bright); }
+  .fit-color-swatches { display: flex; gap: 7px; }
+  .fit-color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .fit-color-swatch.active { border-color: var(--text-primary); }
+
+  .fit-rest-note { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; padding: 14px 2px; }
+
+  .fit-ex-card { gap: 8px; }
+  .fit-ex-top { display: flex; align-items: flex-start; gap: 10px; }
+  .fit-ex-check { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+  .fit-ex-check:checked + .fit-ex-title-wrap .fit-ex-title { text-decoration: line-through; color: var(--text-tertiary); }
+  .fit-ex-title-wrap { flex: 1; min-width: 0; }
+  .fit-ex-title { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+  .fit-ex-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .fit-ex-media-btn {
+    width: 46px; height: 46px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card);
+    flex-shrink: 0; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0;
+  }
+  .fit-ex-media-btn img { width: 100%; height: 100%; object-fit: cover; }
+  .fit-ex-actions-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+
+  .fit-coach-strategy { margin-top: 10px; }
+  .fit-coach-ex { border-bottom: 1px dashed var(--border); padding: 8px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+  .fit-coach-ex:last-child { border-bottom: none; }
+  .fit-coach-ex b { color: var(--text-primary); }
+
+  .fit-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin: 12px 0; }
+  .fit-stat-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .fit-stat-num { font-size: 19px; font-weight: 700; color: var(--text-primary); font-family: var(--font); }
+  .fit-stat-lbl { font-size: 10.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+
+  .fit-hist-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+  .fit-hist-row:hover .bs-card-title { color: var(--accent-bright); }
+  .fit-compare-picker { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px; }
+  .fit-compare-picker .field { margin-bottom: 0; min-width: 160px; flex: 1; }
+  .fit-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width:560px){ .fit-compare-grid{ grid-template-columns: 1fr; } }
+  .fit-compare-col { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; }
+  .fit-compare-col-title { font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+  .fit-compare-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-secondary); padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .fit-compare-row:last-child { border-bottom: none; }
+  .fit-compare-row b { color: var(--text-primary); }
+
+  .fit-media-lightbox-bg { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(5,4,3,.85); align-items: center; justify-content: center; padding: 20px; }
+  .fit-media-lightbox-bg.show { display: flex; }
+  .fit-media-lightbox-bg img, .fit-media-lightbox-bg video { max-width: 92vw; max-height: 88vh; border-radius: var(--radius-md); }
+  .fit-media-lightbox-close { position: absolute; top: 18px; right: 22px; background: transparent; border: none; color: #fff; font-size: 26px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -633,6 +695,7 @@
     <button type="button" class="rt-maintab active" data-maintab="ritual">Morning Ritual</button>
     <button type="button" class="rt-maintab" data-maintab="system">Your System</button>
     <button type="button" class="rt-maintab" data-maintab="subconscious">Subconscious Reprogramming</button>
+    <button type="button" class="rt-maintab" data-maintab="fitness">Fitness Studio</button>
   </div>
 
   <div class="rt-maintabpanel active" data-mainpanel="ritual">
@@ -956,6 +1019,173 @@
       </div>
     </div>
   </div><!-- /rt-maintabpanel[subconscious] -->
+
+  <!-- ========================= MAIN TAB: FITNESS STUDIO ========================= -->
+  <div class="rt-maintabpanel" data-mainpanel="fitness">
+    <div class="bs-toolbar-row">
+      <span class="bs-sync-status" id="fitSyncStatus"></span>
+      <button type="button" class="bs-btn-ghost" id="fitResetBtn">Reset to Default</button>
+    </div>
+    <p class="rt-hint" style="margin:-4px 0 14px;">A dedicated Fitness Studio native to Main — its own Templates/Equipment/logs, separate from the standalone "Fitness Studio" page reachable from the top nav.</p>
+
+    <div class="bs-tabs-row" id="fitTabsRow">
+      <button type="button" class="bs-tab" data-fittab="week">Current Week</button>
+      <button type="button" class="bs-tab" data-fittab="templates">Templates</button>
+      <button type="button" class="bs-tab" data-fittab="equipment">Equipment</button>
+      <button type="button" class="bs-tab" data-fittab="history">History &amp; Compare</button>
+    </div>
+
+    <!-- TAB: CURRENT WEEK -->
+    <div class="bs-panel" data-fitpanel="week">
+      <div class="bs-chip-row" id="fitDayChips"></div>
+
+      <div class="bs-section">
+        <div class="bs-section-title" style="font-size:18px;">Pre-Workout Coaching</div>
+        <div class="bs-section-sub">Why each exercise was picked, why that weight, and the overall strategy for today — computed locally from your own logged history (no live AI call — this app has none wired up, see CLAUDE.md).</div>
+        <div id="fitCoachingBox"></div>
+      </div>
+
+      <div class="bs-section">
+        <div class="bs-section-head">
+          <div><div class="bs-section-title" style="font-size:18px;">Today's Exercises</div></div>
+          <div class="bs-section-actions">
+            <button type="button" class="bs-btn-secondary bs-btn-sm" id="fitMarkCompleteBtn">✓ Mark Workout Complete</button>
+          </div>
+        </div>
+        <div class="bs-list" id="fitExerciseList"></div>
+      </div>
+
+      <div class="bs-section" id="fitReviewSection" style="display:none;">
+        <div class="bs-section-title" style="font-size:18px;">Post-Workout Review</div>
+        <div class="bs-section-sub">Performance, fatigue, and compliance vs. what was prescribed — feeds forward into next time's weight suggestions.</div>
+        <div id="fitReviewBox"></div>
+      </div>
+    </div>
+
+    <!-- TAB: TEMPLATES -->
+    <div class="bs-panel" data-fitpanel="templates">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Templates</div>
+          <div class="bs-section-sub">A template is a workout day — a gym, a color, an assigned weekday (or several), and an ordered list of exercises (sets, reps, rest, notes, photos/videos, weight).</div>
+        </div>
+        <div class="bs-section-actions"><button type="button" class="bs-btn-primary" id="fitAddTemplateBtn">+ New Template</button></div>
+      </div>
+      <div class="bs-list" id="fitTemplateList"></div>
+    </div>
+
+    <!-- TAB: EQUIPMENT -->
+    <div class="bs-panel" data-fitpanel="equipment">
+      <div class="bs-section-head">
+        <div>
+          <div class="bs-section-title">Equipment</div>
+          <div class="bs-section-sub">The gear and weights you actually have — link it to exercises so Current Week can show exactly what's needed for the day.</div>
+        </div>
+        <div class="bs-section-actions"><button type="button" class="bs-btn-primary" id="fitAddEquipmentBtn">+ Add Equipment</button></div>
+      </div>
+      <div class="bs-list" id="fitEquipmentList"></div>
+    </div>
+
+    <!-- TAB: HISTORY & COMPARE -->
+    <div class="bs-panel" data-fitpanel="history">
+      <div class="bs-section">
+        <div class="bs-section-title" style="font-size:18px;">Workout History</div>
+        <div class="bs-section-sub">Every date with at least one logged set.</div>
+        <div class="bs-list" id="fitHistoryList"></div>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-title" style="font-size:18px;">Compare Two Sessions</div>
+        <div class="bs-section-sub">Duration and volume are computed from your logged sets; recovery/strain/HRV are pulled from Main Pillar's Whoop data for that date, when logged there.</div>
+        <div class="fit-compare-picker">
+          <div class="field"><label>Session A</label><select id="fitCompareA"></select></div>
+          <div class="field"><label>Session B</label><select id="fitCompareB"></select></div>
+          <button type="button" class="bs-btn-secondary" id="fitCompareBtn" style="margin-bottom:12px;">Compare</button>
+        </div>
+        <div id="fitCompareResult"></div>
+      </div>
+    </div>
+  </div><!-- /rt-maintabpanel[fitness] -->
+</div>
+
+<div class="fit-media-lightbox-bg" id="fitMediaLightboxBg">
+  <button type="button" class="fit-media-lightbox-close" id="fitMediaLightboxClose" aria-label="Close">&times;</button>
+  <div id="fitMediaLightboxContent"></div>
+</div>
+
+<div class="modal-bg" id="fitTemplateModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="fitTemplateModalTitle">Add Template</h3><button type="button" class="bs-modal-close" id="fitTemplateModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Name</label><input type="text" id="fitTemplateNameInput" placeholder="e.g. Push Day"></div>
+    <div class="field"><label>Gym / Type</label><input type="text" id="fitTemplateGymInput" placeholder="e.g. Home Gym, Planet Fitness"></div>
+    <div class="field"><label>Color</label><div class="fit-color-swatches" id="fitTemplateColorSwatches"></div></div>
+    <div class="field"><label>Scheduled Days</label><div class="bs-day-picker" id="fitTemplateDayPicker"></div></div>
+    <div class="field">
+      <label>Exercises</label>
+      <div class="bs-list" id="fitTemplateExerciseList" style="margin-top:6px;"></div>
+      <button type="button" class="bs-btn-secondary bs-btn-sm" id="fitTemplateAddExerciseBtn" style="margin-top:8px;">+ Add Exercise</button>
+    </div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="fitTemplateModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="fitTemplateModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="fitTemplateModalDelete" style="display:none;">Delete this template</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="fitExerciseModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="fitExerciseModalTitle">Add Exercise</h3><button type="button" class="bs-modal-close" id="fitExerciseModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Name</label><input type="text" id="fitExerciseNameInput" placeholder="e.g. Barbell Bench Press"></div>
+    <div class="rt-grid3">
+      <div class="field"><label>Sets</label><input type="number" min="1" id="fitExerciseSetsInput" value="3"></div>
+      <div class="field"><label>Rep min</label><input type="number" min="1" id="fitExerciseRepMinInput" value="8"></div>
+      <div class="field"><label>Rep max</label><input type="number" min="1" id="fitExerciseRepMaxInput" value="12"></div>
+    </div>
+    <div class="rt-grid2">
+      <div class="field"><label>Rest (seconds)</label><input type="number" min="0" id="fitExerciseRestInput" value="60"></div>
+      <div class="field"><label>Target weight</label><input type="number" min="0" step="0.5" id="fitExerciseWeightInput" value="0"></div>
+    </div>
+    <div class="field"><label>Equipment</label><select id="fitExerciseEquipmentInput"><option value="">None / bodyweight</option></select></div>
+    <div class="field"><label>Notes</label><textarea id="fitExerciseNotesInput" placeholder="Form cues, why this exercise, anything worth remembering…"></textarea></div>
+    <div class="rt-grid2">
+      <div class="field"><label>Photo URL</label><input type="text" id="fitExercisePhotoInput" placeholder="https://…"></div>
+      <div class="field"><label>Video URL</label><input type="text" id="fitExerciseVideoInput" placeholder="https://…"></div>
+    </div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="fitExerciseModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="fitExerciseModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="fitExerciseModalDelete" style="display:none;">Delete this exercise</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="fitEquipmentModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="fitEquipmentModalTitle">Add Equipment</h3><button type="button" class="bs-modal-close" id="fitEquipmentModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="field"><label>Name</label><input type="text" id="fitEquipmentNameInput" placeholder="e.g. Adjustable Dumbbells"></div>
+    <div class="field"><label>Type</label><select id="fitEquipmentTypeInput"></select></div>
+    <div class="field"><label>Weights available <span class="bs-hint" style="font-weight:400;">— comma-separated</span></label><input type="text" id="fitEquipmentWeightsInput" placeholder="e.g. 10, 20, 30, 40"></div>
+    <div class="field"><label>Notes</label><textarea id="fitEquipmentNotesInput"></textarea></div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="fitEquipmentModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="fitEquipmentModalSave">Save</button>
+    </div>
+    <span class="delete-link" id="fitEquipmentModalDelete" style="display:none;">Delete this equipment</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="fitLogSetModalBg">
+  <div class="modal">
+    <div class="bs-modal-head"><h3 id="fitLogSetModalTitle">Log a Set</h3><button type="button" class="bs-modal-close" id="fitLogSetModalCloseBtn" aria-label="Close">&times;</button></div>
+    <div class="rt-grid2">
+      <div class="field"><label>Weight</label><input type="number" min="0" step="0.5" id="fitLogWeightInput"></div>
+      <div class="field"><label>Reps</label><input type="number" min="0" id="fitLogRepsInput"></div>
+    </div>
+    <div class="bs-modal-actions">
+      <button type="button" class="bs-btn-ghost" id="fitLogSetModalCancel">Cancel</button>
+      <button type="button" class="bs-btn-primary" id="fitLogSetModalSave">Save Set</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal-bg" id="stepModalBg">
@@ -1419,6 +1649,7 @@ function renderSteps(){
           <span class="rt-step-m">${m===0?'skip':m}</span>
           <span class="rt-step-chev">›</span>
         </button>
+        ${s.id==='mov'?'<button type="button" class="bs-icon-btn" id="stepFitnessLinkBtn" title="Open Fitness Studio">🏋️</button>':''}
         <button type="button" class="rt-step-edit" title="Edit step">✎</button>
       </div>
       <div class="rt-step-detail">${(s.detail||[]).map(p=>`<p>${mdLite(p)}</p>`).join('')}</div>`;
@@ -1429,6 +1660,10 @@ function renderSteps(){
       toggle.setAttribute('aria-expanded',open?'false':'true');
     });
     el.querySelector('.rt-step-edit').addEventListener('click',()=>openStepModal(s.id));
+    if(s.id==='mov'){
+      const fitBtn=el.querySelector('#stepFitnessLinkBtn');
+      if(fitBtn) fitBtn.addEventListener('click',(ev)=>{ ev.stopPropagation(); switchMainTab('fitness'); document.getElementById('rtMainTabs').scrollIntoView({behavior:reducedMotion()?'auto':'smooth',block:'start'}); });
+    }
     box.appendChild(el);
     t+=m;
   });
@@ -2008,7 +2243,7 @@ function handleSaveEvent(e) {
 // ============================================================
 function switchMainTab(tab, opts) {
   opts = opts || {};
-  const valid = ['ritual', 'system', 'subconscious'].indexOf(tab) !== -1;
+  const valid = ['ritual', 'system', 'subconscious', 'fitness'].indexOf(tab) !== -1;
   activeMainTab = valid ? tab : 'ritual';
   document.querySelectorAll('#rtMainTabs .rt-maintab').forEach(function (b) { b.classList.toggle('active', b.dataset.maintab === activeMainTab); });
   document.querySelectorAll('.rt-maintabpanel').forEach(function (p) { p.classList.toggle('active', p.dataset.mainpanel === activeMainTab); });
@@ -2016,6 +2251,7 @@ function switchMainTab(tab, opts) {
   if (!opts.silentHash) { try { history.replaceState(null, '', '#' + activeMainTab); } catch (e) {} }
   if (activeMainTab === 'system') { renderSelectedGoalsBanner(); renderSysTabContent(); }
   if (activeMainTab === 'subconscious') { renderIdentitySub(); }
+  if (activeMainTab === 'fitness' && FIT) { renderFitTabContent(); }
 }
 function renderSysTabContent() {
   if (activeTab === 'goals') renderGoals();
@@ -2027,13 +2263,13 @@ function initMainTabs() {
   try {
     const hash = (location.hash || '').replace('#', '');
     const stored = localStorage.getItem('routine:main_tab');
-    if (['ritual', 'system', 'subconscious'].indexOf(hash) !== -1) startTab = hash;
-    else if (['ritual', 'system', 'subconscious'].indexOf(stored) !== -1) startTab = stored;
+    if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(hash) !== -1) startTab = hash;
+    else if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(stored) !== -1) startTab = stored;
   } catch (e) {}
   document.querySelectorAll('#rtMainTabs .rt-maintab').forEach(function (b) { b.addEventListener('click', function () { switchMainTab(b.dataset.maintab); }); });
   window.addEventListener('hashchange', function () {
     const hash = (location.hash || '').replace('#', '');
-    if (['ritual', 'system', 'subconscious'].indexOf(hash) !== -1) switchMainTab(hash, { silentHash: true });
+    if (['ritual', 'system', 'subconscious', 'fitness'].indexOf(hash) !== -1) switchMainTab(hash, { silentHash: true });
   });
   switchMainTab(startTab, { silentHash: true });
 }
@@ -2860,6 +3096,598 @@ function setupSystemSeedRaceSafety() {
   }
 }
 
+// ============================================================
+// FITNESS STUDIO (4th main tab) — a native, dedicated fitness system
+// inside Main. Separate data/collections from the standalone gym.html
+// page of the same name (see CLAUDE.md) — nothing here reads or writes
+// gym.html's own po_coach_v1 data.
+// ============================================================
+let FIT = null;
+let activeFitTab = 'week';
+let activeFitDay = null;
+let editingFitTemplateId = null, editingFitTemplateColor = null, editingFitTemplateDays = [];
+let editingFitExerciseId = null, editingFitExerciseTemplateId = null;
+let editingFitEquipmentId = null;
+let loggingFitExerciseId = null, loggingFitTemplateId = null;
+
+function isValidFitMediaUrl(v) {
+  if (!v) return false;
+  try { const u = new URL(v); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
+}
+
+function switchFitTab(tab) {
+  const panels = document.querySelectorAll('[data-mainpanel="fitness"] .bs-panel');
+  const valid = Array.prototype.some.call(panels, function (p) { return p.dataset.fitpanel === tab; });
+  activeFitTab = valid ? tab : 'week';
+  document.querySelectorAll('#fitTabsRow .bs-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.fittab === activeFitTab); });
+  panels.forEach(function (p) { p.classList.toggle('active', p.dataset.fitpanel === activeFitTab); });
+  try { localStorage.setItem(FIT.KEYS.activeTab, activeFitTab); } catch (e) {}
+  renderFitTabContent();
+}
+function renderFitTabContent() {
+  if (!FIT) return;
+  if (activeFitTab === 'week') renderFitWeek();
+  else if (activeFitTab === 'templates') renderFitTemplates();
+  else if (activeFitTab === 'equipment') renderFitEquipment();
+  else if (activeFitTab === 'history') renderFitHistory();
+}
+function renderAllFitnessPanels() { renderFitTabContent(); }
+
+// ---------- CURRENT WEEK ----------
+function renderFitDayChips() {
+  const box = $('fitDayChips'); if (!box) return;
+  box.innerHTML = '';
+  FIT.WEEKDAY_LABELS.forEach(function (label, idx) {
+    const chip = document.createElement('button');
+    chip.type = 'button'; chip.className = 'bs-chip' + (idx === activeFitDay ? ' active' : '');
+    chip.textContent = label + (idx === new Date().getDay() ? ' · Today' : '');
+    chip.addEventListener('click', function () { activeFitDay = idx; try { localStorage.setItem(FIT.KEYS.activeDay, String(idx)); } catch (e) {} renderFitWeek(); });
+    box.appendChild(chip);
+  });
+}
+function currentFitDate() { return FIT.dateForWeekday(activeFitDay); }
+function renderFitCoaching() {
+  const box = $('fitCoachingBox'); if (!box) return;
+  const coaching = FIT.coachingForDay(activeFitDay);
+  box.innerHTML = '';
+  if (!coaching) { box.innerHTML = '<div class="fit-rest-note">Rest day — no template assigned. Log a workout anyway from the Templates tab if you want.</div>'; return; }
+  const wrap = document.createElement('div');
+  wrap.className = 'bs-callout';
+  coaching.perExercise.forEach(function (row) {
+    const p = document.createElement('div');
+    p.className = 'fit-coach-ex';
+    p.innerHTML = '<b>' + escapeHtml(row.exercise.name || 'Untitled exercise') + '</b> — ' + escapeHtml(row.why) + ' ' + escapeHtml(row.weightWhy);
+    wrap.appendChild(p);
+  });
+  const strat = document.createElement('div');
+  strat.className = 'fit-coach-strategy';
+  strat.innerHTML = '<b>Strategy:</b> ' + escapeHtml(coaching.strategy);
+  wrap.appendChild(strat);
+  box.appendChild(wrap);
+}
+function buildFitMediaThumb(url, kind) {
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'fit-ex-media-btn'; btn.title = 'View ' + kind;
+  if (kind === 'photo') {
+    const img = document.createElement('img');
+    img.src = url; img.alt = '';
+    img.addEventListener('error', function () { btn.textContent = '🔗'; }, { once: true });
+    btn.appendChild(img);
+  } else {
+    btn.textContent = '▶️';
+  }
+  btn.addEventListener('click', function () { openFitMediaLightbox(url, kind); });
+  return btn;
+}
+function openFitMediaLightbox(url, kind) {
+  const bg = $('fitMediaLightboxBg'), content = $('fitMediaLightboxContent');
+  content.innerHTML = '';
+  if (kind === 'video') {
+    const v = document.createElement('video');
+    v.src = url; v.controls = true; v.autoplay = true;
+    content.appendChild(v);
+  } else {
+    const img = document.createElement('img');
+    img.src = url; img.alt = '';
+    content.appendChild(img);
+  }
+  bg.classList.add('show');
+}
+function buildFitExerciseCard(ex, tpl, dateKey, dayRec) {
+  const equip = ex.equipmentId ? FIT.Equipment.get(ex.equipmentId) : null;
+  const weight = FIT.suggestedWeight(ex);
+  const done = !!dayRec.exerciseDone[ex.id];
+  const card = document.createElement('div');
+  card.className = 'bs-card fit-ex-card';
+  const top = document.createElement('div'); top.className = 'fit-ex-top';
+  const check = document.createElement('input'); check.type = 'checkbox'; check.className = 'fit-ex-check'; check.checked = done;
+  check.addEventListener('change', function () { FIT.toggleExerciseDone(dateKey, ex.id); renderFitWeek(); });
+  const titleWrap = document.createElement('div'); titleWrap.className = 'fit-ex-title-wrap';
+  const titleEl = document.createElement('div'); titleEl.className = 'fit-ex-title'; titleEl.textContent = ex.name || 'Untitled exercise';
+  const metaEl = document.createElement('div'); metaEl.className = 'fit-ex-meta';
+  metaEl.textContent = ex.sets + '×' + ex.repMin + '-' + ex.repMax + ' reps · rest ' + ex.restSec + 's' +
+    (equip ? ' · ' + equip.name + (equip.weights.length ? ' (' + equip.weights.join(', ') + ')' : '') : '') +
+    (weight ? ' · target ' + weight : '');
+  titleWrap.appendChild(titleEl); titleWrap.appendChild(metaEl);
+  top.appendChild(check); top.appendChild(titleWrap);
+  if (isValidFitMediaUrl(ex.photoUrl)) top.appendChild(buildFitMediaThumb(ex.photoUrl, 'photo'));
+  if (isValidFitMediaUrl(ex.videoUrl)) top.appendChild(buildFitMediaThumb(ex.videoUrl, 'video'));
+  card.appendChild(top);
+  const actions = document.createElement('div'); actions.className = 'fit-ex-actions-row';
+  const logBtn = document.createElement('button'); logBtn.type = 'button'; logBtn.className = 'bs-btn-secondary bs-btn-sm'; logBtn.textContent = 'Log Set';
+  logBtn.addEventListener('click', function () { openFitLogSetModal(ex.id, tpl.id); });
+  const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-btn-ghost bs-btn-sm'; editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', function () { openFitExerciseModal(tpl.id, ex.id); });
+  actions.appendChild(logBtn); actions.appendChild(editBtn);
+  card.appendChild(actions);
+  return card;
+}
+function renderFitExerciseList() {
+  const box = $('fitExerciseList'); if (!box) return;
+  const dateKey = currentFitDate();
+  const dayRec = FIT.getDayRecord(dateKey);
+  const rows = FIT.exercisesForDay(activeFitDay);
+  box.innerHTML = '';
+  if (!rows.length) { box.innerHTML = '<div class="bs-empty">No template assigned to this day.</div>'; }
+  rows.forEach(function (row) { box.appendChild(buildFitExerciseCard(row.exercise, row.template, dateKey, dayRec)); });
+}
+function renderFitReview() {
+  const section = $('fitReviewSection'), box = $('fitReviewBox'); if (!section || !box) return;
+  const dateKey = currentFitDate();
+  const rec = FIT.getDayRecord(dateKey);
+  if (!rec.complete || !rec.review) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  const r = rec.review;
+  box.innerHTML = '';
+  const grid = document.createElement('div'); grid.className = 'fit-stat-grid';
+  [
+    ['Compliance', r.compliancePct + '%'],
+    ['Rep completion', r.avgRepCompletionPct === null ? '—' : r.avgRepCompletionPct + '%'],
+    ['Volume', r.volume.toLocaleString()],
+    ['Sets logged', r.loggedSets + ' / ' + r.prescribedSets]
+  ].forEach(function (pair) {
+    const tile = document.createElement('div'); tile.className = 'fit-stat-tile';
+    tile.innerHTML = '<div class="fit-stat-num">' + escapeHtml(pair[1]) + '</div><div class="fit-stat-lbl">' + escapeHtml(pair[0]) + '</div>';
+    grid.appendChild(tile);
+  });
+  box.appendChild(grid);
+  const note = document.createElement('div'); note.className = 'bs-callout'; note.textContent = r.fatigueNote;
+  box.appendChild(note);
+}
+function renderFitWeek() {
+  if (activeFitDay === null) activeFitDay = new Date().getDay();
+  renderFitDayChips();
+  renderFitCoaching();
+  renderFitExerciseList();
+  renderFitReview();
+}
+function markFitWorkoutComplete() {
+  const dateKey = currentFitDate();
+  const rows = FIT.exercisesForDay(activeFitDay);
+  if (!rows.length) { alert('No template assigned to this day — nothing to mark complete.'); return; }
+  FIT.markWorkoutComplete(dateKey, activeFitDay);
+  renderFitWeek();
+}
+
+// ---------- TEMPLATES ----------
+function renderFitTemplateColorSwatches() {
+  const box = $('fitTemplateColorSwatches'); if (!box) return;
+  box.innerHTML = '';
+  FIT.TEMPLATE_COLORS.forEach(function (c) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'fit-color-swatch fit-color-' + c + (editingFitTemplateColor === c ? ' active' : '');
+    b.title = c;
+    b.addEventListener('click', function () { editingFitTemplateColor = c; renderFitTemplateColorSwatches(); });
+    box.appendChild(b);
+  });
+}
+function renderFitTemplateDayPicker() {
+  const box = $('fitTemplateDayPicker'); if (!box) return;
+  box.innerHTML = '';
+  FIT.WEEKDAY_LABELS.forEach(function (label, idx) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'bs-day-toggle' + (editingFitTemplateDays.indexOf(idx) !== -1 ? ' active' : '');
+    b.textContent = label;
+    b.addEventListener('click', function () {
+      const at = editingFitTemplateDays.indexOf(idx);
+      if (at === -1) editingFitTemplateDays.push(idx); else editingFitTemplateDays.splice(at, 1);
+      renderFitTemplateDayPicker();
+    });
+    box.appendChild(b);
+  });
+}
+function renderFitTemplateExerciseListInModal() {
+  const box = $('fitTemplateExerciseList'); if (!box) return;
+  box.innerHTML = '';
+  if (!editingFitTemplateId) { box.innerHTML = '<div class="bs-empty">Save the template once first, then add exercises.</div>'; return; }
+  const t = FIT.Templates.get(editingFitTemplateId);
+  if (!t) return;
+  const sorted = t.exercises.slice().sort(function (a, b) { return a.order - b.order; });
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No exercises yet.</div>'; }
+  sorted.forEach(function (ex, i) {
+    const row = document.createElement('div'); row.className = 'bs-card';
+    const top = document.createElement('div'); top.className = 'bs-card-top';
+    const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+    titleWrap.innerHTML = '<span class="bs-card-title">' + escapeHtml(ex.name || 'Untitled') + '</span><span class="bs-tag">' + ex.sets + '×' + ex.repMin + '-' + ex.repMax + '</span>';
+    const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+    const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', function () { FIT.moveExercise(t.id, ex.id, -1); renderFitTemplateExerciseListInModal(); });
+    const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sorted.length - 1;
+    downBtn.addEventListener('click', function () { FIT.moveExercise(t.id, ex.id, 1); renderFitTemplateExerciseListInModal(); });
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-icon-btn'; editBtn.textContent = '✎';
+    editBtn.addEventListener('click', function () { openFitExerciseModal(t.id, ex.id); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'bs-icon-btn is-del'; delBtn.textContent = '✕';
+    delBtn.addEventListener('click', function () {
+      if (!confirm('Delete this exercise?')) return;
+      FIT.removeExerciseFromTemplate(t.id, ex.id); renderFitTemplateExerciseListInModal();
+    });
+    actions.appendChild(upBtn); actions.appendChild(downBtn); actions.appendChild(editBtn); actions.appendChild(delBtn);
+    top.appendChild(titleWrap); top.appendChild(actions);
+    row.appendChild(top);
+    box.appendChild(row);
+  });
+}
+function openFitTemplateModal(id) {
+  editingFitTemplateId = id || null;
+  const t = id ? FIT.Templates.get(id) : null;
+  $('fitTemplateModalTitle').textContent = t ? 'Edit Template' : 'Add Template';
+  $('fitTemplateNameInput').value = t ? t.name : '';
+  $('fitTemplateGymInput').value = t ? t.gymType : '';
+  editingFitTemplateColor = t ? t.color : FIT.TEMPLATE_COLORS[0];
+  editingFitTemplateDays = t ? t.scheduledDays.slice() : [];
+  renderFitTemplateColorSwatches();
+  renderFitTemplateDayPicker();
+  renderFitTemplateExerciseListInModal();
+  $('fitTemplateModalDelete').style.display = t ? 'block' : 'none';
+  $('fitTemplateModalBg').classList.add('show');
+}
+function closeFitTemplateModal() { $('fitTemplateModalBg').classList.remove('show'); editingFitTemplateId = null; }
+function saveFitTemplateModal() {
+  const name = $('fitTemplateNameInput').value.trim();
+  if (!name) { alert('Give the template a name.'); return; }
+  const patch = { name: name, gymType: $('fitTemplateGymInput').value.trim(), color: editingFitTemplateColor, scheduledDays: editingFitTemplateDays.slice() };
+  if (editingFitTemplateId) {
+    FIT.Templates.update(editingFitTemplateId, patch);
+  } else {
+    const created = FIT.Templates.add(Object.assign({}, patch, { order: FIT.nextOrder(FIT.Templates.list()) }));
+    editingFitTemplateId = created.id;
+    $('fitTemplateModalTitle').textContent = 'Edit Template';
+    $('fitTemplateModalDelete').style.display = 'block';
+    renderFitTemplateExerciseListInModal();
+    renderFitTemplates(); renderFitWeek();
+    return; // stay open so exercises can be added right away
+  }
+  closeFitTemplateModal();
+  renderFitTemplates(); renderFitWeek();
+}
+function deleteFitTemplateModal() {
+  if (!editingFitTemplateId) return;
+  if (!confirm('Delete this template and all of its exercises?')) return;
+  FIT.Templates.remove(editingFitTemplateId);
+  closeFitTemplateModal();
+  renderFitTemplates(); renderFitWeek();
+}
+function buildFitTemplateCard(t, i, sortedLen) {
+  const card = document.createElement('div'); card.className = 'bs-card';
+  const top = document.createElement('div'); top.className = 'bs-card-top';
+  const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+  const dot = document.createElement('span'); dot.className = 'fit-color-dot fit-color-' + t.color;
+  const titleSpan = document.createElement('span'); titleSpan.className = 'bs-card-title'; titleSpan.textContent = t.name || 'Untitled template';
+  titleWrap.appendChild(dot); titleWrap.appendChild(titleSpan);
+  const daysTag = document.createElement('span'); daysTag.className = 'bs-tag';
+  daysTag.textContent = t.scheduledDays.length ? t.scheduledDays.slice().sort().map(function (d) { return FIT.WEEKDAY_LABELS[d]; }).join(', ') : 'Unscheduled';
+  titleWrap.appendChild(daysTag);
+  const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+  const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-icon-btn'; editBtn.textContent = '✎';
+  editBtn.addEventListener('click', function () { openFitTemplateModal(t.id); });
+  const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+  upBtn.addEventListener('click', function () { FIT.moveInCollection(FIT.Templates, t.id, -1); renderFitTemplates(); });
+  const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sortedLen - 1;
+  downBtn.addEventListener('click', function () { FIT.moveInCollection(FIT.Templates, t.id, 1); renderFitTemplates(); });
+  actions.appendChild(editBtn); actions.appendChild(upBtn); actions.appendChild(downBtn);
+  top.appendChild(titleWrap); top.appendChild(actions);
+  card.appendChild(top);
+  const body = document.createElement('div'); body.className = 'bs-card-body';
+  body.textContent = (t.gymType ? t.gymType + ' · ' : '') + t.exercises.length + ' exercise' + (t.exercises.length === 1 ? '' : 's');
+  card.appendChild(body);
+  return card;
+}
+function renderFitTemplates() {
+  const box = $('fitTemplateList'); if (!box) return;
+  const sorted = FIT.templatesSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No templates yet.</div>'; }
+  sorted.forEach(function (t, i) { box.appendChild(buildFitTemplateCard(t, i, sorted.length)); });
+}
+
+// ---------- EXERCISE MODAL (opened from Template editor or Current Week) ----------
+function renderFitExerciseEquipmentSelect() {
+  const sel = $('fitExerciseEquipmentInput'); if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">None / bodyweight</option>';
+  FIT.equipmentSorted().forEach(function (eq) {
+    const opt = document.createElement('option'); opt.value = eq.id; opt.textContent = eq.name; sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+function openFitExerciseModal(templateId, exerciseId) {
+  editingFitExerciseTemplateId = templateId;
+  editingFitExerciseId = exerciseId || null;
+  renderFitExerciseEquipmentSelect();
+  const ex = exerciseId ? (FIT.Templates.get(templateId).exercises.find(function (x) { return x.id === exerciseId; })) : null;
+  $('fitExerciseModalTitle').textContent = ex ? 'Edit Exercise' : 'Add Exercise';
+  $('fitExerciseNameInput').value = ex ? ex.name : '';
+  $('fitExerciseSetsInput').value = ex ? ex.sets : 3;
+  $('fitExerciseRepMinInput').value = ex ? ex.repMin : 8;
+  $('fitExerciseRepMaxInput').value = ex ? ex.repMax : 12;
+  $('fitExerciseRestInput').value = ex ? ex.restSec : 60;
+  $('fitExerciseWeightInput').value = ex ? ex.targetWeight : 0;
+  $('fitExerciseEquipmentInput').value = ex ? (ex.equipmentId || '') : '';
+  $('fitExerciseNotesInput').value = ex ? ex.notes : '';
+  $('fitExercisePhotoInput').value = ex ? ex.photoUrl : '';
+  $('fitExerciseVideoInput').value = ex ? ex.videoUrl : '';
+  $('fitExerciseModalDelete').style.display = ex ? 'block' : 'none';
+  $('fitExerciseModalBg').classList.add('show');
+}
+function closeFitExerciseModal() { $('fitExerciseModalBg').classList.remove('show'); editingFitExerciseId = null; editingFitExerciseTemplateId = null; }
+function saveFitExerciseModal() {
+  const name = $('fitExerciseNameInput').value.trim();
+  if (!name) { alert('Give the exercise a name.'); return; }
+  const photo = $('fitExercisePhotoInput').value.trim();
+  const video = $('fitExerciseVideoInput').value.trim();
+  if (photo && !isValidFitMediaUrl(photo)) { alert('Photo URL must be a valid http(s) link.'); return; }
+  if (video && !isValidFitMediaUrl(video)) { alert('Video URL must be a valid http(s) link.'); return; }
+  const data = {
+    name: name,
+    sets: parseInt($('fitExerciseSetsInput').value, 10) || 1,
+    repMin: parseInt($('fitExerciseRepMinInput').value, 10) || 1,
+    repMax: parseInt($('fitExerciseRepMaxInput').value, 10) || 1,
+    restSec: parseInt($('fitExerciseRestInput').value, 10) || 0,
+    targetWeight: parseFloat($('fitExerciseWeightInput').value) || 0,
+    equipmentId: $('fitExerciseEquipmentInput').value || null,
+    notes: $('fitExerciseNotesInput').value.trim(),
+    photoUrl: photo, videoUrl: video
+  };
+  if (editingFitExerciseId) FIT.updateExerciseInTemplate(editingFitExerciseTemplateId, editingFitExerciseId, data);
+  else FIT.addExerciseToTemplate(editingFitExerciseTemplateId, data);
+  closeFitExerciseModal();
+  renderFitTemplateExerciseListInModal(); renderFitTemplates(); renderFitWeek();
+}
+function deleteFitExerciseModal() {
+  if (!editingFitExerciseId) return;
+  if (!confirm('Delete this exercise?')) return;
+  FIT.removeExerciseFromTemplate(editingFitExerciseTemplateId, editingFitExerciseId);
+  closeFitExerciseModal();
+  renderFitTemplateExerciseListInModal(); renderFitTemplates(); renderFitWeek();
+}
+
+// ---------- EQUIPMENT ----------
+function renderFitEquipmentTypeSelect() {
+  const sel = $('fitEquipmentTypeInput'); if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '';
+  FIT.EQUIPMENT_TYPES.forEach(function (t) { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; sel.appendChild(opt); });
+  sel.value = current || FIT.EQUIPMENT_TYPES[0];
+}
+function openFitEquipmentModal(id) {
+  editingFitEquipmentId = id || null;
+  const eq = id ? FIT.Equipment.get(id) : null;
+  renderFitEquipmentTypeSelect();
+  $('fitEquipmentModalTitle').textContent = eq ? 'Edit Equipment' : 'Add Equipment';
+  $('fitEquipmentNameInput').value = eq ? eq.name : '';
+  $('fitEquipmentTypeInput').value = eq ? eq.type : FIT.EQUIPMENT_TYPES[0];
+  $('fitEquipmentWeightsInput').value = eq ? eq.weights.join(', ') : '';
+  $('fitEquipmentNotesInput').value = eq ? eq.notes : '';
+  $('fitEquipmentModalDelete').style.display = eq ? 'block' : 'none';
+  $('fitEquipmentModalBg').classList.add('show');
+}
+function closeFitEquipmentModal() { $('fitEquipmentModalBg').classList.remove('show'); editingFitEquipmentId = null; }
+function saveFitEquipmentModal() {
+  const name = $('fitEquipmentNameInput').value.trim();
+  if (!name) { alert('Give the equipment a name.'); return; }
+  const weights = $('fitEquipmentWeightsInput').value.split(',').map(function (s) { return parseFloat(s.trim()); }).filter(function (n) { return !isNaN(n); });
+  const patch = { name: name, type: $('fitEquipmentTypeInput').value, weights: weights, notes: $('fitEquipmentNotesInput').value.trim() };
+  if (editingFitEquipmentId) FIT.Equipment.update(editingFitEquipmentId, patch);
+  else FIT.Equipment.add(Object.assign({}, patch, { order: FIT.nextOrder(FIT.Equipment.list()) }));
+  closeFitEquipmentModal();
+  renderFitEquipment(); renderFitWeek();
+}
+function deleteFitEquipmentModal() {
+  if (!editingFitEquipmentId) return;
+  const usedBy = FIT.Templates.list().reduce(function (n, t) { return n + t.exercises.filter(function (ex) { return ex.equipmentId === editingFitEquipmentId; }).length; }, 0);
+  const msg = usedBy ? ('Delete this equipment? ' + usedBy + ' exercise' + (usedBy === 1 ? '' : 's') + ' referencing it will be unlinked, not deleted.') : 'Delete this equipment?';
+  if (!confirm(msg)) return;
+  FIT.deleteEquipment(editingFitEquipmentId);
+  closeFitEquipmentModal();
+  renderFitEquipment(); renderFitWeek();
+}
+function buildFitEquipmentCard(eq, i, sortedLen) {
+  const card = document.createElement('div'); card.className = 'bs-card';
+  const top = document.createElement('div'); top.className = 'bs-card-top';
+  const titleWrap = document.createElement('div'); titleWrap.className = 'bs-card-title-wrap';
+  titleWrap.innerHTML = '<span class="bs-card-title">' + escapeHtml(eq.name || 'Untitled') + '</span><span class="bs-tag">' + escapeHtml(eq.type) + '</span>';
+  const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+  const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.className = 'bs-icon-btn'; editBtn.textContent = '✎';
+  editBtn.addEventListener('click', function () { openFitEquipmentModal(eq.id); });
+  const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+  upBtn.addEventListener('click', function () { FIT.moveInCollection(FIT.Equipment, eq.id, -1); renderFitEquipment(); });
+  const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sortedLen - 1;
+  downBtn.addEventListener('click', function () { FIT.moveInCollection(FIT.Equipment, eq.id, 1); renderFitEquipment(); });
+  actions.appendChild(editBtn); actions.appendChild(upBtn); actions.appendChild(downBtn);
+  top.appendChild(titleWrap); top.appendChild(actions);
+  card.appendChild(top);
+  const body = document.createElement('div'); body.className = 'bs-card-body';
+  body.textContent = eq.weights.length ? ('Weights: ' + eq.weights.join(', ')) : 'No weights listed';
+  card.appendChild(body);
+  return card;
+}
+function renderFitEquipment() {
+  const box = $('fitEquipmentList'); if (!box) return;
+  const sorted = FIT.equipmentSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No equipment logged yet.</div>'; }
+  sorted.forEach(function (eq, i) { box.appendChild(buildFitEquipmentCard(eq, i, sorted.length)); });
+}
+
+// ---------- LOG SET ----------
+function openFitLogSetModal(exerciseId, templateId) {
+  loggingFitExerciseId = exerciseId; loggingFitTemplateId = templateId;
+  const found = FIT.findExercise(exerciseId);
+  const ex = found ? found.exercise : null;
+  $('fitLogSetModalTitle').textContent = ex ? ('Log a Set — ' + ex.name) : 'Log a Set';
+  $('fitLogWeightInput').value = ex ? FIT.suggestedWeight(ex) : 0;
+  $('fitLogRepsInput').value = ex ? Math.round((ex.repMin + ex.repMax) / 2) : 0;
+  $('fitLogSetModalBg').classList.add('show');
+}
+function closeFitLogSetModal() { $('fitLogSetModalBg').classList.remove('show'); loggingFitExerciseId = null; loggingFitTemplateId = null; }
+function saveFitLogSetModal() {
+  const weight = parseFloat($('fitLogWeightInput').value) || 0;
+  const reps = parseInt($('fitLogRepsInput').value, 10) || 0;
+  FIT.logSet(currentFitDate(), { exerciseId: loggingFitExerciseId, templateId: loggingFitTemplateId, weight: weight, reps: reps });
+  closeFitLogSetModal();
+  renderFitWeek();
+}
+
+// ---------- HISTORY & COMPARE ----------
+function renderFitHistory() {
+  const box = $('fitHistoryList'); if (!box) return;
+  const dates = FIT.loggedDates();
+  box.innerHTML = '';
+  if (!dates.length) { box.innerHTML = '<div class="bs-empty">No logged workouts yet.</div>'; }
+  dates.forEach(function (d) {
+    const stats = FIT.computeDayStats(d);
+    if (!stats) return;
+    const card = document.createElement('div'); card.className = 'bs-card fit-hist-row';
+    card.innerHTML = '<div><span class="bs-card-title">' + escapeHtml(d) + '</span> <span class="bs-card-body">' + stats.setCount + ' sets · ' + stats.volume.toLocaleString() + ' vol · ' + stats.durationMin + ' min' + (stats.complete ? ' · ✓ complete' : '') + '</span></div>';
+    card.addEventListener('click', function () { activeFitDay = FIT.weekdayIndex(d); switchFitTab('week'); document.querySelectorAll('#fitTabsRow .bs-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.fittab === 'week'); }); });
+    box.appendChild(card);
+  });
+  renderFitCompareSelects(dates);
+}
+function renderFitCompareSelects(dates) {
+  dates = dates || FIT.loggedDates();
+  ['fitCompareA', 'fitCompareB'].forEach(function (id, idx) {
+    const sel = $(id); if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = '';
+    dates.forEach(function (d) { const opt = document.createElement('option'); opt.value = d; opt.textContent = d; sel.appendChild(opt); });
+    if (dates.indexOf(current) !== -1) sel.value = current;
+    else if (dates[idx]) sel.value = dates[idx];
+  });
+}
+function buildFitCompareCol(dateKey) {
+  const stats = dateKey ? FIT.computeDayStats(dateKey) : null;
+  const col = document.createElement('div'); col.className = 'fit-compare-col';
+  if (!stats) { col.innerHTML = '<div class="fit-compare-col-title">' + escapeHtml(dateKey || '—') + '</div><div class="bs-empty">No logged sets for this date.</div>'; return col; }
+  const rows = [
+    ['Duration', stats.durationMin + ' min'],
+    ['Volume', stats.volume.toLocaleString()],
+    ['Sets', String(stats.setCount)],
+    ['Recovery', stats.recovery === null ? 'Not logged on Main Pillar' : stats.recovery + '%'],
+    ['Strain', stats.strain === null ? 'Not logged on Main Pillar' : String(stats.strain)],
+    ['HRV', stats.hrv === null ? 'Not logged on Main Pillar' : stats.hrv + ' ms']
+  ];
+  col.innerHTML = '<div class="fit-compare-col-title">' + escapeHtml(dateKey) + '</div>' +
+    rows.map(function (r) { return '<div class="fit-compare-row"><span>' + escapeHtml(r[0]) + '</span><b>' + escapeHtml(String(r[1])) + '</b></div>'; }).join('');
+  return col;
+}
+function computeFitCompare() {
+  const a = $('fitCompareA').value, b = $('fitCompareB').value;
+  const box = $('fitCompareResult'); box.innerHTML = '';
+  const grid = document.createElement('div'); grid.className = 'fit-compare-grid';
+  grid.appendChild(buildFitCompareCol(a));
+  grid.appendChild(buildFitCompareCol(b));
+  box.appendChild(grid);
+}
+
+function resetFitness() {
+  if (!confirm('Reset Fitness Studio (Templates, Equipment, and all logged workout data) to its defaults? This deletes everything currently in it.')) return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('fitness:day:') === 0) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+  localStorage.removeItem(FIT.KEYS.progression);
+  FIT.seedDefaultData();
+  renderFitTabContent();
+}
+
+// ---------- SEED-RACE SAFETY (same precedent as every other page's own
+// maybeSeedAfterSyncAttempt()) ----------
+function isFitnessEmptyEverywhere() { return FIT.isEmpty(); }
+let fitnessRemoteAppliedOnce = false;
+function maybeSeedFitnessAfterSyncAttempt() {
+  if (fitnessRemoteAppliedOnce) return;
+  if (!isFitnessEmptyEverywhere()) return;
+  FIT.seedIfEmpty();
+  if (activeMainTab === 'fitness') renderFitTabContent();
+}
+function setupFitnessSeedRaceSafety() {
+  if (typeof initCloudSync !== 'function') { FIT.seedIfEmpty(); return; }
+  setTimeout(maybeSeedFitnessAfterSyncAttempt, 5000);
+}
+
+function bootFitnessStudio() {
+  FIT = window.FitnessData;
+  if (!FIT) return;
+
+  let startTab = 'week';
+  try { startTab = localStorage.getItem(FIT.KEYS.activeTab) || 'week'; } catch (e) {}
+  try { activeFitDay = localStorage.getItem(FIT.KEYS.activeDay); activeFitDay = activeFitDay === null ? new Date().getDay() : parseInt(activeFitDay, 10); } catch (e) { activeFitDay = new Date().getDay(); }
+
+  document.querySelectorAll('#fitTabsRow .bs-tab').forEach(function (b) { b.addEventListener('click', function () { switchFitTab(b.dataset.fittab); }); });
+
+  $('fitResetBtn').addEventListener('click', resetFitness);
+  $('fitMarkCompleteBtn').addEventListener('click', markFitWorkoutComplete);
+
+  $('fitAddTemplateBtn').addEventListener('click', function () { openFitTemplateModal(null); });
+  $('fitTemplateModalCloseBtn').addEventListener('click', closeFitTemplateModal);
+  $('fitTemplateModalCancel').addEventListener('click', closeFitTemplateModal);
+  $('fitTemplateModalBg').addEventListener('click', function (e) { if (e.target === this) closeFitTemplateModal(); });
+  $('fitTemplateModalSave').addEventListener('click', saveFitTemplateModal);
+  $('fitTemplateModalDelete').addEventListener('click', deleteFitTemplateModal);
+  $('fitTemplateAddExerciseBtn').addEventListener('click', function () {
+    if (!editingFitTemplateId) { alert('Save the template first (give it a name and click Save), then add exercises.'); return; }
+    openFitExerciseModal(editingFitTemplateId, null);
+  });
+
+  $('fitExerciseModalCloseBtn').addEventListener('click', closeFitExerciseModal);
+  $('fitExerciseModalCancel').addEventListener('click', closeFitExerciseModal);
+  $('fitExerciseModalBg').addEventListener('click', function (e) { if (e.target === this) closeFitExerciseModal(); });
+  $('fitExerciseModalSave').addEventListener('click', saveFitExerciseModal);
+  $('fitExerciseModalDelete').addEventListener('click', deleteFitExerciseModal);
+
+  $('fitAddEquipmentBtn').addEventListener('click', function () { openFitEquipmentModal(null); });
+  $('fitEquipmentModalCloseBtn').addEventListener('click', closeFitEquipmentModal);
+  $('fitEquipmentModalCancel').addEventListener('click', closeFitEquipmentModal);
+  $('fitEquipmentModalBg').addEventListener('click', function (e) { if (e.target === this) closeFitEquipmentModal(); });
+  $('fitEquipmentModalSave').addEventListener('click', saveFitEquipmentModal);
+  $('fitEquipmentModalDelete').addEventListener('click', deleteFitEquipmentModal);
+
+  $('fitLogSetModalCloseBtn').addEventListener('click', closeFitLogSetModal);
+  $('fitLogSetModalCancel').addEventListener('click', closeFitLogSetModal);
+  $('fitLogSetModalBg').addEventListener('click', function (e) { if (e.target === this) closeFitLogSetModal(); });
+  $('fitLogSetModalSave').addEventListener('click', saveFitLogSetModal);
+
+  $('fitMediaLightboxClose').addEventListener('click', function () { $('fitMediaLightboxBg').classList.remove('show'); $('fitMediaLightboxContent').innerHTML = ''; });
+  $('fitMediaLightboxBg').addEventListener('click', function (e) { if (e.target === this) { this.classList.remove('show'); $('fitMediaLightboxContent').innerHTML = ''; } });
+
+  $('fitCompareBtn').addEventListener('click', computeFitCompare);
+
+  switchFitTab(startTab);
+  setupFitnessSeedRaceSafety();
+}
+function showFitBootErrorBanner(err) {
+  try {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#3a0d0d;color:#ffdada;padding:14px 16px;font:13px/1.5 monospace;white-space:pre-wrap;';
+    bar.textContent = 'Fitness Studio failed to load: ' + (err && err.message ? err.message : err);
+    document.body.appendChild(bar);
+  } catch (e2) {}
+}
+function safeBootFitnessStudio() { try { bootFitnessStudio(); } catch (err) { showFitBootErrorBanner(err); } }
+
 function bootSystemMerge() {
   DB = window.SystemData;
   if (!DB) return;
@@ -2973,13 +3801,15 @@ document.addEventListener('DOMContentLoaded', function () {
   wireFiveSortable();
   wireSectionSortable();
   safeBootSystemMerge();
+  safeBootFitnessStudio();
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'goals',
-    syncedPrefixes: ['routine:', 'system:'],
+    syncedPrefixes: ['routine:', 'system:', 'fitness:'],
     onApplied: function () {
       load(); wireStepsSortable(); wireFiveSortable(); wireSectionSortable();
       if (DB) { systemRemoteAppliedOnce = true; renderAllSystemPanels(); }
+      if (FIT) { fitnessRemoteAppliedOnce = true; renderAllFitnessPanels(); }
     }
   });
 });

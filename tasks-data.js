@@ -125,7 +125,8 @@
     'main-step': 'Main · Routine',
     'main-belief': 'Main · Beliefs',
     'system-action': 'System · Actions',
-    'system-challenge': 'System · Challenges'
+    'system-challenge': 'System · Challenges',
+    'fitness-exercise': 'Main · Fitness Studio'
   };
 
   /** @typedef {{id:string, title:string, note:string, status:string, priority:string, dueDate:string, isDailyAction:boolean, recurrence:string, scheduledDays:?number[], doneAt:?number, order:number, sourceType:string, sourceId:?string, sourceMeta:string, createdAt:number, updatedAt:number}} TaskItem */
@@ -364,13 +365,41 @@
     return { added: added, updated: updated };
   }
 
+  // Fitness Studio (index.html's own 4th main tab, fitness:templates) —
+  // one imported task per exercise, scheduled on that exercise's own
+  // template's assigned weekday(s). Read-only, same as every other
+  // source: never writes to a `fitness:` key.
+  function importFromFitness() {
+    let added = 0, updated = 0;
+    const templates = storeGet('fitness:templates');
+    if (Array.isArray(templates)) {
+      templates.forEach(function (t) {
+        if (!t || !t.id || !Array.isArray(t.exercises)) return;
+        t.exercises.forEach(function (ex) {
+          if (!ex || !ex.id) return;
+          const sourceId = t.id + ':' + ex.id;
+          const isNew = upsertImported('fitness-exercise', sourceId, {
+            title: (ex.name || 'Untitled exercise') + ' — ' + (t.name || 'Untitled template'),
+            isDailyAction: false,
+            scheduledDays: Array.isArray(t.scheduledDays) && t.scheduledDays.length ? t.scheduledDays : null,
+            recurrence: 'none',
+            sourceMeta: 'Exercise · ' + (t.name || 'Untitled template') + (ex.sets ? ' · ' + ex.sets + '×' + ex.repMin + '-' + ex.repMax : '')
+          });
+          isNew ? added++ : updated++;
+        });
+      });
+    }
+    return { added: added, updated: updated };
+  }
+
   function importFromSources() {
     const main = importFromMain();
     const system = importFromSystem();
+    const fitness = importFromFitness();
     storeSet(KEYS.lastSyncedAt, Date.now());
     return {
-      added: main.added + system.added,
-      updated: main.updated + system.updated
+      added: main.added + system.added + fitness.added,
+      updated: main.updated + system.updated + fitness.updated
     };
   }
 
