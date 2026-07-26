@@ -457,8 +457,18 @@
    * such key is skipped here, since local is newer than whatever this
    * fetch found. See readBeforeWriteBootstrap()'s own comment for why
    * this exists: without it, an item added while this fetch's round trip
-   * was still in flight got silently erased the instant it resolved. */
-  function fetchAndApplyRemoteSnapshot(writtenDuringBoot) {
+   * was still in flight got silently erased the instant it resolved.
+   * `rawSet` is the UNGUARDED setItem — applying a value we just fetched
+   * FROM remote must never itself be recorded into writtenDuringBoot (a
+   * real bug fixed here: it originally called the ambient, guarded
+   * localStorage.setItem, so merely applying remote data on an ordinary
+   * load — which happens on almost every load, not just ones with a
+   * genuine local edit — got misclassified as "the user just wrote this"
+   * and triggered a needless re-push of that same, possibly-already-
+   * stale-by-then snapshot, which could race ahead of and overwrite a
+   * different device's still-in-flight, newer push). */
+  function fetchAndApplyRemoteSnapshot(writtenDuringBoot, rawSet) {
+    rawSet = rawSet || localStorage.setItem.bind(localStorage);
     return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.enthub&select=data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     })
@@ -472,7 +482,7 @@
             foundAny = true;
             if (writtenDuringBoot && writtenDuringBoot.has(k)) return;
             const incoming = JSON.stringify(remote[k]);
-            if (localStorage.getItem(k) !== incoming) localStorage.setItem(k, incoming);
+            if (localStorage.getItem(k) !== incoming) rawSet(k, incoming);
           });
         }
         return foundAny;
@@ -503,7 +513,7 @@
       if (k && k.indexOf('enthub:') === 0) writtenDuringBoot.add(k);
     };
     return Promise.race([
-      fetchAndApplyRemoteSnapshot(writtenDuringBoot),
+      fetchAndApplyRemoteSnapshot(writtenDuringBoot, guardOrigSet),
       new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 8000); })
     ]).then(function (result) {
       // Restore the plain setters so bootSync()'s subsequent call to
