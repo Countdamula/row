@@ -632,6 +632,45 @@
       }
       if (onReady) onReady();
     });
+
+    // Realtime subscriptions can silently go stale once a tab is
+    // backgrounded (a phone locking its screen, switching apps) — a
+    // documented limitation elsewhere in this app (see dreamboard.html's
+    // own changelog: mobile browsers throttle or drop a backgrounded
+    // tab's websocket, with no event telling the page it happened), and
+    // the direct cause of "it's slow/inconsistent on the phone." Rather
+    // than wait on a connection that may never resume by itself, poll a
+    // fresh snapshot directly on a comfortable interval while the tab is
+    // actually visible, and immediately the moment it BECOMES visible
+    // again. Safe to call this freely now that fetchAndApplyRemoteSnapshot()
+    // merges instead of overwriting — it can no longer destroy an
+    // unsynced local edit by calling it mid-session, which is what made
+    // this too risky to add before.
+    let pollTimer = null;
+    let lastPoll = 0;
+    function pollNow() {
+      lastPoll = Date.now();
+      fetchAndApplyRemoteSnapshot().then(function (result) {
+        if (!result) return;
+        const push = result.needsPush ? pushMergedSnapshot() : Promise.resolve();
+        push.then(function () { if (onReady) onReady(); });
+      });
+    }
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(pollNow, 15000);
+    }
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'visible') { stopPolling(); return; }
+      startPolling();
+      if (Date.now() - lastPoll > 3000) pollNow();
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') startPolling();
   }
 
   // ============================================================
