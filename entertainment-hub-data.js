@@ -432,6 +432,11 @@
     const startedEmpty = PAGE_ORDER.every(function (pk) { return collectionFor(pk).list().length === 0; });
     function maybeSeed() {
       if (remoteAppliedOnce) return;
+      // A device that's offline hasn't actually had a real chance to pull
+      // remote data yet — seeding here would just fabricate demo content
+      // that later gets pushed over (and clobbers) whatever's real once
+      // connectivity returns. Wait for a real online signal instead.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) { setTimeout(maybeSeed, 3000); return; }
       const anyData = PAGE_ORDER.some(function (pk) { return collectionFor(pk).list().length > 0; });
       if (anyData) return;
       seedIfEmpty();
@@ -446,7 +451,12 @@
           if (onReady) onReady();
         }
       });
-      if (startedEmpty) setTimeout(maybeSeed, 5000);
+      // Widened from an earlier, tighter window — a slow/flaky mobile
+      // connection can genuinely take longer than a couple of seconds to
+      // resolve the initial cloud pull, and seeding before it lands risks
+      // pushing fabricated demo content over real cross-device data (the
+      // same race this app's other pages have hit before).
+      if (startedEmpty) setTimeout(maybeSeed, 9000);
     } else if (startedEmpty) {
       maybeSeed();
     }
