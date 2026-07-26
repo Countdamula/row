@@ -32,6 +32,18 @@
 (function (global) {
   'use strict';
 
+  // Captured here, at the very top of this module's own top-level
+  // execution — before this file or sync.js's initCloudSync() has had
+  // any chance to patch localStorage.setItem/removeItem — so there is
+  // always one genuinely raw, never-wrapped reference available for
+  // applying data that came FROM remote. Using it (instead of whatever
+  // localStorage.setItem currently resolves to) is what stops "apply a
+  // value we just fetched" from ever being mistaken for "the user just
+  // edited this," by this file's own bootstrap or by sync.js's dirty
+  // tracking, however many layers of patching end up stacked on top by
+  // the time it's actually called.
+  const RAW_LS_SET = localStorage.setItem.bind(localStorage);
+
   // ============================================================
   // STORAGE — same honest-save-signal storeSet() as every other page's
   // own -data.js: a failed localStorage write (e.g. quota exceeded)
@@ -450,94 +462,100 @@
   // ============================================================
   const SUPABASE_URL = 'https://jomlmvslzsmmzgjnqvbm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
-  /** Resolves to true (found + applied real data), false (confirmed
-   * nothing remote), or null (couldn't tell — offline/network error).
-   * `writtenDuringBoot` is a live Set (not a one-time snapshot) of every
-   * 'enthub:' key written locally since this fetch was kicked off — any
-   * such key is skipped here, since local is newer than whatever this
-   * fetch found. See readBeforeWriteBootstrap()'s own comment for why
-   * this exists: without it, an item added while this fetch's round trip
-   * was still in flight got silently erased the instant it resolved.
-   * `rawSet` is the UNGUARDED setItem — applying a value we just fetched
-   * FROM remote must never itself be recorded into writtenDuringBoot (a
-   * real bug fixed here: it originally called the ambient, guarded
-   * localStorage.setItem, so merely applying remote data on an ordinary
-   * load — which happens on almost every load, not just ones with a
-   * genuine local edit — got misclassified as "the user just wrote this"
-   * and triggered a needless re-push of that same, possibly-already-
-   * stale-by-then snapshot, which could race ahead of and overwrite a
-   * different device's still-in-flight, newer push). */
-  function fetchAndApplyRemoteSnapshot(writtenDuringBoot, rawSet) {
-    rawSet = rawSet || localStorage.setItem.bind(localStorage);
+
+  // Three separate timing-based attempts at this bootstrap (each fixing
+  // a real, reproduced bug, each leaving a further gap — see git history
+  // on this file for the blow-by-blow) all shared the same flaw: they
+  // tried to GUESS, from write timing, whether local was safe to
+  // overwrite with whatever the fetch below found. This version doesn't
+  // guess — it MERGES the two, so the answer is correct regardless of
+  // exactly when a write happened relative to the fetch.
+  //
+  // Array collections (the four content pages) are unioned by item id,
+  // local winning on a conflicting id since it's what's actually on this
+  // device right now; `enthub:heroes` is a shallow per-page-key merge,
+  // local winning per key; anything else scalar just prefers local when
+  // present. The one accepted tradeoff: a genuine cross-device DELETE
+  // can take one extra round trip to fully take effect (a just-deleted
+  // item can briefly reappear via this union before initCloudSync's own
+  // subsequent pull/realtime update corrects it, since deletions aren't
+  // tracked here) — a far smaller cost than silently losing a real add,
+  // which every previous version of this bootstrap could still do under
+  // the wrong timing.
+  function mergeRemoteIntoLocal(key, remoteValue) {
+    let localValue = null;
+    try { const raw = localStorage.getItem(key); localValue = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    if (Array.isArray(remoteValue) || Array.isArray(localValue)) {
+      const remoteArr = Array.isArray(remoteValue) ? remoteValue : [];
+      const localArr = Array.isArray(localValue) ? localValue : [];
+      const byId = {};
+      remoteArr.forEach(function (item) { if (item && item.id != null) byId[item.id] = item; });
+      localArr.forEach(function (item) { if (item && item.id != null) byId[item.id] = item; });
+      return Object.keys(byId).map(function (id) { return byId[id]; })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+    }
+    if (key === 'enthub:heroes') {
+      const remoteObj = (remoteValue && typeof remoteValue === 'object') ? remoteValue : {};
+      const localObj = (localValue && typeof localValue === 'object') ? localValue : {};
+      return Object.assign({}, remoteObj, localObj);
+    }
+    return (localValue !== null && localValue !== undefined) ? localValue : remoteValue;
+  }
+  /** Resolves to `{ foundAny, needsPush }` on success — `foundAny`: the
+   * remote row had at least one 'enthub:' key; `needsPush`: merging in
+   * whatever's local actually produced something different from what
+   * remote had (or local has an 'enthub:' key remote doesn't even know
+   * about yet), meaning it still needs pushing or it'll never reach the
+   * server — or `null` on a network failure/timeout (genuinely can't
+   * tell). Applies merged values via RAW_LS_SET, never the ambient
+   * localStorage.setItem — a real bug in an earlier version of this
+   * function did exactly the reverse and, since applying remote data
+   * happens on almost every load (not just ones with a genuine local
+   * edit), it got misclassified as "the user just wrote this." */
+  function fetchAndApplyRemoteSnapshot() {
     return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.enthub&select=data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     })
       .then(function (res) { return res.ok ? res.json() : []; })
       .then(function (rows) {
         const remote = rows && rows[0] && rows[0].data;
+        const remoteObj = (remote && typeof remote === 'object') ? remote : {};
         let foundAny = false;
-        if (remote && typeof remote === 'object') {
-          Object.keys(remote).forEach(function (k) {
-            if (k.indexOf('enthub:') !== 0) return;
-            foundAny = true;
-            if (writtenDuringBoot && writtenDuringBoot.has(k)) return;
-            const incoming = JSON.stringify(remote[k]);
-            if (localStorage.getItem(k) !== incoming) rawSet(k, incoming);
-          });
+        let needsPush = false;
+        Object.keys(remoteObj).forEach(function (k) {
+          if (k.indexOf('enthub:') !== 0) return;
+          foundAny = true;
+          const remoteJson = JSON.stringify(remoteObj[k]);
+          const merged = mergeRemoteIntoLocal(k, remoteObj[k]);
+          const mergedJson = JSON.stringify(merged);
+          if (mergedJson !== remoteJson) needsPush = true;
+          if (localStorage.getItem(k) !== mergedJson) RAW_LS_SET(k, mergedJson);
+        });
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf('enthub:') === 0 && !(k in remoteObj)) needsPush = true;
         }
-        return foundAny;
+        return { foundAny: foundAny, needsPush: needsPush };
       })
       .catch(function () { return null; });
   }
-  // Real, reproduced bug fixed here: the fetch above always runs on every
-  // page load and, once it resolves, applies its (necessarily slightly
-  // stale) snapshot straight into localStorage. If the user added/edited
-  // something while that fetch's round trip was still in flight — very
-  // plausible, since opening "+ Add", pasting a link, and clicking Save
-  // routinely takes longer than a few hundred ms — the stale snapshot
-  // silently overwrote that fresh local edit the moment it landed, with
-  // no error and no visible cause. Guarding every 'enthub:' write made
-  // during this exact window (tracked live, so it doesn't matter how long
-  // the round trip actually takes) closes that hole: whatever the user
-  // just typed always wins over a snapshot fetched before they typed it.
   function readBeforeWriteBootstrap() {
-    const writtenDuringBoot = new Set();
-    const guardOrigSet = localStorage.setItem.bind(localStorage);
-    const guardOrigRemove = localStorage.removeItem.bind(localStorage);
-    localStorage.setItem = function (k, v) {
-      guardOrigSet(k, v);
-      if (k && k.indexOf('enthub:') === 0) writtenDuringBoot.add(k);
-    };
-    localStorage.removeItem = function (k) {
-      guardOrigRemove(k);
-      if (k && k.indexOf('enthub:') === 0) writtenDuringBoot.add(k);
-    };
     return Promise.race([
-      fetchAndApplyRemoteSnapshot(writtenDuringBoot, guardOrigSet),
+      fetchAndApplyRemoteSnapshot(),
       new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 8000); })
     ]).then(function (result) {
-      // Restore the plain setters so bootSync()'s subsequent call to
-      // initCloudSync() installs its own (properly dirty-tracked) patch
-      // on a clean baseline rather than layered on top of this one-time
-      // guard.
-      try {
-        localStorage.setItem = guardOrigSet;
-        localStorage.removeItem = guardOrigRemove;
-      } catch (e) {}
-      if (writtenDuringBoot.size === 0) return result;
-      // A second, real bug beyond the one this guard already fixes: a key
-      // protected above from OUR fetch is still completely unprotected
-      // from initCloudSync()'s own separate initial pull, called right
-      // after this resolves — that pull's own dirty-tracking starts
-      // empty, has no idea this key was just touched, and silently
-      // overwrites it with the stale value it fetches the moment it
-      // resolves (this is what made an added card vanish with no push
-      // ever having happened, on both the device that added it and every
-      // device that loaded afterward). Closing it the same way sync.js's
-      // own flushOnUnload() already does — a direct raw upsert of every
-      // current 'enthub:' key — so the row is already caught up with
-      // this edit before initCloudSync ever gets a chance to re-fetch it.
-      return pushMergedSnapshot().then(function () { return result; });
+      if (!result) return null;
+      // A key that's now different from what remote had (or that remote
+      // doesn't even know about) is still completely unprotected from
+      // initCloudSync()'s own separate initial pull, called right after
+      // this resolves — its own dirty-tracking starts empty, has no idea
+      // this key was just merged, and would otherwise silently overwrite
+      // it with the stale value it fetches. Closing it the same way
+      // sync.js's own flushOnUnload() already does — a direct raw upsert
+      // of every current 'enthub:' key — so the row already matches
+      // before initCloudSync ever gets a chance to re-fetch it.
+      const push = result.needsPush ? pushMergedSnapshot() : Promise.resolve();
+      return push.then(function () { return result.foundAny; });
     });
   }
   function pushMergedSnapshot() {
