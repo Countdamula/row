@@ -195,12 +195,13 @@
   // ============================================================
   /** @typedef {{id:string, title:string, creator:string, url:string, cover:string,
    * description:string, lengthText:string, subtopic:string, rating:number,
-   * favorite:boolean, order:number, createdAt:number}} EntItem */
+   * favorite:boolean, order:number, createdAt:number, updatedAt:number}} EntItem */
   function itemModel(pageKey, data) {
     data = data || {};
     const cfg = PAGES[pageKey];
     const subtopics = cfg ? cfg.subtopics : [];
     const rating = Math.max(0, Math.min(5, Math.round(Number(data.rating) || 0)));
+    const createdAt = typeof data.createdAt === 'number' ? data.createdAt : Date.now();
     return {
       id: data.id || uid('ei'),
       title: typeof data.title === 'string' ? data.title : '',
@@ -213,7 +214,16 @@
       rating: rating,
       favorite: !!data.favorite,
       order: typeof data.order === 'number' ? data.order : 0,
-      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+      createdAt: createdAt,
+      // Real bug fixed by this field's existence: the cross-device merge
+      // (mergeRemoteIntoLocal, below) used to resolve a card that exists
+      // on both sides by always keeping the LOCAL copy — which meant
+      // whichever device happened to sync last with a stale copy would
+      // silently revert a favorite/rating/edit made on the other device.
+      // updatedAt lets the merge keep whichever side is actually newer
+      // instead. Falls back to createdAt for any item stored before this
+      // field existed, which is missing it entirely.
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : createdAt
     };
   }
 
@@ -237,7 +247,11 @@
       const all = list();
       const idx = all.findIndex(function (x) { return x.id === id; });
       if (idx < 0) return null;
-      all[idx] = itemModel(pageKey, Object.assign({}, all[idx], patch, { id: id }));
+      // updatedAt is forced here, always, regardless of what patch
+      // contains — every real edit (favorite/rating/title/etc.) needs to
+      // move it forward so the cross-device merge can tell this copy is
+      // the newer one.
+      all[idx] = itemModel(pageKey, Object.assign({}, all[idx], patch, { id: id, updatedAt: Date.now() }));
       storeSet(key, all);
       return all[idx];
     }
@@ -306,7 +320,14 @@
     const finalOrder = merged.map(function (x) {
       return visibleSet.hasOwnProperty(x.id) ? visibleItems[vi++] : x;
     });
-    finalOrder.forEach(function (x, i) { x.order = i; });
+    finalOrder.forEach(function (x, i) {
+      // Bump updatedAt only for items whose position actually changed —
+      // same reason update() now always bumps it (see itemModel's own
+      // comment): a stale device's cross-device merge must be able to
+      // tell a just-dragged card is newer than whatever it fetched.
+      if (x.order !== i) x.updatedAt = Date.now();
+      x.order = i;
+    });
     collectionFor(pageKey).replaceAll(finalOrder);
   }
   function toggleFavorite(pageKey, id) {
@@ -403,14 +424,19 @@
   // key needed. Cover photos start empty by default; nothing is
   // pre-filled.
   // ============================================================
-  /** @typedef {{eyebrow:string, title:string, subtext:string, photo:string}} EntHero */
+  /** @typedef {{eyebrow:string, title:string, subtext:string, photo:string,
+   * updatedAt:number}} EntHero */
   function heroModel(data) {
     data = data || {};
     return {
       eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
       title: typeof data.title === 'string' ? data.title : '',
       subtext: typeof data.subtext === 'string' ? data.subtext : '',
-      photo: typeof data.photo === 'string' ? data.photo : ''
+      photo: typeof data.photo === 'string' ? data.photo : '',
+      // Same reason EntItem gained this field — see itemModel's own
+      // comment — lets the cross-device merge tell which of two
+      // conflicting hero edits is actually newer instead of guessing.
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : 0
     };
   }
   function getHero(pageKey, defaults) {
@@ -421,7 +447,7 @@
   }
   function saveHero(pageKey, patch) {
     const all = storeGet('enthub:heroes') || {};
-    const next = heroModel(Object.assign({}, heroModel(all[pageKey]), patch));
+    const next = heroModel(Object.assign({}, heroModel(all[pageKey]), patch, { updatedAt: Date.now() }));
     all[pageKey] = next;
     storeSet('enthub:heroes', all);
     return next;
@@ -471,33 +497,58 @@
   // guess — it MERGES the two, so the answer is correct regardless of
   // exactly when a write happened relative to the fetch.
   //
-  // Array collections (the four content pages) are unioned by item id,
-  // local winning on a conflicting id since it's what's actually on this
-  // device right now; `enthub:heroes` is a shallow per-page-key merge,
-  // local winning per key; anything else scalar just prefers local when
-  // present. The one accepted tradeoff: a genuine cross-device DELETE
-  // can take one extra round trip to fully take effect (a just-deleted
-  // item can briefly reappear via this union before initCloudSync's own
-  // subsequent pull/realtime update corrects it, since deletions aren't
-  // tracked here) — a far smaller cost than silently losing a real add,
-  // which every previous version of this bootstrap could still do under
-  // the wrong timing.
+  // Array collections (the four content pages) are unioned by item id;
+  // `enthub:heroes` is a shallow per-page-key merge; anything else
+  // scalar just prefers local when present. The one accepted tradeoff:
+  // a genuine cross-device DELETE can take one extra round trip to fully
+  // take effect (a just-deleted item can briefly reappear via this union
+  // before initCloudSync's own subsequent pull/realtime update corrects
+  // it, since deletions aren't tracked here) — a far smaller cost than
+  // silently losing a real add, which every previous version of this
+  // bootstrap could still do under the wrong timing.
+  //
+  // A real bug fixed here, reported as "Favorites isn't syncing
+  // properly": the first version of this merge always kept the LOCAL
+  // copy of an item/hero that exists on both sides, on the theory that
+  // "local is what's actually on this device right now." That's wrong
+  // whenever the CONFLICTING id is an edit, not a fresh add — favoriting
+  // a card on one device, then merely loading (or auto-polling) the
+  // other device with its own stale, unfavorited copy still locally
+  // present, would keep local's stale value and then PUSH it, silently
+  // un-favoriting the card everywhere. Conflict resolution now compares
+  // each side's updatedAt and keeps whichever is actually newer, falling
+  // back to createdAt (items) or 0 (heroes) for anything stored before
+  // that field existed.
+  function newerWins(remoteSide, localSide) {
+    if (!remoteSide) return localSide;
+    if (!localSide) return remoteSide;
+    const remoteTime = typeof remoteSide.updatedAt === 'number' ? remoteSide.updatedAt : (remoteSide.createdAt || 0);
+    const localTime = typeof localSide.updatedAt === 'number' ? localSide.updatedAt : (localSide.createdAt || 0);
+    return localTime >= remoteTime ? localSide : remoteSide;
+  }
   function mergeRemoteIntoLocal(key, remoteValue) {
     let localValue = null;
     try { const raw = localStorage.getItem(key); localValue = raw == null ? null : JSON.parse(raw); } catch (e) {}
     if (Array.isArray(remoteValue) || Array.isArray(localValue)) {
       const remoteArr = Array.isArray(remoteValue) ? remoteValue : [];
       const localArr = Array.isArray(localValue) ? localValue : [];
-      const byId = {};
-      remoteArr.forEach(function (item) { if (item && item.id != null) byId[item.id] = item; });
-      localArr.forEach(function (item) { if (item && item.id != null) byId[item.id] = item; });
-      return Object.keys(byId).map(function (id) { return byId[id]; })
+      const remoteById = {}, localById = {}, order = [];
+      remoteArr.forEach(function (item) { if (item && item.id != null) { remoteById[item.id] = item; order.push(item.id); } });
+      localArr.forEach(function (item) {
+        if (!item || item.id == null) return;
+        if (!(item.id in remoteById)) order.push(item.id);
+        localById[item.id] = item;
+      });
+      return order.map(function (id) { return newerWins(remoteById[id], localById[id]); })
         .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
     }
     if (key === 'enthub:heroes') {
       const remoteObj = (remoteValue && typeof remoteValue === 'object') ? remoteValue : {};
       const localObj = (localValue && typeof localValue === 'object') ? localValue : {};
-      return Object.assign({}, remoteObj, localObj);
+      const pageKeys = Object.keys(Object.assign({}, remoteObj, localObj));
+      const merged = {};
+      pageKeys.forEach(function (pk) { merged[pk] = newerWins(remoteObj[pk], localObj[pk]); });
+      return merged;
     }
     return (localValue !== null && localValue !== undefined) ? localValue : remoteValue;
   }
