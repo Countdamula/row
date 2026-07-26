@@ -416,50 +416,124 @@
   }
 
   // ============================================================
+  // READ-BEFORE-WRITE BOOTSTRAP — fixes a real, reported data-loss bug.
+  //
+  // All five Entertainment pages share ONE Supabase row (appKey
+  // 'enthub'), but each is its own independent page load with its own,
+  // initially-incomplete view of the shared enthub: namespace — e.g. a
+  // device that's only ever opened ent-podcasts.html has no local copy
+  // of enthub:stories/entertainment/playlists yet. sync.js's own push
+  // (pushNow()) REPLACES the whole row's `data` column with whatever
+  // this device currently has locally, via upsert — it does not merge.
+  // So if a user added something and that add's debounced push fired
+  // before this device's own initial cloud pull had caught up with
+  // every OTHER page's collection, the push would silently wipe those
+  // other collections out of the shared row — and that wipe then
+  // propagates back down to every other device the next time it applies
+  // a remote update (applyRemote's own "remove keys not present in
+  // remote" step treats an absent key as a real deletion). This is
+  // exactly what "none of my input shows up, on any device" looks like:
+  // nearly every real add happens within a few seconds of opening a
+  // page, which was well within the old race window.
+  //
+  // Fixed by doing our own direct, one-time REST read of the row BEFORE
+  // ever installing sync.js's write-triggering localStorage patch (i.e.
+  // before calling initCloudSync at all) and applying whatever it finds
+  // straight into localStorage first. By the time any write can
+  // possibly happen — a user's Add/Edit/Favorite, or sync.js's own
+  // monkey-patched setItem — this device's local view is already caught
+  // up with the full shared row, not just whatever this one page
+  // happened to already have. Same hardcoded URL/key as sync.js/
+  // topbar.js/gym.html (must stay in sync — DO NOT MODIFY §1): a small,
+  // independent, read-only duplication, the same accepted precedent
+  // gym.html's own separate Supabase sync already established.
+  // ============================================================
+  const SUPABASE_URL = 'https://jomlmvslzsmmzgjnqvbm.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
+  /** Resolves to true (found + applied real data), false (confirmed
+   * nothing remote), or null (couldn't tell — offline/network error). */
+  function fetchAndApplyRemoteSnapshot() {
+    return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.enthub&select=data', {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    })
+      .then(function (res) { return res.ok ? res.json() : []; })
+      .then(function (rows) {
+        const remote = rows && rows[0] && rows[0].data;
+        let foundAny = false;
+        if (remote && typeof remote === 'object') {
+          Object.keys(remote).forEach(function (k) {
+            if (k.indexOf('enthub:') !== 0) return;
+            foundAny = true;
+            const incoming = JSON.stringify(remote[k]);
+            if (localStorage.getItem(k) !== incoming) localStorage.setItem(k, incoming);
+          });
+        }
+        return foundAny;
+      })
+      .catch(function () { return null; });
+  }
+  function readBeforeWriteBootstrap() {
+    return Promise.race([
+      fetchAndApplyRemoteSnapshot(),
+      new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 8000); })
+    ]);
+  }
+
+  // ============================================================
   // SYNC BOOTSTRAP — one shared helper so all five pages wire up the
-  // exact same appKey/prefix and the exact same seed-race-safety window
-  // (deferred until either real cloud data arrives via onApplied or a
-  // 5-second window elapses, or immediately if the Supabase SDK never
-  // loaded) instead of each page hand-rolling its own copy — same
-  // reasoning as every other page in this app that already does this
-  // (dreamboard.html/business.html/aitech.html/tasks.html/etc.).
-  // `onReady` is called once, either when a real remote pull applies or
-  // when the seed-race window elapses with nothing having arrived —
-  // either way, it's the caller's cue to (re-)render.
+  // exact same appKey/prefix, run the read-before-write bootstrap above
+  // first, and share the same seed-race-safety window, instead of each
+  // page hand-rolling its own copy — same reasoning as every other page
+  // in this app that already does this (dreamboard.html/business.html/
+  // aitech.html/tasks.html/etc.). `onReady` is called once as soon as
+  // the bootstrap read settles (so the very first real render reflects
+  // it), and again any time a later cloud update or a seed actually
+  // changes something — the caller's cue to (re-)render each time.
   // ============================================================
   function bootSync(onReady) {
-    let remoteAppliedOnce = false;
-    const startedEmpty = PAGE_ORDER.every(function (pk) { return collectionFor(pk).list().length === 0; });
-    function maybeSeed() {
-      if (remoteAppliedOnce) return;
-      // A device that's offline hasn't actually had a real chance to pull
-      // remote data yet — seeding here would just fabricate demo content
-      // that later gets pushed over (and clobbers) whatever's real once
-      // connectivity returns. Wait for a real online signal instead.
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) { setTimeout(maybeSeed, 3000); return; }
-      const anyData = PAGE_ORDER.some(function (pk) { return collectionFor(pk).list().length > 0; });
-      if (anyData) return;
-      seedIfEmpty();
-      if (onReady) onReady();
-    }
-    if (typeof global.initCloudSync === 'function') {
-      global.initCloudSync({
-        appKey: 'enthub',
-        syncedPrefixes: ['enthub:'],
-        onApplied: function () {
-          remoteAppliedOnce = true;
-          if (onReady) onReady();
+    readBeforeWriteBootstrap().then(function (foundRemoteData) {
+      let remoteAppliedOnce = false;
+      const startedEmpty = PAGE_ORDER.every(function (pk) { return collectionFor(pk).list().length === 0; });
+      function maybeSeed() {
+        if (remoteAppliedOnce) return;
+        // A device that's offline hasn't actually had a real chance to
+        // confirm anything yet — seeding here would just fabricate demo
+        // content that later gets pushed over (and clobbers) whatever's
+        // real once connectivity returns. Wait for a real online signal.
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) { setTimeout(maybeSeed, 3000); return; }
+        const anyData = PAGE_ORDER.some(function (pk) { return collectionFor(pk).list().length > 0; });
+        if (anyData) return;
+        seedIfEmpty();
+        if (onReady) onReady();
+      }
+      if (typeof global.initCloudSync === 'function') {
+        global.initCloudSync({
+          appKey: 'enthub',
+          syncedPrefixes: ['enthub:'],
+          onApplied: function () {
+            remoteAppliedOnce = true;
+            if (onReady) onReady();
+          }
+        });
+      }
+      if (startedEmpty) {
+        if (foundRemoteData === false) {
+          // Our own direct read already confirmed there's genuinely
+          // nothing remote yet — safe to seed right away instead of
+          // waiting on an arbitrary timer.
+          maybeSeed();
+        } else {
+          // foundRemoteData === null means the direct read couldn't
+          // tell (offline/network error); true shouldn't really still
+          // leave startedEmpty true (we'd have just applied real data),
+          // but either way, fall back to a bounded wait before assuming
+          // it's safe to seed — same widened-window reasoning as every
+          // other page's own seed-race guard in this app.
+          setTimeout(maybeSeed, 6000);
         }
-      });
-      // Widened from an earlier, tighter window — a slow/flaky mobile
-      // connection can genuinely take longer than a couple of seconds to
-      // resolve the initial cloud pull, and seeding before it lands risks
-      // pushing fabricated demo content over real cross-device data (the
-      // same race this app's other pages have hit before).
-      if (startedEmpty) setTimeout(maybeSeed, 9000);
-    } else if (startedEmpty) {
-      maybeSeed();
-    }
+      }
+      if (onReady) onReady();
+    });
   }
 
   // ============================================================
