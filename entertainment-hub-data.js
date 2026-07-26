@@ -228,6 +228,39 @@
   }
 
   // ============================================================
+  // TOMBSTONES — records WHEN an item was deleted, per page, so the
+  // cross-device merge (mergeRemoteIntoLocal, below) can tell "this item
+  // was deliberately deleted" apart from "this device just hasn't seen
+  // it yet" — without this, a delete could be silently undone by the
+  // very next merge that happens to fetch a copy of the row from before
+  // the deletion had a chance to reach the server (this got noticeably
+  // more visible once the periodic 15s poll shipped, since that's a
+  // fresh chance to re-fetch a still-stale row every 15 seconds). Stored
+  // under its own 'enthub:tombstones:<page>' key per content page — a
+  // plain `{id: deletedAtTimestamp}` map — so it rides the same existing
+  // `syncedPrefixes: ['enthub:']` sync with no new sync wiring, and
+  // merges independently via its own small object-union branch in
+  // mergeRemoteIntoLocal (keeping the max timestamp per id from either
+  // side). Tombstone entries are never pruned — a handful of small,
+  // permanent {id: number} entries is an accepted, deliberately simple
+  // tradeoff over building real cleanup for what stays a tiny amount of
+  // data for a personal dashboard's worth of deleted cards.
+  // ============================================================
+  function tombstoneKeyFor(contentKey) { return 'enthub:tombstones:' + contentKey.slice('enthub:'.length); }
+  function readTombstones(contentKey) {
+    try {
+      const raw = localStorage.getItem(tombstoneKeyFor(contentKey));
+      const obj = raw ? JSON.parse(raw) : null;
+      return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function recordTombstone(contentKey, id) {
+    const obj = readTombstones(contentKey);
+    obj[id] = Date.now();
+    storeSet(tombstoneKeyFor(contentKey), obj);
+  }
+
+  // ============================================================
   // GENERIC COLLECTION CRUD — same makeCollection recipe as every other
   // page's own -data.js.
   // ============================================================
@@ -259,6 +292,7 @@
       const all = list();
       const next = all.filter(function (x) { return x.id !== id; });
       storeSet(key, next);
+      recordTombstone(key, id);
       return next.length !== all.length;
     }
     function replaceAll(records) { storeSet(key, records); }
@@ -529,13 +563,45 @@
   function mergeRemoteIntoLocal(key, remoteValue) {
     let localValue = null;
     try { const raw = localStorage.getItem(key); localValue = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    if (key.indexOf('enthub:tombstones:') === 0) {
+      // A plain {id: deletedAtTimestamp} map — union both sides, keeping
+      // the later timestamp per id (there's realistically only ever one,
+      // but two devices could in principle both delete the same id).
+      const remoteObj = (remoteValue && typeof remoteValue === 'object') ? remoteValue : {};
+      const localObj = (localValue && typeof localValue === 'object') ? localValue : {};
+      const merged = {};
+      Object.keys(Object.assign({}, remoteObj, localObj)).forEach(function (id) {
+        merged[id] = Math.max(Number(remoteObj[id]) || 0, Number(localObj[id]) || 0);
+      });
+      return merged;
+    }
     if (Array.isArray(remoteValue) || Array.isArray(localValue)) {
       const remoteArr = Array.isArray(remoteValue) ? remoteValue : [];
       const localArr = Array.isArray(localValue) ? localValue : [];
+      // Read AFTER any 'enthub:tombstones:*' key has already been merged
+      // this same pass (fetchAndApplyRemoteSnapshot() processes tombstone
+      // keys first, deterministically, specifically so this read sees the
+      // fully-merged picture of what's been deleted, not a half-applied
+      // one depending on which key Object.keys() happened to list first).
+      const tombstones = readTombstones(key);
+      function isTombstoned(item) {
+        const deletedAt = tombstones[item.id];
+        if (!deletedAt) return false;
+        const itemTime = typeof item.updatedAt === 'number' ? item.updatedAt : (item.createdAt || 0);
+        // A tombstone at or after this specific version's own last edit
+        // means it was deleted after remote last saw it — don't
+        // resurrect it just because remote hasn't caught up yet. (If the
+        // item's own timestamp is NEWER than the tombstone, someone
+        // re-added/re-edited it since the delete, which wins instead.)
+        return deletedAt >= itemTime;
+      }
       const remoteById = {}, localById = {}, order = [];
-      remoteArr.forEach(function (item) { if (item && item.id != null) { remoteById[item.id] = item; order.push(item.id); } });
+      remoteArr.forEach(function (item) {
+        if (!item || item.id == null || isTombstoned(item)) return;
+        remoteById[item.id] = item; order.push(item.id);
+      });
       localArr.forEach(function (item) {
-        if (!item || item.id == null) return;
+        if (!item || item.id == null || isTombstoned(item)) return;
         if (!(item.id in remoteById)) order.push(item.id);
         localById[item.id] = item;
       });
@@ -573,15 +639,20 @@
         const remoteObj = (remote && typeof remote === 'object') ? remote : {};
         let foundAny = false;
         let needsPush = false;
-        Object.keys(remoteObj).forEach(function (k) {
-          if (k.indexOf('enthub:') !== 0) return;
+        function processKey(k) {
           foundAny = true;
           const remoteJson = JSON.stringify(remoteObj[k]);
           const merged = mergeRemoteIntoLocal(k, remoteObj[k]);
           const mergedJson = JSON.stringify(merged);
           if (mergedJson !== remoteJson) needsPush = true;
           if (localStorage.getItem(k) !== mergedJson) RAW_LS_SET(k, mergedJson);
-        });
+        }
+        const allKeys = Object.keys(remoteObj).filter(function (k) { return k.indexOf('enthub:') === 0; });
+        // Tombstones first, deterministically — see mergeRemoteIntoLocal's
+        // own comment on why the array-merge branch needs them already
+        // fully applied before it runs.
+        allKeys.filter(function (k) { return k.indexOf('enthub:tombstones:') === 0; }).forEach(processKey);
+        allKeys.filter(function (k) { return k.indexOf('enthub:tombstones:') !== 0; }).forEach(processKey);
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
           if (k && k.indexOf('enthub:') === 0 && !(k in remoteObj)) needsPush = true;
