@@ -514,8 +514,39 @@
         localStorage.setItem = guardOrigSet;
         localStorage.removeItem = guardOrigRemove;
       } catch (e) {}
-      return result;
+      if (writtenDuringBoot.size === 0) return result;
+      // A second, real bug beyond the one this guard already fixes: a key
+      // protected above from OUR fetch is still completely unprotected
+      // from initCloudSync()'s own separate initial pull, called right
+      // after this resolves — that pull's own dirty-tracking starts
+      // empty, has no idea this key was just touched, and silently
+      // overwrites it with the stale value it fetches the moment it
+      // resolves (this is what made an added card vanish with no push
+      // ever having happened, on both the device that added it and every
+      // device that loaded afterward). Closing it the same way sync.js's
+      // own flushOnUnload() already does — a direct raw upsert of every
+      // current 'enthub:' key — so the row is already caught up with
+      // this edit before initCloudSync ever gets a chance to re-fetch it.
+      return pushMergedSnapshot().then(function () { return result; });
     });
+  }
+  function pushMergedSnapshot() {
+    const state = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf('enthub:') !== 0) continue;
+      try { state[k] = JSON.parse(localStorage.getItem(k)); } catch (e) { state[k] = localStorage.getItem(k); }
+    }
+    return fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({ key: 'enthub', data: state, updated_at: new Date().toISOString() })
+    }).catch(function () {});
   }
 
   // ============================================================
@@ -555,21 +586,21 @@
           }
         });
       }
-      if (startedEmpty) {
-        if (foundRemoteData === false) {
-          // Our own direct read already confirmed there's genuinely
-          // nothing remote yet — safe to seed right away instead of
-          // waiting on an arbitrary timer.
-          maybeSeed();
-        } else {
-          // foundRemoteData === null means the direct read couldn't
-          // tell (offline/network error); true shouldn't really still
-          // leave startedEmpty true (we'd have just applied real data),
-          // but either way, fall back to a bounded wait before assuming
-          // it's safe to seed — same widened-window reasoning as every
-          // other page's own seed-race guard in this app.
-          setTimeout(maybeSeed, 6000);
-        }
+      if (startedEmpty && foundRemoteData === false) {
+        // Only ever seed on a DEFINITIVE "remote genuinely has nothing"
+        // signal from our own direct read above — never on a mere
+        // timeout/network hiccup (foundRemoteData === null), which a
+        // second real bug used to treat as "probably empty" after a
+        // 6-second wait. A slower connection (a phone on cellular is the
+        // exact case this was reported on) can easily still be mid-fetch
+        // at 6 seconds with real remote data on the way — seeding at
+        // that point fabricates placeholder content and then PUSHES it
+        // (once initCloudSync installs its dirty-tracking), overwriting
+        // whatever was actually there. If we can't confirm, we simply
+        // don't seed this session — initCloudSync's own pull (or a later
+        // reload) still applies the real data once it lands; nothing is
+        // lost by waiting instead of guessing.
+        maybeSeed();
       }
       if (onReady) onReady();
     });
