@@ -451,8 +451,14 @@
   const SUPABASE_URL = 'https://jomlmvslzsmmzgjnqvbm.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
   /** Resolves to true (found + applied real data), false (confirmed
-   * nothing remote), or null (couldn't tell — offline/network error). */
-  function fetchAndApplyRemoteSnapshot() {
+   * nothing remote), or null (couldn't tell — offline/network error).
+   * `writtenDuringBoot` is a live Set (not a one-time snapshot) of every
+   * 'enthub:' key written locally since this fetch was kicked off — any
+   * such key is skipped here, since local is newer than whatever this
+   * fetch found. See readBeforeWriteBootstrap()'s own comment for why
+   * this exists: without it, an item added while this fetch's round trip
+   * was still in flight got silently erased the instant it resolved. */
+  function fetchAndApplyRemoteSnapshot(writtenDuringBoot) {
     return fetch(SUPABASE_URL + '/rest/v1/app_state?key=eq.enthub&select=data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     })
@@ -464,6 +470,7 @@
           Object.keys(remote).forEach(function (k) {
             if (k.indexOf('enthub:') !== 0) return;
             foundAny = true;
+            if (writtenDuringBoot && writtenDuringBoot.has(k)) return;
             const incoming = JSON.stringify(remote[k]);
             if (localStorage.getItem(k) !== incoming) localStorage.setItem(k, incoming);
           });
@@ -472,11 +479,43 @@
       })
       .catch(function () { return null; });
   }
+  // Real, reproduced bug fixed here: the fetch above always runs on every
+  // page load and, once it resolves, applies its (necessarily slightly
+  // stale) snapshot straight into localStorage. If the user added/edited
+  // something while that fetch's round trip was still in flight — very
+  // plausible, since opening "+ Add", pasting a link, and clicking Save
+  // routinely takes longer than a few hundred ms — the stale snapshot
+  // silently overwrote that fresh local edit the moment it landed, with
+  // no error and no visible cause. Guarding every 'enthub:' write made
+  // during this exact window (tracked live, so it doesn't matter how long
+  // the round trip actually takes) closes that hole: whatever the user
+  // just typed always wins over a snapshot fetched before they typed it.
   function readBeforeWriteBootstrap() {
+    const writtenDuringBoot = new Set();
+    const guardOrigSet = localStorage.setItem.bind(localStorage);
+    const guardOrigRemove = localStorage.removeItem.bind(localStorage);
+    localStorage.setItem = function (k, v) {
+      guardOrigSet(k, v);
+      if (k && k.indexOf('enthub:') === 0) writtenDuringBoot.add(k);
+    };
+    localStorage.removeItem = function (k) {
+      guardOrigRemove(k);
+      if (k && k.indexOf('enthub:') === 0) writtenDuringBoot.add(k);
+    };
     return Promise.race([
-      fetchAndApplyRemoteSnapshot(),
+      fetchAndApplyRemoteSnapshot(writtenDuringBoot),
       new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 8000); })
-    ]);
+    ]).then(function (result) {
+      // Restore the plain setters so bootSync()'s subsequent call to
+      // initCloudSync() installs its own (properly dirty-tracked) patch
+      // on a clean baseline rather than layered on top of this one-time
+      // guard.
+      try {
+        localStorage.setItem = guardOrigSet;
+        localStorage.removeItem = guardOrigRemove;
+      } catch (e) {}
+      return result;
+    });
   }
 
   // ============================================================
