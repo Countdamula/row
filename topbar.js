@@ -697,8 +697,6 @@ body.topbar-modal-open {
     if (scrim) scrim.classList.add('show');
     document.body.classList.add('tb-drawer-open');
     if (launcher) launcher.setAttribute('aria-expanded', 'true');
-    const search = document.getElementById('tbSearchInput');
-    if (search) setTimeout(() => search.focus(), 260);
   }
   function closeDrawer() {
     const sidebar = document.getElementById('tbSidebar');
