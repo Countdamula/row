@@ -27,7 +27,8 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [braindump.html](braindump.html) | Brain Dump — freeform daily thoughts/emotions journal |
 | [nutrition.html](nutrition.html) | Nutrition — My Kitchen / Grocery List |
 | [household.html](household.html) | Household — Energy Beings roster, Inventory, Wishlist, Chores |
-| [learning.html](learning.html) | Learning & Knowledge Hub — Topics gallery + Articles/Books/Videos/Posts/Notes |
+| [learning.html](learning.html) | Learning folder → Topics gallery — Articles/Books/Videos/Posts/Notes, plus each topic's own dedicated page |
+| [learning-topic.html](learning-topic.html) | Learning folder → a single Topic's own page (`#<topicId>`) — a Questions database, then that topic's resources, each with a two-column Content/My Notes section generated on demand |
 | [selfcare.html](selfcare.html) | Self-Care — Journals, Meditations, Water tracker, Bucket List |
 | [dreamboard.html](dreamboard.html) | Dream Board — a drag-and-drop vision board (checklists, calendar, photo/video grid, affirmations, and more) |
 | [business.html](business.html) | Content Hub — content planning (Content/Ideas/Platforms/Resources), still hosting its own Writing Dashboard and YouTube Dashboard tabs too — unchanged; now grouped under the "Business" nav folder |

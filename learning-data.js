@@ -44,6 +44,7 @@
   const KEYS = {
     topics: 'learning:topics',
     resources: 'learning:resources',
+    questions: 'learning:questions',
     hero: 'learning:hero',
     seeded: 'learning:seeded'
   };
@@ -122,7 +123,7 @@
     note: 'Note'
   };
 
-  /** @typedef {{id:string, title:string, body:string, type:('text'|'divider'), images:{id:string,url:string,name:string}[], order:number, createdAt:number}} ResourceSection */
+  /** @typedef {{id:string, title:string, body:string, bodyLeft:string, bodyRight:string, type:('text'|'divider'|'twocol'), images:{id:string,url:string,name:string}[], order:number, createdAt:number}} ResourceSection */
   /** @typedef {{id:string, topicId:?string, type:string, title:string, subtitle:string, cover:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:ResourceSection[], order:number, createdAt:number}} Resource */
   function resourceModel(data) {
     data = data || {};
@@ -208,16 +209,65 @@
     return { list: list, get: get, add: add, update: update, remove: remove, replaceAll: replaceAll };
   }
 
+  // ============================================================
+  // QUESTIONS — a small Q&A database that sits at the top of every Topic's
+  // own dedicated page (learning-topic.html). Unlike Resources, a Question
+  // has no meaning detached from its topic — there's no "Unlinked
+  // Questions" view anywhere in this app — so (unlike resources) deleting
+  // a topic cascade-deletes its questions rather than nulling a reference,
+  // the same cascade precedent business-data.js's Workflow week/day
+  // deletion already uses for records that only exist in service of a
+  // parent.
+  // ============================================================
+  /** @typedef {{id:string, topicId:string, question:string, answer:string, order:number, createdAt:number}} TopicQuestion */
+  function questionModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('q'),
+      topicId: data.topicId || null,
+      question: typeof data.question === 'string' ? data.question : '',
+      answer: typeof data.answer === 'string' ? data.answer : '',
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+
   const Topics = makeCollection(KEYS.topics, topicModel);
   const Resources = makeCollection(KEYS.resources, resourceModel);
+  const Questions = makeCollection(KEYS.questions, questionModel);
 
   /** Deleting a topic does NOT cascade-delete its resources — it nulls out
    * their `topicId` back to "Unlinked", the same null-out-the-reference
    * precedent aitech-data.js's model deletion, household-data.js's legion
-   * deletion, and business-data.js's week/day deletion already established. */
+   * deletion, and business-data.js's week/day deletion already established.
+   * Its Questions ARE cascade-deleted (see the Questions section above). */
   function removeTopic(id) {
     Topics.remove(id);
     Resources.replaceAll(Resources.list().map(function (r) { return r.topicId === id ? Object.assign({}, r, { topicId: null }) : r; }));
+    Questions.replaceAll(Questions.list().filter(function (q) { return q.topicId !== id; }));
+  }
+
+  function questionsForTopic(topicId) {
+    return Questions.list().filter(function (q) { return q.topicId === topicId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function addQuestion(topicId, question, answer) {
+    const existing = questionsForTopic(topicId);
+    const order = existing.length ? Math.max.apply(null, existing.map(function (q) { return q.order; })) + 1 : 0;
+    return Questions.add({ topicId: topicId, question: question || '', answer: answer || '', order: order });
+  }
+  function moveQuestion(id, dir) {
+    const q = Questions.get(id);
+    if (!q) return;
+    const siblings = questionsForTopic(q.topicId);
+    const idx = siblings.findIndex(function (x) { return x.id === id; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= siblings.length) return;
+    const all = Questions.list();
+    const a = all.find(function (x) { return x.id === siblings[idx].id; });
+    const b = all.find(function (x) { return x.id === siblings[otherIdx].id; });
+    const tmp = a.order; a.order = b.order; b.order = tmp;
+    Questions.replaceAll(all);
   }
 
   // ============================================================
@@ -264,17 +314,29 @@
     if (!r) return [];
     return (r.sections || []).slice().sort(function (a, b) { return a.order - b.order; });
   }
+  // `type` is one of 'text' (default), 'divider' (a plain rule, no other
+  // fields), or 'twocol' — a two-column section, left = the actual
+  // article/video-transcript/book content, right = the reader's own
+  // personal notes & findings, per an explicit request that every
+  // resource type (article/book/video/social/note) be able to generate
+  // this same shape of section with one button, then move/edit it like
+  // any other section. `body` stays '' on a 'twocol' section (it uses
+  // `bodyLeft`/`bodyRight` instead) — pre-existing 'text' sections are
+  // completely untouched, so nothing already saved needs migrating.
   function addResourceSection(resourceId, title, type) {
     const r = Resources.get(resourceId);
     if (!r) return null;
     const sections = (r.sections || []).slice();
     const order = sections.length ? Math.max.apply(null, sections.map(function (s) { return s.order; })) + 1 : 0;
     const isDivider = type === 'divider';
+    const isTwoCol = type === 'twocol';
     const section = {
       id: uid('sec'),
-      title: isDivider ? '' : (title || 'New Section'),
+      title: isDivider ? '' : (title || (isTwoCol ? 'New Two-Column Section' : 'New Section')),
       body: '',
-      type: isDivider ? 'divider' : 'text',
+      bodyLeft: '',
+      bodyRight: '',
+      type: isDivider ? 'divider' : (isTwoCol ? 'twocol' : 'text'),
       images: [],
       order: order,
       createdAt: Date.now()
@@ -462,6 +524,10 @@
     isValidMediaUrl: isValidMediaUrl,
     Topics: Object.assign({}, Topics, { remove: removeTopic }),
     Resources: Resources,
+    Questions: Questions,
+    questionsForTopic: questionsForTopic,
+    addQuestion: addQuestion,
+    moveQuestion: moveQuestion,
     getHero: getHero,
     saveHero: saveHero,
     topicsSorted: topicsSorted,

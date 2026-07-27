@@ -120,6 +120,25 @@
       ],
     },
     {
+      // New nav folder, right below Entertainment: Learning Hub's own
+      // topics/resources/questions system. learning.html (the Topics +
+      // Resources gallery) stays the entry point; each Topic also gets its
+      // own dedicated page (learning-topic.html#<topicId>, opened from a
+      // topic card's "📄 Open Topic Page" button) — not listed here as a
+      // static child since topics are dynamic, user-created records (no
+      // build step in this app to pre-generate one nav entry per topic —
+      // same reasoning Entertainment's own children are fixed content
+      // types, not per-item pages).
+      key: 'learningfolder',
+      label: 'Learning',
+      items: [
+        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
+          { hash: 'topics', label: 'Topics' },
+          { hash: 'resources', label: 'Resources' },
+        ] },
+      ],
+    },
+    {
       key: 'life',
       label: 'Life & Wellness',
       items: [
@@ -198,10 +217,6 @@
         { href: 'aitech.html', icon: '🤖', label: 'AI & Tech', id: 'topbarAiTech', children: [
           { hash: 'models', label: 'AI Models' },
           { hash: 'prompts', label: 'Prompts' },
-        ] },
-        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
-          { hash: 'topics', label: 'Topics' },
-          { hash: 'resources', label: 'Resources' },
         ] },
         { href: 'entertainment.html', icon: '🎬', label: 'Media', id: 'topbarEntertainment', children: [
           { hash: 'podcasts', label: 'Podcasts' },
