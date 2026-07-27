@@ -80,6 +80,8 @@
           id: 'topbarLearningTopic' + i,
           children: [
             { hash: 'questions', label: 'Questions Database' },
+            { hash: 'notes', label: 'Notes Database' },
+            { hash: 'subjects', label: 'Subjects Database' },
             { hash: 'resources', label: 'Resources Database' },
           ],
         });

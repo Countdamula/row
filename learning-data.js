@@ -7,9 +7,10 @@
 // initCloudSync({ syncedPrefixes: ['learning:'] }) call covers every
 // collection with no per-key list.
 //
-// Two independent, genuinely separate "databases" (same precedent as
-// aitech-data.js's Models/Prompts split, business-data.js's Platform/Content
-// Plan/Useful Resources split — never merged into one mixed list):
+// Topics and Resources are the two top-level, genuinely separate
+// "databases" (same precedent as aitech-data.js's Models/Prompts split,
+// business-data.js's Platform/Content Plan/Useful Resources split — never
+// merged into one mixed list):
 //   - Topics    — a large gallery of the subjects being researched (cover,
 //     description, tags).
 //   - Resources — research material tied to an individual topic via
@@ -18,6 +19,14 @@
 //     model deletion). Each resource has a `type` — Article / Book /
 //     YouTube Video (with transcript) / Social Media Post / Additional Note —
 //     which is how the Resources database is "structured by" per the request.
+//
+// Three more databases live entirely on each Topic's own dedicated page
+// (learning-topic.html), never on the Topics gallery itself — Questions
+// (a Q&A list), Notes (freeform, generated on demand), and Subjects (a
+// small tagging vocabulary — see Resource.subjectIds — that "connects to
+// the Resources database as tags"). All three are cascade-deleted when
+// their topic is, unlike Resources, since none of them mean anything
+// detached from the topic they belong to.
 
 (function (global) {
   'use strict';
@@ -45,6 +54,8 @@
     topics: 'learning:topics',
     resources: 'learning:resources',
     questions: 'learning:questions',
+    notes: 'learning:notes',
+    subjects: 'learning:subjects',
     hero: 'learning:hero',
     seeded: 'learning:seeded'
   };
@@ -124,7 +135,7 @@
   };
 
   /** @typedef {{id:string, title:string, body:string, bodyLeft:string, bodyRight:string, type:('text'|'divider'|'twocol'), images:{id:string,url:string,name:string}[], order:number, createdAt:number}} ResourceSection */
-  /** @typedef {{id:string, topicId:?string, type:string, title:string, subtitle:string, cover:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:ResourceSection[], order:number, createdAt:number}} Resource */
+  /** @typedef {{id:string, topicId:?string, type:string, title:string, subtitle:string, cover:string, url:string, author:string, transcript:string, notes:string, favorite:boolean, sections:ResourceSection[], subjectIds:string[], order:number, createdAt:number}} Resource */
   function resourceModel(data) {
     data = data || {};
     return {
@@ -156,6 +167,12 @@
       // missing type as 'text' and a missing images array as [] rather
       // than requiring a migration pass.
       sections: Array.isArray(data.sections) ? data.sections : [],
+      // Ties this resource to zero or more of its topic's own Subjects
+      // (the "mini-subject database" below) — a lightweight, topic-scoped
+      // tagging layer distinct from a Topic itself, which every resource
+      // already belongs to via `topicId`. Purely additive; every resource
+      // saved before this field existed just defaults to no subjects.
+      subjectIds: Array.isArray(data.subjectIds) ? data.subjectIds : [],
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
@@ -232,19 +249,92 @@
     };
   }
 
+  // ============================================================
+  // NOTES — a freeform notes database that sits right under Questions on
+  // every Topic's own page, per an explicit request. Same shape/cascade
+  // reasoning as Questions above (a note has no meaning outside its
+  // topic, so deleting the topic cascade-deletes its notes rather than
+  // unlinking them).
+  // ============================================================
+  /** @typedef {{id:string, topicId:string, title:string, body:string, order:number, createdAt:number}} TopicNote */
+  function noteModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('note'),
+      topicId: data.topicId || null,
+      title: typeof data.title === 'string' ? data.title : '',
+      body: typeof data.body === 'string' ? data.body : '',
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+
+  // ============================================================
+  // SUBJECTS — a small, topic-scoped "mini" database directly below
+  // Notes, per an explicit request that it "connect to the Resources
+  // database as tags": each Subject is a short name a resource on this
+  // same topic can be tagged with (`Resource.subjectIds[]`, above) —
+  // its own lightweight controlled vocabulary, distinct from the
+  // Resources database's `type` structure and from the top-level Topic
+  // itself. Same cascade-on-topic-delete reasoning as Questions/Notes;
+  // deleting a Subject on its own strips it from any resource's
+  // `subjectIds` rather than deleting the resource (the same null-out-
+  // the-reference precedent aitech-data.js's model deletion and
+  // household-data.js's legion deletion already established).
+  // ============================================================
+  /** @typedef {{id:string, topicId:string, name:string, order:number, createdAt:number}} TopicSubject */
+  function subjectModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('subj'),
+      topicId: data.topicId || null,
+      name: typeof data.name === 'string' ? data.name : '',
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+
   const Topics = makeCollection(KEYS.topics, topicModel);
   const Resources = makeCollection(KEYS.resources, resourceModel);
   const Questions = makeCollection(KEYS.questions, questionModel);
+  const Notes = makeCollection(KEYS.notes, noteModel);
+  const Subjects = makeCollection(KEYS.subjects, subjectModel);
+
+  /** Removing a Subject on its own (not via a topic cascade) strips its id
+   * out of every resource's `subjectIds` — same null-out-the-reference
+   * precedent as everywhere else in this app that deletes a thing other
+   * records merely reference. */
+  function removeSubject(id) {
+    Subjects.remove(id);
+    Resources.replaceAll(Resources.list().map(function (r) {
+      if (!r.subjectIds || r.subjectIds.indexOf(id) === -1) return r;
+      return Object.assign({}, r, { subjectIds: r.subjectIds.filter(function (sid) { return sid !== id; }) });
+    }));
+  }
 
   /** Deleting a topic does NOT cascade-delete its resources — it nulls out
    * their `topicId` back to "Unlinked", the same null-out-the-reference
    * precedent aitech-data.js's model deletion, household-data.js's legion
    * deletion, and business-data.js's week/day deletion already established.
-   * Its Questions ARE cascade-deleted (see the Questions section above). */
+   * Its Questions/Notes/Subjects ARE cascade-deleted (see their own
+   * sections above) — and since a deleted Subject can no longer be a
+   * meaningful tag, it's also stripped from every resource's
+   * `subjectIds`, same as removeSubject() does when a Subject is deleted
+   * on its own. */
   function removeTopic(id) {
     Topics.remove(id);
     Resources.replaceAll(Resources.list().map(function (r) { return r.topicId === id ? Object.assign({}, r, { topicId: null }) : r; }));
     Questions.replaceAll(Questions.list().filter(function (q) { return q.topicId !== id; }));
+    Notes.replaceAll(Notes.list().filter(function (n) { return n.topicId !== id; }));
+    const removedSubjectIds = Subjects.list().filter(function (s) { return s.topicId === id; }).map(function (s) { return s.id; });
+    Subjects.replaceAll(Subjects.list().filter(function (s) { return s.topicId !== id; }));
+    if (removedSubjectIds.length) {
+      Resources.replaceAll(Resources.list().map(function (r) {
+        if (!r.subjectIds || !r.subjectIds.length) return r;
+        const next = r.subjectIds.filter(function (sid) { return removedSubjectIds.indexOf(sid) === -1; });
+        return next.length === r.subjectIds.length ? r : Object.assign({}, r, { subjectIds: next });
+      }));
+    }
   }
 
   function questionsForTopic(topicId) {
@@ -268,6 +358,59 @@
     const b = all.find(function (x) { return x.id === siblings[otherIdx].id; });
     const tmp = a.order; a.order = b.order; b.order = tmp;
     Questions.replaceAll(all);
+  }
+
+  function notesForTopic(topicId) {
+    return Notes.list().filter(function (n) { return n.topicId === topicId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function addNote(topicId, title, body) {
+    const existing = notesForTopic(topicId);
+    const order = existing.length ? Math.max.apply(null, existing.map(function (n) { return n.order; })) + 1 : 0;
+    return Notes.add({ topicId: topicId, title: title || '', body: body || '', order: order });
+  }
+  function moveNote(id, dir) {
+    const n = Notes.get(id);
+    if (!n) return;
+    const siblings = notesForTopic(n.topicId);
+    const idx = siblings.findIndex(function (x) { return x.id === id; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= siblings.length) return;
+    const all = Notes.list();
+    const a = all.find(function (x) { return x.id === siblings[idx].id; });
+    const b = all.find(function (x) { return x.id === siblings[otherIdx].id; });
+    const tmp = a.order; a.order = b.order; b.order = tmp;
+    Notes.replaceAll(all);
+  }
+
+  function subjectsForTopic(topicId) {
+    return Subjects.list().filter(function (s) { return s.topicId === topicId; })
+      .sort(function (a, b) { return a.order - b.order; });
+  }
+  function addSubject(topicId, name) {
+    const existing = subjectsForTopic(topicId);
+    const order = existing.length ? Math.max.apply(null, existing.map(function (s) { return s.order; })) + 1 : 0;
+    return Subjects.add({ topicId: topicId, name: name || '', order: order });
+  }
+  function moveSubject(id, dir) {
+    const s = Subjects.get(id);
+    if (!s) return;
+    const siblings = subjectsForTopic(s.topicId);
+    const idx = siblings.findIndex(function (x) { return x.id === id; });
+    const otherIdx = idx + dir;
+    if (idx < 0 || otherIdx < 0 || otherIdx >= siblings.length) return;
+    const all = Subjects.list();
+    const a = all.find(function (x) { return x.id === siblings[idx].id; });
+    const b = all.find(function (x) { return x.id === siblings[otherIdx].id; });
+    const tmp = a.order; a.order = b.order; b.order = tmp;
+    Subjects.replaceAll(all);
+  }
+  function subjectName(subjectId) {
+    const s = Subjects.get(subjectId);
+    return s ? s.name : null;
+  }
+  function resourceCountForSubject(subjectId) {
+    return Resources.list().filter(function (r) { return r.subjectIds && r.subjectIds.indexOf(subjectId) !== -1; }).length;
   }
 
   // ============================================================
@@ -528,6 +671,16 @@
     questionsForTopic: questionsForTopic,
     addQuestion: addQuestion,
     moveQuestion: moveQuestion,
+    Notes: Notes,
+    notesForTopic: notesForTopic,
+    addNote: addNote,
+    moveNote: moveNote,
+    Subjects: Object.assign({}, Subjects, { remove: removeSubject }),
+    subjectsForTopic: subjectsForTopic,
+    addSubject: addSubject,
+    moveSubject: moveSubject,
+    subjectName: subjectName,
+    resourceCountForSubject: resourceCountForSubject,
     getHero: getHero,
     saveHero: saveHero,
     topicsSorted: topicsSorted,
