@@ -39,6 +39,54 @@
   // own boot code for the added hash-read/hashchange wiring). Leaf pages
   // with no internal tabs at all (Brain Dump, Example) simply have no
   // `children` and render as a plain, non-expandable row, same as before.
+  //
+  // Learning is the one nav group whose items are DATA-DRIVEN rather than
+  // a fixed list: unlike Entertainment's four content pages (a fixed set
+  // of types), a Topic is a dynamic, user-created record — there's no way
+  // to know how many there are or what they're called ahead of time.
+  // buildLearningTopicItems() reads `learning:topics` straight out of
+  // localStorage (the same "read another page's own storage key
+  // directly" precedent index.html's former Connected Apps tiles and
+  // tasks-data.js's own importers already used) and turns each one into
+  // its own nav item — `learning-topic.html?id=<topicId>`, matching that
+  // page's own query-param addressing (see its header comment: the hash
+  // is reserved for this item's own Questions/Resources deep-links, so
+  // the topic id itself couldn't live there once a topic also needed two
+  // sub-page anchors). This runs once, when this script itself first
+  // executes — same as every other page's nav content, which is also
+  // built once at load — not live-updated if a topic is added/renamed/
+  // deleted in another open tab; reopening the drawer after a reload
+  // picks up the change.
+  function buildLearningTopicItems() {
+    const items = [
+      { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
+        { hash: 'topics', label: 'Topics' },
+        { hash: 'resources', label: 'Resources' },
+      ] },
+    ];
+    let topics = [];
+    try {
+      const raw = JSON.parse(localStorage.getItem('learning:topics'));
+      if (Array.isArray(raw)) topics = raw;
+    } catch (e) {}
+    topics
+      .filter((t) => t && t.id)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .forEach((t, i) => {
+        items.push({
+          href: 'learning-topic.html?id=' + encodeURIComponent(t.id),
+          icon: (typeof t.icon === 'string' && t.icon) || '📚',
+          label: (typeof t.title === 'string' && t.title) || 'Untitled Topic',
+          id: 'topbarLearningTopic' + i,
+          children: [
+            { hash: 'questions', label: 'Questions Database' },
+            { hash: 'resources', label: 'Resources Database' },
+          ],
+        });
+      });
+    return items;
+  }
+
   const NAV_GROUPS = [
     {
       key: 'command',
@@ -122,21 +170,13 @@
     {
       // New nav folder, right below Entertainment: Learning Hub's own
       // topics/resources/questions system. learning.html (the Topics +
-      // Resources gallery) stays the entry point; each Topic also gets its
-      // own dedicated page (learning-topic.html#<topicId>, opened from a
-      // topic card's "📄 Open Topic Page" button) — not listed here as a
-      // static child since topics are dynamic, user-created records (no
-      // build step in this app to pre-generate one nav entry per topic —
-      // same reasoning Entertainment's own children are fixed content
-      // types, not per-item pages).
+      // Resources gallery) is the entry point; every real Topic gets its
+      // own nav entry right below it too, each expandable into its own
+      // Questions Database / Resources Database — see
+      // buildLearningTopicItems() above for how these are generated.
       key: 'learningfolder',
       label: 'Learning',
-      items: [
-        { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
-          { hash: 'topics', label: 'Topics' },
-          { hash: 'resources', label: 'Resources' },
-        ] },
-      ],
+      items: buildLearningTopicItems(),
     },
     {
       key: 'life',
@@ -666,6 +706,14 @@ body.topbar-modal-open {
   function highlightActivePill() {
     let path = window.location.pathname.split('/').pop();
     if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
+    const search = window.location.search || '';
+    // Most pages are identified by filename alone; the Learning folder's
+    // per-topic items are the one case with more than one nav entry
+    // pointing at the same file (learning-topic.html?id=<topicId>), so
+    // an item/node whose own href carries a query string is matched
+    // against filename+query instead of the filename alone — everything
+    // else keeps matching exactly as before.
+    const pathWithQuery = path + search;
     const hash = (window.location.hash || '').replace(/^#/, '');
 
     document.querySelectorAll('.tb-item.active').forEach((el) => el.classList.remove('active'));
@@ -674,7 +722,9 @@ body.topbar-modal-open {
     const items = document.querySelectorAll('.tb-item');
     const launcherPage = document.getElementById('tbLauncherPage');
     items.forEach((p) => {
-      if (p.getAttribute('href') === path) {
+      const href = p.getAttribute('href') || '';
+      const isMatch = href.indexOf('?') !== -1 ? href === pathWithQuery : href === path;
+      if (isMatch) {
         p.classList.add('active');
         if (launcherPage) launcherPage.textContent = p.querySelector('.tb-item-label').textContent;
         const group = p.closest('.tb-group');
@@ -686,12 +736,13 @@ body.topbar-modal-open {
       }
     });
 
-    const currentNode = document.querySelector('.tb-node[data-node="' + path.replace(/"/g, '') + '"]');
+    let currentNode = document.querySelector('.tb-node[data-node="' + pathWithQuery.replace(/"/g, '') + '"]');
+    if (!currentNode) currentNode = document.querySelector('.tb-node[data-node="' + path.replace(/"/g, '') + '"]');
     if (currentNode && currentNode.classList.contains('tb-has-children')) {
       const key = currentNode.getAttribute('data-node');
       if (tbExpandedNodes.indexOf(key) === -1) { tbExpandedNodes.push(key); saveExpandedNodes(); }
       if (hash) {
-        const targetHref = path + '#' + hash;
+        const targetHref = key + '#' + hash;
         currentNode.querySelectorAll('.tb-subitem').forEach((sub) => {
           if (sub.getAttribute('href') === targetHref) sub.classList.add('active');
         });

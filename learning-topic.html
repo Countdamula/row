@@ -654,14 +654,41 @@ body::after {
   }
 
   // ============================================================
-  // TOPIC ID FROM URL — learning.html links here as
-  // learning-topic.html#<topicId>. hashchange lets the page switch
-  // topics without a full reload if the hash is ever changed in place.
+  // TOPIC ID FROM URL — learning.html's "Open Topic Page" link, and the
+  // per-topic nav entries topbar.js builds, both point here as
+  // learning-topic.html?id=<topicId> — a query param, not the hash, so
+  // the hash stays free for this page's own Questions/Resources
+  // deep-link anchors (learning-topic.html?id=<topicId>#questions), the
+  // same "child hash names a sub-section on that href's page" convention
+  // every other nested nav entry in topbar.js already uses.
   // ============================================================
-  function getTopicIdFromHash() {
-    const raw = (location.hash || '').replace(/^#/, '');
-    if (!raw) return '';
-    try { return decodeURIComponent(raw); } catch (e) { return raw; }
+  function getTopicIdFromQuery() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const raw = params.get('id');
+      if (raw) return raw;
+    } catch (e) {}
+    // Legacy fallback: this page originally addressed a topic via the URL
+    // hash alone (learning-topic.html#<topicId>) before the hash was also
+    // needed for section deep-links — a hash that isn't one of the two
+    // known section anchors is treated as an old-style topic-id link, so
+    // anything bookmarked under the original scheme still resolves.
+    const hash = (location.hash || '').replace(/^#/, '');
+    if (hash && hash !== 'questions' && hash !== 'resources') {
+      try { return decodeURIComponent(hash); } catch (e2) { return hash; }
+    }
+    return '';
+  }
+
+  // Notion-style sidebar deep links into this one topic's own two
+  // sections — same scrollIntoView pattern learning.html's own
+  // scrollToHashSection() already uses.
+  const HASH_TO_SECTION = { questions: 'lhtQuestionsSection', resources: 'lhResourcesSection' };
+  function scrollToHashSection() {
+    const key = (location.hash || '').replace(/^#/, '');
+    const sectionId = HASH_TO_SECTION[key];
+    const el = sectionId && document.getElementById(sectionId);
+    if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
 
   // ============================================================
@@ -1327,7 +1354,7 @@ body::after {
   // TOPIC RESOLUTION
   // ============================================================
   function resolveTopicAndRender() {
-    const id = getTopicIdFromHash();
+    const id = getTopicIdFromQuery();
     const t = id ? DB.Topics.get(id) : null;
     if (!t) {
       currentTopicId = null;
@@ -1354,12 +1381,13 @@ body::after {
       if (!DB) { showBootErrorBanner(new Error('learning-data.js failed to load — try a hard refresh.'), 'init'); return; }
 
       resolveTopicAndRender();
+      if (location.hash) setTimeout(scrollToHashSection, 60);
+      window.addEventListener('hashchange', scrollToHashSection);
 
       setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
       window.addEventListener('learning:save', handleSaveEvent);
       window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
       window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline — will sync when reconnected'); });
-      window.addEventListener('hashchange', resolveTopicAndRender);
 
       // Topic header wiring
       $('lhtEditTopicBtn').addEventListener('click', openTopicEditModal);
