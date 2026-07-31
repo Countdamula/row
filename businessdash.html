@@ -461,6 +461,60 @@ select.bd-status-select {
 .bd-mt-col-body .bd-task-row { margin-bottom: 0; }
 .bd-mt-col-empty { color: var(--bd-text-mute); font-size: 12px; text-align: center; padding: 14px 6px; }
 @media (max-width: 620px) { .bd-mt-col { flex-basis: 230px; } }
+
+/* Templates-vs-Tasks toggle groups within each column. */
+.bd-mt-group { margin-bottom: 10px; }
+.bd-mt-group:last-child { margin-bottom: 0; }
+.bd-mt-group-head {
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--bd-gold); padding: 4px 2px; -webkit-tap-highlight-color: transparent;
+}
+.bd-mt-group-caret { color: var(--bd-text-mute); font-size: 10px; transition: transform 0.15s ease; }
+.bd-mt-group.collapsed .bd-mt-group-caret { transform: rotate(-90deg); }
+.bd-mt-group-body { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.bd-mt-group.collapsed .bd-mt-group-body { display: none; }
+
+/* Individual task cards — a hand-rolled "border beam" panel (a light
+   traveling the border on a rotating conic gradient, two beams, speeds up
+   on hover, glows) standing in for the reference's <BorderBeamPanel>
+   (this app has no React/npm — see §1). Built with the classic padding-ring
+   technique: an outer frame paints the rotating gradient, an inset solid
+   inner layer reveals only a thin ring of it as the "border" — no
+   mask-composite dependency, so it renders identically everywhere. */
+.bd-mt-task-card {
+  position: relative; border-radius: 14px; padding: 1.5px; overflow: hidden;
+  box-shadow: 0 0 22px rgba(201,168,118,0.16);
+}
+.bd-mt-task-card-beam {
+  position: absolute; inset: -55%; z-index: 0;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, var(--bd-gold-bright) 16deg, transparent 40deg,
+    transparent 160deg, var(--bd-gold-bright) 176deg, transparent 200deg,
+    transparent 360deg);
+  animation: bd-beam-spin 7s linear infinite;
+}
+.bd-mt-task-card:hover .bd-mt-task-card-beam { animation-duration: 1.6s; }
+@keyframes bd-beam-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .bd-mt-task-card-beam { animation: none; } }
+.bd-mt-task-card-inner {
+  position: relative; z-index: 1; background: var(--bd-bg-deep); border-radius: 12.5px;
+  padding: 12px 13px 13px; display: flex; flex-direction: column; gap: 7px;
+}
+.bd-mt-task-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.bd-mt-task-badge {
+  display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--bd-text-mute); border: 1px solid var(--bd-border); border-radius: 999px; padding: 2px 9px;
+}
+.bd-mt-task-title { font-size: 13.5px; font-weight: 700; margin: 0; }
+.bd-mt-task-card.done .bd-mt-task-title { text-decoration: line-through; color: var(--bd-text-mute); }
+.bd-mt-task-desc { font-size: 11.5px; line-height: 1.45; color: var(--bd-text-dim); margin: 0; }
+.bd-mt-task-btn {
+  align-self: flex-start; margin-top: 2px; cursor: pointer; border: none; border-radius: 8px;
+  padding: 6px 14px; font-size: 11.5px; font-weight: 700; font-family: inherit;
+  background: linear-gradient(180deg, var(--bd-gold-bright) 0%, var(--bd-gold) 100%); color: var(--bd-accent-text);
+}
+.bd-mt-task-btn:hover { filter: brightness(1.06); }
 .bd-task-quickadd { display: flex; gap: 6px; margin-bottom: 10px; }
 .bd-task-quickadd input { flex: 1 1 auto; background: rgba(255,255,255,0.05); border: 1px solid var(--bd-hairline); border-radius: 8px; color: var(--bd-text); font-size: 13px; padding: 8px 10px; }
 
@@ -2005,16 +2059,42 @@ function renderMasterTaskChips() {
     btn.addEventListener('click', function () { masterTaskKindFilter = btn.getAttribute('data-mtkind'); renderMasterTaskChips(); renderMasterTaskList(); });
   });
 }
-function buildMasterTaskRowHtml(t) {
+/** Individual task card — the "BorderBeamPanel" look (badge, bold title,
+ * description, CTA button), reused by every Templates/Tasks group below. */
+function buildMtTaskCard(t) {
   var kind = D.taskKindOf(t);
   var wfLabel = workflowLabelFor(t);
   var msLabel = t.manuscriptId ? manuscriptTitleFor(t.manuscriptId) : '';
-  return '<div class="bd-task-row' + (t.status === 'done' ? ' done' : '') + (t.parentId ? ' sub' : '') + '">' +
+  var desc = t.note ? escapeHtml(t.note.slice(0, 100)) :
+    (msLabel ? 'From manuscript: ' + escapeHtml(msLabel) : (wfLabel ? 'From: ' + escapeHtml(wfLabel) : ''));
+  return '<div class="bd-mt-task-card' + (t.status === 'done' ? ' done' : '') + '">' +
+    '<div class="bd-mt-task-card-beam" aria-hidden="true"></div>' +
+    '<div class="bd-mt-task-card-inner">' +
+    '<div class="bd-mt-task-top">' +
     '<input type="checkbox" class="bd-task-check" data-mt-toggle="' + t.id + '"' + (t.status === 'done' ? ' checked' : '') + '>' +
-    '<span class="bd-task-title" data-mt-open="' + t.id + '">' + escapeHtml(t.title || 'Untitled') + '</span>' +
-    '<span class="bd-tag" style="background:rgba(255,255,255,0.08);color:var(--bd-gold-bright);">' + D.TASK_KIND_LABELS[kind] + '</span>' +
-    (msLabel ? '<span class="bd-tag">' + escapeHtml(msLabel) + '</span>' : '') +
-    (wfLabel ? '<span class="bd-tag">' + escapeHtml(wfLabel) + '</span>' : '') +
+    '<span class="bd-mt-task-badge">' + D.TASK_KIND_LABELS[kind] + '</span>' +
+    '</div>' +
+    '<h4 class="bd-mt-task-title">' + escapeHtml(t.title || 'Untitled') + '</h4>' +
+    (desc ? '<p class="bd-mt-task-desc">' + desc + '</p>' : '') +
+    '<button type="button" class="bd-mt-task-btn" data-mt-open="' + t.id + '">Open →</button>' +
+    '</div></div>';
+}
+/** A collapsible Templates/Tasks group inside one business's column — a
+ * root task with isTemplate is a "template," everything else (including
+ * its own sub-pages) is an "actual task." Collapse state is ephemeral
+ * (per keyed group, kept in memory only) so it survives a data-driven
+ * re-render instead of resetting every time a checkbox is toggled. */
+var masterTaskCollapsedGroups = {};
+function buildMtGroup(bizId, groupKey, label, list) {
+  var stateKey = bizId + ':' + groupKey;
+  var collapsed = !!masterTaskCollapsedGroups[stateKey];
+  var body = list.length ? list.map(buildMtTaskCard).join('') : '<div class="bd-mt-col-empty">None yet.</div>';
+  return '<div class="bd-mt-group' + (collapsed ? ' collapsed' : '') + '">' +
+    '<div class="bd-mt-group-head" data-mt-group-toggle="' + stateKey + '">' +
+    '<span>' + label + ' (' + list.length + ')</span>' +
+    '<span class="bd-mt-group-caret">▾</span>' +
+    '</div>' +
+    '<div class="bd-mt-group-body">' + body + '</div>' +
     '</div>';
 }
 function renderMasterTaskList() {
@@ -2025,7 +2105,9 @@ function renderMasterTaskList() {
       .filter(function (t) { return !masterTaskKindFilter || D.taskKindOf(t) === masterTaskKindFilter; })
       .sort(D.byOrder);
     var done = tasks.filter(function (t) { return t.status === 'done'; }).length;
-    var body = tasks.length ? tasks.map(buildMasterTaskRowHtml).join('') : '<div class="bd-mt-col-empty">No tasks match this filter.</div>';
+    var templates = tasks.filter(function (t) { return D.taskKindOf(t) === 'template'; });
+    var actual = tasks.filter(function (t) { return D.taskKindOf(t) !== 'template'; });
+    var body = buildMtGroup(b.id, 'templates', '◆ Templates', templates) + buildMtGroup(b.id, 'tasks', '✓ Tasks', actual);
     return '<div class="bd-mt-col">' +
       '<div class="bd-mt-col-head">' +
       '<div class="bd-mt-col-icon">' + (b.icon || '💼') + '</div>' +
@@ -2037,11 +2119,18 @@ function renderMasterTaskList() {
       '</div>';
   }).join('');
   wrap.innerHTML = html || '<div class="bd-empty">No businesses yet.</div>';
+  Array.prototype.forEach.call(wrap.querySelectorAll('[data-mt-group-toggle]'), function (head) {
+    head.addEventListener('click', function () {
+      var key = head.getAttribute('data-mt-group-toggle');
+      masterTaskCollapsedGroups[key] = !masterTaskCollapsedGroups[key];
+      head.parentElement.classList.toggle('collapsed', masterTaskCollapsedGroups[key]);
+    });
+  });
   Array.prototype.forEach.call(wrap.querySelectorAll('[data-mt-toggle]'), function (cb) {
     cb.addEventListener('change', function () { D.Tasks.update(cb.getAttribute('data-mt-toggle'), { status: cb.checked ? 'done' : 'todo' }); renderMasterTaskList(); });
   });
-  Array.prototype.forEach.call(wrap.querySelectorAll('[data-mt-open]'), function (span) {
-    span.addEventListener('click', function () { openTaskDetail(span.getAttribute('data-mt-open'), function () { renderMasterTaskList(); }); });
+  Array.prototype.forEach.call(wrap.querySelectorAll('[data-mt-open]'), function (btn) {
+    btn.addEventListener('click', function () { openTaskDetail(btn.getAttribute('data-mt-open'), function () { renderMasterTaskList(); }); });
   });
 }
 
