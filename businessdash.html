@@ -2097,11 +2097,25 @@ function buildMtGroup(bizId, groupKey, label, list) {
     '<div class="bd-mt-group-body">' + body + '</div>' +
     '</div>';
 }
+/** Which tasks display under a given business's column. A regular
+ * business shows only its own tasks, minus any YouTube/Blog-workflow
+ * ones (those are routed to the YouTube/Blogging Dashboard column
+ * instead, below) — the singleton YouTube/Blogging Dashboard businesses
+ * (BIZ_KINDS 'youtube'/'blog') show every task of that workflow kind
+ * app-wide, regardless of which business it was actually generated
+ * under, plus whatever's genuinely their own (e.g. their own Tasks &
+ * Templates entries). This is purely a display grouping for the All
+ * Tasks database — no task's real businessId is ever changed. */
+function tasksForMasterColumn(b) {
+  if (b.kind === 'youtube') return D.Tasks.list().filter(function (t) { return t.businessId === b.id || D.taskKindOf(t) === 'youtube'; });
+  if (b.kind === 'blog') return D.Tasks.list().filter(function (t) { return t.businessId === b.id || D.taskKindOf(t) === 'blog'; });
+  return D.Tasks.list().filter(function (t) { return t.businessId === b.id && D.taskKindOf(t) !== 'youtube' && D.taskKindOf(t) !== 'blog'; });
+}
 function renderMasterTaskList() {
   var wrap = $('bdMasterTaskWrap'); if (!wrap) return;
   var businesses = D.businessesSorted().filter(function (b) { return !masterTaskBizFilter || b.id === masterTaskBizFilter; });
   var html = businesses.map(function (b) {
-    var tasks = D.Tasks.list().filter(function (t) { return t.businessId === b.id; })
+    var tasks = tasksForMasterColumn(b)
       .filter(function (t) { return !masterTaskKindFilter || D.taskKindOf(t) === masterTaskKindFilter; })
       .sort(D.byOrder);
     var done = tasks.filter(function (t) { return t.status === 'done'; }).length;
