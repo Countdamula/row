@@ -158,13 +158,61 @@ select.bd-status-select {
 }
 .bd-biz-card.bd-glare-active::before, .bd-biz-card.bd-glare-active::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .bd-biz-card { transition: none; } }
-.bd-biz-cover { position: relative; width: 100%; aspect-ratio: 16/9; background: linear-gradient(155deg, rgba(201,168,118,0.22), rgba(201,168,118,0.05)); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.bd-biz-cover img { width: 100%; height: 100%; object-fit: cover; }
-.bd-biz-cover-icon { font-size: 44px; opacity: 0.85; }
-.bd-biz-cover-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+.bd-biz-cover {
+  position: relative; width: 100%; min-height: 168px; aspect-ratio: 16/10;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.bd-biz-cover img { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Abstract animated backdrop shown when no cover photo is set — a hand-rolled,
+   non-literal stand-in for a GLSL hills shader (this app has no WebGL/build
+   step anywhere — see §1), built from layered blurred radial gradients in
+   this file's own existing gold tokens, with a slow ambient drift. Same
+   "abstract, not the photo's actual imagery" precedent as gym.html's own
+   crimson-glow re-theme. */
+.bd-biz-cover-abstract {
+  position: absolute; inset: -8%; z-index: 0;
+  background:
+    radial-gradient(ellipse 65% 55% at 18% 88%, rgba(201,168,118,0.55) 0%, transparent 62%),
+    radial-gradient(ellipse 75% 60% at 88% 102%, rgba(232,207,159,0.4) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 48% at 52% 118%, rgba(139,110,60,0.55) 0%, transparent 60%),
+    linear-gradient(165deg, rgba(23,23,20,0.9) 0%, rgba(11,10,8,0.98) 100%);
+  filter: blur(6px);
+  animation: bd-hills-drift 16s ease-in-out infinite alternate;
+}
+@keyframes bd-hills-drift { 0% { transform: scale(1) translateY(0); } 100% { transform: scale(1.07) translateY(-2.5%); } }
+@media (prefers-reduced-motion: reduce) { .bd-biz-cover-abstract { animation: none; } }
+.bd-biz-cover-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,4,3,0.12) 0%, rgba(5,4,3,0.22) 45%, rgba(5,4,3,0.86) 100%);
+}
+.bd-biz-cover-icon-badge { position: absolute; top: 10px; left: 12px; z-index: 4; font-size: 17px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+.bd-biz-cover-content {
+  position: relative; z-index: 2; width: 100%; height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 16px 16px 14px; gap: 3px;
+}
+.bd-biz-cover-kicker {
+  font-family: var(--bd-serif); font-style: italic; font-weight: 400; font-size: 11.5px;
+  color: rgba(245,241,233,0.72); text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+}
+.bd-biz-cover-headline {
+  font-family: var(--bd-serif); font-weight: 700; font-style: normal; font-size: 20px; line-height: 1.16;
+  color: var(--bd-text); text-shadow: 0 3px 16px rgba(0,0,0,0.6); margin: 3px 0;
+}
+.bd-biz-cover-tagline {
+  font-size: 11px; line-height: 1.4; color: rgba(245,241,233,0.62); max-width: 92%;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bd-biz-cover-top { position: absolute; top: 10px; right: 10px; z-index: 4; }
+.bd-biz-cover-change {
+  position: absolute; bottom: 10px; right: 10px; z-index: 4;
+  background: rgba(5,4,3,0.6); backdrop-filter: blur(8px); border: 1px solid var(--bd-border);
+  color: var(--bd-text-dim); border-radius: 999px; padding: 5px 11px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.03em; cursor: pointer; opacity: 0.85; transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.bd-biz-cover-change:hover, .bd-biz-cover-change:focus { opacity: 1; color: var(--bd-gold-bright); border-color: var(--bd-gold); }
 .bd-biz-openfull { background: rgba(5,4,3,0.62); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.14); }
 .bd-biz-body { padding: 14px 16px 16px; }
-.bd-biz-title { font-family: var(--bd-serif); font-style: italic; font-weight: 600; font-size: 19px; margin: 0 0 8px; }
 .bd-biz-rollup { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--bd-text-dim); margin-bottom: 8px; }
 .bd-biz-rollup label { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--bd-text-mute); cursor: pointer; }
 .bd-biz-dates { font-size: 10.5px; color: var(--bd-text-mute); }
@@ -479,6 +527,7 @@ select.bd-status-select {
     <button type="button" class="bd-btn-primary" id="bdAddBizBtn">+ Add Business</button>
   </div>
   <div class="bd-biz-grid" id="bdBizGrid"></div>
+  <input type="file" id="bdCardCoverInput" accept="image/*" style="display:none;">
 
   <div class="bd-section-head">
     <div><h2 class="bd-section-title">All Tasks</h2><div class="bd-section-sub">Every task, from every business's Writing/YouTube/Blogging dashboards and general Tasks &amp; Templates — grouped by business, filterable by kind.</div></div>
@@ -734,6 +783,7 @@ function runSafely(fn, context) { try { fn(); } catch (err) { showBootErrorBanne
 
 var D = null;
 var currentBusinessId = null;
+var cardCoverUploadTargetId = null;
 var currentManuscriptId = null;
 var currentMsSubpage = 'overview';
 var currentBinderNodeId = null;
@@ -1031,15 +1081,24 @@ function renderBizGrid() {
     var notesPreview = notes.slice(0, 3).map(function (n) {
       return '<div class="bd-card-note"><b>' + escapeHtml(n.title || 'Untitled') + '</b> — ' + escapeHtml((n.body || '').slice(0, 70)) + '</div>';
     }).join('') || '<div class="bd-card-note">No notes yet.</div>';
+    var kicker = escapeHtml(b.heroEyebrow || defaultBizHeroEyebrow(b));
+    var tagline = b.heroSubtext ? '<div class="bd-biz-cover-tagline">' + escapeHtml(b.heroSubtext) + '</div>' : '';
     return '<div class="bd-biz-card" data-biz-card="' + b.id + '">' +
       '<div class="bd-biz-cover">' +
-      (b.cover ? '<img src="' + escapeHtml(b.cover) + '">' : '<span class="bd-biz-cover-icon">' + b.icon + '</span>') +
+      (b.cover ? '<img src="' + escapeHtml(b.cover) + '">' : '<div class="bd-biz-cover-abstract" aria-hidden="true"></div>') +
+      '<div class="bd-biz-cover-overlay"></div>' +
+      '<span class="bd-biz-cover-icon-badge">' + (b.icon || '💼') + '</span>' +
+      '<div class="bd-biz-cover-content">' +
+      '<div class="bd-biz-cover-kicker">' + kicker + '</div>' +
+      '<h3 class="bd-biz-cover-headline">' + escapeHtml(b.name || 'Untitled Business') + '</h3>' +
+      tagline +
+      '</div>' +
       '<div class="bd-biz-cover-top">' +
-      '<span></span>' +
       '<button type="button" class="bd-icon-btn bd-biz-openfull" data-biz-openfull="' + b.id + '" title="Open full page">⤢</button>' +
-      '</div></div>' +
+      '</div>' +
+      '<button type="button" class="bd-biz-cover-change" data-biz-change-cover="' + b.id + '">🖼 Change Cover</button>' +
+      '</div>' +
       '<div class="bd-biz-body">' +
-      '<h3 class="bd-biz-title">' + escapeHtml(b.name || 'Untitled Business') + '</h3>' +
       '<select class="bd-status-select" data-biz-status="' + b.id + '">' +
       D.BIZ_STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === b.status ? ' selected' : '') + '>' + D.BIZ_STATUS_LABELS[s] + '</option>'; }).join('') +
       '</select>' +
@@ -1064,6 +1123,9 @@ function renderBizGrid() {
   });
   Array.prototype.forEach.call(grid.querySelectorAll('[data-biz-openfull]'), function (btn) {
     btn.addEventListener('click', function (e) { e.stopPropagation(); openBusinessPage(btn.getAttribute('data-biz-openfull')); });
+  });
+  Array.prototype.forEach.call(grid.querySelectorAll('[data-biz-change-cover]'), function (btn) {
+    btn.addEventListener('click', function (e) { e.stopPropagation(); openCardCoverPicker(btn.getAttribute('data-biz-change-cover')); });
   });
   Array.prototype.forEach.call(grid.querySelectorAll('[data-biz-status]'), function (sel) {
     sel.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -1102,6 +1164,33 @@ function wireBizCardGlare(card) {
     card.classList.remove('bd-glare-active');
   });
 }
+/** Quick "change cover" flow directly from a gallery card's own mini-hero —
+ * same compress-then-swap-for-a-hosted-URL pipeline as the full-page hero's
+ * own cover upload (handleBizHeroPhotoFile below), just targeting whichever
+ * card's button was clicked instead of always the currently-open business.
+ * Always visible (not hover-only), so it works on touch too. */
+function openCardCoverPicker(id) { cardCoverUploadTargetId = id; var i = $('bdCardCoverInput'); i.value = ''; i.click(); }
+function handleCardCoverFile() {
+  var file = $('bdCardCoverInput').files[0];
+  if (!file || !cardCoverUploadTargetId) return;
+  var targetId = cardCoverUploadTargetId;
+  var reader = new FileReader();
+  reader.onload = function () {
+    D.compressImageDataUrl(String(reader.result), 1100, 0.78).then(function (compressed) {
+      D.Businesses.update(targetId, { cover: compressed });
+      renderBizGrid();
+      if (targetId === currentBusinessId) renderBizHeroPhoto(D.business(targetId));
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) {
+          D.Businesses.update(targetId, { cover: url });
+          if (targetId === currentBusinessId) renderBizHeroPhoto(D.business(targetId));
+        });
+      }
+    });
+  };
+  reader.readAsDataURL(file);
+}
+$('bdCardCoverInput').addEventListener('change', handleCardCoverFile);
 $('bdAddBizBtn').addEventListener('click', function () {
   openFormModal({
     title: 'Add Business',
