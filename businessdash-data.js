@@ -55,6 +55,7 @@
     prompts: 'bizdash:prompts',
     tracks: 'bizdash:tracks',
     articles: 'bizdash:articles',
+    pageHero: 'bizdash:pageHero',
     seeded: 'bizdash:seeded'
   };
 
@@ -936,6 +937,30 @@
   }
 
   // ============================================================
+  // TOP-LEVEL PAGE HERO — the Business Dashboard's own landing hero (above
+  // the Businesses gallery), not tied to any one business. A single record,
+  // same get/save-one-record shape as every other page's own hero (e.g.
+  // aitech.html's), stored under its own bizdash:pageHero key so it's
+  // already covered by the existing appKey:'businessdash' sync call.
+  // ============================================================
+  function pageHeroModel(data) {
+    data = data || {};
+    return {
+      eyebrow: typeof data.eyebrow === 'string' ? data.eyebrow : '',
+      title: typeof data.title === 'string' ? data.title : '',
+      subtext: typeof data.subtext === 'string' ? data.subtext : '',
+      ctaLabel: typeof data.ctaLabel === 'string' ? data.ctaLabel : '',
+      photo: typeof data.photo === 'string' ? data.photo : ''
+    };
+  }
+  function getPageHero() { return pageHeroModel(storeGet(KEYS.pageHero) || {}); }
+  function savePageHero(patch) {
+    const next = pageHeroModel(Object.assign({}, getPageHero(), patch));
+    storeSet(KEYS.pageHero, next);
+    return next;
+  }
+
+  // ============================================================
   // PUBLIC API
   // ============================================================
   global.BusinessDashData = {
@@ -967,6 +992,7 @@
     sectionsFor: sectionsFor, addSection: addSection, moveSection: moveSection,
     linksFor: linksFor, addLink: addLink, moveLink: moveLink,
     businessesSorted: businessesSorted, business: business, ensureDashboardBusinessesExist: ensureDashboardBusinessesExist,
+    getPageHero: getPageHero, savePageHero: savePageHero,
     tasksForBusiness: tasksForBusiness, taskRollup: taskRollup, deadlineProgress: deadlineProgress,
     seriesForBusiness: seriesForBusiness, manuscriptsFor: manuscriptsFor, manuscriptsInSeries: manuscriptsInSeries,
     standaloneManuscripts: standaloneManuscripts, generateSeries: generateSeries,

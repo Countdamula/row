@@ -70,10 +70,21 @@ button { font-family: inherit; }
 }
 .bd-back:hover { color: var(--bd-gold-bright); border-color: rgba(201,168,118,0.4); }
 
-.bd-hero { text-align: center; margin-bottom: 34px; }
-.bd-hero-eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bd-gold); font-weight: 700; }
-.bd-hero-title { font-family: var(--bd-serif); font-style: italic; font-weight: 600; font-size: clamp(30px, 5vw, 46px); margin: 8px 0 6px; color: var(--bd-text); }
-.bd-hero-subtext { color: var(--bd-text-dim); font-size: 14px; max-width: 560px; margin: 0 auto; }
+/* Business Dashboard's own top-level landing hero — the exact same
+   photo/abstract-backdrop/eyebrow/title/subtext/CTA recipe already used
+   for each individual business's own full-page hero (.bd-biz-hero,
+   below), just not tied to any one business — its own bizdash:pageHero
+   record instead of a Business record. Reuses every .bd-biz-hero-* class
+   verbatim (none of them are ID-scoped) rather than duplicating the CSS
+   a second time. */
+#bdPageHeroCoverBg {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15);
+  filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease;
+  pointer-events: none;
+}
 
 .bd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 30px 0 14px; flex-wrap: wrap; }
 .bd-section-title { font-family: var(--bd-serif); font-style: italic; font-size: 20px; font-weight: 600; color: var(--bd-gold-bright); margin: 0; }
@@ -598,13 +609,37 @@ select.bd-status-select {
 
 <a href="index.html" class="bd-back">← Back</a>
 
+<div id="bdPageHeroCoverBg" aria-hidden="true"></div>
 <div class="bd-shell" id="bdMainView">
-  <div class="bd-hero">
-    <div class="bd-hero-eyebrow">Business Dashboard</div>
-    <h1 class="bd-hero-title">Every Business, One Page</h1>
-    <p class="bd-hero-subtext">A gallery of your businesses, each with its own Writing, YouTube, and Blogging Dashboards.</p>
-    <div class="bd-section-sub" id="bdSyncStatus" style="margin-top:6px;">Changes save automatically</div>
+  <div class="bd-biz-hero" id="bdPageHero" style="margin-bottom:26px;">
+    <div class="bd-biz-hero-media" id="bdPageHeroMedia">
+      <div class="bd-biz-cover-abstract" id="bdPageHeroAbstract" aria-hidden="true"></div>
+      <img id="bdPageHeroPhotoImg" style="display:none;" alt="">
+      <div class="bd-biz-hero-photo-choice" id="bdPageHeroPhotoChoice">
+        <button type="button" class="bd-biz-hero-photo-choice-btn" id="bdPageHeroAddPhotoBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="bd-biz-hero-overlay"></div>
+    <div class="bd-biz-hero-photo-tools" id="bdPageHeroPhotoTools" style="display:none;">
+      <button type="button" id="bdPageHeroPhotoChangeBtn">Change</button>
+      <button type="button" id="bdPageHeroPhotoRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="bdPageHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="bd-biz-hero-content">
+      <div class="bd-biz-hero-eyebrow-row">
+        <div class="bd-biz-hero-eyebrow" id="bdPageHeroEyebrow" contenteditable="true"></div>
+      </div>
+      <textarea class="bd-biz-hero-title" id="bdPageHeroTitle" rows="1" placeholder="Headline…"></textarea>
+      <div class="bd-biz-hero-subtext" id="bdPageHeroSubtext" contenteditable="true"></div>
+      <div class="bd-biz-hero-meta-row">
+        <button type="button" class="bd-biz-hero-cta" id="bdPageHeroCta">
+          <span class="bd-biz-hero-cta-label" id="bdPageHeroCtaLabel" contenteditable="true"></span>
+          <span class="bd-biz-hero-cta-arrow" aria-hidden="true">↓</span>
+        </button>
+      </div>
+    </div>
   </div>
+  <div class="bd-section-sub" id="bdSyncStatus" style="text-align:center;margin-bottom:6px;">Changes save automatically</div>
 
   <div class="bd-section-head">
     <div><h2 class="bd-section-title">Businesses</h2></div>
@@ -1408,6 +1443,52 @@ $('bdBizHeroPhotoRemoveBtn').addEventListener('click', function (e) {
 $('bdBizHeroPhotoInput').addEventListener('change', handleBizHeroPhotoFile);
 $('bdBizHeroCta').addEventListener('click', function () {
   $('bdBizContentStart').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+});
+
+// ---- Business Dashboard's own top-level landing hero — same photo/
+// eyebrow/title/subtext/CTA recipe as the per-business hero above, just
+// backed by its own bizdash:pageHero record instead of a Business. ----
+function renderPageHeroPhoto(hero) {
+  var img = $('bdPageHeroPhotoImg'), choice = $('bdPageHeroPhotoChoice'), tools = $('bdPageHeroPhotoTools'), abstract = $('bdPageHeroAbstract');
+  if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; abstract.style.display = 'none'; }
+  else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; abstract.style.display = 'block'; }
+  $('bdPageHeroCoverBg').style.backgroundImage = hero.photo ? 'url("' + hero.photo + '")' : 'none';
+}
+function renderPageHero() {
+  var hero = D.getPageHero();
+  $('bdPageHeroEyebrow').textContent = hero.eyebrow || 'BUSINESS DASHBOARD';
+  $('bdPageHeroTitle').value = hero.title || 'Every Business, One Page';
+  autosize($('bdPageHeroTitle'));
+  $('bdPageHeroSubtext').textContent = hero.subtext || 'A gallery of your businesses, each with its own Writing, YouTube, and Blogging Dashboards.';
+  $('bdPageHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
+  renderPageHeroPhoto(hero);
+}
+function openPageHeroFilePicker() { var i = $('bdPageHeroPhotoInput'); i.value = ''; i.click(); }
+function handlePageHeroPhotoFile() {
+  var file = $('bdPageHeroPhotoInput').files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    D.compressImageDataUrl(String(reader.result), 1100, 0.78).then(function (compressed) {
+      renderPageHeroPhoto(D.savePageHero({ photo: compressed }));
+      if (window.PhotoStore) {
+        window.PhotoStore.upload(compressed, function (url) { renderPageHeroPhoto(D.savePageHero({ photo: url })); });
+      }
+    });
+  };
+  reader.readAsDataURL(file);
+}
+wireInlineEdit($('bdPageHeroEyebrow'), function (v) { D.savePageHero({ eyebrow: v }); }, { allowEmpty: true });
+wireInlineEdit($('bdPageHeroSubtext'), function (v) { D.savePageHero({ subtext: v }); }, { allowEmpty: true });
+wireInlineEdit($('bdPageHeroCtaLabel'), function (v) { D.savePageHero({ ctaLabel: v }); }, { allowEmpty: false });
+$('bdPageHeroTitle').addEventListener('input', function () { autosize($('bdPageHeroTitle')); });
+$('bdPageHeroTitle').addEventListener('blur', function () { D.savePageHero({ title: $('bdPageHeroTitle').value }); });
+$('bdPageHeroAddPhotoBtn').addEventListener('click', openPageHeroFilePicker);
+$('bdPageHeroPhotoChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openPageHeroFilePicker(); });
+$('bdPageHeroPhotoRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); renderPageHeroPhoto(D.savePageHero({ photo: '' })); });
+$('bdPageHeroPhotoInput').addEventListener('change', handlePageHeroPhotoFile);
+$('bdPageHeroCta').addEventListener('click', function () {
+  $('bdBizGrid').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 });
 
 function renderBizPage() {
@@ -2418,6 +2499,7 @@ function boot() {
   D.ensureDashboardBusinessesExist();
   D.migrateWritingTemplatesToKdp();
   renderBizGrid();
+  renderPageHero();
   if (window.initCloudSync) {
     window.initCloudSync({
       appKey: 'businessdash',
@@ -2427,6 +2509,7 @@ function boot() {
         D.ensureDashboardBusinessesExist();
         D.migrateWritingTemplatesToKdp();
         renderBizGrid();
+        renderPageHero();
         if (currentBusinessId) renderBizPage();
       }
     });
