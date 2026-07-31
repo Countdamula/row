@@ -121,6 +121,22 @@
       ],
     },
     {
+      // New nav folder, right above Entertainment: a Business Dashboard —
+      // a gallery of businesses, each opening into its own front page
+      // hosting a Writing Dashboard (series/manuscripts/a Scrivener-style
+      // Binder), a generatable YouTube Dashboard, and a generatable
+      // Blogging Dashboard. Genuinely new files, businessdash.html +
+      // businessdash-data.js — separate from every other "business" page
+      // in this app (business.html's Content Hub + Writing/YouTube
+      // Dashboard tabs, and businessos.html's own multi-business CEO
+      // command center); nothing there is read or written by this page.
+      key: 'businessdash',
+      label: 'Business Dashboard',
+      items: [
+        { href: 'businessdash.html', icon: '🏢', label: 'Business Dashboard', id: 'topbarBusinessDash' },
+      ],
+    },
+    {
       // New nav folder, right below Command Center: five genuinely new,
       // standalone pages (not a rebuild of the pre-existing
       // entertainment.html/"Media" page, which is untouched and keeps
@@ -977,7 +993,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
