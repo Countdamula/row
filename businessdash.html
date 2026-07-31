@@ -439,6 +439,28 @@ select.bd-status-select {
 .bd-task-row.done .bd-task-title { text-decoration: line-through; color: var(--bd-text-mute); }
 .bd-task-row.sub { margin-left: 26px; }
 .bd-task-check { width: 17px; height: 17px; accent-color: var(--bd-gold); flex-shrink: 0; }
+
+/* All Tasks (main view, below Businesses) — a comparison-table-style
+   layout echoing a pricing table's plan-column-with-feature-rows
+   structure, one column per business instead of one column per plan.
+   Scoped entirely to #bdMasterTaskWrap's own .bd-mt-* classes — every
+   other task list in this file (a business's own Tasks & Templates
+   section, Task Detail sub-pages, the Manuscript mini-checklist) keeps
+   using .bd-task-groups/.bd-task-row completely unchanged, and the row
+   component itself (.bd-task-row/.bd-task-check/.bd-task-title) is
+   reused verbatim inside each column, not rebuilt. */
+.bd-mt-columns { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: stretch; }
+.bd-mt-col { flex: 0 0 260px; background: var(--bd-card); border: 1px solid var(--bd-border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+.bd-mt-col-head { padding: 18px 16px 14px; text-align: center; border-bottom: 1px solid var(--bd-hairline); background: linear-gradient(180deg, rgba(201,168,118,0.08) 0%, transparent 100%); }
+.bd-mt-col-icon { width: 42px; height: 42px; margin: 0 auto 10px; border-radius: 50%; background: rgba(201,168,118,0.14); border: 1px solid rgba(201,168,118,0.3); display: flex; align-items: center; justify-content: center; font-size: 19px; }
+.bd-mt-col-badge { display: inline-block; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--bd-gold-bright); background: rgba(201,168,118,0.12); border-radius: 999px; padding: 3px 10px; margin-bottom: 8px; }
+.bd-mt-col-name { font-family: var(--bd-serif); font-style: italic; font-weight: 700; font-size: 17px; margin: 0 0 6px; }
+.bd-mt-col-stat { font-size: 22px; font-weight: 800; color: var(--bd-text); }
+.bd-mt-col-stat span { font-size: 11px; font-weight: 600; color: var(--bd-text-mute); margin-left: 3px; }
+.bd-mt-col-body { padding: 12px; display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; }
+.bd-mt-col-body .bd-task-row { margin-bottom: 0; }
+.bd-mt-col-empty { color: var(--bd-text-mute); font-size: 12px; text-align: center; padding: 14px 6px; }
+@media (max-width: 620px) { .bd-mt-col { flex-basis: 230px; } }
 .bd-task-quickadd { display: flex; gap: 6px; margin-bottom: 10px; }
 .bd-task-quickadd input { flex: 1 1 auto; background: rgba(255,255,255,0.05); border: 1px solid var(--bd-hairline); border-radius: 8px; color: var(--bd-text); font-size: 13px; padding: 8px 10px; }
 
@@ -532,7 +554,7 @@ select.bd-status-select {
   </div>
   <div class="bd-subnav" id="bdMasterBizChips"></div>
   <div class="bd-subnav" id="bdMasterKindChips" style="margin-top:-10px;"></div>
-  <div class="bd-task-groups" id="bdMasterTaskWrap"></div>
+  <div class="bd-mt-columns" id="bdMasterTaskWrap"></div>
 </div>
 
 <!-- =========================================================
@@ -1998,17 +2020,23 @@ function buildMasterTaskRowHtml(t) {
 function renderMasterTaskList() {
   var wrap = $('bdMasterTaskWrap'); if (!wrap) return;
   var businesses = D.businessesSorted().filter(function (b) { return !masterTaskBizFilter || b.id === masterTaskBizFilter; });
-  var html = '';
-  businesses.forEach(function (b) {
+  var html = businesses.map(function (b) {
     var tasks = D.Tasks.list().filter(function (t) { return t.businessId === b.id; })
       .filter(function (t) { return !masterTaskKindFilter || D.taskKindOf(t) === masterTaskKindFilter; })
       .sort(D.byOrder);
-    if (!tasks.length) return;
-    html += '<div><div class="bd-task-group-title">' + b.icon + ' ' + escapeHtml(b.name || 'Untitled Business') +
-      ' <span style="color:var(--bd-text-mute);font-weight:400;text-transform:none;letter-spacing:0;">(' + tasks.length + ')</span></div>' +
-      tasks.map(buildMasterTaskRowHtml).join('') + '</div>';
-  });
-  wrap.innerHTML = html || '<div class="bd-empty">No tasks match this filter yet.</div>';
+    var done = tasks.filter(function (t) { return t.status === 'done'; }).length;
+    var body = tasks.length ? tasks.map(buildMasterTaskRowHtml).join('') : '<div class="bd-mt-col-empty">No tasks match this filter.</div>';
+    return '<div class="bd-mt-col">' +
+      '<div class="bd-mt-col-head">' +
+      '<div class="bd-mt-col-icon">' + (b.icon || '💼') + '</div>' +
+      '<div class="bd-mt-col-badge">' + escapeHtml(D.BIZ_STATUS_LABELS[b.status] || '') + '</div>' +
+      '<h3 class="bd-mt-col-name">' + escapeHtml(b.name || 'Untitled Business') + '</h3>' +
+      '<div class="bd-mt-col-stat">' + done + ' / ' + tasks.length + '<span>tasks</span></div>' +
+      '</div>' +
+      '<div class="bd-mt-col-body">' + body + '</div>' +
+      '</div>';
+  }).join('');
+  wrap.innerHTML = html || '<div class="bd-empty">No businesses yet.</div>';
   Array.prototype.forEach.call(wrap.querySelectorAll('[data-mt-toggle]'), function (cb) {
     cb.addEventListener('change', function () { D.Tasks.update(cb.getAttribute('data-mt-toggle'), { status: cb.checked ? 'done' : 'todo' }); renderMasterTaskList(); });
   });
