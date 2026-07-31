@@ -485,6 +485,15 @@ select.bd-status-select {
 .bd-mt-task-card {
   position: relative; border-radius: 14px; padding: 1.5px; overflow: hidden;
   box-shadow: 0 0 22px rgba(201,168,118,0.16);
+  /* Forces this clipped (overflow:hidden) card onto its own GPU-composited
+     layer. Without this, some mobile browsers (notably iOS Safari) fail to
+     keep repainting an animated child sitting inside an overflow:hidden
+     ancestor that itself lives inside a horizontally-scrolling container
+     (.bd-mt-columns below) — the beam renders once, then sits frozen on a
+     stale frame instead of visibly rotating, even though the animation is
+     still technically running. Desktop browsers don't hit this. */
+  -webkit-transform: translateZ(0); transform: translateZ(0);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
 }
 .bd-mt-task-card-beam {
   position: absolute; inset: -55%; z-index: 0;
@@ -493,6 +502,7 @@ select.bd-status-select {
     transparent 160deg, var(--bd-gold-bright) 176deg, transparent 200deg,
     transparent 360deg);
   animation: bd-beam-spin 7s linear infinite;
+  will-change: transform;
 }
 .bd-mt-task-card:hover .bd-mt-task-card-beam { animation-duration: 1.6s; }
 @keyframes bd-beam-spin { to { transform: rotate(360deg); } }
