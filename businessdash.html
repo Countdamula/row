@@ -878,7 +878,7 @@ select.bd-status-select {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js"></script>
 <script src="photo-store.js"></script>
-<script src="businessdash-data.js?v=1" defer></script>
+<script src="businessdash-data.js?v=2" defer></script>
 <script src="topbar.js" defer></script>
 <script>
 (function () {
@@ -1463,19 +1463,36 @@ function renderPageHero() {
   $('bdPageHeroCtaLabel').textContent = hero.ctaLabel || 'EXPLORE';
   renderPageHeroPhoto(hero);
 }
-function openPageHeroFilePicker() { var i = $('bdPageHeroPhotoInput'); i.value = ''; i.click(); }
+function openPageHeroFilePicker() {
+  try {
+    if (!D || typeof D.compressImageDataUrl !== 'function' || typeof D.savePageHero !== 'function') {
+      alert("This page may be running an older cached copy — try a hard refresh, then try adding the photo again.");
+      return;
+    }
+    var i = $('bdPageHeroPhotoInput');
+    i.value = '';
+    i.click();
+  } catch (err) {
+    alert("Couldn't open the photo picker: " + (err && err.message ? err.message : err));
+  }
+}
 function handlePageHeroPhotoFile() {
   var file = $('bdPageHeroPhotoInput').files[0];
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function () {
-    D.compressImageDataUrl(String(reader.result), 1100, 0.78).then(function (compressed) {
-      renderPageHeroPhoto(D.savePageHero({ photo: compressed }));
-      if (window.PhotoStore) {
-        window.PhotoStore.upload(compressed, function (url) { renderPageHeroPhoto(D.savePageHero({ photo: url })); });
-      }
-    });
+    try {
+      D.compressImageDataUrl(String(reader.result), 1100, 0.78).then(function (compressed) {
+        renderPageHeroPhoto(D.savePageHero({ photo: compressed }));
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) { renderPageHeroPhoto(D.savePageHero({ photo: url })); });
+        }
+      }).catch(function (err) { alert('Could not process that photo: ' + (err && err.message ? err.message : err)); });
+    } catch (err) {
+      alert('Could not process that photo: ' + (err && err.message ? err.message : err));
+    }
   };
+  reader.onerror = function () { alert('Could not read that file.'); };
   reader.readAsDataURL(file);
 }
 wireInlineEdit($('bdPageHeroEyebrow'), function (v) { D.savePageHero({ eyebrow: v }); }, { allowEmpty: true });
