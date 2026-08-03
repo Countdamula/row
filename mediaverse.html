@@ -244,7 +244,9 @@ button { font-family: inherit; }
           <div class="gt-section" data-section-key="continue">
             <span class="gt-section-drag">⠿ Drag</span>
             <div class="gt-card">
-              <div class="gt-card-head"><h2 class="gt-card-title">⚡ Continue</h2></div>
+              <div class="gt-card-head"><h2 class="gt-card-title">⚡ Continue</h2>
+                <button type="button" class="gt-btn gt-btn-sm" id="mvImportOtherHubsBtn" title="Copy every card from entertainment.html (&quot;Media&quot;) and the Entertainment folder's ent-*.html pages into their matching category here. Read-only — nothing on those pages is changed or removed.">↻ Import from Media &amp; Entertainment</button>
+              </div>
               <div id="mvContinueBody"></div>
             </div>
           </div>
@@ -1287,6 +1289,8 @@ function wireStaticHandlers() {
   });
   $('mvSidebarScrim').addEventListener('click', closeSidebarMobile);
 
+  $('mvImportOtherHubsBtn').addEventListener('click', function () { runImportFromOtherHubs(true); });
+
   $('mvCatAddBtn').addEventListener('click', function () { openItemModal(null, currentCategoryKey); });
   $('mvCatSearch').addEventListener('input', function () {
     var cat = currentCategoryKey; if (!cat) return;
@@ -1329,10 +1333,28 @@ function wireStaticHandlers() {
   window.addEventListener('hashchange', showSection);
 }
 
+// Copies every card from entertainment.html/the Entertainment folder into
+// this hub's matching category — read-only against those pages (see
+// MediaverseData.importFromOtherHubs()'s own header comment), idempotent,
+// safe to re-run any time via the Home page's own button.
+function runImportFromOtherHubs(showAlert) {
+  var n = D.importFromOtherHubs();
+  if (currentHash === 'home') renderHome();
+  if (showAlert) {
+    alert(n ? ('Imported ' + n + ' item' + (n === 1 ? '' : 's') + ' from Media & Entertainment.')
+             : 'Nothing new to import — everything from those pages is already copied in.');
+  }
+  return n;
+}
+
 function maybeSeedAfterSyncAttempt() {
-  if (remoteAppliedOnce) return;
-  if (!D.isEmptyEverywhere()) return;
-  D.seedIfEmpty();
+  if (!remoteAppliedOnce && D.isEmptyEverywhere()) D.seedIfEmpty();
+  // Not gated on remoteAppliedOnce like seeding above — this only ever
+  // *adds* items (idempotent via importSourceId), so it's safe to run
+  // whether or not real cloud data already arrived, and it needs to run
+  // at all so a device that already has real mediaverse data still picks
+  // up anything new from the other two pages.
+  runImportFromOtherHubs(false);
   showSection();
 }
 

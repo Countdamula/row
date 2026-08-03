@@ -12139,3 +12139,81 @@ both as originally phrased assumed a backend this app doesn't have):
     page heavily, same disclosed-limitation caveat every other page's
     changelog entry in this file already carries for this exact
     environment.
+
+- **Media (`mediaverse.html`) gained a one-way, read-only "↻ Import from
+  Media & Entertainment" that copies every card from `entertainment.html`
+  ("Media," `media:*` prefix) and the Entertainment folder's five
+  `ent-*.html` pages (`entertainment-hub-data.js`, `enthub:*` prefix) into
+  their matching category here — per an explicit request, nothing on
+  either source page is deleted, moved, or modified.** `MediaverseData
+  .importFromOtherHubs()` (new, `mediaverse-data.js`) reads the eight raw
+  `media:podcasts`/`stories`/`entertainment`/`playlists` and
+  `enthub:podcasts`/`stories`/`entertainment`/`playlists` localStorage
+  keys directly — the same "read another page's own storage key, never
+  call its sync, never write back to it" precedent this app's
+  `tasks-data.js` importers and `fitnessstudio-data.js`'s own
+  `importExercisesFromOtherFitnessStudios()` already established — so
+  there is no code path here that can touch either source page's data.
+  - **`MediaItem` gained two purely additive fields**, `importSource`/
+    `importSourceId` (empty string default, safe for every hand-added
+    item) — `importSourceId` is `'<sourceKey>:<the source item's own
+    id>'`, checked against every already-imported item before adding a
+    new one, so the import (the Home page's own new "↻ Import from Media
+    & Entertainment" button, or the automatic once-per-boot call) is
+    fully idempotent: re-running it only ever adds what's genuinely new,
+    and a copied item that's since been edited, recategorized, or
+    deleted here is never re-created or reverted.
+  - **Category mapping** — `podcasts` → `podcast`, `entertainment` →
+    `video`, `playlists` → `music` (except `'ASMR'`/`'Binaural Beats'` →
+    `immersive`), each keeping the source's own topic/subtopic as the new
+    item's `subcategory` (a freeform field here, not a strict enum — see
+    `itemModel`). `stories` needed a confirmed adaptation, disclosed
+    rather than silently guessed at: both source systems' "Stories"
+    gallery is audio/video-narrated horror & spicy content (i.e. the
+    YouTube/watched versions, not physical books), so it always routes
+    into `horrorwatch`/`spicywatch`, never the reading `horror`/`spicy`
+    categories. The Entertainment folder's `enthub:stories` has three
+    clean, already-distinct subtopics (Horror Stories/Spicy Stories/
+    Immersive Experience) — a direct 1:1 map. `entertainment.html`'s own
+    `media:stories`, by contrast, only has two statuses, the second one a
+    merged `'Spicy Stories / Immersive Experience'` — since the source
+    data itself doesn't distinguish the two, a light keyword sniff on the
+    item's own title/description (spicy/romance/trope words → `spicy
+    watch`, else → `immersive`) disambiguates it, rather than fabricating
+    a distinction the data doesn't actually carry.
+  - **Field mapping**: `entertainment.html`'s card shape (`title`,
+    `author`, `url`, `thumbnail`, `status`, `description`, `length`,
+    `songCount`, `rating`, `favorite`, `notes`, `progress`) maps onto
+    `MediaItem` directly (`creator`←`author`, `cover`←`thumbnail`,
+    `lengthText`←`length`, `progressText`←`progress`), with `songCount`
+    folded into `notesText` as a labeled line rather than dropped (oEmbed
+    never returns a duration/episode-count for either provider, so this
+    was always a manually-typed field on the source page — worth keeping,
+    not worth inventing a dedicated field for one migrated value). An
+    `entertainment.html` card with `status === 'Favorite Videos'` is
+    additionally marked `favorite: true` here even if its own `favorite`
+    flag was never set, since that status *is* effectively a favorite
+    marker on that page. `entertainment-hub-data.js`'s `EntItem` shape
+    (`title`/`creator`/`url`/`cover`/`description`/`lengthText`/
+    `subtopic`/`rating`/`favorite`) already matches `MediaItem` almost
+    field-for-field, so its mapping is closer to a straight pass-through.
+  - **Verification, disclosed honestly**: same environment limitation as
+    every entry above — no interactive browser/CDP session was available
+    this round. Verified statically via PowerShell: brace/paren balance
+    reconfirmed on both files (`mediaverse.html`: 393/393 braces,
+    1186/1186 parens; `mediaverse-data.js`: 246/246 braces, 469/469
+    parens); zero duplicate DOM ids; the new `mvImportOtherHubsBtn`
+    element id and every other `$('id')` reference resolved with nothing
+    unmatched; every `D.xxx` call in `mediaverse.html` (37 distinct)
+    cross-matched against `MediaverseData`'s exported public API with
+    nothing missing. **Not verified this way**: an actual click-through
+    against real `media:*`/`enthub:*` data (confirming the button
+    imports the expected count, lands each item in the right category,
+    correctly disambiguates the merged `media:stories` status via the
+    keyword sniff, and that re-clicking the button reports zero new
+    items the second time). A real click-through — ideally after
+    actually having some cards saved on `entertainment.html` and/or the
+    Entertainment folder pages to import from — is recommended before
+    relying on this feature, same disclosed-limitation caveat every
+    other page's changelog entry in this file already carries for this
+    exact environment.

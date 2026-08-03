@@ -220,7 +220,14 @@
       lengthText: typeof data.lengthText === 'string' ? data.lengthText : '',
       completedAt: typeof data.completedAt === 'string' ? data.completedAt : '',
       order: typeof data.order === 'number' ? data.order : 0,
-      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      // Purely additive — only ever set by importFromOtherHubs() below, to
+      // dedupe a copied item against the source it came from
+      // (`'media:podcasts'`/`'enthub:stories'`/etc. + the source item's own
+      // id) so re-running the import never creates a duplicate. Empty on
+      // every hand-added item.
+      importSource: typeof data.importSource === 'string' ? data.importSource : '',
+      importSourceId: typeof data.importSourceId === 'string' ? data.importSourceId : ''
     };
   }
   function releaseModel(data) {
@@ -632,6 +639,153 @@
   }
 
   // ============================================================
+  // IMPORT FROM THE OTHER ENTERTAINMENT/MEDIA DASHBOARDS — a one-way,
+  // read-only copy, per an explicit request to bring every card/link
+  // already tracked on `entertainment.html` ("Media," `media:*` prefix)
+  // and the Entertainment folder's five `ent-*.html` pages (sharing
+  // `entertainment-hub-data.js`, `enthub:*` prefix) into this hub too,
+  // without touching or deleting anything on either source page. Same
+  // "read another page's own storage key directly, never call its sync,
+  // never write back to it" precedent as this app's tasks-data.js
+  // importers and fitnessstudio-data.js's own
+  // importExercisesFromOtherFitnessStudios() — this function has no code
+  // path that can write to a `media:`/`enthub:`-prefixed key, only read
+  // them. Idempotent via `importSource`+`importSourceId` (see itemModel
+  // above), so re-running it (the Home page's own "↻ Import from Media &
+  // Entertainment" button, or the automatic once-per-boot call) only ever
+  // adds what's genuinely new — a copied item that's since been edited,
+  // recategorized, or deleted here is never re-created or reverted.
+  //
+  // Category mapping, confirmed adaptations (both source systems use a
+  // "Stories" gallery for audio/video-narrated horror & spicy content —
+  // i.e. the YouTube/watched versions, not physical books — so both route
+  // into `horrorwatch`/`spicywatch`, never the reading `horror`/`spicy`
+  // categories):
+  //   podcasts        -> 'podcast'   (subcategory = the source's own topic)
+  //   entertainment   -> 'video'     (subcategory = the source's own topic)
+  //   stories:
+  //     enthub (3 clean subtopics) -> Horror Stories -> 'horrorwatch',
+  //       Spicy Stories -> 'spicywatch', Immersive Experience -> 'immersive'
+  //     media: (only 2 statuses, the 2nd one a merged "Spicy Stories /
+  //       Immersive Experience") -> 'Horror Stories' -> 'horrorwatch';
+  //       the merged status is disambiguated by a light keyword sniff on
+  //       the item's own title/description (spicy/romance/trope words ->
+  //       'spicywatch', else -> 'immersive') since the source data itself
+  //       doesn't distinguish the two — disclosed here rather than
+  //       silently guessed at.
+  //   playlists       -> 'music', except 'ASMR'/'Binaural Beats' -> 'immersive'
+  //     (subcategory = the source's own topic either way)
+  // ============================================================
+  function readOtherHubKey(key) {
+    try { var raw = localStorage.getItem(key); var v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  function classifyMergedMediaStoriesStatus(text) {
+    var t = (text || '').toLowerCase();
+    var spicyHints = ['spicy', 'romance', 'enemies to lovers', 'slow burn', 'forbidden love', 'smut', 'villain', 'soulmate', 'fae', 'trope'];
+    for (var i = 0; i < spicyHints.length; i++) { if (t.indexOf(spicyHints[i]) !== -1) return 'spicywatch'; }
+    return 'immersive';
+  }
+  function mediaCardNotes(c) {
+    var parts = [];
+    if (c.notes) parts.push(c.notes);
+    if (c.songCount) parts.push('Song / episode count: ' + c.songCount);
+    return parts.join('\n\n');
+  }
+
+  function importFromOtherHubs() {
+    var added = 0;
+    var existingIds = {};
+    Items.list().forEach(function (it) { if (it.importSourceId) existingIds[it.importSourceId] = true; });
+
+    function addIfNew(sourceKey, rawId, category, subcategory, fields) {
+      var sourceId = sourceKey + ':' + rawId;
+      if (existingIds[sourceId]) return;
+      existingIds[sourceId] = true;
+      var catItems = itemsByCategory(category);
+      Items.add(Object.assign({
+        category: category,
+        subcategory: subcategory || '',
+        order: nextOrder(catItems),
+        importSource: sourceKey,
+        importSourceId: sourceId
+      }, fields));
+      added++;
+    }
+
+    // --- entertainment.html ("Media", `media:*` prefix) ---
+    readOtherHubKey('media:podcasts').forEach(function (c) {
+      addIfNew('media:podcasts', c.id, 'podcast', c.status || '', {
+        title: c.title || 'Untitled', creator: c.author || '', url: c.url || '', cover: c.thumbnail || '',
+        description: c.description || '', lengthText: c.length || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, progressText: c.progress || '', notesText: mediaCardNotes(c),
+        createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('media:stories').forEach(function (c) {
+      var cat = c.status === 'Horror Stories' ? 'horrorwatch' : classifyMergedMediaStoriesStatus((c.title || '') + ' ' + (c.description || '') + ' ' + (c.notes || ''));
+      addIfNew('media:stories', c.id, cat, '', {
+        title: c.title || 'Untitled', creator: c.author || '', url: c.url || '', cover: c.thumbnail || '',
+        description: c.description || '', lengthText: c.length || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, notesText: mediaCardNotes(c),
+        createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('media:entertainment').forEach(function (c) {
+      addIfNew('media:entertainment', c.id, 'video', c.status || '', {
+        title: c.title || 'Untitled', creator: c.author || '', url: c.url || '', cover: c.thumbnail || '',
+        description: c.description || '', lengthText: c.length || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite || c.status === 'Favorite Videos', notesText: mediaCardNotes(c),
+        createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('media:playlists').forEach(function (c) {
+      var cat = (c.status === 'ASMR' || c.status === 'Binaural Beats') ? 'immersive' : 'music';
+      addIfNew('media:playlists', c.id, cat, c.status || '', {
+        title: c.title || 'Untitled', creator: c.author || '', url: c.url || '', cover: c.thumbnail || '',
+        description: c.description || '', lengthText: c.length || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, notesText: mediaCardNotes(c),
+        createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+
+    // --- Entertainment folder (ent-*.html, `enthub:*` prefix) ---
+    var enthubStoriesMap = { 'Horror Stories': 'horrorwatch', 'Spicy Stories': 'spicywatch', 'Immersive Experience': 'immersive' };
+    readOtherHubKey('enthub:podcasts').forEach(function (c) {
+      addIfNew('enthub:podcasts', c.id, 'podcast', c.subtopic || '', {
+        title: c.title || 'Untitled', creator: c.creator || '', url: c.url || '', cover: c.cover || '',
+        description: c.description || '', lengthText: c.lengthText || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('enthub:stories').forEach(function (c) {
+      var cat = enthubStoriesMap[c.subtopic] || 'immersive';
+      addIfNew('enthub:stories', c.id, cat, '', {
+        title: c.title || 'Untitled', creator: c.creator || '', url: c.url || '', cover: c.cover || '',
+        description: c.description || '', lengthText: c.lengthText || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('enthub:entertainment').forEach(function (c) {
+      addIfNew('enthub:entertainment', c.id, 'video', c.subtopic || '', {
+        title: c.title || 'Untitled', creator: c.creator || '', url: c.url || '', cover: c.cover || '',
+        description: c.description || '', lengthText: c.lengthText || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+    readOtherHubKey('enthub:playlists').forEach(function (c) {
+      var cat = c.subtopic === 'Binaural Beats' ? 'immersive' : 'music';
+      addIfNew('enthub:playlists', c.id, cat, c.subtopic || '', {
+        title: c.title || 'Untitled', creator: c.creator || '', url: c.url || '', cover: c.cover || '',
+        description: c.description || '', lengthText: c.lengthText || '', rating: Number(c.rating) || 0,
+        favorite: !!c.favorite, createdAt: typeof c.createdAt === 'number' ? c.createdAt : Date.now()
+      });
+    });
+
+    return added;
+  }
+
+  // ============================================================
   // PUBLIC API
   // ============================================================
   global.MediaverseData = {
@@ -654,6 +808,7 @@
     notesFor: notesFor, addNoteSection: addNoteSection, moveNoteSection: moveNoteSection,
     getHero: getHero, saveHero: saveHero,
     getHomeLayout: getHomeLayout, saveHomeLayout: saveHomeLayout,
-    seedDefaultData: seedDefaultData, seedIfEmpty: seedIfEmpty, isEmptyEverywhere: isEmptyEverywhere
+    seedDefaultData: seedDefaultData, seedIfEmpty: seedIfEmpty, isEmptyEverywhere: isEmptyEverywhere,
+    importFromOtherHubs: importFromOtherHubs
   };
 })(window);
