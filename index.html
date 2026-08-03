@@ -1168,6 +1168,15 @@
     <div class="bs-panel" data-scipanel="checklist">
       <div class="bs-section-head">
         <div>
+          <div class="bs-section-title" style="font-size:18px;">Self-Care Tips</div>
+          <div class="bs-section-sub">Reminders worth keeping in view — not a checklist, just things to remember.</div>
+        </div>
+      </div>
+      <div class="bs-quickadd-row"><input type="text" id="sciTipsAddInput" placeholder="Add a tip, press Enter…"></div>
+      <div class="bs-list" id="sciTipsList" style="margin-top:14px;"></div>
+
+      <div class="bs-section-head" style="margin-top:28px;">
+        <div>
           <div class="bs-section-title">Self-Care Checklist</div>
           <div class="bs-section-sub">Small, repeatable things worth doing for yourself.</div>
         </div>
@@ -3995,7 +4004,7 @@ function switchSciTab(tab) {
 }
 function renderSciTabContent() {
   if (!MSC) return;
-  if (activeSciTab === 'checklist') renderSciChecklist();
+  if (activeSciTab === 'checklist') { renderSciTips(); renderSciChecklist(); }
   else if (activeSciTab === 'journal') renderSciJournal();
   else if (activeSciTab === 'meditation') { renderSciMeditations(); renderSciBreathwork(); }
 }
@@ -4031,6 +4040,36 @@ function addSciChecklistItem() {
   MSC.ChecklistItems.add({ text: text, order: MSC.nextOrder(MSC.ChecklistItems.list()) });
   input.value = '';
   renderSciChecklist();
+}
+
+// ---------- SELF-CARE TIPS ----------
+function renderSciTips() {
+  const box = $('sciTipsList'); if (!box) return;
+  const sorted = MSC.tipsSorted();
+  box.innerHTML = '';
+  if (!sorted.length) { box.innerHTML = '<div class="bs-empty">No tips yet.</div>'; }
+  sorted.forEach(function (item, i) {
+    const row = document.createElement('div'); row.className = 'bs-card sci-check-row';
+    const text = document.createElement('span'); text.className = 'sci-check-text'; text.textContent = item.text;
+    const actions = document.createElement('div'); actions.className = 'bs-card-actions';
+    const upBtn = document.createElement('button'); upBtn.type = 'button'; upBtn.className = 'bs-icon-btn'; upBtn.textContent = '▲'; upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Tips, item.id, -1); renderSciTips(); });
+    const downBtn = document.createElement('button'); downBtn.type = 'button'; downBtn.className = 'bs-icon-btn'; downBtn.textContent = '▼'; downBtn.disabled = i === sorted.length - 1;
+    downBtn.addEventListener('click', function () { MSC.moveInCollection(MSC.Tips, item.id, 1); renderSciTips(); });
+    const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'bs-icon-btn is-del'; delBtn.textContent = '✕';
+    delBtn.addEventListener('click', function () { MSC.Tips.remove(item.id); renderSciTips(); });
+    actions.appendChild(upBtn); actions.appendChild(downBtn); actions.appendChild(delBtn);
+    row.appendChild(text); row.appendChild(actions);
+    box.appendChild(row);
+  });
+}
+function addSciTipItem() {
+  const input = $('sciTipsAddInput');
+  const text = input.value.trim();
+  if (!text) return;
+  MSC.Tips.add({ text: text, order: MSC.nextOrder(MSC.Tips.list()) });
+  input.value = '';
+  renderSciTips();
 }
 
 // ---------- JOURNAL ----------
@@ -4336,7 +4375,7 @@ function tickSciPacer(){
 }
 
 function resetSelfCare() {
-  if (!confirm('Reset Self-Care (Checklist, Journal, Meditations, and Breathwork) to its defaults? This deletes everything currently in it.')) return;
+  if (!confirm('Reset Self-Care (Checklist, Tips, Journal, Meditations, and Breathwork) to its defaults? This deletes everything currently in it.')) return;
   MSC.seedDefaultData();
   renderSciTabContent();
 }
@@ -4376,6 +4415,7 @@ function bootSelfCareMain() {
   $('sciResetBtn').addEventListener('click', resetSelfCare);
 
   $('sciChecklistAddInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') addSciChecklistItem(); });
+  $('sciTipsAddInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') addSciTipItem(); });
 
   $('sciNewBraindumpBtn').addEventListener('click', function () { newSciJournalEntry('braindump'); });
   $('sciNewGratitudeBtn').addEventListener('click', function () { newSciJournalEntry('gratitude'); });

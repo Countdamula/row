@@ -1,0 +1,2654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0D0D0D">
+<title>Learning Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="learning-dashboard-data.js" defer></script>
+<style>
+/* =============================================================
+   Learning Dashboard — a standalone page, genuinely separate from the
+   pre-existing learning.html ("Learning & Knowledge Hub" — Topics +
+   Resources gallery, gold theme). This is a much larger system (Home /
+   Learning Dashboard / Active Topics / Daily Notes / Knowledge Maps /
+   Personal Frameworks / Master Notes / Research Library / Analytics /
+   Settings) with its own explicit palette — crimson/pink on near-black —
+   a literal instruction given up front, same "one-off aesthetic
+   exception" category as every other themed page in this app (CLAUDE.md
+   §6 / DO NOT MODIFY rule 2), scoped entirely to this file's own --lhd-*
+   tokens. Vanilla HTML/CSS/JS, no build step, no framework — this repo
+   has none anywhere (see CLAUDE.md §1) — but built to *read* like a
+   premium Notion/Linear/Raycast/Arc-style tool: glassmorphic cards,
+   glowing accents, hand-rolled charts/animations (this app's own
+   established "no charting/animation library" convention).
+   ============================================================= */
+:root, [data-lhd-theme="dark"] {
+  --lhd-bg: #0D0D0D;
+  --lhd-bg-deep: #060606;
+  --lhd-surface: #171717;
+  --lhd-surface-2: #1c1c1c;
+  --lhd-surface-hover: #212121;
+  --lhd-border: rgba(255,255,255,0.08);
+  --lhd-border-strong: rgba(255,255,255,0.16);
+  --lhd-text: #FFFFFF;
+  --lhd-text-dim: rgba(255,255,255,0.66);
+  --lhd-text-mute: rgba(255,255,255,0.40);
+  --lhd-accent: #E11D48;
+  --lhd-accent2: #F472B6;
+  --lhd-accent-rgb: 225,29,72;
+  --lhd-accent2-rgb: 244,114,182;
+  --lhd-good: #34D399;
+  --lhd-warn: #F59E0B;
+  --lhd-bad: #FB7185;
+  --lhd-info: #60A5FA;
+  --lhd-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+[data-lhd-theme="light"] {
+  --lhd-bg: #F4F4F6;
+  --lhd-bg-deep: #E9E9EC;
+  --lhd-surface: #FFFFFF;
+  --lhd-surface-2: #FAFAFB;
+  --lhd-surface-hover: #F0EFF2;
+  --lhd-border: rgba(20,20,25,0.09);
+  --lhd-border-strong: rgba(20,20,25,0.16);
+  --lhd-text: #121215;
+  --lhd-text-dim: rgba(18,18,21,0.68);
+  --lhd-text-mute: rgba(18,18,21,0.46);
+  --lhd-accent: #E11D48;
+  --lhd-accent2: #db2f83;
+  --lhd-accent-rgb: 225,29,72;
+  --lhd-accent2-rgb: 219,47,131;
+  --lhd-good: #059669;
+  --lhd-warn: #b45309;
+  --lhd-bad: #dc2626;
+  --lhd-info: #2563eb;
+  --lhd-shadow: 0 24px 50px rgba(20,20,30,0.12);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--lhd-bg); }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--lhd-text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+::selection { background: rgba(var(--lhd-accent-rgb), 0.35); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--lhd-border-strong); border-radius: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+a { color: inherit; }
+button { font-family: inherit; }
+h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ---------- ambient background glow ---------- */
+.lhd-bg-glow {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(700px 500px at 12% -6%, rgba(var(--lhd-accent-rgb), 0.16), transparent 60%),
+    radial-gradient(600px 480px at 100% 8%, rgba(var(--lhd-accent2-rgb), 0.10), transparent 60%),
+    radial-gradient(900px 700px at 50% 120%, rgba(var(--lhd-accent-rgb), 0.06), transparent 60%);
+}
+
+/* ---------- app shell ---------- */
+.lhd-app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+.lhd-sidebar {
+  width: 250px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: rgba(15,15,16,0.6);
+  border-right: 1px solid var(--lhd-border);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1);
+}
+[data-lhd-theme="light"] .lhd-sidebar { background: rgba(255,255,255,0.72); }
+.lhd-sb-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 62px 18px 20px;
+  border-bottom: 1px solid var(--lhd-border);
+}
+.lhd-sb-mark {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(155deg, var(--lhd-accent) 0%, var(--lhd-accent2) 100%);
+  box-shadow: 0 6px 18px rgba(var(--lhd-accent-rgb), 0.4);
+  font-size: 16px;
+}
+.lhd-sb-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.lhd-sb-title { font-size: 14.5px; font-weight: 800; }
+.lhd-sb-subtitle { font-size: 10px; color: var(--lhd-text-mute); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.lhd-sb-nav { flex: 1 1 auto; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.lhd-sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 10px;
+  text-decoration: none; color: var(--lhd-text-dim);
+  font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.lhd-sb-item:hover { background: var(--lhd-surface-hover); color: var(--lhd-text); }
+.lhd-sb-item:active { transform: scale(0.98); }
+.lhd-sb-item.active {
+  background: linear-gradient(180deg, rgba(var(--lhd-accent-rgb),0.22) 0%, rgba(var(--lhd-accent-rgb),0.08) 100%);
+  color: #fff; border-color: rgba(var(--lhd-accent-rgb), 0.3);
+}
+[data-lhd-theme="light"] .lhd-sb-item.active { color: var(--lhd-accent); }
+.lhd-sb-item.active::before {
+  content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 3px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--lhd-accent), var(--lhd-accent2));
+  box-shadow: 0 0 10px rgba(var(--lhd-accent-rgb), 0.7);
+}
+.lhd-sb-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.lhd-sb-footer { padding: 12px 18px 18px; border-top: 1px solid var(--lhd-border); }
+.lhd-sb-streak {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--lhd-text-mute);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+.lhd-sb-streak b { color: var(--lhd-accent2); font-size: 13px; }
+
+.lhd-workspace { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+
+.lhd-header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 26px; padding-left: 60px;
+  background: rgba(13,13,13,0.55);
+  backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid var(--lhd-border);
+}
+[data-lhd-theme="light"] .lhd-header { background: rgba(244,244,246,0.7); }
+.lhd-sb-toggle { display: none; }
+.lhd-search-wrap {
+  flex: 1 1 auto; max-width: 420px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 13px; border-radius: 11px;
+  background: var(--lhd-surface); border: 1px solid var(--lhd-border);
+  color: var(--lhd-text-mute); cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.lhd-search-wrap:hover { border-color: var(--lhd-border-strong); }
+.lhd-search-wrap span.lhd-kbd {
+  margin-left: auto; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px; padding: 2px 6px; border-radius: 6px;
+  background: var(--lhd-surface-2); border: 1px solid var(--lhd-border-strong); color: var(--lhd-text-mute);
+}
+.lhd-search-label { font-size: 13px; }
+.lhd-header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.lhd-icon-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--lhd-surface); border: 1px solid var(--lhd-border); color: var(--lhd-text-dim);
+  cursor: pointer; font-size: 15px; transition: all 0.15s ease;
+}
+.lhd-icon-btn:hover { background: var(--lhd-surface-hover); border-color: var(--lhd-border-strong); color: var(--lhd-text); transform: translateY(-1px); }
+.lhd-header-title { font-size: 13.5px; font-weight: 700; color: var(--lhd-text-mute); display: none; }
+
+.lhd-main { flex: 1 1 auto; padding: 26px 30px 70px; max-width: 1320px; width: 100%; margin: 0 auto; }
+.lhd-section { display: none; animation: lhdFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.lhd-section.active { display: block; }
+@keyframes lhdFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.lhd-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.lhd-page-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lhd-accent2); margin-bottom: 6px; }
+.lhd-page-title { font-size: 25px; font-weight: 800; }
+.lhd-page-subtext { font-size: 13px; color: var(--lhd-text-mute); margin-top: 4px; max-width: 560px; }
+
+/* ---------- shared components ---------- */
+.lhd-card {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid var(--lhd-border);
+  border-radius: 16px;
+  backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset;
+  transition: transform 0.22s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s ease, box-shadow 0.22s ease;
+}
+[data-lhd-theme="light"] .lhd-card { background: var(--lhd-surface); box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset; }
+.lhd-card.lhd-hoverable:hover { transform: translateY(-4px); border-color: rgba(var(--lhd-accent-rgb), 0.35); box-shadow: var(--lhd-shadow), 0 0 0 1px rgba(var(--lhd-accent-rgb),0.15); }
+.lhd-card-pad { padding: 18px; }
+
+.lhd-grid { display: grid; gap: 16px; }
+.lhd-grid-3 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.lhd-grid-4 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.lhd-grid-2 { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+
+.lhd-btn {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  padding: 9px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+  border: 1px solid var(--lhd-border-strong); background: var(--lhd-surface); color: var(--lhd-text);
+  cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+}
+.lhd-btn:hover { background: var(--lhd-surface-hover); transform: translateY(-1px); }
+.lhd-btn:active { transform: translateY(0) scale(0.98); }
+.lhd-btn-primary {
+  background: linear-gradient(135deg, var(--lhd-accent) 0%, var(--lhd-accent2) 100%);
+  border-color: transparent; color: #fff;
+  box-shadow: 0 8px 22px rgba(var(--lhd-accent-rgb), 0.35);
+}
+.lhd-btn-primary:hover { box-shadow: 0 10px 28px rgba(var(--lhd-accent-rgb), 0.5); filter: brightness(1.05); }
+.lhd-btn-ghost { background: transparent; border-color: transparent; color: var(--lhd-text-mute); }
+.lhd-btn-ghost:hover { background: var(--lhd-surface-hover); color: var(--lhd-text); }
+.lhd-btn-danger { border-color: rgba(251,113,133,0.4); color: var(--lhd-bad); background: rgba(251,113,133,0.08); }
+.lhd-btn-danger:hover { background: rgba(251,113,133,0.16); }
+.lhd-btn-sm { padding: 6px 11px; font-size: 11.5px; border-radius: 8px; }
+.lhd-btn-icon-sm {
+  width: 28px; height: 28px; border-radius: 8px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--lhd-surface-2); border: 1px solid var(--lhd-border); color: var(--lhd-text-dim); cursor: pointer;
+}
+.lhd-btn-icon-sm:hover { background: var(--lhd-surface-hover); color: var(--lhd-text); }
+
+.lhd-chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.lhd-chip {
+  padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--lhd-surface); border: 1px solid var(--lhd-border); color: var(--lhd-text-dim);
+  cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+}
+.lhd-chip:hover { border-color: var(--lhd-border-strong); }
+.lhd-chip.active {
+  background: linear-gradient(135deg, rgba(var(--lhd-accent-rgb),0.9), rgba(var(--lhd-accent2-rgb),0.85));
+  border-color: transparent; color: #fff;
+}
+.lhd-tag {
+  display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 7px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em;
+  background: var(--lhd-surface-2); border: 1px solid var(--lhd-border); color: var(--lhd-text-mute);
+}
+
+.lhd-progress-bar { height: 7px; border-radius: 999px; background: var(--lhd-surface-2); overflow: hidden; position: relative; }
+.lhd-progress-fill {
+  height: 100%; border-radius: 999px; width: 0%;
+  background: linear-gradient(90deg, var(--lhd-accent), var(--lhd-accent2));
+  box-shadow: 0 0 10px rgba(var(--lhd-accent-rgb), 0.6);
+  transition: width 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+
+input[type="text"], input[type="number"], input[type="date"], input[type="url"], input[type="color"], select, textarea {
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px;
+  background: var(--lhd-surface-2); border: 1px solid var(--lhd-border-strong); border-radius: 10px;
+  color: var(--lhd-text); padding: 9px 12px; outline: none; transition: border-color 0.15s ease, background 0.15s ease;
+}
+textarea { resize: vertical; min-height: 70px; line-height: 1.55; font-family: inherit; }
+input:focus, select:focus, textarea:focus { border-color: var(--lhd-accent); background: var(--lhd-surface); }
+::placeholder { color: var(--lhd-text-mute); }
+label.lhd-field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--lhd-text-mute); margin-bottom: 6px; }
+.lhd-field { margin-bottom: 14px; }
+.lhd-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lhd-checkbox-row { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--lhd-text-dim); cursor: pointer; }
+.lhd-checkbox-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--lhd-accent); cursor: pointer; }
+
+.lhd-empty { text-align: center; padding: 50px 20px; color: var(--lhd-text-mute); }
+.lhd-empty-icon { font-size: 34px; margin-bottom: 10px; opacity: 0.7; }
+.lhd-empty-title { font-size: 14px; font-weight: 700; color: var(--lhd-text-dim); margin-bottom: 4px; }
+.lhd-empty-sub { font-size: 12.5px; }
+
+/* ---------- skeleton loading ---------- */
+.lhd-skel { border-radius: 12px; background: linear-gradient(100deg, var(--lhd-surface) 30%, var(--lhd-surface-hover) 50%, var(--lhd-surface) 70%); background-size: 200% 100%; animation: lhdShimmer 1.4s ease-in-out infinite; }
+@keyframes lhdShimmer { to { background-position: -200% 0; } }
+
+/* ---------- modal ---------- */
+.lhd-modal-bg {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(5,5,5,0.62); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+  opacity: 0; transition: opacity 0.2s ease;
+}
+.lhd-modal-bg.show { display: flex; opacity: 1; }
+.lhd-modal {
+  width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+  background: rgba(20,20,21,0.92); border: 1px solid var(--lhd-border-strong); border-radius: 18px;
+  padding: 24px; box-shadow: var(--lhd-shadow);
+  transform: translateY(10px) scale(0.98); transition: transform 0.22s cubic-bezier(0.16,1,0.3,1);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+[data-lhd-theme="light"] .lhd-modal { background: #fff; }
+.lhd-modal-bg.show .lhd-modal { transform: translateY(0) scale(1); }
+.lhd-modal-wide { max-width: 880px; }
+.lhd-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.lhd-modal-title { font-size: 17px; font-weight: 800; }
+.lhd-modal-close { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--lhd-border); background: var(--lhd-surface-2); color: var(--lhd-text-dim); cursor: pointer; font-size: 14px; }
+.lhd-modal-close:hover { background: var(--lhd-surface-hover); color: var(--lhd-text); }
+.lhd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--lhd-border); }
+.lhd-modal-actions-split { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--lhd-border); }
+
+/* ---------- topic detail full page ---------- */
+.lhd-topic-page-bg {
+  position: fixed; inset: 0; z-index: 2900; background: var(--lhd-bg);
+  display: none; overflow-y: auto;
+}
+.lhd-topic-page-bg.show { display: block; }
+.lhd-tp-header { padding: 22px 30px; border-bottom: 1px solid var(--lhd-border); display: flex; align-items: center; gap: 16px; position: sticky; top: 0; background: rgba(13,13,13,0.85); backdrop-filter: blur(14px); z-index: 5; }
+[data-lhd-theme="light"] .lhd-tp-header { background: rgba(244,244,246,0.88); }
+.lhd-tp-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; box-shadow: 0 8px 22px rgba(0,0,0,0.3); }
+.lhd-tp-title-wrap { flex: 1 1 auto; min-width: 0; }
+.lhd-tp-title { font-size: 21px; font-weight: 800; }
+.lhd-tp-meta { font-size: 12px; color: var(--lhd-text-mute); margin-top: 3px; }
+.lhd-tp-body { padding: 24px 30px 80px; max-width: 1100px; margin: 0 auto; }
+.lhd-tp-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; border-bottom: 1px solid var(--lhd-border); padding-bottom: 12px; }
+.lhd-tp-tab { padding: 8px 14px; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: var(--lhd-text-mute); background: transparent; border: 1px solid transparent; cursor: pointer; }
+.lhd-tp-tab:hover { background: var(--lhd-surface-hover); color: var(--lhd-text); }
+.lhd-tp-tab.active { background: rgba(var(--lhd-accent-rgb),0.16); color: #fff; border-color: rgba(var(--lhd-accent-rgb),0.3); }
+[data-lhd-theme="light"] .lhd-tp-tab.active { color: var(--lhd-accent); }
+.lhd-tp-panel { display: none; }
+.lhd-tp-panel.active { display: block; animation: lhdFadeUp 0.3s ease both; }
+
+/* ---------- stat tiles ---------- */
+.lhd-stat-tile { padding: 18px; }
+.lhd-stat-icon { font-size: 20px; margin-bottom: 10px; opacity: 0.9; }
+.lhd-stat-value { font-size: 26px; font-weight: 800; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.lhd-stat-label { font-size: 11.5px; color: var(--lhd-text-mute); margin-top: 3px; font-weight: 600; }
+
+/* ---------- topic dashboard card ---------- */
+.lhd-topic-card { padding: 20px; display: flex; flex-direction: column; gap: 12px; cursor: pointer; }
+.lhd-tc-top { display: flex; align-items: center; gap: 12px; }
+.lhd-tc-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.lhd-tc-title { font-size: 15.5px; font-weight: 800; }
+.lhd-tc-week { font-size: 11px; color: var(--lhd-text-mute); font-weight: 600; }
+.lhd-tc-pct { margin-left: auto; font-size: 20px; font-weight: 800; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.lhd-tc-question { font-size: 12px; color: var(--lhd-text-dim); background: var(--lhd-surface-2); border-radius: 10px; padding: 10px 12px; border-left: 2px solid var(--lhd-accent); }
+.lhd-tc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.lhd-tc-hours { font-size: 11.5px; color: var(--lhd-text-mute); }
+.lhd-tc-resume { font-size: 12px; font-weight: 800; color: var(--lhd-accent2); display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- home ---------- */
+.lhd-home-hero {
+  padding: 26px 26px; margin-bottom: 22px;
+  background: linear-gradient(135deg, rgba(var(--lhd-accent-rgb),0.16), rgba(var(--lhd-accent2-rgb),0.06));
+  border: 1px solid rgba(var(--lhd-accent-rgb),0.25);
+}
+.lhd-home-hero-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--lhd-accent2); }
+.lhd-home-hero-title { font-size: 26px; font-weight: 800; margin-top: 6px; }
+.lhd-home-hero-sub { font-size: 13px; color: var(--lhd-text-dim); margin-top: 8px; max-width: 560px; }
+.lhd-quick-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+.lhd-checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--lhd-border); }
+.lhd-checklist-item:last-child { border-bottom: none; }
+.lhd-check-circle {
+  width: 20px; height: 20px; border-radius: 999px; border: 2px solid var(--lhd-border-strong);
+  flex-shrink: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; color: transparent; transition: all 0.15s ease;
+}
+.lhd-check-circle.done { background: linear-gradient(135deg, var(--lhd-accent), var(--lhd-accent2)); border-color: transparent; color: #fff; }
+.lhd-checklist-text { font-size: 13px; flex: 1 1 auto; }
+.lhd-checklist-item.lhd-done .lhd-checklist-text { color: var(--lhd-text-mute); text-decoration: line-through; }
+
+.lhd-recent-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; cursor: pointer; border-radius: 10px; }
+.lhd-recent-row:hover { background: var(--lhd-surface-hover); }
+.lhd-recent-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.lhd-recent-title { font-size: 13px; font-weight: 700; }
+.lhd-recent-time { font-size: 11px; color: var(--lhd-text-mute); }
+
+/* ---------- timer ---------- */
+.lhd-timer-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 10px 0 4px; }
+.lhd-timer-ring-wrap { position: relative; width: 168px; height: 168px; }
+.lhd-timer-ring-wrap svg { transform: rotate(-90deg); }
+.lhd-timer-track { fill: none; stroke: var(--lhd-surface-2); stroke-width: 8; }
+.lhd-timer-fill { fill: none; stroke: url(#lhdTimerGrad); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.3s linear; }
+.lhd-timer-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.lhd-timer-digits { font-size: 27px; font-weight: 800; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; transition: color 0.2s ease; }
+.lhd-timer-digits.flash { color: var(--lhd-accent2); animation: lhdDigitFlash 0.5s ease; }
+@keyframes lhdDigitFlash { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.14); } }
+.lhd-timer-fill.lhd-pulsing { animation: lhdRingPulse 2s ease-in-out infinite; }
+@keyframes lhdRingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.lhd-timer-phase { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lhd-text-mute); margin-top: 2px; }
+.lhd-timer-controls { display: flex; gap: 8px; }
+.lhd-timer-mode-row { display: flex; gap: 6px; }
+
+/* ---------- command palette ---------- */
+.lhd-cmdk-bg { align-items: flex-start !important; padding-top: 12vh !important; }
+.lhd-cmdk { max-width: 620px; padding: 0; overflow: hidden; }
+.lhd-cmdk-input-wrap { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--lhd-border); }
+.lhd-cmdk-input { border: none !important; background: transparent !important; font-size: 15px !important; padding: 0 !important; }
+.lhd-cmdk-input:focus { border: none !important; }
+.lhd-cmdk-results { max-height: 50vh; overflow-y: auto; padding: 8px; }
+.lhd-cmdk-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 13px; }
+.lhd-cmdk-item.sel { background: rgba(var(--lhd-accent-rgb),0.18); }
+.lhd-cmdk-item-icon { font-size: 15px; width: 20px; text-align: center; }
+.lhd-cmdk-item-label { font-weight: 600; }
+.lhd-cmdk-item-tag { margin-left: auto; font-size: 10px; color: var(--lhd-text-mute); text-transform: uppercase; letter-spacing: 0.05em; }
+.lhd-cmdk-empty { padding: 30px; text-align: center; color: var(--lhd-text-mute); font-size: 13px; }
+
+/* ---------- knowledge map canvas ---------- */
+.lhd-map-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.lhd-map-canvas-wrap { position: relative; height: 560px; border-radius: 16px; overflow: hidden; background: var(--lhd-surface); border: 1px solid var(--lhd-border); background-image: radial-gradient(var(--lhd-border-strong) 1px, transparent 1px); background-size: 22px 22px; }
+.lhd-map-canvas { position: absolute; inset: 0; transform-origin: 0 0; cursor: grab; }
+.lhd-map-canvas.panning { cursor: grabbing; }
+.lhd-map-node {
+  position: absolute; min-width: 120px; max-width: 220px; padding: 10px 14px; border-radius: 12px;
+  background: var(--lhd-surface-2); border: 2px solid var(--lhd-border-strong); font-size: 12.5px; font-weight: 700;
+  cursor: grab; user-select: none; box-shadow: 0 6px 18px rgba(0,0,0,0.35); transition: box-shadow 0.15s ease;
+}
+.lhd-map-node:hover { box-shadow: 0 0 0 3px rgba(var(--lhd-accent-rgb),0.25), 0 6px 18px rgba(0,0,0,0.35); }
+.lhd-map-node.connecting { outline: 2px dashed var(--lhd-accent2); }
+.lhd-map-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.lhd-map-edge-label { font-size: 10px; fill: var(--lhd-text-mute); }
+.lhd-map-zoom-label { font-family: ui-monospace, monospace; font-size: 11px; color: var(--lhd-text-mute); min-width: 40px; text-align: center; }
+
+/* ---------- research library / rows ---------- */
+.lhd-research-group { margin-bottom: 26px; }
+.lhd-research-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.lhd-research-group-title { font-size: 13px; font-weight: 800; }
+.lhd-research-group-count { font-size: 11px; color: var(--lhd-text-mute); font-family: ui-monospace, monospace; }
+.lhd-research-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.lhd-research-status-dot { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+.lhd-research-title { font-size: 13px; font-weight: 700; }
+.lhd-research-meta { font-size: 11.5px; color: var(--lhd-text-mute); margin-top: 2px; }
+.lhd-research-actions { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+
+/* ---------- frameworks ---------- */
+.lhd-fw-card { padding: 20px; cursor: pointer; }
+.lhd-fw-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 12px; }
+.lhd-fw-title { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.lhd-fw-desc { font-size: 12.5px; color: var(--lhd-text-mute); line-height: 1.5; }
+.lhd-fw-sections-count { font-size: 11px; color: var(--lhd-text-mute); margin-top: 12px; }
+.lhd-pf-section { background: var(--lhd-surface-2); border: 1px solid var(--lhd-border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.lhd-pf-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lhd-pf-section-title-input { font-weight: 700; border: none !important; background: transparent !important; padding: 0 !important; font-size: 13px !important; }
+.lhd-pf-section-body { border: none !important; background: transparent !important; padding: 0 !important; font-size: 12.5px !important; min-height: 50px; }
+
+/* ---------- master notes ---------- */
+.lhd-mn-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+.lhd-mn-list { display: flex; flex-direction: column; gap: 4px; max-height: 74vh; overflow-y: auto; padding-right: 4px; }
+.lhd-mn-list-item { padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--lhd-text-dim); }
+.lhd-mn-list-item:hover { background: var(--lhd-surface-hover); }
+.lhd-mn-list-item.active { background: rgba(var(--lhd-accent-rgb),0.16); color: #fff; }
+[data-lhd-theme="light"] .lhd-mn-list-item.active { color: var(--lhd-accent); }
+.lhd-mn-list-item-topic { font-size: 10px; color: var(--lhd-text-mute); font-weight: 500; margin-top: 2px; }
+.lhd-mn-reading { padding: 26px 30px; min-height: 400px; }
+.lhd-mn-reading h3 { font-size: 22px; margin-bottom: 14px; }
+.lhd-mn-reading h4 { font-size: 17px; margin: 20px 0 8px; }
+.lhd-mn-reading h5 { font-size: 14px; margin: 16px 0 6px; color: var(--lhd-accent2); }
+.lhd-mn-reading p { font-size: 13.5px; line-height: 1.75; color: var(--lhd-text-dim); margin: 0 0 12px; }
+.lhd-mn-reading ul, .lhd-mn-reading ol { font-size: 13.5px; line-height: 1.75; color: var(--lhd-text-dim); padding-left: 22px; margin: 0 0 12px; }
+.lhd-mn-reading blockquote { border-left: 3px solid var(--lhd-accent); padding: 4px 0 4px 16px; margin: 0 0 14px; color: var(--lhd-text-mute); font-style: italic; }
+.lhd-mn-reading code { background: var(--lhd-surface-2); padding: 1px 6px; border-radius: 5px; font-family: ui-monospace, monospace; font-size: 12px; }
+.lhd-backlink { color: var(--lhd-accent2); font-weight: 700; cursor: pointer; border-bottom: 1px dashed rgba(var(--lhd-accent2-rgb),0.5); }
+.lhd-mn-toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.lhd-mn-toc { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--lhd-border); }
+.lhd-mn-toc-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lhd-text-mute); margin-bottom: 8px; }
+.lhd-mn-toc-item { font-size: 12px; color: var(--lhd-text-dim); padding: 4px 0; cursor: pointer; }
+.lhd-mn-toc-item:hover { color: var(--lhd-accent2); }
+.lhd-mn-backlinks { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--lhd-border); }
+.lhd-mn-search { margin-bottom: 10px; }
+
+/* ---------- analytics ---------- */
+.lhd-chart-card { padding: 20px; }
+.lhd-chart-title { font-size: 13px; font-weight: 800; margin-bottom: 16px; }
+.lhd-bar-chart { display: flex; align-items: flex-end; gap: 10px; height: 140px; }
+.lhd-bar-col { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 8px; }
+.lhd-bar { width: 100%; max-width: 34px; border-radius: 7px 7px 3px 3px; background: linear-gradient(180deg, var(--lhd-accent2), var(--lhd-accent)); min-height: 3px; transition: height 0.6s cubic-bezier(0.16,1,0.3,1); box-shadow: 0 0 12px rgba(var(--lhd-accent-rgb),0.35); }
+.lhd-bar-label { font-size: 10px; color: var(--lhd-text-mute); font-weight: 600; }
+.lhd-donut-wrap { display: flex; align-items: center; gap: 22px; }
+.lhd-donut { width: 128px; height: 128px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0; }
+.lhd-donut::before { content: ''; position: absolute; inset: 14px; border-radius: 50%; background: var(--lhd-surface); }
+[data-lhd-theme="light"] .lhd-donut::before { background: #fff; }
+.lhd-donut-center { position: relative; z-index: 1; text-align: center; }
+.lhd-donut-pct { font-size: 22px; font-weight: 800; }
+.lhd-donut-sub { font-size: 10px; color: var(--lhd-text-mute); }
+.lhd-status-breakdown { display: flex; flex-direction: column; gap: 8px; }
+.lhd-status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.lhd-status-dot { width: 9px; height: 9px; border-radius: 999px; }
+.lhd-status-count { margin-left: auto; font-weight: 700; font-family: ui-monospace, monospace; }
+
+/* ---------- settings ---------- */
+.lhd-settings-section { padding: 22px; margin-bottom: 16px; }
+.lhd-settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--lhd-border); gap: 16px; }
+.lhd-settings-row:last-child { border-bottom: none; }
+.lhd-settings-label { font-size: 13px; font-weight: 700; }
+.lhd-settings-desc { font-size: 11.5px; color: var(--lhd-text-mute); margin-top: 2px; }
+.lhd-toggle { width: 42px; height: 24px; border-radius: 999px; background: var(--lhd-surface-2); border: 1px solid var(--lhd-border-strong); position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s ease; }
+.lhd-toggle.on { background: linear-gradient(135deg, var(--lhd-accent), var(--lhd-accent2)); border-color: transparent; }
+.lhd-toggle-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.lhd-toggle.on .lhd-toggle-knob { transform: translateX(18px); }
+.lhd-swatch-row { display: flex; gap: 8px; }
+.lhd-swatch { width: 30px; height: 30px; border-radius: 9px; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s ease; }
+.lhd-swatch:hover { transform: scale(1.1); }
+.lhd-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--lhd-accent); }
+
+/* ---------- boot error banner ---------- */
+#lhdBootErrorBanner { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #3a0a0a; color: #ffdede; padding: 14px 18px; font: 12.5px/1.5 ui-monospace, monospace; white-space: pre-wrap; max-height: 50vh; overflow: auto; border-bottom: 3px solid var(--lhd-bad); display: none; }
+#lhdSyncStatus { font-size: 10.5px; color: var(--lhd-text-mute); font-family: ui-monospace, monospace; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px) {
+  .lhd-sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 2500; transform: translateX(-100%); width: 260px; }
+  .lhd-sidebar.lhd-sb-open { transform: translateX(0); }
+  .lhd-sb-toggle { display: inline-flex; }
+  .lhd-header { padding-left: 60px; }
+  .lhd-search-label { display: none; }
+  .lhd-search-wrap { max-width: 44px; padding: 9px; justify-content: center; }
+  .lhd-search-wrap .lhd-kbd { display: none; }
+  .lhd-mn-layout { grid-template-columns: 1fr; }
+  .lhd-mn-list { max-height: 220px; }
+}
+@media (max-width: 620px) {
+  .lhd-main { padding: 18px 14px 60px; }
+  .lhd-field-row { grid-template-columns: 1fr; }
+  .lhd-tp-header, .lhd-tp-body { padding-left: 16px; padding-right: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="lhd-bg-glow"></div>
+<div class="lhd-app">
+
+  <aside class="lhd-sidebar" id="lhdSidebar">
+    <div class="lhd-sb-brand">
+      <span class="lhd-sb-mark">🧠</span>
+      <span class="lhd-sb-brand-text">
+        <span class="lhd-sb-title">Learning Dashboard</span>
+        <span class="lhd-sb-subtitle">Personal Learning OS</span>
+      </span>
+    </div>
+    <nav class="lhd-sb-nav" id="lhdSbNav"></nav>
+    <div class="lhd-sb-footer">
+      <div class="lhd-sb-streak">🔥 <b id="lhdSbStreak">0</b> day streak</div>
+      <div id="lhdSyncStatus" style="margin-top:6px;">Changes save automatically</div>
+    </div>
+  </aside>
+
+  <div class="lhd-workspace">
+    <header class="lhd-header">
+      <button type="button" class="lhd-icon-btn lhd-sb-toggle" id="lhdSbToggleBtn" aria-label="Toggle sidebar">☰</button>
+      <div class="lhd-search-wrap" id="lhdSearchTrigger">
+        <span>🔎</span>
+        <span class="lhd-search-label">Search or jump to…</span>
+        <span class="lhd-kbd">Ctrl K</span>
+      </div>
+      <span class="lhd-header-title" id="lhdHeaderTitle"></span>
+      <div class="lhd-header-actions">
+        <button type="button" class="lhd-icon-btn" id="lhdTimerQuickBtn" title="Study timer">⏱️</button>
+        <button type="button" class="lhd-icon-btn" id="lhdThemeToggleBtn" title="Toggle theme">🌙</button>
+        <button type="button" class="lhd-icon-btn" id="lhdNewTopicBtn" title="New topic">➕</button>
+      </div>
+    </header>
+
+    <main class="lhd-main" id="lhdMain">
+      <!-- sections rendered by JS -->
+      <section class="lhd-section" id="lhd-sec-home"></section>
+      <section class="lhd-section" id="lhd-sec-dashboard"></section>
+      <section class="lhd-section" id="lhd-sec-topics"></section>
+      <section class="lhd-section" id="lhd-sec-daily"></section>
+      <section class="lhd-section" id="lhd-sec-maps"></section>
+      <section class="lhd-section" id="lhd-sec-frameworks"></section>
+      <section class="lhd-section" id="lhd-sec-masternotes"></section>
+      <section class="lhd-section" id="lhd-sec-research"></section>
+      <section class="lhd-section" id="lhd-sec-analytics"></section>
+      <section class="lhd-section" id="lhd-sec-settings"></section>
+    </main>
+  </div>
+</div>
+
+<!-- Topic detail full-page overlay -->
+<div class="lhd-topic-page-bg" id="lhdTopicPageBg">
+  <div class="lhd-tp-header">
+    <button type="button" class="lhd-icon-btn" id="lhdTpBackBtn">←</button>
+    <span class="lhd-tp-icon" id="lhdTpIcon"></span>
+    <div class="lhd-tp-title-wrap">
+      <div class="lhd-tp-title" id="lhdTpTitle"></div>
+      <div class="lhd-tp-meta" id="lhdTpMeta"></div>
+    </div>
+    <button type="button" class="lhd-btn lhd-btn-primary" id="lhdTpStudyBtn">📝 Daily Study Session</button>
+    <button type="button" class="lhd-icon-btn" id="lhdTpEditBtn" title="Edit topic">✎</button>
+  </div>
+  <div class="lhd-tp-body">
+    <div class="lhd-tp-tabs" id="lhdTpTabs"></div>
+    <div id="lhdTpPanels"></div>
+  </div>
+</div>
+
+<!-- Generic form modal -->
+<div class="lhd-modal-bg" id="lhdFormModalBg">
+  <div class="lhd-modal" id="lhdFormModal">
+    <div class="lhd-modal-head">
+      <div class="lhd-modal-title" id="lhdFormModalTitle">—</div>
+      <button type="button" class="lhd-modal-close" id="lhdFormModalCloseBtn">✕</button>
+    </div>
+    <div id="lhdFormModalBody"></div>
+    <div class="lhd-modal-actions-split" id="lhdFormModalActions">
+      <button type="button" class="lhd-btn lhd-btn-danger" id="lhdFormModalDeleteBtn" style="display:none;">Delete</button>
+      <div style="display:flex; gap:9px; margin-left:auto;">
+        <button type="button" class="lhd-btn lhd-btn-ghost" id="lhdFormModalCancelBtn">Cancel</button>
+        <button type="button" class="lhd-btn lhd-btn-primary" id="lhdFormModalSubmitBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Study Widget modal -->
+<div class="lhd-modal-bg" id="lhdDailyModalBg">
+  <div class="lhd-modal lhd-modal-wide">
+    <div class="lhd-modal-head">
+      <div class="lhd-modal-title">📝 Daily Study Session</div>
+      <button type="button" class="lhd-modal-close" id="lhdDailyCloseBtn">✕</button>
+    </div>
+    <div id="lhdDailyBody"></div>
+    <div class="lhd-modal-actions">
+      <button type="button" class="lhd-btn lhd-btn-ghost" id="lhdDailyOpenObsidianBtn">📓 Open in Obsidian</button>
+      <button type="button" class="lhd-btn lhd-btn-primary" id="lhdDailySaveBtn">Save Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Study Timer -->
+<div class="lhd-modal-bg" id="lhdTimerModalBg">
+  <div class="lhd-modal" style="max-width:380px;">
+    <div class="lhd-modal-head">
+      <div class="lhd-modal-title">⏱️ Study Timer</div>
+      <button type="button" class="lhd-modal-close" id="lhdTimerCloseBtn">✕</button>
+    </div>
+    <div class="lhd-field"><label class="lhd-field-label">Topic</label><select id="lhdTimerTopicSelect"></select></div>
+    <div class="lhd-timer-mode-row" style="margin-bottom:14px;">
+      <span class="lhd-chip active" id="lhdTimerModeStopwatch" data-timer-mode="stopwatch">Stopwatch</span>
+      <span class="lhd-chip" id="lhdTimerModePomodoro" data-timer-mode="pomodoro">Pomodoro</span>
+    </div>
+    <div class="lhd-timer-wrap">
+      <div class="lhd-timer-ring-wrap">
+        <svg width="168" height="168" viewBox="0 0 168 168">
+          <defs><linearGradient id="lhdTimerGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--lhd-accent2)"></stop><stop offset="100%" stop-color="var(--lhd-accent)"></stop></linearGradient></defs>
+          <circle class="lhd-timer-track" cx="84" cy="84" r="76"></circle>
+          <circle class="lhd-timer-fill" id="lhdTimerRingFill" cx="84" cy="84" r="76" stroke-dasharray="477.5" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="lhd-timer-center">
+          <div class="lhd-timer-digits" id="lhdTimerDigits">00:00</div>
+          <div class="lhd-timer-phase" id="lhdTimerPhase">Ready</div>
+        </div>
+      </div>
+      <div class="lhd-timer-controls">
+        <button class="lhd-btn lhd-btn-primary" id="lhdTimerStartBtn">▶ Start</button>
+        <button class="lhd-btn" id="lhdTimerPauseBtn" style="display:none;">⏸ Pause</button>
+        <button class="lhd-btn lhd-btn-ghost" id="lhdTimerResetBtn">↺ Reset</button>
+        <button class="lhd-btn lhd-btn-ghost" id="lhdTimerStopSaveBtn">⏹ Stop &amp; Log</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Command palette -->
+<div class="lhd-modal-bg lhd-cmdk-bg" id="lhdCmdkBg">
+  <div class="lhd-modal lhd-cmdk">
+    <div class="lhd-cmdk-input-wrap">
+      <span>🔎</span>
+      <input type="text" class="lhd-cmdk-input" id="lhdCmdkInput" placeholder="Jump to a page, topic, framework, or note…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="lhd-cmdk-results" id="lhdCmdkResults"></div>
+  </div>
+</div>
+
+<div id="lhdBootErrorBanner"></div>
+
+<script>
+(function () {
+'use strict';
+
+function $(id) { return document.getElementById(id); }
+var D; // LearningHubData, assigned in boot()
+
+function showBootErrorBanner(err, context) {
+  try {
+    var banner = $('lhdBootErrorBanner');
+    if (!banner) return;
+    var detail = (context ? '[' + context + '] ' : '') + (err && err.stack ? err.stack : String(err));
+    banner.style.display = 'block';
+    banner.textContent = '⚠ Learning Dashboard failed to load correctly:\n' + detail + '\n';
+    var btn = document.createElement('button');
+    btn.textContent = 'Copy error details';
+    btn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#ff5757;color:#3a0a0a;border:0;border-radius:4px;font-weight:bold;cursor:pointer;';
+    btn.addEventListener('click', function () {
+      try { navigator.clipboard.writeText(detail); btn.textContent = 'Copied!'; } catch (e) {}
+    });
+    banner.appendChild(btn);
+  } catch (e2) {}
+}
+function runSafely(fn, context) {
+  try { fn(); } catch (err) { showBootErrorBanner(err, context); }
+}
+
+// =====================================================================
+// STATE
+// =====================================================================
+var state = {
+  activeSection: 'home',
+  activeTopicPageId: null,
+  activeTopicPageTab: 'overview',
+  activeMnId: null,
+  activeMnQuery: '',
+  activeMapId: null,
+  mapConnectFrom: null,
+  mapZoom: 1,
+  timer: { running: false, mode: 'stopwatch', startedAt: 0, elapsedMs: 0, topicId: null, phase: 'work', phaseSecs: 0, phaseElapsedMs: 0 },
+  timerInterval: null,
+  cmdkSelIndex: 0
+};
+
+var SECTIONS = [
+  { key: 'home', icon: '🏠', label: 'Home' },
+  { key: 'dashboard', icon: '🧠', label: 'Learning Dashboard' },
+  { key: 'topics', icon: '📚', label: 'Active Topics' },
+  { key: 'daily', icon: '📝', label: 'Daily Notes' },
+  { key: 'maps', icon: '🗺️', label: 'Knowledge Maps' },
+  { key: 'frameworks', icon: '💡', label: 'Personal Frameworks' },
+  { key: 'masternotes', icon: '🎓', label: 'Master Notes' },
+  { key: 'research', icon: '📂', label: 'Research Library' },
+  { key: 'analytics', icon: '📊', label: 'Analytics' },
+  { key: 'settings', icon: '⚙️', label: 'Settings' }
+];
+
+function esc(s) { return D.escapeHtml(s); }
+function fmtDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function fmtTimeAgo(ts) {
+  if (!ts) return 'never';
+  var diff = Date.now() - ts;
+  var mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  var days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+function topicOr(id, fallbackTitle) {
+  var t = id ? D.Topics.get(id) : null;
+  return t ? t.title : (fallbackTitle || 'Unlinked');
+}
+
+// =====================================================================
+// SIDEBAR + ROUTING
+// =====================================================================
+function renderSidebarNav() {
+  var html = SECTIONS.map(function (s) {
+    return '<a class="lhd-sb-item" data-section="' + s.key + '" href="#' + s.key + '">' +
+      '<span class="lhd-sb-icon">' + s.icon + '</span><span>' + s.label + '</span></a>';
+  }).join('');
+  $('lhdSbNav').innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('#lhdSbNav .lhd-sb-item'), function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      switchSection(el.getAttribute('data-section'));
+      closeSidebarMobile();
+    });
+  });
+}
+function switchSection(key) {
+  if (!SECTIONS.some(function (s) { return s.key === key; })) key = 'home';
+  state.activeSection = key;
+  history.replaceState(null, '', '#' + key);
+  Array.prototype.forEach.call(document.querySelectorAll('.lhd-sb-item'), function (el) {
+    el.classList.toggle('active', el.getAttribute('data-section') === key);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.lhd-section'), function (el) {
+    el.classList.toggle('active', el.id === 'lhd-sec-' + key);
+  });
+  var meta = SECTIONS.filter(function (s) { return s.key === key; })[0];
+  $('lhdHeaderTitle').textContent = meta ? meta.label : '';
+  renderSection(key);
+  $('lhdMain').scrollTop = 0;
+}
+function renderSection(key) {
+  runSafely(function () {
+    if (key === 'home') renderHome();
+    else if (key === 'dashboard') renderDashboard();
+    else if (key === 'topics') renderTopicsList();
+    else if (key === 'daily') renderDailyNotesFeed();
+    else if (key === 'maps') renderMapsSection();
+    else if (key === 'frameworks') renderFrameworksSection();
+    else if (key === 'masternotes') renderMasterNotesSection();
+    else if (key === 'research') renderResearchSection();
+    else if (key === 'analytics') renderAnalyticsSection();
+    else if (key === 'settings') renderSettingsSection();
+  }, 'renderSection:' + key);
+}
+function renderAllSections() { SECTIONS.forEach(function (s) { renderSection(s.key); }); renderSbStreak(); }
+function renderSbStreak() { $('lhdSbStreak').textContent = String(D.currentStreak()); }
+
+function openSidebarMobile() { $('lhdSidebar').classList.add('lhd-sb-open'); }
+function closeSidebarMobile() { $('lhdSidebar').classList.remove('lhd-sb-open'); }
+
+// =====================================================================
+// THEME
+// =====================================================================
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-lhd-theme', theme === 'light' ? 'light' : 'dark');
+  $('lhdThemeToggleBtn').textContent = theme === 'light' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  var s = D.getSettings();
+  var next = s.theme === 'light' ? 'dark' : 'light';
+  D.saveSettings({ theme: next });
+  applyTheme(next);
+}
+
+// =====================================================================
+// GENERIC FORM MODAL — one reusable builder for every add/edit modal in
+// this feature (Topic/Research/Framework/Note/Project/Question/Map),
+// instead of a near-duplicate modal per entity type. A field descriptor:
+// {key, label, type: 'text'|'textarea'|'select'|'number'|'color'|'checkbox',
+//  options: [{value,label}], placeholder, rows, half: true}
+// =====================================================================
+function buildFieldHtml(f, values) {
+  var val = values && values[f.key] != null ? values[f.key] : (f.type === 'checkbox' ? false : '');
+  var id = 'lhdField_' + f.key;
+  var wrapStyle = f.half ? 'flex:1 1 0; min-width:140px;' : '';
+  var inner = '';
+  if (f.type === 'textarea') {
+    inner = '<textarea id="' + id + '" placeholder="' + esc(f.placeholder || '') + '" rows="' + (f.rows || 4) + '">' + esc(val) + '</textarea>';
+  } else if (f.type === 'select') {
+    inner = '<select id="' + id + '">' + (f.options || []).map(function (o) {
+      return '<option value="' + esc(o.value) + '"' + (o.value === val ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+    }).join('') + '</select>';
+  } else if (f.type === 'checkbox') {
+    return '<label class="lhd-checkbox-row" style="' + wrapStyle + '"><input type="checkbox" id="' + id + '"' + (val ? ' checked' : '') + '> ' + esc(f.label) + '</label>';
+  } else if (f.type === 'color') {
+    inner = '<div class="lhd-swatch-row">' + D.TOPIC_COLORS.map(function (c) {
+      return '<button type="button" class="lhd-swatch' + (c === val ? ' active' : '') + '" data-color-field="' + id + '" data-color="' + c + '" style="background:' + c + ';"></button>';
+    }).join('') + '<input type="hidden" id="' + id + '" value="' + esc(val || D.TOPIC_COLORS[0]) + '"></div>';
+  } else {
+    inner = '<input type="' + f.type + '" id="' + id + '" placeholder="' + esc(f.placeholder || '') + '" value="' + esc(val) + '">';
+  }
+  return '<div class="lhd-field" style="' + wrapStyle + '">' + (f.type !== 'checkbox' ? '<label class="lhd-field-label">' + esc(f.label) + '</label>' : '') + inner + '</div>';
+}
+function openFormModal(opts) {
+  // Always reset to the plain field-form layout first — openFrameworkDetail()
+  // repurposes this same modal shell for a richer, non-field layout (wide +
+  // hidden action row) and re-applies those two overrides itself right after
+  // calling this function; resetting here guarantees a later *ordinary*
+  // openFormModal() call (Topic/Research/etc.) can never inherit that state,
+  // even if the framework detail modal was last dismissed via the plain ✕/
+  // backdrop-click path instead of closeFrameworkDetail().
+  $('lhdFormModal').classList.remove('lhd-modal-wide');
+  $('lhdFormModalActions').style.display = 'flex';
+  $('lhdFormModalTitle').textContent = opts.title;
+  var rows = [];
+  var i = 0;
+  while (i < opts.fields.length) {
+    var f = opts.fields[i];
+    if (f.half) {
+      var group = [f];
+      var j = i + 1;
+      while (j < opts.fields.length && opts.fields[j].half) { group.push(opts.fields[j]); j++; }
+      rows.push('<div style="display:flex; gap:12px;">' + group.map(function (gf) { return buildFieldHtml(gf, opts.values); }).join('') + '</div>');
+      i = j;
+    } else {
+      rows.push(buildFieldHtml(f, opts.values));
+      i++;
+    }
+  }
+  $('lhdFormModalBody').innerHTML = rows.join('');
+  Array.prototype.forEach.call(document.querySelectorAll('#lhdFormModalBody .lhd-swatch'), function (btn) {
+    btn.addEventListener('click', function () {
+      var fieldId = btn.getAttribute('data-color-field');
+      $(fieldId).value = btn.getAttribute('data-color');
+      var siblings = btn.parentElement.querySelectorAll('.lhd-swatch');
+      Array.prototype.forEach.call(siblings, function (s) { s.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+  $('lhdFormModalDeleteBtn').style.display = opts.onDelete ? 'inline-flex' : 'none';
+  $('lhdFormModalSubmitBtn').textContent = opts.submitLabel || 'Save';
+  $('lhdFormModalSubmitBtn').onclick = function () {
+    var out = {};
+    opts.fields.forEach(function (f) {
+      var el = $('lhdField_' + f.key);
+      if (!el) return;
+      if (f.type === 'checkbox') out[f.key] = el.checked;
+      else if (f.type === 'number') out[f.key] = el.value === '' ? 0 : parseFloat(el.value);
+      else out[f.key] = el.value;
+    });
+    if (opts.validate) {
+      var err = opts.validate(out);
+      if (err) { alert(err); return; }
+    }
+    closeFormModal();
+    opts.onSubmit(out);
+  };
+  $('lhdFormModalDeleteBtn').onclick = function () {
+    if (!opts.onDelete) return;
+    if (!confirm(opts.deleteConfirm || 'Delete this?')) return;
+    closeFormModal();
+    opts.onDelete();
+  };
+  $('lhdFormModalBg').classList.add('show');
+}
+function closeFormModal() { $('lhdFormModalBg').classList.remove('show'); }
+$('lhdFormModalCloseBtn').addEventListener('click', closeFormModal);
+$('lhdFormModalCancelBtn').addEventListener('click', closeFormModal);
+$('lhdFormModalBg').addEventListener('click', function (e) { if (e.target === $('lhdFormModalBg')) closeFormModal(); });
+
+// =====================================================================
+// TOPIC add/edit + delete
+// =====================================================================
+function topicFormFields() {
+  return [
+    { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. Artificial Intelligence' },
+    { key: 'icon', label: 'Icon (emoji)', type: 'text', placeholder: '🧠', half: true },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.TOPIC_STATUSES.map(function (s) { return { value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }; }) },
+    { key: 'currentWeek', label: 'Current Week', type: 'select', half: true, options: [1, 2, 3, 4].map(function (w) { return { value: String(w), label: 'Week ' + w + ' — ' + D.weekInfo(w).stage }; }) },
+    { key: 'estimatedHours', label: 'Estimated Hours', type: 'number', placeholder: '20', half: true },
+    { key: 'completionPct', label: 'Completion %', type: 'number', placeholder: '0' },
+    { key: 'currentQuestion', label: 'Current Question', type: 'text', placeholder: "What am I trying to answer right now?" },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 3 },
+    { key: 'color', label: 'Color', type: 'color' }
+  ];
+}
+function openTopicModal(topic) {
+  var values = topic ? Object.assign({}, topic, { currentWeek: String(topic.currentWeek) }) : { status: 'active', currentWeek: '1', color: D.TOPIC_COLORS[0] };
+  openFormModal({
+    title: topic ? 'Edit Topic' : 'New Topic',
+    fields: topicFormFields(),
+    values: values,
+    submitLabel: topic ? 'Save Changes' : 'Create Topic',
+    validate: function (v) { if (!v.title.trim()) return 'Give this topic a title first.'; return null; },
+    onSubmit: function (v) {
+      v.currentWeek = parseInt(v.currentWeek, 10) || 1;
+      if (topic) { D.Topics.update(topic.id, v); }
+      else { v.order = D.nextOrder(D.topicsSorted()); D.Topics.add(v); }
+      renderAllSections();
+      if (state.activeTopicPageId && topic && state.activeTopicPageId === topic.id) renderTopicPage();
+    },
+    onDelete: topic ? function () {
+      D.Topics.remove(topic.id);
+      closeTopicPage();
+      renderAllSections();
+    } : null,
+    deleteConfirm: 'Delete "' + (topic ? topic.title : '') + '"? Its research/notes/frameworks/master notes stay, just unlinked from this topic.'
+  });
+}
+
+// =====================================================================
+// HOME
+// =====================================================================
+function renderHome() {
+  var cur = D.currentTopic();
+  var settings = D.getSettings();
+  var todayLog = cur ? D.dailyLogFor(cur.id, D.todayISO()) : null;
+  var hoursToday = todayLog ? Math.round((todayLog.minutes || 0) / 6) / 10 : 0;
+
+  var html = '';
+  html += '<div class="lhd-card lhd-home-hero">';
+  html += '<div class="lhd-home-hero-eyebrow">Today’s Study Goal</div>';
+  html += '<div class="lhd-home-hero-title">' + (settings.defaultSessionMinutes || 25) + ' minutes on ' + (cur ? esc(cur.title) : 'a topic') + '</div>';
+  html += '<div class="lhd-home-hero-sub">' + (cur ? esc(cur.currentQuestion || cur.description || 'No current question set yet — open the topic to add one.') : 'Create your first topic to get started.') + '</div>';
+  html += '<div class="lhd-quick-actions">';
+  html += '<button class="lhd-btn lhd-btn-primary" id="lhdHomeStartSession">📝 Start Study Session</button>';
+  html += '<button class="lhd-btn" id="lhdHomeOpenTimer">⏱️ Study Timer</button>';
+  html += '<button class="lhd-btn" id="lhdHomeNewTopic">➕ New Topic</button>';
+  html += '</div></div>';
+
+  html += '<div class="lhd-grid lhd-grid-4" style="margin-bottom:22px;">';
+  html += statTile('📆', String(D.currentStreak()), 'Day Streak');
+  html += statTile('⏱️', D.totalHoursLogged() + 'h', 'Hours Studied');
+  html += statTile('📚', String(D.activeTopics().length), 'Active Topics');
+  html += statTile('🎓', String(D.MasterNotes.list().length), 'Master Notes');
+  html += '</div>';
+
+  html += '<div class="lhd-grid lhd-grid-2">';
+
+  // Current topic + week/stage card
+  html += '<div class="lhd-card lhd-card-pad">';
+  html += '<div class="lhd-chart-title">Current Topic & Stage</div>';
+  if (cur) {
+    var wk = D.weekInfo(cur.currentWeek);
+    html += '<div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">';
+    html += '<span class="lhd-tc-icon" style="background:' + cur.color + '22; color:' + cur.color + ';">' + esc(cur.icon) + '</span>';
+    html += '<div><div style="font-weight:800; font-size:14.5px;">' + esc(cur.title) + '</div><div style="font-size:11.5px; color:var(--lhd-text-mute);">Week ' + cur.currentWeek + ' · ' + esc(wk.stage) + '</div></div>';
+    html += '<div style="margin-left:auto; font-size:22px; font-weight:800; font-family:ui-monospace,monospace;">' + cur.completionPct + '%</div>';
+    html += '</div>';
+    html += '<div class="lhd-progress-bar" style="margin-bottom:14px;"><div class="lhd-progress-fill" style="width:' + cur.completionPct + '%;"></div></div>';
+    html += '<button class="lhd-btn lhd-btn-sm" data-open-topic="' + cur.id + '">Resume →</button>';
+  } else { html += emptyState('🧠', 'No topics yet', 'Create your first topic to see it here.'); }
+  html += '</div>';
+
+  // Today's checklist card
+  html += '<div class="lhd-card lhd-card-pad">';
+  html += '<div class="lhd-chart-title">Today’s Checklist' + (hoursToday ? ' · ' + hoursToday + 'h logged today' : '') + '</div>';
+  if (cur) {
+    html += D.MEDIA_CHECKLIST.map(function (m) {
+      var done = todayLog && todayLog.media[m.key];
+      return checklistRow(m.icon + ' ' + m.label, !!done, m.key);
+    }).join('');
+  } else { html += emptyState('✅', 'Nothing to check off yet', 'Add a topic to get a daily checklist.'); }
+  html += '</div>';
+
+  html += '</div>'; // end grid-2
+
+  html += '<div class="lhd-grid lhd-grid-2" style="margin-top:16px;">';
+  // Recently studied
+  html += '<div class="lhd-card lhd-card-pad">';
+  html += '<div class="lhd-chart-title">Recently Studied Topics</div>';
+  var recent = D.recentlyStudiedTopics(5);
+  if (recent.length) {
+    html += recent.map(function (t) {
+      return '<div class="lhd-recent-row" data-open-topic="' + t.id + '">' +
+        '<span class="lhd-recent-icon" style="background:' + t.color + '22; color:' + t.color + ';">' + esc(t.icon) + '</span>' +
+        '<div><div class="lhd-recent-title">' + esc(t.title) + '</div><div class="lhd-recent-time">' + fmtTimeAgo(t.lastStudiedAt) + '</div></div>' +
+        '</div>';
+    }).join('');
+  } else { html += emptyState('🕓', 'Nothing studied yet', 'Your recently studied topics will show up here.'); }
+  html += '</div>';
+
+  // Progress overview
+  html += '<div class="lhd-card lhd-card-pad">';
+  html += '<div class="lhd-chart-title">Progress Overview</div>';
+  var topics = D.topicsSorted().filter(function (t) { return t.status !== 'archived'; });
+  if (topics.length) {
+    html += topics.map(function (t) {
+      return '<div style="margin-bottom:12px;">' +
+        '<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;"><span style="font-weight:700;">' + esc(t.title) + '</span><span style="color:var(--lhd-text-mute);">' + t.completionPct + '%</span></div>' +
+        '<div class="lhd-progress-bar"><div class="lhd-progress-fill" style="width:' + t.completionPct + '%; background:linear-gradient(90deg,' + t.color + ',var(--lhd-accent2));"></div></div>' +
+        '</div>';
+    }).join('');
+  } else { html += emptyState('📈', 'No progress yet', ''); }
+  html += '</div>';
+  html += '</div>';
+
+  $('lhd-sec-home').innerHTML = html;
+  wireCommonRowActions($('lhd-sec-home'));
+  var startBtn = $('lhdHomeStartSession'); if (startBtn) startBtn.addEventListener('click', function () { openDailyWidget(cur ? cur.id : null); });
+  var timerBtn = $('lhdHomeOpenTimer'); if (timerBtn) timerBtn.addEventListener('click', openTimerQuickModal);
+  var newTopicBtn = $('lhdHomeNewTopic'); if (newTopicBtn) newTopicBtn.addEventListener('click', function () { openTopicModal(null); });
+  Array.prototype.forEach.call($('lhd-sec-home').querySelectorAll('[data-checklist-key]'), function (el) {
+    el.addEventListener('click', function () { toggleTodayChecklist(cur.id, el.getAttribute('data-checklist-key')); });
+  });
+}
+function statTile(icon, value, label) {
+  return '<div class="lhd-card lhd-stat-tile"><div class="lhd-stat-icon">' + icon + '</div><div class="lhd-stat-value">' + value + '</div><div class="lhd-stat-label">' + esc(label) + '</div></div>';
+}
+function emptyState(icon, title, sub) {
+  return '<div class="lhd-empty"><div class="lhd-empty-icon">' + icon + '</div><div class="lhd-empty-title">' + esc(title) + '</div><div class="lhd-empty-sub">' + esc(sub || '') + '</div></div>';
+}
+function checklistRow(label, done, key) {
+  return '<div class="lhd-checklist-item' + (done ? ' lhd-done' : '') + '">' +
+    '<span class="lhd-check-circle' + (done ? ' done' : '') + '" data-checklist-key="' + key + '">' + (done ? '✓' : '') + '</span>' +
+    '<span class="lhd-checklist-text">' + label + '</span></div>';
+}
+function toggleTodayChecklist(topicId, key) {
+  var log = D.dailyLogFor(topicId, D.todayISO());
+  var media = log ? Object.assign({}, log.media) : {};
+  media[key] = !media[key];
+  D.upsertDailyLog(topicId, D.todayISO(), { media: media });
+  renderHome();
+}
+function wireCommonRowActions(root) {
+  Array.prototype.forEach.call(root.querySelectorAll('[data-open-topic]'), function (el) {
+    el.addEventListener('click', function () { openTopicPage(el.getAttribute('data-open-topic')); });
+  });
+}
+
+// =====================================================================
+// LEARNING DASHBOARD (rich topic cards)
+// =====================================================================
+var dashStatusFilter = 'active';
+function renderDashboard() {
+  var all = D.topicsSorted();
+  var counts = {};
+  D.TOPIC_STATUSES.forEach(function (s) { counts[s] = all.filter(function (t) { return t.status === s; }).length; });
+  var topics = dashStatusFilter === 'all' ? all : all.filter(function (t) { return t.status === dashStatusFilter; });
+
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Learning Dashboard</div><div class="lhd-page-title">Every topic, at a glance</div>' +
+    '<div class="lhd-page-subtext">Progress, current week, and what to study next — across everything in motion.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdDashNewTopicBtn">➕ New Topic</button></div>';
+
+  html += '<div class="lhd-chip-row" style="margin-bottom:18px;">';
+  html += '<span class="lhd-chip' + (dashStatusFilter === 'all' ? ' active' : '') + '" data-dash-filter="all">All (' + all.length + ')</span>';
+  D.TOPIC_STATUSES.forEach(function (s) {
+    html += '<span class="lhd-chip' + (dashStatusFilter === s ? ' active' : '') + '" data-dash-filter="' + s + '">' + s.charAt(0).toUpperCase() + s.slice(1) + ' (' + counts[s] + ')</span>';
+  });
+  html += '</div>';
+
+  if (!topics.length) {
+    html += emptyState('🧠', 'No topics here', 'Try a different filter, or create a new topic.');
+  } else {
+    html += '<div class="lhd-grid lhd-grid-3">';
+    topics.forEach(function (t, i) {
+      var wk = D.weekInfo(t.currentWeek);
+      var hrs = D.hoursLoggedForTopic(t.id);
+      html += '<div class="lhd-card lhd-hoverable lhd-topic-card" style="animation:lhdFadeUp .4s both; animation-delay:' + (i * 0.04) + 's;" data-open-topic="' + t.id + '">';
+      html += '<div class="lhd-tc-top"><span class="lhd-tc-icon" style="background:' + t.color + '22; color:' + t.color + ';">' + esc(t.icon) + '</span>' +
+        '<div><div class="lhd-tc-title">' + esc(t.title) + '</div><div class="lhd-tc-week">Week ' + t.currentWeek + ' · ' + esc(wk.stage) + '</div></div>' +
+        '<span class="lhd-tc-pct">' + t.completionPct + '%</span></div>';
+      html += '<div class="lhd-progress-bar"><div class="lhd-progress-fill" style="width:' + t.completionPct + '%; background:linear-gradient(90deg,' + t.color + ',var(--lhd-accent2));"></div></div>';
+      if (t.currentQuestion) html += '<div class="lhd-tc-question">' + esc(t.currentQuestion) + '</div>';
+      html += '<div class="lhd-tc-foot"><span class="lhd-tc-hours">' + hrs + 'h / ' + t.estimatedHours + 'h est.</span><span class="lhd-tc-resume">Resume →</span></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  $('lhd-sec-dashboard').innerHTML = html;
+  wireCommonRowActions($('lhd-sec-dashboard'));
+  $('lhdDashNewTopicBtn').addEventListener('click', function () { openTopicModal(null); });
+  Array.prototype.forEach.call($('lhd-sec-dashboard').querySelectorAll('[data-dash-filter]'), function (el) {
+    el.addEventListener('click', function () { dashStatusFilter = el.getAttribute('data-dash-filter'); renderDashboard(); });
+  });
+}
+
+// =====================================================================
+// ACTIVE TOPICS (compact CRUD list/table view)
+// =====================================================================
+var topicsSearchQuery = '';
+function renderTopicsList() {
+  var all = D.topicsSorted();
+  var filtered = !topicsSearchQuery ? all : all.filter(function (t) { return (t.title + ' ' + t.description).toLowerCase().indexOf(topicsSearchQuery.toLowerCase()) !== -1; });
+
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Topic Database</div><div class="lhd-page-title">Active Topics</div>' +
+    '<div class="lhd-page-subtext">Every topic you are tracking — manage status, week, and estimates here.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdTopicsNewBtn">➕ New Topic</button></div>';
+  html += '<div class="lhd-field" style="max-width:320px; margin-bottom:16px;"><input type="text" id="lhdTopicsSearch" placeholder="Search topics…" value="' + esc(topicsSearchQuery) + '"></div>';
+
+  if (!filtered.length) {
+    html += emptyState('📚', 'No topics match', '');
+  } else {
+    html += '<div class="lhd-card">';
+    filtered.forEach(function (t, i) {
+      html += '<div class="lhd-research-row" style="border-bottom:' + (i < filtered.length - 1 ? '1px solid var(--lhd-border)' : 'none') + '; border-radius:0; margin-bottom:0;" data-open-topic="' + t.id + '">';
+      html += '<span class="lhd-tc-icon" style="width:32px; height:32px; font-size:15px; background:' + t.color + '22; color:' + t.color + ';">' + esc(t.icon) + '</span>';
+      html += '<div style="flex:1 1 auto; min-width:0;"><div class="lhd-research-title">' + esc(t.title) + '</div>' +
+        '<div class="lhd-research-meta">Week ' + t.currentWeek + ' · ' + t.completionPct + '% · ' + D.hoursLoggedForTopic(t.id) + 'h logged</div></div>';
+      html += '<span class="lhd-tag">' + t.status + '</span>';
+      html += '<div class="lhd-research-actions"><button class="lhd-btn-icon-sm" data-edit-topic="' + t.id + '" title="Edit">✎</button></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  $('lhd-sec-topics').innerHTML = html;
+  wireCommonRowActions($('lhd-sec-topics'));
+  $('lhdTopicsNewBtn').addEventListener('click', function () { openTopicModal(null); });
+  $('lhdTopicsSearch').addEventListener('input', function (e) { topicsSearchQuery = e.target.value; renderTopicsList(); });
+  Array.prototype.forEach.call($('lhd-sec-topics').querySelectorAll('[data-edit-topic]'), function (el) {
+    el.addEventListener('click', function (e) { e.stopPropagation(); openTopicModal(D.Topics.get(el.getAttribute('data-edit-topic'))); });
+  });
+}
+
+// =====================================================================
+// DAILY STUDY WIDGET (modal) — topic selector, media checklist, critical
+// thinking questions, output checklist, Obsidian hand-off. Backed by one
+// DailyLog per topic+date, upserted on Save.
+// =====================================================================
+var dailyWidgetTopicId = null;
+function openDailyWidget(topicId) {
+  var topics = D.topicsSorted();
+  if (!topics.length) { alert('Create a topic first.'); return; }
+  dailyWidgetTopicId = topicId && D.Topics.get(topicId) ? topicId : topics[0].id;
+  renderDailyWidget();
+  $('lhdDailyModalBg').classList.add('show');
+}
+function closeDailyWidget() { $('lhdDailyModalBg').classList.remove('show'); }
+function renderDailyWidget() {
+  var t = D.Topics.get(dailyWidgetTopicId);
+  var log = D.dailyLogFor(dailyWidgetTopicId, D.todayISO()) || { media: {}, criticalQuestions: {}, outputs: {}, minutes: 0 };
+  var wk = D.weekInfo(t.currentWeek);
+  var html = '';
+  html += '<div class="lhd-field"><label class="lhd-field-label">Topic</label><select id="lhdDailyTopicSelect">' +
+    D.topicsSorted().map(function (x) { return '<option value="' + x.id + '"' + (x.id === dailyWidgetTopicId ? ' selected' : '') + '>' + esc(x.icon) + ' ' + esc(x.title) + '</option>'; }).join('') + '</select></div>';
+  html += '<div style="font-size:11.5px; color:var(--lhd-text-mute); margin:-6px 0 16px;">Week ' + t.currentWeek + ' · ' + esc(wk.stage) + ' — this week\'s outputs: ' + wk.outputs.join(', ') + '</div>';
+
+  html += '<div class="lhd-field-label" style="margin-bottom:8px;">Media Checklist</div>';
+  html += '<div class="lhd-chip-row" style="margin-bottom:18px;">';
+  D.MEDIA_CHECKLIST.forEach(function (m) {
+    html += '<span class="lhd-chip' + (log.media[m.key] ? ' active' : '') + '" data-daily-media="' + m.key + '">' + m.icon + ' ' + m.label + '</span>';
+  });
+  html += '</div>';
+
+  html += '<div class="lhd-field-label" style="margin-bottom:8px;">Critical Thinking Questions</div>';
+  D.CRITICAL_QUESTIONS.forEach(function (q) {
+    html += '<div class="lhd-field"><label class="lhd-field-label" style="text-transform:none; font-weight:600; color:var(--lhd-text-dim);">' + esc(q.label) + '</label>' +
+      '<textarea rows="2" id="lhdDailyCq_' + q.key + '">' + esc(log.criticalQuestions[q.key] || '') + '</textarea></div>';
+  });
+
+  html += '<div class="lhd-field-label" style="margin-bottom:8px; margin-top:6px;">Output Checklist</div>';
+  D.OUTPUT_FIELDS.forEach(function (o) {
+    html += '<div class="lhd-field"><label class="lhd-field-label" style="text-transform:none; font-weight:600; color:var(--lhd-text-dim);">' + esc(o.label) + '</label>' +
+      '<textarea rows="2" id="lhdDailyOut_' + o.key + '">' + esc(log.outputs[o.key] || '') + '</textarea></div>';
+  });
+
+  html += '<div class="lhd-field"><label class="lhd-field-label">Minutes Studied</label><input type="number" id="lhdDailyMinutes" value="' + (log.minutes || 0) + '"></div>';
+
+  $('lhdDailyBody').innerHTML = html;
+  $('lhdDailyTopicSelect').addEventListener('change', function (e) { dailyWidgetTopicId = e.target.value; renderDailyWidget(); });
+  Array.prototype.forEach.call($('lhdDailyBody').querySelectorAll('[data-daily-media]'), function (chip) {
+    chip.addEventListener('click', function () { chip.classList.toggle('active'); });
+  });
+}
+function saveDailyWidget() {
+  var media = {};
+  D.MEDIA_CHECKLIST.forEach(function (m) {
+    var chip = document.querySelector('[data-daily-media="' + m.key + '"]');
+    media[m.key] = chip ? chip.classList.contains('active') : false;
+  });
+  var cq = {};
+  D.CRITICAL_QUESTIONS.forEach(function (q) { cq[q.key] = $('lhdDailyCq_' + q.key).value; });
+  var out = {};
+  D.OUTPUT_FIELDS.forEach(function (o) { out[o.key] = $('lhdDailyOut_' + o.key).value; });
+  var minutes = parseInt($('lhdDailyMinutes').value, 10) || 0;
+  D.upsertDailyLog(dailyWidgetTopicId, D.todayISO(), { media: media, criticalQuestions: cq, outputs: out, minutes: minutes });
+  D.markStudied(dailyWidgetTopicId);
+  closeDailyWidget();
+  renderAllSections();
+  if (state.activeTopicPageId === dailyWidgetTopicId) renderTopicPage();
+}
+$('lhdDailyCloseBtn').addEventListener('click', closeDailyWidget);
+$('lhdDailyModalBg').addEventListener('click', function (e) { if (e.target === $('lhdDailyModalBg')) closeDailyWidget(); });
+$('lhdDailySaveBtn').addEventListener('click', saveDailyWidget);
+$('lhdDailyOpenObsidianBtn').addEventListener('click', function () {
+  var t = D.Topics.get(dailyWidgetTopicId);
+  var settings = D.getSettings();
+  var vaultNote = settings.obsidianVaultPath
+    ? 'Vault path on file: ' + settings.obsidianVaultPath
+    : 'No Obsidian vault path is set yet — add one in Settings so this can deep-link straight into your vault.';
+  var noteName = (t ? t.title : 'Daily Note') + ' — ' + D.todayISO();
+  try {
+    window.open('obsidian://new?name=' + encodeURIComponent(noteName) + (settings.obsidianVaultPath ? '&vault=' + encodeURIComponent(settings.obsidianVaultPath) : ''), '_blank');
+  } catch (e) {}
+  alert('Opening "' + noteName + '" via the obsidian:// URI scheme (needs the Obsidian app installed).\n' + vaultNote);
+});
+
+// =====================================================================
+// DAILY NOTES — a chronological feed of every DailyLog's real output
+// across every topic, filterable by topic + date. This is the "database"
+// the Daily Study Widget writes into.
+// =====================================================================
+var dailyFeedTopicFilter = 'all';
+function renderDailyNotesFeed() {
+  var logs = D.DailyLogs.list().slice().sort(function (a, b) { return b.date < a.date ? -1 : (b.date > a.date ? 1 : b.createdAt - a.createdAt); });
+  if (dailyFeedTopicFilter !== 'all') logs = logs.filter(function (l) { return l.topicId === dailyFeedTopicFilter; });
+
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Journal</div><div class="lhd-page-title">Daily Notes</div>' +
+    '<div class="lhd-page-subtext">Every day’s raw notes, quotes, and questions, across every topic — the Daily Study Widget writes here.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdDailyFeedNewBtn">📝 New Study Session</button></div>';
+
+  html += '<div class="lhd-chip-row" style="margin-bottom:18px;">';
+  html += '<span class="lhd-chip' + (dailyFeedTopicFilter === 'all' ? ' active' : '') + '" data-daily-filter="all">All Topics</span>';
+  D.topicsSorted().forEach(function (t) {
+    html += '<span class="lhd-chip' + (dailyFeedTopicFilter === t.id ? ' active' : '') + '" data-daily-filter="' + t.id + '">' + esc(t.icon) + ' ' + esc(t.title) + '</span>';
+  });
+  html += '</div>';
+
+  if (!logs.length) {
+    html += emptyState('📝', 'No daily notes yet', 'Start a study session to log your first entry.');
+  } else {
+    logs.forEach(function (l) {
+      var t = D.Topics.get(l.topicId);
+      var outputLines = D.OUTPUT_FIELDS.filter(function (o) { return (l.outputs[o.key] || '').trim(); });
+      var qLines = D.CRITICAL_QUESTIONS.filter(function (q) { return (l.criticalQuestions[q.key] || '').trim(); });
+      html += '<div class="lhd-card lhd-card-pad" style="margin-bottom:12px;">';
+      html += '<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">';
+      html += '<span class="lhd-tc-icon" style="width:32px; height:32px; font-size:14px; background:' + (t ? t.color : '#666') + '22; color:' + (t ? t.color : 'var(--lhd-text-mute)') + ';">' + (t ? esc(t.icon) : '❔') + '</span>';
+      html += '<div><div style="font-weight:800; font-size:13px;">' + (t ? esc(t.title) : 'Unlinked Topic') + '</div><div style="font-size:11px; color:var(--lhd-text-mute);">' + fmtDate(l.date) + (l.minutes ? ' · ' + l.minutes + ' min' : '') + '</div></div>';
+      html += '<button class="lhd-btn-icon-sm" style="margin-left:auto;" data-open-daily="' + (t ? t.id : '') + '" data-date="' + l.date + '" title="Edit">✎</button>';
+      html += '</div>';
+      if (outputLines.length) {
+        html += outputLines.map(function (o) { return '<div style="font-size:12.5px; margin-bottom:6px;"><b style="color:var(--lhd-accent2);">' + o.label + ':</b> ' + esc(l.outputs[o.key]) + '</div>'; }).join('');
+      }
+      if (qLines.length) {
+        html += qLines.map(function (q) { return '<div style="font-size:12.5px; color:var(--lhd-text-mute); margin-bottom:4px;"><i>' + q.label + '</i> — ' + esc(l.criticalQuestions[q.key]) + '</div>'; }).join('');
+      }
+      if (!outputLines.length && !qLines.length) html += '<div style="font-size:12px; color:var(--lhd-text-mute);">No notes written for this session yet.</div>';
+      html += '</div>';
+    });
+  }
+
+  $('lhd-sec-daily').innerHTML = html;
+  $('lhdDailyFeedNewBtn').addEventListener('click', function () { openDailyWidget(D.currentTopic() ? D.currentTopic().id : null); });
+  Array.prototype.forEach.call($('lhd-sec-daily').querySelectorAll('[data-daily-filter]'), function (el) {
+    el.addEventListener('click', function () { dailyFeedTopicFilter = el.getAttribute('data-daily-filter'); renderDailyNotesFeed(); });
+  });
+  Array.prototype.forEach.call($('lhd-sec-daily').querySelectorAll('[data-open-daily]'), function (el) {
+    el.addEventListener('click', function () { if (el.getAttribute('data-open-daily')) openDailyWidget(el.getAttribute('data-open-daily')); });
+  });
+}
+
+// =====================================================================
+// RESEARCH LIBRARY — grouped by category. Also reused (filtered by
+// topicId) inside a Topic's own Research/Sources tabs — see
+// buildResearchGroups(list, compact).
+// =====================================================================
+var researchCategoryFilter = 'all';
+var researchTopicFilter = 'all';
+var researchSearchQuery = '';
+var RESEARCH_STATUS_COLOR = { 'to-review': 'var(--lhd-warn)', 'in-progress': 'var(--lhd-info)', 'done': 'var(--lhd-good)' };
+
+function buildResearchGroups(list, compact, topicIdForNew) {
+  if (!list.length) return emptyState('📂', 'Nothing here yet', 'Add a research item to get started.');
+  var byCat = {};
+  D.RESEARCH_CATEGORIES.forEach(function (c) { byCat[c] = []; });
+  list.forEach(function (r) { (byCat[r.category] || (byCat[r.category] = [])).push(r); });
+  var html = '';
+  D.RESEARCH_CATEGORIES.forEach(function (cat) {
+    var items = byCat[cat] || [];
+    if (!items.length) return;
+    html += '<div class="lhd-research-group"><div class="lhd-research-group-head"><span class="lhd-research-group-title">' + esc(cat) + '</span><span class="lhd-research-group-count">' + items.length + '</span></div>';
+    items.forEach(function (r) {
+      var t = D.Topics.get(r.topicId);
+      html += '<div class="lhd-card lhd-research-row">';
+      html += '<span class="lhd-research-status-dot" style="background:' + RESEARCH_STATUS_COLOR[r.status] + ';"></span>';
+      html += '<div style="flex:1 1 auto; min-width:0;"><div class="lhd-research-title">' + esc(r.title || 'Untitled') + '</div>' +
+        '<div class="lhd-research-meta">' + (r.author ? esc(r.author) + ' · ' : '') + (t ? esc(t.title) : 'Unlinked') + (r.notes && !compact ? ' — ' + esc(r.notes) : '') + '</div></div>';
+      if (r.url) html += '<button class="lhd-btn-icon-sm" data-open-url="' + esc(r.url) + '" title="Open link">↗</button>';
+      html += '<div class="lhd-research-actions"><button class="lhd-btn-icon-sm" data-edit-research="' + r.id + '" title="Edit">✎</button></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  return html;
+}
+function researchFormFields(defaultTopicId) {
+  return [
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'author', label: 'Author / Creator', type: 'text', half: true },
+    { key: 'category', label: 'Category', type: 'select', half: true, options: D.RESEARCH_CATEGORIES.map(function (c) { return { value: c, label: c }; }) },
+    { key: 'topicId', label: 'Topic', type: 'select', half: true, options: [{ value: '', label: 'Unlinked' }].concat(D.topicsSorted().map(function (t) { return { value: t.id, label: t.title }; })) },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.RESEARCH_STATUSES.map(function (s) { return { value: s, label: s }; }) },
+    { key: 'url', label: 'URL', type: 'url', placeholder: 'https://…' },
+    { key: 'notes', label: 'Notes', type: 'textarea', rows: 3 }
+  ];
+}
+function openResearchModal(item, defaultTopicId) {
+  var values = item ? item : { category: 'Bookmarks', status: 'to-review', topicId: defaultTopicId || '' };
+  openFormModal({
+    title: item ? 'Edit Research Item' : 'New Research Item',
+    fields: researchFormFields(),
+    values: values,
+    submitLabel: item ? 'Save Changes' : 'Add Item',
+    validate: function (v) { if (!v.title.trim()) return 'Give this item a title first.'; return null; },
+    onSubmit: function (v) {
+      v.topicId = v.topicId || null;
+      if (item) D.Research.update(item.id, v);
+      else { v.order = D.nextOrder(D.Research.list()); D.Research.add(v); }
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    },
+    onDelete: item ? function () { D.Research.remove(item.id); renderAllSections(); if (state.activeTopicPageId) renderTopicPage(); } : null,
+    deleteConfirm: 'Delete "' + (item ? item.title : '') + '"?'
+  });
+}
+function wireResearchRowActions(root, defaultTopicId) {
+  Array.prototype.forEach.call(root.querySelectorAll('[data-edit-research]'), function (el) {
+    el.addEventListener('click', function () { openResearchModal(D.Research.get(el.getAttribute('data-edit-research')), defaultTopicId); });
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('[data-open-url]'), function (el) {
+    el.addEventListener('click', function () {
+      var url = el.getAttribute('data-open-url');
+      if (D.isValidMediaUrl(url)) window.open(url, '_blank', 'noopener');
+    });
+  });
+}
+function renderResearchSection() {
+  var list = D.Research.list().slice().sort(function (a, b) { return a.order - b.order; });
+  if (researchTopicFilter !== 'all') list = list.filter(function (r) { return r.topicId === researchTopicFilter; });
+  if (researchSearchQuery) {
+    var q = researchSearchQuery.toLowerCase();
+    list = list.filter(function (r) { return (r.title + ' ' + r.author + ' ' + r.notes).toLowerCase().indexOf(q) !== -1; });
+  }
+
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Sources</div><div class="lhd-page-title">Research Library</div>' +
+    '<div class="lhd-page-subtext">Every book, paper, article, video, podcast, AI chat, course, PDF, and bookmark, in one place.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdResearchNewBtn">➕ Add Item</button></div>';
+
+  html += '<div class="lhd-field" style="max-width:320px;"><input type="text" id="lhdResearchSearch" placeholder="Search research…" value="' + esc(researchSearchQuery) + '"></div>';
+  html += '<div class="lhd-chip-row" style="margin: 12px 0 20px;">';
+  html += '<span class="lhd-chip' + (researchTopicFilter === 'all' ? ' active' : '') + '" data-research-topic-filter="all">All Topics</span>';
+  D.topicsSorted().forEach(function (t) { html += '<span class="lhd-chip' + (researchTopicFilter === t.id ? ' active' : '') + '" data-research-topic-filter="' + t.id + '">' + esc(t.icon) + ' ' + esc(t.title) + '</span>'; });
+  html += '</div>';
+
+  html += buildResearchGroups(list, false);
+
+  $('lhd-sec-research').innerHTML = html;
+  $('lhdResearchNewBtn').addEventListener('click', function () { openResearchModal(null); });
+  $('lhdResearchSearch').addEventListener('input', function (e) { researchSearchQuery = e.target.value; renderResearchSection(); });
+  Array.prototype.forEach.call($('lhd-sec-research').querySelectorAll('[data-research-topic-filter]'), function (el) {
+    el.addEventListener('click', function () { researchTopicFilter = el.getAttribute('data-research-topic-filter'); renderResearchSection(); });
+  });
+  wireResearchRowActions($('lhd-sec-research'));
+}
+
+// =====================================================================
+// PERSONAL FRAMEWORKS — a grid of cards, each opening into its own detail
+// modal with generated/editable/reorderable sections (the same "+ Generate
+// Section" pattern business.html's Platform Detail pages already use).
+// =====================================================================
+function frameworkFormFields(defaultTopicId) {
+  return [
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'icon', label: 'Icon', type: 'text', half: true, placeholder: '💡' },
+    { key: 'topicId', label: 'Topic', type: 'select', half: true, options: [{ value: '', label: 'Unlinked' }].concat(D.topicsSorted().map(function (t) { return { value: t.id, label: t.title }; })) },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 2 },
+    { key: 'color', label: 'Color', type: 'color' }
+  ];
+}
+function openFrameworkModal(fw, defaultTopicId) {
+  var values = fw ? fw : { color: D.TOPIC_COLORS[1], topicId: defaultTopicId || '' };
+  openFormModal({
+    title: fw ? 'Edit Framework' : 'New Framework',
+    fields: frameworkFormFields(),
+    values: values,
+    submitLabel: fw ? 'Save Changes' : 'Create Framework',
+    validate: function (v) { if (!v.title.trim()) return 'Give this framework a title first.'; return null; },
+    onSubmit: function (v) {
+      v.topicId = v.topicId || null;
+      if (fw) D.Frameworks.update(fw.id, v);
+      else { v.order = D.nextOrder(D.Frameworks.list()); v.sections = []; D.Frameworks.add(v); }
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    },
+    onDelete: fw ? function () { D.Frameworks.remove(fw.id); closeFrameworkDetail(); renderAllSections(); if (state.activeTopicPageId) renderTopicPage(); } : null,
+    deleteConfirm: 'Delete "' + (fw ? fw.title : '') + '"?'
+  });
+}
+function renderFrameworksGrid(list, mount, defaultTopicId) {
+  if (!list.length) { mount.innerHTML = emptyState('💡', 'No frameworks yet', 'Turn a recurring decision into a reusable framework.'); return; }
+  var html = '<div class="lhd-grid lhd-grid-3">';
+  list.forEach(function (f, i) {
+    html += '<div class="lhd-card lhd-hoverable lhd-fw-card" style="animation:lhdFadeUp .4s both; animation-delay:' + (i * 0.04) + 's;" data-open-framework="' + f.id + '">';
+    html += '<div class="lhd-fw-icon" style="background:' + f.color + '22; color:' + f.color + ';">' + esc(f.icon) + '</div>';
+    html += '<div class="lhd-fw-title">' + esc(f.title) + '</div>';
+    html += '<div class="lhd-fw-desc">' + esc(f.description || 'No description yet.') + '</div>';
+    html += '<div class="lhd-fw-sections-count">' + f.sections.length + ' section' + (f.sections.length === 1 ? '' : 's') + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  mount.innerHTML = html;
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-open-framework]'), function (el) {
+    el.addEventListener('click', function () { openFrameworkDetail(el.getAttribute('data-open-framework'), defaultTopicId); });
+  });
+}
+function renderFrameworksSection() {
+  var html = '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Mental Models</div><div class="lhd-page-title">Personal Frameworks</div>' +
+    '<div class="lhd-page-subtext">The repeatable decision-making tools you have built from what you have learned.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdFwNewBtn">➕ New Framework</button></div><div id="lhdFwGridMount"></div>';
+  $('lhd-sec-frameworks').innerHTML = html;
+  renderFrameworksGrid(D.Frameworks.list().slice().sort(function (a, b) { return a.order - b.order; }), $('lhdFwGridMount'), null);
+  $('lhdFwNewBtn').addEventListener('click', function () { openFrameworkModal(null); });
+}
+
+var fwDetailId = null;
+function openFrameworkDetail(id) {
+  fwDetailId = id;
+  var f = D.Frameworks.get(id);
+  openFormModal({
+    title: '',
+    fields: [],
+    values: {},
+    onSubmit: function () {}
+  });
+  // Repurpose the generic modal's body directly for a richer, non-field layout.
+  $('lhdFormModal').classList.add('lhd-modal-wide');
+  $('lhdFormModalTitle').textContent = f.icon + ' ' + f.title;
+  $('lhdFormModalActions').style.display = 'none';
+  renderFrameworkDetailBody();
+}
+function closeFrameworkDetail() {
+  fwDetailId = null;
+  $('lhdFormModal').classList.remove('lhd-modal-wide');
+  $('lhdFormModalActions').style.display = 'flex';
+  closeFormModal();
+}
+function renderFrameworkDetailBody() {
+  var f = D.Frameworks.get(fwDetailId);
+  if (!f) { closeFrameworkDetail(); return; }
+  var t = D.Topics.get(f.topicId);
+  var html = '<div style="font-size:12.5px; color:var(--lhd-text-mute); margin-bottom:14px;">' + esc(f.description || '') + (t ? ' · Linked to ' + esc(t.title) : '') + '</div>';
+  html += '<div style="display:flex; gap:8px; margin-bottom:16px;">' +
+    '<button class="lhd-btn lhd-btn-sm" id="lhdFwGenSectionBtn">+ Generate Section</button>' +
+    '<button class="lhd-btn lhd-btn-sm" id="lhdFwEditMetaBtn">✎ Edit Details</button>' +
+    '<button class="lhd-btn lhd-btn-sm lhd-btn-danger" id="lhdFwDeleteBtn" style="margin-left:auto;">Delete</button></div>';
+  f.sections.slice().sort(function (a, b) { return a.order - b.order; }).forEach(function (sec, i) {
+    html += '<div class="lhd-pf-section" data-sec-id="' + sec.id + '">';
+    html += '<div class="lhd-pf-section-head"><input type="text" class="lhd-pf-section-title-input" value="' + esc(sec.title) + '" data-sec-field="title">' +
+      '<div style="display:flex; gap:4px; margin-left:auto;">' +
+      '<button class="lhd-btn-icon-sm" data-sec-move="up" ' + (i === 0 ? 'disabled style="opacity:.35;"' : '') + '>▲</button>' +
+      '<button class="lhd-btn-icon-sm" data-sec-move="down">▼</button>' +
+      '<button class="lhd-btn-icon-sm" data-sec-del="1">✕</button></div></div>';
+    html += '<textarea class="lhd-pf-section-body" rows="3" data-sec-field="body">' + esc(sec.body) + '</textarea>';
+    html += '</div>';
+  });
+  $('lhdFormModalBody').innerHTML = html;
+  $('lhdFwGenSectionBtn').addEventListener('click', function () {
+    var sections = f.sections.concat([{ id: D.uid('sec'), title: 'New Section', body: '', order: D.nextOrder(f.sections) }]);
+    D.Frameworks.update(f.id, { sections: sections });
+    renderFrameworkDetailBody();
+  });
+  $('lhdFwEditMetaBtn').addEventListener('click', function () { closeFrameworkDetail(); openFrameworkModal(f); });
+  $('lhdFwDeleteBtn').addEventListener('click', function () {
+    if (!confirm('Delete "' + f.title + '"?')) return;
+    D.Frameworks.remove(f.id); closeFrameworkDetail(); renderAllSections(); if (state.activeTopicPageId) renderTopicPage();
+  });
+  Array.prototype.forEach.call($('lhdFormModalBody').querySelectorAll('[data-sec-field]'), function (el) {
+    el.addEventListener('blur', function () {
+      var secId = el.closest('.lhd-pf-section').getAttribute('data-sec-id');
+      var patch = {}; patch[el.getAttribute('data-sec-field')] = el.value;
+      var sections = f.sections.map(function (s) { return s.id === secId ? Object.assign({}, s, patch) : s; });
+      D.Frameworks.update(f.id, { sections: sections });
+    });
+  });
+  Array.prototype.forEach.call($('lhdFormModalBody').querySelectorAll('[data-sec-move]'), function (el) {
+    el.addEventListener('click', function () {
+      var secId = el.closest('.lhd-pf-section').getAttribute('data-sec-id');
+      var sorted = f.sections.slice().sort(function (a, b) { return a.order - b.order; });
+      var idx = sorted.findIndex(function (s) { return s.id === secId; });
+      var dir = el.getAttribute('data-sec-move') === 'up' ? -1 : 1;
+      var swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= sorted.length) return;
+      var tmp = sorted[idx].order; sorted[idx].order = sorted[swapIdx].order; sorted[swapIdx].order = tmp;
+      D.Frameworks.update(f.id, { sections: sorted });
+      renderFrameworkDetailBody();
+    });
+  });
+  Array.prototype.forEach.call($('lhdFormModalBody').querySelectorAll('[data-sec-del]'), function (el) {
+    el.addEventListener('click', function () {
+      var secId = el.closest('.lhd-pf-section').getAttribute('data-sec-id');
+      D.Frameworks.update(f.id, { sections: f.sections.filter(function (s) { return s.id !== secId; }) });
+      renderFrameworkDetailBody();
+    });
+  });
+}
+
+// =====================================================================
+// MASTER NOTES — a beautiful reading interface: a note list on the left,
+// a rendered reading pane on the right with a table of contents (from
+// the note's own headings) and a "linked from" backlinks panel.
+// =====================================================================
+function masterNoteFormFields(defaultTopicId) {
+  return [
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'topicId', label: 'Topic', type: 'select', half: true, options: [{ value: '', label: 'Unlinked' }].concat(D.topicsSorted().map(function (t) { return { value: t.id, label: t.title }; })) },
+    { key: 'tags', label: 'Tags (comma-separated)', type: 'text', half: true }
+  ];
+}
+function openMasterNoteModal(note, defaultTopicId) {
+  var values = note ? Object.assign({}, note, { tags: note.tags.join(', ') }) : { topicId: defaultTopicId || '' };
+  openFormModal({
+    title: note ? 'Edit Master Note Details' : 'New Master Note',
+    fields: masterNoteFormFields(),
+    values: values,
+    submitLabel: note ? 'Save Changes' : 'Create Master Note',
+    validate: function (v) { if (!v.title.trim()) return 'Give this master note a title first.'; return null; },
+    onSubmit: function (v) {
+      v.topicId = v.topicId || null;
+      v.tags = v.tags.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      var saved;
+      if (note) saved = D.MasterNotes.update(note.id, v);
+      else { v.order = D.nextOrder(D.MasterNotes.list()); v.body = '# ' + v.title + '\n\nStart writing…'; saved = D.MasterNotes.add(v); }
+      state.activeMnId = saved.id;
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    },
+    onDelete: note ? function () {
+      D.MasterNotes.remove(note.id);
+      if (state.activeMnId === note.id) state.activeMnId = null;
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    } : null,
+    deleteConfirm: 'Delete "' + (note ? note.title : '') + '"? Backlinks pointing to it will just no longer resolve.'
+  });
+}
+function renderMasterNotesList(list, mount, onSelect) {
+  if (!list.length) { mount.innerHTML = '<div style="padding:14px; font-size:12px; color:var(--lhd-text-mute);">No master notes yet.</div>'; return; }
+  mount.innerHTML = list.map(function (n) {
+    var t = D.Topics.get(n.topicId);
+    return '<div class="lhd-mn-list-item' + (n.id === state.activeMnId ? ' active' : '') + '" data-mn-id="' + n.id + '">' + esc(n.title) +
+      '<div class="lhd-mn-list-item-topic">' + (t ? esc(t.title) : 'Unlinked') + '</div></div>';
+  }).join('');
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-mn-id]'), function (el) {
+    el.addEventListener('click', function () { onSelect(el.getAttribute('data-mn-id')); });
+  });
+}
+function renderMasterNoteReading(mount, editable) {
+  var note = state.activeMnId ? D.MasterNotes.get(state.activeMnId) : null;
+  if (!note) { mount.innerHTML = emptyState('🎓', 'Select a master note', 'Or create a new one from the button above.'); return; }
+  var headings = D.extractHeadings(note.body);
+  var backlinks = D.backlinksTo(note.id);
+  var html = '';
+  html += '<div class="lhd-mn-toolbar"><button class="lhd-btn lhd-btn-sm" id="lhdMnEditBtn">✎ Edit</button><button class="lhd-btn lhd-btn-sm" id="lhdMnDetailsBtn">⚙ Details</button></div>';
+  if (editable) {
+    html += '<div class="lhd-field"><textarea id="lhdMnBodyEdit" rows="16" style="font-family:ui-monospace,monospace; font-size:12.5px;">' + esc(note.body) + '</textarea></div>';
+    html += '<div style="display:flex; gap:8px;"><button class="lhd-btn lhd-btn-primary lhd-btn-sm" id="lhdMnSaveBodyBtn">Save</button><button class="lhd-btn lhd-btn-ghost lhd-btn-sm" id="lhdMnCancelEditBtn">Cancel</button></div>';
+  } else {
+    html += '<div class="lhd-mn-reading-body">' + D.renderMarkdownLite(note.body) + '</div>';
+    if (note.tags.length) html += '<div class="lhd-chip-row" style="margin-top:16px;">' + note.tags.map(function (t) { return '<span class="lhd-tag">#' + esc(t) + '</span>'; }).join('') + '</div>';
+    if (headings.length) {
+      html += '<div class="lhd-mn-toc"><div class="lhd-mn-toc-title">Table of Contents</div>' +
+        headings.map(function (h) { return '<div class="lhd-mn-toc-item" style="padding-left:' + ((h.level - 1) * 12) + 'px;" data-toc-slug="' + h.slug + '">' + esc(h.text) + '</div>'; }).join('') + '</div>';
+    }
+    html += '<div class="lhd-mn-backlinks"><div class="lhd-mn-toc-title">Linked From (' + backlinks.length + ')</div>' +
+      (backlinks.length ? backlinks.map(function (b) { return '<div class="lhd-mn-toc-item" data-mn-id="' + b.id + '">← ' + esc(b.title) + '</div>'; }).join('') : '<div style="font-size:12px; color:var(--lhd-text-mute);">No other master notes link here yet.</div>') + '</div>';
+  }
+  mount.innerHTML = html;
+  var editBtn = $('lhdMnEditBtn'); if (editBtn) editBtn.addEventListener('click', function () { renderMasterNoteReading(mount, true); });
+  var detailsBtn = $('lhdMnDetailsBtn'); if (detailsBtn) detailsBtn.addEventListener('click', function () { openMasterNoteModal(note); });
+  var saveBtn = $('lhdMnSaveBodyBtn');
+  if (saveBtn) saveBtn.addEventListener('click', function () {
+    D.MasterNotes.update(note.id, { body: $('lhdMnBodyEdit').value, updatedAt: Date.now() });
+    renderMasterNoteReading(mount, false);
+  });
+  var cancelBtn = $('lhdMnCancelEditBtn'); if (cancelBtn) cancelBtn.addEventListener('click', function () { renderMasterNoteReading(mount, false); });
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-toc-slug]'), function (el) {
+    el.addEventListener('click', function () {
+      var target = mount.querySelector('#lhd-h-' + el.getAttribute('data-toc-slug'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-mn-id]'), function (el) {
+    el.addEventListener('click', function () { state.activeMnId = el.getAttribute('data-mn-id'); renderMasterNotesSection(); });
+  });
+  Array.prototype.forEach.call(mount.querySelectorAll('.lhd-backlink'), function (el) {
+    el.addEventListener('click', function () {
+      var title = el.getAttribute('data-backlink-title');
+      var match = D.MasterNotes.list().find(function (n) { return n.title.toLowerCase() === title.toLowerCase(); });
+      if (match) { state.activeMnId = match.id; renderMasterNotesSection(); }
+      else if (confirm('No master note titled "' + title + '" exists yet. Create it?')) {
+        var created = D.MasterNotes.add({ title: title, body: '# ' + title + '\n\nStart writing…', order: D.nextOrder(D.MasterNotes.list()) });
+        state.activeMnId = created.id;
+        renderMasterNotesSection();
+      }
+    });
+  });
+}
+function renderMasterNotesSection() {
+  var all = D.MasterNotes.list().slice().sort(function (a, b) { return a.order - b.order; });
+  if (!state.activeMnId && all.length) state.activeMnId = all[0].id;
+  var list = all;
+  if (state.activeMnQuery) {
+    var q = state.activeMnQuery.toLowerCase();
+    list = all.filter(function (n) { return (n.title + ' ' + n.body).toLowerCase().indexOf(q) !== -1; });
+  }
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Synthesis</div><div class="lhd-page-title">Master Notes</div>' +
+    '<div class="lhd-page-subtext">The polished, synthesized write-up for each topic — with backlinks between them.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdMnNewBtn">➕ New Master Note</button></div>';
+  html += '<div class="lhd-mn-layout"><div>';
+  html += '<div class="lhd-field lhd-mn-search"><input type="text" id="lhdMnSearch" placeholder="Search master notes…" value="' + esc(state.activeMnQuery) + '"></div>';
+  html += '<div class="lhd-mn-list" id="lhdMnList"></div></div>';
+  html += '<div class="lhd-card lhd-mn-reading" id="lhdMnReading"></div></div>';
+  $('lhd-sec-masternotes').innerHTML = html;
+  renderMasterNotesList(list, $('lhdMnList'), function (id) { state.activeMnId = id; renderMasterNotesSection(); });
+  renderMasterNoteReading($('lhdMnReading'), false);
+  $('lhdMnNewBtn').addEventListener('click', function () { openMasterNoteModal(null); });
+  $('lhdMnSearch').addEventListener('input', function (e) { state.activeMnQuery = e.target.value; renderMasterNotesSection(); });
+}
+
+// =====================================================================
+// KNOWLEDGE MAPS — node-based visual maps. Zoomable (slider + ctrl+wheel),
+// pannable (drag empty canvas), clickable/draggable nodes, a "Connect"
+// mode to draw labeled edges between two nodes. No canvas/WebGL library —
+// plain absolutely-positioned divs + an SVG line layer, this app's own
+// established "no charting/animation library" convention.
+// =====================================================================
+state.mapPanX = 0; state.mapPanY = 0;
+function mapFormFields() {
+  return [
+    { key: 'title', label: 'Map Title', type: 'text' },
+    { key: 'topicId', label: 'Topic', type: 'select', options: [{ value: '', label: 'Unlinked' }].concat(D.topicsSorted().map(function (t) { return { value: t.id, label: t.title }; })) }
+  ];
+}
+function openMapModal(map, defaultTopicId) {
+  var values = map ? map : { topicId: defaultTopicId || '' };
+  openFormModal({
+    title: map ? 'Rename Map' : 'New Knowledge Map',
+    fields: mapFormFields(),
+    values: values,
+    submitLabel: map ? 'Save Changes' : 'Create Map',
+    validate: function (v) { if (!v.title.trim()) return 'Give this map a title first.'; return null; },
+    onSubmit: function (v) {
+      v.topicId = v.topicId || null;
+      if (map) D.Maps.update(map.id, v);
+      else { v.order = D.nextOrder(D.Maps.list()); v.nodes = []; v.edges = []; var created = D.Maps.add(v); state.activeMapId = created.id; }
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    },
+    onDelete: map ? function () {
+      D.Maps.remove(map.id);
+      if (state.activeMapId === map.id) state.activeMapId = null;
+      renderAllSections();
+      if (state.activeTopicPageId) renderTopicPage();
+    } : null,
+    deleteConfirm: 'Delete the map "' + (map ? map.title : '') + '"? This removes all its nodes and connections.'
+  });
+}
+function mapMutate(mapId, fn) {
+  var m = D.Maps.get(mapId);
+  if (!m) return;
+  fn(m);
+  D.Maps.update(mapId, { nodes: m.nodes, edges: m.edges });
+}
+function renderMapWorkspace(list, mount, defaultTopicId) {
+  if (!state.activeMapId || !list.some(function (m) { return m.id === state.activeMapId; })) {
+    state.activeMapId = list.length ? list[0].id : null;
+  }
+  if (!list.length) { mount.innerHTML = emptyState('🗺️', 'No knowledge maps yet', 'Create one to start mapping how ideas connect.'); return; }
+  var map = D.Maps.get(state.activeMapId);
+  var html = '';
+  html += '<div class="lhd-map-toolbar">';
+  html += '<select id="lhdMapSelect" style="max-width:220px;">' + list.map(function (m) { return '<option value="' + m.id + '"' + (m.id === state.activeMapId ? ' selected' : '') + '>' + esc(m.title) + '</option>'; }).join('') + '</select>';
+  html += '<button class="lhd-btn lhd-btn-sm" id="lhdMapAddNodeBtn">➕ Add Node</button>';
+  html += '<button class="lhd-btn lhd-btn-sm" id="lhdMapConnectBtn">🔗 Connect</button>';
+  html += '<button class="lhd-btn lhd-btn-sm" id="lhdMapRenameBtn">✎ Rename</button>';
+  html += '<div style="display:flex; align-items:center; gap:6px; margin-left:auto;">';
+  html += '<button class="lhd-btn-icon-sm" id="lhdMapZoomOutBtn">−</button>';
+  html += '<span class="lhd-map-zoom-label" id="lhdMapZoomLabel">' + Math.round(state.mapZoom * 100) + '%</span>';
+  html += '<button class="lhd-btn-icon-sm" id="lhdMapZoomInBtn">+</button>';
+  html += '<button class="lhd-btn-icon-sm" id="lhdMapResetViewBtn" title="Reset view">⤾</button>';
+  html += '</div></div>';
+  html += '<div class="lhd-map-canvas-wrap" id="lhdMapCanvasWrap">' +
+    '<div class="lhd-map-canvas" id="lhdMapCanvas"></div></div>';
+  mount.innerHTML = html;
+  wireMapWorkspace(map, mount, defaultTopicId);
+  drawMapCanvas(map);
+}
+function wireMapWorkspace(map, mount, defaultTopicId) {
+  $('lhdMapSelect').addEventListener('change', function (e) { state.activeMapId = e.target.value; state.mapZoom = 1; state.mapPanX = 0; state.mapPanY = 0; renderMapWorkspace(D.mapsForTopic ? getActiveMapList(defaultTopicId) : [], mount, defaultTopicId); });
+  $('lhdMapAddNodeBtn').addEventListener('click', function () {
+    var label = prompt('Node label?', 'New Idea');
+    if (!label) return;
+    mapMutate(map.id, function (m) {
+      var count = m.nodes.length;
+      m.nodes.push({ id: D.uid('n'), x: 60 + (count % 5) * 170, y: 50 + Math.floor(count / 5) * 120, label: label, color: D.TOPIC_COLORS[count % D.TOPIC_COLORS.length] });
+    });
+    drawMapCanvas(D.Maps.get(map.id));
+  });
+  $('lhdMapConnectBtn').addEventListener('click', function (e) {
+    state.mapConnectFrom = null;
+    var btn = e.currentTarget;
+    var active = btn.classList.toggle('active');
+    if (!active) { $('lhdMapCanvas').classList.remove('connect-mode'); }
+  });
+  $('lhdMapRenameBtn').addEventListener('click', function () { openMapModal(map, defaultTopicId); });
+  $('lhdMapZoomInBtn').addEventListener('click', function () { setMapZoom(state.mapZoom + 0.1); });
+  $('lhdMapZoomOutBtn').addEventListener('click', function () { setMapZoom(state.mapZoom - 0.1); });
+  $('lhdMapResetViewBtn').addEventListener('click', function () { state.mapZoom = 1; state.mapPanX = 0; state.mapPanY = 0; applyMapTransform(); });
+
+  var wrap = $('lhdMapCanvasWrap');
+  wrap.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    setMapZoom(state.mapZoom + (e.deltaY < 0 ? 0.08 : -0.08));
+  }, { passive: false });
+
+  var panning = false, panStart = { x: 0, y: 0 }, panOrigin = { x: 0, y: 0 };
+  wrap.addEventListener('mousedown', function (e) {
+    if (e.target.closest('.lhd-map-node')) return;
+    panning = true;
+    panStart = { x: e.clientX, y: e.clientY };
+    panOrigin = { x: state.mapPanX, y: state.mapPanY };
+    $('lhdMapCanvas').classList.add('panning');
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!panning) return;
+    state.mapPanX = panOrigin.x + (e.clientX - panStart.x);
+    state.mapPanY = panOrigin.y + (e.clientY - panStart.y);
+    applyMapTransform();
+  });
+  window.addEventListener('mouseup', function () { panning = false; var c = $('lhdMapCanvas'); if (c) c.classList.remove('panning'); });
+}
+function setMapZoom(z) {
+  state.mapZoom = Math.max(0.4, Math.min(2.2, Math.round(z * 100) / 100));
+  var label = $('lhdMapZoomLabel'); if (label) label.textContent = Math.round(state.mapZoom * 100) + '%';
+  applyMapTransform();
+}
+function applyMapTransform() {
+  var c = $('lhdMapCanvas');
+  if (c) c.style.transform = 'translate(' + state.mapPanX + 'px,' + state.mapPanY + 'px) scale(' + state.mapZoom + ')';
+}
+function drawMapCanvas(map) {
+  var canvas = $('lhdMapCanvas');
+  if (!canvas || !map) return;
+  applyMapTransform();
+  var nodesHtml = map.nodes.map(function (n) {
+    return '<div class="lhd-map-node" data-node-id="' + n.id + '" style="left:' + n.x + 'px; top:' + n.y + 'px; border-color:' + n.color + '; color:' + n.color + ';">' + esc(n.label) + '</div>';
+  }).join('');
+  canvas.innerHTML = '<svg class="lhd-map-svg" id="lhdMapSvg"></svg>' + nodesHtml;
+  drawMapEdges(map);
+  Array.prototype.forEach.call(canvas.querySelectorAll('.lhd-map-node'), function (nodeEl) { wireMapNode(nodeEl, map); });
+}
+function nodeCenterEstimate(nodeEl) {
+  var w = nodeEl.offsetWidth || 130, h = nodeEl.offsetHeight || 40;
+  return { w: w, h: h };
+}
+function drawMapEdges(map) {
+  var svg = $('lhdMapSvg');
+  if (!svg) return;
+  var byId = {}; map.nodes.forEach(function (n) { byId[n.id] = n; });
+  var html = '<defs><marker id="lhdArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="rgba(244,114,182,0.65)"></path></marker></defs>';
+  map.edges.forEach(function (e) {
+    var a = byId[e.from], b = byId[e.to];
+    if (!a || !b) return;
+    var ax = a.x + 65, ay = a.y + 20, bx = b.x + 65, by = b.y + 20;
+    var mx = (ax + bx) / 2, my = (ay + by) / 2;
+    html += '<line x1="' + ax + '" y1="' + ay + '" x2="' + bx + '" y2="' + by + '" stroke="rgba(244,114,182,0.55)" stroke-width="1.6" marker-end="url(#lhdArrow)" data-edge-id="' + e.id + '" style="pointer-events:stroke; cursor:pointer;"></line>';
+    if (e.label) html += '<text class="lhd-map-edge-label" x="' + mx + '" y="' + (my - 6) + '" text-anchor="middle" style="pointer-events:none;">' + esc(e.label) + '</text>';
+  });
+  svg.innerHTML = html;
+  Array.prototype.forEach.call(svg.querySelectorAll('[data-edge-id]'), function (lineEl) {
+    lineEl.style.pointerEvents = 'stroke';
+    lineEl.addEventListener('click', function () {
+      if (confirm('Remove this connection?')) {
+        mapMutate(map.id, function (m) { m.edges = m.edges.filter(function (e) { return e.id !== lineEl.getAttribute('data-edge-id'); }); });
+        drawMapCanvas(D.Maps.get(map.id));
+      }
+    });
+  });
+}
+function wireMapNode(nodeEl, map) {
+  var dragging = false, start = { x: 0, y: 0 }, orig = { x: 0, y: 0 };
+  nodeEl.addEventListener('mousedown', function (e) {
+    e.stopPropagation();
+    var connectBtn = $('lhdMapConnectBtn');
+    if (connectBtn && connectBtn.classList.contains('active')) return; // clicks handle connect mode instead
+    dragging = true;
+    start = { x: e.clientX, y: e.clientY };
+    var n = map.nodes.filter(function (x) { return x.id === nodeEl.getAttribute('data-node-id'); })[0];
+    orig = { x: n.x, y: n.y };
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    var dx = (e.clientX - start.x) / state.mapZoom;
+    var dy = (e.clientY - start.y) / state.mapZoom;
+    nodeEl.style.left = (orig.x + dx) + 'px';
+    nodeEl.style.top = (orig.y + dy) + 'px';
+    drawMapEdgesLive(map, nodeEl.getAttribute('data-node-id'), orig.x + dx, orig.y + dy);
+  });
+  window.addEventListener('mouseup', function (e) {
+    if (!dragging) return;
+    dragging = false;
+    var dx = (e.clientX - start.x) / state.mapZoom;
+    var dy = (e.clientY - start.y) / state.mapZoom;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return; // treat as a click, not a drag
+    mapMutate(map.id, function (m) {
+      var n = m.nodes.filter(function (x) { return x.id === nodeEl.getAttribute('data-node-id'); })[0];
+      if (n) { n.x = orig.x + dx; n.y = orig.y + dy; }
+    });
+  });
+  nodeEl.addEventListener('click', function (e) {
+    var connectBtn = $('lhdMapConnectBtn');
+    if (connectBtn && connectBtn.classList.contains('active')) {
+      var id = nodeEl.getAttribute('data-node-id');
+      if (!state.mapConnectFrom) {
+        state.mapConnectFrom = id;
+        nodeEl.classList.add('connecting');
+      } else if (state.mapConnectFrom !== id) {
+        var label = prompt('Label this connection (optional):', '') || '';
+        mapMutate(map.id, function (m) { m.edges.push({ id: D.uid('e'), from: state.mapConnectFrom, to: id, label: label }); });
+        state.mapConnectFrom = null;
+        connectBtn.classList.remove('active');
+        drawMapCanvas(D.Maps.get(map.id));
+      }
+      return;
+    }
+  });
+  nodeEl.addEventListener('dblclick', function () {
+    var n = map.nodes.filter(function (x) { return x.id === nodeEl.getAttribute('data-node-id'); })[0];
+    var choice = prompt('Rename node (or type DELETE to remove it):', n.label);
+    if (choice == null) return;
+    if (choice.trim().toUpperCase() === 'DELETE') {
+      mapMutate(map.id, function (m) {
+        m.nodes = m.nodes.filter(function (x) { return x.id !== n.id; });
+        m.edges = m.edges.filter(function (e) { return e.from !== n.id && e.to !== n.id; });
+      });
+    } else {
+      mapMutate(map.id, function (m) { var nn = m.nodes.filter(function (x) { return x.id === n.id; })[0]; if (nn) nn.label = choice; });
+    }
+    drawMapCanvas(D.Maps.get(map.id));
+  });
+}
+function drawMapEdgesLive(map, movedNodeId, x, y) {
+  var svg = $('lhdMapSvg');
+  if (!svg) return;
+  var byId = {}; map.nodes.forEach(function (n) { byId[n.id] = n.id === movedNodeId ? Object.assign({}, n, { x: x, y: y }) : n; });
+  Array.prototype.forEach.call(svg.querySelectorAll('line[data-edge-id]'), function (lineEl) {
+    var edge = map.edges.filter(function (e) { return e.id === lineEl.getAttribute('data-edge-id'); })[0];
+    if (!edge || (edge.from !== movedNodeId && edge.to !== movedNodeId)) return;
+    var a = byId[edge.from], b = byId[edge.to];
+    if (!a || !b) return;
+    lineEl.setAttribute('x1', a.x + 65); lineEl.setAttribute('y1', a.y + 20);
+    lineEl.setAttribute('x2', b.x + 65); lineEl.setAttribute('y2', b.y + 20);
+  });
+}
+function getActiveMapList(topicFilter) {
+  var all = D.Maps.list().slice().sort(function (a, b) { return a.order - b.order; });
+  return topicFilter ? all.filter(function (m) { return m.topicId === topicFilter; }) : all;
+}
+function renderMapsSection() {
+  var html = '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Visual Thinking</div><div class="lhd-page-title">Knowledge Maps</div>' +
+    '<div class="lhd-page-subtext">Node-based maps of how ideas connect — drag to arrange, zoom, and draw labeled connections.</div></div>' +
+    '<button class="lhd-btn lhd-btn-primary" id="lhdMapNewBtn">➕ New Map</button></div><div id="lhdMapMount"></div>';
+  $('lhd-sec-maps').innerHTML = html;
+  renderMapWorkspace(getActiveMapList(null), $('lhdMapMount'), null);
+  $('lhdMapNewBtn').addEventListener('click', function () { openMapModal(null); });
+}
+
+// =====================================================================
+// ANALYTICS — streak, hours, counts, a 7-day activity bar chart (div
+// bars, this app's own no-charting-library convention), and a
+// CSS conic-gradient donut for overall completion + a status breakdown.
+// =====================================================================
+function buildWeeklyBarChart() {
+  var data = D.weeklyActivityMinutes();
+  var max = Math.max.apply(null, data.map(function (d) { return d.minutes; }).concat([1]));
+  var html = '<div class="lhd-bar-chart">';
+  data.forEach(function (d) {
+    var pct = Math.round((d.minutes / max) * 100);
+    var day = new Date(d.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1);
+    html += '<div class="lhd-bar-col"><div class="lhd-bar" style="height:' + Math.max(pct, d.minutes > 0 ? 4 : 0) + '%;" title="' + d.minutes + ' min"></div><div class="lhd-bar-label">' + day + '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function buildCompletionDonut() {
+  var pct = D.monthlyCompletionTrend();
+  var deg = Math.round(pct * 3.6);
+  var style = 'background: conic-gradient(var(--lhd-accent) 0deg ' + deg + 'deg, var(--lhd-surface-2) ' + deg + 'deg 360deg);';
+  return '<div class="lhd-donut" style="' + style + '"><div class="lhd-donut-center"><div class="lhd-donut-pct">' + pct + '%</div><div class="lhd-donut-sub">avg. complete</div></div></div>';
+}
+function buildStatusBreakdown() {
+  var all = D.topicsSorted();
+  var colors = { active: 'var(--lhd-good)', paused: 'var(--lhd-warn)', completed: 'var(--lhd-info)', archived: 'var(--lhd-text-mute)' };
+  return '<div class="lhd-status-breakdown">' + D.TOPIC_STATUSES.map(function (s) {
+    var count = all.filter(function (t) { return t.status === s; }).length;
+    return '<div class="lhd-status-row"><span class="lhd-status-dot" style="background:' + colors[s] + ';"></span>' + s.charAt(0).toUpperCase() + s.slice(1) + '<span class="lhd-status-count">' + count + '</span></div>';
+  }).join('') + '</div>';
+}
+function renderAnalyticsSection() {
+  var booksRead = D.Research.list().filter(function (r) { return r.category === 'Books' && r.status === 'done'; }).length;
+  var papersRead = D.Research.list().filter(function (r) { return r.category === 'Research Papers' && r.status === 'done'; }).length;
+  var topicsCompleted = D.Topics.list().filter(function (t) { return t.status === 'completed'; }).length;
+
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">The Numbers</div><div class="lhd-page-title">Analytics</div>' +
+    '<div class="lhd-page-subtext">A live read on how much you are actually learning, not just planning to.</div></div></div>';
+
+  html += '<div class="lhd-grid lhd-grid-4" style="margin-bottom:18px;">';
+  html += statTile('🔥', String(D.currentStreak()), 'Learning Streak');
+  html += statTile('⏱️', D.totalHoursLogged() + 'h', 'Hours Studied');
+  html += statTile('✅', String(topicsCompleted), 'Topics Completed');
+  html += statTile('📕', String(booksRead), 'Books Read');
+  html += '</div>';
+  html += '<div class="lhd-grid lhd-grid-4" style="margin-bottom:22px;">';
+  html += statTile('📄', String(papersRead), 'Research Papers');
+  html += statTile('🎓', String(D.MasterNotes.list().length), 'Master Notes');
+  html += statTile('💡', String(D.Frameworks.list().length), 'Frameworks Created');
+  html += statTile('🗺️', String(D.Maps.list().length), 'Knowledge Maps');
+  html += '</div>';
+
+  html += '<div class="lhd-grid lhd-grid-2">';
+  html += '<div class="lhd-card lhd-chart-card"><div class="lhd-chart-title">Weekly Activity (minutes / day)</div>' + buildWeeklyBarChart() + '</div>';
+  html += '<div class="lhd-card lhd-chart-card"><div class="lhd-chart-title">Monthly Progress</div><div class="lhd-donut-wrap">' + buildCompletionDonut() + buildStatusBreakdown() + '</div></div>';
+  html += '</div>';
+
+  $('lhd-sec-analytics').innerHTML = html;
+}
+
+// =====================================================================
+// SETTINGS
+// =====================================================================
+function toggleRow(label, desc, on, key) {
+  return '<div class="lhd-settings-row"><div><div class="lhd-settings-label">' + esc(label) + '</div><div class="lhd-settings-desc">' + esc(desc) + '</div></div>' +
+    '<div class="lhd-toggle' + (on ? ' on' : '') + '" data-toggle-key="' + key + '"><div class="lhd-toggle-knob"></div></div></div>';
+}
+function renderSettingsSection() {
+  var s = D.getSettings();
+  var html = '';
+  html += '<div class="lhd-page-head"><div><div class="lhd-page-eyebrow">Preferences</div><div class="lhd-page-title">Settings</div>' +
+    '<div class="lhd-page-subtext">Tune how this dashboard looks and how your study sessions/timer behave.</div></div></div>';
+
+  html += '<div class="lhd-card lhd-settings-section">';
+  html += '<div class="lhd-settings-label" style="margin-bottom:10px;">Appearance</div>';
+  html += toggleRow('Dark Mode', 'Switch between the dark and light theme.', s.theme !== 'light', 'darkMode');
+  html += '<div class="lhd-settings-row"><div><div class="lhd-settings-label">Accent Color</div><div class="lhd-settings-desc">The crimson/pink brand accent used across cards and progress bars.</div></div>' +
+    '<div class="lhd-swatch-row">' + ['#E11D48', '#F472B6', '#F59E0B', '#34D399', '#60A5FA', '#A78BFA'].map(function (c) {
+      return '<button type="button" class="lhd-swatch' + (c === s.accentColor ? ' active' : '') + '" data-accent-color="' + c + '" style="background:' + c + ';"></button>';
+    }).join('') + '</div></div>';
+  html += '</div>';
+
+  html += '<div class="lhd-card lhd-settings-section">';
+  html += '<div class="lhd-settings-label" style="margin-bottom:10px;">Study Session</div>';
+  html += '<div class="lhd-settings-row"><div><div class="lhd-settings-label">Default Session Length (minutes)</div><div class="lhd-settings-desc">Used for the Home page’s daily study goal.</div></div>' +
+    '<input type="number" id="lhdSetDefaultMinutes" value="' + s.defaultSessionMinutes + '" style="width:80px;"></div>';
+  html += '<div class="lhd-settings-row"><div><div class="lhd-settings-label">Pomodoro — Work (minutes)</div></div><input type="number" id="lhdSetPomoWork" value="' + s.pomodoroWork + '" style="width:80px;"></div>';
+  html += '<div class="lhd-settings-row"><div><div class="lhd-settings-label">Pomodoro — Break (minutes)</div></div><input type="number" id="lhdSetPomoBreak" value="' + s.pomodoroBreak + '" style="width:80px;"></div>';
+  html += toggleRow('Notifications', 'Play a sound when a focus/break interval finishes.', s.notificationsEnabled, 'notificationsEnabled');
+  html += '</div>';
+
+  html += '<div class="lhd-card lhd-settings-section">';
+  html += '<div class="lhd-settings-label" style="margin-bottom:10px;">Obsidian</div>';
+  html += '<div class="lhd-field"><label class="lhd-field-label">Vault Path / Name</label><input type="text" id="lhdSetObsidianPath" placeholder="e.g. MyVault" value="' + esc(s.obsidianVaultPath) + '"></div>';
+  html += '<div class="lhd-settings-desc">Used by “Open in Obsidian” on the Daily Study Widget to deep-link into the right vault via the <code>obsidian://</code> URI scheme (requires the Obsidian app installed — this dashboard has no server, so it cannot write files directly).</div>';
+  html += '</div>';
+
+  html += '<button class="lhd-btn lhd-btn-primary" id="lhdSettingsSaveBtn">Save Settings</button>';
+
+  $('lhd-sec-settings').innerHTML = html;
+  Array.prototype.forEach.call($('lhd-sec-settings').querySelectorAll('[data-toggle-key]'), function (el) {
+    el.addEventListener('click', function () {
+      el.classList.toggle('on');
+      if (el.getAttribute('data-toggle-key') === 'darkMode') { toggleTheme(); renderSettingsSection(); }
+    });
+  });
+  Array.prototype.forEach.call($('lhd-sec-settings').querySelectorAll('[data-accent-color]'), function (el) {
+    el.addEventListener('click', function () {
+      var c = el.getAttribute('data-accent-color');
+      D.saveSettings({ accentColor: c });
+      applyAccentColor(c);
+      renderSettingsSection();
+    });
+  });
+  $('lhdSettingsSaveBtn').addEventListener('click', function () {
+    D.saveSettings({
+      defaultSessionMinutes: parseInt($('lhdSetDefaultMinutes').value, 10) || 25,
+      pomodoroWork: parseInt($('lhdSetPomoWork').value, 10) || 25,
+      pomodoroBreak: parseInt($('lhdSetPomoBreak').value, 10) || 5,
+      obsidianVaultPath: $('lhdSetObsidianPath').value,
+      notificationsEnabled: document.querySelector('[data-toggle-key="notificationsEnabled"]').classList.contains('on')
+    });
+    renderHome();
+    var btn = $('lhdSettingsSaveBtn'); var orig = btn.textContent; btn.textContent = '✓ Saved'; setTimeout(function () { btn.textContent = orig; }, 1200);
+  });
+}
+function applyAccentColor(hex) {
+  document.documentElement.style.setProperty('--lhd-accent', hex);
+  var rgb = hexToRgb(hex);
+  if (rgb) document.documentElement.style.setProperty('--lhd-accent-rgb', rgb.r + ',' + rgb.g + ',' + rgb.b);
+}
+function hexToRgb(hex) {
+  var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
+}
+
+// =====================================================================
+// NOTE / PROJECT / QUESTION add-edit modals — small entities, only ever
+// created scoped to a topic (Topic Detail's own Notes/Projects/Questions
+// tabs).
+// =====================================================================
+function openNoteModal(note, topicId) {
+  openFormModal({
+    title: note ? 'Edit Note' : 'New Note',
+    fields: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'type', label: 'Type', type: 'select', options: D.NOTE_TYPES.map(function (t) { return { value: t, label: t }; }) },
+      { key: 'body', label: 'Body', type: 'textarea', rows: 4 }
+    ],
+    values: note || { type: 'atomic' },
+    submitLabel: note ? 'Save Changes' : 'Add Note',
+    validate: function (v) { if (!v.title.trim() && !v.body.trim()) return 'Add a title or some content first.'; return null; },
+    onSubmit: function (v) {
+      if (note) D.Notes.update(note.id, v);
+      else { v.topicId = topicId; v.order = D.nextOrder(D.notesForTopic(topicId)); D.Notes.add(v); }
+      renderTopicPage();
+    },
+    onDelete: note ? function () { D.Notes.remove(note.id); renderTopicPage(); } : null,
+    deleteConfirm: 'Delete this note?'
+  });
+}
+function openProjectModal(proj, topicId) {
+  openFormModal({
+    title: proj ? 'Edit Project' : 'New Project',
+    fields: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: D.PROJECT_STATUSES.map(function (s) { return { value: s, label: s }; }) },
+      { key: 'description', label: 'Description', type: 'textarea', rows: 3 }
+    ],
+    values: proj || { status: 'idea' },
+    submitLabel: proj ? 'Save Changes' : 'Add Project',
+    validate: function (v) { if (!v.title.trim()) return 'Give this project a title first.'; return null; },
+    onSubmit: function (v) {
+      if (proj) D.Projects.update(proj.id, v);
+      else { v.topicId = topicId; v.order = D.nextOrder(D.projectsForTopic(topicId)); D.Projects.add(v); }
+      renderTopicPage();
+    },
+    onDelete: proj ? function () { D.Projects.remove(proj.id); renderTopicPage(); } : null,
+    deleteConfirm: 'Delete "' + (proj ? proj.title : '') + '"?'
+  });
+}
+function openQuestionModal(q, topicId) {
+  openFormModal({
+    title: q ? 'Edit Question' : 'New Question',
+    fields: [
+      { key: 'text', label: 'Question', type: 'textarea', rows: 2 },
+      { key: 'status', label: 'Status', type: 'select', options: D.QUESTION_STATUSES.map(function (s) { return { value: s, label: s }; }) },
+      { key: 'answer', label: 'Answer (if known)', type: 'textarea', rows: 3 }
+    ],
+    values: q || { status: 'open' },
+    submitLabel: q ? 'Save Changes' : 'Add Question',
+    validate: function (v) { if (!v.text.trim()) return 'Write the question first.'; return null; },
+    onSubmit: function (v) {
+      if (q) D.Questions.update(q.id, v);
+      else { v.topicId = topicId; v.order = D.nextOrder(D.questionsForTopic(topicId)); D.Questions.add(v); }
+      renderTopicPage();
+    },
+    onDelete: q ? function () { D.Questions.remove(q.id); renderTopicPage(); } : null,
+    deleteConfirm: 'Delete this question?'
+  });
+}
+
+// =====================================================================
+// TOPIC DETAIL — a full-page overlay with ten sub-tabs.
+// =====================================================================
+var TP_TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'progress', label: 'Progress' },
+  { key: 'research', label: 'Research' },
+  { key: 'notes', label: 'Notes' },
+  { key: 'map', label: 'Knowledge Map' },
+  { key: 'frameworks', label: 'Frameworks' },
+  { key: 'masternote', label: 'Master Note' },
+  { key: 'projects', label: 'Projects' },
+  { key: 'questions', label: 'Questions' },
+  { key: 'sources', label: 'Sources' }
+];
+function openTopicPage(id, tab) {
+  state.activeTopicPageId = id;
+  state.activeTopicPageTab = tab || 'overview';
+  $('lhdTopicPageBg').classList.add('show');
+  renderTopicPage();
+}
+function closeTopicPage() {
+  state.activeTopicPageId = null;
+  $('lhdTopicPageBg').classList.remove('show');
+}
+$('lhdTpBackBtn').addEventListener('click', closeTopicPage);
+$('lhdTpEditBtn').addEventListener('click', function () { openTopicModal(D.Topics.get(state.activeTopicPageId)); });
+$('lhdTpStudyBtn').addEventListener('click', function () { openDailyWidget(state.activeTopicPageId); });
+
+function switchTpTab(key) {
+  state.activeTopicPageTab = key;
+  Array.prototype.forEach.call(document.querySelectorAll('.lhd-tp-tab'), function (el) { el.classList.toggle('active', el.getAttribute('data-tp-tab') === key); });
+  Array.prototype.forEach.call(document.querySelectorAll('.lhd-tp-panel'), function (el) { el.classList.toggle('active', el.getAttribute('data-tp-panel') === key); });
+  renderTpPanel(key);
+}
+function renderTopicPage() {
+  var t = D.Topics.get(state.activeTopicPageId);
+  if (!t) { closeTopicPage(); return; }
+  var wk = D.weekInfo(t.currentWeek);
+  $('lhdTpIcon').textContent = t.icon;
+  $('lhdTpIcon').style.background = t.color + '22'; $('lhdTpIcon').style.color = t.color;
+  $('lhdTpTitle').textContent = t.title;
+  $('lhdTpMeta').textContent = 'Week ' + t.currentWeek + ' · ' + wk.stage + ' · ' + t.completionPct + '% complete · ' + D.hoursLoggedForTopic(t.id) + 'h / ' + t.estimatedHours + 'h';
+
+  $('lhdTpTabs').innerHTML = TP_TABS.map(function (tb) {
+    return '<button type="button" class="lhd-tp-tab' + (tb.key === state.activeTopicPageTab ? ' active' : '') + '" data-tp-tab="' + tb.key + '">' + tb.label + '</button>';
+  }).join('');
+  $('lhdTpPanels').innerHTML = TP_TABS.map(function (tb) {
+    return '<div class="lhd-tp-panel' + (tb.key === state.activeTopicPageTab ? ' active' : '') + '" data-tp-panel="' + tb.key + '"></div>';
+  }).join('');
+  Array.prototype.forEach.call($('lhdTpTabs').querySelectorAll('.lhd-tp-tab'), function (el) {
+    el.addEventListener('click', function () { switchTpTab(el.getAttribute('data-tp-tab')); });
+  });
+  renderTpPanel(state.activeTopicPageTab);
+}
+function tpPanelMount(key) { return document.querySelector('.lhd-tp-panel[data-tp-panel="' + key + '"]'); }
+function renderTpPanel(key) {
+  var t = D.Topics.get(state.activeTopicPageId);
+  if (!t) return;
+  var mount = tpPanelMount(key);
+  if (!mount) return;
+  if (key === 'overview') renderTpOverview(t, mount);
+  else if (key === 'progress') renderTpProgress(t, mount);
+  else if (key === 'research') renderTpResearch(t, mount);
+  else if (key === 'notes') renderTpNotes(t, mount);
+  else if (key === 'map') renderTpMap(t, mount);
+  else if (key === 'frameworks') renderTpFrameworks(t, mount);
+  else if (key === 'masternote') renderTpMasterNote(t, mount);
+  else if (key === 'projects') renderTpProjects(t, mount);
+  else if (key === 'questions') renderTpQuestions(t, mount);
+  else if (key === 'sources') renderTpSources(t, mount);
+}
+
+function renderTpOverview(t, mount) {
+  var html = '<div class="lhd-grid lhd-grid-2">';
+  html += '<div class="lhd-card lhd-card-pad"><div class="lhd-chart-title">Description</div><div style="font-size:13px; color:var(--lhd-text-dim); line-height:1.6;">' + esc(t.description || 'No description yet — edit this topic to add one.') + '</div>' +
+    (t.currentQuestion ? '<div class="lhd-tc-question" style="margin-top:14px;">' + esc(t.currentQuestion) + '</div>' : '') + '</div>';
+  html += '<div class="lhd-card lhd-card-pad"><div class="lhd-chart-title">At a Glance</div>';
+  html += '<div class="lhd-progress-bar" style="margin-bottom:8px;"><div class="lhd-progress-fill" style="width:' + t.completionPct + '%;"></div></div>';
+  html += '<div style="font-size:12px; color:var(--lhd-text-mute); margin-bottom:14px;">' + t.completionPct + '% complete · Week ' + t.currentWeek + ' of 4</div>';
+  html += '<div class="lhd-grid lhd-grid-4" style="gap:10px;">';
+  html += statTile('⏱️', D.hoursLoggedForTopic(t.id) + 'h', 'Logged');
+  html += statTile('📂', String(D.researchForTopic(t.id).length), 'Sources');
+  html += statTile('💡', String(D.frameworksForTopic(t.id).length), 'Frameworks');
+  html += statTile('❔', String(D.questionsForTopic(t.id).filter(function (q) { return q.status === 'open'; }).length), 'Open Qs');
+  html += '</div></div></div>';
+  mount.innerHTML = html;
+}
+function renderTpProgress(t, mount) {
+  var html = '<div class="lhd-chip-row" style="margin-bottom:16px;">';
+  D.WEEKS.forEach(function (w) {
+    html += '<span class="lhd-chip' + (w.week === t.currentWeek ? ' active' : '') + '" data-tp-week="' + w.week + '">Week ' + w.week + ' — ' + esc(w.stage) + '</span>';
+  });
+  html += '</div>';
+  var wk = D.weekInfo(t.currentWeek);
+  html += '<div class="lhd-grid lhd-grid-2">';
+  html += '<div class="lhd-card lhd-card-pad"><div class="lhd-chart-title">Tasks</div><ul style="padding-left:20px; font-size:12.5px; color:var(--lhd-text-dim); line-height:1.8; margin:0;">' + wk.tasks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+  html += '<div class="lhd-card lhd-card-pad"><div class="lhd-chart-title">Daily Outputs to Produce</div><ul style="padding-left:20px; font-size:12.5px; color:var(--lhd-text-dim); line-height:1.8; margin:0;">' + wk.outputs.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+  html += '</div>';
+  html += '<div style="margin-top:16px;"><button class="lhd-btn lhd-btn-primary" id="lhdTpProgressStudyBtn">📝 Start Today’s Study Session</button></div>';
+  var logs = D.dailyLogsForTopic(t.id).slice(0, 10);
+  html += '<div class="lhd-chart-title" style="margin-top:24px;">Recent Sessions</div>';
+  if (logs.length) {
+    html += '<div class="lhd-card">' + logs.map(function (l, i) {
+      return '<div class="lhd-research-row" style="border-bottom:' + (i < logs.length - 1 ? '1px solid var(--lhd-border)' : 'none') + '; border-radius:0; margin-bottom:0;">' +
+        '<span class="lhd-research-status-dot" style="background:var(--lhd-good);"></span>' +
+        '<div style="flex:1 1 auto;"><div class="lhd-research-title">' + fmtDate(l.date) + '</div><div class="lhd-research-meta">' + (l.minutes || 0) + ' minutes</div></div></div>';
+    }).join('') + '</div>';
+  } else { html += emptyState('📅', 'No sessions logged yet', ''); }
+  mount.innerHTML = html;
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-tp-week]'), function (el) {
+    el.addEventListener('click', function () { D.Topics.update(t.id, { currentWeek: parseInt(el.getAttribute('data-tp-week'), 10) }); renderTopicPage(); renderAllSections(); });
+  });
+  var studyBtn = $('lhdTpProgressStudyBtn'); if (studyBtn) studyBtn.addEventListener('click', function () { openDailyWidget(t.id); });
+}
+function renderTpResearch(t, mount) {
+  var list = D.researchForTopic(t.id);
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-primary lhd-btn-sm" id="lhdTpResearchAddBtn">➕ Add Research Item</button></div>';
+  html += buildResearchGroups(list, false, t.id);
+  mount.innerHTML = html;
+  $('lhdTpResearchAddBtn').addEventListener('click', function () { openResearchModal(null, t.id); });
+  wireResearchRowActions(mount, t.id);
+}
+function renderTpSources(t, mount) {
+  var list = D.researchForTopic(t.id);
+  var html = '<div style="font-size:12px; color:var(--lhd-text-mute); margin-bottom:14px;">A compact source list for this topic — same data as the Research tab, without the notes/status editing.</div>';
+  html += buildResearchGroups(list, true, t.id);
+  mount.innerHTML = html;
+  wireResearchRowActions(mount, t.id);
+}
+function renderTpNotes(t, mount) {
+  var list = D.notesForTopic(t.id);
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-primary lhd-btn-sm" id="lhdTpNoteAddBtn">➕ Add Note</button></div>';
+  if (!list.length) { html += emptyState('📝', 'No atomic notes yet', 'Notes gathered from Week 2 (Organize & Connect) belong here.'); }
+  else {
+    html += '<div class="lhd-grid lhd-grid-3">';
+    list.forEach(function (n) {
+      html += '<div class="lhd-card lhd-card-pad lhd-hoverable" data-edit-note="' + n.id + '"><span class="lhd-tag" style="margin-bottom:8px; display:inline-block;">' + n.type + '</span>' +
+        (n.title ? '<div style="font-weight:800; font-size:13px; margin-bottom:6px;">' + esc(n.title) + '</div>' : '') +
+        '<div style="font-size:12.5px; color:var(--lhd-text-dim); line-height:1.5;">' + esc(n.body) + '</div></div>';
+    });
+    html += '</div>';
+  }
+  mount.innerHTML = html;
+  $('lhdTpNoteAddBtn').addEventListener('click', function () { openNoteModal(null, t.id); });
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-edit-note]'), function (el) {
+    el.addEventListener('click', function () { openNoteModal(D.Notes.get(el.getAttribute('data-edit-note')), t.id); });
+  });
+}
+function renderTpMap(t, mount) {
+  var list = getActiveMapList(t.id);
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-sm" id="lhdTpMapAddBtn">➕ New Map for This Topic</button></div><div id="lhdTpMapMount"></div>';
+  mount.innerHTML = html;
+  if (!list.some(function (m) { return m.id === state.activeMapId; })) state.activeMapId = list.length ? list[0].id : null;
+  renderMapWorkspace(list, $('lhdTpMapMount'), t.id);
+  $('lhdTpMapAddBtn').addEventListener('click', function () { openMapModal(null, t.id); });
+}
+function renderTpFrameworks(t, mount) {
+  var list = D.frameworksForTopic(t.id);
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-sm" id="lhdTpFwAddBtn">➕ New Framework</button></div><div id="lhdTpFwMount"></div>';
+  mount.innerHTML = html;
+  renderFrameworksGrid(list, $('lhdTpFwMount'), t.id);
+  $('lhdTpFwAddBtn').addEventListener('click', function () { openFrameworkModal(null, t.id); });
+}
+function renderTpMasterNote(t, mount) {
+  var list = D.masterNotesForTopic(t.id);
+  if (!state.activeMnId || !list.some(function (n) { return n.id === state.activeMnId; })) state.activeMnId = list.length ? list[0].id : null;
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-sm" id="lhdTpMnAddBtn">➕ New Master Note</button></div>';
+  html += '<div class="lhd-mn-layout"><div class="lhd-mn-list" id="lhdTpMnList"></div><div class="lhd-card lhd-mn-reading" id="lhdTpMnReading"></div></div>';
+  mount.innerHTML = html;
+  renderMasterNotesList(list, $('lhdTpMnList'), function (id) { state.activeMnId = id; renderTopicPage(); });
+  renderMasterNoteReading($('lhdTpMnReading'), false);
+  $('lhdTpMnAddBtn').addEventListener('click', function () { openMasterNoteModal(null, t.id); });
+}
+function renderTpProjects(t, mount) {
+  var list = D.projectsForTopic(t.id);
+  var statusColor = { idea: 'var(--lhd-warn)', 'in-progress': 'var(--lhd-info)', done: 'var(--lhd-good)' };
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-primary lhd-btn-sm" id="lhdTpProjAddBtn">➕ Add Project</button></div>';
+  if (!list.length) html += emptyState('🚀', 'No projects yet', 'Turn what you learn into something you build (Week 3).');
+  else {
+    html += '<div class="lhd-grid lhd-grid-3">';
+    list.forEach(function (p) {
+      html += '<div class="lhd-card lhd-card-pad lhd-hoverable" data-edit-project="' + p.id + '"><span class="lhd-tag" style="background:' + statusColor[p.status] + '22; color:' + statusColor[p.status] + '; border-color:transparent;">' + p.status + '</span>' +
+        '<div style="font-weight:800; font-size:13.5px; margin:8px 0 6px;">' + esc(p.title) + '</div>' +
+        '<div style="font-size:12.5px; color:var(--lhd-text-mute);">' + esc(p.description || '') + '</div></div>';
+    });
+    html += '</div>';
+  }
+  mount.innerHTML = html;
+  $('lhdTpProjAddBtn').addEventListener('click', function () { openProjectModal(null, t.id); });
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-edit-project]'), function (el) {
+    el.addEventListener('click', function () { openProjectModal(D.Projects.get(el.getAttribute('data-edit-project')), t.id); });
+  });
+}
+function renderTpQuestions(t, mount) {
+  var list = D.questionsForTopic(t.id);
+  var html = '<div style="display:flex; justify-content:flex-end; margin-bottom:14px;"><button class="lhd-btn lhd-btn-primary lhd-btn-sm" id="lhdTpQAddBtn">➕ Add Question</button></div>';
+  if (!list.length) html += emptyState('❔', 'No questions logged yet', 'Every "what am I missing?" from a study session belongs here.');
+  else {
+    html += '<div class="lhd-card">' + list.map(function (q, i) {
+      return '<div class="lhd-research-row" style="border-bottom:' + (i < list.length - 1 ? '1px solid var(--lhd-border)' : 'none') + '; border-radius:0; margin-bottom:0;" data-edit-question="' + q.id + '">' +
+        '<span class="lhd-research-status-dot" style="background:' + (q.status === 'answered' ? 'var(--lhd-good)' : 'var(--lhd-warn)') + ';"></span>' +
+        '<div style="flex:1 1 auto;"><div class="lhd-research-title">' + esc(q.text) + '</div>' + (q.answer ? '<div class="lhd-research-meta">' + esc(q.answer) + '</div>' : '') + '</div>' +
+        '<span class="lhd-tag">' + q.status + '</span></div>';
+    }).join('') + '</div>';
+  }
+  mount.innerHTML = html;
+  $('lhdTpQAddBtn').addEventListener('click', function () { openQuestionModal(null, t.id); });
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-edit-question]'), function (el) {
+    el.addEventListener('click', function () { openQuestionModal(D.Questions.get(el.getAttribute('data-edit-question')), t.id); });
+  });
+}
+
+// =====================================================================
+// STUDY TIMER — timestamp-diff based (Date.now() diffs, not a naive tick
+// counter) so a backgrounded/throttled tab can't drift, same precedent
+// gym.html's own workout timer and selfcare.html's breathing pacer
+// already established. Stopwatch counts up; Pomodoro counts down through
+// alternating work/break phases with a synthesized beep at each switch
+// (Web Audio, no bundled audio asset — same "no binary assets" precedent
+// this app's own DO NOT MODIFY discipline already follows).
+// =====================================================================
+var RING_CIRC = 2 * Math.PI * 76;
+var audioCtx = null;
+function ensureAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { audioCtx = null; }
+}
+function playBeep() {
+  if (!audioCtx) return;
+  try {
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.52);
+  } catch (e) {}
+}
+function fmtClock(ms) {
+  var totalSec = Math.max(0, Math.floor(ms / 1000));
+  var m = Math.floor(totalSec / 60), s = totalSec % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+function openTimerQuickModal(topicId) {
+  var topics = D.topicsSorted();
+  var sel = $('lhdTimerTopicSelect');
+  sel.innerHTML = topics.length
+    ? topics.map(function (t) { return '<option value="' + t.id + '">' + esc(t.icon) + ' ' + esc(t.title) + '</option>'; }).join('')
+    : '<option value="">No topics yet</option>';
+  var useId = topicId || state.timer.topicId || (topics.length ? topics[0].id : null);
+  if (useId) sel.value = useId;
+  state.timer.topicId = sel.value || null;
+  renderTimerUI();
+  $('lhdTimerModalBg').classList.add('show');
+}
+function closeTimerModal() { $('lhdTimerModalBg').classList.remove('show'); }
+function setTimerMode(mode) {
+  if (state.timer.running) return;
+  state.timer.mode = mode;
+  resetTimerState();
+  $('lhdTimerModeStopwatch').classList.toggle('active', mode === 'stopwatch');
+  $('lhdTimerModePomodoro').classList.toggle('active', mode === 'pomodoro');
+  renderTimerUI();
+}
+function resetTimerState() {
+  var settings = D.getSettings();
+  state.timer.elapsedMs = 0;
+  state.timer.phaseStartElapsedMs = 0;
+  state.timer.phase = 'work';
+  state.timer.phaseSecs = (state.timer.mode === 'pomodoro' ? settings.pomodoroWork : 0) * 60;
+}
+function startTimer() {
+  ensureAudio();
+  if (state.timer.mode === 'pomodoro' && !state.timer.phaseSecs) resetTimerState();
+  state.timer.startedAt = Date.now();
+  state.timer.running = true;
+  $('lhdTimerStartBtn').style.display = 'none';
+  $('lhdTimerPauseBtn').style.display = 'inline-flex';
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(tickTimer, 250);
+  tickTimer();
+}
+function pauseTimer() {
+  state.timer.elapsedMs += Date.now() - state.timer.startedAt;
+  state.timer.running = false;
+  clearInterval(state.timerInterval);
+  $('lhdTimerStartBtn').style.display = 'inline-flex';
+  $('lhdTimerPauseBtn').style.display = 'none';
+  renderTimerUI();
+}
+function resetTimerBtn() {
+  clearInterval(state.timerInterval);
+  state.timer.running = false;
+  resetTimerState();
+  $('lhdTimerStartBtn').style.display = 'inline-flex';
+  $('lhdTimerPauseBtn').style.display = 'none';
+  renderTimerUI();
+}
+function currentTotalElapsedMs() {
+  return state.timer.elapsedMs + (state.timer.running ? (Date.now() - state.timer.startedAt) : 0);
+}
+function tickTimer() {
+  var totalMs = currentTotalElapsedMs();
+  var settings = D.getSettings();
+  if (state.timer.mode === 'pomodoro') {
+    var phaseElapsed = totalMs - state.timer.phaseStartElapsedMs;
+    var phaseMs = state.timer.phaseSecs * 1000;
+    if (phaseElapsed >= phaseMs) {
+      state.timer.phase = state.timer.phase === 'work' ? 'break' : 'work';
+      state.timer.phaseSecs = (state.timer.phase === 'work' ? settings.pomodoroWork : settings.pomodoroBreak) * 60;
+      state.timer.phaseStartElapsedMs = totalMs;
+      if (settings.notificationsEnabled) playBeep();
+      $('lhdTimerDigits').classList.add('flash');
+      setTimeout(function () { var el = $('lhdTimerDigits'); if (el) el.classList.remove('flash'); }, 500);
+    }
+  }
+  renderTimerUI();
+}
+function renderTimerUI() {
+  var totalMs = currentTotalElapsedMs();
+  var settings = D.getSettings();
+  if (state.timer.mode === 'pomodoro') {
+    var phaseElapsed = totalMs - state.timer.phaseStartElapsedMs;
+    var remainMs = Math.max(0, state.timer.phaseSecs * 1000 - phaseElapsed);
+    $('lhdTimerDigits').textContent = fmtClock(remainMs);
+    $('lhdTimerPhase').textContent = state.timer.running ? (state.timer.phase === 'work' ? 'Focus' : 'Break') : 'Ready';
+    var frac = state.timer.phaseSecs ? Math.min(1, phaseElapsed / (state.timer.phaseSecs * 1000)) : 0;
+    $('lhdTimerRingFill').setAttribute('stroke-dashoffset', String(RING_CIRC * frac));
+    $('lhdTimerRingFill').classList.remove('lhd-pulsing');
+  } else {
+    $('lhdTimerDigits').textContent = fmtClock(totalMs);
+    $('lhdTimerPhase').textContent = state.timer.running ? 'Studying' : (totalMs ? 'Paused' : 'Ready');
+    $('lhdTimerRingFill').setAttribute('stroke-dashoffset', '0');
+    $('lhdTimerRingFill').classList.toggle('lhd-pulsing', state.timer.running);
+  }
+}
+function stopAndLogTimer() {
+  var totalMs = currentTotalElapsedMs();
+  var minutes = Math.round(totalMs / 60000);
+  clearInterval(state.timerInterval);
+  state.timer.running = false;
+  $('lhdTimerStartBtn').style.display = 'inline-flex';
+  $('lhdTimerPauseBtn').style.display = 'none';
+  if (minutes < 1) { resetTimerState(); renderTimerUI(); return; }
+  var topicId = $('lhdTimerTopicSelect').value;
+  if (!topicId) { alert('Pick a topic first so this session has somewhere to log to.'); return; }
+  D.Sessions.add({ topicId: topicId, date: D.todayISO(), minutes: minutes, mode: state.timer.mode });
+  D.markStudied(topicId);
+  resetTimerState();
+  renderTimerUI();
+  closeTimerModal();
+  renderAllSections();
+  if (state.activeTopicPageId === topicId) renderTopicPage();
+}
+$('lhdTimerCloseBtn').addEventListener('click', function () { if (!state.timer.running) closeTimerModal(); else if (confirm('A session is still running — pause and close?')) { pauseTimer(); closeTimerModal(); } });
+$('lhdTimerModalBg').addEventListener('click', function (e) { if (e.target === $('lhdTimerModalBg') && !state.timer.running) closeTimerModal(); });
+$('lhdTimerTopicSelect').addEventListener('change', function (e) { state.timer.topicId = e.target.value; });
+$('lhdTimerModeStopwatch').addEventListener('click', function () { setTimerMode('stopwatch'); });
+$('lhdTimerModePomodoro').addEventListener('click', function () { setTimerMode('pomodoro'); });
+$('lhdTimerStartBtn').addEventListener('click', startTimer);
+$('lhdTimerPauseBtn').addEventListener('click', pauseTimer);
+$('lhdTimerResetBtn').addEventListener('click', resetTimerBtn);
+$('lhdTimerStopSaveBtn').addEventListener('click', stopAndLogTimer);
+
+// =====================================================================
+// COMMAND PALETTE (Ctrl+K) — jump to any section, topic, framework, or
+// master note. Simple substring match + arrow-key navigation.
+// =====================================================================
+function commandItems() {
+  var items = SECTIONS.map(function (s) { return { icon: s.icon, label: s.label, tag: 'Page', action: function () { switchSection(s.key); } }; });
+  D.topicsSorted().forEach(function (t) { items.push({ icon: t.icon, label: t.title, tag: 'Topic', action: function () { openTopicPage(t.id); } }); });
+  D.Frameworks.list().forEach(function (f) { items.push({ icon: f.icon, label: f.title, tag: 'Framework', action: function () { switchSection('frameworks'); setTimeout(function () { openFrameworkDetail(f.id); }, 60); } }); });
+  D.MasterNotes.list().forEach(function (n) { items.push({ icon: '🎓', label: n.title, tag: 'Master Note', action: function () { state.activeMnId = n.id; switchSection('masternotes'); } }); });
+  items.push({ icon: '➕', label: 'New Topic', tag: 'Action', action: function () { openTopicModal(null); } });
+  items.push({ icon: '📝', label: 'Start Daily Study Session', tag: 'Action', action: function () { openDailyWidget(D.currentTopic() ? D.currentTopic().id : null); } });
+  items.push({ icon: '⏱️', label: 'Open Study Timer', tag: 'Action', action: function () { openTimerQuickModal(); } });
+  return items;
+}
+function openCmdk() {
+  $('lhdCmdkInput').value = '';
+  state.cmdkSelIndex = 0;
+  renderCmdkResults('');
+  $('lhdCmdkBg').classList.add('show');
+  setTimeout(function () { $('lhdCmdkInput').focus(); }, 30);
+}
+function closeCmdk() { $('lhdCmdkBg').classList.remove('show'); }
+function renderCmdkResults(query) {
+  var q = query.trim().toLowerCase();
+  var all = commandItems();
+  var results = q ? all.filter(function (i) { return i.label.toLowerCase().indexOf(q) !== -1; }) : all.slice(0, 12);
+  if (state.cmdkSelIndex >= results.length) state.cmdkSelIndex = 0;
+  var mount = $('lhdCmdkResults');
+  if (!results.length) { mount.innerHTML = '<div class="lhd-cmdk-empty">No matches for “' + esc(query) + '”</div>'; return; }
+  mount.innerHTML = results.map(function (r, i) {
+    return '<div class="lhd-cmdk-item' + (i === state.cmdkSelIndex ? ' sel' : '') + '" data-cmdk-index="' + i + '"><span class="lhd-cmdk-item-icon">' + r.icon + '</span><span class="lhd-cmdk-item-label">' + esc(r.label) + '</span><span class="lhd-cmdk-item-tag">' + r.tag + '</span></div>';
+  }).join('');
+  Array.prototype.forEach.call(mount.querySelectorAll('[data-cmdk-index]'), function (el) {
+    el.addEventListener('click', function () { runCmdkResult(results, parseInt(el.getAttribute('data-cmdk-index'), 10)); });
+    el.addEventListener('mouseenter', function () { state.cmdkSelIndex = parseInt(el.getAttribute('data-cmdk-index'), 10); renderCmdkResults($('lhdCmdkInput').value); });
+  });
+  state.cmdkResultsCache = results;
+}
+function runCmdkResult(results, idx) {
+  var item = results[idx];
+  if (!item) return;
+  closeCmdk();
+  item.action();
+}
+$('lhdCmdkInput').addEventListener('input', function (e) { state.cmdkSelIndex = 0; renderCmdkResults(e.target.value); });
+$('lhdCmdkInput').addEventListener('keydown', function (e) {
+  var results = state.cmdkResultsCache || [];
+  if (e.key === 'ArrowDown') { e.preventDefault(); state.cmdkSelIndex = Math.min(results.length - 1, state.cmdkSelIndex + 1); renderCmdkResults($('lhdCmdkInput').value); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); state.cmdkSelIndex = Math.max(0, state.cmdkSelIndex - 1); renderCmdkResults($('lhdCmdkInput').value); }
+  else if (e.key === 'Enter') { e.preventDefault(); runCmdkResult(results, state.cmdkSelIndex); }
+  else if (e.key === 'Escape') { closeCmdk(); }
+});
+$('lhdCmdkBg').addEventListener('click', function (e) { if (e.target === $('lhdCmdkBg')) closeCmdk(); });
+$('lhdSearchTrigger').addEventListener('click', openCmdk);
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openCmdk(); }
+});
+
+// =====================================================================
+// HEADER wiring
+// =====================================================================
+$('lhdSbToggleBtn').addEventListener('click', function () {
+  var sidebar = $('lhdSidebar');
+  if (sidebar.classList.contains('lhd-sb-open')) closeSidebarMobile(); else openSidebarMobile();
+});
+$('lhdThemeToggleBtn').addEventListener('click', toggleTheme);
+$('lhdTimerQuickBtn').addEventListener('click', function () { openTimerQuickModal(); });
+$('lhdNewTopicBtn').addEventListener('click', function () { openTopicModal(null); });
+
+// =====================================================================
+// BOOT — same empty-storage seed-race-safety contract as
+// dreamboard.html/aitech.html/business.html: seeding is deferred until
+// either real cloud data arrives via onApplied, or a 5s window elapses
+// with nothing (or the Supabase SDK never loaded at all, in which case
+// there is no cloud to race against). Wrapped in try/catch with a
+// visible boot-error banner, same precedent business.html/gym.html/
+// mainpillar.html already established for this exact failure class.
+// =====================================================================
+var remoteAppliedOnce = false;
+function maybeSeedAfterSyncAttempt() {
+  if (remoteAppliedOnce) return;
+  if (!D.isEmptyEverywhere()) return;
+  D.seedIfEmpty();
+  renderAllSections();
+}
+function hashSection() {
+  var h = (window.location.hash || '').replace(/^#/, '');
+  return SECTIONS.some(function (s) { return s.key === h; }) ? h : 'home';
+}
+function boot() {
+  D = window.LearningHubData;
+  if (!D) { showBootErrorBanner('LearningHubData did not load — check that learning-dashboard-data.js loaded correctly.', 'boot'); return; }
+
+  var settings = D.getSettings();
+  applyTheme(settings.theme);
+  applyAccentColor(settings.accentColor);
+
+  renderSidebarNav();
+  switchSection(hashSection());
+
+  window.addEventListener('hashchange', function () { switchSection(hashSection()); });
+
+  if (typeof window.initCloudSync === 'function') {
+    window.initCloudSync({
+      appKey: 'learninghub',
+      syncedPrefixes: ['lhub:'],
+      onApplied: function () {
+        remoteAppliedOnce = true;
+        runSafely(function () {
+          renderAllSections();
+          if (state.activeTopicPageId) renderTopicPage();
+        }, 'onApplied');
+      }
+    });
+    setTimeout(maybeSeedAfterSyncAttempt, 5000);
+  } else {
+    maybeSeedAfterSyncAttempt();
+  }
+
+  window.addEventListener('lhub:save', function (e) {
+    var el = $('lhdSyncStatus');
+    if (!el) return;
+    if (e.detail && e.detail.ok === false) { el.textContent = "Couldn't save — your browser's storage may be full"; el.style.color = 'var(--lhd-bad)'; return; }
+    el.textContent = 'Saved — syncing…'; el.style.color = '';
+    clearTimeout(window.__lhdSyncStatusTimer);
+    window.__lhdSyncStatusTimer = setTimeout(function () { if (el) el.textContent = 'Changes save automatically'; }, 2200);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () { runSafely(boot, 'boot'); }, { once: true });
+} else {
+  runSafely(boot, 'boot');
+}
+
+})();
+</script>
+</body>
+</html>
+

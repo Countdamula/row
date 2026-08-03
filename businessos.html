@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0D0D0D">
+<title>Business OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="businessos-data.js" defer></script>
+<style>
+/* =============================================================
+   Business OS — a CEO command center for managing multiple businesses
+   from one dashboard. Vanilla HTML/CSS/JS, no build step, no framework —
+   this repo has none anywhere (CLAUDE.md §1) — built natively in this
+   app's real stack (localStorage + the shared initCloudSync() sync
+   helper) rather than the originally-requested Next.js/React/Tailwind/
+   shadcn/Recharts stack, per an explicit decision confirmed with the
+   user before writing any code (same precedent as the Learning Dashboard
+   and Writing Dashboard builds elsewhere in this app). Hand-rolled
+   charts/kanban/animations stand in for Recharts/Framer Motion — this
+   app's own established "no charting/animation library" convention.
+   Own private --bos-* tokens, an explicit literal-hex palette instruction
+   (near-black #0D0D0D / surface #171717 / crimson #E11D48 / pink
+   #F472B6) — the same one-off aesthetic-exception category as every
+   other themed page in this app (CLAUDE.md §6 / DO NOT MODIFY rule 2).
+   ============================================================= */
+:root {
+  --bos-bg: #0D0D0D;
+  --bos-bg-deep: #060606;
+  --bos-surface: #171717;
+  --bos-surface-2: #1c1c1c;
+  --bos-surface-hover: #212121;
+  --bos-border: rgba(255,255,255,0.08);
+  --bos-border-strong: rgba(255,255,255,0.16);
+  --bos-text: #FFFFFF;
+  --bos-text-dim: rgba(255,255,255,0.66);
+  --bos-text-mute: rgba(255,255,255,0.40);
+  --bos-accent: #E11D48;
+  --bos-accent2: #F472B6;
+  --bos-accent-rgb: 225,29,72;
+  --bos-accent2-rgb: 244,114,182;
+  --bos-good: #34D399;
+  --bos-warn: #F59E0B;
+  --bos-bad: #FB7185;
+  --bos-info: #60A5FA;
+  --bos-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bos-bg); }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--bos-text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+::selection { background: rgba(var(--bos-accent-rgb), 0.35); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--bos-border-strong); border-radius: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+a { color: inherit; }
+button { font-family: inherit; }
+h1, h2, h3, h4 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+@keyframes bosFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bosPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+.bos-bg-glow {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(700px 500px at 12% -6%, rgba(var(--bos-accent-rgb), 0.16), transparent 60%),
+    radial-gradient(600px 480px at 100% 8%, rgba(var(--bos-accent2-rgb), 0.10), transparent 60%),
+    radial-gradient(900px 700px at 50% 120%, rgba(var(--bos-accent-rgb), 0.06), transparent 60%);
+}
+
+/* ---------- app shell ---------- */
+.bos-app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+.bos-sidebar {
+  width: 246px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: rgba(15,15,16,0.6);
+  border-right: 1px solid var(--bos-border);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1);
+  z-index: 40;
+}
+.bos-sb-brand { display: flex; align-items: center; gap: 10px; padding: 62px 18px 20px; border-bottom: 1px solid var(--bos-border); }
+.bos-sb-mark {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(155deg, var(--bos-accent) 0%, var(--bos-accent2) 100%);
+  box-shadow: 0 6px 18px rgba(var(--bos-accent-rgb), 0.4);
+  font-size: 16px; font-weight: 800;
+}
+.bos-sb-brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.bos-sb-title { font-size: 14.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bos-sb-subtitle { font-size: 10px; color: var(--bos-text-mute); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.bos-sb-nav { flex: 1 1 auto; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.bos-sb-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+  text-decoration: none; color: var(--bos-text-dim); font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; position: relative;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent; background: none; width: 100%; text-align: left;
+}
+.bos-sb-item:hover { background: var(--bos-surface-hover); color: var(--bos-text); }
+.bos-sb-item:active { transform: scale(0.98); }
+.bos-sb-item.active { background: linear-gradient(180deg, rgba(var(--bos-accent-rgb),0.22) 0%, rgba(var(--bos-accent-rgb),0.08) 100%); color: #fff; border-color: rgba(var(--bos-accent-rgb), 0.3); }
+.bos-sb-item.active::before { content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 3px; border-radius: 3px; background: linear-gradient(180deg, var(--bos-accent), var(--bos-accent2)); box-shadow: 0 0 10px rgba(var(--bos-accent-rgb), 0.7); }
+.bos-sb-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.bos-sb-count { margin-left: auto; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10px; color: var(--bos-text-mute); }
+.bos-sb-footer { padding: 12px 18px 18px; border-top: 1px solid var(--bos-border); font-size: 11.5px; color: var(--bos-text-mute); }
+
+.bos-workspace { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+.bos-header {
+  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px;
+  padding: 14px 26px; padding-left: 60px;
+  background: rgba(13,13,13,0.55); backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid var(--bos-border);
+}
+.bos-search-wrap {
+  flex: 1 1 auto; max-width: 440px; display: flex; align-items: center; gap: 8px;
+  padding: 9px 13px; border-radius: 11px; background: var(--bos-surface); border: 1px solid var(--bos-border);
+  color: var(--bos-text-mute); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.bos-search-wrap:hover { border-color: var(--bos-border-strong); }
+.bos-kbd { margin-left: auto; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; padding: 2px 6px; border-radius: 6px; background: var(--bos-surface-2); border: 1px solid var(--bos-border-strong); color: var(--bos-text-mute); }
+.bos-header-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.bos-icon-btn {
+  width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bos-surface); border: 1px solid var(--bos-border); color: var(--bos-text-dim);
+  cursor: pointer; font-size: 15px; transition: all 0.15s ease; position: relative;
+}
+.bos-icon-btn:hover { background: var(--bos-surface-hover); border-color: var(--bos-border-strong); color: var(--bos-text); transform: translateY(-1px); }
+.bos-notif-dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--bos-accent); border: 2px solid var(--bos-bg-deep); display: none; }
+.bos-notif-dot.show { display: block; animation: bosPulse 1.8s ease-in-out infinite; }
+
+.bos-main { flex: 1 1 auto; padding: 26px 30px 90px; max-width: 1360px; width: 100%; margin: 0 auto; }
+.bos-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.bos-page-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bos-accent2); margin-bottom: 6px; }
+.bos-page-title { font-size: 25px; font-weight: 800; }
+.bos-page-subtext { font-size: 13px; color: var(--bos-text-mute); margin-top: 4px; max-width: 620px; }
+.bos-anim { animation: bosFadeUp 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* ---------- shared components ---------- */
+.bos-card { background: rgba(255,255,255,0.035); border: 1px solid var(--bos-border); border-radius: 16px; backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset; transition: transform 0.22s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s ease, box-shadow 0.22s ease; }
+.bos-card.bos-hoverable { cursor: pointer; }
+.bos-card.bos-hoverable:hover { transform: translateY(-4px); border-color: rgba(var(--bos-accent-rgb), 0.35); box-shadow: var(--bos-shadow), 0 0 0 1px rgba(var(--bos-accent-rgb),0.15); }
+.bos-card-pad { padding: 18px; }
+.bos-grid { display: grid; gap: 16px; }
+.bos-grid-4 { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.bos-grid-3 { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.bos-grid-2 { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+
+.bos-btn { display: inline-flex; align-items: center; gap: 7px; justify-content: center; padding: 9px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700; border: 1px solid var(--bos-border-strong); background: var(--bos-surface); color: var(--bos-text); cursor: pointer; transition: all 0.15s ease; white-space: nowrap; }
+.bos-btn:hover { background: var(--bos-surface-hover); transform: translateY(-1px); }
+.bos-btn:active { transform: translateY(0) scale(0.98); }
+.bos-btn-primary { background: linear-gradient(135deg, var(--bos-accent) 0%, var(--bos-accent2) 100%); border-color: transparent; color: #fff; box-shadow: 0 8px 22px rgba(var(--bos-accent-rgb), 0.35); }
+.bos-btn-primary:hover { box-shadow: 0 10px 28px rgba(var(--bos-accent-rgb), 0.5); filter: brightness(1.05); }
+.bos-btn-ghost { background: transparent; border-color: transparent; color: var(--bos-text-mute); }
+.bos-btn-ghost:hover { background: var(--bos-surface-hover); color: var(--bos-text); }
+.bos-btn-danger { border-color: rgba(251,113,133,0.4); color: var(--bos-bad); background: rgba(251,113,133,0.08); }
+.bos-btn-danger:hover { background: rgba(251,113,133,0.16); }
+.bos-btn-sm { padding: 6px 11px; font-size: 11.5px; border-radius: 8px; }
+.bos-btn-icon-sm { width: 26px; height: 26px; border-radius: 8px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--bos-surface-2); border: 1px solid var(--bos-border); color: var(--bos-text-dim); cursor: pointer; }
+.bos-btn-icon-sm:hover { background: var(--bos-surface-hover); color: var(--bos-text); }
+
+.bos-chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.bos-chip { padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bos-surface); border: 1px solid var(--bos-border); color: var(--bos-text-dim); cursor: pointer; transition: all 0.15s ease; white-space: nowrap; }
+.bos-chip:hover { border-color: var(--bos-border-strong); }
+.bos-chip.active { background: linear-gradient(135deg, rgba(var(--bos-accent-rgb),0.9), rgba(var(--bos-accent2-rgb),0.85)); border-color: transparent; color: #fff; }
+.bos-tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; background: var(--bos-surface-2); border: 1px solid var(--bos-border); color: var(--bos-text-mute); }
+.bos-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+.bos-pill-good { background: rgba(52,211,153,0.14); color: var(--bos-good); }
+.bos-pill-warn { background: rgba(245,158,11,0.14); color: var(--bos-warn); }
+.bos-pill-bad { background: rgba(251,113,133,0.14); color: var(--bos-bad); }
+.bos-pill-info { background: rgba(96,165,250,0.14); color: var(--bos-info); }
+.bos-pill-mute { background: var(--bos-surface-2); color: var(--bos-text-mute); }
+
+.bos-progress-bar { height: 7px; border-radius: 999px; background: var(--bos-surface-2); overflow: hidden; position: relative; }
+.bos-progress-fill { height: 100%; border-radius: 999px; width: 0%; background: linear-gradient(90deg, var(--bos-accent), var(--bos-accent2)); box-shadow: 0 0 10px rgba(var(--bos-accent-rgb), 0.6); transition: width 0.7s cubic-bezier(0.16,1,0.3,1); }
+.bos-progress-fill.bos-fill-good { background: linear-gradient(90deg, #059669, var(--bos-good)); }
+
+input[type="text"], input[type="number"], input[type="date"], input[type="url"], input[type="email"], select, textarea {
+  width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px;
+  background: var(--bos-surface-2); border: 1px solid var(--bos-border-strong); border-radius: 10px;
+  color: var(--bos-text); padding: 9px 12px; outline: none; transition: border-color 0.15s ease, background 0.15s ease;
+}
+textarea { resize: vertical; min-height: 70px; line-height: 1.55; font-family: inherit; }
+input:focus, select:focus, textarea:focus { border-color: var(--bos-accent); background: var(--bos-surface); }
+::placeholder { color: var(--bos-text-mute); }
+label.bos-field-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--bos-text-mute); margin-bottom: 6px; }
+.bos-field { margin-bottom: 14px; }
+.bos-field-row { display: flex; gap: 12px; }
+.bos-checkbox-row { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--bos-text-dim); cursor: pointer; }
+.bos-checkbox-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--bos-accent); cursor: pointer; }
+.bos-swatch-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bos-swatch { width: 26px; height: 26px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; }
+.bos-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px var(--bos-bg); }
+
+.bos-empty { text-align: center; padding: 50px 20px; color: var(--bos-text-mute); }
+.bos-empty-icon { font-size: 34px; margin-bottom: 10px; opacity: 0.7; }
+.bos-empty-title { font-size: 14px; font-weight: 700; color: var(--bos-text-dim); margin-bottom: 4px; }
+.bos-empty-sub { font-size: 12.5px; }
+
+.bos-stat-tile { padding: 18px; }
+.bos-stat-icon { font-size: 20px; margin-bottom: 10px; opacity: 0.9; }
+.bos-stat-value { font-size: 25px; font-weight: 800; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.bos-stat-label { font-size: 11.5px; color: var(--bos-text-mute); margin-top: 3px; font-weight: 600; }
+.bos-stat-sub { font-size: 11px; margin-top: 6px; font-weight: 700; }
+
+.bos-section-title { font-size: 13.5px; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* ---------- modal ---------- */
+.modal-bg { position: fixed; inset: 0; z-index: 3000; background: rgba(5,5,5,0.62); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity 0.2s ease; }
+.modal-bg.show { display: flex; opacity: 1; }
+.modal { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; background: rgba(20,20,21,0.92); border: 1px solid var(--bos-border-strong); border-radius: 18px; padding: 24px; box-shadow: var(--bos-shadow); transform: translateY(10px) scale(0.98); transition: transform 0.22s cubic-bezier(0.16,1,0.3,1); backdrop-filter: blur(20px) saturate(1.4); }
+.modal-bg.show .modal { transform: translateY(0) scale(1); }
+.bos-modal-wide { max-width: 760px; }
+.bos-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.bos-modal-title { font-size: 17px; font-weight: 800; }
+.bos-modal-close { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--bos-border); background: var(--bos-surface-2); color: var(--bos-text-dim); cursor: pointer; font-size: 14px; }
+.bos-modal-close:hover { background: var(--bos-surface-hover); color: var(--bos-text); }
+.bos-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bos-border); }
+.bos-modal-actions-split { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bos-border); }
+
+/* ---------- boot error banner ---------- */
+#bosBootErrorBanner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #3a0a0a; color: #ffdada; font: 12px ui-monospace, monospace; padding: 14px 18px; white-space: pre-wrap; max-height: 40vh; overflow-y: auto; }
+
+/* ---------- business grid card ---------- */
+.bos-biz-card { overflow: hidden; display: flex; flex-direction: column; }
+.bos-biz-cover { height: 120px; background: var(--bos-surface-2); background-size: cover; background-position: center; position: relative; display: flex; align-items: flex-end; }
+.bos-biz-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 20%, rgba(10,10,10,0.75) 100%); }
+.bos-biz-logo { position: relative; z-index: 1; width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 14px 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.4); flex-shrink: 0; }
+.bos-biz-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1 1 auto; }
+.bos-biz-name { font-size: 15.5px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.bos-biz-desc { font-size: 12px; color: var(--bos-text-mute); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bos-biz-stat-row { display: flex; gap: 14px; }
+.bos-biz-stat { flex: 1 1 0; min-width: 0; }
+.bos-biz-stat-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bos-text-mute); }
+.bos-biz-stat-value { font-size: 14px; font-weight: 800; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; margin-top: 2px; }
+.bos-biz-focus { font-size: 11.5px; color: var(--bos-text-dim); background: var(--bos-surface-2); border-radius: 9px; padding: 8px 10px; border-left: 2px solid var(--bos-accent); }
+.bos-biz-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.bos-biz-open { font-size: 12px; font-weight: 800; color: var(--bos-accent2); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0; }
+
+/* ---------- business workspace (full page overlay) ---------- */
+.bos-biz-page-bg { position: fixed; inset: 0; z-index: 2900; background: var(--bos-bg); display: none; overflow-y: auto; }
+.bos-biz-page-bg.show { display: block; }
+.bos-bp-header { padding: 20px 26px; border-bottom: 1px solid var(--bos-border); display: flex; align-items: center; gap: 14px; position: sticky; top: 0; background: rgba(13,13,13,0.88); backdrop-filter: blur(14px); z-index: 5; flex-wrap: wrap; }
+.bos-bp-icon { width: 48px; height: 48px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; box-shadow: 0 8px 22px rgba(0,0,0,0.3); }
+.bos-bp-title-wrap { flex: 1 1 auto; min-width: 160px; }
+.bos-bp-title { font-size: 19px; font-weight: 800; }
+.bos-bp-meta { font-size: 11.5px; color: var(--bos-text-mute); margin-top: 2px; }
+.bos-bp-body { padding: 22px 26px 90px; max-width: 1200px; margin: 0 auto; }
+.bos-bp-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--bos-border); padding-bottom: 12px; }
+.bos-bp-tab { padding: 8px 13px; border-radius: 9px; font-size: 12px; font-weight: 700; color: var(--bos-text-mute); background: transparent; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+.bos-bp-tab:hover { background: var(--bos-surface-hover); color: var(--bos-text); }
+.bos-bp-tab.active { background: rgba(var(--bos-accent-rgb),0.16); color: #fff; border-color: rgba(var(--bos-accent-rgb),0.3); }
+
+/* ---------- kanban ---------- */
+.bos-kanban { display: grid; grid-template-columns: repeat(5, minmax(210px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.bos-kanban-col { background: rgba(255,255,255,0.02); border: 1px solid var(--bos-border); border-radius: 14px; padding: 10px; min-width: 210px; }
+.bos-kanban-col-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bos-text-mute); }
+.bos-kanban-col-count { font-family: ui-monospace, monospace; background: var(--bos-surface-2); border-radius: 999px; padding: 1px 7px; font-size: 10px; }
+.bos-kanban-col-body { display: flex; flex-direction: column; gap: 8px; min-height: 40px; }
+.bos-kanban-empty { text-align: center; font-size: 11px; color: var(--bos-text-mute); padding: 16px 4px; }
+.bos-proj-card { background: var(--bos-surface); border: 1px solid var(--bos-border); border-radius: 12px; padding: 11px 12px; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+.bos-proj-card:hover { border-color: rgba(var(--bos-accent-rgb),0.4); transform: translateY(-2px); }
+.bos-proj-title { font-size: 12.5px; font-weight: 700; margin-bottom: 7px; line-height: 1.35; }
+.bos-proj-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.bos-proj-deadline { font-size: 10.5px; color: var(--bos-text-mute); font-family: ui-monospace, monospace; }
+.bos-proj-deadline.bos-overdue { color: var(--bos-bad); font-weight: 700; }
+.bos-proj-deadline.bos-soon { color: var(--bos-warn); font-weight: 700; }
+
+/* ---------- Scrivener-style corkboard: Series cards + manuscript index
+   cards. A Series card is a wide grouping "folder" tinted with the
+   series' own color; a manuscript card mimics an actual Scrivener
+   corkboard index card — a colored Label strip along the top edge, a
+   folded top-right corner, a serif title, and a synopsis written like
+   the lined synopsis area on the back of a real index card — plus a
+   Status stamp and word-count progress footer, Scrivener's other two
+   defining card attributes. ---------- */
+.bos-corkboard-empty-series { border-style: dashed; }
+.bos-series-card { border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; position: relative; overflow: hidden; border: 1px solid var(--bos-border); }
+.bos-series-card::before { content: ''; position: absolute; inset: 0; opacity: 0.14; background: var(--bos-series-color, var(--bos-accent)); pointer-events: none; }
+.bos-series-head { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; flex-wrap: wrap; }
+.bos-series-dot { width: 13px; height: 13px; border-radius: 4px; flex-shrink: 0; background: var(--bos-series-color, var(--bos-accent)); box-shadow: 0 0 10px var(--bos-series-color, var(--bos-accent)); }
+.bos-series-name { font-size: 15.5px; font-weight: 800; font-family: Georgia, "Iowan Old Style", serif; }
+.bos-series-count { font-size: 10.5px; color: var(--bos-text-mute); font-weight: 700; }
+.bos-series-desc { font-size: 12px; color: var(--bos-text-dim); margin-top: 6px; position: relative; z-index: 1; max-width: 640px; }
+.bos-series-actions { margin-left: auto; display: flex; gap: 6px; position: relative; z-index: 1; }
+.bos-standalone-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; color: var(--bos-text-mute); font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.bos-standalone-head::after { content: ''; flex: 1 1 auto; height: 1px; background: var(--bos-border); }
+
+.bos-ms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.bos-ms-card {
+  position: relative; background: #16130f; border: 1px solid var(--bos-border-strong); border-radius: 4px 4px 8px 8px;
+  padding: 16px 15px 13px; min-height: 170px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.03) inset;
+  transition: transform 0.18s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.18s ease;
+}
+.bos-ms-card:hover { transform: translateY(-4px) rotate(-0.3deg); box-shadow: 0 18px 34px rgba(0,0,0,0.5); }
+.bos-ms-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; border-radius: 4px 4px 0 0; background: var(--bos-label-color, var(--bos-accent)); box-shadow: 0 0 12px var(--bos-label-color, var(--bos-accent)); }
+.bos-ms-card::after { content: ''; position: absolute; top: 6px; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 16px 16px 0; border-color: transparent rgba(255,255,255,0.08) transparent transparent; }
+.bos-ms-title { font-family: Georgia, "Iowan Old Style", serif; font-size: 14.5px; font-weight: 700; line-height: 1.3; padding-right: 14px; }
+.bos-ms-synopsis {
+  flex: 1 1 auto; font-size: 11.5px; line-height: 1.7; color: var(--bos-text-dim); font-style: italic;
+  background-image: repeating-linear-gradient(to bottom, transparent, transparent 18px, var(--bos-border) 19px);
+  padding-top: 1px;
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bos-ms-synopsis.bos-ms-synopsis-empty { color: var(--bos-text-mute); font-style: normal; }
+.bos-ms-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.bos-ms-wordcount { font-size: 9.5px; color: var(--bos-text-mute); font-family: ui-monospace, monospace; }
+.bos-ms-wordbar { height: 4px; border-radius: 999px; background: var(--bos-surface-2); overflow: hidden; margin-top: 4px; }
+.bos-ms-wordbar-fill { height: 100%; background: var(--bos-label-color, var(--bos-accent)); }
+
+/* ---------- generic list rows (products/content/customers/ops/files/knowledge/ai/notes) ---------- */
+.bos-row { background: var(--bos-surface); border: 1px solid var(--bos-border); border-radius: 13px; padding: 13px 15px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+.bos-row:hover { border-color: rgba(var(--bos-accent-rgb),0.35); transform: translateY(-2px); }
+.bos-row-top { display: flex; align-items: center; gap: 10px; }
+.bos-row-title { font-size: 13.5px; font-weight: 800; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bos-row-meta { font-size: 11.5px; color: var(--bos-text-mute); line-height: 1.5; }
+.bos-row-body { font-size: 12px; color: var(--bos-text-dim); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bos-row-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- charts (hand-rolled — no charting library, see header note) ---------- */
+.bos-bars { display: flex; align-items: flex-end; gap: 10px; height: 130px; padding-top: 6px; }
+.bos-bar-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.bos-bar-track { width: 100%; max-width: 34px; height: 100px; display: flex; flex-direction: column-reverse; border-radius: 6px 6px 0 0; overflow: hidden; background: var(--bos-surface-2); }
+.bos-bar-seg { width: 100%; transition: height 0.6s cubic-bezier(0.16,1,0.3,1); }
+.bos-bar-label { font-size: 10px; color: var(--bos-text-mute); font-weight: 700; }
+.bos-donut-wrap { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.bos-donut { width: 100%; height: 100%; border-radius: 50%; }
+.bos-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.bos-donut-pct { font-size: 20px; font-weight: 800; font-family: ui-monospace, monospace; }
+.bos-donut-label { font-size: 9px; color: var(--bos-text-mute); font-weight: 700; text-transform: uppercase; }
+
+/* ---------- checklist / activity rows ---------- */
+.bos-checklist-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--bos-border); }
+.bos-checklist-item:last-child { border-bottom: none; }
+.bos-check-circle { width: 20px; height: 20px; border-radius: 999px; border: 2px solid var(--bos-border-strong); flex-shrink: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: transparent; transition: all 0.15s ease; }
+.bos-check-circle.done { background: linear-gradient(135deg, var(--bos-accent), var(--bos-accent2)); border-color: transparent; color: #fff; }
+.bos-checklist-text { font-size: 13px; flex: 1 1 auto; }
+.bos-checklist-item.bos-done .bos-checklist-text { color: var(--bos-text-mute); text-decoration: line-through; }
+.bos-activity-row { display: flex; align-items: center; gap: 12px; padding: 9px 4px; }
+.bos-activity-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; background: var(--bos-surface-2); }
+.bos-activity-title { font-size: 12.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bos-activity-sub { font-size: 10.5px; color: var(--bos-text-mute); }
+
+/* ---------- command palette + quick capture + notifications ---------- */
+.bos-cp-modal { max-width: 620px; padding: 0; overflow: hidden; }
+.bos-cp-input-wrap { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--bos-border); }
+.bos-cp-input { border: none !important; background: none !important; font-size: 15px !important; padding: 4px 0 !important; }
+.bos-cp-input:focus { border: none !important; }
+.bos-cp-results { max-height: 60vh; overflow-y: auto; padding: 8px; }
+.bos-cp-group-label { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bos-text-mute); padding: 10px 10px 4px; }
+.bos-cp-row { display: flex; align-items: center; gap: 11px; padding: 10px 11px; border-radius: 10px; cursor: pointer; font-size: 13px; }
+.bos-cp-row:hover, .bos-cp-row.bos-cp-sel { background: var(--bos-surface-hover); }
+.bos-cp-row-icon { width: 26px; text-align: center; font-size: 14px; }
+.bos-cp-row-label { flex: 1 1 auto; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bos-cp-row-kind { font-size: 10px; color: var(--bos-text-mute); font-weight: 700; }
+
+.bos-fab { position: fixed; right: 26px; bottom: 26px; z-index: 2400; width: 54px; height: 54px; border-radius: 999px; background: linear-gradient(135deg, var(--bos-accent) 0%, var(--bos-accent2) 100%); border: none; color: #fff; font-size: 22px; cursor: pointer; box-shadow: 0 10px 30px rgba(var(--bos-accent-rgb),0.5); display: flex; align-items: center; justify-content: center; transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.bos-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 14px 36px rgba(var(--bos-accent-rgb),0.6); }
+
+.bos-notif-panel { position: fixed; top: 64px; right: 26px; z-index: 3100; width: 340px; max-height: 60vh; overflow-y: auto; background: rgba(20,20,21,0.96); border: 1px solid var(--bos-border-strong); border-radius: 16px; box-shadow: var(--bos-shadow); backdrop-filter: blur(20px); padding: 10px; display: none; }
+.bos-notif-panel.show { display: block; }
+.bos-notif-row { display: flex; gap: 10px; padding: 10px 8px; border-radius: 10px; align-items: flex-start; }
+.bos-notif-row:hover { background: var(--bos-surface-hover); cursor: pointer; }
+.bos-notif-icon { font-size: 14px; margin-top: 1px; }
+.bos-notif-text { font-size: 12px; font-weight: 700; }
+.bos-notif-sub { font-size: 10.5px; color: var(--bos-text-mute); margin-top: 1px; }
+
+.bos-cap-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+.bos-cap-tab { flex: 1 1 0; padding: 8px; border-radius: 9px; text-align: center; font-size: 12px; font-weight: 700; background: var(--bos-surface-2); border: 1px solid var(--bos-border); color: var(--bos-text-mute); cursor: pointer; }
+.bos-cap-tab.active { background: rgba(var(--bos-accent-rgb),0.16); color: #fff; border-color: rgba(var(--bos-accent-rgb),0.3); }
+
+/* ---------- mobile ---------- */
+.bos-sb-toggle { display: none; }
+@media (max-width: 980px) {
+  .bos-sidebar { position: fixed; left: 0; top: 0; bottom: 0; transform: translateX(-100%); box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
+  .bos-sidebar.bos-sb-open { transform: translateX(0); }
+  .bos-sb-toggle { display: inline-flex; }
+  .bos-header { padding-left: 60px; }
+  .bos-kanban { grid-template-columns: repeat(5, 240px); }
+}
+@media (max-width: 600px) {
+  .bos-main { padding: 20px 14px 90px; }
+  .bos-header { padding: 12px 14px; padding-left: 56px; }
+  .bos-search-wrap .bos-kbd { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="bosBootErrorBanner"></div>
+<div class="bos-bg-glow"></div>
+
+<div class="bos-app">
+  <aside class="bos-sidebar" id="bosSidebar">
+    <div class="bos-sb-brand">
+      <span class="bos-sb-mark">◆</span>
+      <span class="bos-sb-brand-text">
+        <span class="bos-sb-title" id="bosSbOrgName">Business OS</span>
+        <span class="bos-sb-subtitle">Headquarters</span>
+      </span>
+    </div>
+    <nav class="bos-sb-nav" id="bosSbNav"></nav>
+    <div class="bos-sb-footer" id="bosSbFooter"></div>
+  </aside>
+
+  <div class="bos-workspace">
+    <header class="bos-header">
+      <button type="button" class="bos-icon-btn bos-sb-toggle" id="bosSbToggleBtn" aria-label="Toggle menu">☰</button>
+      <div class="bos-search-wrap" id="bosSearchTrigger">
+        <span>🔍</span>
+        <span>Search or jump to…</span>
+        <span class="bos-kbd">Ctrl K</span>
+      </div>
+      <div class="bos-header-actions">
+        <button type="button" class="bos-icon-btn" id="bosNotifBtn" aria-label="Notifications">🔔<span class="bos-notif-dot" id="bosNotifDot"></span></button>
+        <button type="button" class="bos-icon-btn" id="bosCaptureHeaderBtn" aria-label="Quick capture">⚡</button>
+      </div>
+    </header>
+    <main class="bos-main" id="bosMain"></main>
+  </div>
+</div>
+
+<div class="bos-notif-panel" id="bosNotifPanel"></div>
+
+<!-- business workspace full-page overlay -->
+<div class="bos-biz-page-bg" id="bosBizPageBg">
+  <div class="bos-bp-header">
+    <button type="button" class="bos-btn bos-btn-sm" id="bosBpBackBtn">← Back</button>
+    <span class="bos-bp-icon" id="bosBpIcon">🏢</span>
+    <div class="bos-bp-title-wrap">
+      <div class="bos-bp-title" id="bosBpTitle">Business</div>
+      <div class="bos-bp-meta" id="bosBpMeta"></div>
+    </div>
+    <button type="button" class="bos-btn bos-btn-sm" id="bosBpOpenPaletteBtn">🔍 Search this business</button>
+  </div>
+  <div class="bos-bp-body">
+    <div class="bos-bp-tabs" id="bosBpTabs"></div>
+    <div id="bosBpTabBody"></div>
+  </div>
+</div>
+
+<!-- generic field-form modal (add/edit for every entity type) -->
+<div class="modal-bg" id="bosFormModalBg">
+  <div class="modal" id="bosFormModal">
+    <div class="bos-modal-head">
+      <span class="bos-modal-title" id="bosFormModalTitle">Add</span>
+      <button type="button" class="bos-modal-close" id="bosFormModalCloseBtn">✕</button>
+    </div>
+    <div id="bosFormModalBody"></div>
+    <div class="bos-modal-actions-split" id="bosFormModalActions">
+      <button type="button" class="bos-btn bos-btn-danger" id="bosFormModalDeleteBtn" style="display:none;">Delete</button>
+      <div style="display:flex; gap:9px; margin-left:auto;">
+        <button type="button" class="bos-btn" id="bosFormModalCancelBtn">Cancel</button>
+        <button type="button" class="bos-btn bos-btn-primary" id="bosFormModalSubmitBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- command palette / global search (Ctrl+K) -->
+<div class="modal-bg" id="bosCpModalBg">
+  <div class="modal bos-cp-modal">
+    <div class="bos-cp-input-wrap">
+      <span>🔍</span>
+      <input type="text" class="bos-cp-input" id="bosCpInput" placeholder="Search businesses, projects, tasks, notes… or run a command" autocomplete="off" spellcheck="false">
+      <button type="button" class="bos-modal-close" id="bosCpCloseBtn">✕</button>
+    </div>
+    <div class="bos-cp-results" id="bosCpResults"></div>
+  </div>
+</div>
+
+<!-- quick capture -->
+<div class="modal-bg" id="bosCapModalBg">
+  <div class="modal">
+    <div class="bos-modal-head">
+      <span class="bos-modal-title">⚡ Quick Capture</span>
+      <button type="button" class="bos-modal-close" id="bosCapCloseBtn">✕</button>
+    </div>
+    <div class="bos-cap-tabs">
+      <button type="button" class="bos-cap-tab active" id="bosCapTabNew" data-cap-tab="new">New Capture</button>
+      <button type="button" class="bos-cap-tab" id="bosCapTabInbox" data-cap-tab="inbox">Inbox <span id="bosCapInboxCount"></span></button>
+    </div>
+    <div id="bosCapBody"></div>
+  </div>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+function esc(s) { return D ? D.escapeHtml(s) : String(s == null ? '' : s); }
+var D = null;
+var state = {
+  activeSection: 'home',
+  activeBizId: null,
+  activeBizTab: 'overview',
+  cpSelIndex: 0,
+  cpResults: [],
+  capTab: 'new'
+};
+
+function showBootErrorBanner(err, context) {
+  try {
+    var banner = $('bosBootErrorBanner');
+    if (!banner) return;
+    var detail = (context ? '[' + context + '] ' : '') + (err && err.stack ? err.stack : String(err));
+    banner.style.display = 'block';
+    banner.textContent = '⚠ Business OS failed to load correctly:\n' + detail + '\n';
+    var btn = document.createElement('button');
+    btn.textContent = 'Copy error details';
+    btn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#ff5757;color:#3a0a0a;border:0;border-radius:4px;font-weight:bold;cursor:pointer;';
+    btn.addEventListener('click', function () { try { navigator.clipboard.writeText(detail); btn.textContent = 'Copied!'; } catch (e) {} });
+    banner.appendChild(btn);
+  } catch (e2) {}
+}
+function runSafely(fn, context) {
+  try { fn(); } catch (err) { showBootErrorBanner(err, context); }
+}
+// =====================================================================
+// FORMAT / SMALL HELPERS
+// =====================================================================
+function fmtDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function fmtDateFull(iso) {
+  if (!iso) return '';
+  var d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function deadlineClass(iso, doneAlready) {
+  if (!iso || doneAlready) return '';
+  if (iso < D.todayISO()) return 'bos-overdue';
+  if (iso <= D.isoDaysFromNow(3)) return 'bos-soon';
+  return '';
+}
+function statTile(icon, value, label, sub, subClass) {
+  return '<div class="bos-card bos-stat-tile"><div class="bos-stat-icon">' + icon + '</div>' +
+    '<div class="bos-stat-value">' + value + '</div><div class="bos-stat-label">' + esc(label) + '</div>' +
+    (sub ? '<div class="bos-stat-sub" style="color:var(--bos-' + (subClass || 'text-mute') + ')">' + sub + '</div>' : '') + '</div>';
+}
+function emptyState(icon, title, sub) {
+  return '<div class="bos-empty"><div class="bos-empty-icon">' + icon + '</div><div class="bos-empty-title">' + esc(title) + '</div><div class="bos-empty-sub">' + esc(sub || '') + '</div></div>';
+}
+function priorityPill(p) {
+  var cls = p === 'high' ? 'bos-pill-bad' : (p === 'low' ? 'bos-pill-mute' : 'bos-pill-warn');
+  return '<span class="bos-pill ' + cls + '">' + esc((p || 'medium').toUpperCase()) + '</span>';
+}
+function labelPill(value, cls) { return '<span class="bos-pill ' + (cls || 'bos-pill-mute') + '">' + esc(value) + '</span>'; }
+function progressBarHtml(pct, goodOverride) {
+  var p = Math.max(0, Math.min(100, pct || 0));
+  return '<div class="bos-progress-bar"><div class="bos-progress-fill' + (goodOverride ? ' bos-fill-good' : '') + '" style="width:' + p + '%"></div></div>';
+}
+function bizName(id) { var b = id && D.business(id); return b ? b.name : ''; }
+function bizChipOptions(includeNone) {
+  var opts = D.businessesSorted().map(function (b) { return { value: b.id, label: b.logo + ' ' + b.name }; });
+  if (includeNone) opts.unshift({ value: '', label: '— Unscoped / Global —' });
+  return opts;
+}
+
+// =====================================================================
+// GENERIC FIELD-FORM MODAL — one reusable component backing every
+// add/edit modal in this app (Businesses/Projects/Products/Content/
+// Customers/Operations/Finance records/AI Prompts/Knowledge/Notes/
+// Files/Tasks/Goals), same recipe as learning-dashboard.html's own
+// openFormModal(). Field types: text, textarea, select, number, money,
+// date, url, email, checkbox, color.
+// =====================================================================
+function buildFieldHtml(f, values) {
+  var val = values && values[f.key] !== undefined && values[f.key] !== null ? values[f.key] : (f.default !== undefined ? f.default : '');
+  var id = 'bosField_' + f.key;
+  var label = '<label class="bos-field-label" for="' + id + '">' + esc(f.label) + '</label>';
+  var input;
+  if (f.type === 'textarea') {
+    input = '<textarea id="' + id + '" rows="' + (f.rows || 3) + '" placeholder="' + esc(f.placeholder || '') + '">' + esc(val) + '</textarea>';
+  } else if (f.type === 'select') {
+    input = '<select id="' + id + '">' + f.options.map(function (o) {
+      var ov = (typeof o === 'object') ? o.value : o;
+      var ol = (typeof o === 'object') ? o.label : o;
+      return '<option value="' + esc(ov) + '"' + (String(ov) === String(val) ? ' selected' : '') + '>' + esc(ol) + '</option>';
+    }).join('') + '</select>';
+  } else if (f.type === 'checkbox') {
+    input = '<label class="bos-checkbox-row"><input type="checkbox" id="' + id + '" ' + (val ? 'checked' : '') + '> <span>' + esc(f.checkLabel || '') + '</span></label>';
+  } else if (f.type === 'color') {
+    input = '<div class="bos-swatch-row">' + f.options.map(function (c) {
+      return '<button type="button" class="bos-swatch' + (c === val ? ' active' : '') + '" data-color-field="' + id + '" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+    }).join('') + '</div><input type="hidden" id="' + id + '" value="' + esc(val) + '">';
+  } else if (f.type === 'money') {
+    var displayVal = typeof val === 'number' ? (val / 100).toFixed(2) : val;
+    input = '<input type="text" id="' + id + '" value="' + esc(displayVal) + '" placeholder="' + esc(f.placeholder || '0.00') + '" inputmode="decimal">';
+  } else {
+    input = '<input type="' + (f.type || 'text') + '" id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(f.placeholder || '') + '">';
+  }
+  var wrapStyle = f.half ? 'flex:1;min-width:0;' : '';
+  return '<div class="bos-field" style="' + wrapStyle + '">' + label + input + '</div>';
+}
+function openFormModal(opts) {
+  $('bosFormModal').classList.toggle('bos-modal-wide', !!opts.wide);
+  $('bosFormModalTitle').textContent = opts.title;
+  var rows = [];
+  var i = 0;
+  while (i < opts.fields.length) {
+    var f = opts.fields[i];
+    if (f.half) {
+      var group = [f]; var j = i + 1;
+      while (j < opts.fields.length && opts.fields[j].half) { group.push(opts.fields[j]); j++; }
+      rows.push('<div class="bos-field-row">' + group.map(function (gf) { return buildFieldHtml(gf, opts.values); }).join('') + '</div>');
+      i = j;
+    } else { rows.push(buildFieldHtml(f, opts.values)); i++; }
+  }
+  $('bosFormModalBody').innerHTML = rows.join('');
+  Array.prototype.forEach.call(document.querySelectorAll('#bosFormModalBody .bos-swatch'), function (btn) {
+    btn.addEventListener('click', function () {
+      var fieldId = btn.getAttribute('data-color-field');
+      $(fieldId).value = btn.getAttribute('data-color');
+      var siblings = btn.parentElement.querySelectorAll('.bos-swatch');
+      Array.prototype.forEach.call(siblings, function (s) { s.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+  $('bosFormModalDeleteBtn').style.display = opts.onDelete ? 'inline-flex' : 'none';
+  $('bosFormModalSubmitBtn').textContent = opts.submitLabel || 'Save';
+  $('bosFormModalSubmitBtn').onclick = function () {
+    var out = {};
+    opts.fields.forEach(function (f) {
+      var el = $('bosField_' + f.key);
+      if (!el) return;
+      if (f.type === 'checkbox') out[f.key] = el.checked;
+      else if (f.type === 'number') out[f.key] = el.value === '' ? 0 : parseFloat(el.value);
+      else if (f.type === 'money') out[f.key] = D.parseToCents(el.value);
+      else out[f.key] = el.value;
+    });
+    if (opts.validate) { var err = opts.validate(out); if (err) { alert(err); return; } }
+    closeFormModal();
+    opts.onSubmit(out);
+  };
+  $('bosFormModalDeleteBtn').onclick = function () {
+    if (!opts.onDelete) return;
+    if (!confirm(opts.deleteConfirm || 'Delete this?')) return;
+    closeFormModal();
+    opts.onDelete();
+  };
+  $('bosFormModalBg').classList.add('show');
+  setTimeout(function () { var first = $('bosFormModalBody').querySelector('input,textarea,select'); if (first) first.focus(); }, 30);
+}
+function closeFormModal() { $('bosFormModalBg').classList.remove('show'); }
+$('bosFormModalCloseBtn').addEventListener('click', closeFormModal);
+$('bosFormModalCancelBtn').addEventListener('click', closeFormModal);
+$('bosFormModalBg').addEventListener('click', function (e) { if (e.target === $('bosFormModalBg')) closeFormModal(); });
+// =====================================================================
+// SIDEBAR NAV + GLOBAL SECTION ROUTING
+// =====================================================================
+var SECTIONS = [
+  { key: 'home', icon: '🏠', label: 'CEO Dashboard' },
+  { key: 'businesses', icon: '🏢', label: 'Businesses' },
+  { key: 'analytics', icon: '📈', label: 'Analytics' },
+  { key: 'finance', icon: '💰', label: 'Finance' },
+  { key: 'marketing', icon: '📢', label: 'Marketing' },
+  { key: 'products', icon: '🛒', label: 'Products' },
+  { key: 'customers', icon: '👥', label: 'Customers' },
+  { key: 'operations', icon: '📦', label: 'Operations' },
+  { key: 'projects', icon: '🚀', label: 'Projects' },
+  { key: 'content', icon: '📝', label: 'Content' },
+  { key: 'ai', icon: '🤖', label: 'AI Workspace' },
+  { key: 'knowledge', icon: '📚', label: 'Knowledge Base' },
+  { key: 'settings', icon: '⚙', label: 'Settings' }
+];
+var BIZ_TABS = [
+  { key: 'overview', icon: '🧭', label: 'Overview' },
+  { key: 'projects', icon: '🚀', label: 'Projects' },
+  { key: 'products', icon: '🛒', label: 'Products' },
+  { key: 'marketing', icon: '📢', label: 'Marketing' },
+  { key: 'sales', icon: '💵', label: 'Sales' },
+  { key: 'operations', icon: '📦', label: 'Operations' },
+  { key: 'customers', icon: '👥', label: 'Customers' },
+  { key: 'finance', icon: '💰', label: 'Finance' },
+  { key: 'content', icon: '📝', label: 'Content' },
+  { key: 'ai', icon: '🤖', label: 'AI' },
+  { key: 'analytics', icon: '📊', label: 'Analytics' },
+  { key: 'notes', icon: '🗒️', label: 'Notes' },
+  { key: 'files', icon: '📁', label: 'Files' },
+  { key: 'settings', icon: '⚙', label: 'Settings' }
+];
+function sbCount(key) {
+  if (key === 'businesses') return D.businessesSorted().length;
+  if (key === 'projects') return D.Projects.list().filter(function (p) { return p.status !== 'done'; }).length;
+  if (key === 'customers') return D.leadsFor().length;
+  if (key === 'operations') return D.Operations.list().length;
+  if (key === 'content') return D.Content.list().length;
+  if (key === 'ai') return D.AIPrompts.list().length;
+  if (key === 'knowledge') return D.Knowledge.list().length;
+  return null;
+}
+function renderSbNav() {
+  var html = SECTIONS.map(function (s) {
+    var c = sbCount(s.key);
+    return '<button type="button" class="bos-sb-item" data-section="' + s.key + '">' +
+      '<span class="bos-sb-icon">' + s.icon + '</span><span>' + esc(s.label) + '</span>' +
+      (c !== null ? '<span class="bos-sb-count">' + c + '</span>' : '') + '</button>';
+  }).join('');
+  $('bosSbNav').innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('#bosSbNav .bos-sb-item'), function (el) {
+    el.addEventListener('click', function () { navigateToHash(el.getAttribute('data-section')); closeSidebarMobile(); });
+  });
+  var settings = D.getSettings();
+  $('bosSbOrgName').textContent = settings.orgName;
+  var totalBiz = D.businessesSorted().length;
+  var totalRev = D.formatCents(D.totalRevenueCents(), { compact: true });
+  $('bosSbFooter').textContent = totalBiz + ' ' + (totalBiz === 1 ? 'business' : 'businesses') + ' · ' + totalRev + ' combined revenue';
+}
+function navigateToHash(key) { window.location.hash = key; }
+function switchSection(key) {
+  if (!SECTIONS.some(function (s) { return s.key === key; })) key = 'home';
+  closeBizWorkspace(true);
+  state.activeSection = key;
+  Array.prototype.forEach.call(document.querySelectorAll('#bosSbNav .bos-sb-item'), function (el) {
+    el.classList.toggle('active', el.getAttribute('data-section') === key);
+  });
+  renderSection(key);
+  $('bosMain').scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+function renderSection(key) {
+  runSafely(function () {
+    if (key === 'home') renderHome('bosMain');
+    else if (key === 'businesses') renderBusinessesGrid('bosMain');
+    else if (key === 'analytics') renderAnalyticsSection('bosMain', null);
+    else if (key === 'finance') renderFinanceSection('bosMain', null);
+    else if (key === 'marketing') renderMarketingSection('bosMain', null);
+    else if (key === 'products') renderProductsSection('bosMain', null);
+    else if (key === 'customers') renderCustomersSection('bosMain', null);
+    else if (key === 'operations') renderOperationsSection('bosMain', null);
+    else if (key === 'projects') renderProjectsSection('bosMain', null);
+    else if (key === 'content') renderContentSection('bosMain', null);
+    else if (key === 'ai') renderAISection('bosMain', null);
+    else if (key === 'knowledge') renderKnowledgeSection('bosMain', null);
+    else if (key === 'settings') renderGlobalSettingsSection('bosMain');
+  }, 'renderSection:' + key);
+}
+function renderAllVisible() {
+  if (state.activeBizId) renderBizTab(state.activeBizTab);
+  else renderSection(state.activeSection);
+  renderSbNav();
+  updateNotifDot();
+}
+function pageHead(eyebrow, title, subtext, actionsHtml) {
+  return '<div class="bos-page-head"><div><div class="bos-page-eyebrow">' + esc(eyebrow) + '</div>' +
+    '<div class="bos-page-title">' + esc(title) + '</div>' +
+    (subtext ? '<div class="bos-page-subtext">' + esc(subtext) + '</div>' : '') + '</div>' +
+    '<div style="display:flex; gap:8px; flex-wrap:wrap;">' + (actionsHtml || '') + '</div></div>';
+}
+function openSidebarMobile() { $('bosSidebar').classList.add('bos-sb-open'); }
+function closeSidebarMobile() { $('bosSidebar').classList.remove('bos-sb-open'); }
+
+// =====================================================================
+// HASH ROUTING — plain "#section" for global nav, "#biz/<id>/<tab>" for
+// a business workspace, matching this app's established hash-routing
+// convention (e.g. index.html's own tabs, gym.html's tabs).
+// =====================================================================
+function applyHash() {
+  var h = (window.location.hash || '').replace(/^#/, '');
+  if (h.indexOf('biz/') === 0) {
+    var parts = h.slice(4).split('/');
+    var bizId = parts[0];
+    var tab = parts[1] || 'overview';
+    if (D.business(bizId)) { openBizWorkspace(bizId, tab); return; }
+  }
+  switchSection(h || 'home');
+}
+// =====================================================================
+// BUSINESS WORKSPACE (full-page overlay, one shared #bosBpTabBody mount
+// point re-rendered per tab — see this file's own architecture note: the
+// exact same render*Section(containerId, businessId) functions that back
+// the global sidebar pages also back these tabs, just called with a real
+// businessId instead of null).
+// =====================================================================
+function openBizWorkspace(id, tab) {
+  var b = D.business(id);
+  if (!b) return;
+  state.activeBizId = id;
+  state.activeBizTab = BIZ_TABS.some(function (t) { return t.key === tab; }) ? tab : 'overview';
+  $('bosBpIcon').textContent = b.logo;
+  $('bosBpIcon').style.background = b.color;
+  $('bosBpTitle').textContent = b.name;
+  $('bosBpMeta').textContent = (b.status.charAt(0).toUpperCase() + b.status.slice(1)) + ' · Health ' + D.healthScore(b) + '%';
+  renderBpTabs();
+  renderBizTab(state.activeBizTab);
+  $('bosBizPageBg').classList.add('show');
+  window.scrollTo(0, 0);
+  Array.prototype.forEach.call(document.querySelectorAll('#bosSbNav .bos-sb-item'), function (el) {
+    el.classList.toggle('active', el.getAttribute('data-section') === 'businesses');
+  });
+}
+function closeBizWorkspace(skipHashUpdate) {
+  if (!state.activeBizId) return;
+  state.activeBizId = null;
+  $('bosBizPageBg').classList.remove('show');
+  if (!skipHashUpdate) navigateToHash(state.activeSection);
+}
+function renderBpTabs() {
+  $('bosBpTabs').innerHTML = BIZ_TABS.map(function (t) {
+    return '<button type="button" class="bos-bp-tab' + (t.key === state.activeBizTab ? ' active' : '') + '" data-biz-tab="' + t.key + '">' + t.icon + ' ' + esc(t.label) + '</button>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('#bosBpTabs .bos-bp-tab'), function (el) {
+    el.addEventListener('click', function () {
+      var tab = el.getAttribute('data-biz-tab');
+      state.activeBizTab = tab;
+      history.replaceState(null, '', '#biz/' + state.activeBizId + '/' + tab);
+      renderBpTabs();
+      renderBizTab(tab);
+      $('bosBpTabBody').scrollTop = 0;
+    });
+  });
+}
+function renderBizTab(tab) {
+  runSafely(function () {
+    var id = state.activeBizId;
+    if (tab === 'overview') renderOverviewSection('bosBpTabBody', id);
+    else if (tab === 'projects') renderProjectsSection('bosBpTabBody', id);
+    else if (tab === 'products') renderProductsSection('bosBpTabBody', id);
+    else if (tab === 'marketing') renderMarketingSection('bosBpTabBody', id);
+    else if (tab === 'sales') renderSalesSection('bosBpTabBody', id);
+    else if (tab === 'operations') renderOperationsSection('bosBpTabBody', id);
+    else if (tab === 'customers') renderCustomersSection('bosBpTabBody', id);
+    else if (tab === 'finance') renderFinanceSection('bosBpTabBody', id);
+    else if (tab === 'content') renderContentSection('bosBpTabBody', id);
+    else if (tab === 'ai') renderAISection('bosBpTabBody', id);
+    else if (tab === 'analytics') renderAnalyticsSection('bosBpTabBody', id);
+    else if (tab === 'notes') renderNotesSection('bosBpTabBody', id);
+    else if (tab === 'files') renderFilesSection('bosBpTabBody', id);
+    else if (tab === 'settings') renderBizSettingsSection('bosBpTabBody', id);
+  }, 'renderBizTab:' + tab);
+}
+$('bosBpBackBtn').addEventListener('click', function () { closeBizWorkspace(false); });
+$('bosBpOpenPaletteBtn').addEventListener('click', openCommandPalette);
+
+// =====================================================================
+// BUSINESSES GRID + business add/edit modal
+// =====================================================================
+var bizGridFilter = 'all';
+var bizGridQuery = '';
+function businessFormFields(biz) {
+  return [
+    { key: 'name', label: 'Business Name', type: 'text', placeholder: 'e.g. Count Damula' },
+    { key: 'logo', label: 'Logo (emoji)', type: 'text', placeholder: '🏢', half: true },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.BIZ_STATUSES.map(function (s) { return { value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }; }) },
+    { key: 'color', label: 'Accent Color', type: 'color', options: D.BIZ_COLORS },
+    { key: 'cover', label: 'Cover Photo URL (optional)', type: 'url', placeholder: 'https://…' },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 2 },
+    { key: 'mission', label: 'Mission', type: 'textarea', rows: 2 },
+    { key: 'vision', label: 'Vision', type: 'textarea', rows: 2 },
+    { key: 'revenueCents', label: 'Revenue', type: 'money', half: true },
+    { key: 'goalRevenueCents', label: 'Goal Revenue', type: 'money', half: true },
+    { key: 'profitCents', label: 'Profit', type: 'money', half: true },
+    { key: 'goalProfitCents', label: 'Goal Profit', type: 'money', half: true },
+    { key: 'growthPercent', label: 'Growth %', type: 'number', half: true, placeholder: '0' },
+    { key: 'conversionRate', label: 'Conversion Rate %', type: 'number', half: true, placeholder: '0' },
+    { key: 'trafficMonthly', label: 'Monthly Traffic', type: 'number' },
+    { key: 'monthlyGoalText', label: 'Monthly Goal', type: 'text', placeholder: 'What has to happen this month' },
+    { key: 'currentFocus', label: 'Current Focus / Project', type: 'text', placeholder: "What you're heads-down on right now" }
+  ];
+}
+function openBusinessModal(biz) {
+  openFormModal({
+    title: biz ? 'Edit Business' : 'New Business',
+    wide: true,
+    fields: businessFormFields(biz),
+    values: biz || { status: 'active', color: D.BIZ_COLORS[0] },
+    submitLabel: biz ? 'Save Changes' : 'Create Business',
+    validate: function (v) { if (!v.name.trim()) return 'Give this business a name first.'; return null; },
+    onSubmit: function (v) {
+      if (biz) { D.Businesses.update(biz.id, v); }
+      else { v.order = D.nextOrder(D.businessesSorted()); D.Businesses.add(v); }
+      renderAllVisible();
+      if (state.activeBizId && biz && state.activeBizId === biz.id) openBizWorkspace(biz.id, state.activeBizTab);
+    },
+    onDelete: biz ? function () {
+      D.Businesses.remove(biz.id);
+      closeBizWorkspace(true);
+      navigateToHash('businesses');
+    } : null,
+    deleteConfirm: 'Delete "' + (biz ? biz.name : '') + '"? Its projects/products/content/customers/finance records/files go with it. Notes/AI Prompts/Knowledge/Tasks stay, just unlinked.'
+  });
+}
+function renderBusinessesGrid(containerId) {
+  var list = D.businessesSorted();
+  var filtered = list.filter(function (b) {
+    if (bizGridFilter !== 'all' && b.status !== bizGridFilter) return false;
+    if (bizGridQuery && b.name.toLowerCase().indexOf(bizGridQuery) === -1) return false;
+    return true;
+  });
+  var html = '<div class="bos-anim">';
+  html += pageHead('Headquarters', 'Businesses', 'Every company you run, in one place. Open one to step into its full workspace.',
+    '<button class="bos-btn bos-btn-primary" id="bosNewBizBtn">➕ New Business</button>');
+  html += '<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:center;">';
+  html += '<div class="bos-chip-row" id="bosBizFilterChips">' + ['all', 'active', 'paused', 'archived'].map(function (s) {
+    return '<button type="button" class="bos-chip' + (bizGridFilter === s ? ' active' : '') + '" data-biz-filter="' + s + '">' + (s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)) + '</button>';
+  }).join('') + '</div>';
+  html += '<input type="text" id="bosBizSearchInput" placeholder="Search businesses…" value="' + esc(bizGridQuery) + '" style="max-width:220px; margin-left:auto;">';
+  html += '</div>';
+  if (!filtered.length) {
+    html += emptyState('🏢', list.length ? 'No businesses match this filter' : 'No businesses yet', list.length ? 'Try a different status or clear your search.' : 'Create your first business to start building its workspace.');
+  } else {
+    html += '<div class="bos-grid bos-grid-3">' + filtered.map(buildBusinessCard).join('') + '</div>';
+  }
+  html += '</div>';
+  $(containerId).innerHTML = html;
+
+  var newBtn = document.getElementById('bosNewBizBtn'); if (newBtn) newBtn.addEventListener('click', function () { openBusinessModal(null); });
+  var searchInput = document.getElementById('bosBizSearchInput');
+  if (searchInput) searchInput.addEventListener('input', function () { bizGridQuery = searchInput.value.toLowerCase(); renderBusinessesGrid(containerId); setTimeout(function () { var el = document.getElementById('bosBizSearchInput'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); });
+  Array.prototype.forEach.call(document.querySelectorAll('#bosBizFilterChips .bos-chip'), function (el) {
+    el.addEventListener('click', function () { bizGridFilter = el.getAttribute('data-biz-filter'); renderBusinessesGrid(containerId); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-open-biz]' : '#' + containerId + ' [data-open-biz]'), function (el) {
+    el.addEventListener('click', function (e) { e.stopPropagation(); navigateToHash('biz/' + el.getAttribute('data-open-biz') + '/overview'); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-edit-biz]' : '#' + containerId + ' [data-edit-biz]'), function (el) {
+    el.addEventListener('click', function (e) { e.stopPropagation(); openBusinessModal(D.business(el.getAttribute('data-edit-biz'))); });
+  });
+}
+function buildBusinessCard(b) {
+  var rp = D.revenueProgress(b);
+  var health = D.healthScore(b);
+  var coverStyle = b.cover ? 'background-image:url(\'' + b.cover.replace(/'/g, '%27') + '\');' : '';
+  return '<div class="bos-card bos-biz-card bos-hoverable" data-open-biz="' + b.id + '">' +
+    '<div class="bos-biz-cover" style="' + coverStyle + '"><span class="bos-biz-logo" style="background:' + b.color + '">' + b.logo + '</span></div>' +
+    '<div class="bos-biz-body">' +
+    '<div class="bos-biz-name">' + esc(b.name) + labelPill(b.status, b.status === 'active' ? 'bos-pill-good' : (b.status === 'paused' ? 'bos-pill-warn' : 'bos-pill-mute')) +
+    '<button type="button" class="bos-btn-icon-sm" style="margin-left:auto;" data-edit-biz="' + b.id + '" title="Edit">✎</button></div>' +
+    (b.description ? '<div class="bos-biz-desc">' + esc(b.description) + '</div>' : '') +
+    '<div class="bos-biz-stat-row"><div class="bos-biz-stat"><div class="bos-biz-stat-label">Revenue</div><div class="bos-biz-stat-value">' + D.formatCents(b.revenueCents, { compact: true }) + '</div></div>' +
+    '<div class="bos-biz-stat"><div class="bos-biz-stat-label">Goal Revenue</div><div class="bos-biz-stat-value">' + D.formatCents(b.goalRevenueCents, { compact: true }) + '</div></div>' +
+    '<div class="bos-biz-stat"><div class="bos-biz-stat-label">Profit</div><div class="bos-biz-stat-value">' + D.formatCents(b.profitCents, { compact: true }) + '</div></div></div>' +
+    progressBarHtml(rp) +
+    '<div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--bos-text-mute);"><span>' + rp + '% to revenue goal</span><span>' + (b.growthPercent >= 0 ? '▲' : '▼') + ' ' + Math.abs(b.growthPercent) + '% growth</span></div>' +
+    (b.monthlyGoalText ? '<div class="bos-biz-focus"><b>Monthly Goal:</b> ' + esc(b.monthlyGoalText) + '</div>' : '') +
+    (b.currentFocus ? '<div class="bos-biz-focus"><b>Focus:</b> ' + esc(b.currentFocus) + '</div>' : '') +
+    '<div class="bos-biz-foot"><span class="bos-tag">Health ' + health + '%</span><button type="button" class="bos-biz-open" data-open-biz="' + b.id + '">Open →</button></div>' +
+    '</div></div>';
+}
+// =====================================================================
+// CHARTS — hand-rolled (no charting library, see this file's header
+// note): div bars for trends, a CSS conic-gradient donut for a single
+// percentage. Same "no build step, no npm packages" convention as every
+// other visualization in this app.
+// =====================================================================
+function donutHtml(pct, label, color) {
+  var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  var col = color || 'var(--bos-accent)';
+  return '<div class="bos-donut-wrap"><div class="bos-donut" style="background:conic-gradient(' + col + ' ' + (p * 3.6) + 'deg, var(--bos-surface-2) 0deg);">' +
+    '<div style="position:absolute; inset:9px; border-radius:50%; background:#141414;"></div></div>' +
+    '<div class="bos-donut-center"><div class="bos-donut-pct">' + p + '%</div><div class="bos-donut-label">' + esc(label) + '</div></div></div>';
+}
+function buildBarsHtml(items, color) {
+  var max = Math.max.apply(null, items.map(function (i) { return Math.abs(i.value); }).concat([1]));
+  var html = '<div class="bos-bars">';
+  items.forEach(function (it) {
+    var h = Math.max(4, Math.round((Math.abs(it.value) / max) * 100));
+    var c = it.value < 0 ? 'var(--bos-bad)' : (color || 'var(--bos-accent)');
+    html += '<div class="bos-bar-col" title="' + esc(it.label) + ': ' + (it.tooltip || it.value) + '"><div class="bos-bar-track"><div class="bos-bar-seg" style="height:' + h + '%; background:' + c + ';"></div></div><div class="bos-bar-label">' + esc(it.label) + '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function buildNetBarsFromMonthly(monthly) {
+  var totalRev = monthly.reduce(function (s, m) { return s + m.revenueCents; }, 0);
+  var totalExp = monthly.reduce(function (s, m) { return s + m.expenseCents; }, 0);
+  var items = monthly.map(function (m) {
+    var net = m.revenueCents - m.expenseCents;
+    return { label: m.label, value: net / 100, tooltip: 'Rev ' + D.formatCents(m.revenueCents) + ' · Exp ' + D.formatCents(m.expenseCents) + ' · Net ' + D.formatCents(net) };
+  });
+  return '<div style="display:flex; gap:16px; font-size:11px; color:var(--bos-text-mute); margin-bottom:10px;">' +
+    '<span>● Revenue <b style="color:var(--bos-text)">' + D.formatCents(totalRev, { compact: true }) + '</b></span>' +
+    '<span>● Expenses <b style="color:var(--bos-text)">' + D.formatCents(totalExp, { compact: true }) + '</b></span>' +
+    '<span>Net bars colored by sign — hover a bar for the month\'s breakdown</span></div>' + buildBarsHtml(items);
+}
+
+// =====================================================================
+// CEO DASHBOARD (Home)
+// =====================================================================
+function renderHome(containerId) {
+  var priorities = D.todaysPriorities(7);
+  var health = D.overallHealthScore();
+  var weekly = D.weeklyProgressPct();
+  var monthlyGoals = D.allMonthlyGoals();
+  var deadlines = D.upcomingDeadlines(null, 14);
+  var activity = D.activityFeed(8);
+  var notes = D.recentNotes(4);
+  var businesses = D.businessesSorted();
+
+  var html = '<div class="bos-anim">';
+  html += pageHead('Headquarters', 'CEO Dashboard', 'Everything that needs your attention today, across every business.',
+    '<button class="bos-btn" id="bosHomeCaptureBtn">⚡ Quick Capture</button>' +
+    '<button class="bos-btn" id="bosHomeNewTaskBtn">✅ New Task</button>' +
+    '<button class="bos-btn bos-btn-primary" id="bosHomeNewBizBtn">➕ New Business</button>');
+
+  html += '<div class="bos-grid bos-grid-4" style="margin-bottom:18px;">';
+  html += statTile('💰', D.formatCents(D.totalRevenueCents(), { compact: true }), 'Total Revenue', D.totalRevenueCents() >= D.totalGoalRevenueCents() && D.totalGoalRevenueCents() > 0 ? 'Goal met' : (D.totalGoalRevenueCents() ? (Math.round((D.totalRevenueCents() / D.totalGoalRevenueCents()) * 100) + '% of goal') : ''), 'good');
+  html += statTile('📈', D.formatCents(D.totalProfitCents(), { compact: true }), 'Total Profit', D.totalGoalProfitCents() ? (Math.round((D.totalProfitCents() / D.totalGoalProfitCents()) * 100) + '% of goal') : '', 'info');
+  html += statTile('🏢', String(businesses.length), 'Businesses', businesses.length ? (D.activeBusinesses().length + ' active') : '', 'text-mute');
+  html += statTile('✅', String(D.pendingTasksCount()), 'Pending Tasks', priorities.length ? priorities.length + ' due today / high priority' : 'All clear', priorities.length ? 'warn' : 'good');
+  html += '</div>';
+
+  html += '<div class="bos-grid bos-grid-2">';
+
+  // left column
+  html += '<div style="display:flex; flex-direction:column; gap:16px;">';
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Today\'s Priorities</span></div>';
+  if (!priorities.length) html += emptyState('☀️', 'Nothing urgent today', 'High-priority and due-today tasks will show up here.');
+  else priorities.forEach(function (t) {
+    html += '<div class="bos-checklist-item' + (t.status === 'done' ? ' bos-done' : '') + '">' +
+      '<span class="bos-check-circle' + (t.status === 'done' ? ' done' : '') + '" data-toggle-task="' + t.id + '">' + (t.status === 'done' ? '✓' : '') + '</span>' +
+      '<span class="bos-checklist-text">' + esc(t.title) + (t.businessId ? ' <span class="bos-tag">' + esc(bizName(t.businessId)) + '</span>' : '') + '</span>' +
+      priorityPill(t.priority) + '</div>';
+  });
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Weekly Progress</span></div>';
+  if (weekly === null) html += '<div class="bos-empty-sub" style="text-align:left; padding:0;">No tasks due this week yet.</div>';
+  else { html += progressBarHtml(weekly, true); html += '<div style="margin-top:8px; font-size:11.5px; color:var(--bos-text-mute);">' + weekly + '% of this week\'s tasks are done</div>'; }
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Monthly Goals</span><button class="bos-btn bos-btn-sm" id="bosHomeAddGoalBtn">+ Add</button></div>';
+  if (!monthlyGoals.length) html += emptyState('🎯', 'No monthly goals set', 'Add one from a business workspace\'s Overview tab, or here.');
+  else monthlyGoals.forEach(function (g) {
+    html += '<div class="bos-checklist-item' + (g.done ? ' bos-done' : '') + '">' +
+      '<span class="bos-check-circle' + (g.done ? ' done' : '') + '" data-toggle-goal="' + g.id + '">' + (g.done ? '✓' : '') + '</span>' +
+      '<span class="bos-checklist-text">' + esc(g.text) + (g.businessId ? ' <span class="bos-tag">' + esc(bizName(g.businessId)) + '</span>' : '') + '</span></div>';
+  });
+  html += '</div>';
+  html += '</div>';
+
+  // right column
+  html += '<div style="display:flex; flex-direction:column; gap:16px;">';
+  html += '<div class="bos-card bos-card-pad" style="display:flex; align-items:center; gap:18px;">';
+  html += donutHtml(health, 'Health Score', health >= 70 ? 'var(--bos-good)' : (health >= 40 ? 'var(--bos-warn)' : 'var(--bos-bad)'));
+  html += '<div><div class="bos-section-title" style="margin-bottom:6px;">Overall Business Health</div><div style="font-size:12px; color:var(--bos-text-mute); line-height:1.5;">Averaged across revenue-to-goal, profit-to-goal, and project completion for every business.</div></div>';
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Businesses Overview</span><button class="bos-btn bos-btn-sm" data-goto-section="businesses">See all →</button></div>';
+  if (!businesses.length) html += emptyState('🏢', 'No businesses yet', 'Create your first one to get started.');
+  else businesses.slice(0, 5).forEach(function (b) {
+    var rp = D.revenueProgress(b);
+    html += '<div class="bos-activity-row" style="cursor:pointer;" data-open-biz="' + b.id + '"><span class="bos-activity-icon" style="background:' + b.color + '22;">' + b.logo + '</span>' +
+      '<div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(b.name) + '</div>' +
+      '<div style="margin-top:4px;">' + progressBarHtml(rp) + '</div></div>' +
+      '<span class="bos-tag">' + D.healthScore(b) + '%</span></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Upcoming Deadlines</span></div>';
+  if (!deadlines.length) html += emptyState('📅', 'Nothing due soon', 'Project deadlines within 14 days show up here.');
+  else deadlines.slice(0, 6).forEach(function (p) {
+    html += '<div class="bos-activity-row"><span class="bos-activity-icon">🚀</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(p.title) + '</div><div class="bos-activity-sub">' + esc(bizName(p.businessId)) + '</div></div>' +
+      '<span class="bos-proj-deadline ' + deadlineClass(p.deadline) + '">' + fmtDate(p.deadline) + '</span></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Recent Activity</span></div>';
+  if (!activity.length) html += emptyState('⚡', 'No activity yet', '');
+  else activity.forEach(function (a) {
+    html += '<div class="bos-activity-row"><span class="bos-activity-icon">' + a.icon + '</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(a.label) + '</div><div class="bos-activity-sub">' + a.kind + (a.businessId ? ' · ' + esc(bizName(a.businessId)) : '') + '</div></div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="bos-card bos-card-pad">';
+  html += '<div class="bos-section-title"><span>Recent Notes</span><button class="bos-btn bos-btn-sm" data-goto-section="notes-fallback" id="bosHomeNotesBtn">+ Add</button></div>';
+  if (!notes.length) html += emptyState('📝', 'No notes yet', '');
+  else notes.forEach(function (n) {
+    html += '<div class="bos-activity-row"><span class="bos-activity-icon">📝</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(n.title || '(untitled)') + '</div><div class="bos-activity-sub">' + esc((n.body || '').slice(0, 60)) + '</div></div></div>';
+  });
+  html += '</div>';
+  html += '</div>';
+
+  html += '</div></div>';
+  $(containerId).innerHTML = html;
+
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-toggle-task]' : '#' + containerId + ' [data-toggle-task]'), function (el) {
+    el.addEventListener('click', function () {
+      var t = D.Tasks.get(el.getAttribute('data-toggle-task'));
+      if (t) D.Tasks.update(t.id, { status: t.status === 'done' ? 'todo' : 'done' });
+      renderHome(containerId);
+      renderSbNav();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-toggle-goal]' : '#' + containerId + ' [data-toggle-goal]'), function (el) {
+    el.addEventListener('click', function () {
+      var g = D.Goals.get(el.getAttribute('data-toggle-goal'));
+      if (g) D.Goals.update(g.id, { done: !g.done });
+      renderHome(containerId);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-open-biz]' : '#' + containerId + ' [data-open-biz]'), function (el) {
+    el.addEventListener('click', function () { navigateToHash('biz/' + el.getAttribute('data-open-biz') + '/overview'); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(containerId === 'bosMain' ? '#bosMain [data-goto-section]' : '#' + containerId + ' [data-goto-section]'), function (el) {
+    el.addEventListener('click', function () { var s = el.getAttribute('data-goto-section'); if (s !== 'notes-fallback') navigateToHash(s); else openTaskModalGeneric(); });
+  });
+  var capBtn = document.getElementById('bosHomeCaptureBtn'); if (capBtn) capBtn.addEventListener('click', openQuickCapture);
+  var taskBtn = document.getElementById('bosHomeNewTaskBtn'); if (taskBtn) taskBtn.addEventListener('click', function () { openTaskModal(null, null); });
+  var bizBtn = document.getElementById('bosHomeNewBizBtn'); if (bizBtn) bizBtn.addEventListener('click', function () { openBusinessModal(null); });
+  var addGoalBtn = document.getElementById('bosHomeAddGoalBtn'); if (addGoalBtn) addGoalBtn.addEventListener('click', function () { openGoalModal(null, null, 'month'); });
+  var notesBtn = document.getElementById('bosHomeNotesBtn'); if (notesBtn) notesBtn.addEventListener('click', function () { openNoteModal(null, null); });
+}
+function openTaskModalGeneric() { openNoteModal(null, null); }
+// =====================================================================
+// PROJECTS — Kanban board + list. Status changes via a per-card select
+// (not drag-and-drop — a deliberate scope choice: this environment has
+// no way to interactively test a drag implementation before shipping,
+// so a select/arrow-based reorder was chosen over an untested drag,
+// the same "correctness over an untested interaction" precedent this
+// app's own Writing Dashboard Tasks database already established).
+// =====================================================================
+function projectFormFields(businessId) {
+  var fields = [
+    { key: 'title', label: 'Project Title', type: 'text', placeholder: 'e.g. Launch landing page' },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.PROJECT_STATUSES.map(function (s) { return { value: s, label: D.PROJECT_STATUS_LABELS[s] }; }) },
+    { key: 'priority', label: 'Priority', type: 'select', half: true, options: D.PRIORITIES },
+    { key: 'owner', label: 'Owner', type: 'text', half: true, placeholder: 'Who is on point' },
+    { key: 'deadline', label: 'Deadline', type: 'date', half: true },
+    { key: 'progress', label: 'Progress %', type: 'number', placeholder: '0' },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 3 }
+  ];
+  if (businessId === null || businessId === undefined) {
+    fields.splice(1, 0, { key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(true) });
+  }
+  return fields;
+}
+function openProjectModal(project, businessId) {
+  var values = project || { status: 'todo', priority: 'medium', progress: 0, businessId: businessId || '' };
+  openFormModal({
+    title: project ? 'Edit Project' : 'New Project',
+    fields: projectFormFields(businessId),
+    values: values,
+    submitLabel: project ? 'Save Changes' : 'Create Project',
+    validate: function (v) { if (!v.title.trim()) return 'Give this project a title.'; if (businessId === null && !v.businessId) return 'Pick a business for this project.'; return null; },
+    onSubmit: function (v) {
+      if (businessId !== null && businessId !== undefined) v.businessId = businessId;
+      if (project) D.Projects.update(project.id, v);
+      else { v.order = D.nextOrder(D.Projects.list()); D.Projects.add(v); }
+      renderAllVisible();
+    },
+    onDelete: project ? function () { D.Projects.remove(project.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (project ? project.title : '') + '"?'
+  });
+}
+function buildProjectCard(p) {
+  return '<div class="bos-proj-card" data-project-id="' + p.id + '">' +
+    '<div class="bos-proj-title">' + esc(p.title) + '</div>' +
+    '<div class="bos-proj-meta-row">' + priorityPill(p.priority) + (p.owner ? '<span class="bos-tag">' + esc(p.owner) + '</span>' : '') +
+    (p.businessId ? '<span class="bos-tag">' + esc(bizName(p.businessId)) + '</span>' : '') + '</div>' +
+    progressBarHtml(p.progress) +
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">' +
+    (p.deadline ? '<span class="bos-proj-deadline ' + deadlineClass(p.deadline, p.status === 'done') + '">' + fmtDate(p.deadline) + '</span>' : '<span></span>') +
+    '<select class="bos-btn-sm" style="padding:3px 6px; font-size:10.5px; width:auto;" data-project-status-select="' + p.id + '">' +
+    D.PROJECT_STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === p.status ? ' selected' : '') + '>' + D.PROJECT_STATUS_LABELS[s] + '</option>'; }).join('') +
+    '</select></div></div>';
+}
+var projectsViewMode = 'kanban';
+function renderProjectsSection(containerId, businessId) {
+  var groups = D.projectsByStatus(businessId);
+  var total = D.projectsFor(businessId).length;
+  var manuscriptCount = D.manuscriptsFor(businessId).length;
+  var html = businessId === null ? '<div class="bos-anim">' + pageHead('Delivery', 'Projects', 'Kanban across every business — status, priority, owner, deadline, progress.',
+    '<button class="bos-btn bos-btn-primary" id="bosNewProjBtn">➕ New Project</button>') :
+    '<div class="bos-section-title"><span>Projects (' + total + ')</span><button class="bos-btn bos-btn-sm" id="bosNewProjBtn">+ New Project</button></div>';
+  html += '<div class="bos-chip-row" id="bosProjViewChips" style="margin:12px 0 18px;">' +
+    '<button type="button" class="bos-chip' + (projectsViewMode === 'kanban' ? ' active' : '') + '" data-proj-view="kanban">🗂 Kanban</button>' +
+    '<button type="button" class="bos-chip' + (projectsViewMode === 'manuscripts' ? ' active' : '') + '" data-proj-view="manuscripts">📖 Manuscripts & Series' + (manuscriptCount ? ' (' + manuscriptCount + ')' : '') + '</button></div>';
+  if (projectsViewMode === 'manuscripts') {
+    html += buildManuscriptsCorkboardHtml(businessId);
+  } else {
+    html += total ? buildKanban(groups) : emptyState('🚀', 'No projects yet', 'Add one to start tracking it through backlog → done.');
+  }
+  if (businessId === null) html += '</div>';
+  $(containerId).innerHTML = html;
+
+  var newBtn = document.getElementById('bosNewProjBtn'); if (newBtn) newBtn.addEventListener('click', function () { openProjectModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-proj-view]'), function (el) {
+    el.addEventListener('click', function () { projectsViewMode = el.getAttribute('data-proj-view'); renderProjectsSection(containerId, businessId); });
+  });
+  if (projectsViewMode === 'manuscripts') { wireManuscriptsCorkboard(containerId, businessId); return; }
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-project-id]'), function (el) {
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-project-status-select]')) return;
+      openProjectModal(D.Projects.get(el.getAttribute('data-project-id')), businessId);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-project-status-select]'), function (el) {
+    el.addEventListener('click', function (e) { e.stopPropagation(); });
+    el.addEventListener('change', function () {
+      D.Projects.update(el.getAttribute('data-project-status-select'), { status: el.value });
+      renderProjectsSection(containerId, businessId);
+    });
+  });
+}
+function buildKanban(groups) {
+  var html = '<div class="bos-kanban">';
+  D.PROJECT_STATUSES.forEach(function (st) {
+    var items = groups[st];
+    html += '<div class="bos-kanban-col"><div class="bos-kanban-col-head"><span>' + D.PROJECT_STATUS_LABELS[st] + '</span><span class="bos-kanban-col-count">' + items.length + '</span></div><div class="bos-kanban-col-body">';
+    if (!items.length) html += '<div class="bos-kanban-empty">Empty</div>';
+    else items.forEach(function (p) { html += buildProjectCard(p); });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// =====================================================================
+// MANUSCRIPTS & SERIES — a Scrivener-style corkboard layered on top of
+// the same Projects collection (a manuscript is a real Project with
+// kind:'manuscript', so it still flows through Kanban/deadlines/
+// analytics like any other project — this view is an additional, richer
+// lens on the same data, not a second database). Series is its own
+// small collection, a pure grouping — deleting one un-groups its
+// manuscripts rather than deleting them (see businessos-data.js's
+// removeSeries()).
+// =====================================================================
+function seriesFormFields(businessId) {
+  var fields = [
+    { key: 'name', label: 'Series Name', type: 'text', placeholder: 'e.g. The Riverbend Saga' },
+    { key: 'color', label: 'Color', type: 'color', options: D.BIZ_COLORS },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 2 }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openSeriesModal(series, businessId) {
+  openFormModal({
+    title: series ? 'Edit Series' : 'New Series',
+    fields: seriesFormFields(businessId),
+    values: series || { color: D.BIZ_COLORS[0], businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: series ? 'Save Changes' : 'Create Series',
+    validate: function (v) { if (!v.name.trim()) return 'Give this series a name.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (series) D.Series.update(series.id, v); else { v.order = D.nextOrder(D.seriesFor(v.businessId)); D.Series.add(v); } renderAllVisible(); },
+    onDelete: series ? function () { D.Series.remove(series.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (series ? series.name : '') + '"? Its manuscripts stay — they just become standalone.'
+  });
+}
+function manuscriptFormFields(businessId) {
+  var fields = [
+    { key: 'title', label: 'Manuscript Title', type: 'text', placeholder: 'e.g. The Long Winter' },
+    { key: 'labelColor', label: 'Label Color', type: 'color', options: D.BIZ_COLORS },
+    { key: 'manuscriptStatus', label: 'Status', type: 'select', half: true, options: D.MANUSCRIPT_STATUSES.map(function (s) { return { value: s, label: D.MANUSCRIPT_STATUS_LABELS[s] }; }) },
+    { key: 'priority', label: 'Priority', type: 'select', half: true, options: D.PRIORITIES },
+    { key: 'wordCountCurrent', label: 'Word Count So Far', type: 'number', half: true, placeholder: '0' },
+    { key: 'wordCountGoal', label: 'Word Count Goal', type: 'number', half: true, placeholder: '80000' },
+    { key: 'deadline', label: 'Target Deadline', type: 'date', half: true },
+    { key: 'owner', label: 'Author', type: 'text', half: true, placeholder: 'Me' },
+    { key: 'synopsis', label: 'Synopsis', type: 'textarea', rows: 4, placeholder: "The index-card summary — what's this one actually about?" }
+  ];
+  // The Series picker only makes sense once the business is fixed and
+  // known (its options are scoped to that business's own series) — from
+  // the global Projects page, where the business itself is one of the
+  // fields being filled in, a new manuscript is created standalone and
+  // can be assigned to a series afterward from inside that business's
+  // own workspace, where this field then appears correctly scoped.
+  if (businessId) fields.splice(1, 0, { key: 'seriesId', label: 'Series', type: 'select', options: [{ value: '', label: '— Standalone —' }].concat(D.seriesFor(businessId).map(function (s) { return { value: s.id, label: s.name }; })) });
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openManuscriptModal(manuscript, businessId, seriesId) {
+  var values = manuscript || { status: 'todo', priority: 'medium', kind: 'manuscript', manuscriptStatus: 'outline', labelColor: D.BIZ_COLORS[0], seriesId: seriesId || '', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') };
+  openFormModal({
+    title: manuscript ? 'Edit Manuscript' : 'New Manuscript',
+    wide: true,
+    fields: manuscriptFormFields(businessId),
+    values: values,
+    submitLabel: manuscript ? 'Save Changes' : 'Create Manuscript',
+    validate: function (v) { if (!v.title.trim()) return 'Give this manuscript a title.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) {
+      if (businessId) v.businessId = businessId;
+      v.kind = 'manuscript';
+      v.seriesId = v.seriesId || null;
+      if (!manuscript) v.status = 'in-progress';
+      if (manuscript) D.Projects.update(manuscript.id, v);
+      else { v.order = D.nextOrder(D.projectsFor(v.businessId)); D.Projects.add(v); }
+      renderAllVisible();
+    },
+    onDelete: manuscript ? function () { D.Projects.remove(manuscript.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (manuscript ? manuscript.title : '') + '"?'
+  });
+}
+function buildManuscriptCard(m, showBiz) {
+  var pct = D.wordProgressPct(m);
+  return '<div class="bos-ms-card" style="--bos-label-color:' + m.labelColor + ';" data-manuscript-id="' + m.id + '">' +
+    '<div class="bos-ms-title">' + esc(m.title) + (showBiz ? '<div class="bos-tag" style="margin-top:5px; font-weight:600;">' + esc(bizName(m.businessId)) + '</div>' : '') + '</div>' +
+    '<div class="bos-ms-synopsis' + (m.synopsis ? '' : ' bos-ms-synopsis-empty') + '">' + (m.synopsis ? esc(m.synopsis) : 'No synopsis yet — click to add one.') + '</div>' +
+    '<div class="bos-ms-foot"><div style="flex:1 1 auto; min-width:0;">' +
+    '<div class="bos-ms-wordcount">' + (m.wordCountGoal ? m.wordCountCurrent.toLocaleString() + ' / ' + m.wordCountGoal.toLocaleString() + ' words' : (m.wordCountCurrent ? m.wordCountCurrent.toLocaleString() + ' words' : 'No word count yet')) + '</div>' +
+    (m.wordCountGoal ? '<div class="bos-ms-wordbar"><div class="bos-ms-wordbar-fill" style="width:' + pct + '%"></div></div>' : '') + '</div>' +
+    labelPill(D.MANUSCRIPT_STATUS_LABELS[m.manuscriptStatus], 'bos-pill-' + D.MANUSCRIPT_STATUS_COLOR[m.manuscriptStatus]) + '</div></div>';
+}
+function buildSeriesCard(s, businessId) {
+  var manuscripts = D.manuscriptsInSeries(businessId, s.id);
+  var showBiz = !businessId;
+  var html = '<div class="bos-series-card" style="--bos-series-color:' + s.color + ';">' +
+    '<div class="bos-series-head"><span class="bos-series-dot"></span><span class="bos-series-name">' + esc(s.name) + '</span>' +
+    (showBiz ? '<span class="bos-tag">' + esc(bizName(s.businessId)) + '</span>' : '') +
+    '<span class="bos-series-count">' + manuscripts.length + ' manuscript' + (manuscripts.length === 1 ? '' : 's') + '</span>' +
+    '<div class="bos-series-actions"><button class="bos-btn bos-btn-sm" data-edit-series="' + s.id + '">✎ Edit Series</button>' +
+    '<button class="bos-btn bos-btn-sm bos-btn-primary" data-add-manuscript-to="' + s.id + '">+ Manuscript</button></div></div>' +
+    (s.description ? '<div class="bos-series-desc">' + esc(s.description) + '</div>' : '') + '</div>';
+  html += manuscripts.length ? '<div class="bos-ms-grid">' + manuscripts.map(function (m) { return buildManuscriptCard(m, showBiz); }).join('') + '</div>' :
+    '<div class="bos-empty" style="padding:20px;">No manuscripts in this series yet.</div>';
+  return html;
+}
+function buildManuscriptsCorkboardHtml(businessId) {
+  var seriesList = D.seriesFor(businessId);
+  var standalone = D.standaloneManuscripts(businessId);
+  var showBiz = !businessId;
+  var html = '<div style="margin-bottom:16px; display:flex; gap:8px;"><button class="bos-btn" id="bosNewSeriesBtn">➕ New Series</button><button class="bos-btn bos-btn-primary" id="bosNewManuscriptBtn">➕ New Manuscript</button></div>';
+  if (!seriesList.length && !standalone.length) { html += emptyState('📖', 'No manuscripts yet', 'Create a series, or add a standalone manuscript to get its own Scrivener-style card.'); return html; }
+  seriesList.forEach(function (s) { html += buildSeriesCard(s, businessId); });
+  if (standalone.length) {
+    html += '<div class="bos-standalone-head">Standalone</div><div class="bos-ms-grid">' + standalone.map(function (m) { return buildManuscriptCard(m, showBiz); }).join('') + '</div>';
+  }
+  return html;
+}
+function wireManuscriptsCorkboard(containerId, businessId) {
+  var newSeriesBtn = document.getElementById('bosNewSeriesBtn'); if (newSeriesBtn) newSeriesBtn.addEventListener('click', function () { openSeriesModal(null, businessId); });
+  var newMsBtn = document.getElementById('bosNewManuscriptBtn'); if (newMsBtn) newMsBtn.addEventListener('click', function () { openManuscriptModal(null, businessId, null); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-edit-series]'), function (el) { el.addEventListener('click', function () { openSeriesModal(D.Series.get(el.getAttribute('data-edit-series')), businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-add-manuscript-to]'), function (el) { el.addEventListener('click', function () { openManuscriptModal(null, businessId, el.getAttribute('data-add-manuscript-to')); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-manuscript-id]'), function (el) { el.addEventListener('click', function () { openManuscriptModal(D.Projects.get(el.getAttribute('data-manuscript-id')), businessId, null); }); });
+}
+
+// =====================================================================
+// TASKS (shared modal — used by Home's "Today's Priorities"/"New Task",
+// Quick Capture's promote-to-task, and any business workspace).
+// =====================================================================
+function taskFormFields(businessId) {
+  var fields = [
+    { key: 'title', label: 'Task', type: 'text', placeholder: "What needs to happen" },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.TASK_STATUSES },
+    { key: 'priority', label: 'Priority', type: 'select', half: true, options: D.PRIORITIES },
+    { key: 'dueDate', label: 'Due Date', type: 'date' }
+  ];
+  if (businessId === null || businessId === undefined) fields.splice(1, 0, { key: 'businessId', label: 'Business (optional)', type: 'select', options: bizChipOptions(true) });
+  return fields;
+}
+function openTaskModal(task, businessId) {
+  var values = task || { status: 'todo', priority: 'medium', businessId: businessId || '' };
+  openFormModal({
+    title: task ? 'Edit Task' : 'New Task',
+    fields: taskFormFields(businessId),
+    values: values,
+    submitLabel: task ? 'Save Changes' : 'Create Task',
+    validate: function (v) { if (!v.title.trim()) return 'Give this task a title.'; return null; },
+    onSubmit: function (v) {
+      if (businessId !== null && businessId !== undefined) v.businessId = businessId;
+      if (!v.businessId) v.businessId = null;
+      if (task) D.Tasks.update(task.id, v);
+      else { v.order = D.nextOrder(D.Tasks.list()); D.Tasks.add(v); }
+      renderAllVisible();
+    },
+    onDelete: task ? function () { D.Tasks.remove(task.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this task?'
+  });
+}
+
+// =====================================================================
+// GOALS (Quarterly / Monthly / Weekly — used by a business's Overview
+// tab and by the CEO Dashboard's Monthly Goals list).
+// =====================================================================
+function openGoalModal(goal, businessId, scope) {
+  var fields = [
+    { key: 'text', label: 'Goal', type: 'text', placeholder: 'What does done look like' },
+    { key: 'scope', label: 'Scope', type: 'select', options: D.GOAL_SCOPES.map(function (s) { return { value: s, label: D.GOAL_SCOPE_LABELS[s] }; }) },
+    { key: 'done', label: '', type: 'checkbox', checkLabel: 'Already done' }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  openFormModal({
+    title: goal ? 'Edit Goal' : 'New Goal',
+    fields: fields,
+    values: goal || { scope: scope || 'month', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: goal ? 'Save Changes' : 'Add Goal',
+    validate: function (v) { if (!v.text.trim()) return 'Give this goal some text.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) {
+      if (businessId) v.businessId = businessId;
+      if (goal) D.Goals.update(goal.id, v);
+      else { v.order = D.nextOrder(D.goalsFor(v.businessId, v.scope)); D.Goals.add(v); }
+      renderAllVisible();
+    },
+    onDelete: goal ? function () { D.Goals.remove(goal.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this goal?'
+  });
+}
+// =====================================================================
+// PRODUCTS — catalog with status/launch/revenue/inventory/pricing.
+// =====================================================================
+var prodFilter = {};
+function productFormFields(businessId) {
+  var fields = [
+    { key: 'name', label: 'Product Name', type: 'text', placeholder: 'e.g. Calm Balm' },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.PRODUCT_STATUSES },
+    { key: 'launchDate', label: 'Launch Date', type: 'date', half: true },
+    { key: 'priceCents', label: 'Price', type: 'money', half: true },
+    { key: 'inventory', label: 'Inventory on hand', type: 'number', half: true, placeholder: '0' },
+    { key: 'revenueCents', label: 'Revenue to date', type: 'money' },
+    { key: 'description', label: 'Description', type: 'textarea', rows: 3 }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openProductModal(product, businessId) {
+  openFormModal({
+    title: product ? 'Edit Product' : 'New Product',
+    fields: productFormFields(businessId),
+    values: product || { status: 'idea', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: product ? 'Save Changes' : 'Add Product',
+    validate: function (v) { if (!v.name.trim()) return 'Give this product a name.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (product) D.Products.update(product.id, v); else { v.order = D.nextOrder(D.productsFor(v.businessId)); D.Products.add(v); } renderAllVisible(); },
+    onDelete: product ? function () { D.Products.remove(product.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (product ? product.name : '') + '"?'
+  });
+}
+var PRODUCT_STATUS_CLASS = { idea: 'bos-pill-mute', development: 'bos-pill-info', launched: 'bos-pill-good', discontinued: 'bos-pill-bad' };
+function renderProductsSection(containerId, businessId) {
+  var list = D.productsFor(businessId).filter(function (p) { return !prodFilter.status || p.status === prodFilter.status; });
+  var all = D.productsFor(businessId);
+  var eyebrow = businessId ? 'Products' : 'Catalog';
+  var titleHtml = businessId ? '<div class="bos-section-title"><span>Products (' + all.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewProdBtn">+ New Product</button></div>' :
+    pageHead(eyebrow, 'Products', 'Every SKU across every business — status, launch date, revenue, inventory, pricing.', '<button class="bos-btn bos-btn-primary" id="bosNewProdBtn">➕ New Product</button>');
+  var html = businessId ? titleHtml : '<div class="bos-anim">' + titleHtml;
+  html += '<div class="bos-chip-row" id="bosProdChips" style="margin:10px 0 16px;">' +
+    '<button type="button" class="bos-chip' + (!prodFilter.status ? ' active' : '') + '" data-prod-status="">All (' + all.length + ')</button>' +
+    D.PRODUCT_STATUSES.map(function (s) { var c = all.filter(function (p) { return p.status === s; }).length; return '<button type="button" class="bos-chip' + (prodFilter.status === s ? ' active' : '') + '" data-prod-status="' + s + '">' + s.charAt(0).toUpperCase() + s.slice(1) + ' (' + c + ')</button>'; }).join('') + '</div>';
+  if (!list.length) html += emptyState('🛒', all.length ? 'No products in this status' : 'No products yet', '');
+  else {
+    html += '<div class="bos-grid bos-grid-3">' + list.map(function (p) {
+      return '<div class="bos-row" data-product-id="' + p.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(p.name) + '</span>' + labelPill(p.status, PRODUCT_STATUS_CLASS[p.status]) + '</div>' +
+        (p.description ? '<div class="bos-row-body">' + esc(p.description) + '</div>' : '') +
+        '<div class="bos-row-meta">' + D.formatCents(p.priceCents) + (p.launchDate ? ' · Launch ' + fmtDate(p.launchDate) : '') + (p.inventory ? ' · ' + p.inventory + ' in stock' : '') + '</div>' +
+        '<div class="bos-row-meta">Revenue: <b style="color:var(--bos-text)">' + D.formatCents(p.revenueCents, { compact: true }) + '</b>' + (!businessId ? ' · ' + esc(bizName(p.businessId)) : '') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewProdBtn'); if (newBtn) newBtn.addEventListener('click', function () { openProductModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-prod-status]'), function (el) { el.addEventListener('click', function () { prodFilter.status = el.getAttribute('data-prod-status') || null; renderProductsSection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-product-id]'), function (el) { el.addEventListener('click', function () { openProductModal(D.Products.get(el.getAttribute('data-product-id')), businessId); }); });
+}
+
+// =====================================================================
+// CONTENT + MARKETING — one shared Content collection, filtered two
+// ways: Content Hub (the real content-channel platforms, grouped by
+// stage — schedule/ideas/drafts/published) and Marketing (campaign-
+// style platforms — email/SEO/ads/affiliate/influencer — plus a
+// combined upcoming calendar across every platform).
+// =====================================================================
+var CONTENT_CHANNEL_PLATFORMS = ['youtube', 'instagram', 'tiktok', 'facebook', 'pinterest', 'threads', 'medium', 'newsletter', 'blog'];
+var CAMPAIGN_PLATFORMS = ['email', 'seo', 'ads', 'affiliate', 'influencer'];
+var contentFilter = { platform: '', stage: '' };
+var CONTENT_STAGE_CLASS = { idea: 'bos-pill-mute', draft: 'bos-pill-info', scheduled: 'bos-pill-warn', published: 'bos-pill-good' };
+function contentFormFields(businessId, allowedPlatforms) {
+  var fields = [
+    { key: 'title', label: 'Title', type: 'text', placeholder: "What's it about" },
+    { key: 'platform', label: 'Platform / Channel', type: 'select', half: true, options: (allowedPlatforms || D.CONTENT_PLATFORMS).map(function (p) { return { value: p, label: D.CONTENT_PLATFORM_ICONS[p] + ' ' + p.charAt(0).toUpperCase() + p.slice(1) }; }) },
+    { key: 'stage', label: 'Stage', type: 'select', half: true, options: D.CONTENT_STAGES.map(function (s) { return { value: s, label: D.CONTENT_STAGE_LABELS[s] }; }) },
+    { key: 'scheduledDate', label: 'Scheduled Date', type: 'date', half: true },
+    { key: 'publishedDate', label: 'Published Date', type: 'date', half: true },
+    { key: 'url', label: 'URL', type: 'url', placeholder: 'https://…' },
+    { key: 'notes', label: 'Notes', type: 'textarea', rows: 3 }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openContentModal(item, businessId, defaultPlatform, allowedPlatforms) {
+  openFormModal({
+    title: item ? 'Edit Content' : 'New Content',
+    fields: contentFormFields(businessId, allowedPlatforms),
+    values: item || { stage: 'idea', platform: defaultPlatform || (allowedPlatforms ? allowedPlatforms[0] : 'instagram'), businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: item ? 'Save Changes' : 'Add Content',
+    validate: function (v) { if (!v.title.trim()) return 'Give this a title.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (item) D.Content.update(item.id, v); else { v.order = D.nextOrder(D.contentFor(v.businessId)); D.Content.add(v); } renderAllVisible(); },
+    onDelete: item ? function () { D.Content.remove(item.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (item ? item.title : '') + '"?'
+  });
+}
+function buildContentRow(c, businessId) {
+  return '<div class="bos-row" data-content-id="' + c.id + '"><div class="bos-row-top"><span style="font-size:15px;">' + D.CONTENT_PLATFORM_ICONS[c.platform] + '</span>' +
+    '<span class="bos-row-title">' + esc(c.title) + '</span>' + labelPill(D.CONTENT_STAGE_LABELS[c.stage], CONTENT_STAGE_CLASS[c.stage]) + '</div>' +
+    '<div class="bos-row-meta">' + c.platform.charAt(0).toUpperCase() + c.platform.slice(1) +
+    (c.scheduledDate ? ' · Scheduled ' + fmtDate(c.scheduledDate) : '') + (c.publishedDate ? ' · Published ' + fmtDate(c.publishedDate) : '') +
+    (!businessId ? ' · ' + esc(bizName(c.businessId)) : '') + '</div>' +
+    (c.notes ? '<div class="bos-row-body">' + esc(c.notes) + '</div>' : '') +
+    (c.url ? '<div><a href="' + esc(c.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:11px; color:var(--bos-accent2); font-weight:700;">↗ Open link</a></div>' : '') + '</div>';
+}
+function renderContentGridInternal(containerId, businessId, opts) {
+  var allowed = opts.platforms;
+  var pool = D.contentFor(businessId).filter(function (c) { return allowed.indexOf(c.platform) !== -1; });
+  var list = pool.filter(function (c) { return (!contentFilter.platform || c.platform === contentFilter.platform) && (!contentFilter.stage || c.stage === contentFilter.stage); });
+  var html = businessId ? '<div class="bos-section-title"><span>' + esc(opts.title) + ' (' + pool.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewContentBtn">+ New</button></div>' :
+    '<div class="bos-anim">' + pageHead(opts.eyebrow, opts.title, opts.subtext, '<button class="bos-btn bos-btn-primary" id="bosNewContentBtn">➕ New</button>');
+  if (opts.showCalendar) {
+    var upcoming = D.contentFor(businessId).filter(function (c) { return c.scheduledDate && c.stage !== 'published' && c.scheduledDate <= D.isoDaysFromNow(21); }).sort(function (a, b) { return a.scheduledDate < b.scheduledDate ? -1 : 1; });
+    html += '<div class="bos-card bos-card-pad" style="margin-bottom:18px;"><div class="bos-section-title"><span>📅 Campaign & Content Calendar — next 3 weeks</span></div>';
+    if (!upcoming.length) html += '<div class="bos-empty-sub" style="text-align:left; padding:4px 0;">Nothing scheduled in the next 3 weeks.</div>';
+    else upcoming.slice(0, 8).forEach(function (c) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">' + D.CONTENT_PLATFORM_ICONS[c.platform] + '</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(c.title) + '</div><div class="bos-activity-sub">' + c.platform + (!businessId ? ' · ' + esc(bizName(c.businessId)) : '') + '</div></div><span class="bos-proj-deadline ' + deadlineClass(c.scheduledDate) + '">' + fmtDate(c.scheduledDate) + '</span></div>'; });
+    html += '</div>';
+  }
+  html += '<div class="bos-chip-row" id="bosContentPlatChips" style="margin-bottom:10px;">' +
+    '<button type="button" class="bos-chip' + (!contentFilter.platform ? ' active' : '') + '" data-content-plat="">All Channels</button>' +
+    allowed.map(function (p) { return '<button type="button" class="bos-chip' + (contentFilter.platform === p ? ' active' : '') + '" data-content-plat="' + p + '">' + D.CONTENT_PLATFORM_ICONS[p] + ' ' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>'; }).join('') + '</div>';
+  html += '<div class="bos-chip-row" id="bosContentStageChips" style="margin-bottom:16px;">' +
+    '<button type="button" class="bos-chip' + (!contentFilter.stage ? ' active' : '') + '" data-content-stage="">All Stages</button>' +
+    D.CONTENT_STAGES.map(function (s) { return '<button type="button" class="bos-chip' + (contentFilter.stage === s ? ' active' : '') + '" data-content-stage="' + s + '">' + D.CONTENT_STAGE_LABELS[s] + '</button>'; }).join('') + '</div>';
+  if (!list.length) html += emptyState(opts.emptyIcon || '📢', pool.length ? 'Nothing matches this filter' : opts.emptyTitle, '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (c) { return buildContentRow(c, businessId); }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewContentBtn'); if (newBtn) newBtn.addEventListener('click', function () { openContentModal(null, businessId, opts.defaultPlatform || allowed[0], allowed); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-content-plat]'), function (el) { el.addEventListener('click', function () { contentFilter.platform = el.getAttribute('data-content-plat') || null; renderContentGridInternal(containerId, businessId, opts); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-content-stage]'), function (el) { el.addEventListener('click', function () { contentFilter.stage = el.getAttribute('data-content-stage') || null; renderContentGridInternal(containerId, businessId, opts); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-content-id]'), function (el) { el.addEventListener('click', function () { openContentModal(D.Content.get(el.getAttribute('data-content-id')), businessId, null, allowed); }); });
+}
+function renderContentSection(containerId, businessId) {
+  contentFilter = { platform: contentFilter.platform, stage: contentFilter.stage };
+  renderContentGridInternal(containerId, businessId, {
+    eyebrow: 'Content Hub', title: 'Content', subtext: 'YouTube, Instagram, TikTok, Facebook, Pinterest, Threads, Medium, Newsletter, Blog — schedule, ideas, drafts, and published, all in one place.',
+    platforms: CONTENT_CHANNEL_PLATFORMS, defaultPlatform: 'instagram', emptyTitle: 'No content yet', showCalendar: false
+  });
+}
+function renderMarketingSection(containerId, businessId) {
+  renderContentGridInternal(containerId, businessId, {
+    eyebrow: 'Growth', title: 'Marketing', subtext: 'Campaign calendar, email, SEO, ads, affiliate, and influencer outreach.',
+    platforms: CAMPAIGN_PLATFORMS, defaultPlatform: 'email', emptyTitle: 'No campaigns yet', showCalendar: true
+  });
+}
+// =====================================================================
+// CUSTOMERS — CRM (leads + customers), lifetime value, segments.
+// =====================================================================
+var custFilter = { type: '' };
+var CUSTOMER_STATUS_CLASS = { new: 'bos-pill-info', contacted: 'bos-pill-info', qualified: 'bos-pill-warn', won: 'bos-pill-good', lost: 'bos-pill-bad', churned: 'bos-pill-bad' };
+function customerFormFields(businessId) {
+  var fields = [
+    { key: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Riverstone Books' },
+    { key: 'type', label: 'Type', type: 'select', half: true, options: D.CUSTOMER_TYPES },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.CUSTOMER_STATUSES },
+    { key: 'email', label: 'Email', type: 'email', half: true },
+    { key: 'segment', label: 'Segment', type: 'text', half: true, placeholder: 'e.g. Retail' },
+    { key: 'ltvCents', label: 'Lifetime Value', type: 'money', half: true },
+    { key: 'orders', label: 'Orders', type: 'number', half: true, placeholder: '0' },
+    { key: 'notes', label: 'Notes / Feedback', type: 'textarea', rows: 3 }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openCustomerModal(cust, businessId) {
+  openFormModal({
+    title: cust ? 'Edit Contact' : 'New Lead / Customer',
+    fields: customerFormFields(businessId),
+    values: cust || { type: 'lead', status: 'new', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: cust ? 'Save Changes' : 'Add Contact',
+    validate: function (v) { if (!v.name.trim()) return 'Give this contact a name.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (cust) D.Customers.update(cust.id, v); else { v.order = D.nextOrder(D.customersFor(v.businessId)); D.Customers.add(v); } renderAllVisible(); },
+    onDelete: cust ? function () { D.Customers.remove(cust.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (cust ? cust.name : '') + '"?'
+  });
+}
+function renderCustomersSection(containerId, businessId) {
+  var all = D.customersFor(businessId);
+  var list = all.filter(function (c) { return !custFilter.type || c.type === custFilter.type; });
+  var html = businessId ? '<div class="bos-section-title"><span>Customers & Leads (' + all.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewCustBtn">+ Add</button></div>' :
+    '<div class="bos-anim">' + pageHead('Relationships', 'Customers', 'Leads, customers, lifetime value, and segments — across every business.', '<button class="bos-btn bos-btn-primary" id="bosNewCustBtn">➕ Add Contact</button>');
+  html += '<div class="bos-grid bos-grid-4" style="margin:14px 0 18px;">' +
+    statTile('🧲', String(D.leadsFor(businessId).length), 'Leads') +
+    statTile('🤝', String(D.activeCustomersFor(businessId).length), 'Customers') +
+    statTile('💵', D.formatCents(D.totalLtvCents(businessId), { compact: true }), 'Total LTV') +
+    statTile('🏆', String(all.filter(function (c) { return c.status === 'won'; }).length), 'Won') + '</div>';
+  html += '<div class="bos-chip-row" style="margin-bottom:16px;" id="bosCustChips">' +
+    '<button type="button" class="bos-chip' + (!custFilter.type ? ' active' : '') + '" data-cust-type="">All (' + all.length + ')</button>' +
+    '<button type="button" class="bos-chip' + (custFilter.type === 'lead' ? ' active' : '') + '" data-cust-type="lead">Leads (' + D.leadsFor(businessId).length + ')</button>' +
+    '<button type="button" class="bos-chip' + (custFilter.type === 'customer' ? ' active' : '') + '" data-cust-type="customer">Customers (' + D.activeCustomersFor(businessId).length + ')</button></div>';
+  if (!list.length) html += emptyState('👥', all.length ? 'None in this view' : 'No contacts yet', '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (c) {
+    return '<div class="bos-row" data-cust-id="' + c.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(c.name) + '</span>' + labelPill(c.status, CUSTOMER_STATUS_CLASS[c.status]) + '</div>' +
+      '<div class="bos-row-meta">' + (c.type === 'lead' ? '🧲 Lead' : '🤝 Customer') + (c.segment ? ' · ' + esc(c.segment) : '') + (!businessId ? ' · ' + esc(bizName(c.businessId)) : '') + '</div>' +
+      (c.email ? '<div class="bos-row-meta">' + esc(c.email) + '</div>' : '') +
+      '<div class="bos-row-meta">LTV: <b style="color:var(--bos-text)">' + D.formatCents(c.ltvCents, { compact: true }) + '</b>' + (c.orders ? ' · ' + c.orders + ' orders' : '') + '</div>' +
+      (c.notes ? '<div class="bos-row-body">' + esc(c.notes) + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewCustBtn'); if (newBtn) newBtn.addEventListener('click', function () { openCustomerModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-cust-type]'), function (el) { el.addEventListener('click', function () { custFilter.type = el.getAttribute('data-cust-type') || null; renderCustomersSection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-cust-id]'), function (el) { el.addEventListener('click', function () { openCustomerModal(D.Customers.get(el.getAttribute('data-cust-id')), businessId); }); });
+}
+
+// =====================================================================
+// SALES — a read-mostly rollup over Customers + Finance: revenue trend,
+// a simple funnel (leads → qualified → won), and top accounts by LTV.
+// =====================================================================
+function renderSalesSection(containerId, businessId) {
+  var monthly = D.monthlyTxTotals(businessId, 6);
+  var all = D.customersFor(businessId);
+  var leads = all.filter(function (c) { return c.type === 'lead'; }).length;
+  var qualified = all.filter(function (c) { return c.status === 'qualified' || c.status === 'won'; }).length;
+  var won = all.filter(function (c) { return c.status === 'won'; }).length;
+  var topAccounts = all.slice().sort(function (a, b) { return b.ltvCents - a.ltvCents; }).slice(0, 6);
+  var recentWins = all.filter(function (c) { return c.status === 'won'; }).sort(function (a, b) { return b.createdAt - a.createdAt; }).slice(0, 5);
+  var html = businessId ? '<div class="bos-section-title"><span>Sales</span></div>' : '<div class="bos-anim">' + pageHead('Revenue', 'Sales', 'How revenue is trending and where it is coming from.', '');
+  html += '<div class="bos-card bos-card-pad" style="margin:14px 0 16px;"><div class="bos-section-title"><span>Revenue Trend — last 6 months</span></div>' + buildNetBarsFromMonthly(monthly) + '</div>';
+  html += '<div class="bos-grid bos-grid-2">';
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Sales Funnel</span></div>' +
+    '<div style="display:flex; gap:10px; align-items:center; margin-top:6px;">' +
+    '<div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px;">' + leads + '</div><div class="bos-stat-label">Leads</div></div>' +
+    '<span style="color:var(--bos-text-mute);">→</span>' +
+    '<div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px;">' + qualified + '</div><div class="bos-stat-label">Qualified</div></div>' +
+    '<span style="color:var(--bos-text-mute);">→</span>' +
+    '<div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px; color:var(--bos-good);">' + won + '</div><div class="bos-stat-label">Won</div></div></div></div>';
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Recent Wins</span></div>';
+  if (!recentWins.length) html += '<div class="bos-empty-sub" style="text-align:left; padding:4px 0;">No wins logged yet.</div>';
+  else recentWins.forEach(function (c) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">🏆</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(c.name) + '</div><div class="bos-activity-sub">' + (!businessId ? esc(bizName(c.businessId)) + ' · ' : '') + D.formatCents(c.ltvCents, { compact: true }) + ' LTV</div></div></div>'; });
+  html += '</div></div>';
+  html += '<div class="bos-card bos-card-pad" style="margin-top:16px;"><div class="bos-section-title"><span>Top Accounts by Lifetime Value</span></div>';
+  if (!topAccounts.length) html += emptyState('💵', 'No accounts yet', '');
+  else topAccounts.forEach(function (c) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">' + (c.type === 'lead' ? '🧲' : '🤝') + '</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(c.name) + '</div><div class="bos-activity-sub">' + (!businessId ? esc(bizName(c.businessId)) : (c.segment || c.status)) + '</div></div><span class="bos-tag">' + D.formatCents(c.ltvCents, { compact: true }) + '</span></div>'; });
+  html += '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+}
+// =====================================================================
+// OPERATIONS — SOPs, checklists, templates, automations, documents.
+// Checklist items are edited inline on the card (add/toggle/delete),
+// separate from the title/kind/body modal — same "inline, not modal,
+// for a fast-moving sub-list" precedent business.html's own Workflow
+// days already established for their checklist items.
+// =====================================================================
+function opsFormFields(businessId) {
+  var fields = [
+    { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. New client onboarding SOP' },
+    { key: 'kind', label: 'Type', type: 'select', options: D.OPS_KINDS.map(function (k) { return { value: k, label: D.OPS_KIND_LABELS[k] }; }) },
+    { key: 'body', label: 'Details', type: 'textarea', rows: 5, placeholder: 'Steps, links, or freeform notes' }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openOpsModal(ops, businessId) {
+  openFormModal({
+    title: ops ? 'Edit' : 'New Operations Doc',
+    fields: opsFormFields(businessId),
+    values: ops || { kind: 'sop', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: ops ? 'Save Changes' : 'Create',
+    validate: function (v) { if (!v.title.trim()) return 'Give this a title.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (ops) D.Operations.update(ops.id, Object.assign({}, v, { checklist: ops.checklist })); else { v.order = D.nextOrder(D.operationsFor(v.businessId)); v.checklist = []; D.Operations.add(v); } renderAllVisible(); },
+    onDelete: ops ? function () { D.Operations.remove(ops.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (ops ? ops.title : '') + '"?'
+  });
+}
+function renderOperationsSection(containerId, businessId) {
+  var list = D.operationsFor(businessId);
+  var html = businessId ? '<div class="bos-section-title"><span>Operations (' + list.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewOpsBtn">+ New</button></div>' :
+    '<div class="bos-anim">' + pageHead('Systems', 'Operations', 'SOPs, checklists, templates, automations, and documents — across every business.', '<button class="bos-btn bos-btn-primary" id="bosNewOpsBtn">➕ New</button>');
+  if (!list.length) html += emptyState('📦', 'Nothing documented yet', 'Write down the process once, run it forever.');
+  else html += '<div class="bos-grid bos-grid-2">' + list.map(function (o) {
+    var doneCount = o.checklist.filter(function (i) { return i.done; }).length;
+    return '<div class="bos-card bos-card-pad" data-ops-id="' + o.id + '">' +
+      '<div class="bos-row-top" style="margin-bottom:6px;"><span class="bos-row-title" style="cursor:pointer;" data-ops-edit="' + o.id + '">' + esc(o.title) + '</span>' + labelPill(D.OPS_KIND_LABELS[o.kind], 'bos-pill-info') +
+      (!businessId ? '<span class="bos-tag">' + esc(bizName(o.businessId)) + '</span>' : '') + '</div>' +
+      (o.body ? '<div class="bos-row-body" style="-webkit-line-clamp:3;">' + esc(o.body) + '</div>' : '') +
+      '<div style="margin-top:10px;">' +
+      o.checklist.map(function (item) {
+        return '<div class="bos-checklist-item' + (item.done ? ' bos-done' : '') + '" style="padding:6px 2px;">' +
+          '<span class="bos-check-circle' + (item.done ? ' done' : '') + '" data-ops-toggle-item="' + o.id + '|' + item.id + '">' + (item.done ? '✓' : '') + '</span>' +
+          '<span class="bos-checklist-text" style="font-size:12px;">' + esc(item.text) + '</span>' +
+          '<button type="button" class="bos-btn-icon-sm" data-ops-del-item="' + o.id + '|' + item.id + '">✕</button></div>';
+      }).join('') +
+      '<div style="display:flex; gap:6px; margin-top:6px;"><input type="text" placeholder="+ checklist item" data-ops-add-input="' + o.id + '" style="font-size:12px; padding:6px 9px;"></div>' +
+      (o.checklist.length ? '<div style="font-size:10.5px; color:var(--bos-text-mute); margin-top:6px;">' + doneCount + '/' + o.checklist.length + ' done</div>' : '') +
+      '</div></div>';
+  }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewOpsBtn'); if (newBtn) newBtn.addEventListener('click', function () { openOpsModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ops-edit]'), function (el) { el.addEventListener('click', function () { openOpsModal(D.Operations.get(el.getAttribute('data-ops-edit')), businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ops-toggle-item]'), function (el) {
+    el.addEventListener('click', function () {
+      var parts = el.getAttribute('data-ops-toggle-item').split('|');
+      var o = D.Operations.get(parts[0]);
+      var cl = o.checklist.map(function (i) { return i.id === parts[1] ? Object.assign({}, i, { done: !i.done }) : i; });
+      D.Operations.update(o.id, { checklist: cl });
+      renderOperationsSection(containerId, businessId);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ops-del-item]'), function (el) {
+    el.addEventListener('click', function () {
+      var parts = el.getAttribute('data-ops-del-item').split('|');
+      var o = D.Operations.get(parts[0]);
+      D.Operations.update(o.id, { checklist: o.checklist.filter(function (i) { return i.id !== parts[1]; }) });
+      renderOperationsSection(containerId, businessId);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ops-add-input]'), function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || !el.value.trim()) return;
+      var o = D.Operations.get(el.getAttribute('data-ops-add-input'));
+      D.Operations.update(o.id, { checklist: o.checklist.concat([{ id: D.uid('chk'), text: el.value.trim(), done: false }]) });
+      renderOperationsSection(containerId, businessId);
+    });
+  });
+}
+
+// =====================================================================
+// FILES — link-based references (no file-storage backend exists
+// anywhere in this app, see CLAUDE.md §2/§4; a File record is a name +
+// URL + type + notes, the same "paste a link" precedent this app's own
+// Business Hub Resources tab already established for exactly this
+// reason).
+// =====================================================================
+var FILE_TYPE_ICON = { doc: '📄', sheet: '📊', image: '🖼️', video: '🎬', link: '🔗', other: '📁' };
+function filesFormFields(businessId) {
+  var fields = [
+    { key: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Q3 client roster' },
+    { key: 'type', label: 'Type', type: 'select', half: true, options: D.FILE_TYPES.map(function (t) { return { value: t, label: FILE_TYPE_ICON[t] + ' ' + t.charAt(0).toUpperCase() + t.slice(1) }; }) },
+    { key: 'url', label: 'Link (Google Drive, Notion, etc.)', type: 'url', half: true, placeholder: 'https://…' },
+    { key: 'notes', label: 'Notes', type: 'textarea', rows: 2 }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openFileModal(file, businessId) {
+  openFormModal({
+    title: file ? 'Edit File' : 'New File Link',
+    fields: filesFormFields(businessId),
+    values: file || { type: 'doc', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: file ? 'Save Changes' : 'Add',
+    validate: function (v) { if (!v.name.trim()) return 'Give this a name.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (file) D.Files.update(file.id, v); else { v.order = D.nextOrder(D.filesFor(v.businessId)); D.Files.add(v); } renderAllVisible(); },
+    onDelete: file ? function () { D.Files.remove(file.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Remove "' + (file ? file.name : '') + '"?'
+  });
+}
+function renderFilesSection(containerId, businessId) {
+  var list = D.filesFor(businessId);
+  var html = businessId ? '<div class="bos-section-title"><span>Files (' + list.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewFileBtn">+ Add Link</button></div>' :
+    '<div class="bos-anim">' + pageHead('Documents', 'Files', 'Links to the real files that live elsewhere (Drive, Notion, Dropbox) — this app stores no files of its own.', '<button class="bos-btn bos-btn-primary" id="bosNewFileBtn">➕ Add Link</button>');
+  if (!list.length) html += emptyState('📁', 'No files linked yet', '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (f) {
+    return '<div class="bos-row" data-file-id="' + f.id + '"><div class="bos-row-top"><span style="font-size:16px;">' + FILE_TYPE_ICON[f.type] + '</span><span class="bos-row-title">' + esc(f.name) + '</span></div>' +
+      (!businessId ? '<div class="bos-row-meta">' + esc(bizName(f.businessId)) + '</div>' : '') +
+      (f.notes ? '<div class="bos-row-body">' + esc(f.notes) + '</div>' : '') +
+      (f.url ? '<div><a href="' + esc(f.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:11px; color:var(--bos-accent2); font-weight:700;">↗ Open</a></div>' : '') + '</div>';
+  }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewFileBtn'); if (newBtn) newBtn.addEventListener('click', function () { openFileModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-file-id]'), function (el) { el.addEventListener('click', function () { openFileModal(D.Files.get(el.getAttribute('data-file-id')), businessId); }); });
+}
+// =====================================================================
+// FINANCE — revenue/profit/expenses/cash flow/budgets/invoices/
+// subscriptions/charts/monthly comparisons. A local sub-tab chip row
+// (Overview/Transactions/Invoices/Budgets/Subscriptions) since all five
+// together would be too dense for one continuous page.
+// =====================================================================
+var financeSubTab = 'overview';
+var INVOICE_STATUS_CLASS = { draft: 'bos-pill-mute', sent: 'bos-pill-info', paid: 'bos-pill-good', overdue: 'bos-pill-bad' };
+function txFormFields(businessId) {
+  var fields = [
+    { key: 'type', label: 'Type', type: 'select', half: true, options: D.TX_TYPES },
+    { key: 'amountCents', label: 'Amount', type: 'money', half: true },
+    { key: 'category', label: 'Category', type: 'select', half: true, options: D.TX_CATEGORIES },
+    { key: 'date', label: 'Date', type: 'date', half: true },
+    { key: 'note', label: 'Note', type: 'text', placeholder: 'What was this for' }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openTxModal(tx, businessId) {
+  openFormModal({
+    title: tx ? 'Edit Transaction' : 'New Transaction',
+    fields: txFormFields(businessId),
+    values: tx || { type: 'revenue', date: D.todayISO(), category: 'Sales', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: tx ? 'Save Changes' : 'Add Transaction',
+    validate: function (v) { if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (tx) D.FinanceTx.update(tx.id, v); else D.FinanceTx.add(v); renderAllVisible(); },
+    onDelete: tx ? function () { D.FinanceTx.remove(tx.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this transaction?'
+  });
+}
+function invoiceFormFields(businessId) {
+  var fields = [
+    { key: 'client', label: 'Client', type: 'text', placeholder: 'Who is being billed' },
+    { key: 'amountCents', label: 'Amount', type: 'money', half: true },
+    { key: 'status', label: 'Status', type: 'select', half: true, options: D.INVOICE_STATUSES },
+    { key: 'dueDate', label: 'Due Date', type: 'date' }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openInvoiceModal(inv, businessId) {
+  openFormModal({
+    title: inv ? 'Edit Invoice' : 'New Invoice',
+    fields: invoiceFormFields(businessId),
+    values: inv || { status: 'draft', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: inv ? 'Save Changes' : 'Create Invoice',
+    validate: function (v) { if (!v.client.trim()) return 'Who is this invoice for?'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (inv) D.FinanceInvoices.update(inv.id, v); else D.FinanceInvoices.add(v); renderAllVisible(); },
+    onDelete: inv ? function () { D.FinanceInvoices.remove(inv.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this invoice?'
+  });
+}
+function budgetFormFields(businessId) {
+  var fields = [
+    { key: 'category', label: 'Category', type: 'select', half: true, options: D.TX_CATEGORIES },
+    { key: 'limitCents', label: 'Monthly Limit', type: 'money', half: true }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openBudgetModal(bud, businessId) {
+  openFormModal({
+    title: bud ? 'Edit Budget' : 'New Budget',
+    fields: budgetFormFields(businessId),
+    values: bud || { category: 'Other', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: bud ? 'Save Changes' : 'Add Budget',
+    validate: function (v) { if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (bud) D.FinanceBudgets.update(bud.id, v); else D.FinanceBudgets.add(v); renderAllVisible(); },
+    onDelete: bud ? function () { D.FinanceBudgets.remove(bud.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this budget?'
+  });
+}
+function subFormFields(businessId) {
+  var fields = [
+    { key: 'name', label: 'Subscription', type: 'text', placeholder: 'e.g. Editing Suite Pro' },
+    { key: 'amountCents', label: 'Amount', type: 'money', half: true },
+    { key: 'cadence', label: 'Cadence', type: 'select', half: true, options: D.SUB_CADENCES },
+    { key: 'nextRenewal', label: 'Next Renewal', type: 'date' }
+  ];
+  if (!businessId) fields.unshift({ key: 'businessId', label: 'Business', type: 'select', options: bizChipOptions(false) });
+  return fields;
+}
+function openSubModal(sub, businessId) {
+  openFormModal({
+    title: sub ? 'Edit Subscription' : 'New Subscription',
+    fields: subFormFields(businessId),
+    values: sub || { cadence: 'monthly', businessId: businessId || (D.businessesSorted()[0] ? D.businessesSorted()[0].id : '') },
+    submitLabel: sub ? 'Save Changes' : 'Add Subscription',
+    validate: function (v) { if (!v.name.trim()) return 'Name this subscription.'; if (!businessId && !v.businessId) return 'Pick a business.'; return null; },
+    onSubmit: function (v) { if (businessId) v.businessId = businessId; if (sub) D.FinanceSubs.update(sub.id, v); else D.FinanceSubs.add(v); renderAllVisible(); },
+    onDelete: sub ? function () { D.FinanceSubs.remove(sub.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this subscription?'
+  });
+}
+function renderFinanceSection(containerId, businessId) {
+  var monthKey = D.monthKey(D.todayISO());
+  var monthTx = D.txFor(businessId, { month: monthKey });
+  var monthRev = monthTx.filter(function (t) { return t.type === 'revenue'; }).reduce(function (s, t) { return s + t.amountCents; }, 0);
+  var monthExp = monthTx.filter(function (t) { return t.type === 'expense'; }).reduce(function (s, t) { return s + t.amountCents; }, 0);
+  var net = monthRev - monthExp;
+
+  var html = businessId ? '<div class="bos-section-title"><span>Finance</span></div>' : '<div class="bos-anim">' + pageHead('Money', 'Finance', 'Revenue, profit, expenses, cash flow, budgets, invoices, and subscriptions.', '');
+  html += '<div class="bos-grid bos-grid-4" style="margin:14px 0 18px;">' +
+    statTile('💰', D.formatCents(monthRev, { compact: true }), 'This Month Revenue') +
+    statTile('📉', D.formatCents(monthExp, { compact: true }), 'This Month Expenses') +
+    statTile(net >= 0 ? '📈' : '📉', D.formatCents(net, { compact: true }), 'Net Cash Flow', net >= 0 ? 'Positive' : 'Negative', net >= 0 ? 'good' : 'bad') +
+    statTile('🧾', String(D.FinanceInvoices.list().filter(function (i) { return (!businessId || i.businessId === businessId) && i.status === 'overdue'; }).length), 'Overdue Invoices') + '</div>';
+
+  var subTabs = [['overview', 'Overview'], ['transactions', 'Transactions'], ['invoices', 'Invoices'], ['budgets', 'Budgets'], ['subs', 'Subscriptions']];
+  html += '<div class="bos-chip-row" id="bosFinSubTabs" style="margin-bottom:18px;">' + subTabs.map(function (t) {
+    return '<button type="button" class="bos-chip' + (financeSubTab === t[0] ? ' active' : '') + '" data-fin-tab="' + t[0] + '">' + t[1] + '</button>';
+  }).join('') + '</div>';
+
+  if (financeSubTab === 'overview') {
+    var monthly = D.monthlyTxTotals(businessId, 6);
+    var byCat = D.spendByCategory(businessId, monthKey);
+    html += '<div class="bos-grid bos-grid-2">';
+    html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Monthly Comparison — last 6 months</span></div>' + buildNetBarsFromMonthly(monthly) + '</div>';
+    html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Spend by Category — this month</span></div>';
+    if (!byCat.length) html += '<div class="bos-empty-sub" style="text-align:left; padding:4px 0;">No expenses logged this month.</div>';
+    else { var maxCat = byCat[0].cents; byCat.forEach(function (c) { html += '<div style="margin-bottom:9px;"><div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:3px;"><span>' + esc(c.category) + '</span><span style="color:var(--bos-text-mute);">' + D.formatCents(c.cents, { compact: true }) + '</span></div>' + progressBarHtml(Math.round((c.cents / maxCat) * 100)) + '</div>'; }); }
+    html += '</div></div>';
+  } else if (financeSubTab === 'transactions') {
+    var txList = D.txFor(businessId).slice(0, 60);
+    html += '<div class="bos-section-title"><span>Transactions</span><button class="bos-btn bos-btn-sm" id="bosNewTxBtn">+ New</button></div>';
+    if (!txList.length) html += emptyState('💳', 'No transactions yet', '');
+    else html += '<div class="bos-grid bos-grid-3">' + txList.map(function (t) {
+      return '<div class="bos-row" data-tx-id="' + t.id + '"><div class="bos-row-top"><span class="bos-row-title">' + (t.note ? esc(t.note) : t.category) + '</span>' + labelPill(t.type === 'revenue' ? '+ Revenue' : '− Expense', t.type === 'revenue' ? 'bos-pill-good' : 'bos-pill-bad') + '</div>' +
+        '<div class="bos-row-meta">' + esc(t.category) + ' · ' + fmtDate(t.date) + (!businessId ? ' · ' + esc(bizName(t.businessId)) : '') + '</div>' +
+        '<div class="bos-row-meta"><b style="color:var(--bos-text); font-size:14px;">' + D.formatCents(t.amountCents) + '</b></div></div>';
+    }).join('') + '</div>';
+  } else if (financeSubTab === 'invoices') {
+    var invList = D.FinanceInvoices.list().filter(function (i) { return !businessId || i.businessId === businessId; }).sort(function (a, b) { return (a.dueDate || '') < (b.dueDate || '') ? -1 : 1; });
+    html += '<div class="bos-section-title"><span>Invoices</span><button class="bos-btn bos-btn-sm" id="bosNewInvBtn">+ New</button></div>';
+    if (!invList.length) html += emptyState('🧾', 'No invoices yet', '');
+    else html += '<div class="bos-grid bos-grid-3">' + invList.map(function (i) {
+      return '<div class="bos-row" data-inv-id="' + i.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(i.client) + '</span>' + labelPill(i.status, INVOICE_STATUS_CLASS[i.status]) + '</div>' +
+        '<div class="bos-row-meta">Due ' + fmtDate(i.dueDate) + (!businessId ? ' · ' + esc(bizName(i.businessId)) : '') + '</div>' +
+        '<div class="bos-row-meta"><b style="color:var(--bos-text); font-size:14px;">' + D.formatCents(i.amountCents) + '</b></div></div>';
+    }).join('') + '</div>';
+  } else if (financeSubTab === 'budgets') {
+    var budList = D.FinanceBudgets.list().filter(function (b) { return !businessId || b.businessId === businessId; });
+    html += '<div class="bos-section-title"><span>Budgets</span><button class="bos-btn bos-btn-sm" id="bosNewBudBtn">+ New</button></div>';
+    if (!budList.length) html += emptyState('🎯', 'No budgets set', '');
+    else html += '<div class="bos-grid bos-grid-3">' + budList.map(function (b) {
+      var spent = D.spendByCategory(b.businessId, monthKey).filter(function (c) { return c.category === b.category; }).reduce(function (s, c) { return s + c.cents; }, 0);
+      var pct = b.limitCents ? Math.round((spent / b.limitCents) * 100) : 0;
+      return '<div class="bos-row" data-bud-id="' + b.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(b.category) + '</span>' + (!businessId ? '<span class="bos-tag">' + esc(bizName(b.businessId)) + '</span>' : '') + '</div>' +
+        progressBarHtml(pct, pct <= 100) + '<div class="bos-row-meta">' + D.formatCents(spent, { compact: true }) + ' of ' + D.formatCents(b.limitCents, { compact: true }) + ' this month' + (pct > 100 ? ' — <span style="color:var(--bos-bad); font-weight:700;">over budget</span>' : '') + '</div></div>';
+    }).join('') + '</div>';
+  } else if (financeSubTab === 'subs') {
+    var subList = D.FinanceSubs.list().filter(function (s) { return !businessId || s.businessId === businessId; }).sort(function (a, b) { return (a.nextRenewal || '') < (b.nextRenewal || '') ? -1 : 1; });
+    html += '<div class="bos-section-title"><span>Recurring Subscriptions</span><button class="bos-btn bos-btn-sm" id="bosNewSubBtn">+ New</button></div>';
+    if (!subList.length) html += emptyState('🔁', 'No subscriptions tracked', '');
+    else html += '<div class="bos-grid bos-grid-3">' + subList.map(function (s) {
+      return '<div class="bos-row" data-sub-id="' + s.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(s.name) + '</span>' + labelPill(s.cadence, 'bos-pill-info') + '</div>' +
+        '<div class="bos-row-meta">' + D.formatCents(s.amountCents) + ' / ' + s.cadence + (!businessId ? ' · ' + esc(bizName(s.businessId)) : '') + '</div>' +
+        (s.nextRenewal ? '<div class="bos-row-meta">Renews <span class="' + deadlineClass(s.nextRenewal) + '">' + fmtDate(s.nextRenewal) + '</span></div>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-fin-tab]'), function (el) { el.addEventListener('click', function () { financeSubTab = el.getAttribute('data-fin-tab'); renderFinanceSection(containerId, businessId); }); });
+  var b1 = document.getElementById('bosNewTxBtn'); if (b1) b1.addEventListener('click', function () { openTxModal(null, businessId); });
+  var b2 = document.getElementById('bosNewInvBtn'); if (b2) b2.addEventListener('click', function () { openInvoiceModal(null, businessId); });
+  var b3 = document.getElementById('bosNewBudBtn'); if (b3) b3.addEventListener('click', function () { openBudgetModal(null, businessId); });
+  var b4 = document.getElementById('bosNewSubBtn'); if (b4) b4.addEventListener('click', function () { openSubModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-tx-id]'), function (el) { el.addEventListener('click', function () { openTxModal(D.FinanceTx.get(el.getAttribute('data-tx-id')), businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-inv-id]'), function (el) { el.addEventListener('click', function () { openInvoiceModal(D.FinanceInvoices.get(el.getAttribute('data-inv-id')), businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-bud-id]'), function (el) { el.addEventListener('click', function () { openBudgetModal(D.FinanceBudgets.get(el.getAttribute('data-bud-id')), businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-sub-id]'), function (el) { el.addEventListener('click', function () { openSubModal(D.FinanceSubs.get(el.getAttribute('data-sub-id')), businessId); }); });
+}
+// =====================================================================
+// AI WORKSPACE — a prompt library (favorite, category, copy-to-
+// clipboard). Custom GPTs / Claude Projects / automations / research are
+// modeled as categories on the same collection, same "one database,
+// filtered by category" precedent as aitech.html's own Prompts. This app
+// has no active LLM key anywhere (still an inactive placeholder — see
+// CLAUDE.md), so nothing here calls a real AI API; prompts are meant to
+// be copied into whichever AI tool you actually use.
+// =====================================================================
+var aiFilter = { category: '', favOnly: false };
+function aiFormFields(businessId) {
+  var fields = [
+    { key: 'title', label: 'Title', type: 'text', placeholder: 'e.g. Book blurb generator' },
+    { key: 'category', label: 'Category', type: 'select', options: D.AI_CATEGORIES.map(function (c) { return { value: c, label: D.AI_CATEGORY_LABELS[c] }; }) },
+    { key: 'body', label: 'Prompt', type: 'textarea', rows: 6, placeholder: 'The actual prompt text — use {placeholders} for anything you\'ll fill in each time.' },
+    { key: 'favorite', label: '', type: 'checkbox', checkLabel: '⭐ Favorite' }
+  ];
+  fields.splice(1, 0, { key: 'businessId', label: 'Business (optional)', type: 'select', options: bizChipOptions(true) });
+  return fields;
+}
+function openAIModal(item, businessId) {
+  openFormModal({
+    title: item ? 'Edit Prompt' : 'New AI Prompt',
+    fields: aiFormFields(businessId),
+    values: item || { category: 'prompt-library', businessId: businessId || '' },
+    submitLabel: item ? 'Save Changes' : 'Add Prompt',
+    validate: function (v) { if (!v.title.trim()) return 'Give this prompt a title.'; return null; },
+    onSubmit: function (v) { if (!v.businessId) v.businessId = null; if (item) D.AIPrompts.update(item.id, v); else { v.order = D.nextOrder(D.AIPrompts.list()); D.AIPrompts.add(v); } renderAllVisible(); },
+    onDelete: item ? function () { D.AIPrompts.remove(item.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (item ? item.title : '') + '"?'
+  });
+}
+function renderAISection(containerId, businessId) {
+  var all = D.aiPromptsFor(businessId);
+  var list = all.filter(function (p) { return (!aiFilter.category || p.category === aiFilter.category) && (!aiFilter.favOnly || p.favorite); });
+  var html = businessId ? '<div class="bos-section-title"><span>AI Workspace (' + all.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewAiBtn">+ New Prompt</button></div>' :
+    '<div class="bos-anim">' + pageHead('Tools', 'AI Workspace', 'Prompt library, custom GPTs, Claude Projects, automations, writing/marketing tools, brainstorming, and research — all copy-ready.', '<button class="bos-btn bos-btn-primary" id="bosNewAiBtn">➕ New Prompt</button>');
+  html += '<div class="bos-chip-row" style="margin:12px 0 18px;" id="bosAiChips">' +
+    '<button type="button" class="bos-chip' + (!aiFilter.category ? ' active' : '') + '" data-ai-cat="">All</button>' +
+    D.AI_CATEGORIES.map(function (c) { return '<button type="button" class="bos-chip' + (aiFilter.category === c ? ' active' : '') + '" data-ai-cat="' + c + '">' + D.AI_CATEGORY_LABELS[c] + '</button>'; }).join('') +
+    '<button type="button" class="bos-chip' + (aiFilter.favOnly ? ' active' : '') + '" id="bosAiFavChip">★ Favorites</button></div>';
+  if (!list.length) html += emptyState('🤖', all.length ? 'Nothing matches this filter' : 'No prompts saved yet', '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (p) {
+    return '<div class="bos-row" data-ai-id="' + p.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(p.title) + '</span>' +
+      '<button type="button" class="bos-btn-icon-sm" data-ai-fav="' + p.id + '" style="' + (p.favorite ? 'color:var(--bos-warn);' : '') + '">★</button></div>' +
+      '<div class="bos-row-meta">' + D.AI_CATEGORY_LABELS[p.category] + (p.businessId ? ' · ' + esc(bizName(p.businessId)) : '') + '</div>' +
+      '<div class="bos-row-body" style="font-family:ui-monospace,monospace; font-size:11px;">' + esc(p.body) + '</div>' +
+      '<button type="button" class="bos-btn bos-btn-sm" data-ai-copy="' + p.id + '" style="align-self:flex-start;">📋 Copy</button></div>';
+  }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewAiBtn'); if (newBtn) newBtn.addEventListener('click', function () { openAIModal(null, businessId); });
+  var favChip = document.getElementById('bosAiFavChip'); if (favChip) favChip.addEventListener('click', function () { aiFilter.favOnly = !aiFilter.favOnly; renderAISection(containerId, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ai-cat]'), function (el) { el.addEventListener('click', function () { aiFilter.category = el.getAttribute('data-ai-cat') || null; renderAISection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ai-fav]'), function (el) { el.addEventListener('click', function (e) { e.stopPropagation(); var p = D.AIPrompts.get(el.getAttribute('data-ai-fav')); D.AIPrompts.update(p.id, { favorite: !p.favorite }); renderAISection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ai-copy]'), function (el) {
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var p = D.AIPrompts.get(el.getAttribute('data-ai-copy'));
+      try { navigator.clipboard.writeText(p.body); var old = el.textContent; el.textContent = '✓ Copied'; setTimeout(function () { el.textContent = old; }, 1400); } catch (err) {}
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-ai-id]'), function (el) {
+    el.addEventListener('click', function (e) { if (e.target.closest('[data-ai-fav],[data-ai-copy]')) return; openAIModal(D.AIPrompts.get(el.getAttribute('data-ai-id')), businessId); });
+  });
+}
+
+// =====================================================================
+// KNOWLEDGE BASE — playbooks, frameworks, lessons learned, books,
+// research, market analysis, competitor notes, meeting notes.
+// =====================================================================
+var knFilter = { type: '' };
+function knowledgeFormFields() {
+  return [
+    { key: 'businessId', label: 'Business (optional)', type: 'select', options: bizChipOptions(true) },
+    { key: 'type', label: 'Type', type: 'select', options: D.KNOWLEDGE_TYPES.map(function (t) { return { value: t, label: D.KNOWLEDGE_TYPE_LABELS[t] }; }) },
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'body', label: 'Details', type: 'textarea', rows: 6 }
+  ];
+}
+function openKnowledgeModal(item, businessId) {
+  openFormModal({
+    title: item ? 'Edit Entry' : 'New Knowledge Entry',
+    fields: knowledgeFormFields(),
+    values: item || { type: 'lesson', businessId: businessId || '' },
+    submitLabel: item ? 'Save Changes' : 'Add Entry',
+    validate: function (v) { if (!v.title.trim()) return 'Give this a title.'; return null; },
+    onSubmit: function (v) { if (!v.businessId) v.businessId = null; if (item) D.Knowledge.update(item.id, v); else { v.order = D.nextOrder(D.Knowledge.list()); D.Knowledge.add(v); } renderAllVisible(); },
+    onDelete: item ? function () { D.Knowledge.remove(item.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete "' + (item ? item.title : '') + '"?'
+  });
+}
+function renderKnowledgeSection(containerId, businessId) {
+  var all = D.knowledgeFor(businessId);
+  var list = all.filter(function (k) { return !knFilter.type || k.type === knFilter.type; });
+  var html = '<div class="bos-anim">' + pageHead('Institutional Memory', 'Knowledge Base', 'Playbooks, frameworks, lessons learned, books, research, market analysis, competitor notes, and meeting notes.', '<button class="bos-btn bos-btn-primary" id="bosNewKnBtn">➕ New Entry</button>');
+  html += '<div class="bos-chip-row" style="margin:12px 0 18px;" id="bosKnChips">' +
+    '<button type="button" class="bos-chip' + (!knFilter.type ? ' active' : '') + '" data-kn-type="">All</button>' +
+    D.KNOWLEDGE_TYPES.map(function (t) { return '<button type="button" class="bos-chip' + (knFilter.type === t ? ' active' : '') + '" data-kn-type="' + t + '">' + D.KNOWLEDGE_TYPE_LABELS[t] + '</button>'; }).join('') + '</div>';
+  if (!list.length) html += emptyState('📚', all.length ? 'Nothing matches this filter' : 'Nothing recorded yet', '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (k) {
+    return '<div class="bos-row" data-kn-id="' + k.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(k.title) + '</span>' + labelPill(D.KNOWLEDGE_TYPE_LABELS[k.type], 'bos-pill-info') + '</div>' +
+      (k.businessId ? '<div class="bos-row-meta">' + esc(bizName(k.businessId)) + '</div>' : '<div class="bos-row-meta">Applies to every business</div>') +
+      (k.body ? '<div class="bos-row-body">' + esc(k.body) + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+  html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewKnBtn'); if (newBtn) newBtn.addEventListener('click', function () { openKnowledgeModal(null, businessId); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-kn-type]'), function (el) { el.addEventListener('click', function () { knFilter.type = el.getAttribute('data-kn-type') || null; renderKnowledgeSection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-kn-id]'), function (el) { el.addEventListener('click', function () { openKnowledgeModal(D.Knowledge.get(el.getAttribute('data-kn-id')), businessId); }); });
+}
+
+// =====================================================================
+// NOTES — freeform, tagged, optionally scoped to one business.
+// =====================================================================
+var notesQuery = '';
+function noteFormFields() {
+  return [
+    { key: 'businessId', label: 'Business (optional)', type: 'select', options: bizChipOptions(true) },
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'body', label: 'Note', type: 'textarea', rows: 6 },
+    { key: 'tagsText', label: 'Tags (comma-separated)', type: 'text', placeholder: 'ideas, editing, follow-up' }
+  ];
+}
+function openNoteModal(note, businessId) {
+  var values = note ? Object.assign({}, note, { tagsText: (note.tags || []).join(', ') }) : { businessId: businessId || '' };
+  openFormModal({
+    title: note ? 'Edit Note' : 'New Note',
+    fields: noteFormFields(),
+    values: values,
+    submitLabel: note ? 'Save Changes' : 'Add Note',
+    onSubmit: function (v) {
+      if (!v.businessId) v.businessId = null;
+      v.tags = v.tagsText.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      delete v.tagsText;
+      if (note) D.Notes.update(note.id, v); else { v.order = D.nextOrder(D.Notes.list()); D.Notes.add(v); }
+      renderAllVisible();
+    },
+    onDelete: note ? function () { D.Notes.remove(note.id); renderAllVisible(); } : null,
+    deleteConfirm: 'Delete this note?'
+  });
+}
+function renderNotesSection(containerId, businessId) {
+  var all = D.notesFor(businessId);
+  var list = all.filter(function (n) { return !notesQuery || (n.title + ' ' + n.body).toLowerCase().indexOf(notesQuery) !== -1; });
+  var html = businessId ? '<div class="bos-section-title"><span>Notes (' + all.length + ')</span><button class="bos-btn bos-btn-sm" id="bosNewNoteBtn">+ New Note</button></div>' :
+    '<div class="bos-anim">' + pageHead('Memory', 'Notes', 'Freeform notes, optionally tied to one business.', '<button class="bos-btn bos-btn-primary" id="bosNewNoteBtn">➕ New Note</button>');
+  html += '<input type="text" id="bosNotesSearch" placeholder="Search notes…" value="' + esc(notesQuery) + '" style="max-width:280px; margin:10px 0 16px;">';
+  if (!list.length) html += emptyState('🗒️', all.length ? 'No notes match' : 'No notes yet', '');
+  else html += '<div class="bos-grid bos-grid-3">' + list.map(function (n) {
+    return '<div class="bos-row" data-note-id="' + n.id + '"><div class="bos-row-top"><span class="bos-row-title">' + esc(n.title || '(untitled)') + '</span></div>' +
+      (n.businessId ? '<div class="bos-row-meta">' + esc(bizName(n.businessId)) + '</div>' : '') +
+      (n.body ? '<div class="bos-row-body">' + esc(n.body) + '</div>' : '') +
+      (n.tags && n.tags.length ? '<div class="bos-row-tags">' + n.tags.map(function (t) { return '<span class="bos-tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+  var newBtn = document.getElementById('bosNewNoteBtn'); if (newBtn) newBtn.addEventListener('click', function () { openNoteModal(null, businessId); });
+  var search = document.getElementById('bosNotesSearch'); if (search) search.addEventListener('input', function () { notesQuery = search.value.toLowerCase(); renderNotesSection(containerId, businessId); setTimeout(function () { var el = document.getElementById('bosNotesSearch'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-note-id]'), function (el) { el.addEventListener('click', function () { openNoteModal(D.Notes.get(el.getAttribute('data-note-id')), businessId); }); });
+}
+// =====================================================================
+// ANALYTICS — revenue/growth/traffic/funnel/conversion/top products/top
+// customers, one continuous dashboard rather than three separate Weekly/
+// Monthly/Quarterly pages — a documented simplification, same spirit as
+// this app's other single-dashboard roll-ups (e.g. household-data.js's
+// Overview tile selectors).
+// =====================================================================
+function renderAnalyticsSection(containerId, businessId) {
+  var monthly = D.monthlyTxTotals(businessId, 6);
+  var html = businessId ? '<div class="bos-section-title"><span>Analytics</span></div>' : '<div class="bos-anim">' + pageHead('Insight', 'Analytics', 'Revenue, growth, traffic, funnel, conversion, and top performers.', '');
+  html += '<div class="bos-card bos-card-pad" style="margin:14px 0 16px;"><div class="bos-section-title"><span>Revenue — last 6 months</span></div>' + buildNetBarsFromMonthly(monthly) + '</div>';
+  html += '<div class="bos-grid bos-grid-2">';
+  if (businessId) {
+    var b = D.business(businessId);
+    html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Growth & Conversion</span></div>' +
+      '<div style="display:flex; gap:20px;"><div><div class="bos-stat-value" style="font-size:22px;">' + (b.growthPercent >= 0 ? '▲' : '▼') + ' ' + Math.abs(b.growthPercent) + '%</div><div class="bos-stat-label">Growth</div></div>' +
+      '<div><div class="bos-stat-value" style="font-size:22px;">' + b.conversionRate + '%</div><div class="bos-stat-label">Conversion Rate</div></div>' +
+      '<div><div class="bos-stat-value" style="font-size:22px;">' + b.trafficMonthly.toLocaleString() + '</div><div class="bos-stat-label">Monthly Traffic</div></div></div></div>';
+  } else {
+    var list = D.businessesSorted();
+    html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Growth % by Business</span></div>' + (list.length ? buildBarsHtml(list.map(function (b) { return { label: b.name.slice(0, 10), value: b.growthPercent }; })) : emptyState('📈', 'No businesses yet', '')) + '</div>';
+  }
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Sales Funnel</span></div>';
+  var allCust = D.customersFor(businessId);
+  var leads = allCust.filter(function (c) { return c.type === 'lead'; }).length;
+  var qual = allCust.filter(function (c) { return c.status === 'qualified' || c.status === 'won'; }).length;
+  var won = allCust.filter(function (c) { return c.status === 'won'; }).length;
+  html += '<div style="display:flex; gap:10px; align-items:center;"><div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px;">' + leads + '</div><div class="bos-stat-label">Leads</div></div><span style="color:var(--bos-text-mute);">→</span><div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px;">' + qual + '</div><div class="bos-stat-label">Qualified</div></div><span style="color:var(--bos-text-mute);">→</span><div style="flex:1 1 0; text-align:center;"><div class="bos-stat-value" style="font-size:20px; color:var(--bos-good);">' + won + '</div><div class="bos-stat-label">Won</div></div></div></div>';
+  html += '</div>';
+  html += '<div class="bos-grid bos-grid-2" style="margin-top:16px;">';
+  var topProducts = D.productsFor(businessId).slice().sort(function (a, b2) { return b2.revenueCents - a.revenueCents; }).slice(0, 6);
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Top Products</span></div>';
+  if (!topProducts.length) html += emptyState('🛒', 'No products yet', '');
+  else topProducts.forEach(function (p) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">🛒</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(p.name) + '</div><div class="bos-activity-sub">' + (!businessId ? esc(bizName(p.businessId)) : p.status) + '</div></div><span class="bos-tag">' + D.formatCents(p.revenueCents, { compact: true }) + '</span></div>'; });
+  html += '</div>';
+  var topCust = allCust.slice().sort(function (a, b2) { return b2.ltvCents - a.ltvCents; }).slice(0, 6);
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Top Customers</span></div>';
+  if (!topCust.length) html += emptyState('👥', 'No customers yet', '');
+  else topCust.forEach(function (c) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">👤</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(c.name) + '</div><div class="bos-activity-sub">' + (!businessId ? esc(bizName(c.businessId)) : (c.segment || c.status)) + '</div></div><span class="bos-tag">' + D.formatCents(c.ltvCents, { compact: true }) + '</span></div>'; });
+  html += '</div></div>';
+  if (!businessId) html += '</div>';
+  $(containerId).innerHTML = html;
+}
+
+// =====================================================================
+// BUSINESS OVERVIEW TAB — mission/vision, quarterly/monthly/weekly
+// goals, KPIs, upcoming launches, top priorities.
+// =====================================================================
+function renderOverviewSection(containerId, businessId) {
+  var b = D.business(businessId);
+  if (!b) { $(containerId).innerHTML = emptyState('🏢', 'Business not found', ''); return; }
+  var monthKey = D.monthKey(D.todayISO());
+  var monthTx = D.txFor(businessId, { month: monthKey });
+  var monthExp = monthTx.filter(function (t) { return t.type === 'expense'; }).reduce(function (s, t) { return s + t.amountCents; }, 0);
+  var launches = D.productsFor(businessId).filter(function (p) { return p.status === 'development' && p.launchDate; }).sort(function (a, b2) { return a.launchDate < b2.launchDate ? -1 : 1; });
+  var topPriorities = D.projectsFor(businessId).filter(function (p) { return p.priority === 'high' && p.status !== 'done'; });
+
+  var html = '<div class="bos-grid bos-grid-2">';
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Mission & Vision</span><button class="bos-btn bos-btn-sm" data-edit-biz="' + b.id + '">✎ Edit</button></div>' +
+    '<div style="font-size:12px; color:var(--bos-text-mute); margin-bottom:3px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Mission</div>' +
+    '<div style="font-size:13px; margin-bottom:12px;">' + (b.mission ? esc(b.mission) : '<span style="color:var(--bos-text-mute);">Not set yet.</span>') + '</div>' +
+    '<div style="font-size:12px; color:var(--bos-text-mute); margin-bottom:3px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Vision</div>' +
+    '<div style="font-size:13px;">' + (b.vision ? esc(b.vision) : '<span style="color:var(--bos-text-mute);">Not set yet.</span>') + '</div></div>';
+
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>KPIs</span></div>' +
+    '<div class="bos-grid bos-grid-4" style="gap:10px;">' +
+    '<div><div class="bos-stat-value" style="font-size:16px;">' + D.formatCents(b.revenueCents, { compact: true }) + '</div><div class="bos-stat-label">Revenue</div></div>' +
+    '<div><div class="bos-stat-value" style="font-size:16px;">' + D.formatCents(b.profitCents, { compact: true }) + '</div><div class="bos-stat-label">Profit</div></div>' +
+    '<div><div class="bos-stat-value" style="font-size:16px;">' + b.conversionRate + '%</div><div class="bos-stat-label">Conversion</div></div>' +
+    '<div><div class="bos-stat-value" style="font-size:16px;">' + b.trafficMonthly.toLocaleString() + '</div><div class="bos-stat-label">Traffic</div></div>' +
+    '<div><div class="bos-stat-value" style="font-size:16px;">' + D.formatCents(monthExp, { compact: true }) + '</div><div class="bos-stat-label">Expenses (mo.)</div></div>' +
+    '</div></div>';
+  html += '</div>';
+
+  ['quarter', 'month', 'week'].forEach(function (scope) {
+    var goals = D.goalsFor(businessId, scope);
+    html += '<div class="bos-card bos-card-pad" style="margin-top:16px;"><div class="bos-section-title"><span>' + D.GOAL_SCOPE_LABELS[scope] + ' Goals</span><button class="bos-btn bos-btn-sm" data-add-goal="' + scope + '">+ Add</button></div>';
+    if (!goals.length) html += '<div class="bos-empty-sub" style="text-align:left; padding:4px 0;">No ' + scope + 'ly goals yet.</div>';
+    else goals.forEach(function (g) {
+      html += '<div class="bos-checklist-item' + (g.done ? ' bos-done' : '') + '"><span class="bos-check-circle' + (g.done ? ' done' : '') + '" data-toggle-goal="' + g.id + '">' + (g.done ? '✓' : '') + '</span>' +
+        '<span class="bos-checklist-text" data-edit-goal="' + g.id + '" style="cursor:pointer;">' + esc(g.text) + '</span></div>';
+    });
+    html += '</div>';
+  });
+
+  html += '<div class="bos-grid bos-grid-2" style="margin-top:16px;">';
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Upcoming Launches</span></div>';
+  if (!launches.length) html += emptyState('🚀', 'Nothing scheduled', '');
+  else launches.forEach(function (p) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">🛒</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(p.name) + '</div></div><span class="bos-proj-deadline ' + deadlineClass(p.launchDate) + '">' + fmtDate(p.launchDate) + '</span></div>'; });
+  html += '</div>';
+  html += '<div class="bos-card bos-card-pad"><div class="bos-section-title"><span>Top Priorities</span></div>';
+  if (!topPriorities.length) html += emptyState('🎯', 'Nothing high-priority right now', '');
+  else topPriorities.forEach(function (p) { html += '<div class="bos-activity-row"><span class="bos-activity-icon">🚀</span><div style="flex:1 1 auto; min-width:0;"><div class="bos-activity-title">' + esc(p.title) + '</div></div>' + (p.deadline ? '<span class="bos-proj-deadline ' + deadlineClass(p.deadline) + '">' + fmtDate(p.deadline) + '</span>' : '') + '</div>'; });
+  html += '</div></div>';
+
+  $(containerId).innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-edit-biz]'), function (el) { el.addEventListener('click', function () { openBusinessModal(D.business(el.getAttribute('data-edit-biz'))); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-add-goal]'), function (el) { el.addEventListener('click', function () { openGoalModal(null, businessId, el.getAttribute('data-add-goal')); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-toggle-goal]'), function (el) { el.addEventListener('click', function () { var g = D.Goals.get(el.getAttribute('data-toggle-goal')); D.Goals.update(g.id, { done: !g.done }); renderOverviewSection(containerId, businessId); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-edit-goal]'), function (el) { el.addEventListener('click', function () { openGoalModal(D.Goals.get(el.getAttribute('data-edit-goal')), businessId); }); });
+}
+
+// =====================================================================
+// BUSINESS SETTINGS TAB (per-business) + GLOBAL SETTINGS SECTION.
+// =====================================================================
+function renderBizSettingsSection(containerId, businessId) {
+  var b = D.business(businessId);
+  if (!b) { $(containerId).innerHTML = emptyState('🏢', 'Business not found', ''); return; }
+  var html = '<div class="bos-card bos-card-pad" style="max-width:520px;">';
+  html += '<div class="bos-section-title"><span>Business Settings</span></div>';
+  html += '<p style="font-size:12.5px; color:var(--bos-text-mute); margin:0 0 16px;">Rename, recolor, update goals, or change status. Full field editor:</p>';
+  html += '<button class="bos-btn bos-btn-primary" id="bosBizEditBtn" style="margin-bottom:18px;">✎ Edit Business Details</button>';
+  html += '<div class="bos-section-title" style="margin-bottom:8px;"><span>Status</span></div>';
+  html += '<div class="bos-chip-row" style="margin-bottom:18px;">' + D.BIZ_STATUSES.map(function (s) { return '<button type="button" class="bos-chip' + (b.status === s ? ' active' : '') + '" data-set-status="' + s + '">' + s.charAt(0).toUpperCase() + s.slice(1) + '</button>'; }).join('') + '</div>';
+  html += '<div class="bos-section-title" style="margin-bottom:8px; color:var(--bos-bad);"><span>Danger Zone</span></div>';
+  html += '<button class="bos-btn bos-btn-danger" id="bosBizDeleteBtn">Delete This Business</button>';
+  html += '</div>';
+  $(containerId).innerHTML = html;
+  document.getElementById('bosBizEditBtn').addEventListener('click', function () { openBusinessModal(b); });
+  Array.prototype.forEach.call(document.querySelectorAll('#' + containerId + ' [data-set-status]'), function (el) { el.addEventListener('click', function () { D.Businesses.update(b.id, { status: el.getAttribute('data-set-status') }); renderBizSettingsSection(containerId, businessId); renderSbNav(); }); });
+  document.getElementById('bosBizDeleteBtn').addEventListener('click', function () {
+    if (!confirm('Delete "' + b.name + '"? Its projects/products/content/customers/finance records/files go with it.')) return;
+    D.Businesses.remove(b.id);
+    closeBizWorkspace(true);
+    navigateToHash('businesses');
+  });
+}
+function renderGlobalSettingsSection(containerId) {
+  var settings = D.getSettings();
+  var html = '<div class="bos-anim">' + pageHead('System', 'Settings', 'Organization name and workspace-wide options.', '');
+  html += '<div class="bos-card bos-card-pad" style="max-width:520px; margin-top:14px;">';
+  html += '<div class="bos-field"><label class="bos-field-label">Organization Name</label><input type="text" id="bosSettingsOrgName" value="' + esc(settings.orgName) + '"></div>';
+  html += '<button class="bos-btn bos-btn-primary" id="bosSettingsSaveBtn">Save</button>';
+  html += '</div>';
+  html += '<div class="bos-card bos-card-pad" style="max-width:520px; margin-top:16px;">';
+  html += '<div class="bos-section-title"><span>About this workspace</span></div>';
+  html += '<p style="font-size:12px; color:var(--bos-text-mute); line-height:1.6;">Everything here lives in your browser\'s local storage and syncs across your devices through this dashboard\'s shared cloud sync — no separate account, no external database. Unlimited businesses, all in one place.</p>';
+  html += '</div>';
+  html += '<div class="bos-card bos-card-pad" style="max-width:520px; margin-top:16px;">';
+  html += '<div class="bos-section-title" style="color:var(--bos-bad);"><span>Reset Demo Data</span></div>';
+  html += '<p style="font-size:12px; color:var(--bos-text-mute); margin-bottom:12px;">Wipes every business and record in Business OS and reseeds the original example data. Cannot be undone.</p>';
+  html += '<button class="bos-btn bos-btn-danger" id="bosResetBtn">Reset to Example Data</button>';
+  html += '</div></div>';
+  $(containerId).innerHTML = html;
+  document.getElementById('bosSettingsSaveBtn').addEventListener('click', function () { D.saveSettings({ orgName: document.getElementById('bosSettingsOrgName').value || 'My Companies' }); renderSbNav(); });
+  document.getElementById('bosResetBtn').addEventListener('click', function () { if (!confirm('This deletes every business and record and reseeds the example data. Continue?')) return; D.seedDefaultData(); renderAllVisible(); });
+}
+// =====================================================================
+// COMMAND PALETTE / GLOBAL SEARCH (Ctrl+K) — in these reference apps
+// (Linear/Raycast/Arc), search *is* the command palette; the header
+// search box and Ctrl+K both open the same modal, per that same real
+// convention rather than building two separate search UIs.
+// =====================================================================
+var QUICK_ACTIONS = [
+  { icon: '🏢', label: 'New Business', run: function () { openBusinessModal(null); } },
+  { icon: '🚀', label: 'New Project', run: function () { openProjectModal(null, state.activeBizId); } },
+  { icon: '🛒', label: 'New Product', run: function () { openProductModal(null, state.activeBizId); } },
+  { icon: '✅', label: 'New Task', run: function () { openTaskModal(null, state.activeBizId); } },
+  { icon: '📢', label: 'New Content / Campaign', run: function () { openContentModal(null, state.activeBizId, null, D.CONTENT_PLATFORMS); } },
+  { icon: '👥', label: 'New Customer / Lead', run: function () { openCustomerModal(null, state.activeBizId); } },
+  { icon: '🗒️', label: 'New Note', run: function () { openNoteModal(null, state.activeBizId); } },
+  { icon: '⚡', label: 'Quick Capture', run: function () { openQuickCapture(); } }
+];
+function openCommandPalette() {
+  $('bosCpModalBg').classList.add('show');
+  $('bosCpInput').value = '';
+  renderPaletteResults('');
+  setTimeout(function () { $('bosCpInput').focus(); }, 30);
+}
+function closeCommandPalette() { $('bosCpModalBg').classList.remove('show'); }
+function renderPaletteResults(rawQuery) {
+  var q = rawQuery.trim().toLowerCase();
+  var actions = QUICK_ACTIONS.filter(function (a) { return !q || a.label.toLowerCase().indexOf(q) !== -1; });
+  var results = q ? D.searchAll(q) : [];
+  var flat = actions.map(function (a) { return { type: 'action', data: a }; }).concat(results.map(function (r) { return { type: 'result', data: r }; }));
+  state.cpResults = flat;
+  state.cpSelIndex = 0;
+  var html = '';
+  if (actions.length) { html += '<div class="bos-cp-group-label">Quick Actions</div>'; actions.forEach(function (a, i) { html += cpRowHtml(a.icon, a.label, '', i); }); }
+  if (q) {
+    html += '<div class="bos-cp-group-label">Results</div>';
+    if (!results.length) html += '<div style="padding:14px 12px; font-size:12.5px; color:var(--bos-text-mute);">No matches for "' + esc(rawQuery) + '"</div>';
+    else results.forEach(function (r, i) { html += cpRowHtml(r.icon, r.label, r.kind, actions.length + i); });
+  }
+  $('bosCpResults').innerHTML = html || '<div style="padding:14px 12px; font-size:12.5px; color:var(--bos-text-mute);">Nothing to show.</div>';
+  wireCpRows();
+}
+function cpRowHtml(icon, label, kind, idx) {
+  return '<div class="bos-cp-row' + (idx === 0 ? ' bos-cp-sel' : '') + '" data-cp-idx="' + idx + '"><span class="bos-cp-row-icon">' + icon + '</span><span class="bos-cp-row-label">' + esc(label) + '</span>' + (kind ? '<span class="bos-cp-row-kind">' + esc(kind) + '</span>' : '') + '</div>';
+}
+function wireCpRows() {
+  Array.prototype.forEach.call(document.querySelectorAll('#bosCpResults [data-cp-idx]'), function (el) {
+    el.addEventListener('click', function () { activatePaletteItem(parseInt(el.getAttribute('data-cp-idx'), 10)); });
+    el.addEventListener('mouseenter', function () { setCpSelection(parseInt(el.getAttribute('data-cp-idx'), 10)); });
+  });
+}
+function setCpSelection(idx) {
+  state.cpSelIndex = idx;
+  Array.prototype.forEach.call(document.querySelectorAll('#bosCpResults [data-cp-idx]'), function (el) {
+    el.classList.toggle('bos-cp-sel', parseInt(el.getAttribute('data-cp-idx'), 10) === idx);
+  });
+}
+function activatePaletteItem(idx) {
+  var item = state.cpResults[idx];
+  if (!item) return;
+  if (item.type === 'action') { closeCommandPalette(); item.data.run(); return; }
+  var r = item.data;
+  closeCommandPalette();
+  if (r.kind === 'Knowledge') { navigateToHash('knowledge'); return; }
+  if (r.kind === 'Business') { navigateToHash('biz/' + r.id + '/overview'); return; }
+  if (r.businessId) { navigateToHash('biz/' + r.businessId + '/' + r.goto.section); return; }
+  navigateToHash(r.goto.section);
+}
+$('bosSearchTrigger').addEventListener('click', openCommandPalette);
+$('bosBpOpenPaletteBtn') && $('bosBpOpenPaletteBtn').addEventListener('click', openCommandPalette);
+$('bosCpCloseBtn').addEventListener('click', closeCommandPalette);
+$('bosCpModalBg').addEventListener('click', function (e) { if (e.target === $('bosCpModalBg')) closeCommandPalette(); });
+$('bosCpInput').addEventListener('input', function () { renderPaletteResults($('bosCpInput').value); });
+$('bosCpInput').addEventListener('keydown', function (e) {
+  if (e.key === 'ArrowDown') { e.preventDefault(); setCpSelection(Math.min(state.cpSelIndex + 1, state.cpResults.length - 1)); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setCpSelection(Math.max(state.cpSelIndex - 1, 0)); }
+  else if (e.key === 'Enter') { e.preventDefault(); activatePaletteItem(state.cpSelIndex); }
+  else if (e.key === 'Escape') { closeCommandPalette(); }
+});
+
+// =====================================================================
+// QUICK CAPTURE — a floating always-available inbox for ideas/tasks/
+// meeting notes/voice notes/business ideas/AI prompts, reviewed later
+// rather than dropped into a void.
+// =====================================================================
+function openQuickCapture() { state.capTab = 'new'; renderCapTabs(); $('bosCapModalBg').classList.add('show'); }
+function closeQuickCapture() { $('bosCapModalBg').classList.remove('show'); }
+function renderCapTabs() {
+  $('bosCapTabNew').classList.toggle('active', state.capTab === 'new');
+  $('bosCapTabInbox').classList.toggle('active', state.capTab === 'inbox');
+  if (state.capTab === 'new') renderCapNew(); else renderCapInbox();
+  updateCapInboxCount();
+}
+function renderCapNew() {
+  var html = '<div class="bos-field"><label class="bos-field-label">Type</label><select id="bosCapType">' +
+    D.CAPTURE_TYPES.map(function (t) { return '<option value="' + t + '">' + D.CAPTURE_TYPE_LABELS[t] + '</option>'; }).join('') + '</select></div>';
+  html += '<div class="bos-field"><label class="bos-field-label">Business (optional)</label><select id="bosCapBiz"><option value="">— Unscoped —</option>' +
+    D.businessesSorted().map(function (b) { return '<option value="' + b.id + '">' + esc(b.logo + ' ' + b.name) + '</option>'; }).join('') + '</select></div>';
+  html += '<div class="bos-field"><label class="bos-field-label">Capture</label><textarea id="bosCapText" rows="4" placeholder="Whatever\'s on your mind…"></textarea></div>';
+  html += '<button class="bos-btn bos-btn-primary" id="bosCapSaveBtn" style="width:100%;">Save to Inbox</button>';
+  $('bosCapBody').innerHTML = html;
+  document.getElementById('bosCapSaveBtn').addEventListener('click', function () {
+    var text = document.getElementById('bosCapText').value.trim();
+    if (!text) { alert('Write something first.'); return; }
+    D.Captures.add({ type: document.getElementById('bosCapType').value, businessId: document.getElementById('bosCapBiz').value || null, text: text });
+    state.capTab = 'inbox';
+    renderCapTabs();
+  });
+}
+function renderCapInbox() {
+  var list = D.Captures.list().filter(function (c) { return !c.processed; }).sort(function (a, b) { return b.createdAt - a.createdAt; });
+  var html = '';
+  if (!list.length) html = emptyState('📥', 'Inbox is empty', 'Anything you capture shows up here until you process it.');
+  else list.forEach(function (c) {
+    html += '<div class="bos-row" style="margin-bottom:10px; cursor:default;"><div class="bos-row-top"><span class="bos-row-title">' + D.CAPTURE_TYPE_LABELS[c.type] + '</span></div>' +
+      '<div class="bos-row-body" style="-webkit-line-clamp:4;">' + esc(c.text) + '</div>' +
+      (c.businessId ? '<div class="bos-row-meta">' + esc(bizName(c.businessId)) + '</div>' : '') +
+      '<div style="display:flex; gap:6px; margin-top:6px;"><button class="bos-btn bos-btn-sm" data-cap-to-task="' + c.id + '">✅ To Task</button><button class="bos-btn bos-btn-sm" data-cap-done="' + c.id + '">✓ Done</button><button class="bos-btn bos-btn-sm bos-btn-danger" data-cap-del="' + c.id + '">✕</button></div></div>';
+  });
+  $('bosCapBody').innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll('#bosCapBody [data-cap-to-task]'), function (el) {
+    el.addEventListener('click', function () {
+      var c = D.Captures.get(el.getAttribute('data-cap-to-task'));
+      D.Tasks.add({ title: c.text.slice(0, 120), businessId: c.businessId, status: 'todo', priority: 'medium', order: D.nextOrder(D.Tasks.list()) });
+      D.Captures.update(c.id, { processed: true });
+      renderCapInbox(); updateCapInboxCount(); renderSbNav();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#bosCapBody [data-cap-done]'), function (el) { el.addEventListener('click', function () { D.Captures.update(el.getAttribute('data-cap-done'), { processed: true }); renderCapInbox(); updateCapInboxCount(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('#bosCapBody [data-cap-del]'), function (el) { el.addEventListener('click', function () { D.Captures.remove(el.getAttribute('data-cap-del')); renderCapInbox(); updateCapInboxCount(); }); });
+}
+function updateCapInboxCount() {
+  var n = D.Captures.list().filter(function (c) { return !c.processed; }).length;
+  $('bosCapInboxCount').textContent = n ? '(' + n + ')' : '';
+}
+$('bosCaptureHeaderBtn').addEventListener('click', openQuickCapture);
+$('bosCapCloseBtn').addEventListener('click', closeQuickCapture);
+$('bosCapModalBg').addEventListener('click', function (e) { if (e.target === $('bosCapModalBg')) closeQuickCapture(); });
+$('bosCapTabNew').addEventListener('click', function () { state.capTab = 'new'; renderCapTabs(); });
+$('bosCapTabInbox').addEventListener('click', function () { state.capTab = 'inbox'; renderCapTabs(); });
+
+// =====================================================================
+// NOTIFICATIONS — overdue tasks/invoices, deadlines and scheduled
+// content within 3 days. Computed live, never stored.
+// =====================================================================
+function computeNotifications() {
+  var out = [];
+  D.Tasks.list().filter(function (t) { return t.status !== 'done' && t.dueDate && t.dueDate < D.todayISO(); }).forEach(function (t) {
+    out.push({ icon: '⏰', text: 'Overdue: ' + t.title, sub: bizName(t.businessId) || 'Unscoped', goto: t.businessId ? { biz: t.businessId, tab: 'projects' } : { section: 'projects' } });
+  });
+  D.FinanceInvoices.list().filter(function (i) { return i.status === 'overdue' || (i.status === 'sent' && i.dueDate && i.dueDate < D.todayISO()); }).forEach(function (i) {
+    out.push({ icon: '🧾', text: 'Invoice overdue: ' + i.client, sub: bizName(i.businessId), goto: { biz: i.businessId, tab: 'finance' } });
+  });
+  D.Projects.list().filter(function (p) { return p.status !== 'done' && p.deadline && p.deadline >= D.todayISO() && p.deadline <= D.isoDaysFromNow(3); }).forEach(function (p) {
+    out.push({ icon: '📅', text: 'Due soon: ' + p.title, sub: fmtDate(p.deadline), goto: { biz: p.businessId, tab: 'projects' } });
+  });
+  D.Content.list().filter(function (c) { return c.stage !== 'published' && c.scheduledDate && c.scheduledDate >= D.todayISO() && c.scheduledDate <= D.isoDaysFromNow(3); }).forEach(function (c) {
+    out.push({ icon: '📢', text: 'Scheduled soon: ' + c.title, sub: fmtDate(c.scheduledDate), goto: { biz: c.businessId, tab: 'content' } });
+  });
+  return out;
+}
+function updateNotifDot() { $('bosNotifDot').classList.toggle('show', computeNotifications().length > 0); }
+function toggleNotifPanel() {
+  var panel = $('bosNotifPanel');
+  if (panel.classList.contains('show')) { panel.classList.remove('show'); return; }
+  var notifs = computeNotifications();
+  panel.innerHTML = notifs.length ? notifs.map(function (n, i) {
+    return '<div class="bos-notif-row" data-notif-idx="' + i + '"><span class="bos-notif-icon">' + n.icon + '</span><div><div class="bos-notif-text">' + esc(n.text) + '</div><div class="bos-notif-sub">' + esc(n.sub || '') + '</div></div></div>';
+  }).join('') : '<div style="padding:16px; text-align:center; font-size:12.5px; color:var(--bos-text-mute);">You\'re all caught up.</div>';
+  Array.prototype.forEach.call(panel.querySelectorAll('[data-notif-idx]'), function (el) {
+    el.addEventListener('click', function () {
+      var n = notifs[parseInt(el.getAttribute('data-notif-idx'), 10)];
+      panel.classList.remove('show');
+      if (n.goto.biz) navigateToHash('biz/' + n.goto.biz + '/' + n.goto.tab); else navigateToHash(n.goto.section);
+    });
+  });
+  panel.classList.add('show');
+}
+$('bosNotifBtn').addEventListener('click', function (e) { e.stopPropagation(); toggleNotifPanel(); });
+document.addEventListener('click', function (e) { if (!e.target.closest('#bosNotifPanel') && !e.target.closest('#bosNotifBtn')) $('bosNotifPanel').classList.remove('show'); });
+
+// =====================================================================
+// MOBILE SIDEBAR TOGGLE
+// =====================================================================
+$('bosSbToggleBtn').addEventListener('click', function () { $('bosSidebar').classList.contains('bos-sb-open') ? closeSidebarMobile() : openSidebarMobile(); });
+
+// =====================================================================
+// SYNC + BOOT
+// =====================================================================
+var remoteAppliedOnce = false;
+function maybeSeedAfterSyncAttempt() {
+  if (remoteAppliedOnce) return;
+  if (!D.isEmptyEverywhere()) return;
+  D.seedIfEmpty();
+  renderAllVisible();
+}
+function boot() {
+  D = window.BusinessOSData;
+  if (!D) { showBootErrorBanner('BusinessOSData did not load — check that businessos-data.js loaded correctly.', 'boot'); return; }
+
+  renderSbNav();
+  applyHash();
+
+  window.addEventListener('hashchange', applyHash);
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openCommandPalette(); }
+    else if (e.key === 'Escape') { closeCommandPalette(); closeQuickCapture(); }
+  });
+
+  if (typeof window.initCloudSync === 'function') {
+    window.initCloudSync({
+      appKey: 'businessos',
+      syncedPrefixes: ['bos:'],
+      onApplied: function () {
+        remoteAppliedOnce = true;
+        renderAllVisible();
+      }
+    });
+  }
+  setTimeout(maybeSeedAfterSyncAttempt, 5000);
+}
+document.addEventListener('DOMContentLoaded', function () { runSafely(boot, 'boot'); });
+
+</script>
+</body>
+</html>

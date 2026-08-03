@@ -137,6 +137,23 @@
       ],
     },
     {
+      // New nav folder, right between Business Dashboard and
+      // Entertainment: Fitness Studio — a genuinely new, standalone
+      // top-level page (fitnessstudio.html + fitnessstudio-data.js),
+      // separate from every other fitness surface already in this app
+      // (gym.html's own "Fitness Studio" / STUDIO pill down in "Life &
+      // Wellness", and index.html's own embedded Fitness Studio tab).
+      // Its music slide-out panel reads enthub:playlists directly — see
+      // that page's own header comment — so it's genuinely connected to
+      // the Playlists page below, without opening a second sync
+      // subscription for a collection it never writes to.
+      key: 'fitnessstudiotab',
+      label: 'Fitness Studio',
+      items: [
+        { href: 'fitnessstudio.html', icon: '💪', label: 'Fitness Studio', id: 'topbarFitnessStudioTab' },
+      ],
+    },
+    {
       // New nav folder, right below Command Center: five genuinely new,
       // standalone pages (not a rebuild of the pre-existing
       // entertainment.html/"Media" page, which is untouched and keeps
@@ -993,7 +1010,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {

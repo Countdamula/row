@@ -29,6 +29,7 @@
 
   const KEYS = {
     checklist: 'mainselfcare:checklist',
+    tips: 'mainselfcare:tips',
     journalEntries: 'mainselfcare:journalEntries',
     meditations: 'mainselfcare:meditations',
     breathwork: 'mainselfcare:breathwork',
@@ -113,6 +114,23 @@
     if (item) ChecklistItems.update(id, { done: !item.done });
   }
   function checklistSorted() { return ChecklistItems.list().slice().sort(function (a, b) { return a.order - b.order; }); }
+
+  // ============================================================
+  // SELF-CARE TIPS — a plain reference list (not checkable, unlike the
+  // Checklist above) sitting on the same Checklist page. Same
+  // makeCollection/order/model shape as every other flat list in this
+  // file.
+  // ============================================================
+  function tipModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('tip'),
+      text: typeof data.text === 'string' ? data.text : '',
+      order: typeof data.order === 'number' ? data.order : 0
+    };
+  }
+  const Tips = makeCollection(KEYS.tips, tipModel);
+  function tipsSorted() { return Tips.list().slice().sort(function (a, b) { return a.order - b.order; }); }
 
   // ============================================================
   // JOURNAL — three templates (Brain Dump / Gratitude / Day Planner),
@@ -273,11 +291,14 @@
   // ============================================================
   function seedDefaultData() {
     ChecklistItems.replaceAll([]);
+    Tips.replaceAll([]);
     JournalEntries.replaceAll([]);
     Meditations.replaceAll([]);
     Breathwork.replaceAll([]);
     ['Drink a full glass of water', 'Step outside for 5 minutes', 'Stretch for 5 minutes', 'Text one person you care about', 'Put the phone away 30 minutes before bed']
       .forEach(function (text, i) { ChecklistItems.add({ text: text, order: i }); });
+    ['It’s okay to rest before you’re burned out, not just after.', 'A "no" that protects your energy is a complete sentence.', 'Self-care isn’t always bubble baths — sometimes it’s sleep, boundaries, or asking for help.', 'Small, repeated acts of care beat one big gesture you never repeat.']
+      .forEach(function (text, i) { Tips.add({ text: text, order: i }); });
     Meditations.add({ title: 'Body Scan — 10 min', description: 'A slow scan from feet to head, releasing tension as you go.', type: 'Body Scan', durationMin: 10, order: 0 });
     Meditations.add({ title: 'Breath Awareness — 5 min', description: 'Just noticing the breath, no changing it.', type: 'Breath-Focused', durationMin: 5, order: 1 });
     Breathwork.add({ name: 'Box Breathing', description: 'Equal-count inhale/hold/exhale/hold — a steady reset.', goal: 'Calm', inhaleSec: 4, holdSec: 4, exhaleSec: 4, hold2Sec: 4, cycles: 6, order: 0 });
@@ -285,7 +306,7 @@
     storeSet(KEYS.seeded, true);
   }
   function isEmpty() {
-    return ChecklistItems.list().length === 0 && JournalEntries.list().length === 0 && Meditations.list().length === 0 && Breathwork.list().length === 0;
+    return ChecklistItems.list().length === 0 && Tips.list().length === 0 && JournalEntries.list().length === 0 && Meditations.list().length === 0 && Breathwork.list().length === 0;
   }
   function seedIfEmpty() {
     if (storeGet(KEYS.seeded)) return;
@@ -300,6 +321,7 @@
     JOURNAL_TEMPLATES: JOURNAL_TEMPLATES, MEDITATION_TYPES: MEDITATION_TYPES, BREATHWORK_GOALS: BREATHWORK_GOALS,
     uid: uid, todayISO: todayISO, isValidMediaUrl: isValidMediaUrl,
     ChecklistItems: ChecklistItems, toggleChecklistItem: toggleChecklistItem, checklistSorted: checklistSorted,
+    Tips: Tips, tipsSorted: tipsSorted,
     JournalEntries: JournalEntries, journalEntriesSorted: journalEntriesSorted, addJournalEntry: addJournalEntry,
     defaultSectionsForTemplate: defaultSectionsForTemplate,
     addJournalSection: addJournalSection, updateJournalSection: updateJournalSection,

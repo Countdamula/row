@@ -1,0 +1,2094 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0a0a0b" id="fsThemeMeta">
+<title>Fitness Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  Fitness Studio — a brand-new, standalone top-level page in its own new
+  nav folder (between "Business Dashboard" and "Entertainment"). Genuinely
+  separate from every other fitness surface already in this app: gym.html
+  ("Fitness Studio", own STUDIO nav pill, po_coach_v1 data) and
+  index.html's own embedded Fitness Studio tab (fitness:* data) — nothing
+  here reads or writes either of those. See fitnessstudio-data.js's own
+  header comment for the full rundown, including every confirmed
+  adaptation (manual heart-rate entry instead of a real wearable API, a
+  local-template AI Coach fallback since no active LLM key exists in this
+  app, documented-rough calorie estimates).
+
+  The music slide-out panel reads enthub:playlists straight out of
+  localStorage — the same "read another page's own storage key directly,
+  never call its sync" precedent this app's tasks-data.js importers and
+  topbar.js's own buildLearningTopicItems() already established — rather
+  than opening a second live Supabase Realtime subscription from this
+  page for a collection it never writes to. It reflects whatever's
+  already synced to THIS device (via the Playlists page, or any other
+  Entertainment-folder page — they all share one Supabase row), plus a
+  live `storage` event listener so an edit made in another tab shows up
+  without a reload.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="entertainment-hub-data.js?v=10" defer></script>
+<script src="fitnessstudio-data.js?v=2" defer></script>
+<style>
+/* =============================================================
+   Own private --fs-* tokens. No reference photo was given, but the
+   request DID give literal color instructions for the Settings theme
+   picker (Black / Red / Pink) — same "explicit, literal color
+   instruction" exception category as every other themed page in this
+   app (CLAUDE.md §6 / DO NOT MODIFY rule 2), scoped entirely to this
+   file. --fs-led stays a fixed crimson regardless of theme — the
+   request's own "Red LED-style accents for active elements" reads as a
+   deliberate fixed design touch (a recording-light cue), not something
+   that should repaint to pink/white if the user picks a different theme.
+   ============================================================= */
+:root {
+  --fs-bg: #0a0a0b; --fs-bg-deep: #050506;
+  --fs-card: rgba(255,255,255,0.05); --fs-card-hover: rgba(255,255,255,0.085);
+  --fs-border: rgba(255,255,255,0.1); --fs-hairline: rgba(255,255,255,0.07);
+  --fs-text: #fafafa; --fs-text-dim: rgba(250,250,250,0.64); --fs-text-mute: rgba(250,250,250,0.4);
+  --fs-good: #6ee7b7; --fs-warn: #fbbf24; --fs-bad: #ff8a8a; --fs-info: #7dd3fc;
+  --fs-led: #ff3b4a;
+  --fs-font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --fs-accent: #ff3b4a; --fs-accent-bright: #ff6f7a; --fs-accent-rgb: 255,59,74; --fs-accent-text: #1a0506;
+  --fs-radius: 20px; --fs-radius-sm: 16px; --fs-radius-lg: 24px;
+  /* Adjustable page-background glow color (the "DarkGradientBg"-style
+     skewed streak effect below) — a plain r,g,b triplet, since CSS can't
+     derive rgb from a hex custom property on its own. Repainted live from
+     Settings' bgGlowColor via applyTheme(). Default matches the reference
+     component's own cyan (#00cfff). */
+  --fs-bgfx-rgb: 0,207,255;
+}
+[data-fs-theme="black"] { --fs-accent: #eceef2; --fs-accent-bright: #ffffff; --fs-accent-rgb: 236,238,242; --fs-accent-text: #0a0a0b; }
+[data-fs-theme="pink"]  { --fs-accent: #ff5fa8; --fs-accent-bright: #ff8ec2; --fs-accent-rgb: 255,95,168; --fs-accent-text: #2a0714; }
+* { box-sizing: border-box; }
+html, body { background: var(--fs-bg-deep); color: var(--fs-text); font-family: var(--fs-font); margin: 0; min-height: 100%; -webkit-text-size-adjust: 100%; }
+/* ---------- Page background — matches Business Dashboard's own recipe
+   (two soft corner-anchored radial glows over a base gradient, plus a
+   fine grain-dot texture), per an explicit request to make this page's
+   background look like that page's. Supersedes this page's earlier
+   "DarkGradientBg" skewed-streak effect (its own #fsPageBg div/CSS,
+   removed outright rather than kept as dead code — same session's own
+   mechanism being replaced, matching this app's established "supersede,
+   don't preserve" precedent). The one adjustable part from that prior
+   effect carries over unchanged: --fs-bgfx-rgb, still driven by
+   Settings' "Background Glow Color" swatches/custom picker, now tinting
+   these two glows instead of the old streaks — so the color stays
+   user-adjustable, only the shape of the effect changed. z-index: 0 (not
+   negative) on both layers, same lesson this app already learned once
+   (example.html's changelog: a negative z-index fixed layer silently
+   fails to paint once html/body declare an explicit background color,
+   which this file's own html,body rule already does). */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 900px 500px at 12% -8%, rgba(var(--fs-bgfx-rgb),0.16) 0%, transparent 60%),
+    radial-gradient(ellipse 800px 500px at 100% 10%, rgba(var(--fs-bgfx-rgb),0.09) 0%, transparent 55%),
+    linear-gradient(180deg, var(--fs-bg) 0%, var(--fs-bg-deep) 100%);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+::selection { background: rgba(var(--fs-accent-rgb), 0.35); }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 8px; }
+
+#fsBootError { display: none; position: fixed; inset: 0; z-index: 9999; background: #1a0506; color: #ffdcdc; padding: 22px; font: 13px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow: auto; }
+
+.fs-shell { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 20px 22px 140px; }
+.fs-back {
+  position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+  z-index: 60; display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 13px; background: rgba(10,10,11,0.72); backdrop-filter: blur(10px);
+  border: 1px solid var(--fs-border); border-radius: 999px; color: var(--fs-text-dim); font-size: 12.5px; font-weight: 600;
+}
+.fs-back:hover { color: var(--fs-accent-bright); border-color: rgba(var(--fs-accent-rgb),0.4); }
+
+/* ---------- Glassmorphism card, the one shared surface component ---------- */
+.fs-card {
+  background: var(--fs-card); backdrop-filter: blur(20px) saturate(1.55); -webkit-backdrop-filter: blur(20px) saturate(1.55);
+  border: 1px solid var(--fs-border); border-radius: var(--fs-radius);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.05);
+  padding: 22px; margin-bottom: 20px; position: relative; overflow: hidden;
+}
+.fs-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.fs-card-title { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 0; display: flex; align-items: center; gap: 9px; }
+.fs-icon-glow { display: inline-flex; filter: drop-shadow(0 0 8px rgba(var(--fs-accent-rgb),0.55)); }
+.fs-btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--fs-border);
+  background: rgba(255,255,255,0.05); color: var(--fs-text); font-weight: 700; font-size: 13.5px; transition: transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.fs-btn:hover { transform: translateY(-1px); border-color: rgba(var(--fs-accent-rgb),0.5); background: rgba(255,255,255,0.08); }
+.fs-btn-primary { background: linear-gradient(180deg, var(--fs-accent-bright) 0%, var(--fs-accent) 100%); color: var(--fs-accent-text); border-color: transparent; box-shadow: 0 6px 20px rgba(var(--fs-accent-rgb),0.35); }
+.fs-btn-ghost { background: transparent; }
+.fs-btn-sm { padding: 6px 12px; font-size: 12px; }
+.fs-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.fs-chip { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--fs-border); background: rgba(255,255,255,0.04); color: var(--fs-text-dim); font-size: 12.5px; font-weight: 700; }
+.fs-chip.active { background: rgba(var(--fs-accent-rgb),0.16); border-color: rgba(var(--fs-accent-rgb),0.55); color: var(--fs-accent-bright); }
+.fs-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+
+/* ---------- LED accent ---------- */
+.fs-led-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--fs-led); box-shadow: 0 0 8px 2px rgba(255,59,74,0.7); animation: fs-led-pulse 1.4s ease-in-out infinite; flex-shrink: 0; }
+@keyframes fs-led-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ---------- Photo Hero — a real cover-photo hero, new to this page,
+   matching businessdash.html's own top-level page hero recipe exactly
+   (eyebrow/editable-serif-ish title/subtext/CTA over an optional photo,
+   with a page-wide blurred backdrop) per an explicit request to add one.
+   No literal per-day photo elsewhere on this page uses this same recipe
+   — the Weekly Schedule cards below get their own simpler abstract-only
+   version (see .fs-day-cover-abstract). ---------- */
+#fsHeroCoverBg {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  transform: scale(1.15); filter: blur(60px) saturate(1.35) brightness(0.55);
+  transition: background-image 0.3s ease; pointer-events: none;
+}
+.fs-photo-hero {
+  position: relative; min-height: 52vh; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; padding: 42px 26px 30px;
+  border-radius: var(--fs-radius-lg); border: 1px solid var(--fs-border); margin: 0 0 24px;
+}
+.fs-photo-hero-media { position: absolute; inset: 0; z-index: 0; background: rgba(255,255,255,0.04); }
+.fs-photo-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.fs-photo-hero-abstract {
+  position: absolute; inset: -8%; z-index: 0;
+  background:
+    radial-gradient(ellipse 65% 55% at 18% 88%, rgba(var(--fs-accent-rgb),0.5) 0%, transparent 62%),
+    radial-gradient(ellipse 75% 60% at 88% 102%, rgba(var(--fs-accent-rgb),0.3) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 48% at 52% 118%, rgba(var(--fs-accent-rgb),0.4) 0%, transparent 60%),
+    linear-gradient(165deg, rgba(15,15,16,0.9) 0%, rgba(5,5,6,0.98) 100%);
+  filter: blur(6px); animation: fs-hero-drift 16s ease-in-out infinite alternate;
+}
+@keyframes fs-hero-drift { 0% { transform: scale(1) translateY(0); } 100% { transform: scale(1.07) translateY(-2.5%); } }
+@media (prefers-reduced-motion: reduce) { .fs-photo-hero-abstract { animation: none; } }
+.fs-photo-hero-choice {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; padding: 20px;
+}
+.fs-photo-hero-choice-btn {
+  background: rgba(10,10,11,0.4); border: 1px solid var(--fs-border); border-radius: 999px;
+  color: var(--fs-text-mute); font-size: 12.5px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 9px 18px;
+}
+.fs-photo-hero-choice-btn:hover { color: var(--fs-accent-bright); border-color: var(--fs-accent); }
+.fs-photo-hero-overlay {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5,5,6,0.55) 0%, rgba(5,5,6,0.15) 32%, rgba(5,5,6,0.35) 62%, rgba(5,5,6,0.92) 100%);
+}
+.fs-photo-hero-photo-tools { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; gap: 6px; }
+.fs-photo-hero-photo-tools button {
+  background: rgba(10,10,11,0.55); backdrop-filter: blur(10px); border: 1px solid var(--fs-border);
+  color: var(--fs-text-dim); border-radius: 999px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; cursor: pointer;
+}
+.fs-photo-hero-photo-tools button:hover { color: var(--fs-accent-bright); border-color: var(--fs-accent); }
+.fs-photo-hero-content { position: relative; z-index: 2; max-width: 640px; }
+.fs-photo-hero-eyebrow {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--fs-accent-bright); outline-offset: 4px; margin-bottom: 12px; display: inline-block;
+}
+.fs-photo-hero-eyebrow::before { content: ''; display: inline-block; width: 22px; height: 1px; background: var(--fs-accent); margin-right: 10px; vertical-align: middle; }
+.fs-photo-hero-title {
+  display: block; width: 100%; background: transparent; border: none; resize: none; overflow: hidden;
+  font-family: var(--fs-font); font-weight: 800; color: var(--fs-text);
+  font-size: clamp(30px, 5.5vw, 46px); line-height: 1.08; letter-spacing: -0.02em;
+  padding: 0; margin-bottom: 10px; text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+.fs-photo-hero-title::placeholder { color: rgba(250,250,250,0.35); }
+.fs-photo-hero-subtext {
+  font-size: 14.5px; line-height: 1.6; color: var(--fs-text-dim); max-width: 440px; margin-bottom: 18px;
+  outline-offset: 4px; min-height: 1.6em;
+}
+.fs-photo-hero-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(8px); border: 1px solid var(--fs-border); border-radius: 999px;
+  padding: 11px 20px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.fs-photo-hero-cta:hover { border-color: var(--fs-accent); background: rgba(var(--fs-accent-rgb),0.10); }
+.fs-photo-hero-cta-label { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fs-text); }
+.fs-photo-hero-cta-arrow { color: var(--fs-accent-bright); font-size: 13px; }
+@media (max-width: 620px) { .fs-photo-hero { min-height: 42vh; padding: 34px 18px 24px; } }
+
+/* ---------- Hero (stats card) ---------- */
+.fs-hero { position: relative; border-radius: var(--fs-radius-lg); overflow: hidden; padding: 34px 30px; margin-bottom: 24px; background: var(--fs-card); backdrop-filter: blur(20px) saturate(1.5); border: 1px solid var(--fs-border); box-shadow: 0 18px 44px rgba(0,0,0,0.45); }
+.fs-hero::before { content: ''; position: absolute; inset: 0; z-index: 0; background: radial-gradient(ellipse 700px 380px at 90% -20%, rgba(var(--fs-accent-rgb),0.22) 0%, transparent 60%); pointer-events: none; }
+.fs-hero-inner { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; flex-wrap: wrap; }
+.fs-hero-greeting { font-size: 12.5px; font-weight: 800; letter-spacing: 0.22em; color: var(--fs-text-mute); margin: 0 0 6px; }
+.fs-hero-name { font-size: clamp(34px, 6vw, 54px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 22px; line-height: 1; }
+.fs-hero-meta-row { display: flex; gap: 30px; flex-wrap: wrap; }
+.fs-hero-meta-label { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; color: var(--fs-text-mute); margin-bottom: 5px; }
+.fs-hero-meta-value { font-size: 18px; font-weight: 700; }
+.fs-hero-meta-sub { font-size: 13px; color: var(--fs-text-dim); margin-top: 2px; }
+.fs-hero-quote { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--fs-hairline); font-size: 19px; font-style: italic; font-weight: 500; color: var(--fs-text-dim); }
+.fs-hero-edit { position: absolute; top: 16px; right: 16px; z-index: 2; }
+.fs-hero-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+/* ---------- Progress ring ---------- */
+.fs-ring-svg circle { transition: stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1); }
+.fs-ring-num { font-size: 16px; font-weight: 800; }
+
+/* ---------- Today's Workout: exercise cards restyled to match Business
+   Dashboard's own "All Tasks" database look — a hand-rolled "border beam"
+   panel (a light traveling the border on a rotating conic gradient, two
+   beams, speeds up on hover/expanded, glows), per an explicit request.
+   Same classic padding-ring technique as businessdash.html's own
+   .bd-mt-task-card: an outer frame paints the rotating gradient, an
+   inset solid inner layer (.fs-ex-inner) reveals only a thin ring of it
+   as the "border." */
+.fs-ex-row {
+  position: relative; border-radius: var(--fs-radius-sm); padding: 1.5px; overflow: hidden; margin-bottom: 10px;
+  box-shadow: 0 0 20px rgba(var(--fs-accent-rgb),0.15);
+  -webkit-transform: translateZ(0); transform: translateZ(0);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
+.fs-ex-beam {
+  position: absolute; inset: -55%; z-index: 0;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, var(--fs-accent-bright) 16deg, transparent 40deg,
+    transparent 160deg, var(--fs-accent-bright) 176deg, transparent 200deg,
+    transparent 360deg);
+  animation: fs-beam-spin 7s linear infinite; will-change: transform;
+}
+.fs-ex-row:hover .fs-ex-beam, .fs-ex-row.expanded .fs-ex-beam { animation-duration: 1.6s; }
+@keyframes fs-beam-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .fs-ex-beam { animation: none; } }
+.fs-ex-inner { position: relative; z-index: 1; background: var(--fs-bg-deep); border-radius: calc(var(--fs-radius-sm) - 1.5px); padding: 13px 15px 15px; }
+.fs-ex-head { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.fs-ex-check { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--fs-border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all .15s ease; }
+.fs-ex-check.done { background: var(--fs-good); border-color: var(--fs-good); color: #0a0a0b; }
+.fs-ex-badge { margin-left: auto; font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fs-text-mute); border: 1px solid var(--fs-border); border-radius: 999px; padding: 3px 10px; white-space: nowrap; flex-shrink: 0; }
+.fs-ex-chevron { font-size: 12px; color: var(--fs-text-mute); transition: transform .2s ease; flex-shrink: 0; }
+.fs-ex-row.expanded .fs-ex-chevron { transform: rotate(180deg); }
+.fs-ex-name { font-weight: 700; font-size: 15.5px; margin: 10px 0 3px; cursor: pointer; }
+.fs-ex-name.done { text-decoration: line-through; opacity: 0.55; }
+.fs-ex-meta { font-size: 12px; color: var(--fs-text-dim); font-weight: 500; }
+.fs-ex-detail { display: none; padding-top: 12px; }
+.fs-ex-row.expanded .fs-ex-detail { display: block; }
+.fs-ex-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .fs-ex-detail-grid { grid-template-columns: 1fr; } }
+.fs-field-label { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--fs-text-mute); margin-bottom: 5px; display: block; text-transform: uppercase; }
+.fs-input, .fs-select, .fs-textarea {
+  width: 100%; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--fs-border); background: rgba(255,255,255,0.04); color: var(--fs-text); font-size: 13.5px; font-family: inherit;
+}
+.fs-input:focus, .fs-select:focus, .fs-textarea:focus { outline: none; border-color: rgba(var(--fs-accent-rgb),0.55); }
+.fs-set-row-inline { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.fs-set-log-list { font-size: 12.5px; color: var(--fs-text-dim); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.fs-set-pill { padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--fs-hairline); }
+.fs-rest-display { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.fs-ex-media-row { display: flex; gap: 8px; margin-top: 10px; }
+.fs-ex-media-thumb { width: 54px; height: 54px; border-radius: 10px; border: 1px solid var(--fs-hairline); background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; cursor: pointer; }
+.fs-ex-media-thumb img, .fs-ex-media-thumb video { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- Live Workout Dashboard ---------- */
+.fs-live-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 900px) { .fs-live-grid { grid-template-columns: repeat(2, 1fr); } }
+.fs-live-tile { background: rgba(255,255,255,0.035); border: 1px solid var(--fs-hairline); border-radius: var(--fs-radius-sm); padding: 15px; }
+.fs-live-tile-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; color: var(--fs-text-mute); text-transform: uppercase; margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+.fs-live-tile-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.fs-live-tile-sub { font-size: 12px; color: var(--fs-text-dim); margin-top: 3px; }
+
+/* ---------- Goal Center ---------- */
+.fs-goal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 720px) { .fs-goal-cols { grid-template-columns: 1fr; } }
+.fs-goal-item { padding: 13px 14px; border: 1px solid var(--fs-hairline); border-radius: var(--fs-radius-sm); margin-bottom: 10px; background: rgba(255,255,255,0.02); }
+.fs-goal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fs-goal-title { font-weight: 700; font-size: 14.5px; }
+.fs-goal-vals { font-size: 12px; color: var(--fs-text-mute); }
+.fs-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.fs-bar-fill { height: 100%; background: linear-gradient(90deg, var(--fs-accent) 0%, var(--fs-accent-bright) 100%); border-radius: 999px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+.fs-goal-del { background: none; border: none; color: var(--fs-text-mute); font-size: 15px; padding: 2px 4px; }
+.fs-goal-del:hover { color: var(--fs-bad); }
+
+/* ---------- Programs + Weekly Schedule: shared "plan card" component ----------
+   Both sections were re-styled to match a supplied pricing-table reference
+   (icon-in-a-circle + name + badge header row, a big bold stat, a
+   checkmark/minus feature list, a CTA) — reinterpreted for a fitness
+   dashboard rather than a literal SaaS price (Programs: exercise-count as
+   the "price", its programs as checkmark features; Schedule: the day's
+   assigned workout as the "price", its exercises as checkmark features).
+   One shared .fs-plan-* component instead of two near-duplicate ones. */
+.fs-plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.fs-plan-card { position: relative; border-radius: var(--fs-radius-sm); border: 1px solid var(--fs-hairline); background: var(--fs-card); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); padding: 17px; cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; overflow: hidden; }
+.fs-plan-card:hover { transform: translateY(-3px); border-color: rgba(var(--fs-accent-rgb),0.45); }
+.fs-plan-card.active { border-color: var(--fs-accent); box-shadow: 0 0 0 1px rgba(var(--fs-accent-rgb),0.35), 0 14px 30px rgba(var(--fs-accent-rgb),0.16); }
+.fs-plan-card.active::before { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(180deg, rgba(var(--fs-accent-rgb),0.14) 0%, transparent 65%); }
+.fs-plan-head { display: flex; align-items: center; gap: 9px; position: relative; z-index: 1; }
+.fs-plan-icon { width: 30px; height: 30px; min-width: 30px; border-radius: 50%; border: 1px solid var(--fs-hairline); display: flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 800; filter: drop-shadow(0 0 6px rgba(var(--fs-accent-rgb),0.5)); }
+.fs-plan-name { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; color: var(--fs-text-dim); text-transform: uppercase; letter-spacing: 0.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-plan-badge { margin-left: auto; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--fs-hairline); font-size: 10px; font-weight: 700; color: var(--fs-text-mute); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.fs-plan-price-row { display: flex; align-items: baseline; gap: 7px; margin: 14px 0 12px; position: relative; z-index: 1; }
+.fs-plan-price { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.fs-plan-price-compare { font-size: 12px; color: var(--fs-text-mute); flex-shrink: 0; }
+.fs-plan-features { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 7px; position: relative; z-index: 1; max-height: 132px; overflow-y: auto; }
+.fs-plan-feature { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fs-text-dim); }
+.fs-plan-feature-icon { width: 16px; height: 16px; min-width: 16px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; }
+.fs-plan-feature-icon.yes { background: rgba(var(--fs-accent-rgb),0.18); color: var(--fs-accent-bright); }
+.fs-plan-feature-icon.no { background: rgba(255,255,255,0.05); color: var(--fs-text-mute); }
+.fs-plan-cta { width: 100%; justify-content: center; position: relative; z-index: 1; }
+.fs-plan-card select.fs-select, .fs-plan-card input.fs-input { position: relative; z-index: 1; }
+.fs-tpl-card { border: 1px solid var(--fs-hairline); border-radius: var(--fs-radius-sm); padding: 14px 16px; margin-bottom: 10px; background: rgba(255,255,255,0.02); }
+.fs-tpl-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.fs-tpl-card-name { font-weight: 700; font-size: 15px; }
+.fs-tpl-card-meta { font-size: 12px; color: var(--fs-text-mute); margin-top: 3px; }
+.fs-tpl-actions { display: flex; gap: 6px; }
+
+/* ---------- Weekly Schedule: day cards restyled to match Business
+   Dashboard's own "GlareCard" Business Card look, per an explicit
+   request — a cursor-tracked specular highlight + gentle perspective
+   tilt (JS-driven --fs-glare-x/--fs-glare-y, wireDayCardGlare() below),
+   an abstract animated cover (no literal per-day photo was asked for —
+   Workout Programs above keeps its own unrelated .fs-plan-card look,
+   untouched). */
+.fs-day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.fs-day-card {
+  position: relative; background: var(--fs-card); border: 1px solid var(--fs-border); border-radius: var(--fs-radius-sm);
+  overflow: hidden; backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  --fs-glare-x: 50%; --fs-glare-y: 50%;
+}
+.fs-day-card.today { border-color: rgba(var(--fs-accent-rgb),0.5); box-shadow: 0 0 0 1px rgba(var(--fs-accent-rgb),0.3); }
+.fs-day-card::before, .fs-day-card::after {
+  content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  opacity: 0; transition: opacity 0.25s ease; border-radius: inherit;
+}
+.fs-day-card::before {
+  background: linear-gradient(115deg, transparent 25%, rgba(var(--fs-accent-rgb),0.26) 40%, rgba(255,255,255,0.16) 50%, rgba(var(--fs-accent-rgb),0.26) 60%, transparent 75%);
+  background-size: 250% 250%; background-position: var(--fs-glare-x) var(--fs-glare-y);
+  mix-blend-mode: color-dodge;
+}
+.fs-day-card::after {
+  background: radial-gradient(circle at var(--fs-glare-x) var(--fs-glare-y), rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.12) 30%, transparent 60%);
+  mix-blend-mode: overlay;
+}
+.fs-day-card.fs-glare-active::before, .fs-day-card.fs-glare-active::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .fs-day-card { transition: none; } }
+.fs-day-cover { position: relative; width: 100%; aspect-ratio: 16/10; min-height: 130px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.fs-day-cover-abstract {
+  position: absolute; inset: -8%; z-index: 0;
+  background:
+    radial-gradient(ellipse 65% 55% at 18% 88%, rgba(var(--fs-accent-rgb),0.55) 0%, transparent 62%),
+    radial-gradient(ellipse 75% 60% at 88% 102%, rgba(var(--fs-accent-rgb),0.32) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 48% at 52% 118%, rgba(var(--fs-accent-rgb),0.4) 0%, transparent 60%),
+    linear-gradient(165deg, rgba(15,15,16,0.9) 0%, rgba(5,5,6,0.98) 100%);
+  filter: blur(6px); animation: fs-day-drift 16s ease-in-out infinite alternate;
+}
+@keyframes fs-day-drift { 0% { transform: scale(1) translateY(0); } 100% { transform: scale(1.07) translateY(-2.5%); } }
+@media (prefers-reduced-motion: reduce) { .fs-day-cover-abstract { animation: none; } }
+.fs-day-cover-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,5,6,0.1) 0%, rgba(5,5,6,0.22) 45%, rgba(5,5,6,0.88) 100%); }
+.fs-day-cover-icon { position: absolute; top: 10px; left: 12px; z-index: 4; width: 24px; height: 24px; border-radius: 50%; background: rgba(10,10,11,0.55); border: 1px solid var(--fs-border); display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 800; }
+.fs-day-cover-today-badge { position: absolute; top: 10px; right: 10px; z-index: 4; display: inline-flex; align-items: center; gap: 4px; background: rgba(10,10,11,0.6); backdrop-filter: blur(8px); border: 1px solid rgba(var(--fs-accent-rgb),0.5); color: var(--fs-accent-bright); border-radius: 999px; padding: 3px 9px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; }
+.fs-day-cover-content { position: relative; z-index: 2; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px 14px 12px; gap: 3px; }
+.fs-day-cover-kicker { font-size: 10.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(250,250,250,0.72); text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+.fs-day-cover-headline { font-size: 18px; font-weight: 800; line-height: 1.16; color: var(--fs-text); text-shadow: 0 3px 16px rgba(0,0,0,0.6); margin: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.fs-day-cover-tagline { font-size: 11px; line-height: 1.4; color: rgba(250,250,250,0.62); text-shadow: 0 2px 10px rgba(0,0,0,0.55); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.fs-day-body { padding: 13px 14px 15px; position: relative; z-index: 1; }
+.fs-day-body .fs-plan-features { max-height: 96px; margin: 0 0 10px; }
+.fs-day-body select.fs-select { margin-bottom: 8px; }
+
+/* ---------- Heatmap ---------- */
+.fs-heat-scroll { overflow-x: auto; padding-bottom: 4px; }
+.fs-heat-weeks { display: flex; gap: 3px; width: max-content; }
+.fs-heat-week { display: flex; flex-direction: column; gap: 3px; }
+.fs-heat-cell { width: 13px; height: 13px; border-radius: 3px; background: rgba(255,255,255,0.06); }
+.fs-heat-cell[data-level="1"] { background: rgba(var(--fs-accent-rgb),0.35); }
+.fs-heat-cell[data-level="2"] { background: rgba(var(--fs-accent-rgb),0.65); }
+.fs-heat-cell[data-level="3"] { background: var(--fs-accent); box-shadow: 0 0 6px rgba(var(--fs-accent-rgb),0.6); }
+
+/* ---------- Volume chart ---------- */
+.fs-vchart { display: flex; align-items: flex-end; gap: 10px; height: 110px; }
+.fs-vchart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.fs-vchart-bar-wrap { width: 100%; height: 84px; display: flex; align-items: flex-end; }
+.fs-vchart-bar { width: 100%; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, var(--fs-accent-bright) 0%, var(--fs-accent) 100%); height: 0; transition: height 0.9s cubic-bezier(.34,1.56,.64,1); }
+.fs-vchart-label { font-size: 10px; color: var(--fs-text-mute); font-weight: 700; }
+
+/* ---------- AI Coach ---------- */
+.fs-chat-messages { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; padding-right: 4px; }
+.fs-chat-msg { max-width: 84%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.5; }
+.fs-chat-msg.user { align-self: flex-end; background: linear-gradient(180deg, var(--fs-accent-bright) 0%, var(--fs-accent) 100%); color: var(--fs-accent-text); border-bottom-right-radius: 4px; }
+.fs-chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.06); border: 1px solid var(--fs-hairline); border-bottom-left-radius: 4px; }
+.fs-chat-input-row { display: flex; gap: 8px; }
+.fs-chat-input-row .fs-input { flex: 1; }
+.fs-quick-prompts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+
+/* ---------- Modals (shared .modal-bg/.modal, already in topbar.js's MODAL_SELECTORS) ---------- */
+.modal-bg { position: fixed; inset: 0; z-index: 3000; background: rgba(4,3,2,0.7); display: none; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; background: rgba(20,17,16,0.9); backdrop-filter: blur(26px) saturate(1.5); border: 1px solid var(--fs-border); border-radius: var(--fs-radius-lg); padding: 26px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+.modal h3 { margin: 0 0 18px; font-size: 20px; font-weight: 800; }
+.fs-field { margin-bottom: 14px; }
+.fs-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fs-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.fs-theme-swatches { display: flex; gap: 12px; }
+.fs-theme-swatch { width: 46px; height: 46px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.fs-theme-swatch.active { border-color: var(--fs-accent-bright); }
+.fs-seg { display: inline-flex; border: 1px solid var(--fs-border); border-radius: 999px; overflow: hidden; }
+.fs-seg button { padding: 8px 16px; background: transparent; border: none; color: var(--fs-text-dim); font-weight: 700; font-size: 12.5px; }
+.fs-seg button.active { background: rgba(var(--fs-accent-rgb),0.2); color: var(--fs-accent-bright); }
+
+/* ---------- Distraction-Free Mode ---------- */
+.fs-focus-bg { position: fixed; inset: 0; z-index: 4000; background: radial-gradient(ellipse 900px 600px at 50% 20%, rgba(var(--fs-accent-rgb),0.1) 0%, var(--fs-bg-deep) 70%); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
+.fs-focus-bg.show { display: flex; }
+.fs-focus-exercise { font-size: clamp(28px, 6vw, 48px); font-weight: 800; margin-bottom: 8px; }
+.fs-focus-sub { color: var(--fs-text-dim); font-size: 14px; margin-bottom: 30px; }
+.fs-focus-timer { font-size: clamp(60px, 14vw, 110px); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 30px; }
+.fs-focus-timer.resting { color: var(--fs-warn); }
+.fs-focus-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+.fs-focus-exit { position: absolute; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); }
+
+/* ---------- Confetti ---------- */
+#fsConfettiLayer { position: fixed; inset: 0; z-index: 5000; pointer-events: none; overflow: hidden; }
+.fs-confetti-piece { position: absolute; bottom: -20px; font-size: 22px; animation: fs-confetti-rise 1.6s ease-out forwards; }
+@keyframes fs-confetti-rise { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(-70vh) rotate(360deg); opacity: 0; } }
+.fs-pr-toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 5001; background: linear-gradient(180deg, var(--fs-accent-bright), var(--fs-accent)); color: var(--fs-accent-text); padding: 14px 26px; border-radius: 999px; font-weight: 800; font-size: 15px; box-shadow: 0 12px 30px rgba(var(--fs-accent-rgb),0.5); animation: fs-toast-pop .3s cubic-bezier(.34,1.56,.64,1); }
+@keyframes fs-toast-pop { 0% { transform: translateX(-50%) scale(0.7); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+
+/* ---------- Music FAB + slide-out panel ---------- */
+.fs-music-fab {
+  position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); right: max(20px, env(safe-area-inset-right));
+  z-index: 2400; display: inline-flex; align-items: center; gap: 8px; padding: 13px 20px 13px 16px;
+  background: linear-gradient(180deg, var(--fs-accent-bright), var(--fs-accent)); color: var(--fs-accent-text);
+  border-radius: 999px; font-weight: 800; font-size: 13.5px; box-shadow: 0 12px 30px rgba(var(--fs-accent-rgb),0.45); border: none;
+}
+.fs-music-fab .fs-led-dot { background: #0a0a0b; box-shadow: none; animation: none; }
+.fs-music-fab.playing .fs-led-dot { background: var(--fs-led); box-shadow: 0 0 8px 2px rgba(255,59,74,0.7); animation: fs-led-pulse 1.4s ease-in-out infinite; }
+.fs-music-panel {
+  position: fixed; top: 0; right: 0; height: 100vh; width: min(380px, 100vw); z-index: 2500;
+  background: rgba(9,8,8,0.94); backdrop-filter: blur(24px) saturate(1.5); border-left: 1px solid var(--fs-border);
+  display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+  box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+}
+.fs-music-panel.open { transform: translateX(0); }
+.fs-music-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--fs-hairline); display: flex; align-items: center; justify-content: space-between; padding-top: max(18px, env(safe-area-inset-top)); }
+.fs-music-head h3 { margin: 0; font-size: 16px; font-weight: 800; }
+.fs-music-close { background: none; border: none; color: var(--fs-text-mute); font-size: 18px; padding: 4px; }
+.fs-music-chips { padding: 12px 18px 14px; display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--fs-hairline); }
+.fs-music-list { flex: 1; overflow-y: auto; padding: 12px 12px 12px; }
+.fs-music-track { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; cursor: pointer; }
+.fs-music-track:hover { background: rgba(255,255,255,0.05); }
+.fs-music-track.active { background: rgba(var(--fs-accent-rgb),0.14); }
+.fs-music-track-cover { width: 38px; height: 38px; border-radius: 8px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 16px; overflow: hidden; flex-shrink: 0; }
+.fs-music-track-cover img { width: 100%; height: 100%; object-fit: cover; }
+.fs-music-track-title { font-size: 13px; font-weight: 700; }
+.fs-music-track-sub { font-size: 11px; color: var(--fs-text-mute); }
+.fs-music-player { border-top: 1px solid var(--fs-hairline); padding: 16px 18px max(16px, env(safe-area-inset-bottom)); }
+.fs-music-nowplaying { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+.fs-music-np-cover { width: 48px; height: 48px; border-radius: 10px; background: rgba(255,255,255,0.06); flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.fs-music-np-cover img { width: 100%; height: 100%; object-fit: cover; }
+.fs-music-np-title { font-size: 13.5px; font-weight: 800; }
+.fs-music-np-sub { font-size: 11.5px; color: var(--fs-text-mute); }
+#fsYtPlayerHost { width: 100%; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: #000; }
+#fsSpotifyPlayerHost { width: 100%; height: 152px; border: 0; border-radius: 12px; margin-bottom: 10px; display: none; }
+.fs-music-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 10px; }
+.fs-music-ctrl-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--fs-hairline); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.fs-music-ctrl-btn.play { width: 48px; height: 48px; background: linear-gradient(180deg, var(--fs-accent-bright), var(--fs-accent)); color: var(--fs-accent-text); border: none; font-size: 18px; }
+.fs-music-empty { padding: 30px 18px; text-align: center; color: var(--fs-text-mute); font-size: 13px; line-height: 1.7; }
+
+.fs-empty { padding: 20px; text-align: center; color: var(--fs-text-mute); font-size: 13px; }
+@media (max-width: 480px) { .fs-shell { padding: 18px 14px 130px; } .fs-card { padding: 16px; } }
+</style>
+</head>
+<body>
+<div id="fsBootError"></div>
+<a href="index.html" class="fs-back">← Back</a>
+
+<div id="fsHeroCoverBg" aria-hidden="true"></div>
+
+<div class="fs-shell">
+
+  <!-- ============ PHOTO HERO ============
+       A real cover-photo hero (eyebrow/editable title/subtext/CTA/photo),
+       matching businessdash.html's own top-level page hero recipe —
+       genuinely new, this page never had one before (the stats card
+       below, unchanged, isn't this kind of hero). Both write into the
+       same fitstudio:hero record (name/quote double as this hero's own
+       title/subtext) so editing either surface keeps both in sync. -->
+  <section class="fs-photo-hero" id="fsPhotoHero">
+    <div class="fs-photo-hero-media" id="fsPhotoHeroMedia">
+      <div class="fs-photo-hero-abstract" id="fsPhotoHeroAbstract" aria-hidden="true"></div>
+      <img id="fsPhotoHeroImg" style="display:none;" alt="">
+      <div class="fs-photo-hero-choice" id="fsPhotoHeroChoice">
+        <button type="button" class="fs-photo-hero-choice-btn" id="fsPhotoHeroAddBtn">+ Add a cover photo</button>
+      </div>
+    </div>
+    <div class="fs-photo-hero-overlay"></div>
+    <div class="fs-photo-hero-photo-tools" id="fsPhotoHeroPhotoTools" style="display:none;">
+      <button type="button" id="fsPhotoHeroChangeBtn">Change</button>
+      <button type="button" id="fsPhotoHeroRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="fsPhotoHeroPhotoInput" accept="image/*" style="display:none;">
+    <div class="fs-photo-hero-content">
+      <div class="fs-photo-hero-eyebrow" id="fsPhotoHeroEyebrow" contenteditable="true"></div>
+      <textarea class="fs-photo-hero-title" id="fsPhotoHeroTitle" rows="1" placeholder="Your name…"></textarea>
+      <div class="fs-photo-hero-subtext" id="fsPhotoHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="fs-photo-hero-cta" id="fsPhotoHeroCta">
+        <span class="fs-photo-hero-cta-label" id="fsPhotoHeroCtaLabel" contenteditable="true"></span>
+        <span class="fs-photo-hero-cta-arrow" aria-hidden="true">↓</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ HERO (stats card) ============ -->
+  <section class="fs-hero">
+    <button class="fs-btn fs-btn-ghost fs-btn-sm fs-hero-edit" id="fsHeroEditBtn">✎ Edit</button>
+    <div class="fs-hero-inner">
+      <div style="flex:1;min-width:240px;">
+        <p class="fs-hero-greeting" id="fsHeroGreeting">GOOD AFTERNOON</p>
+        <h1 class="fs-hero-name" id="fsHeroName">Damian</h1>
+        <div class="fs-hero-meta-row">
+          <div>
+            <div class="fs-hero-meta-label">Today's Focus</div>
+            <div class="fs-hero-meta-value" id="fsHeroFocus">Upper Body Strength</div>
+          </div>
+          <div>
+            <div class="fs-hero-meta-label">Today's Workout</div>
+            <div class="fs-hero-meta-value" id="fsHeroWorkout">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="fs-hero-ring-wrap">
+        <svg class="fs-ring-svg" width="96" height="96" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"></circle>
+          <circle id="fsHeroRingFill" cx="50" cy="50" r="42" fill="none" stroke="var(--fs-accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"></circle>
+          <text x="50" y="55" text-anchor="middle" class="fs-ring-num" fill="var(--fs-text)" id="fsHeroRingNum">0/0</text>
+        </svg>
+        <div class="fs-hero-meta-label">Weekly Goal</div>
+        <div class="fs-hero-meta-sub" id="fsHeroWeeklySub">0/0 Workouts Completed</div>
+      </div>
+    </div>
+    <p class="fs-hero-quote" id="fsHeroQuote">"Discipline creates freedom."</p>
+  </section>
+
+  <!-- ============ Toolbar ============ -->
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+    <button class="fs-btn" id="fsSettingsBtn">⚙ Settings</button>
+    <button class="fs-btn" id="fsFocusModeBtn">⛶ Distraction-Free Mode</button>
+    <div style="flex:1;"></div>
+    <div class="fs-btn fs-btn-ghost" style="display:flex;align-items:center;gap:8px;" id="fsStreakBadge">
+      <span class="fs-led-dot"></span> <span id="fsStreakText">0-day streak</span>
+    </div>
+  </div>
+
+  <!-- ============ Today's Workout ============ -->
+  <section class="fs-card" id="fsTodayCard">
+    <div class="fs-card-head">
+      <h2 class="fs-card-title"><span class="fs-icon-glow">🏋️</span> <span id="fsTodayTitle">Today's Workout</span></h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select class="fs-select" id="fsTodayOverrideSelect" style="width:auto;"></select>
+        <button class="fs-btn fs-btn-primary" id="fsStartWorkoutBtn" style="display:none;">▶ Start Workout</button>
+        <button class="fs-btn" id="fsCompleteWorkoutBtn" style="display:none;">✓ Mark Workout Complete</button>
+      </div>
+    </div>
+    <div id="fsTodayExerciseList"></div>
+  </section>
+
+  <!-- ============ Live Workout Dashboard ============ -->
+  <section class="fs-card" id="fsLiveCard" style="display:none;">
+    <div class="fs-card-head">
+      <h2 class="fs-card-title"><span class="fs-icon-glow">📡</span> Live Workout Dashboard</h2>
+      <span class="fs-led-dot" title="Workout in progress"></span>
+    </div>
+    <div class="fs-live-grid">
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Current Exercise</div><div class="fs-live-tile-value" id="fsLiveExercise" style="font-size:16px;">—</div></div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Timer</div><div class="fs-live-tile-value" id="fsLiveTimer">0:00</div></div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Rest Timer</div><div class="fs-live-tile-value" id="fsLiveRest">—</div></div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Current Set</div><div class="fs-live-tile-value" id="fsLiveSet">—</div></div>
+      <div class="fs-live-tile" id="fsLiveHrTile" style="display:none;">
+        <div class="fs-live-tile-label">Heart Rate</div>
+        <input class="fs-input" id="fsLiveHrInput" type="number" placeholder="bpm" style="font-size:20px;font-weight:800;padding:4px 8px;">
+      </div>
+      <div class="fs-live-tile">
+        <div class="fs-live-tile-label">Water Intake</div>
+        <div class="fs-live-tile-value" id="fsLiveWater">0 ml</div>
+        <div style="display:flex;gap:6px;margin-top:8px;"><button class="fs-btn fs-btn-sm" id="fsWaterAddCup">+250ml</button><button class="fs-btn fs-btn-sm" id="fsWaterAddBottle">+500ml</button></div>
+      </div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Workout Duration</div><div class="fs-live-tile-value" id="fsLiveDuration">0m</div></div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Calories Burned</div><div class="fs-live-tile-value" id="fsLiveCalories">0</div><div class="fs-live-tile-sub">rough estimate</div></div>
+      <div class="fs-live-tile"><div class="fs-live-tile-label">Volume Lifted</div><div class="fs-live-tile-value" id="fsLiveVolume">0</div></div>
+    </div>
+  </section>
+
+  <!-- ============ Goal Center ============ -->
+  <section class="fs-card">
+    <div class="fs-card-head">
+      <h2 class="fs-card-title"><span class="fs-icon-glow">🎯</span> Goal Center</h2>
+    </div>
+    <div class="fs-goal-cols">
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div class="fs-field-label" style="margin:0;">Short-Term Goals</div>
+          <button class="fs-btn fs-btn-sm" data-goal-kind="short" id="fsAddShortGoalBtn">+ Add</button>
+        </div>
+        <div id="fsShortGoalList"></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div class="fs-field-label" style="margin:0;">Long-Term Goals</div>
+          <button class="fs-btn fs-btn-sm" data-goal-kind="long" id="fsAddLongGoalBtn">+ Add</button>
+        </div>
+        <div id="fsLongGoalList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Workout Programs ============ -->
+  <section class="fs-card">
+    <div class="fs-card-head">
+      <h2 class="fs-card-title"><span class="fs-icon-glow">📋</span> Workout Programs</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="fs-btn" id="fsImportExercisesBtn" title="Copy exercises from gym.html and Main's own Fitness Studio tab into Custom">↻ Import My Exercises</button>
+        <button class="fs-btn fs-btn-primary" id="fsAddTemplateBtn">+ New Template</button>
+      </div>
+    </div>
+    <div class="fs-plan-grid" id="fsProgramGrid" style="margin-bottom:18px;"></div>
+    <div class="fs-chip-row" id="fsProgramFilterChips"></div>
+    <div id="fsTemplateList"></div>
+  </section>
+
+  <!-- ============ Weekly Schedule ============ -->
+  <section class="fs-card">
+    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">📅</span> Weekly Schedule</h2></div>
+    <div class="fs-day-grid" id="fsScheduleGrid"></div>
+  </section>
+
+  <!-- ============ Consistency + Volume ============ -->
+  <section class="fs-card">
+    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🔥</span> Weekly Consistency</h2></div>
+    <div class="fs-heat-scroll"><div class="fs-heat-weeks" id="fsHeatmapGrid"></div></div>
+    <div style="margin-top:24px;">
+      <div class="fs-field-label">Volume Lifted — Last 8 Weeks</div>
+      <div class="fs-vchart" id="fsVolumeChart"></div>
+    </div>
+  </section>
+
+  <!-- ============ AI Fitness Coach ============ -->
+  <section class="fs-card">
+    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🤖</span> AI Fitness Coach</h2></div>
+    <div class="fs-quick-prompts" id="fsQuickPrompts"></div>
+    <div class="fs-chat-messages" id="fsChatMessages"></div>
+    <div class="fs-chat-input-row">
+      <input class="fs-input" id="fsChatInput" type="text" placeholder="Ask about overload, substitutions, recovery, macros, technique…">
+      <button class="fs-btn fs-btn-primary" id="fsChatSendBtn">Send</button>
+    </div>
+  </section>
+
+</div><!-- /.fs-shell -->
+
+<!-- ============ Distraction-Free Mode ============ -->
+<div class="fs-focus-bg" id="fsFocusModeBg">
+  <button class="fs-btn fs-focus-exit" id="fsFocusExitBtn">✕ Exit</button>
+  <div class="fs-focus-exercise" id="fsFocusExercise">—</div>
+  <div class="fs-focus-sub" id="fsFocusSub">Set 1</div>
+  <div class="fs-focus-timer" id="fsFocusTimer">0:00</div>
+  <div class="fs-focus-actions">
+    <input class="fs-input" id="fsFocusWeight" type="number" placeholder="Weight" style="width:110px;">
+    <input class="fs-input" id="fsFocusReps" type="number" placeholder="Reps" style="width:100px;">
+    <button class="fs-btn fs-btn-primary" id="fsFocusLogBtn">Log Set</button>
+    <button class="fs-btn" id="fsFocusRestBtn">Start Rest</button>
+    <button class="fs-btn" id="fsFocusNextBtn">Next Exercise →</button>
+  </div>
+</div>
+
+<div id="fsConfettiLayer"></div>
+
+<!-- ============ Music FAB + slide-out panel ============ -->
+<button class="fs-music-fab" id="fsMusicToggleBtn"><span class="fs-led-dot"></span> 🎵 Music</button>
+<div class="fs-music-panel" id="fsMusicPanel">
+  <div class="fs-music-head"><h3>🎵 Music</h3><button class="fs-music-close" id="fsMusicCloseBtn">✕</button></div>
+  <div class="fs-music-chips" id="fsMusicChips"></div>
+  <div class="fs-music-list" id="fsMusicList"></div>
+  <div class="fs-music-player">
+    <div class="fs-music-nowplaying">
+      <div class="fs-music-np-cover" id="fsMusicNpCover">🎧</div>
+      <div><div class="fs-music-np-title" id="fsMusicNpTitle">Nothing playing</div><div class="fs-music-np-sub" id="fsMusicNpSub">Pick a track below</div></div>
+    </div>
+    <div id="fsYtPlayerHost"></div>
+    <div id="fsMusicFileModeNote" style="display:none;font-size:10.5px;color:var(--fs-text-mute);margin:-6px 0 8px;">Local file — use the video's own controls above.</div>
+    <iframe id="fsSpotifyPlayerHost" allow="encrypted-media"></iframe>
+    <a id="fsMusicFallbackLink" href="#" target="_blank" rel="noopener" class="fs-btn fs-btn-sm" style="display:none;margin-bottom:10px;">↗ Open track</a>
+    <div class="fs-music-controls">
+      <button class="fs-music-ctrl-btn" id="fsMusicPrevBtn">⏮</button>
+      <button class="fs-music-ctrl-btn play" id="fsMusicPlayBtn">▶</button>
+      <button class="fs-music-ctrl-btn" id="fsMusicNextBtn">⏭</button>
+    </div>
+    <input type="range" id="fsMusicVolume" min="0" max="100" value="70" style="width:100%;">
+  </div>
+</div>
+
+<!-- ============ Modals ============ -->
+<div class="modal-bg" id="fsHeroModalBg">
+  <div class="modal">
+    <h3>Edit Hero</h3>
+    <div class="fs-field"><label class="fs-field-label">Name</label><input class="fs-input" id="fsHeroNameInput"></div>
+    <div class="fs-field"><label class="fs-field-label">Today's Focus</label><input class="fs-input" id="fsHeroFocusInput"></div>
+    <div class="fs-field"><label class="fs-field-label">Motivational Quote</label><input class="fs-input" id="fsHeroQuoteInput"></div>
+    <div class="fs-field"><label class="fs-field-label">Weekly Workout Goal (# of workouts)</label><input class="fs-input" id="fsHeroWeeklyGoalInput" type="number" min="1" max="14"></div>
+    <div class="fs-modal-actions"><button class="fs-btn" id="fsHeroModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsHeroModalSave">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsGoalModalBg">
+  <div class="modal">
+    <h3 id="fsGoalModalTitle">Add Goal</h3>
+    <div class="fs-field"><label class="fs-field-label">Title</label><input class="fs-input" id="fsGoalTitleInput" placeholder="e.g. Bench 315"></div>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">Current</label><input class="fs-input" id="fsGoalCurrentInput" type="number"></div>
+      <div class="fs-field"><label class="fs-field-label">Target</label><input class="fs-input" id="fsGoalTargetInput" type="number"></div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Unit</label><input class="fs-input" id="fsGoalUnitInput" placeholder="lb, reps, km, %…"></div>
+    <div class="fs-field"><label class="fs-field-label">Progress (%)</label><input class="fs-input" id="fsGoalPctInput" type="range" min="0" max="100"></div>
+    <div class="fs-modal-actions">
+      <button class="fs-btn" id="fsGoalModalDelete" style="margin-right:auto;color:var(--fs-bad);display:none;">Delete</button>
+      <button class="fs-btn" id="fsGoalModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsGoalModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsTemplateModalBg">
+  <div class="modal" style="max-width:680px;">
+    <h3 id="fsTplModalTitle">New Workout Program</h3>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">Name</label><input class="fs-input" id="fsTplNameInput" placeholder="e.g. Push Day"></div>
+      <div class="fs-field"><label class="fs-field-label">Category</label><select class="fs-select" id="fsTplCategorySelect"></select></div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Color</label><div class="fs-theme-swatches" id="fsTplColorSwatches"></div></div>
+    <div class="fs-field">
+      <label class="fs-field-label">Exercises</label>
+      <div id="fsTplExerciseList"></div>
+      <button class="fs-btn fs-btn-sm" id="fsTplAddExerciseBtn">+ Add Exercise</button>
+    </div>
+    <div class="fs-modal-actions">
+      <button class="fs-btn" id="fsTplModalDelete" style="margin-right:auto;color:var(--fs-bad);display:none;">Delete Program</button>
+      <button class="fs-btn" id="fsTplModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsTplModalSave">Save Program</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsExerciseModalBg">
+  <div class="modal">
+    <h3>Edit Exercise</h3>
+    <div class="fs-field"><label class="fs-field-label">Name</label><input class="fs-input" id="fsExNameInput"></div>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">Sets</label><input class="fs-input" id="fsExSetsInput" type="number"></div>
+      <div class="fs-field"><label class="fs-field-label">Rest (sec)</label><input class="fs-input" id="fsExRestInput" type="number"></div>
+    </div>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">Rep range min</label><input class="fs-input" id="fsExRepMinInput" type="number"></div>
+      <div class="fs-field"><label class="fs-field-label">Rep range max</label><input class="fs-input" id="fsExRepMaxInput" type="number"></div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Equipment</label><input class="fs-input" id="fsExEquipmentInput" placeholder="Barbell, dumbbells, machine…"></div>
+    <div class="fs-field"><label class="fs-field-label">Notes / Form Cues</label><textarea class="fs-textarea" id="fsExNotesInput" rows="2"></textarea></div>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">Photo URL</label><input class="fs-input" id="fsExPhotoInput" placeholder="https://…"></div>
+      <div class="fs-field"><label class="fs-field-label">Video URL</label><input class="fs-input" id="fsExVideoInput" placeholder="https://…"></div>
+    </div>
+    <div class="fs-modal-actions"><button class="fs-btn" id="fsExModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsExModalSave">Save Exercise</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsSettingsModalBg">
+  <div class="modal">
+    <h3>⚙ Settings</h3>
+    <div class="fs-field"><label class="fs-field-label">Units</label>
+      <div class="fs-seg" id="fsSettingsUnitsSeg"><button data-val="imperial">Imperial</button><button data-val="metric">Metric</button></div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Theme</label><div class="fs-theme-swatches" id="fsSettingsThemeSwatches"></div></div>
+    <div class="fs-field">
+      <label class="fs-field-label">Background Glow Color</label>
+      <div class="fs-theme-swatches" id="fsSettingsBgSwatches" style="flex-wrap:wrap;row-gap:8px;"></div>
+      <div style="display:flex;align-items:center;gap:9px;margin-top:10px;">
+        <input type="color" id="fsSettingsBgCustomColor" style="width:44px;height:34px;border:1px solid var(--fs-border);border-radius:8px;background:none;cursor:pointer;padding:2px;">
+        <span style="font-size:12px;color:var(--fs-text-mute);">Custom color</span>
+      </div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Workout Length (minutes)</label><input class="fs-input" id="fsSettingsLengthInput" type="number"></div>
+    <div class="fs-field"><label style="display:flex;align-items:center;gap:8px;font-size:13.5px;"><input type="checkbox" id="fsSettingsNotifInput"> Notifications</label></div>
+    <div class="fs-field"><label style="display:flex;align-items:center;gap:8px;font-size:13.5px;"><input type="checkbox" id="fsSettingsWearableInput"> Wearable integration (manual heart-rate entry)</label></div>
+    <div class="fs-field-row">
+      <div class="fs-field"><label class="fs-field-label">AI Coach Tone</label>
+        <select class="fs-select" id="fsSettingsAiToneSelect"><option value="direct">Direct</option><option value="encouraging">Encouraging</option><option value="analytical">Analytical</option></select>
+      </div>
+      <div class="fs-field"><label class="fs-field-label">AI Coach Focus</label>
+        <select class="fs-select" id="fsSettingsAiFocusSelect"><option value="strength">Strength</option><option value="hypertrophy">Hypertrophy</option><option value="fatloss">Fat Loss</option><option value="athletic">Athletic</option></select>
+      </div>
+    </div>
+    <div class="fs-field"><label class="fs-field-label">Anthropic API Key (optional — enables live AI replies)</label><input class="fs-input" id="fsSettingsKeyInput" placeholder="PASTE-YOUR-ANTHROPIC-API-KEY-HERE"></div>
+    <div class="fs-modal-actions"><button class="fs-btn" id="fsSettingsModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsSettingsModalSave">Save Settings</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsLightboxModalBg">
+  <div class="modal" style="max-width:640px;padding:10px;"><div id="fsLightboxContent"></div></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function FD() { return window.FitStudioData; }
+
+  function showBootErrorBanner(err, context) {
+    try {
+      var el = $('fsBootError');
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = '⚠ Fitness Studio failed to load correctly (' + context + '):\n' + (err && err.stack ? err.stack : String(err)) + '\n\nTry a hard refresh. If it keeps happening, copy this text.';
+    } catch (e2) {}
+  }
+  function runSafely(fn, context) { try { fn(); } catch (err) { showBootErrorBanner(err, context); } }
+  function safeRender(fn, label) { try { fn(); } catch (err) { console.error('[FitnessStudio] render failed: ' + label, err); } }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtClock(ms) {
+    if (ms < 0) ms = 0;
+    var totalSec = Math.floor(ms / 1000);
+    var m = Math.floor(totalSec / 60), s = totalSec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+  function fmtDurationLong(ms) {
+    var totalMin = Math.floor(ms / 60000);
+    var h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+  }
+  function isValidMediaUrl(value) {
+    if (!value) return false;
+    try { var u = new URL(String(value)); return u.protocol === 'http:' || u.protocol === 'https:'; } catch (e) { return false; }
+  }
+  function sameHexColor(a, b) { return (a || '').toLowerCase() === (b || '').toLowerCase(); }
+  function hexToRgbTriplet(hex) {
+    var m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return '0,207,255';
+    var n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',');
+  }
+  // Same autosize + contenteditable-commit-on-blur/Enter, revert-on-Escape
+  // helpers every other cover-photo-hero page in this app already uses
+  // (businessdash.html/business.html/aitech.html) — copied verbatim, new
+  // to this file since it never had an inline-editable hero before.
+  function autosize(ta) { if (!ta) return; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function wireInlineEdit(el, onCommit, opts) {
+    if (!el) return;
+    opts = opts || {};
+    var original = el.textContent;
+    el.addEventListener('focus', function () { original = el.textContent; });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); el.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.textContent = original; el.blur(); }
+    });
+    el.addEventListener('blur', function () {
+      var val = el.textContent.trim();
+      if (!val && opts.allowEmpty === false) { el.textContent = original; return; }
+      if (val === original) return;
+      onCommit(val);
+    });
+  }
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  var remoteAppliedOnce = false;
+  var expandedExId = null;
+  var restTimerExId = null, restTimerEndTs = null, restTimerHandle = null, restTimerDurationMs = 0;
+  var sessionTimerHandle = null;
+  var programFilterCategory = 'All';
+  var templateDraftExercises = null;
+  var templateEditingId = null;
+  var exerciseEditingId = null;
+  var goalEditingId = null, goalEditingKind = 'short';
+  var audioCtx = null;
+
+  function ensureAudio() { try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) { audioCtx = null; } }
+  function playBeep(freq, durMs) {
+    if (!audioCtx) return;
+    try {
+      var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.frequency.value = freq; osc.type = 'sine';
+      gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + durMs / 1000);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + durMs / 1000);
+    } catch (e) {}
+  }
+
+  function openModal(id) { $(id).classList.add('show'); }
+  function closeModal(id) { $(id).classList.remove('show'); }
+
+  function celebratePR(exerciseName, weight, unit) {
+    var toast = document.createElement('div');
+    toast.className = 'fs-pr-toast';
+    toast.textContent = '🏆 New PR! ' + exerciseName + ' — ' + weight + ' ' + unit;
+    document.body.appendChild(toast);
+    setTimeout(function () { toast.remove(); }, 3200);
+    var layer = $('fsConfettiLayer');
+    var emojis = ['🎉', '🏆', '💪', '🔥'];
+    for (var i = 0; i < 22; i++) {
+      var piece = document.createElement('div');
+      piece.className = 'fs-confetti-piece';
+      piece.textContent = emojis[i % emojis.length];
+      piece.style.left = (Math.random() * 100) + '%';
+      piece.style.animationDelay = (Math.random() * 0.4) + 's';
+      layer.appendChild(piece);
+      (function (el) { setTimeout(function () { el.remove(); }, 2200); })(piece);
+    }
+  }
+
+  // ============================================================
+  // THEME
+  // ============================================================
+  function applyTheme() {
+    var s = FD().getSettings();
+    document.documentElement.setAttribute('data-fs-theme', s.theme);
+    var colors = { black: '#0a0a0b', red: '#0a0a0b', pink: '#0a0a0b' };
+    $('fsThemeMeta').setAttribute('content', colors[s.theme] || '#0a0a0b');
+    document.documentElement.style.setProperty('--fs-bgfx-rgb', hexToRgbTriplet(s.bgGlowColor));
+  }
+
+  // ============================================================
+  // RING helper
+  // ============================================================
+  function setRing(circleEl, pct) {
+    var r = parseFloat(circleEl.getAttribute('r'));
+    var circumference = 2 * Math.PI * r;
+    circleEl.setAttribute('stroke-dasharray', circumference.toFixed(2));
+    circleEl.setAttribute('stroke-dashoffset', (circumference * (1 - Math.max(0, Math.min(1, pct)))).toFixed(2));
+  }
+
+  // ============================================================
+  // HERO
+  // ============================================================
+  function greetingWord() {
+    var h = new Date().getHours();
+    if (h < 12) return 'GOOD MORNING';
+    if (h < 18) return 'GOOD AFTERNOON';
+    return 'GOOD EVENING';
+  }
+  function renderHero() {
+    var hero = FD().getHero();
+    var todayKey = FD().isoWeekdayKey(new Date());
+    var todayTpl = FD().templateForDay(todayKey);
+    var sched = FD().getSchedule()[todayKey];
+    $('fsHeroGreeting').textContent = greetingWord();
+    $('fsHeroName').textContent = hero.name;
+    $('fsHeroFocus').textContent = hero.focus;
+    $('fsHeroWorkout').textContent = todayTpl ? todayTpl.name : ((sched && sched.label) || 'Rest');
+    $('fsHeroQuote').textContent = '"' + hero.quote + '"';
+    var completed = FD().weeklyCompletionCount();
+    var target = FD().weeklyGoalTarget();
+    $('fsHeroWeeklySub').textContent = completed + '/' + target + ' Workouts Completed';
+    $('fsHeroRingNum').textContent = completed + '/' + target;
+    setRing($('fsHeroRingFill'), target > 0 ? completed / target : 0);
+    $('fsStreakText').textContent = FD().currentStreak() + '-day streak';
+  }
+  function openHeroModal() {
+    var hero = FD().getHero();
+    $('fsHeroNameInput').value = hero.name;
+    $('fsHeroFocusInput').value = hero.focus;
+    $('fsHeroQuoteInput').value = hero.quote;
+    $('fsHeroWeeklyGoalInput').value = hero.weeklyGoalTarget;
+    openModal('fsHeroModalBg');
+  }
+
+  // ============================================================
+  // PHOTO HERO — the new cover-photo hero. name/quote double as this
+  // hero's own title/subtext (see fitnessstudio-data.js's heroModel
+  // comment), so it and the stats hero above always agree.
+  // ============================================================
+  function renderPhotoHeroPhoto(hero) {
+    var img = $('fsPhotoHeroImg'), choice = $('fsPhotoHeroChoice'), tools = $('fsPhotoHeroPhotoTools'), abstract = $('fsPhotoHeroAbstract');
+    if (hero.photo) { img.src = hero.photo; img.style.display = 'block'; choice.style.display = 'none'; tools.style.display = 'flex'; abstract.style.display = 'none'; }
+    else { img.style.display = 'none'; img.src = ''; choice.style.display = 'flex'; tools.style.display = 'none'; abstract.style.display = 'block'; }
+    $('fsHeroCoverBg').style.backgroundImage = hero.photo ? 'url("' + hero.photo + '")' : 'none';
+  }
+  function renderPhotoHero() {
+    var hero = FD().getHero();
+    $('fsPhotoHeroEyebrow').textContent = hero.eyebrow;
+    $('fsPhotoHeroTitle').value = hero.name;
+    autosize($('fsPhotoHeroTitle'));
+    $('fsPhotoHeroSubtext').textContent = hero.quote;
+    $('fsPhotoHeroCtaLabel').textContent = hero.ctaLabel;
+    renderPhotoHeroPhoto(hero);
+  }
+  function openPhotoHeroFilePicker() {
+    try {
+      if (!FD() || typeof FD().compressImageDataUrl !== 'function' || typeof FD().saveHero !== 'function') {
+        alert("This page may be running an older cached copy — try a hard refresh, then try adding the photo again.");
+        return;
+      }
+      var i = $('fsPhotoHeroPhotoInput');
+      i.value = '';
+      i.click();
+    } catch (err) {
+      alert("Couldn't open the photo picker: " + (err && err.message ? err.message : err));
+    }
+  }
+  function handlePhotoHeroPhotoFile() {
+    var file = $('fsPhotoHeroPhotoInput').files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        FD().compressImageDataUrl(String(reader.result), 1100, 0.78).then(function (compressed) {
+          renderPhotoHeroPhoto(FD().saveHero({ photo: compressed }));
+          if (window.PhotoStore) {
+            window.PhotoStore.upload(compressed, function (url) { renderPhotoHeroPhoto(FD().saveHero({ photo: url })); });
+          }
+        }).catch(function (err) { alert('Could not process that photo: ' + (err && err.message ? err.message : err)); });
+      } catch (err) {
+        alert('Could not process that photo: ' + (err && err.message ? err.message : err));
+      }
+    };
+    reader.onerror = function () { alert('Could not read that file.'); };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // TODAY'S WORKOUT
+  // ============================================================
+  function todayIso() { return FD().todayISO(); }
+  function activeTemplateForToday() {
+    var override = $('fsTodayOverrideSelect').value;
+    if (override) return FD().Templates.get(override);
+    return FD().templateForDay(FD().isoWeekdayKey(new Date()));
+  }
+  function renderTodayOverrideSelect() {
+    var sel = $('fsTodayOverrideSelect');
+    var tpls = FD().templatesSorted();
+    var current = sel.value;
+    sel.innerHTML = '<option value="">— Scheduled for today —</option>' +
+      tpls.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + '</option>'; }).join('');
+    if (tpls.some(function (t) { return t.id === current; })) sel.value = current;
+  }
+  function buildExerciseMediaHtml(ex) {
+    var out = '';
+    if (isValidMediaUrl(ex.photo)) out += '<div class="fs-ex-media-thumb" data-lightbox-photo="' + escapeHtml(ex.photo) + '">🖼</div>';
+    if (isValidMediaUrl(ex.video)) out += '<div class="fs-ex-media-thumb" data-lightbox-video="' + escapeHtml(ex.video) + '">🎬</div>';
+    return out;
+  }
+  function renderTodayWorkout() {
+    renderTodayOverrideSelect();
+    var tpl = activeTemplateForToday();
+    var iso = todayIso();
+    var log = FD().getDayLog(iso);
+    var active = !!log.startedAt && !log.endedAt;
+    var complete = FD().isWorkoutComplete(iso);
+    $('fsTodayTitle').textContent = tpl ? tpl.name : 'Today\'s Workout';
+    $('fsStartWorkoutBtn').style.display = (tpl && !active && !complete) ? 'inline-flex' : 'none';
+    $('fsCompleteWorkoutBtn').style.display = active ? 'inline-flex' : 'none';
+    $('fsCompleteWorkoutBtn').textContent = complete ? '✓ Workout Complete' : '✓ Mark Workout Complete';
+    $('fsCompleteWorkoutBtn').disabled = complete;
+
+    var wrap = $('fsTodayExerciseList');
+    if (!tpl) { wrap.innerHTML = '<div class="fs-empty">No workout scheduled for today. Pick one above, or enjoy the rest day.</div>'; return; }
+    if (!tpl.exercises.length) { wrap.innerHTML = '<div class="fs-empty">This program has no exercises yet — edit it under Workout Programs.</div>'; return; }
+
+    var exs = tpl.exercises.slice().sort(function (a, b) { return a.order - b.order; });
+    wrap.innerHTML = exs.map(function (ex) {
+      var done = log.doneIds.indexOf(ex.id) !== -1;
+      var sets = log.sets[ex.id] || [];
+      var isExpanded = expandedExId === ex.id;
+      var sug = FD().suggestedWeight(ex);
+      var restLabel = (restTimerExId === ex.id && restTimerEndTs) ? '<span id="fsExRest_' + ex.id + '">' + fmtClock(restTimerEndTs - Date.now()) + '</span>' : '--:--';
+      return '' +
+        '<div class="fs-ex-row' + (isExpanded ? ' expanded' : '') + '" data-ex-id="' + ex.id + '">' +
+          '<div class="fs-ex-beam" aria-hidden="true"></div>' +
+          '<div class="fs-ex-inner">' +
+            '<div class="fs-ex-head" data-toggle-ex="' + ex.id + '">' +
+              '<div class="fs-ex-check' + (done ? ' done' : '') + '" data-toggle-done="' + ex.id + '">' + (done ? '✓' : '') + '</div>' +
+              '<span class="fs-ex-badge">' + sets.length + '/' + ex.sets + ' sets</span>' +
+              '<div class="fs-ex-chevron">▾</div>' +
+            '</div>' +
+            '<div class="fs-ex-name' + (done ? ' done' : '') + '" data-toggle-ex="' + ex.id + '">' + escapeHtml(ex.name) + '</div>' +
+            '<div class="fs-ex-meta">' + ex.repMin + '–' + ex.repMax + ' reps · ' + ex.restSec + 's rest' + (ex.equipment ? ' · 🏋 ' + escapeHtml(ex.equipment) : '') + '</div>' +
+            '<div class="fs-ex-detail">' +
+              '<div class="fs-ex-detail-grid">' +
+                '<div>' +
+                  '<label class="fs-field-label">Log a Set</label>' +
+                  '<div class="fs-set-row-inline">' +
+                    '<input class="fs-input" type="number" placeholder="' + FD().unitLabel('weight') + '" id="fsSetWeight_' + ex.id + '" style="width:90px;">' +
+                    '<input class="fs-input" type="number" placeholder="reps" id="fsSetReps_' + ex.id + '" style="width:80px;">' +
+                    '<button class="fs-btn fs-btn-sm fs-btn-primary" data-log-set="' + ex.id + '">Log</button>' +
+                  '</div>' +
+                  '<div class="fs-set-log-list">' + (sets.length ? sets.map(function (s) { return '<span class="fs-set-pill">' + s.weight + '×' + s.reps + '</span>'; }).join('') : '<span class="fs-field-label" style="margin:0;">No sets logged yet</span>') + '</div>' +
+                  (sug.weight != null ? '<div class="fs-live-tile-sub" style="margin-top:8px;">Suggested: ' + sug.weight + ' ' + FD().unitLabel('weight') + ' — ' + escapeHtml(sug.note) + '</div>' : '<div class="fs-live-tile-sub" style="margin-top:8px;">' + escapeHtml(sug.note) + '</div>') +
+                '</div>' +
+                '<div>' +
+                  '<label class="fs-field-label">Rest Timer (' + ex.restSec + 's)</label>' +
+                  '<div class="fs-rest-display">' + restLabel + '</div>' +
+                  '<div style="display:flex;gap:8px;margin-top:8px;"><button class="fs-btn fs-btn-sm" data-start-rest="' + ex.id + '" data-rest-sec="' + ex.restSec + '">Start Rest</button><button class="fs-btn fs-btn-sm" data-stop-rest="' + ex.id + '">Stop</button></div>' +
+                  (ex.notes ? '<div class="fs-live-tile-sub" style="margin-top:10px;">' + escapeHtml(ex.notes) + '</div>' : '') +
+                  '<div class="fs-ex-media-row">' + buildExerciseMediaHtml(ex) + '</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function handleLogSet(exerciseId, weight, reps, exerciseName) {
+    if (!weight || !reps) { alert('Enter both a weight and rep count.'); return; }
+    var iso = todayIso();
+    FD().logSet(iso, exerciseId, weight, reps);
+    var pr = FD().checkForPR(exerciseName, weight, reps);
+    if (pr) celebratePR(exerciseName, weight, FD().unitLabel('weight'));
+    renderAll();
+  }
+
+  // ============================================================
+  // REST TIMER
+  // ============================================================
+  function clearRestTimer() {
+    if (restTimerHandle) clearInterval(restTimerHandle);
+    restTimerHandle = null; restTimerExId = null; restTimerEndTs = null; restTimerDurationMs = 0;
+  }
+  function startRestTimer(exId, seconds) {
+    clearRestTimer();
+    ensureAudio();
+    restTimerExId = exId; restTimerDurationMs = seconds * 1000; restTimerEndTs = Date.now() + seconds * 1000;
+    restTimerHandle = setInterval(tickRestTimer, 250);
+    tickRestTimer();
+    renderTodayWorkout();
+  }
+  function tickRestTimer() {
+    if (!restTimerEndTs) return;
+    var remain = restTimerEndTs - Date.now();
+    if (remain <= 0) {
+      playBeep(880, 260); setTimeout(function () { playBeep(880, 260); }, 320);
+      clearRestTimer();
+      renderTodayWorkout(); renderLiveDashboard(); renderFocusMode();
+      return;
+    }
+    var display = fmtClock(remain);
+    var el = $('fsExRest_' + restTimerExId); if (el) el.textContent = display;
+    var liveEl = $('fsLiveRest'); if (liveEl && $('fsLiveCard').style.display !== 'none') liveEl.textContent = display;
+    var focusEl = $('fsFocusTimer');
+    if (focusEl && $('fsFocusModeBg').classList.contains('show') && focusEl.dataset.mode === 'rest') focusEl.textContent = display;
+  }
+
+  // ============================================================
+  // WORKOUT START/COMPLETE + SESSION TIMER
+  // ============================================================
+  function currentTemplateAndLog() {
+    var iso = todayIso();
+    var log = FD().getDayLog(iso);
+    var tpl = log.templateId ? FD().Templates.get(log.templateId) : null;
+    return { iso: iso, log: log, tpl: tpl };
+  }
+  function startTodayWorkout() {
+    var tpl = activeTemplateForToday();
+    if (!tpl) return;
+    FD().startWorkout(todayIso(), tpl.id);
+    startSessionTimer();
+    renderAll();
+  }
+  function completeTodayWorkout() {
+    var iso = todayIso();
+    var log = FD().getDayLog(iso);
+    FD().endWorkout(iso);
+    if (log.templateId) FD().recordProgressionFromLog(iso, log.templateId);
+    stopSessionTimer();
+    renderAll();
+  }
+  function startSessionTimer() {
+    stopSessionTimer();
+    sessionTimerHandle = setInterval(tickSessionTimer, 1000);
+    tickSessionTimer();
+  }
+  function stopSessionTimer() { if (sessionTimerHandle) clearInterval(sessionTimerHandle); sessionTimerHandle = null; }
+  function tickSessionTimer() {
+    var ctx = currentTemplateAndLog();
+    if (!ctx.log.startedAt || ctx.log.endedAt) { stopSessionTimer(); return; }
+    var elapsed = Date.now() - ctx.log.startedAt;
+    var el = $('fsLiveTimer'); if (el) el.textContent = fmtClock(elapsed);
+    var durEl = $('fsLiveDuration'); if (durEl) durEl.textContent = fmtDurationLong(elapsed);
+    var focusTimer = $('fsFocusTimer');
+    if (focusTimer && $('fsFocusModeBg').classList.contains('show') && focusTimer.dataset.mode !== 'rest') focusTimer.textContent = fmtClock(elapsed);
+    var volume = FD().volumeForDate(ctx.iso);
+    var calEl = $('fsLiveCalories'); if (calEl) calEl.textContent = FD().estimatedCalories(volume, elapsed / 60000);
+    var volEl = $('fsLiveVolume'); if (volEl) volEl.textContent = Math.round(volume) + ' ' + FD().unitLabel('weight');
+  }
+
+  function firstIncompleteExercise(tpl, log) {
+    if (!tpl) return null;
+    var exs = tpl.exercises.slice().sort(function (a, b) { return a.order - b.order; });
+    return exs.find(function (e) { return log.doneIds.indexOf(e.id) === -1; }) || null;
+  }
+
+  // ============================================================
+  // LIVE DASHBOARD
+  // ============================================================
+  function renderLiveDashboard() {
+    var ctx = currentTemplateAndLog();
+    var active = !!ctx.log.startedAt && !ctx.log.endedAt;
+    $('fsLiveCard').style.display = active ? 'block' : 'none';
+    if (!active) return;
+    var settings = FD().getSettings();
+    $('fsLiveHrTile').style.display = settings.wearableConnected ? 'block' : 'none';
+    if (settings.wearableConnected && document.activeElement !== $('fsLiveHrInput')) $('fsLiveHrInput').value = ctx.log.heartRateBpm || '';
+    var current = firstIncompleteExercise(ctx.tpl, ctx.log);
+    $('fsLiveExercise').textContent = current ? current.name : 'All exercises complete!';
+    var setNum = current ? Math.min((ctx.log.sets[current.id] || []).length + 1, current.sets) : '—';
+    $('fsLiveSet').textContent = current ? (setNum + ' / ' + current.sets) : '—';
+    $('fsLiveWater').textContent = ctx.log.waterMl + ' ml';
+    $('fsLiveRest').textContent = (restTimerExId && restTimerEndTs) ? fmtClock(restTimerEndTs - Date.now()) : '—';
+    tickSessionTimer();
+    if (!sessionTimerHandle) startSessionTimer();
+  }
+
+  // ============================================================
+  // GOALS
+  // ============================================================
+  function renderGoals() {
+    ['short', 'long'].forEach(function (kind) {
+      var wrap = $(kind === 'short' ? 'fsShortGoalList' : 'fsLongGoalList');
+      var goals = FD().goalsSorted(kind);
+      if (!goals.length) { wrap.innerHTML = '<div class="fs-empty">No goals yet.</div>'; return; }
+      wrap.innerHTML = goals.map(function (g) {
+        return '' +
+          '<div class="fs-goal-item" data-goal-id="' + g.id + '">' +
+            '<div class="fs-goal-top">' +
+              '<div class="fs-goal-title">' + escapeHtml(g.title) + '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;"><span class="fs-goal-vals">' + g.currentValue + ' → ' + g.targetValue + ' ' + escapeHtml(g.unit) + '</span>' +
+              '<button class="fs-goal-del" data-edit-goal="' + g.id + '">✎</button></div>' +
+            '</div>' +
+            '<div class="fs-bar"><div class="fs-bar-fill" style="width:' + g.progressPct + '%;"></div></div>' +
+          '</div>';
+      }).join('');
+    });
+  }
+  function openGoalModal(kind, id) {
+    goalEditingKind = kind; goalEditingId = id || null;
+    var g = id ? FD().Goals.get(id) : null;
+    $('fsGoalModalTitle').textContent = id ? 'Edit Goal' : 'Add Goal';
+    $('fsGoalTitleInput').value = g ? g.title : '';
+    $('fsGoalCurrentInput').value = g ? g.currentValue : 0;
+    $('fsGoalTargetInput').value = g ? g.targetValue : 0;
+    $('fsGoalUnitInput').value = g ? g.unit : '';
+    $('fsGoalPctInput').value = g ? g.progressPct : 0;
+    $('fsGoalModalDelete').style.display = id ? 'inline-flex' : 'none';
+    openModal('fsGoalModalBg');
+  }
+  function saveGoalFromModal() {
+    var patch = {
+      title: $('fsGoalTitleInput').value.trim() || 'Untitled Goal',
+      currentValue: parseFloat($('fsGoalCurrentInput').value) || 0,
+      targetValue: parseFloat($('fsGoalTargetInput').value) || 0,
+      unit: $('fsGoalUnitInput').value.trim(),
+      progressPct: parseFloat($('fsGoalPctInput').value) || 0,
+      kind: goalEditingKind
+    };
+    if (goalEditingId) FD().Goals.update(goalEditingId, patch);
+    else FD().Goals.add(Object.assign(patch, { order: FD().Goals.nextOrder() }));
+    closeModal('fsGoalModalBg');
+    renderGoals();
+  }
+
+  // ============================================================
+  // PROGRAMS
+  // ============================================================
+  var PROGRAM_ICONS = { 'Powerlifting': '🏋️', 'Hypertrophy': '💪', 'Athletic': '🏃', 'Fat Loss': '🔥', 'Strength': '🦾', 'Calisthenics': '🤸', 'Custom': '🛠️' };
+  function renderPrograms() {
+    var cats = FD().PROGRAM_CATEGORIES;
+    var grid = $('fsProgramGrid');
+    grid.innerHTML = cats.map(function (cat) {
+      var tpls = FD().templatesForCategory(cat);
+      var exCount = tpls.reduce(function (n, t) { return n + t.exercises.length; }, 0);
+      var isActive = programFilterCategory === cat;
+      var featureRows = tpls.length
+        ? tpls.slice(0, 6).map(function (t) { return '<li class="fs-plan-feature"><span class="fs-plan-feature-icon yes">✓</span>' + escapeHtml(t.name) + '</li>'; }).join('')
+        : '<li class="fs-plan-feature"><span class="fs-plan-feature-icon no">–</span>No programs yet</li>';
+      return '' +
+        '<div class="fs-plan-card' + (isActive ? ' active' : '') + '" data-filter-category="' + escapeHtml(cat) + '">' +
+          '<div class="fs-plan-head">' +
+            '<div class="fs-plan-icon fs-icon-glow">' + (PROGRAM_ICONS[cat] || '📋') + '</div>' +
+            '<div class="fs-plan-name">' + escapeHtml(cat) + '</div>' +
+            '<div class="fs-plan-badge">' + tpls.length + ' program' + (tpls.length === 1 ? '' : 's') + '</div>' +
+          '</div>' +
+          '<div class="fs-plan-price-row"><span class="fs-plan-price">' + exCount + '</span><span class="fs-plan-price-compare">exercise' + (exCount === 1 ? '' : 's') + '</span></div>' +
+          '<ul class="fs-plan-features">' + featureRows + '</ul>' +
+          '<button class="fs-btn fs-btn-sm fs-plan-cta' + (isActive ? ' fs-btn-primary' : '') + '" data-filter-category="' + escapeHtml(cat) + '">' + (isActive ? '✓ Showing' : 'View Programs') + '</button>' +
+        '</div>';
+    }).join('');
+
+    var chipRow = $('fsProgramFilterChips');
+    chipRow.innerHTML = ['All'].concat(cats).map(function (c) {
+      return '<button class="fs-chip' + (programFilterCategory === c ? ' active' : '') + '" data-set-category-filter="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+
+    var list = $('fsTemplateList');
+    var tpls = FD().templatesSorted().filter(function (t) { return programFilterCategory === 'All' || t.category === programFilterCategory; });
+    if (!tpls.length) { list.innerHTML = '<div class="fs-empty">No programs in this category yet.</div>'; return; }
+    list.innerHTML = tpls.map(function (t) {
+      var best = t.exercises.length ? t.exercises.map(function (e) { return FD().bestPR(e.name); }).filter(Boolean).length : 0;
+      return '' +
+        '<div class="fs-tpl-card">' +
+          '<div class="fs-tpl-card-top">' +
+            '<div><div class="fs-tpl-card-name">' + escapeHtml(t.name) + '</div><div class="fs-tpl-card-meta">' + t.category + ' · ' + t.exercises.length + ' exercises' + (best ? ' · ' + best + ' PR' + (best === 1 ? '' : 's') : '') + '</div></div>' +
+            '<div class="fs-tpl-actions"><button class="fs-btn fs-btn-sm" data-edit-template="' + t.id + '">Edit</button></div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function openTemplateModal(id) {
+    templateEditingId = id || null;
+    var t = id ? FD().Templates.get(id) : null;
+    templateDraftExercises = t ? t.exercises.slice().sort(function (a, b) { return a.order - b.order; }).map(function (e) { return Object.assign({}, e); }) : [];
+    $('fsTplModalTitle').textContent = id ? 'Edit Workout Program' : 'New Workout Program';
+    $('fsTplNameInput').value = t ? t.name : '';
+    var catSel = $('fsTplCategorySelect');
+    catSel.innerHTML = FD().PROGRAM_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    catSel.value = t ? t.category : 'Custom';
+    var chosenColor = t ? t.color : FD().PROGRAM_COLORS[0];
+    $('fsTplColorSwatches').innerHTML = FD().PROGRAM_COLORS.map(function (c) {
+      return '<div class="fs-theme-swatch' + (c === chosenColor ? ' active' : '') + '" data-tpl-color="' + c + '" style="background:' + c + ';"></div>';
+    }).join('');
+    $('fsTplColorSwatches').dataset.selected = chosenColor;
+    $('fsTplModalDelete').style.display = id ? 'inline-flex' : 'none';
+    renderTemplateDraftExercises();
+    openModal('fsTemplateModalBg');
+  }
+  function renderTemplateDraftExercises() {
+    var wrap = $('fsTplExerciseList');
+    if (!templateDraftExercises.length) { wrap.innerHTML = '<div class="fs-empty">No exercises yet — add one below.</div>'; return; }
+    wrap.innerHTML = templateDraftExercises.map(function (ex, i) {
+      return '' +
+        '<div class="fs-tpl-card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding:10px 12px;">' +
+          '<div><div style="font-weight:700;font-size:13.5px;">' + escapeHtml(ex.name || '(unnamed)') + '</div><div class="fs-tpl-card-meta">' + ex.sets + ' × ' + ex.repMin + '–' + ex.repMax + ' · ' + ex.restSec + 's rest</div></div>' +
+          '<div style="display:flex;gap:4px;">' +
+            (i > 0 ? '<button class="fs-btn fs-btn-sm" data-draft-move="' + i + ':-1">▲</button>' : '') +
+            (i < templateDraftExercises.length - 1 ? '<button class="fs-btn fs-btn-sm" data-draft-move="' + i + ':1">▼</button>' : '') +
+            '<button class="fs-btn fs-btn-sm" data-draft-edit="' + i + '">✎</button>' +
+            '<button class="fs-btn fs-btn-sm" data-draft-remove="' + i + '">✕</button>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+  }
+  function openExerciseModalForDraft(index) {
+    exerciseEditingId = index == null ? -1 : index;
+    var ex = index != null ? templateDraftExercises[index] : FD().exerciseModel({});
+    $('fsExNameInput').value = ex.name; $('fsExSetsInput').value = ex.sets;
+    $('fsExRestInput').value = ex.restSec; $('fsExRepMinInput').value = ex.repMin; $('fsExRepMaxInput').value = ex.repMax;
+    $('fsExEquipmentInput').value = ex.equipment; $('fsExNotesInput').value = ex.notes;
+    $('fsExPhotoInput').value = ex.photo; $('fsExVideoInput').value = ex.video;
+    openModal('fsExerciseModalBg');
+  }
+  function saveExerciseFromModal() {
+    var data = {
+      name: $('fsExNameInput').value.trim() || 'Untitled Exercise',
+      sets: parseInt($('fsExSetsInput').value, 10) || 3,
+      restSec: parseInt($('fsExRestInput').value, 10) || 90,
+      repMin: parseInt($('fsExRepMinInput').value, 10) || 8,
+      repMax: parseInt($('fsExRepMaxInput').value, 10) || 12,
+      equipment: $('fsExEquipmentInput').value.trim(),
+      notes: $('fsExNotesInput').value.trim(),
+      photo: $('fsExPhotoInput').value.trim(),
+      video: $('fsExVideoInput').value.trim()
+    };
+    if (exerciseEditingId >= 0 && templateDraftExercises[exerciseEditingId]) {
+      templateDraftExercises[exerciseEditingId] = FD().exerciseModel(Object.assign({}, templateDraftExercises[exerciseEditingId], data));
+    } else {
+      templateDraftExercises.push(FD().exerciseModel(Object.assign(data, { order: templateDraftExercises.length })));
+    }
+    closeModal('fsExerciseModalBg');
+    renderTemplateDraftExercises();
+  }
+  function saveTemplateFromModal() {
+    templateDraftExercises.forEach(function (e, i) { e.order = i; });
+    var data = {
+      name: $('fsTplNameInput').value.trim() || 'Untitled Program',
+      category: $('fsTplCategorySelect').value,
+      color: $('fsTplColorSwatches').dataset.selected,
+      exercises: templateDraftExercises
+    };
+    if (templateEditingId) FD().Templates.update(templateEditingId, data);
+    else FD().Templates.add(Object.assign(data, { order: FD().Templates.nextOrder() }));
+    closeModal('fsTemplateModalBg');
+    renderAll();
+  }
+
+  // ============================================================
+  // WEEKLY SCHEDULE
+  // ============================================================
+  var WEEKDAY_ORDINALS = { mon: '1', tue: '2', wed: '3', thu: '4', fri: '5', sat: '6', sun: '7' };
+  // Cursor-tracked glare + gentle perspective tilt (the "GlareCard" look,
+  // matching businessdash.html's own wireBizCardGlare()) — purely a
+  // pointermove/pointerleave overlay, touches no existing content inside
+  // the card. Skipped for touch input so it can't fight scrolling.
+  function wireDayCardGlare(card) {
+    card.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'touch') return;
+      var r = card.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width;
+      var py = (e.clientY - r.top) / r.height;
+      card.style.setProperty('--fs-glare-x', (px * 100) + '%');
+      card.style.setProperty('--fs-glare-y', (py * 100) + '%');
+      var rx = (px - 0.5) * 10;
+      var ry = (0.5 - py) * 8;
+      card.style.transform = 'perspective(900px) translateY(-4px) rotateX(' + ry + 'deg) rotateY(' + rx + 'deg)';
+      card.classList.add('fs-glare-active');
+    });
+    card.addEventListener('pointerleave', function () {
+      card.style.transform = '';
+      card.classList.remove('fs-glare-active');
+    });
+  }
+  function renderSchedule() {
+    var sched = FD().getSchedule();
+    var todayKey = FD().isoWeekdayKey(new Date());
+    var tpls = FD().templatesSorted();
+    var grid = $('fsScheduleGrid');
+    grid.innerHTML = FD().WEEKDAYS.map(function (d) {
+      var day = sched[d.key];
+      var tpl = day.templateId ? FD().Templates.get(day.templateId) : null;
+      var isToday = d.key === todayKey;
+      var opts = '<option value="">— Rest / Recovery —</option>' + tpls.map(function (t) {
+        return '<option value="' + t.id + '"' + (day.templateId === t.id ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>';
+      }).join('');
+      var featureRows = tpl && tpl.exercises.length
+        ? tpl.exercises.slice(0, 4).map(function (ex) { return '<li class="fs-plan-feature"><span class="fs-plan-feature-icon yes">✓</span>' + escapeHtml(ex.name || '(unnamed)') + '</li>'; }).join('')
+        : '<li class="fs-plan-feature"><span class="fs-plan-feature-icon no">–</span>' + (tpl ? 'No exercises yet' : 'Rest day') + '</li>';
+      var headline = escapeHtml(day.label || (tpl ? tpl.name : 'Rest'));
+      var tagline = tpl ? escapeHtml(tpl.category) : 'Recovery day';
+      return '' +
+        '<div class="fs-day-card' + (isToday ? ' today' : '') + '" data-day-card>' +
+          '<div class="fs-day-cover">' +
+            '<div class="fs-day-cover-abstract" aria-hidden="true"></div>' +
+            '<div class="fs-day-cover-overlay"></div>' +
+            '<div class="fs-day-cover-icon">' + WEEKDAY_ORDINALS[d.key] + '</div>' +
+            (isToday ? '<div class="fs-day-cover-today-badge"><span class="fs-led-dot" style="width:5px;height:5px;"></span>Today</div>' : '') +
+            '<div class="fs-day-cover-content">' +
+              '<div class="fs-day-cover-kicker">' + escapeHtml(d.label) + '</div>' +
+              '<div class="fs-day-cover-headline">' + headline + '</div>' +
+              '<div class="fs-day-cover-tagline">' + tagline + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="fs-day-body">' +
+            '<ul class="fs-plan-features">' + featureRows + '</ul>' +
+            '<select class="fs-select" data-schedule-day="' + d.key + '">' + opts + '</select>' +
+            '<input class="fs-input" data-schedule-label="' + d.key + '" placeholder="Label (e.g. Push, Rest)" value="' + escapeHtml(day.label) + '">' +
+          '</div>' +
+        '</div>';
+    }).join('');
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-day-card]'), wireDayCardGlare);
+  }
+
+  // ============================================================
+  // HEATMAP + VOLUME CHART
+  // ============================================================
+  function renderHeatmap() {
+    var weeks = FD().heatmapWeeks(14);
+    $('fsHeatmapGrid').innerHTML = weeks.map(function (week) {
+      return '<div class="fs-heat-week">' + week.map(function (d) { return '<div class="fs-heat-cell" data-level="' + d.level + '" title="' + d.date + '"></div>'; }).join('') + '</div>';
+    }).join('');
+  }
+  function renderVolumeChart() {
+    var today = new Date();
+    var weekTotals = [];
+    for (var w = 7; w >= 0; w--) {
+      var ref = new Date(today); ref.setDate(today.getDate() - w * 7);
+      var dates = FD().weekDatesFor(ref);
+      var total = dates.reduce(function (sum, iso) { return sum + FD().volumeForDate(iso); }, 0);
+      weekTotals.push(total);
+    }
+    var max = Math.max.apply(null, weekTotals.concat([1]));
+    var wrap = $('fsVolumeChart');
+    wrap.innerHTML = weekTotals.map(function (v, i) {
+      return '<div class="fs-vchart-col"><div class="fs-vchart-bar-wrap"><div class="fs-vchart-bar" data-target-height="' + Math.round((v / max) * 100) + '"></div></div><div class="fs-vchart-label">' + (i === 7 ? 'This wk' : 'Wk -' + (7 - i)) + '</div></div>';
+    }).join('');
+    // Animate in on the next frame — set to 0 first (already 0 via CSS),
+    // then apply the real height so the CSS transition actually plays.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        wrap.querySelectorAll('.fs-vchart-bar').forEach(function (bar) {
+          bar.style.height = bar.dataset.targetHeight + '%';
+        });
+      });
+    });
+  }
+
+  // ============================================================
+  // AI COACH
+  // ============================================================
+  var QUICK_PROMPTS = [
+    'Analyze my recent workout logs',
+    'Recommend progressive overload',
+    'Review my recovery trends',
+    'Estimate my training volume',
+    'Generate a weekly workout plan'
+  ];
+  function renderChat() {
+    $('fsQuickPrompts').innerHTML = QUICK_PROMPTS.map(function (p) { return '<button class="fs-chip" data-quick-prompt="' + escapeHtml(p) + '">' + escapeHtml(p) + '</button>'; }).join('');
+    var msgs = FD().chatSorted();
+    var wrap = $('fsChatMessages');
+    if (!msgs.length) {
+      wrap.innerHTML = '<div class="fs-chat-msg ai">Hey — I\'m your Fitness Coach. Ask me about progressive overload, substitutions, recovery, macros, or exercise technique, or tap a quick prompt above.</div>';
+    } else {
+      wrap.innerHTML = msgs.map(function (m) { return '<div class="fs-chat-msg ' + m.role + '">' + escapeHtml(m.text) + '</div>'; }).join('');
+    }
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+  function sendChatMessage(text) {
+    text = (text || '').trim();
+    if (!text) return;
+    FD().addChatMessage('user', text);
+    renderChat();
+    $('fsChatInput').value = '';
+    FD().coachReply(text).then(function (reply) {
+      FD().addChatMessage('ai', reply);
+      renderChat();
+    });
+  }
+
+  // ============================================================
+  // DISTRACTION-FREE MODE
+  // ============================================================
+  function openFocusMode() {
+    var ctx = currentTemplateAndLog();
+    if (!ctx.log.startedAt || ctx.log.endedAt) {
+      var tpl = activeTemplateForToday();
+      if (!tpl) { alert('Start today\'s workout first (or assign one above) to use Distraction-Free Mode.'); return; }
+      startTodayWorkout();
+    }
+    openModal('fsFocusModeBg');
+    renderFocusMode();
+  }
+  function renderFocusMode() {
+    if (!$('fsFocusModeBg').classList.contains('show')) return;
+    var ctx = currentTemplateAndLog();
+    var current = firstIncompleteExercise(ctx.tpl, ctx.log);
+    $('fsFocusExercise').textContent = current ? current.name : 'All done!';
+    var setNum = current ? Math.min((ctx.log.sets[current.id] || []).length + 1, current.sets) : 0;
+    $('fsFocusSub').textContent = current ? ('Set ' + setNum + ' of ' + current.sets) : 'Mark the workout complete when ready.';
+    var timerEl = $('fsFocusTimer');
+    if (restTimerExId && restTimerEndTs) {
+      timerEl.dataset.mode = 'rest'; timerEl.classList.add('resting');
+      timerEl.textContent = fmtClock(restTimerEndTs - Date.now());
+    } else {
+      timerEl.dataset.mode = 'session'; timerEl.classList.remove('resting');
+      timerEl.textContent = fmtClock(ctx.log.startedAt ? (Date.now() - ctx.log.startedAt) : 0);
+    }
+  }
+  function closeFocusMode() { closeModal('fsFocusModeBg'); }
+
+  // ============================================================
+  // RENDER ALL
+  // ============================================================
+  function renderAll() {
+    safeRender(renderPhotoHero, 'photoHero');
+    safeRender(renderHero, 'hero');
+    safeRender(renderTodayWorkout, 'today');
+    safeRender(renderLiveDashboard, 'live');
+    safeRender(renderGoals, 'goals');
+    safeRender(renderPrograms, 'programs');
+    safeRender(renderSchedule, 'schedule');
+    safeRender(renderHeatmap, 'heatmap');
+    safeRender(renderVolumeChart, 'volume');
+    safeRender(renderChat, 'chat');
+    safeRender(renderFocusMode, 'focus');
+  }
+
+  // ============================================================
+  // MUSIC PANEL — reads enthub:playlists directly (read-only; see this
+  // file's own header comment on why no second sync subscription is
+  // opened for it).
+  // ============================================================
+  var musicItems = [];
+  var musicQueue = [];
+  var musicSubtopicFilter = 'All';
+  var musicIndex = -1;
+  var musicCurrentSource = null; // 'youtube' | 'spotify' | 'other' | null
+  var ytPlayer = null, ytApiLoading = false;
+  // The YouTube IFrame JS API's postMessage handshake verifies the page's
+  // real origin — under file:// there isn't one (Chrome/Edge report it as
+  // the literal string "null"), so that handshake fails and the embedded
+  // player itself shows "Video player configuration error" / Error 153.
+  // This isn't a broken link or a broken video — it's specific to opening
+  // this file directly rather than through a real http(s) origin (e.g.
+  // this repo's own Vercel deploy). Detected once so YouTube tracks can
+  // fall back to a plain, API-less <iframe> embed under file:// (still
+  // plays fine, just without in-panel Play/Pause/Volume control — see
+  // loadTrack()'s youtube branch and the file-mode note in the panel).
+  var IS_FILE_PROTOCOL = window.location.protocol === 'file:';
+
+  function loadPlaylistsData() {
+    try {
+      musicItems = (window.EntHub ? window.EntHub.itemsForPage('playlists') : []) || [];
+    } catch (e) { musicItems = []; }
+  }
+  function getYouTubeId(url) {
+    try {
+      var u = new URL(url);
+      if (u.hostname.indexOf('youtu.be') !== -1) return u.pathname.slice(1).split('/')[0] || null;
+      if (u.hostname.indexOf('youtube.com') !== -1) {
+        if (u.pathname === '/watch') return u.searchParams.get('v');
+        var m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
+        if (m) return m[2];
+      }
+    } catch (e) {}
+    return null;
+  }
+  function renderMusicChips() {
+    var subtopics = window.EntHub ? window.EntHub.PAGES.playlists.subtopics : [];
+    $('fsMusicChips').innerHTML = ['All'].concat(subtopics).map(function (s) {
+      return '<button class="fs-chip' + (musicSubtopicFilter === s ? ' active' : '') + '" data-music-filter="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
+    }).join('');
+  }
+  function visibleMusicItems() {
+    return musicItems.filter(function (it) { return musicSubtopicFilter === 'All' || it.subtopic === musicSubtopicFilter; });
+  }
+  function renderMusicList() {
+    renderMusicChips();
+    var list = $('fsMusicList');
+    if (!window.EntHub) { list.innerHTML = '<div class="fs-music-empty">Couldn\'t load Playlists (entertainment-hub-data.js didn\'t load). Try a hard refresh.</div>'; return; }
+    var items = visibleMusicItems();
+    if (!items.length) { list.innerHTML = '<div class="fs-music-empty">No playlists here yet.<br><a href="ent-playlists.html" class="fs-btn fs-btn-sm" style="margin-top:10px;display:inline-flex;">Add some on the Playlists page →</a></div>'; return; }
+    list.innerHTML = items.map(function (it, i) {
+      var active = musicIndex >= 0 && musicQueue[musicIndex] && musicQueue[musicIndex].id === it.id;
+      return '' +
+        '<div class="fs-music-track' + (active ? ' active' : '') + '" data-music-play="' + i + '">' +
+          '<div class="fs-music-track-cover">' + (it.cover ? '<img src="' + escapeHtml(it.cover) + '">' : '🎧') + '</div>' +
+          '<div><div class="fs-music-track-title">' + escapeHtml(it.title || 'Untitled') + '</div><div class="fs-music-track-sub">' + escapeHtml(it.creator || it.subtopic || '') + '</div></div>' +
+        '</div>';
+    }).join('');
+  }
+  function ensureYtApi(cb) {
+    if (window.YT && window.YT.Player) { cb(); return; }
+    var prevCb = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () { if (typeof prevCb === 'function') prevCb(); cb(); };
+    if (!ytApiLoading) {
+      ytApiLoading = true;
+      var s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+  }
+  function updateFabPlayingState(playing) {
+    $('fsMusicToggleBtn').classList.toggle('playing', !!playing);
+  }
+  function loadTrack(item) {
+    var source = window.EntHub ? window.EntHub.detectSource(item.url) : null;
+    $('fsMusicNpTitle').textContent = item.title || 'Untitled';
+    $('fsMusicNpSub').textContent = item.creator || item.subtopic || '';
+    $('fsMusicNpCover').innerHTML = item.cover ? '<img src="' + escapeHtml(item.cover) + '">' : '🎧';
+    $('fsSpotifyPlayerHost').style.display = 'none';
+    $('fsMusicFallbackLink').style.display = 'none';
+    if (source === 'youtube') {
+      musicCurrentSource = 'youtube';
+      var id = getYouTubeId(item.url);
+      if (IS_FILE_PROTOCOL) {
+        // No real http(s) origin to hand the JS Player API under file://
+        // (see IS_FILE_PROTOCOL's own comment above) — sidestep its
+        // postMessage handshake entirely with a plain embed iframe
+        // instead, which plays fine without it, just without our own
+        // Play/Pause/Volume control over it (the video's own YouTube
+        // chrome still has its own controls).
+        if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
+        $('fsYtPlayerHost').innerHTML = id
+          ? '<iframe width="100%" height="100%" src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0" title="' + escapeHtml(item.title || 'YouTube video') + '" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="display:block;"></iframe>'
+          : '';
+        $('fsMusicFileModeNote').style.display = id ? 'block' : 'none';
+        updateFabPlayingState(!!id);
+        $('fsMusicPlayBtn').textContent = '⏸';
+      } else {
+        $('fsMusicFileModeNote').style.display = 'none';
+        if (ytPlayer && id) { ytPlayer.loadVideoById(id); updateFabPlayingState(true); }
+        else if (id) {
+          ensureYtApi(function () {
+            $('fsYtPlayerHost').innerHTML = '<div id="fsYtPlayerMount"></div>';
+            ytPlayer = new YT.Player('fsYtPlayerMount', {
+              // origin must match this page's own real origin, or the
+              // player's origin-verification handshake fails the same
+              // "Error 153" way — this is the standard fix for that on a
+              // real http(s) deploy (this repo's own Vercel deploy
+              // included), distinct from the file:// case handled above.
+              videoId: id, playerVars: { autoplay: 1, rel: 0, origin: window.location.origin },
+              events: {
+                onReady: function (e) { e.target.setVolume(parseInt($('fsMusicVolume').value, 10) || 70); e.target.playVideo(); updateFabPlayingState(true); },
+                onStateChange: function (e) { updateFabPlayingState(e.data === 1); $('fsMusicPlayBtn').textContent = e.data === 1 ? '⏸' : '▶'; }
+              }
+            });
+          });
+        }
+      }
+    } else if (source === 'spotify') {
+      musicCurrentSource = 'spotify';
+      if (ytPlayer) { try { ytPlayer.pauseVideo(); } catch (e) {} }
+      $('fsYtPlayerHost').innerHTML = ''; // stop any file-mode YouTube <iframe> embed (no ytPlayer to pause in that mode)
+      $('fsMusicFileModeNote').style.display = 'none';
+      var embedUrl = item.url.replace('open.spotify.com/', 'open.spotify.com/embed/');
+      var frame = $('fsSpotifyPlayerHost');
+      frame.src = embedUrl; frame.style.display = 'block';
+      updateFabPlayingState(false);
+    } else {
+      musicCurrentSource = 'other';
+      if (ytPlayer) { try { ytPlayer.pauseVideo(); } catch (e) {} }
+      $('fsYtPlayerHost').innerHTML = '';
+      $('fsMusicFileModeNote').style.display = 'none';
+      updateFabPlayingState(false);
+      if (item.url) { $('fsMusicFallbackLink').href = item.url; $('fsMusicFallbackLink').style.display = 'inline-flex'; }
+    }
+    renderMusicList();
+  }
+  function playMusicAt(visibleIndex) {
+    musicQueue = visibleMusicItems();
+    musicIndex = visibleIndex;
+    if (musicIndex < 0 || musicIndex >= musicQueue.length) return;
+    loadTrack(musicQueue[musicIndex]);
+  }
+  function musicStep(delta) {
+    if (!musicQueue.length) return;
+    musicIndex = (musicIndex + delta + musicQueue.length) % musicQueue.length;
+    loadTrack(musicQueue[musicIndex]);
+  }
+  function toggleMusicPlayPause() {
+    if (musicCurrentSource !== 'youtube' || !ytPlayer) return;
+    var state = ytPlayer.getPlayerState ? ytPlayer.getPlayerState() : -1;
+    if (state === 1) { ytPlayer.pauseVideo(); } else { ytPlayer.playVideo(); }
+  }
+  function openMusicPanel() { $('fsMusicPanel').classList.add('open'); }
+  function closeMusicPanel() { $('fsMusicPanel').classList.remove('open'); }
+
+  // ============================================================
+  // EVENT WIRING
+  // ============================================================
+  function wireEvents() {
+    $('fsSettingsBtn').addEventListener('click', function () {
+      var s = FD().getSettings();
+      $('fsSettingsUnitsSeg').querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b.dataset.val === s.units); });
+      $('fsSettingsThemeSwatches').innerHTML = FD().THEMES.map(function (t) {
+        var glyphs = { black: '⚫', red: '🔴', pink: '💗' };
+        return '<div class="fs-theme-swatch' + (t === s.theme ? ' active' : '') + '" data-settings-theme="' + t + '" style="background:rgba(255,255,255,0.06);">' + glyphs[t] + '</div>';
+      }).join('');
+      $('fsSettingsThemeSwatches').dataset.selected = s.theme;
+      $('fsSettingsBgSwatches').innerHTML = FD().BG_GLOW_PRESETS.map(function (c) {
+        return '<div class="fs-theme-swatch' + (sameHexColor(c, s.bgGlowColor) ? ' active' : '') + '" data-settings-bg-color="' + c + '" style="background:' + c + ';border-radius:10px;width:34px;height:34px;font-size:0;"></div>';
+      }).join('');
+      $('fsSettingsBgSwatches').dataset.selected = s.bgGlowColor;
+      $('fsSettingsBgCustomColor').value = s.bgGlowColor;
+      $('fsSettingsLengthInput').value = s.workoutLengthMin;
+      $('fsSettingsNotifInput').checked = s.notifications;
+      $('fsSettingsWearableInput').checked = s.wearableConnected;
+      $('fsSettingsAiToneSelect').value = s.aiTone;
+      $('fsSettingsAiFocusSelect').value = s.aiFocus;
+      $('fsSettingsKeyInput').value = s.anthropicKey;
+      openModal('fsSettingsModalBg');
+    });
+    $('fsSettingsModalCancel').addEventListener('click', function () { closeModal('fsSettingsModalBg'); });
+    $('fsSettingsUnitsSeg').addEventListener('click', function (e) {
+      var btn = e.target.closest('button'); if (!btn) return;
+      $('fsSettingsUnitsSeg').querySelectorAll('button').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+    $('fsSettingsThemeSwatches').addEventListener('click', function (e) {
+      var sw = e.target.closest('[data-settings-theme]'); if (!sw) return;
+      $('fsSettingsThemeSwatches').querySelectorAll('.fs-theme-swatch').forEach(function (el) { el.classList.remove('active'); });
+      sw.classList.add('active');
+      $('fsSettingsThemeSwatches').dataset.selected = sw.dataset.settingsTheme;
+    });
+    $('fsSettingsBgSwatches').addEventListener('click', function (e) {
+      var sw = e.target.closest('[data-settings-bg-color]'); if (!sw) return;
+      $('fsSettingsBgSwatches').querySelectorAll('.fs-theme-swatch').forEach(function (el) { el.classList.remove('active'); });
+      sw.classList.add('active');
+      $('fsSettingsBgSwatches').dataset.selected = sw.dataset.settingsBgColor;
+      $('fsSettingsBgCustomColor').value = sw.dataset.settingsBgColor;
+    });
+    $('fsSettingsBgCustomColor').addEventListener('input', function () {
+      $('fsSettingsBgSwatches').querySelectorAll('.fs-theme-swatch').forEach(function (el) { el.classList.remove('active'); });
+      $('fsSettingsBgSwatches').dataset.selected = this.value;
+    });
+    $('fsSettingsModalSave').addEventListener('click', function () {
+      var unitsBtn = $('fsSettingsUnitsSeg').querySelector('button.active');
+      if ($('fsSettingsNotifInput').checked && window.Notification && Notification.permission === 'default') {
+        try { Notification.requestPermission(); } catch (e) {}
+      }
+      FD().saveSettings({
+        units: unitsBtn ? unitsBtn.dataset.val : 'imperial',
+        theme: $('fsSettingsThemeSwatches').dataset.selected || 'red',
+        bgGlowColor: $('fsSettingsBgSwatches').dataset.selected || $('fsSettingsBgCustomColor').value,
+        workoutLengthMin: parseInt($('fsSettingsLengthInput').value, 10) || 60,
+        notifications: $('fsSettingsNotifInput').checked,
+        wearableConnected: $('fsSettingsWearableInput').checked,
+        aiTone: $('fsSettingsAiToneSelect').value,
+        aiFocus: $('fsSettingsAiFocusSelect').value,
+        anthropicKey: $('fsSettingsKeyInput').value.trim()
+      });
+      applyTheme();
+      closeModal('fsSettingsModalBg');
+      renderAll();
+    });
+
+    $('fsHeroEditBtn').addEventListener('click', openHeroModal);
+    $('fsHeroModalCancel').addEventListener('click', function () { closeModal('fsHeroModalBg'); });
+    $('fsHeroModalSave').addEventListener('click', function () {
+      FD().saveHero({
+        name: $('fsHeroNameInput').value.trim() || 'Athlete',
+        focus: $('fsHeroFocusInput').value.trim(),
+        quote: $('fsHeroQuoteInput').value.trim() || 'Discipline creates freedom.',
+        weeklyGoalTarget: parseInt($('fsHeroWeeklyGoalInput').value, 10) || 6
+      });
+      closeModal('fsHeroModalBg');
+      renderHero();
+      renderPhotoHero();
+    });
+
+    wireInlineEdit($('fsPhotoHeroEyebrow'), function (v) { FD().saveHero({ eyebrow: v }); renderHero(); }, { allowEmpty: true });
+    wireInlineEdit($('fsPhotoHeroSubtext'), function (v) { FD().saveHero({ quote: v }); renderHero(); }, { allowEmpty: false });
+    wireInlineEdit($('fsPhotoHeroCtaLabel'), function (v) { FD().saveHero({ ctaLabel: v }); }, { allowEmpty: false });
+    $('fsPhotoHeroTitle').addEventListener('input', function () { autosize($('fsPhotoHeroTitle')); });
+    $('fsPhotoHeroTitle').addEventListener('blur', function () {
+      FD().saveHero({ name: $('fsPhotoHeroTitle').value.trim() || 'Athlete' });
+      renderHero();
+    });
+    $('fsPhotoHeroAddBtn').addEventListener('click', openPhotoHeroFilePicker);
+    $('fsPhotoHeroChangeBtn').addEventListener('click', function (e) { e.stopPropagation(); openPhotoHeroFilePicker(); });
+    $('fsPhotoHeroRemoveBtn').addEventListener('click', function (e) { e.stopPropagation(); renderPhotoHeroPhoto(FD().saveHero({ photo: '' })); });
+    $('fsPhotoHeroPhotoInput').addEventListener('change', handlePhotoHeroPhotoFile);
+    $('fsPhotoHeroCta').addEventListener('click', function () {
+      $('fsTodayCard').scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+
+    $('fsTodayOverrideSelect').addEventListener('change', renderTodayWorkout);
+    $('fsStartWorkoutBtn').addEventListener('click', startTodayWorkout);
+    $('fsCompleteWorkoutBtn').addEventListener('click', completeTodayWorkout);
+
+    $('fsTodayExerciseList').addEventListener('click', function (e) {
+      var toggle = e.target.closest('[data-toggle-ex]');
+      var doneToggle = e.target.closest('[data-toggle-done]');
+      var logBtn = e.target.closest('[data-log-set]');
+      var startRest = e.target.closest('[data-start-rest]');
+      var stopRest = e.target.closest('[data-stop-rest]');
+      var photoThumb = e.target.closest('[data-lightbox-photo]');
+      var videoThumb = e.target.closest('[data-lightbox-video]');
+      if (doneToggle) {
+        e.stopPropagation();
+        var exId = doneToggle.dataset.toggleDone;
+        var iso = todayIso();
+        var log = FD().getDayLog(iso);
+        FD().markExerciseDone(iso, exId, log.doneIds.indexOf(exId) === -1);
+        renderTodayWorkout(); renderLiveDashboard();
+        return;
+      }
+      if (logBtn) {
+        e.stopPropagation();
+        var exId2 = logBtn.dataset.logSet;
+        var weight = parseFloat($('fsSetWeight_' + exId2).value);
+        var reps = parseInt($('fsSetReps_' + exId2).value, 10);
+        var tpl = activeTemplateForToday();
+        var ex = tpl ? tpl.exercises.find(function (x) { return x.id === exId2; }) : null;
+        handleLogSet(exId2, weight, reps, ex ? ex.name : '');
+        return;
+      }
+      if (startRest) {
+        e.stopPropagation();
+        startRestTimer(startRest.dataset.startRest, parseInt(startRest.dataset.restSec, 10) || 90);
+        return;
+      }
+      if (stopRest) { e.stopPropagation(); clearRestTimer(); renderTodayWorkout(); return; }
+      if (photoThumb) {
+        e.stopPropagation();
+        var lbContent = $('fsLightboxContent'); lbContent.innerHTML = '';
+        var img = document.createElement('img'); img.style.cssText = 'width:100%;border-radius:12px;'; img.src = photoThumb.dataset.lightboxPhoto;
+        lbContent.appendChild(img); openModal('fsLightboxModalBg'); return;
+      }
+      if (videoThumb) {
+        e.stopPropagation();
+        var lbContent2 = $('fsLightboxContent'); lbContent2.innerHTML = '';
+        var vid = document.createElement('video'); vid.controls = true; vid.style.cssText = 'width:100%;border-radius:12px;'; vid.src = videoThumb.dataset.lightboxVideo;
+        lbContent2.appendChild(vid); openModal('fsLightboxModalBg'); return;
+      }
+      if (toggle) { expandedExId = expandedExId === toggle.dataset.toggleEx ? null : toggle.dataset.toggleEx; renderTodayWorkout(); }
+    });
+    $('fsLightboxModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal('fsLightboxModalBg'); });
+
+    $('fsLiveHrInput').addEventListener('change', function () { FD().saveDayLog(todayIso(), { heartRateBpm: parseInt(this.value, 10) || null }); });
+    $('fsWaterAddCup').addEventListener('click', function () { FD().addWater(todayIso(), 250); renderLiveDashboard(); });
+    $('fsWaterAddBottle').addEventListener('click', function () { FD().addWater(todayIso(), 500); renderLiveDashboard(); });
+
+    $('fsAddShortGoalBtn').addEventListener('click', function () { openGoalModal('short', null); });
+    $('fsAddLongGoalBtn').addEventListener('click', function () { openGoalModal('long', null); });
+    document.body.addEventListener('click', function (e) {
+      var editGoal = e.target.closest('[data-edit-goal]');
+      if (!editGoal) return;
+      var g = FD().Goals.get(editGoal.dataset.editGoal);
+      if (g) openGoalModal(g.kind, g.id);
+    });
+    $('fsGoalModalCancel').addEventListener('click', function () { closeModal('fsGoalModalBg'); });
+    $('fsGoalModalSave').addEventListener('click', saveGoalFromModal);
+    $('fsGoalModalDelete').addEventListener('click', function () { if (goalEditingId && confirm('Delete this goal?')) { FD().Goals.remove(goalEditingId); closeModal('fsGoalModalBg'); renderGoals(); } });
+
+    $('fsProgramGrid').addEventListener('click', function (e) {
+      var card = e.target.closest('[data-filter-category]'); if (!card) return;
+      programFilterCategory = card.dataset.filterCategory; renderPrograms();
+      $('fsTemplateList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    $('fsProgramFilterChips').addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-set-category-filter]'); if (!chip) return;
+      programFilterCategory = chip.dataset.setCategoryFilter; renderPrograms();
+    });
+    $('fsAddTemplateBtn').addEventListener('click', function () { openTemplateModal(null); });
+    $('fsImportExercisesBtn').addEventListener('click', function () {
+      var added = FD().importExercisesFromOtherFitnessStudios();
+      renderAll();
+      if (added) { programFilterCategory = 'Custom'; renderPrograms(); alert('Imported ' + added + ' program' + (added === 1 ? '' : 's') + ' into Custom — check the Workout Programs section below.'); }
+      else { alert("No new exercises to import — either gym.html/Main's Fitness Studio tab have no routines saved yet, or everything from them is already imported."); }
+    });
+    $('fsTemplateList').addEventListener('click', function (e) {
+      var editBtn = e.target.closest('[data-edit-template]'); if (!editBtn) return;
+      openTemplateModal(editBtn.dataset.editTemplate);
+    });
+    $('fsTplColorSwatches').addEventListener('click', function (e) {
+      var sw = e.target.closest('[data-tpl-color]'); if (!sw) return;
+      $('fsTplColorSwatches').querySelectorAll('.fs-theme-swatch').forEach(function (el) { el.classList.remove('active'); });
+      sw.classList.add('active'); $('fsTplColorSwatches').dataset.selected = sw.dataset.tplColor;
+    });
+    $('fsTplAddExerciseBtn').addEventListener('click', function () { openExerciseModalForDraft(null); });
+    $('fsTplExerciseList').addEventListener('click', function (e) {
+      var editEx = e.target.closest('[data-draft-edit]');
+      var removeEx = e.target.closest('[data-draft-remove]');
+      var moveEx = e.target.closest('[data-draft-move]');
+      if (editEx) { openExerciseModalForDraft(parseInt(editEx.dataset.draftEdit, 10)); return; }
+      if (removeEx) { templateDraftExercises.splice(parseInt(removeEx.dataset.draftRemove, 10), 1); renderTemplateDraftExercises(); return; }
+      if (moveEx) {
+        var parts = moveEx.dataset.draftMove.split(':'); var idx = parseInt(parts[0], 10), dir = parseInt(parts[1], 10);
+        var swap = idx + dir;
+        if (swap >= 0 && swap < templateDraftExercises.length) {
+          var tmp = templateDraftExercises[idx]; templateDraftExercises[idx] = templateDraftExercises[swap]; templateDraftExercises[swap] = tmp;
+          renderTemplateDraftExercises();
+        }
+      }
+    });
+    $('fsExModalCancel').addEventListener('click', function () { closeModal('fsExerciseModalBg'); });
+    $('fsExModalSave').addEventListener('click', saveExerciseFromModal);
+    $('fsTplModalCancel').addEventListener('click', function () { closeModal('fsTemplateModalBg'); });
+    $('fsTplModalSave').addEventListener('click', saveTemplateFromModal);
+    $('fsTplModalDelete').addEventListener('click', function () {
+      if (templateEditingId && confirm('Delete this workout program? Its exercises go with it.')) {
+        FD().Templates.remove(templateEditingId);
+        closeModal('fsTemplateModalBg');
+        renderAll();
+      }
+    });
+
+    $('fsScheduleGrid').addEventListener('change', function (e) {
+      var sel = e.target.closest('[data-schedule-day]');
+      var input = e.target.closest('[data-schedule-label]');
+      if (sel) { FD().saveScheduleDay(sel.dataset.scheduleDay, { templateId: sel.value || null }); renderHero(); renderTodayWorkout(); renderSchedule(); }
+      if (input) { FD().saveScheduleDay(input.dataset.scheduleLabel, { label: input.value }); renderSchedule(); }
+    });
+
+    $('fsQuickPrompts').addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-quick-prompt]'); if (!chip) return;
+      sendChatMessage(chip.dataset.quickPrompt);
+    });
+    $('fsChatSendBtn').addEventListener('click', function () { sendChatMessage($('fsChatInput').value); });
+    $('fsChatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendChatMessage(this.value); });
+
+    $('fsFocusModeBtn').addEventListener('click', openFocusMode);
+    $('fsFocusExitBtn').addEventListener('click', closeFocusMode);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('fsFocusModeBg').classList.contains('show')) closeFocusMode(); });
+    $('fsFocusLogBtn').addEventListener('click', function () {
+      var ctx = currentTemplateAndLog();
+      var current = firstIncompleteExercise(ctx.tpl, ctx.log);
+      if (!current) return;
+      var weight = parseFloat($('fsFocusWeight').value), reps = parseInt($('fsFocusReps').value, 10);
+      handleLogSet(current.id, weight, reps, current.name);
+      renderFocusMode();
+    });
+    $('fsFocusRestBtn').addEventListener('click', function () {
+      var ctx = currentTemplateAndLog();
+      var current = firstIncompleteExercise(ctx.tpl, ctx.log);
+      if (current) startRestTimer(current.id, current.restSec);
+      renderFocusMode();
+    });
+    $('fsFocusNextBtn').addEventListener('click', function () {
+      var ctx = currentTemplateAndLog();
+      var current = firstIncompleteExercise(ctx.tpl, ctx.log);
+      if (current) FD().markExerciseDone(ctx.iso, current.id, true);
+      renderAll(); renderFocusMode();
+    });
+
+    document.querySelectorAll('.modal-bg').forEach(function (bg) {
+      if (bg.id === 'fsLightboxModalBg') return;
+      bg.addEventListener('click', function (e) { if (e.target === bg) bg.classList.remove('show'); });
+    });
+
+    // ---- Music panel ----
+    $('fsMusicToggleBtn').addEventListener('click', openMusicPanel);
+    $('fsMusicCloseBtn').addEventListener('click', closeMusicPanel);
+    $('fsMusicChips').addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-music-filter]'); if (!chip) return;
+      musicSubtopicFilter = chip.dataset.musicFilter; renderMusicList();
+    });
+    $('fsMusicList').addEventListener('click', function (e) {
+      var track = e.target.closest('[data-music-play]'); if (!track) return;
+      playMusicAt(parseInt(track.dataset.musicPlay, 10));
+    });
+    $('fsMusicPrevBtn').addEventListener('click', function () { musicStep(-1); });
+    $('fsMusicNextBtn').addEventListener('click', function () { musicStep(1); });
+    $('fsMusicPlayBtn').addEventListener('click', toggleMusicPlayPause);
+    $('fsMusicVolume').addEventListener('input', function () { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(parseInt(this.value, 10)); });
+
+    window.addEventListener('storage', function (e) { if (e.key && e.key.indexOf('enthub:') === 0) { loadPlaylistsData(); renderMusicList(); } });
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  var remoteApplied = false;
+  function maybeSeedAfterSyncAttempt() {
+    // Same empty-storage seed-race-safety window as every other page in
+    // this app: never seed default data before initCloudSync's own cloud
+    // pull has had a real chance to answer, or it could push a freshly-
+    // seeded "default" board to Supabase and clobber another device's
+    // real data. The gym.html/Main-tab exercise import shares this same
+    // deferral for the same reason — it's still a write to this page's
+    // own synced Templates collection, even though what it reads from
+    // (po_coach_v1, fitness:templates) lives outside this page's sync
+    // entirely. Import is idempotent (dedupe by importSource+
+    // importSourceId), so it's safe to just re-run it here on every boot
+    // once the window has passed — it'll only ever add what's genuinely
+    // new since the last run.
+    if (!remoteApplied && FD().isEmptyEverywhere()) FD().seedIfEmpty();
+    FD().importExercisesFromOtherFitnessStudios();
+    renderAll();
+  }
+  function boot() {
+    if (!window.FitStudioData) { showBootErrorBanner('FitStudioData did not load — check that fitnessstudio-data.js loaded correctly.', 'boot'); return; }
+    applyTheme();
+    wireEvents();
+    loadPlaylistsData();
+    renderMusicList();
+    renderAll();
+    if (window.initCloudSync) {
+      window.initCloudSync({
+        appKey: 'fitnessstudio',
+        syncedPrefixes: ['fitstudio:'],
+        onApplied: function () { remoteApplied = true; applyTheme(); renderAll(); }
+      });
+    }
+    setTimeout(maybeSeedAfterSyncAttempt, 5000);
+  }
+  document.addEventListener('DOMContentLoaded', function () { runSafely(boot, 'boot'); });
+})();
+</script>
+</body>
+</html>

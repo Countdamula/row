@@ -42,6 +42,7 @@ Vercel's static server) — see README.md.
 | `tasksnotes.html` | Tasks & Notes — moved out of Business Hub, where it used to be a 5th tab (new standalone top-level page — see changelog). Same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Three genuinely separate "databases", never merged: Links (a small drag-reorderable card grid of URL + description cards), Notes (a full searchable/taggable list, distinct from a single freeform note), and Tasks (the same status/priority/recurrence/Today-view system as every other task list in this app, scoped to this page only) |
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
 | `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`), Main's Fitness Studio exercises (`fitness:templates` — one imported task per exercise, scheduled on its template's assigned weekday(s), source-grouped as "Main" since Fitness Studio lives inside Main), and System's Actions + Challenges (`system:actions`/`system:challenges`, still that exact prefix — see the merge changelog entry on why the prefix name didn't change even though `system.html` itself did) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
+| `learning-dashboard.html` | Learning Dashboard — a genuinely new, standalone daily-study command center, built from a detailed spec (own persistent left sidebar, ten sections: Home / Learning Dashboard / Active Topics / Daily Notes / Knowledge Maps / Personal Frameworks / Master Notes / Research Library / Analytics / Settings). Explicitly separate from `learning.html`/`learning-topic.html` (a different, smaller Topics+Resources gallery, gold theme) — no data shared, no code shared. Own private near-black/crimson/pink `--lhd-*` palette (a literal, explicit color instruction — same one-off aesthetic-exception category as every other themed page, see §6), plus a page-scoped light/dark theme toggle (this page's own addition, not shared with the rest of the app). Nine genuinely separate collections (Topics/DailyLogs/Research/Maps/Frameworks/MasterNotes/Notes/Projects/Questions/Sessions, plus a single Settings record) in `learning-dashboard-data.js`, same `makeCollection`/model-factory conventions as `aitech-data.js`. A hand-rolled, drag/zoom/pan node-link Knowledge Map canvas (absolute-positioned nodes + an SVG edge layer, no canvas/WebGL library), a Command Palette (Ctrl+K, fuzzy substring match over pages/topics/frameworks/master notes), and a timestamp-diff Study Timer (stopwatch + Pomodoro, synthesized Web Audio beep) are all genuinely new mechanisms in this app, not ported from elsewhere. See the changelog entry for the full breakdown and the confirmed adaptations (this was originally requested as a Next.js/React/TypeScript/Tailwind/shadcn/Framer Motion app, which conflicts with this repo's actual no-build-step architecture — built natively in this repo's real stack instead, per an explicit choice offered and confirmed with the user first) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -215,7 +216,11 @@ page's CSS is self-contained in its own `<style>` block):
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
    | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs`, `system:actions`/`system:challenges`, and (new) `fitness:templates`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entries — those prefixes and their data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
+   | `learninghub` | `learning-dashboard.html` (new) | everything prefixed `lhub:` (`lhub:topics`, `lhub:dailyLogs`, `lhub:research`, `lhub:maps`, `lhub:frameworks`, `lhub:masterNotes`, `lhub:notes`, `lhub:projects`, `lhub:questions`, `lhub:sessions`, `lhub:settings`, `lhub:seeded`) — new (see changelog). Deliberately a different prefix than `learning.html`'s own `learning:` prefix so the two pages' data can never collide |
+   | `businessos` | `businessos.html` (new) | everything prefixed `bos:` (`bos:businesses`, `bos:goals`, `bos:projects`, `bos:products`, `bos:content`, `bos:customers`, `bos:operations`, `bos:financeTx`, `bos:financeInvoices`, `bos:financeBudgets`, `bos:financeSubs`, `bos:aiPrompts`, `bos:knowledge`, `bos:notes`, `bos:files`, `bos:tasks`, `bos:captures`, `bos:settings`, `bos:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row — nothing here reads, writes, or repurposes that page's data |
+   | `businessdash` | `businessdash.html` (new) | everything prefixed `bizdash:` (`bizdash:businesses`, `bizdash:sections`, `bizdash:links`, `bizdash:series`, `bizdash:manuscripts`, `bizdash:binderNodes`, `bizdash:trackers`, `bizdash:tasks`, `bizdash:ytVideos`, `bizdash:blogPosts`, `bizdash:prompts`, `bizdash:tracks`, `bizdash:articles`, `bizdash:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row and `businessos.html`'s own `key='businessos'` row — nothing here reads, writes, or repurposes either page's data |
    | `enthub` | `ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html` (new) | everything prefixed `enthub:` (`enthub:podcasts`, `enthub:stories`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, plus each page's own device-local `enthub:<page>:activeSubtopic`/`enthub:favorites:activePage` UI-state keys) — one shared row across all five pages, same "one row covers several logically separate pages" precedent the `goals` row already uses (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
+   | `fitnessstudio` | `fitnessstudio.html` (new) | everything prefixed `fitstudio:` (`fitstudio:templates`, `fitstudio:goals`, `fitstudio:prs`, `fitstudio:schedule`, `fitstudio:settings`, `fitstudio:hero`, `fitstudio:log:<date>`, `fitstudio:progression`, `fitstudio:aiChat`, `fitstudio:seeded`) — new (see changelog). Genuinely separate from `gym.html`'s own `key='po-coach'` row and `index.html`'s own `fitness:*` prefix under the `goals` row — nothing here reads or writes either. Its music slide-out panel reads `enthub:playlists` directly out of localStorage (read-only, no second sync subscription opened for it — see the changelog entry) rather than through its own sync call |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -274,6 +279,10 @@ using `sync.js`.
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
 | Main Pillar | 🎮 `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (briefly deleted, then restored from a dangling git blob since it had never been committed — see changelog) |
 | Tasks | 🗂️ `TASKS` → `tasks.html` | `tasks.html` + `tasks-data.js` (new — see changelog) |
+| Learning Dashboard | 🧠 `Learning Dashboard` nav folder → `learning-dashboard.html` | `learning-dashboard.html` + `learning-dashboard-data.js` (new — see changelog) |
+| Business OS | ◆ `Business OS` nav folder → `businessos.html` | `businessos.html` + `businessos-data.js` (new — a genuinely separate multi-business CEO command center from the Business folder above; touches none of that folder's files/data — see changelog) |
+| Business Dashboard | 🏢 `Business Dashboard` nav folder → `businessdash.html` | `businessdash.html` + `businessdash-data.js` (new — a gallery of businesses; two of them, "YouTube Dashboard" and "Blogging Dashboard," are genuine singleton `Business` records with their own `kind` field (`'youtube'`/`'blog'` vs. the default `'business'`) that swaps in a Videos/Posts + Prompt Vault + Track/Article Library layout in place of the ordinary Series & Manuscripts Writing Dashboard — same Business Card, same glare-hover treatment, same Notes/Links/Tasks & Templates, alongside every real business like Midnight Press/North & Co., not nested inside any of them. The main view also has an "All Tasks" master database below the gallery, grouped by business (which naturally includes the two dashboard businesses) and filterable by kind, reading straight off the one shared Tasks collection every business already writes to — see changelog. Genuinely separate from the Business folder's Content Hub and from Business OS — touches none of either's files/data) |
+| Fitness Studio | 💪 `Fitness Studio` nav folder → `fitnessstudio.html` | `fitnessstudio.html` + `fitnessstudio-data.js` (new — its own nav folder between Business Dashboard and Entertainment; genuinely separate from `gym.html`'s own "Fitness Studio"/STUDIO pill and `index.html`'s own embedded Fitness Studio tab — touches none of either's files/data. A hero (greeting/focus/today's workout/a Weekly Goal progress ring/quote), Today's Workout (expandable exercise cards — sets/reps, a rest-timer countdown, Log Set, photo/video thumbnails, a completion check), a Live Workout Dashboard shown while a workout is active (session timer, rest timer, current set, manual heart-rate entry, water intake, duration, an estimated-calories readout, volume lifted), a Goal Center (short-/long-term goals with a manual 0–100% progress bar, deliberately not derived from target/current math since the two can have opposite directionality), Workout Programs (7 fixed categories + Custom, a template/exercise editor), a Weekly Schedule grid, a 14-week consistency heatmap + an animated 8-week volume bar chart, an AI Fitness Coach chat panel, Settings (Imperial/Metric, a Black/Red/Pink theme picker, workout length, notifications, a manual wearable heart-rate toggle, AI tone/focus + an optional pasted Anthropic key), a Distraction-Free training-mode overlay, PR confetti, and a music slide-out panel reading `enthub:playlists` live — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file. Home and Build Your System (`system.html`) were
@@ -10162,3 +10171,1519 @@ both as originally phrased assumed a backend this app doesn't have):
     than silently failing to paint, and confirming an eyebrow-only edit
     no longer blanks the title/subtext) is recommended before relying on
     this heavily.
+
+- **New page: `learning-dashboard.html` ("Learning Dashboard"), a
+  standalone daily-study command center, built from a detailed written
+  spec.** The spec asked for a full Next.js/React/TypeScript/Tailwind/
+  Framer Motion/shadcn/Recharts app — this repo has no framework, no
+  build step, no bundler, and no package.json anywhere (§1), so that
+  stack cannot be dropped into this repo as another page. Rather than
+  silently force-fitting the request or silently ignoring it, the
+  mismatch was flagged and the user was asked directly (confirmed via
+  two clarifying questions before writing any code): build it natively
+  in this repo's real vanilla-HTML/CSS/JS stack (chosen, over a separate
+  Next.js project or extending `learning.html` in place), as a genuinely
+  new, standalone top-level page — not a rebuild of the pre-existing
+  `learning.html`/`learning-topic.html` ("Learning" folder — a smaller
+  Topics+Resources gallery, gold theme, completely untouched by this
+  work). Genuinely new files, `learning-dashboard.html` +
+  `learning-dashboard-data.js` — new nav folder (`🧠 Learning Dashboard`
+  → `learning-dashboard.html`, appended after the pre-existing "Learning"
+  folder in `topbar.js`'s `NAV_GROUPS` — the only structural edit made to
+  that shared file, plus adding `.lhd-topic-page-bg`/`.lhd-modal-bg` to
+  its `MODAL_SELECTORS` array so this page's own overlays get the shared
+  mobile scroll-lock treatment, same "register any new modal-like
+  overlay" rule as DO NOT MODIFY §2); new sync key (`appKey:
+  'learninghub'`, `syncedPrefixes: ['lhub:']`, wired via the standard
+  shared `initCloudSync` — same call pattern as every other page, nothing
+  new invented).
+  - **Palette, an explicit exception**: the request gave literal hex
+    values (near-black `#0D0D0D`/`#171717`, crimson `#E11D48`, pink
+    `#F472B6`, white text, gray muted text) — the same "explicit,
+    literal color instruction" exception category as every other themed
+    page in this app (§6/DO NOT MODIFY rule 2), scoped entirely to this
+    file's own private `--lhd-*` tokens; no other page's tokens were
+    touched. `--good`/`--warn`/`--bad`/`--info` stayed this app's usual
+    green/amber/red-coral/blue (status meaning, not brand accent, same
+    precedent every other re-theme in this app already follows). Inter
+    was loaded from Google Fonts for real crisp typography (this app's
+    default font stack only ever names "Inter" as a fallback that rarely
+    actually resolves to the real font). **One genuinely new capability,
+    not present anywhere else in this app**: a page-scoped light/dark
+    theme toggle (`[data-lhd-theme="light"]` token overrides + a header
+    button) — this app is dark-only everywhere else by design (§3), but
+    the spec explicitly asked for a theme toggle, so it was built as a
+    self-contained addition to this one page rather than touching the
+    app's global dark-only convention.
+  - **Layout**: a persistent left sidebar (page-internal, not the shared
+    `topbar.js` drawer — this page's own ten-section nav, matching the
+    spec's literal sidebar list) plus a sticky top header (search-as-
+    command-palette trigger, a quick-timer icon, the theme toggle, a
+    quick "New Topic" button) over one scrollable content area. The
+    sidebar collapses to a slide-in drawer under 980px, with its own
+    hamburger toggle — deliberately separate from `topbar.js`'s own
+    already-existing overlay-drawer nav (§1's note on why a *permanently
+    docked* sidebar wasn't used app-wide applies here too: this is a
+    page-local nav layer sitting inside one page's own layout, not a
+    second global nav mechanism).
+  - **Data model** (`learning-dashboard-data.js`, same `makeCollection` +
+    model-factory conventions as `aitech-data.js`): nine genuinely
+    separate collections — Topics, DailyLogs (one per topic+date,
+    upserted), Research, Maps, Frameworks, MasterNotes, Notes (atomic),
+    Projects, Questions, Sessions (timer log) — plus a single Settings
+    record. A Topic's "Sources" tab and the global Research Library are
+    the *same* Research data viewed two ways (full CRUD vs. a compact
+    read list), not a duplicated collection, since a research source and
+    a topic's sources are the same thing. Deleting a Topic nulls out
+    `topicId` on every dependent record instead of cascading a delete —
+    same null-out-the-reference precedent `aitech-data.js`'s model
+    deletion already established. Hours logged, current streak, weekly
+    activity, and monthly completion trend are all computed live from
+    real records on every read, never stored, so they can never drift —
+    same "derived, not stored" precedent this app's other roll-up
+    numbers already use.
+  - **Home**: today's study goal (driven by Settings' default session
+    length + the "current topic," defined as whichever active topic was
+    most recently studied), a current-topic-and-stage card, today's media
+    checklist (instant-toggle, no modal), recently studied topics, and a
+    progress-overview bar per topic — matching the spec's own section
+    list.
+  - **Learning Dashboard**: large topic cards (icon, week/stage, %
+    complete, a progress bar, the topic's current question, estimated vs.
+    logged hours, a "Resume →" affordance) with a status filter chip row
+    — the literal card example from the spec ("Artificial Intelligence,
+    Week 2, 63%, Resume →") is one of three seeded topics.
+  - **Active Topics**: a compact, searchable CRUD list/table view — a
+    deliberate, disclosed distinction from Learning Dashboard's rich
+    cards (same underlying Topics collection, two different views: one
+    for browsing, one for managing).
+  - **Topic page**: a full-page overlay (`.lhd-topic-page-bg`, registered
+    in `topbar.js`'s `MODAL_SELECTORS`) with all ten sub-tabs from the
+    spec — Overview, Progress (the Monthly Workflow's four
+    Gather-Explore/Organize-Connect/Integrate-Apply/Teach-Reflect-Expand
+    weeks, each with that week's fixed task/output reference list, a
+    week switcher, and recent sessions), Research, Notes (atomic notes —
+    quotes/vocabulary/definitions/raw, Week 2's outputs), Knowledge Map,
+    Frameworks, Master Note, Projects, Questions (a running question
+    bank, distinct from the five fixed daily critical-thinking prompts),
+    and Sources (the compact read-only view of the same Research data).
+  - **Daily Study Widget** (a modal, reachable from Home/a topic page/the
+    Daily Notes feed): a topic selector, the six-item media checklist,
+    the five critical-thinking prompts ("What is missing?", "What's
+    beneath this?", "What are the flaws?", "What are the implications?",
+    "What's the origin?"), the seven-field output checklist (Raw Notes/
+    Main Idea/Patterns/Contradictions/Connections/Questions/Examples),
+    and minutes studied — saved as that topic's DailyLog for today.
+    **"Open in Obsidian," confirmed adaptation**: this app has no server
+    and no filesystem access (§2), so it cannot write a file into a real
+    Obsidian vault directly — the button instead deep-links via the
+    `obsidian://new?...` URI scheme (which does work, given the Obsidian
+    desktop/mobile app installed) and clearly explains the Settings-page
+    vault-path field's role, rather than silently pretending to do
+    something it can't.
+  - **Daily Notes**: a chronological feed across every topic's real
+    DailyLog output (not a separate collection — this is literally what
+    the widget writes), filterable by topic.
+  - **Research Library**: grouped by the nine fixed categories (Books/
+    Research Papers/Articles/Videos/Podcasts/AI Conversations/Courses/
+    PDFs/Bookmarks), topic-filterable, searchable, status-cycled
+    (to-review/in-progress/done).
+  - **Knowledge Maps**: a genuinely new, hand-rolled node-based canvas —
+    no canvas/WebGL library. Nodes are absolute-positioned, real-time
+    draggable divs; edges are an SVG line layer with optional labels,
+    redrawn live while dragging; a "🔗 Connect" mode draws a new labeled
+    edge between two clicked nodes; zoom (a control + Ctrl+scroll) and
+    pan (drag the empty canvas) both work via a single CSS `transform:
+    translate(...) scale(...)` on the canvas layer, with drag deltas
+    divided by the current zoom so dragging a node still tracks the
+    cursor correctly at any zoom level. A map can optionally belong to a
+    topic (rendered inside that topic's own Knowledge Map tab) or stand
+    alone (the global Knowledge Maps section).
+  - **Personal Frameworks**: a grid of cards, each opening a detail view
+    with editable, reorderable, "+ Generate Section" note sections — the
+    same generated-on-demand-sections pattern `business.html`'s Platform
+    Detail pages already established, reused rather than invented a
+    second time.
+  - **Master Notes**: a real reading interface — a note list + a
+    rendered pane with a table of contents (auto-built from the note's
+    own `#`/`##`/`###` headings, click to scroll-jump), search, and a
+    "Linked From" backlinks panel. `[[Note Title]]` syntax (checked
+    case-insensitively against every other master note's title) renders
+    as a clickable pill; clicking an unresolved `[[...]]` offers to
+    create that note on the spot. The seed data includes two master
+    notes that genuinely link to each other, so backlinks resolve
+    correctly out of the box, not just in theory.
+  - **Analytics**: streak, hours studied, topics completed, books read,
+    research papers read, master notes, frameworks created, and
+    knowledge maps as stat tiles; a 7-day activity bar chart (plain div
+    bars, this app's own established no-charting-library convention) and
+    a CSS `conic-gradient` donut for overall completion % + a status
+    breakdown — no SVG path math needed for a single-value donut.
+  - **Settings**: a dark/light toggle, an accent-color swatch picker
+    (repaints `--lhd-accent`/`--lhd-accent-rgb` live), default session
+    length, Pomodoro work/break lengths, a notifications toggle (drives
+    whether the timer's phase-change beep plays), and the Obsidian vault
+    path field.
+  - **Study Timer**: timestamp-based (`Date.now()` diffs, not a naive
+    tick counter), so a backgrounded/throttled tab can't drift — same
+    precedent `gym.html`'s own workout timer and `selfcare.html`'s
+    breathing pacer already established. Stopwatch mode counts up with a
+    pulsing full ring; Pomodoro mode counts down through alternating
+    work/break phases on a depleting SVG ring, with a synthesized Web
+    Audio beep at each phase change (no bundled audio asset, same
+    "no binary assets" convention `gym.html`'s own timer already set).
+    Stopping logs a Session against the selected topic and marks it
+    "recently studied."
+  - **Command Palette (Ctrl+K)**: a substring-filtered list spanning
+    every nav section, every topic, every framework, and every master
+    note, plus a few quick actions (New Topic, Start Study Session, Open
+    Timer) — arrow-key navigable, Enter jumps to the top/selected result,
+    also reachable by clicking the header's search box.
+  - **Reusable component, not ten near-duplicate modals**: a single
+    `openFormModal({title, fields, values, onSubmit, onDelete, ...})`
+    helper (a field-descriptor array: text/textarea/select/number/color/
+    checkbox) backs every add/edit modal in this feature (Topic/
+    Research/Framework/Master-Note-details/Note/Project/Question/Map) —
+    the concrete answer to the request's own "component-based, reusable,
+    no duplicated code" instruction.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), showing a visible banner
+    with the real error and a "Copy error details" button instead of a
+    silent blank page, matching the precedent `business.html`/`gym.html`/
+    `mainpillar.html` already established for this exact failure class.
+    Every section's own render call is independently wrapped too, so one
+    section throwing can't blank out the rest of the page.
+  - **Empty-storage seed-race safety**
+    (`maybeSeedAfterSyncAttempt()`, deferred until either real cloud data
+    arrives via `onApplied` or a 5-second window elapses, or immediately
+    if the Supabase SDK never loaded) — same reasoning as every other
+    page in this app: seeding three example topics (Artificial
+    Intelligence, Stoic Philosophy, Visual Design Systems, each with
+    real research/notes/frameworks/master-notes/projects/questions/a
+    knowledge map/daily logs) before the cloud pull has a real chance to
+    answer could push a freshly-seeded board to Supabase and clobber
+    another device's real data.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`/`python3` both absent; only a stub `python.exe`
+    resolved), so this was verified statically only, the same reduced-
+    guarantee fallback several other entries in this file already
+    disclose for this exact class of limitation: brace/paren/bracket
+    balance confirmed on both new files (a genuine bracket-count
+    "mismatch" in the data file was investigated and confirmed to be a
+    false positive from two `/\[\[([^\]]+)\]\]/g` regex literals, not a
+    real syntax error); zero duplicate DOM ids after fixing one found-
+    and-fixed redundant static `<svg id="lhdMapSvg">` that was always
+    immediately overwritten by `drawMapCanvas()`'s own dynamic re-render
+    (harmless at runtime — only one ever existed in the live DOM at a
+    time — but cleaned up rather than left ambiguous); all 105 distinct
+    `$('id')` references and all 54 distinct `D.xxx` data-layer calls
+    cross-matched against real ids/exports with nothing unresolved; and
+    a found-and-fixed real bug — `.lhd-modal-bg` (this feature's own
+    generic/daily/timer/command-palette modal class) was initially
+    missing from `topbar.js`'s `MODAL_SELECTORS` array entirely (only
+    `.lhd-topic-page-bg` had been added), which would have meant none of
+    this page's own modals ever triggered the shared mobile
+    body-scroll-lock — fixed before shipping. **Not verified this way**:
+    an actual click-through (dragging/connecting/zooming a knowledge-map
+    node, running a full Pomodoro phase switch and confirming the beep/
+    ring behavior, confirming the command palette's arrow-key navigation,
+    confirming a backlink round-trips between two master notes, and
+    confirming the light/dark theme toggle repaints every section
+    correctly) — a real click-through is recommended before relying on
+    this page heavily, same disclosed-limitation caveat several other
+    pages' changelog entries in this file already carry for this exact
+    environment.
+
+- **New page: `businessos.html` ("Business OS"), a CEO command center
+  managing unlimited businesses from one dashboard, built to a detailed
+  written spec.** The spec asked for a full Next.js/React/TypeScript/
+  Tailwind/shadcn/Framer Motion/Lucide/Recharts application — this repo
+  has no framework, no build step, no bundler, and no package.json
+  anywhere (§1), so that stack cannot exist as another page here. Per an
+  explicit decision confirmed with the user before writing any code (two
+  clarifying questions: stack, and whether to build the whole spec in one
+  pass or core-first) — build natively in this repo's real stack
+  (vanilla HTML/CSS/JS, `localStorage` + the shared `initCloudSync()`
+  helper), the whole spec in one pass, same precedent as the Learning
+  Dashboard/Writing Dashboard builds elsewhere in this file. Genuinely
+  new files, `businessos.html` + `businessos-data.js` — new nav folder
+  (`◆ Business OS` → `businessos.html`, appended after the "Business"
+  folder in `topbar.js`'s `NAV_GROUPS`, plus `.bos-biz-page-bg` added to
+  `MODAL_SELECTORS` for the business-workspace overlay's mobile scroll
+  lock — the only edits made to that shared file); new sync key (`appKey:
+  'businessos'`, `syncedPrefixes: ['bos:']`, the standard `initCloudSync`
+  call, nothing new invented). Genuinely separate from the pre-existing
+  "Business" nav folder (`business.html`'s Content Hub + Writing/YouTube
+  Dashboards, `business-overview.html`) — nothing there was touched, and
+  Business OS reads none of its data; a business here and a "business
+  model" tab there are unrelated concepts that happen to share a word.
+  - **Palette, an explicit exception**: the request gave literal hex
+    values (near-black `#0D0D0D`, surface `#171717`, crimson accent
+    `#E11D48`, pink secondary `#F472B6`) — the same one-off aesthetic-
+    exception category as every other themed page in this app (§6/DO NOT
+    MODIFY rule 2), scoped to this file's own private `--bos-*` tokens.
+    `--good`/`--warn`/`--bad`/`--info` stayed this app's usual green/
+    amber/red-coral/blue (status meaning, not brand accent). Inter
+    loaded from Google Fonts; glassmorphic cards, gradient buttons, a
+    gold-analog crimson active-nav-item glow, and CSS-only hover
+    lift/fade-up animations stand in for Framer Motion — this app's own
+    "no animation library" convention, same as every other page.
+    Hand-rolled div-bar charts and a CSS `conic-gradient` donut stand in
+    for Recharts — same "no charting library, no npm packages" precedent
+    every other visualization in this app already follows.
+  - **Confirmed adaptations, flagged rather than silently substituted**:
+    a Kanban board renders real columns/cards but status changes via a
+    per-card `<select>`, not drag-and-drop — this environment has no way
+    to interactively test a drag implementation before shipping, so a
+    tested-safe select was chosen over an untested drag, the same
+    "correctness over an untested interaction" precedent the Writing
+    Dashboard's own Tasks database already established for its
+    parent/child tree. "Files" is a link-based reference list (name +
+    URL + type + notes), not real file storage — this app has no backend/
+    file-storage of any kind anywhere (§2/§4), same "paste a link"
+    precedent Business Hub's own Resources tab already established.
+    Weekly/Monthly/Quarterly Analytics dashboards are one continuous
+    dashboard with a period-agnostic 6-month trend rather than three
+    separate pages — a documented simplification, same spirit as this
+    app's other single-dashboard roll-ups. The header search box and
+    Ctrl+K both open the same command-palette modal — not two separate
+    search UIs — matching how the actual reference apps named in the
+    spec (Linear/Raycast/Arc) really work: Cmd+K *is* global search
+    there too, so unifying them is the correct pattern, not a corner cut.
+  - **Data model** (`businessos-data.js`, same `makeCollection` +
+    model-factory conventions as `aitech-data.js`/`learning-dashboard-
+    data.js`): a `Business` record carries its own snapshot fields
+    (revenue/goal revenue/profit/goal profit/growth %/traffic/conversion/
+    monthly goal/current focus — edited directly, not derived from
+    transactions, the same "stored target fields" precedent the Writing
+    Dashboard's own Manuscript stat fields already established) plus
+    thirteen collections scoped via a `businessId` foreign key: Goals
+    (quarter/month/week), Projects, Products, Content (a single
+    collection spanning both the real content-channel platforms and
+    marketing/campaign platforms — see below), Customers, Operations,
+    FinanceTx/Invoices/Budgets/Subs, Files (business-only — a Project/
+    Product/Content item/Customer/Finance record/File with no owning
+    business is meaningless), plus AIPrompts/Knowledge/Notes/Tasks/
+    Captures, which can each optionally belong to one business or sit
+    unscoped/global (mirroring this app's own "global vs. per-page"
+    split elsewhere). Deleting a business cascades a real delete on the
+    business-only collections and nulls out the reference on the
+    nullable ones — same null-out-the-reference precedent `aitech-
+    data.js`'s model deletion and `household-data.js`'s legion deletion
+    already established.
+  - **One render function, two modes — the actual architecture answer to
+    "CEO Dashboard sidebar sections" vs. "inside each business"**: every
+    shared section renderer (`renderProjectsSection`, `renderProducts
+    Section`, `renderContentSection`/`renderMarketingSection`,
+    `renderCustomersSection`, `renderSalesSection`, `renderOperations
+    Section`, `renderFinanceSection`, `renderAISection`, `renderKnowledge
+    Section`, `renderNotesSection`, `renderFilesSection`, `renderAnalytics
+    Section`) takes `(containerId, businessId)` — called with `null` for
+    a global sidebar page (aggregating across every business, via the
+    data layer's own `forBiz(list, businessId)` selector, which returns
+    everything when `businessId` is falsy) or a real id for a business
+    workspace tab (filtered to just that business). This is why the app
+    doesn't have two parallel implementations of "Projects" — one
+    function serves both contexts, matching this file's own explicit
+    request that data flow through one system, not a duplicated one.
+    "Marketing" and "Content" are the same underlying `Content`
+    collection, split by platform (`youtube`/`instagram`/`tiktok`/
+    `facebook`/`pinterest`/`threads`/`medium`/`newsletter`/`blog` for
+    Content Hub; `email`/`seo`/`ads`/`affiliate`/`influencer` for
+    Marketing, plus a combined upcoming-calendar strip) rather than two
+    separate databases — a deliberate simplification given how much the
+    two concepts overlap in the original spec's own wording.
+  - **Business workspace** (`#bosBizPageBg`, a full-page overlay,
+    hash-routed as `#biz/<id>/<tab>`) — 14 tabs matching the spec's
+    "Inside Each Business" list exactly (Overview/Projects/Products/
+    Marketing/Sales/Operations/Customers/Finance/Content/AI/Analytics/
+    Notes/Files/Settings), all sharing one `#bosBpTabBody` mount point
+    re-rendered per tab rather than 14 persistent DOM subtrees. Overview
+    shows mission/vision, quarterly/monthly/weekly goals (checkable),
+    KPIs, upcoming launches, and top priorities; Sales is a read-mostly
+    rollup (revenue trend, a leads→qualified→won funnel, top accounts by
+    LTV) distinct from Customers' full CRM CRUD; Settings hosts the full
+    field editor, a status quick-switcher, and a delete-with-cascade-
+    warning confirm.
+  - **CEO Dashboard (Home)** covers every bullet in the spec's own list —
+    Today's Priorities (a real checklist toggling `Tasks`), Businesses
+    Overview (mini progress rows), Revenue/Profit Snapshots (stat tiles +
+    a 6-month net-cash-flow bar chart), Pending Tasks, Recent Activity (a
+    live-merged feed across every collection's own `createdAt`, sorted
+    newest-first — derived, never stored), Upcoming Deadlines, Quick
+    Actions, Recent Notes, Weekly Progress (% of this week's due tasks
+    completed), Monthly Goals (checkable), and an Overall Business Health
+    Score (a donut — averaged revenue-to-goal/profit-to-goal/project-
+    completion across every business, a documented simplification since
+    no real "health" model exists, same spirit as this app's other
+    single-number roll-ups).
+  - **Global search / Ctrl+K command palette** (`D.searchAll(query)`, one
+    flat index across Businesses/Projects/Products/Content/Customers/
+    Tasks/Notes/Knowledge/Files) plus a fixed Quick Actions row (New
+    Business/Project/Product/Task/Content/Customer/Note, plus Quick
+    Capture) — arrow-key navigable, Enter activates the selected row,
+    same command-palette shape this app hasn't built before but modeled
+    directly on the reference apps' own real Cmd+K UX.
+  - **Quick Capture** (a floating ⚡ button, always visible) — a
+    `Captures` inbox (idea/task/meeting-note/voice-note/business-idea/
+    AI-prompt, optionally tagged to a business) with a two-tab modal:
+    capture new, or review/process the inbox (mark done, delete, or
+    promote straight into a real `Task`) — so nothing captured is ever
+    silently dropped.
+  - **Notifications** (a bell with a live badge dot) — computed live,
+    never stored: overdue tasks, overdue/past-due invoices, deadlines and
+    scheduled content within 3 days, each clickable straight to the
+    right business tab or global section.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely`), showing a visible banner with
+    the real error and a "Copy error details" button instead of a silent
+    blank page, matching the precedent `gym.html`/`business.html`/
+    `mainpillar.html`/`learning-dashboard.html` already established for
+    this exact failure class. The inline boot script is wrapped in
+    `document.addEventListener('DOMContentLoaded', ...)` rather than run
+    immediately at parse time — this repo's `defer`-loaded companion
+    `-data.js` files only execute right before `DOMContentLoaded`, so an
+    inline script calling into `window.BusinessOSData` at parse time
+    would run before that data layer exists, the exact bug class
+    `mainpillar.html`'s own changelog entry already documents hitting
+    once — avoided here from the start instead of discovered the same
+    way twice. Empty-storage seed-race safety
+    (`maybeSeedAfterSyncAttempt`, deferred until either `initCloudSync`'s
+    `onApplied` fires or a 5-second window elapses) guards the seed data
+    (three example businesses — a publisher, a content studio, a
+    skincare line — each with real projects/products/content/customers/
+    finance history/operations docs/tasks) the same way every other
+    freshly-seeded page in this app already protects against clobbering
+    another device's real data.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`/`python3` both absent). Verified statically instead,
+    the same reduced-guarantee fallback several other entries in this
+    file already disclose for this exact class of limitation: brace/
+    paren balance confirmed on both new files (984/984 braces and
+    2763/2763 parens in `businessos.html`; 390/390 braces and 832/832
+    parens in `businessos-data.js`); zero genuine duplicate DOM ids (the
+    handful of same-named ids the raw grep found are each split across
+    two mutually-exclusive ternary branches of the same render function
+    — only one branch's markup is ever actually in the DOM at once, the
+    same false-positive shape this file's own `example.html` entry
+    already documented once); all 93 distinct `D.xxx` data-layer calls
+    cross-matched against `BusinessOSData`'s exported API with nothing
+    unresolved; all 38 distinct `$('id')` and 31 `document.getElementById
+    ('id')` references cross-matched against real element ids with
+    nothing unresolved; and `topbar.js`'s edit was confirmed not to
+    introduce any new brace/bracket/paren imbalance by diffing its
+    counts against a `git stash`-restored pre-edit copy (its own
+    long-documented 5-paren prose-comment false positive is unchanged,
+    not something this edit added). One real issue was found and fixed
+    during this pass: two lines toggled a `bos-modal-open-shim` body
+    class with no matching CSS rule (harmless dead code — the real
+    scroll-lock mechanism is `topbar.js`'s own `MODAL_SELECTORS`-driven
+    `startModalLock()`, which the `.bos-biz-page-bg` registration above
+    already covers) — removed rather than left ambiguous. **Not verified
+    this way**: an actual click-through (creating a business and opening
+    its workspace, moving a project across Kanban columns via the status
+    select, logging a finance transaction and confirming the monthly
+    chart updates, running the command palette end-to-end, capturing an
+    idea and promoting it to a task, and confirming the notification bell
+    surfaces a real overdue item). A real click-through is recommended
+    before relying on this page heavily, same disclosed-limitation
+    caveat several other pages' changelog entries in this file already
+    carry for this exact environment.
+
+- **Business OS: Projects gained a Scrivener-style corkboard for
+  manuscripts and series.** Per an explicit follow-up ("set up an actual
+  Scrivener-like card for each manuscript and series"). A manuscript is
+  still a genuine `Project` record (same Kanban status/priority/deadline/
+  progress as every other project — it still shows up in the ordinary
+  Kanban board and in Analytics/Sales roll-ups unchanged), now carrying
+  additive Scrivener-specific fields (`kind: 'manuscript'`, `seriesId`,
+  `synopsis`, `labelColor`, `manuscriptStatus`, `wordCountCurrent`/
+  `wordCountGoal` — all safely defaulted, so every pre-existing plain
+  project is unaffected). `Series` is a new, small, business-scoped
+  collection (`bos:series` — already covered by the existing `bos:`
+  `syncedPrefixes` entry, no new sync key needed) — a pure grouping;
+  deleting one nulls out `seriesId` on its manuscripts rather than
+  deleting them, same null-out-the-reference precedent this file's own
+  `removeBusiness()` already established.
+  - **A view toggle inside Projects, not a new sidebar section** — per
+    the request's own "In the Projects" wording, exactly the same
+    section (global sidebar page and every business workspace's own
+    Projects tab both gained it, since it's the same `renderProjects
+    Section(containerId, businessId)` function either way). "🗂
+    Kanban" (unchanged) / "📖 Manuscripts & Series" (new) — switching
+    shows Series cards (a wide, color-tinted grouping card — name,
+    description, manuscript count, "+ Manuscript") each followed by a
+    grid of that series' manuscript index cards, plus a trailing
+    "Standalone" group for manuscripts with no series, matching the
+    exact "series groups + a trailing Standalone group" precedent the
+    Writing Dashboard's own Manuscript board (inside `business.html`,
+    a completely separate feature/page) already established.
+  - **The manuscript card, the actual "Scrivener-like" part**: a colored
+    top Label strip (`labelColor`, freely chosen — the same swatch
+    palette every other color picker in this app already reuses, no new
+    hex values) and a folded-corner triangle evoke a real index card; a
+    serif title; a synopsis rendered on faint ruled lines (a repeating
+    CSS gradient, mimicking a lined index card back) — the actual
+    defining Scrivener corkboard element; a Status stamp (Outline/First
+    Draft/Revised Draft/Final Draft/Done, this app's usual `--good`/
+    `--warn`/`--bad`/`--info` semantic colors, not a new palette) and a
+    word-count progress bar in the footer. Clicking a card opens the
+    full field editor (title, series, label color, status, priority,
+    word counts, deadline, author, synopsis, plus Delete).
+  - **Confirmed adaptation**: the manuscript form's Series picker only
+    appears when editing from inside a real business workspace (where
+    its options can be correctly scoped to that one business) — from the
+    global Projects page, a new manuscript is created standalone and can
+    be assigned to a series afterward from inside that business's own
+    workspace. This app's generic field-form modal has no field-to-field
+    reactivity (an established constraint, not new to this feature), so
+    a Series dropdown built before the user has picked a business would
+    have no reliable way to update its own options live.
+  - **A real bug found and fixed during this pass's own static
+    verification, not shipped and discovered later**: adding the new
+    view-toggle chip row to `renderProjectsSection` left a duplicate
+    `</div>` in the global (all-businesses) code path — the original
+    code closed its `.bos-anim` wrapper immediately after the page
+    header, and the new trailing closer added for the view-toggle
+    section closed it a second time with nothing left open. Caught by
+    this file's own established div-balance verification technique
+    (a per-line running open/close count, not just a whole-file total,
+    since the whole-file total alone wouldn't have pointed at *where*);
+    fixed by leaving `.bos-anim` open through the header so it now also
+    wraps the view-toggle chips and the corkboard/Kanban content below
+    it, both closing together at the section's existing trailing
+    `if (businessId === null) html += '</div>';` line.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other entries
+    in this file already disclose for this exact class of limitation.
+    Verified statically: brace/paren balance re-confirmed on both files
+    (1065/1065 braces and 2954/2954 parens in `businessos.html`; 415/415
+    braces and 876/876 parens in `businessos-data.js`); `<div>` open/close
+    balance re-confirmed file-wide (418/418, after the fix above — this
+    file's `Grep`-tool content display was separately found to garble
+    forward-slashes-after-`<` into backslashes in its own rendered
+    output during this investigation, a display artifact of that specific
+    tool in this environment, not real file content — confirmed by
+    cross-checking the same lines with the `Read` tool and a direct
+    `grep`/`awk` pass over the actual file bytes, which is what the
+    balance numbers above are based on); every new `D.xxx` call, `$('id')`
+    reference, and `getElementById('id')` reference cross-matched with
+    nothing unresolved; every new function confirmed declared exactly
+    once. **Not verified this way**: an actual click-through (toggling
+    into Manuscripts & Series view, creating a series and a manuscript
+    inside it, confirming the synopsis/word-count/label-color render
+    correctly on the card, moving a manuscript between series, and
+    confirming a manuscript still appears correctly in the ordinary
+    Kanban board). A real click-through is recommended before relying on
+    this feature heavily.
+
+- **New nav folder: Business Dashboard, right above Entertainment — a
+  gallery of businesses, each opening into its own front page with a
+  Writing Dashboard (series/manuscripts/a Scrivener-style Binder), a
+  generatable YouTube Dashboard, and a generatable Blogging Dashboard,
+  built from a detailed written spec.** Genuinely new files,
+  `businessdash.html` + `businessdash-data.js` — new nav folder
+  (`🏢 Business Dashboard` → `businessdash.html`, inserted between
+  Command Center and Entertainment in `topbar.js`'s `NAV_GROUPS`, per the
+  request's own placement — plus `.bd-page-bg`/`.bd-modal-bg`/`.bd-comp-bg`
+  added to `MODAL_SELECTORS` for mobile scroll-lock; the only edits made
+  to that shared file); new sync key (`appKey: 'businessdash'`,
+  `syncedPrefixes: ['bizdash:']`, the standard `initCloudSync` call,
+  nothing new invented). Genuinely separate from every other "business"
+  page in this app — `business.html` (Content Hub + Writing/YouTube
+  Dashboard tabs) and `businessos.html` (Business OS) are both untouched;
+  nothing here reads or writes their data, even though the feature set
+  overlaps with pieces of both (a business gallery like Business OS's
+  own; a manuscript/Binder system in the same spirit as Business Hub's
+  pre-existing Writing Dashboard tab) — this was asked for as its own new
+  page, not a rebuild of either.
+  - **Business database** (`bizdash:businesses`) — a large gallery
+    (cover photo or a big page-icon fallback, `.bd-biz-card`), each card
+    opening either as a **side-peek drawer** (click the card body — a
+    slide-in panel with a condensed read/edit view and an "Open Full
+    Page →" button) or a **full page** (a dedicated "⤢" button on the
+    cover, per the request's own "give you the option"). Per-card
+    properties: a Not Started/In Progress/Done status tag (a live
+    `<select>` right on the card face), a Total/Completed Tasks rollup
+    with an **include/exclude-templates checkbox** right next to it (the
+    request's own "give it the options to include or exclude any Tasks
+    mentioned or related to Templates" — `tasksRelatedToTemplates()`
+    walks the parent/child chain so a template's sub-pages are excluded
+    too, not just its root), a Project Start Date + Deadline with a
+    progress bar (`deadlineProgress()` — % of time elapsed, turning red
+    past the deadline), and a toggleable "▸ Notes" disclosure showing a
+    live preview of that business's own note sections.
+  - **Generic "Sections" component** — the concrete answer to "aesthetic
+    and toggleable note sections" appearing in more than a dozen places
+    across this feature (business cards, both two-column pages' left
+    Notes, manuscript Notes/Outline/Ideas/Resources, Chapter Notes, and a
+    Task Detail page's generated blocks): one `sectionModel`
+    (`bizdash:sections`, `scope`+`scopeId` says what it's attached to)
+    and one shared `renderSectionsColumn()`/`addSectionAndRerender()`
+    pair, the same generated-on-demand/editable/reorderable/collapsible
+    pattern `business.html`'s own Platform Detail pages and `system.html`'s
+    Page Notes already established — reused here rather than invented a
+    third time, and reused across every one of this feature's own "notes"
+    surfaces rather than building a bespoke component per surface.
+  - **Business front page** — a two-column section (left: the generic
+    Sections component, scope `'left'`; right: a **Links & Documents**
+    column, `bizdash:links`, a small URL+notes card list with up/down
+    reorder and http(s)-only validation before a link renders as
+    clickable), then **Series & Manuscripts**, then **Tasks & Templates**,
+    then the YouTube/Blogging Dashboards (or their own "✨ Generate"
+    buttons when not yet enabled — `business.ytDashboardEnabled`/
+    `blogDashboardEnabled` flags).
+  - **Series & Manuscripts** (`bizdash:series`/`bizdash:manuscripts`) —
+    "✨ Generate Series" (prompts for a name, then creates the series
+    plus 3 manuscript cards — Book 1/2/3 — in one call,
+    `D.generateSeries()`) renders as a `.bd-series-head` group (an
+    editable name, a manually-assigned color, a manuscript count) over a
+    gallery of manuscript cards, plus a trailing "Standalone" group for
+    manuscripts with no series — same "tag-group + trailing standalone
+    group" shape the Writing Dashboard's own Manuscript board and
+    Business OS's Manuscripts & Series corkboard both already
+    established. Each manuscript card shows Status, Niche, "Today's
+    Goal: 0 / 1,000 words," an inline mini task checklist (+ quick-add),
+    Notes, and **Project Targets** (Entire Manuscript word count vs. a
+    goal, computed live from the Binder — see below — plus the Chapter
+    Word Count Goal).
+  - **Manuscript detail page** — a sub-nav row (Overview / Outline /
+    Ideas / Resources, each of the latter three a plain generic-Sections
+    page with its own "+ Generate Section" button; Resources additionally
+    tags each section with a Template/AI Prompt/Automation
+    Idea/Workflow Template/Resource type). Overview holds a properties
+    readout, a Notes+Tasks two-column row, and the **4-column layout**
+    the request asked for: **Binder** (a real Act→Chapter→Scene tree,
+    `bizdash:binderNodes`, using the exact same self-contained base-36
+    `midKey()` fractional-indexing generator `writing-data.js`'s own
+    BinderNode already established — copied here rather than shared,
+    since this app has no cross-file import mechanism — with native
+    HTML5 drag-and-drop supporting before/after/onto drop positions, so
+    a chapter can be reordered or renested without touching every
+    sibling's order value), **Continuity & Plot Threads** (one
+    `Tracker` collection with a `type` field, plus a "🔍 Scan this
+    chapter" button doing the same case-insensitive substring match
+    against the selected node's title+outline that `business.html`'s
+    own Writing Dashboard trackers already use — flagged the same way as
+    that page's own: not real NLP, since this app has no active LLM key
+    anywhere), **Chapter Card** (title/outline/label/status, plus a
+    read-only, always-derived word count — see below — and a "⛶
+    Composition Mode" button), and **Chapter Notes** (the generic
+    Sections component again, scope `'chapternotes'`).
+  - **Word count genuinely "affects the general Project Target," per the
+    request's own wording**: `BinderNode.wordCount` is never hand-typed —
+    `binderNodeModel()` always recomputes it from `content` (the actual
+    prose, typed in Composition Mode) via a small `wordCount()` helper,
+    so `manuscriptWordCount()` (summed across every node) and its
+    progress bar update the moment Composition Mode is exited, with zero
+    separate "recalculate" step.
+  - **Composition Mode** (`#bdCompBg`) — a fullscreen, distraction-free
+    overlay (no toolbars/menus/nav — the request's own "hides Toolbars,
+    Menus, and Notifications") with just the chapter's title, a live
+    word count, and one large serif textarea bound to the selected
+    node's `content`; Escape or "✕ Exit" saves back to the node and
+    re-renders the Binder/Index Card/manuscript overview so the new word
+    count is reflected everywhere at once.
+  - **Tasks & Templates database** (`bizdash:tasks`) — a single flat
+    collection rendered as two groups by a boolean, not a literal tag
+    field: **Group 1 — Templates** (`isTemplate: true` root tasks, each
+    with sub-pages via `parentId` — same parent/child-via-`parentId`
+    shape `writing-data.js`'s own WritingTask already established — "⧉"
+    duplicate, and a "+ Sub-page" button) and **Group 2 — General Tasks**
+    (everything else, including tasks auto-generated by the YouTube/Blog
+    workflow generators below, and every manuscript's own linked tasks —
+    the literal "linked to the main tasks database" from the request).
+    Clicking a task's title opens a **Task Detail page** with an
+    autosaving title/note and the same generic Sections component
+    (scope `'taskblock'`, a `blockType: 'note'|'code'` field) for
+    "generatable sections for notes and code blocks."
+  - **YouTube Dashboard** (`bizdash:ytVideos`/`bizdash:prompts` kind
+    `'music'`/`bizdash:tracks`) — its own two-column Notes/Links section,
+    then a gallery of videos grouped by a manually-assigned `tag` field
+    (defaulting to the video's own title, so a fresh video reads as its
+    own group exactly like the request's wording implies, but can be
+    manually reassigned to share a tag with other videos later — the
+    same `groupByTag()` shape Series/Manuscripts already established,
+    generalized into a shared selector), each "✨ Generate Video
+    Workflow" click creating a video card plus its four example tasks
+    ("01 | Create the Songs" → "04 | Post," editable/regeneratable
+    afterward like any other task) already linked into the main Tasks
+    database via `workflowKind`/`workflowItemId`. Below it: a **Prompt
+    Vault** table (prompt text, genre, BPM, a multi-select Mood chip
+    list, a ⭐-tier Output Rating, a Track relation dropdown, date used,
+    notes) and a **Track Library** table (name, audio link, genre, a
+    Prompt relation dropdown, a Draft/Approved/Released/Archived status,
+    release date) — both plain inline-editable `<table>`s, this app's
+    own established table-layout convention for exactly this shape of
+    small relational database (e.g. `finance.html`'s own tables).
+  - **Blogging Dashboard** (`bizdash:blogPosts`/`bizdash:prompts` kind
+    `'blog'`/`bizdash:articles`) — the identical shape as the YouTube
+    Dashboard (two-column Notes/Links, a tag-grouped gallery, "✨
+    Generate Blog Workflow" creating a post plus its four example tasks
+    — "01 | Mine Reddit Trends" → "04 | Post"), a **Prompt Vault** table
+    (deliberately fewer columns than the music one — no genre/BPM/mood/
+    track relation, since those are music-specific fields the request
+    never asked for on the blogging side), and an **Article Library**
+    table (title, link, Draft/Ready/Published status, publish date).
+  - **Cover/icon fields, one shared component**: every cover-photo field
+    in this feature (business, manuscript, video, blog post) uses the
+    same generic form-modal `type: 'image'` field — a small preview, a
+    paste-a-URL text input, and an "Upload" button — wired through the
+    same `compressImageDataUrl()` + `PhotoStore.upload()` two-step
+    pattern (compress and save the value immediately; swap in a
+    Supabase-Storage-hosted URL once the background upload settles) every
+    other cover-photo field in this app already uses. **Disclosed
+    simplification**: if a form modal is closed before that background
+    upload resolves, the record keeps its (larger) base64 value rather
+    than the swapped-in hosted URL until the next edit — the same
+    trade-off this app's `photo-store.js` entry already accepted
+    elsewhere, not a new one invented for this feature.
+  - **Seed data**: one fleshed-out example business ("Midnight Press") —
+    a series with 3 manuscripts (one with a real Act→Chapter tree, a
+    drafted first chapter with real prose so its word count is
+    non-zero, a chapter-notes section, two trackers, and one already
+    matched via a real scan), a template with two sub-pages, a real
+    linked manuscript task, both dashboards enabled with one generated
+    video/post each and a seeded Prompt/Track/Article — plus a second,
+    genuinely empty business to show the "not started" state. Guarded by
+    the same empty-storage seed-race-safety window as
+    `dreamboard.html`/`business.html`/`aitech.html`/`tasksnotes.html`
+    (`maybeSeedAfterSyncAttempt()`, deferred until either real cloud
+    data arrives via `onApplied` or a 5-second window elapses) — seeding
+    synchronously before the cloud pull has a real chance to answer
+    could push a freshly-seeded "default" business to Supabase and
+    clobber another device's real data.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), showing a visible banner
+    with the real error and a "Copy error details" button instead of a
+    silent blank page, matching the precedent `gym.html`/`business.html`/
+    `businessos.html` already established for this exact failure class.
+  - **Palette**: own private `--bd-*` tokens, a direct match to this
+    app's common dark-cinematic near-black/gold aesthetic (Dream Board/
+    Business Hub/AI & Tech/Nutrition/Self-Care/Gym/Business OS) since no
+    reference photo or literal color instruction was given for this new
+    page — per CLAUDE.md §6, "match the common thread" is the default
+    when no explicit exception is granted, not a new palette invented
+    from scratch. No other page's tokens were touched.
+  - **Deliberately out of scope, disclosed rather than silently
+    dropped**: business/manuscript/video/post gallery cards are not
+    drag-reorderable (they render in creation order; only the Binder
+    tree has real drag-and-drop, since that's the one place the request
+    specifically called for reordering — "drag and drop chapters into a
+    new order instantly"); Series get a fixed default color rather than
+    one rotated per-series automatically (still manually recolorable via
+    Edit); the Prompt Vault/Track Library/Article Library tables have no
+    search/filter chips (this app's own precedent for a small relational
+    table, e.g. `finance.html`'s Subscriptions list, doesn't always add
+    one either).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`/`python`/`python3` all unavailable), the same
+    reduced-guarantee fallback several other entries in this file already
+    disclose for this exact class of limitation. Verified statically via
+    PowerShell (no Node/Python needed): brace/paren/bracket balance
+    confirmed on `businessdash-data.js` (311/311 braces, 690/690 parens)
+    and on `businessdash.html`'s `<style>` block (207/207 braces) and
+    inline script (457/457 braces, 1557/1557 parens, 98/98 brackets);
+    every literal `$('id')` reference (85 distinct) cross-matched against
+    real HTML element ids (104 distinct) with zero unresolved and zero
+    duplicate ids; HTML tag open/close balance confirmed for `div`/
+    `button`/`select`/`textarea`/`span`/`table`/`tr`/`td`/`th`/`thead`/
+    `tbody`/`a`/`label`/`h1`–`h4` across the whole file (including the
+    JS template-string-generated markup, which is plain string content
+    in the same file); `topbar.js`'s edit was confirmed not to introduce
+    any new imbalance (its own pre-existing 5-paren prose-comment false
+    positive, already documented in this file's own Business OS entries,
+    is unchanged). **Not verified this way**: an actual click-through
+    (generating a series and confirming 3 manuscript cards appear,
+    dragging a chapter in the Binder to reorder/renest it, writing in
+    Composition Mode and confirming the word count/progress bar update
+    on exit, scanning a chapter and confirming a tracker mention is
+    logged, generating a YouTube/Blog workflow and confirming its 4 tasks
+    appear correctly grouped in the main Tasks database, and uploading a
+    cover photo end-to-end). A real click-through is recommended before
+    relying on this page heavily, same disclosed-limitation caveat
+    several other pages' changelog entries in this file already carry
+    for this exact environment.
+
+- **Business Dashboard follow-up: every manuscript's Chapter Card gained
+  an actual "Write the Chapter" textarea below Chapter Word Count.**
+  Before this, the only way to type a chapter's real prose was the
+  separate fullscreen Composition Mode overlay — per an explicit
+  request, the Chapter Card itself (in the 4-column manuscript layout)
+  now has an inline textarea bound to the same `BinderNode.content`
+  field, so typing doesn't require leaving the page. Word count updates
+  live on every keystroke (via a small `updateWordCountDisplays()`
+  helper that patches just the Chapter Word Count readout and the
+  manuscript's "Entire Manuscript" total/percent up in the properties
+  row, without rebuilding the surrounding DOM mid-keystroke) and commits
+  to storage on blur. Composition Mode and the inline textarea edit the
+  same field — a textarea blur fires before a button click registers, so
+  switching between the two never loses an edit.
+
+- **Business Dashboard: YouTube and Blogging Dashboards removed from
+  inside each business's page and moved to their own dedicated cards on
+  the main Business Dashboard**, per an explicit request. Previously
+  each business could "✨ Generate" its own YouTube/Blogging Dashboard as
+  a section on its own front page (`business.ytDashboardEnabled`/
+  `blogDashboardEnabled`); both are now genuinely global — one YouTube
+  Dashboard card and one Blogging Dashboard card, shown in a new
+  "Dashboards" row on the main landing page above the Businesses gallery,
+  each opening its own standalone full page (`#bdYtPageBg`/
+  `#bdBlogPageBg`) with the exact same content as before (two-column
+  Notes/Links, a tag-grouped video/post gallery with "✨ Generate
+  Workflow," a Prompt Vault table, and a Track/Article Library table) —
+  just no longer scoped to any one business.
+  - **Data layer**: `YtVideos`/`BlogPosts`/`Prompts`/`Tracks`/`Articles`
+    are no longer filtered by `businessId` — `ytVideosFor()`/
+    `blogPostsFor()`/`tracksFor()`/`articlesFor()` dropped their
+    `businessId` argument entirely (now return everything), and
+    `promptsFor(kind)` keeps only its `kind` filter (`'music'`/`'blog'`,
+    still needed to separate the YouTube Dashboard's own Prompt Vault
+    from the Blogging Dashboard's). `generateYoutubeVideo(title)`/
+    `generateBlogPost(title)` dropped their `businessId` parameter and
+    now create records (and their generated Tasks) with `businessId:
+    null` — the field is left on the model as a harmless, always-null
+    vestige rather than migrated away, since nothing reads it anymore
+    and removing it outright would have meant a data migration for no
+    real benefit. A new `GLOBAL_SCOPE_ID` constant (`'global'`) gives the
+    two dashboards' Notes/Links a fixed `scopeId` to live under
+    (`'global:youtube'`/`'global:blog'` for Notes, `'global'` for
+    Links) now that there's no business to scope them to.
+    `business.ytDashboardEnabled`/`blogDashboardEnabled` were removed
+    from `businessModel()` outright — a genuine same-session removal of
+    this exact feature's own first draft (the same "supersede, don't
+    preserve" precedent this app's `gym.html` Timer modal→panel
+    conversion already established), not another pass's leftover
+    feature, so nothing was kept as unreachable dead code.
+    `removeBusiness()`'s cascade-delete loop needed no change — with
+    `businessId` always `null` on these five collections now, its
+    existing `r.businessId !== id` filter already keeps them untouched
+    when any business is deleted, which is the correct behavior for
+    data that no longer belongs to a business at all.
+  - **UI**: the main landing view (`#bdMainView`) gained a "Dashboards"
+    section (`renderDashCards()`, populated with two `.bd-biz-card`-style
+    tiles — 📺 YouTube Dashboard / 📝 Blogging Dashboard, each showing a
+    live count of its generated workflows) sitting above the existing
+    Businesses gallery. `renderYoutubeSection()`/`renderBlogSection()`
+    (the old per-business, toggle-gated section renderers) were replaced
+    by `renderYoutubeDashboardPage()`/`renderBlogDashboardPage()`,
+    targeting the two new standalone full-page overlays' static markup
+    instead of rebuilding an enable/disable toggle into a business page's
+    `innerHTML` on every render — since there's no more toggle (the
+    dashboards always exist now), their buttons ("+ Generate Section,"
+    "+ Add Link," "✨ Generate Video/Blog Workflow," "+ Add Prompt/Track/
+    Article") are wired once at boot instead of being re-wired on every
+    render, the same "static shell + targeted re-render" shape the
+    Business full page's own markup already used. `renderWorkflowGrid()`/
+    `renderPromptTable()`/`renderTrackTable()`/`renderBlogPromptTable()`/
+    `renderArticleTable()` all dropped their `businessId` parameter to
+    match the data layer; deleting or editing a workflow item now also
+    refreshes the main view's dashboard-card counts (`renderDashCards()`)
+    in addition to the open dashboard page, so the "N video workflows"
+    count on the card never goes stale while it's off-screen.
+    `.bd-page-bg` (already registered in `topbar.js`'s
+    `MODAL_SELECTORS`) covers both new overlays — no further nav-file
+    edit was needed.
+  - **Verification, disclosed honestly**: same environment limitation as
+    every other entry for this page (no interactive browser/CDP session
+    or JS/Python runtime available this session) — verified statically
+    via PowerShell: inline-script brace/paren balance (464/464 braces,
+    1637/1637 parens), zero unresolved `$('id')` references (90 distinct,
+    against 109 distinct real ids) and zero duplicate ids, and HTML tag
+    open/close balance across `div`/`button`/`select`/`textarea`/`span`/
+    `table`/`tr`/`td`/`th` for the whole file. A repo-wide grep confirmed
+    zero remaining references to the removed `renderYoutubeSection`/
+    `renderBlogSection`/`bdYoutubeSection`/`bdBlogSection`/
+    `ytDashboardEnabled`/`blogDashboardEnabled` identifiers anywhere in
+    either file. **Not verified this way**: an actual click-through
+    (opening each dashboard card from the main view, generating a video/
+    blog workflow and confirming its tasks appear, editing a Prompt/
+    Track/Article row, and confirming a business page no longer shows any
+    YouTube/Blog section at all). A real click-through is recommended
+    before relying on this page heavily.
+
+- **Business Dashboard: tasks isolated per business/dashboard, a new
+  "All Tasks" master database added below the Businesses gallery, and
+  the YouTube/Blogging Dashboards moved back onto each Business Card**
+  (reversing the immediately preceding entry's global-cards move) —
+  **plus the Business Cards themselves restyled with a cursor-tracked
+  "GlareCard" hover effect**, per an explicit reference to the
+  aceternity-style `GlareCard` React component. Three requests landed
+  together in one pass; nothing was deleted from any Business Card, per
+  an explicit instruction.
+  - **Task isolation**: `taskKindOf(t)` (new, `businessdash-data.js`) is
+    the one function every task-grouping surface in this file now goes
+    through — `'template'` (an explicit template wins over everything
+    else), `'writing'` (has a `manuscriptId`), `'youtube'`/`'blog'` (has
+    that `workflowKind`), else `'general'`. `tasksGroupedForBusiness(id)`
+    (new) uses it to split a business's root tasks into Templates/
+    General — Group 2 ("General Tasks") on the business page's own Tasks
+    & Templates section now genuinely excludes writing and YouTube/blog
+    workflow tasks, which is what "keep all of the writing ones in the
+    Writing Dashboard, all of the YouTube ones in the YouTube dashboard"
+    actually required: those tasks were already rendered inside the
+    Series & Manuscripts gallery/manuscript detail page and inside each
+    workflow item's own card respectively, but Group 2's old filter
+    (`!t.isTemplate`) let them bleed into the general list too — that
+    bleed-through is what's fixed here, not a data-model change (every
+    task's `manuscriptId`/`workflowKind` field already existed).
+  - **YouTube/Blogging Dashboards reverted to per-business**, undoing the
+    entry directly above this one: `generateYoutubeVideo`/
+    `generateBlogPost`/`ytVideosFor`/`blogPostsFor`/`promptsFor`/
+    `tracksFor`/`articlesFor` all regained a `businessId` parameter (the
+    field itself was never removed from any model, so this needed no
+    migration — see that entry's own note that `businessId` was left in
+    place as a harmless leftover, which is exactly what made reverting
+    this cheap); `GLOBAL_SCOPE_ID` is deleted outright (a genuine
+    same-session-mechanism reversal, not another pass's orphaned
+    feature, so nothing was kept as unreachable dead code, the same
+    "supersede, don't preserve" precedent this app's own `gym.html`
+    Timer modal→panel conversion already established). The standalone
+    `#bdYtPageBg`/`#bdBlogPageBg` full-page overlays, their open/close
+    functions, and `renderDashCards()`/`#bdDashCardsGrid` are gone;
+    the YouTube Dashboard and Blogging Dashboard are inline sections on
+    each Business Card's own full page now (`renderYoutubeDashboardSection()`/
+    `renderBlogDashboardSection()`, both scoped throughout via the
+    already-existing `currentBusinessId` module variable — the same
+    pattern `renderSeriesWrap()`/`renderTaskGroups()` already used),
+    sitting between Series & Manuscripts and Tasks & Templates, separated
+    by a new `.bd-page-divider` hairline. A device that generated videos/
+    posts/prompts/tracks/articles during the brief global phase
+    (`businessId: null`) simply won't see them under any business's
+    dashboard anymore — not deleted, just not filtered into view, same
+    orphaned-data treatment this app uses elsewhere for a superseded
+    shape. `removeBusiness()`'s cascade was tightened at the same time:
+    it now also deletes the business's own Sections/Links (previously
+    orphaned on business delete, a pre-existing gap noted while touching
+    this code) by matching the known `id`/`id+':business'`/
+    `id+':youtube'`/`id+':blog'` scopeIds, alongside the existing direct-
+    `businessId` cascade for every other collection.
+  - **"All Tasks" master database** (`#bdMasterTaskWrap`, new, below the
+    Businesses gallery on the main view) — the literal "create a main
+    task database... that links all of the tasks into that one
+    database" ask: it reads straight off the one shared `Tasks`
+    collection every business/dashboard section already writes to (no
+    second copy, so it can never drift), grouped by business
+    (`D.businessesSorted()` order, one `.bd-task-group-title` header per
+    business showing its icon/name/count) with two chip-row filters
+    above it — All Businesses/one business, and All Kinds/Template/
+    Writing/YouTube/Blog/General (reusing the existing `.bd-subnav`/
+    `.bd-subnav-tab` pill component verbatim, no new CSS needed for the
+    filters themselves). Each row shows a Kind tag plus, where relevant,
+    the linked manuscript or video/post title (`workflowLabelFor()`/
+    `manuscriptTitleFor()`, both already existed), a checkbox that
+    toggles status in place, and a click-to-open into the shared Task
+    Detail page — the same `openTaskDetail()` every other task surface
+    in this file already uses. Re-renders whenever `renderBizGrid()`
+    does (boot, business add/delete, status/checkbox changes on a card,
+    returning from a business/manuscript page, and the empty-storage
+    seed-race-safety path), consistent with how this page already
+    refreshes the main view on return rather than reactively across
+    open sub-pages.
+  - **Business Card GlareCard restyle** (`.bd-biz-card`) — a cursor-
+    tracked specular highlight plus a gentle perspective tilt, the
+    defining "glare card" signature effect from the referenced
+    component, reimplemented natively (this app has no React/build
+    step — §1) as two `pointer-events:none` overlay layers
+    (`::before`/`::after`, `mix-blend-mode: color-dodge`/`overlay`)
+    positioned via two new CSS custom properties (`--bd-glare-x`/
+    `--bd-glare-y`) that a new `wireBizCardGlare(card)` function updates
+    on `pointermove` (skipped for `e.pointerType === 'touch'` so it
+    can't fight scrolling on a phone, the same touch-safety precedent
+    `learning.html`'s own drag-reorder bugfix already established) —
+    called on every card once `renderBizGrid()` builds the grid. The
+    existing `:hover { transform: translateY(-3px) }` rule was replaced
+    by the same lift folded into the JS-driven `pointermove` transform
+    (`perspective(900px) translateY(-4px) rotateX(...) rotateY(...)`,
+    reset to `''` on `pointerleave`), since an inline style always wins
+    over a stylesheet `:hover` rule regardless of match — keeping both
+    would have meant the CSS rule silently never applying once JS ever
+    touched `transform`. The gold tint used in the sweep layer
+    (`rgba(232,207,159,…)`) is this file's own existing `--bd-gold-
+    bright` value converted to rgb, not a new color, per DO NOT MODIFY
+    rule 2. **Every existing field inside a Business Card — cover/icon,
+    the "⤢" open-full button, title, status `<select>`, task rollup +
+    include-templates checkbox, deadline bar, notes toggle — is
+    completely untouched**, since the pseudo-element overlays add no DOM
+    and `pointer-events:none` guarantees clicks still reach the real
+    controls beneath them regardless of the overlay's z-index.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session — verified statically via PowerShell, the same reduced-
+    guarantee fallback this page's own preceding entries already
+    disclose: `businessdash-data.js` braces/parens re-balanced (317/317,
+    714/714) after every edit, confirmed zero remaining `GLOBAL_SCOPE_ID`
+    references; `businessdash.html`'s inline script braces/parens
+    re-balanced (475/475, 1695/1695), its `<style>` block re-balanced
+    (214/214), zero duplicate literal `id="..."` occurrences across 107
+    unique ids, all 88 distinct `$('id')` references resolved with
+    nothing unmatched, and HTML tag open/close parity confirmed for
+    `div`/`button`/`select`/`textarea`/`span`/`table`/`tr`/`td`/`th`/
+    `thead`/`tbody`/`h1`–`h4`/`a`/`label`/`input` (input correctly
+    33-open/0-close as a void element) across the whole file; a repo-wide
+    grep confirmed zero remaining references to `bdDashCardsGrid`/
+    `renderDashCards`/`bdYtPageBg`/`bdBlogPageBg`/`bdYtBackBtn`/
+    `bdBlogBackBtn`/`openYoutubeDashboard`/`closeYoutubeDashboard`/
+    `openBlogDashboard`/`closeBlogDashboard`/`renderYoutubeDashboardPage`/
+    `renderBlogDashboardPage`/`GLOBAL_SCOPE_ID`/`data-dash-open`; and
+    every `D.ytVideosFor`/`blogPostsFor`/`promptsFor`/`tracksFor`/
+    `articlesFor`/`generateYoutubeVideo`/`generateBlogPost` call site in
+    the file was individually confirmed to pass `currentBusinessId`.
+    **Not verified this way**: an actual click-through (confirming the
+    glare/tilt effect visually tracks the cursor, generating a video/
+    blog workflow on one business and confirming it's invisible on a
+    second business's own dashboard, checking a task off from the
+    master list and confirming it reflects correctly back on the
+    business page, and filtering the master list by business and by
+    kind). A real click-through is recommended before relying on this
+    page heavily.
+
+- **Correction to the entry above: the YouTube and Blogging Dashboards
+  are their own Business Cards, alongside Midnight Press and North &
+  Co. — not a section nested inside every business's own page.** The
+  immediately preceding entry read "isolate tasks per business" as a
+  reason to duplicate a YouTube/Blogging Dashboard section onto *every*
+  business's own full page; the actual ask was for exactly one YouTube
+  Dashboard and one Blogging Dashboard, each presented as "a different
+  business" in its own right — the same footing as any real business,
+  living in the same gallery. Corrected without touching the previous
+  entry's still-accurate parts (task isolation via `taskKindOf()`, the
+  "All Tasks" master database, the GlareCard hover effect) — those are
+  all untouched and still work exactly as that entry describes.
+  - **`Business` gained a `kind` field** (`BIZ_KINDS = ['business',
+    'youtube', 'blog']`, default `'business'`) — the single thing that
+    decides which content a business's own full page shows: a plain
+    business gets Series & Manuscripts (the Writing Dashboard); a
+    `kind:'youtube'`/`kind:'blog'` business gets Videos/Posts + that
+    dashboard's Prompt Vault + Track/Article Library instead. Every
+    kind still shares the exact same Business Card component (icon,
+    cover, status select, task rollup, deadline bar, notes toggle, the
+    glare-hover treatment), the same Notes/Links two-column section, and
+    the same Tasks & Templates section at the bottom — only the middle
+    content block swaps, via three sibling containers
+    (`#bdBizWritingSection`/`#bdBizYoutubeSection`/`#bdBizBlogSection`)
+    toggled by `renderBizPage()` setting `.style.display` based on
+    `b.kind`, all always present in the DOM rather than rebuilt per
+    visit. This is a strictly simpler design than the entry above's own
+    per-business-nested version: since a YouTube/Blogging Dashboard is
+    now a real `Business` record with its own real `businessId`, its
+    Notes/Links no longer need a separate `':youtube'`/`':blog'`-suffixed
+    scope at all — the existing shared business-level Notes/Links
+    (`scope:'left', scopeId: id+':business'` / `scope:'business',
+    scopeId: id`) already give it its own isolated notes, the same as
+    any other business. `removeBusiness()`'s Sections/Links cascade was
+    simplified to match (dropped the now-unused `id+':youtube'`/
+    `id+':blog'` scopeIds it had gained one entry ago).
+  - **`ensureDashboardBusinessesExist()`** (new, `businessdash-data.js`)
+    — the same "newly-added record, existing device" backfill precedent
+    this app's own `business.html`
+    (`ensureWritingDashboardExists`)/`selfcare.html`
+    (`ensureAnxietyTabExists`) already established: guarded by "some
+    business already exists" (so a genuinely fresh/empty device isn't
+    handed these two before its own deferred, seed-race-safe
+    `seedDefaultData()` has a real chance to run first — creating them
+    unconditionally here could otherwise push a freshly-created pair to
+    Supabase and clobber another device's real data mid-pull), it adds
+    whichever of the two singleton dashboard businesses is missing,
+    pinned to `order: -2`/`order: -1` so they always sort first in the
+    gallery. Called from `boot()` (immediately, before the cloud pull)
+    and again from `onApplied` (a pulled remote row can reintroduce an
+    older business list missing them too) — the same two-call-site
+    precedent those other pages' own equivalent fixes already used.
+    `seedDefaultData()` (a fresh install) creates the same two
+    records directly, with a bit of sample video/post/prompt/track/
+    article content, rather than calling the backfill function — same
+    "full seed populates content, the backfill function only ever adds
+    the bare record" split those other pages' precedents already draw.
+  - **Seed data reshuffled**: the sample YouTube/Blog content
+    (one video + one post, each with their generated workflow tasks, a
+    music prompt + track, a blog prompt + article) now lives under the
+    two dashboard businesses' own real ids instead of being folded into
+    Midnight Press — Midnight Press's own seed content is otherwise
+    completely unchanged (still the same series/manuscript/binder tree/
+    trackers/template task).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session was available this round either — verified statically via
+    PowerShell, the same reduced-guarantee fallback this page's own
+    preceding entries already disclose: `businessdash-data.js`
+    braces/parens re-balanced (326/326, 739/739) after every edit;
+    `businessdash.html`'s inline script braces/parens re-balanced
+    (467/467, 1683/1683), zero duplicate literal `id="..."` occurrences
+    across 102 unique ids, all 87 distinct `$('id')` references
+    resolved with nothing unmatched, HTML tag open/close parity
+    reconfirmed for `div`/`button`/`select`/`textarea`/`span`/`table`/
+    `tr`/`td`/`th`; and a repo-wide grep confirmed zero remaining
+    references to the now-removed `bdYtNotesCol`/`bdYtLinksCol`/
+    `bdBlogNotesCol`/`bdBlogLinksCol`/`bdYtNotesAddBtn`/`bdYtLinksAddBtn`/
+    `bdBlogNotesAddBtn`/`bdBlogLinksAddBtn` ids/handlers. **Not verified
+    this way**: an actual click-through (confirming the YouTube Dashboard
+    and Blogging Dashboard cards render correctly in the main gallery
+    alongside Midnight Press/North & Co., open into the right
+    Videos/Posts layout instead of Series & Manuscripts, that a device
+    with pre-existing real data backfills both dashboard businesses on
+    next load, and that deleting one and reloading correctly recreates
+    an empty one rather than erroring). A real click-through is
+    recommended before relying on this page heavily.
+
+- **New nav folder: Fitness Studio, right between Business Dashboard and
+  Entertainment — a genuinely new, standalone top-level page built from a
+  detailed written spec (a hero, Today's Workout, a Live Workout
+  Dashboard, a Goal Center, Workout Programs, a Weekly Schedule, an AI
+  Fitness Coach, Settings, and a music slide-out panel connected live to
+  the Playlists page).** Genuinely new files, `fitnessstudio.html` +
+  `fitnessstudio-data.js` — same conventions as every other page's own
+  `-data.js` (model factories, `makeCollection` CRUD, one `fitstudio:`-
+  prefixed localStorage key per collection). New nav folder (`💪 Fitness
+  Studio` → `fitnessstudio.html`, inserted between the existing
+  `businessdash`/Business Dashboard and `entertainment`/Entertainment
+  groups in `topbar.js`'s `NAV_GROUPS`, per the request's own explicit
+  placement — plus `.fs-focus-bg` added to `MODAL_SELECTORS` for the
+  Distraction-Free Mode overlay's mobile scroll-lock; the only edits made
+  to that shared file); new sync key (`appKey: 'fitnessstudio'`,
+  `syncedPrefixes: ['fitstudio:']`, the standard `initCloudSync` call,
+  nothing new invented). Genuinely separate from every other fitness
+  surface already in this app — `gym.html`'s own "Fitness Studio"
+  (STUDIO nav pill, `po_coach_v1`/`key='po-coach'` data) and
+  `index.html`'s own embedded Fitness Studio main-tab (`fitness:*` under
+  the shared `goals` row) — nothing here reads or writes either of
+  those, same "same name, genuinely separate data" precedent this app
+  already has for Self-Care (`index.html`'s tab vs. `selfcare.html`).
+  - **Confirmed adaptations, flagged rather than silently substituted**
+    (same discipline this app's Writing Dashboard/Main Pillar/Business
+    OS sections already established): "Heart Rate (if wearable)" and
+    "Wearable integrations" is a manual paste-in number field, not a
+    real device API — this app has no backend to hold OAuth tokens for
+    one (§2), same precedent as Main Pillar's own manual Whoop fields.
+    "AI Fitness Coach" reuses this app's one established client-side
+    `fetch('https://api.anthropic.com/v1/messages', ...)` pattern when a
+    real key is pasted into Settings (a new field, since no other page
+    exposes this in its own UI — every prior AI-shaped feature just
+    ships an inactive `'PASTE-...'` placeholder with no way to supply a
+    real one from the page itself); out of the box, every coach reply is
+    a locally-computed response built from real logged data instead of a
+    dead button (`coachLocalReply()` in `fitnessstudio-data.js` —
+    keyword-matches the message against progressive-overload/
+    substitution/recovery/macro/volume/technique intents, falling back
+    to a status summary). Calories burned is a documented rough estimate
+    (a fixed kcal-per-lb-of-volume-lifted heuristic plus a flat
+    per-minute baseline), not real physiology — same "documented
+    simplification" spirit as this app's other computed-not-measured
+    numbers.
+  - **Goal Center's progress bars use a manual 0–100% field
+    (`progressPct`), not target/current math** — a deliberate design
+    call: "Lose 10 lbs" (progress = amount already lost) and "10% Body
+    Fat" (progress = getting a number DOWN) have opposite
+    directionality, and no single `current/target` formula reads
+    correctly for both. `targetValue`/`currentValue`/`unit` stay purely
+    descriptive text next to the bar; the bar itself is a plain slider
+    the user sets directly, defaulted once at creation from
+    `current/target` when that math happens to make sense, then freely
+    editable afterward.
+  - **Workout Programs**: the 7 named categories (Powerlifting/
+    Hypertrophy/Athletic/Fat Loss/Strength/Calisthenics/Custom) each
+    render as a clickable count card, filtering the template gallery
+    below; a small 7-swatch color picker for each program's accent (its
+    program-card top bar) reuses the exact "generic N-swatch accent
+    picker, not a new page palette" precedent `business.html`'s own
+    Workflow week-color picker already established. Exercises live
+    inline on the template (`sets`/`repMin`/`repMax`/`restSec`/`notes`/
+    `equipment`/`photo`/`video`), reordered via up/down arrows (this
+    app's standard non-drag-list convention, chosen over adding a
+    SortableJS dependency for one small in-modal list) — a draft-array-
+    then-Save pattern, same as every other template/routine editor in
+    this app.
+  - **Today's Workout / Live Workout Dashboard**: each exercise row
+    expands (click the row, not just the checkbox) into a Log-a-Set form
+    (weight+reps, live set-pill history, a suggested-weight readout from
+    a simplified version of `gym.html`'s own last-logged-set +
+    rep-range-threshold prescription engine, stored per exercise NAME
+    under `fitstudio:progression` so it survives an exercise being
+    edited/recreated across templates), a per-exercise Rest Timer
+    (timestamp-based, `Date.now()` diffs on a 250ms tick so a
+    backgrounded tab can't desync it, synthesized Web Audio beep at
+    zero — the exact `ensureAudio`/`playBeep` recipe `gym.html`'s own
+    workout timer already established, copied rather than shared since
+    this app has no cross-file import mechanism), and photo/video
+    thumbnails opening a lightbox (built via `document.createElement` +
+    a `.src` property assignment, not string-interpolated `innerHTML` —
+    the same defense-in-depth precedent `index.html`'s own Habit-media
+    bugfix already established for exactly this class of user-pasted-URL
+    field). Starting a workout (`FD.startWorkout`) reveals the Live
+    Workout Dashboard: a session timer, the shared rest timer, current
+    exercise/set (the first not-yet-checked-off exercise), manual
+    heart-rate entry (only shown if Settings' wearable toggle is on),
+    quick water-intake buttons, workout duration, the estimated-calories
+    readout, and volume lifted — all ticking live off one
+    `setInterval`-driven `tickSessionTimer()`, not a full re-render, so
+    it doesn't flicker every second. Marking a workout complete rolls
+    that session's sets into `fitstudio:progression` and checks every
+    logged set against `fitstudio:prs` (`checkForPR()`); a genuine new
+    PR fires a small CSS-only confetti burst + toast (the same
+    `.bkt-confetti`-style "no animation library" technique
+    `selfcare.html`'s own Bucket List Mark Done celebration already
+    established, ported here rather than reused since there's no shared
+    module to import it from).
+  - **Distraction-Free Mode** (`#fsFocusModeBg`, a fixed fullscreen
+    overlay, registered in `topbar.js`'s `MODAL_SELECTORS`) shows just
+    the current exercise, a big timer (the session clock, or the rest
+    countdown while one's running), a Log Set mini-form, a Start Rest
+    button, and Next Exercise → (marks the current exercise done and
+    advances) — Escape or "✕ Exit" leaves it; starting it with no
+    workout active starts one first (using whichever template the Today
+    card currently has selected).
+  - **Music slide-out panel** — the concrete "connects to the Playlists
+    Tab" requirement: reads `enthub:playlists` straight out of
+    localStorage via `EntHub.itemsForPage('playlists')`, filterable by
+    the same 5 subtopic chips `ent-playlists.html` itself uses. This is
+    a deliberate **read-only** connection — the same "read another
+    page's own storage key directly, never call its sync" precedent
+    `tasks-data.js`'s own importers and `topbar.js`'s own
+    `buildLearningTopicItems()` already established — rather than
+    opening a second live Supabase Realtime subscription on this page
+    for a collection it never writes to; a `storage` event listener
+    picks up an edit made in another tab without a reload. Real playback,
+    not just a track list: a YouTube track loads into a real embedded
+    player via the official YouTube IFrame Player API (loaded lazily,
+    only once the panel is first opened, not on every page load), giving
+    genuine Play/Pause/Prev/Next/Volume control — a capability this app
+    hasn't used anywhere else before. **Confirmed adaptation, disclosed
+    rather than silently narrowed**: a Spotify track instead loads into
+    Spotify's own official embed iframe (`open.spotify.com/embed/...`),
+    which has its own native play button but no external JS control API
+    without OAuth + the Web Playback SDK (out of scope — this app has no
+    backend to hold that token, §2) — so Prev/Next still switch which
+    embed is shown, but Play/Pause/Volume only actually work for YouTube
+    tracks; anything else falls back to a plain "↗ Open track" link. The
+    panel never leaves the page in view — a genuine slide-out drawer
+    (`transform: translateX`), not a modal, so it's deliberately **not**
+    registered in `MODAL_SELECTORS` (the request's own "Fitness Studio
+    stays visible... never leaves the workout page" — background content
+    stays fully interactive while it's open).
+  - **Palette**: an explicit exception — the request gave literal color
+    instructions for the Settings theme picker itself (Black/Red/Pink),
+    the same "explicit, literal color instruction" category as every
+    other themed page in this app (§6/DO NOT MODIFY rule 2), scoped
+    entirely to this file's own private `--fs-*` tokens. `--fs-led`
+    (the request's own "Red LED-style accents for active elements") is
+    a fixed crimson regardless of which theme is chosen — read as a
+    deliberate recording-light design touch, not something that should
+    repaint to pink/white on a theme switch. `--fs-good`/`--fs-warn`/
+    `--fs-bad`/`--fs-info` stayed this app's usual green/amber/red-coral/
+    blue (status meaning, not brand accent, same precedent every other
+    re-theme in this app already follows). No other page's tokens were
+    touched.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), and every individual render
+    call inside `renderAll()` is independently wrapped
+    (`safeRender(fn, label)`) so one section throwing can't blank the
+    rest of the page — the exact precedent `gym.html`'s own
+    `BOARD_WIDGET_TYPES` temporal-dead-zone crash and `business.html`'s
+    missing-`layout` crash already established. Empty-storage seed-race
+    safety (`maybeSeedAfterSyncAttempt()`, deferred until either
+    `initCloudSync`'s `onApplied` fires or a 5-second window elapses)
+    guards the seed data (3 example programs — Push/Pull/Leg Day — a
+    full weekly schedule assignment, and 8 example goals) the same way
+    every other freshly-seeded page in this app already protects against
+    clobbering another device's real data on a race with the cloud pull.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Node runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other pages'
+    changelog entries in this file already disclose for this exact class
+    of limitation. Verified statically via PowerShell:
+    `fitnessstudio-data.js` braces/parens balanced (246/246, 499/499);
+    `fitnessstudio.html` (whole file, CSS + script) braces/parens
+    balanced (449/449, 1503/1503); zero duplicate DOM ids across 133
+    unique `id="..."` attributes; all 117 distinct `$('id')` references
+    resolved with nothing unmatched; all 44 distinct `FD().xxx` data-
+    layer calls cross-matched against `FitStudioData`'s exported public
+    API with nothing missing; every rendered `data-*` attribute name
+    cross-matched against every `.dataset.xxx`/`closest('[data-...)`
+    reference used to read it, with nothing orphaned. One real issue was
+    found and fixed during this pass, before it shipped: the Goal Center
+    edit-button click handler computed a `kind` value via a DOM-traversal
+    one-liner that was actually dead code (the real `kind` used to open
+    the modal already came from the goal record itself) — simplified to
+    read `kind` directly off `FD().Goals.get(id)` instead of the unused
+    traversal. **Not verified this way**: an actual click-through
+    (starting a workout and watching the Live Dashboard's timers/
+    calories/volume tick live, logging a set and confirming the PR
+    confetti fires on a genuine new max, dragging the Settings theme
+    swatches and confirming the whole page recolors, opening the music
+    panel and confirming a real YouTube track plays with working Prev/
+    Next/Volume control, and confirming a Spotify track's embed loads
+    correctly). A real click-through is recommended before relying on
+    this page heavily, same disclosed-limitation caveat several other
+    pages' changelog entries in this file already carry for this exact
+    environment.
+
+- **Fitness Studio (`fitnessstudio.html`) follow-up: fixed a real YouTube
+  playback bug, added a divider in the music panel, replaced the whole
+  page background with an adjustable-color layered gradient effect,
+  restyled Workout Programs/Weekly Schedule as glass "pricing-table"-style
+  cards, and imported real exercise data (photos included) from the
+  other two "Fitness Studio" surfaces into Custom.** Four requests landed
+  together in one pass.
+  - **YouTube "Error 153" bugfix, root-caused, not guessed at**: the
+    error text reported ("Watch video on YouTube — Error 153 — Video
+    player configuration error") is the embedded player's own UI
+    reporting a failed origin-verification handshake in the YouTube JS
+    IFrame Player API — a well-documented failure specific to opening a
+    page via `file://` (this app's own established primary way of
+    opening every page, per README — there's no real http(s) origin for
+    the API's postMessage handshake to verify against; Chrome/Edge report
+    it as the literal string `"null"`). Not a broken link, not a broken
+    video, and not something a real Vercel deploy of this same page would
+    necessarily hit — a new `IS_FILE_PROTOCOL` check (`window.location
+    .protocol === 'file:'`) branches `loadTrack()`'s YouTube path in two:
+    under `file:`, it skips the JS Player API entirely and drops in a
+    plain, API-less `<iframe src="https://www.youtube.com/embed/…">`
+    instead (plays fine without that handshake, just without this page's
+    own Play/Pause/Volume control over it — a new `#fsMusicFileModeNote`
+    line explains why and points at deploying the page online for full
+    control back); off `file:`, the JS Player API is still used but now
+    passes `origin: window.location.origin` in `playerVars` explicitly —
+    the standard fix for this same error class on a real http(s) origin
+    too, future-proofing this repo's own Vercel deploy against it.
+    Switching to Spotify/"other" mid-file-mode-YouTube-playback now also
+    explicitly clears `#fsYtPlayerHost`'s content (previously only
+    `ytPlayer.pauseVideo()` was called, which is a no-op in file mode
+    since `ytPlayer` stays `null` there — the old YouTube `<iframe>` would
+    have kept playing audibly in the background).
+  - **Music panel divider**: `.fs-music-chips` (the genre/subtopic pill
+    row) gained a `border-bottom` + extra bottom padding, visually
+    separating it from `.fs-music-list` (the actual track selection)
+    below it — the literal "divider between the music/video selection and
+    the navigation of the music genres/tags" ask.
+  - **Whole-page adjustable background**: a supplied React/Tailwind/
+    shadcn reference component (`elegant-dark-pattern.tsx`, a
+    `DarkGradientBg` — a corner-anchored radial wash, 5 skewed color
+    streaks each with their own diagonal CSS mask, a dot-pattern overlay,
+    a soft neutral highlight) was reimplemented natively as plain stacked
+    `<div>`s and CSS custom properties — this app has no framework/build
+    step/shadcn/Tailwind/TypeScript anywhere (§1), so the request's own
+    "if it doesn't support shadcn, provide setup instructions" branch
+    doesn't apply; the honest move is the same one this file's own DO NOT
+    MODIFY rule 2 already establishes for every other supplied design —
+    recreate the *visual effect* in this app's real stack, not silently
+    stand up a second, unused framework. Reused the `#fsPageBg` div that
+    already existed in this file (previously dead, unused chrome — a
+    leftover placeholder with no children and no JS ever touching it) as
+    the container for the five streak layers + radial wash + dot overlay
+    + highlight, instead of adding a new element. Every layer sits at
+    `z-index: 0` with DOM order deciding stacking (not a negative
+    z-index) — this repo already has a documented, reproduced incident
+    for exactly that mistake once html/body declare an explicit
+    background color, which this file's own `html, body` rule already
+    does (`example.html`'s own changelog entry). **The one adjustable
+    part, per the explicit "make the colors adjustable" ask**: the
+    streaks' color (`--fs-bgfx-rgb`, default `0,207,255` — the reference
+    component's own cyan) is now a Settings field, "Background Glow
+    Color" — 8 preset swatches (`FitStudioData.BG_GLOW_PRESETS`, reusing
+    this app's own established "N presets + one custom picker" precedent,
+    e.g. `business.html`'s Workflow week-color picker) plus a native
+    `<input type="color">` for anything else, stored in
+    `fitstudio:settings.bgGlowColor` and repainted live via
+    `applyTheme()` → `hexToRgbTriplet()` → `--fs-bgfx-rgb`. The framework-
+    specific parts of the original request (npm installs, `/components/
+    ui`, `cn()`, `lucide-react`, Unsplash stock photos) don't apply here
+    for the same "no build step" reason and weren't attempted.
+  - **Workout Programs + Weekly Schedule restyled as glass "pricing-
+    table" cards**, per a second supplied React/shadcn reference
+    (`pricing-table.tsx` — an icon-in-a-circle + name + badge header row,
+    a big bold price, a checkmark/minus feature list, a CTA button) —
+    same "recreate the visual language natively, don't stand up a second
+    framework" call as the background effect above. One new shared
+    `.fs-plan-*` component (icon circle, mono-caps name, badge, a big
+    stat styled like a price, a scrollable checkmark/minus feature list,
+    a full-width CTA), reused by both sections rather than building two
+    near-duplicates, reinterpreting "price" for a fitness dashboard
+    rather than copying SaaS pricing semantics literally: a **Workout
+    Programs** card is one of the 7 fixed categories + Custom (unchanged
+    from before) — icon per category, a badge showing its program count,
+    a big number = total exercises across that category's programs (the
+    "price"), and a checkmark-per-program feature list; clicking the card
+    or its "View Programs" CTA still does exactly what the old
+    `.fs-program-card` did (sets the category filter, scrolls to the
+    template list below) — same delegated click handler, same
+    `data-filter-category` attribute, now on both the card and the CTA. A
+    **Weekly Schedule** card is one of the 7 weekdays — a numbered icon,
+    the day name, a "Today"/category badge, the day's assigned workout
+    name styled as the "price," and a checkmark-per-exercise feature list
+    for that day's assigned template — with the same `<select>`/label
+    `<input>` day-editing controls from before still live inside the
+    card (now also re-rendering the card on change, so picking a new
+    template immediately updates its feature list/category badge instead
+    of waiting for the next unrelated re-render). The old
+    `.fs-program-card`/`.fs-program-grid`/`.fs-day-card`/
+    `.fs-schedule-grid` CSS was replaced outright (a same-session
+    supersession of this exact feature's own prior styling, not another
+    pass's leftover — deleted, not left as dead code), and the secondary
+    "All / category" filter chip row below the Programs cards was left
+    in place, unchanged. The framework-specific parts of this second
+    reference too (shadcn's `Button`/`Badge`/`cn()`, `lucide-react`,
+    `@radix-ui/react-slot`, `class-variance-authority`) don't apply here
+    for the same no-build-step reason.
+  - **"Copy the exercises I have in the other fitness dashboard tab,
+    photos and all, into Custom"** — this app now has two other pages
+    also called "Fitness Studio" (per this file's own §1 table:
+    `gym.html`, own STUDIO nav pill, `po_coach_v1` data; `index.html`'s
+    own embedded Fitness Studio main-tab, `fitness:*` data via
+    `fitness-data.js`), and it's genuinely ambiguous which one "the
+    other" refers to — rather than guess, `fitnessstudio-data.js` gained
+    `importExercisesFromOtherFitnessStudios()`, which reads **both**
+    directly out of their own real `localStorage` keys
+    (`po_coach_v1.routines[]`/`.equipment[]`, `fitness:templates`/
+    `fitness:equipment`) and copies every real routine/template it finds
+    — exercises, sets/rep range/rest seconds/notes, a resolved equipment
+    *name* (not the id, since this page's own exercise model only ever
+    wanted a free-text label), and each exercise's first photo + first
+    video (`gym.html`'s `media[]` array is scanned for `type:'image'`/
+    `type:'video'`; `index.html`'s `photoUrl`/`videoUrl` fields are read
+    directly) — in as a new Custom-category program on this page. Same
+    "read another page's storage directly, never call its sync, never
+    write back to it" precedent as this app's `tasks-data.js` importers
+    and `topbar.js`'s own `buildLearningTopicItems()` — this function has
+    no code path that can write to `po_coach_v1` or `fitness:*`, only
+    read them. **Idempotent, so it's safe to re-run** (a new "↻ Import My
+    Exercises" button next to "+ New Template," plus an automatic run on
+    every boot behind the same empty-storage seed-race-safety window
+    every other page in this app already uses before writing anything to
+    its own synced collections — see `maybeSeedAfterSyncAttempt()`):
+    `Template` gained a purely-additive `importSource`/`importSourceId`
+    pair (empty string default, safe for every pre-existing program),
+    and a repeat import call is deduped against it — so re-running it
+    later (e.g. after adding more exercises to `gym.html`) only ever adds
+    what's genuinely new, and a program already imported here that's
+    since been renamed/recolored/edited is never touched or duplicated.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other pages'
+    changelog entries in this file already carry for this exact class of
+    limitation. Verified statically via PowerShell: brace/paren balance
+    on both files (`fitnessstudio.html`: 489/489 braces, 1759/1759
+    parens; `fitnessstudio-data.js`: 277/277 braces, 585/585 parens);
+    zero duplicate DOM ids across 133 unique element ids; all 122
+    distinct `$('id')` references resolved with nothing unmatched
+    (including every new one — `fsImportExercisesBtn`,
+    `fsSettingsBgSwatches`, `fsSettingsBgCustomColor`,
+    `fsMusicFileModeNote`); all 46 distinct `FD().xxx` calls
+    cross-matched against `FitStudioData`'s exported public API with
+    nothing missing; and a repo-wide grep confirmed zero lingering
+    references to the removed `.fs-program-card`/`.fs-program-grid`/
+    `.fs-schedule-grid`/`.fs-day-card` classes anywhere in the file.
+    **Not verified this way**: an actual click-through (confirming a
+    YouTube track actually plays under `file://` via the fallback
+    `<iframe>`, dragging/picking a background glow color and confirming
+    the streaks repaint live, clicking a Workout Programs card through to
+    its filtered template list, changing a Weekly Schedule day's assigned
+    template and confirming its feature list updates immediately, and
+    running "↻ Import My Exercises" against real `gym.html`/Main-tab data
+    and confirming the copied programs — including their photos — render
+    correctly under Custom). A real click-through is recommended before
+    relying on this page heavily, same disclosed-limitation caveat every
+    other page's changelog entry in this file already carries for this
+    exact environment.
+
+- **Fitness Studio (`fitnessstudio.html`) follow-up: added a real
+  cover-photo hero, re-matched the page background to Business
+  Dashboard's own recipe, restyled Weekly Schedule and the Today's
+  Workout exercise cards to match two specific Business Dashboard
+  components (its Business Cards and its "All Tasks" border-beam task
+  cards), and trimmed the music panel's file:// note.** Four requests
+  landed together in one pass.
+  - **Page background, superseding the prior "DarkGradientBg" streak
+    effect**: `body::before` now uses the exact same recipe
+    `businessdash.html` itself uses — two soft corner-anchored radial
+    glows over a base gradient — instead of the skewed-streak/dot/
+    highlight effect this page's own immediately-preceding session had
+    just built. That effect's one adjustable piece carries over
+    unchanged: `--fs-bgfx-rgb` (Settings' "Background Glow Color"
+    swatches/custom picker) now tints these two glows instead of the old
+    streaks, so the color stays user-adjustable — only the shape of the
+    effect changed, per the explicit "look like Business Dashboard's
+    background" ask. The old `#fsPageBg` div and its `.fs-bgfx-*` CSS
+    (streaks/mask/dots/highlight) were deleted outright rather than kept
+    as dead code — a same-session supersession of this exact page's own
+    prior work, the same "supersede, don't preserve" precedent this app's
+    `gym.html` Timer modal→panel conversion already established, not
+    another pass's orphaned feature.
+  - **New cover-photo hero** (`.fs-photo-hero`/`#fsHeroCoverBg`),
+    genuinely new — this page never had one before. A line-for-line port
+    of `businessdash.html`'s own top-level page hero recipe (editable
+    eyebrow/autosizing title/subtext/CTA over an optional cover photo,
+    upload/Change/Remove tools, an abstract animated gradient fallback
+    when no photo is set, a page-wide blurred backdrop): `eyebrow`/
+    `ctaLabel` are two new additive fields on `fitstudio:hero`
+    (`fitnessstudio-data.js`'s `heroModel`), while the hero's title/
+    subtext deliberately reuse the *existing* `name`/`quote` fields
+    instead of adding parallel ones — so the new photo hero and the
+    pre-existing stats card just below it (name/focus/today's workout/
+    weekly-goal ring/streak, untouched) always agree, edited from either
+    surface. `compressImageDataUrl()` (copied verbatim from
+    `businessdash-data.js`) plus a new `<script src="photo-store.js"
+    defer>` tag give this page the same compress-then-swap-for-a-hosted-
+    URL upload pipeline every other cover photo in this app already
+    uses. The hero's CTA scrolls down to `#fsTodayCard`. `autosize()`/
+    `wireInlineEdit()` (also copied verbatim) are new to this file, since
+    it had no inline-editable fields before this.
+  - **Weekly Schedule cards** (`.fs-day-card`, replacing that section's
+    own copy of `.fs-plan-card` — Workout Programs keeps `.fs-plan-card`
+    completely unchanged, since only Schedule was named in the request)
+    now match `businessdash.html`'s own Business Card component: a
+    cursor-tracked glare + gentle perspective tilt (`wireDayCardGlare()`,
+    a direct port of that page's `wireBizCardGlare()`, just re-scoped
+    from `--bd-glare-x/y` to `--fs-glare-x/y` and `.fs-glare-active`), and
+    an abstract animated gradient cover (kicker = day name, headline =
+    the day's label/assigned template, tagline = category or "Recovery
+    day") in place of the old plain badge/price-row header — no literal
+    per-day photo was asked for or added. The day's existing `<select>`/
+    label `<input>` controls, and their change-event wiring, are
+    completely untouched — only the surrounding markup/CSS moved.
+  - **Today's Workout exercise cards** (`.fs-ex-row`) now match
+    `businessdash.html`'s own "All Tasks" database look — the hand-rolled
+    "border beam" panel (a light traveling the border on a rotating conic
+    gradient, speeding up on hover/expanded), reusing that exact
+    padding-ring technique (an outer frame paints the rotating gradient,
+    an inset `.fs-ex-inner` reveals only a thin ring of it as the
+    "border"). The card now reads as badge (set count) + bold title +
+    description (rep range/rest/equipment) instead of the old single-line
+    checkbox/name/meta row, but every `data-toggle-ex`/`data-toggle-done`/
+    `data-log-set`/`data-start-rest`/`data-stop-rest`/`data-lightbox-*`
+    attribute the existing click-delegation handler already reads via
+    `.closest()` is unchanged and in the same relative position — no
+    click-wiring logic needed to change, only the markup/CSS around it.
+  - **Music panel file:// note** shortened from a boxed, two-sentence
+    callout to a single small muted caption line ("Local file — use the
+    video's own controls above.") — same information, less visual weight,
+    per an explicit ask to trim it down.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment this
+    round, the same reduced-guarantee fallback several other pages'
+    changelog entries in this file already carry for this exact class of
+    limitation. Verified statically via PowerShell: brace/paren balance
+    on both files (`fitnessstudio.html`: 590/590 braces, 1953/1953
+    parens; `fitnessstudio-data.js`: 286/286 braces, 608/608 parens);
+    zero duplicate DOM ids across 153 unique element ids; all 137
+    distinct `$('id')` references resolved with nothing unmatched; every
+    new function (`renderPhotoHero`/`renderPhotoHeroPhoto`/
+    `openPhotoHeroFilePicker`/`handlePhotoHeroPhotoFile`/`autosize`/
+    `wireInlineEdit`/`wireDayCardGlare`) confirmed declared exactly once;
+    and a repo-wide grep confirmed zero remaining references to the
+    removed `#fsPageBg`/`.fs-bgfx-*` selectors. **Not verified this
+    way**: an actual click-through (uploading a hero cover photo and
+    confirming the page-wide blurred backdrop appears, confirming the
+    glare/tilt effect visually tracks the cursor on both the new hero's
+    empty-state abstract cover and the Weekly Schedule day cards,
+    confirming an exercise card's border-beam visibly speeds up on
+    hover/expand, and confirming the shortened music note still shows/
+    hides correctly under both the `file://` and real-http(s) code
+    paths). A real click-through is recommended before relying on this
+    page heavily.
