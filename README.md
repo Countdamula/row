@@ -43,6 +43,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
 | [glass-theme.css](glass-theme.css) / [glass-theme.js](glass-theme.js) | Reusable "dark glass" page theme — background glow, glass cards, glare cards, border-beam cards, a cover-photo hero, and drag-reorderable "moveable" sections. Extracted from fitnessstudio.html; drop `<link>`/`<script>` tags into a new page to get the same look/feel (see glass-theme.css's own header comment for how) |
+| [gallery-card.css](gallery-card.css) / [gallery-card.js](gallery-card.js) | Reusable gallery card component — cover art, hover-revealed drag handle + edit button, a favorite star toggle, a serif title/creator/subtopic, a clamped description, a 5-star rating row, a length readout, and click-to-open-or-edit. Extracted from ent-stories.html's card (`GalleryCard.build(item, opts)` — see gallery-card.css's own header comment for how) |
 
 Each app stores its own state in browser `localStorage`. No accounts, no server.
 

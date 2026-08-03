@@ -11817,3 +11817,73 @@ both as originally phrased assumed a backend this app doesn't have):
     SortableJS's CDN script loads and `GlassTheme.wireMovableSections()`
     actually wires without error). A real click-through is recommended
     before relying on this page heavily.
+
+- **New shared files: `gallery-card.css` + `gallery-card.js` — a reusable
+  gallery card component, extracted from `ent-stories.html`'s own card.**
+  Per an explicit request to "copy this page's card settings, making sure
+  I can reuse the exact same card setup and functions," pointing at
+  `ent-stories.html#horror-stories`. `ent-stories.html` (and its four
+  siblings — `ent-podcasts.html`/`ent-entertainment.html`/
+  `ent-playlists.html`/`ent-favorites.html`, all five thin shells over
+  the shared `entertainment-hub-ui.js`/`entertainment-hub-data.js`
+  engine) are completely untouched — same "extract a clean parallel
+  copy, don't retrofit already-shipped code" precedent as this app's own
+  `glass-theme.css` (see that entry's own scoping note for why): those
+  five pages' real, already-verified `buildCard()`/`.eh-*` implementation
+  keeps running exactly as it already does.
+  - **`gallery-card.css`** — its own private `--gc-*` token copy of
+    `entertainment-hub-ui.js`'s `--eh-*` gold/near-black palette (the
+    literal look the request pointed at), plus `.gc-grid` (the
+    responsive auto-fill gallery grid), `.gc-card`/`.gc-card-cover-wrap`/
+    `.gc-card-cover`/`.gc-card-cover-fallback`/`.gc-card-cover-scrim`
+    (cover art, or a fallback icon if none/broken), `.gc-card-actions`/
+    `.gc-card-icon-btn`/`.gc-card-drag` (hover-revealed drag handle +
+    edit button, top-left), `.gc-card-fav-btn` (favorite star, top-
+    right), `.gc-card-source-tag` (an aggregated-view tag, e.g. for a
+    cross-gallery Favorites page), `.gc-card-body`/`.gc-card-title`
+    (serif italic)/`.gc-card-creator`/`.gc-card-subtopic`/`.gc-card-desc`
+    (2-line clamp)/`.gc-card-meta-row`/`.gc-card-length`, and `.gc-stars`/
+    `.gc-star` (the 5-star rating row). Byte-for-byte the same visual
+    recipe as `entertainment-hub-ui.js`'s injected `.eh-*` CSS, just
+    renamed to a generic `.gc-*` prefix and made a real, loadable file
+    instead of a runtime-injected `<style>` block.
+  - **`gallery-card.js`** — `GalleryCard.build(item, opts)`, a direct
+    generalization of `entertainment-hub-ui.js`'s own `buildCard()`: same
+    DOM shape, same hover/click/keyboard behavior, but takes a plain
+    `item` object (`{id, title, creator, subtopic, cover, description,
+    lengthText, rating, favorite, url}`) and plain callbacks
+    (`onEdit`/`onFavoriteToggle`/`onRatingChange`) instead of this app's
+    Entertainment-hub-specific `EH.*` globals (`EH.PAGES`,
+    `EH.collectionFor`, `EH.toggleFavorite`, `EH.setRating`) — same
+    "shared UI utility, owns no data of its own" precedent as
+    `topbar.js`/`sync.js`/`photo-store.js`/`glass-theme.js`: persisting a
+    favorite toggle, a rating, or a drag-reorder is entirely the calling
+    page's own job, matching the exact division of labor
+    `entertainment-hub-ui.js`'s own `buildCard()`/`initGalleryPage()`
+    split already established (the card reports the interaction via
+    callback; the page decides whether/how to re-render). Also exports
+    `buildStars(rating, size, onSet)`, `openLink(url)`/
+    `isValidMediaUrl(url)`, and `wireSortableGrid(grid, onReorder)` — the
+    last one replicates `entertainment-hub-ui.js`'s own exact touch-
+    scroll-safety Sortable config (`delay:150, delayOnTouchOnly:true,
+    touchStartThreshold:6` — a drag only starts after a brief held tap on
+    the `⋮⋮` handle, so scrolling past a card on a phone can't
+    accidentally reorder it), since the request asked to reuse "the exact
+    same... functions," not just the visual card.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment
+    this round, the same reduced-guarantee fallback several other
+    entries in this file already carry for this exact class of
+    limitation. Verified statically via PowerShell: brace/paren balance
+    on both new files (`gallery-card.css`: 29/29 braces, 49/49 parens;
+    `gallery-card.js`: 43/43 braces, 150/150 parens); confirmed by direct
+    comparison against `entertainment-hub-ui.js`'s own source that every
+    CSS rule and every step of `buildCard()`'s DOM construction has a
+    corresponding `.gc-*` rule / `build()` step here. **Not verified this
+    way**: an actual click-through on a real page built with this kit
+    (confirming a card renders correctly, the drag handle only appears
+    when `opts.draggable` is set, the favorite star and rating callbacks
+    fire with the right item, and `wireSortableGrid()`'s touch-delay
+    tuning actually prevents an accidental reorder while scrolling on a
+    phone). A real click-through is recommended before relying on this
+    kit heavily.
