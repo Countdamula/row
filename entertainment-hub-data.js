@@ -1,30 +1,57 @@
 // entertainment-hub-data.js
 //
-// Shared data foundation for the "Entertainment" nav folder — five
-// genuinely new, standalone pages (ent-podcasts.html, ent-stories.html,
-// ent-entertainment.html, ent-playlists.html, ent-favorites.html), all
-// loading this one file plus entertainment-hub-ui.js. This is a brand
-// new feature area, completely separate from the existing standalone
-// `entertainment.html` ("Media") page and its own `media:*` keys/`key:
-// 'entertainment'` Supabase row — nothing here reads, writes, or
-// repurposes anything belonging to that page (DO NOT MODIFY §1: never
-// repurpose an existing key's sync scheme).
+// Shared data layer originally built for the standalone "Entertainment"
+// nav folder (five pages — ent-podcasts.html/ent-stories.html/
+// ent-entertainment.html/ent-playlists.html/ent-favorites.html). Those
+// five pages, and their shared entertainment-hub-ui.js renderer, were
+// deleted when the folder was merged into one page, `entertainment-dash
+// .html` — but THIS file is kept and still actively used: it's the
+// data layer that page's Podcasts/Stories(split)/Entertainment/
+// Playlists sections read and write directly (via the same `EntHub.*`
+// API below), AND `fitnessstudio.html`'s own music slide-out panel
+// still reads `EntHub.itemsForPage('playlists')` — deleting this file
+// would have broken that page too, so it stays, unmodified in shape,
+// just with its PAGES config restructured (see below) and a new
+// separate `entertainment-dash-data.js` sitting alongside it for the
+// dashboard's own new categories (Reading Corner/Anime/Games) that have
+// no natural home here.
 //
-// Four flat collections, one per content page, each a plain array of
-// EntItem records under its own `enthub:*` key:
+// Real data change in this pass: Stories used to be one page/collection
+// (`enthub:stories`, subtopics Horror Stories / Spicy Stories /
+// Immersive Experience) — per an explicit request to "separate the
+// reading and YouTube versions of Horror Stories and Spicy Stories,"
+// it's now FIVE real pages/collections: horrorReading, horrorWatch,
+// spicyReading, spicyWatch, and storiesImmersive (kept as its own
+// unsplit page — it wasn't asked to split, and "immersive experience"
+// content is already inherently audio/video, not a reading-vs-watching
+// distinction). `migrateStoriesSplitIfNeeded()` (below) is a one-time,
+// guarded migration that distributes any real pre-existing
+// `enthub:stories` items into these five by their old subtopic name
+// (Horror Stories → horrorReading, Spicy Stories → spicyReading,
+// Immersive Experience / anything unrecognized → storiesImmersive) —
+// a disclosed simplification (no reading-vs-watching heuristic on the
+// old data, since it never recorded that distinction) rather than a
+// fabricated guess. The old `enthub:stories` key is left in place
+// afterward, orphaned but untouched, same treatment as every other
+// superseded key elsewhere in this app.
+//
+// Every collection here is still a flat array of EntItem records under
+// its own `enthub:*` key:
 //   - enthub:podcasts
-//   - enthub:stories
+//   - enthub:horrorReading / enthub:horrorWatch
+//   - enthub:spicyReading / enthub:spicyWatch
+//   - enthub:storiesImmersive
 //   - enthub:entertainment
 //   - enthub:playlists
-// The fifth page, Favorites, owns no collection of its own — it's a
-// live, read/write aggregation across all four (any item with
-// `favorite: true`), the same "virtual gallery, no separate storage"
-// precedent entertainment.html's own Favorites tab already established
-// — favoriting/editing/rating from the Favorites page writes straight
-// back into the item's real, owning collection, so there's exactly one
-// copy of each item's data, never a second synced copy.
+// Favorites (now `entertainment-dash.html`'s own Favorites tab) owns no
+// collection of its own — it's a live, read/write aggregation across
+// every page here plus entertainment-dash-data.js's own Reading/Anime/
+// Games collections (any item with `favorite: true`) — favoriting/
+// editing/rating from Favorites writes straight back into the item's
+// real, owning collection, so there's exactly one copy of each item's
+// data, never a second synced copy.
 //
-// All five pages share one Supabase row (`appKey: 'enthub'`,
+// Every page here still shares one Supabase row (`appKey: 'enthub'`,
 // `syncedPrefixes: ['enthub:']`) — same "one row covers several
 // logically separate pages" precedent index.html's own `goals` row
 // already uses for routine:/system:/fitness:/mainselfcare:.
@@ -68,9 +95,9 @@
   }
 
   // ============================================================
-  // PAGE CONFIG — the four content pages, each with its own fixed
-  // sub-topic list (the request's own "additional sub-pages"). A
-  // sub-topic is just a string tag on an item, not its own storage —
+  // PAGE CONFIG — one entry per content page, each with its own fixed
+  // sub-topic list. A sub-topic is just a string tag on an item, not its
+  // own storage —
   // same "category is a field, not a collection" precedent every other
   // gallery/database in this app already uses (e.g. business.html's
   // Content Plan `platform` field).
@@ -80,9 +107,25 @@
       key: 'podcasts', storageKey: 'enthub:podcasts', label: 'Podcasts', icon: '🎙️',
       subtopics: ['Learning', 'Photography / Videography', 'True Crime', 'Business']
     },
-    stories: {
-      key: 'stories', storageKey: 'enthub:stories', label: 'Stories', icon: '📖',
-      subtopics: ['Horror Stories', 'Spicy Stories', 'Immersive Experience']
+    horrorReading: {
+      key: 'horrorReading', storageKey: 'enthub:horrorReading', label: 'Horror Stories · Reading', icon: '📖',
+      subtopics: ['Short Stories', 'Novels', 'Anthologies', 'Creepypasta']
+    },
+    horrorWatch: {
+      key: 'horrorWatch', storageKey: 'enthub:horrorWatch', label: 'Horror Stories · YouTube', icon: '🎧',
+      subtopics: ['Narrated Videos', 'Analog Horror', 'Found Footage', 'Compilations']
+    },
+    spicyReading: {
+      key: 'spicyReading', storageKey: 'enthub:spicyReading', label: 'Spicy Stories · Reading', icon: '📖',
+      subtopics: ['Novels', 'Novellas', 'Fanfiction', 'Short Stories']
+    },
+    spicyWatch: {
+      key: 'spicyWatch', storageKey: 'enthub:spicyWatch', label: 'Spicy Stories · YouTube', icon: '🎧',
+      subtopics: ['Narrated Videos', 'Roleplay Audio', 'ASMR Style', 'Compilations']
+    },
+    storiesImmersive: {
+      key: 'storiesImmersive', storageKey: 'enthub:storiesImmersive', label: 'Immersive Experience', icon: '🌀',
+      subtopics: ['Immersive Experience', 'ASMR', 'Interactive Audio']
     },
     entertainment: {
       key: 'entertainment', storageKey: 'enthub:entertainment', label: 'Entertainment', icon: '🎬',
@@ -93,7 +136,7 @@
       subtopics: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy']
     }
   };
-  const PAGE_ORDER = ['podcasts', 'stories', 'entertainment', 'playlists'];
+  const PAGE_ORDER = ['podcasts', 'horrorReading', 'horrorWatch', 'spicyReading', 'spicyWatch', 'storiesImmersive', 'entertainment', 'playlists'];
 
   // ============================================================
   // IMAGE COMPRESSION / URL VALIDATION — same canvas-downscale recipe
@@ -304,6 +347,37 @@
   function collectionFor(pageKey) { return COLLECTIONS[pageKey]; }
 
   // ============================================================
+  // ONE-TIME MIGRATION — see this file's own header comment. Distributes
+  // any real pre-existing `enthub:stories` items into the five new split
+  // pages by their old subtopic name; anything unrecognized falls back
+  // to storiesImmersive. Guarded so it only ever runs once per device;
+  // the old `enthub:stories` key is left alone afterward (orphaned, not
+  // deleted). Runs synchronously at load time — safe to run before
+  // bootSync's own remote merge, since a freshly-migrated item just has
+  // a brand-new id the merge has never seen yet and gets unioned in like
+  // any other local add.
+  // ============================================================
+  function migrateStoriesSplitIfNeeded() {
+    if (storeGet('enthub:storiesSplitMigratedV1')) return;
+    const old = storeGet('enthub:stories');
+    if (Array.isArray(old) && old.length) {
+      const mapTo = { 'Horror Stories': 'horrorReading', 'Spicy Stories': 'spicyReading', 'Immersive Experience': 'storiesImmersive' };
+      old.forEach(function (item) {
+        if (!item) return;
+        const targetKey = mapTo[item.subtopic] || 'storiesImmersive';
+        collectionFor(targetKey).add({
+          title: item.title, creator: item.creator, url: item.url, cover: item.cover,
+          description: item.description, lengthText: item.lengthText,
+          rating: item.rating, favorite: item.favorite, order: nextOrder(targetKey),
+          subtopic: PAGES[targetKey].subtopics[0]
+        });
+      });
+    }
+    storeSet('enthub:storiesSplitMigratedV1', true);
+  }
+  migrateStoriesSplitIfNeeded();
+
+  // ============================================================
   // SELECTORS
   // ============================================================
   function itemsForPage(pageKey) {
@@ -400,9 +474,14 @@
     seedItem('podcasts', 'Business', 'How I Built This', 'NPR');
     seedItem('podcasts', 'Business', 'The Tim Ferriss Show', 'Tim Ferriss');
 
-    seedItem('stories', 'Horror Stories', 'NoSleep Podcast', '');
-    seedItem('stories', 'Spicy Stories', 'Dirty Diana', '');
-    seedItem('stories', 'Immersive Experience', 'The Magnus Archives', '');
+    seedItem('horrorReading', 'Novels', 'The Haunting of Hill House', 'Shirley Jackson');
+    seedItem('horrorReading', 'Creepypasta', 'r/nosleep favorites', '');
+    seedItem('horrorWatch', 'Narrated Videos', 'NoSleep Podcast', '');
+    seedItem('horrorWatch', 'Analog Horror', 'Local58', '');
+    seedItem('spicyReading', 'Novels', 'A Court of Thorns and Roses', 'Sarah J. Maas');
+    seedItem('spicyReading', 'Short Stories', 'Spicy short-story favorites', '');
+    seedItem('spicyWatch', 'Narrated Videos', 'Dirty Diana', '');
+    seedItem('storiesImmersive', 'Immersive Experience', 'The Magnus Archives', '');
 
     seedItem('entertainment', 'Gaming', 'A favorite gaming channel', '');
     seedItem('entertainment', 'Scary Videos', 'A favorite scary-video channel', '');

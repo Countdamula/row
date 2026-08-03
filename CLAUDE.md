@@ -219,7 +219,8 @@ page's CSS is self-contained in its own `<style>` block):
    | `learninghub` | `learning-dashboard.html` (new) | everything prefixed `lhub:` (`lhub:topics`, `lhub:dailyLogs`, `lhub:research`, `lhub:maps`, `lhub:frameworks`, `lhub:masterNotes`, `lhub:notes`, `lhub:projects`, `lhub:questions`, `lhub:sessions`, `lhub:settings`, `lhub:seeded`) — new (see changelog). Deliberately a different prefix than `learning.html`'s own `learning:` prefix so the two pages' data can never collide |
    | `businessos` | `businessos.html` (new) | everything prefixed `bos:` (`bos:businesses`, `bos:goals`, `bos:projects`, `bos:products`, `bos:content`, `bos:customers`, `bos:operations`, `bos:financeTx`, `bos:financeInvoices`, `bos:financeBudgets`, `bos:financeSubs`, `bos:aiPrompts`, `bos:knowledge`, `bos:notes`, `bos:files`, `bos:tasks`, `bos:captures`, `bos:settings`, `bos:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row — nothing here reads, writes, or repurposes that page's data |
    | `businessdash` | `businessdash.html` (new) | everything prefixed `bizdash:` (`bizdash:businesses`, `bizdash:sections`, `bizdash:links`, `bizdash:series`, `bizdash:manuscripts`, `bizdash:binderNodes`, `bizdash:trackers`, `bizdash:tasks`, `bizdash:ytVideos`, `bizdash:blogPosts`, `bizdash:prompts`, `bizdash:tracks`, `bizdash:articles`, `bizdash:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row and `businessos.html`'s own `key='businessos'` row — nothing here reads, writes, or repurposes either page's data |
-   | `enthub` | `ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html` (new) | everything prefixed `enthub:` (`enthub:podcasts`, `enthub:stories`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, plus each page's own device-local `enthub:<page>:activeSubtopic`/`enthub:favorites:activePage` UI-state keys) — one shared row across all five pages, same "one row covers several logically separate pages" precedent the `goals` row already uses (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
+   | `enthub` | `entertainment-dash.html` (via `entertainment-hub-data.js`), plus `fitnessstudio.html`'s music panel (read-only) | everything prefixed `enthub:` — `enthub:podcasts`, `enthub:horrorReading`/`horrorWatch`, `enthub:spicyReading`/`spicyWatch`, `enthub:storiesImmersive`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, `enthub:heroes`. The old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`) that originally owned this row was deleted and merged into one page, `entertainment-dash.html` — `entertainment-hub-data.js` itself was kept (not deleted) since `fitnessstudio.html`'s own music panel still reads `enthub:playlists` from it. `enthub:stories` (the old single Stories collection) is now an **orphaned key** — Stories was split into `horrorReading`/`horrorWatch`/`spicyReading`/`spicyWatch`/`storiesImmersive`, migrated once via `migrateStoriesSplitIfNeeded()`, left alone afterward (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
+   | `entdash` | `entertainment-dash.html` (new) | everything prefixed `entdash:` (`entdash:reading`, `entdash:anime`, `entdash:games`, `entdash:seeded`, `entdash:hero`) — new (see changelog). Genuinely separate from the `enthub` row above; `entertainment-dash-data.js` unifies both rows' collections into one cross-category Home/Discovery Engine/Favorites/Statistics view without merging their storage |
    | `fitnessstudio` | `fitnessstudio.html` (new) | everything prefixed `fitstudio:` (`fitstudio:templates`, `fitstudio:goals`, `fitstudio:prs`, `fitstudio:schedule`, `fitstudio:settings`, `fitstudio:hero`, `fitstudio:log:<date>`, `fitstudio:progression`, `fitstudio:aiChat`, `fitstudio:seeded`) — new (see changelog). Genuinely separate from `gym.html`'s own `key='po-coach'` row and `index.html`'s own `fitness:*` prefix under the `goals` row — nothing here reads or writes either. Its music slide-out panel reads `enthub:playlists` directly out of localStorage (read-only, no second sync subscription opened for it — see the changelog entry) rather than through its own sync call |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
@@ -259,11 +260,7 @@ using `sync.js`.
 | Fitness Studio | 🏋️ `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
 | Finance | 💰 `FINANCE` → `finance.html` | `finance.html` |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
-| Entertainment (folder) → Favorites | ⭐ `Entertainment` nav folder → `ent-favorites.html` | `ent-favorites.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new, entirely separate from `entertainment.html`/"Media" above — see changelog) |
-| Entertainment (folder) → Podcasts | 🎙️ `Entertainment` nav folder → `ent-podcasts.html` | `ent-podcasts.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
-| Entertainment (folder) → Stories | 📖 `Entertainment` nav folder → `ent-stories.html` | `ent-stories.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
-| Entertainment (folder) → Playlists | 🎧 `Entertainment` nav folder → `ent-playlists.html` | `ent-playlists.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
-| Entertainment (folder) → Entertainment | 🎬 `Entertainment` nav folder → `ent-entertainment.html` | `ent-entertainment.html` + shared `entertainment-hub-data.js`/`entertainment-hub-ui.js` (new — see changelog) |
+| Entertainment | 🎬 `Entertainment` nav folder → `entertainment-dash.html` | `entertainment-dash.html` + `entertainment-dash-data.js` (Reading Corner/Anime/Games + the cross-category Home/Discovery Engine/Favorites/Statistics logic) + `entertainment-hub-data.js` (Podcasts/Stories-split/Entertainment/Playlists — kept from the old five-page folder, not deleted, since `fitnessstudio.html`'s music panel still reads it). Replaces both the old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`, all deleted) and the short-lived Media/`mediaverse.html` hub (deleted outright, `mediaverse-data.js` gone too) — see changelog |
 | Brain Dump | 🧠 `BRAIN DUMP` → `braindump.html` | `braindump.html` (briefly deleted, then restored — see changelog) |
 | Nutrition | 🍽️ `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
 | Household | 🧺 `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (briefly deleted, then restored — see changelog) |
@@ -12217,3 +12214,159 @@ both as originally phrased assumed a backend this app doesn't have):
     relying on this feature, same disclosed-limitation caveat every
     other page's changelog entry in this file already carries for this
     exact environment.
+
+- **Media hub deleted outright; the five-page Entertainment folder
+  merged into one dashboard, `entertainment-dash.html`, styled to match
+  Fitness Studio/Business Dashboard, plus five new pages (Discovery
+  Engine/Reading Corner/Anime/Games/Statistics) and a Horror/Spicy
+  Stories reading-vs-YouTube split.** Per an explicit request. Two
+  separate changes landed together, both scoped to the Entertainment
+  side of this app — every other page in this repo is untouched.
+  - **Media/`mediaverse.html` + `mediaverse-data.js` are gone**, no
+    trace kept — this was the most recently-added, least-embedded
+    feature in the app (its own nav folder, its own `key='mediaverse'`
+    Supabase row, no other page ever read or wrote its data), so
+    deleting it cleanly had zero blast radius on anything else. The
+    `mediaverse` Supabase row was left alone, now orphaned, same
+    treatment as every other superseded key elsewhere in this app
+    (`health`, `system`, etc.).
+  - **The five-page Entertainment folder is gone too**
+    (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/
+    `ent-playlists.html`/`ent-entertainment.html`, plus their shared
+    renderer `entertainment-hub-ui.js`) — replaced by one page,
+    `entertainment-dash.html`. **`entertainment-hub-data.js` itself was
+    kept, not deleted** — a real dependency check (`grep`) found
+    `fitnessstudio.html`'s own music slide-out panel still calls
+    `EntHub.itemsForPage('playlists')` against it (see that page's own
+    changelog entry), so deleting it would have broken a second,
+    unrelated page. It was restructured instead (see below), and its
+    real, already-synced `enthub:*` data carries forward unchanged —
+    this is a genuine merge, not a rebuild-from-empty: the same
+    `entertainment-hub-data.js` collections `entertainment-dash.html`
+    now reads/writes are the exact ones the old five pages already used,
+    under the same Supabase row (`key='enthub'`), so nothing a real user
+    had already saved on the old pages is lost.
+  - **Horror Stories and Spicy Stories split into a Reading database and
+    a separate YouTube database each**, per the request's own explicit
+    instruction. `entertainment-hub-data.js`'s `PAGES` config went from
+    one `stories` page to five: `horrorReading`, `horrorWatch`,
+    `spicyReading`, `spicyWatch`, and `storiesImmersive` (kept as its
+    own unsplit page — "immersive experience" content is already
+    inherently audio/video, and it wasn't asked to split). A new,
+    guarded one-time migration, `migrateStoriesSplitIfNeeded()`,
+    distributes any real pre-existing `enthub:stories` items into the
+    five new collections by their old subtopic name (Horror Stories →
+    horrorReading, Spicy Stories → spicyReading, Immersive Experience /
+    anything unrecognized → storiesImmersive) — a disclosed
+    simplification, not a fabricated reading-vs-watching guess, since
+    the old data never recorded that distinction. `enthub:stories`
+    itself is left in place afterward, orphaned but untouched, same
+    treatment as every other superseded key elsewhere in this app.
+  - **Three genuinely new databases** — Reading Corner, Anime, and
+    Games — live in a new companion file, `entertainment-dash-data.js`
+    (own `entdash:` prefix: `entdash:reading`/`anime`/`games`), each
+    with a category-appropriate creator label (Author/Studio/
+    Developer-Platform), genre list, length label (Pages/Episodes/Hours
+    Played), and a shared want/in-progress/done status enum (relabeled
+    per category — "Want To Read"/"Plan To Watch"/"Backlog," etc.) —
+    `entertainment-hub-data.js`'s own `EntItem` shape has no `status`
+    field at all (it was only ever favorite+rating), so this is a real,
+    disclosed difference between the two data layers, not something
+    retrofitted onto the older categories.
+  - **Discovery Engine, Favorites, and Statistics are genuinely
+    cross-category**, not per-page — the actual reason
+    `entertainment-dash-data.js` exists as a second file rather than
+    just extending `entertainment-hub-data.js` in place: a `REGISTRY`
+    built at load time (reading `EntHub.PAGES` directly — this file must
+    load *after* `entertainment-hub-data.js`, a `<script defer>`
+    ordering guarantee) unifies all 11 real gallery categories (8 from
+    `EntHub`, 3 native) behind one dispatch layer (`listItems`/
+    `addItem`/`updateItem`/`removeItem`/`reorderVisibleAny`/
+    `toggleFavoriteAny`/`setRatingAny`/`setStatusAny`), so Favorites
+    (a live aggregation of every `favorite:true` item, filterable by
+    category, editing writes straight back to the item's real owning
+    collection — same "no second synced copy" precedent
+    `entertainment-hub-data.js`'s own pre-existing Favorites already
+    used), Discovery Engine (category/min-rating/not-completed-only
+    filters, a `.gt-beam-card`-wrapped random reveal, "🎲 Try Another"),
+    and Statistics (total items/favorites/avg rating, a per-category bar
+    chart, and a want/in-progress/done breakdown specific to Reading/
+    Anime/Games) all work identically regardless of which underlying
+    file a category's data actually lives in.
+  - **"Clone and copy the looks of Fitness Studio and Business
+    Dashboard"**: `entertainment-dash.html` is built entirely from
+    those two pages' own already-extracted, reusable component kits —
+    `glass-theme.css`/`glass-theme.js` (the cover-photo hero, glare
+    cards, border-beam cards, background glow — `--gt-accent`/
+    `--gt-bg`/etc. repointed to Business Dashboard's own near-black/gold
+    values, `#c9a876`/`#e8cf9f`, per DO NOT MODIFY rule 2: reuse
+    existing tokens, no new palette) and `gallery-card.css`/
+    `gallery-card.js` (the cover-art gallery card, extracted from
+    `ent-stories.html`'s own card in an earlier session, before that
+    page existed — its own default palette already happened to match).
+    **Structural note, disclosed rather than silently chosen**: Fitness
+    Studio's own "clone" is a continuous single-scroll page with
+    movable sections; Business Dashboard's is a gallery of businesses
+    opening into their own full page. With 15 real sections here
+    (Home/Discovery/Favorites + 11 galleries + Statistics), neither
+    shape reads well stacked or as 15 separate overlays, so this page
+    uses a persistent, sticky tab row instead (the same shape
+    `household.html`/`selfcare.html`/`businessdash.html`'s own subnav
+    already use elsewhere in this app) while still genuinely reusing the
+    shared kit's hero/card/glare/beam components for the actual look —
+    a stat tile on Home/Statistics is a `.gt-glare-card` (wired via
+    `GlassTheme.wireGlareCard()`), and Discovery Engine's reveal is a
+    real `.gt-beam-card`.
+  - **`topbar.js`**: the "Media" nav group (mediaverse.html) was removed
+    outright; the "Entertainment" nav group's five-item list was
+    replaced with one item, `entertainment-dash.html`, carrying all 15
+    tab hashes as Notion-style nested children (`#horror-reading`,
+    `#spicy-watch`, `#reading-corner`, etc.) — the only edit made to
+    that shared file. `.gt-modal-bg` was already in `MODAL_SELECTORS`
+    from an earlier session, so this page's own Add/Edit modal already
+    gets the shared mobile scroll-lock with no further edit needed.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`showBootError()`), showing a visible
+    banner with the real error and a "Copy error details" button instead
+    of a silent blank page, matching the precedent `gym.html`/
+    `business.html`/`mainpillar.html` already established. The inline
+    script is wrapped in `document.addEventListener('DOMContentLoaded',
+    ...)` rather than run at parse time — this repo's `defer`-loaded
+    companion `-data.js` files only finish executing right before
+    `DOMContentLoaded`, so an inline script touching `window.EntDash`/
+    `window.EntHub` at parse time would risk running before either
+    exists, the exact bug class `mainpillar.html`'s own changelog entry
+    already documents hitting once — avoided here from the start.
+  - **`README.md`'s file table was updated to match** — the five old
+    `ent-*.html` rows collapsed into one `entertainment-dash.html` row;
+    the `enthub`/new `entdash` sync rows in this file's own §4 table
+    were updated the same way.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`/`python`/`python3` all unavailable), the same
+    reduced-guarantee fallback several other pages' changelog entries in
+    this file already disclose for this exact class of limitation.
+    Verified statically instead: brace/paren balance confirmed on every
+    touched/new file (`entertainment-hub-data.js`: 210/210 braces,
+    552/552 parens; `entertainment-dash-data.js`: 134/134 braces,
+    298/298 parens; `entertainment-dash.html`: 146/146 braces, 569/569
+    parens; `topbar.js`'s own pre-existing 5-paren prose-comment
+    imbalance confirmed unchanged by diffing added/removed lines
+    separately, both perfectly balanced on their own); zero duplicate
+    DOM ids in `entertainment-dash.html`; every `getElementById('id')`
+    reference cross-matched against real element ids with nothing
+    unresolved (one apparent miss, `edDiscoveryReveal`, is a container
+    created and given that id dynamically in JS, not a false negative);
+    every `EntDash.*`/`EntHub.*` call used in the new files cross-matched
+    against each file's own exported public API with nothing missing.
+    **Not verified this way**: an actual click-through (adding/editing/
+    deleting an item in each of the 11 gallery categories, dragging a
+    card to reorder under an active filter, confirming the migrated
+    Stories items land in the right split category on a device with
+    real pre-existing `enthub:stories` data, rolling Discovery Engine,
+    favoriting/unfavoriting across categories, and uploading a cover
+    photo end to end). A real click-through is recommended before
+    relying on this page heavily, same disclosed-limitation caveat
+    several other pages' changelog entries in this file already carry
+    for this exact environment.

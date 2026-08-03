@@ -121,53 +121,6 @@
       ],
     },
     {
-      // New nav folder, right above Business Dashboard: Media — a single
-      // hub connecting everything read/watched/listened-to/played
-      // (Reading, Anime, Games, Videos, Horror Stories, Spicy Stories,
-      // Podcasts, Music & Playlists, Immersive/ASMR), plus Franchise
-      // Collections, an Inspiration Vault, live Favorites/Discovery/
-      // Statistics, and a curated Upcoming Releases / New & Trending
-      // board. Genuinely new files, mediaverse.html + mediaverse-data.js
-      // — separate from the pre-existing Entertainment folder (five
-      // ent-*.html pages sharing entertainment-hub-data.js/
-      // entertainment-hub-ui.js) and from entertainment.html ("Media" —
-      // yes, same label as this folder; nothing here reads or writes
-      // either, this is a real, disclosed name collision, not a merge).
-      // Reuses this app's two shared UI kits wholesale instead of a new
-      // palette (glass-theme.css/js, gallery-card.css/js) — see
-      // mediaverse.html's own header comment. Renamed from "Media
-      // Universe" to "Media," Discovery Engine/Favorites moved to the
-      // top of the list (right after Home), Movies & TV removed
-      // outright, and Horror/Spicy Stories split into a Reading database
-      // and a separate YouTube database each, per an explicit follow-up
-      // request — see mediaverse-data.js's own header comment.
-      key: 'mediaverse',
-      label: 'Media',
-      items: [
-        { href: 'mediaverse.html', icon: '🌌', label: 'Media', id: 'topbarMediaverse', children: [
-          { hash: 'home', label: 'Home' },
-          { hash: 'discovery', label: 'Discovery Engine' },
-          { hash: 'favorites', label: 'Favorites' },
-          { hash: 'releases', label: 'Upcoming Releases' },
-          { hash: 'trending', label: 'New & Trending' },
-          { hash: 'reading', label: 'Reading' },
-          { hash: 'anime', label: 'Anime' },
-          { hash: 'game', label: 'Games' },
-          { hash: 'video', label: 'Videos' },
-          { hash: 'horror', label: 'Horror Stories · Reading' },
-          { hash: 'horrorwatch', label: 'Horror Stories · YouTube' },
-          { hash: 'spicy', label: 'Spicy Stories · Reading' },
-          { hash: 'spicywatch', label: 'Spicy Stories · YouTube' },
-          { hash: 'podcast', label: 'Podcasts' },
-          { hash: 'music', label: 'Music & Playlists' },
-          { hash: 'immersive', label: 'Immersive / ASMR' },
-          { hash: 'collections', label: 'Franchise Collections' },
-          { hash: 'inspiration', label: 'Inspiration Vault' },
-          { hash: 'stats', label: 'Statistics' },
-        ] },
-      ],
-    },
-    {
       // New nav folder, right above Entertainment: a Business Dashboard —
       // a gallery of businesses, each opening into its own front page
       // hosting a Writing Dashboard (series/manuscripts/a Scrivener-style
@@ -201,51 +154,41 @@
       ],
     },
     {
-      // New nav folder, right below Command Center: five genuinely new,
-      // standalone pages (not a rebuild of the pre-existing
-      // entertainment.html/"Media" page, which is untouched and keeps
-      // its own separate nav entry down in "Create & Grow" below) — one
-      // shared gallery engine (entertainment-hub-ui.js) renders all
-      // five, each backed by its own `enthub:*` collection
-      // (entertainment-hub-data.js). Favorites owns no collection of its
-      // own — it's a live aggregation of every item favorited across the
-      // other four, filterable by source page.
+      // New nav folder, right below Command Center: entertainment-dash
+      // .html — one merged dashboard replacing what used to be five
+      // separate standalone pages (ent-podcasts.html/ent-stories.html/
+      // ent-entertainment.html/ent-playlists.html/ent-favorites.html,
+      // all deleted) plus the short-lived Media/mediaverse.html hub
+      // (deleted outright). Still genuinely separate from
+      // entertainment.html/"Media" down in "Create & Grow" below —
+      // nothing here reads or writes that page's own `media:*` data.
+      // Data layer is still entertainment-hub-data.js for the 8
+      // pre-existing categories (Podcasts/Stories-now-split/
+      // Entertainment/Playlists — kept, not deleted, since
+      // fitnessstudio.html's own music panel still reads
+      // `enthub:playlists` from it) plus a new entertainment-dash-data
+      // .js for the 3 brand-new categories (Reading Corner/Anime/Games)
+      // and the cross-category Discovery Engine/Favorites/Statistics
+      // logic — see both files' own header comments.
       key: 'entertainment',
       label: 'Entertainment',
       items: [
-        { href: 'ent-favorites.html', icon: '⭐', label: 'Favorites', id: 'topbarEntFavorites', children: [
-          { hash: 'all', label: 'All Pages' },
-          { hash: 'podcasts', label: '🎙️ Podcasts' },
-          { hash: 'stories', label: '📖 Stories' },
-          { hash: 'playlists', label: '🎧 Playlists' },
-          { hash: 'entertainment', label: '🎬 Entertainment' },
-        ] },
-        { href: 'ent-podcasts.html', icon: '🎙️', label: 'Podcasts', id: 'topbarEntPodcasts', children: [
-          { hash: 'learning', label: 'Learning' },
-          { hash: 'photography-videography', label: 'Photography / Videography' },
-          { hash: 'true-crime', label: 'True Crime' },
-          { hash: 'business', label: 'Business' },
-          { hash: 'favorites', label: '★ Favorites' },
-        ] },
-        { href: 'ent-stories.html', icon: '📖', label: 'Stories', id: 'topbarEntStories', children: [
-          { hash: 'horror-stories', label: 'Horror Stories' },
-          { hash: 'spicy-stories', label: 'Spicy Stories' },
-          { hash: 'immersive-experience', label: 'Immersive Experience' },
-          { hash: 'favorites', label: '★ Favorites' },
-        ] },
-        { href: 'ent-playlists.html', icon: '🎧', label: 'Playlists', id: 'topbarEntPlaylists', children: [
-          { hash: 'chill', label: 'Chill' },
-          { hash: 'binaural-beats', label: 'Binaural Beats' },
-          { hash: 'dark-gothic-horror-romance', label: 'Dark / Gothic / Horror / Romance' },
-          { hash: 'edm-electronic', label: 'EDM / Electronic' },
-          { hash: 'fantasy', label: 'Fantasy' },
-          { hash: 'favorites', label: '★ Favorites' },
-        ] },
-        { href: 'ent-entertainment.html', icon: '🎬', label: 'Entertainment', id: 'topbarEntEntertainment', children: [
-          { hash: 'gaming', label: 'Gaming' },
-          { hash: 'scary-videos', label: 'Scary Videos' },
-          { hash: 'vlog-like', label: 'Vlog-Like' },
-          { hash: 'favorites', label: '★ Favorites' },
+        { href: 'entertainment-dash.html', icon: '🎬', label: 'Entertainment', id: 'topbarEntDash', children: [
+          { hash: 'home', label: 'Home' },
+          { hash: 'discovery', label: 'Discovery Engine' },
+          { hash: 'favorites', label: 'Favorites' },
+          { hash: 'podcasts', label: 'Podcasts' },
+          { hash: 'horror-reading', label: 'Horror Stories · Reading' },
+          { hash: 'horror-watch', label: 'Horror Stories · YouTube' },
+          { hash: 'spicy-reading', label: 'Spicy Stories · Reading' },
+          { hash: 'spicy-watch', label: 'Spicy Stories · YouTube' },
+          { hash: 'stories-immersive', label: 'Immersive Experience' },
+          { hash: 'entertainment', label: 'Entertainment' },
+          { hash: 'playlists', label: 'Playlists' },
+          { hash: 'reading-corner', label: 'Reading Corner' },
+          { hash: 'anime', label: 'Anime' },
+          { hash: 'games', label: 'Games' },
+          { hash: 'statistics', label: 'Statistics' },
         ] },
       ],
     },

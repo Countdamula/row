@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b0a08">
+<title>Entertainment — Personal Dashboard</title>
+<!--
+  entertainment-dash.html — the single merged Entertainment dashboard.
+  Replaces two things that used to exist separately:
+    1. The five-page "Entertainment" nav folder (ent-podcasts.html/
+       ent-stories.html/ent-entertainment.html/ent-playlists.html/
+       ent-favorites.html, all deleted) — their real data isn't lost,
+       it's still read/written through the same entertainment-hub-data.js
+       (see that file's own header comment on why it's kept, not
+       deleted — fitnessstudio.html's music panel still depends on it).
+    2. "Media"/mediaverse.html (deleted outright, per an explicit
+       request — its own mediaverse-data.js is gone too, nothing here
+       reads it).
+
+  Per an explicit request, this page also gains 5 sections the old
+  folder never had: Discovery Engine, Reading Corner, Anime, Games, and
+  Statistics (Reading/Anime/Games are new entertainment-dash-data.js
+  collections; Discovery/Statistics are pure computed tools, no storage
+  of their own). Horror Stories and Spicy Stories are now each split
+  into a Reading database and a separate YouTube database — see
+  entertainment-hub-data.js's own header comment for how that split/
+  migration works.
+
+  "Clone and copy the looks of Fitness Studio and Business Dashboard":
+  this page is built entirely from those two pages' own extracted,
+  reusable component kits — glass-theme.css/js (the dark-glass hero,
+  glare cards, border-beam cards, background glow) and gallery-card.css/
+  js (the cover-art gallery card, extracted from ent-stories.html's own
+  card before that page was deleted) — rather than a third, bespoke copy
+  of either. --gt-*/--gc-* are repointed below to this app's common
+  near-black/gold palette (Business Dashboard's own values), the
+  aesthetic most of this app's newer pages already share (CLAUDE.md §6).
+
+  Structural note, disclosed rather than silently chosen: Fitness
+  Studio's own "clone" is a continuous single-scroll page with movable
+  sections; Business Dashboard's is a gallery of businesses that open
+  into their own full page. With 15 real sections here (Home/Discovery/
+  Favorites + 11 galleries + Statistics), neither shape reads well as
+  one giant stacked scroll or as 15 separate full-page overlays — so
+  this page uses a persistent tab row instead (the same shape
+  household.html/selfcare.html/businessdash.html's own subnav already
+  use elsewhere in this app), while still genuinely reusing the shared
+  kit's hero/card/glare/beam components for the actual look.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="glass-theme.css">
+<link rel="stylesheet" href="gallery-card.css">
+<style>
+:root {
+  /* Repoint the shared kit's accent to this app's common near-black/gold
+     palette (Business Dashboard's own --bd-* values) — DO NOT MODIFY §2:
+     reuse existing tokens, no new hard-coded palette. */
+  --gt-bg: #0b0a08;
+  --gt-bg-deep: #050403;
+  --gt-accent: #c9a876;
+  --gt-accent-bright: #e8cf9f;
+  --gt-accent-rgb: 201,168,118;
+  --gt-accent-text: #24190c;
+  --gt-bgfx-rgb: 201,168,118;
+  --gt-font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+body { margin: 0; font-family: var(--gt-font); }
+.edash-tabs {
+  position: sticky; top: 8px; z-index: 40;
+  background: rgba(11,10,8,0.82); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--gt-border); padding: 10px; margin: 0 0 20px; border-radius: 16px;
+  max-height: 46vh; overflow-y: auto;
+}
+.edash-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; margin-bottom: 4px; }
+.edash-stat-tile { padding: 16px; text-align: center; margin-bottom: 0; }
+.edash-stat-value { font-size: 26px; font-weight: 800; color: var(--gt-accent-bright); }
+.edash-stat-label { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gt-text-mute); margin-top: 4px; }
+.edash-bar-row { margin-bottom: 9px; }
+.edash-bar-label { font-size: 12px; color: var(--gt-text-dim); margin-bottom: 3px; }
+.edash-bar-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.edash-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gt-accent) 0%, var(--gt-accent-bright) 100%); border-radius: 999px; }
+.edash-group-title { font-weight: 700; font-size: 13px; margin: 0 0 8px; color: var(--gt-text); }
+.edash-boot-error { position: fixed; top: 0; left: 0; right: 0; z-index: 6000; background: #3a0d0d; color: #fff; padding: 14px 18px; font: 12.5px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.edash-boot-error button { margin-top: 8px; padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; font: inherit; }
+@media (max-width: 620px) { .edash-tabs { max-height: 34vh; } }
+</style>
+</head>
+<body class="gt-theme">
+<div id="gtHeroCoverBg" aria-hidden="true"></div>
+<div id="edBootError"></div>
+<a href="index.html" class="gt-back">← Back</a>
+
+<div class="gt-shell">
+
+  <section class="gt-hero" id="edHero">
+    <div class="gt-hero-media" id="edHeroMedia"><img id="edHeroImg" alt="" style="display:none;"></div>
+    <div class="gt-hero-abstract" id="edHeroAbstract" aria-hidden="true"></div>
+    <div class="gt-hero-choice" id="edHeroChoice">
+      <button type="button" class="gt-hero-choice-btn" id="edHeroAddBtn">+ Add a cover photo</button>
+    </div>
+    <div class="gt-hero-overlay"></div>
+    <div class="gt-hero-photo-tools" id="edHeroTools" style="display:none;">
+      <button type="button" id="edHeroChangeBtn">Change</button>
+      <button type="button" id="edHeroRemoveBtn">Remove</button>
+    </div>
+    <input type="file" id="edHeroFileInput" accept="image/*" style="display:none;">
+    <div class="gt-hero-content">
+      <span class="gt-hero-eyebrow" id="edHeroEyebrow" contenteditable="true"></span>
+      <textarea class="gt-hero-title" id="edHeroTitle" rows="1"></textarea>
+      <div class="gt-hero-subtext" id="edHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="gt-hero-cta" id="edHeroCta">
+        <span class="gt-hero-cta-label" id="edHeroCtaLabel" contenteditable="true"></span>
+        <span class="gt-hero-cta-arrow">→</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="edash-tabs gt-chip-row" id="edTabRow"></div>
+  <div id="edTabBody"></div>
+
+</div>
+
+<div class="gt-modal-bg" id="edItemModalBg">
+  <div class="gt-modal">
+    <h3 id="edModalTitle">Add Item</h3>
+    <div class="gt-field">
+      <label class="gt-field-label">Title</label>
+      <input type="text" class="gt-input" id="edFieldTitle">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label" id="edFieldCreatorLabel">Creator</label>
+      <input type="text" class="gt-input" id="edFieldCreator">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Category / Genre</label>
+      <select class="gt-select" id="edFieldSubtopic"></select>
+    </div>
+    <div class="gt-field" id="edFieldStatusRow">
+      <label class="gt-field-label">Status</label>
+      <select class="gt-select" id="edFieldStatus"></select>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Link (URL)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="gt-input" id="edFieldUrl" placeholder="https://…" style="flex:1;">
+        <button type="button" class="gt-btn gt-btn-sm" id="edFetchBtn">🔍 Fetch</button>
+      </div>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label" id="edFieldLengthLabel">Length</label>
+      <input type="text" class="gt-input" id="edFieldLength">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Cover Image</label>
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <img id="edFieldCoverPreview" style="width:56px;height:56px;border-radius:10px;object-fit:cover;display:none;border:1px solid var(--gt-border);" alt="">
+        <div style="flex:1;">
+          <input type="text" class="gt-input" id="edFieldCover" placeholder="Paste an image URL…" style="margin-bottom:6px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="gt-btn gt-btn-sm" id="edCoverUploadBtn">Upload a photo</button>
+            <span id="edFieldCoverStatus" style="font-size:11.5px;color:var(--gt-text-mute);"></span>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="edCoverFileInput" accept="image/*" style="display:none;">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Description</label>
+      <textarea class="gt-textarea" id="edFieldDescription" rows="3"></textarea>
+    </div>
+    <div class="gt-field" id="edFieldNotesRow">
+      <label class="gt-field-label">Notes</label>
+      <textarea class="gt-textarea" id="edFieldNotes" rows="3"></textarea>
+    </div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn gt-btn-ghost" id="edDeleteBtn" style="margin-right:auto;color:var(--gt-bad);">Delete</button>
+      <button type="button" class="gt-btn" id="edModalCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="edModalSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="glass-theme.js" defer></script>
+<script src="gallery-card.js" defer></script>
+<script src="entertainment-hub-data.js" defer></script>
+<script src="entertainment-dash-data.js" defer></script>
+<script>
+// Wrapped in DOMContentLoaded — every dependency above is a deferred
+// script, which only finishes executing right before DOMContentLoaded
+// fires. A plain inline script (this one) would otherwise run BEFORE
+// those deferred scripts on some engines' ordering, the exact bug class
+// mainpillar.html's own changelog documents hitting once — avoided here
+// from the start.
+document.addEventListener('DOMContentLoaded', function () {
+  try { boot(); } catch (err) { showBootError(err); }
+});
+
+function showBootError(err) {
+  var el = document.getElementById('edBootError');
+  if (!el) return;
+  var msg = (err && err.message) ? err.message : String(err);
+  var stack = (err && err.stack) || '';
+  var box = document.createElement('div');
+  box.className = 'edash-boot-error';
+  var p = document.createElement('div');
+  p.textContent = 'Something went wrong loading this page: ' + msg;
+  box.appendChild(p);
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Copy error details';
+  btn.addEventListener('click', function () {
+    try { navigator.clipboard.writeText(msg + '\n\n' + stack); } catch (e) {}
+  });
+  box.appendChild(btn);
+  el.appendChild(box);
+}
+
+var TAB_HASH = {
+  home: 'home', discovery: 'discovery', favorites: 'favorites',
+  podcasts: 'podcasts', horrorReading: 'horror-reading', horrorWatch: 'horror-watch',
+  spicyReading: 'spicy-reading', spicyWatch: 'spicy-watch', storiesImmersive: 'stories-immersive',
+  entertainment: 'entertainment', playlists: 'playlists',
+  reading: 'reading-corner', anime: 'anime', games: 'games',
+  statistics: 'statistics'
+};
+var HASH_TAB = {};
+Object.keys(TAB_HASH).forEach(function (k) { HASH_TAB[TAB_HASH[k]] = k; });
+
+var EXTRA_TAB_META = {
+  home: { icon: '🏠', label: 'Home' },
+  discovery: { icon: '🎲', label: 'Discovery Engine' },
+  favorites: { icon: '⭐', label: 'Favorites' },
+  statistics: { icon: '📊', label: 'Statistics' }
+};
+var CREATOR_LABEL_ENTHUB = {
+  podcasts: 'Host / Creator', horrorReading: 'Author', horrorWatch: 'Channel / Creator',
+  spicyReading: 'Author', spicyWatch: 'Channel / Creator', storiesImmersive: 'Creator',
+  entertainment: 'Channel / Creator', playlists: 'Curator / Artist'
+};
+
+var TAB_ORDER = [];
+var activeTab = 'home';
+var activeFilters = {};
+var favFilterKey = 'all';
+var discoveryState = { categoryKey: 'all', minRating: 0, notCompletedOnly: false, currentPick: null };
+var editingKey = null, editingId = null, editingDraft = null;
+
+function tabMeta(key) {
+  if (EXTRA_TAB_META[key]) return EXTRA_TAB_META[key];
+  var r = window.EntDash.REGISTRY[key];
+  return { icon: r.icon, label: r.label };
+}
+
+function boot() {
+  TAB_ORDER = ['home', 'discovery', 'favorites'].concat(window.EntDash.GALLERY_KEYS).concat(['statistics']);
+
+  var hash = (location.hash || '').replace(/^#/, '');
+  activeTab = HASH_TAB[hash] || 'home';
+
+  wireHeroUI();
+  wireModal();
+
+  window.addEventListener('hashchange', function () {
+    var h = (location.hash || '').replace(/^#/, '');
+    var k = HASH_TAB[h];
+    if (k && k !== activeTab) { activeTab = k; renderTabRow(); renderActiveTab(); }
+  });
+
+  if (window.EntHub && typeof window.EntHub.bootSync === 'function') {
+    window.EntHub.bootSync(function () { renderTabRow(); renderActiveTab(); });
+  }
+  var remoteAppliedRef = { applied: false };
+  if (typeof window.initCloudSync === 'function') {
+    window.initCloudSync({
+      appKey: 'entdash', syncedPrefixes: ['entdash:'],
+      onApplied: function () { remoteAppliedRef.applied = true; renderTabRow(); renderActiveTab(); }
+    });
+  }
+  window.EntDash.maybeSeedAfterSyncAttempt(remoteAppliedRef);
+
+  renderTabRow();
+  renderActiveTab();
+}
+
+function switchTab(key) {
+  activeTab = key;
+  try { history.replaceState(null, '', '#' + TAB_HASH[key]); } catch (e) {}
+  renderTabRow();
+  renderActiveTab();
+  var row = document.getElementById('edTabRow');
+  if (row) row.scrollIntoView({ behavior: (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'), block: 'start' });
+}
+
+function renderTabRow() {
+  var row = document.getElementById('edTabRow');
+  if (!row) return;
+  row.innerHTML = '';
+  TAB_ORDER.forEach(function (key) {
+    var m = tabMeta(key);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gt-chip' + (key === activeTab ? ' active' : '');
+    btn.textContent = m.icon + ' ' + m.label;
+    btn.addEventListener('click', function () { switchTab(key); });
+    row.appendChild(btn);
+  });
+}
+
+function renderActiveTab() {
+  var body = document.getElementById('edTabBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (activeTab === 'home') renderHome(body);
+  else if (activeTab === 'discovery') renderDiscovery(body);
+  else if (activeTab === 'favorites') renderFavorites(body);
+  else if (activeTab === 'statistics') renderStatistics(body);
+  else renderGalleryTab(body, activeTab);
+}
+
+function buildFilterChip(label, active, onClick) {
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'gt-chip' + (active ? ' active' : '');
+  b.textContent = label;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function buildCardFor(item, key, opts) {
+  opts = opts || {};
+  var r = window.EntDash.REGISTRY[key];
+  return window.GalleryCard.build(item, {
+    fallbackIcon: r.icon,
+    draggable: !!opts.draggable,
+    showSourceTag: !!opts.showSource,
+    sourceIcon: r.icon, sourceLabel: r.label,
+    onEdit: function (it) { openItemModal(key, it.id); },
+    onFavoriteToggle: function (it) { window.EntDash.toggleFavoriteAny(key, it.id); renderActiveTab(); },
+    onRatingChange: function (it, rating) { window.EntDash.setRatingAny(key, it.id, rating); renderActiveTab(); }
+  });
+}
+
+function buildStatTile(label, value) {
+  var t = document.createElement('div');
+  t.className = 'gt-glare-card edash-stat-tile';
+  var v = document.createElement('div'); v.className = 'edash-stat-value'; v.textContent = value;
+  var l = document.createElement('div'); l.className = 'edash-stat-label'; l.textContent = label;
+  t.appendChild(v); t.appendChild(l);
+  if (window.GlassTheme) window.GlassTheme.wireGlareCard(t);
+  return t;
+}
+
+// ---------- Home ----------
+function renderHome(body) {
+  var stats = window.EntDash.computeStats();
+  var card = document.createElement('div'); card.className = 'gt-card';
+  var head = document.createElement('div'); head.className = 'gt-card-head';
+  head.innerHTML = '<h2 class="gt-card-title">👋 Welcome back</h2>';
+  card.appendChild(head);
+  var row = document.createElement('div'); row.className = 'edash-stat-row';
+  row.appendChild(buildStatTile('Total Items', stats.totalItems));
+  row.appendChild(buildStatTile('Favorites', stats.totalFavorites));
+  row.appendChild(buildStatTile('Categories', stats.categoryCount));
+  row.appendChild(buildStatTile('Avg Rating', stats.avgRating ? stats.avgRating.toFixed(1) + ' ★' : '—'));
+  card.appendChild(row);
+  body.appendChild(card);
+
+  var recentCard = document.createElement('div'); recentCard.className = 'gt-card';
+  recentCard.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">🕒 Recently Added</h2></div>';
+  var grid = document.createElement('div'); grid.className = 'gc-grid';
+  var recent = window.EntDash.recentlyAdded(8);
+  if (!recent.length) {
+    var e = document.createElement('div'); e.className = 'gc-empty';
+    e.textContent = 'Nothing added yet — jump into any tab above to get started.';
+    grid.appendChild(e);
+  } else {
+    recent.forEach(function (item) { grid.appendChild(buildCardFor(item, item._categoryKey, { draggable: false, showSource: true })); });
+  }
+  recentCard.appendChild(grid);
+  body.appendChild(recentCard);
+}
+
+// ---------- Discovery Engine ----------
+function renderDiscovery(body) {
+  var card = document.createElement('div'); card.className = 'gt-card';
+  card.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">🎲 Discovery Engine</h2></div>';
+
+  var controls = document.createElement('div');
+  controls.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center;';
+
+  var catSel = document.createElement('select'); catSel.className = 'gt-select'; catSel.style.width = 'auto';
+  var optAll = document.createElement('option'); optAll.value = 'all'; optAll.textContent = 'All Categories'; catSel.appendChild(optAll);
+  window.EntDash.GALLERY_KEYS.forEach(function (k) {
+    var o = document.createElement('option'); o.value = k; o.textContent = tabMeta(k).icon + ' ' + tabMeta(k).label; catSel.appendChild(o);
+  });
+  catSel.value = discoveryState.categoryKey;
+  catSel.addEventListener('change', function () { discoveryState.categoryKey = catSel.value; });
+  controls.appendChild(catSel);
+
+  var ratingSel = document.createElement('select'); ratingSel.className = 'gt-select'; ratingSel.style.width = 'auto';
+  [0, 1, 2, 3, 4, 5].forEach(function (n) {
+    var o = document.createElement('option'); o.value = n; o.textContent = n === 0 ? 'Any Rating' : (n + '+ ★'); ratingSel.appendChild(o);
+  });
+  ratingSel.value = discoveryState.minRating;
+  ratingSel.addEventListener('change', function () { discoveryState.minRating = Number(ratingSel.value); });
+  controls.appendChild(ratingSel);
+
+  var label = document.createElement('label');
+  label.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--gt-text-dim);';
+  var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = discoveryState.notCompletedOnly;
+  cb.addEventListener('change', function () { discoveryState.notCompletedOnly = cb.checked; });
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode(' Not yet completed only (Reading / Anime / Games)'));
+  controls.appendChild(label);
+  card.appendChild(controls);
+
+  var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'gt-btn gt-btn-primary'; btn.textContent = '🎲 Discover';
+  btn.addEventListener('click', rollDiscovery);
+  card.appendChild(btn);
+
+  var revealWrap = document.createElement('div'); revealWrap.id = 'edDiscoveryReveal'; revealWrap.style.marginTop = '18px';
+  card.appendChild(revealWrap);
+  body.appendChild(card);
+
+  renderDiscoveryReveal();
+}
+function rollDiscovery() {
+  discoveryState.currentPick = window.EntDash.randomItem({
+    categoryKey: discoveryState.categoryKey, minRating: discoveryState.minRating, notCompletedOnly: discoveryState.notCompletedOnly
+  });
+  renderDiscoveryReveal();
+}
+function renderDiscoveryReveal() {
+  var wrap = document.getElementById('edDiscoveryReveal');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  var pick = discoveryState.currentPick;
+  if (!pick) {
+    var e = document.createElement('div'); e.className = 'gc-empty'; e.textContent = 'Press "Discover" to get a random pick.';
+    wrap.appendChild(e);
+    return;
+  }
+  var beam = document.createElement('div'); beam.className = 'gt-beam-card';
+  var glow = document.createElement('div'); glow.className = 'gt-beam-card-glow'; beam.appendChild(glow);
+  var inner = document.createElement('div'); inner.className = 'gt-beam-card-inner';
+  var grid = document.createElement('div'); grid.className = 'gc-grid'; grid.style.maxWidth = '320px';
+  grid.appendChild(buildCardFor(pick, pick._categoryKey, { draggable: false, showSource: true }));
+  inner.appendChild(grid);
+  beam.appendChild(inner);
+  wrap.appendChild(beam);
+  var again = document.createElement('button');
+  again.type = 'button'; again.className = 'gt-btn gt-btn-sm'; again.style.marginTop = '10px'; again.textContent = '🎲 Try Another';
+  again.addEventListener('click', rollDiscovery);
+  wrap.appendChild(again);
+}
+
+// ---------- Favorites ----------
+function renderFavorites(body) {
+  var card = document.createElement('div'); card.className = 'gt-card';
+  card.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">⭐ Favorites</h2></div>';
+  var chipRow = document.createElement('div'); chipRow.className = 'gt-chip-row';
+  chipRow.appendChild(buildFilterChip('All', favFilterKey === 'all', function () { favFilterKey = 'all'; renderActiveTab(); }));
+  window.EntDash.GALLERY_KEYS.forEach(function (k) {
+    chipRow.appendChild(buildFilterChip(tabMeta(k).icon + ' ' + tabMeta(k).label, favFilterKey === k, function () { favFilterKey = k; renderActiveTab(); }));
+  });
+  card.appendChild(chipRow);
+
+  var grid = document.createElement('div'); grid.className = 'gc-grid';
+  var favs = window.EntDash.allFavoritesAcross().filter(function (x) { return favFilterKey === 'all' || x._categoryKey === favFilterKey; });
+  if (!favs.length) {
+    var e = document.createElement('div'); e.className = 'gc-empty'; e.textContent = 'No favorites yet — tap the ☆ on any card to add one.';
+    grid.appendChild(e);
+  } else {
+    favs.forEach(function (item) { grid.appendChild(buildCardFor(item, item._categoryKey, { draggable: false, showSource: true })); });
+  }
+  card.appendChild(grid);
+  body.appendChild(card);
+}
+
+// ---------- Statistics ----------
+function renderStatistics(body) {
+  var stats = window.EntDash.computeStats();
+  var card = document.createElement('div'); card.className = 'gt-card';
+  card.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">📊 Statistics</h2></div>';
+  var row = document.createElement('div'); row.className = 'edash-stat-row';
+  row.appendChild(buildStatTile('Total Items', stats.totalItems));
+  row.appendChild(buildStatTile('Favorites', stats.totalFavorites));
+  row.appendChild(buildStatTile('Categories', stats.categoryCount));
+  row.appendChild(buildStatTile('Avg Rating', stats.avgRating ? stats.avgRating.toFixed(1) + ' ★' : '—'));
+  card.appendChild(row);
+  body.appendChild(card);
+
+  var byCat = document.createElement('div'); byCat.className = 'gt-card';
+  byCat.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">By Category</h2></div>';
+  var maxCount = 1;
+  window.EntDash.GALLERY_KEYS.forEach(function (k) { maxCount = Math.max(maxCount, stats.perCategory[k].count); });
+  window.EntDash.GALLERY_KEYS.forEach(function (k) {
+    var meta = tabMeta(k);
+    var c = stats.perCategory[k];
+    var rowEl = document.createElement('div'); rowEl.className = 'edash-bar-row';
+    var lbl = document.createElement('div'); lbl.className = 'edash-bar-label'; lbl.textContent = meta.icon + ' ' + meta.label + ' (' + c.count + ')';
+    var track = document.createElement('div'); track.className = 'edash-bar-track';
+    var fill = document.createElement('div'); fill.className = 'edash-bar-fill'; fill.style.width = Math.round((c.count / maxCount) * 100) + '%';
+    track.appendChild(fill);
+    rowEl.appendChild(lbl); rowEl.appendChild(track);
+    byCat.appendChild(rowEl);
+  });
+  body.appendChild(byCat);
+
+  var statusCard = document.createElement('div'); statusCard.className = 'gt-card';
+  statusCard.innerHTML = '<div class="gt-card-head"><h2 class="gt-card-title">Reading / Anime / Games Progress</h2></div>';
+  window.EntDash.PAGE_ORDER.forEach(function (k) {
+    var meta = tabMeta(k);
+    var r = window.EntDash.REGISTRY[k];
+    var sb = stats.statusBreakdown[k];
+    var total = (sb.want + sb.progress + sb.done) || 1;
+    var group = document.createElement('div'); group.style.marginBottom = '14px';
+    var title = document.createElement('div'); title.className = 'edash-group-title'; title.textContent = meta.icon + ' ' + meta.label;
+    group.appendChild(title);
+    window.EntDash.STATUS_KEYS.forEach(function (sk) {
+      var rowEl = document.createElement('div'); rowEl.className = 'edash-bar-row';
+      var lbl = document.createElement('div'); lbl.className = 'edash-bar-label'; lbl.textContent = r.statusLabels[sk] + ' (' + sb[sk] + ')';
+      var track = document.createElement('div'); track.className = 'edash-bar-track';
+      var fill = document.createElement('div'); fill.className = 'edash-bar-fill'; fill.style.width = Math.round((sb[sk] / total) * 100) + '%';
+      track.appendChild(fill);
+      rowEl.appendChild(lbl); rowEl.appendChild(track);
+      group.appendChild(rowEl);
+    });
+    statusCard.appendChild(group);
+  });
+  body.appendChild(statusCard);
+}
+
+// ---------- Any real gallery category (11 of them) ----------
+function ensureFilterState(key) {
+  if (!activeFilters[key]) activeFilters[key] = { subtopic: 'all', status: 'all', search: '' };
+  return activeFilters[key];
+}
+function renderGalleryTab(body, key) {
+  var r = window.EntDash.REGISTRY[key];
+  var state = ensureFilterState(key);
+
+  var card = document.createElement('div'); card.className = 'gt-card';
+  var head = document.createElement('div'); head.className = 'gt-card-head';
+  var h2 = document.createElement('h2'); h2.className = 'gt-card-title'; h2.textContent = r.icon + ' ' + r.label;
+  head.appendChild(h2);
+  var addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'gt-btn gt-btn-primary'; addBtn.textContent = '+ Add';
+  addBtn.addEventListener('click', function () { openItemModal(key, null); });
+  head.appendChild(addBtn);
+  card.appendChild(head);
+
+  var chipRow = document.createElement('div'); chipRow.className = 'gt-chip-row';
+  chipRow.appendChild(buildFilterChip('All', state.subtopic === 'all', function () { state.subtopic = 'all'; renderActiveTab(); }));
+  (r.subtopics || []).forEach(function (st) {
+    chipRow.appendChild(buildFilterChip(st, state.subtopic === st, function () { state.subtopic = st; renderActiveTab(); }));
+  });
+  card.appendChild(chipRow);
+
+  if (r.hasStatus) {
+    var statusRow = document.createElement('div'); statusRow.className = 'gt-chip-row';
+    statusRow.appendChild(buildFilterChip('All Statuses', state.status === 'all', function () { state.status = 'all'; renderActiveTab(); }));
+    window.EntDash.STATUS_KEYS.forEach(function (sk) {
+      statusRow.appendChild(buildFilterChip(r.statusLabels[sk], state.status === sk, function () { state.status = sk; renderActiveTab(); }));
+    });
+    card.appendChild(statusRow);
+  }
+
+  var search = document.createElement('input');
+  search.type = 'text'; search.className = 'gt-input'; search.placeholder = 'Search…'; search.style.marginBottom = '14px';
+  search.value = state.search;
+  search.addEventListener('input', function () { state.search = search.value; renderGrid(); });
+  card.appendChild(search);
+
+  var grid = document.createElement('div'); grid.className = 'gc-grid';
+  card.appendChild(grid);
+  body.appendChild(card);
+
+  // Sortable is wired ONCE on this grid element (not inside renderGrid,
+  // which only replaces children) — calling Sortable.create() again on
+  // every keystroke in the search box would stack a new instance on top
+  // of the last one instead of replacing it.
+  window.GalleryCard.wireSortableGrid(grid, function (ids) { window.EntDash.reorderVisibleAny(key, ids); });
+
+  function renderGrid() {
+    grid.innerHTML = '';
+    var items = window.EntDash.listItems(key);
+    var q = state.search.trim().toLowerCase();
+    var filtered = items.filter(function (x) {
+      if (state.subtopic !== 'all' && x.subtopic !== state.subtopic) return false;
+      if (r.hasStatus && state.status !== 'all' && x.status !== state.status) return false;
+      if (q) {
+        var hay = ((x.title || '') + ' ' + (x.creator || '') + ' ' + (x.description || '')).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    if (!filtered.length) {
+      var e = document.createElement('div'); e.className = 'gc-empty'; e.textContent = 'Nothing here yet.';
+      grid.appendChild(e);
+      return;
+    }
+    filtered.forEach(function (item) { grid.appendChild(buildCardFor(item, key, { draggable: true })); });
+  }
+  renderGrid();
+}
+
+// ---------- Hero ----------
+function wireHeroUI() {
+  if (!window.GlassTheme) return;
+  window.GlassTheme.wireHero({
+    eyebrowEl: document.getElementById('edHeroEyebrow'),
+    titleEl: document.getElementById('edHeroTitle'),
+    subtextEl: document.getElementById('edHeroSubtext'),
+    ctaLabelEl: document.getElementById('edHeroCtaLabel'),
+    ctaEl: document.getElementById('edHeroCta'),
+    coverBgEl: document.getElementById('gtHeroCoverBg'),
+    mediaAbstractEl: document.getElementById('edHeroAbstract'),
+    mediaImgEl: document.getElementById('edHeroImg'),
+    choiceEl: document.getElementById('edHeroChoice'),
+    toolsEl: document.getElementById('edHeroTools'),
+    fileInputEl: document.getElementById('edHeroFileInput'),
+    addBtn: document.getElementById('edHeroAddBtn'),
+    changeBtn: document.getElementById('edHeroChangeBtn'),
+    removeBtn: document.getElementById('edHeroRemoveBtn'),
+    getRecord: window.EntDash.getHero,
+    saveRecord: window.EntDash.saveHero,
+    onCtaClick: function () { switchTab('podcasts'); }
+  });
+}
+
+// ---------- Add/Edit modal ----------
+function updateCoverPreview() {
+  var img = document.getElementById('edFieldCoverPreview');
+  var statusEl = document.getElementById('edFieldCoverStatus');
+  if (editingDraft && editingDraft.cover) {
+    img.src = editingDraft.cover; img.style.display = 'block';
+    statusEl.textContent = editingDraft.cover.indexOf('data:') === 0 ? '✓ Photo attached' : '';
+  } else {
+    img.style.display = 'none'; img.src = '';
+    statusEl.textContent = '';
+  }
+}
+function openItemModal(key, id) {
+  editingKey = key; editingId = id;
+  var r = window.EntDash.REGISTRY[key];
+  var existing = id ? window.EntDash.listItems(key).find(function (x) { return x.id === id; }) : null;
+  editingDraft = existing ? Object.assign({}, existing) : {
+    title: '', creator: '', url: '', cover: '', description: '', lengthText: '', notesText: '',
+    subtopic: (r.subtopics && r.subtopics[0]) || '', status: 'want'
+  };
+
+  document.getElementById('edModalTitle').textContent = id ? 'Edit' : ('Add to ' + r.label);
+  document.getElementById('edFieldTitle').value = editingDraft.title;
+  document.getElementById('edFieldCreatorLabel').textContent = r.source === 'entdash' ? r.creatorLabel : (CREATOR_LABEL_ENTHUB[key] || 'Creator');
+  document.getElementById('edFieldCreator').value = editingDraft.creator;
+  document.getElementById('edFieldUrl').value = editingDraft.url;
+  document.getElementById('edFieldCover').value = (editingDraft.cover && editingDraft.cover.indexOf('data:') !== 0) ? editingDraft.cover : '';
+  updateCoverPreview();
+
+  var subtopicSel = document.getElementById('edFieldSubtopic'); subtopicSel.innerHTML = '';
+  (r.subtopics || []).forEach(function (st) {
+    var o = document.createElement('option'); o.value = st; o.textContent = st; subtopicSel.appendChild(o);
+  });
+  subtopicSel.value = editingDraft.subtopic;
+
+  var statusRow = document.getElementById('edFieldStatusRow');
+  if (r.hasStatus) {
+    statusRow.style.display = 'block';
+    var statusSel = document.getElementById('edFieldStatus'); statusSel.innerHTML = '';
+    window.EntDash.STATUS_KEYS.forEach(function (sk) {
+      var o = document.createElement('option'); o.value = sk; o.textContent = r.statusLabels[sk]; statusSel.appendChild(o);
+    });
+    statusSel.value = editingDraft.status;
+  } else {
+    statusRow.style.display = 'none';
+  }
+
+  document.getElementById('edFieldLengthLabel').textContent = (r.source === 'entdash' ? r.lengthLabel : 'Length') || 'Length';
+  document.getElementById('edFieldLength').value = editingDraft.lengthText;
+  document.getElementById('edFieldDescription').value = editingDraft.description;
+
+  var notesRow = document.getElementById('edFieldNotesRow');
+  notesRow.style.display = r.source === 'entdash' ? 'block' : 'none';
+  document.getElementById('edFieldNotes').value = editingDraft.notesText || '';
+
+  document.getElementById('edFetchBtn').style.display = r.source === 'enthub' ? 'inline-flex' : 'none';
+  document.getElementById('edDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+
+  document.getElementById('edItemModalBg').classList.add('show');
+}
+function closeItemModal() {
+  document.getElementById('edItemModalBg').classList.remove('show');
+  editingKey = null; editingId = null; editingDraft = null;
+}
+function saveItemModal() {
+  if (!editingKey || !editingDraft) return;
+  var r = window.EntDash.REGISTRY[editingKey];
+  var title = document.getElementById('edFieldTitle').value.trim();
+  if (!title) { alert('Please enter a title.'); return; }
+  var pastedCover = document.getElementById('edFieldCover').value.trim();
+  var patch = {
+    title: title,
+    creator: document.getElementById('edFieldCreator').value.trim(),
+    url: document.getElementById('edFieldUrl').value.trim(),
+    cover: pastedCover || editingDraft.cover || '',
+    subtopic: document.getElementById('edFieldSubtopic').value,
+    lengthText: document.getElementById('edFieldLength').value.trim(),
+    description: document.getElementById('edFieldDescription').value.trim()
+  };
+  if (r.hasStatus) patch.status = document.getElementById('edFieldStatus').value;
+  if (r.source === 'entdash') patch.notesText = document.getElementById('edFieldNotes').value.trim();
+
+  if (editingId) {
+    window.EntDash.updateItem(editingKey, editingId, patch);
+  } else {
+    patch.order = window.EntDash.nextOrderAny(editingKey);
+    window.EntDash.addItem(editingKey, patch);
+  }
+  closeItemModal();
+  renderActiveTab();
+}
+function deleteItemModal() {
+  if (!editingKey || !editingId) return;
+  if (!confirm('Delete this item?')) return;
+  window.EntDash.removeItem(editingKey, editingId);
+  closeItemModal();
+  renderActiveTab();
+}
+function wireModal() {
+  document.getElementById('edModalCancelBtn').addEventListener('click', closeItemModal);
+  document.getElementById('edItemModalBg').addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'edItemModalBg') closeItemModal();
+  });
+  document.getElementById('edModalSaveBtn').addEventListener('click', saveItemModal);
+  document.getElementById('edDeleteBtn').addEventListener('click', deleteItemModal);
+
+  document.getElementById('edFieldCover').addEventListener('input', function () {
+    if (editingDraft) { editingDraft.cover = this.value.trim(); updateCoverPreview(); }
+  });
+  document.getElementById('edCoverUploadBtn').addEventListener('click', function () {
+    var input = document.getElementById('edCoverFileInput');
+    input.value = ''; input.click();
+  });
+  document.getElementById('edCoverFileInput').addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file || !window.EntHub) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      window.EntHub.compressImageDataUrl(String(reader.result), 480, 0.82).then(function (compressed) {
+        if (!editingDraft) return;
+        editingDraft.cover = compressed;
+        document.getElementById('edFieldCover').value = '';
+        updateCoverPreview();
+        if (window.PhotoStore) {
+          window.PhotoStore.upload(compressed, function (url) {
+            if (editingDraft) { editingDraft.cover = url; updateCoverPreview(); }
+          });
+        }
+      }).catch(function () {});
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('edFetchBtn').addEventListener('click', function () {
+    var url = document.getElementById('edFieldUrl').value.trim();
+    if (!url || !window.EntHub) return;
+    window.EntHub.fetchPreview(url).then(function (result) {
+      if (!editingDraft) return;
+      if (result.title && !document.getElementById('edFieldTitle').value.trim()) document.getElementById('edFieldTitle').value = result.title;
+      if (result.creator) document.getElementById('edFieldCreator').value = result.creator;
+      if (result.cover) { editingDraft.cover = result.cover; document.getElementById('edFieldCover').value = result.cover; updateCoverPreview(); }
+    });
+  });
+}
+</script>
+</body>
+</html>

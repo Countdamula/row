@@ -19,11 +19,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [finance.html](finance.html) | Finances |
 | [gym.html](gym.html) | Fitness Studio — progressive overload gym tracker |
 | [entertainment.html](entertainment.html) | Media — Spotify/YouTube link gallery |
-| [ent-favorites.html](ent-favorites.html) | Entertainment folder → Favorites — live aggregation of every item starred on Podcasts/Stories/Playlists/Entertainment, filterable by page |
-| [ent-podcasts.html](ent-podcasts.html) | Entertainment folder → Podcasts — Learning/Photography-Videography/True Crime/Business sub-pages, auto-filled gallery |
-| [ent-stories.html](ent-stories.html) | Entertainment folder → Stories — Horror/Spicy/Immersive Experience sub-pages, auto-filled gallery |
-| [ent-playlists.html](ent-playlists.html) | Entertainment folder → Playlists — Chill/Binaural Beats/Dark-Gothic-Horror-Romance/EDM-Electronic/Fantasy sub-pages, auto-filled gallery |
-| [ent-entertainment.html](ent-entertainment.html) | Entertainment folder → Entertainment — Gaming/Scary Videos/Vlog-Like sub-pages, auto-filled gallery |
+| [entertainment-dash.html](entertainment-dash.html) | Entertainment — one merged dashboard (replacing the old five-page Entertainment folder and the short-lived Media/mediaverse.html hub, both removed): Home, Discovery Engine, Favorites, Podcasts, Horror/Spicy Stories (each split into a Reading database and a separate YouTube database), Immersive Experience, Entertainment, Playlists, Reading Corner, Anime, Games, and Statistics — styled with the same glass-theme.css/gallery-card.css kit as Fitness Studio/Business Dashboard |
 | [braindump.html](braindump.html) | Brain Dump — freeform daily thoughts/emotions journal |
 | [nutrition.html](nutrition.html) | Nutrition — My Kitchen / Grocery List |
 | [household.html](household.html) | Household — Energy Beings roster, Inventory, Wishlist, Chores |
