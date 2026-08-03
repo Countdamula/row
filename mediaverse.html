@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0a0a0b">
+<title>Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Reuses this app's two shared UI kits wholesale rather than building a
+     new palette/component set — see CLAUDE.md's own header comments on
+     glass-theme.css/gallery-card.css for what each provides. Page-owned
+     CSS below only covers the sidebar nav and the handful of layouts
+     (quick launch tree, continue rows, stat tiles, the discovery reveal,
+     franchise cards) those two kits don't already have a component for. -->
+<link rel="stylesheet" href="glass-theme.css">
+<link rel="stylesheet" href="gallery-card.css">
+<style>
+:root {
+  /* Repoint glass-theme's/gallery-card's accent to this app's own common
+     near-black/gold thread (Dream Board/Business Hub/AI & Tech/Nutrition/
+     Self-Care/Gym/Business OS/Business Dashboard/Fitness Studio) — no
+     reference photo or literal color instruction was given for this page,
+     so per CLAUDE.md §6/DO NOT MODIFY rule 2 the default is "match the
+     common thread," not a new palette. */
+  --gt-accent: #c9a876;
+  --gt-accent-bright: #e8cf9f;
+  --gt-accent-rgb: 201,168,118;
+  --gt-accent-text: #24190c;
+  --gt-bgfx-rgb: 201,168,118;
+  --gc-accent: #c9a876;
+  --gc-accent-bright: #e8cf9f;
+  --gc-accent-tint: rgba(201,168,118,0.14);
+  --gc-hairline: rgba(201,168,118,0.22);
+  --mv-sidebar-w: 250px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; -webkit-text-size-adjust: 100%; }
+a { color: inherit; }
+button { font-family: inherit; }
+::selection { background: rgba(201,168,118,0.35); }
+
+.mv-boot-error-banner { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: #ff5757; color: #3a0a0a; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; padding: 14px 18px; white-space: pre-wrap; }
+
+/* ---------- App shell: a page-local persistent sidebar (same precedent
+   as learning-dashboard.html's own sidebar — separate from topbar.js's
+   global overlay drawer, which stays available via the launcher pill this
+   sidebar deliberately leaves clear at top-left). ---------- */
+.mv-app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+.mv-sidebar {
+  width: var(--mv-sidebar-w); flex-shrink: 0;
+  background: rgba(15,14,12,0.55); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border-right: 1px solid var(--gt-border);
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.mv-sidebar-brand { padding: 60px 18px 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--gt-hairline); }
+.mv-sidebar-brand-mark { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(155deg, var(--gt-accent) 0%, var(--gt-accent-bright) 100%); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.mv-sidebar-brand-text { line-height: 1.2; }
+.mv-sidebar-brand-title { font-size: 13.5px; font-weight: 800; }
+.mv-sidebar-brand-sub { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gt-text-mute); }
+.mv-sb-nav { padding: 10px 10px 22px; display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
+.mv-sb-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; text-decoration: none; color: var(--gt-text-dim); font-size: 12.8px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mv-sb-item:hover { background: rgba(255,255,255,0.05); color: var(--gt-text); }
+.mv-sb-item.active { background: rgba(var(--gt-accent-rgb),0.16); color: var(--gt-accent-bright); }
+.mv-sb-item-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.mv-sidebar-scrim { display: none; position: fixed; inset: 0; z-index: 2400; background: rgba(0,0,0,0.55); }
+.mv-sidebar-scrim.show { display: block; }
+
+.mv-main { flex: 1 1 auto; min-width: 0; position: relative; }
+.mv-mobile-bar { display: none; padding: 66px 16px 0; justify-content: flex-end; }
+.mv-sidebar-toggle-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--gt-border); color: var(--gt-text); border-radius: 999px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+
+.mv-section { display: none; }
+.mv-section.active { display: block; }
+
+.mv-page-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 16px; flex-wrap: wrap; }
+.mv-page-title { font-size: 24px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; }
+.mv-page-hint { font-size: 12.5px; color: var(--gt-text-mute); margin: -10px 0 16px; line-height: 1.5; }
+
+.mv-search { margin-bottom: 14px; max-width: 340px; }
+
+.mv-mini-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+
+.mv-continue-row { margin-bottom: 22px; }
+.mv-continue-row:last-child { margin-bottom: 0; }
+.mv-continue-row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-weight: 800; font-size: 14px; }
+.mv-continue-row-icon { font-size: 17px; }
+.mv-continue-empty { color: var(--gt-text-mute); font-size: 12.5px; padding: 8px 0; }
+
+.mv-quicklaunch { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 14px; }
+.mv-ql-group { background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 14px; padding: 10px; }
+.mv-ql-top-btn { width: 100%; display: flex; align-items: center; gap: 9px; background: transparent; border: none; color: var(--gt-text); font-weight: 800; font-size: 13.5px; padding: 6px 4px; cursor: pointer; text-align: left; }
+.mv-ql-top-btn:hover { color: var(--gt-accent-bright); }
+.mv-ql-children { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-left: 14px; border-left: 1px solid var(--gt-hairline); }
+.mv-ql-child-btn { display: flex; align-items: center; gap: 8px; background: transparent; border: none; color: var(--gt-text-dim); font-size: 12px; font-weight: 600; padding: 5px 6px; cursor: pointer; text-align: left; border-radius: 8px; width: 100%; }
+.mv-ql-child-btn:hover { background: rgba(255,255,255,0.05); color: var(--gt-accent-bright); }
+.mv-ql-icon { font-size: 13px; }
+
+.mv-release-preview-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gt-hairline); }
+.mv-release-preview-row:last-child { border-bottom: none; }
+.mv-release-preview-icon { font-size: 17px; }
+.mv-release-preview-title { font-weight: 700; font-size: 13px; }
+.mv-release-preview-meta { font-size: 11.5px; color: var(--gt-text-mute); }
+
+.mv-stats-preview-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.mv-stats-preview-tile { flex: 1 1 100px; text-align: center; background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 12px; padding: 12px 8px; }
+.mv-stats-preview-icon { font-size: 20px; }
+.mv-stats-preview-num { font-size: 20px; font-weight: 800; margin-top: 2px; }
+.mv-stats-preview-label { font-size: 10.5px; color: var(--gt-text-mute); margin-top: 2px; }
+
+.mv-release-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gt-hairline); }
+.mv-release-row:last-child { border-bottom: none; }
+.mv-release-arrows { display: flex; flex-direction: column; gap: 2px; }
+.mv-release-arrows button { background: rgba(255,255,255,0.05); border: 1px solid var(--gt-hairline); color: var(--gt-text-mute); border-radius: 5px; width: 20px; height: 16px; font-size: 9px; cursor: pointer; padding: 0; }
+.mv-release-arrows button:disabled { opacity: 0.25; cursor: default; }
+.mv-release-fields { flex: 1 1 auto; display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 8px; min-width: 0; }
+.mv-release-fields input { width: 100%; }
+.mv-row-del { background: transparent; border: none; color: var(--gt-text-mute); font-size: 15px; cursor: pointer; padding: 4px 6px; }
+.mv-row-del:hover { color: var(--gt-bad); }
+
+.mv-fr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 16px; }
+.mv-fr-card { cursor: pointer; display: flex; flex-direction: column; }
+.mv-fr-cover-wrap { aspect-ratio: 16/9; background: linear-gradient(150deg,#201a12,#0d0a06); display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: calc(var(--gt-radius-sm) - 1px) calc(var(--gt-radius-sm) - 1px) 0 0; }
+.mv-fr-cover-img { width: 100%; height: 100%; object-fit: cover; }
+.mv-fr-cover-fallback { font-size: 36px; opacity: 0.55; }
+.mv-fr-body { padding: 14px 15px 16px; }
+.mv-fr-name { font-weight: 800; font-size: 15.5px; }
+.mv-fr-desc { font-size: 12px; color: var(--gt-text-dim); margin-top: 4px; }
+.mv-fr-count { font-size: 11px; color: var(--gt-text-mute); margin-top: 8px; }
+.mv-fr-member-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--gt-hairline); font-size: 12.5px; }
+.mv-fr-member-row:last-child { border-bottom: none; }
+
+.mv-insp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mv-insp-title-input { flex: 1 1 auto; background: transparent; border: none; color: var(--gt-accent-bright); font-weight: 800; font-size: 15px; padding: 4px 2px; font-family: inherit; }
+.mv-insp-title-input:focus { outline: none; }
+.mv-insp-body { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 12px; color: var(--gt-text); font-family: inherit; font-size: 13px; line-height: 1.6; padding: 10px 12px; resize: none; overflow: hidden; }
+.mv-insp-body:focus { outline: none; border-color: rgba(var(--gt-accent-rgb),0.5); }
+.mv-insp-image { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin-bottom: 8px; display: block; }
+.mv-insp-img-row { margin-top: 8px; }
+.gt-input-sm { padding: 6px 10px; font-size: 12px; }
+
+.mv-disc-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+.mv-disc-inner { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.mv-disc-cover { width: 120px; height: 120px; border-radius: 14px; object-fit: cover; flex-shrink: 0; }
+.mv-disc-cover-fallback { display: flex; align-items: center; justify-content: center; font-size: 44px; background: rgba(255,255,255,0.04); }
+.mv-disc-text { flex: 1 1 220px; min-width: 0; }
+.mv-disc-cat { font-size: 11px; font-weight: 700; color: var(--gt-accent-bright); text-transform: uppercase; letter-spacing: 0.05em; }
+.mv-disc-title { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
+.mv-disc-creator { font-size: 12.5px; color: var(--gt-text-mute); margin-bottom: 6px; }
+.mv-disc-desc { font-size: 12.5px; color: var(--gt-text-dim); line-height: 1.5; margin-bottom: 8px; }
+.mv-disc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.mv-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 14px; }
+.mv-stat-tile { text-align: center; }
+.mv-stat-icon { font-size: 26px; }
+.mv-stat-num { font-size: 26px; font-weight: 800; margin-top: 4px; }
+.mv-stat-label { font-size: 11.5px; color: var(--gt-text-mute); margin-top: 2px; }
+.mv-stat-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.06); margin-top: 10px; overflow: hidden; }
+.mv-stat-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gt-accent) 0%, var(--gt-accent-bright) 100%); }
+
+.mv-tag-editor { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mv-tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 11px; border-radius: 999px; background: rgba(var(--gt-accent-rgb),0.14); border: 1px solid rgba(var(--gt-accent-rgb),0.35); color: var(--gt-accent-bright); font-size: 11.5px; font-weight: 700; }
+.mv-tag-chip-x { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 2px; }
+
+.mv-cover-editor { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mv-cover-preview { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.04); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.mv-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.mv-cover-preview-empty { font-size: 9.5px; color: var(--gt-text-mute); text-align: center; padding: 4px; }
+.mv-cover-editor input { flex: 1 1 160px; min-width: 120px; }
+
+.mv-delete-link { color: var(--gt-bad); font-size: 12.5px; font-weight: 700; text-decoration: none; margin-right: auto; align-self: center; cursor: pointer; }
+
+.gt-field-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.gt-field-row .gt-field { flex: 1 1 140px; }
+
+@media (max-width: 980px) {
+  .mv-sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 2500; transform: translateX(-100%); transition: transform 0.25s ease; }
+  .mv-sidebar.mv-sb-open { transform: translateX(0); }
+  .mv-mobile-bar { display: flex; }
+}
+@media (max-width: 620px) {
+  .mv-release-fields { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body class="gt-theme">
+
+<div id="mvBootErrorBanner" class="mv-boot-error-banner"></div>
+<a href="index.html" class="gt-back">← Back</a>
+<div id="gtHeroCoverBg" aria-hidden="true"></div>
+
+<div class="mv-app">
+  <aside class="mv-sidebar" id="mvSidebar">
+    <div class="mv-sidebar-brand">
+      <div class="mv-sidebar-brand-mark">🌌</div>
+      <div class="mv-sidebar-brand-text">
+        <div class="mv-sidebar-brand-title">Media</div>
+        <div class="mv-sidebar-brand-sub">Everything, connected</div>
+      </div>
+    </div>
+    <nav class="mv-sb-nav" id="mvSidebarNav"></nav>
+  </aside>
+  <div class="mv-sidebar-scrim" id="mvSidebarScrim"></div>
+
+  <div class="mv-main">
+    <div class="mv-mobile-bar">
+      <button type="button" class="mv-sidebar-toggle-btn" id="mvSidebarToggleBtn">☰ Menu</button>
+    </div>
+
+    <div class="gt-shell" id="mvShell">
+      <!-- Hero — wired end to end by GlassTheme.wireHero() (glass-theme.js) -->
+      <div class="gt-hero" id="mvHero">
+        <div class="gt-hero-media" id="mvHeroMedia">
+          <div class="gt-hero-abstract" id="mvHeroAbstract" aria-hidden="true"></div>
+          <img id="mvHeroPhotoImg" style="display:none;" alt="">
+          <div class="gt-hero-choice" id="mvHeroChoice">
+            <button type="button" class="gt-hero-choice-btn" id="mvHeroAddBtn">+ Add a cover photo</button>
+          </div>
+        </div>
+        <div class="gt-hero-overlay"></div>
+        <div class="gt-hero-photo-tools" id="mvHeroTools" style="display:none;">
+          <button type="button" id="mvHeroChangeBtn">Change</button>
+          <button type="button" id="mvHeroRemoveBtn">Remove</button>
+        </div>
+        <input type="file" id="mvHeroFileInput" accept="image/*" style="display:none;">
+        <div class="gt-hero-content">
+          <div class="gt-hero-eyebrow" id="mvHeroEyebrow" contenteditable="true"></div>
+          <textarea class="gt-hero-title" id="mvHeroTitle" rows="1" placeholder="Headline…"></textarea>
+          <div class="gt-hero-subtext" id="mvHeroSubtext" contenteditable="true"></div>
+          <button type="button" class="gt-hero-cta" id="mvHeroCta">
+            <span class="gt-hero-cta-label" id="mvHeroCtaLabel"></span>
+            <span class="gt-hero-cta-arrow">→</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ HOME ============ -->
+      <section class="mv-section" data-section-key="home" id="mvSectionHome">
+        <div id="mvHomeSections">
+          <div class="gt-section" data-section-key="continue">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">⚡ Continue</h2></div>
+              <div id="mvContinueBody"></div>
+            </div>
+          </div>
+          <div class="gt-section" data-section-key="quicklaunch">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">🚀 Quick Launch</h2></div>
+              <div class="mv-quicklaunch" id="mvQuickLaunchBody"></div>
+            </div>
+          </div>
+          <div class="gt-section" data-section-key="releasesprev">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">🆕 Upcoming Releases</h2><button type="button" class="gt-btn gt-btn-sm" data-goto="releases">See all →</button></div>
+              <div id="mvHomeReleasesPrev"></div>
+            </div>
+          </div>
+          <div class="gt-section" data-section-key="trendingprev">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">🔥 New & Trending</h2><button type="button" class="gt-btn gt-btn-sm" data-goto="trending">See all →</button></div>
+              <div class="gc-grid mv-mini-grid" id="mvHomeTrendingPrev"></div>
+            </div>
+          </div>
+          <div class="gt-section" data-section-key="favoritesprev">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">⭐ Favorites</h2><button type="button" class="gt-btn gt-btn-sm" data-goto="favorites">See all →</button></div>
+              <div class="gc-grid mv-mini-grid" id="mvHomeFavPrev"></div>
+            </div>
+          </div>
+          <div class="gt-section" data-section-key="statsprev">
+            <span class="gt-section-drag">⠿ Drag</span>
+            <div class="gt-card">
+              <div class="gt-card-head"><h2 class="gt-card-title">📊 This Year</h2><button type="button" class="gt-btn gt-btn-sm" data-goto="stats">See all →</button></div>
+              <div id="mvHomeStatsPrev"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ RELEASES ============ -->
+      <section class="mv-section" data-section-key="releases" id="mvSectionReleases">
+        <div class="mv-page-head"><h1 class="mv-page-title">🆕 Upcoming Releases</h1></div>
+        <div id="mvReleasesBody"></div>
+      </section>
+
+      <!-- ============ TRENDING ============ -->
+      <section class="mv-section" data-section-key="trending" id="mvSectionTrending">
+        <div class="mv-page-head"><h1 class="mv-page-title">🔥 New & Trending</h1></div>
+        <p class="mv-page-hint">Trending is curated by you — flag anything as trending from its edit modal to spotlight it here. There's no external trend feed.</p>
+        <div class="gc-grid" id="mvTrendingGrid"></div>
+        <div class="gt-empty" id="mvTrendingEmpty" style="display:none;">Nothing flagged as trending yet.</div>
+      </section>
+
+      <!-- ============ CATEGORY (shared template for all 10 media categories) ============ -->
+      <section class="mv-section" data-section-key="category" id="mvSectionCategory">
+        <div class="mv-page-head">
+          <h1 class="mv-page-title"><span id="mvCatIcon"></span> <span id="mvCatLabel"></span></h1>
+          <button type="button" class="gt-btn gt-btn-primary" id="mvCatAddBtn">+ Add</button>
+        </div>
+        <input type="text" class="gt-input mv-search" id="mvCatSearch" placeholder="Search…">
+        <div class="gt-chip-row" id="mvCatSubcatChips"></div>
+        <div class="gt-chip-row" id="mvCatTagChips"></div>
+        <div class="gt-chip-row" id="mvCatStatusChips"></div>
+        <div class="gc-grid" id="mvCatGrid"></div>
+        <div class="gt-empty" id="mvCatEmpty" style="display:none;">Nothing here yet — add your first one.</div>
+      </section>
+
+      <!-- ============ FRANCHISE COLLECTIONS ============ -->
+      <section class="mv-section" data-section-key="collections" id="mvSectionCollections">
+        <div class="mv-page-head">
+          <h1 class="mv-page-title">🏰 Franchise Collections</h1>
+          <button type="button" class="gt-btn gt-btn-primary" id="mvFrAddBtn">+ New Collection</button>
+        </div>
+        <div class="mv-fr-grid" id="mvFrGrid"></div>
+        <div class="gt-empty" id="mvFrEmpty" style="display:none;">No collections yet — group a franchise's books, playlists, and inspiration together.</div>
+      </section>
+
+      <!-- ============ INSPIRATION VAULT ============ -->
+      <section class="mv-section" data-section-key="inspiration" id="mvSectionInspiration">
+        <div class="mv-page-head">
+          <h1 class="mv-page-title">🧠 Inspiration Vault</h1>
+          <button type="button" class="gt-btn gt-btn-primary" id="mvInspirationAddBtn">+ Generate Section</button>
+        </div>
+        <div id="mvInspirationList"></div>
+        <div class="gt-empty" id="mvInspirationEmpty" style="display:none;">Nothing here yet — generate a section for worldbuilding notes, moodboards, or anything that sparks something.</div>
+      </section>
+
+      <!-- ============ FAVORITES ============ -->
+      <section class="mv-section" data-section-key="favorites" id="mvSectionFavorites">
+        <div class="mv-page-head"><h1 class="mv-page-title">⭐ Favorites</h1></div>
+        <div class="gt-chip-row" id="mvFavChips"></div>
+        <div class="gc-grid" id="mvFavGrid"></div>
+        <div class="gt-empty" id="mvFavEmpty" style="display:none;">Nothing favorited yet — star anything from its card.</div>
+      </section>
+
+      <!-- ============ DISCOVERY ENGINE ============ -->
+      <section class="mv-section" data-section-key="discovery" id="mvSectionDiscovery">
+        <div class="mv-page-head"><h1 class="mv-page-title">🎲 Discovery Engine</h1></div>
+        <p class="mv-page-hint">Filters only use data this hub actually has — category, completion status, and rating. There's no mood/platform signal to fake.</p>
+        <div class="mv-disc-form">
+          <select class="gt-select" id="mvDiscCategorySelect" style="max-width:220px;"></select>
+          <select class="gt-select" id="mvDiscMinRating" style="max-width:160px;">
+            <option value="0">Any rating</option>
+            <option value="3">★★★ or better</option>
+            <option value="4">★★★★ or better</option>
+            <option value="5">★★★★★ only</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gt-text-dim);">
+            <input type="checkbox" id="mvDiscUnseen"> Not yet completed only
+          </label>
+          <button type="button" class="gt-btn gt-btn-primary" id="mvDiscRollBtn">🎲 Roll</button>
+        </div>
+        <div id="mvDiscResult"></div>
+      </section>
+
+      <!-- ============ STATISTICS ============ -->
+      <section class="mv-section" data-section-key="stats" id="mvSectionStats">
+        <div class="mv-page-head"><h1 class="mv-page-title">📊 Statistics — <span id="mvStatsYear"></span></h1></div>
+        <p class="mv-page-hint">Computed live from items marked Completed this year. Music/podcast "hours" aren't tracked anywhere in this app, so those tiles count items, not listening time.</p>
+        <div class="mv-stats-grid" id="mvStatsGrid"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Item modal — one generic form shared by every category. -->
+<div class="gt-modal-bg" id="mvItemModalBg">
+  <div class="gt-modal">
+    <h3 id="mvItemModalTitle">Add Item</h3>
+    <div class="gt-field">
+      <label class="gt-field-label">Category</label>
+      <select class="gt-select" id="mvItemCategorySelect"></select>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Title</label>
+      <input type="text" class="gt-input" id="mvItemTitleInput">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label" id="mvItemCreatorLabel">Creator</label>
+      <input type="text" class="gt-input" id="mvItemCreatorInput">
+    </div>
+    <div class="gt-field" id="mvItemFormatField">
+      <label class="gt-field-label">Format</label>
+      <input type="text" class="gt-input" id="mvItemFormatInput" list="mvFormatOptions">
+      <datalist id="mvFormatOptions"></datalist>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Genre / Subcategory</label>
+      <input type="text" class="gt-input" id="mvItemSubcatInput" list="mvSubcatOptions">
+      <datalist id="mvSubcatOptions"></datalist>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label" id="mvItemTagFieldLabel">Tags</label>
+      <div class="mv-tag-editor" id="mvItemTagList"></div>
+      <div style="display:flex;gap:6px;">
+        <input type="text" class="gt-input" id="mvItemTagInput" list="mvTagOptions" placeholder="Type a tag, press Enter…">
+        <datalist id="mvTagOptions"></datalist>
+        <button type="button" class="gt-btn gt-btn-sm" id="mvItemTagAddBtn">Add</button>
+      </div>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Cover</label>
+      <div class="mv-cover-editor">
+        <div class="mv-cover-preview" id="mvItemCoverPreview"></div>
+        <input type="text" class="gt-input" id="mvItemCoverUrlInput" placeholder="Paste an image URL…">
+        <button type="button" class="gt-btn gt-btn-sm" id="mvItemCoverUploadBtn">Upload</button>
+      </div>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Link / URL</label>
+      <input type="text" class="gt-input" id="mvItemUrlInput" placeholder="https://…">
+    </div>
+    <div class="gt-field-row">
+      <div class="gt-field">
+        <label class="gt-field-label">Status</label>
+        <select class="gt-select" id="mvItemStatusSelect"></select>
+      </div>
+      <div class="gt-field">
+        <label class="gt-field-label">Rating</label>
+        <div id="mvItemRatingStars"></div>
+      </div>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Progress</label>
+      <input type="text" class="gt-input" id="mvItemProgressInput" placeholder="e.g. Ch. 12 of 30, S2E4, 42 hrs">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Length</label>
+      <input type="text" class="gt-input" id="mvItemLengthInput" placeholder="e.g. 8h runtime, 24 episodes">
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Description</label>
+      <textarea class="gt-textarea" id="mvItemDescInput" rows="2"></textarea>
+    </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Notes / Quotes</label>
+      <textarea class="gt-textarea" id="mvItemNotesInput" rows="2"></textarea>
+    </div>
+    <div class="gt-field">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gt-text-dim);">
+        <input type="checkbox" id="mvItemTrendingCheckbox"> Flag as trending / spotlighted
+      </label>
+    </div>
+    <div class="gt-modal-actions">
+      <a href="#" id="mvItemDeleteLink" class="mv-delete-link">Delete</a>
+      <button type="button" class="gt-btn" id="mvItemCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="mvItemSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Franchise Collection modal (also hosts member management once editing) -->
+<div class="gt-modal-bg" id="mvFranchiseModalBg">
+  <div class="gt-modal">
+    <h3 id="mvFrModalTitle">New Collection</h3>
+    <div class="gt-field"><label class="gt-field-label">Icon</label><input type="text" class="gt-input" id="mvFrIconInput" style="max-width:70px;"></div>
+    <div class="gt-field"><label class="gt-field-label">Name</label><input type="text" class="gt-input" id="mvFrNameInput"></div>
+    <div class="gt-field"><label class="gt-field-label">Description</label><textarea class="gt-textarea" id="mvFrDescInput" rows="2"></textarea></div>
+    <div class="gt-field" id="mvFrMembersField" style="display:none;">
+      <label class="gt-field-label">Members</label>
+      <div id="mvFrMemberList"></div>
+      <select class="gt-select" id="mvFrAddMemberSelect"></select>
+    </div>
+    <div class="gt-modal-actions">
+      <a href="#" id="mvFrDeleteLink" class="mv-delete-link">Delete</a>
+      <button type="button" class="gt-btn" id="mvFrCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="mvFrSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="mvImageFileInput" accept="image/*" style="display:none;">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2" defer></script>
+<script src="glass-theme.js" defer></script>
+<script src="gallery-card.js" defer></script>
+<script src="mediaverse-data.js" defer></script>
+<script src="topbar.js" defer></script>
+<script>
+(function () {
+'use strict';
+
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function showBootErrorBanner(err, context) {
+  try {
+    var banner = $('mvBootErrorBanner');
+    if (!banner) return;
+    var detail = (context ? '[' + context + '] ' : '') + (err && err.stack ? err.stack : String(err));
+    banner.style.display = 'block';
+    banner.textContent = '⚠ Media failed to load correctly:\n' + detail + '\n';
+    var btn = document.createElement('button');
+    btn.textContent = 'Copy error details';
+    btn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#3a0a0a;color:#fff;border:0;border-radius:4px;font-weight:bold;cursor:pointer;';
+    btn.addEventListener('click', function () { try { navigator.clipboard.writeText(detail); btn.textContent = 'Copied!'; } catch (e) {} });
+    banner.appendChild(btn);
+  } catch (e2) {}
+}
+function runSafely(fn, context) { try { fn(); } catch (err) { showBootErrorBanner(err, context); } }
+
+var D = null;
+var currentCategoryKey = null;
+var currentHash = 'home';
+var pendingSubcatFilter = null;
+var catFilterState = {};
+var favFilterCat = 'All';
+var editingItemId = null;
+var editingTags = [];
+var editingRating = 0;
+var editingCoverValue = '';
+var editingFranchiseId = null;
+var discoveryRolled = false;
+var discoveryLastResult = null;
+var remoteAppliedOnce = false;
+
+function toCardItem(it, preferProgress) {
+  var len = preferProgress ? (it.progressText || it.lengthText) : (it.lengthText || it.progressText);
+  return { id: it.id, title: it.title, creator: it.creator, subtopic: it.subcategory, cover: it.cover, description: it.description, lengthText: len, rating: it.rating, favorite: it.favorite, url: it.url };
+}
+
+// ============================================================
+// SIDEBAR / ROUTING
+// ============================================================
+function buildNavItems() {
+  var items = [];
+  items.push({ hash: 'home', icon: '🏠', label: 'Home' });
+  items.push({ hash: 'discovery', icon: '🎲', label: 'Discovery Engine' });
+  items.push({ hash: 'favorites', icon: '⭐', label: 'Favorites' });
+  items.push({ hash: 'releases', icon: '🆕', label: 'Upcoming Releases' });
+  items.push({ hash: 'trending', icon: '🔥', label: 'New & Trending' });
+  D.CATEGORY_KEYS.forEach(function (k) {
+    var m = D.categoryMeta(k);
+    items.push({ hash: k, icon: m.icon, label: m.label });
+  });
+  items.push({ hash: 'collections', icon: '🏰', label: 'Franchise Collections' });
+  items.push({ hash: 'inspiration', icon: '🧠', label: 'Inspiration Vault' });
+  items.push({ hash: 'stats', icon: '📊', label: 'Statistics' });
+  return items;
+}
+function renderSidebarNav() {
+  var nav = $('mvSidebarNav'); nav.innerHTML = '';
+  buildNavItems().forEach(function (it) {
+    var a = document.createElement('a');
+    a.href = '#' + it.hash;
+    a.className = 'mv-sb-item' + (it.hash === currentHash ? ' active' : '');
+    a.appendChild(el('span', 'mv-sb-item-icon', it.icon));
+    a.appendChild(el('span', null, it.label));
+    a.addEventListener('click', closeSidebarMobile);
+    nav.appendChild(a);
+  });
+}
+function closeSidebarMobile() { $('mvSidebar').classList.remove('mv-sb-open'); $('mvSidebarScrim').classList.remove('show'); }
+
+function sectionKeyForHash(hash) {
+  hash = (hash || '').replace('#', '');
+  var pages = ['home', 'releases', 'trending', 'collections', 'inspiration', 'favorites', 'discovery', 'stats'];
+  if (pages.indexOf(hash) !== -1) return hash;
+  if (D.CATEGORY_KEYS.indexOf(hash) !== -1) return 'category:' + hash;
+  return 'home';
+}
+function showSection() {
+  var raw = sectionKeyForHash(location.hash);
+  var isCategory = raw.indexOf('category:') === 0;
+  currentCategoryKey = isCategory ? raw.slice(9) : null;
+  var sectionKey = isCategory ? 'category' : raw;
+  currentHash = isCategory ? currentCategoryKey : raw;
+  Array.prototype.forEach.call(document.querySelectorAll('.mv-section'), function (sec) {
+    sec.classList.toggle('active', sec.getAttribute('data-section-key') === sectionKey);
+  });
+  renderSidebarNav();
+  if (sectionKey === 'home') renderHome();
+  else if (sectionKey === 'releases') renderReleasesPage();
+  else if (sectionKey === 'trending') renderTrendingPage();
+  else if (sectionKey === 'category') renderCategoryPage();
+  else if (sectionKey === 'collections') renderCollectionsPage();
+  else if (sectionKey === 'inspiration') renderInspirationPage();
+  else if (sectionKey === 'favorites') renderFavoritesPage();
+  else if (sectionKey === 'discovery') renderDiscoveryPage();
+  else if (sectionKey === 'stats') renderStatsPage();
+  window.scrollTo(0, 0);
+}
+
+// ============================================================
+// HOME — Continue / Quick Launch / previews. Wrapped in movable
+// .gt-section blocks (GlassTheme.wireMovableSections, wired once at
+// boot) so the whole Home layout is itself reorderable.
+// ============================================================
+function renderHome() {
+  renderContinue();
+  renderQuickLaunch();
+  renderHomeReleasesPreview();
+  renderHomeTrendingPreview();
+  renderHomeFavoritesPreview();
+  renderHomeStatsPreview();
+}
+
+function renderContinue() {
+  var body = $('mvContinueBody'); body.innerHTML = '';
+  var groups = D.continueGroups();
+  Object.keys(D.CONTINUE_GROUPS).forEach(function (gk) {
+    var g = D.CONTINUE_GROUPS[gk];
+    var row = el('div', 'mv-continue-row');
+    var head = el('div', 'mv-continue-row-head');
+    head.appendChild(el('span', 'mv-continue-row-icon', g.icon));
+    head.appendChild(el('span', null, g.label));
+    row.appendChild(head);
+    var items = groups[gk];
+    if (!items.length) {
+      row.appendChild(el('div', 'mv-continue-empty', 'Nothing in progress — start something below.'));
+    } else {
+      var grid = el('div', 'gc-grid mv-mini-grid');
+      items.slice(0, 6).forEach(function (it) {
+        var meta = D.categoryMeta(it.category);
+        grid.appendChild(GalleryCard.build(toCardItem(it, true), {
+          fallbackIcon: meta.fallbackIcon, showSourceTag: true, sourceIcon: meta.icon, sourceLabel: meta.label,
+          onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+          onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderHome(); },
+          onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderHome(); }
+        }));
+      });
+      row.appendChild(grid);
+    }
+    body.appendChild(row);
+  });
+}
+
+var QUICK_LAUNCH = [
+  { cat: 'reading', icon: '📚', label: 'Reading', children: [
+    { subcat: 'Romance', icon: '❤️', label: 'Romance' },
+    { subcat: 'Horror', icon: '👻', label: 'Horror' },
+    { subcat: 'Fantasy', icon: '⚔', label: 'Fantasy' },
+    { subcat: 'Nonfiction', icon: '📖', label: 'Nonfiction' }
+  ] },
+  { cat: 'anime', icon: '🌸', label: 'Anime' },
+  { cat: 'game', icon: '🎮', label: 'Games' },
+  { cat: 'video', icon: '📺', label: 'Videos', children: [
+    { subcat: 'Gaming', icon: '🎮', label: 'Gaming Videos' },
+    { subcat: 'Scary Videos', icon: '👻', label: 'Scary Videos' },
+    { subcat: 'Vlog-Like', icon: '🌎', label: 'Vlogs' },
+    { subcat: 'Documentaries', icon: '🎥', label: 'Documentaries' }
+  ] },
+  { cat: 'horror', icon: '👻', label: 'Horror Stories · Reading', children: [
+    { subcat: 'True Stories', icon: '📰', label: 'True Stories' },
+    { subcat: 'Creepypastas', icon: '🌐', label: 'Creepypastas' }
+  ] },
+  { cat: 'horrorwatch', icon: '👻🎥', label: 'Horror Stories · YouTube', children: [
+    { subcat: 'True Stories', icon: '📰', label: 'True Stories' },
+    { subcat: 'Creepypastas', icon: '🌐', label: 'Creepypastas' },
+    { subcat: 'Analog Horror', icon: '📼', label: 'Analog Horror' }
+  ] },
+  { cat: 'spicy', icon: '🌶', label: 'Spicy Stories · Reading' },
+  { cat: 'spicywatch', icon: '🌶🎥', label: 'Spicy Stories · YouTube' },
+  { cat: 'podcast', icon: '🎧', label: 'Podcasts' },
+  { cat: 'music', icon: '🎵', label: 'Music & Playlists' },
+  { cat: 'immersive', icon: '🌌', label: 'Immersive Experiences' },
+  { hash: 'collections', icon: '🏰', label: 'Collections' }
+];
+function renderQuickLaunch() {
+  var body = $('mvQuickLaunchBody'); body.innerHTML = '';
+  QUICK_LAUNCH.forEach(function (top) {
+    var group = el('div', 'mv-ql-group');
+    var topBtn = document.createElement('button');
+    topBtn.type = 'button'; topBtn.className = 'mv-ql-top-btn';
+    topBtn.appendChild(el('span', 'mv-ql-icon', top.icon));
+    topBtn.appendChild(el('span', null, top.label));
+    topBtn.addEventListener('click', function () { location.hash = top.hash || top.cat; });
+    group.appendChild(topBtn);
+    if (top.children) {
+      var childWrap = el('div', 'mv-ql-children');
+      top.children.forEach(function (c) {
+        var cBtn = document.createElement('button');
+        cBtn.type = 'button'; cBtn.className = 'mv-ql-child-btn';
+        cBtn.appendChild(el('span', 'mv-ql-icon', c.icon));
+        cBtn.appendChild(el('span', null, c.label));
+        cBtn.addEventListener('click', function () { pendingSubcatFilter = { cat: top.cat, subcat: c.subcat }; location.hash = top.cat; });
+        childWrap.appendChild(cBtn);
+      });
+      group.appendChild(childWrap);
+    }
+    body.appendChild(group);
+  });
+}
+
+function renderHomeReleasesPreview() {
+  var wrap = $('mvHomeReleasesPrev'); wrap.innerHTML = '';
+  var rels = D.Releases.list().sort(D.byOrder).slice(0, 4);
+  if (!rels.length) { wrap.appendChild(el('div', 'gt-empty', 'No upcoming releases logged yet.')); return; }
+  rels.forEach(function (r) {
+    var meta = D.categoryMeta(r.category);
+    var row = el('div', 'mv-release-preview-row');
+    row.appendChild(el('span', 'mv-release-preview-icon', meta.icon));
+    var textWrap = el('div', null);
+    textWrap.appendChild(el('div', 'mv-release-preview-title', r.title || 'Untitled'));
+    textWrap.appendChild(el('div', 'mv-release-preview-meta', [r.dateText, r.meta].filter(Boolean).join(' · ')));
+    row.appendChild(textWrap);
+    wrap.appendChild(row);
+  });
+}
+
+function renderHomeTrendingPreview() {
+  var wrap = $('mvHomeTrendingPrev'); wrap.innerHTML = '';
+  var items = D.trendingItems().slice(0, 4);
+  if (!items.length) { wrap.appendChild(el('div', 'gt-empty', 'Nothing flagged as trending yet.')); return; }
+  items.forEach(function (it) {
+    var meta = D.categoryMeta(it.category);
+    wrap.appendChild(GalleryCard.build(toCardItem(it, false), {
+      fallbackIcon: meta.fallbackIcon, showSourceTag: true, sourceIcon: meta.icon, sourceLabel: meta.label,
+      onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+      onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderHome(); },
+      onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderHome(); }
+    }));
+  });
+}
+
+function renderHomeFavoritesPreview() {
+  var wrap = $('mvHomeFavPrev'); wrap.innerHTML = '';
+  var items = D.allFavorites().slice(0, 4);
+  if (!items.length) { wrap.appendChild(el('div', 'gt-empty', 'Nothing favorited yet.')); return; }
+  items.forEach(function (it) {
+    var meta = D.categoryMeta(it.category);
+    wrap.appendChild(GalleryCard.build(toCardItem(it, false), {
+      fallbackIcon: meta.fallbackIcon, showSourceTag: true, sourceIcon: meta.icon, sourceLabel: meta.label,
+      onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+      onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderHome(); },
+      onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderHome(); }
+    }));
+  });
+}
+
+function renderHomeStatsPreview() {
+  var wrap = $('mvHomeStatsPrev'); wrap.innerHTML = '';
+  var stats = D.statsThisYear();
+  var entries = D.CATEGORY_KEYS.map(function (k) { return { key: k, meta: D.categoryMeta(k), n: stats.perCategory[k] }; })
+    .sort(function (a, b) { return b.n - a.n; }).slice(0, 4);
+  var row = el('div', 'mv-stats-preview-row');
+  entries.forEach(function (e) {
+    var tile = el('div', 'mv-stats-preview-tile');
+    tile.appendChild(el('div', 'mv-stats-preview-icon', e.meta.icon));
+    tile.appendChild(el('div', 'mv-stats-preview-num', String(e.n)));
+    tile.appendChild(el('div', 'mv-stats-preview-label', e.meta.statCountLabel));
+    row.appendChild(tile);
+  });
+  wrap.appendChild(row);
+}
+
+// ============================================================
+// CATEGORY PAGE — one generic renderer shared by all 11 media
+// categories (reading/anime/game/video/horror/horrorwatch/spicy/
+// spicywatch/podcast/music/immersive), driven entirely by
+// MediaverseData.CATEGORY_META.
+// ============================================================
+function renderChipRow(container, values, active, onSelect) {
+  container.innerHTML = '';
+  values.forEach(function (v) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'gt-chip' + (v === active ? ' active' : '');
+    chip.textContent = v;
+    chip.addEventListener('click', function () { onSelect(v); });
+    container.appendChild(chip);
+  });
+}
+function renderStatusChips(container, cat, state) {
+  container.innerHTML = '';
+  var opts = ['All'].concat(D.STATUS_KEYS);
+  opts.forEach(function (s) {
+    var label = s === 'All' ? 'All' : D.statusLabel(cat, s);
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'gt-chip' + (s === state.status ? ' active' : '');
+    chip.textContent = label;
+    chip.addEventListener('click', function () { state.status = s; renderCategoryPage(); });
+    container.appendChild(chip);
+  });
+  var favChip = document.createElement('button');
+  favChip.type = 'button';
+  favChip.className = 'gt-chip' + (state.favoritesOnly ? ' active' : '');
+  favChip.textContent = '★ Favorites';
+  favChip.addEventListener('click', function () { state.favoritesOnly = !state.favoritesOnly; renderCategoryPage(); });
+  container.appendChild(favChip);
+}
+
+function renderCategoryPage() {
+  var cat = currentCategoryKey;
+  if (!cat) return;
+  var meta = D.categoryMeta(cat);
+  $('mvCatIcon').textContent = meta.icon;
+  $('mvCatLabel').textContent = meta.label;
+  var state = catFilterState[cat] || (catFilterState[cat] = { subcategory: 'All', tag: 'All', status: 'All', favoritesOnly: false, search: '' });
+  if (pendingSubcatFilter && pendingSubcatFilter.cat === cat) { state.subcategory = pendingSubcatFilter.subcat; pendingSubcatFilter = null; }
+  var all = D.itemsByCategory(cat);
+
+  renderChipRow($('mvCatSubcatChips'), ['All'].concat(D.distinctValues(all, 'subcategory')), state.subcategory, function (v) { state.subcategory = v; renderCategoryPage(); });
+
+  var tags = D.distinctTags(all);
+  var tagWrap = $('mvCatTagChips');
+  if (tags.length) { tagWrap.style.display = ''; renderChipRow(tagWrap, ['All'].concat(tags), state.tag, function (v) { state.tag = v; renderCategoryPage(); }); }
+  else { tagWrap.style.display = 'none'; tagWrap.innerHTML = ''; }
+
+  renderStatusChips($('mvCatStatusChips'), cat, state);
+  $('mvCatSearch').value = state.search;
+
+  var filtered = D.filterItems(all, {
+    subcategory: state.subcategory === 'All' ? null : state.subcategory,
+    tag: state.tag === 'All' ? null : state.tag,
+    status: state.status === 'All' ? null : state.status,
+    favoritesOnly: state.favoritesOnly,
+    search: state.search
+  });
+  var grid = $('mvCatGrid'); grid.innerHTML = '';
+  $('mvCatEmpty').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(function (it) {
+    grid.appendChild(GalleryCard.build(toCardItem(it, false), {
+      fallbackIcon: meta.fallbackIcon, draggable: true,
+      onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+      onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderCategoryPage(); },
+      onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderCategoryPage(); }
+    }));
+  });
+  GalleryCard.wireSortableGrid(grid, function (ids) { D.reorderCategoryVisible(cat, ids); });
+}
+
+// ============================================================
+// ADD/EDIT ITEM MODAL
+// ============================================================
+function populateItemCategorySelect() {
+  var sel = $('mvItemCategorySelect'); sel.innerHTML = '';
+  D.CATEGORY_KEYS.forEach(function (k) {
+    var o = document.createElement('option'); o.value = k; o.textContent = D.categoryMeta(k).icon + ' ' + D.categoryMeta(k).label;
+    sel.appendChild(o);
+  });
+}
+function refreshItemModalCategoryDependentFields() {
+  var cat = $('mvItemCategorySelect').value;
+  var meta = D.categoryMeta(cat);
+  $('mvItemCreatorLabel').textContent = meta.creatorLabel || 'Creator';
+  $('mvItemFormatField').style.display = meta.hasFormat ? '' : 'none';
+  var fmtList = $('mvFormatOptions'); fmtList.innerHTML = '';
+  (meta.formats || []).forEach(function (f) { var o = document.createElement('option'); o.value = f; fmtList.appendChild(o); });
+  var subList = $('mvSubcatOptions'); subList.innerHTML = '';
+  (meta.subcats || []).forEach(function (s) { var o = document.createElement('option'); o.value = s; subList.appendChild(o); });
+  $('mvItemTagFieldLabel').textContent = meta.tagFieldLabel || 'Tags';
+  var tagList = $('mvTagOptions'); tagList.innerHTML = '';
+  (meta.tagSuggestions || []).forEach(function (t) { var o = document.createElement('option'); o.value = t; tagList.appendChild(o); });
+  var statusSel = $('mvItemStatusSelect');
+  var prevStatus = statusSel.value || 'want';
+  statusSel.innerHTML = '';
+  D.STATUS_KEYS.forEach(function (s) { var o = document.createElement('option'); o.value = s; o.textContent = D.statusLabel(cat, s); statusSel.appendChild(o); });
+  statusSel.value = prevStatus;
+}
+function renderTagEditor() {
+  var wrap = $('mvItemTagList'); wrap.innerHTML = '';
+  editingTags.forEach(function (t, i) {
+    var chip = el('span', 'mv-tag-chip');
+    chip.appendChild(el('span', null, t));
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.className = 'mv-tag-chip-x';
+    x.addEventListener('click', function () { editingTags.splice(i, 1); renderTagEditor(); });
+    chip.appendChild(x);
+    wrap.appendChild(chip);
+  });
+}
+function addTagFromInput() {
+  var input = $('mvItemTagInput');
+  var v = input.value.trim();
+  if (!v) return;
+  if (editingTags.indexOf(v) === -1) editingTags.push(v);
+  input.value = '';
+  renderTagEditor();
+}
+function renderRatingStars() {
+  var wrap = $('mvItemRatingStars'); wrap.innerHTML = '';
+  wrap.appendChild(GalleryCard.buildStars(editingRating, 'lg', function (r) { editingRating = r; renderRatingStars(); }));
+}
+function renderCoverPreview() {
+  var wrap = $('mvItemCoverPreview'); wrap.innerHTML = '';
+  if (editingCoverValue) { var img = document.createElement('img'); img.alt = ''; img.src = editingCoverValue; wrap.appendChild(img); }
+  else { wrap.appendChild(el('div', 'mv-cover-preview-empty', 'No cover yet')); }
+}
+function handleCoverFile() {
+  var file = $('mvImageFileInput').files[0];
+  if (!file) return;
+  var targetId = editingItemId;
+  var reader = new FileReader();
+  reader.onload = function () {
+    GlassTheme.compressImageDataUrl(String(reader.result), 640, 0.82).then(function (compressed) {
+      editingCoverValue = compressed;
+      renderCoverPreview();
+      $('mvItemCoverUrlInput').value = '';
+      if (window.PhotoStore) {
+        PhotoStore.upload(compressed, function (url) {
+          if (targetId) { D.Items.update(targetId, { cover: url }); }
+          else if (editingItemId === null) { editingCoverValue = url; renderCoverPreview(); }
+        });
+      }
+    }).catch(function (err) { alert('Could not process that photo: ' + (err && err.message ? err.message : err)); });
+  };
+  reader.onerror = function () { alert('Could not read that file.'); };
+  reader.readAsDataURL(file);
+}
+
+function openItemModal(item, presetCategory, presetSubcat) {
+  editingItemId = item ? item.id : null;
+  $('mvItemModalTitle').textContent = item ? 'Edit Item' : 'Add Item';
+  $('mvItemCategorySelect').value = item ? item.category : (presetCategory || currentCategoryKey || 'reading');
+  refreshItemModalCategoryDependentFields();
+  $('mvItemTitleInput').value = item ? item.title : '';
+  $('mvItemCreatorInput').value = item ? item.creator : '';
+  $('mvItemFormatInput').value = item ? item.format : '';
+  $('mvItemSubcatInput').value = item ? item.subcategory : (presetSubcat || '');
+  editingTags = item ? item.tags.slice() : [];
+  renderTagEditor();
+  editingCoverValue = item ? item.cover : '';
+  renderCoverPreview();
+  $('mvItemCoverUrlInput').value = editingCoverValue;
+  $('mvItemUrlInput').value = item ? item.url : '';
+  $('mvItemStatusSelect').value = item ? item.status : 'want';
+  editingRating = item ? item.rating : 0;
+  renderRatingStars();
+  $('mvItemProgressInput').value = item ? item.progressText : '';
+  $('mvItemLengthInput').value = item ? item.lengthText : '';
+  $('mvItemDescInput').value = item ? item.description : '';
+  GlassTheme.autosize($('mvItemDescInput'));
+  $('mvItemNotesInput').value = item ? item.notesText : '';
+  GlassTheme.autosize($('mvItemNotesInput'));
+  $('mvItemTrendingCheckbox').checked = item ? item.trending : false;
+  $('mvItemDeleteLink').style.display = item ? 'inline' : 'none';
+  $('mvItemModalBg').classList.add('show');
+}
+function closeItemModal() { $('mvItemModalBg').classList.remove('show'); }
+function saveItemModal() {
+  var title = $('mvItemTitleInput').value.trim();
+  if (!title) { alert('Give it a title first.'); return; }
+  var patch = {
+    category: $('mvItemCategorySelect').value,
+    title: title,
+    creator: $('mvItemCreatorInput').value.trim(),
+    format: $('mvItemFormatInput').value.trim(),
+    subcategory: $('mvItemSubcatInput').value.trim(),
+    tags: editingTags.slice(),
+    cover: editingCoverValue,
+    url: $('mvItemUrlInput').value.trim(),
+    rating: editingRating,
+    progressText: $('mvItemProgressInput').value.trim(),
+    lengthText: $('mvItemLengthInput').value.trim(),
+    description: $('mvItemDescInput').value.trim(),
+    notesText: $('mvItemNotesInput').value.trim(),
+    trending: $('mvItemTrendingCheckbox').checked
+  };
+  var status = $('mvItemStatusSelect').value;
+  var rec = editingItemId ? D.Items.update(editingItemId, patch) : D.Items.add(Object.assign({ order: D.nextOrder(D.itemsByCategory(patch.category)) }, patch));
+  D.setItemStatus(rec.id, status);
+  closeItemModal();
+  showSection();
+}
+function deleteItemFromModal(e) {
+  e.preventDefault();
+  if (!editingItemId) return;
+  if (!confirm('Delete this item?')) return;
+  D.Items.remove(editingItemId);
+  closeItemModal();
+  showSection();
+}
+
+// ============================================================
+// RELEASES PAGE
+// ============================================================
+function renderReleasesPage() {
+  var body = $('mvReleasesBody'); body.innerHTML = '';
+  var grouped = D.releasesByCategory();
+  D.CATEGORY_KEYS.forEach(function (cat) {
+    var meta = D.categoryMeta(cat);
+    var group = el('div', 'gt-card');
+    var head = el('div', 'gt-card-head');
+    var title = el('h3', 'gt-card-title', meta.icon + ' ' + meta.label);
+    head.appendChild(title);
+    var addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'gt-btn gt-btn-sm'; addBtn.textContent = '+ Add';
+    addBtn.addEventListener('click', function () {
+      D.Releases.add({ category: cat, title: 'New release', order: D.nextOrder(D.Releases.list().filter(function (x) { return x.category === cat; })) });
+      renderReleasesPage();
+    });
+    head.appendChild(addBtn);
+    group.appendChild(head);
+    var list = grouped[cat] || [];
+    if (!list.length) { group.appendChild(el('div', 'gt-empty', 'Nothing tracked yet.')); }
+    list.forEach(function (r, idx) { group.appendChild(buildReleaseRow(r, idx === 0, idx === list.length - 1)); });
+    body.appendChild(group);
+  });
+}
+function buildReleaseRow(r, isFirst, isLast) {
+  var row = el('div', 'mv-release-row');
+  var arrows = el('div', 'mv-release-arrows');
+  var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst;
+  up.addEventListener('click', function () { D.moveRelease(r.id, -1); renderReleasesPage(); });
+  var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast;
+  down.addEventListener('click', function () { D.moveRelease(r.id, 1); renderReleasesPage(); });
+  arrows.appendChild(up); arrows.appendChild(down);
+  row.appendChild(arrows);
+  var fields = el('div', 'mv-release-fields');
+  var titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'gt-input'; titleInput.value = r.title; titleInput.placeholder = 'Title';
+  titleInput.addEventListener('blur', function () { D.Releases.update(r.id, { title: titleInput.value }); });
+  var dateInput = document.createElement('input'); dateInput.type = 'text'; dateInput.className = 'gt-input'; dateInput.value = r.dateText; dateInput.placeholder = 'When (e.g. Fall 2026)';
+  dateInput.addEventListener('blur', function () { D.Releases.update(r.id, { dateText: dateInput.value }); });
+  var metaInput = document.createElement('input'); metaInput.type = 'text'; metaInput.className = 'gt-input'; metaInput.value = r.meta; metaInput.placeholder = 'Studio / Author / Platform';
+  metaInput.addEventListener('blur', function () { D.Releases.update(r.id, { meta: metaInput.value }); });
+  fields.appendChild(titleInput); fields.appendChild(dateInput); fields.appendChild(metaInput);
+  row.appendChild(fields);
+  var delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'mv-row-del'; delBtn.textContent = '✕';
+  delBtn.addEventListener('click', function () { if (confirm('Delete this release?')) { D.Releases.remove(r.id); renderReleasesPage(); } });
+  row.appendChild(delBtn);
+  return row;
+}
+
+// ============================================================
+// TRENDING PAGE
+// ============================================================
+function renderTrendingPage() {
+  var grid = $('mvTrendingGrid'); grid.innerHTML = '';
+  var items = D.trendingItems();
+  $('mvTrendingEmpty').style.display = items.length ? 'none' : 'block';
+  items.forEach(function (it) {
+    var meta = D.categoryMeta(it.category);
+    grid.appendChild(GalleryCard.build(toCardItem(it, false), {
+      fallbackIcon: meta.fallbackIcon, showSourceTag: true, sourceIcon: meta.icon, sourceLabel: meta.label,
+      onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+      onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderTrendingPage(); },
+      onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderTrendingPage(); }
+    }));
+  });
+}
+
+// ============================================================
+// FAVORITES PAGE
+// ============================================================
+function renderFavoritesPage() {
+  var chips = $('mvFavChips'); chips.innerHTML = '';
+  var opts = ['All'].concat(D.CATEGORY_KEYS);
+  opts.forEach(function (k) {
+    var label = k === 'All' ? 'All' : (D.categoryMeta(k).icon + ' ' + D.categoryMeta(k).label);
+    var chip = document.createElement('button'); chip.type = 'button'; chip.className = 'gt-chip' + (k === favFilterCat ? ' active' : ''); chip.textContent = label;
+    chip.addEventListener('click', function () { favFilterCat = k; renderFavoritesPage(); });
+    chips.appendChild(chip);
+  });
+  var all = D.allFavorites();
+  var list = favFilterCat === 'All' ? all : all.filter(function (it) { return it.category === favFilterCat; });
+  var grid = $('mvFavGrid'); grid.innerHTML = '';
+  $('mvFavEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(function (it) {
+    var meta = D.categoryMeta(it.category);
+    grid.appendChild(GalleryCard.build(toCardItem(it, false), {
+      fallbackIcon: meta.fallbackIcon, showSourceTag: true, sourceIcon: meta.icon, sourceLabel: meta.label,
+      onEdit: function (ci) { openItemModal(D.Items.get(ci.id)); },
+      onFavoriteToggle: function (ci) { D.toggleItemFavorite(ci.id); renderFavoritesPage(); },
+      onRatingChange: function (ci, r) { D.setItemRating(ci.id, r); renderFavoritesPage(); }
+    }));
+  });
+}
+
+// ============================================================
+// DISCOVERY ENGINE PAGE
+// ============================================================
+function renderDiscoveryPage() {
+  var catSel = $('mvDiscCategorySelect');
+  if (!catSel.dataset.populated) {
+    catSel.innerHTML = '';
+    var anyOpt = document.createElement('option'); anyOpt.value = 'any'; anyOpt.textContent = '🎲 Any category'; catSel.appendChild(anyOpt);
+    D.CATEGORY_KEYS.forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = D.categoryMeta(k).icon + ' ' + D.categoryMeta(k).label; catSel.appendChild(o); });
+    catSel.dataset.populated = '1';
+  }
+  renderDiscoveryResult();
+}
+function rollDiscovery() {
+  var opts = { category: $('mvDiscCategorySelect').value, minRating: Number($('mvDiscMinRating').value) || 0, unseenOnly: $('mvDiscUnseen').checked };
+  discoveryRolled = true;
+  discoveryLastResult = D.randomItem(opts);
+  renderDiscoveryResult();
+}
+function renderDiscoveryResult() {
+  var wrap = $('mvDiscResult'); wrap.innerHTML = '';
+  if (!discoveryRolled) { wrap.appendChild(el('div', 'gt-empty', 'Press 🎲 Roll to get a pick.')); return; }
+  if (!discoveryLastResult) { wrap.appendChild(el('div', 'gt-empty', 'Nothing matches those filters yet — widen them and try again.')); return; }
+  var it = discoveryLastResult;
+  var meta = D.categoryMeta(it.category);
+  var beam = el('div', 'gt-beam-card active');
+  var glow = el('div', 'gt-beam-card-glow');
+  var inner = el('div', 'gt-beam-card-inner mv-disc-inner');
+  if (it.cover) { var img = document.createElement('img'); img.className = 'mv-disc-cover'; img.alt = ''; img.src = it.cover; inner.appendChild(img); }
+  else { inner.appendChild(el('div', 'mv-disc-cover mv-disc-cover-fallback', meta.fallbackIcon)); }
+  var textWrap = el('div', 'mv-disc-text');
+  textWrap.appendChild(el('div', 'mv-disc-cat', meta.icon + ' ' + meta.label));
+  textWrap.appendChild(el('div', 'mv-disc-title', it.title || 'Untitled'));
+  if (it.creator) textWrap.appendChild(el('div', 'mv-disc-creator', it.creator));
+  if (it.description) textWrap.appendChild(el('div', 'mv-disc-desc', it.description));
+  textWrap.appendChild(GalleryCard.buildStars(it.rating, 'lg', function (r) { D.setItemRating(it.id, r); discoveryLastResult = D.Items.get(it.id); renderDiscoveryResult(); }));
+  var actions = el('div', 'mv-disc-actions');
+  var openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'gt-btn gt-btn-primary'; openBtn.textContent = '↗ Open';
+  openBtn.addEventListener('click', function () { if (!GalleryCard.openLink(it.url)) openItemModal(D.Items.get(it.id)); });
+  var againBtn = document.createElement('button'); againBtn.type = 'button'; againBtn.className = 'gt-btn'; againBtn.textContent = '🎲 Try Another';
+  againBtn.addEventListener('click', rollDiscovery);
+  var favBtn = document.createElement('button'); favBtn.type = 'button'; favBtn.className = 'gt-btn'; favBtn.textContent = it.favorite ? '★ Favorited' : '☆ Favorite';
+  favBtn.addEventListener('click', function () { D.toggleItemFavorite(it.id); discoveryLastResult = D.Items.get(it.id); renderDiscoveryResult(); });
+  actions.appendChild(openBtn); actions.appendChild(againBtn); actions.appendChild(favBtn);
+  textWrap.appendChild(actions);
+  inner.appendChild(textWrap);
+  beam.appendChild(glow); beam.appendChild(inner);
+  wrap.appendChild(beam);
+}
+
+// ============================================================
+// STATISTICS PAGE
+// ============================================================
+function renderStatsPage() {
+  var stats = D.statsThisYear();
+  $('mvStatsYear').textContent = stats.year;
+  var grid = $('mvStatsGrid'); grid.innerHTML = '';
+  var max = 1;
+  D.CATEGORY_KEYS.forEach(function (k) { if (stats.perCategory[k] > max) max = stats.perCategory[k]; });
+  D.CATEGORY_KEYS.forEach(function (k) {
+    var meta = D.categoryMeta(k);
+    var tile = el('div', 'gt-card mv-stat-tile');
+    tile.appendChild(el('div', 'mv-stat-icon', meta.icon));
+    tile.appendChild(el('div', 'mv-stat-num', String(stats.perCategory[k])));
+    tile.appendChild(el('div', 'mv-stat-label', meta.statCountLabel));
+    var bar = el('div', 'mv-stat-bar');
+    var fill = el('div', 'mv-stat-bar-fill');
+    fill.style.width = Math.max(4, Math.round(stats.perCategory[k] / max * 100)) + '%';
+    bar.appendChild(fill);
+    tile.appendChild(bar);
+    grid.appendChild(tile);
+  });
+  var extra = el('div', 'gt-card mv-stat-tile');
+  extra.appendChild(el('div', 'mv-stat-icon', '⭐'));
+  extra.appendChild(el('div', 'mv-stat-num', String(stats.totalFavorites)));
+  extra.appendChild(el('div', 'mv-stat-label', 'Total favorites'));
+  grid.appendChild(extra);
+  var extra2 = el('div', 'gt-card mv-stat-tile');
+  extra2.appendChild(el('div', 'mv-stat-icon', '🗂️'));
+  extra2.appendChild(el('div', 'mv-stat-num', String(stats.totalItems)));
+  extra2.appendChild(el('div', 'mv-stat-label', 'Total items tracked'));
+  grid.appendChild(extra2);
+}
+
+// ============================================================
+// FRANCHISE COLLECTIONS PAGE
+// ============================================================
+function renderCollectionsPage() {
+  var grid = $('mvFrGrid'); grid.innerHTML = '';
+  var list = D.franchisesSorted();
+  $('mvFrEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(function (fr) { grid.appendChild(buildFranchiseCard(fr)); });
+}
+function buildFranchiseCard(fr) {
+  var card = el('div', 'gt-glare-card mv-fr-card');
+  var coverWrap = el('div', 'mv-fr-cover-wrap');
+  if (fr.cover) { var img = document.createElement('img'); img.className = 'mv-fr-cover-img'; img.alt = ''; img.src = fr.cover; coverWrap.appendChild(img); }
+  else { coverWrap.appendChild(el('div', 'mv-fr-cover-fallback', fr.icon)); }
+  card.appendChild(coverWrap);
+  var body = el('div', 'mv-fr-body');
+  body.appendChild(el('div', 'mv-fr-name', fr.name || 'Untitled Collection'));
+  if (fr.description) body.appendChild(el('div', 'mv-fr-desc', fr.description));
+  var count = D.itemsForFranchise(fr).length;
+  body.appendChild(el('div', 'mv-fr-count', count + (count === 1 ? ' item' : ' items')));
+  card.appendChild(body);
+  card.addEventListener('click', function () { openFranchiseModal(fr); });
+  GlassTheme.wireGlareCard(card);
+  return card;
+}
+function openFranchiseModal(fr) {
+  editingFranchiseId = fr ? fr.id : null;
+  $('mvFrModalTitle').textContent = fr ? 'Edit Collection' : 'New Collection';
+  $('mvFrIconInput').value = fr ? fr.icon : '🏰';
+  $('mvFrNameInput').value = fr ? fr.name : '';
+  $('mvFrDescInput').value = fr ? fr.description : '';
+  GlassTheme.autosize($('mvFrDescInput'));
+  $('mvFrDeleteLink').style.display = fr ? 'inline' : 'none';
+  $('mvFrMembersField').style.display = fr ? '' : 'none';
+  if (fr) renderFranchiseMembers(fr);
+  $('mvFranchiseModalBg').classList.add('show');
+}
+function closeFranchiseModal() { $('mvFranchiseModalBg').classList.remove('show'); }
+function renderFranchiseMembers(fr) {
+  var list = $('mvFrMemberList'); list.innerHTML = '';
+  var members = D.itemsForFranchise(fr);
+  members.forEach(function (it) {
+    var row = el('div', 'mv-fr-member-row');
+    row.appendChild(el('span', null, D.categoryMeta(it.category).icon + ' ' + (it.title || 'Untitled')));
+    var rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '✕'; rm.className = 'mv-row-del';
+    rm.addEventListener('click', function () {
+      D.Franchises.update(fr.id, { itemIds: fr.itemIds.filter(function (x) { return x !== it.id; }) });
+      openFranchiseModal(D.Franchises.get(fr.id));
+    });
+    row.appendChild(rm);
+    list.appendChild(row);
+  });
+  var sel = $('mvFrAddMemberSelect'); sel.innerHTML = '';
+  var empty = document.createElement('option'); empty.value = ''; empty.textContent = '+ Add an existing item…'; sel.appendChild(empty);
+  D.Items.list().filter(function (it) { return fr.itemIds.indexOf(it.id) === -1; })
+    .sort(function (a, b) { return (a.title || '').localeCompare(b.title || ''); })
+    .forEach(function (it) {
+      var o = document.createElement('option'); o.value = it.id; o.textContent = D.categoryMeta(it.category).icon + ' ' + (it.title || 'Untitled');
+      sel.appendChild(o);
+    });
+  sel.onchange = function () {
+    if (sel.value) { D.Franchises.update(fr.id, { itemIds: fr.itemIds.concat([sel.value]) }); openFranchiseModal(D.Franchises.get(fr.id)); }
+  };
+}
+function saveFranchiseModal() {
+  var patch = { icon: $('mvFrIconInput').value.trim() || '🏰', name: $('mvFrNameInput').value.trim(), description: $('mvFrDescInput').value.trim() };
+  if (!patch.name) { alert('Give this collection a name first.'); return; }
+  if (editingFranchiseId) D.Franchises.update(editingFranchiseId, patch);
+  else D.Franchises.add(Object.assign(patch, { order: D.nextOrder(D.Franchises.list()) }));
+  closeFranchiseModal();
+  renderCollectionsPage();
+}
+function deleteFranchiseFromModal(e) {
+  e.preventDefault();
+  if (!editingFranchiseId) return;
+  if (!confirm('Delete this collection? Its items are not deleted.')) return;
+  D.Franchises.remove(editingFranchiseId);
+  closeFranchiseModal();
+  renderCollectionsPage();
+}
+
+// ============================================================
+// INSPIRATION VAULT PAGE
+// ============================================================
+function renderInspirationPage() {
+  var list = D.notesFor('inspiration', 'global');
+  var wrap = $('mvInspirationList'); wrap.innerHTML = '';
+  $('mvInspirationEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(function (n, idx) { wrap.appendChild(buildInspirationCard(n, idx === 0, idx === list.length - 1)); });
+}
+function buildInspirationCard(n, isFirst, isLast) {
+  var card = el('div', 'gt-card');
+  var head = el('div', 'mv-insp-head');
+  var titleInput = document.createElement('input'); titleInput.type = 'text'; titleInput.className = 'mv-insp-title-input'; titleInput.value = n.title; titleInput.placeholder = 'Section title…';
+  titleInput.addEventListener('blur', function () { D.Notes.update(n.id, { title: titleInput.value }); });
+  head.appendChild(titleInput);
+  var arrows = el('div', 'mv-release-arrows');
+  var up = document.createElement('button'); up.type = 'button'; up.textContent = '▲'; up.disabled = isFirst;
+  up.addEventListener('click', function () { D.moveNoteSection(n.id, -1); renderInspirationPage(); });
+  var down = document.createElement('button'); down.type = 'button'; down.textContent = '▼'; down.disabled = isLast;
+  down.addEventListener('click', function () { D.moveNoteSection(n.id, 1); renderInspirationPage(); });
+  arrows.appendChild(up); arrows.appendChild(down);
+  head.appendChild(arrows);
+  var del = document.createElement('button'); del.type = 'button'; del.className = 'mv-row-del'; del.textContent = '✕';
+  del.addEventListener('click', function () { if (confirm('Delete this section?')) { D.Notes.remove(n.id); renderInspirationPage(); } });
+  head.appendChild(del);
+  card.appendChild(head);
+  if (n.image) { var img = document.createElement('img'); img.className = 'mv-insp-image'; img.alt = ''; img.src = n.image; card.appendChild(img); }
+  var body = document.createElement('textarea'); body.className = 'mv-insp-body'; body.rows = 1; body.value = n.body; body.placeholder = 'Write freely…';
+  body.addEventListener('input', function () { GlassTheme.autosize(body); });
+  body.addEventListener('blur', function () { D.Notes.update(n.id, { body: body.value }); });
+  card.appendChild(body);
+  setTimeout(function () { GlassTheme.autosize(body); }, 0);
+  var imgRow = el('div', 'mv-insp-img-row');
+  var imgInput = document.createElement('input'); imgInput.type = 'text'; imgInput.className = 'gt-input gt-input-sm'; imgInput.placeholder = 'Paste an image URL (optional)…'; imgInput.value = n.image;
+  imgInput.addEventListener('blur', function () { D.Notes.update(n.id, { image: imgInput.value.trim() }); renderInspirationPage(); });
+  imgRow.appendChild(imgInput);
+  card.appendChild(imgRow);
+  return card;
+}
+
+// ============================================================
+// STATIC EVENT WIRING (one-time) + BOOT
+// ============================================================
+function wireStaticHandlers() {
+  $('mvSidebarToggleBtn').addEventListener('click', function () {
+    $('mvSidebar').classList.toggle('mv-sb-open');
+    $('mvSidebarScrim').classList.toggle('show');
+  });
+  $('mvSidebarScrim').addEventListener('click', closeSidebarMobile);
+
+  $('mvCatAddBtn').addEventListener('click', function () { openItemModal(null, currentCategoryKey); });
+  $('mvCatSearch').addEventListener('input', function () {
+    var cat = currentCategoryKey; if (!cat) return;
+    var st = catFilterState[cat] || (catFilterState[cat] = { subcategory: 'All', tag: 'All', status: 'All', favoritesOnly: false, search: '' });
+    st.search = this.value;
+    renderCategoryPage();
+  });
+
+  $('mvItemCategorySelect').addEventListener('change', refreshItemModalCategoryDependentFields);
+  $('mvItemTagAddBtn').addEventListener('click', addTagFromInput);
+  $('mvItemTagInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addTagFromInput(); } });
+  $('mvItemCoverUrlInput').addEventListener('input', function () { editingCoverValue = this.value.trim(); renderCoverPreview(); });
+  $('mvItemCoverUploadBtn').addEventListener('click', function () { $('mvImageFileInput').value = ''; $('mvImageFileInput').click(); });
+  $('mvImageFileInput').addEventListener('change', handleCoverFile);
+  $('mvItemDescInput').addEventListener('input', function () { GlassTheme.autosize(this); });
+  $('mvItemNotesInput').addEventListener('input', function () { GlassTheme.autosize(this); });
+  $('mvItemSaveBtn').addEventListener('click', saveItemModal);
+  $('mvItemCancelBtn').addEventListener('click', closeItemModal);
+  $('mvItemDeleteLink').addEventListener('click', deleteItemFromModal);
+  $('mvItemModalBg').addEventListener('click', function (e) { if (e.target === this) closeItemModal(); });
+
+  $('mvFrAddBtn').addEventListener('click', function () { openFranchiseModal(null); });
+  $('mvFrSaveBtn').addEventListener('click', saveFranchiseModal);
+  $('mvFrCancelBtn').addEventListener('click', closeFranchiseModal);
+  $('mvFrDeleteLink').addEventListener('click', deleteFranchiseFromModal);
+  $('mvFrDescInput').addEventListener('input', function () { GlassTheme.autosize(this); });
+  $('mvFranchiseModalBg').addEventListener('click', function (e) { if (e.target === this) closeFranchiseModal(); });
+
+  $('mvInspirationAddBtn').addEventListener('click', function () { D.addNoteSection('inspiration', 'global', 'New Section'); renderInspirationPage(); });
+
+  $('mvDiscRollBtn').addEventListener('click', rollDiscovery);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeItemModal(); closeFranchiseModal(); }
+  });
+  document.addEventListener('click', function (e) {
+    var goto = e.target.closest ? e.target.closest('[data-goto]') : null;
+    if (goto) { location.hash = goto.getAttribute('data-goto'); }
+  });
+  window.addEventListener('hashchange', showSection);
+}
+
+function maybeSeedAfterSyncAttempt() {
+  if (remoteAppliedOnce) return;
+  if (!D.isEmptyEverywhere()) return;
+  D.seedIfEmpty();
+  showSection();
+}
+
+function boot() {
+  D = window.MediaverseData;
+  if (!D) { showBootErrorBanner('MediaverseData did not load — check that mediaverse-data.js loaded correctly.', 'boot'); return; }
+  if (!window.GlassTheme || !window.GalleryCard) { showBootErrorBanner('glass-theme.js / gallery-card.js did not load correctly.', 'boot'); return; }
+
+  populateItemCategorySelect();
+  wireStaticHandlers();
+
+  GlassTheme.wireHero({
+    eyebrowEl: $('mvHeroEyebrow'), titleEl: $('mvHeroTitle'), subtextEl: $('mvHeroSubtext'), ctaLabelEl: $('mvHeroCtaLabel'), ctaEl: $('mvHeroCta'),
+    coverBgEl: $('gtHeroCoverBg'), mediaAbstractEl: $('mvHeroAbstract'), mediaImgEl: $('mvHeroPhotoImg'), choiceEl: $('mvHeroChoice'), toolsEl: $('mvHeroTools'), fileInputEl: $('mvHeroFileInput'),
+    addBtn: $('mvHeroAddBtn'), changeBtn: $('mvHeroChangeBtn'), removeBtn: $('mvHeroRemoveBtn'),
+    getRecord: function () { return D.getHero(); },
+    saveRecord: function (patch) { return D.saveHero(patch); },
+    onCtaClick: function () {
+      location.hash = 'home';
+      setTimeout(function () {
+        var target = document.querySelector('[data-section-key="continue"]');
+        if (target) target.scrollIntoView({ behavior: (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth') });
+      }, 60);
+    }
+  });
+
+  GlassTheme.wireMovableSections($('mvHomeSections'), { getLayout: D.getHomeLayout, saveLayout: D.saveHomeLayout });
+
+  showSection();
+
+  if (window.initCloudSync) {
+    window.initCloudSync({
+      appKey: 'mediaverse',
+      syncedPrefixes: ['mediaverse:'],
+      onApplied: function () { remoteAppliedOnce = true; showSection(); }
+    });
+  }
+  setTimeout(maybeSeedAfterSyncAttempt, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function () { runSafely(boot, 'boot'); });
+
+})();
+</script>
+</body>
+</html>
+

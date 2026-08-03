@@ -11887,3 +11887,255 @@ both as originally phrased assumed a backend this app doesn't have):
     tuning actually prevents an accidental reorder while scrolling on a
     phone). A real click-through is recommended before relying on this
     kit heavily.
+
+- **New nav folder: Media Universe, right above Business Dashboard — a
+  brand-new "Personal Media Universe" hub connecting everything read/
+  watched/listened-to/played, built from a detailed written spec.**
+  Genuinely new files, `mediaverse.html` + `mediaverse-data.js`. Per an
+  explicit instruction, the two shared UI kits extracted earlier this
+  session — `glass-theme.css`/`glass-theme.js` and `gallery-card.css`/
+  `gallery-card.js` — are used wholesale rather than a new per-page
+  palette: this page has no CSS of its own beyond a small `:root` repoint
+  of `--gt-*`/`--gc-*` to this app's own common near-black/gold thread
+  (no reference photo or literal color instruction was given, so per §6/
+  DO NOT MODIFY rule 2 the default is "match the common thread," not a
+  new palette) and the handful of layouts (sidebar nav, quick launch
+  tree, continue rows, stat tiles, the discovery reveal, franchise cards)
+  those two kits don't already have a component for. New nav folder
+  (`🌌 Media Universe` → `mediaverse.html`, inserted between the existing
+  `command` and `businessdash` groups in `topbar.js`'s `NAV_GROUPS` — the
+  request's own "above Business Dashboard" placement — plus `.gt-modal-bg`
+  added to `MODAL_SELECTORS` so *every* page that ever adopts glass-theme's
+  modal class gets the shared mobile scroll-lock, not just this one; the
+  only edits made to that shared file); new sync key (`appKey:
+  'mediaverse'`, `syncedPrefixes: ['mediaverse:']`, the standard
+  `initCloudSync` call, nothing new invented). Genuinely separate from
+  every other media page in this app — the pre-existing Entertainment
+  folder (five `ent-*.html` pages sharing `entertainment-hub-data.js`/
+  `entertainment-hub-ui.js`, own `enthub:` prefix) and `entertainment.html`
+  ("Media," own `media:` prefix) are both untouched; nothing here reads or
+  writes either.
+  - **One generic data model, not ten bespoke databases**: a single
+    `MediaItem` collection (`mediaverse:items`) covers all ten categories
+    named in the spec (Reading, Movies & TV, Anime, Games, Videos, Horror
+    Stories, Spicy Stories, Podcasts, Music & Playlists, Immersive/ASMR),
+    each with a `category` field and a shared field set (creator, cover,
+    url, subcategory, tags[], format, status, rating, favorite, trending,
+    progressText, description, notesText, lengthText, completedAt, order).
+    A single `CATEGORY_META` table (`mediaverse-data.js`) drives every
+    category-specific difference — icon, fallback icon, the creator-field
+    label ("Author" vs. "Director / Studio" vs. "Channel / Creator" etc.),
+    whether a Format field applies (and its suggested values), suggested
+    genre/subcategory chips, a per-category tag-field label + suggestions
+    (Tropes for Spicy, Purpose/Atmosphere for Music, Topics for Podcasts),
+    and per-category status wording (e.g. reading's "Want To Read" vs.
+    game's "Backlog," both the same underlying `want` status value) — so
+    one generic `renderCategoryPage()`/one generic Add-Edit-Item modal
+    serves all ten category pages, rather than ten near-duplicate
+    implementations. "Movies" and "TV" from the spec's own final structure
+    are merged into one `screen` category (`format` distinguishes Movie/TV
+    Series/Miniseries/Documentary) — a deliberate, disclosed
+    simplification over adding an eleventh near-identical category.
+  - **Confirmed adaptations, flagged rather than silently narrowed**: New
+    & Trending has no external trend/recommendation API to pull from
+    (this app has no backend — §2/§4) — `trending` is a manual per-item
+    flag (set from its edit modal), sorted newest-first when browsing, not
+    a live feed; a hint line on that page says so directly. Discovery
+    Engine's filters (category / minimum rating / "not yet completed
+    only") only use data this hub genuinely stores — the spec's own
+    mood/time-available/platform filters were not faked, since there's no
+    real signal to filter on for any of those; a hint line discloses this
+    too. Statistics' "This Year" tiles are computed live from items marked
+    Completed with a `completedAt` in the current year (never stored,
+    so they can't drift) — music/podcast "hours" from the original spec
+    became plain item counts, since this app tracks no real listening-
+    duration telemetry anywhere, the same "documented simplification"
+    precedent this app's other single-number roll-ups already use.
+  - **Continue** (Home) groups items with `status:'active'` into four rows
+    — Reading (reading/horror/spicy), Watching (screen/anime/video),
+    Listening (podcast/music), Playing (game) — each a small `gc-grid` of
+    up to 6 items sorted most-recently-created-first (a documented proxy
+    for "most recently touched," since no `lastTouchedAt` field exists).
+  - **Quick Launch** is a data-driven nested-button tree (`QUICK_LAUNCH`,
+    matching the spec's own ASCII structure) — a top-level button jumps
+    straight to a category's hash; a child button (e.g. Reading → Horror)
+    sets a `pendingSubcatFilter` read once by `renderCategoryPage()` on
+    arrival, pre-applying that genre chip before the page ever paints.
+  - **Home's six sections are themselves drag-reorderable** — Continue,
+    Quick Launch, Upcoming Releases preview, New & Trending preview,
+    Favorites preview, and a Statistics preview are each wrapped in a
+    `.gt-section`/`.gt-section-drag` (glass-theme.css), wired once at boot
+    via `GlassTheme.wireMovableSections()` against a new `mediaverse:
+    homeLayout` key — genuine dogfooding of that kit's own "everything on
+    the page is moveable" mechanism, not just a copy-pasted reference.
+  - **Franchise Collections** (`mediaverse:collections`) — a small
+    `itemIds[]`-linking model, not a `GalleryCard`-based gallery (a
+    collection has no single URL to open) — custom cards built with
+    `.gt-glare-card` (`GlassTheme.wireGlareCard()`, the cursor-tracked
+    specular-highlight + tilt effect) opening an edit modal that also
+    hosts member management (remove any current member; a `<select>` of
+    every not-yet-included item, grouped by nothing since the list is
+    usually short). Deleting an item nulls it out of any franchise's
+    `itemIds` rather than leaving a dangling reference — same null-out-
+    the-reference precedent `aitech-data.js`'s model deletion and
+    `household-data.js`'s legion deletion already established.
+  - **Inspiration Vault** reuses the generic "editable, reorderable,
+    generated-on-demand note section" shape `system.html`'s Page Notes and
+    `business.html`'s Platform Detail sections already established
+    (`Notes` collection, `scope:'inspiration'`/`scopeId:'global'`), with
+    one small addition — an optional paste-a-URL image per section (no
+    upload pipeline, a deliberate simplification matching
+    `mainpillar.html`'s own Favorites-gallery cover field precedent) for
+    a lightweight moodboard feel.
+  - **Discovery Engine**'s result reveal uses `.gt-beam-card` (the
+    rotating "border beam" pure-CSS panel) — `D.randomItem()` picks
+    uniformly at random from the filtered pool; "🎲 Try Another" re-rolls,
+    and the reveal's own rating stars/favorite toggle write straight back
+    through the same `setItemRating`/`toggleItemFavorite` helpers every
+    other surface uses, so a Discovery pick is never a second, detached
+    copy of the data.
+  - **Reorder-under-filter correctness**: every category grid is
+    drag-reorderable (`GalleryCard.wireSortableGrid()`, the same
+    touch-scroll-safety tuning as the Entertainment folder's own grids),
+    and `reorderCategoryVisible()` remaps the currently-*visible*
+    (filtered) drag result back into that category's real underlying
+    order — the same technique `entertainment.html`'s Manual sort mode,
+    `business.html`'s Content-section drag, and `tasks.html`'s own fix for
+    this exact problem already established, so dragging within an active
+    genre/tag/status filter can never scramble items sitting outside it.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), showing a visible banner with
+    the real error and a "Copy error details" button instead of a silent
+    blank page, matching the precedent `gym.html`/`business.html`/
+    `mainpillar.html` already established for this exact failure class.
+    The inline script is wrapped in `document.addEventListener(
+    'DOMContentLoaded', ...)` rather than run at parse time — this repo's
+    `defer`-loaded companion `-data.js`/kit files only execute right
+    before `DOMContentLoaded`, so an inline script touching
+    `window.MediaverseData`/`window.GlassTheme`/`window.GalleryCard` at
+    parse time would run before any of them exist, the exact bug class
+    `mainpillar.html`'s own changelog entry already documents hitting
+    once — avoided here from the start. Empty-storage seed-race safety
+    (`maybeSeedAfterSyncAttempt()`, deferred until either `initCloudSync`'s
+    `onApplied` fires or a 5-second window elapses) guards the seed data
+    (roughly three example items per category, one franchise collection,
+    two Inspiration sections, and four Upcoming Releases) the same way
+    every other freshly-seeded page in this app already protects against
+    clobbering another device's real data on a race with the cloud pull.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other entries in
+    this file already carry for this exact class of limitation. Verified
+    statically via PowerShell: brace/paren balance confirmed on both new
+    files (`mediaverse-data.js`: 214/214 braces, 363/363 parens, 83/83
+    brackets; `mediaverse.html`: 385/385 braces, 1170/1170 parens) and on
+    `topbar.js` after its edit (its own pre-existing 5-paren prose-comment
+    imbalance — 520/525 before this edit, 524/529 after — confirmed
+    unchanged in delta by diffing against the pre-edit committed copy, so
+    this edit introduced no new imbalance); zero duplicate DOM ids across
+    108 unique element ids in `mediaverse.html`, with every `$('id')`
+    reference (96 distinct) cross-matched against a real defined id and
+    nothing unresolved; every `D.xxx` call into `MediaverseData`'s public
+    API (37 distinct) cross-matched against its exported members with
+    nothing missing; and HTML tag open/close parity confirmed for `div`/
+    `button`/`section`/`select`/`textarea`/`span`/`label`/`a` across the
+    whole file. **Not verified this way**: an actual click-through
+    (adding an item and confirming its category-specific fields/status
+    wording render correctly, dragging a card to reorder under an active
+    filter, dragging a Home section to reorder the dashboard layout,
+    creating a franchise and adding/removing members, rolling the
+    Discovery Engine and confirming its rating/favorite controls write
+    back correctly, and uploading a cover photo end to end). A real
+    click-through is recommended before relying on this page heavily,
+    same disclosed-limitation caveat several other pages' changelog
+    entries in this file already carry for this exact environment.
+
+- **Media Universe follow-up, per an explicit request: renamed to "Media,"
+  Discovery Engine + Favorites moved to the top of the nav (right after
+  Home), Movies & TV removed outright, and Horror/Spicy Stories each
+  split into a separate Reading database and YouTube database.** Four
+  small changes landed together.
+  - **Renamed "Media Universe" → "Media"** everywhere user-facing: the
+    `<title>`, the sidebar brand title, the boot-error banner text, and
+    `topbar.js`'s nav-group label/item label. This is a real, disclosed
+    name collision with `entertainment.html`'s own existing "Media" nav
+    label (see that page's own §1/§5 entries) — nothing here reads or
+    writes that page's data, same as before; duplicate labels for
+    genuinely separate pages are already an established pattern in this
+    app (e.g. three separate "Fitness Studio"s), so this wasn't treated
+    as a blocker.
+  - **Discovery Engine and Favorites moved to the top of the nav list**,
+    right after Home — in both `mediaverse.html`'s own sidebar
+    (`buildNavItems()`) and `topbar.js`'s nav-drawer children, kept in
+    sync. Every other section's relative order is unchanged.
+  - **Movies & TV (`screen`) removed outright** — dropped from
+    `CATEGORY_KEYS`/`CATEGORY_META`/`topbar.js`'s nav children, and its
+    two seed items were dropped from `seedDefaultData()`. Since this page
+    was never actually reachable on a real device before this session
+    (uncommitted, brand-new work — see the immediately preceding entry),
+    there was no real user data under `category:'screen'` anywhere to
+    migrate or leave orphaned; nothing else in this file referenced it.
+  - **Horror Stories and Spicy Stories split into a Reading database and
+    a separate YouTube database each** — the request's own reasoning:
+    horror/spicy content watched/listened to on YouTube is a genuinely
+    different thing from the reading versions. `horror`/`spicy` keep
+    their original shape (relabeled "· Reading" for clarity) and their
+    original "Want To Read"/"Reading" status wording; two new categories,
+    `horrorwatch`/`spicywatch` ("· YouTube"), were added with a
+    `creatorLabel: 'Channel / Creator'` (matching `video`/`podcast`) and
+    "Want To Watch"/"Watching"/"Watched" status wording instead — since
+    this is video/audio content, not a book. `spicywatch` reuses the same
+    trope tag vocabulary as `spicy` (same genre, different medium).
+    `CONTINUE_GROUPS.watching` gained `horrorwatch`/`spicywatch`
+    alongside `anime`/`video` (replacing the removed `screen`) — the
+    reading versions stay under `CONTINUE_GROUPS.reading` alongside
+    `reading` itself, unchanged. `QUICK_LAUNCH` gained matching entries
+    for both new categories with their own subcategory children. Every
+    other renderer in this file (the category page, the Add/Edit Item
+    modal, the Discovery Engine's category select, Continue, Franchise
+    Collections) is driven entirely by `CATEGORY_META`/`CATEGORY_KEYS`
+    with zero hardcoded per-category branching (confirmed by reading
+    every reference to `cat`/`category` in the file before making this
+    change) — so both new categories, and Movies & TV's removal, needed
+    no other code changes anywhere to take effect.
+  - **A real, pre-existing bug in the original seed data was caught and
+    fixed in passing, unrelated to this request**: the Franchise
+    Collections seed (`'A Court of Thorns and Roses'`) referenced its
+    member items by raw array index — `[items[1].id, items[10].id]` —
+    which, from the very first version of this seed, actually pointed at
+    `items[1]` (correct — the ACOTAR novel) and `items[10]` (a `video`-
+    category item, "Abandoned Places at 3AM" — clearly not intended,
+    since the franchise is specifically the ACOTAR book series). Since
+    the horror/spicy seed rewrite above already required touching every
+    index after position 3, this was fixed properly rather than
+    re-shifted to another wrong index: the two real franchise members
+    (`push('reading', 'A Court of Thorns and Roses', ...)` and
+    `push('spicy', 'A Court of Mist and Fury', ...)`) are now captured
+    into named variables (`acotar`/`acomf`) and referenced by name, so a
+    future reordering of the seed list can't silently break this
+    reference again the same way.
+  - **Sync**: no data-layer/sync-mechanism changes — every new category
+    still lives under the same `mediaverse:items` collection, still
+    covered by the existing `initCloudSync({ appKey: 'mediaverse',
+    syncedPrefixes: ['mediaverse:'] })` call, unchanged.
+  - **Verification, disclosed honestly**: same environment limitation as
+    the entry above — no interactive browser/CDP session was available
+    this round either. Verified statically via PowerShell: brace/paren
+    balance reconfirmed on all three touched files
+    (`mediaverse.html`: 390/390 braces, 1170/1170 parens;
+    `mediaverse-data.js`: 218/218 braces, 368/368 parens; `topbar.js`:
+    337/337 braces, 525/530 parens — its own pre-existing 5-paren
+    prose-comment imbalance, reconfirmed unchanged in delta against a
+    fresh `git show HEAD:topbar.js` diff, the same check this file's own
+    immediately preceding entry already used); a repo-wide grep confirmed
+    zero remaining `'screen'`-category references and zero remaining
+    "Media Universe"/"Movies & TV" text anywhere in either file. **Not
+    verified this way**: an actual click-through (confirming Discovery/
+    Favorites render at the top of the sidebar, confirming the new
+    `horrorwatch`/`spicywatch` category pages render and save items
+    correctly, confirming the fixed franchise seed shows the correct two
+    members). A real click-through is recommended before relying on this
+    page heavily, same disclosed-limitation caveat every other page's
+    changelog entry in this file already carries for this exact
+    environment.

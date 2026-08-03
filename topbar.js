@@ -121,6 +121,53 @@
       ],
     },
     {
+      // New nav folder, right above Business Dashboard: Media — a single
+      // hub connecting everything read/watched/listened-to/played
+      // (Reading, Anime, Games, Videos, Horror Stories, Spicy Stories,
+      // Podcasts, Music & Playlists, Immersive/ASMR), plus Franchise
+      // Collections, an Inspiration Vault, live Favorites/Discovery/
+      // Statistics, and a curated Upcoming Releases / New & Trending
+      // board. Genuinely new files, mediaverse.html + mediaverse-data.js
+      // — separate from the pre-existing Entertainment folder (five
+      // ent-*.html pages sharing entertainment-hub-data.js/
+      // entertainment-hub-ui.js) and from entertainment.html ("Media" —
+      // yes, same label as this folder; nothing here reads or writes
+      // either, this is a real, disclosed name collision, not a merge).
+      // Reuses this app's two shared UI kits wholesale instead of a new
+      // palette (glass-theme.css/js, gallery-card.css/js) — see
+      // mediaverse.html's own header comment. Renamed from "Media
+      // Universe" to "Media," Discovery Engine/Favorites moved to the
+      // top of the list (right after Home), Movies & TV removed
+      // outright, and Horror/Spicy Stories split into a Reading database
+      // and a separate YouTube database each, per an explicit follow-up
+      // request — see mediaverse-data.js's own header comment.
+      key: 'mediaverse',
+      label: 'Media',
+      items: [
+        { href: 'mediaverse.html', icon: '🌌', label: 'Media', id: 'topbarMediaverse', children: [
+          { hash: 'home', label: 'Home' },
+          { hash: 'discovery', label: 'Discovery Engine' },
+          { hash: 'favorites', label: 'Favorites' },
+          { hash: 'releases', label: 'Upcoming Releases' },
+          { hash: 'trending', label: 'New & Trending' },
+          { hash: 'reading', label: 'Reading' },
+          { hash: 'anime', label: 'Anime' },
+          { hash: 'game', label: 'Games' },
+          { hash: 'video', label: 'Videos' },
+          { hash: 'horror', label: 'Horror Stories · Reading' },
+          { hash: 'horrorwatch', label: 'Horror Stories · YouTube' },
+          { hash: 'spicy', label: 'Spicy Stories · Reading' },
+          { hash: 'spicywatch', label: 'Spicy Stories · YouTube' },
+          { hash: 'podcast', label: 'Podcasts' },
+          { hash: 'music', label: 'Music & Playlists' },
+          { hash: 'immersive', label: 'Immersive / ASMR' },
+          { hash: 'collections', label: 'Franchise Collections' },
+          { hash: 'inspiration', label: 'Inspiration Vault' },
+          { hash: 'stats', label: 'Statistics' },
+        ] },
+      ],
+    },
+    {
       // New nav folder, right above Entertainment: a Business Dashboard —
       // a gallery of businesses, each opening into its own front page
       // hosting a Writing Dashboard (series/manuscripts/a Scrivener-style
@@ -1010,7 +1057,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
