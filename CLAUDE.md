@@ -11687,3 +11687,133 @@ both as originally phrased assumed a backend this app doesn't have):
     hides correctly under both the `file://` and real-http(s) code
     paths). A real click-through is recommended before relying on this
     page heavily.
+
+- **New shared files: `glass-theme.css` + `glass-theme.js` — a reusable
+  "dark glass" page-theme kit, extracted from `fitnessstudio.html` —
+  plus two follow-up changes to that page: Goal Center replaced with a
+  Notes section styled like Today's Workout, and a real drag-reorderable
+  "everything on the page is moveable" layer.** Per an explicit request
+  to "copy the page settings, color grading, card effects, and
+  everything else into a reusable code/file" so other new pages can
+  share the same look without rebuilding it.
+  - **`glass-theme.css`** — generic `--gt-*` custom properties (a page
+    overrides them in its own `:root`, declared after this file's own
+    `<link>`, to reskin the accent color/radii without touching this
+    file), plus `.gt-card` (glass card), `.gt-btn`/`.gt-btn-primary`/
+    `.gt-chip`, `.gt-glare-card` (the cursor-tracked specular-highlight +
+    tilt effect `businessdash.html`'s Business Cards and this page's own
+    Weekly Schedule day cards already use), `.gt-beam-card` (the rotating
+    conic-gradient "border beam" panel `businessdash.html`'s All Tasks
+    cards and this page's own exercise/notes cards already use — pure
+    CSS, no JS needed), `.gt-hero` (the cover-photo hero recipe — eyebrow/
+    editable title/subtext/CTA/photo, abstract animated fallback, page-
+    wide blurred backdrop), `.gt-section`/`.gt-section-drag` (the
+    moveable-sections wrapper), and `.gt-modal-bg`/`.gt-modal`. Opt-in via
+    `class="gt-theme"` on `<body>` for the background glow effect
+    specifically, so including this file for just its card/button
+    components on some other page can't silently repaint that page's
+    background out from under it.
+  - **`glass-theme.js`** — `GlassTheme.autosize()`/`wireInlineEdit()`/
+    `hexToRgbTriplet()`/`compressImageDataUrl()` (small, dependency-free
+    utilities), `wireGlareCard(el)` (the pointermove/pointerleave glare
+    wiring), `wireHero(opts)` (a fully generic version of the cover-photo-
+    hero wiring pattern `businessdash.html`/`aitech.html`/`fitnessstudio
+    .html` each independently hand-rolled — takes plain element refs plus
+    `getRecord`/`saveRecord` callbacks, owns no storage key of its own),
+    and `wireMovableSections(container, opts)` (a thin SortableJS wrapper
+    — reconciles a saved key-order array against whatever `.gt-section`
+    elements are actually in the DOM, so a stale/incomplete saved layout
+    can't drop or duplicate a section, then persists the new order via a
+    plain callback on every drag). Same "shared UI utility, owns no data
+    of its own" precedent as `topbar.js`/`sync.js`/`photo-store.js` — every
+    function is callback-driven, nothing here ever touches `localStorage`
+    or Supabase directly.
+  - **Scoping decision, disclosed rather than silently done**:
+    `fitnessstudio.html`'s own already-shipped, already-verified `.fs-*`
+    CSS (background effect, cover-photo hero, glare day-cards, beam
+    exercise-cards) was **not** ripped out and replaced with the new
+    `.gt-*` classes — that would have meant a large, live, no-longer-
+    interactively-testable page's proven code getting mechanically
+    rewritten with no way to confirm nothing broke. Instead
+    `fitnessstudio.html` only *adds* a `<link rel="stylesheet"
+    href="glass-theme.css">` + `<script src="glass-theme.js" defer>` and
+    uses the new kit for genuinely new work this pass — the moveable-
+    sections feature (`#fsSectionsWrap`'s `.gt-section`/`.gt-section-
+    drag`, `GlassTheme.wireMovableSections()`), real dogfooding since
+    that feature didn't exist before this pass, not a retrofit of
+    anything already working. `body` was deliberately **not** given
+    `class="gt-theme"` — doing so would have handed `body.gt-theme
+    ::before`/`::after` a higher-specificity match than this page's own
+    existing bare `body::before`/`::after` background rules (from the
+    prior session's "match Business Dashboard's background" work),
+    silently overriding it. A future new page that wants the *whole*
+    look (not just the moveable-sections piece) can use `.gt-card`/
+    `.gt-hero`/`.gt-glare-card`/`.gt-beam-card` and `GlassTheme.wireHero
+    ()` directly — those are written, real, and ready, just not (yet)
+    what this specific already-shipped page itself runs on.
+  - **Goal Center removed, replaced with Notes.** Per an explicit
+    request. The two-column Short/Long-Term goal-bar UI, its Add/Edit
+    modal (`#fsGoalModalBg`), `renderGoals`/`openGoalModal`/
+    `saveGoalFromModal`, and the `Goals` collection/`goalModel`/
+    `goalsSorted` in `fitnessstudio-data.js` are all deleted outright —
+    a genuine same-session removal of this exact feature's own original
+    build (the "supersede, don't preserve" precedent this app's
+    `gym.html` Timer modal→panel conversion already established), not
+    another pass's leftover. Replaced with a `Notes` collection
+    (`fitstudio:notes` — `{id, title, body, order, createdAt}`) and a
+    "+ Generate Notes Section" button — the same generated-on-demand/
+    editable/reorderable/deletable pattern `system.html`'s Page Notes and
+    `business.html`'s Platform Detail sections already established
+    elsewhere in this app. **Styled identically to Today's Workout's
+    exercise cards, per the request's own "make it look the same as the
+    Workout section" wording** — Notes cards reuse `.fs-ex-row`/
+    `.fs-ex-beam`/`.fs-ex-inner`/`.fs-ex-head`/`.fs-ex-badge` verbatim
+    (not a second copy of the same CSS), so the look is guaranteed
+    pixel-identical rather than merely similar; only two small new
+    classes were added (`.fs-note-title-input`/`.fs-note-body-input`, a
+    borderless editable title + autosizing body textarea, replacing the
+    exercise row's checkbox/expand-detail interaction that Notes doesn't
+    need).
+  - **Moveable sections.** Every real content section below the fixed
+    Photo Hero and toolbar (Stats Hero, Notes, Today's Workout + Live
+    Workout Dashboard kept together as one draggable unit, Workout
+    Programs, Weekly Schedule, Weekly Consistency, AI Fitness Coach) is
+    now wrapped in a `.gt-section[data-section-key]` inside one
+    `#fsSectionsWrap` container, each with a small "⠿ Drag" handle
+    peeking above its top edge. Order persists to a new
+    `fitstudio:sectionLayout` key (`getSectionLayout()`/
+    `saveSectionLayout()`, `fitnessstudio-data.js` — a plain array of
+    section keys, already covered by the page's existing `syncedPrefixes:
+    ['fitstudio:']` sync call, no new sync wiring needed) via
+    `GlassTheme.wireMovableSections()`. **Deliberately scoped, disclosed
+    rather than silently narrowed**: the Photo Hero (cover-photo
+    branding) and the Settings/Focus-Mode/streak toolbar stay fixed page
+    chrome, matching how every other hero-bearing page in this app keeps
+    its own hero un-draggable — "everything" was read as every real
+    content section, not the page's own top-of-page identity/utility
+    chrome.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or Node/Python runtime was available in this environment
+    this round, the same reduced-guarantee fallback several other
+    pages' changelog entries in this file already carry for this exact
+    class of limitation. Verified statically via PowerShell: brace/paren
+    balance on all four touched/new files (`fitnessstudio.html`:
+    592/592 braces, 1947/1947 parens; `fitnessstudio-data.js`: 281/281
+    braces, 604/604 parens; `glass-theme.css`: 83/83 braces, 198/198
+    parens; `glass-theme.js`: 72/72 braces, 210/210 parens); zero
+    duplicate DOM ids across 143 unique element ids in
+    `fitnessstudio.html`; all 129 distinct `$('id')` references resolved
+    with nothing unmatched; all 49 distinct `FD().xxx` calls
+    cross-matched against `FitStudioData`'s exported public API with
+    nothing missing; and a repo-wide grep confirmed zero remaining
+    references to the removed Goal-Center identifiers (`renderGoals`/
+    `openGoalModal`/`saveGoalFromModal`/`fsGoalModalBg`/`fs-goal-*`/
+    `fs-bar-fill`) anywhere in either file — the surviving "Weekly Goal"
+    hits are the unrelated, untouched workout-count-target field on the
+    stats hero. **Not verified this way**: an actual click-through
+    (generating and editing a Notes section and confirming it visually
+    matches an exercise card, dragging a section's "⠿ Drag" handle and
+    confirming the new order persists across a reload, and confirming
+    SortableJS's CDN script loads and `GlassTheme.wireMovableSections()`
+    actually wires without error). A real click-through is recommended
+    before relying on this page heavily.

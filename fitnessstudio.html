@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="glass-theme.css">
 <!--
   Fitness Studio — a brand-new, standalone top-level page in its own new
   nav folder (between "Business Dashboard" and "Entertainment"). Genuinely
@@ -35,11 +36,13 @@
   without a reload.
 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="photo-store.js" defer></script>
+<script src="glass-theme.js" defer></script>
 <script src="entertainment-hub-data.js?v=10" defer></script>
-<script src="fitnessstudio-data.js?v=2" defer></script>
+<script src="fitnessstudio-data.js?v=3" defer></script>
 <style>
 /* =============================================================
    Own private --fs-* tokens. No reference photo was given, but the
@@ -304,17 +307,13 @@ button { font-family: inherit; cursor: pointer; }
 .fs-live-tile-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .fs-live-tile-sub { font-size: 12px; color: var(--fs-text-dim); margin-top: 3px; }
 
-/* ---------- Goal Center ---------- */
-.fs-goal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-@media (max-width: 720px) { .fs-goal-cols { grid-template-columns: 1fr; } }
-.fs-goal-item { padding: 13px 14px; border: 1px solid var(--fs-hairline); border-radius: var(--fs-radius-sm); margin-bottom: 10px; background: rgba(255,255,255,0.02); }
-.fs-goal-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-.fs-goal-title { font-weight: 700; font-size: 14.5px; }
-.fs-goal-vals { font-size: 12px; color: var(--fs-text-mute); }
-.fs-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
-.fs-bar-fill { height: 100%; background: linear-gradient(90deg, var(--fs-accent) 0%, var(--fs-accent-bright) 100%); border-radius: 999px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
-.fs-goal-del { background: none; border: none; color: var(--fs-text-mute); font-size: 15px; padding: 2px 4px; }
-.fs-goal-del:hover { color: var(--fs-bad); }
+/* ---------- Notes (replaces the old Goal Center) ---------- */
+.fs-note-title-input { width: 100%; background: transparent; border: none; color: var(--fs-text); font-weight: 700; font-size: 14.5px; font-family: inherit; padding: 0; margin-bottom: 6px; }
+.fs-note-title-input:focus { outline: none; }
+.fs-note-title-input::placeholder { color: var(--fs-text-mute); }
+.fs-note-body-input { width: 100%; background: transparent; border: none; color: var(--fs-text-dim); font-family: inherit; font-size: 13px; line-height: 1.55; resize: none; overflow: hidden; padding: 0; }
+.fs-note-body-input:focus { outline: none; }
+.fs-note-body-input::placeholder { color: var(--fs-text-mute); }
 
 /* ---------- Programs + Weekly Schedule: shared "plan card" component ----------
    Both sections were re-styled to match a supplied pricing-table reference
@@ -544,38 +543,7 @@ button { font-family: inherit; cursor: pointer; }
     </div>
   </section>
 
-  <!-- ============ HERO (stats card) ============ -->
-  <section class="fs-hero">
-    <button class="fs-btn fs-btn-ghost fs-btn-sm fs-hero-edit" id="fsHeroEditBtn">✎ Edit</button>
-    <div class="fs-hero-inner">
-      <div style="flex:1;min-width:240px;">
-        <p class="fs-hero-greeting" id="fsHeroGreeting">GOOD AFTERNOON</p>
-        <h1 class="fs-hero-name" id="fsHeroName">Damian</h1>
-        <div class="fs-hero-meta-row">
-          <div>
-            <div class="fs-hero-meta-label">Today's Focus</div>
-            <div class="fs-hero-meta-value" id="fsHeroFocus">Upper Body Strength</div>
-          </div>
-          <div>
-            <div class="fs-hero-meta-label">Today's Workout</div>
-            <div class="fs-hero-meta-value" id="fsHeroWorkout">—</div>
-          </div>
-        </div>
-      </div>
-      <div class="fs-hero-ring-wrap">
-        <svg class="fs-ring-svg" width="96" height="96" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"></circle>
-          <circle id="fsHeroRingFill" cx="50" cy="50" r="42" fill="none" stroke="var(--fs-accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"></circle>
-          <text x="50" y="55" text-anchor="middle" class="fs-ring-num" fill="var(--fs-text)" id="fsHeroRingNum">0/0</text>
-        </svg>
-        <div class="fs-hero-meta-label">Weekly Goal</div>
-        <div class="fs-hero-meta-sub" id="fsHeroWeeklySub">0/0 Workouts Completed</div>
-      </div>
-    </div>
-    <p class="fs-hero-quote" id="fsHeroQuote">"Discipline creates freedom."</p>
-  </section>
-
-  <!-- ============ Toolbar ============ -->
+  <!-- ============ Toolbar (fixed, not draggable) ============ -->
   <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
     <button class="fs-btn" id="fsSettingsBtn">⚙ Settings</button>
     <button class="fs-btn" id="fsFocusModeBtn">⛶ Distraction-Free Mode</button>
@@ -585,108 +553,155 @@ button { font-family: inherit; cursor: pointer; }
     </div>
   </div>
 
-  <!-- ============ Today's Workout ============ -->
-  <section class="fs-card" id="fsTodayCard">
-    <div class="fs-card-head">
-      <h2 class="fs-card-title"><span class="fs-icon-glow">🏋️</span> <span id="fsTodayTitle">Today's Workout</span></h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <select class="fs-select" id="fsTodayOverrideSelect" style="width:auto;"></select>
-        <button class="fs-btn fs-btn-primary" id="fsStartWorkoutBtn" style="display:none;">▶ Start Workout</button>
-        <button class="fs-btn" id="fsCompleteWorkoutBtn" style="display:none;">✓ Mark Workout Complete</button>
-      </div>
-    </div>
-    <div id="fsTodayExerciseList"></div>
-  </section>
+  <!-- ============ Everything below is drag-reorderable ============
+       Wrapped via glass-theme.css/.js's generic .gt-section/.gt-section-drag
+       + GlassTheme.wireMovableSections() — see that shared file's own
+       header comment. The Photo Hero above and the toolbar above it stay
+       fixed page chrome, matching how every other hero-bearing page in
+       this app keeps its hero un-draggable; every real content section
+       is reorderable. -->
+  <div id="fsSectionsWrap">
 
-  <!-- ============ Live Workout Dashboard ============ -->
-  <section class="fs-card" id="fsLiveCard" style="display:none;">
-    <div class="fs-card-head">
-      <h2 class="fs-card-title"><span class="fs-icon-glow">📡</span> Live Workout Dashboard</h2>
-      <span class="fs-led-dot" title="Workout in progress"></span>
-    </div>
-    <div class="fs-live-grid">
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Current Exercise</div><div class="fs-live-tile-value" id="fsLiveExercise" style="font-size:16px;">—</div></div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Timer</div><div class="fs-live-tile-value" id="fsLiveTimer">0:00</div></div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Rest Timer</div><div class="fs-live-tile-value" id="fsLiveRest">—</div></div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Current Set</div><div class="fs-live-tile-value" id="fsLiveSet">—</div></div>
-      <div class="fs-live-tile" id="fsLiveHrTile" style="display:none;">
-        <div class="fs-live-tile-label">Heart Rate</div>
-        <input class="fs-input" id="fsLiveHrInput" type="number" placeholder="bpm" style="font-size:20px;font-weight:800;padding:4px 8px;">
-      </div>
-      <div class="fs-live-tile">
-        <div class="fs-live-tile-label">Water Intake</div>
-        <div class="fs-live-tile-value" id="fsLiveWater">0 ml</div>
-        <div style="display:flex;gap:6px;margin-top:8px;"><button class="fs-btn fs-btn-sm" id="fsWaterAddCup">+250ml</button><button class="fs-btn fs-btn-sm" id="fsWaterAddBottle">+500ml</button></div>
-      </div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Workout Duration</div><div class="fs-live-tile-value" id="fsLiveDuration">0m</div></div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Calories Burned</div><div class="fs-live-tile-value" id="fsLiveCalories">0</div><div class="fs-live-tile-sub">rough estimate</div></div>
-      <div class="fs-live-tile"><div class="fs-live-tile-label">Volume Lifted</div><div class="fs-live-tile-value" id="fsLiveVolume">0</div></div>
-    </div>
-  </section>
-
-  <!-- ============ Goal Center ============ -->
-  <section class="fs-card">
-    <div class="fs-card-head">
-      <h2 class="fs-card-title"><span class="fs-icon-glow">🎯</span> Goal Center</h2>
-    </div>
-    <div class="fs-goal-cols">
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div class="fs-field-label" style="margin:0;">Short-Term Goals</div>
-          <button class="fs-btn fs-btn-sm" data-goal-kind="short" id="fsAddShortGoalBtn">+ Add</button>
+  <div class="gt-section" data-section-key="hero">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-hero">
+      <button class="fs-btn fs-btn-ghost fs-btn-sm fs-hero-edit" id="fsHeroEditBtn">✎ Edit</button>
+      <div class="fs-hero-inner">
+        <div style="flex:1;min-width:240px;">
+          <p class="fs-hero-greeting" id="fsHeroGreeting">GOOD AFTERNOON</p>
+          <h1 class="fs-hero-name" id="fsHeroName">Damian</h1>
+          <div class="fs-hero-meta-row">
+            <div>
+              <div class="fs-hero-meta-label">Today's Focus</div>
+              <div class="fs-hero-meta-value" id="fsHeroFocus">Upper Body Strength</div>
+            </div>
+            <div>
+              <div class="fs-hero-meta-label">Today's Workout</div>
+              <div class="fs-hero-meta-value" id="fsHeroWorkout">—</div>
+            </div>
+          </div>
         </div>
-        <div id="fsShortGoalList"></div>
-      </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div class="fs-field-label" style="margin:0;">Long-Term Goals</div>
-          <button class="fs-btn fs-btn-sm" data-goal-kind="long" id="fsAddLongGoalBtn">+ Add</button>
+        <div class="fs-hero-ring-wrap">
+          <svg class="fs-ring-svg" width="96" height="96" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"></circle>
+            <circle id="fsHeroRingFill" cx="50" cy="50" r="42" fill="none" stroke="var(--fs-accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"></circle>
+            <text x="50" y="55" text-anchor="middle" class="fs-ring-num" fill="var(--fs-text)" id="fsHeroRingNum">0/0</text>
+          </svg>
+          <div class="fs-hero-meta-label">Weekly Goal</div>
+          <div class="fs-hero-meta-sub" id="fsHeroWeeklySub">0/0 Workouts Completed</div>
         </div>
-        <div id="fsLongGoalList"></div>
       </div>
-    </div>
-  </section>
+      <p class="fs-hero-quote" id="fsHeroQuote">"Discipline creates freedom."</p>
+    </section>
+  </div>
 
-  <!-- ============ Workout Programs ============ -->
-  <section class="fs-card">
-    <div class="fs-card-head">
-      <h2 class="fs-card-title"><span class="fs-icon-glow">📋</span> Workout Programs</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="fs-btn" id="fsImportExercisesBtn" title="Copy exercises from gym.html and Main's own Fitness Studio tab into Custom">↻ Import My Exercises</button>
-        <button class="fs-btn fs-btn-primary" id="fsAddTemplateBtn">+ New Template</button>
+  <div class="gt-section" data-section-key="today">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card" id="fsTodayCard">
+      <div class="fs-card-head">
+        <h2 class="fs-card-title"><span class="fs-icon-glow">🏋️</span> <span id="fsTodayTitle">Today's Workout</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select class="fs-select" id="fsTodayOverrideSelect" style="width:auto;"></select>
+          <button class="fs-btn fs-btn-primary" id="fsStartWorkoutBtn" style="display:none;">▶ Start Workout</button>
+          <button class="fs-btn" id="fsCompleteWorkoutBtn" style="display:none;">✓ Mark Workout Complete</button>
+        </div>
       </div>
-    </div>
-    <div class="fs-plan-grid" id="fsProgramGrid" style="margin-bottom:18px;"></div>
-    <div class="fs-chip-row" id="fsProgramFilterChips"></div>
-    <div id="fsTemplateList"></div>
-  </section>
+      <div id="fsTodayExerciseList"></div>
+    </section>
 
-  <!-- ============ Weekly Schedule ============ -->
-  <section class="fs-card">
-    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">📅</span> Weekly Schedule</h2></div>
-    <div class="fs-day-grid" id="fsScheduleGrid"></div>
-  </section>
+    <section class="fs-card" id="fsLiveCard" style="display:none;">
+      <div class="fs-card-head">
+        <h2 class="fs-card-title"><span class="fs-icon-glow">📡</span> Live Workout Dashboard</h2>
+        <span class="fs-led-dot" title="Workout in progress"></span>
+      </div>
+      <div class="fs-live-grid">
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Current Exercise</div><div class="fs-live-tile-value" id="fsLiveExercise" style="font-size:16px;">—</div></div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Timer</div><div class="fs-live-tile-value" id="fsLiveTimer">0:00</div></div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Rest Timer</div><div class="fs-live-tile-value" id="fsLiveRest">—</div></div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Current Set</div><div class="fs-live-tile-value" id="fsLiveSet">—</div></div>
+        <div class="fs-live-tile" id="fsLiveHrTile" style="display:none;">
+          <div class="fs-live-tile-label">Heart Rate</div>
+          <input class="fs-input" id="fsLiveHrInput" type="number" placeholder="bpm" style="font-size:20px;font-weight:800;padding:4px 8px;">
+        </div>
+        <div class="fs-live-tile">
+          <div class="fs-live-tile-label">Water Intake</div>
+          <div class="fs-live-tile-value" id="fsLiveWater">0 ml</div>
+          <div style="display:flex;gap:6px;margin-top:8px;"><button class="fs-btn fs-btn-sm" id="fsWaterAddCup">+250ml</button><button class="fs-btn fs-btn-sm" id="fsWaterAddBottle">+500ml</button></div>
+        </div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Workout Duration</div><div class="fs-live-tile-value" id="fsLiveDuration">0m</div></div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Calories Burned</div><div class="fs-live-tile-value" id="fsLiveCalories">0</div><div class="fs-live-tile-sub">rough estimate</div></div>
+        <div class="fs-live-tile"><div class="fs-live-tile-label">Volume Lifted</div><div class="fs-live-tile-value" id="fsLiveVolume">0</div></div>
+      </div>
+    </section>
+  </div>
 
-  <!-- ============ Consistency + Volume ============ -->
-  <section class="fs-card">
-    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🔥</span> Weekly Consistency</h2></div>
-    <div class="fs-heat-scroll"><div class="fs-heat-weeks" id="fsHeatmapGrid"></div></div>
-    <div style="margin-top:24px;">
-      <div class="fs-field-label">Volume Lifted — Last 8 Weeks</div>
-      <div class="fs-vchart" id="fsVolumeChart"></div>
-    </div>
-  </section>
+  <!-- ============ Notes — replaces the old Goal Center, per an
+       explicit request. Styled identically to Today's Workout's exercise
+       cards (same .fs-ex-row/.fs-ex-beam/.fs-ex-inner/.fs-ex-head/
+       .fs-ex-badge border-beam classes, reused verbatim, not a second
+       copy) rather than the old two-column Short/Long-Term goal bars,
+       which are gone along with their modal/data-layer collection. ============ -->
+  <div class="gt-section" data-section-key="notes">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card" id="fsNotesCard">
+      <div class="fs-card-head">
+        <h2 class="fs-card-title"><span class="fs-icon-glow">📝</span> Notes</h2>
+        <button class="fs-btn fs-btn-primary" id="fsAddNoteBtn">+ Generate Notes Section</button>
+      </div>
+      <div id="fsNotesList"></div>
+    </section>
+  </div>
 
-  <!-- ============ AI Fitness Coach ============ -->
-  <section class="fs-card">
-    <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🤖</span> AI Fitness Coach</h2></div>
-    <div class="fs-quick-prompts" id="fsQuickPrompts"></div>
-    <div class="fs-chat-messages" id="fsChatMessages"></div>
-    <div class="fs-chat-input-row">
-      <input class="fs-input" id="fsChatInput" type="text" placeholder="Ask about overload, substitutions, recovery, macros, technique…">
-      <button class="fs-btn fs-btn-primary" id="fsChatSendBtn">Send</button>
-    </div>
-  </section>
+  <div class="gt-section" data-section-key="programs">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card">
+      <div class="fs-card-head">
+        <h2 class="fs-card-title"><span class="fs-icon-glow">📋</span> Workout Programs</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="fs-btn" id="fsImportExercisesBtn" title="Copy exercises from gym.html and Main's own Fitness Studio tab into Custom">↻ Import My Exercises</button>
+          <button class="fs-btn fs-btn-primary" id="fsAddTemplateBtn">+ New Template</button>
+        </div>
+      </div>
+      <div class="fs-plan-grid" id="fsProgramGrid" style="margin-bottom:18px;"></div>
+      <div class="fs-chip-row" id="fsProgramFilterChips"></div>
+      <div id="fsTemplateList"></div>
+    </section>
+  </div>
+
+  <div class="gt-section" data-section-key="schedule">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card">
+      <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">📅</span> Weekly Schedule</h2></div>
+      <div class="fs-day-grid" id="fsScheduleGrid"></div>
+    </section>
+  </div>
+
+  <div class="gt-section" data-section-key="consistency">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card">
+      <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🔥</span> Weekly Consistency</h2></div>
+      <div class="fs-heat-scroll"><div class="fs-heat-weeks" id="fsHeatmapGrid"></div></div>
+      <div style="margin-top:24px;">
+        <div class="fs-field-label">Volume Lifted — Last 8 Weeks</div>
+        <div class="fs-vchart" id="fsVolumeChart"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="gt-section" data-section-key="coach">
+    <span class="gt-section-drag" title="Drag to reorder">⠿ Drag</span>
+    <section class="fs-card">
+      <div class="fs-card-head"><h2 class="fs-card-title"><span class="fs-icon-glow">🤖</span> AI Fitness Coach</h2></div>
+      <div class="fs-quick-prompts" id="fsQuickPrompts"></div>
+      <div class="fs-chat-messages" id="fsChatMessages"></div>
+      <div class="fs-chat-input-row">
+        <input class="fs-input" id="fsChatInput" type="text" placeholder="Ask about overload, substitutions, recovery, macros, technique…">
+        <button class="fs-btn fs-btn-primary" id="fsChatSendBtn">Send</button>
+      </div>
+    </section>
+  </div>
+
+  </div><!-- /#fsSectionsWrap -->
 
 </div><!-- /.fs-shell -->
 
@@ -740,23 +755,6 @@ button { font-family: inherit; cursor: pointer; }
     <div class="fs-field"><label class="fs-field-label">Motivational Quote</label><input class="fs-input" id="fsHeroQuoteInput"></div>
     <div class="fs-field"><label class="fs-field-label">Weekly Workout Goal (# of workouts)</label><input class="fs-input" id="fsHeroWeeklyGoalInput" type="number" min="1" max="14"></div>
     <div class="fs-modal-actions"><button class="fs-btn" id="fsHeroModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsHeroModalSave">Save</button></div>
-  </div>
-</div>
-
-<div class="modal-bg" id="fsGoalModalBg">
-  <div class="modal">
-    <h3 id="fsGoalModalTitle">Add Goal</h3>
-    <div class="fs-field"><label class="fs-field-label">Title</label><input class="fs-input" id="fsGoalTitleInput" placeholder="e.g. Bench 315"></div>
-    <div class="fs-field-row">
-      <div class="fs-field"><label class="fs-field-label">Current</label><input class="fs-input" id="fsGoalCurrentInput" type="number"></div>
-      <div class="fs-field"><label class="fs-field-label">Target</label><input class="fs-input" id="fsGoalTargetInput" type="number"></div>
-    </div>
-    <div class="fs-field"><label class="fs-field-label">Unit</label><input class="fs-input" id="fsGoalUnitInput" placeholder="lb, reps, km, %…"></div>
-    <div class="fs-field"><label class="fs-field-label">Progress (%)</label><input class="fs-input" id="fsGoalPctInput" type="range" min="0" max="100"></div>
-    <div class="fs-modal-actions">
-      <button class="fs-btn" id="fsGoalModalDelete" style="margin-right:auto;color:var(--fs-bad);display:none;">Delete</button>
-      <button class="fs-btn" id="fsGoalModalCancel">Cancel</button><button class="fs-btn fs-btn-primary" id="fsGoalModalSave">Save</button>
-    </div>
   </div>
 </div>
 
@@ -914,7 +912,6 @@ button { font-family: inherit; cursor: pointer; }
   var templateDraftExercises = null;
   var templateEditingId = null;
   var exerciseEditingId = null;
-  var goalEditingId = null, goalEditingKind = 'short';
   var audioCtx = null;
 
   function ensureAudio() { try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) { audioCtx = null; } }
@@ -1256,51 +1253,51 @@ button { font-family: inherit; cursor: pointer; }
   }
 
   // ============================================================
-  // GOALS
+  // NOTES — replaces the old Goal Center. Editable/reorderable/
+  // deletable "+ Generate Notes Section" cards, the same pattern
+  // system.html's Page Notes and business.html's Platform Detail
+  // sections already established elsewhere in this app — styled
+  // identically to Today's Workout's exercise cards by reusing
+  // .fs-ex-row/.fs-ex-beam/.fs-ex-inner/.fs-ex-head/.fs-ex-badge
+  // verbatim, per an explicit "look the same as the Workout section" ask.
   // ============================================================
-  function renderGoals() {
-    ['short', 'long'].forEach(function (kind) {
-      var wrap = $(kind === 'short' ? 'fsShortGoalList' : 'fsLongGoalList');
-      var goals = FD().goalsSorted(kind);
-      if (!goals.length) { wrap.innerHTML = '<div class="fs-empty">No goals yet.</div>'; return; }
-      wrap.innerHTML = goals.map(function (g) {
-        return '' +
-          '<div class="fs-goal-item" data-goal-id="' + g.id + '">' +
-            '<div class="fs-goal-top">' +
-              '<div class="fs-goal-title">' + escapeHtml(g.title) + '</div>' +
-              '<div style="display:flex;align-items:center;gap:8px;"><span class="fs-goal-vals">' + g.currentValue + ' → ' + g.targetValue + ' ' + escapeHtml(g.unit) + '</span>' +
-              '<button class="fs-goal-del" data-edit-goal="' + g.id + '">✎</button></div>' +
+  function renderNotes() {
+    var wrap = $('fsNotesList');
+    var notes = FD().notesSorted();
+    if (!notes.length) { wrap.innerHTML = '<div class="fs-empty">No notes yet — "+ Generate Notes Section" to add one.</div>'; return; }
+    wrap.innerHTML = notes.map(function (n) {
+      return '' +
+        '<div class="fs-ex-row" data-note-id="' + n.id + '">' +
+          '<div class="fs-ex-beam" aria-hidden="true"></div>' +
+          '<div class="fs-ex-inner">' +
+            '<div class="fs-ex-head" style="cursor:default;">' +
+              '<span class="fs-ex-badge">NOTE</span>' +
+              '<div style="display:flex;gap:4px;margin-left:auto;">' +
+                '<button class="fs-btn fs-btn-sm" data-note-move="' + n.id + ':-1">▲</button>' +
+                '<button class="fs-btn fs-btn-sm" data-note-move="' + n.id + ':1">▼</button>' +
+                '<button class="fs-btn fs-btn-sm" data-note-del="' + n.id + '" style="color:var(--fs-bad);">✕</button>' +
+              '</div>' +
             '</div>' +
-            '<div class="fs-bar"><div class="fs-bar-fill" style="width:' + g.progressPct + '%;"></div></div>' +
-          '</div>';
-      }).join('');
-    });
+            '<input class="fs-note-title-input" data-note-title="' + n.id + '" value="' + escapeHtml(n.title) + '" placeholder="Section title…">' +
+            '<textarea class="fs-note-body-input" data-note-body="' + n.id + '" placeholder="Write anything…" rows="1">' + escapeHtml(n.body) + '</textarea>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+    Array.prototype.forEach.call(wrap.querySelectorAll('.fs-note-body-input'), autosize);
   }
-  function openGoalModal(kind, id) {
-    goalEditingKind = kind; goalEditingId = id || null;
-    var g = id ? FD().Goals.get(id) : null;
-    $('fsGoalModalTitle').textContent = id ? 'Edit Goal' : 'Add Goal';
-    $('fsGoalTitleInput').value = g ? g.title : '';
-    $('fsGoalCurrentInput').value = g ? g.currentValue : 0;
-    $('fsGoalTargetInput').value = g ? g.targetValue : 0;
-    $('fsGoalUnitInput').value = g ? g.unit : '';
-    $('fsGoalPctInput').value = g ? g.progressPct : 0;
-    $('fsGoalModalDelete').style.display = id ? 'inline-flex' : 'none';
-    openModal('fsGoalModalBg');
+  function addNote() {
+    FD().Notes.add({ title: 'New Section', body: '', order: FD().Notes.nextOrder() });
+    renderNotes();
   }
-  function saveGoalFromModal() {
-    var patch = {
-      title: $('fsGoalTitleInput').value.trim() || 'Untitled Goal',
-      currentValue: parseFloat($('fsGoalCurrentInput').value) || 0,
-      targetValue: parseFloat($('fsGoalTargetInput').value) || 0,
-      unit: $('fsGoalUnitInput').value.trim(),
-      progressPct: parseFloat($('fsGoalPctInput').value) || 0,
-      kind: goalEditingKind
-    };
-    if (goalEditingId) FD().Goals.update(goalEditingId, patch);
-    else FD().Goals.add(Object.assign(patch, { order: FD().Goals.nextOrder() }));
-    closeModal('fsGoalModalBg');
-    renderGoals();
+  function moveNote(id, dir) {
+    var notes = FD().notesSorted();
+    var i = notes.findIndex(function (n) { return n.id === id; });
+    var j = i + dir;
+    if (i < 0 || j < 0 || j >= notes.length) return;
+    var a = notes[i], b = notes[j];
+    FD().Notes.update(a.id, { order: b.order });
+    FD().Notes.update(b.id, { order: a.order });
+    renderNotes();
   }
 
   // ============================================================
@@ -1599,7 +1596,7 @@ button { font-family: inherit; cursor: pointer; }
     safeRender(renderHero, 'hero');
     safeRender(renderTodayWorkout, 'today');
     safeRender(renderLiveDashboard, 'live');
-    safeRender(renderGoals, 'goals');
+    safeRender(renderNotes, 'notes');
     safeRender(renderPrograms, 'programs');
     safeRender(renderSchedule, 'schedule');
     safeRender(renderHeatmap, 'heatmap');
@@ -1923,17 +1920,23 @@ button { font-family: inherit; cursor: pointer; }
     $('fsWaterAddCup').addEventListener('click', function () { FD().addWater(todayIso(), 250); renderLiveDashboard(); });
     $('fsWaterAddBottle').addEventListener('click', function () { FD().addWater(todayIso(), 500); renderLiveDashboard(); });
 
-    $('fsAddShortGoalBtn').addEventListener('click', function () { openGoalModal('short', null); });
-    $('fsAddLongGoalBtn').addEventListener('click', function () { openGoalModal('long', null); });
-    document.body.addEventListener('click', function (e) {
-      var editGoal = e.target.closest('[data-edit-goal]');
-      if (!editGoal) return;
-      var g = FD().Goals.get(editGoal.dataset.editGoal);
-      if (g) openGoalModal(g.kind, g.id);
+    $('fsAddNoteBtn').addEventListener('click', addNote);
+    $('fsNotesList').addEventListener('click', function (e) {
+      var mv = e.target.closest('[data-note-move]');
+      var del = e.target.closest('[data-note-del]');
+      if (mv) { var parts = mv.dataset.noteMove.split(':'); moveNote(parts[0], parseInt(parts[1], 10)); return; }
+      if (del) { if (confirm('Delete this note section?')) { FD().Notes.remove(del.dataset.noteDel); renderNotes(); } return; }
     });
-    $('fsGoalModalCancel').addEventListener('click', function () { closeModal('fsGoalModalBg'); });
-    $('fsGoalModalSave').addEventListener('click', saveGoalFromModal);
-    $('fsGoalModalDelete').addEventListener('click', function () { if (goalEditingId && confirm('Delete this goal?')) { FD().Goals.remove(goalEditingId); closeModal('fsGoalModalBg'); renderGoals(); } });
+    $('fsNotesList').addEventListener('blur', function (e) {
+      var titleEl = e.target.closest('[data-note-title]');
+      var bodyEl = e.target.closest('[data-note-body]');
+      if (titleEl) FD().Notes.update(titleEl.dataset.noteTitle, { title: titleEl.value.trim() || 'Untitled' });
+      else if (bodyEl) FD().Notes.update(bodyEl.dataset.noteBody, { body: bodyEl.value });
+    }, true);
+    $('fsNotesList').addEventListener('input', function (e) {
+      var bodyEl = e.target.closest('.fs-note-body-input');
+      if (bodyEl) autosize(bodyEl);
+    });
 
     $('fsProgramGrid').addEventListener('click', function (e) {
       var card = e.target.closest('[data-filter-category]'); if (!card) return;
@@ -2071,6 +2074,13 @@ button { font-family: inherit; cursor: pointer; }
     FD().importExercisesFromOtherFitnessStudios();
     renderAll();
   }
+  function wireSectionDrag() {
+    if (!window.GlassTheme) return; // stale-cache guard — a hard refresh will pick this up
+    GlassTheme.wireMovableSections($('fsSectionsWrap'), {
+      getLayout: function () { return FD().getSectionLayout(); },
+      saveLayout: function (order) { FD().saveSectionLayout(order); }
+    });
+  }
   function boot() {
     if (!window.FitStudioData) { showBootErrorBanner('FitStudioData did not load — check that fitnessstudio-data.js loaded correctly.', 'boot'); return; }
     applyTheme();
@@ -2078,6 +2088,7 @@ button { font-family: inherit; cursor: pointer; }
     loadPlaylistsData();
     renderMusicList();
     renderAll();
+    wireSectionDrag();
     if (window.initCloudSync) {
       window.initCloudSync({
         appKey: 'fitnessstudio',

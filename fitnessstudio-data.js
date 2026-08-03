@@ -166,27 +166,12 @@
       importSourceId: typeof data.importSourceId === 'string' ? data.importSourceId : ''
     };
   }
-  function goalModel(data) {
+  function noteModel(data) {
     data = data || {};
-    // progressPct is the one source of truth for the progress bar — a
-    // plain manual 0-100 value, not derived from targetValue/currentValue
-    // math, since "lose 10 lbs" (progress = amount lost so far) and "10%
-    // body fat" (progress = getting DOWN to a number) have opposite
-    // directionality and there's no single formula that reads correctly
-    // for both. targetValue/currentValue/unit stay purely descriptive
-    // text shown next to the bar; progressPct is set directly.
-    var target = typeof data.targetValue === 'number' ? data.targetValue : 0;
-    var current = typeof data.currentValue === 'number' ? data.currentValue : 0;
-    var defaultPct = target > 0 ? Math.round(Math.max(0, Math.min(100, (current / target) * 100))) : 0;
     return {
-      id: data.id || uid('fgoal'),
+      id: data.id || uid('fnote'),
       title: typeof data.title === 'string' ? data.title : '',
-      kind: data.kind === 'long' ? 'long' : 'short',
-      targetValue: target,
-      currentValue: current,
-      unit: typeof data.unit === 'string' ? data.unit : '',
-      progressPct: typeof data.progressPct === 'number' ? Math.max(0, Math.min(100, data.progressPct)) : defaultPct,
-      done: !!data.done,
+      body: typeof data.body === 'string' ? data.body : '',
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
@@ -236,15 +221,12 @@
     return { list: list, get: get, add: add, update: update, remove: remove, replaceAll: replaceAll, nextOrder: nextOrder };
   }
   var Templates = makeCollection('fitstudio:templates', templateModel);
-  var Goals = makeCollection('fitstudio:goals', goalModel);
+  var Notes = makeCollection('fitstudio:notes', noteModel);
   var PRs = makeCollection('fitstudio:prs', prModel);
 
   function templatesSorted() { return Templates.list().slice().sort(function (a, b) { return a.order - b.order; }); }
   function templatesForCategory(cat) { return templatesSorted().filter(function (t) { return t.category === cat; }); }
-  function goalsSorted(kind) {
-    return Goals.list().filter(function (g) { return !kind || g.kind === kind; })
-      .sort(function (a, b) { return a.order - b.order; });
-  }
+  function notesSorted() { return Notes.list().slice().sort(function (a, b) { return a.order - b.order; }); }
   function prsForExercise(name) {
     return PRs.list().filter(function (p) { return p.exerciseName === name; }).sort(function (a, b) { return b.value - a.value; });
   }
@@ -433,6 +415,25 @@
     var next = settingsModel(Object.assign({}, getSettings(), patch));
     storeSet('fitstudio:settings', next);
     return next;
+  }
+
+  // ============================================================
+  // SECTION LAYOUT — per an explicit "make everything on the page
+  // moveable" request. A plain array of section keys, persisted
+  // whenever GlassTheme.wireMovableSections() (glass-theme.js) reorders
+  // #fsSectionsWrap. Any key missing from a saved layout (e.g. this
+  // page's own "notes" key, new the same session Goal Center was
+  // removed) is appended in default order by the page's own apply
+  // logic, not here — this function just stores/returns the raw array.
+  // ============================================================
+  var DEFAULT_SECTION_ORDER = ['hero', 'notes', 'today', 'programs', 'schedule', 'consistency', 'coach'];
+  function getSectionLayout() {
+    var saved = storeGet('fitstudio:sectionLayout');
+    return Array.isArray(saved) && saved.length ? saved : DEFAULT_SECTION_ORDER.slice();
+  }
+  function saveSectionLayout(order) {
+    if (!Array.isArray(order)) return;
+    storeSet('fitstudio:sectionLayout', order);
   }
   function unitLabel(kind) {
     var u = getSettings().units;
@@ -812,10 +813,10 @@
   // SEED
   // ============================================================
   function isEmptyEverywhere() {
-    return Templates.list().length === 0 && Goals.list().length === 0;
+    return Templates.list().length === 0 && Notes.list().length === 0;
   }
   function seedDefaultData() {
-    Templates.replaceAll([]); Goals.replaceAll([]); PRs.replaceAll([]);
+    Templates.replaceAll([]); Notes.replaceAll([]); PRs.replaceAll([]);
     storeSet('fitstudio:schedule', {});
 
     var push = Templates.add({
@@ -859,14 +860,8 @@
       sun: { templateId: null, label: 'Rest' }
     });
 
-    Goals.add({ title: 'Lose 10 lbs', kind: 'short', targetValue: 10, currentValue: 0, unit: 'lb', order: 0 });
-    Goals.add({ title: 'Bench 315', kind: 'short', targetValue: 315, currentValue: 225, unit: 'lb', order: 1 });
-    Goals.add({ title: 'Pull-up x20', kind: 'short', targetValue: 20, currentValue: 8, unit: 'reps', order: 2 });
-    Goals.add({ title: 'Run 5K', kind: 'short', targetValue: 5, currentValue: 0, unit: 'km', order: 3 });
-    Goals.add({ title: 'Gojo Physique', kind: 'long', targetValue: 100, currentValue: 25, unit: '%', order: 0 });
-    Goals.add({ title: '10% Body Fat', kind: 'long', targetValue: 10, currentValue: 18, unit: '% BF', order: 1 });
-    Goals.add({ title: 'Athletic Mobility', kind: 'long', targetValue: 100, currentValue: 40, unit: '%', order: 2 });
-    Goals.add({ title: 'Visible Abs', kind: 'long', targetValue: 100, currentValue: 30, unit: '%', order: 3 });
+    Notes.add({ title: 'Form Cues', body: 'Reminders to check before a heavy set — brace, neutral spine, full range of motion.', order: 0 });
+    Notes.add({ title: 'This Month', body: 'What I\'m focused on right now.', order: 1 });
 
     saveHero({});
     saveSettings({});
@@ -884,14 +879,15 @@
   global.FitStudioData = {
     PROGRAM_CATEGORIES: PROGRAM_CATEGORIES, PROGRAM_COLORS: PROGRAM_COLORS, WEEKDAYS: WEEKDAYS, THEMES: THEMES,
     BG_GLOW_PRESETS: BG_GLOW_PRESETS,
-    Templates: Templates, Goals: Goals, PRs: PRs, ChatLog: ChatLog,
+    Templates: Templates, Notes: Notes, PRs: PRs, ChatLog: ChatLog,
     exerciseModel: exerciseModel, templateModel: templateModel,
     templatesSorted: templatesSorted, templatesForCategory: templatesForCategory,
-    goalsSorted: goalsSorted, prsForExercise: prsForExercise, bestPR: bestPR, checkForPR: checkForPR,
+    notesSorted: notesSorted, prsForExercise: prsForExercise, bestPR: bestPR, checkForPR: checkForPR,
     importExercisesFromOtherFitnessStudios: importExercisesFromOtherFitnessStudios,
     getSchedule: getSchedule, saveScheduleDay: saveScheduleDay, templateForDay: templateForDay,
     getSettings: getSettings, saveSettings: saveSettings, unitLabel: unitLabel,
     getHero: getHero, saveHero: saveHero, compressImageDataUrl: compressImageDataUrl,
+    getSectionLayout: getSectionLayout, saveSectionLayout: saveSectionLayout, DEFAULT_SECTION_ORDER: DEFAULT_SECTION_ORDER,
     getDayLog: getDayLog, saveDayLog: saveDayLog, startWorkout: startWorkout, endWorkout: endWorkout,
     logSet: logSet, markExerciseDone: markExerciseDone, addWater: addWater,
     volumeForDate: volumeForDate, setCountForDate: setCountForDate, estimatedCalories: estimatedCalories,

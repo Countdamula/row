@@ -42,6 +42,7 @@ Open any `.html` file directly in your browser — no build step, no install.
 | [mainpillar.html](mainpillar.html) | Main Pillar — gamified daily command center (Whoop biometrics, quest-style habits, tasks, AI journal/briefs, Weekly/Monthly/Year dashboards, Smart Goal Allocation, Favorites archive) |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 | [sync.js](sync.js) | Shared Supabase cloud-sync helper |
+| [glass-theme.css](glass-theme.css) / [glass-theme.js](glass-theme.js) | Reusable "dark glass" page theme — background glow, glass cards, glare cards, border-beam cards, a cover-photo hero, and drag-reorderable "moveable" sections. Extracted from fitnessstudio.html; drop `<link>`/`<script>` tags into a new page to get the same look/feel (see glass-theme.css's own header comment for how) |
 
 Each app stores its own state in browser `localStorage`. No accounts, no server.
 
