@@ -408,7 +408,10 @@ body { margin: 0; font-family: var(--gt-font); }
     </div>
     <div class="gt-field">
       <label class="gt-field-label">Link (Goodreads, store, etc.)</label>
-      <input type="text" class="gt-input" id="rdBookUrl" placeholder="https://…">
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="gt-input" id="rdBookUrl" placeholder="https://…" style="flex:1;">
+        <button type="button" class="gt-btn gt-btn-sm" id="rdBookFetchBtn">🔍 Fetch</button>
+      </div>
     </div>
     <div class="gt-field">
       <label class="gt-field-label">Cover Image</label>
@@ -2168,6 +2171,27 @@ function wireBookModal() {
     };
     reader.readAsDataURL(file);
   });
+  // Same URL-paste "🔍 Fetch" auto-fill every other gallery tab already
+  // has (window.EntHub.fetchPreview — YouTube/Spotify oEmbed, a plain
+  // page-agnostic function) — useful here for an audiobook/author-
+  // interview link. Title only fills if still blank (never overwrites a
+  // typed one); creator fills the same plain Author text input a typed
+  // name already uses, matched/created into a real Author record on
+  // Save via findOrCreateAuthorByName — same as always.
+  document.getElementById('rdBookFetchBtn').addEventListener('click', function () {
+    var url = document.getElementById('rdBookUrl').value.trim();
+    if (!url || !window.EntHub) return;
+    window.EntHub.fetchPreview(url).then(function (result) {
+      if (!editingBookDraft) return;
+      if (result.title && !document.getElementById('rdBookTitle').value.trim()) document.getElementById('rdBookTitle').value = result.title;
+      if (result.creator) document.getElementById('rdBookAuthor').value = result.creator;
+      if (result.cover) {
+        editingBookDraft.cover = result.cover;
+        document.getElementById('rdBookCover').value = result.cover;
+        updateBookCoverPreview();
+      }
+    });
+  });
 }
 
 // ---------- Reading: Book Detail overlay ----------
@@ -2491,7 +2515,12 @@ function providerFor(key) {
     return {
       icon: cfg.icon, label: cfg.label, subtopics: cfg.genres, hasStatus: true,
       statusLabels: cfg.statusLabels, creatorLabel: cfg.creatorLabel, lengthLabel: cfg.lengthLabel,
-      hasNotes: true, isEnthub: false,
+      // Same URL-paste "🔍 Fetch" auto-fill (YouTube/Spotify oEmbed via
+      // window.EntHub.fetchPreview — a plain, page-agnostic function, not
+      // scoped to the enthub REGISTRY) every other gallery tab already
+      // has — useful here for a trailer/OP link (YouTube) or an official
+      // soundtrack/audiobook link (Spotify) pasted as the item's URL.
+      hasNotes: true, canFetchPreview: true,
       list: mod.items, add: mod.add, update: mod.update, remove: mod.remove,
       nextOrder: mod.nextOrder, toggleFavorite: mod.toggleFavorite, setRating: mod.setRating
     };
@@ -2500,7 +2529,7 @@ function providerFor(key) {
   return {
     icon: r.icon, label: r.label, subtopics: r.subtopics, hasStatus: r.hasStatus,
     statusLabels: r.statusLabels, creatorLabel: CREATOR_LABEL_ENTHUB[key] || 'Creator', lengthLabel: 'Length',
-    hasNotes: false, isEnthub: r.source === 'enthub',
+    hasNotes: false, canFetchPreview: true,
     list: function () { return window.EntDash.listItems(key); },
     add: function (data) { return window.EntDash.addItem(key, data); },
     update: function (id, patch) { return window.EntDash.updateItem(key, id, patch); },
@@ -2564,7 +2593,7 @@ function openItemModal(key, id) {
   notesRow.style.display = p.hasNotes ? 'block' : 'none';
   document.getElementById('edFieldNotes').value = editingDraft.notesText || '';
 
-  document.getElementById('edFetchBtn').style.display = p.isEnthub ? 'inline-flex' : 'none';
+  document.getElementById('edFetchBtn').style.display = p.canFetchPreview ? 'inline-flex' : 'none';
   document.getElementById('edDeleteBtn').style.display = id ? 'inline-flex' : 'none';
 
   document.getElementById('edItemModalBg').classList.add('show');

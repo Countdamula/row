@@ -13429,3 +13429,48 @@ both as originally phrased assumed a backend this app doesn't have):
     "Open Mind Map" CTA but is cleanly removed if you back out without
     touching it). A real click-through is recommended before relying on
     this feature heavily.
+
+- **Entertainment Dashboard: Reading Corner, Anime, and Games now
+  auto-fill from a pasted URL, the same "🔍 Fetch" behavior every other
+  gallery tab already had.** Anime and Games already shared the generic
+  Add/Edit modal (`#edItemModalBg`) with the 7 Enthub-sourced galleries
+  (Podcasts/Stories/Entertainment/Playlists/etc.) — the modal's Fetch
+  button and its `window.EntHub.fetchPreview()` wiring (YouTube/Spotify
+  oEmbed — public, keyless endpoints, no backend/API key needed or
+  available in this app, per §1/§2) were already generic, page-agnostic
+  code; the button was just hidden for Anime/Games specifically
+  (`providerFor()`'s old `isEnthub: false`), a leftover from when they
+  were pulled out of the shared REGISTRY into their own standalone data
+  files. Restored by renaming that flag to the more honest
+  `canFetchPreview` and setting it `true` for both — pasting a trailer/
+  OP (YouTube) or an official soundtrack (Spotify) link now fills
+  title/creator/cover exactly like it already does on every other tab.
+  Reading Corner has its own separate, richer Book modal
+  (`#rdBookModalBg`, its own `entertainment-reading-data.js`) that never
+  had a Fetch button at all — added one next to the Link field, wired to
+  the same `EntHub.fetchPreview()`: title fills only if still blank,
+  cover fills the usual way, and a fetched creator name lands in the
+  plain Author text input exactly like a typed name already does — still
+  matched or created into a real `Author` record via
+  `findOrCreateAuthorByName()` on Save, no new code path there. As with
+  every other tab, a non-YouTube/Spotify URL (e.g. a Goodreads/store
+  link, an anime databases page, a game store page) silently fills
+  nothing — same precedent every other page's own Fetch button already
+  follows, no new disclosure UI added.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other pages'
+    changelog entries in this file already carry for this exact class of
+    limitation. Verified statically: brace/paren balance on the whole
+    file confirmed unchanged in shape (584/584 braces, 2378/2378 parens);
+    confirmed `REGISTRY`'s only real source value is `'enthub'` (the
+    file's own `PAGE_ORDER` is permanently empty, so the `'entdash'`
+    branch in `buildRegistry()` never actually populates anything —
+    unconditionally enabling Fetch for every `REGISTRY` key is therefore
+    equivalent to the old `r.source === 'enthub'` check, not a behavior
+    change for those 7 tabs); confirmed `rdBookFetchBtn`'s id is unique
+    and its click handler correctly guards on `editingBookDraft`/
+    `window.EntHub` before touching anything, matching every other Fetch
+    handler in this file. **Not verified this way**: an actual paste-a-
+    URL click-through on all three tabs. A real click-through is
+    recommended before relying on this heavily.
