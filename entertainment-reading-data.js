@@ -65,6 +65,118 @@
   }
 
   // ============================================================
+  // LINK PREVIEW — real book metadata from a pasted Goodreads/Amazon/
+  // Audible link, via Open Library's public, keyless JSON API
+  // (openlibrary.org/dev/docs/api/books) — the same "real public
+  // endpoint, no backend/API key" precedent entertainment-hub-data.js's
+  // own fetchPreview() already established for YouTube/Spotify, just a
+  // genuinely different lookup shape since none of Goodreads/Amazon/
+  // Audible expose oEmbed. Two strategies, tried in order:
+  //  1. Look for an ISBN sitting directly in the URL (very common —
+  //     Amazon's own ASIN for a print book is usually its ISBN-10) and
+  //     do a precise ISBN lookup.
+  //  2. Otherwise guess a search title from the URL's own slug
+  //     (Goodreads' "/book/show/<id>.<Title_With_Underscores>", Amazon's
+  //     "/<Title-With-Dashes>/dp/<asin>", Audible's "/pd/<slug>/<asin>")
+  //     and search Open Library's title index for the closest match.
+  // Both are best-effort, not guaranteed accurate — the caller shows a
+  // small status line either way (found vs. not), since a URL-slug
+  // guess is inherently fuzzier than YouTube/Spotify's own oEmbed
+  // lookup and staying silent on a miss is what made the first version
+  // of this feature look "broken" instead of "found nothing here."
+  // Falls back to the existing YouTube/Spotify oEmbed helper last (an
+  // audiobook sample or author interview pasted as the Link field).
+  // ============================================================
+  function extractIsbnFromUrl(url) {
+    try {
+      const u = new URL(url);
+      const parts = u.pathname.split('/').concat([u.search || '']);
+      for (let i = 0; i < parts.length; i++) {
+        const m = /(?:^|[^0-9A-Za-z])(97[89]\d{10}|\d{9}[\dXx])(?:[^0-9A-Za-z]|$)/.exec(parts[i]);
+        if (m) return m[1].toUpperCase();
+      }
+    } catch (e) {}
+    return null;
+  }
+  function guessBookQueryFromUrl(url) {
+    function humanize(slug) {
+      return (slug || '').replace(/\.(html?|php)$/i, '').replace(/[_\-]+/g, ' ').trim();
+    }
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, '');
+      const segs = u.pathname.split('/').filter(Boolean);
+      if (host.indexOf('goodreads.com') !== -1) {
+        const showIdx = segs.indexOf('show');
+        let raw = (showIdx !== -1 && segs[showIdx + 1]) ? segs[showIdx + 1] : segs[segs.length - 1];
+        raw = (raw || '').replace(/^\d+[.\-]?/, '');
+        return humanize(raw);
+      }
+      if (host.indexOf('amazon.') !== -1) {
+        const dpIdx = segs.indexOf('dp');
+        if (dpIdx > 0) return humanize(segs[dpIdx - 1]);
+        const prodIdx = segs.indexOf('product');
+        if (prodIdx > 0) return humanize(segs[prodIdx - 1]);
+      }
+      if (host.indexOf('audible.com') !== -1) {
+        const pdIdx = segs.indexOf('pd');
+        if (pdIdx !== -1 && segs[pdIdx + 1]) return humanize(segs[pdIdx + 1]);
+      }
+    } catch (e) {}
+    return '';
+  }
+  async function fetchBookPreview(url) {
+    const result = { title: '', creator: '', cover: '', found: false };
+    if (!url) return result;
+    const isbn = extractIsbnFromUrl(url);
+    if (isbn) {
+      try {
+        const res = await fetch('https://openlibrary.org/api/books?bibkeys=ISBN:' + isbn + '&format=json&jscmd=data');
+        if (res.ok) {
+          const data = await res.json();
+          const rec = data['ISBN:' + isbn];
+          if (rec) {
+            result.found = true;
+            if (rec.title) result.title = rec.title;
+            if (rec.authors && rec.authors[0] && rec.authors[0].name) result.creator = rec.authors[0].name;
+            if (rec.cover) result.cover = rec.cover.large || rec.cover.medium || rec.cover.small || '';
+            return result;
+          }
+        }
+      } catch (e) {}
+    }
+    const guess = guessBookQueryFromUrl(url);
+    if (guess) {
+      try {
+        const res2 = await fetch('https://openlibrary.org/search.json?title=' + encodeURIComponent(guess) + '&limit=1&fields=title,author_name,cover_i');
+        if (res2.ok) {
+          const data2 = await res2.json();
+          const doc = data2.docs && data2.docs[0];
+          if (doc) {
+            result.found = true;
+            if (doc.title) result.title = doc.title;
+            if (doc.author_name && doc.author_name[0]) result.creator = doc.author_name[0];
+            if (doc.cover_i) result.cover = 'https://covers.openlibrary.org/b/id/' + doc.cover_i + '-L.jpg';
+            return result;
+          }
+        }
+      } catch (e) {}
+    }
+    if (global.EntHub && typeof global.EntHub.fetchPreview === 'function') {
+      try {
+        const eh = await global.EntHub.fetchPreview(url);
+        if (eh && (eh.title || eh.cover || eh.creator)) {
+          result.found = true;
+          result.title = eh.title || '';
+          result.creator = eh.creator || '';
+          result.cover = eh.cover || '';
+        }
+      } catch (e) {}
+    }
+    return result;
+  }
+
+  // ============================================================
   // CONFIG
   // ============================================================
   const FORMATS = ['Physical', 'E-Book', 'Audiobook'];
@@ -656,7 +768,7 @@
 
   global.EntReading = {
     FORMATS: FORMATS, STATUS_KEYS: STATUS_KEYS, STATUS_LABELS: STATUS_LABELS, SOURCES: SOURCES, SUGGESTED_GENRES: SUGGESTED_GENRES,
-    uid: uid, todayISO: todayISO,
+    uid: uid, todayISO: todayISO, fetchBookPreview: fetchBookPreview,
     Books: Books, Authors: Authors, Series: Series, Quotes: Quotes, LogEntries: LogEntries, Goals: Goals, Journal: Journal,
     booksSorted: booksSorted, booksByStatus: booksByStatus, tbrSorted: tbrSorted,
     currentlyReadingSorted: currentlyReadingSorted, readSorted: readSorted, progressPct: progressPct,

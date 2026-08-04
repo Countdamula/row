@@ -13447,30 +13447,59 @@ both as originally phrased assumed a backend this app doesn't have):
   title/creator/cover exactly like it already does on every other tab.
   Reading Corner has its own separate, richer Book modal
   (`#rdBookModalBg`, its own `entertainment-reading-data.js`) that never
-  had a Fetch button at all — added one next to the Link field, wired to
-  the same `EntHub.fetchPreview()`: title fills only if still blank,
-  cover fills the usual way, and a fetched creator name lands in the
-  plain Author text input exactly like a typed name already does — still
-  matched or created into a real `Author` record via
-  `findOrCreateAuthorByName()` on Save, no new code path there. As with
-  every other tab, a non-YouTube/Spotify URL (e.g. a Goodreads/store
-  link, an anime databases page, a game store page) silently fills
-  nothing — same precedent every other page's own Fetch button already
-  follows, no new disclosure UI added.
+  had a Fetch button at all — added one next to the Link field.
+  - **Bugfix, found immediately after this shipped**: the Reading Corner
+    Fetch button was first wired to the same `EntHub.fetchPreview()`
+    (YouTube/Spotify oEmbed) as Anime/Games — which auto-fills nothing
+    for the actual kind of link this field's own placeholder asks for
+    ("Goodreads, store, etc."), since none of Goodreads/Amazon/Audible
+    expose oEmbed. Reported as "the auto-filling isn't working for
+    Reading Corner," which it genuinely wasn't for its real use case.
+    Replaced with a real book lookup, `EntReading.fetchBookPreview(url)`
+    (`entertainment-reading-data.js`), against Open Library's public,
+    keyless JSON API (openlibrary.org/dev/docs/api/books — same "real
+    public endpoint, no backend/API key" precedent as the oEmbed helper,
+    just a genuinely different lookup shape): (1) looks for an ISBN
+    sitting directly in the URL — very common, since Amazon's own ASIN
+    for a print book is usually its ISBN-10 — and does a precise ISBN
+    lookup; (2) otherwise guesses a search title from the URL's own slug
+    (Goodreads' `/book/show/<id>.<Title_With_Underscores>`, Amazon's
+    `/<Title-With-Dashes>/dp/<asin>`, Audible's `/pd/<slug>/<asin>`) and
+    searches Open Library's title index; (3) falls back to the original
+    YouTube/Spotify oEmbed lookup last, for an audiobook sample or
+    author-interview link pasted as the Link field. Title only fills if
+    still blank; a fetched creator name lands in the plain Author text
+    input exactly like a typed name already does, still matched/created
+    into a real `Author` record via `findOrCreateAuthorByName()` on
+    Save. Unlike every other Fetch button in this app (which stay
+    silent on a miss), this one shows a small status line either way
+    (`#rdBookFetchStatus` — "Looking this up…" / "✓ Filled in — double-
+    check it matches before saving." / "No match found for that link —
+    fill it in by hand.") — a URL-slug guess is fuzzier than YouTube/
+    Spotify's own oEmbed match, so staying silent on a miss is exactly
+    what read as "broken" the first time.
   - **Verification, disclosed honestly**: no interactive browser/CDP
-    session or JS runtime was available in this environment this
+    session or JS runtime was available in this environment either
     session, the same reduced-guarantee fallback several other pages'
     changelog entries in this file already carry for this exact class of
-    limitation. Verified statically: brace/paren balance on the whole
-    file confirmed unchanged in shape (584/584 braces, 2378/2378 parens);
-    confirmed `REGISTRY`'s only real source value is `'enthub'` (the
-    file's own `PAGE_ORDER` is permanently empty, so the `'entdash'`
-    branch in `buildRegistry()` never actually populates anything —
-    unconditionally enabling Fetch for every `REGISTRY` key is therefore
-    equivalent to the old `r.source === 'enthub'` check, not a behavior
-    change for those 7 tabs); confirmed `rdBookFetchBtn`'s id is unique
-    and its click handler correctly guards on `editingBookDraft`/
-    `window.EntHub` before touching anything, matching every other Fetch
-    handler in this file. **Not verified this way**: an actual paste-a-
-    URL click-through on all three tabs. A real click-through is
-    recommended before relying on this heavily.
+    limitation — doubly relevant here, since this fix depends on a real
+    third-party API's live behavior, not just this app's own code. Live
+    `curl` checks against Open Library from this environment during this
+    session found its homepage reachable but its `/search.json` and
+    `/api/books` endpoints intermittently returning a 503 ("Internet
+    Archive: Temporarily Offline") or timing out outright — most likely
+    a real, current outage on Open Library's own infrastructure
+    (Internet Archive has had documented recent instability), not a
+    defect in this code, but disclosed rather than glossed over: if the
+    Fetch button still reports "No match found" after this ships, Open
+    Library being temporarily down is a real, live possibility, not
+    necessarily a code bug — retrying later is worth trying before
+    assuming it's broken again. The ISBN-extraction and slug-guessing
+    regexes were verified by hand-tracing several real Goodreads/Amazon/
+    Audible URL shapes against the logic (no JS runtime available to
+    execute them directly); every network call is wrapped in try/catch
+    so an Open Library outage degrades to the YouTube/Spotify fallback
+    and then the "no match" status line, never a thrown error. **Not
+    verified this way**: an actual paste-a-URL click-through against a
+    live, healthy Open Library, on all three tabs. A real click-through
+    is recommended before relying on this heavily.

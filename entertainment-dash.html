@@ -412,6 +412,7 @@ body { margin: 0; font-family: var(--gt-font); }
         <input type="text" class="gt-input" id="rdBookUrl" placeholder="https://…" style="flex:1;">
         <button type="button" class="gt-btn gt-btn-sm" id="rdBookFetchBtn">🔍 Fetch</button>
       </div>
+      <div id="rdBookFetchStatus" style="font-size:11.5px;color:var(--gt-text-mute);margin-top:4px;"></div>
     </div>
     <div class="gt-field">
       <label class="gt-field-label">Cover Image</label>
@@ -2074,6 +2075,7 @@ function openBookModal(id, presetPatch) {
   updateBookCoverPreview();
   document.getElementById('rdBookUrl').value = editingBookDraft.url || '';
   document.getElementById('rdBookReview').value = editingBookDraft.review || '';
+  document.getElementById('rdBookFetchStatus').textContent = '';
 
   document.getElementById('rdBookDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   document.getElementById('rdBookModalBg').classList.add('show');
@@ -2171,18 +2173,35 @@ function wireBookModal() {
     };
     reader.readAsDataURL(file);
   });
-  // Same URL-paste "🔍 Fetch" auto-fill every other gallery tab already
-  // has (window.EntHub.fetchPreview — YouTube/Spotify oEmbed, a plain
-  // page-agnostic function) — useful here for an audiobook/author-
-  // interview link. Title only fills if still blank (never overwrites a
-  // typed one); creator fills the same plain Author text input a typed
-  // name already uses, matched/created into a real Author record on
-  // Save via findOrCreateAuthorByName — same as always.
+  // "🔍 Fetch" for a book — a genuinely different lookup than the other
+  // gallery tabs' YouTube/Spotify oEmbed fetch, since Goodreads/Amazon/
+  // Audible (this field's own placeholder examples) don't expose
+  // oEmbed at all. rd().fetchBookPreview() tries an ISBN sitting in the
+  // URL first, then a title guessed from the URL's own slug, both
+  // against Open Library's public keyless API, falling back to the
+  // same YouTube/Spotify oEmbed lookup last (an audiobook/trailer
+  // link). Title only fills if still blank (never overwrites a typed
+  // one); creator fills the same plain Author text input a typed name
+  // already uses, matched/created into a real Author record on Save
+  // via findOrCreateAuthorByName. Shows a small status line either way
+  // — a URL-slug guess is fuzzy enough that staying silent on a miss
+  // reads as "broken" rather than "found nothing here."
   document.getElementById('rdBookFetchBtn').addEventListener('click', function () {
     var url = document.getElementById('rdBookUrl').value.trim();
-    if (!url || !window.EntHub) return;
-    window.EntHub.fetchPreview(url).then(function (result) {
+    var statusEl = document.getElementById('rdBookFetchStatus');
+    var R = rd();
+    if (!url) { statusEl.textContent = 'Paste a link above first.'; return; }
+    if (!R || typeof R.fetchBookPreview !== 'function') return;
+    var btn = this;
+    btn.disabled = true;
+    statusEl.textContent = 'Looking this up…';
+    R.fetchBookPreview(url).then(function (result) {
+      btn.disabled = false;
       if (!editingBookDraft) return;
+      if (!result.found) {
+        statusEl.textContent = 'No match found for that link — fill it in by hand.';
+        return;
+      }
       if (result.title && !document.getElementById('rdBookTitle').value.trim()) document.getElementById('rdBookTitle').value = result.title;
       if (result.creator) document.getElementById('rdBookAuthor').value = result.creator;
       if (result.cover) {
@@ -2190,6 +2209,10 @@ function wireBookModal() {
         document.getElementById('rdBookCover').value = result.cover;
         updateBookCoverPreview();
       }
+      statusEl.textContent = '✓ Filled in — double-check it matches before saving.';
+    }).catch(function () {
+      btn.disabled = false;
+      statusEl.textContent = 'Couldn\'t look that up right now — fill it in by hand.';
     });
   });
 }
