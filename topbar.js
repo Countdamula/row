@@ -15,30 +15,26 @@
   const TOPBAR_SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
 
   // -------- Nav data --------
-  // Every page in the dashboard, grouped the way a real sidebar app groups
-  // its sections (see the reference screenshot this redesign was built to
-  // match) instead of one long flat row. Every one of the 16 real .html
-  // pages in this repo is listed here — including example.html, which
-  // never had a nav entry before this redesign — so every page is reachable
-  // in at most two clicks from anywhere: open the nav (1) + click a page
-  // (2), or, since a page's own group auto-expands on load and every other
-  // group starts expanded too, usually just one click.
+  // Every real page in the dashboard, grouped the way a real sidebar app
+  // groups its sections (see the reference screenshot this redesign was
+  // built to match) instead of one long flat row, so every page is
+  // reachable in at most two clicks from anywhere: open the nav (1) +
+  // click a page (2), or, since a page's own group auto-expands on load
+  // and every other group starts expanded too, usually just one click.
+  // (Old Fitness Studio/gym.html, Self-Care/selfcare.html, Finance/
+  // finance.html, Brain Dump/braindump.html, Household/household.html,
+  // the old "Business" nav folder — business.html/business-writing.html/
+  // business-youtube.html/business-overview.html — and the Example/
+  // example.html folder were all deleted; see CLAUDE.md's changelog.)
   //
   // Notion-style nesting: any item may carry a `children` array — each
   // child is one of that page's own internal tabs/sections, rendered as an
   // indented, independently-collapsible sub-list under its parent, exactly
   // like a Notion sidebar shows a page's sub-pages. A child's `hash` is the
   // literal URL fragment that page reads on load to land on that tab
-  // (`<href>#<hash>`), e.g. `gym.html#templates`. Every page listed with
-  // children was either already reading `location.hash` on load (index,
-  // gym, nutrition, household, finance — zero page-side changes needed) or
-  // had one added specifically to support this (mainpillar, tasks,
-  // tasksnotes, selfcare, business, dreamboard, aitech, learning,
-  // entertainment — each additive only, alongside whatever
-  // localStorage-based tab memory that page already had; see each page's
-  // own boot code for the added hash-read/hashchange wiring). Leaf pages
-  // with no internal tabs at all (Brain Dump, Example) simply have no
-  // `children` and render as a plain, non-expandable row, same as before.
+  // (`<href>#<hash>`), e.g. `nutrition.html#grocery`. Leaf pages with no
+  // internal tabs at all simply have no `children` and render as a plain,
+  // non-expandable row.
   //
   // Learning is the one nav group whose items are DATA-DRIVEN rather than
   // a fixed list: unlike Entertainment's four content pages (a fixed set
@@ -228,66 +224,10 @@
       key: 'life',
       label: 'Life & Wellness',
       items: [
-        { href: 'gym.html', icon: '🏋️', label: 'Fitness Studio', id: 'topbarGym', children: [
-          { hash: 'overview', label: 'Overview' },
-          { hash: 'week', label: 'Current Week' },
-          { hash: 'templates', label: 'Templates' },
-          { hash: 'equipment', label: 'Equipment' },
-          { hash: 'history', label: 'History & Compare' },
-        ] },
         { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition', children: [
           { hash: 'kitchen', label: 'My Kitchen' },
           { hash: 'grocery', label: 'Grocery List' },
         ] },
-        { href: 'selfcare.html', icon: '🌙', label: 'Self-Care', id: 'topbarSelfCare', children: [
-          { hash: 'main', label: 'Self-Care' },
-          { hash: 'journals', label: 'Journals' },
-          { hash: 'meditations', label: 'Meditations' },
-          { hash: 'anxiety', label: 'Anxiety' },
-        ] },
-        { href: 'household.html', icon: '🧺', label: 'Household', id: 'topbarHousehold', children: [
-          { hash: 'overview', label: 'Overview' },
-          { hash: 'beings', label: 'Energy Beings' },
-          { hash: 'inventory', label: 'Inventory' },
-          { hash: 'wishlist', label: 'Wishlist' },
-          { hash: 'chores', label: 'Chores' },
-        ] },
-        { href: 'finance.html', icon: '💰', label: 'Finance', id: 'topbarFinance', children: [
-          { hash: 'overview', label: 'Overview' },
-          { hash: 'accounts', label: 'Accounts' },
-          { hash: 'transactions', label: 'Transactions' },
-          { hash: 'subscriptions', label: 'Subscriptions' },
-          { hash: 'income', label: 'Income' },
-          { hash: 'notes', label: 'Notes' },
-        ] },
-        { href: 'braindump.html', icon: '🧠', label: 'Brain Dump', id: 'topbarBrainDump' },
-      ],
-    },
-    {
-      // New nav folder: every "business model" page lives here, plus an
-      // overview page connecting them (see business-overview.html's own
-      // header comment). Business Hub (business.html, unchanged, still
-      // hosting Content/Ideas/Platforms/Resources) moved into this group
-      // from "Create & Grow" below — nothing about that page itself
-      // changed, only which group its nav entry sits in. Writing
-      // Dashboard and YouTube Dashboard each also gained their own
-      // top-level entry here (business-writing.html/business-youtube.html
-      // — thin, same-origin-iframe wrapper pages around business.html's
-      // own #writing/#youtube tabs, so both still work exactly as they
-      // already did on Business Hub itself, completely unmodified — see
-      // CLAUDE.md's Business folder changelog entry).
-      key: 'business',
-      label: 'Business',
-      items: [
-        { href: 'business-overview.html', icon: '🗺️', label: 'Business Overview', id: 'topbarBusinessOverview' },
-        { href: 'business.html', icon: '💼', label: 'Content Hub', id: 'topbarBusiness', children: [
-          { hash: 'content', label: 'Content' },
-          { hash: 'ideas', label: 'Ideas' },
-          { hash: 'platforms', label: 'Platforms' },
-          { hash: 'resources', label: 'Resources' },
-        ] },
-        { href: 'business-writing.html', icon: '📖', label: 'Writing Dashboard', id: 'topbarBusinessWriting' },
-        { href: 'business-youtube.html', icon: '📺', label: 'YouTube Dashboard', id: 'topbarBusinessYoutube' },
       ],
     },
     {
@@ -311,13 +251,6 @@
           { hash: 'playlists', label: 'Playlists' },
           { hash: 'favorites', label: 'Favorites' },
         ] },
-      ],
-    },
-    {
-      key: 'more',
-      label: 'More',
-      items: [
-        { href: 'example.html', icon: '🧪', label: 'Example', id: 'topbarExample' },
       ],
     },
   ];

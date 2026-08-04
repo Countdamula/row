@@ -243,6 +243,59 @@
     });
   }
 
+  // Fixed squiggle path/viewBox, ported verbatim from the reference
+  // React component's own hand-drawn SVG (a short decorative flourish,
+  // deliberately narrower than most nav labels — the original never
+  // stretched it to fill the label's width either, it's a squiggle
+  // *under* the text, not a full underline bar).
+  var SQUIGGLY_PATH = 'M1 5.39971C7.48565 -1.08593 6.44837 -0.12827 8.33643 6.47992C8.34809 6.52075 11.6019 2.72875 12.3422 2.33912C13.8991 1.5197 16.6594 2.96924 18.3734 2.96924C21.665 2.96924 23.1972 1.69759 26.745 2.78921C29.7551 3.71539 32.6954 3.7794 35.8368 3.7794';
+
+  // Builds a squiggly-underline nav row (.gt-squiggly-nav from
+  // glass-theme.css) — a single-select list of plain <button>s where
+  // exactly one carries the ".on" class plus a small glowing squiggle
+  // SVG underneath it. items = [{label, active, onClick}].
+  //
+  // Unlike the original React component (which uses framer-motion's
+  // layoutId to smoothly SLIDE the one shared squiggle element between
+  // whichever item is newly selected), this rebuilds the whole nav fresh
+  // every time it's called — the same pattern every other filter-chip
+  // row in this app already uses (a full re-render on each click, not a
+  // persisted DOM node updated in place) — so there's no previous
+  // position to slide *from* in the first place. The squiggle still
+  // "draws in" via its own stroke-dashoffset animation every time it
+  // (re)appears, which is the one piece of the original's motion that
+  // *does* carry over faithfully.
+  function buildSquigglyNav(items) {
+    var nav = document.createElement('div');
+    nav.className = 'gt-squiggly-nav';
+    (items || []).forEach(function (it) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gt-squiggly-item' + (it.active ? ' on' : '');
+      btn.textContent = it.label;
+      if (it.active) {
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'gt-squiggly-underline');
+        svg.setAttribute('width', '37');
+        svg.setAttribute('height', '8');
+        svg.setAttribute('viewBox', '0 0 37 8');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('aria-hidden', 'true');
+        var path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', SQUIGGLY_PATH);
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(path);
+        btn.appendChild(svg);
+      }
+      if (typeof it.onClick === 'function') btn.addEventListener('click', it.onClick);
+      nav.appendChild(btn);
+    });
+    return nav;
+  }
+
   global.GlassTheme = {
     autosize: autosize,
     wireInlineEdit: wireInlineEdit,
@@ -250,6 +303,7 @@
     compressImageDataUrl: compressImageDataUrl,
     wireGlareCard: wireGlareCard,
     wireHero: wireHero,
-    wireMovableSections: wireMovableSections
+    wireMovableSections: wireMovableSections,
+    buildSquigglyNav: buildSquigglyNav
   };
 })(window);

@@ -166,9 +166,16 @@ body.gt-theme::after {
 }
 .gt-beam-card-glow {
   position: absolute; inset: -55%; z-index: 0;
+  /* --gt-beam-color-a/b (undefined by default, so both fall through to
+     the usual single --gt-accent-bright) let a scoped page repaint the
+     two opposing comets as two DIFFERENT colors — e.g.
+     entertainment-dash.html's own red/pink Anime+Games theme — without
+     touching this rule or affecting any other .gt-beam-card usage
+     elsewhere in this app (Discovery Engine's reveal card, business
+     dashboard's task cards, fitnessstudio.html's exercise cards). */
   background: conic-gradient(from 0deg,
-    transparent 0deg, var(--gt-accent-bright) 16deg, transparent 40deg,
-    transparent 160deg, var(--gt-accent-bright) 176deg, transparent 200deg,
+    transparent 0deg, var(--gt-beam-color-a, var(--gt-accent-bright)) 16deg, transparent 40deg,
+    transparent 160deg, var(--gt-beam-color-b, var(--gt-accent-bright)) 176deg, transparent 200deg,
     transparent 360deg);
   animation: gt-beam-spin 7s linear infinite; will-change: transform;
 }
@@ -259,3 +266,45 @@ body.gt-theme::after {
 
 .gt-empty { padding: 20px; text-align: center; color: var(--gt-text-mute); font-size: 13px; }
 @media (max-width: 480px) { .gt-shell { padding: 18px 14px 130px; } .gt-card { padding: 16px; } }
+
+/* ---------- Squiggly-underline nav — a single-select nav row where the
+   active item grows a small hand-drawn, glowing squiggle underline that
+   redraws itself on selection. A clean-room vanilla reimplementation of
+   the visual idea behind a React/Framer-Motion "SquigglyUnderline"
+   component prompt handed to entertainment-dash.html (see that file's
+   own header comment on why — this app has no build step/React/
+   Tailwind/framer-motion anywhere, CLAUDE.md §1, so this rebuilds the
+   same look natively instead of trying to stand up that stack); a glow
+   was added on top of the original's own look, per an explicit ask.
+   Build with GlassTheme.buildSquigglyNav(items) from glass-theme.js —
+   recolors automatically wherever --gt-accent-bright/--gt-accent-rgb are
+   scoped (e.g. a page's own red/pink override), same as every other
+   .gt-* component. ---------- */
+.gt-squiggly-nav { display: flex; flex-wrap: wrap; gap: 22px; margin-bottom: 14px; align-items: flex-end; }
+.gt-squiggly-item {
+  position: relative; background: none; border: none; padding: 4px 1px 10px; margin: 0;
+  font-family: var(--gt-font); font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--gt-text-mute); cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: color 0.15s ease;
+}
+.gt-squiggly-item:hover { color: var(--gt-text-dim); }
+.gt-squiggly-item.on { color: var(--gt-text); font-weight: 800; }
+.gt-squiggly-item.on::after {
+  /* The glow — a soft blurred blob sitting behind the squiggle/label,
+     independent of the squiggle svg's own drop-shadow filter below, so
+     the glow reads even where the squiggle itself is thin. */
+  content: ''; position: absolute; left: 6px; bottom: -4px; width: 60%; height: 12px;
+  background: radial-gradient(ellipse at center, rgba(var(--gt-accent-rgb),0.5) 0%, transparent 72%);
+  filter: blur(3px); pointer-events: none; z-index: -1;
+}
+.gt-squiggly-underline {
+  position: absolute; left: 0; bottom: -2px; pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(var(--gt-accent-rgb),0.95)) drop-shadow(0 0 9px rgba(var(--gt-accent-rgb),0.6));
+}
+.gt-squiggly-underline path {
+  stroke: var(--gt-accent-bright);
+  stroke-dasharray: 90; stroke-dashoffset: 90;
+  animation: gt-squiggly-draw 0.55s cubic-bezier(.22,.9,.35,1) forwards;
+}
+@keyframes gt-squiggly-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .gt-squiggly-underline path { animation: none; stroke-dashoffset: 0; } }

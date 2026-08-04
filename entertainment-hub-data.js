@@ -369,6 +369,61 @@
   function collectionFor(pageKey) { return COLLECTIONS[pageKey]; }
 
   // ============================================================
+  // ONE-TIME BACKFILL — unlike almost every other page in this app, this
+  // file never had a photo-store.js sweep: covers uploaded through the
+  // old, pre-merge standalone Entertainment pages (deleted — see
+  // CLAUDE.md) were saved as raw base64 `data:` strings, and
+  // entertainment-dash.html's own shared item modal only started
+  // routing NEW uploads through PhotoStore going forward (see its own
+  // wireModal()) — it never went back and fixed what was already there.
+  // That's very likely the actual cause of this shared origin's
+  // localStorage quota filling up (reported directly: a QuotaExceededError
+  // on `entdash:reading`, thrown from `migrateHorrorSpicyReadingIntoReadingCorner()`
+  // in entertainment-dash-data.js — a function that copies `cover`
+  // straight from THIS file's own `enthub:horrorReading`/`spicyReading`
+  // items, so an un-migrated giant base64 cover there gets duplicated
+  // into `entdash:reading` too, making the same problem worse with every
+  // retry). Same "compress once already, just swap the value, only mark
+  // done once every upload settled" shape as every other page's own
+  // migratePhotosToStorage() (e.g. entertainment.html's own — copied
+  // structurally from there). Exported so entertainment-dash.html can
+  // call it from boot(); PAGE_ORDER covers every collection this file
+  // owns, so nothing needs listing item-type-by-item-type.
+  // ============================================================
+  function migratePhotosToStorage() {
+    if (!global.PhotoStore) return;
+    var already = false;
+    try { already = localStorage.getItem('enthub:photosMigratedV1') === 'true'; } catch (e) {}
+    if (already) return;
+    var jobs = [];
+    PAGE_ORDER.forEach(function (pageKey) {
+      const coll = collectionFor(pageKey);
+      coll.list().forEach(function (item) {
+        if (typeof item.cover === 'string' && item.cover.indexOf('data:') === 0) {
+          const orig = item.cover, id = item.id;
+          jobs.push(global.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return false;
+            const fresh = coll.get(id);
+            if (fresh && fresh.cover === orig) coll.update(id, { cover: url });
+            return true;
+          }));
+        }
+      });
+    });
+    if (!jobs.length) { try { localStorage.setItem('enthub:photosMigratedV1', 'true'); } catch (e) {} return; }
+    // upload() never rejects (resolves to null on any failure, e.g. the
+    // bucket not existing yet) — Promise.all alone would still resolve
+    // even on total failure, so only mark this page "done" once every
+    // job this pass kicked off genuinely succeeded; anything left over
+    // (still base64) simply retries on the next load.
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) {
+        try { localStorage.setItem('enthub:photosMigratedV1', 'true'); } catch (e) {}
+      }
+    });
+  }
+
+  // ============================================================
   // ONE-TIME MIGRATION — see this file's own header comment. Distributes
   // any real pre-existing `enthub:stories` items into the five new split
   // pages by their old subtopic name; anything unrecognized falls back
@@ -961,6 +1016,7 @@
     detectSource: detectSource,
     fetchPreview: fetchPreview,
     collectionFor: collectionFor,
+    migratePhotosToStorage: migratePhotosToStorage,
     itemsForPage: itemsForPage,
     itemsForSubtopic: itemsForSubtopic,
     favoritesForPage: favoritesForPage,

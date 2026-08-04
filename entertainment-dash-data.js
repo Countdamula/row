@@ -3,31 +3,45 @@
 // Data layer for entertainment-dash.html — the single merged
 // Entertainment dashboard that replaced the old five-page Entertainment
 // folder (ent-podcasts.html/ent-stories.html/ent-entertainment.html/
-// ent-playlists.html/ent-favorites.html, all deleted). This file has
-// two jobs:
+// ent-playlists.html/ent-favorites.html, all deleted). This file has two
+// jobs:
 //
-//   1. Three genuinely new databases the old folder never had — Reading
-//      Corner, Anime, Games — each its own flat collection under its
-//      own `entdash:*` key (entdash:reading / entdash:anime /
-//      entdash:games), same model-factory + makeCollection conventions
-//      as every other -data.js in this app.
-//   2. A unified REGISTRY + dispatch layer sitting on top of BOTH this
-//      file's own three collections AND entertainment-hub-data.js's own
-//      live pages (podcasts/horrorWatchCreepypasta/horrorWatchTrue/
-//      spicyWatch/storiesImmersive/entertainment/playlists — see that
-//      file's own header for why horrorReading/spicyReading/horrorWatch
-//      themselves are gone) — the thing that makes Home/Discovery
-//      Engine/Favorites/Statistics genuinely cross-category instead of
-//      each needing its own bespoke aggregation. entertainment-hub-data
-//      .js's own EntItem shape has no `status` field (it was only ever
-//      favorite+rating); Reading/Anime/Games DO track a
-//      want/in-progress/done status — REGISTRY.hasStatus flags which
-//      categories support status filtering/editing so the UI can show
-//      or hide those controls correctly per category, rather than
-//      faking a status field on data that was never designed to carry
-//      one. Horror Stories/Spicy Stories · Reading moved INTO this
-//      file's own Reading Corner collection per an explicit request —
-//      see migrateHorrorSpicyReadingIntoReadingCorner() below.
+//   1. A dwindling migration-source shape for Reading Corner only. Anime
+//      and Games used to be two genuinely new databases native to this
+//      file (entdash:anime / entdash:games) — per an explicit later
+//      request ("completely separate the Reading Corner, Anime, and
+//      Games into its own database"), BOTH have now been pulled out into
+//      their own standalone files too, the same treatment Reading Corner
+//      already got in an earlier session — see entertainment-anime-
+//      data.js / entertainment-games-data.js / entertainment-reading-
+//      data.js, all loaded right after this file. This file no longer
+//      owns any collection for any of the three. PAGES.reading/
+//      itemModel('reading') stay defined below only because
+//      migrateHorrorSpicyReadingIntoReadingCorner() (below) still needs
+//      somewhere to land Horror/Spicy Stories · Reading items, which
+//      entertainment-reading-data.js's own one-time migration then folds
+//      into entread:books. Anime/Games needed no equivalent shape kept
+//      here — their own new files read the raw old entdash:anime/
+//      entdash:games keys directly (the same "read a dead key raw"
+//      precedent already used for Reading), so this file's own PAGES/
+//      PAGE_ORDER no longer mention either at all.
+//   2. A unified REGISTRY + dispatch layer sitting on top of
+//      entertainment-hub-data.js's own live pages (podcasts/
+//      horrorWatchCreepypasta/horrorWatchTrue/spicyWatch/
+//      storiesImmersive/entertainment/playlists — see that file's own
+//      header for why horrorReading/spicyReading/horrorWatch themselves
+//      are gone) — the thing that makes Home/Discovery Engine/
+//      Favorites/Statistics genuinely cross-category instead of each
+//      needing its own bespoke aggregation. Reading Corner, Anime, and
+//      Games are all deliberately NOT part of this cross-category system
+//      anymore (see point 1 above) — each has its own dedicated
+//      Favorites-equivalent/stats inside its own standalone file
+//      instead. `PAGE_ORDER` is now permanently `[]` (this file owns no
+//      native collections at all going forward), so REGISTRY/
+//      GALLERY_KEYS only ever contain the 7 enthub-sourced galleries.
+//      Horror Stories/Spicy Stories · Reading moved INTO Reading
+//      Corner's own collection per an explicit request — see
+//      migrateHorrorSpicyReadingIntoReadingCorner() below.
 //
 // Loaded AFTER entertainment-hub-data.js on entertainment-dash.html (a
 // deferred <script> tag ordering guarantee) — this file's own top-level
@@ -66,12 +80,9 @@
   }
 
   // ============================================================
-  // PAGE CONFIG — Reading Corner / Anime / Games. Each has its own
-  // creator-field label, genre list (reused as the subtopic filter
-  // chips), a length-field label, and status wording — all three share
-  // the same underlying status enum ('want'|'progress'|'done') so one
-  // generic status control works everywhere, just relabeled per
-  // category ("Want To Read" vs. "Plan To Watch" vs. "Backlog", etc.).
+  // PAGE CONFIG — Reading Corner only, now. Anime and Games used to have
+  // entries here too (same shape) but both have been pulled out into
+  // their own standalone files — see this file's own header comment.
   // ============================================================
   const STATUS_KEYS = ['want', 'progress', 'done'];
   const PAGES = {
@@ -85,21 +96,18 @@
       // migrated items in one of these two genres.
       genres: ['Fiction', 'Non-Fiction', 'Fantasy', 'Sci-Fi', 'Self-Help', 'Business', 'Biography', 'Mystery / Thriller', 'Horror', 'Spicy', 'Other'],
       statusLabels: { want: 'Want To Read', progress: 'Reading', done: 'Read' }
-    },
-    anime: {
-      key: 'anime', storageKey: 'entdash:anime', label: 'Anime', icon: '🎴',
-      creatorLabel: 'Studio', lengthLabel: 'Episodes',
-      genres: ['Action', 'Romance', 'Slice of Life', 'Isekai', 'Shonen', 'Fantasy', 'Horror', 'Comedy', 'Other'],
-      statusLabels: { want: 'Plan To Watch', progress: 'Watching', done: 'Watched' }
-    },
-    games: {
-      key: 'games', storageKey: 'entdash:games', label: 'Games', icon: '🎮',
-      creatorLabel: 'Developer / Platform', lengthLabel: 'Hours Played',
-      genres: ['RPG', 'Action', 'Strategy', 'Puzzle', 'Indie', 'Open World', 'Horror', 'Simulation', 'Other'],
-      statusLabels: { want: 'Backlog', progress: 'Playing', done: 'Completed' }
     }
   };
-  const PAGE_ORDER = ['reading', 'anime', 'games'];
+  // Deliberately empty, permanently — Reading Corner, Anime, and Games
+  // have ALL been pulled out of this generic REGISTRY/dispatch system
+  // into their own standalone database files (Reading: Library/TBR/
+  // Series/Authors/Quotes/Reading Goals/Stats, see entertainment-reading-
+  // data.js; Anime/Games: their own simpler single-page databases, see
+  // entertainment-anime-data.js/entertainment-games-data.js). Nothing
+  // native to this file remains, so REGISTRY/GALLERY_KEYS (built from
+  // this array, below) only ever contain the 7 enthub-sourced galleries
+  // going forward.
+  const PAGE_ORDER = [];
 
   // ============================================================
   // MODEL — same field shape as entertainment-hub-data.js's EntItem,
@@ -166,9 +174,55 @@
     return { list: list, get: get, add: add, update: update, remove: remove, replaceAll: replaceAll };
   }
 
+  // 'reading' is built here too, alongside PAGE_ORDER's own two keys,
+  // 'reading' is the only key built here now — it's not a tab anymore
+  // (PAGE_ORDER is permanently empty, see this file's own header
+  // comment), but migrateHorrorSpicyReadingIntoReadingCorner() below
+  // still needs a real collectionFor('reading') to write into. Anime/
+  // Games needed no equivalent entry — their own new files read the raw
+  // old entdash:anime/entdash:games keys directly instead (see
+  // entertainment-anime-data.js/entertainment-games-data.js).
   const COLLECTIONS = {};
-  PAGE_ORDER.forEach(function (k) { COLLECTIONS[k] = makeCollection(k); });
+  ['reading'].forEach(function (k) { COLLECTIONS[k] = makeCollection(k); });
   function collectionFor(pageKey) { return COLLECTIONS[pageKey]; }
+
+  // One-time backfill for this file's own remaining native collection
+  // (Reading Corner's legacy entdash:reading key only, now — Anime/Games
+  // each have their own copy of this same function in their own file) —
+  // same shape as EntHub's own migratePhotosToStorage()
+  // (entertainment-hub-data.js). Iterates PAGE_ORDER, which is
+  // permanently empty (see this file's own header comment), so in
+  // practice this is now a harmless permanent no-op — left in place
+  // (and still exported/called from entertainment-dash.html's boot())
+  // rather than removed, since deleting it isn't necessary to fix
+  // anything and would just be unrelated churn.
+  function migratePhotosToStorage() {
+    if (!global.PhotoStore) return;
+    var already = false;
+    try { already = localStorage.getItem('entdash:photosMigratedV1') === 'true'; } catch (e) {}
+    if (already) return;
+    var jobs = [];
+    PAGE_ORDER.forEach(function (pageKey) {
+      const coll = collectionFor(pageKey);
+      coll.list().forEach(function (item) {
+        if (typeof item.cover === 'string' && item.cover.indexOf('data:') === 0) {
+          const orig = item.cover, id = item.id;
+          jobs.push(global.PhotoStore.upload(orig).then(function (url) {
+            if (!url) return false;
+            const fresh = coll.get(id);
+            if (fresh && fresh.cover === orig) coll.update(id, { cover: url });
+            return true;
+          }));
+        }
+      });
+    });
+    if (!jobs.length) { try { localStorage.setItem('entdash:photosMigratedV1', 'true'); } catch (e) {} return; }
+    Promise.all(jobs).then(function (results) {
+      if (results.every(function (ok) { return ok; })) {
+        try { localStorage.setItem('entdash:photosMigratedV1', 'true'); } catch (e) {}
+      }
+    });
+  }
 
   function itemsForPage(pageKey) {
     return collectionFor(pageKey).list().slice().sort(function (a, b) { return a.order - b.order; });
@@ -220,6 +274,17 @@
       status: status || 'want', order: nextOrder(pageKey)
     });
   }
+  // Anime/Games no longer get seeded from here at all — collectionFor
+  // ('anime')/collectionFor('games') don't exist anymore (removing them
+  // from COLLECTIONS above would make those calls throw), and each now
+  // has its own real seedDefaultData() in its own file
+  // (entertainment-anime-data.js/entertainment-games-data.js), guarded
+  // by its own empty-storage seed-race-safety window. The Reading Corner
+  // seed below is legacy behavior, unchanged from before this session —
+  // it writes into the now-dead entdash:reading key, which
+  // entertainment-reading-data.js's own migration reads once; left as-is
+  // rather than touched, since it isn't part of what this session's
+  // request (separating Anime/Games) actually needed to change.
   function seedDefaultData() {
     PAGE_ORDER.forEach(function (pk) { collectionFor(pk).replaceAll([]); });
 
@@ -232,18 +297,14 @@
     seedItem('reading', 'Horror', 'The Haunting of Hill House', 'Shirley Jackson', 'want');
     seedItem('reading', 'Spicy', 'A Court of Thorns and Roses', 'Sarah J. Maas', 'want');
 
-    seedItem('anime', 'Shonen', 'Fullmetal Alchemist: Brotherhood', 'Bones', 'done');
-    seedItem('anime', 'Slice of Life', 'Mushishi', 'Artland', 'want');
-    seedItem('anime', 'Isekai', 'Re:Zero', 'White Fox', 'progress');
-
-    seedItem('games', 'RPG', 'Baldur\'s Gate 3', 'Larian Studios', 'progress');
-    seedItem('games', 'Open World', 'The Legend of Zelda: Breath of the Wild', 'Nintendo', 'done');
-    seedItem('games', 'Indie', 'Hollow Knight', 'Team Cherry', 'want');
-
     storeSet('entdash:seeded', true);
   }
   function seedIfEmpty() {
     if (storeGet('entdash:seeded')) return;
+    // PAGE_ORDER is permanently empty now, so this always evaluates
+    // false — harmless: this whole function's real remaining purpose is
+    // the one-time legacy Reading Corner seed above, which is gated by
+    // the entdash:seeded flag itself, not by this check.
     const anyData = PAGE_ORDER.some(function (pk) { return collectionFor(pk).list().length > 0; });
     if (anyData) { storeSet('entdash:seeded', true); return; }
     seedDefaultData();
@@ -269,27 +330,59 @@
   // if this runs independently on two different devices before either
   // has synced, duplicates can result — an accepted tradeoff, not
   // something unique to this migration.
+  //
+  // Bugfix: on a device whose shared localStorage quota is already full
+  // (a real, reported failure — see storage-cleanup.js's own header),
+  // collectionFor('reading').add(...) fails silently (storeSet() catches
+  // the QuotaExceededError and returns null — see makeCollection() above)
+  // but this function used to ignore that and unconditionally mark
+  // itself done anyway, permanently abandoning the migration with
+  // nothing actually saved. The flag below is now per-half
+  // ({horror,spicy}, not a bare boolean) and only ever marks a half done
+  // once every item in it was confirmed to actually persist — a half
+  // that fails this load simply retries next load, once space is freed.
+  // A device that already has the old bare `true` from before this fix
+  // is treated as "both halves already claimed done" (its most likely
+  // real state — the tiny few-byte flag write itself would usually still
+  // fit even when the much larger `entdash:reading` array write just
+  // failed) rather than silently re-migrating and risking duplicates for
+  // the — hopefully rare — device where that guess is wrong.
   // ============================================================
   function migrateHorrorSpicyReadingIntoReadingCorner() {
-    if (storeGet('entdash:horrorSpicyReadingMigratedV1')) return;
+    let done = storeGet('entdash:horrorSpicyReadingMigratedV1');
+    if (done === true) done = { horror: true, spicy: true };
+    if (!done || typeof done !== 'object') done = {};
     const genres = PAGES.reading.genres;
-    [['enthub:horrorReading', 'Horror'], ['enthub:spicyReading', 'Spicy']].forEach(function (pair) {
-      const oldKey = pair[0], genre = pair[1];
+    let changed = false;
+    [['enthub:horrorReading', 'Horror', 'horror'], ['enthub:spicyReading', 'Spicy', 'spicy']].forEach(function (pair) {
+      const oldKey = pair[0], genre = pair[1], doneKey = pair[2];
+      if (done[doneKey]) return;
       const old = storeGet(oldKey);
-      if (Array.isArray(old) && old.length) {
-        old.forEach(function (item) {
-          if (!item) return;
-          collectionFor('reading').add({
-            title: item.title, creator: item.creator, url: item.url, cover: item.cover,
-            description: item.description, lengthText: item.lengthText, notesText: item.notesText,
-            rating: item.rating, favorite: item.favorite, order: nextOrder('reading'),
-            subtopic: genres.indexOf(genre) !== -1 ? genre : genres[0],
-            status: 'want'
-          });
+      if (!Array.isArray(old) || !old.length) { done[doneKey] = true; changed = true; return; }
+      const already = collectionFor('reading').list();
+      let allOk = true;
+      old.forEach(function (item) {
+        if (!item) return;
+        // Cheap content-based dedupe (title+creator+subtopic), so a
+        // retry after a partial failure can't re-add items that already
+        // made it in during a previous, only-partly-successful attempt.
+        const subtopic = genres.indexOf(genre) !== -1 ? genre : genres[0];
+        const dup = already.some(function (r) {
+          return r.title === (item.title || '') && r.creator === (item.creator || '') && r.subtopic === subtopic;
         });
-      }
+        if (dup) return;
+        const added = collectionFor('reading').add({
+          title: item.title, creator: item.creator, url: item.url, cover: item.cover,
+          description: item.description, lengthText: item.lengthText, notesText: item.notesText,
+          rating: item.rating, favorite: item.favorite, order: nextOrder('reading'),
+          subtopic: subtopic,
+          status: 'want'
+        });
+        if (added) { already.push(added); } else { allOk = false; }
+      });
+      if (allOk) { done[doneKey] = true; changed = true; }
     });
-    storeSet('entdash:horrorSpicyReadingMigratedV1', true);
+    if (changed) storeSet('entdash:horrorSpicyReadingMigratedV1', done);
   }
   migrateHorrorSpicyReadingIntoReadingCorner();
 
@@ -492,6 +585,7 @@
     STATUS_KEYS: STATUS_KEYS,
     uid: uid,
     collectionFor: collectionFor,
+    migratePhotosToStorage: migratePhotosToStorage,
     itemsForPage: itemsForPage,
     favoritesForPage: favoritesForPage,
     nextOrder: nextOrder,

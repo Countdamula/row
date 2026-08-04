@@ -26,16 +26,9 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `home.html` | **This file was deleted** (see the "Delete Home tab" changelog entry) — this row is stale left over from an earlier pass and is flagged rather than silently removed, since a full re-audit of this table wasn't in scope for the session that noticed. Its former role (topbar's leading pill) now belongs to `index.html`; every page it used to embed still exists as its own standalone page, untouched by its removal. |
-| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now five top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below, and the "Breath"/"Sit"/"Page" steps each carry their own small button jumping into the Self-Care tab below — Breath → Breathwork, Sit → Meditations, Page → the Journal), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main, genuinely separate data from the standalone `gym.html` page of the same name: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry), and **Self-Care** (new, native to this page — companion file `mainselfcare-data.js` — a dedicated self-care system inside Main, genuinely separate data from the standalone `selfcare.html` page of the same name: a Checklist, a Journal with three templates — Brain Dump (Emotional Processing + Daily Reflection combined into one), Gratitude, and Day Planner — each generating a different default set of editable, reorderable, generate-more-on-demand sections, and a Meditations + Breathwork page holding two genuinely separate databases side by side, the latter with a real animated breathing pacer — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
-| `gym.html` | Fitness Studio — rebuilt around Self-Care's tab architecture: Overview (a freeform Dream-Board-style widget board, default landing tab), Current Week (7 day-chip mini-tabs of Anxiety-style exercise cards — photo/video, sets & reps, notes, log-a-set), Templates (a Meditations-style searchable/filterable routine gallery), Equipment (a Journals-style stacked list), and Workout History & Compare Sessions — see changelog |
-| `finance.html` | Finance — personal finance dashboard: accounts/net worth, transactions, budgets, trends, recurring bills, notes (rebuilt — see changelog) |
+| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now five top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below, and the "Breath"/"Sit"/"Page" steps each carry their own small button jumping into the Self-Care tab below — Breath → Breathwork, Sit → Meditations, Page → the Journal), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry), and **Self-Care** (new, native to this page — companion file `mainselfcare-data.js` — a dedicated self-care system inside Main: a Checklist, a Journal with three templates — Brain Dump (Emotional Processing + Daily Reflection combined into one), Gratitude, and Day Planner — each generating a different default set of editable, reorderable, generate-more-on-demand sections, and a Meditations + Breathwork page holding two genuinely separate databases side by side, the latter with a real animated breathing pacer — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
-| `braindump.html` | Brain Dump — freeform daily Thoughts/Emotions journal (see changelog) |
-| `household.html` | Household — Energy Beings roster (legions/sigils/activation phrases/charging log), Inventory (restock thresholds), Wishlist (priority/price), Chores (recurring, due dates), Overview (see changelog) |
-| `selfcare.html` | Self-Care — rebuilt around Dream Board's exact engine/aesthetic: a main "Self-Care" tab is a freeform drag-and-drop widget board (a self-care checklist, notes, a photo gallery, etc.), plus Journals (topic-filtered), Meditations (linkable library), and Anxiety (Breathwork — a CRUD library of paced-breathing techniques played through an animated pacer — plus Tips & Techniques, moved in from the deleted standalone `anxiety.html`) as their own dedicated, Dream-Board-restyled tabs. Water and Bucket List were removed entirely (rebuilt — see changelog) |
-| `example.html` | Example — a standalone "System HUD" visual style demo tab, built to match a reference photo; explicitly not wired to real data or cloud sync (new — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
-| `business.html` | Business Hub — a content-planning workspace, visually identical to Dream Board (dark cinematic near-black/gold, frosted-glass cards, a per-tab hero, horizontal pill tabs). Four tabs only (Content/Ideas/Platforms/Resources — Strategy/Analytics/Audit were removed). Ideas and Resources are `layout: 'freeform'` — Dream Board's exact 3-column drag-and-drop widget board (Add Widget/Reset, per-widget color-grading tint, sixteen widget types including a Link card); Resources additionally has a Templates section below a divider under its board — a Workflow system (Weeks → Days → Checklist). Content is `layout: 'content'` — a fixed, sectioned dashboard with the Platform database, Content Plan database, and Useful Resources database each kept genuinely separate (own grid, own filter chips, own drag-reorder group), plus a sidebar (Summary/Posting Schedule/Gallery). Platforms is `layout: 'platforms'` — the same Platform database component standalone. Every platform card opens its own "page" (a detail modal) with freeform notes sections generated on demand via a button, fully editable and reorderable. Also home to the Writing Dashboard and YouTube Dashboard (see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
 | `nutrition.html` | Nutrition — two pages, My Kitchen (a drag-reorderable recipe gallery/database with ingredients+steps+photos) and Grocery List (store-grouped, drag-reorderable items), each with its own fully editable Dream-Board-style hero and its own freeform "More Widgets" drag-and-drop board (Add Widget/Reset) layered on top — rebuilt around Dream Board's exact engine/aesthetic (see changelog) |
 | `learning.html` | Learning & Knowledge Hub — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board/AI & Tech, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a large Notion-like gallery of Topics (cover/icon, description, tags, search, drag-reorder) and a Resources database tied to a topic via a nullable `topicId`, structured into five type sections — Articles / Books / YouTube Videos (with transcripts, copy-to-clipboard) / Social Media Posts / Additional Notes — each independently filterable by topic/type, searchable, and drag-reorderable. Deleting a topic nulls out the reference on its resources rather than deleting them (new — see changelog) |
@@ -63,7 +56,47 @@ All four filenames now exist only as tiny redirect-to-`home.html` stubs
 (no data/functionality/nav pill of their own) — added in a follow-up fix
 after old bookmarks/home-screen shortcuts to them (and to the bare site
 root, which `index.html` used to serve) started 404ing; see that
-changelog entry.
+changelog entry. **This paragraph is itself now partly stale** (flagged
+rather than rewritten, per §6's own philosophy): `home.html` does not
+currently exist in this repo, so the "redirect stub" claim above no
+longer holds either way — see the entry directly below, which covers
+`household.html`/`braindump.html`'s second, this-time-permanent removal.
+
+`gym.html` (the original "Fitness Studio" page, STUDIO nav pill),
+`selfcare.html` (Self-Care), `finance.html` (Finance), `braindump.html`
+(Brain Dump), `household.html` (Household) + `household-data.js`, the
+old "Business" nav folder (`business.html` + `business-data.js` +
+`business-writing.html` + `business-youtube.html` +
+`business-overview.html`, plus `business.html`'s own companion
+`writing-data.js`/`youtube-data.js` — none of which had any other
+caller), and the "Example" folder (`example.html`) were all deleted
+outright, per an explicit request — see the changelog entry near the
+bottom of this file. Each of these had a same-named, genuinely separate
+newer counterpart still live elsewhere in the app (`gym.html` →
+`fitnessstudio.html` / `index.html`'s own embedded Fitness Studio tab;
+`selfcare.html` → `index.html`'s own embedded Self-Care tab; the old
+Business folder → Business OS (`businessos.html`) / Business Dashboard
+(`businessdash.html`)), which is why "old"/"the old ... folder" in the
+request unambiguously meant these specific files and not their newer
+namesakes. No redirect stubs were added this time (unlike the
+Main/Main Pillar/Household/Brain Dump near-miss above) — this was a
+plain, explicit deletion request, the same treatment the Stack/Water/
+Projects/Study removals above already got, not an accidental "delete"
+that turned out to mean "fold in." Every other page's own `<a href>`
+back-link that pointed at one of these files was repointed to
+`index.html` (only `tasksnotes.html`'s back button actually did —
+matched by grepping the whole repo for real `href="..."`/`iframe
+src="..."` references, not just prose mentions of the filename); the
+`topbar.js` nav entries for all seven are gone too (see its own header
+comment). The Supabase rows under `key='household'`/`'selfcare'`/
+`'finance'`/`'braindump'`/`'business'` were left alone, now orphaned,
+same treatment as `health`/`projects`/`study`/every other orphaned row
+in §4's table. Scattered prose comments elsewhere in this repo that
+cite one of these files as prior art/precedent (e.g. "same null-out-
+the-reference precedent `household-data.js`'s legion deletion already
+established") were left as-is — historical attribution notes, not
+references to files that need to keep existing, same precedent the
+Projects/Study removal already set.
 
 **Shared, non-page files:**
 - `topbar.js` — injects the shared top nav bar (pills) into every page that
@@ -202,14 +235,14 @@ page's CSS is self-contained in its own `<style>` block):
    | `key` value | Owning page(s) | `localStorage` keys synced |
    |---|---|---|
    | `goals` | `index.html` | everything prefixed `goals:` — **stale key name, confirmed accurate below**: the live page writes nothing under `goals:` anymore. Its current `initCloudSync({ appKey: 'goals', syncedPrefixes: ['routine:', 'system:', 'fitness:', 'mainselfcare:'] })` call still uses the `goals` key name (unchanged) but syncs everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`, the Morning Ritual tab), everything under `system:` (the Top Goals/Your System/Three Core Systems/Identity Shifting merge — see that changelog entry — the Your System and Subconscious Reprogramming tabs), everything under `fitness:` (`fitness:templates`, `fitness:equipment`, `fitness:progression`, `fitness:day:<date>`, `fitness:active_tab`, `fitness:active_day`, `fitness:seeded` — the Fitness Studio tab, see that changelog entry), **and everything under `mainselfcare:`** (`mainselfcare:checklist`, `mainselfcare:journalEntries`, `mainselfcare:meditations`, `mainselfcare:breathwork`, `mainselfcare:active_tab`, `mainselfcare:seeded` — the Self-Care tab, deliberately a different prefix than the standalone `selfcare.html` page's own `selfcare:` prefix so the two can never collide, see that changelog entry) — confirmed directly in the live file, not assumed |
-   | `finance` | `finance.html` | `subs`, `wishlist`, `incoming_orders` (both orphaned since the rebuild — see changelog), `nw_currency`, `nw:activity`, `nw:history`, `nw:*`, `finance:*` (new: `finance:transactions`, `finance:budgets`, `finance:goals`, `finance:notes`, `finance:migrated_v2`) |
+   | ~~`finance`~~ | ~~`finance.html`~~ | **Orphaned — `finance.html` was deleted (see changelog).** Was `subs`, `wishlist`, `incoming_orders`, `nw_currency`, `nw:*`, `finance:*`. The `key='finance'` Supabase row was left alone, not cleaned up, same treatment as `health`/`system`/every other orphaned row in this table |
    | `entertainment` | `entertainment.html` | `ent:cards`, `ent:categories` (both orphaned since the rebuild — see changelog), `media:podcasts`, `media:stories`, `media:entertainment`, `media:playlists`, `media:active_gallery`, `media:migrated_v1`, `media:sort_mode` (`media:sort_dir` orphaned, migrated once into `media:sort_mode`), `media:heroes` (new — per-gallery hero eyebrow/title/subtext/CTA/cover photo-or-video, see changelog) — all synced via the existing `media:` prefix |
-   | `po-coach` | `gym.html` (own sync, not `sync.js`) | `po_coach_v1`, `po_coach_workout_done` |
-   | `braindump` | `braindump.html` | `braindump:entries` |
-   | `household` | `household.html` | everything prefixed `household:` (`household:legions`, `household:beings`, `household:inventory`, `household:wishlist`, `household:chores`, `household:active_tab`) |
-   | `selfcare` | `selfcare.html` (rebuilt) | everything prefixed `selfcare:` — `selfcare:tabs`/`selfcare:widgets` (the Dream-Board-style board engine), `selfcare:journalEntries`, `selfcare:meditations`, `selfcare:anxietyBreathwork`/`selfcare:anxietyTips` (new — the Anxiety tab, moved in from the deleted standalone `anxiety.html`), `selfcare:active_tab`, `selfcare:seeded`/`selfcare:anxiety_seeded`/`selfcare:anxiety_migrated`. `selfcare:hydrationProfile`/`selfcare:waterLog`/`selfcare:bucketList` (Water/Bucket List, removed — see changelog) and the old top-level `anxiety:breathwork`/`anxiety:tips`/`anxiety:active_tab`/`anxiety:seeded` keys (the now-deleted standalone `anxiety.html`'s own row/key, folded into this one — see changelog) are now orphaned, same treatment as every other removed-feature key elsewhere in this app |
+   | ~~`po-coach`~~ | ~~`gym.html`~~ | **Orphaned — `gym.html` was deleted (see changelog).** Was `po_coach_v1`, `po_coach_workout_done` (its own inline sync, not `sync.js`). The `key='po-coach'` Supabase row was left alone, not cleaned up |
+   | ~~`braindump`~~ | ~~`braindump.html`~~ | **Orphaned — `braindump.html` was deleted (see changelog).** Was `braindump:entries`. The `key='braindump'` Supabase row was left alone, not cleaned up |
+   | ~~`household`~~ | ~~`household.html`~~ | **Orphaned — `household.html` was deleted (see changelog).** Was everything prefixed `household:`. The `key='household'` Supabase row was left alone, not cleaned up |
+   | ~~`selfcare`~~ | ~~`selfcare.html`~~ | **Orphaned — `selfcare.html` was deleted (see changelog).** Was everything prefixed `selfcare:` (unrelated to `index.html`'s own `mainselfcare:` prefix, still live — see the `goals` row above). The `key='selfcare'` Supabase row was left alone, not cleaned up |
    | `dreamboard` | `dreamboard.html` (new) | everything prefixed `dreamboard:` (`dreamboard:tabs`, `dreamboard:widgets`, `dreamboard:banner`, `dreamboard:active_tab`) — note uploaded video slots are session-only object URLs and are never in this list (see that page's own changelog entry) |
-   | `business` | `business.html` (new) | everything prefixed `business:` (`business:tabs`, `business:widgets`, `business:tasks`, `business:workflowWeeks`, `business:workflowDays`, `business:workflowChecklist`, `business:active_tab`; `business:profile` and `business:platforms` were both removed — see changelog) — same session-only-video-slot exception as `dreamboard` above. `business:notes` is now an **orphaned key** — it backed the Tasks & Notes tab's Notes database, which was moved out to its own page (`tasksnotes.html`, see changelog); a device that already used that tab has its real note data copied forward into `tasksnotes:notes` on first load of the new page, and `business:notes` itself was left alone, same orphaned-key treatment as every other removed-feature key elsewhere in this app |
+   | ~~`business`~~ | ~~`business.html`~~ | **Orphaned — `business.html` (Content Hub, and with it the old "Business" nav folder — `business-writing.html`/`business-youtube.html`/`business-overview.html`) was deleted, per an explicit request (see changelog).** Was everything prefixed `business:`. `tasksnotes.html`'s own real Links/Notes/Tasks data was already copied forward into `tasksnotes:*` before this (see that page's own migration), so nothing there was lost. The `key='business'` Supabase row was left alone, not cleaned up — genuinely separate from Business OS's own `key='businessos'` row and Business Dashboard's own `key='businessdash'` row, neither of which this deletion touched |
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
@@ -259,20 +292,10 @@ using `sync.js`.
 |---|---|---|
 | Home | 🏠 `HOME` → `home.html` (leads the nav row — see changelog) | `home.html` + `home-data.js` (rebuilt into one continuous scrollable page — see changelog) |
 | Main | 🎯 `MAIN` → `index.html` | `index.html` (rebuilt as a command center — see changelog; briefly deleted, then restored — see the changelog entry near the bottom of this file) |
-| Fitness Studio | 🏋️ `STUDIO` → `gym.html` | `gym.html` (renamed from "Gym"/"Progressive Overload Coach" — see changelog) |
-| Finance | 💰 `FINANCE` → `finance.html` | `finance.html` |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Entertainment | 🎬 `Entertainment` nav folder → `entertainment-dash.html` | `entertainment-dash.html` + `entertainment-dash-data.js` (Reading Corner/Anime/Games + the cross-category Home/Discovery Engine/Favorites/Statistics logic) + `entertainment-hub-data.js` (Podcasts/Stories-split/Entertainment/Playlists — kept from the old five-page folder, not deleted, since `fitnessstudio.html`'s music panel still reads it). Replaces both the old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`, all deleted) and the short-lived Media/`mediaverse.html` hub (deleted outright, `mediaverse-data.js` gone too) — see changelog |
-| Brain Dump | 🧠 `BRAIN DUMP` → `braindump.html` | `braindump.html` (briefly deleted, then restored — see changelog) |
 | Nutrition | 🍽️ `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
-| Household | 🧺 `HOUSEHOLD` → `household.html` | `household.html` + `household-data.js` (briefly deleted, then restored — see changelog) |
-| Self-Care | 🌙 `SELF-CARE` → `selfcare.html` | `selfcare.html` + `selfcare-data.js` (rebuilt around Dream Board's engine/aesthetic; Water and Bucket List removed; the standalone Anxiety page was folded in as this page's 4th tab — see changelog) |
-| Example | `EXAMPLE` → `example.html` | `example.html` (new — a visual style demo tab, not a real feature; see changelog) |
 | Dream Board | ✨ `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
-| Business Hub / Content Hub | 💼 `Business` nav folder → `business.html` | `business.html` + `business-data.js` (unchanged; still hosts Content/Ideas/Platforms/Resources and, internally, the Writing Dashboard/YouTube Dashboard tabs too — regrouped under a new "Business" nav folder, see changelog) |
-| Business Overview | 🗺️ `Business` nav folder → `business-overview.html` | `business-overview.html` (new, no companion data file — read-only, computes everything live from business.html/writing-data.js/youtube-data.js's own real localStorage keys — see changelog) |
-| Writing Dashboard (standalone) | 📖 `Business` nav folder → `business-writing.html` | `business-writing.html` (new — a thin same-origin iframe wrapper around `business.html#writing`; the real Writing Dashboard tab/data are completely unchanged — see changelog) |
-| YouTube Dashboard (standalone) | 📺 `Business` nav folder → `business-youtube.html` | `business-youtube.html` (new — a thin same-origin iframe wrapper around `business.html#youtube`; the real YouTube Dashboard tab/data are completely unchanged — see changelog) |
 | AI & Tech | 🤖 `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Learning & Knowledge Hub | 📚 `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
 | Tasks & Notes | ✅ `TASKS & NOTES` → `tasksnotes.html` | `tasksnotes.html` + `tasksnotes-data.js` (new — moved out of Business Hub, where it used to be a 5th tab — see changelog) |
@@ -282,7 +305,7 @@ using `sync.js`.
 | Knowledge Hub | 🧠 `Knowledge Hub` nav folder → `knowledge-hub.html` | `knowledge-hub.html` + `knowledge-hub-data.js` (new — its own nav folder directly under Entertainment; built on `glass-theme.css`/`.js` + `gallery-card.css`/`.js` rather than a new palette — see changelog) |
 | Business OS | ◆ `Business OS` nav folder → `businessos.html` | `businessos.html` + `businessos-data.js` (new — a genuinely separate multi-business CEO command center from the Business folder above; touches none of that folder's files/data — see changelog) |
 | Business Dashboard | 🏢 `Business Dashboard` nav folder → `businessdash.html` | `businessdash.html` + `businessdash-data.js` (new — a gallery of businesses; two of them, "YouTube Dashboard" and "Blogging Dashboard," are genuine singleton `Business` records with their own `kind` field (`'youtube'`/`'blog'` vs. the default `'business'`) that swaps in a Videos/Posts + Prompt Vault + Track/Article Library layout in place of the ordinary Series & Manuscripts Writing Dashboard — same Business Card, same glare-hover treatment, same Notes/Links/Tasks & Templates, alongside every real business like Midnight Press/North & Co., not nested inside any of them. The main view also has an "All Tasks" master database below the gallery, grouped by business (which naturally includes the two dashboard businesses) and filterable by kind, reading straight off the one shared Tasks collection every business already writes to — see changelog. Genuinely separate from the Business folder's Content Hub and from Business OS — touches none of either's files/data) |
-| Fitness Studio | 💪 `Fitness Studio` nav folder → `fitnessstudio.html` | `fitnessstudio.html` + `fitnessstudio-data.js` (new — its own nav folder between Business Dashboard and Entertainment; genuinely separate from `gym.html`'s own "Fitness Studio"/STUDIO pill and `index.html`'s own embedded Fitness Studio tab — touches none of either's files/data. A hero (greeting/focus/today's workout/a Weekly Goal progress ring/quote), Today's Workout (expandable exercise cards — sets/reps, a rest-timer countdown, Log Set, photo/video thumbnails, a completion check), a Live Workout Dashboard shown while a workout is active (session timer, rest timer, current set, manual heart-rate entry, water intake, duration, an estimated-calories readout, volume lifted), a Goal Center (short-/long-term goals with a manual 0–100% progress bar, deliberately not derived from target/current math since the two can have opposite directionality), Workout Programs (7 fixed categories + Custom, a template/exercise editor), a Weekly Schedule grid, a 14-week consistency heatmap + an animated 8-week volume bar chart, an AI Fitness Coach chat panel, Settings (Imperial/Metric, a Black/Red/Pink theme picker, workout length, notifications, a manual wearable heart-rate toggle, AI tone/focus + an optional pasted Anthropic key), a Distraction-Free training-mode overlay, PR confetti, and a music slide-out panel reading `enthub:playlists` live — see changelog) |
+| Fitness Studio | 💪 `Fitness Studio` nav folder → `fitnessstudio.html` | `fitnessstudio.html` + `fitnessstudio-data.js` (new — its own nav folder between Business Dashboard and Entertainment; genuinely separate from `index.html`'s own embedded Fitness Studio tab — touches none of its files/data. A hero (greeting/focus/today's workout/a Weekly Goal progress ring/quote), Today's Workout (expandable exercise cards — sets/reps, a rest-timer countdown, Log Set, photo/video thumbnails, a completion check), a Live Workout Dashboard shown while a workout is active (session timer, rest timer, current set, manual heart-rate entry, water intake, duration, an estimated-calories readout, volume lifted), a Goal Center (short-/long-term goals with a manual 0–100% progress bar, deliberately not derived from target/current math since the two can have opposite directionality), Workout Programs (7 fixed categories + Custom, a template/exercise editor), a Weekly Schedule grid, a 14-week consistency heatmap + an animated 8-week volume bar chart, an AI Fitness Coach chat panel, Settings (Imperial/Metric, a Black/Red/Pink theme picker, workout length, notifications, a manual wearable heart-rate toggle, AI tone/focus + an optional pasted Anthropic key), a Distraction-Free training-mode overlay, PR confetti, and a music slide-out panel reading `enthub:playlists` live — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file. Home and Build Your System (`system.html`) were
@@ -290,10 +313,12 @@ later removed too — Home outright (see its own changelog entry), Build
 Your System by being merged wholesale into `index.html`'s new Your
 System/Subconscious Reprogramming tabs (see that changelog entry). Main,
 Main Pillar, Household, and Brain Dump were briefly removed and then
-restored (see changelog). `example.html` has no
-topbar pill (a pre-existing doc/code mismatch
-noted once already in this file's own Dream Board changelog entry, not
-something this pass touched).
+restored (see changelog) — **Household and Brain Dump were then deleted
+a second time, this time permanently, along with Fitness Studio
+(`gym.html`), Finance, Self-Care (`selfcare.html`), the old "Business"
+nav folder (Content Hub/Writing Dashboard/YouTube Dashboard/Business
+Overview), and Example — see the changelog entry near the bottom of
+this file.**
 
 Nav pill markup lives in one place: the `html` template string inside
 `topbar.js`. There is no separate "nav config" file.
@@ -364,23 +389,24 @@ between this app and either data loss or a wide-open write target:
 1. **Never rewrite, weaken, or bypass the existing sync/access-control
    plumbing.** Specifically, do not modify unless explicitly asked:
    - `sync.js` (the shared `initCloudSync` helper — used by `index.html`,
-     `finance.html`, `entertainment.html`, `braindump.html`, `home.html`,
-     and most other top-level pages).
-   - The inline Supabase sync block in `gym.html` (~line 2190–2386,
-     `APP_KEY = 'po-coach'`).
+     `entertainment.html`, and most other top-level pages).
    - The inline Supabase push in `topbar.js`
      (`pushWaterMergedToSupabase`, `TOPBAR_SUPABASE_URL`/`_KEY`).
    - The hardcoded `SUPABASE_URL` / `SUPABASE_KEY` values themselves (they
-     must stay in sync across `sync.js`, `topbar.js`, and `gym.html` — don't
-     let a rebuild introduce a fourth, different copy).
+     must stay in sync across every page that carries its own copy — see
+     `sync.js`/`topbar.js`/`photo-store.js` — don't let a rebuild
+     introduce a different copy). `gym.html` used to carry a fourth,
+     older, hand-rolled copy of this same pattern (its own inline sync
+     block, `APP_KEY = 'po-coach'`, not `sync.js`) — moot now that the
+     file is deleted (see the changelog).
    - The Supabase `app_state` table's `key` scheme (one key per page/tab —
      see the table in §4). Don't repurpose an existing `key`, silently
      rename one, or change what gets read/written under it without asking,
      since that can desync a device mid-flight or clobber another tab's row.
-   - Rebuilding any page must reuse `initCloudSync(...)` (or, for `gym.html`,
-     its existing inline pattern) exactly as already wired — don't invent a
-     new sync mechanism, don't call Supabase directly from new code paths,
-     and don't loosen what's synced without being asked to.
+   - Rebuilding any page must reuse `initCloudSync(...)` exactly as already
+     wired — don't invent a new sync mechanism, don't call Supabase
+     directly from new code paths, and don't loosen what's synced without
+     being asked to.
 
 2. **All rebuilt UI must reuse the existing design tokens and shared
    components — no new hard-coded colors.** Concretely:
@@ -403,6 +429,16 @@ between this app and either data loss or a wide-open write target:
      once in `topbar.js` if the nav itself needs to change.
 
 ## Writing Dashboard
+
+**Status: DELETED — `business.html` (the Business Hub tab this feature
+lived on) and its own `writing-data.js` were deleted along with the
+rest of the old "Business" nav folder, per an explicit request — see
+the changelog entry near the bottom of this file.** The section below
+is left as historical documentation of how it was built, not a
+description of a currently-live feature. Manuscript/Series/Binder
+capability still exists elsewhere in this app, under genuinely separate
+data — see Business Dashboard's (`businessdash.html`) own Series &
+Manuscripts system in §1/§5.
 
 **Status: built, 5th Business Hub tab, `layout: 'writing'` — see the
 changelog entry below for the full feature list.** `docs/WRITING_DASHBOARD_SPEC.md`
@@ -12728,3 +12764,250 @@ both as originally phrased assumed a backend this app doesn't have):
     before relying on this feature heavily, same disclosed-limitation
     caveat several other pages' changelog entries in this file already
     carry for this exact environment.
+
+- **Seven pages deleted outright, per an explicit request**: the old
+  Fitness Studio (`gym.html`), Self-Care (`selfcare.html` +
+  `selfcare-data.js`), Finance (`finance.html`), Brain Dump
+  (`braindump.html`), Household (`household.html` +
+  `household-data.js`), the old "Business" nav folder (`business.html` +
+  `business-data.js`, `business-writing.html`, `business-youtube.html`,
+  `business-overview.html`, plus `business.html`'s own companion
+  `writing-data.js`/`youtube-data.js` — no other page ever loaded either
+  of those two), and the Example folder (`example.html`). Confirmed with
+  the user up front which "Fitness Studio" and which "Self-Care" were
+  meant, since both names are shared with a newer, genuinely separate
+  page/tab elsewhere in this app (`fitnessstudio.html` and `index.html`'s
+  own embedded Fitness Studio tab; `index.html`'s own embedded Self-Care
+  tab) — every "old X" in the request turned out to name exactly the
+  file with a newer counterpart still live elsewhere (Fitness Studio →
+  `fitnessstudio.html`/Main's tab; Self-Care → Main's tab; the Business
+  folder → Business OS/`businessos.html` and Business
+  Dashboard/`businessdash.html`), which is what made the naming
+  unambiguous once confirmed.
+  - **A real, plain deletion — not another "delete turned out to mean
+    fold into Home" near-miss.** Unlike Main/Main Pillar/Household/Brain
+    Dump's first removal (see the entry above), no redirect stubs were
+    added and nothing was folded anywhere; this is the same "explicit
+    request, plain deletion" treatment the Stack/Water/Projects/Study
+    removals already got.
+  - **Real functional references fixed, not just prose left alone**:
+    every `href="..."`/`iframe src="..."`/`<script src="...">` reference
+    to one of these seven files anywhere in the repo was found by
+    grepping for real usage patterns (not just filename mentions in
+    comments) — the only one that broke was `tasksnotes.html`'s own
+    "← Back to Business Hub" button, repointed to `index.html` (same
+    convention every other standalone page's back button already uses).
+    `topbar.js`'s `NAV_GROUPS` lost the five "Life & Wellness" entries
+    (keeping Nutrition, the group's one remaining member) and the entire
+    "business"/"more" nav groups outright (every one of their items was
+    being deleted, so the group itself would otherwise have rendered
+    empty) — its own stale header comment (which named `gym`/`household`/
+    `finance`/`selfcare`/`business` by name as already-hash-aware pages)
+    was trimmed to match. `business-data.js`/`writing-data.js`/
+    `youtube-data.js` were confirmed to have exactly one real `<script
+    src>` loader each (`business.html` itself) before being deleted
+    alongside it — nothing else in the repo actually executes them.
+  - **Left alone, matching this app's own established precedent**:
+    every purely-prose comment elsewhere in the repo that cites one of
+    these seven files as prior art (e.g. "same null-out-the-reference
+    precedent `household-data.js`'s legion deletion already
+    established") — historical attribution notes, not references to
+    files that need to keep existing, the exact same call the
+    Projects/Study removal already made. `fitnessstudio-data.js`'s own
+    `importExercisesFromOtherFitnessStudios()` and `mainpillar.html`'s
+    Whoop-comparison read still reference `gym.html`'s old `po_coach_v1`/
+    `po_coach_workout_done` localStorage keys — those are data-key reads,
+    not file dependencies, so they still run fine and will just find
+    nothing on a device with no such keys, the same "orphaned key,
+    harmless" pattern this app already tolerates everywhere else. The
+    Supabase rows under `key='household'`/`'selfcare'`/`'finance'`/
+    `'braindump'`/`'business'`/`'po-coach'` were left alone, now
+    orphaned, same treatment as `health`/`system`/`projects`/`study`/
+    every other orphaned row already in §4's table (both updated to
+    match, along with §1's and §5's own file tables, and the DO NOT
+    MODIFY section's now-inaccurate references to `gym.html`'s inline
+    sync block).
+  - `README.md`'s own file table and closing notes were updated the same
+    way — the seven rows removed, the `index.html`/`fitnessstudio.html`
+    rows' now-false "separate from the standalone gym.html/selfcare.html
+    page" clauses trimmed, and the already-stale `home.html` row (that
+    file doesn't currently exist in this repo either — a pre-existing
+    mismatch this pass found but wasn't asked to chase down further)
+    removed rather than left doubly wrong now that it also claimed to
+    embed two of the newly-deleted pages.
+  - **A real, disclosed consequence, not silently absorbed**: deleting
+    `business.html`/`writing-data.js` together means the Writing
+    Dashboard feature (Series/Manuscripts/Binder/Compile & Export/etc.)
+    is now gone from this app entirely, not just relocated — flagged at
+    that section's own header rather than left describing a feature that
+    no longer exists. Manuscript/Series/Binder capability still exists
+    elsewhere, under genuinely separate data, on Business Dashboard
+    (`businessdash.html`) — this wasn't a capability the app actually
+    lost, just this specific older implementation of it.
+
+- **New shared file: `local-store-idb.js` — every page's local storage now
+  lives in IndexedDB instead of browser localStorage, removing the
+  ~5-10MB-per-origin cap that had been repeatedly throwing
+  `QuotaExceededError` as this app grew (most recently on
+  `entertainment-dash.html`'s `entdash:reading` migration).** Per an
+  explicit request. `sync.js`'s own Supabase cross-device sync is
+  completely unaffected — this is purely a swap of the *local* cache
+  underneath it, not a new sync mechanism (talking to Supabase directly
+  on every read was considered and rejected, since it would break this
+  app's explicitly offline-first design — README: "no accounts, no
+  server," works with zero network access).
+  - **The one hard constraint that shaped this whole change**: IndexedDB
+    has no synchronous read API — nothing in the browser does, once you
+    need more room than localStorage gives you. So this couldn't be a
+    purely invisible swap: every page's real boot/render call needed to
+    wait for one short, one-time async hydration step
+    (`window.LocalStoreIDB.ready()`, a `Promise`) before it runs.
+    Everything else — every page's own `storeGet`/`storeSet`, every
+    `-data.js` file, `sync.js`'s own `localStorage.setItem` monkey-patch,
+    `topbar.js`, `photo-store.js`, `storage-cleanup.js` — needed zero
+    changes, because they all go through the single global `localStorage`
+    object, which is the one thing this file replaces.
+  - **How the shim works** (`local-store-idb.js`, loaded as the literal
+    first `<script>` tag on every page, deliberately **not** `defer`red —
+    a plain blocking `<script src="local-store-idb.js"></script>`, so it
+    always runs before every other script regardless of that page's own
+    head/body script placement or defer usage; confirmed necessary since
+    `businessdash.html`/`mainpillar.html`/`entertainment-dash.html` all
+    put their shared scripts somewhere other than the top of `<head>`, and
+    `businessdash.html`'s own `sync.js`/`photo-store.js` tags aren't even
+    `defer`red): synchronously (before `<body>` even exists) seeds an
+    in-memory `Map` from whatever's already in real native localStorage
+    right now — this is what makes every read correct immediately, with
+    zero "looks empty" flash, even before any async work finishes,
+    **including** pages that read localStorage at bare top-level script
+    scope with no gating at all (`mainpillar.html`'s own `activeTab:
+    localStorage.getItem('mainpillar:active_tab') || 'today'` needed no
+    changes for exactly this reason — by the time that line runs, this
+    script has already installed and seeded). Then replaces
+    `window.localStorage` itself via `Object.defineProperty(window,
+    'localStorage', { value: shim, configurable: true, writable: true })`
+    — `Window.localStorage` is spec'd `[Replaceable]` precisely so this
+    works, the same standards-based technique test-mocking libraries
+    already rely on (verified: no other file anywhere in this repo does
+    its own conflicting reassignment). **Safety fallback**: if
+    `indexedDB` isn't available at all, or the `defineProperty` call
+    throws for any reason, the shim simply never installs — real native
+    localStorage is left completely untouched and the app behaves exactly
+    as it did before this file existed, `ready()` resolving immediately
+    so no page hangs waiting on a hydration that was never going to
+    happen. Once installed, opens (or creates) an IndexedDB database
+    (`personal-dashboard-kv`, one `kv` object store for the actual data,
+    one `meta` store for a one-time "already migrated" flag — kept
+    separate specifically to avoid any possible collision with a real
+    localStorage key of the same name); the first time ever, bulk-copies
+    the synchronously-seeded Map into it so it becomes self-sufficient
+    going forward; every time after that, overlays whatever IndexedDB
+    already holds on top of the Map (IndexedDB wins — it's the shim's own
+    record of everything written since it was installed; native
+    localStorage is only ever a frozen day-zero snapshot from before
+    that). Every `setItem()` updates the Map instantly (synchronous
+    return, so every existing caller — including `sync.js`'s own
+    monkey-patch — keeps working completely unchanged) and separately
+    persists to IndexedDB in the background; it does **not** also write
+    to real native localStorage, so new writes can never hit that old
+    quota again.
+  - **Cross-tab live updates, preserved deliberately, not silently
+    dropped**: real native localStorage automatically fires a `'storage'`
+    event on `window` in *other* tabs of the same origin when it
+    changes — `sync.js`'s own `storage` listener and `topbar.js`'s badge
+    refresh both depend on that. Once every tab has its own private
+    in-memory Map, that stops happening on its own, so the shim uses a
+    `BroadcastChannel` (`personal-dashboard-kv-sync`) to notify sibling
+    tabs on every write, and each tab re-dispatches a real, spec-shaped
+    `window` `'storage'` event (`key`/`oldValue`/`newValue`/
+    `storageArea`) from that broadcast — every existing listener anywhere
+    in this app keeps working unchanged, same-tab behavior included
+    (native `'storage'` never fires in the tab that made the change
+    either; this mirrors that).
+  - **Per-page changes, all 16 `.html` files**: two mechanical edits each
+    — the new script tag as the first line of `<head>`, and the page's
+    real boot/render call gated behind `LocalStoreIDB.ready()`, wrapping
+    only the actual invocation, never the event-registration/readyState
+    check around it (registering a `DOMContentLoaded` listener late,
+    inside a `.then()`, would mean it never fires at all, since
+    `ready()` will in the overwhelming majority of loads resolve *after*
+    `DOMContentLoaded` has already fired — IndexedDB's open+read is async
+    and doesn't block `DOMContentLoaded`). Two shapes covered every real
+    boot call site found by a dedicated survey of all 16 files:
+    - **Self-guarding** (`if (document.readyState === 'loading')
+      document.addEventListener('DOMContentLoaded', init); else init();`
+      — `aitech.html`, `dreamboard.html`, `tasksnotes.html`, `tasks.html`,
+      `learning.html`, `learning-topic.html`, `learning-dashboard.html`,
+      one of `nutrition.html`'s four independent inline-script blocks) —
+      both the listener callback and the direct call got wrapped in
+      `LocalStoreIDB.ready().then(...)`, the `readyState` check itself
+      untouched.
+    - **Bare `DOMContentLoaded`** (`fitnessstudio.html`, `businessos.html`,
+      `businessdash.html`, `knowledge-hub.html`, `entertainment.html`,
+      `entertainment-dash.html`, `mainpillar.html`, `nutrition.html`'s
+      other three blocks, `index.html`'s second inline-script block) — the
+      listener registration itself was left exactly as-is; only the
+      callback's *body* got wrapped in `.then(function () { ... })`.
+    - **`index.html`'s first inline-script block** was the one true
+      outlier: a bare `load();` call (its main Morning Ritual boot) with
+      no event/readyState guard of any kind — changed to
+      `LocalStoreIDB.ready().then(load);`, the simplest case since there
+      was no existing control flow to preserve. (`index.html` therefore
+      has two independent, separately-wrapped boot entry points, same as
+      it did before this change — `load()`'s own script-order position
+      relative to the second block's `DOMContentLoaded` listener still
+      guarantees it completes first, exactly as it always has, since
+      `.then()` reactions on the same cached promise fire in registration
+      order and the first block's script runs — and registers its
+      reaction — before the second block's script can even exist.)
+    - `businessdash.html`'s non-`defer`red `sync.js`/`photo-store.js`
+      tags needed no special handling beyond the above — the new script
+      tag's blocking, first-in-`<head>` placement already guarantees it
+      runs before them regardless of their own defer status.
+  - `storage-cleanup.js`'s own header comment and user-facing "~5 MB
+    storage budget" copy were updated to describe the new reality — the
+    specific failure it was built for shouldn't recur the same way now,
+    though it's still worth keeping for plain hygiene (leftover data from
+    deleted pages never cleans itself up on its own). Its actual
+    mechanism (`usageReport()`/`freeDeadSpace()`/`openPanel()`) needed
+    zero code changes, since it already only ever reads/writes the global
+    `localStorage`, which now transparently means this shim.
+  - **What stays untouched, verified directly rather than assumed**:
+    `sync.js` — its own `localStorage.setItem = function(){...}`
+    monkey-patch, read directly from `sync.js` before designing this
+    change, just wraps whatever `localStorage.setItem` *currently is* at
+    the moment `initCloudSync()` runs (always after the shim, since that
+    call always lives inside a gated boot) — it transparently layers on
+    top of the shim exactly like it already layers on top of real native
+    localStorage today, same as `photo-store.js` needing to stay
+    unrelated (still worth keeping even once the local cap is gone — it
+    keeps images out of the Supabase `app_state` JSONB payload too, which
+    matters for sync push size/speed independent of local storage
+    limits).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Node runtime was available in this environment this
+    session, the same reduced-guarantee fallback several other pages'
+    changelog entries in this file already disclose for this exact class
+    of limitation — doubly relevant here given the scale (a foundational,
+    load-bearing change touching every single page's storage layer, not
+    one page's own feature). Verified statically instead: brace/paren
+    balance confirmed on every one of the 16 edited `.html` files plus the
+    new `local-store-idb.js` and the edited `storage-cleanup.js`, all
+    clean; every wrapped boot-call site individually re-read afterward to
+    confirm the `.then()` insertion's opening and closing braces/parens
+    land exactly where intended (not just that the file-wide count
+    happened to balance) — this caught nothing wrong, but was done as a
+    deliberate second check given how easy a subtly-misplaced closing
+    brace would be to miss in a large inline script otherwise; and a
+    repo-wide grep confirmed no other file does its own conflicting
+    `Object.defineProperty`/reassignment of `window.localStorage`. **Not
+    verified this way**: an actual click-through (open a couple of pages,
+    add data, reload, confirm it's still there and no page silently fails
+    to boot; open two tabs of the same page and confirm a same-tab live
+    update still shows up in the other, exercising the new
+    `BroadcastChannel` cross-tab path specifically, since that's new
+    machinery with no prior-session precedent to lean on). A real
+    click-through is strongly recommended before relying on this
+    change — this is the single most foundational, widest-blast-radius
+    change made in any session documented in this file, and it was built
+    and verified entirely without ever running in a real browser.
