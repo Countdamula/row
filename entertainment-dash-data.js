@@ -51,8 +51,10 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
       try { window.dispatchEvent(new CustomEvent('entdash:save', { detail: { key: key, ok: true } })); } catch (e2) {}
+      return true;
     } catch (e) {
       try { window.dispatchEvent(new CustomEvent('entdash:save', { detail: { key: key, ok: false, error: e } })); } catch (e2) {}
+      return false;
     }
   }
   function uid(prefix) {
@@ -128,7 +130,13 @@
       const record = itemModel(pageKey, data);
       const all = list();
       all.push(record);
-      storeSet(key, all);
+      // A caller (entertainment-dash.html's saveItemModal()) needs to be
+      // able to tell "this genuinely saved" from "this looked like it
+      // worked but never actually persisted" — the latter is exactly
+      // what a silent storeSet() failure (most likely a full localStorage
+      // quota — see photo-store.js's own header) used to look like: the
+      // modal closed, the item just never showed up, no error anywhere.
+      if (!storeSet(key, all)) return null;
       return record;
     }
     function update(id, patch) {
@@ -136,7 +144,7 @@
       const idx = all.findIndex(function (x) { return x.id === id; });
       if (idx < 0) return null;
       all[idx] = itemModel(pageKey, Object.assign({}, all[idx], patch, { id: id, updatedAt: Date.now() }));
-      storeSet(key, all);
+      if (!storeSet(key, all)) return null;
       return all[idx];
     }
     function remove(id) {

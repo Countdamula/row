@@ -85,8 +85,10 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
       try { window.dispatchEvent(new CustomEvent('enthub:save', { detail: { key: key, ok: true } })); } catch (e2) {}
+      return true;
     } catch (e) {
       try { window.dispatchEvent(new CustomEvent('enthub:save', { detail: { key: key, ok: false, error: e } })); } catch (e2) {}
+      return false;
     }
   }
 
@@ -105,7 +107,7 @@
   const PAGES = {
     podcasts: {
       key: 'podcasts', storageKey: 'enthub:podcasts', label: 'Podcasts', icon: '🎙️',
-      subtopics: ['Learning', 'Photography / Videography', 'True Crime', 'Business']
+      subtopics: ['Learning', 'Photography / Videography', 'True Crime', 'Business', 'Writing']
     },
     horrorReading: {
       key: 'horrorReading', storageKey: 'enthub:horrorReading', label: 'Horror Stories · Reading', icon: '📖',
@@ -316,7 +318,13 @@
       const record = itemModel(pageKey, data);
       const all = list();
       all.push(record);
-      storeSet(key, all);
+      // A caller (entertainment-dash.html's saveItemModal()) needs to
+      // tell "this genuinely saved" from "this looked like it worked but
+      // never actually persisted" — the latter is exactly what a silent
+      // storeSet() failure (most likely a full localStorage quota — see
+      // photo-store.js's own header) used to look like: the modal
+      // closed, the item just never showed up, no error anywhere.
+      if (!storeSet(key, all)) return null;
       return record;
     }
     function update(id, patch) {
@@ -328,7 +336,7 @@
       // move it forward so the cross-device merge can tell this copy is
       // the newer one.
       all[idx] = itemModel(pageKey, Object.assign({}, all[idx], patch, { id: id, updatedAt: Date.now() }));
-      storeSet(key, all);
+      if (!storeSet(key, all)) return null;
       return all[idx];
     }
     function remove(id) {

@@ -52,7 +52,23 @@
       return v == null ? fallback : v;
     } catch (e) { return fallback; }
   }
-  function storeSet(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {} }
+  // Same honest-save-signal storeSet() as every other page's own
+  // -data.js (entertainment-dash-data.js, entertainment-hub-data.js,
+  // etc.) — a failed write (most likely: this origin's shared
+  // localStorage quota is full, a documented recurring issue in this
+  // app — see photo-store.js's own header) now dispatches a 'kh:save'
+  // event either way, instead of vanishing silently with nothing for
+  // the page (or the user) to react to.
+  function storeSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      try { window.dispatchEvent(new CustomEvent('kh:save', { detail: { key: key, ok: true } })); } catch (e2) {}
+      return true;
+    } catch (e) {
+      try { window.dispatchEvent(new CustomEvent('kh:save', { detail: { key: key, ok: false, error: e } })); } catch (e2) {}
+      return false;
+    }
+  }
   function uid(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
   function nowIso() { return new Date().toISOString(); }
   function str(v, fallback) { return typeof v === 'string' ? v : (fallback || ''); }
@@ -61,7 +77,7 @@
 
   function makeCollection(key, model) {
     function list() { return storeGet(key, []); }
-    function save(list_) { storeSet(key, list_); }
+    function save(list_) { return storeSet(key, list_); }
     return {
       list: list,
       get: function (id) {
@@ -71,16 +87,22 @@
       },
       add: function (data) {
         var rec = model(data || {});
-        var l = list(); l.push(rec); save(l);
-        return rec;
+        var l = list(); l.push(rec);
+        // save()/storeSet() return true/false now — a caller that ignores
+        // this still behaves exactly as before on success; on a genuine
+        // write failure (most likely a full localStorage quota) it now
+        // gets null back instead of a record that looks saved but isn't,
+        // and the page-wide 'kh:save' listener has already shown a
+        // banner by the time this returns.
+        return save(l) ? rec : null;
       },
       update: function (id, patch) {
         var l = list();
         for (var i = 0; i < l.length; i++) {
           if (l[i] && l[i].id === id) {
             var rec = model(Object.assign({}, l[i], patch, { id: id, createdAt: l[i].createdAt }));
-            l[i] = rec; save(l);
-            return rec;
+            l[i] = rec;
+            return save(l) ? rec : null;
           }
         }
         return null;

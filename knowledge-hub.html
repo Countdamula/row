@@ -44,6 +44,7 @@
 <script src="photo-store.js" defer></script>
 <script src="glass-theme.js" defer></script>
 <script src="gallery-card.js" defer></script>
+<script src="storage-cleanup.js" defer></script>
 <script src="knowledge-hub-data.js?v=2" defer></script>
 <style>
 :root {
@@ -57,6 +58,14 @@
   --gt-bgfx-rgb: 201,168,118;
 }
 #khBootError { display: none; position: fixed; inset: 0; z-index: 9999; background: #1a0506; color: #ffdcdc; padding: 22px; font: 13px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow: auto; }
+/* A save failure (most likely: this origin's shared localStorage quota
+   is full) is NOT a boot crash — #khBootError's inset:0 full-screen
+   takeover would lock the user out of a page that's otherwise working
+   fine. This is a small, dismissible top strip instead, matching
+   entertainment-dash.html's own .edash-boot-error banner. */
+.kh-save-error { position: fixed; top: 0; left: 0; right: 0; z-index: 9998; background: #3a0d0d; color: #fff; padding: 12px 16px; font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.kh-save-error span { flex: 1; min-width: 200px; }
+.kh-save-error button { padding: 5px 11px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; font: inherit; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 8px; }
 
@@ -241,6 +250,7 @@
 </head>
 <body class="gt-theme">
 <div id="khBootError"></div>
+<div id="khSaveError"></div>
 <a href="index.html" class="gt-back">← Back</a>
 <div id="gtHeroCoverBg" aria-hidden="true"></div>
 
@@ -879,6 +889,67 @@
   window.addEventListener('error', function (e) { showBootErrorBanner(e.error || e.message, 'a click or action'); });
   window.addEventListener('unhandledrejection', function (e) { showBootErrorBanner(e.reason, 'a background action'); });
   function safeRender(fn, label) { try { fn(); } catch (err) { console.error('[KnowledgeHub] render failed: ' + label, err); } }
+
+  // A write that fails inside storeSet() (knowledge-hub-data.js) never
+  // throws — it's caught internally, so it never reaches the two global
+  // error listeners above and never shows a boot-error banner. It used
+  // to just vanish with zero signal: click "+ New Note"/"+ Add" or Save
+  // on any modal, the modal closes or the item never appears, nothing
+  // else happens — reported as "won't let me add anything." Most likely
+  // cause is this origin's shared localStorage quota being full (a
+  // documented recurring issue across this app's newer, image-heavy
+  // pages — see photo-store.js's own header) since every page here
+  // shares one 5MB browser-imposed budget. This makes that failure
+  // visible instead of guessing at narrower fixes.
+  function showSaveErrorBanner(detail) {
+    var el = $('khSaveError');
+    if (!el) return;
+    var err = detail && detail.error;
+    var isQuota = !!(err && (err.name === 'QuotaExceededError' || err.code === 22));
+    var msg = isQuota
+      ? '⚠ Couldn\'t save your last change — this site\'s local storage is full. Free up space (clear old browsing data for this site, or ask to have unused pages\' data cleaned up) and try again.'
+      : '⚠ Couldn\'t save your last change' + (err ? ': ' + (err.message || err) : '') + '. Try again — if it keeps happening, copy the details below.';
+    if (el.firstChild) { el.firstChild.querySelector('span').textContent = msg; return; }
+    var box = document.createElement('div');
+    box.className = 'kh-save-error';
+    var span = document.createElement('span');
+    span.textContent = msg;
+    box.appendChild(span);
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.textContent = 'Copy details';
+    copyBtn.addEventListener('click', function () {
+      try { navigator.clipboard.writeText((detail && detail.key) + ': ' + (err && err.stack ? err.stack : String(err))); } catch (e2) {}
+    });
+    box.appendChild(copyBtn);
+    if (isQuota && window.StorageCleanup) {
+      var freeBtn = document.createElement('button');
+      freeBtn.type = 'button';
+      freeBtn.textContent = '🧹 Free up space';
+      freeBtn.addEventListener('click', function () { window.StorageCleanup.openPanel(); });
+      box.appendChild(freeBtn);
+    }
+    var dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.addEventListener('click', function () { box.remove(); });
+    box.appendChild(dismissBtn);
+    el.appendChild(box);
+  }
+  window.addEventListener('kh:save', function (e) { if (e.detail && e.detail.ok === false) showSaveErrorBanner(e.detail); });
+
+  // KH().Notes.add()/Notebooks.add() etc. now return null on a genuine
+  // write failure instead of always returning a record (see
+  // knowledge-hub-data.js) — every "+ New Note"/"+ New Quote" entry
+  // point immediately opens the new item's detail page via its .id, so
+  // each needs this one guard rather than crashing on a null
+  // dereference right after the save-error banner above has already
+  // explained why.
+  function addNoteOrWarn(data) {
+    var n = KH().Notes.add(data);
+    if (!n) alert('Couldn\'t create that note — see the banner at the top of the page for why.');
+    return n;
+  }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -1698,9 +1769,9 @@
         span.title = 'No note titled "' + title + '" yet';
         span.addEventListener('click', function () {
           if (confirm('No note titled "' + title + '" exists yet. Create it?')) {
-            var created = KH().Notes.add({ title: title });
+            var created = addNoteOrWarn({ title: title });
             renderAll();
-            openNoteDetail(created.id);
+            if (created) openNoteDetail(created.id);
           }
         });
       }
@@ -1840,12 +1911,12 @@
     });
 
     // Home
-    $('khHomeNewNoteBtn').addEventListener('click', function () { var n = KH().Notes.add({}); renderAll(); openNoteDetail(n.id); });
+    $('khHomeNewNoteBtn').addEventListener('click', function () { var n = addNoteOrWarn({}); renderAll(); if (n) openNoteDetail(n.id); });
     $('khSearchInput').addEventListener('input', function () { searchQuery = this.value; renderAllNotesList(); });
     $('khSortSelect').addEventListener('change', function () { sortMode = this.value; renderAllNotesList(); });
 
     // Workflows
-    $('khFunnelNewNoteBtn').addEventListener('click', function () { var n = KH().Notes.add({}); renderAll(); openNoteDetail(n.id); });
+    $('khFunnelNewNoteBtn').addEventListener('click', function () { var n = addNoteOrWarn({}); renderAll(); if (n) openNoteDetail(n.id); });
 
     // Notebooks
     $('khNewNotebookBtn').addEventListener('click', function () { openNotebookModal(null); });
@@ -1882,8 +1953,8 @@
     });
     $('khNbDetailNewNoteBtn').addEventListener('click', function () {
       if (!activeNotebookId) return;
-      var n = KH().Notes.add({ notebookId: activeNotebookId });
-      renderAll(); openNoteDetail(n.id);
+      var n = addNoteOrWarn({ notebookId: activeNotebookId });
+      renderAll(); if (n) openNoteDetail(n.id);
     });
     $('khNbDetailSort').addEventListener('change', function () { nbSortMode = this.value; renderNotebookDetailList(); });
 
@@ -1994,8 +2065,9 @@
     // Quote Library
     $('khNewQuoteBtn').addEventListener('click', function () {
       var nb = KH().autoNotebookForType('quote');
-      var n = KH().Notes.add({ type: 'quote', notebookId: nb.id, title: 'New Quote' });
-      renderAll(); openNoteDetail(n.id);
+      if (!nb) { alert('Couldn\'t create that quote — see the banner at the top of the page for why.'); return; }
+      var n = addNoteOrWarn({ type: 'quote', notebookId: nb.id, title: 'New Quote' });
+      renderAll(); if (n) openNoteDetail(n.id);
     });
 
     // Connections

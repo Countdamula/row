@@ -193,6 +193,7 @@ body { margin: 0; font-family: var(--gt-font); }
 <script src="photo-store.js" defer></script>
 <script src="glass-theme.js" defer></script>
 <script src="gallery-card.js" defer></script>
+<script src="storage-cleanup.js" defer></script>
 <script src="entertainment-hub-data.js?v=2" defer></script>
 <script src="entertainment-dash-data.js?v=2" defer></script>
 <script>
@@ -206,25 +207,83 @@ document.addEventListener('DOMContentLoaded', function () {
   try { boot(); } catch (err) { showBootError(err); }
 });
 
-function showBootError(err) {
+function showBanner(msg, opts) {
+  opts = opts || {};
   var el = document.getElementById('edBootError');
   if (!el) return;
-  var msg = (err && err.message) ? err.message : String(err);
-  var stack = (err && err.stack) || '';
+  // Deduped, dismissible banners (save-failure warnings) update their own
+  // existing box in place instead of stacking a new one on every failed
+  // write; a plain boot-crash banner (no dedupeId) always appends fresh.
+  if (opts.dedupeId) {
+    var existing = document.getElementById(opts.dedupeId);
+    if (existing) { existing.querySelector('.edash-boot-error-msg').textContent = msg; return; }
+  }
   var box = document.createElement('div');
   box.className = 'edash-boot-error';
+  if (opts.dedupeId) box.id = opts.dedupeId;
   var p = document.createElement('div');
-  p.textContent = 'Something went wrong loading this page: ' + msg;
+  p.className = 'edash-boot-error-msg';
+  p.textContent = msg;
   box.appendChild(p);
-  var btn = document.createElement('button');
-  btn.type = 'button';
-  btn.textContent = 'Copy error details';
-  btn.addEventListener('click', function () {
-    try { navigator.clipboard.writeText(msg + '\n\n' + stack); } catch (e) {}
-  });
-  box.appendChild(btn);
+  if (opts.details) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Copy error details';
+    btn.addEventListener('click', function () {
+      try { navigator.clipboard.writeText(opts.details); } catch (e) {}
+    });
+    box.appendChild(btn);
+  }
+  if (opts.onFreeSpace) {
+    var freeBtn = document.createElement('button');
+    freeBtn.type = 'button';
+    freeBtn.textContent = '🧹 Free up space';
+    freeBtn.style.marginLeft = '8px';
+    freeBtn.addEventListener('click', opts.onFreeSpace);
+    box.appendChild(freeBtn);
+  }
+  if (opts.dismissable) {
+    var dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.style.marginLeft = '8px';
+    dismissBtn.addEventListener('click', function () { box.remove(); });
+    box.appendChild(dismissBtn);
+  }
   el.appendChild(box);
 }
+function showBootError(err) {
+  var msg = (err && err.message) ? err.message : String(err);
+  var stack = (err && err.stack) || '';
+  showBanner('Something went wrong loading this page: ' + msg, { details: msg + '\n\n' + stack });
+}
+// A write that fails inside storeSet() (entertainment-dash-data.js /
+// entertainment-hub-data.js) never throws — it's caught internally and
+// turned into an 'entdash:save' / 'enthub:save' event instead, so it
+// never reaches the window 'error'/'unhandledrejection' listeners below
+// and never showed any banner at all. It used to just vanish with zero
+// signal: click "+ Add," fill it in, hit Save — the modal closes and the
+// item just never shows up, reported as "won't let me add anything."
+// Most likely cause is this origin's shared localStorage quota being
+// full (a documented recurring issue across this app's newer,
+// image-heavy pages — see photo-store.js's own header), since every
+// page in this app shares one 5MB browser-imposed budget. This makes
+// that failure visible instead of guessing at narrower fixes.
+function showSaveError(detail) {
+  var err = detail && detail.error;
+  var isQuota = !!(err && (err.name === 'QuotaExceededError' || err.code === 22));
+  var msg = isQuota
+    ? '⚠ Couldn\'t save your last change — this site\'s local storage is full. Free up space (clear old browsing data for this site, or ask to have unused pages\' data cleaned up) and try again.'
+    : '⚠ Couldn\'t save your last change' + (err ? ': ' + (err.message || err) : '') + '. Try again — if it keeps happening, copy the details below.';
+  showBanner(msg, {
+    dedupeId: 'edSaveErrorBanner',
+    dismissable: true,
+    details: (detail && detail.key) + ': ' + ((err && err.stack) || String(err || '')),
+    onFreeSpace: (isQuota && window.StorageCleanup) ? function () { window.StorageCleanup.openPanel(); } : null
+  });
+}
+window.addEventListener('entdash:save', function (e) { if (e.detail && e.detail.ok === false) showSaveError(e.detail); });
+window.addEventListener('enthub:save', function (e) { if (e.detail && e.detail.ok === false) showSaveError(e.detail); });
 // A throw inside a click/change handler (e.g. clicking "+ Add" or Save on
 // any item modal) happens well after boot() has already returned — the
 // try/catch around boot() above can't see it, so it used to fail
@@ -730,11 +789,21 @@ function saveItemModal() {
   if (r.hasStatus) patch.status = document.getElementById('edFieldStatus').value;
   if (r.source === 'entdash') patch.notesText = document.getElementById('edFieldNotes').value.trim();
 
+  var result;
   if (editingId) {
-    window.EntDash.updateItem(editingKey, editingId, patch);
+    result = window.EntDash.updateItem(editingKey, editingId, patch);
   } else {
     patch.order = window.EntDash.nextOrderAny(editingKey);
-    window.EntDash.addItem(editingKey, patch);
+    result = window.EntDash.addItem(editingKey, patch);
+  }
+  // addItem/updateItem now return null when the underlying write genuinely
+  // failed (see entertainment-dash-data.js/entertainment-hub-data.js) —
+  // this used to close the modal and re-render regardless, so a failed
+  // save just silently vanished with the typed input lost. Keep the modal
+  // open (their text is still right there) and say so plainly instead.
+  if (!result) {
+    alert('Couldn\'t save this — your browser\'s local storage for this site may be full. Free up space and try again; your entry is still in this form.');
+    return;
   }
   closeItemModal();
   renderActiveTab();
