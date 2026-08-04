@@ -12,18 +12,22 @@
 //      entdash:games), same model-factory + makeCollection conventions
 //      as every other -data.js in this app.
 //   2. A unified REGISTRY + dispatch layer sitting on top of BOTH this
-//      file's own three collections AND entertainment-hub-data.js's
-//      eight (podcasts/horrorReading/horrorWatch/spicyReading/
-//      spicyWatch/storiesImmersive/entertainment/playlists) — the
-//      thing that makes Home/Discovery Engine/Favorites/Statistics
-//      genuinely cross-category instead of each needing its own
-//      bespoke aggregation. entertainment-hub-data.js's own EntItem
-//      shape has no `status` field (it was only ever favorite+rating);
-//      Reading/Anime/Games DO track a want/in-progress/done status —
-//      REGISTRY.hasStatus flags which categories support status
-//      filtering/editing so the UI can show or hide those controls
-//      correctly per category, rather than faking a status field on
-//      data that was never designed to carry one.
+//      file's own three collections AND entertainment-hub-data.js's own
+//      live pages (podcasts/horrorWatchCreepypasta/horrorWatchTrue/
+//      spicyWatch/storiesImmersive/entertainment/playlists — see that
+//      file's own header for why horrorReading/spicyReading/horrorWatch
+//      themselves are gone) — the thing that makes Home/Discovery
+//      Engine/Favorites/Statistics genuinely cross-category instead of
+//      each needing its own bespoke aggregation. entertainment-hub-data
+//      .js's own EntItem shape has no `status` field (it was only ever
+//      favorite+rating); Reading/Anime/Games DO track a
+//      want/in-progress/done status — REGISTRY.hasStatus flags which
+//      categories support status filtering/editing so the UI can show
+//      or hide those controls correctly per category, rather than
+//      faking a status field on data that was never designed to carry
+//      one. Horror Stories/Spicy Stories · Reading moved INTO this
+//      file's own Reading Corner collection per an explicit request —
+//      see migrateHorrorSpicyReadingIntoReadingCorner() below.
 //
 // Loaded AFTER entertainment-hub-data.js on entertainment-dash.html (a
 // deferred <script> tag ordering guarantee) — this file's own top-level
@@ -74,7 +78,12 @@
     reading: {
       key: 'reading', storageKey: 'entdash:reading', label: 'Reading Corner', icon: '📚',
       creatorLabel: 'Author', lengthLabel: 'Pages',
-      genres: ['Fiction', 'Non-Fiction', 'Fantasy', 'Sci-Fi', 'Self-Help', 'Business', 'Biography', 'Mystery / Thriller', 'Other'],
+      // 'Horror'/'Spicy' added per an explicit request to move Horror
+      // Stories · Reading and Spicy Stories · Reading (formerly their
+      // own pages in entertainment-hub-data.js) in here — see
+      // migrateHorrorSpicyReadingIntoReadingCorner() below, which lands
+      // migrated items in one of these two genres.
+      genres: ['Fiction', 'Non-Fiction', 'Fantasy', 'Sci-Fi', 'Self-Help', 'Business', 'Biography', 'Mystery / Thriller', 'Horror', 'Spicy', 'Other'],
       statusLabels: { want: 'Want To Read', progress: 'Reading', done: 'Read' }
     },
     anime: {
@@ -217,6 +226,11 @@
     seedItem('reading', 'Fantasy', 'The Name of the Wind', 'Patrick Rothfuss', 'reading');
     seedItem('reading', 'Non-Fiction', 'Atomic Habits', 'James Clear', 'done');
     seedItem('reading', 'Sci-Fi', 'Project Hail Mary', 'Andy Weir', 'want');
+    // Horror/Spicy Reading example seeds, standing in for the old
+    // horrorReading/spicyReading pages' own seed data — see PAGES.reading
+    // .genres' own comment on the move.
+    seedItem('reading', 'Horror', 'The Haunting of Hill House', 'Shirley Jackson', 'want');
+    seedItem('reading', 'Spicy', 'A Court of Thorns and Roses', 'Sarah J. Maas', 'want');
 
     seedItem('anime', 'Shonen', 'Fullmetal Alchemist: Brotherhood', 'Bones', 'done');
     seedItem('anime', 'Slice of Life', 'Mushishi', 'Artland', 'want');
@@ -236,12 +250,61 @@
   }
 
   // ============================================================
-  // REGISTRY — unifies entertainment-hub-data.js's 8 pages with this
-  // file's own 3 into one 11-entry lookup, in the order the dashboard's
-  // tabs render. Built once, at load time — EntHub must already be
-  // loaded (see this file's own header comment on script order).
+  // MIGRATION — moves any real pre-existing Horror Stories · Reading /
+  // Spicy Stories · Reading items into Reading Corner, per an explicit
+  // request. Reads the RAW old 'enthub:horrorReading'/'enthub:
+  // spicyReading' keys directly (entertainment-hub-data.js no longer has
+  // live PAGES entries for either — see that file's own header comment)
+  // rather than through EntHub's own collection API — the same "read a
+  // dead key raw, migrate into a live one" precedent that file's own
+  // migrateStoriesSplitIfNeeded() already established for 'enthub:
+  // stories'. Guarded so it only ever runs once per device; both old
+  // keys are left in place afterward, orphaned but untouched, same
+  // treatment as every other superseded key elsewhere in this app. Runs
+  // synchronously at load time (safe to run before this page's own cloud
+  // pull, for the same reason entertainment-hub-data.js's own migrations
+  // already document — a freshly-migrated item's id is brand-new and
+  // just gets unioned in like any other local add). A real, disclosed
+  // limitation shared with every other one-time migration in this app:
+  // if this runs independently on two different devices before either
+  // has synced, duplicates can result — an accepted tradeoff, not
+  // something unique to this migration.
   // ============================================================
-  const ENTHUB_KEYS = ['podcasts', 'horrorReading', 'horrorWatch', 'spicyReading', 'spicyWatch', 'storiesImmersive', 'entertainment', 'playlists'];
+  function migrateHorrorSpicyReadingIntoReadingCorner() {
+    if (storeGet('entdash:horrorSpicyReadingMigratedV1')) return;
+    const genres = PAGES.reading.genres;
+    [['enthub:horrorReading', 'Horror'], ['enthub:spicyReading', 'Spicy']].forEach(function (pair) {
+      const oldKey = pair[0], genre = pair[1];
+      const old = storeGet(oldKey);
+      if (Array.isArray(old) && old.length) {
+        old.forEach(function (item) {
+          if (!item) return;
+          collectionFor('reading').add({
+            title: item.title, creator: item.creator, url: item.url, cover: item.cover,
+            description: item.description, lengthText: item.lengthText, notesText: item.notesText,
+            rating: item.rating, favorite: item.favorite, order: nextOrder('reading'),
+            subtopic: genres.indexOf(genre) !== -1 ? genre : genres[0],
+            status: 'want'
+          });
+        });
+      }
+    });
+    storeSet('entdash:horrorSpicyReadingMigratedV1', true);
+  }
+  migrateHorrorSpicyReadingIntoReadingCorner();
+
+  // ============================================================
+  // REGISTRY — unifies entertainment-hub-data.js's live pages with this
+  // file's own 3 into one lookup, in the order the dashboard's tabs
+  // render. Built once, at load time — EntHub must already be loaded
+  // (see this file's own header comment on script order). Horror
+  // Stories/Spicy Stories · Reading were removed from here per an
+  // explicit request — see migrateHorrorSpicyReadingIntoReadingCorner()
+  // below — and Horror Stories · YouTube is now the two pages that
+  // replaced it, horrorWatchCreepypasta/horrorWatchTrue (see
+  // entertainment-hub-data.js's own header comment on that split).
+  // ============================================================
+  const ENTHUB_KEYS = ['podcasts', 'horrorWatchCreepypasta', 'horrorWatchTrue', 'spicyWatch', 'storiesImmersive', 'entertainment', 'playlists'];
   let REGISTRY = {};
   let GALLERY_KEYS = [];
   function buildRegistry() {

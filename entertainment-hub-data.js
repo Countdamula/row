@@ -16,30 +16,44 @@
 // dashboard's own new categories (Reading Corner/Anime/Games) that have
 // no natural home here.
 //
-// Real data change in this pass: Stories used to be one page/collection
+// Real data change, first pass: Stories used to be one page/collection
 // (`enthub:stories`, subtopics Horror Stories / Spicy Stories /
 // Immersive Experience) — per an explicit request to "separate the
 // reading and YouTube versions of Horror Stories and Spicy Stories,"
-// it's now FIVE real pages/collections: horrorReading, horrorWatch,
+// it became FIVE real pages/collections: horrorReading, horrorWatch,
 // spicyReading, spicyWatch, and storiesImmersive (kept as its own
 // unsplit page — it wasn't asked to split, and "immersive experience"
 // content is already inherently audio/video, not a reading-vs-watching
 // distinction). `migrateStoriesSplitIfNeeded()` (below) is a one-time,
-// guarded migration that distributes any real pre-existing
-// `enthub:stories` items into these five by their old subtopic name
-// (Horror Stories → horrorReading, Spicy Stories → spicyReading,
-// Immersive Experience / anything unrecognized → storiesImmersive) —
-// a disclosed simplification (no reading-vs-watching heuristic on the
-// old data, since it never recorded that distinction) rather than a
-// fabricated guess. The old `enthub:stories` key is left in place
-// afterward, orphaned but untouched, same treatment as every other
-// superseded key elsewhere in this app.
+// guarded migration that distributed any real pre-existing
+// `enthub:stories` items into those five by their old subtopic name.
+//
+// Real data change, second pass (this one): per an explicit follow-up,
+// horrorReading and spicyReading are GONE as their own pages — moved
+// into entertainment-dash-data.js's own Reading Corner (`entdash:
+// reading`) instead, with 'Horror'/'Spicy' added to that collection's
+// genre list so migrated items land in a real, dedicated genre rather
+// than a generic catch-all. That migration lives in
+// entertainment-dash-data.js, not here, since it needs `entdash:
+// reading`'s own collection API, which doesn't exist while this file is
+// still executing (script load order — see that file's own header). And
+// horrorWatch is GONE too, split into two real pages —
+// horrorWatchCreepypasta and horrorWatchTrue — via
+// `migrateHorrorWatchSplitIfNeeded()` (below), a disclosed heuristic on
+// subtopic (only 'Found Footage' — content explicitly styled/marketed as
+// real — maps to horrorWatchTrue; everything else defaults to
+// horrorWatchCreepypasta) since the old data never recorded a real/
+// fictional distinction. `spicyWatch` was NOT asked to split and is
+// unchanged. Every superseded key (`enthub:horrorReading`/
+// `enthub:spicyReading`/`enthub:horrorWatch`) is left in place
+// afterward, orphaned but untouched, same treatment as `enthub:stories`
+// above and every other superseded key elsewhere in this app.
 //
 // Every collection here is still a flat array of EntItem records under
 // its own `enthub:*` key:
 //   - enthub:podcasts
-//   - enthub:horrorReading / enthub:horrorWatch
-//   - enthub:spicyReading / enthub:spicyWatch
+//   - enthub:horrorWatchCreepypasta / enthub:horrorWatchTrue
+//   - enthub:spicyWatch
 //   - enthub:storiesImmersive
 //   - enthub:entertainment
 //   - enthub:playlists
@@ -109,17 +123,17 @@
       key: 'podcasts', storageKey: 'enthub:podcasts', label: 'Podcasts', icon: '🎙️',
       subtopics: ['Learning', 'Photography / Videography', 'True Crime', 'Business', 'Writing']
     },
-    horrorReading: {
-      key: 'horrorReading', storageKey: 'enthub:horrorReading', label: 'Horror Stories · Reading', icon: '📖',
-      subtopics: ['Short Stories', 'Novels', 'Anthologies', 'Creepypasta']
+    // horrorReading/spicyReading no longer live here — moved into
+    // entertainment-dash-data.js's own Reading Corner, see this file's
+    // own header comment. horrorWatch no longer lives here either —
+    // split into horrorWatchCreepypasta/horrorWatchTrue, just below.
+    horrorWatchCreepypasta: {
+      key: 'horrorWatchCreepypasta', storageKey: 'enthub:horrorWatchCreepypasta', label: 'Horror Stories · Creepypastas', icon: '🕸️',
+      subtopics: ['Creepypasta', 'Narrated Videos', 'Analog Horror', 'Compilations']
     },
-    horrorWatch: {
-      key: 'horrorWatch', storageKey: 'enthub:horrorWatch', label: 'Horror Stories · YouTube', icon: '🎧',
-      subtopics: ['Narrated Videos', 'Analog Horror', 'Found Footage', 'Compilations']
-    },
-    spicyReading: {
-      key: 'spicyReading', storageKey: 'enthub:spicyReading', label: 'Spicy Stories · Reading', icon: '📖',
-      subtopics: ['Novels', 'Novellas', 'Fanfiction', 'Short Stories']
+    horrorWatchTrue: {
+      key: 'horrorWatchTrue', storageKey: 'enthub:horrorWatchTrue', label: 'Horror Stories · True Stories', icon: '📼',
+      subtopics: ['Found Footage', 'Real Encounters', 'Paranormal', 'Compilations']
     },
     spicyWatch: {
       key: 'spicyWatch', storageKey: 'enthub:spicyWatch', label: 'Spicy Stories · YouTube', icon: '🎧',
@@ -138,7 +152,7 @@
       subtopics: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy']
     }
   };
-  const PAGE_ORDER = ['podcasts', 'horrorReading', 'horrorWatch', 'spicyReading', 'spicyWatch', 'storiesImmersive', 'entertainment', 'playlists'];
+  const PAGE_ORDER = ['podcasts', 'horrorWatchCreepypasta', 'horrorWatchTrue', 'spicyWatch', 'storiesImmersive', 'entertainment', 'playlists'];
 
   // ============================================================
   // IMAGE COMPRESSION / URL VALIDATION — same canvas-downscale recipe
@@ -365,25 +379,78 @@
   // a brand-new id the merge has never seen yet and gets unioned in like
   // any other local add.
   // ============================================================
+  // Small raw-array append, bypassing collectionFor()/nextOrder() (both
+  // of which require a live PAGES[pageKey] entry) — used only for the
+  // horrorReading/spicyReading targets below, since those two are no
+  // longer live pages in THIS file (see this file's own header comment)
+  // but migrateStoriesSplitIfNeeded() still needs somewhere real to land
+  // old 'enthub:stories' items carrying those two old subtopics, for
+  // migrateHorrorSpicyReadingIntoReadingCorner()
+  // (entertainment-dash-data.js) to then pick up and finish moving into
+  // Reading Corner. itemModel() already degrades gracefully with no
+  // PAGES entry (subtopic just comes back empty, harmless — the
+  // downstream migration re-sets it into Reading Corner's real
+  // Horror/Spicy genre anyway).
+  function rawAppendDead(storageKey, pageKeyForModel, data) {
+    const all = storeGet(storageKey) || [];
+    const order = all.length ? Math.max.apply(null, all.map(function (x) { return x.order || 0; })) + 1 : 0;
+    all.push(itemModel(pageKeyForModel, Object.assign({}, data, { order: order })));
+    storeSet(storageKey, all);
+  }
   function migrateStoriesSplitIfNeeded() {
     if (storeGet('enthub:storiesSplitMigratedV1')) return;
     const old = storeGet('enthub:stories');
     if (Array.isArray(old) && old.length) {
-      const mapTo = { 'Horror Stories': 'horrorReading', 'Spicy Stories': 'spicyReading', 'Immersive Experience': 'storiesImmersive' };
       old.forEach(function (item) {
         if (!item) return;
-        const targetKey = mapTo[item.subtopic] || 'storiesImmersive';
-        collectionFor(targetKey).add({
+        const fields = {
           title: item.title, creator: item.creator, url: item.url, cover: item.cover,
           description: item.description, lengthText: item.lengthText,
-          rating: item.rating, favorite: item.favorite, order: nextOrder(targetKey),
-          subtopic: PAGES[targetKey].subtopics[0]
-        });
+          rating: item.rating, favorite: item.favorite
+        };
+        if (item.subtopic === 'Horror Stories') {
+          rawAppendDead('enthub:horrorReading', 'horrorReading', fields);
+        } else if (item.subtopic === 'Spicy Stories') {
+          rawAppendDead('enthub:spicyReading', 'spicyReading', fields);
+        } else {
+          collectionFor('storiesImmersive').add(Object.assign({}, fields, {
+            order: nextOrder('storiesImmersive'), subtopic: PAGES.storiesImmersive.subtopics[0]
+          }));
+        }
       });
     }
     storeSet('enthub:storiesSplitMigratedV1', true);
   }
   migrateStoriesSplitIfNeeded();
+
+  // Splits any real pre-existing `enthub:horrorWatch` items into the two
+  // pages that replaced it — see this file's own header comment on the
+  // subtopic heuristic: 'Found Footage' (content explicitly styled as
+  // real) -> horrorWatchTrue; everything else -> horrorWatchCreepypasta.
+  // An old subtopic is kept as-is when it's still valid in the new
+  // page's own subtopic list (preserves fidelity for e.g. 'Analog
+  // Horror'), otherwise falls back to that page's first subtopic. The
+  // old `enthub:horrorWatch` key is left in place afterward, orphaned
+  // but untouched, same treatment as `enthub:stories` above.
+  function migrateHorrorWatchSplitIfNeeded() {
+    if (storeGet('enthub:horrorWatchSplitMigratedV1')) return;
+    const old = storeGet('enthub:horrorWatch');
+    if (Array.isArray(old) && old.length) {
+      old.forEach(function (item) {
+        if (!item) return;
+        const targetKey = item.subtopic === 'Found Footage' ? 'horrorWatchTrue' : 'horrorWatchCreepypasta';
+        const subtopic = PAGES[targetKey].subtopics.indexOf(item.subtopic) !== -1 ? item.subtopic : PAGES[targetKey].subtopics[0];
+        collectionFor(targetKey).add({
+          title: item.title, creator: item.creator, url: item.url, cover: item.cover,
+          description: item.description, lengthText: item.lengthText,
+          rating: item.rating, favorite: item.favorite, order: nextOrder(targetKey),
+          subtopic: subtopic
+        });
+      });
+    }
+    storeSet('enthub:horrorWatchSplitMigratedV1', true);
+  }
+  migrateHorrorWatchSplitIfNeeded();
 
   // ============================================================
   // SELECTORS
@@ -482,12 +549,12 @@
     seedItem('podcasts', 'Business', 'How I Built This', 'NPR');
     seedItem('podcasts', 'Business', 'The Tim Ferriss Show', 'Tim Ferriss');
 
-    seedItem('horrorReading', 'Novels', 'The Haunting of Hill House', 'Shirley Jackson');
-    seedItem('horrorReading', 'Creepypasta', 'r/nosleep favorites', '');
-    seedItem('horrorWatch', 'Narrated Videos', 'NoSleep Podcast', '');
-    seedItem('horrorWatch', 'Analog Horror', 'Local58', '');
-    seedItem('spicyReading', 'Novels', 'A Court of Thorns and Roses', 'Sarah J. Maas');
-    seedItem('spicyReading', 'Short Stories', 'Spicy short-story favorites', '');
+    // horrorReading/spicyReading example seeds now live in
+    // entertainment-dash-data.js's own seedDefaultData() (Reading
+    // Corner's Horror/Spicy genres).
+    seedItem('horrorWatchCreepypasta', 'Narrated Videos', 'NoSleep Podcast', '');
+    seedItem('horrorWatchCreepypasta', 'Analog Horror', 'Local58', '');
+    seedItem('horrorWatchTrue', 'Found Footage', 'A favorite found-footage horror channel', '');
     seedItem('spicyWatch', 'Narrated Videos', 'Dirty Diana', '');
     seedItem('storiesImmersive', 'Immersive Experience', 'The Magnus Archives', '');
 
