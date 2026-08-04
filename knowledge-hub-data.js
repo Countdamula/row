@@ -1,64 +1,84 @@
 // =============================================================
-// knowledge-hub-data.js — data layer for Knowledge Hub, a digital
-// note-taking / PKM (personal knowledge management) system built around
-// Tiago-Forte-style Progressive Summarization and a five-stage capture
-// funnel: Inbox -> To Review -> Highlighting -> Summarizing -> Synthesis.
+// knowledge-hub-data.js — data layer for Knowledge Hub v2: a Learning &
+// Knowledge Operating System, not a note-taking app. Full replace of the
+// prior funnel/notebook/Progressive-Summarization model (see
+// knowledge-hub.html's own header comment for why this is a clean
+// replace, not a migration) — every kh:notebooks/kh:notes/kh:templates/
+// kh:mindmapnodes/kh:permanentknowledge/kh:creations key from that model
+// is left orphaned, untouched, same treatment as every other superseded
+// feature in this app (CLAUDE.md §4's own orphaned-row table).
 //
 // Same makeCollection()/model-factory conventions as every other page's
-// own -data.js in this app (aitech-data.js, businessdash-data.js, etc.).
-// Every key here is `kh:`-prefixed (kh:notebooks, kh:notes, kh:templates,
-// kh:seeded, kh:active_tab), covered by knowledge-hub.html's own
-// initCloudSync({ appKey: 'knowledgehub', syncedPrefixes: ['kh:'] }) call —
-// nothing new invented, same pattern every other page uses.
+// own -data.js (aitech-data.js, businessdash-data.js, mainpillar-data.js,
+// etc.). Every key here is `kh:`-prefixed, covered by knowledge-hub.html's
+// own initCloudSync({ appKey: 'knowledgehub', syncedPrefixes: ['kh:'] })
+// call — nothing new invented.
 //
-// One flat `Notes` collection covers every capture type (Jot/Note/
-// Highlight/Article/Video/Quote/Book) and every funnel stage — "the Quote
-// Library" is simply notes with type:'quote', filtered, not a second
-// duplicated database (same "one generic model, filtered many ways"
-// precedent this app's other multi-view pages already use, e.g.
+// ---------------------------------------------------------------------
+// Architecture: 11 fixed department "workspaces" (DEPARTMENT_DEFS below —
+// not user-addable/removable, matching the spec's own named list), each a
+// row in the Departments collection so its editable fields (quote,
+// mission, currentFocus, masteryPct, etc.) persist. Every other
+// collection here (Resources, PermanentNotes, Questions, ResearchItems,
+// Projects, Objectives, MindMapNodes, StudySessions) is scoped to a
+// department via a plain `departmentId` foreign key — one generic set of
+// collections/selectors serves all 11 departments, rather than 11
+// hand-written data models (the same "one generic model, filtered many
+// ways" precedent this app's other multi-view pages already use, e.g.
 // mediaverse-data.js's single MediaItem collection covering ten
-// categories, or aitech-data.js's Prompts tied to a Model).
+// categories, aitech-data.js's Model/Prompt split).
 //
-// "Automatic organization" is two layers: (1) TYPE_NOTEBOOK_MAP — every
-// quick/media capture auto-files into a notebook keyed off its type via
-// findOrCreateNotebook(), created on first use, and (2) the Templates
-// collection — richer one-click starting points (Book Note, Essay,
-// Research Project, etc.) that also set a default stage and a set of
-// Progressive-Summarization prompts, per the request's own "automatic
-// templates for books, notes, essays" ask.
+// Three levels of mind maps share ONE flat MindMapNodes collection (a
+// parentId-linked tree, same convention as business-data.js's BinderNode
+// or the prior knowledge-hub model), distinguished by `mapLevel` +
+// `scopeId`:
+//   mapLevel:'master'   scopeId = departmentId        (one per department)
+//   mapLevel:'resource' scopeId = a Resource's id      (one per resource)
+//   mapLevel:'concept'  scopeId = a PermanentNote's id  (one per concept —
+//     "every important concept eventually gets its own evolving map";
+//     PermanentNotes ARE this app's "concepts," since a concept map
+//     "combines ideas from multiple books instead of belonging to one
+//     source," which is exactly what a PermanentNote's own
+//     booksReferenced/articlesReferenced/relatedConceptIds already do)
+// computeMindMapLayout() (a pure tidy-tree layout function, unchanged
+// from the prior model) works identically across all three levels since
+// it only ever depends on parentId/order, never on mapLevel/scopeId.
 //
-// Progressive Summarization is modeled as four real layers on a Note:
-//   Layer 1 (raw capture)      -> note.rawContent
-//   Layer 2 (bold key passages) -> note.excerpts[] with layer:1
-//   Layer 3 (highlight the bold) -> the same excerpts, promoted to layer:2
-//   Layer 4 (mini-summary, own words) -> note.summary
-//   Layer 5 (synthesis / essay) -> note.synthesis
-// matching the funnel's own Highlighting/Summarizing/Synthesis stages.
+// The Knowledge Graph (per-department AND global) is computed, never
+// stored — buildDepartmentGraph()/buildGlobalGraph() below walk every
+// collection's own cross-references (PermanentNote.booksReferenced/
+// articlesReferenced/relatedConceptIds/questionIds/projectIds) into a
+// {nodes, edges} pair on every call. This is what "automatically
+// connect" means in practice — there is no second, separately-maintained
+// graph data structure that could drift from the real records. The one
+// thing that ISN'T automatically derivable is a cross-department link
+// (Psychology -> Neuroscience -> AI) since nothing in one department's
+// own data structurally points at another department — that's the small
+// CrossLinks collection, which powers both a department's own
+// "Connections" section and the Global graph's cross-department edges.
 //
-// Linking notes ("a dynamic web of ideas"): a note can carry an explicit
-// links[] array (other note ids) AND/OR [[Wiki Title]] mentions inside its
-// own text fields, resolved case-insensitively against every other note's
-// title — same [[...]] mention + backlinks mechanism
-// learning-dashboard.html's own Master Notes already established in this
-// app, reimplemented here (no cross-file import mechanism exists — see
-// CLAUDE.md §1) rather than shared.
+// AI Integration follows this app's own established "real fetch() if a
+// key is configured, always a genuinely useful local fallback otherwise"
+// pattern (Main Pillar's Briefs, Fitness Studio's AI Coach). The actual
+// network call lives in knowledge-hub.html (a page-level fetch, matching
+// every other AI feature in this app); this file only builds the prompt
+// text and computes the local fallback, both pure functions of real
+// stored data — see buildAiPrompt()/aiLocalFallback() near the bottom.
 // =============================================================
 (function () {
   'use strict';
 
+  // ---------- Storage primitives (same shape as every other -data.js) ----------
   function storeGet(key, fallback) {
     try {
       var v = JSON.parse(localStorage.getItem(key));
       return v == null ? fallback : v;
     } catch (e) { return fallback; }
   }
-  // Same honest-save-signal storeSet() as every other page's own
-  // -data.js (entertainment-dash-data.js, entertainment-hub-data.js,
-  // etc.) — a failed write (most likely: this origin's shared
-  // localStorage quota is full, a documented recurring issue in this
-  // app — see photo-store.js's own header) now dispatches a 'kh:save'
-  // event either way, instead of vanishing silently with nothing for
-  // the page (or the user) to react to.
+  // Same honest-save-signal storeSet() as every other page's own -data.js
+  // (a failed write — most likely this origin's shared localStorage quota
+  // — dispatches a 'kh:save' event either way instead of vanishing
+  // silently, so knowledge-hub.html can show a dismissible banner).
   function storeSet(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -71,9 +91,14 @@
   }
   function uid(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
   function nowIso() { return new Date().toISOString(); }
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
   function str(v, fallback) { return typeof v === 'string' ? v : (fallback || ''); }
   function num(v, fallback) { return typeof v === 'number' && !isNaN(v) ? v : fallback; }
+  function bool(v) { return !!v; }
   function arr(v) { return Array.isArray(v) ? v.slice() : []; }
+  function idArr(v) { return arr(v).filter(function (x) { return typeof x === 'string' && x; }); }
+  function pick(v, allowed, fallback) { return allowed.indexOf(v) !== -1 ? v : fallback; }
+  function clampPct(v) { return Math.max(0, Math.min(100, Math.round(num(v, 0)))); }
 
   function makeCollection(key, model) {
     function list() { return storeGet(key, []); }
@@ -88,12 +113,6 @@
       add: function (data) {
         var rec = model(data || {});
         var l = list(); l.push(rec);
-        // save()/storeSet() return true/false now — a caller that ignores
-        // this still behaves exactly as before on success; on a genuine
-        // write failure (most likely a full localStorage quota) it now
-        // gets null back instead of a record that looks saved but isn't,
-        // and the page-wide 'kh:save' listener has already shown a
-        // banner by the time this returns.
         return save(l) ? rec : null;
       },
       update: function (id, patch) {
@@ -112,397 +131,583 @@
   }
 
   // ---------- Fixed vocabularies ----------
-  var STAGES = [
-    { key: 'inbox', label: 'Inbox', icon: '📥', hint: 'Capture media like articles, YouTube videos, etc.' },
-    { key: 'toreview', label: 'To Review', icon: '🔖', hint: 'Tag notes ready for reading, watching, or reviewing.' },
-    { key: 'highlighting', label: 'Highlighting', icon: '🖍️', hint: "Notes you've started highlighting and surfacing valuable information." },
-    { key: 'summarizing', label: 'Summarizing', icon: '✏️', hint: "Notes you've started annotating with your own ideas & opinions." },
-    { key: 'synthesis', label: 'Synthesis', icon: '💡', hint: "Notes you've created original ideas & essays from." }
+  var RESOURCE_TYPES = [
+    { key: 'book', label: 'Books', icon: '📚' },
+    { key: 'article', label: 'Articles', icon: '📄' },
+    { key: 'paper', label: 'Research Papers', icon: '🔬' },
+    { key: 'video', label: 'Videos', icon: '🎬' },
+    { key: 'podcast', label: 'Podcasts', icon: '🎙️' },
+    { key: 'course', label: 'Courses', icon: '🎓' },
+    { key: 'website', label: 'Websites', icon: '🌐' },
+    { key: 'pdf', label: 'PDFs', icon: '📑' },
+    { key: 'bookmark', label: 'Bookmarks', icon: '🔖' },
+    { key: 'ai-conversation', label: 'AI Conversations', icon: '🤖' },
+    { key: 'expert', label: 'Experts', icon: '🧑‍🏫' },
+    { key: 'interview', label: 'Interviews', icon: '🎤' },
+    { key: 'dataset', label: 'Datasets', icon: '📊' }
   ];
-  var STAGE_KEYS = STAGES.map(function (s) { return s.key; });
+  var RESOURCE_TYPE_KEYS = RESOURCE_TYPES.map(function (t) { return t.key; });
 
-  var TYPES = [
-    { key: 'jot', label: 'Jot', icon: '⚡' },
-    { key: 'note', label: 'Note', icon: '📝' },
-    { key: 'highlight', label: 'Highlight', icon: '🖍️' },
-    { key: 'article', label: 'Article', icon: '📄' },
-    { key: 'video', label: 'Video', icon: '🎬' },
+  // The Reading Pipeline Kanban — "completed resources should never
+  // disappear," so `mastered` is a real, permanently-visible column, not
+  // an archive. `completedAt` is stamped the moment a resource first
+  // enters `mastered` (see Resources.update's onSave hook below) and is
+  // what every "completed" Milestone/Progress stat actually counts.
+  var PIPELINE_STAGES = [
+    { key: 'inbox', label: 'Inbox', icon: '📥' },
+    { key: 'want', label: 'Want to Read', icon: '🗂️' },
+    { key: 'reading', label: 'Reading', icon: '📖' },
+    { key: 'highlighting', label: 'Highlighting', icon: '🖍️' },
+    { key: 'summarizing', label: 'Summarizing', icon: '✏️' },
+    { key: 'permanentnotes', label: 'Creating Permanent Notes', icon: '🗒️' },
+    { key: 'connecting', label: 'Connecting', icon: '🕸️' },
+    { key: 'mastered', label: 'Mastered', icon: '🏆' }
+  ];
+  var PIPELINE_STAGE_KEYS = PIPELINE_STAGES.map(function (s) { return s.key; });
+
+  var QUESTION_TYPES = [
+    { key: 'dont-understand', label: "Don't Understand", icon: '❓' },
+    { key: 'contradiction', label: 'Contradiction', icon: '⚡' },
+    { key: 'research-idea', label: 'Research Idea', icon: '💡' },
+    { key: 'hypothesis', label: 'Hypothesis', icon: '🧪' },
+    { key: 'experiment', label: 'Experiment', icon: '🔭' },
+    { key: 'verify', label: 'To Verify', icon: '✔️' }
+  ];
+  var QUESTION_TYPE_KEYS = QUESTION_TYPES.map(function (t) { return t.key; });
+
+  var RESEARCH_TYPES = [
+    { key: 'investigation', label: 'Current Investigation' },
+    { key: 'paper', label: 'Research Paper' },
+    { key: 'idea', label: 'Idea' },
+    { key: 'hypothesis', label: 'Hypothesis' },
+    { key: 'experiment', label: 'Experiment' },
+    { key: 'reading', label: 'Future Reading' },
+    { key: 'reference', label: 'Academic Reference' },
+    { key: 'bibliography', label: 'Bibliography Entry' }
+  ];
+  var RESEARCH_TYPE_KEYS = RESEARCH_TYPES.map(function (t) { return t.key; });
+
+  var OBJECTIVE_KINDS = [
+    { key: 'learning-goal', label: 'Learning Goal' },
+    { key: 'current-objective', label: 'Current Objective' },
+    { key: 'long-term-goal', label: 'Long-Term Goal' },
+    { key: 'skill-milestone', label: 'Skill Milestone' },
+    { key: 'competency', label: 'Competency' }
+  ];
+  var OBJECTIVE_KIND_KEYS = OBJECTIVE_KINDS.map(function (o) { return o.key; });
+
+  // The generatable/reorderable content blocks that make up a Resource or
+  // Permanent Note page (see Sections below) — a Notion-style page-body
+  // block set: a plain text block, a pull-quote, a collapsible toggle
+  // (a heading you can expand/collapse, e.g. "Highlights"), and a
+  // video/article reference card.
+  var SECTION_KINDS = [
+    { key: 'text', label: 'Text', icon: '📝' },
     { key: 'quote', label: 'Quote', icon: '💬' },
-    { key: 'book', label: 'Book', icon: '📚' }
+    { key: 'toggle', label: 'Toggle (Collapsible)', icon: '▸' },
+    { key: 'media', label: 'Video / Article', icon: '🎬' }
   ];
-  var TYPE_KEYS = TYPES.map(function (t) { return t.key; });
+  var SECTION_KIND_KEYS = SECTION_KINDS.map(function (s) { return s.key; });
 
-  // Every capture type routes automatically into its own notebook the
-  // first time that type is ever captured — findOrCreateNotebook() below
-  // creates it on demand, so a fresh install starts with zero notebooks
-  // rather than a pile of empty ones.
-  var TYPE_NOTEBOOK_MAP = {
-    jot: { name: 'Quick Jots', icon: '⚡' },
-    note: { name: 'General Notes', icon: '🗒️' },
-    highlight: { name: 'Highlights', icon: '🖍️' },
-    article: { name: 'Articles', icon: '📄' },
-    video: { name: 'Videos', icon: '🎬' },
-    quote: { name: 'Quotes', icon: '💬' },
-    book: { name: 'Books', icon: '📚' }
-  };
+  var MAP_LEVELS = ['master', 'resource', 'concept'];
 
-  // Today's Focus phase vocabulary — deliberately its own fixed set, not
-  // the funnel STAGES above: this names where you are in a single study
-  // session (Discover a topic -> Understand it -> Connect it to what you
-  // already know -> Create something from it), not which stage a capture
-  // has reached in the longer-lived funnel.
-  var FOCUS_PHASES = [
-    { key: 'discover', label: 'Discover', icon: '🔍' },
-    { key: 'understand', label: 'Understand', icon: '💡' },
-    { key: 'connect', label: 'Connect', icon: '🕸️' },
-    { key: 'create', label: 'Create', icon: '✨' }
+  // The 11 fixed department "university departments." Not user-addable/
+  // removable (a real DEPARTMENT_DEFS-backfill runs on every boot via
+  // ensureDepartmentsExist() below, the same idempotent "ensure X exists"
+  // precedent this app has used before — ensureWritingDashboardExists(),
+  // ensureAnxietyTabExists(), ensureDashboardBusinessesExist()) — but
+  // every field below is still just a starting DEFAULT, fully editable
+  // per-department afterward via Departments.update().
+  //
+  // `subfields` seeds that department's Master Subject Map (Level 1) —
+  // "the table of contents for the entire field," per the spec's own
+  // Psychology example — as a real, disclosed starting point, not a
+  // fixed taxonomy the user is stuck with; every branch is freely
+  // editable/addable/removable once seeded, same as any other mind map.
+  var DEPARTMENT_DEFS = [
+    { id: 'psychology', icon: '🧠', name: 'Human Psychology & Neuroscience',
+      quote: 'The mind is not a vessel to be filled, but a fire to be kindled.',
+      mission: 'Understand how the human mind works — cognition, emotion, behavior, and the brain that produces them — well enough to explain it simply and use it wisely.',
+      subfields: ['Cognitive Psychology', 'Developmental Psychology', 'Clinical Psychology', 'Social Psychology', 'Behavioral Psychology', 'Neuroscience', 'Personality Theory'] },
+    { id: 'wealth', icon: '💰', name: 'Wealth Accumulation & Entrepreneurship',
+      quote: 'Wealth is the transfer of value, multiplied by trust, over time.',
+      mission: 'Build a durable, first-principles understanding of how value is created, captured, and compounded — in markets, in businesses, and across a career.',
+      subfields: ['Investing & Markets', 'Business Strategy', 'Sales & Negotiation', 'Startups & Venture', 'Personal Finance', 'Economics', 'Leadership'] },
+    { id: 'ai', icon: '🤖', name: 'Artificial Intelligence',
+      quote: 'The question of whether a computer can think is no more interesting than whether a submarine can swim.',
+      mission: 'Track AI from first principles to the frontier — models, tooling, and the judgment to know where it genuinely helps.',
+      subfields: ['Machine Learning Foundations', 'Large Language Models', 'Prompt Engineering', 'AI Agents & Tools', 'AI Ethics & Alignment', 'Applied AI Products'] },
+    { id: 'metaphysics', icon: '⚛️', name: 'Metaphysics & Quantum Physics',
+      quote: 'Reality is not what it seems.',
+      mission: 'Explore the nature of reality — from the philosophy of being to the strange, well-tested mechanics of the quantum world.',
+      subfields: ['Ontology & Being', 'Quantum Mechanics', 'Consciousness Studies', 'Philosophy of Time', 'Cosmology', 'Determinism & Free Will'] },
+    { id: 'spiritual', icon: '🔮', name: 'Spiritual Practices & Esotericism',
+      quote: 'As above, so below.',
+      mission: "Study the world's contemplative and esoteric traditions with an open, critical mind — practice over dogma, direct experience over hearsay.",
+      subfields: ['Meditation & Contemplation', 'Hermeticism', 'Eastern Philosophy', 'Western Esotericism', 'Ritual & Symbolism', 'Energy Practices'] },
+    { id: 'selfdev', icon: '🌱', name: 'Self-Development',
+      quote: 'You do not rise to the level of your goals — you fall to the level of your systems.',
+      mission: 'Build the internal operating system — habits, identity, discipline, and self-knowledge — that everything else in life runs on top of.',
+      subfields: ['Habit Formation', 'Identity & Values', 'Discipline & Willpower', 'Emotional Intelligence', 'Goal Systems', 'Productivity'] },
+    { id: 'photography', icon: '📸', name: 'Photography & Videography',
+      quote: 'A photograph is a secret about a secret.',
+      mission: 'Develop a real, practiced eye and technical fluency across still and motion image-making.',
+      subfields: ['Composition & Light', 'Camera & Lens Technique', 'Color Grading & Editing', 'Cinematography', 'Portrait & Street', 'Gear & Workflow'] },
+    { id: 'history', icon: '🏛', name: 'History',
+      quote: 'Those who cannot remember the past are condemned to repeat it.',
+      mission: 'Build a working map of how civilizations rose, decided, and fell — and which patterns actually repeat.',
+      subfields: ['Ancient Civilizations', 'Empires & Geopolitics', 'Wars & Revolutions', 'Economic History', 'History of Ideas', 'Modern History'] },
+    { id: 'astrology', icon: '✨', name: 'Astrology & Numerology',
+      quote: 'The stars incline, they do not compel.',
+      mission: 'Learn the symbolic systems of astrology and numerology deeply enough to read charts and numbers with real fluency, not surface-level cookbook interpretation.',
+      subfields: ['Natal Chart Reading', 'Planetary Transits', 'Houses & Aspects', 'Numerology Systems', 'Synastry & Compatibility', 'Predictive Techniques'] },
+    { id: 'writing', icon: '✍️', name: 'Persuasive Communication & Writing',
+      quote: 'The pen is mightier than the sword, but the tongue is mightier than both.',
+      mission: 'Master the craft of moving people with words — spoken and written — through structure, rhetoric, and honest persuasion.',
+      subfields: ['Copywriting', 'Rhetoric & Argument', 'Storytelling Structure', 'Public Speaking', 'Editing & Style', 'Negotiation Language'] },
+    { id: 'health', icon: '🌿', name: 'Holistic Health & Alternative Healing',
+      quote: 'The natural healing force within each of us is the greatest force in getting well.',
+      mission: 'Understand the body as one connected system — nutrition, movement, sleep, and the alternative modalities worth taking seriously.',
+      subfields: ['Nutrition & Metabolism', 'Sleep Science', 'Functional Movement', 'Traditional Medicine Systems', 'Herbalism', 'Mind-Body Practices'] }
   ];
-
-  // Creation Lab — "use the knowledge you've gathered and create Articles,
-  // Essays, Mind Maps, etc." A Creation is deliberately lightweight (a
-  // title/type/body/linked-notes record, same shape as everything else in
-  // this file) rather than a second full editor per type — a disclosed
-  // simplification, same spirit as this page's own Connections graph
-  // already being a lighter version of learning-dashboard.html's fuller
-  // canvas. A "Mind Map" Creation is a free-text idea capture, not the
-  // real node-graph engine below — that engine is scoped to each
-  // notebook's own Active Research Hub, per the request's own framing.
-  var CREATION_TYPES = [
-    { key: 'article', label: 'Article', icon: '📄' },
-    { key: 'essay', label: 'Essay', icon: '✍️' },
-    { key: 'mindmap', label: 'Mind Map', icon: '🧠' },
-    { key: 'other', label: 'Other', icon: '✨' }
-  ];
-  var CREATION_TYPE_KEYS = CREATION_TYPES.map(function (t) { return t.key; });
+  var DEPARTMENT_IDS = DEPARTMENT_DEFS.map(function (d) { return d.id; });
+  function departmentDef(id) {
+    for (var i = 0; i < DEPARTMENT_DEFS.length; i++) if (DEPARTMENT_DEFS[i].id === id) return DEPARTMENT_DEFS[i];
+    return null;
+  }
 
   // ---------- Models ----------
-  function notebookModel(data) {
+  function departmentModel(data) {
     data = data || {};
-    var pct = num(data.progressPct, 0);
-    pct = Math.max(0, Math.min(100, Math.round(pct)));
+    var def = departmentDef(data.id) || {};
     return {
-      id: data.id || uid('nb'),
-      name: str(data.name, 'Untitled Notebook'),
-      icon: str(data.icon, '📓'),
-      color: str(data.color, '#c9a876'),
-      description: str(data.description, ''),
-      // Learning Progress — a manual 0-100% tracker, same "manual slider,
-      // not target/current math" precedent this app's other mastery-style
-      // bars already use (e.g. Business OS's Goal Center) — a topic
-      // doesn't have a single measurable "current" value to derive this
-      // from, so it's set directly.
-      progressPct: pct,
+      id: data.id || uid('dept'),
+      icon: str(data.icon, def.icon || '🏛'),
+      name: str(data.name, def.name || 'Untitled Department'),
+      quote: str(data.quote, def.quote || ''),
+      mission: str(data.mission, def.mission || ''),
+      currentFocus: str(data.currentFocus, ''),
+      // Overall Progress + Estimated Mastery share one manual slider —
+      // same "manual slider, not target/current math" precedent this
+      // app's other mastery-style bars already use (e.g. the prior
+      // Notebook.progressPct, Business OS's Goal Center): a discipline
+      // has no single measurable "current" value to derive this from.
+      masteryPct: clampPct(data.masteryPct),
+      order: num(data.order, DEPARTMENT_IDS.indexOf(data.id)),
+      createdAt: data.createdAt || nowIso()
+    };
+  }
+
+  // Every resource/note "page" is a Notion-style document — an icon,
+  // an optional cover photo, a title, a handful of structured properties,
+  // and then a generatable/reorderable list of content blocks (Sections,
+  // below). `summary`/`review` (Resource) and `definition`/`explanation`/
+  // `examples`/`applications`/`connections`/`aiDiscussion` (PermanentNote)
+  // used to be fixed textarea fields on these models — per an explicit
+  // follow-up request ("make sure everything in the notes and permanent
+  // notes can be generated and moved"), all of that prose content is now
+  // just ordinary `text`-kind Sections instead, so it's addable/
+  // reorderable/deletable exactly like everything else on the page. Only
+  // genuinely structured/relational data (type, stage, dates, rating,
+  // tags, and the cross-reference id arrays) stays a real model field.
+  function resourceModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('res'),
+      departmentId: str(data.departmentId, ''),
+      type: pick(data.type, RESOURCE_TYPE_KEYS, 'book'),
+      title: str(data.title, 'Untitled Resource'),
+      creator: str(data.creator, ''),
+      url: str(data.url, ''),
+      cover: str(data.cover, ''),
+      stage: pick(data.stage, PIPELINE_STAGE_KEYS, 'inbox'),
+      progressPct: clampPct(data.progressPct),
+      currentChapter: str(data.currentChapter, ''),
+      nextChapter: str(data.nextChapter, ''),
+      estCompletion: str(data.estCompletion, ''),
+      lastStudied: str(data.lastStudied, ''),
+      dateStarted: str(data.dateStarted, ''),
+      dateFinished: str(data.dateFinished, ''),
+      rating: Math.max(0, Math.min(5, num(data.rating, 0))),
+      tags: idArr(data.tags),
+      order: num(data.order, Date.now()),
+      createdAt: data.createdAt || nowIso(),
+      completedAt: str(data.completedAt, '')
+    };
+  }
+
+  // A Resource or Permanent Note page's own generatable, reorderable body
+  // content — one generic item collection filtered by `scope`+`scopeId`
+  // (`resource`|`note`) and `kind` (text/quote/toggle/media), the same
+  // "one generic model, filtered many ways" precedent this file's own
+  // header comment already cites, rather than a separate collection per
+  // entity type or block kind. `collapsed` only matters for `toggle`
+  // blocks (a real Notion-style disclosure triangle).
+  function sectionModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('sec'),
+      scope: pick(data.scope, ['resource', 'note'], 'resource'),
+      scopeId: str(data.scopeId, ''),
+      kind: pick(data.kind, SECTION_KIND_KEYS, 'text'),
+      title: str(data.title, ''),
+      text: str(data.text, ''),
+      url: str(data.url, ''),
+      collapsed: !!data.collapsed,
       order: num(data.order, Date.now()),
       createdAt: data.createdAt || nowIso()
     };
   }
 
-  function noteModel(data) {
+  // PermanentNotes ARE this system's "concepts" — a Permanent Note about
+  // "Memory" builds its own definition/explanation/examples/applications
+  // out of ordinary Sections (see above), which is exactly what the
+  // spec's own Concept Map example describes ("combine ideas from
+  // multiple books instead of belonging to one source"). Everything left
+  // as a real field here is structured/relational, not prose:
+  // `relatedConceptIds` is what actually drives note<->note edges in the
+  // Knowledge Graph.
+  function permanentNoteModel(data) {
     data = data || {};
     return {
       id: data.id || uid('note'),
-      title: str(data.title, 'Untitled'),
-      type: TYPE_KEYS.indexOf(data.type) !== -1 ? data.type : 'note',
-      stage: STAGE_KEYS.indexOf(data.stage) !== -1 ? data.stage : 'inbox',
-      notebookId: str(data.notebookId, ''),
-      sourceUrl: str(data.sourceUrl, ''),
-      author: str(data.author, ''),
+      departmentId: str(data.departmentId, ''),
+      title: str(data.title, 'Untitled Concept'),
       cover: str(data.cover, ''),
-      rawContent: str(data.rawContent, ''),
-      // excerpts[]: {id, text, layer: 1 (bold) | 2 (highlighted/promoted), createdAt}
-      excerpts: arr(data.excerpts).filter(function (e) { return e && typeof e.text === 'string'; }),
-      summary: str(data.summary, ''),
-      synthesis: str(data.synthesis, ''),
-      tags: arr(data.tags).filter(function (t) { return typeof t === 'string' && t; }),
-      links: arr(data.links).filter(function (l) { return typeof l === 'string' && l; }),
-      favorite: !!data.favorite,
+      relatedConceptIds: idArr(data.relatedConceptIds),
+      booksReferenced: idArr(data.booksReferenced),
+      articlesReferenced: idArr(data.articlesReferenced),
+      questionIds: idArr(data.questionIds),
+      projectIds: idArr(data.projectIds),
+      sourceResourceId: str(data.sourceResourceId, ''),
+      tags: idArr(data.tags),
       order: num(data.order, Date.now()),
       createdAt: data.createdAt || nowIso(),
       updatedAt: nowIso()
     };
   }
 
-  function templateModel(data) {
+  function questionModel(data) {
     data = data || {};
     return {
-      id: data.id || uid('tpl'),
-      name: str(data.name, 'Untitled Template'),
-      icon: str(data.icon, '📄'),
-      type: TYPE_KEYS.indexOf(data.type) !== -1 ? data.type : 'note',
-      stage: STAGE_KEYS.indexOf(data.stage) !== -1 ? data.stage : 'inbox',
-      notebookName: str(data.notebookName, 'General Notes'),
-      notebookIcon: str(data.notebookIcon, '🗒️'),
-      prompts: arr(data.prompts).filter(function (p) { return typeof p === 'string' && p; }),
-      description: str(data.description, ''),
+      id: data.id || uid('q'),
+      departmentId: str(data.departmentId, ''),
+      type: pick(data.type, QUESTION_TYPE_KEYS, 'dont-understand'),
+      text: str(data.text, ''),
+      status: pick(data.status, ['open', 'answered'], 'open'),
+      resourceId: str(data.resourceId, ''),
+      notes: str(data.notes, ''),
       order: num(data.order, Date.now()),
-      builtin: !!data.builtin,
       createdAt: data.createdAt || nowIso()
     };
   }
 
-  // Active Research Hub — two mind maps per notebook (mapType 'topic' /
-  // 'questions'), both a flat parentId-linked tree in ONE collection
-  // (same flat-array-plus-foreign-key convention as everything else in
-  // this app, e.g. business-data.js's BinderNode) rather than a nested
-  // structure — a node's own children are just "every other node whose
-  // parentId === this node's id", computed on read (mindMapChildren()
-  // below), never stored as a nested list.
-  //
-  // Map 1 ("topic"): the general topic + branching sub-topics — plain
-  // title/notes per branch.
-  // Map 2 ("questions"): "linked with the first one and with the actual
-  // notebook" — the notebook link is implicit (notebookId, same as map
-  // 1); the map-1 link is explicit (linkedTopicNodeId, optional, a cross-
-  // reference to one node in that same notebook's topic map). Every real
-  // (non-root) node in this map carries the auto-generated "article"
-  // template the request specified verbatim: a Main Question plus six
-  // fixed follow-up prompts (Why?/How?/Evidence?/Opposing Views?/Missing
-  // Information?/Other questions) — see addMindMapBranch() below, which
-  // is what actually makes this "automatic": a brand new branch already
-  // has that shape the instant it's created, nothing extra to set up.
+  function researchItemModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('ri'),
+      departmentId: str(data.departmentId, ''),
+      type: pick(data.type, RESEARCH_TYPE_KEYS, 'investigation'),
+      title: str(data.title, 'Untitled'),
+      notes: str(data.notes, ''),
+      url: str(data.url, ''),
+      status: pick(data.status, ['active', 'done'], 'active'),
+      order: num(data.order, Date.now()),
+      createdAt: data.createdAt || nowIso()
+    };
+  }
+
+  // Project `type` is deliberately freeform text, not a fixed enum — the
+  // spec gives a genuinely different suggested project vocabulary per
+  // department (Psychology: Essay/Presentation/Teaching; AI: Prompt
+  // Engineering/Coding/Model Comparisons; Photography: Portfolio/Lighting
+  // Studies) — see PROJECT_TYPE_SUGGESTIONS below for a per-department
+  // quick-pick list that still leaves the field fully free.
+  function projectModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('proj'),
+      departmentId: str(data.departmentId, ''),
+      title: str(data.title, 'Untitled Project'),
+      type: str(data.type, ''),
+      status: pick(data.status, ['idea', 'in-progress', 'done'], 'idea'),
+      notes: str(data.notes, ''),
+      url: str(data.url, ''),
+      order: num(data.order, Date.now()),
+      createdAt: data.createdAt || nowIso(),
+      completedAt: str(data.completedAt, '')
+    };
+  }
+
+  function objectiveModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('obj'),
+      departmentId: str(data.departmentId, ''),
+      kind: pick(data.kind, OBJECTIVE_KIND_KEYS, 'learning-goal'),
+      title: str(data.title, ''),
+      notes: str(data.notes, ''),
+      status: pick(data.status, ['active', 'done'], 'active'),
+      order: num(data.order, Date.now()),
+      createdAt: data.createdAt || nowIso()
+    };
+  }
+
+  // One flat tree collection backs all THREE mind-map levels — see this
+  // file's own header comment for the mapLevel/scopeId scheme.
   function mindMapNodeModel(data) {
     data = data || {};
-    var a = data.article || {};
     return {
       id: data.id || uid('mm'),
-      notebookId: str(data.notebookId, ''),
-      mapType: data.mapType === 'questions' ? 'questions' : 'topic',
+      departmentId: str(data.departmentId, ''),
+      mapLevel: pick(data.mapLevel, MAP_LEVELS, 'master'),
+      scopeId: str(data.scopeId, ''),
       parentId: data.parentId || null,
       title: str(data.title, 'Untitled Branch'),
       notes: str(data.notes, ''),
-      linkedTopicNodeId: str(data.linkedTopicNodeId, ''),
-      article: {
-        mainQuestion: str(a.mainQuestion, ''),
-        why: str(a.why, ''),
-        how: str(a.how, ''),
-        evidence: str(a.evidence, ''),
-        opposingViews: str(a.opposingViews, ''),
-        missingInfo: str(a.missingInfo, ''),
-        other: str(a.other, '')
-      },
       order: num(data.order, Date.now()),
       createdAt: data.createdAt || nowIso()
     };
   }
 
-  // Permanent Knowledge Database — one record per notebook (a notebook
-  // *is* "a topic" in this app's own vocabulary — see Notebooks above),
-  // holding the nine sections the request named. Most sections are small
-  // item lists rather than one field each, since "Key Concepts"/
-  // "Definitions"/"Examples"/etc. are naturally many small entries, not
-  // one block of text — Summary is the one genuinely single-value field.
-  function permanentKnowledgeModel(data) {
-    data = data || {};
-    function items(list) { return arr(list).filter(function (x) { return x && typeof x === 'object'; }); }
-    return {
-      id: data.id || uid('pk'),
-      notebookId: str(data.notebookId, ''),
-      summary: str(data.summary, ''),
-      keyConcepts: items(data.keyConcepts),       // {id, text}
-      mentalModels: items(data.mentalModels),     // {id, text}
-      definitions: items(data.definitions),       // {id, term, definition}
-      examples: items(data.examples),             // {id, text}
-      analogies: items(data.analogies),           // {id, text}
-      quotes: items(data.quotes),                 // {id, text, source}
-      diagrams: items(data.diagrams),              // {id, url, caption}
-      linkedNoteIds: arr(data.linkedNoteIds).filter(function (id) { return typeof id === 'string' && id; }),
-      createdAt: data.createdAt || nowIso(),
-      updatedAt: nowIso()
-    };
-  }
-
-  function creationModel(data) {
+  // The Connections Section's cross-department links — "Psychology ->
+  // Neuroscience -> AI -> Entrepreneurship" — the one relationship
+  // nothing else in this file can derive automatically, since one
+  // department's records never structurally reference another's.
+  function crossLinkModel(data) {
     data = data || {};
     return {
-      id: data.id || uid('cr'),
-      title: str(data.title, 'Untitled Creation'),
-      type: CREATION_TYPE_KEYS.indexOf(data.type) !== -1 ? data.type : 'article',
-      body: str(data.body, ''),
-      notebookId: str(data.notebookId, ''),
-      linkedNoteIds: arr(data.linkedNoteIds).filter(function (id) { return typeof id === 'string' && id; }),
-      status: ['draft', 'in-progress', 'done'].indexOf(data.status) !== -1 ? data.status : 'draft',
+      id: data.id || uid('cl'),
+      fromDepartmentId: str(data.fromDepartmentId, ''),
+      toDepartmentId: str(data.toDepartmentId, ''),
+      label: str(data.label, ''),
       order: num(data.order, Date.now()),
-      createdAt: data.createdAt || nowIso(),
-      updatedAt: nowIso()
+      createdAt: data.createdAt || nowIso()
     };
   }
 
-  var Notebooks = makeCollection('kh:notebooks', notebookModel);
-  var Notes = makeCollection('kh:notes', noteModel);
-  var Templates = makeCollection('kh:templates', templateModel);
-  var MindMapNodes = makeCollection('kh:mindmapnodes', mindMapNodeModel);
-  var PermanentKnowledge = makeCollection('kh:permanentknowledge', permanentKnowledgeModel);
-  var Creations = makeCollection('kh:creations', creationModel);
-
-  // ---------- Selectors ----------
-  function notebooksSorted() { return Notebooks.list().slice().sort(function (a, b) { return a.order - b.order; }); }
-  function templatesSorted() { return Templates.list().slice().sort(function (a, b) { return a.order - b.order; }); }
-  function notesSorted() { return Notes.list().slice().sort(function (a, b) { return b.order - a.order; }); }
-  function notesForStage(stage) { return Notes.list().filter(function (n) { return n.stage === stage; }); }
-  function notesForNotebook(id) { return Notes.list().filter(function (n) { return n.notebookId === id; }); }
-  function notesForType(type) { return Notes.list().filter(function (n) { return n.type === type; }); }
-  function notebookName(id) { var nb = Notebooks.get(id); return nb ? nb.name : ''; }
-  function notebookIcon(id) { var nb = Notebooks.get(id); return nb ? nb.icon : '📓'; }
-  function stageMeta(key) { for (var i = 0; i < STAGES.length; i++) if (STAGES[i].key === key) return STAGES[i]; return STAGES[0]; }
-  function typeMeta(key) { for (var i = 0; i < TYPES.length; i++) if (TYPES[i].key === key) return TYPES[i]; return TYPES[1]; }
-
-  function findOrCreateNotebook(name, icon) {
-    var nbs = Notebooks.list();
-    for (var i = 0; i < nbs.length; i++) {
-      if (nbs[i].name.toLowerCase() === String(name).toLowerCase()) return nbs[i];
-    }
-    return Notebooks.add({ name: name, icon: icon || '📓', order: nbs.length ? Math.max.apply(null, nbs.map(function (n) { return n.order; })) + 1 : 0 });
-  }
-
-  function autoNotebookForType(type) {
-    var meta = TYPE_NOTEBOOK_MAP[type] || TYPE_NOTEBOOK_MAP.note;
-    return findOrCreateNotebook(meta.name, meta.icon);
-  }
-
-  // Quick Capture — the instant, mobile-friendly widget. Minimal fields,
-  // auto-files by type via autoNotebookForType(), always lands in Inbox
-  // (per the funnel's own definition — a fresh capture is unreviewed by
-  // definition, regardless of its type).
-  function quickCapture(opts) {
-    opts = opts || {};
-    var nb = autoNotebookForType(opts.type);
-    return Notes.add({
-      title: str(opts.title, '') || (str(opts.rawContent, '').slice(0, 60) || (typeMeta(opts.type).label + ' — ' + new Date().toLocaleDateString())),
-      type: opts.type || 'jot',
-      stage: 'inbox',
-      notebookId: nb.id,
-      sourceUrl: str(opts.sourceUrl, ''),
-      rawContent: str(opts.rawContent, '')
-    });
-  }
-
-  // Media Capture — URL-first flow. The actual oEmbed fetch is driven from
-  // knowledge-hub.html (same detectSource/getYouTubeId/oEmbed-fetch
-  // technique already ported into this app twice before —
-  // entertainment-hub-data.js originally, then fitnessstudio.html/
-  // gallery-card's own copies) since it's a network call, not a pure data
-  // function; this just files the resulting note once the caller has the
-  // fetched fields in hand.
-  function mediaCapture(opts) {
-    opts = opts || {};
-    var type = opts.type === 'video' ? 'video' : 'article';
-    var nb = autoNotebookForType(type);
-    return Notes.add({
-      title: str(opts.title, '') || 'Untitled ' + typeMeta(type).label,
-      type: type,
-      stage: 'inbox',
-      notebookId: nb.id,
-      sourceUrl: str(opts.url, ''),
-      author: str(opts.author, ''),
-      cover: str(opts.cover, ''),
-      rawContent: str(opts.description, '')
-    });
-  }
-
-  function createNoteFromTemplate(templateId, overrides) {
-    var tpl = Templates.get(templateId);
-    if (!tpl) return null;
-    var nb = findOrCreateNotebook(tpl.notebookName, tpl.notebookIcon);
-    overrides = overrides || {};
-    return Notes.add(Object.assign({
-      type: tpl.type,
-      stage: tpl.stage,
-      notebookId: nb.id,
-      title: tpl.name + ' — ' + new Date().toLocaleDateString()
-    }, overrides));
-  }
-
-  // ---------- Linking / "web of ideas" ----------
-  var WIKILINK_RE = /\[\[([^\]]+)\]\]/g;
-  function extractWikiTitles(text) {
-    var out = [], m;
-    WIKILINK_RE.lastIndex = 0;
-    while ((m = WIKILINK_RE.exec(String(text || '')))) out.push(m[1].trim());
-    return out;
-  }
-  function noteTextFields(note) {
-    return [note.rawContent, note.summary, note.synthesis]
-      .concat((note.excerpts || []).map(function (e) { return e.text; }))
-      .join('\n');
-  }
-  function resolveNoteByTitle(title) {
-    var t = String(title || '').trim().toLowerCase();
-    var l = Notes.list();
-    for (var i = 0; i < l.length; i++) if (l[i].title.trim().toLowerCase() === t) return l[i];
-    return null;
-  }
-  // Outgoing = explicit links[] plus every [[Title]] mention across the
-  // note's own text fields that resolves to a real note. Backlinks = every
-  // OTHER note that links to (or wiki-mentions) this one. Both dedup'd by id.
-  function connectionsFor(noteId) {
-    var note = Notes.get(noteId);
-    if (!note) return { outgoing: [], backlinks: [] };
-    var outIds = {};
-    (note.links || []).forEach(function (id) { if (Notes.get(id)) outIds[id] = true; });
-    extractWikiTitles(noteTextFields(note)).forEach(function (title) {
-      var t = resolveNoteByTitle(title);
-      if (t && t.id !== noteId) outIds[t.id] = true;
-    });
-    var backIds = {};
-    Notes.list().forEach(function (n) {
-      if (n.id === noteId) return;
-      if ((n.links || []).indexOf(noteId) !== -1) { backIds[n.id] = true; return; }
-      var titles = extractWikiTitles(noteTextFields(n));
-      for (var i = 0; i < titles.length; i++) {
-        if (titles[i].trim().toLowerCase() === note.title.trim().toLowerCase()) { backIds[n.id] = true; break; }
-      }
-    });
+  // A single logged study session — the concrete, honest source for
+  // "Learning Streak," "Hours Studied," and "Recently Studied," rather
+  // than fabricating those from nothing. A quick "+ Log Study Session"
+  // action on a department's Overview adds one for today.
+  function studySessionModel(data) {
+    data = data || {};
     return {
-      outgoing: Object.keys(outIds).map(function (id) { return Notes.get(id); }).filter(Boolean),
-      backlinks: Object.keys(backIds).map(function (id) { return Notes.get(id); }).filter(Boolean)
+      id: data.id || uid('ss'),
+      departmentId: str(data.departmentId, ''),
+      minutes: Math.max(1, num(data.minutes, 25)),
+      note: str(data.note, ''),
+      dateStr: str(data.dateStr, todayStr()),
+      createdAt: data.createdAt || nowIso()
     };
   }
-  // Every note that has at least one connection either direction — powers
-  // the Connections graph's default "only connected" view.
-  function allConnectedNoteIds() {
-    var ids = {};
-    Notes.list().forEach(function (n) {
-      var c = connectionsFor(n.id);
-      if (c.outgoing.length || c.backlinks.length) ids[n.id] = true;
-    });
-    return Object.keys(ids);
+
+  var Departments = makeCollection('kh:departments', departmentModel);
+  var Resources = makeCollection('kh:resources', resourceModel);
+  var Sections = makeCollection('kh:sections', sectionModel);
+  var PermanentNotes = makeCollection('kh:permanentnotes', permanentNoteModel);
+  var Questions = makeCollection('kh:questions', questionModel);
+  var ResearchItems = makeCollection('kh:research', researchItemModel);
+  var Projects = makeCollection('kh:projects', projectModel);
+  var Objectives = makeCollection('kh:objectives', objectiveModel);
+  var MindMapNodes = makeCollection('kh:mindmapnodes', mindMapNodeModel);
+  var CrossLinks = makeCollection('kh:crosslinks', crossLinkModel);
+  var StudySessions = makeCollection('kh:studysessions', studySessionModel);
+
+  // Resource type -> a resource being "mastered" also counts toward this
+  // milestone bucket — used by milestonesFor() below.
+  var MILESTONE_TYPE_MAP = { book: 'booksCompleted', article: 'articlesStudied', paper: 'researchPapers', course: 'coursesCompleted' };
+
+  // A resource entering `mastered` for the first time stamps completedAt
+  // — same "stamp on entering, don't touch again" precedent this app's
+  // own chore-completion/bucket-list-completion timestamps already use.
+  function setResourceStage(id, stage) {
+    var r = Resources.get(id);
+    if (!r) return null;
+    var patch = { stage: stage };
+    if (stage === 'mastered' && !r.completedAt) patch.completedAt = nowIso();
+    if (stage !== 'mastered') patch.completedAt = r.completedAt; // untouched otherwise
+    return Resources.update(id, patch);
   }
 
-  // ---------- Active Research Hub (Mind Maps) ----------
-  function mindMapNodesForNotebook(notebookId, mapType) {
-    return MindMapNodes.list().filter(function (n) { return n.notebookId === notebookId && n.mapType === mapType; });
+  // ---------- Selectors: departments ----------
+  function departmentsSorted() { return Departments.list().slice().sort(function (a, b) { return a.order - b.order; }); }
+  function departmentName(id) { var d = Departments.get(id); return d ? d.name : ''; }
+  function departmentIcon(id) { var d = Departments.get(id); return d ? d.icon : '🏛'; }
+  // Idempotent backfill — same "ensure X exists" precedent as
+  // ensureWritingDashboardExists()/ensureAnxietyTabExists() elsewhere in
+  // this app: adds any of the 11 fixed departments missing from storage
+  // (e.g. a device that pulled an older remote row) without ever
+  // touching one that already exists, so a customized quote/mission is
+  // never overwritten.
+  function ensureDepartmentsExist() {
+    var existingIds = {};
+    Departments.list().forEach(function (d) { existingIds[d.id] = true; });
+    DEPARTMENT_DEFS.forEach(function (def, i) {
+      if (!existingIds[def.id]) Departments.add({ id: def.id, order: i });
+    });
   }
-  function mindMapChildren(notebookId, mapType, parentId) {
-    return mindMapNodesForNotebook(notebookId, mapType)
-      .filter(function (n) { return n.parentId === parentId; })
+
+  // ---------- Selectors: resources / pipeline ----------
+  function resourcesFor(departmentId) { return Resources.list().filter(function (r) { return r.departmentId === departmentId; }); }
+  function resourcesSorted(departmentId) { return resourcesFor(departmentId).sort(function (a, b) { return b.order - a.order; }); }
+  function resourcesByStage(departmentId, stage) { return resourcesFor(departmentId).filter(function (r) { return r.stage === stage; }); }
+  function currentLearningFor(departmentId) { return resourcesFor(departmentId).filter(function (r) { return r.stage === 'reading'; }); }
+  function resourceTypeMeta(key) { for (var i = 0; i < RESOURCE_TYPES.length; i++) if (RESOURCE_TYPES[i].key === key) return RESOURCE_TYPES[i]; return RESOURCE_TYPES[0]; }
+  function pipelineStageMeta(key) { for (var i = 0; i < PIPELINE_STAGES.length; i++) if (PIPELINE_STAGES[i].key === key) return PIPELINE_STAGES[i]; return PIPELINE_STAGES[0]; }
+
+  // scope = 'resource'|'note', scopeId = that record's own id. Every
+  // Resource/Note page's whole body is `sectionsFor(scope, scopeId)`, in
+  // one shared order across every kind — so drag-reordering can freely
+  // interleave a Text block, a Quote, a Toggle, and a Media card, exactly
+  // like a real Notion page.
+  function sectionsFor(scope, scopeId) {
+    return Sections.list().filter(function (s) { return s.scope === scope && s.scopeId === scopeId; })
       .sort(function (a, b) { return a.order - b.order; });
   }
-  // Every notebook gets its root branch created lazily, on first visit —
-  // same "created on demand, not pre-populated on every notebook" spirit
-  // as findOrCreateNotebook() itself.
-  function ensureMindMapRoot(notebookId, mapType) {
-    var existing = mindMapNodesForNotebook(notebookId, mapType).filter(function (n) { return !n.parentId; });
-    if (existing.length) return existing[0];
-    var nb = Notebooks.get(notebookId);
-    var title = mapType === 'questions' ? 'Questions & Connections' : (nb ? nb.name : 'Topic');
-    return MindMapNodes.add({ notebookId: notebookId, mapType: mapType, parentId: null, title: title, order: 0 });
+  function addSection(scope, scopeId, kind, patch) {
+    var siblings = sectionsFor(scope, scopeId);
+    return Sections.add(Object.assign({ scope: scope, scopeId: scopeId, kind: kind, order: siblings.length ? siblings[siblings.length - 1].order + 1 : 0 }, patch || {}));
   }
-  // The literal "automatic template page" the request asked for: a brand
-  // new branch in the questions map is born already shaped like the
-  // article (an empty Main Question + the six fixed prompts) — there's no
-  // separate "generate the template" step, it's inherent to creating the
-  // branch at all.
-  function addMindMapBranch(notebookId, mapType, parentId) {
-    var siblings = mindMapChildren(notebookId, mapType, parentId);
-    return MindMapNodes.add({
-      notebookId: notebookId, mapType: mapType, parentId: parentId,
-      title: mapType === 'questions' ? 'New Question' : 'New Branch',
-      order: siblings.length
+  // Up/down arrows (an accessible alternative to the page's own drag
+  // reorder — see GlassTheme.wireMovableSections() in knowledge-hub.html).
+  function moveSection(id, dir) {
+    var s = Sections.get(id); if (!s) return;
+    var sib = sectionsFor(s.scope, s.scopeId);
+    var idx = sib.findIndex(function (x) { return x.id === id; });
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sib.length) return;
+    var a = sib[idx], b = sib[swapIdx];
+    Sections.update(a.id, { order: b.order });
+    Sections.update(b.id, { order: a.order });
+  }
+  // The drag-reorder persistence callback — reassigns sequential order
+  // values to match the new DOM order exactly.
+  function reorderSections(scope, scopeId, orderedIds) {
+    orderedIds.forEach(function (id, i) {
+      var s = Sections.get(id);
+      if (s && s.scope === scope && s.scopeId === scopeId) Sections.update(id, { order: i });
     });
   }
-  // Deleting a branch takes its whole subtree with it (a dangling branch
-  // whose parent no longer exists would just orphan the tree) — never
-  // touches the map's own root.
+  function toggleSectionCollapsed(id) { var s = Sections.get(id); if (s) Sections.update(id, { collapsed: !s.collapsed }); }
+
+  // Seeds a couple of starting blocks the first time a Resource/Note page
+  // is opened with zero sections — the same "generated on first visit,
+  // fully editable afterward" precedent business.html's own Platform
+  // Detail pages already established, so a brand-new page never opens
+  // completely blank.
+  var RESOURCE_DEFAULT_SECTIONS = [{ kind: 'text', title: 'Summary' }];
+  var NOTE_DEFAULT_SECTIONS = [{ kind: 'text', title: 'Definition' }, { kind: 'text', title: 'Explanation' }];
+  function ensureDefaultSections(scope, scopeId) {
+    if (sectionsFor(scope, scopeId).length) return;
+    (scope === 'note' ? NOTE_DEFAULT_SECTIONS : RESOURCE_DEFAULT_SECTIONS).forEach(function (d) { addSection(scope, scopeId, d.kind, { title: d.title }); });
+  }
+  // A cheap "what is this thing actually about" text snippet — used by
+  // the AI Assistant's local fallbacks and anywhere else that used to
+  // read a note's own removed `definition`/`explanation` field directly.
+  function primaryTextFor(scope, scopeId) {
+    var secs = sectionsFor(scope, scopeId).filter(function (s) { return s.kind === 'text' || s.kind === 'toggle'; });
+    return secs.length ? secs[0].text : '';
+  }
+
+  // Resource-level Mind Map, Connections, and Permanent Notes Created —
+  // computed, never stored twice.
+  function mindMapNodeCountForScope(mapLevel, scopeId) { return MindMapNodes.list().filter(function (n) { return n.mapLevel === mapLevel && n.scopeId === scopeId; }).length; }
+  function permanentNotesFromResource(resourceId) {
+    return PermanentNotes.list().filter(function (n) {
+      return n.sourceResourceId === resourceId || n.booksReferenced.indexOf(resourceId) !== -1 || n.articlesReferenced.indexOf(resourceId) !== -1;
+    });
+  }
+  function questionsForResource(resourceId) { return Questions.list().filter(function (q) { return q.resourceId === resourceId; }); }
+  function relatedResourcesByTag(resourceId) {
+    var r = Resources.get(resourceId); if (!r || !r.tags.length) return [];
+    return Resources.list().filter(function (x) {
+      return x.id !== resourceId && x.departmentId === r.departmentId && x.tags.some(function (t) { return r.tags.indexOf(t) !== -1; });
+    });
+  }
+
+  function removeResourceCascade(id) {
+    sectionsFor('resource', id).forEach(function (s) { Sections.remove(s.id); });
+    MindMapNodes.list().filter(function (n) { return n.mapLevel === 'resource' && n.scopeId === id; }).forEach(function (n) { MindMapNodes.remove(n.id); });
+    Questions.list().filter(function (q) { return q.resourceId === id; }).forEach(function (q) { Questions.update(q.id, { resourceId: '' }); });
+    PermanentNotes.list().forEach(function (n) {
+      if (n.sourceResourceId === id || n.booksReferenced.indexOf(id) !== -1 || n.articlesReferenced.indexOf(id) !== -1) {
+        PermanentNotes.update(n.id, {
+          sourceResourceId: n.sourceResourceId === id ? '' : n.sourceResourceId,
+          booksReferenced: n.booksReferenced.filter(function (x) { return x !== id; }),
+          articlesReferenced: n.articlesReferenced.filter(function (x) { return x !== id; })
+        });
+      }
+    });
+    Resources.remove(id);
+  }
+
+  // ---------- Selectors: permanent notes (concepts) ----------
+  function permanentNotesFor(departmentId) { return PermanentNotes.list().filter(function (n) { return n.departmentId === departmentId; }); }
+  function permanentNotesSorted(departmentId) { return permanentNotesFor(departmentId).sort(function (a, b) { return b.order - a.order; }); }
+  function permanentNoteTitle(id) { var n = PermanentNotes.get(id); return n ? n.title : ''; }
+  function removePermanentNoteCascade(id) {
+    sectionsFor('note', id).forEach(function (s) { Sections.remove(s.id); });
+    MindMapNodes.list().filter(function (n) { return n.mapLevel === 'concept' && n.scopeId === id; }).forEach(function (n) { MindMapNodes.remove(n.id); });
+    PermanentNotes.list().forEach(function (n) {
+      if (n.relatedConceptIds.indexOf(id) !== -1) PermanentNotes.update(n.id, { relatedConceptIds: n.relatedConceptIds.filter(function (x) { return x !== id; }) });
+    });
+    PermanentNotes.remove(id);
+  }
+
+  // ---------- Selectors: questions / research / projects / objectives ----------
+  function questionsFor(departmentId) { return Questions.list().filter(function (q) { return q.departmentId === departmentId; }); }
+  function openQuestionsFor(departmentId) { return questionsFor(departmentId).filter(function (q) { return q.status === 'open'; }); }
+  function questionTypeMeta(key) { for (var i = 0; i < QUESTION_TYPES.length; i++) if (QUESTION_TYPES[i].key === key) return QUESTION_TYPES[i]; return QUESTION_TYPES[0]; }
+  // Reverse relation, computed: which permanent notes cite this question.
+  function permanentNotesCitingQuestion(qid) { return PermanentNotes.list().filter(function (n) { return n.questionIds.indexOf(qid) !== -1; }); }
+
+  function researchFor(departmentId) { return ResearchItems.list().filter(function (r) { return r.departmentId === departmentId; }); }
+  function researchTypeMeta(key) { for (var i = 0; i < RESEARCH_TYPES.length; i++) if (RESEARCH_TYPES[i].key === key) return RESEARCH_TYPES[i]; return RESEARCH_TYPES[0]; }
+
+  function projectsFor(departmentId) { return Projects.list().filter(function (p) { return p.departmentId === departmentId; }); }
+  function permanentNotesCitingProject(pid) { return PermanentNotes.list().filter(function (n) { return n.projectIds.indexOf(pid) !== -1; }); }
+  function setProjectStatus(id, status) {
+    var p = Projects.get(id); if (!p) return null;
+    var patch = { status: status };
+    if (status === 'done' && !p.completedAt) patch.completedAt = nowIso();
+    return Projects.update(id, patch);
+  }
+  // A per-department starting vocabulary for the Project "type" field's
+  // datalist — freely typed over, never enforced (see projectModel()'s
+  // own comment on why `type` stays freeform).
+  var PROJECT_TYPE_SUGGESTIONS = {
+    psychology: ['Essay', 'Presentation', 'Article', 'Teaching Session', 'Video', 'Course Outline'],
+    wealth: ['Business Plan', 'Investment Thesis', 'Pitch Deck', 'Case Study'],
+    ai: ['Prompt Engineering', 'Coding Project', 'Model Comparison', 'Experiment'],
+    metaphysics: ['Essay', 'Thought Experiment', 'Debate Outline'],
+    spiritual: ['Practice Log', 'Ritual Design', 'Retreat Notes'],
+    selfdev: ['Habit Experiment', 'Identity Statement', 'Accountability System'],
+    photography: ['Photo Project', 'Editing Practice', 'Portfolio Piece', 'Lighting Study'],
+    history: ['Timeline', 'Historical Comparison', 'Research Essay'],
+    astrology: ['Chart Reading Practice', 'Case Study', 'Prediction Log'],
+    writing: ['Novel Research', 'Persuasive Essay', 'Copywriting Piece', 'Script'],
+    health: ['Protocol Experiment', 'Meal Plan', 'Recovery Log']
+  };
+  function projectTypeSuggestions(departmentId) { return PROJECT_TYPE_SUGGESTIONS[departmentId] || ['Essay', 'Project', 'Experiment']; }
+
+  function objectivesFor(departmentId) { return Objectives.list().filter(function (o) { return o.departmentId === departmentId; }); }
+  function objectiveKindMeta(key) { for (var i = 0; i < OBJECTIVE_KINDS.length; i++) if (OBJECTIVE_KINDS[i].key === key) return OBJECTIVE_KINDS[i]; return OBJECTIVE_KINDS[0]; }
+
+  // ---------- Mind maps (3 levels, 1 flat tree) ----------
+  function mindMapNodesForScope(mapLevel, scopeId) { return MindMapNodes.list().filter(function (n) { return n.mapLevel === mapLevel && n.scopeId === scopeId; }); }
+  function mindMapChildren(mapLevel, scopeId, parentId) {
+    return mindMapNodesForScope(mapLevel, scopeId).filter(function (n) { return n.parentId === parentId; }).sort(function (a, b) { return a.order - b.order; });
+  }
+  function ensureMindMapRoot(mapLevel, scopeId, departmentId, defaultTitle) {
+    var existing = mindMapNodesForScope(mapLevel, scopeId).filter(function (n) { return !n.parentId; });
+    if (existing.length) return existing[0];
+    return MindMapNodes.add({ mapLevel: mapLevel, scopeId: scopeId, departmentId: departmentId, parentId: null, title: defaultTitle, order: 0 });
+  }
+  function addMindMapBranch(mapLevel, scopeId, departmentId, parentId, title) {
+    var siblings = mindMapChildren(mapLevel, scopeId, parentId);
+    return MindMapNodes.add({ mapLevel: mapLevel, scopeId: scopeId, departmentId: departmentId, parentId: parentId, title: title || 'New Branch', order: siblings.length });
+  }
   function removeMindMapNodeCascade(id) {
     var toDelete = {}; toDelete[id] = true;
     var changed = true;
@@ -514,11 +719,19 @@
     }
     Object.keys(toDelete).forEach(function (did) { MindMapNodes.remove(did); });
   }
-  // A pure layout function (no DOM/pixels) — assigns every node a
-  // {depth, slot} pair via the standard "a parent's slot is the average
-  // of its children's" tidy-tree technique, so a page rendering this can
-  // turn depth/slot into real x/y pixels however it likes. Kept in the
-  // data layer since it only depends on parentId/order, not rendering.
+  function moveMindMapNode(id, dir) {
+    var n = MindMapNodes.get(id); if (!n) return;
+    var sib = mindMapChildren(n.mapLevel, n.scopeId, n.parentId);
+    var idx = sib.findIndex(function (x) { return x.id === id; });
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sib.length) return;
+    var a = sib[idx], b = sib[swapIdx];
+    MindMapNodes.update(a.id, { order: b.order });
+    MindMapNodes.update(b.id, { order: a.order });
+  }
+  // A pure layout function (no DOM/pixels) — the standard "a parent's
+  // slot is the average of its children's" tidy-tree technique, unchanged
+  // from the prior model since it only ever depends on parentId/order.
   function computeMindMapLayout(nodes, rootId) {
     var byParent = {};
     nodes.forEach(function (n) {
@@ -543,259 +756,488 @@
     if (rootId) layout(rootId, 0);
     return positions;
   }
-
-  // ---------- Permanent Knowledge Database ----------
-  function permanentKnowledgeForNotebook(notebookId) {
-    var l = PermanentKnowledge.list();
-    for (var i = 0; i < l.length; i++) if (l[i].notebookId === notebookId) return l[i];
-    return PermanentKnowledge.add({ notebookId: notebookId });
+  // Milestones: "Concept maps created" / a resource's own "Mind map
+  // status" both mean "has real content beyond just its auto-created
+  // root" — i.e. more than 1 node in that scope.
+  function conceptMapsCreatedCount(departmentId) {
+    return permanentNotesFor(departmentId).filter(function (n) { return mindMapNodeCountForScope('concept', n.id) > 1; }).length;
   }
-  function pkAddItem(notebookId, field, item) {
-    var pk = permanentKnowledgeForNotebook(notebookId);
-    var list = (pk[field] || []).concat([Object.assign({ id: uid('pki') }, item)]);
-    var patch = {}; patch[field] = list;
-    return PermanentKnowledge.update(pk.id, patch);
-  }
-  function pkRemoveItem(notebookId, field, itemId) {
-    var pk = permanentKnowledgeForNotebook(notebookId);
-    var list = (pk[field] || []).filter(function (x) { return x.id !== itemId; });
-    var patch = {}; patch[field] = list;
-    return PermanentKnowledge.update(pk.id, patch);
-  }
-  function pkUpdateSummary(notebookId, text) {
-    var pk = permanentKnowledgeForNotebook(notebookId);
-    return PermanentKnowledge.update(pk.id, { summary: text });
-  }
-  function pkToggleLinkedNote(notebookId, noteId) {
-    var pk = permanentKnowledgeForNotebook(notebookId);
-    var has = pk.linkedNoteIds.indexOf(noteId) !== -1;
-    var list = has ? pk.linkedNoteIds.filter(function (x) { return x !== noteId; }) : pk.linkedNoteIds.concat([noteId]);
-    return PermanentKnowledge.update(pk.id, { linkedNoteIds: list });
-  }
-  function permanentKnowledgeItemCount(notebookId) {
-    var pk = permanentKnowledgeForNotebook(notebookId);
-    return pk.keyConcepts.length + pk.mentalModels.length + pk.definitions.length + pk.examples.length +
-      pk.analogies.length + pk.quotes.length + pk.diagrams.length + pk.linkedNoteIds.length + (pk.summary ? 1 : 0);
+  function resourceMapsCreatedCount(departmentId) {
+    return resourcesFor(departmentId).filter(function (r) { return mindMapNodeCountForScope('resource', r.id) > 1; }).length;
   }
 
-  // ---------- Creation Lab ----------
-  function creationsSorted() { return Creations.list().slice().sort(function (a, b) { return b.order - a.order; }); }
-  function creationsForNotebook(notebookId) { return Creations.list().filter(function (c) { return c.notebookId === notebookId; }); }
-
-  // ---------- Today's Focus ----------
-  function todaysFocus() {
-    return Object.assign(
-      { topic: '', chapter: '', studyTime: '', phase: 'discover', nextAction: '' },
-      storeGet('kh:todaysfocus', {})
-    );
-  }
-  function saveTodaysFocus(patch) {
-    var rec = Object.assign(todaysFocus(), patch);
-    storeSet('kh:todaysfocus', rec);
-    return rec;
-  }
-
-  // Deleting a notebook cascades everything that only ever made sense
-  // scoped to it (its two mind maps, its Permanent Knowledge record) —
-  // Notes are "unfiled" instead of deleted (same precedent this file
-  // already used before this section existed), and Creations just lose
-  // their notebook reference rather than being deleted, same null-out-
-  // the-reference precedent this app's other pages already established
-  // for less-tightly-scoped relationships.
-  function removeNotebookCascade(notebookId) {
-    Notes.list().filter(function (n) { return n.notebookId === notebookId; }).forEach(function (n) { Notes.update(n.id, { notebookId: '' }); });
-    MindMapNodes.list().filter(function (n) { return n.notebookId === notebookId; }).forEach(function (n) { MindMapNodes.remove(n.id); });
-    PermanentKnowledge.list().filter(function (p) { return p.notebookId === notebookId; }).forEach(function (p) { PermanentKnowledge.remove(p.id); });
-    Creations.list().filter(function (c) { return c.notebookId === notebookId; }).forEach(function (c) { Creations.update(c.id, { notebookId: '' }); });
-    Notebooks.remove(notebookId);
-  }
-
-  // ---------- Notebook health / clutter ----------
-  var STALE_DAYS = 7;
-  function notebookHealth() {
-    var nbs = notebooksSorted();
-    var now = Date.now();
-    return nbs.map(function (nb) {
-      var notes = notesForNotebook(nb.id);
-      var total = notes.length;
-      var inboxCount = notes.filter(function (n) { return n.stage === 'inbox' || n.stage === 'toreview'; }).length;
-      var synthesisCount = notes.filter(function (n) { return n.stage === 'synthesis'; }).length;
-      var staleCount = notes.filter(function (n) {
-        return (n.stage === 'inbox' || n.stage === 'toreview') && (now - new Date(n.createdAt).getTime()) / 86400000 > STALE_DAYS;
-      }).length;
-      return {
-        notebook: nb,
-        total: total,
-        inboxCount: inboxCount,
-        synthesisCount: synthesisCount,
-        staleCount: staleCount,
-        clutterPct: total ? Math.round((inboxCount / total) * 100) : 0,
-        synthesisPct: total ? Math.round((synthesisCount / total) * 100) : 0
-      };
-    });
-  }
-  function funnelCounts() {
-    var counts = {};
-    STAGES.forEach(function (s) { counts[s.key] = 0; });
-    Notes.list().forEach(function (n) { counts[n.stage] = (counts[n.stage] || 0) + 1; });
-    return counts;
-  }
-
-  // ---------- Sorting (Home's "Sort your notes by Date / Status / Notebooks / Last Edited") ----------
-  function sortNotes(list, mode) {
-    var l = list.slice();
-    if (mode === 'status') {
-      l.sort(function (a, b) { return STAGE_KEYS.indexOf(a.stage) - STAGE_KEYS.indexOf(b.stage) || b.order - a.order; });
-    } else if (mode === 'notebook') {
-      l.sort(function (a, b) { return notebookName(a.notebookId).localeCompare(notebookName(b.notebookId)) || b.order - a.order; });
-    } else if (mode === 'lastEdited') {
-      l.sort(function (a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); });
-    } else { // 'date' (created), default
-      l.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+  // ---------- Knowledge Graph (computed, per-department + global) ----------
+  // Every cross-reference a PermanentNote already carries becomes an edge
+  // — this is the entirety of "automatic connection." Node kinds:
+  // resource / note (permanent note = concept) / question / project.
+  function buildDepartmentGraph(departmentId) {
+    var nodes = [], edges = [], seenEdge = {};
+    function addNode(id, kind, label, sub) { nodes.push({ id: id, kind: kind, label: label, sub: sub || '' }); }
+    function addEdge(a, b, kind) {
+      var key = [a, b].sort().join('|') + '|' + kind;
+      if (seenEdge[key]) return;
+      seenEdge[key] = true;
+      edges.push({ a: a, b: b, kind: kind });
     }
-    return l;
+    resourcesFor(departmentId).forEach(function (r) { addNode('res:' + r.id, 'resource', r.title, resourceTypeMeta(r.type).label); });
+    projectsFor(departmentId).forEach(function (p) { addNode('proj:' + p.id, 'project', p.title, p.type); });
+    questionsFor(departmentId).forEach(function (q) { addNode('q:' + q.id, 'question', q.text.slice(0, 44) || 'Untitled question', questionTypeMeta(q.type).label); });
+    permanentNotesFor(departmentId).forEach(function (n) {
+      addNode('note:' + n.id, 'note', n.title, 'Concept');
+      n.booksReferenced.concat(n.articlesReferenced).forEach(function (rid) { if (Resources.get(rid)) addEdge('note:' + n.id, 'res:' + rid, 'reference'); });
+      n.relatedConceptIds.forEach(function (nid) { if (PermanentNotes.get(nid)) addEdge('note:' + n.id, 'note:' + nid, 'concept'); });
+      n.questionIds.forEach(function (qid) { if (Questions.get(qid)) addEdge('note:' + n.id, 'q:' + qid, 'question'); });
+      n.projectIds.forEach(function (pid) { if (Projects.get(pid)) addEdge('note:' + n.id, 'proj:' + pid, 'project'); });
+      if (n.sourceResourceId && Resources.get(n.sourceResourceId)) addEdge('note:' + n.id, 'res:' + n.sourceResourceId, 'reference');
+    });
+    return { nodes: nodes, edges: edges };
+  }
+  function knowledgeGraphSize(departmentId) { return buildDepartmentGraph(departmentId).nodes.length; }
+
+  // The Global graph unions every department's own graph (each node
+  // prefixed with its department so ids can never collide) plus the
+  // explicit CrossLinks as inter-department edges — the one relationship
+  // no per-department graph could ever derive on its own.
+  function buildGlobalGraph(filterDepartmentIds) {
+    var nodes = [], edges = [];
+    var depts = departmentsSorted().filter(function (d) { return !filterDepartmentIds || filterDepartmentIds.indexOf(d.id) !== -1; });
+    depts.forEach(function (d) {
+      var g = buildDepartmentGraph(d.id);
+      g.nodes.forEach(function (n) { nodes.push({ id: d.id + '::' + n.id, kind: n.kind, label: n.label, sub: n.sub, departmentId: d.id }); });
+      g.edges.forEach(function (e) { edges.push({ a: d.id + '::' + e.a, b: d.id + '::' + e.b, kind: e.kind, cross: false }); });
+    });
+    CrossLinks.list().forEach(function (cl) {
+      if (filterDepartmentIds && (filterDepartmentIds.indexOf(cl.fromDepartmentId) === -1 || filterDepartmentIds.indexOf(cl.toDepartmentId) === -1)) return;
+      var fromDept = Departments.get(cl.fromDepartmentId), toDept = Departments.get(cl.toDepartmentId);
+      if (!fromDept || !toDept) return;
+      nodes.push({ id: 'dept::' + cl.fromDepartmentId, kind: 'department', label: fromDept.name, sub: '', departmentId: cl.fromDepartmentId, isDeptNode: true });
+      nodes.push({ id: 'dept::' + cl.toDepartmentId, kind: 'department', label: toDept.name, sub: '', departmentId: cl.toDepartmentId, isDeptNode: true });
+      edges.push({ a: 'dept::' + cl.fromDepartmentId, b: 'dept::' + cl.toDepartmentId, kind: 'crosslink', cross: true, label: cl.label });
+    });
+    // De-dupe department nodes (a department can appear once per
+    // CrossLink it participates in above).
+    var seen = {};
+    nodes = nodes.filter(function (n) { if (seen[n.id]) return false; seen[n.id] = true; return true; });
+    return { nodes: nodes, edges: edges };
+  }
+
+  function crossLinksFor(departmentId) { return CrossLinks.list().filter(function (cl) { return cl.fromDepartmentId === departmentId || cl.toDepartmentId === departmentId; }); }
+  function otherDeptIn(crossLink, departmentId) { return crossLink.fromDepartmentId === departmentId ? crossLink.toDepartmentId : crossLink.fromDepartmentId; }
+  function removeCrossLinksFor(departmentId) { crossLinksFor(departmentId).forEach(function (cl) { CrossLinks.remove(cl.id); }); }
+
+  // Suggested Next Learning / most-connected concepts — real, computed
+  // "Connections Section" content: a department's own most-referenced
+  // permanent note (highest relatedConceptIds+booksReferenced+
+  // articlesReferenced+questionIds+projectIds count) plus any
+  // cross-department tag overlap with other departments' resources.
+  function mostConnectedConcepts(departmentId, limit) {
+    return permanentNotesFor(departmentId).map(function (n) {
+      var score = n.relatedConceptIds.length + n.booksReferenced.length + n.articlesReferenced.length + n.questionIds.length + n.projectIds.length;
+      return { note: n, score: score };
+    }).filter(function (x) { return x.score > 0; }).sort(function (a, b) { return b.score - a.score; }).slice(0, limit || 5);
+  }
+  function crossDepartmentTagOverlap(departmentId) {
+    var myTags = {};
+    resourcesFor(departmentId).concat(permanentNotesFor(departmentId)).forEach(function (x) { (x.tags || []).forEach(function (t) { myTags[t.toLowerCase()] = true; }); });
+    var out = {};
+    Departments.list().forEach(function (d) {
+      if (d.id === departmentId) return;
+      var count = 0;
+      resourcesFor(d.id).concat(permanentNotesFor(d.id)).forEach(function (x) { (x.tags || []).forEach(function (t) { if (myTags[t.toLowerCase()]) count++; }); });
+      if (count > 0) out[d.id] = count;
+    });
+    return out;
+  }
+
+  // ---------- Milestones / Progress (derived, never stored) ----------
+  function milestonesFor(departmentId) {
+    var res = resourcesFor(departmentId);
+    var completed = res.filter(function (r) { return !!r.completedAt; });
+    function completedByType(t) { return completed.filter(function (r) { return r.type === t; }).length; }
+    var projects = projectsFor(departmentId);
+    var doneProjects = projects.filter(function (p) { return p.status === 'done'; });
+    function doneProjectsMatching(substr) { return doneProjects.filter(function (p) { return (p.type || '').toLowerCase().indexOf(substr) !== -1; }).length; }
+    return {
+      booksCompleted: completedByType('book'),
+      articlesStudied: completedByType('article'),
+      coursesCompleted: completedByType('course'),
+      researchPapers: completedByType('paper'),
+      projectsCompleted: doneProjects.length,
+      conceptMapsCreated: conceptMapsCreatedCount(departmentId),
+      permanentNotes: permanentNotesFor(departmentId).length,
+      essaysWritten: doneProjectsMatching('essay'),
+      presentations: doneProjectsMatching('presentation'),
+      teachingCompleted: doneProjectsMatching('teach')
+    };
+  }
+  function studySessionsFor(departmentId) { return StudySessions.list().filter(function (s) { return s.departmentId === departmentId; }); }
+  function hoursStudied(departmentId) {
+    var mins = studySessionsFor(departmentId).reduce(function (a, s) { return a + s.minutes; }, 0);
+    return Math.round((mins / 60) * 10) / 10;
+  }
+  function logStudySession(departmentId, minutes, note) {
+    return StudySessions.add({ departmentId: departmentId, minutes: minutes || 25, note: note || '', dateStr: todayStr() });
+  }
+  // Streak: walk backward day-by-day from today counting consecutive
+  // days with at least one logged study session — same "walk dates
+  // backward from today" streak algorithm this app's own habit systems
+  // (index.html, mainpillar.html) already use.
+  function learningStreak(departmentId) {
+    var dates = {};
+    studySessionsFor(departmentId).forEach(function (s) { dates[s.dateStr] = true; });
+    resourcesFor(departmentId).forEach(function (r) { if (r.lastStudied) dates[r.lastStudied] = true; });
+    var streak = 0;
+    var d = new Date();
+    // Allow "today not logged yet" to not break yesterday's streak — but
+    // require yesterday to be logged if today isn't, else it's 0.
+    if (!dates[todayStr()]) d.setDate(d.getDate() - 1);
+    while (true) {
+      var key = d.toISOString().slice(0, 10);
+      if (!dates[key]) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+  function recentlyStudiedDate(departmentId) {
+    var dates = studySessionsFor(departmentId).map(function (s) { return s.dateStr; })
+      .concat(resourcesFor(departmentId).map(function (r) { return r.lastStudied; }).filter(Boolean));
+    if (!dates.length) return '';
+    return dates.sort().slice(-1)[0];
+  }
+  function recentlyStudiedResources(departmentId, limit) {
+    return resourcesFor(departmentId).filter(function (r) { return r.lastStudied; })
+      .sort(function (a, b) { return b.lastStudied.localeCompare(a.lastStudied); }).slice(0, limit || 5);
+  }
+  function currentResourceFor(departmentId) {
+    var reading = currentLearningFor(departmentId);
+    if (!reading.length) return null;
+    return reading.sort(function (a, b) { return (b.lastStudied || '').localeCompare(a.lastStudied || ''); })[0];
+  }
+
+  // Home card summary — every field the spec's own card list names.
+  function departmentSummary(departmentId) {
+    var d = Departments.get(departmentId);
+    var res = resourcesFor(departmentId);
+    var current = currentResourceFor(departmentId);
+    var byType = {};
+    res.forEach(function (r) { if (r.stage === 'reading' && !byType[r.type]) byType[r.type] = r; });
+    var openQ = openQuestionsFor(departmentId);
+    var activeProjects = projectsFor(departmentId).filter(function (p) { return p.status !== 'done' && p.title.toLowerCase().indexOf('research') !== -1 || p.status === 'in-progress'; });
+    return {
+      dept: d,
+      progressPct: d ? d.masteryPct : 0,
+      currentBook: byType.book ? byType.book.title : '',
+      currentArticle: byType.article ? byType.article.title : '',
+      currentCourse: byType.course ? byType.course.title : '',
+      activeResearchProject: projectsFor(departmentId).filter(function (p) { return p.status === 'in-progress'; })[0] || null,
+      recentlyStudied: recentlyStudiedDate(departmentId),
+      openQuestionsCount: openQ.length,
+      permanentNotesCount: permanentNotesFor(departmentId).length,
+      conceptMapsCount: conceptMapsCreatedCount(departmentId),
+      completedResourcesCount: res.filter(function (r) { return r.completedAt; }).length,
+      knowledgeGraphSize: knowledgeGraphSize(departmentId)
+    };
+  }
+
+  // ---------- Global search ----------
+  function searchAll(query) {
+    var q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+    var out = [];
+    Resources.list().forEach(function (r) { if (r.title.toLowerCase().indexOf(q) !== -1) out.push({ kind: 'resource', id: r.id, departmentId: r.departmentId, title: r.title, sub: resourceTypeMeta(r.type).label }); });
+    PermanentNotes.list().forEach(function (n) { if (n.title.toLowerCase().indexOf(q) !== -1) out.push({ kind: 'note', id: n.id, departmentId: n.departmentId, title: n.title, sub: 'Permanent Note' }); });
+    Questions.list().forEach(function (x) { if (x.text.toLowerCase().indexOf(q) !== -1) out.push({ kind: 'question', id: x.id, departmentId: x.departmentId, title: x.text, sub: 'Open Question' }); });
+    Projects.list().forEach(function (p) { if (p.title.toLowerCase().indexOf(q) !== -1) out.push({ kind: 'project', id: p.id, departmentId: p.departmentId, title: p.title, sub: 'Project' }); });
+    return out.slice(0, 40);
+  }
+
+  // ---------- Settings (single record) ----------
+  function getSettings() { return Object.assign({ anthropicApiKey: '' }, storeGet('kh:settings', {})); }
+  function saveSettings(patch) { var rec = Object.assign(getSettings(), patch); storeSet('kh:settings', rec); return rec; }
+
+  // ---------- AI Integration ----------
+  // 17 named actions from the spec, grouped for the AI Assistant panel's
+  // UI. Each has a prompt-builder (used for the real API call, when a key
+  // is configured) and a local fallback that's a genuinely useful,
+  // honestly-computed function of real stored data — never a fabricated
+  // answer dressed up as real (e.g. "Suggest Books" never invents book
+  // titles locally; it instead surfaces real gaps in the current
+  // library, and only asks the real model for actual title suggestions).
+  var AI_ACTIONS = [
+    { key: 'summary', label: 'Generate Summary', icon: '📝', group: 'Understand' },
+    { key: 'eli5', label: "Explain Like I'm Five", icon: '🧒', group: 'Understand' },
+    { key: 'comparesources', label: 'Compare Sources', icon: '⚖️', group: 'Understand' },
+    { key: 'contradictions', label: 'Find Contradictions', icon: '⚡', group: 'Understand' },
+    { key: 'quiz', label: 'Generate Quiz', icon: '❓', group: 'Create' },
+    { key: 'flashcards', label: 'Generate Flashcards', icon: '🗂️', group: 'Create' },
+    { key: 'essay', label: 'Generate Essay Outline', icon: '✍️', group: 'Create' },
+    { key: 'teachingoutline', label: 'Generate Teaching Outline', icon: '🎓', group: 'Create' },
+    { key: 'visualdiagram', label: 'Generate Visual Diagram', icon: '🗺️', group: 'Create' },
+    { key: 'mindmap', label: 'Generate Mind Map Branches', icon: '🧠', group: 'Expand' },
+    { key: 'conceptmap', label: 'Generate Concept Map Links', icon: '🕸️', group: 'Expand' },
+    { key: 'researchquestions', label: 'Generate Research Questions', icon: '🔬', group: 'Expand' },
+    { key: 'relatedtopics', label: 'Suggest Related Topics', icon: '🔗', group: 'Expand' },
+    { key: 'missingconcepts', label: 'Suggest Missing Concepts', icon: '🧩', group: 'Expand' },
+    { key: 'suggestbooks', label: 'Suggest Books', icon: '📚', group: 'Expand' },
+    { key: 'suggestpapers', label: 'Suggest Papers', icon: '📄', group: 'Expand' },
+    { key: 'knowledgegap', label: 'Knowledge Gap Analysis', icon: '🕳️', group: 'Analyze' }
+  ];
+
+  function buildAiContext(departmentId) {
+    var d = Departments.get(departmentId);
+    return {
+      dept: d,
+      resources: resourcesFor(departmentId),
+      notes: permanentNotesFor(departmentId),
+      questions: openQuestionsFor(departmentId),
+      projects: projectsFor(departmentId),
+      objectives: objectivesFor(departmentId),
+      masterBranches: mindMapNodesForScope('master', departmentId)
+    };
+  }
+
+  function buildAiPrompt(actionKey, ctx) {
+    var d = ctx.dept || {};
+    var head = 'You are an expert research assistant helping build a lifelong Knowledge Operating System for the discipline "' + (d.name || '') + '" (mission: ' + (d.mission || '') + ').\n\n' +
+      'Current resources: ' + ctx.resources.map(function (r) { return r.title + ' (' + r.type + ', ' + r.stage + ')'; }).join('; ') + '\n' +
+      'Permanent notes / concepts: ' + ctx.notes.map(function (n) { return n.title; }).join('; ') + '\n' +
+      'Open questions: ' + ctx.questions.map(function (q) { return q.text; }).join('; ') + '\n' +
+      'Master map branches: ' + ctx.masterBranches.map(function (b) { return b.title; }).join('; ') + '\n\n';
+    var asks = {
+      summary: 'Write a concise, well-organized summary of everything captured so far in this discipline.',
+      eli5: 'Explain the single most important idea in this discipline as if to a five-year-old.',
+      comparesources: 'Compare and contrast the resources above — where do they agree, where do they diverge?',
+      contradictions: 'Identify any contradictions or tensions between the notes/resources above.',
+      quiz: 'Write a 6-question quiz (with answers) testing understanding of the concepts above.',
+      flashcards: 'Generate 8 flashcards (front/back pairs) from the concepts and resources above.',
+      essay: 'Draft a short essay outline (thesis + 3 body points + conclusion) synthesizing the notes above.',
+      teachingoutline: 'Write a teaching outline for explaining this discipline to a beginner, using the master map branches as sections.',
+      visualdiagram: 'Describe, in words, an ideal visual diagram for the relationships between the concepts above.',
+      mindmap: 'Suggest 5 additional sub-topic branches for the Master Subject Map of this discipline, beyond what is listed.',
+      conceptmap: 'Suggest which of the permanent notes/concepts above should be linked together, and why.',
+      researchquestions: 'Generate 5 sharp, non-obvious research questions this discipline\'s current notes have not yet answered.',
+      relatedtopics: 'Suggest 3 other fields of knowledge most worth connecting to this discipline, and why.',
+      missingconcepts: 'Given the master map branches above, what important concepts within this discipline are conspicuously missing?',
+      suggestbooks: 'Suggest 5 real, well-regarded books to deepen this discipline, given what is already in the library.',
+      suggestpapers: 'Suggest 5 real research papers or academic sources worth reading next in this discipline.',
+      knowledgegap: 'Analyze the notes/resources/questions above and identify the biggest gaps in current understanding.'
+    };
+    return head + (asks[actionKey] || 'Help with this discipline.');
+  }
+
+  function aiLocalFallback(actionKey, ctx) {
+    // Definition/explanation/etc. are no longer fixed fields on a note —
+    // they're ordinary text Sections now (see this file's own header
+    // comment on that redesign) — primaryTextFor() reads the first one.
+    var noteText = function (n) { return primaryTextFor('note', n.id); };
+    var notePreview = function (n) { var t = noteText(n); return '• ' + n.title + (t ? ' — ' + t : ''); };
+    switch (actionKey) {
+      case 'summary':
+        if (!ctx.notes.length) return 'No permanent notes yet in ' + ctx.dept.name + ' — capture a few concepts first, then Generate Summary again.';
+        return 'Summary of ' + ctx.dept.name + ':\n' + ctx.notes.slice(0, 8).map(notePreview).join('\n');
+      case 'eli5':
+        if (!ctx.notes.length) return 'Add a permanent note first — ELI5 explains your own captured concepts, it does not invent new ones locally.';
+        var n0 = ctx.notes[0];
+        return 'In simple terms: ' + n0.title + ' is ' + (noteText(n0) || 'something you have not written up yet — add a Text block to its page.');
+      case 'comparesources':
+        var same = {};
+        ctx.resources.forEach(function (r) { (same[r.type] = same[r.type] || []).push(r); });
+        var pair = Object.keys(same).map(function (k) { return same[k]; }).filter(function (l) { return l.length >= 2; })[0];
+        if (!pair) return 'Add at least two resources of the same type to compare them.';
+        return 'Comparing: "' + pair[0].title + '" (rating ' + pair[0].rating + '/5) vs. "' + pair[1].title + '" (rating ' + pair[1].rating + '/5). Open each resource\'s own page to compare their Summary blocks directly.';
+      case 'contradictions':
+        var withConn = ctx.notes.filter(function (n) { return n.relatedConceptIds.length > 0; });
+        if (!withConn.length) return 'No notes have Related Concepts linked yet — nothing to cross-check locally.';
+        return 'Notes with recorded connections worth checking for contradictions:\n' + withConn.map(function (n) { return '• ' + n.title + ' ↔ ' + n.relatedConceptIds.map(permanentNoteTitle).filter(Boolean).join(', '); }).join('\n');
+      case 'quiz':
+        if (!ctx.notes.length) return 'Add permanent notes first — a local quiz is generated from their first Text block.';
+        return ctx.notes.slice(0, 6).map(function (n, i) { return (i + 1) + '. What is "' + n.title + '"?\n   A: ' + (noteText(n) || '(add a Text block to answer this)'); }).join('\n');
+      case 'flashcards':
+        if (!ctx.notes.length) return 'Add permanent notes first — flashcards are generated from their first Text block.';
+        return ctx.notes.slice(0, 8).map(function (n) { return 'FRONT: ' + n.title + '\nBACK: ' + (noteText(n) || '(no text yet)'); }).join('\n\n');
+      case 'essay':
+        return 'Working thesis: ' + (ctx.dept.mission || 'define your mission for this discipline first.') + '\n\nBody points:\n' + ctx.notes.slice(0, 3).map(notePreview).join('\n') + '\n\nConclusion: (draft this once the body points feel solid)';
+      case 'teachingoutline':
+        if (!ctx.masterBranches.length) return 'Your Master Subject Map has no branches yet — a teaching outline is built from its sections.';
+        return ctx.masterBranches.map(function (b) { return '§ ' + b.title; }).join('\n');
+      case 'visualdiagram':
+        return 'This is already visualized in the Mind Maps tab. Text outline of the Master Map:\n' + ctx.masterBranches.map(function (b) { return '- ' + b.title; }).join('\n');
+      case 'mindmap':
+        var def = departmentDef((ctx.dept || {}).id) || { subfields: [] };
+        var existing = ctx.masterBranches.map(function (b) { return b.title.toLowerCase(); });
+        var missing = def.subfields.filter(function (s) { return existing.indexOf(s.toLowerCase()) === -1; });
+        return missing.length ? 'Suggested branches not yet on your Master Map:\n' + missing.map(function (s) { return '- ' + s; }).join('\n') : 'Every suggested starting branch is already on your Master Map — add your own from here.';
+      case 'conceptmap':
+        var byTag = {};
+        ctx.notes.forEach(function (n) { (n.tags || []).forEach(function (t) { (byTag[t] = byTag[t] || []).push(n.title); }); });
+        var lines = Object.keys(byTag).filter(function (t) { return byTag[t].length > 1; }).map(function (t) { return '"' + t + '": ' + byTag[t].join(' ↔ '); });
+        return lines.length ? lines.join('\n') : 'Tag your permanent notes to surface which concepts share a theme and could be linked.';
+      case 'researchquestions':
+        return ctx.questions.length ? 'Your own open questions:\n' + ctx.questions.map(function (q) { return '• ' + q.text; }).join('\n') : 'No open questions logged yet — add some in Open Questions.';
+      case 'relatedtopics':
+        return 'Configure an Anthropic key in Settings for real cross-discipline suggestions. Locally: check the Connections tab, which computes real tag overlap with your other departments.';
+      case 'missingconcepts':
+        var withZero = ctx.masterBranches.filter(function (b) {
+          return !ctx.notes.some(function (n) { return n.title.toLowerCase().indexOf(b.title.toLowerCase()) !== -1 || (n.tags || []).some(function (t) { return t.toLowerCase() === b.title.toLowerCase(); }); });
+        });
+        return withZero.length ? 'Master Map branches with no matching permanent note yet:\n' + withZero.map(function (b) { return '- ' + b.title; }).join('\n') : 'Every Master Map branch has at least one related note — nice coverage.';
+      case 'suggestbooks':
+        return 'No external catalog access locally — configure an Anthropic key in Settings for real title suggestions. In the meantime, your library currently has ' + ctx.resources.filter(function (r) { return r.type === 'book'; }).length + ' book(s) — consider adding more.';
+      case 'suggestpapers':
+        return 'No external catalog access locally — configure an Anthropic key in Settings for real paper suggestions. Your library currently has ' + ctx.resources.filter(function (r) { return r.type === 'paper'; }).length + ' research paper(s).';
+      case 'knowledgegap':
+        var stale = ctx.resources.filter(function (r) { return r.stage === 'reading'; });
+        var gaps = [];
+        if (ctx.questions.length) gaps.push(ctx.questions.length + ' open question(s) still unanswered.');
+        if (stale.length) gaps.push(stale.length + ' resource(s) currently "Reading" — worth checking they are still moving.');
+        var zeroBranches = ctx.masterBranches.filter(function (b) { return !ctx.notes.some(function (n) { return (n.tags || []).some(function (t) { return t.toLowerCase() === b.title.toLowerCase(); }); }); });
+        if (zeroBranches.length) gaps.push(zeroBranches.length + ' Master Map branch(es) with no linked permanent note.');
+        return gaps.length ? gaps.join('\n') : 'No obvious local gaps found — nice standing. Configure an Anthropic key in Settings for a deeper analysis.';
+      default:
+        return 'Configure an Anthropic API key in Settings for a real AI response.';
+    }
   }
 
   // ---------- Seed data ----------
-  var BUILTIN_TEMPLATES = [
-    { name: 'Book Note', icon: '📚', type: 'book', stage: 'inbox', notebookName: 'Books', notebookIcon: '📚',
-      prompts: ['Key thesis / what is this book actually arguing?', 'Chapter-by-chapter breakdown', 'Quotes worth keeping', 'My own take / where I disagree'], builtin: true, description: 'A full book-note scaffold, ready to move through the funnel.' },
-    { name: 'Article Note', icon: '📄', type: 'article', stage: 'inbox', notebookName: 'Articles', notebookIcon: '📄',
-      prompts: ['Main claim', 'Supporting evidence', 'What this connects to'], builtin: true, description: 'A quick scaffold for a saved article or blog post.' },
-    { name: 'Video Note', icon: '🎬', type: 'video', stage: 'inbox', notebookName: 'Videos', notebookIcon: '🎬',
-      prompts: ['Key timestamps', 'Main takeaway', 'Follow-up to watch/read'], builtin: true, description: 'For a YouTube video or lecture you want to actually process.' },
-    { name: 'Research Project', icon: '🔬', type: 'note', stage: 'inbox', notebookName: 'Research Projects', notebookIcon: '🔬',
-      prompts: ['Research question', 'Sources gathered', 'Open threads', 'Working conclusion'], builtin: true, description: 'A running research thread you\'ll pull many sources into.' },
-    { name: 'Essay Draft', icon: '✍️', type: 'note', stage: 'synthesis', notebookName: 'Essays', notebookIcon: '✍️',
-      prompts: ['Thesis', 'Supporting notes to pull from ([[link them]])', 'Draft'], builtin: true, description: 'Skips straight to Synthesis — for when you already know you\'re writing.' },
-    { name: 'Quick Jot', icon: '⚡', type: 'jot', stage: 'inbox', notebookName: 'Quick Jots', notebookIcon: '⚡',
-      prompts: [], builtin: true, description: 'The fastest possible capture — a single loose thought.' },
-    { name: 'Quote Capture', icon: '💬', type: 'quote', stage: 'inbox', notebookName: 'Quotes', notebookIcon: '💬',
-      prompts: ['Full quote text', 'Source / author', 'Why it stuck with you'], builtin: true, description: 'Feeds the Quote Library.' }
-  ];
-
+  // Every one of the 11 departments gets a real Master Subject Map (its
+  // subfields, seeded above) so Home never shows 11 completely-empty
+  // cards. Two flagship departments (Psychology, Self-Development) get a
+  // fuller worked example — a resource, a permanent note with a real
+  // concept map, a question, a project, a study session — demonstrating
+  // every mechanism without fabricating deep content across all 11
+  // (the same "not every tab pixel-matched, a couple flagships get the
+  // full treatment" precedent this app's other multi-entity seed data
+  // already uses, e.g. dreamboard-data.js's seedDefaultBoard()).
   function seedIfEmpty() {
-    if (Notebooks.list().length || Notes.list().length || Templates.list().length) return;
-    BUILTIN_TEMPLATES.forEach(function (t, i) { Templates.add(Object.assign({}, t, { order: i })); });
+    ensureDepartmentsExist();
+    if (Resources.list().length || PermanentNotes.list().length || MindMapNodes.list().length) return;
 
-    var books = findOrCreateNotebook('Books', '📚');
-    var articles = findOrCreateNotebook('Articles', '📄');
-    var research = findOrCreateNotebook('Research Projects', '🔬');
-    var quotes = findOrCreateNotebook('Quotes', '💬');
-
-    var n1 = Notes.add({
-      title: 'Atomic Habits — James Clear', type: 'book', stage: 'summarizing', notebookId: books.id,
-      author: 'James Clear', rawContent: 'Small, 1% changes compound over time. Identity-based habits stick better than outcome-based ones.',
-      excerpts: [
-        { id: uid('ex'), text: 'You do not rise to the level of your goals. You fall to the level of your systems.', layer: 2, createdAt: nowIso() },
-        { id: uid('ex'), text: 'Every action you take is a vote for the type of person you wish to become.', layer: 1, createdAt: nowIso() }
-      ],
-      summary: 'Habits are identity votes, not one-off wins — build systems, not goals.',
-      tags: ['habits', 'systems']
-    });
-    var n2 = Notes.add({
-      title: 'Why Progressive Summarization Works', type: 'article', stage: 'highlighting', notebookId: articles.id,
-      sourceUrl: 'https://fortelabs.com/blog/progressive-summarization-a-practical-technique-for-designing-discoverable-notes/',
-      rawContent: 'Progressive Summarization is a layered approach to condensing notes over multiple passes, so future-you only has to read the distilled version.',
-      excerpts: [{ id: uid('ex'), text: 'The goal isn\'t to remember everything — it\'s to make your best ideas easy to find later.', layer: 1, createdAt: nowIso() }],
-      tags: ['pkm', 'note-taking'], links: []
-    });
-    Notes.update(n2.id, { links: [n1.id] });
-    Notes.add({
-      title: 'Second Brain research thread', type: 'note', stage: 'inbox', notebookId: research.id,
-      rawContent: 'Collecting sources on building a personal knowledge system. See [[Why Progressive Summarization Works]] and [[Atomic Habits — James Clear]] for related notes.',
-      tags: ['research']
-    });
-    Notes.add({
-      title: '"The unexamined life is not worth living."', type: 'quote', stage: 'synthesis', notebookId: quotes.id,
-      author: 'Socrates', rawContent: 'A reminder to keep interrogating my own assumptions, not just accumulating notes.',
-      synthesis: 'Capturing without reflecting is just hoarding — this is the whole argument for the funnel existing at all.',
-      favorite: true, tags: ['philosophy']
-    });
-    Notes.add({
-      title: 'Interesting talk on spaced repetition', type: 'video', stage: 'toreview', notebookId: findOrCreateNotebook('Videos', '🎬').id,
-      sourceUrl: '', rawContent: ''
+    DEPARTMENT_DEFS.forEach(function (def) {
+      var root = ensureMindMapRoot('master', def.id, def.id, def.name);
+      def.subfields.forEach(function (s, i) { addMindMapBranch('master', def.id, def.id, root.id, s); });
     });
 
-    // Learning Progress, seeded on a couple of notebooks so the bar/
-    // grids aren't all zero on first load.
-    Notebooks.update(books.id, { progressPct: 42 });
-    Notebooks.update(research.id, { progressPct: 18 });
-
-    // Active Research Hub — a small real topic map + a small real
-    // questions map on the Books notebook, one cross-linked to the
-    // other, so the feature demonstrates its own shape immediately.
-    var topicRoot = ensureMindMapRoot(books.id, 'topic');
-    var habitsBranch = MindMapNodes.add({ notebookId: books.id, mapType: 'topic', parentId: topicRoot.id, title: 'Habit Formation', notes: 'The cue-routine-reward loop, and how identity change makes it stick.', order: 0 });
-    MindMapNodes.add({ notebookId: books.id, mapType: 'topic', parentId: habitsBranch.id, title: 'The Habit Loop', notes: 'Cue -> Craving -> Response -> Reward.', order: 0 });
-    MindMapNodes.add({ notebookId: books.id, mapType: 'topic', parentId: habitsBranch.id, title: 'Identity-Based Habits', notes: 'Vote for the person you want to become, one action at a time.', order: 1 });
-    MindMapNodes.add({ notebookId: books.id, mapType: 'topic', parentId: topicRoot.id, title: 'Systems vs. Goals', notes: 'You fall to the level of your systems, not your goals.', order: 1 });
-
-    var qRoot = ensureMindMapRoot(books.id, 'questions');
-    MindMapNodes.add({
-      notebookId: books.id, mapType: 'questions', parentId: qRoot.id, title: 'Do 1% gains really compound?',
-      linkedTopicNodeId: habitsBranch.id,
-      article: {
-        mainQuestion: 'Does a 1% daily improvement genuinely compound the way the book claims, or is that just a tidy story?',
-        why: 'It\'s the book\'s central hook — if it doesn\'t hold up, a lot of the argument softens.',
-        how: 'Compare the math (1.01^365) against how real skill acquisition actually plateaus.',
-        evidence: 'Compound-interest-style growth curves; also plenty of real "diminishing returns" counter-cases.',
-        opposingViews: 'Skill growth is usually S-curved, not exponential — early gains come fast, then flatten.',
-        missingInfo: 'No real longitudinal study is cited for the 1%-a-day claim specifically.',
-        other: 'Does this change if the "system" itself is what compounds, not the individual actions?'
-      }
+    // ---- Psychology (flagship #1) ----
+    var psy = 'psychology';
+    var atomicHabits = Resources.add({
+      departmentId: psy, type: 'book', title: 'Atomic Habits', creator: 'James Clear', stage: 'reading',
+      progressPct: 62, currentChapter: 'Ch. 8 — How to Make a Habit Irresistible', nextChapter: 'Ch. 9 — The Role of Family and Friends',
+      lastStudied: todayStr(), dateStarted: todayStr(), rating: 5, tags: ['habits', 'behavior-change']
     });
+    addSection('resource', atomicHabits.id, 'text', { title: 'Summary', text: 'Small, identity-aligned systems compound into large behavior change.' });
+    addSection('resource', atomicHabits.id, 'toggle', { title: 'Highlights — Goals vs. Systems', text: 'Problem #1: Winners and losers have the same goals.\nGoal setting suffers from survivorship bias — every Olympian wants gold, but the goal alone never explains who wins.\n\nProblem #2: Achieving a goal is only a momentary change.\nA goal is a direction, not a destination — the systems you build are what actually change your trajectory.' });
+    addSection('resource', atomicHabits.id, 'quote', { text: 'You do not rise to the level of your goals. You fall to the level of your systems.' });
+    addSection('resource', atomicHabits.id, 'media', { title: 'Ultimate Guide to Building New Habits', url: 'https://www.youtube.com/results?search_query=atomic+habits+james+clear' });
+    var memoryNote = PermanentNotes.add({ departmentId: psy, title: 'Memory', booksReferenced: [atomicHabits.id], sourceResourceId: atomicHabits.id, tags: ['memory', 'cognition'] });
+    addSection('note', memoryNote.id, 'text', { title: 'Definition', text: 'The faculty by which the brain encodes, stores, and retrieves information.' });
+    addSection('note', memoryNote.id, 'text', { title: 'Explanation', text: 'Memory is not one system — working memory holds a few items briefly; long-term memory stores encoded material for later retrieval.' });
+    addSection('note', memoryNote.id, 'text', { title: 'Examples', text: 'Recalling a phone number just long enough to dial it (working memory) vs. remembering your childhood home (long-term memory).' });
+    addSection('note', memoryNote.id, 'text', { title: 'Applications', text: 'Spaced repetition exploits how retrieval strengthens long-term storage.' });
+    var mmRoot = ensureMindMapRoot('concept', memoryNote.id, psy, 'Memory');
+    var wm = addMindMapBranch('concept', memoryNote.id, psy, mmRoot.id, 'Working Memory');
+    addMindMapBranch('concept', memoryNote.id, psy, mmRoot.id, 'Long-Term Memory');
+    addMindMapBranch('concept', memoryNote.id, psy, wm.id, 'Encoding');
+    addMindMapBranch('concept', memoryNote.id, psy, wm.id, 'Retrieval');
+    addMindMapBranch('concept', memoryNote.id, psy, mmRoot.id, 'Forgetting');
+    var habitNote = PermanentNotes.add({ departmentId: psy, title: 'Habit Formation', relatedConceptIds: [memoryNote.id], booksReferenced: [atomicHabits.id], tags: ['habits', 'behavior-change'] });
+    addSection('note', habitNote.id, 'text', { title: 'Definition', text: 'The process by which a behavior becomes automatic through repeated cue-response-reward loops.' });
+    addSection('note', habitNote.id, 'text', { title: 'Explanation', text: 'Every action taken is, in a real sense, a vote for the type of person you are becoming — identity-based habits stick better than outcome-based ones.' });
+    PermanentNotes.update(memoryNote.id, { relatedConceptIds: [habitNote.id] });
+    var q1 = Questions.add({ departmentId: psy, type: 'research-idea', text: 'Do 1% daily gains really compound the way the book claims, or is that a tidy story?', resourceId: atomicHabits.id });
+    PermanentNotes.update(habitNote.id, { questionIds: [q1.id] });
+    var proj1 = Projects.add({ departmentId: psy, title: 'Essay: Why Small Systems Beat Big Goals', type: 'Essay', status: 'in-progress', notes: 'Draft thesis pulling from the Habit Formation note.' });
+    PermanentNotes.update(habitNote.id, { projectIds: [proj1.id] });
+    Objectives.add({ departmentId: psy, kind: 'current-objective', title: 'Finish Atomic Habits and write 3 permanent notes from it' });
+    Objectives.add({ departmentId: psy, kind: 'long-term-goal', title: 'Be able to explain the cognitive-behavioral model of habit change from memory' });
+    logStudySession(psy, 45, 'Read chapters 6-8, wrote the Memory permanent note.');
+    Departments.update(psy, { masteryPct: 28, currentFocus: 'Finishing Atomic Habits, then moving into cognitive psychology fundamentals.' });
 
-    // Permanent Knowledge Database — a few seeded items on the Books
-    // notebook across several of the nine sections.
-    var pk = permanentKnowledgeForNotebook(books.id);
-    PermanentKnowledge.update(pk.id, {
-      summary: 'Behavior change is best driven by small, identity-aligned systems rather than big one-off goals — the habit loop (cue/craving/response/reward) is the underlying mechanism.',
-      keyConcepts: [{ id: uid('pki'), text: 'The Habit Loop (cue, craving, response, reward)' }, { id: uid('pki'), text: 'Identity-based habits' }],
-      mentalModels: [{ id: uid('pki'), text: 'You do not rise to the level of your goals, you fall to the level of your systems.' }],
-      definitions: [{ id: uid('pki'), term: 'Habit stacking', definition: 'Anchoring a new habit to an already-automatic one.' }],
-      examples: [{ id: uid('pki'), text: 'Laying out running shoes the night before to lower the friction of a morning run.' }],
-      analogies: [{ id: uid('pki'), text: 'Habits are like a river carving a canyon — each pass makes the next one easier.' }],
-      quotes: [{ id: uid('pki'), text: 'Every action you take is a vote for the type of person you wish to become.', source: 'James Clear' }],
-      linkedNoteIds: [n1.id]
-    });
+    // ---- Self-Development (flagship #2) ----
+    var sd = 'selfdev';
+    var deepWork = Resources.add({ departmentId: sd, type: 'book', title: 'Deep Work', creator: 'Cal Newport', stage: 'permanentnotes', progressPct: 100, rating: 4, tags: ['focus', 'productivity'], completedAt: nowIso(), lastStudied: todayStr(), dateStarted: todayStr(), dateFinished: todayStr() });
+    var identityNote = PermanentNotes.add({ departmentId: sd, title: 'Identity-Based Change', booksReferenced: [deepWork.id], sourceResourceId: deepWork.id, tags: ['identity', 'habits'] });
+    addSection('note', identityNote.id, 'text', { title: 'Definition', text: 'Changing behavior by first changing the self-image behind it, rather than chasing an outcome directly.' });
+    addSection('note', identityNote.id, 'text', { title: 'Explanation', text: 'Ask "who is the type of person who would do this?" rather than "what result do I want?" — the identity shift makes the behavior self-sustaining.' });
+    var sdRoot = ensureMindMapRoot('concept', identityNote.id, sd, 'Identity-Based Change');
+    addMindMapBranch('concept', identityNote.id, sd, sdRoot.id, 'Self-Image');
+    addMindMapBranch('concept', identityNote.id, sd, sdRoot.id, 'Evidence & Proof');
+    Objectives.add({ departmentId: sd, kind: 'skill-milestone', title: 'Run a 30-day identity-based habit experiment' });
+    Departments.update(sd, { masteryPct: 22, currentFocus: 'Applying identity-based change to a real 30-day experiment.' });
 
-    // Creation Lab — one starter creation, referencing the seeded book note.
-    Creations.add({
-      title: 'Why small systems beat big goals', type: 'essay', notebookId: books.id,
-      body: 'Draft thesis: ambition concentrated into a single big goal is fragile; ambition distributed across small daily systems compounds. Pull from [[Atomic Habits — James Clear]] for the identity-vote framing.',
-      linkedNoteIds: [n1.id], status: 'draft'
-    });
+    // ---- A cross-department connection, demonstrated ----
+    CrossLinks.add({ fromDepartmentId: psy, toDepartmentId: sd, label: 'Habit formation research underlies most self-development practice.' });
+    CrossLinks.add({ fromDepartmentId: psy, toDepartmentId: 'ai', label: 'Cognitive biases inform how AI systems are designed to be persuasive/usable.' });
 
-    // Today's Focus — a sensible default reflecting the seeded data above.
-    saveTodaysFocus({
-      topic: 'Atomic Habits — James Clear', chapter: 'Ch. 3 — How to Build a New Habit',
-      studyTime: '30 min', phase: 'understand', nextAction: 'Fill in the "Evidence?" prompt on the 1%-gains question branch.'
-    });
+    // Give every remaining department a plausible currentFocus so Home
+    // never reads as totally inert.
+    Departments.update('wealth', { currentFocus: 'Building a first-principles model of how value compounds.' });
+    Departments.update('ai', { currentFocus: 'Tracking large language model fundamentals.' });
+    Departments.update('metaphysics', { currentFocus: 'Reading into the philosophy of consciousness.' });
+    Departments.update('spiritual', { currentFocus: 'Establishing a daily meditation practice.' });
+    Departments.update('photography', { currentFocus: 'Practicing composition and available light.' });
+    Departments.update('history', { currentFocus: 'Mapping the rise and fall of ancient empires.' });
+    Departments.update('astrology', { currentFocus: 'Learning to read a natal chart from scratch.' });
+    Departments.update('writing', { currentFocus: 'Studying classical rhetoric and argument structure.' });
+    Departments.update('health', { currentFocus: 'Understanding the fundamentals of metabolic health.' });
   }
 
   window.KnowledgeHubData = {
-    STAGES: STAGES, STAGE_KEYS: STAGE_KEYS, TYPES: TYPES, TYPE_KEYS: TYPE_KEYS,
-    FOCUS_PHASES: FOCUS_PHASES, CREATION_TYPES: CREATION_TYPES, CREATION_TYPE_KEYS: CREATION_TYPE_KEYS,
-    Notebooks: Notebooks, Notes: Notes, Templates: Templates,
-    MindMapNodes: MindMapNodes, PermanentKnowledge: PermanentKnowledge, Creations: Creations,
-    notebooksSorted: notebooksSorted, templatesSorted: templatesSorted, notesSorted: notesSorted,
-    notesForStage: notesForStage, notesForNotebook: notesForNotebook, notesForType: notesForType,
-    notebookName: notebookName, notebookIcon: notebookIcon, stageMeta: stageMeta, typeMeta: typeMeta,
-    findOrCreateNotebook: findOrCreateNotebook, autoNotebookForType: autoNotebookForType,
-    quickCapture: quickCapture, mediaCapture: mediaCapture, createNoteFromTemplate: createNoteFromTemplate,
-    extractWikiTitles: extractWikiTitles, noteTextFields: noteTextFields, resolveNoteByTitle: resolveNoteByTitle,
-    connectionsFor: connectionsFor, allConnectedNoteIds: allConnectedNoteIds,
-    notebookHealth: notebookHealth, funnelCounts: funnelCounts, sortNotes: sortNotes,
-    mindMapNodesForNotebook: mindMapNodesForNotebook, mindMapChildren: mindMapChildren,
-    ensureMindMapRoot: ensureMindMapRoot, addMindMapBranch: addMindMapBranch,
-    removeMindMapNodeCascade: removeMindMapNodeCascade, computeMindMapLayout: computeMindMapLayout,
-    permanentKnowledgeForNotebook: permanentKnowledgeForNotebook, pkAddItem: pkAddItem, pkRemoveItem: pkRemoveItem,
-    pkUpdateSummary: pkUpdateSummary, pkToggleLinkedNote: pkToggleLinkedNote, permanentKnowledgeItemCount: permanentKnowledgeItemCount,
-    creationsSorted: creationsSorted, creationsForNotebook: creationsForNotebook,
-    todaysFocus: todaysFocus, saveTodaysFocus: saveTodaysFocus,
-    removeNotebookCascade: removeNotebookCascade,
-    isEmptyEverywhere: function () { return !Notebooks.list().length && !Notes.list().length && !Templates.list().length; },
+    RESOURCE_TYPES: RESOURCE_TYPES, RESOURCE_TYPE_KEYS: RESOURCE_TYPE_KEYS,
+    PIPELINE_STAGES: PIPELINE_STAGES, PIPELINE_STAGE_KEYS: PIPELINE_STAGE_KEYS,
+    QUESTION_TYPES: QUESTION_TYPES, QUESTION_TYPE_KEYS: QUESTION_TYPE_KEYS,
+    RESEARCH_TYPES: RESEARCH_TYPES, RESEARCH_TYPE_KEYS: RESEARCH_TYPE_KEYS,
+    OBJECTIVE_KINDS: OBJECTIVE_KINDS, OBJECTIVE_KIND_KEYS: OBJECTIVE_KIND_KEYS,
+    SECTION_KINDS: SECTION_KINDS, SECTION_KIND_KEYS: SECTION_KIND_KEYS,
+    MAP_LEVELS: MAP_LEVELS, DEPARTMENT_DEFS: DEPARTMENT_DEFS, DEPARTMENT_IDS: DEPARTMENT_IDS,
+    AI_ACTIONS: AI_ACTIONS,
+
+    Departments: Departments, Resources: Resources, Sections: Sections,
+    PermanentNotes: PermanentNotes, Questions: Questions, ResearchItems: ResearchItems,
+    Projects: Projects, Objectives: Objectives, MindMapNodes: MindMapNodes,
+    CrossLinks: CrossLinks, StudySessions: StudySessions,
+
+    departmentDef: departmentDef, departmentsSorted: departmentsSorted, departmentName: departmentName, departmentIcon: departmentIcon,
+    ensureDepartmentsExist: ensureDepartmentsExist, departmentSummary: departmentSummary,
+
+    resourcesFor: resourcesFor, resourcesSorted: resourcesSorted, resourcesByStage: resourcesByStage,
+    currentLearningFor: currentLearningFor, resourceTypeMeta: resourceTypeMeta, pipelineStageMeta: pipelineStageMeta,
+    setResourceStage: setResourceStage, removeResourceCascade: removeResourceCascade,
+    sectionsFor: sectionsFor, addSection: addSection, moveSection: moveSection, reorderSections: reorderSections,
+    toggleSectionCollapsed: toggleSectionCollapsed, ensureDefaultSections: ensureDefaultSections, primaryTextFor: primaryTextFor,
+    mindMapNodeCountForScope: mindMapNodeCountForScope, permanentNotesFromResource: permanentNotesFromResource,
+    questionsForResource: questionsForResource, relatedResourcesByTag: relatedResourcesByTag,
+
+    permanentNotesFor: permanentNotesFor, permanentNotesSorted: permanentNotesSorted, permanentNoteTitle: permanentNoteTitle,
+    removePermanentNoteCascade: removePermanentNoteCascade,
+
+    questionsFor: questionsFor, openQuestionsFor: openQuestionsFor, questionTypeMeta: questionTypeMeta,
+    permanentNotesCitingQuestion: permanentNotesCitingQuestion,
+
+    researchFor: researchFor, researchTypeMeta: researchTypeMeta,
+
+    projectsFor: projectsFor, permanentNotesCitingProject: permanentNotesCitingProject, setProjectStatus: setProjectStatus,
+    projectTypeSuggestions: projectTypeSuggestions,
+
+    objectivesFor: objectivesFor, objectiveKindMeta: objectiveKindMeta,
+
+    mindMapNodesForScope: mindMapNodesForScope, mindMapChildren: mindMapChildren, ensureMindMapRoot: ensureMindMapRoot,
+    addMindMapBranch: addMindMapBranch, removeMindMapNodeCascade: removeMindMapNodeCascade, moveMindMapNode: moveMindMapNode,
+    computeMindMapLayout: computeMindMapLayout, conceptMapsCreatedCount: conceptMapsCreatedCount, resourceMapsCreatedCount: resourceMapsCreatedCount,
+
+    buildDepartmentGraph: buildDepartmentGraph, buildGlobalGraph: buildGlobalGraph, knowledgeGraphSize: knowledgeGraphSize,
+    crossLinksFor: crossLinksFor, otherDeptIn: otherDeptIn, removeCrossLinksFor: removeCrossLinksFor,
+    mostConnectedConcepts: mostConnectedConcepts, crossDepartmentTagOverlap: crossDepartmentTagOverlap,
+
+    milestonesFor: milestonesFor, studySessionsFor: studySessionsFor, hoursStudied: hoursStudied,
+    logStudySession: logStudySession, learningStreak: learningStreak, recentlyStudiedDate: recentlyStudiedDate,
+    recentlyStudiedResources: recentlyStudiedResources, currentResourceFor: currentResourceFor,
+
+    searchAll: searchAll,
+    getSettings: getSettings, saveSettings: saveSettings,
+    buildAiContext: buildAiContext, buildAiPrompt: buildAiPrompt, aiLocalFallback: aiLocalFallback,
+
+    isEmptyEverywhere: function () { return !Resources.list().length && !PermanentNotes.list().length && !MindMapNodes.list().length; },
     seedIfEmpty: seedIfEmpty
   };
 })();

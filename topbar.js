@@ -189,23 +189,38 @@
     },
     {
       // New nav folder, right below Entertainment (per an explicit
-      // placement request): Knowledge Hub — a genuinely new, standalone
-      // digital note-taking / PKM page (knowledge-hub.html +
-      // knowledge-hub-data.js) built around a five-stage capture funnel
-      // (Inbox -> To Review -> Highlighting -> Summarizing -> Synthesis)
-      // and Progressive Summarization. See that page's own header
-      // comment for the full rundown.
+      // placement request): Knowledge Hub v2 — a full replace of the
+      // prior five-stage-funnel/Progressive-Summarization page. It's now
+      // a Learning & Knowledge Operating System: 11 fixed department
+      // workspaces (Psychology/Wealth/AI/Metaphysics/Spiritual/Self-Dev/
+      // Photography/History/Astrology/Writing/Health), each with a
+      // Resource Library, an 8-stage Reading Pipeline, three layered
+      // levels of mind maps, a computed Knowledge Graph, a Permanent
+      // Notes (concept) library, Open Questions, Research, Projects,
+      // cross-department Connections, a Progress dashboard, and a
+      // 17-action AI Assistant — plus one Global Knowledge Graph across
+      // every department. See knowledge-hub-data.js's own header comment
+      // for the full architecture rundown. Every child link below is a
+      // real knowledge-hub.html#<id> deep link, read once on load by
+      // that page's own boot() to open straight to that department (or
+      // the Global Graph) — same one-way deep-link convention this app's
+      // other nested nav children already use.
       key: 'knowledgehub',
       label: 'Knowledge Hub',
       items: [
         { href: 'knowledge-hub.html', icon: '🧠', label: 'Knowledge Hub', id: 'topbarKnowledgeHub', children: [
-          { hash: 'home', label: 'Home' },
-          { hash: 'workflows', label: 'Workflows (Funnel)' },
-          { hash: 'notebooks', label: 'Notebooks' },
-          { hash: 'highlighting', label: 'Highlighting' },
-          { hash: 'quotes', label: 'Quote Library' },
-          { hash: 'connections', label: 'Connections' },
-          { hash: 'templates', label: 'Templates' },
+          { hash: 'psychology', label: '🧠 Human Psychology & Neuroscience' },
+          { hash: 'wealth', label: '💰 Wealth & Entrepreneurship' },
+          { hash: 'ai', label: '🤖 Artificial Intelligence' },
+          { hash: 'metaphysics', label: '⚛️ Metaphysics & Quantum Physics' },
+          { hash: 'spiritual', label: '🔮 Spiritual Practices & Esotericism' },
+          { hash: 'selfdev', label: '🌱 Self-Development' },
+          { hash: 'photography', label: '📸 Photography & Videography' },
+          { hash: 'history', label: '🏛 History' },
+          { hash: 'astrology', label: '✨ Astrology & Numerology' },
+          { hash: 'writing', label: '✍️ Persuasive Communication & Writing' },
+          { hash: 'health', label: '🌿 Holistic Health & Alternative Healing' },
+          { hash: 'global', label: '🌐 Global Knowledge Graph' },
         ] },
       ],
     },
