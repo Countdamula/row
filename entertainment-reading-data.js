@@ -191,6 +191,20 @@
     } catch (e) {}
     return result;
   }
+  // Three independently-run, keyless title-search providers, tried in
+  // order — Open Library's own /search.json was found live-503ing/
+  // timing out during this feature's own testing, and Google Books'
+  // free quota is a globally shared pool that was itself found
+  // exhausted the same day, so a *third*, differently-operated provider
+  // (Apple's iTunes Search API, `media=ebook` — also public/keyless,
+  // also confirmed via a real `curl -H "Origin: ..."` check to send
+  // `Access-Control-Allow-Origin: *`) exists specifically so one
+  // provider's outage/quota can't take the whole search feature down at
+  // once, the same reasoning as the ISBN path's own modern/legacy
+  // fallback above. None of the three is guaranteed to have any given
+  // book — a self-published/small-press title in particular may
+  // genuinely exist in none of them, which is a real gap in what's
+  // free to search, not a bug in the lookup itself.
   async function fetchByTitleGuess(guess) {
     const result = { title: '', creator: '', cover: '', found: false };
     try {
@@ -220,6 +234,20 @@
             const img = info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '';
             if (img) result.cover = img.replace(/^http:/, 'https:');
           }
+        }
+      }
+    } catch (e) {}
+    if (result.found) return result;
+    try {
+      const res3 = await fetch('https://itunes.apple.com/search?term=' + encodeURIComponent(guess) + '&media=ebook&limit=1');
+      if (res3.ok) {
+        const data3 = await res3.json();
+        const item = data3.results && data3.results[0];
+        if (item) {
+          result.found = true;
+          if (item.trackName) result.title = item.trackName;
+          if (item.artistName) result.creator = item.artistName;
+          if (item.artworkUrl100) result.cover = item.artworkUrl100.replace(/\/\d+x\d+bb\.(jpg|png)$/, '/600x600bb.$1');
         }
       }
     } catch (e) {}

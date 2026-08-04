@@ -13595,3 +13595,43 @@ both as originally phrased assumed a backend this app doesn't have):
       diagnosing the second bugfix above, not new, unexercised code. A
       real click-through of the box itself is recommended before relying
       on it.
+  - **Fourth bugfix, same session: the new "search by title" box itself
+    reported "no match" for any title**, because it had exactly the same
+    two providers as the URL-guess path (Open Library `/search.json`,
+    Google Books) — and a fresh `curl` re-check at the time confirmed
+    both were *still* down: `/search.json` still timing out outright,
+    Google Books still returning the same globally-shared-quota 429 from
+    earlier in this session. One outage taking down the one fallback
+    meant to survive outages is exactly the failure this feature needed
+    not to have. Added a third, independently-run, keyless provider —
+    Apple's iTunes Search API (`itunes.apple.com/search?...&media=ebook`)
+    — confirmed live via `curl` (a real title/author/artwork search
+    returned correct results for a known book) and confirmed CORS-
+    enabled the same way as every other provider in this chain (`curl -H
+    "Origin: ..."` showing `Access-Control-Allow-Origin: *`). Its
+    100×100 default artwork URL is upscaled to 600×600 by substituting
+    the size segment in the URL (`.../100x100bb.jpg` → `.../600x600bb.jpg`
+    — verified the substituted URL actually resolves, not just
+    string-manipulated blindly) rather than shipping a low-res thumbnail
+    as a book cover.
+    - **Disclosed rather than promised as a full fix**: the specific book
+      from the original report ("The Last Séance," a Kindle title) was
+      separately searched directly against iTunes/Apple Books during
+      this investigation and does not appear to be catalogued there
+      either — so that one specific book will likely still come back
+      "no match" on any of the three providers, which is an honest
+      reflection of what's actually free to search (a self-published/
+      small-press ebook can genuinely be absent from Open Library,
+      Google Books, *and* Apple Books at once), not a remaining bug.
+      What this fix actually closes is the general failure mode: the
+      search-by-title box no longer depends on only two providers that
+      can both be down/exhausted on the same day, which is what made it
+      appear completely non-functional regardless of which book was
+      searched.
+    - **Verification, disclosed honestly**: same environment limitation
+      as the rest of this feature's own entries — no interactive browser
+      session to click through the real modal. The iTunes endpoint itself
+      was verified directly and repeatedly via `curl` (a real result set
+      for "Atomic Habits," correct CORS headers, a working upscaled
+      artwork URL) immediately before shipping, the strongest verification
+      available in this environment for a third-party API dependency.
