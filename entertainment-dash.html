@@ -413,6 +413,10 @@ body { margin: 0; font-family: var(--gt-font); }
         <button type="button" class="gt-btn gt-btn-sm" id="rdBookFetchBtn">🔍 Fetch</button>
       </div>
       <div id="rdBookFetchStatus" style="font-size:11.5px;color:var(--gt-text-mute);margin-top:4px;"></div>
+      <div id="rdBookSearchTitleRow" style="display:none;gap:8px;margin-top:6px;">
+        <input type="text" class="gt-input" id="rdBookSearchTitleInput" placeholder="Type the title to search instead…" style="flex:1;">
+        <button type="button" class="gt-btn gt-btn-sm" id="rdBookSearchTitleBtn">Search</button>
+      </div>
     </div>
     <div class="gt-field">
       <label class="gt-field-label">Cover Image</label>
@@ -2076,6 +2080,8 @@ function openBookModal(id, presetPatch) {
   document.getElementById('rdBookUrl').value = editingBookDraft.url || '';
   document.getElementById('rdBookReview').value = editingBookDraft.review || '';
   document.getElementById('rdBookFetchStatus').textContent = '';
+  document.getElementById('rdBookSearchTitleRow').style.display = 'none';
+  document.getElementById('rdBookSearchTitleInput').value = '';
 
   document.getElementById('rdBookDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   document.getElementById('rdBookModalBg').classList.add('show');
@@ -2189,6 +2195,40 @@ function wireBookModal() {
   // Shows a small status line either way — a URL-slug guess is fuzzy
   // enough that staying silent on a miss reads as "broken" rather than
   // "found nothing here."
+  //
+  // A real, disclosed dead end exists: a bare amazon.com/dp/<ASIN>/ link
+  // (e.g. shared from a wish list rather than the product page) can
+  // carry a Kindle-style ASIN that isn't an ISBN, and no title anywhere
+  // in the URL — there's genuinely nothing left in the link's own text
+  // to search with, and this app has no backend to read the page itself
+  // (Amazon's product pages don't grant CORS to client-side JS, and
+  // there's no free key-less API left to try). On that exact dead end
+  // (noUrlInfo) — or on any other miss — reveal a manual
+  // "search by title instead" box rather than leaving no next step.
+  function applyFetchResult(result, statusEl) {
+    if (!editingBookDraft) return;
+    if (result.title && !document.getElementById('rdBookTitle').value.trim()) document.getElementById('rdBookTitle').value = result.title;
+    if (result.creator) document.getElementById('rdBookAuthor').value = result.creator;
+    if (result.cover) {
+      editingBookDraft.cover = result.cover;
+      document.getElementById('rdBookCover').value = result.cover;
+      updateBookCoverPreview();
+    }
+    document.getElementById('rdBookSearchTitleRow').style.display = 'none';
+    // guessOnly: nothing online actually confirmed a match — only the
+    // URL's own slug supplied a plausible title, so say so plainly
+    // rather than implying a real database lookup succeeded.
+    statusEl.textContent = result.guessOnly
+      ? 'Only guessed a title from the link (no online match) — please fill in the rest by hand.'
+      : '✓ Filled in — double-check it matches before saving.';
+  }
+  function showFetchMiss(statusEl, noUrlInfo) {
+    statusEl.textContent = noUrlInfo
+      ? 'That link has no ISBN or title in it (common for a bare wish-list link) — nothing to search from automatically.'
+      : 'No online match found for that link.';
+    document.getElementById('rdBookSearchTitleRow').style.display = 'flex';
+    document.getElementById('rdBookSearchTitleInput').focus();
+  }
   document.getElementById('rdBookFetchBtn').addEventListener('click', function () {
     var url = document.getElementById('rdBookUrl').value.trim();
     var statusEl = document.getElementById('rdBookFetchStatus');
@@ -2201,26 +2241,30 @@ function wireBookModal() {
     R.fetchBookPreview(url).then(function (result) {
       btn.disabled = false;
       if (!editingBookDraft) return;
-      if (!result.found) {
-        statusEl.textContent = 'No match found for that link — fill it in by hand.';
-        return;
-      }
-      if (result.title && !document.getElementById('rdBookTitle').value.trim()) document.getElementById('rdBookTitle').value = result.title;
-      if (result.creator) document.getElementById('rdBookAuthor').value = result.creator;
-      if (result.cover) {
-        editingBookDraft.cover = result.cover;
-        document.getElementById('rdBookCover').value = result.cover;
-        updateBookCoverPreview();
-      }
-      // guessOnly: nothing online actually confirmed a match — only the
-      // URL's own slug supplied a plausible title, so say so plainly
-      // rather than implying a real database lookup succeeded.
-      statusEl.textContent = result.guessOnly
-        ? 'Only guessed a title from the link (no online match) — please fill in the rest by hand.'
-        : '✓ Filled in — double-check it matches before saving.';
+      if (!result.found) { showFetchMiss(statusEl, result.noUrlInfo); return; }
+      applyFetchResult(result, statusEl);
     }).catch(function () {
       btn.disabled = false;
-      statusEl.textContent = 'Couldn\'t look that up right now — fill it in by hand.';
+      showFetchMiss(statusEl, false);
+    });
+  });
+  document.getElementById('rdBookSearchTitleBtn').addEventListener('click', function () {
+    var title = document.getElementById('rdBookSearchTitleInput').value.trim();
+    var statusEl = document.getElementById('rdBookFetchStatus');
+    var R = rd();
+    if (!title) { statusEl.textContent = 'Type a title to search for first.'; return; }
+    if (!R || typeof R.searchBookByTitle !== 'function') return;
+    var btn = this;
+    btn.disabled = true;
+    statusEl.textContent = 'Searching…';
+    R.searchBookByTitle(title).then(function (result) {
+      btn.disabled = false;
+      if (!editingBookDraft) return;
+      if (!result.found) { statusEl.textContent = 'No online match for "' + title + '" either — fill it in by hand.'; return; }
+      applyFetchResult(result, statusEl);
+    }).catch(function () {
+      btn.disabled = false;
+      statusEl.textContent = 'Couldn\'t search right now — fill it in by hand.';
     });
   });
 }

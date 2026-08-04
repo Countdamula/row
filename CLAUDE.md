@@ -13534,5 +13534,64 @@ both as originally phrased assumed a backend this app doesn't have):
     next attempt in the chain, never a thrown error. **Not verified this
     way**: an actual paste-a-URL click-through inside the real page/
     modal (as opposed to the underlying API calls tested directly), on
-    all three tabs. A real click-through is recommended before relying
-    on this heavily.
+    all three tabs.
+  - **Third bugfix, same session, reported against a real link this
+    time**: `amazon.com/dp/B0GHRT9NWX/?coliid=...&colid=...` (a link
+    copied from an Amazon wish list) still reported "No match found."
+    Diagnosed against the actual URL rather than guessing again: this is
+    a bare `/dp/<ASIN>/` link with no title anywhere in the path (wish-
+    list share links drop the title segment other Amazon links usually
+    have), and its ASIN (`B0GHRT9NWX`) is a Kindle-style code, not an
+    ISBN — so `extractIsbnFromUrl`/`guessBookQueryFromUrl` both correctly
+    found nothing, because there was genuinely nothing in the URL's own
+    text to find. Confirmed this is a real, disclosed hard limit, not a
+    fixable parsing gap: a direct `curl` of that exact Amazon page (which
+    only works because curl doesn't enforce CORS, unlike a real browser)
+    showed the real title ("The Last Séance: Dark Covenant Series Book 1"
+    by Dean Rasmussen, a Kindle title) sitting right there in the page's
+    own `<title>` tag — but the response carries no
+    `Access-Control-Allow-Origin` header at all, confirmed directly, so
+    browser JS genuinely cannot read that page's content from this app
+    (no backend to proxy it, no Amazon Product Advertising API key
+    wired in, per §1/§2 — the same category of "confirmed adaptation"
+    this file already flags elsewhere for a request assuming
+    capabilities this app's architecture doesn't have). Also confirmed,
+    while investigating: Open Library's own "Volumes" endpoint for
+    reverse-looking-up a book by its Amazon id
+    (`/api/volumes/brief/amazon/<asin>.json`) is itself a deprecated,
+    to-be-migrated-to-FastAPI endpoint (its own error response says so
+    outright) with no discoverable working replacement — a second real
+    dead end, not just the first one.
+    - **Given there's a real ceiling on what a pasted link alone can
+      supply**, added a manual escape hatch instead of chasing further
+      provider workarounds that can't actually work for this link shape:
+      a small "search by title instead" box (`#rdBookSearchTitleRow`,
+      hidden by default) now appears under the status line whenever a
+      Fetch attempt comes back with nothing usable — typing a title into
+      it and pressing "Search" calls the same title-search chain
+      (`EntReading.searchBookByTitle()`, exported from the existing
+      `fetchByTitleGuess` — Open Library's `/search.json` then Google
+      Books) directly against user-typed text instead of a URL-derived
+      guess, so a link this app genuinely can't parse still has a
+      one-more-step path to a real match instead of a dead end. The
+      status message on a miss now also distinguishes *why*: `noUrlInfo`
+      (new field on `fetchBookPreview()`'s return — true whenever
+      neither an ISBN nor a title-guess could be extracted at all) drives
+      "That link has no ISBN or title in it (common for a bare wish-list
+      link) — nothing to search from automatically," versus a plain "No
+      online match found for that link" when something *was* extracted
+      (an ISBN, say) but no database had it.
+    - **Verification, disclosed honestly**: the specific book from the
+      reported link was confirmed, via direct `curl`, to almost
+      certainly not be worth chasing further even with a hypothetical
+      working reverse-ASIN lookup — it reads as a newer/lower-profile
+      Kindle title, exactly the kind of book Open Library's own
+      volunteer-maintained catalog most often has no record of at all,
+      regardless of which identifier is used to look it up. No
+      interactive browser/CDP session was available to click through the
+      new search-by-title box itself; the underlying `searchBookByTitle`
+      call reuses the exact `fetchByTitleGuess` function already
+      exercised (via its Open Library/Google Books calls) while
+      diagnosing the second bugfix above, not new, unexercised code. A
+      real click-through of the box itself is recommended before relying
+      on it.

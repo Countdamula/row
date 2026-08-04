@@ -253,7 +253,14 @@
       // rather than leaving the button looking like it did nothing.
       return { title: guess, creator: '', cover: '', found: true, guessOnly: true };
     }
-    return { title: '', creator: '', cover: '', found: false };
+    // Neither an ISBN nor a title could be pulled from the URL at all —
+    // e.g. a bare amazon.com/dp/<ASIN>/ link shared from a wish list,
+    // where the ASIN is a Kindle-style code (not an ISBN) and there's no
+    // title anywhere in the path. No amount of provider-hopping helps
+    // here since there's genuinely nothing in the URL's own text to
+    // search with — tagged so the caller can offer a manual title-search
+    // box instead of a dead end with no next step.
+    return { title: '', creator: '', cover: '', found: false, noUrlInfo: !isbn };
   }
 
   // ============================================================
@@ -848,7 +855,7 @@
 
   global.EntReading = {
     FORMATS: FORMATS, STATUS_KEYS: STATUS_KEYS, STATUS_LABELS: STATUS_LABELS, SOURCES: SOURCES, SUGGESTED_GENRES: SUGGESTED_GENRES,
-    uid: uid, todayISO: todayISO, fetchBookPreview: fetchBookPreview,
+    uid: uid, todayISO: todayISO, fetchBookPreview: fetchBookPreview, searchBookByTitle: fetchByTitleGuess,
     Books: Books, Authors: Authors, Series: Series, Quotes: Quotes, LogEntries: LogEntries, Goals: Goals, Journal: Journal,
     booksSorted: booksSorted, booksByStatus: booksByStatus, tbrSorted: tbrSorted,
     currentlyReadingSorted: currentlyReadingSorted, readSorted: readSorted, progressPct: progressPct,
