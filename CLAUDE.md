@@ -13456,50 +13456,83 @@ both as originally phrased assumed a backend this app doesn't have):
     expose oEmbed. Reported as "the auto-filling isn't working for
     Reading Corner," which it genuinely wasn't for its real use case.
     Replaced with a real book lookup, `EntReading.fetchBookPreview(url)`
-    (`entertainment-reading-data.js`), against Open Library's public,
-    keyless JSON API (openlibrary.org/dev/docs/api/books — same "real
-    public endpoint, no backend/API key" precedent as the oEmbed helper,
-    just a genuinely different lookup shape): (1) looks for an ISBN
-    sitting directly in the URL — very common, since Amazon's own ASIN
-    for a print book is usually its ISBN-10 — and does a precise ISBN
-    lookup; (2) otherwise guesses a search title from the URL's own slug
-    (Goodreads' `/book/show/<id>.<Title_With_Underscores>`, Amazon's
-    `/<Title-With-Dashes>/dp/<asin>`, Audible's `/pd/<slug>/<asin>`) and
-    searches Open Library's title index; (3) falls back to the original
-    YouTube/Spotify oEmbed lookup last, for an audiobook sample or
-    author-interview link pasted as the Link field. Title only fills if
-    still blank; a fetched creator name lands in the plain Author text
-    input exactly like a typed name already does, still matched/created
-    into a real `Author` record via `findOrCreateAuthorByName()` on
-    Save. Unlike every other Fetch button in this app (which stay
-    silent on a miss), this one shows a small status line either way
-    (`#rdBookFetchStatus` — "Looking this up…" / "✓ Filled in — double-
-    check it matches before saving." / "No match found for that link —
-    fill it in by hand.") — a URL-slug guess is fuzzier than YouTube/
-    Spotify's own oEmbed match, so staying silent on a miss is exactly
-    what read as "broken" the first time.
+    (`entertainment-reading-data.js`): looks for an ISBN sitting directly
+    in the URL first (very common — Amazon's own ASIN for a print book
+    is usually its ISBN-10), else guesses a search title from the URL's
+    own slug (Goodreads' `/book/show/<id>.<Title_With_Underscores>`,
+    Amazon's `/<Title-With-Dashes>/dp/<asin>`, Audible's
+    `/pd/<slug>/<asin>`). Title only fills if still blank; a fetched
+    creator name lands in the plain Author text input exactly like a
+    typed name already does, still matched/created into a real `Author`
+    record via `findOrCreateAuthorByName()` on Save.
+  - **Second bugfix, same session, after live-testing the first fix
+    against the real APIs it depends on rather than assuming they'd
+    work**: `curl` checks against Open Library from this environment
+    found its older "Read API" (`/api/books?bibkeys=...`, the endpoint
+    the first fix used for the ISBN path) and its full-text
+    `/search.json` both intermittently returning a 503 ("Internet
+    Archive: Temporarily Offline") or timing out outright — a real,
+    live outage on part of Open Library's own infrastructure at the
+    time, not a defect in this code, but it meant the fix as first
+    shipped could genuinely report "No match found" for a real, correct
+    link. Investigated rather than just disclosed and left: Open
+    Library's *separately-maintained*, newer Editions/Works/Authors REST
+    API (`/isbn/<isbn>.json` → redirects to `/books/<id>.json`, then
+    `/works/<id>.json` for a genre-less work record, then
+    `/authors/<id>.json` for the author's name) tested reliably healthy
+    the whole time — confirmed with real `curl -H "Origin: ..."`/`-X
+    OPTIONS` requests, not assumed, that every hop sends
+    `Access-Control-Allow-Origin: *` including its own redirect
+    response, so it's genuinely fetchable from browser JS with no key.
+    `fetchByIsbnModern(isbn)` now tries this chain first for any URL
+    with a recognizable ISBN, falling back to the older bibkeys endpoint
+    (`fetchByIsbnLegacy`) only if the modern chain comes back empty — in
+    case the outage is the other way around another day. A URL with no
+    ISBN (the common case for a Goodreads link) still only has
+    `/search.json` to guess-search against — gained one more attempt
+    after it, Google Books' own keyless `volumes` endpoint
+    (`fetchByTitleGuess`), though its free quota is a globally shared
+    pool that was itself found exhausted ("Quota exceeded ... per day
+    for consumer project_number:...") during this same session's
+    testing, so it's a bonus try, not a guaranteed source — then the
+    original YouTube/Spotify oEmbed lookup last, for an audiobook
+    sample or author-interview link. If every one of those comes back
+    empty, the URL's own slug guess — when there is one — now still
+    fills the Title field on its own (tagged `guessOnly`), rather than
+    the button doing visibly nothing: the status line
+    (`#rdBookFetchStatus`) says plainly "Only guessed a title from the
+    link (no online match) — please fill in the rest by hand." instead
+    of implying a real database match, distinct from the honest-success
+    message, "✓ Filled in — double-check it matches before saving.",
+    or the fully-empty "No match found for that link — fill it in by
+    hand." (shown only when there was no URL-slug guess to fall back to
+    at all, e.g. an unrecognized domain).
   - **Verification, disclosed honestly**: no interactive browser/CDP
-    session or JS runtime was available in this environment either
-    session, the same reduced-guarantee fallback several other pages'
-    changelog entries in this file already carry for this exact class of
-    limitation — doubly relevant here, since this fix depends on a real
-    third-party API's live behavior, not just this app's own code. Live
-    `curl` checks against Open Library from this environment during this
-    session found its homepage reachable but its `/search.json` and
-    `/api/books` endpoints intermittently returning a 503 ("Internet
-    Archive: Temporarily Offline") or timing out outright — most likely
-    a real, current outage on Open Library's own infrastructure
-    (Internet Archive has had documented recent instability), not a
-    defect in this code, but disclosed rather than glossed over: if the
-    Fetch button still reports "No match found" after this ships, Open
-    Library being temporarily down is a real, live possibility, not
-    necessarily a code bug — retrying later is worth trying before
-    assuming it's broken again. The ISBN-extraction and slug-guessing
-    regexes were verified by hand-tracing several real Goodreads/Amazon/
-    Audible URL shapes against the logic (no JS runtime available to
-    execute them directly); every network call is wrapped in try/catch
-    so an Open Library outage degrades to the YouTube/Spotify fallback
-    and then the "no match" status line, never a thrown error. **Not
-    verified this way**: an actual paste-a-URL click-through against a
-    live, healthy Open Library, on all three tabs. A real click-through
-    is recommended before relying on this heavily.
+    session or JS runtime was available in this environment for the
+    actual `entertainment-dash.html`/`entertainment-reading-data.js`
+    code itself, the same reduced-guarantee fallback several other
+    pages' changelog entries in this file already carry for this exact
+    class of limitation — but this fix's *dependency* (Open Library's
+    two book APIs, plus Google Books) was genuinely live-tested with
+    real `curl` requests from this environment during this session, not
+    just assumed: the modern Editions-API chain
+    (`/isbn/0756404746.json` → `/books/OL...M.json`) was confirmed to
+    return real, correct data (title/subtitle/cover ids, and — via the
+    work→author hop — a real author name) and to send proper CORS
+    headers on every hop, re-confirmed healthy in a final check
+    immediately before this shipped, while `/search.json` was
+    re-confirmed still down (timing out) at that same moment — so a
+    book link with a visible ISBN (the common case for an Amazon link)
+    should genuinely auto-fill correctly right now, while a Goodreads
+    link (which usually has no ISBN in its URL) will most likely fall
+    through to the `guessOnly` title-only fill until Open Library's
+    search service itself recovers. The ISBN-extraction and slug-
+    guessing regexes were additionally verified by hand-tracing several
+    real Goodreads/Amazon/Audible URL shapes against the logic (no JS
+    runtime available to execute them directly); every network call is
+    wrapped in try/catch so any single provider's outage degrades to the
+    next attempt in the chain, never a thrown error. **Not verified this
+    way**: an actual paste-a-URL click-through inside the real page/
+    modal (as opposed to the underlying API calls tested directly), on
+    all three tabs. A real click-through is recommended before relying
+    on this heavily.

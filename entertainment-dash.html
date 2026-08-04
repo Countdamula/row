@@ -2176,16 +2176,19 @@ function wireBookModal() {
   // "🔍 Fetch" for a book — a genuinely different lookup than the other
   // gallery tabs' YouTube/Spotify oEmbed fetch, since Goodreads/Amazon/
   // Audible (this field's own placeholder examples) don't expose
-  // oEmbed at all. rd().fetchBookPreview() tries an ISBN sitting in the
-  // URL first, then a title guessed from the URL's own slug, both
-  // against Open Library's public keyless API, falling back to the
-  // same YouTube/Spotify oEmbed lookup last (an audiobook/trailer
-  // link). Title only fills if still blank (never overwrites a typed
-  // one); creator fills the same plain Author text input a typed name
-  // already uses, matched/created into a real Author record on Save
-  // via findOrCreateAuthorByName. Shows a small status line either way
-  // — a URL-slug guess is fuzzy enough that staying silent on a miss
-  // reads as "broken" rather than "found nothing here."
+  // oEmbed at all. rd().fetchBookPreview() chains several attempts (an
+  // ISBN sitting in the URL against Open Library's Editions API, then
+  // its older bibkeys API, then a title guessed from the URL's own slug
+  // against Open Library's search and Google Books, then the YouTube/
+  // Spotify oEmbed lookup, then the bare URL-slug guess on its own) —
+  // see entertainment-reading-data.js's own header comment on this
+  // section for why it's this many layers deep. Title only fills if
+  // still blank (never overwrites a typed one); creator fills the same
+  // plain Author text input a typed name already uses, matched/created
+  // into a real Author record on Save via findOrCreateAuthorByName.
+  // Shows a small status line either way — a URL-slug guess is fuzzy
+  // enough that staying silent on a miss reads as "broken" rather than
+  // "found nothing here."
   document.getElementById('rdBookFetchBtn').addEventListener('click', function () {
     var url = document.getElementById('rdBookUrl').value.trim();
     var statusEl = document.getElementById('rdBookFetchStatus');
@@ -2209,7 +2212,12 @@ function wireBookModal() {
         document.getElementById('rdBookCover').value = result.cover;
         updateBookCoverPreview();
       }
-      statusEl.textContent = '✓ Filled in — double-check it matches before saving.';
+      // guessOnly: nothing online actually confirmed a match — only the
+      // URL's own slug supplied a plausible title, so say so plainly
+      // rather than implying a real database lookup succeeded.
+      statusEl.textContent = result.guessOnly
+        ? 'Only guessed a title from the link (no online match) — please fill in the rest by hand.'
+        : '✓ Filled in — double-check it matches before saving.';
     }).catch(function () {
       btn.disabled = false;
       statusEl.textContent = 'Couldn\'t look that up right now — fill it in by hand.';

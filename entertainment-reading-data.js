@@ -66,26 +66,30 @@
 
   // ============================================================
   // LINK PREVIEW — real book metadata from a pasted Goodreads/Amazon/
-  // Audible link, via Open Library's public, keyless JSON API
-  // (openlibrary.org/dev/docs/api/books) — the same "real public
-  // endpoint, no backend/API key" precedent entertainment-hub-data.js's
-  // own fetchPreview() already established for YouTube/Spotify, just a
-  // genuinely different lookup shape since none of Goodreads/Amazon/
-  // Audible expose oEmbed. Two strategies, tried in order:
-  //  1. Look for an ISBN sitting directly in the URL (very common —
-  //     Amazon's own ASIN for a print book is usually its ISBN-10) and
-  //     do a precise ISBN lookup.
-  //  2. Otherwise guess a search title from the URL's own slug
-  //     (Goodreads' "/book/show/<id>.<Title_With_Underscores>", Amazon's
-  //     "/<Title-With-Dashes>/dp/<asin>", Audible's "/pd/<slug>/<asin>")
-  //     and search Open Library's title index for the closest match.
-  // Both are best-effort, not guaranteed accurate — the caller shows a
-  // small status line either way (found vs. not), since a URL-slug
-  // guess is inherently fuzzier than YouTube/Spotify's own oEmbed
-  // lookup and staying silent on a miss is what made the first version
-  // of this feature look "broken" instead of "found nothing here."
-  // Falls back to the existing YouTube/Spotify oEmbed helper last (an
-  // audiobook sample or author interview pasted as the Link field).
+  // Audible link. Open Library's *older* "Read API"
+  // (openlibrary.org/api/books?bibkeys=...) and its full-text
+  // /search.json were both found, live, to be intermittently returning
+  // 503s/timing out during this feature's own testing (a real, current
+  // issue on Open Library's own infrastructure, confirmed by curl
+  // outside the browser entirely) — so the ISBN path below goes through
+  // Open Library's separately-maintained, newer Editions/Works/Authors
+  // REST API instead (openlibrary.org/isbn/<isbn>.json ->
+  // /books/<id>.json -> /works/<id>.json -> /authors/<id>.json), which
+  // tested reliable and was confirmed (via a real `curl -H "Origin:
+  // ..."` check, not just assumed) to send `Access-Control-Allow-Origin:
+  // *` on every hop, including its own redirect response — genuinely
+  // fetchable from browser JS with no key. /search.json is still used
+  // as the only way to turn a *guessed* title into a match (there's no
+  // ISBN to search modern-REST by), with Google Books' own keyless
+  // volumes endpoint as one more attempt after it (its free quota is a
+  // globally shared pool that was actually exhausted during this
+  // session's own testing, so this is a bonus try, not a guaranteed
+  // source) and the existing YouTube/Spotify oEmbed helper after that
+  // (an audiobook sample or author interview pasted as the Link field).
+  // If every network attempt comes back empty, the URL's own slug guess
+  // — if there is one — still fills the Title field on its own, tagged
+  // `guessOnly` so the caller can hedge the status message honestly
+  // rather than the button doing visibly nothing at all.
   // ============================================================
   function extractIsbnFromUrl(url) {
     try {
@@ -125,55 +129,131 @@
     } catch (e) {}
     return '';
   }
-  async function fetchBookPreview(url) {
+  function coverUrlFromOpenLibraryIds(covers) {
+    if (!Array.isArray(covers)) return '';
+    const id = covers.find(function (c) { return typeof c === 'number' && c > 0; });
+    return id ? ('https://covers.openlibrary.org/b/id/' + id + '-L.jpg') : '';
+  }
+  async function openLibraryRecord(key) {
+    try {
+      const res = await fetch('https://openlibrary.org' + key + '.json');
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return null;
+  }
+  function authorKeyFrom(entry) {
+    if (!entry) return null;
+    if (entry.key) return entry.key;
+    if (entry.author && entry.author.key) return entry.author.key;
+    return null;
+  }
+  // The newer Editions API (isbn -> edition -> work -> author) — see
+  // this section's own header comment on why this path is used instead
+  // of the older bibkeys endpoint.
+  async function fetchByIsbnModern(isbn) {
     const result = { title: '', creator: '', cover: '', found: false };
-    if (!url) return result;
-    const isbn = extractIsbnFromUrl(url);
-    if (isbn) {
-      try {
-        const res = await fetch('https://openlibrary.org/api/books?bibkeys=ISBN:' + isbn + '&format=json&jscmd=data');
-        if (res.ok) {
-          const data = await res.json();
-          const rec = data['ISBN:' + isbn];
-          if (rec) {
-            result.found = true;
-            if (rec.title) result.title = rec.title;
-            if (rec.authors && rec.authors[0] && rec.authors[0].name) result.creator = rec.authors[0].name;
-            if (rec.cover) result.cover = rec.cover.large || rec.cover.medium || rec.cover.small || '';
-            return result;
+    const edition = await openLibraryRecord('/isbn/' + isbn);
+    if (!edition || !edition.title) return result;
+    result.found = true;
+    result.title = edition.title;
+    result.cover = coverUrlFromOpenLibraryIds(edition.covers);
+    if (edition.by_statement) result.creator = edition.by_statement.replace(/^by\s+/i, '').trim();
+    if (!result.creator) {
+      let authorKey = authorKeyFrom((edition.authors || [])[0]);
+      if (!authorKey && Array.isArray(edition.works) && edition.works[0] && edition.works[0].key) {
+        const work = await openLibraryRecord(edition.works[0].key);
+        authorKey = work && authorKeyFrom((work.authors || [])[0]);
+      }
+      if (authorKey) {
+        const author = await openLibraryRecord(authorKey);
+        if (author && author.name) result.creator = author.name;
+      }
+    }
+    return result;
+  }
+  // The older bibkeys "Read API" — kept as a second attempt after the
+  // modern path above, in case only one of Open Library's two book APIs
+  // is having trouble at any given moment.
+  async function fetchByIsbnLegacy(isbn) {
+    const result = { title: '', creator: '', cover: '', found: false };
+    try {
+      const res = await fetch('https://openlibrary.org/api/books?bibkeys=ISBN:' + isbn + '&format=json&jscmd=data');
+      if (res.ok) {
+        const data = await res.json();
+        const rec = data['ISBN:' + isbn];
+        if (rec) {
+          result.found = true;
+          if (rec.title) result.title = rec.title;
+          if (rec.authors && rec.authors[0] && rec.authors[0].name) result.creator = rec.authors[0].name;
+          if (rec.cover) result.cover = rec.cover.large || rec.cover.medium || rec.cover.small || '';
+        }
+      }
+    } catch (e) {}
+    return result;
+  }
+  async function fetchByTitleGuess(guess) {
+    const result = { title: '', creator: '', cover: '', found: false };
+    try {
+      const res = await fetch('https://openlibrary.org/search.json?title=' + encodeURIComponent(guess) + '&limit=1&fields=title,author_name,cover_i');
+      if (res.ok) {
+        const data = await res.json();
+        const doc = data.docs && data.docs[0];
+        if (doc) {
+          result.found = true;
+          if (doc.title) result.title = doc.title;
+          if (doc.author_name && doc.author_name[0]) result.creator = doc.author_name[0];
+          if (doc.cover_i) result.cover = 'https://covers.openlibrary.org/b/id/' + doc.cover_i + '-L.jpg';
+        }
+      }
+    } catch (e) {}
+    if (result.found) return result;
+    try {
+      const res2 = await fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent('intitle:' + guess) + '&maxResults=1');
+      if (res2.ok) {
+        const data2 = await res2.json();
+        const info = data2.items && data2.items[0] && data2.items[0].volumeInfo;
+        if (info) {
+          result.found = true;
+          if (info.title) result.title = info.title;
+          if (info.authors && info.authors[0]) result.creator = info.authors[0];
+          if (info.imageLinks) {
+            const img = info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '';
+            if (img) result.cover = img.replace(/^http:/, 'https:');
           }
         }
-      } catch (e) {}
+      }
+    } catch (e) {}
+    return result;
+  }
+  async function fetchBookPreview(url) {
+    if (!url) return { title: '', creator: '', cover: '', found: false };
+    const isbn = extractIsbnFromUrl(url);
+    if (isbn) {
+      const modern = await fetchByIsbnModern(isbn);
+      if (modern.found) return modern;
+      const legacy = await fetchByIsbnLegacy(isbn);
+      if (legacy.found) return legacy;
     }
     const guess = guessBookQueryFromUrl(url);
     if (guess) {
-      try {
-        const res2 = await fetch('https://openlibrary.org/search.json?title=' + encodeURIComponent(guess) + '&limit=1&fields=title,author_name,cover_i');
-        if (res2.ok) {
-          const data2 = await res2.json();
-          const doc = data2.docs && data2.docs[0];
-          if (doc) {
-            result.found = true;
-            if (doc.title) result.title = doc.title;
-            if (doc.author_name && doc.author_name[0]) result.creator = doc.author_name[0];
-            if (doc.cover_i) result.cover = 'https://covers.openlibrary.org/b/id/' + doc.cover_i + '-L.jpg';
-            return result;
-          }
-        }
-      } catch (e) {}
+      const byTitle = await fetchByTitleGuess(guess);
+      if (byTitle.found) return byTitle;
     }
     if (global.EntHub && typeof global.EntHub.fetchPreview === 'function') {
       try {
         const eh = await global.EntHub.fetchPreview(url);
         if (eh && (eh.title || eh.cover || eh.creator)) {
-          result.found = true;
-          result.title = eh.title || '';
-          result.creator = eh.creator || '';
-          result.cover = eh.cover || '';
+          return { title: eh.title || '', creator: eh.creator || '', cover: eh.cover || '', found: true };
         }
       } catch (e) {}
     }
-    return result;
+    if (guess) {
+      // Nothing online confirmed a match, but the URL's own slug at
+      // least gives a plausible title — fill just that (unconfirmed)
+      // rather than leaving the button looking like it did nothing.
+      return { title: guess, creator: '', cover: '', found: true, guessOnly: true };
+    }
+    return { title: '', creator: '', cover: '', found: false };
   }
 
   // ============================================================
