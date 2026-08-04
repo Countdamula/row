@@ -1,0 +1,2126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0a0a0b" id="khThemeMeta">
+<title>Knowledge Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="glass-theme.css">
+<link rel="stylesheet" href="gallery-card.css">
+<!--
+  Knowledge Hub — a genuinely new, standalone top-level page: a digital
+  note-taking / PKM system for capturing, organizing, and transforming
+  ideas into research projects and essays, built around a five-stage
+  capture funnel (Inbox -> To Review -> Highlighting -> Summarizing ->
+  Synthesis) and Progressive Summarization. See knowledge-hub-data.js's
+  own header comment for the full data-model rundown.
+
+  Built from this app's two extracted shared kits (glass-theme.css/js for
+  the hero/glass cards/glare cards/moveable sections, gallery-card.css/js
+  for the Quote Library gallery) rather than a bespoke palette — no
+  reference photo or literal color instruction was given for this page's
+  own look, so per CLAUDE.md §6/DO NOT MODIFY rule 2, "match the aesthetics
+  of my other pages" defaults to this app's real common near-black/gold
+  thread (Dream Board/Business Hub/AI & Tech/Business Dashboard/Fitness
+  Studio), reused wholesale via these two kits rather than a new palette.
+  This is also the first real page to combine both kits together.
+
+  Every modal on this page uses the shared .gt-modal-bg/.gt-modal classes
+  (already registered in topbar.js's MODAL_SELECTORS) — a .kh-modal-wide
+  modifier widens the Note/Notebook detail modals, same "widen via a
+  modifier class" precedent business.html's own .bh-modal-wide already
+  established — so no topbar.js edit was needed beyond the new nav group.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="glass-theme.js" defer></script>
+<script src="gallery-card.js" defer></script>
+<script src="knowledge-hub-data.js?v=2" defer></script>
+<style>
+:root {
+  /* Repoint glass-theme's default red accent to this app's common gold —
+     matches gallery-card.css's own default gold tokens with zero override
+     needed there. */
+  --gt-accent: #c9a876;
+  --gt-accent-bright: #e8cf9f;
+  --gt-accent-rgb: 201,168,118;
+  --gt-accent-text: #241a0c;
+  --gt-bgfx-rgb: 201,168,118;
+}
+#khBootError { display: none; position: fixed; inset: 0; z-index: 9999; background: #1a0506; color: #ffdcdc; padding: 22px; font: 13px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow: auto; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 8px; }
+
+/* ---------- Sticky tab row ---------- */
+.kh-tabs { position: sticky; top: 0; z-index: 40; display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 14px; margin-bottom: 18px; background: linear-gradient(180deg, var(--gt-bg-deep) 60%, transparent); }
+.kh-tab { flex-shrink: 0; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--gt-border); background: rgba(255,255,255,0.04); color: var(--gt-text-dim); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.kh-tab.active { background: linear-gradient(180deg, rgba(201,168,118,0.22) 0%, rgba(201,168,118,0.08) 100%); border-color: rgba(201,168,118,0.5); color: var(--gt-accent-bright); }
+.kh-panel { display: none; }
+.kh-panel.active { display: block; }
+
+/* ---------- What's Inside callout grid ---------- */
+.kh-what-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.kh-what-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--gt-border); background: rgba(255,255,255,0.04); color: var(--gt-text); cursor: pointer; font-family: inherit; transition: transform .15s ease, border-color .15s ease; }
+.kh-what-btn:hover { transform: translateY(-2px); border-color: var(--gt-accent); }
+.kh-what-icon { font-size: 22px; }
+.kh-what-label { font-weight: 800; font-size: 14px; }
+.kh-what-desc { font-size: 11.5px; color: var(--gt-text-mute); line-height: 1.4; }
+
+.kh-callout { display: flex; gap: 16px; align-items: flex-start; }
+.kh-callout-icon { font-size: 30px; flex-shrink: 0; }
+.kh-callout h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: 0.02em; }
+.kh-callout p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--gt-text-dim); }
+
+/* ---------- Funnel snapshot bars ---------- */
+.kh-snap-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.kh-snap-tile { flex: 1 1 100px; min-width: 100px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid var(--gt-border); }
+.kh-snap-num { font-size: 22px; font-weight: 800; }
+.kh-snap-label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gt-text-mute); margin-top: 3px; }
+
+/* ---------- Notebook health ---------- */
+.kh-health-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gt-hairline); }
+.kh-health-row:last-child { border-bottom: none; }
+.kh-health-name { flex: 0 0 150px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kh-health-bar { flex: 1 1 auto; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; position: relative; }
+.kh-health-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gt-good), var(--gt-accent-bright)); border-radius: 999px; }
+.kh-health-meta { flex: 0 0 auto; font-size: 11px; color: var(--gt-text-mute); white-space: nowrap; }
+
+/* ---------- All-notes browse ---------- */
+.kh-browse-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.kh-note-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; background: rgba(255,255,255,0.035); border: 1px solid var(--gt-hairline); margin-bottom: 8px; cursor: pointer; }
+.kh-note-row:hover { border-color: var(--gt-accent); }
+.kh-note-row-icon { font-size: 17px; flex-shrink: 0; }
+.kh-note-row-main { flex: 1 1 auto; min-width: 0; }
+.kh-note-row-title { font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kh-note-row-meta { font-size: 11px; color: var(--gt-text-mute); margin-top: 2px; }
+.kh-note-row-stage { flex-shrink: 0; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--gt-hairline); }
+
+/* ---------- Funnel board (Workflows) ---------- */
+.kh-funnel-board { display: grid; grid-template-columns: repeat(5, minmax(200px, 1fr)); gap: 12px; overflow-x: auto; }
+.kh-funnel-col { background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 16px; padding: 12px; min-height: 220px; display: flex; flex-direction: column; }
+.kh-funnel-col-head { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 12.5px; margin-bottom: 4px; }
+.kh-funnel-col-count { margin-left: auto; font-size: 11px; color: var(--gt-text-mute); font-weight: 700; }
+.kh-funnel-col-hint { font-size: 10.5px; color: var(--gt-text-mute); line-height: 1.4; margin-bottom: 10px; }
+.kh-funnel-col-list { flex: 1 1 auto; min-height: 60px; }
+.kh-funnel-card { background: rgba(255,255,255,0.05); border: 1px solid var(--gt-hairline); border-radius: 11px; padding: 9px 10px; margin-bottom: 8px; cursor: grab; font-size: 12px; }
+.kh-funnel-card:active { cursor: grabbing; }
+.kh-funnel-card-title { font-weight: 700; margin-bottom: 3px; }
+.kh-funnel-card-meta { font-size: 10.5px; color: var(--gt-text-mute); }
+.kh-funnel-ghost { opacity: 0.35; }
+@media (max-width: 900px) { .kh-funnel-board { grid-template-columns: repeat(5, 220px); } }
+
+/* ---------- Note detail modal ---------- */
+.kh-modal-wide { max-width: 720px; }
+.kh-field-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.kh-field-row > * { flex: 1 1 160px; }
+.kh-excerpt-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.kh-excerpt-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--gt-hairline); font-size: 12.5px; }
+.kh-excerpt-item.layer2 { background: rgba(201,168,118,0.14); border-color: rgba(201,168,118,0.4); font-weight: 700; }
+.kh-excerpt-text { flex: 1 1 auto; line-height: 1.5; }
+.kh-excerpt-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.kh-excerpt-actions button { background: none; border: none; color: var(--gt-text-mute); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.kh-excerpt-actions button:hover { color: var(--gt-accent-bright); }
+.kh-wiki-preview { font-size: 12.5px; line-height: 1.65; color: var(--gt-text-dim); background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
+.kh-wikilink { color: var(--gt-accent-bright); font-weight: 700; cursor: pointer; border-bottom: 1px dashed var(--gt-accent); }
+.kh-wikilink.unresolved { color: var(--gt-text-mute); border-bottom-style: dotted; }
+.kh-conn-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.kh-conn-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--gt-hairline); font-size: 11.5px; cursor: pointer; }
+.kh-conn-chip:hover { border-color: var(--gt-accent); }
+.kh-conn-chip button { background: none; border: none; color: var(--gt-text-mute); cursor: pointer; font-size: 12px; }
+.kh-tag-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--gt-hairline); font-size: 11px; margin: 0 6px 6px 0; }
+.kh-tag-chip button { background: none; border: none; color: var(--gt-text-mute); cursor: pointer; }
+
+/* ---------- Type/stage selector chips inside note modal ---------- */
+.kh-pick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.kh-pick-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--gt-hairline); background: rgba(255,255,255,0.04); color: var(--gt-text-dim); font-size: 12px; font-weight: 700; cursor: pointer; }
+.kh-pick-chip.active { background: rgba(201,168,118,0.2); border-color: var(--gt-accent); color: var(--gt-accent-bright); }
+
+/* ---------- Connections graph ---------- */
+.kh-graph-wrap { position: relative; min-height: 480px; }
+.kh-graph-svg { position: absolute; inset: 0; }
+.kh-graph-edge { stroke: rgba(255,255,255,0.15); stroke-width: 1.4; }
+.kh-graph-edge.kh-graph-edge-active { stroke: var(--gt-accent-bright); stroke-width: 2.2; }
+.kh-graph-node { position: absolute; transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; width: 96px; }
+.kh-graph-node-dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(20,17,16,0.9); border: 1px solid var(--gt-accent); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+.kh-graph-node-label { font-size: 10px; color: var(--gt-text-dim); text-align: center; line-height: 1.25; max-width: 96px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.kh-graph-node:hover .kh-graph-node-dot { border-color: var(--gt-accent-bright); box-shadow: 0 0 0 4px rgba(201,168,118,0.18); }
+
+/* ---------- Floating capture buttons ---------- */
+.kh-fab-row { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 500; display: flex; flex-direction: column; gap: 10px; }
+.kh-fab { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 13px; box-shadow: 0 10px 26px rgba(0,0,0,0.45); }
+.kh-fab-quick { background: linear-gradient(180deg, var(--gt-accent-bright), var(--gt-accent)); color: var(--gt-accent-text); }
+.kh-fab-media { background: rgba(10,10,11,0.75); backdrop-filter: blur(10px); color: var(--gt-text); border: 1px solid var(--gt-border); }
+
+.kh-empty-note { text-align: center; padding: 24px; color: var(--gt-text-mute); font-size: 13px; }
+
+/* ---------- Today's Focus (top of Home) ---------- */
+.kh-focus-hero { border-color: rgba(var(--gt-accent-rgb),0.35); }
+.kh-focus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.kh-focus-field { display: flex; flex-direction: column; gap: 5px; }
+.kh-focus-label { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gt-text-mute); }
+.kh-focus-phase-row { margin-top: 2px; }
+
+/* ---------- Learning Progress bar (notebook cards + overview) ---------- */
+.kh-progress-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; width: 100%; }
+.kh-progress-bar { flex: 1 1 auto; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.kh-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gt-good), var(--gt-accent-bright)); border-radius: 999px; }
+.kh-progress-pct { font-size: 11px; font-weight: 800; color: var(--gt-text-mute); flex-shrink: 0; }
+.kh-progress-edit-row { display: flex; align-items: center; gap: 12px; }
+.kh-progress-edit-row input[type=range] { flex: 1 1 auto; accent-color: var(--gt-accent); }
+
+/* ---------- Notebook cards (shared by Home + Notebooks tab) ---------- */
+.kh-nb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.kh-nb-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; width: 100%; padding: 16px; border-radius: 16px; cursor: pointer; color: var(--gt-text); font-family: inherit; }
+.kh-nb-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.kh-nb-card-name { font-weight: 800; font-size: 14px; }
+.kh-nb-card-meta { font-size: 10.5px; color: var(--gt-text-mute); line-height: 1.5; }
+
+/* ---------- Notebook full-page overlay ---------- */
+.kh-page-bg { position: fixed; inset: 0; z-index: 2500; background: var(--gt-bg-deep); display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.kh-page-bg.show { display: block; }
+.kh-page-bg::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 900px 500px at 12% -8%, rgba(var(--gt-bgfx-rgb),0.14) 0%, transparent 60%), linear-gradient(180deg, var(--gt-bg) 0%, var(--gt-bg-deep) 100%); }
+.kh-page { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 74px 22px 130px; }
+.kh-page-close { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(14px, env(safe-area-inset-left)); z-index: 20; display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; background: rgba(10,10,11,0.72); backdrop-filter: blur(10px); border: 1px solid var(--gt-border); border-radius: 999px; color: var(--gt-text-dim); font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.kh-page-close:hover { color: var(--gt-accent-bright); border-color: rgba(var(--gt-accent-rgb),0.4); }
+.kh-page-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 700; margin: 0 0 14px; display: flex; align-items: center; gap: 10px; }
+.kh-page .kh-tabs { top: 0; }
+
+/* ---------- Permanent Knowledge Database ---------- */
+.kh-pk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 14px; }
+.kh-pk-block { background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); border-radius: 14px; padding: 12px; }
+.kh-pk-block h4 { margin: 0 0 8px; font-size: 12.5px; }
+.kh-pk-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; max-height: 190px; overflow-y: auto; }
+.kh-pk-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; padding: 6px 8px; border-radius: 9px; background: rgba(255,255,255,0.04); font-size: 11.5px; line-height: 1.4; }
+.kh-pk-row button { background: none; border: none; color: var(--gt-text-mute); cursor: pointer; flex-shrink: 0; font-size: 12px; }
+.kh-pk-row button:hover { color: var(--gt-bad); }
+.kh-pk-empty { font-size: 11px; color: var(--gt-text-mute); padding: 4px 0; }
+.kh-pk-add-row { display: flex; gap: 6px; }
+.kh-pk-add-row input, .kh-pk-add-row select { flex: 1; font-size: 12px; padding: 7px 9px; }
+.kh-pk-add-row-2 { flex-wrap: wrap; }
+.kh-pk-add-row-2 input { flex: 1 1 100px; }
+.kh-pk-diagram-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap: 8px; margin-bottom: 8px; }
+.kh-pk-diagram { position: relative; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.04); border: 1px solid var(--gt-hairline); }
+.kh-pk-diagram img { width: 100%; height: 80px; object-fit: cover; display: block; }
+.kh-pk-diagram-fallback { width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.kh-pk-diagram-cap { font-size: 10px; padding: 5px 7px; color: var(--gt-text-mute); }
+.kh-pk-diagram button { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); border: none; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; line-height: 1; cursor: pointer; }
+
+/* ---------- Active Research Hub — mind map tree ---------- */
+.kh-rh-hint { font-size: 12px; color: var(--gt-text-dim); margin: 0 0 12px; }
+.kh-mm-wrap { position: relative; min-height: 260px; overflow: auto; border: 1px solid var(--gt-hairline); border-radius: 16px; background: rgba(0,0,0,0.15); }
+.kh-mm-svg { position: absolute; left: 0; top: 0; }
+.kh-mm-edge { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 1.6; }
+.kh-mm-node { position: absolute; width: 168px; transform: translateY(-50%); background: rgba(20,17,16,0.92); border: 1px solid var(--gt-hairline); border-radius: 12px; padding: 9px 24px 9px 11px; cursor: pointer; transition: border-color .15s ease; font-family: inherit; text-align: left; color: var(--gt-text); }
+.kh-mm-node:hover { border-color: var(--gt-accent); }
+.kh-mm-node-q { border-color: rgba(var(--gt-accent-rgb),0.3); }
+.kh-mm-node-title { font-size: 12px; font-weight: 700; line-height: 1.35; }
+.kh-mm-node-link { font-size: 10px; color: var(--gt-text-mute); margin-top: 4px; }
+.kh-mm-node-add { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--gt-border); background: rgba(255,255,255,0.06); color: var(--gt-text-dim); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.kh-mm-node-add:hover { color: var(--gt-accent-bright); border-color: var(--gt-accent); }
+
+/* ---------- Question Article page (auto-generated template) ---------- */
+.kh-article-eyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gt-accent-bright); margin-bottom: 12px; }
+.kh-article-main-q { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-style: italic; }
+.kh-article-q-label { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gt-text-mute); margin: 16px 0 8px; }
+
+@media (max-width: 620px) {
+  .kh-funnel-board { grid-template-columns: repeat(5, 200px); }
+  .kh-fab { padding: 11px 14px; font-size: 12px; }
+  .kh-page { padding: 64px 14px 120px; }
+}
+</style>
+</head>
+<body class="gt-theme">
+<div id="khBootError"></div>
+<a href="index.html" class="gt-back">← Back</a>
+<div id="gtHeroCoverBg" aria-hidden="true"></div>
+
+<div class="gt-shell">
+
+  <section class="gt-hero" id="khHero">
+    <div class="gt-hero-media" id="khHeroMedia"><img id="khHeroImg" alt="" style="display:none;"></div>
+    <div class="gt-hero-abstract" id="khHeroAbstract"></div>
+    <div class="gt-hero-choice" id="khHeroChoice">
+      <button type="button" class="gt-hero-choice-btn" id="khHeroAddBtn">+ Add a cover photo</button>
+    </div>
+    <div class="gt-hero-overlay"></div>
+    <div class="gt-hero-photo-tools" id="khHeroTools" style="display:none;">
+      <button type="button" id="khHeroChangeBtn">Change</button>
+      <button type="button" id="khHeroRemoveBtn">Remove</button>
+    </div>
+    <input type="file" accept="image/*" id="khHeroFileInput" style="display:none;">
+    <div class="gt-hero-content">
+      <span class="gt-hero-eyebrow" id="khHeroEyebrow" contenteditable="true" spellcheck="false"></span>
+      <textarea class="gt-hero-title" id="khHeroTitle" rows="1" spellcheck="false"></textarea>
+      <div class="gt-hero-subtext" id="khHeroSubtext" contenteditable="true"></div>
+      <button type="button" class="gt-hero-cta" id="khHeroCta">
+        <span class="gt-hero-cta-label" id="khHeroCtaLabel"></span>
+        <span class="gt-hero-cta-arrow">→</span>
+      </button>
+    </div>
+  </section>
+
+  <nav class="kh-tabs" id="khTabs">
+    <button type="button" class="kh-tab" data-tab="home">🏠 Home</button>
+    <button type="button" class="kh-tab" data-tab="workflows">🔀 Workflows</button>
+    <button type="button" class="kh-tab" data-tab="notebooks">📓 Notebooks</button>
+    <button type="button" class="kh-tab" data-tab="highlighting">🖍️ Highlighting</button>
+    <button type="button" class="kh-tab" data-tab="quotes">💬 Quote Library</button>
+    <button type="button" class="kh-tab" data-tab="connections">🕸️ Connections</button>
+    <button type="button" class="kh-tab" data-tab="templates">🧩 Templates</button>
+  </nav>
+
+  <!-- ============ HOME ============ -->
+  <section class="kh-panel" id="khPanel_home">
+    <div class="gt-card kh-focus-hero">
+      <div class="gt-card-head"><h2 class="gt-card-title">🎯 Today's Focus</h2></div>
+      <div class="kh-focus-grid">
+        <div class="kh-focus-field"><span class="kh-focus-label">Current Topic</span><input type="text" class="gt-input" id="khFocusTopic" placeholder="What are you studying right now?"></div>
+        <div class="kh-focus-field"><span class="kh-focus-label">Current Chapter / Lesson</span><input type="text" class="gt-input" id="khFocusChapter" placeholder="e.g. Chapter 4 — Systems"></div>
+        <div class="kh-focus-field"><span class="kh-focus-label">Estimated Study Time</span><input type="text" class="gt-input" id="khFocusTime" placeholder="e.g. 30 min"></div>
+        <div class="kh-focus-field"><span class="kh-focus-label">Next Action</span><input type="text" class="gt-input" id="khFocusNext" placeholder="The very next thing to do"></div>
+      </div>
+      <div class="kh-focus-phase-row">
+        <span class="kh-focus-label">Current Phase</span>
+        <div class="kh-pick-row" id="khFocusPhaseRow"></div>
+      </div>
+    </div>
+
+    <div class="gt-card">
+      <div class="gt-card-head"><h2 class="gt-card-title">✨ What's Inside</h2></div>
+      <div class="kh-what-grid" id="khWhatGrid">
+        <button type="button" class="kh-what-btn" data-action="quickcapture"><span class="kh-what-icon">⚡</span><span class="kh-what-label">Quick Capture</span><span class="kh-what-desc">Jots, notes, highlights, articles, videos, quotes — on the go.</span></button>
+        <button type="button" class="kh-what-btn" data-action="mediacapture"><span class="kh-what-icon">🎬</span><span class="kh-what-label">Media Capture</span><span class="kh-what-desc">Paste a link — title, creator & cover auto-fill.</span></button>
+        <button type="button" class="kh-what-btn" data-action="tab:workflows"><span class="kh-what-icon">🔀</span><span class="kh-what-label">Workflows</span><span class="kh-what-desc">The Knowledge Funnel — Inbox through Synthesis.</span></button>
+        <button type="button" class="kh-what-btn" data-action="tab:notebooks"><span class="kh-what-icon">📓</span><span class="kh-what-label">Notebooks</span><span class="kh-what-desc">Auto-organized by capture type.</span></button>
+        <button type="button" class="kh-what-btn" data-action="tab:highlighting"><span class="kh-what-icon">🖍️</span><span class="kh-what-label">Highlighting</span><span class="kh-what-desc">Surface the passages that actually matter.</span></button>
+        <button type="button" class="kh-what-btn" data-action="tab:quotes"><span class="kh-what-icon">💬</span><span class="kh-what-label">Quote Library</span><span class="kh-what-desc">Every captured quote, in one gallery.</span></button>
+      </div>
+    </div>
+
+    <div class="gt-card kh-callout">
+      <span class="kh-callout-icon">🧠</span>
+      <div>
+        <h3>Progressive Summarization</h3>
+        <p>Every note moves through layers, not one big edit: capture the raw material, bold the passages that matter, promote the best of those to a highlight, boil it down to a mini-summary in your own words, then — when you're ready — turn it into an original idea or essay in Synthesis. Future-you only ever has to read the distilled version.</p>
+      </div>
+    </div>
+
+    <div class="gt-card">
+      <div class="gt-card-head"><h2 class="gt-card-title">🔀 Funnel Snapshot</h2></div>
+      <div class="kh-snap-row" id="khSnapRow"></div>
+    </div>
+
+    <div class="gt-card">
+      <div class="gt-card-head"><h2 class="gt-card-title">📓 Your Notebooks</h2></div>
+      <p style="font-size:12px;color:var(--gt-text-dim);margin-top:0;">Learning Progress, your Active Research Hub, and Permanent Knowledge — right on each notebook. Open one for the full picture.</p>
+      <div class="kh-nb-grid" id="khHomeNbGrid"></div>
+    </div>
+
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">🧪 Creation Lab</h2>
+        <button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="khNewCreationBtn">+ New Creation</button>
+      </div>
+      <p style="font-size:12px;color:var(--gt-text-dim);margin-top:0;">Turn what you've gathered into something new — articles, essays, mind maps, and more.</p>
+      <div class="kh-what-grid" id="khCreationGrid"></div>
+    </div>
+
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">📚 Browse All Notes</h2>
+        <button type="button" class="gt-btn gt-btn-sm" id="khHomeNewNoteBtn">+ New Note</button>
+      </div>
+      <div class="kh-browse-toolbar">
+        <input type="text" class="gt-input" id="khSearchInput" placeholder="Search notes…" style="flex:2 1 200px;">
+        <select class="gt-select" id="khSortSelect" style="flex:1 1 160px;">
+          <option value="date">Sort: Date Captured</option>
+          <option value="status">Sort: Status</option>
+          <option value="notebook">Sort: Notebook</option>
+          <option value="lastEdited">Sort: Last Edited</option>
+        </select>
+      </div>
+      <div id="khAllNotesList"></div>
+    </div>
+  </section>
+
+  <!-- ============ WORKFLOWS (the Knowledge Funnel) ============ -->
+  <section class="kh-panel" id="khPanel_workflows">
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">🔀 The Knowledge Funnel</h2>
+        <button type="button" class="gt-btn gt-btn-sm" id="khFunnelNewNoteBtn">+ New Note</button>
+      </div>
+      <div class="kh-funnel-board" id="khFunnelBoard"></div>
+    </div>
+  </section>
+
+  <!-- ============ NOTEBOOKS ============ -->
+  <section class="kh-panel" id="khPanel_notebooks">
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">📓 Notebooks</h2>
+        <button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="khNewNotebookBtn">+ New Notebook</button>
+      </div>
+      <div class="kh-nb-grid" id="khNotebookGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ HIGHLIGHTING ============ -->
+  <section class="kh-panel" id="khPanel_highlighting">
+    <div class="gt-card">
+      <div class="gt-card-head"><h2 class="gt-card-title">🖍️ Highlighting</h2></div>
+      <p style="font-size:12.5px;color:var(--gt-text-dim);margin-top:0;">Notes currently in the Highlighting stage — open one to bold key passages, then promote your best ones to a real highlight.</p>
+      <div id="khHighlightList"></div>
+    </div>
+  </section>
+
+  <!-- ============ QUOTE LIBRARY ============ -->
+  <section class="kh-panel" id="khPanel_quotes">
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">💬 Quote Library</h2>
+        <button type="button" class="gt-btn gt-btn-sm" id="khNewQuoteBtn">+ New Quote</button>
+      </div>
+      <div class="gc-grid" id="khQuoteGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ CONNECTIONS ============ -->
+  <section class="kh-panel" id="khPanel_connections">
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">🕸️ Connections</h2>
+        <div class="gt-chip-row" style="margin:0;">
+          <button type="button" class="gt-chip active" id="khGraphAllChip">All Notes</button>
+          <button type="button" class="gt-chip" id="khGraphConnChip">Only Connected</button>
+        </div>
+      </div>
+      <p style="font-size:12.5px;color:var(--gt-text-dim);margin-top:0;">Add <code>[[Note Title]]</code> anywhere inside a note, or link one explicitly from its detail page, to grow your web of ideas.</p>
+      <div class="kh-graph-wrap" id="khGraphWrap"></div>
+    </div>
+  </section>
+
+  <!-- ============ TEMPLATES ============ -->
+  <section class="kh-panel" id="khPanel_templates">
+    <div class="gt-card">
+      <div class="gt-card-head">
+        <h2 class="gt-card-title">🧩 One-Click Templates</h2>
+        <button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="khNewTemplateBtn">+ New Template</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--gt-text-dim);margin-top:0;">Each template auto-files into its own notebook and starting stage — one click, fully organized.</p>
+      <div class="kh-what-grid" id="khTemplateGrid"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="kh-fab-row">
+  <button type="button" class="kh-fab kh-fab-media" id="khFabMedia">🎬 Media</button>
+  <button type="button" class="kh-fab kh-fab-quick" id="khFabQuick">⚡ Quick Capture</button>
+</div>
+
+<!-- ============ Quick Capture modal ============ -->
+<div class="gt-modal-bg" id="khQuickModalBg">
+  <div class="gt-modal">
+    <h3>⚡ Quick Capture</h3>
+    <div class="gt-field">
+      <span class="gt-field-label">Type</span>
+      <div class="kh-pick-row" id="khQuickTypeRow"></div>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">What's on your mind?</span>
+      <textarea class="gt-textarea" id="khQuickText" rows="4" placeholder="Type your jot, note, highlight, or quote…"></textarea>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Optional title</span>
+      <input type="text" class="gt-input" id="khQuickTitle" placeholder="Leave blank to auto-title">
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Link (optional)</span>
+      <input type="text" class="gt-input" id="khQuickUrl" placeholder="https://…">
+    </div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khQuickCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="khQuickSaveBtn">Capture → Inbox</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Media Capture modal ============ -->
+<div class="gt-modal-bg" id="khMediaModalBg">
+  <div class="gt-modal">
+    <h3>🎬 Media Capture</h3>
+    <div class="gt-field">
+      <span class="gt-field-label">Paste a link</span>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="gt-input" id="khMediaUrl" placeholder="https://youtube.com/… or any URL" style="flex:1;">
+        <button type="button" class="gt-btn gt-btn-sm" id="khMediaFetchBtn">Fetch</button>
+      </div>
+      <div id="khMediaFetchHint" style="font-size:11px;color:var(--gt-text-mute);margin-top:6px;"></div>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Type</span>
+      <div class="kh-pick-row" id="khMediaTypeRow">
+        <button type="button" class="kh-pick-chip active" data-type="article">📄 Article</button>
+        <button type="button" class="kh-pick-chip" data-type="video">🎬 Video</button>
+      </div>
+    </div>
+    <div class="kh-field-row">
+      <div class="gt-field"><span class="gt-field-label">Title</span><input type="text" class="gt-input" id="khMediaTitle"></div>
+      <div class="gt-field"><span class="gt-field-label">Author / Channel</span><input type="text" class="gt-input" id="khMediaAuthor"></div>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Cover URL</span>
+      <input type="text" class="gt-input" id="khMediaCover" placeholder="Auto-filled from the link, or paste your own">
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Note</span>
+      <textarea class="gt-textarea" id="khMediaDesc" rows="3" placeholder="Why are you saving this?"></textarea>
+    </div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khMediaCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="khMediaSaveBtn">Capture → Inbox</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Note Detail modal ============ -->
+<div class="gt-modal-bg" id="khNoteModalBg">
+  <div class="gt-modal kh-modal-wide">
+    <div class="gt-field-row" style="align-items:center;">
+      <input type="text" class="gt-input" id="khNoteTitle" placeholder="Untitled" style="flex:2 1 240px;font-weight:800;font-size:16px;">
+      <button type="button" class="gt-btn gt-btn-sm" id="khNoteFavBtn" title="Favorite">☆</button>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Type</span>
+      <div class="kh-pick-row" id="khNoteTypeRow"></div>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Stage</span>
+      <div class="kh-pick-row" id="khNoteStageRow"></div>
+    </div>
+
+    <div class="kh-field-row">
+      <div class="gt-field">
+        <span class="gt-field-label">Notebook</span>
+        <select class="gt-select" id="khNoteNotebook"></select>
+      </div>
+      <div class="gt-field">
+        <span class="gt-field-label">Source URL</span>
+        <input type="text" class="gt-input" id="khNoteSourceUrl" placeholder="https://…">
+      </div>
+    </div>
+    <div class="kh-field-row">
+      <div class="gt-field">
+        <span class="gt-field-label">Author / Creator</span>
+        <input type="text" class="gt-input" id="khNoteAuthor">
+      </div>
+      <div class="gt-field">
+        <span class="gt-field-label">Cover URL</span>
+        <input type="text" class="gt-input" id="khNoteCover">
+      </div>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Tags</span>
+      <div class="kh-conn-list" id="khNoteTagList"></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="gt-input" id="khNoteTagInput" placeholder="Add a tag, press Enter" style="flex:1;">
+      </div>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Layer 1 — Raw Capture</span>
+      <textarea class="gt-textarea" id="khNoteRaw" rows="5" placeholder="The original material. Use [[Note Title]] to link to another note."></textarea>
+    </div>
+    <div class="gt-field" id="khNoteWikiPreviewWrap" style="display:none;">
+      <span class="gt-field-label">Preview</span>
+      <div class="kh-wiki-preview" id="khNoteWikiPreview"></div>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Layer 2/3 — Bold & Highlight key passages</span>
+      <div class="kh-excerpt-list" id="khNoteExcerptList"></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="gt-input" id="khNoteExcerptInput" placeholder="Paste a passage worth keeping, press Enter" style="flex:1;">
+      </div>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Layer 4 — Mini-Summary (your own words)</span>
+      <textarea class="gt-textarea" id="khNoteSummary" rows="3"></textarea>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Layer 5 — Synthesis / Essay</span>
+      <textarea class="gt-textarea" id="khNoteSynthesis" rows="5" placeholder="Original ideas & essays built from this note."></textarea>
+    </div>
+
+    <div class="gt-field">
+      <span class="gt-field-label">Connections</span>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <select class="gt-select" id="khNoteLinkPicker" style="flex:1;"></select>
+        <button type="button" class="gt-btn gt-btn-sm" id="khNoteLinkAddBtn">+ Link</button>
+      </div>
+      <div class="kh-conn-list" id="khNoteOutgoingList"></div>
+      <div style="font-size:11px;color:var(--gt-text-mute);margin:10px 0 4px;">Linked from (backlinks):</div>
+      <div class="kh-conn-list" id="khNoteBacklinkList"></div>
+    </div>
+
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khNoteDeleteBtn" style="color:var(--gt-bad);">Delete</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn gt-btn-primary" id="khNoteCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Notebook add/edit modal ============ -->
+<div class="gt-modal-bg" id="khNotebookModalBg">
+  <div class="gt-modal">
+    <h3 id="khNotebookModalTitle">New Notebook</h3>
+    <div class="kh-field-row">
+      <div class="gt-field"><span class="gt-field-label">Icon</span><input type="text" class="gt-input" id="khNotebookIcon" maxlength="4" placeholder="📓"></div>
+      <div class="gt-field"><span class="gt-field-label">Name</span><input type="text" class="gt-input" id="khNotebookName"></div>
+    </div>
+    <div class="gt-field"><span class="gt-field-label">Description</span><textarea class="gt-textarea" id="khNotebookDesc" rows="2"></textarea></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khNotebookDeleteBtn" style="color:var(--gt-bad);display:none;">Delete</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn" id="khNotebookCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="khNotebookSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Notebook page (full-page overlay) ============
+     Replaces the old browse-only modal — this notebook needed real room
+     for Learning Progress, its two Active Research Hub mind maps, and
+     the nine-section Permanent Knowledge Database, none of which would
+     have fit comfortably in a modal. Registered as .kh-page-bg in
+     topbar.js's MODAL_SELECTORS for the shared mobile scroll-lock. -->
+<div class="kh-page-bg" id="khNotebookPageBg">
+  <button type="button" class="kh-page-close" id="khNbPageCloseBtn">← Close</button>
+  <div class="kh-page">
+    <div class="kh-page-title" id="khNbPageTitle"></div>
+    <nav class="kh-tabs" id="khNbTabs">
+      <button type="button" class="kh-tab" data-nbtab="overview">Overview</button>
+      <button type="button" class="kh-tab" data-nbtab="research">🔬 Research Hub</button>
+      <button type="button" class="kh-tab" data-nbtab="knowledge">🗄 Permanent Knowledge</button>
+      <button type="button" class="kh-tab" data-nbtab="notes">📚 Notes</button>
+    </nav>
+
+    <!-- Overview -->
+    <section class="kh-panel" id="khNbPanel_overview">
+      <div class="gt-card">
+        <div class="gt-card-head">
+          <h2 class="gt-card-title" id="khNbOverviewName">Notebook</h2>
+          <button type="button" class="gt-btn gt-btn-sm" id="khNbOverviewEditBtn">✎ Edit Details</button>
+        </div>
+        <p id="khNbOverviewDesc" style="color:var(--gt-text-dim);font-size:13px;margin-top:0;"></p>
+        <div class="gt-field">
+          <span class="gt-field-label">Learning Progress</span>
+          <div class="kh-progress-edit-row">
+            <input type="range" min="0" max="100" id="khNbProgressSlider">
+            <span id="khNbProgressLabel">0%</span>
+          </div>
+        </div>
+        <div class="kh-snap-row" id="khNbOverviewStats" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <!-- Active Research Hub -->
+    <section class="kh-panel" id="khNbPanel_research">
+      <div class="gt-card">
+        <div class="gt-card-head"><h2 class="gt-card-title">🔬 Active Research Hub</h2></div>
+        <div class="gt-chip-row" id="khRhModeRow">
+          <button type="button" class="gt-chip active" data-mode="topic">🧠 Topic Map</button>
+          <button type="button" class="gt-chip" data-mode="questions">❓ Questions &amp; Connections</button>
+        </div>
+        <p class="kh-rh-hint" id="khRhHint"></p>
+        <div class="kh-mm-wrap" id="khRhWrap"></div>
+      </div>
+    </section>
+
+    <!-- Permanent Knowledge Database -->
+    <section class="kh-panel" id="khNbPanel_knowledge">
+      <div class="gt-card">
+        <div class="gt-card-head"><h2 class="gt-card-title">🗄 Permanent Knowledge Database</h2></div>
+        <div class="gt-field">
+          <span class="gt-field-label">📝 Summary</span>
+          <textarea class="gt-textarea" id="khPkSummary" rows="3" placeholder="The condensed, big-picture summary of this topic…"></textarea>
+        </div>
+        <div class="kh-pk-grid">
+          <div class="kh-pk-block">
+            <h4>💡 Key Concepts</h4>
+            <div class="kh-pk-list" id="khPkList_keyConcepts"></div>
+            <div class="kh-pk-add-row"><input type="text" class="gt-input" id="khPkInput_keyConcepts" placeholder="Add a key concept, press Enter"></div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>🧩 Mental Models</h4>
+            <div class="kh-pk-list" id="khPkList_mentalModels"></div>
+            <div class="kh-pk-add-row"><input type="text" class="gt-input" id="khPkInput_mentalModels" placeholder="Add a mental model, press Enter"></div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>📖 Definitions</h4>
+            <div class="kh-pk-list" id="khPkList_definitions"></div>
+            <div class="kh-pk-add-row kh-pk-add-row-2">
+              <input type="text" class="gt-input" id="khPkDefTerm" placeholder="Term">
+              <input type="text" class="gt-input" id="khPkDefBody" placeholder="Definition">
+              <button type="button" class="gt-btn gt-btn-sm" id="khPkDefAddBtn">+</button>
+            </div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>🔎 Examples</h4>
+            <div class="kh-pk-list" id="khPkList_examples"></div>
+            <div class="kh-pk-add-row"><input type="text" class="gt-input" id="khPkInput_examples" placeholder="Add an example, press Enter"></div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>🔗 Analogies</h4>
+            <div class="kh-pk-list" id="khPkList_analogies"></div>
+            <div class="kh-pk-add-row"><input type="text" class="gt-input" id="khPkInput_analogies" placeholder="Add an analogy, press Enter"></div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>💬 Quotes</h4>
+            <div class="kh-pk-list" id="khPkList_quotes"></div>
+            <div class="kh-pk-add-row kh-pk-add-row-2">
+              <input type="text" class="gt-input" id="khPkQuoteText" placeholder="Quote">
+              <input type="text" class="gt-input" id="khPkQuoteSource" placeholder="Source">
+              <button type="button" class="gt-btn gt-btn-sm" id="khPkQuoteAddBtn">+</button>
+            </div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>📊 Diagrams</h4>
+            <div class="kh-pk-diagram-grid" id="khPkList_diagrams"></div>
+            <div class="kh-pk-add-row kh-pk-add-row-2">
+              <input type="text" class="gt-input" id="khPkDiagUrl" placeholder="Image URL">
+              <input type="text" class="gt-input" id="khPkDiagCaption" placeholder="Caption">
+              <button type="button" class="gt-btn gt-btn-sm" id="khPkDiagAddBtn">+</button>
+            </div>
+          </div>
+          <div class="kh-pk-block">
+            <h4>🔖 Linked Notes</h4>
+            <div class="kh-pk-list" id="khPkLinkedNotesList"></div>
+            <div class="kh-pk-add-row">
+              <select class="gt-select" id="khPkLinkedNotePicker"></select>
+              <button type="button" class="gt-btn gt-btn-sm" id="khPkLinkedNoteAddBtn">+ Link</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notes -->
+    <section class="kh-panel" id="khNbPanel_notes">
+      <div class="gt-card">
+        <div class="gt-card-head">
+          <h2 class="gt-card-title">📚 Notes in this Notebook</h2>
+          <button type="button" class="gt-btn gt-btn-sm gt-btn-primary" id="khNbDetailNewNoteBtn">+ New Note</button>
+        </div>
+        <select class="gt-select" id="khNbDetailSort" style="margin-bottom:12px;">
+          <option value="date">Sort: Date Captured</option>
+          <option value="status">Sort: Status</option>
+          <option value="lastEdited">Sort: Last Edited</option>
+        </select>
+        <div id="khNbDetailList"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ============ Mind Map branch modal (Topic Map) ============ -->
+<div class="gt-modal-bg" id="khMmNodeModalBg">
+  <div class="gt-modal">
+    <h3 id="khMmNodeModalTitle">Branch</h3>
+    <div class="gt-field"><span class="gt-field-label">Title</span><input type="text" class="gt-input" id="khMmNodeTitle"></div>
+    <div class="gt-field"><span class="gt-field-label">Notes</span><textarea class="gt-textarea" id="khMmNodeNotes" rows="4" placeholder="What belongs on this branch?"></textarea></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khMmNodeDeleteBtn" style="color:var(--gt-bad);">Delete Branch</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn gt-btn-primary" id="khMmNodeCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Question Article modal (Questions & Connections Map) ============
+     The auto-generated "article" template page — created already shaped
+     like this the moment a new branch is added (see addMindMapBranch()/
+     knowledge-hub-data.js), not something the user has to set up. -->
+<div class="gt-modal-bg" id="khQArticleModalBg">
+  <div class="gt-modal kh-modal-wide">
+    <div class="kh-article-eyebrow">🧠 Questions &amp; Connections · auto-generated page</div>
+    <input type="text" class="gt-input" id="khQArticleTitle" placeholder="Branch title" style="font-weight:800;font-size:15px;margin-bottom:14px;">
+    <div class="gt-field">
+      <span class="gt-field-label">Connects to Topic Branch</span>
+      <select class="gt-select" id="khQArticleLink"></select>
+    </div>
+    <div class="gt-field">
+      <span class="gt-field-label">Main Question</span>
+      <textarea class="gt-textarea kh-article-main-q" id="khQArticleMain" rows="2" placeholder="The one question this branch is really about."></textarea>
+    </div>
+    <div class="kh-article-q-label">Questions</div>
+    <div class="gt-field"><span class="gt-field-label">Why?</span><textarea class="gt-textarea" id="khQArticleWhy" rows="2"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">How?</span><textarea class="gt-textarea" id="khQArticleHow" rows="2"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">Evidence?</span><textarea class="gt-textarea" id="khQArticleEvidence" rows="2"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">Opposing Views?</span><textarea class="gt-textarea" id="khQArticleOpposing" rows="2"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">Missing Information?</span><textarea class="gt-textarea" id="khQArticleMissing" rows="2"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">Other questions</span><textarea class="gt-textarea" id="khQArticleOther" rows="2"></textarea></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khQArticleDeleteBtn" style="color:var(--gt-bad);">Delete Branch</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn gt-btn-primary" id="khQArticleCloseBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Creation Lab modal ============ -->
+<div class="gt-modal-bg" id="khCreationModalBg">
+  <div class="gt-modal">
+    <h3 id="khCreationModalTitle">New Creation</h3>
+    <div class="gt-field"><span class="gt-field-label">Title</span><input type="text" class="gt-input" id="khCreationTitle"></div>
+    <div class="gt-field">
+      <span class="gt-field-label">Type</span>
+      <div class="kh-pick-row" id="khCreationTypeRow"></div>
+    </div>
+    <div class="kh-field-row">
+      <div class="gt-field">
+        <span class="gt-field-label">Notebook (source material)</span>
+        <select class="gt-select" id="khCreationNotebook"></select>
+      </div>
+      <div class="gt-field">
+        <span class="gt-field-label">Status</span>
+        <select class="gt-select" id="khCreationStatus">
+          <option value="draft">Draft</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+    </div>
+    <div class="gt-field"><span class="gt-field-label">Body</span><textarea class="gt-textarea" id="khCreationBody" rows="8" placeholder="Write here — use [[Note Title]] to pull in a captured note."></textarea></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khCreationDeleteBtn" style="color:var(--gt-bad);display:none;">Delete</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn" id="khCreationCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="khCreationSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Template add/edit modal ============ -->
+<div class="gt-modal-bg" id="khTemplateModalBg">
+  <div class="gt-modal">
+    <h3 id="khTemplateModalTitle">New Template</h3>
+    <div class="kh-field-row">
+      <div class="gt-field"><span class="gt-field-label">Icon</span><input type="text" class="gt-input" id="khTemplateIcon" maxlength="4" placeholder="🧩"></div>
+      <div class="gt-field"><span class="gt-field-label">Name</span><input type="text" class="gt-input" id="khTemplateName"></div>
+    </div>
+    <div class="kh-field-row">
+      <div class="gt-field">
+        <span class="gt-field-label">Default Type</span>
+        <select class="gt-select" id="khTemplateType"></select>
+      </div>
+      <div class="gt-field">
+        <span class="gt-field-label">Starting Stage</span>
+        <select class="gt-select" id="khTemplateStage"></select>
+      </div>
+    </div>
+    <div class="kh-field-row">
+      <div class="gt-field"><span class="gt-field-label">Notebook Icon</span><input type="text" class="gt-input" id="khTemplateNbIcon" maxlength="4" placeholder="📓"></div>
+      <div class="gt-field"><span class="gt-field-label">Notebook Name</span><input type="text" class="gt-input" id="khTemplateNbName" placeholder="Auto-created if new"></div>
+    </div>
+    <div class="gt-field"><span class="gt-field-label">Description</span><input type="text" class="gt-input" id="khTemplateDesc"></div>
+    <div class="gt-field"><span class="gt-field-label">Progressive-summarization prompts (one per line)</span><textarea class="gt-textarea" id="khTemplatePrompts" rows="4"></textarea></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="khTemplateDeleteBtn" style="color:var(--gt-bad);display:none;">Delete</button>
+      <span style="flex:1;"></span>
+      <button type="button" class="gt-btn" id="khTemplateCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="khTemplateSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function KH() { return window.KnowledgeHubData; }
+
+  function showBootErrorBanner(err, context) {
+    try {
+      var el = $('khBootError');
+      if (!el) return;
+      el.style.display = 'block';
+      var line = '⚠ Knowledge Hub failed to load correctly (' + context + '):\n' + (err && err.stack ? err.stack : String(err)) + '\n\nTry a hard refresh. If it keeps happening, copy this text.\n';
+      // Append rather than overwrite — boot() now isolates several steps
+      // (wireHero/wireEvents/initial render) so more than one can fail
+      // independently; the banner should show every failure, not just the
+      // last one to overwrite it.
+      el.textContent = el.textContent ? (el.textContent + '\n---\n' + line) : line;
+    } catch (e2) {}
+  }
+  function runSafely(fn, context) { try { fn(); } catch (err) { showBootErrorBanner(err, context); } }
+  // A throw inside a click/change/blur handler (e.g. clicking "+ New
+  // Notebook" or Save on any Add modal) happens well after boot() has
+  // already returned successfully — runSafely()/the try/catch around
+  // boot() can't see it, so it used to fail completely silently (the
+  // button just "does nothing," no visible error anywhere). These two
+  // listeners catch that class of bug page-wide, for the whole session,
+  // and surface it in the same visible banner boot failures already use.
+  window.addEventListener('error', function (e) { showBootErrorBanner(e.error || e.message, 'a click or action'); });
+  window.addEventListener('unhandledrejection', function (e) { showBootErrorBanner(e.reason, 'a background action'); });
+  function safeRender(fn, label) { try { fn(); } catch (err) { console.error('[KnowledgeHub] render failed: ' + label, err); } }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(); } catch (e) { return ''; } }
+  function timeAgo(iso) {
+    var diff = Date.now() - new Date(iso).getTime();
+    var days = Math.floor(diff / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return '1 day ago';
+    if (days < 30) return days + ' days ago';
+    return fmtDate(iso);
+  }
+
+  // ============================================================
+  // Media Capture — oEmbed auto-fetch, same detectSource/getYouTubeId/
+  // oEmbed technique this app has already ported into entertainment-hub-
+  // data.js/entertainment.html/fitnessstudio.html/gallery-card.js — a
+  // third independent copy, since there's no cross-file import mechanism
+  // in this repo (see CLAUDE.md §1).
+  // ============================================================
+  function detectMediaSource(url) {
+    try {
+      var h = new URL(url).hostname.replace(/^www\./, '');
+      if (h.indexOf('youtube.com') !== -1 || h === 'youtu.be') return 'youtube';
+      if (h.indexOf('spotify.com') !== -1) return 'spotify';
+    } catch (e) {}
+    return null;
+  }
+  function fetchMediaPreview(url) {
+    var source = detectMediaSource(url);
+    var oembedUrl = null;
+    if (source === 'youtube') oembedUrl = 'https://www.youtube.com/oembed?url=' + encodeURIComponent(url) + '&format=json';
+    else if (source === 'spotify') oembedUrl = 'https://open.spotify.com/oembed?url=' + encodeURIComponent(url);
+    if (!oembedUrl) return Promise.resolve(null);
+    return fetch(oembedUrl).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (data) { return { title: data.title || '', author: data.author_name || '', cover: data.thumbnail_url || '', source: source }; })
+      .catch(function () { return null; });
+  }
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  var activeTab = 'home';
+  var editingNoteId = null;
+  var editingNotebookId = null;
+  var activeNotebookId = null;   // the notebook whose full page is currently open (or was last)
+  var nbActiveSubTab = 'overview';
+  var rhMapType = 'topic';       // 'topic' | 'questions' — which Active Research Hub map is showing
+  var editingMmNodeId = null;    // the mind-map branch currently open in either branch modal
+  var editingTemplateId = null;
+  var editingCreationId = null;
+  var quickType = 'jot';
+  var mediaType = 'article';
+  var creationType = 'article';
+  var graphMode = 'all'; // 'all' | 'connected'
+  var sortMode = 'date';
+  var nbSortMode = 'date';
+  var searchQuery = '';
+
+  // Same "set .value only when the field isn't the one the user is
+  // actively typing into" guard this app already needs wherever a field
+  // lives directly on a page (not inside a modal) and can be re-rendered
+  // by an unrelated event (e.g. renderAll() firing after some other
+  // save) while it's mid-edit — a modal's own fields are safe since
+  // nothing re-renders a modal while it's open, but Today's Focus/
+  // Permanent Knowledge's Summary/the Learning Progress slider all live
+  // directly on an always-rendered page.
+  function setValIfNotFocused(el, val) { if (el && document.activeElement !== el) el.value = val; }
+
+  // ============================================================
+  // TAB ROUTING
+  // ============================================================
+  var TAB_KEYS = ['home', 'workflows', 'notebooks', 'highlighting', 'quotes', 'connections', 'templates'];
+  function switchTab(key) {
+    if (TAB_KEYS.indexOf(key) === -1) key = 'home';
+    activeTab = key;
+    // Scoped to #khTabs/.gt-shell's own direct children specifically —
+    // the Notebook page below has its own second .kh-tab/.kh-panel set
+    // (khNbTabs/khNbPanel_*) reusing the same CSS classes; an unscoped
+    // query here would also toggle those every time the outer tab
+    // switches, fighting switchNbTab()'s own state.
+    document.querySelectorAll('#khTabs .kh-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === key); });
+    document.querySelectorAll('.gt-shell > .kh-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'khPanel_' + key); });
+    try { history.replaceState(null, '', '#' + key); } catch (e) {}
+    renderActiveTab();
+  }
+  function renderActiveTab() {
+    if (activeTab === 'home') safeRender(renderHome, 'home');
+    else if (activeTab === 'workflows') safeRender(renderFunnelBoard, 'workflows');
+    else if (activeTab === 'notebooks') safeRender(renderNotebookGrid, 'notebooks');
+    else if (activeTab === 'highlighting') safeRender(renderHighlightList, 'highlighting');
+    else if (activeTab === 'quotes') safeRender(renderQuoteGrid, 'quotes');
+    else if (activeTab === 'connections') safeRender(renderGraph, 'connections');
+    else if (activeTab === 'templates') safeRender(renderTemplateGrid, 'templates');
+  }
+
+  // ============================================================
+  // NOTEBOOK PAGE — sub-tab routing (Overview / Research Hub /
+  // Permanent Knowledge / Notes), scoped to #khNbTabs/#khNotebookPageBg
+  // specifically so it never touches the outer tab system above.
+  // ============================================================
+  var NB_TAB_KEYS = ['overview', 'research', 'knowledge', 'notes'];
+  function switchNbTab(key) {
+    if (NB_TAB_KEYS.indexOf(key) === -1) key = 'overview';
+    nbActiveSubTab = key;
+    $('khNbTabs').querySelectorAll('.kh-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.nbtab === key); });
+    document.querySelectorAll('#khNotebookPageBg .kh-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'khNbPanel_' + key); });
+    renderNbActiveSubTab();
+  }
+  function renderNbActiveSubTab() {
+    if (!activeNotebookId) return;
+    if (nbActiveSubTab === 'overview') safeRender(renderNbOverview, 'notebook overview');
+    else if (nbActiveSubTab === 'research') safeRender(renderResearchHub, 'research hub');
+    else if (nbActiveSubTab === 'knowledge') safeRender(renderPermanentKnowledge, 'permanent knowledge');
+    else if (nbActiveSubTab === 'notes') safeRender(renderNotebookDetailList, 'notebook notes');
+  }
+
+  // ============================================================
+  // HERO
+  // ============================================================
+  function heroRecord() { return Object.assign({ eyebrow: 'KNOWLEDGE HUB', title: 'Your Knowledge Hub', subtext: "A digital note-taking system for capturing, organizing & transforming your ideas into research, essays, and more.", ctaLabel: 'Quick Capture', photo: '', photoColor: '' }, JSON.parse(localStorage.getItem('kh:hero') || '{}')); }
+  function saveHeroRecord(patch) { var rec = Object.assign(heroRecord(), patch); localStorage.setItem('kh:hero', JSON.stringify(rec)); return rec; }
+  function wireHero() {
+    if (!window.GlassTheme) return;
+    GlassTheme.wireHero({
+      eyebrowEl: $('khHeroEyebrow'), titleEl: $('khHeroTitle'), subtextEl: $('khHeroSubtext'),
+      ctaLabelEl: $('khHeroCtaLabel'), ctaEl: $('khHeroCta'), coverBgEl: $('gtHeroCoverBg'),
+      mediaAbstractEl: $('khHeroAbstract'), mediaImgEl: $('khHeroImg'), choiceEl: $('khHeroChoice'),
+      toolsEl: $('khHeroTools'), fileInputEl: $('khHeroFileInput'),
+      addBtn: $('khHeroAddBtn'), changeBtn: $('khHeroChangeBtn'), removeBtn: $('khHeroRemoveBtn'),
+      getRecord: heroRecord, saveRecord: saveHeroRecord,
+      onCtaClick: openQuickCaptureModal
+    });
+  }
+
+  // ============================================================
+  // HOME
+  // ============================================================
+  function renderHome() {
+    renderTodaysFocus();
+    var counts = KH().funnelCounts();
+    $('khSnapRow').innerHTML = KH().STAGES.map(function (s) {
+      return '<div class="kh-snap-tile"><div class="kh-snap-num">' + (counts[s.key] || 0) + '</div><div class="kh-snap-label">' + s.icon + ' ' + escapeHtml(s.label) + '</div></div>';
+    }).join('');
+    renderHomeNotebooks();
+    renderCreationGrid();
+    renderAllNotesList();
+  }
+
+  // ============================================================
+  // TODAY'S FOCUS
+  // ============================================================
+  function renderTodaysFocus() {
+    var f = KH().todaysFocus();
+    setValIfNotFocused($('khFocusTopic'), f.topic);
+    setValIfNotFocused($('khFocusChapter'), f.chapter);
+    setValIfNotFocused($('khFocusTime'), f.studyTime);
+    setValIfNotFocused($('khFocusNext'), f.nextAction);
+    $('khFocusPhaseRow').innerHTML = KH().FOCUS_PHASES.map(function (p) {
+      return '<button type="button" class="kh-pick-chip' + (p.key === f.phase ? ' active' : '') + '" data-phase="' + p.key + '">' + p.icon + ' ' + p.label + '</button>';
+    }).join('');
+  }
+
+  // ============================================================
+  // NOTEBOOK CARDS — shared by Home's "Your Notebooks" and the
+  // Notebooks tab; each shows Learning Progress plus a glance at that
+  // notebook's Active Research Hub + Permanent Knowledge Database, per
+  // the request's own "show all of that on the main notebooks in the
+  // main page" ask.
+  // ============================================================
+  function buildNotebookCardHtml(nb) {
+    var notes = KH().notesForNotebook(nb.id);
+    var topicN = KH().mindMapNodesForNotebook(nb.id, 'topic').filter(function (n) { return n.parentId; }).length;
+    var qN = KH().mindMapNodesForNotebook(nb.id, 'questions').filter(function (n) { return n.parentId; }).length;
+    var pkN = KH().permanentKnowledgeItemCount(nb.id);
+    return '<button type="button" class="kh-nb-card gt-glare-card" data-id="' + nb.id + '">' +
+      '<div class="kh-nb-card-head"><span class="kh-what-icon">' + nb.icon + '</span><span class="kh-nb-card-name">' + escapeHtml(nb.name) + '</span></div>' +
+      '<div class="kh-progress-row"><div class="kh-progress-bar"><div class="kh-progress-fill" style="width:' + nb.progressPct + '%;"></div></div><span class="kh-progress-pct">' + nb.progressPct + '%</span></div>' +
+      '<div class="kh-nb-card-meta">' + notes.length + ' note' + (notes.length === 1 ? '' : 's') + ' · 🧠 ' + topicN + ' branch' + (topicN === 1 ? '' : 'es') + ' · ❓ ' + qN + ' question' + (qN === 1 ? '' : 's') + ' · 🗄 ' + pkN + ' knowledge item' + (pkN === 1 ? '' : 's') + '</div>' +
+      '</button>';
+  }
+  function wireNbCards(container) {
+    container.querySelectorAll('.kh-nb-card').forEach(function (el) {
+      GlassTheme.wireGlareCard(el);
+      el.addEventListener('click', function () { openNotebookDetail(el.dataset.id); });
+    });
+  }
+  function renderHomeNotebooks() {
+    var nbs = KH().notebooksSorted();
+    $('khHomeNbGrid').innerHTML = nbs.length ? nbs.map(buildNotebookCardHtml).join('') : '<div class="kh-empty-note">No notebooks yet — capture something to get started.</div>';
+    wireNbCards($('khHomeNbGrid'));
+  }
+
+  // ============================================================
+  // CREATION LAB
+  // ============================================================
+  function creationTypeMeta(key) {
+    var t = KH().CREATION_TYPES;
+    for (var i = 0; i < t.length; i++) if (t[i].key === key) return t[i];
+    return t[0];
+  }
+  function renderCreationTypeRow() {
+    $('khCreationTypeRow').innerHTML = KH().CREATION_TYPES.map(function (t) {
+      return '<button type="button" class="kh-pick-chip' + (t.key === creationType ? ' active' : '') + '" data-type="' + t.key + '">' + t.icon + ' ' + t.label + '</button>';
+    }).join('');
+  }
+  function renderCreationGrid() {
+    var creations = KH().creationsSorted();
+    $('khCreationGrid').innerHTML = creations.length ? creations.map(function (c) {
+      var t = creationTypeMeta(c.type);
+      return '<div class="kh-what-btn gt-glare-card" data-id="' + c.id + '" style="cursor:pointer;">' +
+        '<span class="kh-what-icon">' + t.icon + '</span><span class="kh-what-label">' + escapeHtml(c.title) + '</span>' +
+        '<span class="kh-what-desc">' + t.label + (c.notebookId ? ' · ' + escapeHtml(KH().notebookName(c.notebookId)) : '') + ' · ' + c.status + '</span></div>';
+    }).join('') : '<div class="kh-empty-note">Nothing created yet — pull from your notes and start one.</div>';
+    $('khCreationGrid').querySelectorAll('.gt-glare-card').forEach(function (el) {
+      GlassTheme.wireGlareCard(el);
+      el.addEventListener('click', function () { openCreationModal(el.dataset.id); });
+    });
+  }
+  function openCreationModal(id) {
+    editingCreationId = id || null;
+    var c = id ? KH().Creations.get(id) : null;
+    $('khCreationModalTitle').textContent = c ? 'Edit Creation' : 'New Creation';
+    creationType = c ? c.type : 'article';
+    renderCreationTypeRow();
+    $('khCreationTitle').value = c ? c.title : '';
+    var nbs = KH().notebooksSorted();
+    $('khCreationNotebook').innerHTML = '<option value="">— none —</option>' + nbs.map(function (nb) { return '<option value="' + nb.id + '">' + nb.icon + ' ' + escapeHtml(nb.name) + '</option>'; }).join('');
+    $('khCreationNotebook').value = c ? c.notebookId : '';
+    $('khCreationStatus').value = c ? c.status : 'draft';
+    $('khCreationBody').value = c ? c.body : '';
+    $('khCreationDeleteBtn').style.display = c ? 'inline-flex' : 'none';
+    $('khCreationModalBg').classList.add('show');
+  }
+  function closeCreationModal() { $('khCreationModalBg').classList.remove('show'); }
+  function renderAllNotesList() {
+    var list = KH().Notes.list();
+    var q = searchQuery.trim().toLowerCase();
+    if (q) list = list.filter(function (n) { return (n.title + ' ' + n.rawContent + ' ' + (n.tags || []).join(' ')).toLowerCase().indexOf(q) !== -1; });
+    list = KH().sortNotes(list, sortMode);
+    $('khAllNotesList').innerHTML = list.length ? list.map(buildNoteRowHtml).join('') : '<div class="kh-empty-note">No notes match.</div>';
+    wireNoteRowClicks($('khAllNotesList'));
+  }
+  function buildNoteRowHtml(n) {
+    var stage = KH().stageMeta(n.stage), type = KH().typeMeta(n.type);
+    return '<div class="kh-note-row" data-id="' + n.id + '">' +
+      '<span class="kh-note-row-icon">' + type.icon + '</span>' +
+      '<div class="kh-note-row-main"><div class="kh-note-row-title">' + (n.favorite ? '★ ' : '') + escapeHtml(n.title) + '</div>' +
+      '<div class="kh-note-row-meta">' + escapeHtml(KH().notebookName(n.notebookId) || 'No notebook') + ' · ' + timeAgo(n.updatedAt) + '</div></div>' +
+      '<span class="kh-note-row-stage">' + stage.icon + ' ' + escapeHtml(stage.label) + '</span></div>';
+  }
+  function wireNoteRowClicks(container) {
+    container.querySelectorAll('.kh-note-row').forEach(function (el) {
+      el.addEventListener('click', function () { openNoteDetail(el.dataset.id); });
+    });
+  }
+
+  // ============================================================
+  // WORKFLOWS — the Knowledge Funnel (cross-column drag, same
+  // shared-group-name-per-Sortable-instance technique dreamboard.html's
+  // own board columns already established).
+  // ============================================================
+  var funnelSortables = [];
+  function renderFunnelBoard() {
+    funnelSortables.forEach(function (s) { try { s.destroy(); } catch (e) {} });
+    funnelSortables = [];
+    var board = $('khFunnelBoard');
+    board.innerHTML = KH().STAGES.map(function (s) {
+      return '<div class="kh-funnel-col"><div class="kh-funnel-col-head"><span>' + s.icon + '</span><span>' + escapeHtml(s.label) + '</span><span class="kh-funnel-col-count" id="khFunnelCount_' + s.key + '"></span></div>' +
+        '<div class="kh-funnel-col-hint">' + escapeHtml(s.hint) + '</div>' +
+        '<div class="kh-funnel-col-list" data-stage="' + s.key + '" id="khFunnelList_' + s.key + '"></div></div>';
+    }).join('');
+    KH().STAGES.forEach(function (s) {
+      var notes = KH().notesForStage(s.key).slice().sort(function (a, b) { return b.order - a.order; });
+      $('khFunnelCount_' + s.key).textContent = notes.length;
+      $('khFunnelList_' + s.key).innerHTML = notes.map(function (n) {
+        return '<div class="kh-funnel-card" data-id="' + n.id + '"><div class="kh-funnel-card-title">' + KH().typeMeta(n.type).icon + ' ' + escapeHtml(n.title) + '</div>' +
+          '<div class="kh-funnel-card-meta">' + escapeHtml(KH().notebookName(n.notebookId) || '') + '</div></div>';
+      }).join('');
+    });
+    document.querySelectorAll('.kh-funnel-card').forEach(function (el) {
+      el.addEventListener('click', function () { openNoteDetail(el.dataset.id); });
+    });
+    if (window.Sortable) {
+      var groupName = 'kh-funnel';
+      document.querySelectorAll('.kh-funnel-col-list').forEach(function (col) {
+        funnelSortables.push(Sortable.create(col, {
+          group: groupName, animation: 150, ghostClass: 'kh-funnel-ghost', delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
+          onEnd: function () {
+            document.querySelectorAll('.kh-funnel-col-list').forEach(function (colEl) {
+              var stage = colEl.dataset.stage;
+              Array.prototype.forEach.call(colEl.children, function (cardEl, i) {
+                KH().Notes.update(cardEl.dataset.id, { stage: stage, order: Date.now() - i });
+              });
+            });
+            renderFunnelBoard();
+            renderAll();
+          }
+        }));
+      });
+    }
+  }
+
+  // ============================================================
+  // NOTEBOOKS
+  // ============================================================
+  function renderNotebookGrid() {
+    var nbs = KH().notebooksSorted();
+    $('khNotebookGrid').innerHTML = nbs.length ? nbs.map(buildNotebookCardHtml).join('') : '<div class="kh-empty-note">No notebooks yet — a Quick Capture or Template will create one automatically, or add one directly.</div>';
+    wireNbCards($('khNotebookGrid'));
+  }
+  function openNotebookModal(id) {
+    editingNotebookId = id || null;
+    var nb = id ? KH().Notebooks.get(id) : null;
+    $('khNotebookModalTitle').textContent = nb ? 'Edit Notebook' : 'New Notebook';
+    $('khNotebookIcon').value = nb ? nb.icon : '📓';
+    $('khNotebookName').value = nb ? nb.name : '';
+    $('khNotebookDesc').value = nb ? nb.description : '';
+    $('khNotebookDeleteBtn').style.display = nb ? 'inline-flex' : 'none';
+    $('khNotebookModalBg').classList.add('show');
+  }
+  function closeNotebookModal() { $('khNotebookModalBg').classList.remove('show'); }
+
+  // ============================================================
+  // NOTEBOOK PAGE (full-page overlay) — Overview / Active Research Hub
+  // (two mind maps) / Permanent Knowledge Database / Notes.
+  // ============================================================
+  function openNotebookDetail(id) {
+    activeNotebookId = id;
+    var nb = KH().Notebooks.get(id);
+    if (!nb) return;
+    $('khNbPageTitle').textContent = nb.icon + ' ' + nb.name;
+    rhMapType = 'topic';
+    switchNbTab('overview');
+    $('khNotebookPageBg').classList.add('show');
+  }
+  function closeNotebookPage() {
+    $('khNotebookPageBg').classList.remove('show');
+    activeNotebookId = null;
+  }
+
+  function renderNbOverview() {
+    var nb = KH().Notebooks.get(activeNotebookId);
+    if (!nb) return;
+    $('khNbOverviewName').textContent = nb.icon + ' ' + nb.name;
+    $('khNbOverviewDesc').textContent = nb.description || 'No description yet.';
+    setValIfNotFocused($('khNbProgressSlider'), nb.progressPct);
+    $('khNbProgressLabel').textContent = nb.progressPct + '%';
+    var notes = KH().notesForNotebook(nb.id);
+    var topicN = KH().mindMapNodesForNotebook(nb.id, 'topic').filter(function (n) { return n.parentId; }).length;
+    var qN = KH().mindMapNodesForNotebook(nb.id, 'questions').filter(function (n) { return n.parentId; }).length;
+    var pkN = KH().permanentKnowledgeItemCount(nb.id);
+    $('khNbOverviewStats').innerHTML =
+      '<div class="kh-snap-tile"><div class="kh-snap-num">' + notes.length + '</div><div class="kh-snap-label">📚 Notes</div></div>' +
+      '<div class="kh-snap-tile"><div class="kh-snap-num">' + topicN + '</div><div class="kh-snap-label">🧠 Topic Branches</div></div>' +
+      '<div class="kh-snap-tile"><div class="kh-snap-num">' + qN + '</div><div class="kh-snap-label">❓ Questions</div></div>' +
+      '<div class="kh-snap-tile"><div class="kh-snap-num">' + pkN + '</div><div class="kh-snap-label">🗄 Knowledge Items</div></div>';
+  }
+
+  function renderNotebookDetailList() {
+    var notes = KH().sortNotes(KH().notesForNotebook(activeNotebookId), nbSortMode);
+    $('khNbDetailList').innerHTML = notes.length ? notes.map(buildNoteRowHtml).join('') : '<div class="kh-empty-note">Nothing in this notebook yet.</div>';
+    wireNoteRowClicks($('khNbDetailList'));
+  }
+
+  // ---------- Active Research Hub (two mind maps) ----------
+  function renderResearchHub() {
+    if (!activeNotebookId) return;
+    $('khRhModeRow').querySelectorAll('.gt-chip').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === rhMapType); });
+    $('khRhHint').textContent = rhMapType === 'questions'
+      ? 'Every new branch here opens as an auto-generated article page — a Main Question plus Why? / How? / Evidence? / Opposing Views? / Missing Information? / Other questions.'
+      : 'Branch the general topic out into sub-topics. Click a branch to edit it, or its "+" to add a child.';
+    renderMindMapTree($('khRhWrap'), activeNotebookId, rhMapType);
+  }
+  // Pure rendering: computes pixel positions from KH().computeMindMapLayout()
+  // (a tidy, auto-arranging tree — a deliberate, disclosed simplification
+  // vs. a full free-drag canvas like learning-dashboard.html's Knowledge
+  // Maps, same "lighter version" precedent this page's own Connections
+  // graph already used) and draws parent->child SVG connector curves plus
+  // one clickable node per branch.
+  function renderMindMapTree(wrapEl, notebookId, mapType) {
+    var root = KH().ensureMindMapRoot(notebookId, mapType);
+    var nodes = KH().mindMapNodesForNotebook(notebookId, mapType);
+    var positions = KH().computeMindMapLayout(nodes, root.id);
+    var maxDepth = 0, maxSlot = 0;
+    Object.keys(positions).forEach(function (id) {
+      if (positions[id].depth > maxDepth) maxDepth = positions[id].depth;
+      if (positions[id].slot > maxSlot) maxSlot = positions[id].slot;
+    });
+    var COLW = 200, ROWH = 62, PADX = 90, PADY = 40;
+    var w = PADX * 2 + maxDepth * COLW + 168;
+    var h = PADY * 2 + maxSlot * ROWH;
+    wrapEl.style.height = Math.max(240, h + 40) + 'px';
+    wrapEl.innerHTML = '';
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', w); svg.setAttribute('height', h + 40);
+    svg.classList.add('kh-mm-svg');
+    nodes.forEach(function (n) {
+      if (!n.parentId) return;
+      var p = positions[n.parentId], c = positions[n.id];
+      if (!p || !c) return;
+      var x1 = PADX + p.depth * COLW + 168, y1 = PADY + p.slot * ROWH;
+      var x2 = PADX + c.depth * COLW, y2 = PADY + c.slot * ROWH;
+      var midX = (x1 + x2) / 2;
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M' + x1 + ',' + y1 + ' C' + midX + ',' + y1 + ' ' + midX + ',' + y2 + ' ' + x2 + ',' + y2);
+      path.setAttribute('class', 'kh-mm-edge');
+      svg.appendChild(path);
+    });
+    wrapEl.appendChild(svg);
+    nodes.forEach(function (n) {
+      var pos = positions[n.id]; if (!pos) return;
+      var x = PADX + pos.depth * COLW, y = PADY + pos.slot * ROWH;
+      // A plain, keyboard-accessible div (tabIndex + click/Enter) rather
+      // than a button element — its own inner "+" is a real button, and
+      // nesting two interactive controls is best avoided even though the
+      // DOM (built via createElement, not parsed HTML) would technically
+      // allow it — same accessible-clickable-card pattern gallery-card
+      // .js's own build() already established for exactly this shape.
+      var card = document.createElement('div');
+      card.className = 'kh-mm-node' + (mapType === 'questions' && n.parentId ? ' kh-mm-node-q' : '');
+      card.tabIndex = 0;
+      card.style.left = x + 'px'; card.style.top = y + 'px';
+      var titleEl = document.createElement('div'); titleEl.className = 'kh-mm-node-title'; titleEl.textContent = n.title;
+      card.appendChild(titleEl);
+      if (mapType === 'questions' && n.linkedTopicNodeId) {
+        var topicNode = KH().MindMapNodes.get(n.linkedTopicNodeId);
+        if (topicNode) {
+          var link = document.createElement('div'); link.className = 'kh-mm-node-link'; link.textContent = '🔗 ' + topicNode.title;
+          card.appendChild(link);
+        }
+      }
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button'; addBtn.className = 'kh-mm-node-add'; addBtn.textContent = '+';
+      addBtn.title = mapType === 'questions' ? 'Add a question branch' : 'Add a sub-topic branch';
+      addBtn.addEventListener('click', function (e) { e.stopPropagation(); addMindMapBranchAndOpen(notebookId, mapType, n.id); });
+      card.appendChild(addBtn);
+      function activate() { if (mapType === 'questions') openQuestionArticleModal(n.id); else openMmNodeModal(n.id); }
+      card.addEventListener('click', activate);
+      card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+      wrapEl.appendChild(card);
+    });
+  }
+  function addMindMapBranchAndOpen(notebookId, mapType, parentId) {
+    var node = KH().addMindMapBranch(notebookId, mapType, parentId);
+    renderMindMapTree($('khRhWrap'), notebookId, mapType);
+    if (mapType === 'questions') openQuestionArticleModal(node.id); else openMmNodeModal(node.id);
+  }
+  function refreshResearchHubIfOpen() {
+    if (activeNotebookId) renderMindMapTree($('khRhWrap'), activeNotebookId, rhMapType);
+    renderHomeNotebooks();
+  }
+
+  function openMmNodeModal(id) {
+    editingMmNodeId = id;
+    var n = KH().MindMapNodes.get(id);
+    if (!n) return;
+    $('khMmNodeModalTitle').textContent = n.parentId ? 'Edit Branch' : (KH().notebookName(n.notebookId) || 'Topic Map');
+    $('khMmNodeTitle').value = n.title;
+    $('khMmNodeNotes').value = n.notes;
+    $('khMmNodeDeleteBtn').style.display = n.parentId ? 'inline-flex' : 'none';
+    $('khMmNodeModalBg').classList.add('show');
+  }
+  function closeMmNodeModal() { $('khMmNodeModalBg').classList.remove('show'); editingMmNodeId = null; refreshResearchHubIfOpen(); }
+
+  function openQuestionArticleModal(id) {
+    editingMmNodeId = id;
+    var n = KH().MindMapNodes.get(id);
+    if (!n) return;
+    $('khQArticleTitle').value = n.title;
+    var topicNodes = activeNotebookId ? KH().mindMapNodesForNotebook(activeNotebookId, 'topic') : [];
+    $('khQArticleLink').innerHTML = '<option value="">— none —</option>' + topicNodes.map(function (t) { return '<option value="' + t.id + '">' + escapeHtml(t.title) + '</option>'; }).join('');
+    $('khQArticleLink').value = n.linkedTopicNodeId || '';
+    $('khQArticleMain').value = n.article.mainQuestion;
+    $('khQArticleWhy').value = n.article.why;
+    $('khQArticleHow').value = n.article.how;
+    $('khQArticleEvidence').value = n.article.evidence;
+    $('khQArticleOpposing').value = n.article.opposingViews;
+    $('khQArticleMissing').value = n.article.missingInfo;
+    $('khQArticleOther').value = n.article.other;
+    $('khQArticleDeleteBtn').style.display = n.parentId ? 'inline-flex' : 'none';
+    $('khQArticleModalBg').classList.add('show');
+  }
+  function patchMmArticle(field, value) {
+    if (!editingMmNodeId) return;
+    var n = KH().MindMapNodes.get(editingMmNodeId); if (!n) return;
+    var article = Object.assign({}, n.article);
+    article[field] = value;
+    KH().MindMapNodes.update(editingMmNodeId, { article: article });
+  }
+  function closeQArticleModal() { $('khQArticleModalBg').classList.remove('show'); editingMmNodeId = null; refreshResearchHubIfOpen(); }
+  function deleteEditingMmNode() {
+    if (!editingMmNodeId || !confirm('Delete this branch and everything under it?')) return;
+    KH().removeMindMapNodeCascade(editingMmNodeId);
+    $('khMmNodeModalBg').classList.remove('show');
+    $('khQArticleModalBg').classList.remove('show');
+    editingMmNodeId = null;
+    refreshResearchHubIfOpen();
+  }
+
+  // ---------- Permanent Knowledge Database ----------
+  var PK_SIMPLE_FIELDS = ['keyConcepts', 'mentalModels', 'examples', 'analogies'];
+  function renderPermanentKnowledge() {
+    if (!activeNotebookId) return;
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    setValIfNotFocused($('khPkSummary'), pk.summary);
+    PK_SIMPLE_FIELDS.forEach(renderPkSimpleList);
+    renderPkDefinitions();
+    renderPkQuotes();
+    renderPkDiagrams();
+    renderPkLinkedNotes();
+  }
+  function renderPkSimpleList(field) {
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    var list = pk[field] || [];
+    $('khPkList_' + field).innerHTML = list.length ? list.map(function (item) {
+      return '<div class="kh-pk-row"><span>' + escapeHtml(item.text) + '</span><button type="button" data-rm="' + item.id + '">✕</button></div>';
+    }).join('') : '<div class="kh-pk-empty">Nothing yet.</div>';
+    $('khPkList_' + field).querySelectorAll('[data-rm]').forEach(function (b) {
+      b.addEventListener('click', function () { KH().pkRemoveItem(activeNotebookId, field, b.dataset.rm); renderPkSimpleList(field); renderHomeNotebooks(); });
+    });
+  }
+  function renderPkDefinitions() {
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    var list = pk.definitions || [];
+    $('khPkList_definitions').innerHTML = list.length ? list.map(function (d) {
+      return '<div class="kh-pk-row"><span><b>' + escapeHtml(d.term) + '</b> — ' + escapeHtml(d.definition) + '</span><button type="button" data-rm="' + d.id + '">✕</button></div>';
+    }).join('') : '<div class="kh-pk-empty">Nothing yet.</div>';
+    $('khPkList_definitions').querySelectorAll('[data-rm]').forEach(function (b) {
+      b.addEventListener('click', function () { KH().pkRemoveItem(activeNotebookId, 'definitions', b.dataset.rm); renderPkDefinitions(); renderHomeNotebooks(); });
+    });
+  }
+  function renderPkQuotes() {
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    var list = pk.quotes || [];
+    $('khPkList_quotes').innerHTML = list.length ? list.map(function (q) {
+      return '<div class="kh-pk-row"><span>“' + escapeHtml(q.text) + '”' + (q.source ? ' — ' + escapeHtml(q.source) : '') + '</span><button type="button" data-rm="' + q.id + '">✕</button></div>';
+    }).join('') : '<div class="kh-pk-empty">Nothing yet.</div>';
+    $('khPkList_quotes').querySelectorAll('[data-rm]').forEach(function (b) {
+      b.addEventListener('click', function () { KH().pkRemoveItem(activeNotebookId, 'quotes', b.dataset.rm); renderPkQuotes(); renderHomeNotebooks(); });
+    });
+  }
+  // Diagrams built via DOM node construction (img.src set as a property,
+  // never interpolated into innerHTML) — same HTML-injection-avoidance
+  // precedent this app's own Habit-media bugfix established for exactly
+  // this class of field (an arbitrary user-pasted URL).
+  function renderPkDiagrams() {
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    var list = pk.diagrams || [];
+    var wrap = $('khPkList_diagrams');
+    wrap.innerHTML = '';
+    if (!list.length) { wrap.innerHTML = '<div class="kh-pk-empty">No diagrams yet.</div>'; return; }
+    list.forEach(function (d) {
+      var card = document.createElement('div'); card.className = 'kh-pk-diagram';
+      if (d.url) {
+        var img = document.createElement('img'); img.loading = 'lazy'; img.alt = '';
+        img.addEventListener('error', function () { img.style.display = 'none'; });
+        img.src = d.url;
+        card.appendChild(img);
+      } else {
+        var fb = document.createElement('div'); fb.className = 'kh-pk-diagram-fallback'; fb.textContent = '📊';
+        card.appendChild(fb);
+      }
+      var cap = document.createElement('div'); cap.className = 'kh-pk-diagram-cap'; cap.textContent = d.caption || '';
+      card.appendChild(cap);
+      var rm = document.createElement('button'); rm.type = 'button'; rm.textContent = '✕';
+      rm.addEventListener('click', function () { KH().pkRemoveItem(activeNotebookId, 'diagrams', d.id); renderPkDiagrams(); renderHomeNotebooks(); });
+      card.appendChild(rm);
+      wrap.appendChild(card);
+    });
+  }
+  function renderPkLinkedNotes() {
+    var pk = KH().permanentKnowledgeForNotebook(activeNotebookId);
+    var linked = pk.linkedNoteIds.map(function (id) { return KH().Notes.get(id); }).filter(Boolean);
+    $('khPkLinkedNotesList').innerHTML = linked.length ? linked.map(function (n) {
+      return '<div class="kh-pk-row"><span>' + KH().typeMeta(n.type).icon + ' ' + escapeHtml(n.title) + '</span><button type="button" data-rm="' + n.id + '">✕</button></div>';
+    }).join('') : '<div class="kh-pk-empty">No linked notes yet.</div>';
+    $('khPkLinkedNotesList').querySelectorAll('[data-rm]').forEach(function (b) {
+      b.addEventListener('click', function () { KH().pkToggleLinkedNote(activeNotebookId, b.dataset.rm); renderPkLinkedNotes(); renderHomeNotebooks(); });
+    });
+    var pickable = KH().Notes.list().filter(function (n) { return pk.linkedNoteIds.indexOf(n.id) === -1; });
+    $('khPkLinkedNotePicker').innerHTML = '<option value="">Link a note…</option>' + pickable.map(function (n) { return '<option value="' + n.id + '">' + KH().typeMeta(n.type).icon + ' ' + escapeHtml(n.title) + '</option>'; }).join('');
+  }
+
+  // ============================================================
+  // HIGHLIGHTING
+  // ============================================================
+  function renderHighlightList() {
+    var notes = KH().notesForStage('highlighting').slice().sort(function (a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); });
+    $('khHighlightList').innerHTML = notes.length ? notes.map(buildNoteRowHtml).join('') : '<div class="kh-empty-note">No notes are in the Highlighting stage right now.</div>';
+    wireNoteRowClicks($('khHighlightList'));
+  }
+
+  // ============================================================
+  // QUOTE LIBRARY — GalleryCard.build() reuse
+  // ============================================================
+  var quoteSortable = null;
+  function renderQuoteGrid() {
+    var grid = $('khQuoteGrid');
+    var quotes = KH().notesForType('quote').slice().sort(function (a, b) { return a.order - b.order; });
+    grid.innerHTML = '';
+    if (!quotes.length) { grid.innerHTML = '<div class="gc-empty">No quotes captured yet.</div>'; return; }
+    quotes.forEach(function (n) {
+      var item = {
+        id: n.id, title: n.title, creator: n.author, subtopic: KH().notebookName(n.notebookId),
+        cover: n.cover, description: n.rawContent, lengthText: '', rating: 0, favorite: n.favorite, url: n.sourceUrl
+      };
+      var card = GalleryCard.build(item, {
+        fallbackIcon: '💬', draggable: true,
+        onEdit: function () { openNoteDetail(n.id); },
+        onFavoriteToggle: function () { KH().Notes.update(n.id, { favorite: !n.favorite }); renderQuoteGrid(); }
+      });
+      grid.appendChild(card);
+    });
+    if (quoteSortable) { try { quoteSortable.destroy(); } catch (e) {} quoteSortable = null; }
+    if (window.GalleryCard && GalleryCard.wireSortableGrid) {
+      quoteSortable = GalleryCard.wireSortableGrid(grid, function (ids) {
+        ids.forEach(function (id, i) { KH().Notes.update(id, { order: ids.length - i }); });
+      });
+    }
+  }
+
+  // ============================================================
+  // CONNECTIONS graph
+  // ============================================================
+  function renderGraph() {
+    var wrap = $('khGraphWrap');
+    var ids = graphMode === 'connected' ? KH().allConnectedNoteIds() : KH().Notes.list().map(function (n) { return n.id; });
+    var notes = ids.map(function (id) { return KH().Notes.get(id); }).filter(Boolean);
+    wrap.innerHTML = '';
+    if (!notes.length) { wrap.innerHTML = '<div class="kh-empty-note">' + (graphMode === 'connected' ? 'No connected notes yet — link a note or add a [[wiki link]] to build your web of ideas.' : 'No notes yet.') + '</div>'; return; }
+    var w = wrap.clientWidth || 600, h = Math.max(420, notes.length * 12);
+    var cx = w / 2, cy = h / 2, r = Math.max(80, Math.min(cx, cy) - 70);
+    var positions = {};
+    notes.forEach(function (n, i) {
+      var angle = (i / notes.length) * Math.PI * 2 - Math.PI / 2;
+      positions[n.id] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    });
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', w); svg.setAttribute('height', h);
+    svg.classList.add('kh-graph-svg');
+    var drawn = {};
+    notes.forEach(function (n) {
+      var c = KH().connectionsFor(n.id);
+      c.outgoing.forEach(function (t) {
+        if (!positions[t.id]) return;
+        var key = [n.id, t.id].sort().join('|');
+        if (drawn[key]) return; drawn[key] = true;
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', positions[n.id].x); line.setAttribute('y1', positions[n.id].y);
+        line.setAttribute('x2', positions[t.id].x); line.setAttribute('y2', positions[t.id].y);
+        line.setAttribute('class', 'kh-graph-edge');
+        line.dataset.a = n.id; line.dataset.b = t.id;
+        svg.appendChild(line);
+      });
+    });
+    wrap.style.height = h + 'px';
+    wrap.appendChild(svg);
+    notes.forEach(function (n) {
+      var pos = positions[n.id];
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'kh-graph-node';
+      btn.style.left = pos.x + 'px'; btn.style.top = pos.y + 'px';
+      var dot = document.createElement('span'); dot.className = 'kh-graph-node-dot'; dot.textContent = KH().typeMeta(n.type).icon;
+      var label = document.createElement('span'); label.className = 'kh-graph-node-label'; label.textContent = n.title;
+      btn.appendChild(dot); btn.appendChild(label);
+      btn.addEventListener('click', function () { openNoteDetail(n.id); });
+      btn.addEventListener('mouseenter', function () { highlightGraphNode(n.id, true); });
+      btn.addEventListener('mouseleave', function () { highlightGraphNode(n.id, false); });
+      wrap.appendChild(btn);
+    });
+  }
+  function highlightGraphNode(id, on) {
+    document.querySelectorAll('.kh-graph-edge').forEach(function (l) {
+      if (l.dataset.a === id || l.dataset.b === id) l.classList.toggle('kh-graph-edge-active', on);
+    });
+  }
+
+  // ============================================================
+  // TEMPLATES
+  // ============================================================
+  function renderTemplateGrid() {
+    var tpls = KH().templatesSorted();
+    $('khTemplateGrid').innerHTML = tpls.map(function (t) {
+      return '<div class="kh-what-btn gt-glare-card" data-id="' + t.id + '" style="cursor:default;">' +
+        '<span class="kh-what-icon">' + t.icon + '</span><span class="kh-what-label">' + escapeHtml(t.name) + '</span>' +
+        '<span class="kh-what-desc">' + escapeHtml(t.description || (t.notebookIcon + ' ' + t.notebookName)) + '</span>' +
+        '<div style="display:flex;gap:6px;margin-top:8px;width:100%;">' +
+        '<button type="button" class="gt-btn gt-btn-sm gt-btn-primary" data-use="' + t.id + '" style="flex:1;">Use →</button>' +
+        '<button type="button" class="gt-btn gt-btn-sm" data-edit="' + t.id + '">✎</button></div></div>';
+    }).join('');
+    $('khTemplateGrid').querySelectorAll('.gt-glare-card').forEach(function (el) { GlassTheme.wireGlareCard(el); });
+    $('khTemplateGrid').querySelectorAll('[data-use]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var note = KH().createNoteFromTemplate(btn.dataset.use);
+        if (note) { renderAll(); openNoteDetail(note.id); }
+      });
+    });
+    $('khTemplateGrid').querySelectorAll('[data-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); openTemplateModal(btn.dataset.edit); });
+    });
+  }
+  function openTemplateModal(id) {
+    editingTemplateId = id || null;
+    var t = id ? KH().Templates.get(id) : null;
+    $('khTemplateModalTitle').textContent = t ? 'Edit Template' : 'New Template';
+    $('khTemplateType').innerHTML = KH().TYPES.map(function (ty) { return '<option value="' + ty.key + '">' + ty.icon + ' ' + ty.label + '</option>'; }).join('');
+    $('khTemplateStage').innerHTML = KH().STAGES.map(function (s) { return '<option value="' + s.key + '">' + s.icon + ' ' + s.label + '</option>'; }).join('');
+    $('khTemplateIcon').value = t ? t.icon : '🧩';
+    $('khTemplateName').value = t ? t.name : '';
+    $('khTemplateType').value = t ? t.type : 'note';
+    $('khTemplateStage').value = t ? t.stage : 'inbox';
+    $('khTemplateNbIcon').value = t ? t.notebookIcon : '📓';
+    $('khTemplateNbName').value = t ? t.notebookName : '';
+    $('khTemplateDesc').value = t ? t.description : '';
+    $('khTemplatePrompts').value = t ? t.prompts.join('\n') : '';
+    $('khTemplateDeleteBtn').style.display = t ? 'inline-flex' : 'none';
+    $('khTemplateModalBg').classList.add('show');
+  }
+  function closeTemplateModal() { $('khTemplateModalBg').classList.remove('show'); }
+
+  // ============================================================
+  // NOTE DETAIL
+  // ============================================================
+  function openNoteDetail(id) {
+    editingNoteId = id;
+    var n = KH().Notes.get(id);
+    if (!n) return;
+    $('khNoteTitle').value = n.title;
+    $('khNoteFavBtn').textContent = n.favorite ? '★' : '☆';
+    $('khNoteTypeRow').innerHTML = KH().TYPES.map(function (t) {
+      return '<button type="button" class="kh-pick-chip' + (t.key === n.type ? ' active' : '') + '" data-type="' + t.key + '">' + t.icon + ' ' + t.label + '</button>';
+    }).join('');
+    $('khNoteStageRow').innerHTML = KH().STAGES.map(function (s) {
+      return '<button type="button" class="kh-pick-chip' + (s.key === n.stage ? ' active' : '') + '" data-stage="' + s.key + '">' + s.icon + ' ' + s.label + '</button>';
+    }).join('');
+    var nbs = KH().notebooksSorted();
+    $('khNoteNotebook').innerHTML = '<option value="">— none —</option>' + nbs.map(function (nb) { return '<option value="' + nb.id + '">' + nb.icon + ' ' + escapeHtml(nb.name) + '</option>'; }).join('');
+    $('khNoteNotebook').value = n.notebookId || '';
+    $('khNoteSourceUrl').value = n.sourceUrl;
+    $('khNoteAuthor').value = n.author;
+    $('khNoteCover').value = n.cover;
+    $('khNoteRaw').value = n.rawContent;
+    $('khNoteSummary').value = n.summary;
+    $('khNoteSynthesis').value = n.synthesis;
+    renderNoteTags(n);
+    renderNoteExcerpts(n);
+    renderNoteWikiPreview(n);
+    renderNoteConnections(n);
+    $('khNoteModalBg').classList.add('show');
+  }
+  function currentNote() { return editingNoteId ? KH().Notes.get(editingNoteId) : null; }
+  function patchNote(patch) { if (editingNoteId) KH().Notes.update(editingNoteId, patch); }
+
+  function renderNoteTags(n) {
+    $('khNoteTagList').innerHTML = (n.tags || []).map(function (t) {
+      return '<span class="kh-tag-chip">' + escapeHtml(t) + '<button type="button" data-tag="' + escapeHtml(t) + '">✕</button></span>';
+    }).join('');
+    $('khNoteTagList').querySelectorAll('[data-tag]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var n2 = currentNote(); if (!n2) return;
+        patchNote({ tags: n2.tags.filter(function (t) { return t !== b.dataset.tag; }) });
+        renderNoteTags(currentNote());
+      });
+    });
+  }
+  function renderNoteExcerpts(n) {
+    var list = n.excerpts || [];
+    $('khNoteExcerptList').innerHTML = list.length ? list.map(function (e) {
+      return '<div class="kh-excerpt-item' + (e.layer === 2 ? ' layer2' : '') + '"><span class="kh-excerpt-text">' + escapeHtml(e.text) + '</span>' +
+        '<div class="kh-excerpt-actions"><button type="button" data-promote="' + e.id + '" title="Promote to highlight">' + (e.layer === 2 ? '★' : '☆') + '</button>' +
+        '<button type="button" data-remove="' + e.id + '" title="Remove">✕</button></div></div>';
+    }).join('') : '<div style="font-size:11.5px;color:var(--gt-text-mute);">Nothing bolded yet.</div>';
+    $('khNoteExcerptList').querySelectorAll('[data-promote]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var n2 = currentNote(); if (!n2) return;
+        var ex = n2.excerpts.map(function (e) { return e.id === b.dataset.promote ? Object.assign({}, e, { layer: e.layer === 2 ? 1 : 2 }) : e; });
+        patchNote({ excerpts: ex });
+        renderNoteExcerpts(currentNote());
+      });
+    });
+    $('khNoteExcerptList').querySelectorAll('[data-remove]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var n2 = currentNote(); if (!n2) return;
+        patchNote({ excerpts: n2.excerpts.filter(function (e) { return e.id !== b.dataset.remove; }) });
+        renderNoteExcerpts(currentNote());
+      });
+    });
+  }
+  // Builds the [[wiki-linked]] preview via DOM node construction (never
+  // string-concatenated innerHTML on arbitrary user text) — same
+  // HTML-injection-avoidance precedent index.html's own Habit-media
+  // bugfix already established in this app for exactly this class of
+  // field (user-authored free text rendered elsewhere on the page).
+  function renderNoteWikiPreview(n) {
+    var text = KH().noteTextFields(n).trim();
+    var wrap = $('khNoteWikiPreviewWrap'), out = $('khNoteWikiPreview');
+    if (!text || KH().extractWikiTitles(text).length === 0) { wrap.style.display = 'none'; out.innerHTML = ''; return; }
+    wrap.style.display = 'block';
+    out.innerHTML = '';
+    var re = /\[\[([^\]]+)\]\]/g;
+    var lastIndex = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > lastIndex) out.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
+      var title = m[1].trim();
+      var target = KH().resolveNoteByTitle(title);
+      var span = document.createElement('span');
+      span.className = 'kh-wikilink' + (target ? '' : ' unresolved');
+      span.textContent = '[[' + title + ']]';
+      if (target) {
+        (function (id) { span.addEventListener('click', function () { openNoteDetail(id); }); })(target.id);
+      } else {
+        span.title = 'No note titled "' + title + '" yet';
+        span.addEventListener('click', function () {
+          if (confirm('No note titled "' + title + '" exists yet. Create it?')) {
+            var created = KH().Notes.add({ title: title });
+            renderAll();
+            openNoteDetail(created.id);
+          }
+        });
+      }
+      out.appendChild(span);
+      lastIndex = re.lastIndex;
+    }
+    if (lastIndex < text.length) out.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+  function renderNoteConnections(n) {
+    var conn = KH().connectionsFor(n.id);
+    var others = KH().Notes.list().filter(function (x) { return x.id !== n.id; });
+    $('khNoteLinkPicker').innerHTML = '<option value="">Link to a note…</option>' + others.map(function (x) { return '<option value="' + x.id + '">' + KH().typeMeta(x.type).icon + ' ' + escapeHtml(x.title) + '</option>'; }).join('');
+    $('khNoteOutgoingList').innerHTML = conn.outgoing.length ? conn.outgoing.map(function (t) {
+      return '<span class="kh-conn-chip" data-open="' + t.id + '">' + KH().typeMeta(t.type).icon + ' ' + escapeHtml(t.title) + (n.links.indexOf(t.id) !== -1 ? '<button type="button" data-unlink="' + t.id + '">✕</button>' : '') + '</span>';
+    }).join('') : '<span style="font-size:11.5px;color:var(--gt-text-mute);">No outgoing links yet.</span>';
+    $('khNoteBacklinkList').innerHTML = conn.backlinks.length ? conn.backlinks.map(function (t) {
+      return '<span class="kh-conn-chip" data-open="' + t.id + '">' + KH().typeMeta(t.type).icon + ' ' + escapeHtml(t.title) + '</span>';
+    }).join('') : '<span style="font-size:11.5px;color:var(--gt-text-mute);">Nothing links here yet.</span>';
+    $('khNoteOutgoingList').querySelectorAll('[data-open]').forEach(function (el) {
+      el.addEventListener('click', function (e) { if (e.target.dataset.unlink) return; openNoteDetail(el.dataset.open); });
+    });
+    $('khNoteOutgoingList').querySelectorAll('[data-unlink]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var n2 = currentNote(); if (!n2) return;
+        patchNote({ links: n2.links.filter(function (id) { return id !== b.dataset.unlink; }) });
+        renderNoteConnections(currentNote());
+      });
+    });
+    $('khNoteBacklinkList').querySelectorAll('[data-open]').forEach(function (el) {
+      el.addEventListener('click', function () { openNoteDetail(el.dataset.open); });
+    });
+  }
+  function closeNoteModal() { $('khNoteModalBg').classList.remove('show'); editingNoteId = null; renderAll(); }
+
+  // ============================================================
+  // QUICK CAPTURE modal
+  // ============================================================
+  function renderQuickTypeRow() {
+    $('khQuickTypeRow').innerHTML = KH().TYPES.map(function (t) {
+      return '<button type="button" class="kh-pick-chip' + (t.key === quickType ? ' active' : '') + '" data-type="' + t.key + '">' + t.icon + ' ' + t.label + '</button>';
+    }).join('');
+    $('khQuickTypeRow').querySelectorAll('[data-type]').forEach(function (b) {
+      b.addEventListener('click', function () { quickType = b.dataset.type; renderQuickTypeRow(); });
+    });
+  }
+  function openQuickCaptureModal() {
+    quickType = 'jot';
+    renderQuickTypeRow();
+    $('khQuickText').value = ''; $('khQuickTitle').value = ''; $('khQuickUrl').value = '';
+    $('khQuickModalBg').classList.add('show');
+    setTimeout(function () { $('khQuickText').focus(); }, 50);
+  }
+  function closeQuickCaptureModal() { $('khQuickModalBg').classList.remove('show'); }
+  function saveQuickCapture() {
+    var text = $('khQuickText').value.trim();
+    if (!text && !$('khQuickTitle').value.trim()) { alert('Add at least a quick thought or a title.'); return; }
+    var note = KH().quickCapture({ type: quickType, title: $('khQuickTitle').value.trim(), rawContent: text, sourceUrl: $('khQuickUrl').value.trim() });
+    closeQuickCaptureModal();
+    renderAll();
+    if (note) openNoteDetail(note.id);
+  }
+
+  // ============================================================
+  // MEDIA CAPTURE modal
+  // ============================================================
+  function openMediaCaptureModal() {
+    mediaType = 'article';
+    $('khMediaTypeRow').querySelectorAll('.kh-pick-chip').forEach(function (b) { b.classList.toggle('active', b.dataset.type === mediaType); });
+    $('khMediaUrl').value = ''; $('khMediaTitle').value = ''; $('khMediaAuthor').value = ''; $('khMediaCover').value = ''; $('khMediaDesc').value = '';
+    $('khMediaFetchHint').textContent = '';
+    $('khMediaModalBg').classList.add('show');
+  }
+  function closeMediaCaptureModal() { $('khMediaModalBg').classList.remove('show'); }
+  function fetchMediaIntoForm() {
+    var url = $('khMediaUrl').value.trim();
+    if (!url) return;
+    var source = detectMediaSource(url);
+    if (!source) { $('khMediaFetchHint').textContent = "Not a YouTube/Spotify link — cover and description aren't auto-fetchable, but you can still fill them in by hand."; return; }
+    $('khMediaFetchHint').textContent = 'Fetching preview…';
+    fetchMediaPreview(url).then(function (preview) {
+      if (!preview) { $('khMediaFetchHint').textContent = "Couldn't fetch a preview for that link — fill the fields in by hand."; return; }
+      if (!$('khMediaTitle').value) $('khMediaTitle').value = preview.title;
+      if (!$('khMediaAuthor').value) $('khMediaAuthor').value = preview.author;
+      if (!$('khMediaCover').value) $('khMediaCover').value = preview.cover;
+      if (preview.source === 'youtube') { mediaType = 'video'; $('khMediaTypeRow').querySelectorAll('.kh-pick-chip').forEach(function (b) { b.classList.toggle('active', b.dataset.type === 'video'); }); }
+      $('khMediaFetchHint').textContent = 'Preview fetched from ' + preview.source + '.';
+    });
+  }
+  function saveMediaCapture() {
+    var url = $('khMediaUrl').value.trim();
+    var title = $('khMediaTitle').value.trim();
+    if (!url && !title) { alert('Add a link or at least a title.'); return; }
+    var note = KH().mediaCapture({ type: mediaType, url: url, title: title, author: $('khMediaAuthor').value.trim(), cover: $('khMediaCover').value.trim(), description: $('khMediaDesc').value.trim() });
+    closeMediaCaptureModal();
+    renderAll();
+    if (note) openNoteDetail(note.id);
+  }
+
+  // ============================================================
+  // GLOBAL RENDER
+  // ============================================================
+  function renderAll() {
+    renderActiveTab();
+    if (activeNotebookId && $('khNotebookPageBg').classList.contains('show')) renderNbActiveSubTab();
+  }
+
+  // ============================================================
+  // EVENT WIRING
+  // ============================================================
+  function wireEvents() {
+    $('khTabs').querySelectorAll('.kh-tab').forEach(function (b) { b.addEventListener('click', function () { switchTab(b.dataset.tab); }); });
+
+    $('khWhatGrid').querySelectorAll('[data-action]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = b.dataset.action;
+        if (a === 'quickcapture') openQuickCaptureModal();
+        else if (a === 'mediacapture') openMediaCaptureModal();
+        else if (a.indexOf('tab:') === 0) switchTab(a.slice(4));
+      });
+    });
+
+    // Quick Capture
+    $('khFabQuick').addEventListener('click', openQuickCaptureModal);
+    $('khQuickCancelBtn').addEventListener('click', closeQuickCaptureModal);
+    $('khQuickModalBg').addEventListener('click', function (e) { if (e.target === $('khQuickModalBg')) closeQuickCaptureModal(); });
+    $('khQuickSaveBtn').addEventListener('click', saveQuickCapture);
+
+    // Media Capture
+    $('khFabMedia').addEventListener('click', openMediaCaptureModal);
+    $('khMediaCancelBtn').addEventListener('click', closeMediaCaptureModal);
+    $('khMediaModalBg').addEventListener('click', function (e) { if (e.target === $('khMediaModalBg')) closeMediaCaptureModal(); });
+    $('khMediaFetchBtn').addEventListener('click', fetchMediaIntoForm);
+    $('khMediaSaveBtn').addEventListener('click', saveMediaCapture);
+    $('khMediaTypeRow').querySelectorAll('.kh-pick-chip').forEach(function (b) {
+      b.addEventListener('click', function () { mediaType = b.dataset.type; $('khMediaTypeRow').querySelectorAll('.kh-pick-chip').forEach(function (x) { x.classList.toggle('active', x === b); }); });
+    });
+
+    // Home
+    $('khHomeNewNoteBtn').addEventListener('click', function () { var n = KH().Notes.add({}); renderAll(); openNoteDetail(n.id); });
+    $('khSearchInput').addEventListener('input', function () { searchQuery = this.value; renderAllNotesList(); });
+    $('khSortSelect').addEventListener('change', function () { sortMode = this.value; renderAllNotesList(); });
+
+    // Workflows
+    $('khFunnelNewNoteBtn').addEventListener('click', function () { var n = KH().Notes.add({}); renderAll(); openNoteDetail(n.id); });
+
+    // Notebooks
+    $('khNewNotebookBtn').addEventListener('click', function () { openNotebookModal(null); });
+    $('khNotebookCancelBtn').addEventListener('click', closeNotebookModal);
+    $('khNotebookModalBg').addEventListener('click', function (e) { if (e.target === $('khNotebookModalBg')) closeNotebookModal(); });
+    $('khNotebookSaveBtn').addEventListener('click', function () {
+      var name = $('khNotebookName').value.trim();
+      if (!name) { alert('Give the notebook a name.'); return; }
+      var patch = { name: name, icon: $('khNotebookIcon').value.trim() || '📓', description: $('khNotebookDesc').value.trim() };
+      if (editingNotebookId) KH().Notebooks.update(editingNotebookId, patch); else KH().Notebooks.add(patch);
+      closeNotebookModal(); renderAll();
+    });
+    $('khNotebookDeleteBtn').addEventListener('click', function () {
+      if (!editingNotebookId) return;
+      var count = KH().notesForNotebook(editingNotebookId).length;
+      if (!confirm('Delete this notebook? ' + count + ' note(s) in it will become unfiled, not deleted. Its Active Research Hub and Permanent Knowledge Database will be deleted too.')) return;
+      var wasOpenId = editingNotebookId;
+      KH().removeNotebookCascade(editingNotebookId);
+      closeNotebookModal();
+      if (activeNotebookId === wasOpenId) closeNotebookPage();
+      renderAll();
+    });
+
+    // Notebook page — sub-tabs, close button, and its "Edit Details"
+    // shortcut into the same add/edit modal above.
+    $('khNbPageCloseBtn').addEventListener('click', closeNotebookPage);
+    $('khNbTabs').addEventListener('click', function (e) { var b = e.target.closest('[data-nbtab]'); if (b) switchNbTab(b.dataset.nbtab); });
+    $('khNbOverviewEditBtn').addEventListener('click', function () { if (activeNotebookId) openNotebookModal(activeNotebookId); });
+    $('khNbProgressSlider').addEventListener('input', function () { $('khNbProgressLabel').textContent = this.value + '%'; });
+    $('khNbProgressSlider').addEventListener('change', function () {
+      if (!activeNotebookId) return;
+      KH().Notebooks.update(activeNotebookId, { progressPct: parseInt(this.value, 10) || 0 });
+      renderHomeNotebooks();
+    });
+    $('khNbDetailNewNoteBtn').addEventListener('click', function () {
+      if (!activeNotebookId) return;
+      var n = KH().Notes.add({ notebookId: activeNotebookId });
+      renderAll(); openNoteDetail(n.id);
+    });
+    $('khNbDetailSort').addEventListener('change', function () { nbSortMode = this.value; renderNotebookDetailList(); });
+
+    // Active Research Hub
+    $('khRhModeRow').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mode]'); if (!b) return;
+      rhMapType = b.dataset.mode;
+      renderResearchHub();
+    });
+    // Topic Map branch modal
+    $('khMmNodeModalBg').addEventListener('click', function (e) { if (e.target === $('khMmNodeModalBg')) closeMmNodeModal(); });
+    $('khMmNodeCloseBtn').addEventListener('click', closeMmNodeModal);
+    $('khMmNodeTitle').addEventListener('blur', function () { if (editingMmNodeId) KH().MindMapNodes.update(editingMmNodeId, { title: this.value.trim() || 'Untitled Branch' }); });
+    $('khMmNodeNotes').addEventListener('blur', function () { if (editingMmNodeId) KH().MindMapNodes.update(editingMmNodeId, { notes: this.value }); });
+    $('khMmNodeDeleteBtn').addEventListener('click', deleteEditingMmNode);
+    // Questions & Connections article modal — the auto-generated template page
+    $('khQArticleModalBg').addEventListener('click', function (e) { if (e.target === $('khQArticleModalBg')) closeQArticleModal(); });
+    $('khQArticleCloseBtn').addEventListener('click', closeQArticleModal);
+    $('khQArticleTitle').addEventListener('blur', function () { if (editingMmNodeId) KH().MindMapNodes.update(editingMmNodeId, { title: this.value.trim() || 'Untitled Branch' }); });
+    $('khQArticleLink').addEventListener('change', function () { if (editingMmNodeId) KH().MindMapNodes.update(editingMmNodeId, { linkedTopicNodeId: this.value }); });
+    $('khQArticleMain').addEventListener('blur', function () { patchMmArticle('mainQuestion', this.value); });
+    $('khQArticleWhy').addEventListener('blur', function () { patchMmArticle('why', this.value); });
+    $('khQArticleHow').addEventListener('blur', function () { patchMmArticle('how', this.value); });
+    $('khQArticleEvidence').addEventListener('blur', function () { patchMmArticle('evidence', this.value); });
+    $('khQArticleOpposing').addEventListener('blur', function () { patchMmArticle('opposingViews', this.value); });
+    $('khQArticleMissing').addEventListener('blur', function () { patchMmArticle('missingInfo', this.value); });
+    $('khQArticleOther').addEventListener('blur', function () { patchMmArticle('other', this.value); });
+    $('khQArticleDeleteBtn').addEventListener('click', deleteEditingMmNode);
+
+    // Permanent Knowledge Database
+    $('khPkSummary').addEventListener('blur', function () { if (activeNotebookId) KH().pkUpdateSummary(activeNotebookId, this.value); });
+    PK_SIMPLE_FIELDS.forEach(function (field) {
+      $('khPkInput_' + field).addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var val = this.value.trim();
+        if (!val || !activeNotebookId) return;
+        KH().pkAddItem(activeNotebookId, field, { text: val });
+        this.value = '';
+        renderPkSimpleList(field);
+        renderHomeNotebooks();
+      });
+    });
+    $('khPkDefAddBtn').addEventListener('click', function () {
+      var term = $('khPkDefTerm').value.trim(), body = $('khPkDefBody').value.trim();
+      if ((!term && !body) || !activeNotebookId) return;
+      KH().pkAddItem(activeNotebookId, 'definitions', { term: term, definition: body });
+      $('khPkDefTerm').value = ''; $('khPkDefBody').value = '';
+      renderPkDefinitions(); renderHomeNotebooks();
+    });
+    $('khPkQuoteAddBtn').addEventListener('click', function () {
+      var text = $('khPkQuoteText').value.trim(), source = $('khPkQuoteSource').value.trim();
+      if (!text || !activeNotebookId) return;
+      KH().pkAddItem(activeNotebookId, 'quotes', { text: text, source: source });
+      $('khPkQuoteText').value = ''; $('khPkQuoteSource').value = '';
+      renderPkQuotes(); renderHomeNotebooks();
+    });
+    $('khPkDiagAddBtn').addEventListener('click', function () {
+      var url = $('khPkDiagUrl').value.trim(), caption = $('khPkDiagCaption').value.trim();
+      if ((!url && !caption) || !activeNotebookId) return;
+      KH().pkAddItem(activeNotebookId, 'diagrams', { url: url, caption: caption });
+      $('khPkDiagUrl').value = ''; $('khPkDiagCaption').value = '';
+      renderPkDiagrams(); renderHomeNotebooks();
+    });
+    $('khPkLinkedNoteAddBtn').addEventListener('click', function () {
+      var id = $('khPkLinkedNotePicker').value;
+      if (!id || !activeNotebookId) return;
+      KH().pkToggleLinkedNote(activeNotebookId, id);
+      renderPkLinkedNotes(); renderHomeNotebooks();
+    });
+
+    // Today's Focus (Home)
+    $('khFocusTopic').addEventListener('blur', function () { KH().saveTodaysFocus({ topic: this.value.trim() }); });
+    $('khFocusChapter').addEventListener('blur', function () { KH().saveTodaysFocus({ chapter: this.value.trim() }); });
+    $('khFocusTime').addEventListener('blur', function () { KH().saveTodaysFocus({ studyTime: this.value.trim() }); });
+    $('khFocusNext').addEventListener('blur', function () { KH().saveTodaysFocus({ nextAction: this.value.trim() }); });
+    $('khFocusPhaseRow').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-phase]'); if (!b) return;
+      KH().saveTodaysFocus({ phase: b.dataset.phase });
+      renderTodaysFocus();
+    });
+
+    // Creation Lab (Home)
+    $('khNewCreationBtn').addEventListener('click', function () { openCreationModal(null); });
+    $('khCreationCancelBtn').addEventListener('click', closeCreationModal);
+    $('khCreationModalBg').addEventListener('click', function (e) { if (e.target === $('khCreationModalBg')) closeCreationModal(); });
+    $('khCreationTypeRow').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-type]'); if (!b) return;
+      creationType = b.dataset.type;
+      renderCreationTypeRow();
+    });
+    $('khCreationSaveBtn').addEventListener('click', function () {
+      var title = $('khCreationTitle').value.trim();
+      if (!title) { alert('Give the creation a title.'); return; }
+      var patch = {
+        title: title, type: creationType, notebookId: $('khCreationNotebook').value,
+        status: $('khCreationStatus').value, body: $('khCreationBody').value
+      };
+      if (editingCreationId) KH().Creations.update(editingCreationId, patch); else KH().Creations.add(patch);
+      closeCreationModal(); renderAll();
+    });
+    $('khCreationDeleteBtn').addEventListener('click', function () {
+      if (!editingCreationId || !confirm('Delete this creation?')) return;
+      KH().Creations.remove(editingCreationId);
+      closeCreationModal(); renderAll();
+    });
+
+    // Quote Library
+    $('khNewQuoteBtn').addEventListener('click', function () {
+      var nb = KH().autoNotebookForType('quote');
+      var n = KH().Notes.add({ type: 'quote', notebookId: nb.id, title: 'New Quote' });
+      renderAll(); openNoteDetail(n.id);
+    });
+
+    // Connections
+    $('khGraphAllChip').addEventListener('click', function () { graphMode = 'all'; $('khGraphAllChip').classList.add('active'); $('khGraphConnChip').classList.remove('active'); renderGraph(); });
+    $('khGraphConnChip').addEventListener('click', function () { graphMode = 'connected'; $('khGraphConnChip').classList.add('active'); $('khGraphAllChip').classList.remove('active'); renderGraph(); });
+
+    // Templates
+    $('khNewTemplateBtn').addEventListener('click', function () { openTemplateModal(null); });
+    $('khTemplateCancelBtn').addEventListener('click', closeTemplateModal);
+    $('khTemplateModalBg').addEventListener('click', function (e) { if (e.target === $('khTemplateModalBg')) closeTemplateModal(); });
+    $('khTemplateSaveBtn').addEventListener('click', function () {
+      var name = $('khTemplateName').value.trim();
+      if (!name) { alert('Give the template a name.'); return; }
+      var patch = {
+        name: name, icon: $('khTemplateIcon').value.trim() || '🧩', type: $('khTemplateType').value, stage: $('khTemplateStage').value,
+        notebookIcon: $('khTemplateNbIcon').value.trim() || '📓', notebookName: $('khTemplateNbName').value.trim() || 'General Notes',
+        description: $('khTemplateDesc').value.trim(), prompts: $('khTemplatePrompts').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean)
+      };
+      if (editingTemplateId) KH().Templates.update(editingTemplateId, patch); else KH().Templates.add(patch);
+      closeTemplateModal(); renderAll();
+    });
+    $('khTemplateDeleteBtn').addEventListener('click', function () {
+      if (!editingTemplateId || !confirm('Delete this template?')) return;
+      KH().Templates.remove(editingTemplateId);
+      closeTemplateModal(); renderAll();
+    });
+
+    // Note Detail
+    $('khNoteCloseBtn').addEventListener('click', closeNoteModal);
+    $('khNoteModalBg').addEventListener('click', function (e) { if (e.target === $('khNoteModalBg')) closeNoteModal(); });
+    $('khNoteTitle').addEventListener('blur', function () { patchNote({ title: this.value.trim() || 'Untitled' }); });
+    $('khNoteFavBtn').addEventListener('click', function () {
+      var n = currentNote(); if (!n) return;
+      patchNote({ favorite: !n.favorite });
+      $('khNoteFavBtn').textContent = !n.favorite ? '★' : '☆';
+    });
+    $('khNoteTypeRow').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-type]'); if (!b) return;
+      patchNote({ type: b.dataset.type });
+      $('khNoteTypeRow').querySelectorAll('.kh-pick-chip').forEach(function (x) { x.classList.toggle('active', x === b); });
+    });
+    $('khNoteStageRow').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-stage]'); if (!b) return;
+      patchNote({ stage: b.dataset.stage });
+      $('khNoteStageRow').querySelectorAll('.kh-pick-chip').forEach(function (x) { x.classList.toggle('active', x === b); });
+    });
+    $('khNoteNotebook').addEventListener('change', function () { patchNote({ notebookId: this.value }); });
+    $('khNoteSourceUrl').addEventListener('blur', function () { patchNote({ sourceUrl: this.value.trim() }); });
+    $('khNoteAuthor').addEventListener('blur', function () { patchNote({ author: this.value.trim() }); });
+    $('khNoteCover').addEventListener('blur', function () { patchNote({ cover: this.value.trim() }); });
+    $('khNoteTagInput').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var val = this.value.trim(); if (!val) return;
+      var n = currentNote(); if (!n) return;
+      if (n.tags.indexOf(val) === -1) patchNote({ tags: n.tags.concat([val]) });
+      this.value = '';
+      renderNoteTags(currentNote());
+    });
+    $('khNoteRaw').addEventListener('blur', function () { patchNote({ rawContent: this.value }); renderNoteWikiPreview(currentNote()); renderNoteConnections(currentNote()); });
+    $('khNoteSummary').addEventListener('blur', function () { patchNote({ summary: this.value }); renderNoteWikiPreview(currentNote()); });
+    $('khNoteSynthesis').addEventListener('blur', function () { patchNote({ synthesis: this.value }); renderNoteWikiPreview(currentNote()); renderNoteConnections(currentNote()); });
+    $('khNoteExcerptInput').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var val = this.value.trim(); if (!val) return;
+      var n = currentNote(); if (!n) return;
+      patchNote({ excerpts: n.excerpts.concat([{ id: 'ex_' + Date.now().toString(36), text: val, layer: 1, createdAt: new Date().toISOString() }]) });
+      this.value = '';
+      renderNoteExcerpts(currentNote());
+    });
+    $('khNoteLinkAddBtn').addEventListener('click', function () {
+      var id = $('khNoteLinkPicker').value; if (!id) return;
+      var n = currentNote(); if (!n) return;
+      if (n.links.indexOf(id) === -1) patchNote({ links: n.links.concat([id]) });
+      $('khNoteLinkPicker').value = '';
+      renderNoteConnections(currentNote());
+    });
+    $('khNoteDeleteBtn').addEventListener('click', function () {
+      if (!editingNoteId || !confirm('Delete this note? This cannot be undone.')) return;
+      KH().Notes.remove(editingNoteId);
+      $('khNoteModalBg').classList.remove('show');
+      editingNoteId = null;
+      renderAll();
+    });
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  var remoteApplied = false;
+  function maybeSeedAfterSyncAttempt() {
+    // Same empty-storage seed-race-safety window as every other page in
+    // this app: never seed default notebooks/notes/templates before
+    // initCloudSync's cloud pull has had a real chance to answer, or it
+    // could push a freshly-seeded "default" set to Supabase and clobber
+    // another device's real data.
+    if (!remoteApplied && KH().isEmptyEverywhere()) { KH().seedIfEmpty(); renderAll(); }
+  }
+  function boot() {
+    if (!window.KnowledgeHubData) { showBootErrorBanner('KnowledgeHubData did not load — check that knowledge-hub-data.js loaded correctly.', 'boot'); return; }
+    // Each step below is isolated with its own runSafely rather than one
+    // shared try/catch around the whole boot sequence — a throw in wireHero
+    // (e.g. a missing GlassTheme helper) used to be able to abort wireEvents
+    // and switchTab entirely, which is exactly "the page looks normal but
+    // nothing is clickable." Now a failure in any one step still shows the
+    // boot-error banner (so it's never silent) but the others still run.
+    runSafely(wireHero, 'wireHero');
+    runSafely(wireEvents, 'wireEvents');
+    runSafely(function () {
+      var initialHash = (window.location.hash || '').replace('#', '');
+      switchTab(initialHash || 'home');
+    }, 'initial render');
+    if (window.initCloudSync) {
+      window.initCloudSync({
+        appKey: 'knowledgehub',
+        syncedPrefixes: ['kh:'],
+        onApplied: function () { remoteApplied = true; renderAll(); }
+      });
+    }
+    setTimeout(maybeSeedAfterSyncAttempt, 5000);
+    window.addEventListener('hashchange', function () { switchTab((window.location.hash || '').replace('#', '')); });
+  }
+  document.addEventListener('DOMContentLoaded', function () { runSafely(boot, 'boot'); });
+})();
+</script>
+</body>
+</html>

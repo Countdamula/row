@@ -43,6 +43,7 @@ Vercel's static server) — see README.md.
 | `mainpillar.html` | Main Pillar — a gamified (Solo Leveling-styled "System HUD") daily command center. `mainpillar.html` + `mainpillar-data.js`, its own top-level page/nav pill, its own `mainpillar:*` data — deliberately separate from `index.html`'s own Goals/habits/allocation engine, not a replacement for it (see changelog) |
 | `tasks.html` | Tasks — a genuinely new, standalone unified Tasks database: one flat collection of native tasks (title/note/status/priority/due date/daily flag/recurrence/scheduled days), drag-reorderable, filterable (Today/All, source, priority, status, search), plus a one-way, read-only "⟳ Sync from Main & System" import that pulls Main's Steps + Beliefs (`routine:steps`/`routine:beliefs`), Main's Fitness Studio exercises (`fitness:templates` — one imported task per exercise, scheduled on its template's assigned weekday(s), source-grouped as "Main" since Fitness Studio lives inside Main), and System's Actions + Challenges (`system:actions`/`system:challenges`, still that exact prefix — see the merge changelog entry on why the prefix name didn't change even though `system.html` itself did) in as tagged, editable copies in the same list — imported items are clearly source-badged and re-syncable, but editing/deleting them here never writes back to or deletes anything on Main or System. Same dark cinematic near-black/gold frosted-glass-card aesthetic and editable cover-photo hero as Tasks & Notes/Business Hub. `tasks.html` + `tasks-data.js`, its own top-level page/nav pill, its own `tasksdb:*` data (new — see changelog) |
 | `learning-dashboard.html` | Learning Dashboard — a genuinely new, standalone daily-study command center, built from a detailed spec (own persistent left sidebar, ten sections: Home / Learning Dashboard / Active Topics / Daily Notes / Knowledge Maps / Personal Frameworks / Master Notes / Research Library / Analytics / Settings). Explicitly separate from `learning.html`/`learning-topic.html` (a different, smaller Topics+Resources gallery, gold theme) — no data shared, no code shared. Own private near-black/crimson/pink `--lhd-*` palette (a literal, explicit color instruction — same one-off aesthetic-exception category as every other themed page, see §6), plus a page-scoped light/dark theme toggle (this page's own addition, not shared with the rest of the app). Nine genuinely separate collections (Topics/DailyLogs/Research/Maps/Frameworks/MasterNotes/Notes/Projects/Questions/Sessions, plus a single Settings record) in `learning-dashboard-data.js`, same `makeCollection`/model-factory conventions as `aitech-data.js`. A hand-rolled, drag/zoom/pan node-link Knowledge Map canvas (absolute-positioned nodes + an SVG edge layer, no canvas/WebGL library), a Command Palette (Ctrl+K, fuzzy substring match over pages/topics/frameworks/master notes), and a timestamp-diff Study Timer (stopwatch + Pomodoro, synthesized Web Audio beep) are all genuinely new mechanisms in this app, not ported from elsewhere. See the changelog entry for the full breakdown and the confirmed adaptations (this was originally requested as a Next.js/React/TypeScript/Tailwind/shadcn/Framer Motion app, which conflicts with this repo's actual no-build-step architecture — built natively in this repo's real stack instead, per an explicit choice offered and confirmed with the user first) |
+| `knowledge-hub.html` | Knowledge Hub — a genuinely new, standalone digital note-taking / PKM system, built around a five-stage capture funnel (Inbox → To Review → Highlighting → Summarizing → Synthesis) and Progressive Summarization. One flat, genuinely reused `Notes` collection (`knowledge-hub-data.js`) covers every capture type — Jot/Note/Highlight/Article/Video/Quote/Book — filtered many ways rather than duplicated per type: the Quote Library is just `type:'quote'` notes rendered through `gallery-card.js`. Progressive Summarization is four real layers on a note (raw capture → bold excerpts → promoted highlights → a mini-summary in your own words → a Synthesis/essay field). Notes link into "a dynamic web of ideas" two ways — an explicit `links[]` array and `[[Wiki Title]]` mentions resolved against other notes' titles (the same mention+backlinks mechanism `learning-dashboard.html`'s own Master Notes already established, reimplemented here since this repo has no cross-file import mechanism) — visualized on a lightweight, non-persisted circular node/edge Connections graph. "Automatic organization" is two layers: every Quick/Media Capture auto-files into a notebook keyed off its type (created on first use), and a separate `Templates` collection (seeded with Book/Article/Video/Research Project/Essay/Quick Jot/Quote built-ins, each with its own Progressive-Summarization prompts) gives one-click, fully-organized starting notes. Two always-available floating buttons — ⚡ Quick Capture (a fast, mobile-first, minimal-friction widget covering every capture type) and 🎬 Media Capture (a URL-first flow with the same YouTube/Spotify oEmbed auto-fetch technique this app has already ported twice before) — both land new captures in Inbox. Built entirely from this app's two extracted shared kits, `glass-theme.css`/`.js` and `gallery-card.css`/`.js` (the first page to combine both), rather than a new palette, per the request's own "match the aesthetics of my other pages" — no reference photo/literal color instruction was given, so this defaults to the app's real common near-black/gold thread rather than inventing one. `knowledge-hub.html` + `knowledge-hub-data.js`, its own new nav folder placed directly under Entertainment (per an explicit placement request), its own `kh:*` data (new — see changelog). **Follow-up (see that changelog entry for the full breakdown):** every notebook gained a manual Learning Progress bar, a full-page overlay (Overview/Active Research Hub/Permanent Knowledge Database/Notes, superseding the old browse-only modal) with two per-notebook Mind Maps (a Topic Map plus a Questions & Connections Map whose branches auto-generate an article-style template — Main Question + Why?/How?/Evidence?/Opposing Views?/Missing Information?/Other questions), and a nine-section Permanent Knowledge Database (Summary/Key Concepts/Mental Models/Definitions/Examples/Analogies/Quotes/Diagrams/Linked Notes) — all summarized on that notebook's own card on both Home and the Notebooks tab. Home also gained a Today's Focus panel (Current Topic/Chapter/Estimated Study Time/Current Phase — Discover→Understand→Connect→Create/Next Action) at the very top, and a Creation Lab (Articles/Essays/Mind Maps/Other, optionally linked to a notebook) |
 
 Stack (`health.html`) and Water (`po-water.html`) were removed — see the
 changelog note at the bottom of this file. Projects (`projects.html`) and
@@ -217,6 +218,7 @@ page's CSS is self-contained in its own `<style>` block):
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
    | `tasksdb` | `tasks.html` (new) | everything prefixed `tasksdb:` (`tasksdb:items`, `tasksdb:hero`, `tasksdb:seeded`, `tasksdb:lastSyncedAt`, `tasksdb:photosMigratedV1`) — new (see changelog). This page also *reads* (never writes) `routine:steps`/`routine:beliefs`, `system:actions`/`system:challenges`, and (new) `fitness:templates`, all now under `index.html`'s own `goals` row (see that row and the merge changelog entries — those prefixes and their data are completely unchanged, only which page renders/syncs them moved), to build imported `TaskItem` copies |
    | `learninghub` | `learning-dashboard.html` (new) | everything prefixed `lhub:` (`lhub:topics`, `lhub:dailyLogs`, `lhub:research`, `lhub:maps`, `lhub:frameworks`, `lhub:masterNotes`, `lhub:notes`, `lhub:projects`, `lhub:questions`, `lhub:sessions`, `lhub:settings`, `lhub:seeded`) — new (see changelog). Deliberately a different prefix than `learning.html`'s own `learning:` prefix so the two pages' data can never collide |
+   | `knowledgehub` | `knowledge-hub.html` (new) | everything prefixed `kh:` (`kh:notebooks`, `kh:notes`, `kh:templates`, `kh:hero`, `kh:seeded`) — new (see changelog). Genuinely separate from every other note/task database in this app — nothing here reads, writes, or repurposes any other page's data |
    | `businessos` | `businessos.html` (new) | everything prefixed `bos:` (`bos:businesses`, `bos:goals`, `bos:projects`, `bos:products`, `bos:content`, `bos:customers`, `bos:operations`, `bos:financeTx`, `bos:financeInvoices`, `bos:financeBudgets`, `bos:financeSubs`, `bos:aiPrompts`, `bos:knowledge`, `bos:notes`, `bos:files`, `bos:tasks`, `bos:captures`, `bos:settings`, `bos:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row — nothing here reads, writes, or repurposes that page's data |
    | `businessdash` | `businessdash.html` (new) | everything prefixed `bizdash:` (`bizdash:businesses`, `bizdash:sections`, `bizdash:links`, `bizdash:series`, `bizdash:manuscripts`, `bizdash:binderNodes`, `bizdash:trackers`, `bizdash:tasks`, `bizdash:ytVideos`, `bizdash:blogPosts`, `bizdash:prompts`, `bizdash:tracks`, `bizdash:articles`, `bizdash:seeded`) — new (see changelog). Genuinely separate from `business.html`'s own `key='business'` row and `businessos.html`'s own `key='businessos'` row — nothing here reads, writes, or repurposes either page's data |
    | `enthub` | `entertainment-dash.html` (via `entertainment-hub-data.js`), plus `fitnessstudio.html`'s music panel (read-only) | everything prefixed `enthub:` — `enthub:podcasts`, `enthub:horrorReading`/`horrorWatch`, `enthub:spicyReading`/`spicyWatch`, `enthub:storiesImmersive`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, `enthub:heroes`. The old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`) that originally owned this row was deleted and merged into one page, `entertainment-dash.html` — `entertainment-hub-data.js` itself was kept (not deleted) since `fitnessstudio.html`'s own music panel still reads `enthub:playlists` from it. `enthub:stories` (the old single Stories collection) is now an **orphaned key** — Stories was split into `horrorReading`/`horrorWatch`/`spicyReading`/`spicyWatch`/`storiesImmersive`, migrated once via `migrateStoriesSplitIfNeeded()`, left alone afterward (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
@@ -277,6 +279,7 @@ using `sync.js`.
 | Main Pillar | 🎮 `MAIN PILLAR` → `mainpillar.html` | `mainpillar.html` + `mainpillar-data.js` (briefly deleted, then restored from a dangling git blob since it had never been committed — see changelog) |
 | Tasks | 🗂️ `TASKS` → `tasks.html` | `tasks.html` + `tasks-data.js` (new — see changelog) |
 | Learning Dashboard | 🧠 `Learning Dashboard` nav folder → `learning-dashboard.html` | `learning-dashboard.html` + `learning-dashboard-data.js` (new — see changelog) |
+| Knowledge Hub | 🧠 `Knowledge Hub` nav folder → `knowledge-hub.html` | `knowledge-hub.html` + `knowledge-hub-data.js` (new — its own nav folder directly under Entertainment; built on `glass-theme.css`/`.js` + `gallery-card.css`/`.js` rather than a new palette — see changelog) |
 | Business OS | ◆ `Business OS` nav folder → `businessos.html` | `businessos.html` + `businessos-data.js` (new — a genuinely separate multi-business CEO command center from the Business folder above; touches none of that folder's files/data — see changelog) |
 | Business Dashboard | 🏢 `Business Dashboard` nav folder → `businessdash.html` | `businessdash.html` + `businessdash-data.js` (new — a gallery of businesses; two of them, "YouTube Dashboard" and "Blogging Dashboard," are genuine singleton `Business` records with their own `kind` field (`'youtube'`/`'blog'` vs. the default `'business'`) that swaps in a Videos/Posts + Prompt Vault + Track/Article Library layout in place of the ordinary Series & Manuscripts Writing Dashboard — same Business Card, same glare-hover treatment, same Notes/Links/Tasks & Templates, alongside every real business like Midnight Press/North & Co., not nested inside any of them. The main view also has an "All Tasks" master database below the gallery, grouped by business (which naturally includes the two dashboard businesses) and filterable by kind, reading straight off the one shared Tasks collection every business already writes to — see changelog. Genuinely separate from the Business folder's Content Hub and from Business OS — touches none of either's files/data) |
 | Fitness Studio | 💪 `Fitness Studio` nav folder → `fitnessstudio.html` | `fitnessstudio.html` + `fitnessstudio-data.js` (new — its own nav folder between Business Dashboard and Entertainment; genuinely separate from `gym.html`'s own "Fitness Studio"/STUDIO pill and `index.html`'s own embedded Fitness Studio tab — touches none of either's files/data. A hero (greeting/focus/today's workout/a Weekly Goal progress ring/quote), Today's Workout (expandable exercise cards — sets/reps, a rest-timer countdown, Log Set, photo/video thumbnails, a completion check), a Live Workout Dashboard shown while a workout is active (session timer, rest timer, current set, manual heart-rate entry, water intake, duration, an estimated-calories readout, volume lifted), a Goal Center (short-/long-term goals with a manual 0–100% progress bar, deliberately not derived from target/current math since the two can have opposite directionality), Workout Programs (7 fixed categories + Custom, a template/exercise editor), a Weekly Schedule grid, a 14-week consistency heatmap + an animated 8-week volume bar chart, an AI Fitness Coach chat panel, Settings (Imperial/Metric, a Black/Red/Pink theme picker, workout length, notifications, a manual wearable heart-rate toggle, AI tone/focus + an optional pasted Anthropic key), a Distraction-Free training-mode overlay, PR confetti, and a music slide-out panel reading `enthub:playlists` live — see changelog) |
@@ -12370,3 +12373,358 @@ both as originally phrased assumed a backend this app doesn't have):
     relying on this page heavily, same disclosed-limitation caveat
     several other pages' changelog entries in this file already carry
     for this exact environment.
+
+- **New nav folder: Knowledge Hub, directly under Entertainment — a
+  genuinely new, standalone digital note-taking / PKM system built around
+  a five-stage capture funnel and Progressive Summarization, built from a
+  reference screenshot of a Notion "Knowledge Hub" template.** Genuinely
+  new files, `knowledge-hub.html` + `knowledge-hub-data.js`. New nav
+  folder (`🧠 Knowledge Hub` → `knowledge-hub.html`, inserted directly
+  below the `entertainment` group and above `learningfolder` in
+  `topbar.js`'s `NAV_GROUPS`, per the request's own explicit placement —
+  the only edit made to that shared file); new sync key (`appKey:
+  'knowledgehub'`, `syncedPrefixes: ['kh:']`, the standard `initCloudSync`
+  call, nothing new invented).
+  - **The Knowledge Funnel** (Inbox → To Review → Highlighting →
+    Summarizing → Synthesis, per the request's own exact five stages and
+    hints) is a real Kanban board on the Workflows tab — cross-column drag
+    (one SortableJS instance per column sharing a group name, the same
+    technique `dreamboard.html`'s own board columns already established),
+    with each drop persisting the note's new `stage` and re-indexing
+    `order` within that column.
+  - **One flat `Notes` collection, filtered many ways, not ten bespoke
+    databases**: every capture type (Jot/Note/Highlight/Article/Video/
+    Quote/Book) is the same model — the "Quote Library" the request asked
+    for as its own button is simply `type:'quote'` notes rendered through
+    `gallery-card.js`'s `GalleryCard.build()` (the first page to reuse
+    that kit for something other than the Entertainment folder it was
+    extracted from) — same "one generic model, filtered many ways"
+    precedent `mediaverse-data.js`'s single `MediaItem` collection and
+    `aitech-data.js`'s Model/Prompt split already established in this app.
+  - **Progressive Summarization, four real layers on a note**: Layer 1
+    (raw capture, `rawContent`), Layer 2/3 (bold a key passage, then
+    promote your best ones to a highlighted layer — one `excerpts[]`
+    array with a `layer: 1|2` flag per item, toggled by a ⭐/☆ button, not
+    two separate arrays), Layer 4 (a mini-summary in your own words,
+    `summary`), Layer 5 (`synthesis` — original ideas/essays). The
+    funnel's own Highlighting/Summarizing/Synthesis stages map directly
+    onto this, per the request's own framing.
+  - **"A dynamic web of ideas," two linking mechanisms**: an explicit
+    `links[]` array on a note (add/remove from its own detail page) and
+    `[[Wiki Title]]` mentions inside any of a note's text fields, resolved
+    case-insensitively against every other note's title — the exact same
+    mention + backlinks mechanism `learning-dashboard.html`'s own Master
+    Notes already established in this app, reimplemented here (no
+    cross-file import mechanism exists in this repo — see §1) rather than
+    shared. The wiki-link preview is built via DOM node construction
+    (`document.createTextNode`/`createElement`, never string-concatenated
+    `innerHTML`) — the same HTML-injection-avoidance precedent
+    `index.html`'s own Habit-media bugfix already established for exactly
+    this class of field (arbitrary user-authored text rendered elsewhere
+    on the page), applied here from the start rather than discovered as a
+    bug later. Clicking an unresolved `[[Title]]` offers to create that
+    note on the spot. **Connections tab**: a lightweight, non-persisted
+    circular node/edge graph (absolute-positioned node buttons + an SVG
+    edge layer, hover highlights connected edges) — a deliberate, disclosed
+    simplification of `learning-dashboard.html`'s own fuller drag/zoom/pan
+    Knowledge Map canvas, scoped to what "watch my knowledge grow" and
+    "track connections" actually needed rather than porting that page's
+    full canvas engine.
+  - **"Automatic organization," two layers**: (1) every Quick Capture or
+    Media Capture auto-files into a notebook keyed off its capture type
+    (`findOrCreateNotebook()`, created on first use — a fresh install
+    starts with zero notebooks rather than a pile of empty ones), and (2)
+    a separate `Templates` collection — the literal "automatic templates
+    for books, notes, essays" ask — seeded with seven built-ins (Book
+    Note, Article Note, Video Note, Research Project, Essay Draft, Quick
+    Jot, Quote Capture), each setting its own default type/notebook/
+    starting stage (Essay Draft skips straight to Synthesis, since an
+    essay draft already *is* synthesis-stage work) and a list of
+    Progressive-Summarization prompts specific to that kind of note.
+    Templates are themselves fully editable/deletable and new ones can be
+    added from the Templates tab.
+  - **Quick Capture vs. Media Capture, two distinct instant-capture
+    flows**, matching the request's own two separately-named buttons:
+    Quick Capture is the fast, mobile-first, minimal-friction widget (a
+    type-chip row across all seven capture types, one big text box,
+    optional title/link) always reachable via a floating ⚡ button;
+    Media Capture is a URL-first flow with a "Fetch" button that
+    auto-fills title/author/cover from a pasted YouTube or Spotify link —
+    the same `detectSource`/oEmbed-fetch technique this app has already
+    ported into `entertainment-hub-data.js`, `entertainment.html`,
+    `fitnessstudio.html`, and `gallery-card.js`, a fourth independent copy
+    here since there's no cross-file import mechanism in this repo. Both
+    always land a fresh capture in Inbox, per the funnel's own definition.
+  - **Home page**, matching the reference screenshot's layout translated
+    into this app's own aesthetic rather than copied pixel-for-pixel: a
+    "What's Inside" callout grid of the six requested buttons (Quick
+    Capture/Media Capture/Workflows/Notebooks/Highlighting/Quote Library),
+    a Progressive Summarization explainer callout, a Funnel Snapshot (five
+    stage-count tiles, the app's own no-charting-library div-tile
+    convention), a **Notebook Health** panel ("stay on top of clutter") —
+    a computed-live bar per notebook showing its % synthesized vs. %
+    still unprocessed (Inbox/To Review) plus a stale-note count (older
+    than 7 days and still unprocessed), and a **Browse All Notes** list
+    with the requested Date/Status/Notebook/Last Edited sort control plus
+    a search box.
+  - **Aesthetic**: no reference photo or literal color instruction was
+    given for this page's own look (the supplied Notion screenshot is a
+    layout reference, not a palette instruction), so per §6/DO NOT MODIFY
+    rule 2, "match the aesthetics of my other pages" defaults to this
+    app's real common near-black/gold thread — built entirely from this
+    app's two extracted shared kits, `glass-theme.css`/`.js` (hero, glass
+    cards, glare cards, moveable-sections CSS though not used here) and
+    `gallery-card.css`/`.js` (the Quote Library gallery), with `--gt-accent`
+    repointed to gold to match `gallery-card.css`'s own already-gold
+    defaults out of the box — rather than inventing a new palette. This
+    is the first real page to combine both kits together, and the first
+    real consumer of `glass-theme.js`'s `wireHero()` (every prior page
+    using `glass-theme.css` kept its own bespoke, already-shipped hero
+    rather than retrofitting mid-flight — see that file's own header
+    comment).
+  - **Every modal on this page reuses the plain `.gt-modal-bg`/`.gt-modal`
+    classes** (already registered in `topbar.js`'s `MODAL_SELECTORS`),
+    with a `.kh-modal-wide` modifier widening the Note/Notebook detail
+    modals — the same "widen via a modifier class" precedent
+    `business.html`'s own `.bh-modal-wide` already established — so no
+    further `topbar.js` edit was needed beyond the new nav group.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), showing a visible banner with
+    the real error and a "Copy error details" button instead of a silent
+    blank page, matching the precedent `gym.html`/`business.html`/
+    `fitnessstudio.html` already established. The inline script is
+    wrapped in `document.addEventListener('DOMContentLoaded', ...)` and
+    checks `window.KnowledgeHubData` exists before doing anything else —
+    the exact `mainpillar.html`/`gym.html` boot-order bug class avoided
+    from the start rather than discovered the same way twice. Empty-
+    storage seed-race safety (`maybeSeedAfterSyncAttempt()`, deferred
+    5 seconds behind `initCloudSync`'s cloud pull) guards the seed data
+    (four notebooks, five example notes spread across different funnel
+    stages including one real `[[wiki link]]`, and the seven built-in
+    templates) the same way every other freshly-seeded page in this app
+    already protects against clobbering another device's real data on a
+    race with the cloud pull.
+  - **A real Sortable-instance leak was found and fixed before shipping**,
+    not by browser testing (unavailable this session — see below) but by
+    re-reading the render path: `renderQuoteGrid()` rebuilds `#khQuoteGrid`'s
+    children on every render but reuses the same persistent grid element,
+    and the first draft called `GalleryCard.wireSortableGrid()` again on
+    every render without destroying the prior Sortable instance first —
+    the same leak class this page's own Workflows funnel board already
+    guards against (`funnelSortables.forEach(s => s.destroy())` before
+    rebuilding). Fixed by destroying the previous `quoteSortable` instance
+    before creating a new one, matching that same guard.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`/`python`/`python3` all unavailable), the same
+    reduced-guarantee fallback several other pages' changelog entries in
+    this file already disclose for this exact class of limitation.
+    Verified statically instead: brace/paren balance confirmed on both
+    new files (`knowledge-hub-data.js`: 154/154 braces, 366/366 parens;
+    `knowledge-hub.html`: 362/362 braces, 1300/1300 parens); the one
+    bracket-count "mismatch" each file's raw grep initially showed (77 vs
+    76, and 51 vs 50) was confirmed to be the exact same false positive
+    this file's own Learning Dashboard entry already documents — the
+    `/\[\[([^\]]+)\]\]/g` wiki-link regex literal's escaped `\]` inside a
+    character class isn't a real unbalanced bracket, just a naive
+    character-count artifact; `topbar.js`'s own pre-existing 5-paren
+    prose-comment imbalance confirmed unchanged by diffing only the added
+    lines, which are balanced (4/4) on their own; zero duplicate DOM ids
+    across 117 unique element ids; every `$('id')` reference resolved
+    against a real id with nothing unmatched; every `KH().xxx`/
+    `GlassTheme.xxx`/`GalleryCard.xxx` call cross-matched against each
+    file's own exported public API with nothing missing; every HTML tag
+    type (div/button/select/textarea/span/section/nav/a, `input` correctly
+    counted as an unclosed void element) confirmed open/close-balanced
+    across the whole file, including the JS-template-string-generated
+    markup. **Not verified this way**: an actual click-through (dragging a
+    funnel card between stages, capturing via both floating buttons,
+    fetching a real YouTube/Spotify preview, promoting an excerpt to a
+    highlight, linking two notes via `[[wiki syntax]]` and confirming the
+    Connections graph renders the edge, and creating/using a template end
+    to end). A real click-through is recommended before relying on this
+    page heavily, same disclosed-limitation caveat several other pages'
+    changelog entries in this file already carry for this exact
+    environment.
+
+- **Knowledge Hub follow-up: every notebook gained Learning Progress, an
+  Active Research Hub with two per-notebook Mind Maps (one auto-generating
+  an article template per branch), and a nine-section Permanent Knowledge
+  Database — all summarized on the notebook itself, on both Home and the
+  Notebooks tab — plus Home gained a Today's Focus panel and a Creation
+  Lab.** Per an explicit follow-up request naming all of this. Purely
+  additive to `knowledge-hub.html`/`knowledge-hub-data.js` — every existing
+  capability (the funnel Kanban, Notebooks CRUD, Highlighting, Quote
+  Library, Connections graph, Templates, Quick/Media Capture) is unchanged;
+  the one thing genuinely replaced is the old browse-only Notebook Detail
+  *modal*, superseded in place (same session, same feature) by a real
+  full-page overlay, since the new content had nowhere near enough room in
+  a 720px modal.
+  - **Learning Progress** — a new, purely additive `progressPct` field on
+    `Notebook` (0–100, clamped). Same "manual slider, not target/current
+    math" precedent this app's other mastery-style bars already use (e.g.
+    Business OS's Goal Center) — a topic has no single measurable
+    "current" value to derive a bar from, so it's set directly, via a
+    `<input type="range">` on the notebook page's Overview sub-tab (saves
+    on `change`, not every drag tick, to avoid hammering
+    localStorage/sync mid-drag) — and shown as a bar on every notebook
+    card everywhere the card renders.
+  - **Active Research Hub — two mind maps per notebook** (`kh:mindmapnodes`,
+    one flat `MindMapNode` collection covering both, distinguished by
+    `mapType: 'topic'|'questions'`, same flat-array-plus-`parentId`-tree
+    convention as e.g. `business-data.js`'s BinderNode): **Topic Map** —
+    the general topic, branching into sub-topics, each branch a plain
+    title + notes; **Questions & Connections Map** — "linked with the
+    first one and with the actual notebook," per the request's own
+    wording: the notebook link is implicit (same `notebookId` as the topic
+    map), the topic-map link is explicit (`linkedTopicNodeId`, an optional
+    cross-reference to one Topic Map branch, shown as a small "🔗 <topic
+    branch title>" tag on the question node — a disclosed simplification
+    over drawing a literal cross-canvas line between two separate tree
+    renders, which two independent SVG canvases can't easily do). **The
+    literal "automatically generated template page" ask**: a brand-new
+    branch in the Questions map is born already shaped like the article —
+    `addMindMapBranch()` creates it with the full `article` shape from the
+    start (`mainQuestion` plus the six fixed prompts: Why? / How? /
+    Evidence? / Opposing Views? / Missing Information? / Other questions)
+    — there's no separate "generate the template" step, since creating the
+    branch *is* generating the template. Its own modal
+    (`#khQArticleModalBg`, styled with a small eyebrow + a serif italic
+    Main Question field to genuinely read like an article page rather than
+    a plain form) exposes every one of those fields plus the topic-branch
+    linker; the Topic Map's own branches use a lighter sibling modal
+    (`#khMmNodeModalBg`, just title + notes).
+    - **Layout, a deliberate, disclosed simplification vs. a full free-
+      drag canvas**: `computeMindMapLayout()` (`knowledge-hub-data.js`, a
+      pure function — no DOM/pixels, just `{depth, slot}` per node) uses
+      the standard "a parent's position is the average of its children's"
+      tidy-tree technique to auto-arrange every branch, rendered as an
+      SVG bezier-curve connector per parent→child edge plus one absolutely-
+      positioned, keyboard-accessible node per branch
+      (`renderMindMapTree()`, `knowledge-hub.html`) — the same "lighter
+      version of `learning-dashboard.html`'s own fuller drag/zoom/pan
+      Knowledge Map canvas" precedent this page's own pre-existing
+      Connections graph already established, applied here for the same
+      reason: reliable, correctly-computed layout beats an untested
+      free-drag implementation in an environment with no way to
+      interactively verify drag behavior before shipping. Each node's
+      small "+" (a real nested `<button>`, kept off the node's own outer
+      element — a plain `<div>` with `tabIndex`/click/Enter handling, the
+      same accessible-clickable-card pattern `gallery-card.js`'s own
+      `build()` already established, chosen specifically to avoid nesting
+      two interactive elements) adds and immediately opens a new child
+      branch in the right modal for that map type.
+    - Deleting a branch (`removeMindMapNodeCascade()`) takes its whole
+      subtree with it — a dangling branch whose parent no longer exists
+      would just orphan the tree — and is unreachable on either map's own
+      root node (no delete button shown there).
+  - **Permanent Knowledge Database** (`kh:permanentknowledge`, one record
+    per notebook via `permanentKnowledgeForNotebook()`, created on first
+    visit) — the exact nine sections named: Summary (a single autosaving
+    textarea — the one genuinely single-value field), Key Concepts, Mental
+    Models, Examples, Analogies (all four: simple `{id, text}` item lists,
+    sharing one generic `renderPkSimpleList()`/add-on-Enter path rather
+    than four near-duplicates), Definitions (`{id, term, definition}`
+    pairs), Quotes (`{id, text, source}`), Diagrams (`{id, url, caption}`,
+    rendered via DOM node construction — `img.src` set as a property, not
+    interpolated into `innerHTML` — same HTML-injection-avoidance
+    precedent `index.html`'s own Habit-media bugfix already established
+    for exactly this class of field, an arbitrary user-pasted URL, applied
+    here from the start), and Linked Notes (a picker over every note in
+    the hub, not just this notebook's own, since a Permanent Knowledge
+    entry might reasonably cite a note filed elsewhere).
+  - **Notebook full-page overlay** (`#khNotebookPageBg`, replacing the old
+    `#khNotebookDetailModalBg`) — four sub-tabs (Overview / 🔬 Research Hub
+    / 🗄 Permanent Knowledge / 📚 Notes, its own `khNbTabs`/`khNbPanel_*`
+    scope, reusing the outer page's `.kh-tab`/`.kh-panel` CSS classes but
+    with its own independent JS state and DOM queries — `switchTab()`'s
+    own `document.querySelectorAll('.kh-tab'/'.kh-panel')` calls were
+    tightened to `#khTabs .kh-tab`/`.gt-shell > .kh-panel` specifically so
+    the outer tab router can never fight the inner one over the same CSS
+    classes, a real cross-contamination bug caught and fixed before it
+    ever shipped, not after). Registered as `.kh-page-bg` in `topbar.js`'s
+    `MODAL_SELECTORS` for the shared mobile body-scroll-lock (the only
+    edit made to that shared file). Notes sub-tab keeps the exact same
+    note list/sort/new-note flow the old modal already had, just moved.
+  - **Notebook cards, everywhere a notebook renders** (Home's "Your
+    Notebooks" section — a new replacement for the old, narrower
+    "Notebook Health" list, per the request's own "show all of that on
+    the main notebooks in the main page" — and the Notebooks tab's own
+    grid) now share one `buildNotebookCardHtml()`: icon/name, the Learning
+    Progress bar, and a meta line summarizing note count, Topic Map branch
+    count, Questions Map branch count, and total Permanent Knowledge item
+    count — so both surfaces can never drift apart.
+  - **Today's Focus** (Home, above "What's Inside," per the request's own
+    "at the top of the main page") — a single record (`kh:todaysfocus`,
+    get/save-a-record shape, same as this page's own `kh:hero`): Current
+    Topic, Current Chapter / Lesson, Estimated Study Time, Next Action (4
+    plain text inputs, autosave on blur) and Current Phase — a fixed
+    4-value chip picker (`FOCUS_PHASES`: Discover/Understand/Connect/
+    Create, the exact wording given) deliberately kept separate from the
+    funnel's own 5-stage `STAGES` vocabulary, since this names where you
+    are in a single study session, not which stage a capture has reached.
+    Guarded against a real risk this app has hit before in spirit
+    elsewhere: since these fields live directly on the always-rendered
+    Home panel (not inside a modal, which never re-renders while open), an
+    unrelated `renderAll()` firing while the user is still mid-typing
+    could otherwise clobber the field's in-progress value on the next
+    render — fixed with a small `setValIfNotFocused()` guard (skip setting
+    `.value` on whichever field currently has focus), applied here and to
+    every other page-level (non-modal) editable field this pass added
+    (the Learning Progress slider, the Permanent Knowledge Summary field).
+  - **Creation Lab** (Home, "use the knowledge you've gathered and create
+    Articles, Essays, Mind Maps, etc.") — a new `Creations` collection
+    (`kh:creations`): title/type (Article/Essay/Mind Map/Other)/body/an
+    optional notebook link/status (Draft/In Progress/Done), one shared
+    Add/Edit modal. **Disclosed, deliberate simplification**: a "Mind Map"
+    Creation is a lightweight free-text idea capture, not the real
+    node-graph engine above — that engine is scoped to each notebook's own
+    Active Research Hub, per the request's own framing of Creation Lab as
+    where *finished* pieces get written, not where mind-mapping itself
+    happens.
+  - **Notebook deletion now genuinely cascades**: `removeNotebookCascade()`
+    (new, `knowledge-hub-data.js`) replaces the old inline unfile-then-
+    remove logic — Notes are still unfiled, never deleted (unchanged
+    precedent), but a deleted notebook's own Mind Map nodes and Permanent
+    Knowledge record are now actually deleted with it (they're meaningless
+    scoped to a notebook that no longer exists), and any Creation pointing
+    at it has that reference nulled out rather than being deleted, the
+    same null-out-the-reference precedent this app's other less-tightly-
+    scoped relationships already use. Deleting the notebook currently open
+    in its own full-page overlay now also closes that overlay, rather than
+    leaving it open on a notebook that no longer exists.
+  - **Verification, disclosed honestly**: same environment limitation as
+    this feature's first build — no interactive browser/CDP session or
+    Node/Python runtime was available this round either (`node`/`python`/
+    `python3` all confirmed unavailable). Verified statically instead:
+    brace/paren balance confirmed on both files after every edit
+    (`knowledge-hub-data.js`: 265/265 braces, 593/593 parens;
+    `knowledge-hub.html`: 538/538 braces, 2048/2048 parens) — the one
+    remaining bracket-count "mismatch" in each file (113/114, 80/81) is
+    the exact same confirmed false positive this file's own Learning
+    Dashboard and this page's own first-build entries already document,
+    from the `/\[\[([^\]]+)\]\]/g` wiki-link regex literal's escaped `]`
+    inside a character class, re-confirmed by grep to occur exactly once
+    per file; zero duplicate DOM ids across 189 unique element ids; all
+    167 distinct `$('id')` references and all 45 distinct `KH().xxx` data-
+    layer calls resolved with nothing missing; zero duplicate function
+    declarations in either file; and `<div>`/`<button>`/`<select>`/
+    `<textarea>`/`<span>` tag open/close counts all confirmed balanced
+    across the whole file (one real `<div>`/`<button>` miscount was caught
+    this way — not a code bug, a stray pair of literal `<button>`
+    mentions inside one of this pass's own explanatory code comments,
+    reworded to remove the false alarm rather than left to confuse a
+    future verification pass). **Not verified this way**: an actual
+    click-through (dragging/adding branches on both mind maps and
+    confirming the Questions branch really does open pre-shaped as the
+    six-prompt article, linking a Topic branch to a Questions branch and
+    confirming the "🔗" tag appears, adding items across all nine
+    Permanent Knowledge sections and confirming the notebook card's
+    summary count updates, editing Today's Focus fields and confirming
+    the focus-guard actually prevents an in-progress edit from being
+    clobbered, and deleting a notebook from inside its own open page and
+    confirming the page closes). A real click-through is recommended
+    before relying on this feature heavily, same disclosed-limitation
+    caveat several other pages' changelog entries in this file already
+    carry for this exact environment.

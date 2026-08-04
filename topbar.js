@@ -193,6 +193,28 @@
       ],
     },
     {
+      // New nav folder, right below Entertainment (per an explicit
+      // placement request): Knowledge Hub — a genuinely new, standalone
+      // digital note-taking / PKM page (knowledge-hub.html +
+      // knowledge-hub-data.js) built around a five-stage capture funnel
+      // (Inbox -> To Review -> Highlighting -> Summarizing -> Synthesis)
+      // and Progressive Summarization. See that page's own header
+      // comment for the full rundown.
+      key: 'knowledgehub',
+      label: 'Knowledge Hub',
+      items: [
+        { href: 'knowledge-hub.html', icon: '🧠', label: 'Knowledge Hub', id: 'topbarKnowledgeHub', children: [
+          { hash: 'home', label: 'Home' },
+          { hash: 'workflows', label: 'Workflows (Funnel)' },
+          { hash: 'notebooks', label: 'Notebooks' },
+          { hash: 'highlighting', label: 'Highlighting' },
+          { hash: 'quotes', label: 'Quote Library' },
+          { hash: 'connections', label: 'Connections' },
+          { hash: 'templates', label: 'Templates' },
+        ] },
+      ],
+    },
+    {
       // New nav folder, right below Entertainment: Learning Hub's own
       // topics/resources/questions system. learning.html (the Topics +
       // Resources gallery) is the entry point; every real Topic gets its
@@ -1000,7 +1022,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
