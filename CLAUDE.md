@@ -13635,3 +13635,53 @@ both as originally phrased assumed a backend this app doesn't have):
       for "Atomic Habits," correct CORS headers, a working upscaled
       artwork URL) immediately before shipping, the strongest verification
       available in this environment for a third-party API dependency.
+
+- **Reading Corner: cards gained a real Description field, distinct
+  from the pre-existing Review/Thoughts.** Every `buildBookCard()` was
+  already passing `description: book.review` into `GalleryCard.build()`
+  — meaning a card's description slot was quietly showing personal
+  post-read notes, which are typically empty for anything not yet
+  finished, so most cards showed nothing there at all. Added a genuine
+  `Book.description` field (a synopsis/blurb, purely additive — safe
+  default `''` for every existing book) — a new "Description" textarea
+  in the Add/Edit modal (right under Genres) and in the Book Detail
+  overlay (above Review/Thoughts, same inline-autosave-on-blur pattern),
+  and `buildBookCard()`'s synthetic item now points at `book.description`
+  instead of `book.review`.
+  - **Wired into the existing Fetch/Search chain**, since most of the
+    providers built for the auto-fill feature already return a synopsis
+    anyway: Open Library's modern Editions API now also follows through
+    to the linked Work record for its (usually fuller) description;
+    Google Books' and iTunes' own `description` fields are stripped of
+    their light HTML markup (`stripHtml()`, new — `<br>`→newline, tags
+    dropped, common entities decoded) before being stored, since those
+    come back meant for a rendered page, not a plain textarea; Open
+    Library's own `/search.json` (used for the title-guess/manual-search
+    path) has no plain synopsis field in its search index, so
+    `first_sentence` — the closest thing it can return without a second
+    request per result — is used as a short stand-in there. Same "fill
+    only if the field is still blank" rule as title/creator, so it never
+    silently overwrites something already typed.
+  - **Migration**: `migrateOldReadingItemsIntoBooks()`'s one-time fold-in
+    of the old generic `entdash:reading` collection used to map
+    `item.description` onto the new Book's `review` field (the closest
+    thing that existed before this change) — now maps it onto the new,
+    correctly-named `description` field instead, for any device that
+    hasn't run that one-time migration yet.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session was available this session either, the same reduced-
+    guarantee fallback several other entries in this file already carry.
+    Brace/paren balance confirmed on both files after every edit. The
+    `first_sentence` field name for Open Library's `/search.json` could
+    not be live-verified — that endpoint was still down (timing out)
+    during this session's own testing, the same ongoing outage this
+    feature's earlier entries already document — so this is based on
+    Open Library's documented search schema, not a confirmed live
+    response; every other provider's `description` field (Open Library's
+    Editions/Works API, Google Books, iTunes) was either confirmed live
+    via `curl` in an earlier entry or follows the exact same response
+    shape already verified for that provider's title/cover/author
+    fields. A real click-through (opening a book's edit modal and detail
+    overlay, confirming the field saves/displays correctly, and running
+    Fetch/Search against a real link to confirm a description actually
+    auto-fills) is recommended before relying on this heavily.

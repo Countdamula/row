@@ -366,6 +366,10 @@ body { margin: 0; font-family: var(--gt-font); }
       <label class="gt-field-label">Genres</label>
       <div class="gt-chip-row" id="rdBookGenreChips"></div>
     </div>
+    <div class="gt-field">
+      <label class="gt-field-label">Description</label>
+      <textarea class="gt-textarea" id="rdBookDescription" rows="3" placeholder="What's this book about? (auto-fills from Fetch/Search below when available)"></textarea>
+    </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
       <div class="gt-field" style="flex:1;min-width:140px;">
         <label class="gt-field-label">Format</label>
@@ -1348,7 +1352,7 @@ function buildBookCard(book, opts) {
   var subtopicBits = status + (R.seriesName(book) ? ' · ' + R.seriesName(book) : '');
   var syntheticItem = {
     id: book.id, title: book.title, creator: R.authorName(book),
-    subtopic: subtopicBits, cover: book.cover, description: book.review,
+    subtopic: subtopicBits, cover: book.cover, description: book.description,
     lengthText: lengthBits.join(' · '), rating: book.rating, favorite: book.favorite, url: book.url
   };
   var cardEl = window.GalleryCard.build(syntheticItem, {
@@ -2054,6 +2058,8 @@ function openBookModal(id, presetPatch) {
 
   renderGenreChips();
 
+  document.getElementById('rdBookDescription').value = editingBookDraft.description || '';
+
   var formatSel = document.getElementById('rdBookFormat'); formatSel.innerHTML = '';
   R.FORMATS.forEach(function (f) { var o = document.createElement('option'); o.value = f; o.textContent = f; formatSel.appendChild(o); });
   formatSel.value = editingBookDraft.format;
@@ -2104,6 +2110,7 @@ function saveBookModal() {
     seriesId: seriesIdVal,
     seriesIndex: seriesIdVal ? seriesIndexVal : null,
     genres: editingBookDraft.genres.slice(),
+    description: document.getElementById('rdBookDescription').value.trim(),
     format: document.getElementById('rdBookFormat').value,
     status: statusVal,
     rating: editingBookDraft.rating || 0,
@@ -2209,6 +2216,7 @@ function wireBookModal() {
     if (!editingBookDraft) return;
     if (result.title && !document.getElementById('rdBookTitle').value.trim()) document.getElementById('rdBookTitle').value = result.title;
     if (result.creator) document.getElementById('rdBookAuthor').value = result.creator;
+    if (result.description && !document.getElementById('rdBookDescription').value.trim()) document.getElementById('rdBookDescription').value = result.description;
     if (result.cover) {
       editingBookDraft.cover = result.cover;
       document.getElementById('rdBookCover').value = result.cover;
@@ -2360,6 +2368,13 @@ function renderBookDetail() {
     if (pct != null) progWrap.appendChild(buildBarRow(pct + '% complete', pct));
     body.appendChild(progWrap);
   }
+
+  var descWrap = document.createElement('div'); descWrap.className = 'gt-field';
+  descWrap.innerHTML = '<label class="gt-field-label">Description</label>';
+  var descTa = document.createElement('textarea'); descTa.className = 'gt-textarea'; descTa.rows = 3; descTa.value = book.description || '';
+  descTa.addEventListener('blur', function () { R.Books.update(book.id, { description: descTa.value.trim() }); });
+  descWrap.appendChild(descTa);
+  body.appendChild(descWrap);
 
   var reviewWrap = document.createElement('div'); reviewWrap.className = 'gt-field';
   reviewWrap.innerHTML = '<label class="gt-field-label">Review / Thoughts</label>';

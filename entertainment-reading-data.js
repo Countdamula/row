@@ -129,6 +129,22 @@
     } catch (e) {}
     return '';
   }
+  // Google Books/iTunes descriptions come back with light HTML markup
+  // (<b>, <br/>, &amp; etc.) meant for a rendered detail page, not a
+  // plain textarea — stripped down to plain text here so it doesn't
+  // show raw tags on the card/in the modal.
+  function stripHtml(s) {
+    return (s || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, '\'')
+      .replace(/[ \t]+\n/g, '\n').trim();
+  }
+  // Open Library's own description field is either a plain string or a
+  // {type, value} object, depending on the record.
+  function textFromOpenLibraryDescription(d) {
+    if (typeof d === 'string') return d.trim();
+    if (d && typeof d.value === 'string') return d.value.trim();
+    return '';
+  }
   function coverUrlFromOpenLibraryIds(covers) {
     if (!Array.isArray(covers)) return '';
     const id = covers.find(function (c) { return typeof c === 'number' && c > 0; });
@@ -151,19 +167,28 @@
   // this section's own header comment on why this path is used instead
   // of the older bibkeys endpoint.
   async function fetchByIsbnModern(isbn) {
-    const result = { title: '', creator: '', cover: '', found: false };
+    const result = { title: '', creator: '', cover: '', description: '', found: false };
     const edition = await openLibraryRecord('/isbn/' + isbn);
     if (!edition || !edition.title) return result;
     result.found = true;
     result.title = edition.title;
     result.cover = coverUrlFromOpenLibraryIds(edition.covers);
+    result.description = textFromOpenLibraryDescription(edition.description);
     if (edition.by_statement) result.creator = edition.by_statement.replace(/^by\s+/i, '').trim();
+    let work = null;
+    if (Array.isArray(edition.works) && edition.works[0] && edition.works[0].key) {
+      work = await openLibraryRecord(edition.works[0].key);
+    }
+    // A work-level description is usually the fuller synopsis — prefer
+    // it over the edition's own (often blank or a short "back cover"
+    // blurb) when both exist.
+    if (work) {
+      const workDesc = textFromOpenLibraryDescription(work.description);
+      if (workDesc) result.description = workDesc;
+    }
     if (!result.creator) {
       let authorKey = authorKeyFrom((edition.authors || [])[0]);
-      if (!authorKey && Array.isArray(edition.works) && edition.works[0] && edition.works[0].key) {
-        const work = await openLibraryRecord(edition.works[0].key);
-        authorKey = work && authorKeyFrom((work.authors || [])[0]);
-      }
+      if (!authorKey) authorKey = work && authorKeyFrom((work.authors || [])[0]);
       if (authorKey) {
         const author = await openLibraryRecord(authorKey);
         if (author && author.name) result.creator = author.name;
@@ -175,7 +200,7 @@
   // modern path above, in case only one of Open Library's two book APIs
   // is having trouble at any given moment.
   async function fetchByIsbnLegacy(isbn) {
-    const result = { title: '', creator: '', cover: '', found: false };
+    const result = { title: '', creator: '', cover: '', description: '', found: false };
     try {
       const res = await fetch('https://openlibrary.org/api/books?bibkeys=ISBN:' + isbn + '&format=json&jscmd=data');
       if (res.ok) {
@@ -186,6 +211,11 @@
           if (rec.title) result.title = rec.title;
           if (rec.authors && rec.authors[0] && rec.authors[0].name) result.creator = rec.authors[0].name;
           if (rec.cover) result.cover = rec.cover.large || rec.cover.medium || rec.cover.small || '';
+          // This older endpoint doesn't reliably carry a plain synopsis
+          // field — its own "notes" is closer to a cataloguer's remark
+          // than a book description, so it's used only as a last resort.
+          if (typeof rec.notes === 'string') result.description = rec.notes;
+          else if (rec.notes && typeof rec.notes.value === 'string') result.description = rec.notes.value;
         }
       }
     } catch (e) {}
@@ -206,9 +236,14 @@
   // genuinely exist in none of them, which is a real gap in what's
   // free to search, not a bug in the lookup itself.
   async function fetchByTitleGuess(guess) {
-    const result = { title: '', creator: '', cover: '', found: false };
+    const result = { title: '', creator: '', cover: '', description: '', found: false };
     try {
-      const res = await fetch('https://openlibrary.org/search.json?title=' + encodeURIComponent(guess) + '&limit=1&fields=title,author_name,cover_i');
+      // Open Library's search index doesn't carry a plain synopsis field
+      // (that lives on the Work record instead) — first_sentence is the
+      // closest thing search.json itself can return without a second
+      // request per result, so it's used as a short stand-in rather than
+      // adding yet another network hop onto an already-degraded provider.
+      const res = await fetch('https://openlibrary.org/search.json?title=' + encodeURIComponent(guess) + '&limit=1&fields=title,author_name,cover_i,first_sentence');
       if (res.ok) {
         const data = await res.json();
         const doc = data.docs && data.docs[0];
@@ -217,6 +252,8 @@
           if (doc.title) result.title = doc.title;
           if (doc.author_name && doc.author_name[0]) result.creator = doc.author_name[0];
           if (doc.cover_i) result.cover = 'https://covers.openlibrary.org/b/id/' + doc.cover_i + '-L.jpg';
+          if (Array.isArray(doc.first_sentence) && doc.first_sentence[0]) result.description = doc.first_sentence[0];
+          else if (typeof doc.first_sentence === 'string') result.description = doc.first_sentence;
         }
       }
     } catch (e) {}
@@ -234,6 +271,7 @@
             const img = info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '';
             if (img) result.cover = img.replace(/^http:/, 'https:');
           }
+          if (info.description) result.description = stripHtml(info.description);
         }
       }
     } catch (e) {}
@@ -248,13 +286,14 @@
           if (item.trackName) result.title = item.trackName;
           if (item.artistName) result.creator = item.artistName;
           if (item.artworkUrl100) result.cover = item.artworkUrl100.replace(/\/\d+x\d+bb\.(jpg|png)$/, '/600x600bb.$1');
+          if (item.description) result.description = stripHtml(item.description);
         }
       }
     } catch (e) {}
     return result;
   }
   async function fetchBookPreview(url) {
-    if (!url) return { title: '', creator: '', cover: '', found: false };
+    if (!url) return { title: '', creator: '', cover: '', description: '', found: false };
     const isbn = extractIsbnFromUrl(url);
     if (isbn) {
       const modern = await fetchByIsbnModern(isbn);
@@ -271,7 +310,7 @@
       try {
         const eh = await global.EntHub.fetchPreview(url);
         if (eh && (eh.title || eh.cover || eh.creator)) {
-          return { title: eh.title || '', creator: eh.creator || '', cover: eh.cover || '', found: true };
+          return { title: eh.title || '', creator: eh.creator || '', cover: eh.cover || '', description: '', found: true };
         }
       } catch (e) {}
     }
@@ -279,7 +318,7 @@
       // Nothing online confirmed a match, but the URL's own slug at
       // least gives a plausible title — fill just that (unconfirmed)
       // rather than leaving the button looking like it did nothing.
-      return { title: guess, creator: '', cover: '', found: true, guessOnly: true };
+      return { title: guess, creator: '', cover: '', description: '', found: true, guessOnly: true };
     }
     // Neither an ISBN nor a title could be pulled from the URL at all —
     // e.g. a bare amazon.com/dp/<ASIN>/ link shared from a wish list,
@@ -288,7 +327,7 @@
     // here since there's genuinely nothing in the URL's own text to
     // search with — tagged so the caller can offer a manual title-search
     // box instead of a dead end with no next step.
-    return { title: '', creator: '', cover: '', found: false, noUrlInfo: !isbn };
+    return { title: '', creator: '', cover: '', description: '', found: false, noUrlInfo: !isbn };
   }
 
   // ============================================================
@@ -326,6 +365,12 @@
       favorite: !!data.favorite,
       cover: typeof data.cover === 'string' ? data.cover : '',
       url: typeof data.url === 'string' ? data.url : '',
+      // The book's own synopsis/blurb — distinct from `review` (your
+      // personal thoughts, usually written after finishing). Shown on
+      // every card so a book has something to say about itself even
+      // before it's been read; auto-filled by the Fetch/search chain
+      // above when a provider returns one.
+      description: typeof data.description === 'string' ? data.description : '',
       review: typeof data.review === 'string' ? data.review : '',
       order: typeof data.order === 'number' ? data.order : 0,
       tbrPriority: typeof data.tbrPriority === 'number' ? data.tbrPriority : 0,
@@ -837,7 +882,7 @@
         genres: item.subtopic ? [item.subtopic] : [], cover: item.cover || '', url: item.url || '',
         status: status, tbrPriority: status === 'tbr' ? nextTbrPriority() : 0,
         rating: item.rating || 0, favorite: !!item.favorite, pageCount: pageCount,
-        review: item.description || '', order: (typeof item.order === 'number') ? item.order : nextOrder(),
+        description: item.description || '', order: (typeof item.order === 'number') ? item.order : nextOrder(),
         legacyId: item.id, createdAt: item.createdAt, updatedAt: item.updatedAt
       });
       if (!added) { allOk = false; return; }
