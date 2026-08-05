@@ -13685,3 +13685,490 @@ both as originally phrased assumed a backend this app doesn't have):
     overlay, confirming the field saves/displays correctly, and running
     Fetch/Search against a real link to confirm a description actually
     auto-fills) is recommended before relying on this heavily.
+
+- **New nav folder: Business, right below Fitness Studio and above
+  Entertainment — an "Ultimate Writing Dashboard," a full AAA-quality
+  Writing Operating System for planning, drafting, worldbuilding, and
+  revising multiple fantasy/horror/thriller/romance/sci-fi series at
+  once, built from an extremely detailed written spec.** Genuinely new
+  files, `writing-dashboard.html` + `writing-dashboard-data.js`. New nav
+  folder (`🖋️ Business` → `writing-dashboard.html`, inserted between the
+  existing `fitnessstudiotab`/Fitness Studio and `entertainment` groups
+  in `topbar.js`'s `NAV_GROUPS`, per the request's own explicit placement
+  — plus `.wd-page-bg` added to `MODAL_SELECTORS` for this page's own
+  full-page overlays' mobile scroll-lock; the only edits made to that
+  shared file). New sync key (`appKey: 'writingdash'`, `syncedPrefixes:
+  ['wds:']`, the standard `initCloudSync` call, nothing new invented).
+  Genuinely separate from every other "business"/"writing" surface
+  already in this app — the old, deleted `business.html` Writing
+  Dashboard tab and `businessdash.html`'s own Series & Manuscripts Binder
+  — nothing here reads or writes either's data; same name, unrelated
+  data, the precedent this app already has for e.g. three separate
+  "Fitness Studio"s.
+  - **Architecture, one generic engine, not dozens of bespoke pages**:
+    same `makeCollection`/model-factory conventions as every other
+    `-data.js` in this app. `Series → Books → Acts → Chapters → Scenes`
+    is the manuscript tree; `Characters` and `WikiPages` (56 fixed
+    worldbuilding categories driven by one `CATEGORY_META`-style table,
+    the same "generic model + fixed vocabulary table" precedent
+    `knowledge-hub-data.js`'s 11 departments and `mediaverse-data.js`'s
+    single `MediaItem` collection already established) are scoped by
+    `seriesId`; `Beats`/`Trackers`/`ConsistencyChecks`/`Publishing` are
+    scoped by `bookId`; a generic `Sections` collection (scope+scopeId —
+    the same "generated on demand, editable, reorderable" note-block
+    pattern `business.html`'s Platform Detail pages and `system.html`'s
+    Page Notes already established) backs a WikiPage's and a Character's
+    rich content; `MindMapNodes` reuses the exact tidy-tree layout + SVG
+    bezier canvas technique `knowledge-hub-data.js`'s
+    `computeMindMapLayout()` already established, for a trilogy-wide
+    interactive plotting board.
+  - **Confirmed adaptations, flagged rather than silently narrowed**
+    (same discipline every other AI-shaped feature in this app already
+    follows): the "Automatic Consistency Checker" is real, honestly-
+    computed heuristics (`computeConsistencySuggestions()` — chapter
+    word-count outliers, open/planted trackers with no resolution,
+    beats with no linked chapter, a character referenced in a
+    relationship but not marked as appearing in that book) — not real
+    NLP/grammar analysis; a "🤖 AI Review" button additionally calls a
+    real Anthropic API when a key is pasted into Settings (the same
+    `fetch('https://api.anthropic.com/v1/messages', ...)` pattern
+    `mainpillar.html`/`fitnessstudio.html`/`knowledge-hub.html` already
+    established), with the local heuristic as the always-available
+    fallback. The AI Prompt Library (`PROMPT_LIBRARY`, 27 categories
+    matching the request's own list) is real, genuinely useful copy-
+    ready prompt text, not filler — a static reference table rendered
+    through copy-to-clipboard code blocks, not a live-generated
+    database, since this app has no active AI key by default. "Export to
+    PDF" is the same established precedent as every other export
+    feature in this app: a print-formatted compiled view + `window
+    .print()`, not a hand-rolled PDF byte generator; a plain `.txt`
+    export is also offered.
+  - **Story Architecture** ships six real, standard beat-sheet templates
+    (`STRUCTURE_TEMPLATES` — Three Act, Save the Cat, Hero's Journey,
+    Seven Point Structure, Dan Harmon's Story Circle, a Romance Beat
+    Sheet — real named beats with real descriptions, not fabricated
+    placeholders), applied per-book onto a drag-reorderable Kanban board
+    (SortableJS, Not Started/Drafted/Done); plus a Threads & Trackers
+    Kanban (subplot/foreshadowing/reveal/mystery/conflict/theme/motif/
+    character-arc/relationship-arc). Acts→Chapters→Scenes is a real tree
+    (each Scene carries goal/conflict/emotion/setting/POV characters).
+  - **Writing Workspace** (the per-book editor): a persistent left Quick
+    Lore Panel (characters/lore, jump-without-leaving-the-manuscript,
+    per the request's own "never leave the manuscript" instruction), a
+    center distraction-lean chapter editor with automatic word-count-
+    delta writing-session logging on every save (`logWritingProgress()`
+    — this is the "automatic logging" mechanism, driving the streak/
+    daily-weekly-monthly/yearly-words/heatmap analytics), and a right
+    Writing Assistant panel (scene summary/current beat/checklist/
+    revision notes/the AI Prompt Library). Formatting & Export offers
+    drag-reorder, a compiled manuscript view, plain-text export, and a
+    print/PDF view with an auto-built table of contents.
+  - **Character Wiki** includes a real, computed Relationship Graph
+    (`buildRelationshipGraph()`, the same circular-layout technique
+    `knowledge-hub-data.js`'s own Knowledge Graph already established) —
+    11 relationship types (Friend/Enemy/Family/Political/Romantic/
+    Mentor/Student/Alliance/Rival/Former Ally/Unknown), each its own
+    edge color, computed live from `Character.relationships[]`, never
+    stored as a second graph structure that could drift.
+  - **Universal Quick Capture** (a floating ⚡ button, reachable from
+    every page/tab in this feature) covers all 17 capture types named
+    in the request (Quotes/Dialogue/Character Ideas/Magic Ideas/World
+    Ideas/Scene Ideas/Random Inspiration/Research/Dream Journal/Plot
+    Twists/Names/Settings/Objects/Lore/Questions/Images/Voice Note
+    Links), optionally scoped to a series or left global, landing in
+    Brain Dump — both a global page and a per-series filtered view over
+    the same underlying `QuickCaptures` collection.
+  - **Palette, an explicit exception**: the request specified "a
+    cinematic black, crimson, charcoal, and silver color palette" — the
+    same "explicit, literal color instruction" exception category as
+    every other one-off palette in this app (CLAUDE.md §6/DO NOT MODIFY
+    rule 2). Built entirely as a page-scoped repoint of `glass-theme
+    .css`'s/`gallery-card.css`'s own `--gt-*`/`--gc-*` custom
+    properties (exactly the override mechanism both kits' own header
+    comments document) rather than new bespoke CSS — every `.gt-card`/
+    `.gt-btn`/`.gt-glare-card`/`.gt-hero`/`.gc-card` already carries the
+    crimson-on-near-black-charcoal look with zero duplicated styling.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: `boot()`
+    is wrapped in try/catch (`runSafely()`), showing a visible banner
+    with the real error and a "Copy error details" button instead of a
+    silent blank page, matching the precedent `gym.html`/`business.html`/
+    `knowledge-hub.html` already established. Empty-storage seed-race
+    safety (`maybeSeedAfterSyncAttempt()`, deferred until either
+    `initCloudSync`'s `onApplied` fires or a 5-second window elapses)
+    guards the seed data (two example series — a fantasy trilogy in
+    progress with real chapters/characters/wiki pages/a beat sheet/
+    trackers/a timeline event, and a horror series still in planning —
+    plus global and series-scoped Brain Dump captures and Documents)
+    the same way every other freshly-seeded page in this app already
+    protects against clobbering another device's real data on a race
+    with the cloud pull.
+  - **A real click-handler bug was found and fixed before it shipped,
+    not after**: an early draft of the series-level book picker (used by
+    the Story/Writing/Formatting/Publishing tabs to jump into a
+    specific Book Workspace tab) attached a second, capture-phase click
+    listener on top of `buildBookCard()`'s own bubble-phase listener on
+    the exact same card element — since same-element listeners fire in
+    registration order regardless of capture/bubble phase, both would
+    have fired on every click, double-navigating (push 'editor', then
+    immediately push the real target tab). Fixed by giving
+    `buildBookCard(b, targetTab)` an optional target-tab parameter
+    instead, so every caller gets exactly one listener. A second
+    mistake caught the same way: an initial draft of the multi-select
+    "toggle chips bound to an array" pattern (used for a character's
+    linked books, a scene's characters, a timeline event's characters)
+    called itself via `arguments.callee` inside a `'use strict'` IIFE,
+    where `arguments.callee` is illegal — replaced with a small shared
+    `wireMultiToggleChips()` helper that closes over a named `refresh()`
+    function instead, the same fix already applied to the one other
+    place this exact mistake first appeared (the character-detail
+    modal's own linked-books chips, given its own dedicated
+    `refreshCharBooksChips()`).
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node`, `python`, and `python3` all confirmed unavailable —
+    `python3` resolves to a non-functional Windows Store alias stub),
+    the same reduced-guarantee fallback several other pages' changelog
+    entries in this file already disclose for this exact class of
+    limitation. Verified statically instead, more thoroughly than usual
+    given the scope: brace/paren/bracket balance confirmed clean on both
+    files (`writing-dashboard-data.js`: 585/585 braces, 960/960 parens,
+    149/149 brackets; `writing-dashboard.html`: 802/802 braces,
+    3196/3196 parens, 208/208 brackets, re-confirmed after every one of
+    several large appends, not just once at the end); zero duplicate DOM
+    ids across 309 unique element ids; all 278 distinct `$('id')`
+    references cross-matched against real defined ids with nothing
+    unresolved; all 100 distinct `D().xxx` data-layer calls and every
+    `GlassTheme.*`/`GalleryCard.*` call cross-matched against their
+    respective files' real exported public APIs with nothing missing;
+    zero duplicate top-level function declarations; every HTML tag type
+    (div/button/select/textarea/span/label/a/h1–h4, `input` correctly
+    counted as an unclosed void element) confirmed open/close-balanced
+    across the whole file; and `topbar.js`'s own edit was confirmed to
+    introduce zero new brace/paren/bracket imbalance by diffing only its
+    added/removed lines in isolation (both self-balanced), leaving its
+    own pre-existing, already-documented 5-paren prose-comment false
+    positive unchanged. **Not verified this way**: an actual click-
+    through (creating a series and a book, writing in the editor and
+    confirming the word-count/streak/heatmap analytics update, applying
+    a beat-sheet template and dragging a beat across the Kanban board,
+    adding characters and confirming the relationship graph renders
+    correctly, adding wiki entries across several of the 56 categories
+    and confirming the named templates auto-seed the right sections,
+    running the local Consistency Checker and the AI Review with no key
+    configured, exporting/printing a compiled manuscript, and dragging a
+    chapter to reorder it in Formatting & Export). A real click-through
+    is strongly recommended before relying on this feature heavily —
+    this is among the largest single-session builds in this app's
+    history, built and statically verified entirely without ever
+    running in a real browser.
+
+- **Writing Dashboard follow-up, four changes: fixed a real bug (black
+  button text), then made every editor side panel fully visible, added
+  cover photos to Chapters and to two page types that had the field but
+  never rendered it, made the book word count update live while typing,
+  and added a reusable, global Acts & Chapters Templates library.**
+  - **Bugfix, reported directly after the initial build shipped: "the
+    text is all black on my screen" on the Home page's main navigation
+    grid.** Root cause: `<button>` elements don't inherit `color` from
+    an ancestor by default in a browser's own UA stylesheet — this
+    file's base reset only inherited `font-family` for buttons
+    (`button { font-family: inherit; }`), so any button with no more-
+    specific rule of its own (concretely, the `.wd-nav-btn` grid on
+    Home) fell back to the browser's default black button text against
+    this page's dark theme. Every other button class already declared
+    its own explicit `color` and was unaffected. Fixed with one line —
+    `button { font-family: inherit; color: inherit; }` — which an
+    author-stylesheet rule at equal specificity always wins over the
+    UA default, while any button with a more specific color rule keeps
+    winning via ordinary CSS specificity, so this is a safe, minimal fix
+    covering every button on the page at once, not just the reported one.
+  - **Editor side panels made fully visible**: `.wd-editor-side` (the
+    Chapters list + Quick Lore Panel on the left, the Scene Summary/
+    Current Beat/Checklist/Revision Notes/AI Prompt Library stack on the
+    right) had `max-height: calc(100vh - 220px); overflow-y: auto;` —
+    once either panel's real content grew taller than that computed
+    height (more than a handful of chapters, or the AI Prompt Library
+    block pushing the right panel past one screen), the rest silently
+    scrolled inside a narrow, easy-to-miss internal scrollbar instead of
+    just being part of the page's own scroll — reading as "half the
+    panel is missing." Removed both properties; `position: sticky; top:
+    90px;` is kept (the parent `.wd-editor-layout` already has `align-
+    items: start`, so a sticky column was never stretched to match its
+    tallest sibling — only the internal height cap was the problem), and
+    `position: sticky` is additionally dropped to `static` under the
+    existing `@media (max-width: 1080px)` single-column breakpoint, so a
+    now-uncapped, possibly-tall side panel can't stick awkwardly midway
+    over the stacked editor content on a narrow screen.
+  - **Cover photos.** Series, Books, and WikiPages already had a `cover`
+    field with a real upload-or-paste-URL modal control and a hosted-
+    URL swap via `PhotoStore` (verified directly by reading the existing
+    code before touching anything) — Characters already had the
+    equivalent `portrait` field, shown in the Character Detail modal.
+    Two real gaps were found and closed, plus one field that didn't
+    exist at all:
+    - **Chapters had no cover field whatsoever** — added `cover: ''` to
+      `chapterModel` (`writing-dashboard-data.js`, purely additive, safe
+      default for every existing chapter), a "Chapter Cover" field in
+      the Chapter Details modal using the exact same paste-URL-or-
+      upload-via-`openImageUpload()`-plus-`PhotoStore.upload()` pattern
+      every other cover field in this file already uses, a small 22×22
+      rounded thumbnail next to a chapter's title in the sidebar list
+      (only rendered when a cover is set), and a wider banner image
+      (`.wd-chapter-cover`, max-height 200px) shown above the chapter
+      toolbar/textarea in the Editor tab when that chapter has a cover.
+    - **WikiPage's own `cover` field was saved and editable but never
+      actually displayed** — `openWikiDetail()`'s reading view showed
+      only the summary/tags/sections, never the cover image the Add/Edit
+      modal already let you set. Fixed by prepending the cover image
+      (when set) to the detail view, the same `<img>`-above-the-fields
+      layout Character Detail's own portrait already uses.
+    - **Series and Book pages had no cover banner of their own at all** —
+      only their gallery *cards* (on the Library/Series-overview grids)
+      ever showed the cover image; opening a series or book's own full
+      page showed just a plain title/subtitle with no image anywhere.
+      Added a `.wd-page-cover` container above the title row on both
+      pages (`#wdSeriesPageCover`/`#wdBookPageCover`), populated with the
+      record's own `cover` on every render — empty (zero height, no
+      placeholder box) when no cover is set, so a record without one
+      renders exactly as before.
+  - **Chapter word count now updates live while typing**, not just on
+    blur. The chapter `<textarea>` gained an `input` listener that
+    recomputes the word count on every keystroke and immediately patches
+    every place it's already shown — the Total Words/Progress-% stat
+    tiles and progress bar at the top of the Editor tab, the chapter's
+    own "N words · ~M min read" toolbar readout, the book page's own
+    subtitle line, and that chapter's row in the sidebar chapter list —
+    via direct, targeted DOM writes (no full re-render, so the cursor
+    position/selection in the textarea is never disturbed). The actual
+    write to storage (`Chapters.update`/`Books.update`/
+    `logWritingProgress`) is debounced 800ms after typing pauses, the
+    same "instant visual feedback, debounced persistence" pattern this
+    app already established elsewhere (e.g. `system.html`'s Task Detail
+    notes) — blurring the textarea still saves immediately, canceling
+    any pending debounce timer first so a blur-triggered save can never
+    race a stale one. **A real correctness bug was caught before
+    shipping**: the live total naively looked like `bookTotal -
+    chapter'sLastSavedCount + newCount`, but after the first debounced
+    save fires mid-typing-session, "last saved count" and "the number
+    already folded into `bookTotal`" silently diverge, since `bookTotal`
+    was only ever computed once, at the moment the chapter was opened.
+    Fixed by computing `otherChaptersWords` (every *other* chapter's
+    word count, a fixed baseline that never changes while editing this
+    one chapter) exactly once, then always deriving the live total as
+    `otherChaptersWords + newCount` — a formula that can't drift no
+    matter how many debounced saves have already fired.
+  - **Reusable Acts & Chapters Templates** — a new, genuinely global
+    collection (`wds:actChapterTemplates`, `ActChapterTemplates`
+    collection + `actChapterTemplateModel` in `writing-dashboard-data.js`
+    — already covered by the existing `syncedPrefixes: ['wds:']` call,
+    no new sync wiring needed), reachable via a new "📋 Templates" button
+    next to "+ Add Act" on any book's own Structure & Beats tab — the
+    literal "for every manuscript and series" ask: templates aren't
+    scoped to the book/series they were created from, so the same saved
+    list shows up (and can be applied) from any book, in any series.
+    Same "global shared library, applied per-record" precedent
+    `STRUCTURE_TEMPLATES`' own built-in beat sheets already established
+    on this exact tab, just for the Acts & Chapters tree itself rather
+    than beats.
+    - A template stores plain `{title, chapters:[{title, wordGoal}]}`
+      snapshots per act — not live references to real Act/Chapter
+      records — so editing or deleting a template afterward can never
+      touch anything it was already applied to, and applying it twice
+      (or applying it to a book that already has real content) just
+      appends a fresh, independent set of acts/chapters rather than
+      replacing or reordering anything already there.
+    - **Two ways to create one**: "💾 Save This Book's Current Structure
+      as a Template" (`captureActChapterTemplateFromBook()`) reads a
+      book's real, already-built Acts → Chapters tree (any chapter with
+      no act at all is folded into a trailing "Unassigned Chapters"
+      group so nothing is silently dropped) and snapshots it under a
+      name typed into a `prompt()` — the same low-ceremony, `prompt()`-
+      based quick-naming precedent this app has already used elsewhere
+      (e.g. `gym.html`'s equipment renaming) — or build one from scratch
+      by typing a small outline directly (`parseActOutline()`: a
+      non-indented, non-bulleted line starts a new act; any line that's
+      either indented or starts with `-`/`•`/`*` is a chapter under
+      whichever act line came immediately before it).
+    - **Applying** (`applyActChapterTemplate()`) creates brand-new
+      `Acts.add()`/`Chapters.add()` records on the target book, ordered
+      after whatever's already there, and reports back how many acts/
+      chapters were added; the Structure & Beats tab re-renders itself
+      afterward (`renderStructureTab()`, the same full-tab refresh this
+      file's own other structural-change handlers already use) so the
+      new acts/chapters are visible immediately.
+    - **Seeded with one real, demonstrative starting template** ("Three-
+      Act Novel — 9 Chapters," three acts of three chapters each with
+      typical word goals) inside `seedIfEmpty()`'s existing fresh-install
+      seed pass, and `resetToDefault()` was extended to also wipe/reseed
+      this new collection, so "Reset to Default" stays a genuine full
+      reset.
+    - A short pointer to this feature was also added to the Series-level
+      Templates tab (which already existed for previewing the built-in
+      beat sheets), since that's the more discoverable "Templates" tab
+      name-wise even though the actual create/apply UI lives on the
+      book's own Structure & Beats tab, where Acts & Chapters already are.
+  - **Verification, disclosed honestly**: same environment limitation as
+    this feature's own original build — no interactive browser/CDP
+    session or JS/Node runtime was available this session either.
+    Verified statically only: brace/paren/bracket balance confirmed
+    clean on both files after every edit; zero duplicate DOM ids
+    anywhere in `writing-dashboard.html`; every `$('id')` reference (291
+    distinct) cross-matched against real defined element ids (322
+    distinct) with nothing unresolved; every new `D().xxx` call
+    (`actChapterTemplatesSorted`/`applyActChapterTemplate`/
+    `captureActChapterTemplateFromBook`/`ActChapterTemplates`)
+    cross-matched against `writing-dashboard-data.js`'s real exported
+    public API with nothing missing; and every new/renamed function
+    (`openActTemplateModal`/`renderActTplList`/`parseActOutline`/
+    `liveUpdateReadouts`/`commitChapterSave`) confirmed declared exactly
+    once. **Not verified this way**: an actual click-through (confirming
+    the button-color fix visually, confirming both editor side panels
+    now scroll with the page instead of clipping internally on a book
+    with many chapters, uploading a chapter cover and confirming the
+    banner/thumbnail both render, typing in a chapter and watching the
+    word-count readouts update live without losing cursor position,
+    and building/capturing/applying an Acts & Chapters template
+    end-to-end). A real click-through is recommended before relying on
+    these specific changes heavily, same disclosed-limitation caveat
+    this file's own other entries already carry for this exact
+    environment.
+
+- **Writing Dashboard follow-up, five more changes: reusable templates for
+  the Character Wiki and Worldbuilding Wiki, a visibly bigger Series
+  Library card, every gallery card unified onto Entertainment Dashboard's
+  own `GalleryCard`/`gc-card` component, a General/Romance Plot Points
+  tracker grouped by book on Story Architecture, and the chapter editor's
+  right-sidebar Checklist card replaced by those same two plot trackers.**
+  - **Character Templates** (`wds:characterTemplates`, new
+    `CharacterTemplates` collection) and **Worldbuilding Templates**
+    (`wds:wikiTemplates`, new `WikiTemplates` collection) — the same
+    "snapshot, not a live reference" precedent the Acts & Chapters
+    Templates feature already established (see the entry above): a
+    template stores copied field values, so editing or deleting it
+    afterward never touches anything already created from it. Reachable
+    via a new "📋 Templates" button on both the Character Wiki and
+    Worldbuilding Wiki tab headers. Two creation paths, matching the
+    established Acts & Chapters pattern: **💾 Save an existing
+    character/entry as a template** (`captureCharacterTemplateFromCharacter`/
+    `captureWikiTemplateFromPage`) or **+ New Template From Scratch**. A
+    Character Template snapshots a deliberately identity-excluding
+    whitelist of fields (`CHARACTER_TEMPLATE_FIELD_KEYS` — role, species,
+    personality, motivations, arc, etc.) — name, portrait, quotes, gallery
+    URLs, `bookIds`, and relationships are never copied, since those
+    belong to one specific character, not a reusable archetype. A Wiki
+    Template snapshots category/summary/tags plus the source entry's own
+    section *titles* (not bodies, which are page-specific) — applying one
+    creates a real new `WikiPage` and generates one Section per saved
+    title, the same "generated on demand" note-block pattern
+    `ensureDefaultWikiSections` already uses. Seeded with three starter
+    archetypes (The Mentor / The Chosen One / The Antagonist) and three
+    starter wiki templates (Fantasy Kingdom / Magic System / Deity — God)
+    so neither list opens empty. Applying either immediately opens the
+    newly-created record's own edit view so it can be renamed/personalized
+    right away.
+  - **Series Library cards are now visibly bigger than every other card
+    in this app**, per an explicit "easier to distinguish from the rest"
+    ask: a new `.wd-series-card-lg` modifier (16:9 cover instead of the
+    standard 4:3, a 26px title, a 3-line description clamp instead of 2,
+    more body padding) plus a `#wdLibraryGrid`-scoped wider grid
+    (`minmax(340px, 1fr)` vs. the standard 255–270px), so only the top of
+    this app's whole Series → Book → Chapter hierarchy reads as
+    physically larger — Book/Wiki/Character cards are untouched.
+  - **Every gallery card in this feature now shares the literal same
+    component as Entertainment Dashboard's own cards**, per an explicit
+    "same look and aesthetics" ask: `buildSeriesCard()`/`buildBookCard()`
+    were rebuilt on `GalleryCard.build()` (`gallery-card.js`/`.css`,
+    already loaded on this page and already used, unchanged, by the
+    Worldbuilding Wiki and Character Wiki galleries) instead of the old
+    bespoke `.wd-series-card`/`.wd-book-card`/`.wd-card-cover*` markup —
+    a same-session supersession, so that now-dead CSS was deleted outright
+    rather than left behind (`.wd-card-title`/`-meta`/`-desc` were kept,
+    since the Home page's Current Series card and the Templates tab's
+    structure-preview tiles still use those three as plain text-style
+    classes, independent of the card component itself). Neither a series
+    nor a book has a real URL to open, so both cards wire `onEdit`/
+    `onOpenFallback` to the exact same `goTo(...)` navigation — clicking
+    the card body or its hover-revealed ✎ button do the same thing,
+    matching the established Wiki/Character precedent, and deliberately
+    **not** a second external `card.addEventListener('click', ...)` on
+    top of it: `GalleryCard.build()`'s own `activate()` already calls that
+    fallback on a body click when there's no URL, so a redundant listener
+    would fire `goTo()` twice per click and push a duplicate entry onto
+    the back-stack — the exact double-navigation bug class this app has
+    already hit and fixed once before (`buildBookCard`'s own
+    `targetTab` parameter, added specifically to avoid two separate click
+    listeners racing on the same card).
+  - **General Plot and Romance Plot** (`wds:plotPoints`, new `PlotPoints`
+    collection, `kind: 'general'|'romance'`) — a deliberately new, more
+    visible feature rather than a retrofit of the existing Threads &
+    Trackers Kanban (which already has a generic `'relationship-arc'`
+    type but is scoped to one book at a time and wasn't what this request
+    asked for). Lives on the series-level **Story Architecture** tab,
+    below the existing book picker — two sections, each grouping that
+    series' plot points by book with a literal "Book 1: `<title>`" / "Book
+    2: `<title>`" header per the request's own labeling, since Story
+    Architecture is the one place in this app that already sees every
+    book in a series at once. Each point has a title, description, status
+    (Planned/Drafted/Resolved), and an optional linked chapter (the
+    chapter list in the modal recomputes live when the Book field
+    changes). Deleting a book or chapter cascades/nulls the same way
+    every other book-scoped or chapter-linked collection in this file
+    already does (`removeBook`/`removeChapter`). Seeded with two General
+    and two Romance points on the example series' first book.
+  - **The chapter editor's right sidebar swapped its old static "✅
+    Checklist" card for two live cards — "📖 General Plot" and "💕 Romance
+    Plot"** — per an explicit "replacing the Checklist one" instruction.
+    Both read `plotPointsForBook(b.id, kind)` for whichever book's
+    Editor tab is open, so they're always scoped to the current book, not
+    the whole series; each point is clickable (a status glyph — ☐/☑/✅ —
+    plus its title) and opens the same Plot Point modal Story
+    Architecture uses, so a point can be added/edited/marked resolved
+    without leaving the manuscript.
+  - **Verification, disclosed honestly**: same environment limitation as
+    every other entry in this section — no interactive browser/CDP
+    session or Node/Python runtime was available this session either
+    (confirmed: `node` absent, the `python`/`python3` on PATH are the
+    known non-functional Windows-Store alias stubs). Verified statically
+    instead: brace/paren/bracket balance confirmed clean on both files
+    after every edit (`writing-dashboard-data.js`: 679/679 braces,
+    1126/1126 parens; `writing-dashboard.html`: 913/913 braces, 3761/3761
+    parens, 236/236 brackets); every new `D().xxx` call cross-matched
+    against `WritingDashboardData`'s real exported public API with
+    nothing missing; every new/changed function confirmed declared
+    exactly once; zero genuinely duplicate DOM ids (`#wdPickerGrid` is
+    reused by both `renderStoryPicker()` and `renderBookPicker()`, the
+    same book-grid id the *original*, pre-this-session `renderStoryPicker`
+    already delegated to — the two template strings that define it are
+    never both in the live DOM at once, since both only ever render into
+    the same single `wdSeriesTabBody` host, one tab at a time); and every
+    `$('id')` reference resolved against a real `id="..."` attribute with
+    nothing unmatched. **Not verified this way**: an actual click-through
+    (saving/applying both kinds of templates end-to-end, confirming the
+    Series Library cards render visibly larger than Book/Wiki/Character
+    cards, adding a General and a Romance plot point and confirming both
+    the Story Architecture grouping and the chapter-editor sidebar cards
+    reflect it, and confirming a click on a Series/Book card navigates
+    exactly once — not twice — per click). A real click-through is
+    recommended before relying on these specific changes heavily.
+  - **On "sync everything to my phone"**: every new collection above
+    lives under an existing `wds:`-prefixed key, and this page's
+    `initCloudSync({ appKey: 'writingdash', syncedPrefixes: ['wds:'] })`
+    call (unchanged, per DO NOT MODIFY §1) already covers the entire
+    `wds:` prefix with no per-key list — so cross-device sync itself
+    needs no code change and already applies to everything built in this
+    entry the moment both devices load this page. **A real, separate
+    blocker was found while checking this, though**: `git status` at the
+    start of this session showed `writing-dashboard.html` and
+    `writing-dashboard-data.js` as `??` (untracked) — the entire Writing
+    Dashboard feature, this entry's changes included, has never once been
+    committed to git, on branch `feat/writing-dashboard` rather than
+    `main`. This is the same near-miss category CLAUDE.md's own Main
+    Pillar changelog entry already documents once (`mainpillar.html`
+    surviving only by luck, via a dangling git blob, after being deleted
+    while still uncommitted) — until these two files are committed, they
+    exist only in this one working tree, and a phone can't reach them
+    over any URL regardless of Supabase sync. Per this repo's own git
+    safety convention (never commit without being explicitly asked),
+    committing and pushing was intentionally left for the user to confirm
+    rather than done automatically here.

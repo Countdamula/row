@@ -150,6 +150,26 @@
       ],
     },
     {
+      // New nav folder, right below Fitness Studio and above Entertainment
+      // (per an explicit placement request): a Business folder hosting the
+      // Ultimate Writing Dashboard — a full Writing Operating System
+      // (writing-dashboard.html + writing-dashboard-data.js). Its own
+      // `wds:` prefix, own `key: 'writingdash'` Supabase row — genuinely
+      // separate from every other "business"/"writing" surface already in
+      // this app (business.html's old Writing Dashboard tab, businessdash
+      // .html's own Series & Manuscripts Binder) — nothing here reads or
+      // writes their data. This page has no hash-routable tabs (its own
+      // Series Library / Series Dashboard / Writing Workspace navigation
+      // is a JS page-stack, not URL hashes), so it has no `children` here
+      // — same as the equally tab-heavy 'fitnessstudiotab'/'businessdash'
+      // single-item groups above, for the same reason.
+      key: 'business',
+      label: 'Business',
+      items: [
+        { href: 'writing-dashboard.html', icon: '🖋️', label: 'Writing Dashboard', id: 'topbarWritingDash' },
+      ],
+    },
+    {
       // New nav folder, right below Command Center: entertainment-dash
       // .html — one merged dashboard replacing what used to be five
       // separate standalone pages (ent-podcasts.html/ent-stories.html/
@@ -969,7 +989,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
