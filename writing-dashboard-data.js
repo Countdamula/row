@@ -468,6 +468,7 @@
     { id: 'creatures', label: 'Creatures', icon: '🐉', group: 'Nature & Beings' },
     { id: 'monsters', label: 'Monsters', icon: '👹', group: 'Nature & Beings' },
     { id: 'plants', label: 'Plants', icon: '🌿', group: 'Nature & Beings' },
+    { id: 'races-species', label: 'Races & Species', icon: '🧬', group: 'Nature & Beings' },
     { id: 'astronomy', label: 'Astronomy', icon: '🌌', group: 'Cosmology & Myth' },
     { id: 'dimensions', label: 'Dimensions', icon: '🌀', group: 'Cosmology & Myth' },
     { id: 'gods', label: 'Gods', icon: '⚡', group: 'Cosmology & Myth' },
@@ -773,6 +774,8 @@
       summary: d.summary || '',
       tags: Array.isArray(d.tags) ? d.tags : [],
       links: Array.isArray(d.links) ? d.links : [],
+      bookIds: Array.isArray(d.bookIds) ? d.bookIds : [],
+      linkedCharacterIds: Array.isArray(d.linkedCharacterIds) ? d.linkedCharacterIds : [],
       order: d.order == null ? 0 : d.order,
       createdAt: d.createdAt || new Date().toISOString()
     };
@@ -1330,6 +1333,81 @@
     }
     const updated = Characters.update(characterId, patch);
     return { character: updated, patchedFields: Object.keys(patch), links: { resolved: linksResolved, unresolved: linksUnresolved } };
+  }
+  // ============================================================
+  // WORLDBUILDING PASTE/GENERATE PROFILE — same mechanism as Character
+  // (reuses parseLabelBlock/LABEL_LINK_VOCAB/resolveLabelLink above
+  // unmodified). Structure lives entirely in the parsed text plus the
+  // link arrays below — deliberately NO per-shape scalar fields (e.g. no
+  // real `ruler` column) — WikiPages stays a generic model; "shape" only
+  // selects which blank label list to generate.
+  // ============================================================
+  var WIKI_PROFILE_SHAPES = {
+    kingdom: ['Name', 'Ruler', 'Government Type', 'Capital City', 'Territory', 'Military Strength', 'Key Exports', 'Allies', 'Rivals', 'Founding History', 'Culture Summary', 'Current Threats'],
+    settlement: ['Name', 'Type', 'Region', 'Population', 'Government', 'Notable Districts', 'Economy', 'Defenses', 'Culture', 'History', 'Current Events'],
+    location: ['Name', 'Type', 'Region', 'Geography', 'Notable Features', 'Inhabitants', 'History', 'Dangers', 'Significance'],
+    creature: ['Name', 'Classification', 'Habitat', 'Diet', 'Abilities', 'Danger Level', 'Weaknesses', 'Known Sightings', 'Folklore', 'Relationship to Characters'],
+    'magic-system': ['Name', 'Source of Power', 'Rules & Limitations', 'Cost & Consequences', 'Who Can Use It', 'Famous Practitioners', 'History & Origins'],
+    religion: ['Name', 'Deity or Deities', 'Domain', 'Core Beliefs', 'Clergy Structure', 'Worship Practices', 'Symbols', 'Holy Sites', 'Relationship to Other Faiths'],
+    organization: ['Name', 'Type', 'Leader', 'Goals', 'Membership', 'Resources', 'Allies', 'Enemies', 'Reputation', 'History'],
+    item: ['Name', 'Type', 'Origin', 'Powers', 'Limitations', 'Current Owner', 'Appearance', 'History', 'Significance'],
+    plant: ['Name', 'Type', 'Habitat', 'Appearance', 'Properties', 'Danger Level', 'Rarity', 'Folklore'],
+    'race-species': ['Name', 'Physiology', 'Homeland', 'Culture', 'Lifespan', 'Abilities', 'Society Structure', 'Relationship to Other Races', 'Notable Members'],
+    event: ['Name', 'Date', 'Location', 'Key Participants', 'Causes', 'Outcome', 'Consequences', 'Legacy'],
+    'historical-figure': ['Name', 'Title', 'Era', 'Achievements', 'Legacy', 'Death', 'Relationship to Current Story'],
+    generic: ['Name', 'Overview', 'Details', 'Significance', 'Notes']
+  };
+  var WIKI_SHAPE_LABELS = { kingdom: 'Kingdom', settlement: 'City / Village', location: 'Location', creature: 'Creature', 'magic-system': 'Magic System', religion: 'Religion', organization: 'Organization / Faction', item: 'Item / Artifact', plant: 'Plant', 'race-species': 'Race / Species', event: 'Event', 'historical-figure': 'Historical Figure', generic: 'Generic' };
+  var WIKI_CATEGORY_TO_SHAPE = {
+    'world-overview': 'location', continents: 'location', countries: 'kingdom', kingdoms: 'kingdom', cities: 'settlement', villages: 'settlement', regions: 'location', landmarks: 'location', maps: 'generic', climate: 'generic',
+    history: 'event', timeline: 'event', politics: 'organization', governments: 'organization', laws: 'generic', crime: 'organization', military: 'organization',
+    cultures: 'generic', religions: 'religion', languages: 'generic', currencies: 'generic', economics: 'generic', trade: 'organization', guilds: 'organization', factions: 'organization', organizations: 'organization', education: 'organization', fashion: 'generic', food: 'generic', festivals: 'event', architecture: 'generic', transportation: 'generic',
+    'magic-systems': 'magic-system', technology: 'magic-system', alchemy: 'magic-system', artifacts: 'item', weapons: 'item', armor: 'item',
+    creatures: 'creature', monsters: 'creature', plants: 'plant', 'races-species': 'race-species',
+    astronomy: 'location', dimensions: 'location', gods: 'religion', pantheon: 'religion', cosmology: 'generic', legends: 'event', myths: 'event', prophecies: 'generic',
+    books: 'generic', songs: 'generic', poems: 'generic', glossary: 'generic', 'reference-images': 'generic', research: 'generic', miscellaneous: 'generic'
+  };
+  function wikiShapeForCategory(category) { return WIKI_CATEGORY_TO_SHAPE[category] || 'generic'; }
+  var WIKI_LABEL_FIELD_MAP = { name: 'title', title: 'title', summary: 'summary', overview: 'summary' };
+  function buildBlankWikiProfileText(shapeKey) {
+    var labels = WIKI_PROFILE_SHAPES[shapeKey] || WIKI_PROFILE_SHAPES.generic;
+    return labels.map(function (l) { return l + ':'; }).join('\n');
+  }
+  function applyParsedLabelsToWikiPage(wikiPageId, parsed, seriesId) {
+    const page = WikiPages.get(wikiPageId); if (!page) return null;
+    const patch = {};
+    const linksResolved = [], linksUnresolved = [], wikiLinkAdds = [];
+    (parsed.entries || []).forEach(function (entry) {
+      const key = entry.label.trim().toLowerCase();
+      if (key === 'tags') { patch.tags = entry.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean); return; }
+      const vocab = LABEL_LINK_VOCAB[key];
+      if (vocab) {
+        const result = resolveLabelLink(vocab, entry.value, seriesId);
+        result.resolved.forEach(function (r) { linksResolved.push({ collection: vocab.collection, id: r.id, name: r.name, label: entry.label }); });
+        result.unresolved.forEach(function (n) { linksUnresolved.push({ collection: vocab.collection, name: n, label: entry.label }); });
+        if (vocab.collection === 'books') {
+          const existing = Array.isArray(patch.bookIds) ? patch.bookIds : (Array.isArray(page.bookIds) ? page.bookIds.slice() : []);
+          result.resolved.forEach(function (r) { if (existing.indexOf(r.id) === -1) existing.push(r.id); });
+          patch.bookIds = existing;
+        } else if (vocab.collection === 'characters') {
+          const existing = Array.isArray(patch.linkedCharacterIds) ? patch.linkedCharacterIds : (Array.isArray(page.linkedCharacterIds) ? page.linkedCharacterIds.slice() : []);
+          result.resolved.forEach(function (r) { if (existing.indexOf(r.id) === -1) existing.push(r.id); });
+          patch.linkedCharacterIds = existing;
+        } else if (vocab.collection === 'wikiPages') {
+          result.resolved.forEach(function (r) { if (r.id !== wikiPageId) wikiLinkAdds.push(r.id); });
+        }
+        return;
+      }
+      const fieldKey = WIKI_LABEL_FIELD_MAP[key];
+      if (fieldKey) patch[fieldKey] = entry.value;
+    });
+    if (wikiLinkAdds.length) {
+      const existingLinks = Array.isArray(page.links) ? page.links.slice() : [];
+      wikiLinkAdds.forEach(function (id) { if (existingLinks.indexOf(id) === -1) existingLinks.push(id); });
+      patch.links = existingLinks;
+    }
+    const updated = WikiPages.update(wikiPageId, patch);
+    return { page: updated, patchedFields: Object.keys(patch), links: { resolved: linksResolved, unresolved: linksUnresolved } };
   }
   function ensureDefaultWikiSections(wikiPageId) {
     const page = WikiPages.get(wikiPageId); if (!page) return;
@@ -1962,6 +2040,8 @@
     parseLabelBlock: parseLabelBlock, LABEL_LINK_VOCAB: LABEL_LINK_VOCAB, resolveLabelLink: resolveLabelLink,
     CHARACTER_LABEL_FIELD_MAP: CHARACTER_LABEL_FIELD_MAP, CHARACTER_PROFILE_LABELS: CHARACTER_PROFILE_LABELS,
     buildBlankCharacterProfileText: buildBlankCharacterProfileText, applyParsedLabelsToCharacter: applyParsedLabelsToCharacter,
+    WIKI_PROFILE_SHAPES: WIKI_PROFILE_SHAPES, WIKI_SHAPE_LABELS: WIKI_SHAPE_LABELS, wikiShapeForCategory: wikiShapeForCategory,
+    WIKI_LABEL_FIELD_MAP: WIKI_LABEL_FIELD_MAP, buildBlankWikiProfileText: buildBlankWikiProfileText, applyParsedLabelsToWikiPage: applyParsedLabelsToWikiPage,
     quickCapturesFor: quickCapturesFor, documentsFor: documentsFor, writingSessionsForBook: writingSessionsForBook, writingSessionsForSeries: writingSessionsForSeries,
     bookWordCount: bookWordCount, seriesWordCount: seriesWordCount, totalWordCount: totalWordCount, totalYearlyWords: totalYearlyWords,
     wordsOnDate: wordsOnDate, wordsInLastNDays: wordsInLastNDays, currentWritingStreak: currentWritingStreak,

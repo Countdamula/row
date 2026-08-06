@@ -875,6 +875,7 @@ Act II: The Confrontation
   <div class="gt-field"><label class="gt-field-label">Cover — paste a URL or upload</label>
     <div style="display:flex;gap:8px;"><input class="gt-input" id="wdWikiCoverInput" placeholder="https://…"><button type="button" class="gt-btn gt-btn-sm" id="wdWikiCoverUploadBtn">Upload</button></div>
   </div>
+  <div class="gt-field"><label class="gt-field-label">Appears in Books</label><div id="wdWikiBooksChips" class="gt-chip-row"></div></div>
   <div class="gt-modal-actions">
     <button type="button" class="gt-btn" id="wdWikiDeleteBtn" style="color:var(--wd-bad);margin-right:auto;">Delete</button>
     <button type="button" class="gt-btn" id="wdWikiCancelBtn">Cancel</button>
@@ -889,6 +890,14 @@ Act II: The Confrontation
   <button type="button" class="gt-btn gt-btn-sm" id="wdWikiAddSectionBtn">+ Generate Section</button>
   <div class="gt-field" style="margin-top:16px;"><label class="gt-field-label">Related Pages / Characters</label><div id="wdWikiLinksChips" class="gt-chip-row"></div></div>
   <div id="wdWikiDetailBacklinks" style="margin-top:6px;"></div>
+  <div class="wd-detail-section" style="margin-top:12px;">
+    <div class="wd-detail-label">🧑‍🎨 Paste / Generate Profile</div>
+    <div class="wd-detail-value" style="font-size:11px;color:var(--gt-text-mute);margin-bottom:6px;">Pick an entity type, generate its blank template (or paste an already-filled version), then hit Apply — matched fields and links update automatically. Applying overwrites any matched fields below with whatever this text says.</div>
+    <select class="gt-select" id="wdWikiProfileShapeInput" style="margin-bottom:6px;"></select>
+    <textarea id="wdWikiProfileBox" rows="10" style="width:100%;font-family:inherit;font-size:12.5px;" placeholder="Pick a type above, then Generate Blank Template"></textarea>
+    <div style="display:flex;gap:8px;margin-top:6px;"><button type="button" class="gt-btn gt-btn-sm" id="wdWikiProfileGenBtn">Generate Blank Template</button><button type="button" class="gt-btn gt-btn-sm gt-btn-primary" id="wdWikiProfileApplyBtn">Apply / Parse</button></div>
+    <div id="wdWikiProfileLinksBanner" style="margin-top:6px;"></div>
+  </div>
   <div class="gt-modal-actions"><button type="button" class="gt-btn gt-btn-primary" id="wdWikiDetailCloseBtn">Close</button></div>
 </div></div>
 
@@ -1876,6 +1885,8 @@ function openWikiModal(id, seriesId) {
   $('wdWikiSummaryInput').value = w ? w.summary : '';
   $('wdWikiTagsInput').value = w ? w.tags.join(', ') : '';
   $('wdWikiCoverInput').value = w ? w.cover : '';
+  S._wikiBookIds = w ? (w.bookIds || []).slice() : [];
+  wireMultiToggleChips($('wdWikiBooksChips'), D().booksForSeries(seriesId).map(function (b) { return { id: b.id, label: b.title }; }), S._wikiBookIds);
   $('wdWikiDeleteBtn').style.display = w ? '' : 'none';
   $('wdWikiModalBg').classList.add('show');
 }
@@ -1883,7 +1894,7 @@ $('wdWikiCoverUploadBtn').addEventListener('click', function () { openImageUploa
 $('wdWikiCancelBtn').addEventListener('click', function () { $('wdWikiModalBg').classList.remove('show'); });
 $('wdWikiSaveBtn').addEventListener('click', function () {
   var id = $('wdWikiModalBg').dataset.editId, seriesId = $('wdWikiModalBg').dataset.seriesId;
-  var patch = { title: $('wdWikiTitleInput').value.trim() || 'Untitled Entry', category: $('wdWikiCategoryInput').value, summary: $('wdWikiSummaryInput').value, tags: $('wdWikiTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean), cover: $('wdWikiCoverInput').value.trim() };
+  var patch = { title: $('wdWikiTitleInput').value.trim() || 'Untitled Entry', category: $('wdWikiCategoryInput').value, summary: $('wdWikiSummaryInput').value, tags: $('wdWikiTagsInput').value.split(',').map(function (t) { return t.trim(); }).filter(Boolean), cover: $('wdWikiCoverInput').value.trim(), bookIds: S._wikiBookIds || [] };
   var rec;
   if (id) { rec = D().WikiPages.update(id, patch); } else { patch.seriesId = seriesId; patch.order = D().nextOrder(D().wikiPagesForSeries(seriesId)); rec = D().WikiPages.add(patch); D().ensureDefaultWikiSections(rec.id); }
   if (patch.cover && patch.cover.slice(0, 5) === 'data:' && window.PhotoStore) { PhotoStore.upload(patch.cover, function (url) { D().WikiPages.update(rec.id, { cover: url }); }); }
@@ -1904,7 +1915,9 @@ function openWikiDetail(id) {
   var meta = D().wikiCategoryMeta(w.category);
   $('wdWikiDetailTitle').textContent = meta.icon + ' ' + w.title;
   var wikiCoverHtml = w.cover ? '<img src="' + esc(w.cover) + '" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px;margin-bottom:14px;">' : '';
-  $('wdWikiDetailMeta').innerHTML = wikiCoverHtml + '<div class="wd-detail-value">' + esc(w.summary) + '</div>' + (w.tags.length ? '<div class="gt-chip-row" style="margin-top:8px;">' + w.tags.map(function (t) { return '<span class="gt-chip">' + esc(t) + '</span>'; }).join('') + '</div>' : '');
+  var wikiBookTitles = D().Books.list().filter(function (b) { return (w.bookIds || []).indexOf(b.id) !== -1; }).map(function (b) { return b.title; });
+  $('wdWikiDetailMeta').innerHTML = wikiCoverHtml + '<div class="wd-detail-value">' + esc(w.summary) + '</div>' + (w.tags.length ? '<div class="gt-chip-row" style="margin-top:8px;">' + w.tags.map(function (t) { return '<span class="gt-chip">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+    (wikiBookTitles.length ? '<div class="wd-detail-section"><div class="wd-detail-label">Books</div><div class="wd-detail-value">' + esc(wikiBookTitles.join(', ')) + '</div></div>' : '');
   renderSectionsBlock($('wdWikiDetailSections'), 'wikipage', id, function () { openWikiDetail(id); });
   var seriesId = w.seriesId;
   var linkables = D().wikiPagesForSeries(seriesId).filter(function (x) { return x.id !== id; }).map(function (x) { return { id: x.id, label: D().wikiCategoryMeta(x.category).icon + ' ' + x.title }; })
@@ -1924,9 +1937,11 @@ function openWikiDetail(id) {
     D().chaptersForBook(b.id).forEach(function (ch) { if ((ch.linkedWikiPageIds || []).indexOf(id) !== -1) wikiChapterHits.push({ bookLabel: 'Book ' + (bi + 1) + ': ' + b.title, chapter: ch }); });
   });
   var wikiTlHits = D().timelineForSeries(seriesId).filter(function (e) { return (e.linkedWikiPageIds || []).indexOf(id) !== -1; });
+  var linkedChars = D().Characters.list().filter(function (c) { return (w.linkedCharacterIds || []).indexOf(c.id) !== -1; });
   var backlinksHtml = '<div class="wd-detail-section"><div class="wd-detail-label">🔗 Appears In — Chapters</div>' +
     (wikiChapterHits.length ? wikiChapterHits.map(function (h) { return '<div class="wd-lore-panel-item" data-wback-chapter="' + h.chapter.id + '" data-wback-book="' + h.chapter.bookId + '" style="cursor:pointer;padding:3px 0;">' + esc(h.bookLabel) + ' — ' + esc(h.chapter.title) + '</div>'; }).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">Not referenced in any chapter yet.</div>') + '</div>';
   if (wikiTlHits.length) backlinksHtml += '<div class="wd-detail-section"><div class="wd-detail-label">🔗 Timeline</div>' + wikiTlHits.map(function (e) { return '<div class="wd-lore-panel-item" data-wback-timeline="' + e.id + '" style="cursor:pointer;padding:3px 0;">⏳ ' + esc(e.title) + '</div>'; }).join('') + '</div>';
+  if (linkedChars.length) backlinksHtml += '<div class="wd-detail-section"><div class="wd-detail-label">🧑 Linked Characters</div>' + linkedChars.map(function (c) { return '<div class="wd-lore-panel-item" data-wback-char="' + c.id + '" style="cursor:pointer;padding:3px 0;">🧑 ' + esc(c.name) + '</div>'; }).join('') + '</div>';
   $('wdWikiDetailBacklinks').innerHTML = backlinksHtml;
   Array.prototype.forEach.call($('wdWikiDetailModalBg').querySelectorAll('[data-wback-chapter]'), function (el) {
     el.addEventListener('click', function () { $('wdWikiDetailModalBg').classList.remove('show'); S.editorChapterId = el.dataset.wbackChapter; goTo({ type: 'book', id: el.dataset.wbackBook, tab: 'editor' }); });
@@ -1934,11 +1949,43 @@ function openWikiDetail(id) {
   Array.prototype.forEach.call($('wdWikiDetailModalBg').querySelectorAll('[data-wback-timeline]'), function (el) {
     el.addEventListener('click', function () { $('wdWikiDetailModalBg').classList.remove('show'); openTimelineModal(el.dataset.wbackTimeline, seriesId); });
   });
+  Array.prototype.forEach.call($('wdWikiDetailModalBg').querySelectorAll('[data-wback-char]'), function (el) {
+    el.addEventListener('click', function () { $('wdWikiDetailModalBg').classList.remove('show'); openCharacterDetail(el.dataset.wbackChar); });
+  });
+  var wikiShapeOptions = Object.keys(D().WIKI_PROFILE_SHAPES);
+  var defaultShape = D().wikiShapeForCategory(w.category);
+  $('wdWikiProfileShapeInput').innerHTML = wikiShapeOptions.map(function (k) { return '<option value="' + k + '"' + (k === defaultShape ? ' selected' : '') + '>' + esc(D().WIKI_SHAPE_LABELS[k]) + '</option>'; }).join('');
+  var wikiProfileSec = D().sectionsFor('wikipage', id).find(function (s) { return s.title === 'Profile (Fill-In)'; });
+  $('wdWikiProfileBox').value = wikiProfileSec ? wikiProfileSec.body : '';
+  $('wdWikiProfileLinksBanner').innerHTML = '';
   $('wdWikiDetailModalBg').classList.add('show');
 }
 $('wdWikiAddSectionBtn').addEventListener('click', function () { var id = $('wdWikiDetailModalBg').dataset.wikiId; D().addSection('wikipage', id, 'New Section'); openWikiDetail(id); });
 $('wdWikiDetailEditBtn').addEventListener('click', function () { var id = $('wdWikiDetailModalBg').dataset.wikiId; var w = D().WikiPages.get(id); $('wdWikiDetailModalBg').classList.remove('show'); openWikiModal(id, w.seriesId); });
 $('wdWikiDetailCloseBtn').addEventListener('click', function () { $('wdWikiDetailModalBg').classList.remove('show'); });
+$('wdWikiProfileGenBtn').addEventListener('click', function () { $('wdWikiProfileBox').value = D().buildBlankWikiProfileText($('wdWikiProfileShapeInput').value); });
+$('wdWikiProfileApplyBtn').addEventListener('click', function () {
+  var id = $('wdWikiDetailModalBg').dataset.wikiId; var w = D().WikiPages.get(id); if (!w) return;
+  applyWikiProfileBox(id, w.seriesId);
+});
+function applyWikiProfileBox(id, seriesId) {
+  var text = $('wdWikiProfileBox').value;
+  var shapeKey = $('wdWikiProfileShapeInput').value;
+  var knownLabels = (D().WIKI_PROFILE_SHAPES[shapeKey] || D().WIKI_PROFILE_SHAPES.generic).concat(Object.keys(D().LABEL_LINK_VOCAB));
+  var parsed = D().parseLabelBlock(text, knownLabels);
+  var result = D().applyParsedLabelsToWikiPage(id, parsed, seriesId);
+  var existingSec = D().sectionsFor('wikipage', id).find(function (s) { return s.title === 'Profile (Fill-In)'; });
+  if (existingSec) D().Sections.update(existingSec.id, { body: text }); else { var sec = D().addSection('wikipage', id, 'Profile (Fill-In)'); D().Sections.update(sec.id, { body: text }); }
+  openWikiDetail(id);
+  renderUnresolvedLinksBanner($('wdWikiProfileLinksBanner'), result.links, function (item) {
+    var label = item.collection === 'characters' ? 'Character' : item.collection === 'books' ? 'Book' : 'Location';
+    if (item.collection === 'characters') D().Characters.add({ seriesId: seriesId, name: item.name });
+    else if (item.collection === 'books') D().Books.add({ seriesId: seriesId, title: item.name });
+    else D().WikiPages.add({ seriesId: seriesId, title: item.name });
+    D().applyParsedLabelsToWikiPage(id, { entries: [{ label: label, value: item.name }] }, seriesId);
+    openWikiDetail(id);
+  });
+}
 
 // ---------- Reusable Worldbuilding templates — a global library (not
 // scoped to any one series), applied to whichever series' Worldbuilding
