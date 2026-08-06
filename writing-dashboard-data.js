@@ -749,11 +749,13 @@
       strengths: d.strengths || '', weaknesses: d.weaknesses || '', fear: d.fear || '',
       internalConflict: d.internalConflict || '', externalConflict: d.externalConflict || '', arc: d.arc || '',
       voice: d.voice || '', secrets: d.secrets || '', trauma: d.trauma || '', beliefs: d.beliefs || '',
-      skills: d.skills || '', magic: d.magic || '', weapons: d.weapons || '', appearance: d.appearance || '',
-      backstory: d.backstory || '',
+      skills: d.skills || '', magic: d.magic || '', weapons: d.weapons || '', equipment: d.equipment || '', appearance: d.appearance || '',
+      physicalDescription: d.physicalDescription || '',
+      backstory: d.backstory || '', biography: d.biography || '',
       quotes: Array.isArray(d.quotes) ? d.quotes : [],
       trivia: d.trivia || '',
       bookIds: Array.isArray(d.bookIds) ? d.bookIds : [],
+      linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
       galleryUrls: Array.isArray(d.galleryUrls) ? d.galleryUrls : [],
       relationships: Array.isArray(d.relationships) ? d.relationships.map(relationshipEntry) : [],
       order: d.order == null ? 0 : d.order,
@@ -798,7 +800,7 @@
   // specific fields (name, portrait, quotes, gallery, bookIds,
   // relationships) are deliberately excluded, since those belong to one
   // specific character, not a reusable archetype.
-  var CHARACTER_TEMPLATE_FIELD_KEYS = ['role', 'species', 'race', 'occupation', 'status', 'personality', 'motivations', 'goals', 'strengths', 'weaknesses', 'fear', 'internalConflict', 'externalConflict', 'arc', 'voice', 'secrets', 'trauma', 'beliefs', 'skills', 'magic', 'weapons', 'appearance', 'backstory'];
+  var CHARACTER_TEMPLATE_FIELD_KEYS = ['role', 'species', 'race', 'occupation', 'status', 'personality', 'motivations', 'goals', 'strengths', 'weaknesses', 'fear', 'internalConflict', 'externalConflict', 'arc', 'voice', 'secrets', 'trauma', 'beliefs', 'skills', 'magic', 'weapons', 'equipment', 'appearance', 'physicalDescription', 'backstory', 'biography'];
   // A reusable character-archetype skeleton — global, same snapshot
   // (not-live-reference) precedent as wikiTemplateModel/
   // actChapterTemplateModel above. `sections` snapshots the character's
@@ -1098,9 +1100,11 @@
   // editing/deleting the template afterward never touches it — plus one
   // generated Section per saved template section (same generated-on-
   // demand-notes precedent applyWikiTemplate below already uses).
-  function applyCharacterTemplate(templateId, seriesId) {
+  function applyCharacterTemplate(templateId, seriesId, bookId) {
     const tpl = CharacterTemplates.get(templateId); if (!tpl) return null;
-    const rec = Characters.add(Object.assign({ seriesId: seriesId, name: 'New ' + tpl.name, order: nextOrder(charactersForSeries(seriesId)) }, tpl.fields));
+    const base = { seriesId: seriesId, name: 'New ' + tpl.name, order: nextOrder(charactersForSeries(seriesId)) };
+    if (bookId) base.bookIds = [bookId];
+    const rec = Characters.add(Object.assign(base, tpl.fields));
     tpl.sections.forEach(function (sec, i) { Sections.add({ scope: 'character', scopeId: rec.id, title: sec.title, body: sec.body, order: i }); });
     return rec;
   }
@@ -1179,6 +1183,153 @@
     if (swapIdx < 0 || swapIdx >= siblings.length) return;
     const a = siblings[idx], b = siblings[swapIdx];
     Sections.update(a.id, { order: b.order }); Sections.update(b.id, { order: a.order });
+  }
+  // ============================================================
+  // LABEL/VALUE PROFILE PARSER — shared by Character and Worldbuilding
+  // "paste a filled-in profile, everything updates" flows. Pure, no DOM.
+  // A line is a label boundary if the text before its first ':' matches
+  // one of `knownLabels` (case-insensitive) — or, if `knownLabels` is
+  // omitted, a loose Title-Case-ish heuristic. Everything after that
+  // colon plus every following non-label line becomes the label's value,
+  // up to the next label boundary. Repeated labels: last occurrence wins.
+  // ============================================================
+  function parseLabelBlock(text, knownLabels) {
+    text = text || '';
+    const knownSet = Array.isArray(knownLabels) && knownLabels.length
+      ? knownLabels.map(function (l) { return l.trim().toLowerCase(); })
+      : null;
+    function isLabelLine(line) {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx === -1) return false;
+      const pre = line.slice(0, colonIdx).trim();
+      if (!pre || pre.length > 40) return false;
+      if (knownSet) return knownSet.indexOf(pre.toLowerCase()) !== -1;
+      if (/[.!?]/.test(pre)) return false;
+      return /^[A-Za-z][A-Za-z0-9 /'&()-]*$/.test(pre);
+    }
+    const entries = [];
+    const preambleLines = [];
+    let current = null;
+    text.split('\n').forEach(function (line) {
+      if (isLabelLine(line)) {
+        if (current) entries.push({ label: current.label, value: current.valueLines.join('\n').trim() });
+        const colonIdx = line.indexOf(':');
+        const rest = line.slice(colonIdx + 1);
+        current = { label: line.slice(0, colonIdx).trim(), valueLines: rest.trim() ? [rest.trim()] : [] };
+      } else if (current) {
+        current.valueLines.push(line);
+      } else {
+        preambleLines.push(line);
+      }
+    });
+    if (current) entries.push({ label: current.label, value: current.valueLines.join('\n').trim() });
+    // Last occurrence wins, but keep first-seen order for readability.
+    const byLabel = {}, order = [];
+    entries.forEach(function (e) {
+      const key = e.label.trim().toLowerCase();
+      if (!(key in byLabel)) order.push(key);
+      byLabel[key] = e;
+    });
+    return { entries: order.map(function (k) { return byLabel[k]; }), unmatchedPreamble: preambleLines.join('\n').trim() };
+  }
+  // Small, hand-curated table of labels that trigger auto-linking instead
+  // of (or in addition to) being stored as plain text. Not every label
+  // links — unrecognized labels are simply left as text in the profile.
+  var LABEL_LINK_VOCAB = {
+    'book': { collection: 'books' },
+    'character': { collection: 'characters' }, 'linked character': { collection: 'characters' },
+    'ruler': { collection: 'characters' }, 'founder': { collection: 'characters' }, 'leader': { collection: 'characters' },
+    'location': { collection: 'wikiPages' }, 'faction': { collection: 'wikiPages' },
+    'organization': { collection: 'wikiPages' }, 'religion': { collection: 'wikiPages' }
+  };
+  // Exact case-insensitive name match only — no fuzzy matching, so
+  // unresolved names are reported back for the UI to offer "Create?"
+  // rather than silently guessing at the wrong record.
+  function resolveLabelLink(vocabEntry, valueText, seriesId) {
+    const names = (valueText || '').split(/,|&|\band\b/i).map(function (n) { return n.trim(); }).filter(Boolean);
+    const pool = vocabEntry.collection === 'characters' ? charactersForSeries(seriesId)
+      : vocabEntry.collection === 'books' ? booksForSeries(seriesId)
+      : wikiPagesForSeries(seriesId);
+    const nameKey = vocabEntry.collection === 'characters' ? 'name' : 'title';
+    const resolved = [], unresolved = [];
+    names.forEach(function (n) {
+      const match = pool.find(function (r) { return (r[nameKey] || '').trim().toLowerCase() === n.toLowerCase(); });
+      if (match) resolved.push({ id: match.id, name: match[nameKey] }); else unresolved.push(n);
+    });
+    return { resolved: resolved, unresolved: unresolved };
+  }
+  // Labels with a real 1:1 characterModel field. Labels with no entry
+  // here (e.g. archetype-flavor lines from the built-in Quick Build
+  // templates) just stay as inert text in the stored profile — not every
+  // label needs a matching field.
+  var CHARACTER_LABEL_FIELD_MAP = {
+    name: 'name', age: 'age', birthday: 'birthday', species: 'species', race: 'race',
+    occupation: 'occupation', status: 'status', role: 'role',
+    personality: 'personality', motivations: 'motivations', goals: 'goals',
+    strengths: 'strengths', weaknesses: 'weaknesses', fear: 'fear',
+    'internal conflict': 'internalConflict', 'external conflict': 'externalConflict',
+    arc: 'arc', 'character arc': 'arc', voice: 'voice', secrets: 'secrets', trauma: 'trauma', beliefs: 'beliefs',
+    skills: 'skills', 'powers/skills': 'skills', powers: 'skills', magic: 'magic', weapons: 'weapons', equipment: 'equipment',
+    appearance: 'appearance', 'physical description': 'physicalDescription',
+    backstory: 'backstory', biography: 'biography'
+  };
+  var CHARACTER_PROFILE_LABELS = ['Name', 'Age', 'Biography', 'Physical Description', 'Personality', 'Motivations', 'Internal Conflict', 'External Conflict', 'Character Arc', 'Powers/Skills', 'Equipment', 'Secrets', 'Goals', 'Quotes', 'Notes'];
+  // Relational sections (Relationships, Timeline, POV Chapters, Important
+  // Scenes) are deliberately excluded from the blank text — those stay
+  // driven by their own existing chip/graph UI, not duplicated as text.
+  function buildBlankCharacterProfileText() {
+    return CHARACTER_PROFILE_LABELS.map(function (l) { return l + ':'; }).join('\n');
+  }
+  // Applies a parsed profile onto a real Character record. Additive only:
+  // resolved links are unioned with whatever links already exist, never
+  // removed. Returns patched field names + resolved/unresolved links so
+  // the UI can render an "Unresolved — Create?" banner.
+  function applyParsedLabelsToCharacter(characterId, parsed, seriesId, bookId) {
+    const character = Characters.get(characterId); if (!character) return null;
+    const patch = {};
+    const linksResolved = [], linksUnresolved = [], relationshipAdds = [];
+    (parsed.entries || []).forEach(function (entry) {
+      const key = entry.label.trim().toLowerCase();
+      if (key === 'quotes') {
+        const existing = Array.isArray(character.quotes) ? character.quotes.slice() : [];
+        entry.value.split('\n').map(function (q) { return q.trim(); }).filter(Boolean).forEach(function (q) { if (existing.indexOf(q) === -1) existing.push(q); });
+        patch.quotes = existing;
+        return;
+      }
+      const vocab = LABEL_LINK_VOCAB[key];
+      if (vocab) {
+        const result = resolveLabelLink(vocab, entry.value, seriesId);
+        result.resolved.forEach(function (r) { linksResolved.push({ collection: vocab.collection, id: r.id, name: r.name, label: entry.label }); });
+        result.unresolved.forEach(function (n) { linksUnresolved.push({ collection: vocab.collection, name: n, label: entry.label }); });
+        if (vocab.collection === 'books') {
+          const existing = Array.isArray(patch.bookIds) ? patch.bookIds : (Array.isArray(character.bookIds) ? character.bookIds.slice() : []);
+          result.resolved.forEach(function (r) { if (existing.indexOf(r.id) === -1) existing.push(r.id); });
+          patch.bookIds = existing;
+        } else if (vocab.collection === 'wikiPages') {
+          const existing = Array.isArray(patch.linkedWikiPageIds) ? patch.linkedWikiPageIds : (Array.isArray(character.linkedWikiPageIds) ? character.linkedWikiPageIds.slice() : []);
+          result.resolved.forEach(function (r) { if (existing.indexOf(r.id) === -1) existing.push(r.id); });
+          patch.linkedWikiPageIds = existing;
+        } else if (vocab.collection === 'characters') {
+          result.resolved.forEach(function (r) { if (r.id !== characterId) relationshipAdds.push(r.id); });
+        }
+        return;
+      }
+      const fieldKey = CHARACTER_LABEL_FIELD_MAP[key];
+      if (fieldKey) patch[fieldKey] = entry.value;
+    });
+    if (relationshipAdds.length) {
+      const existingRel = Array.isArray(character.relationships) ? character.relationships.slice() : [];
+      const existingTargets = existingRel.map(function (r) { return r.targetId; });
+      relationshipAdds.forEach(function (id) { if (existingTargets.indexOf(id) === -1) { existingRel.push({ targetId: id, type: 'unknown', notes: '' }); existingTargets.push(id); } });
+      patch.relationships = existingRel;
+    }
+    if (bookId) {
+      const existing = Array.isArray(patch.bookIds) ? patch.bookIds : (Array.isArray(character.bookIds) ? character.bookIds.slice() : []);
+      if (existing.indexOf(bookId) === -1) existing.push(bookId);
+      patch.bookIds = existing;
+    }
+    const updated = Characters.update(characterId, patch);
+    return { character: updated, patchedFields: Object.keys(patch), links: { resolved: linksResolved, unresolved: linksUnresolved } };
   }
   function ensureDefaultWikiSections(wikiPageId) {
     const page = WikiPages.get(wikiPageId); if (!page) return;
@@ -1361,7 +1512,7 @@
       const chars = charactersForSeries(seriesId);
       chars.forEach(function (c) {
         const referencedByOthers = chars.some(function (other) { return other.id !== c.id && (other.relationships || []).some(function (r) { return r.targetId === c.id; }); });
-        if (referencedByOthers && c.bookIds.indexOf(bookId) === -1 && chars.some(function (other) { return other.bookIds.indexOf(bookId) !== -1 && (other.relationships || []).some(function (r) { return r.targetId === c.id; }); })) {
+        if (referencedByOthers && (c.bookIds || []).indexOf(bookId) === -1 && chars.some(function (other) { return (other.bookIds || []).indexOf(bookId) !== -1 && (other.relationships || []).some(function (r) { return r.targetId === c.id; }); })) {
           out.push({ category: 'character', note: '"' + c.name + '" is referenced in a relationship by a character who appears in this book, but "' + c.name + '" isn\'t marked as appearing in this book — confirm that\'s intentional.', });
         }
       });
@@ -1431,7 +1582,7 @@
     WritingSessions.replaceAll(WritingSessions.list().filter(function (w) { return w.bookId !== id; }));
     PlotPoints.replaceAll(PlotPoints.list().filter(function (p) { return p.bookId !== id; }));
     Characters.list().forEach(function (c) {
-      if (c.bookIds.indexOf(id) !== -1) Characters.update(c.id, { bookIds: c.bookIds.filter(function (x) { return x !== id; }) });
+      if ((c.bookIds || []).indexOf(id) !== -1) Characters.update(c.id, { bookIds: c.bookIds.filter(function (x) { return x !== id; }) });
     });
   }
   function removeChapter(id) {
@@ -1451,17 +1602,17 @@
         Characters.update(c.id, { relationships: c.relationships.filter(function (r) { return r.targetId !== id; }) });
       }
     });
-    Scenes.list().forEach(function (s) { if (s.characterIds.indexOf(id) !== -1) Scenes.update(s.id, { characterIds: s.characterIds.filter(function (x) { return x !== id; }) }); });
+    Scenes.list().forEach(function (s) { if ((s.characterIds || []).indexOf(id) !== -1) Scenes.update(s.id, { characterIds: s.characterIds.filter(function (x) { return x !== id; }) }); });
     Trackers.list().forEach(function (t) { if (t.linkedCharacterId === id) Trackers.update(t.id, { linkedCharacterId: null }); });
     MindMapNodes.list().forEach(function (n) { if (n.linkedCharacterId === id) MindMapNodes.update(n.id, { linkedCharacterId: null }); });
-    Chapters.list().forEach(function (c) { if (c.characterIds.indexOf(id) !== -1) Chapters.update(c.id, { characterIds: c.characterIds.filter(function (x) { return x !== id; }) }); });
+    Chapters.list().forEach(function (c) { if ((c.characterIds || []).indexOf(id) !== -1) Chapters.update(c.id, { characterIds: c.characterIds.filter(function (x) { return x !== id; }) }); });
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'character' && s.scopeId === id); }));
   }
   function removeWikiPage(id) {
     WikiPages.remove(id);
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'wikipage' && s.scopeId === id); }));
     WikiPages.list().forEach(function (w) { if ((w.links || []).indexOf(id) !== -1) WikiPages.update(w.id, { links: w.links.filter(function (x) { return x !== id; }) }); });
-    Chapters.list().forEach(function (c) { if (c.linkedWikiPageIds.indexOf(id) !== -1) Chapters.update(c.id, { linkedWikiPageIds: c.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
+    Chapters.list().forEach(function (c) { if ((c.linkedWikiPageIds || []).indexOf(id) !== -1) Chapters.update(c.id, { linkedWikiPageIds: c.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
   }
 
   // ============================================================
@@ -1808,6 +1959,9 @@
     plotPointsForBook: plotPointsForBook, plotPointsForSeries: plotPointsForSeries, trackersForSeries: trackersForSeries,
     consistencyChecksForBook: consistencyChecksForBook, publishingForBook: publishingForBook,
     sectionsFor: sectionsFor, addSection: addSection, moveSection: moveSection, ensureDefaultWikiSections: ensureDefaultWikiSections,
+    parseLabelBlock: parseLabelBlock, LABEL_LINK_VOCAB: LABEL_LINK_VOCAB, resolveLabelLink: resolveLabelLink,
+    CHARACTER_LABEL_FIELD_MAP: CHARACTER_LABEL_FIELD_MAP, CHARACTER_PROFILE_LABELS: CHARACTER_PROFILE_LABELS,
+    buildBlankCharacterProfileText: buildBlankCharacterProfileText, applyParsedLabelsToCharacter: applyParsedLabelsToCharacter,
     quickCapturesFor: quickCapturesFor, documentsFor: documentsFor, writingSessionsForBook: writingSessionsForBook, writingSessionsForSeries: writingSessionsForSeries,
     bookWordCount: bookWordCount, seriesWordCount: seriesWordCount, totalWordCount: totalWordCount, totalYearlyWords: totalYearlyWords,
     wordsOnDate: wordsOnDate, wordsInLastNDays: wordsInLastNDays, currentWritingStreak: currentWritingStreak,
