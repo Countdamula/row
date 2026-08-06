@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="local-store-idb.js"></script>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<title>Design Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="glass-theme.css">
+<link rel="stylesheet" href="gallery-card.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="photo-store.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="glass-theme.js" defer></script>
+<script src="gallery-card.js" defer></script>
+<script src="design-library-data.js" defer></script>
+<style>
+/* =============================================================
+   Design Library — a personal, searchable design knowledge base built
+   on this app's own shared glass-theme.css/.js (dark cinematic near-
+   black/accent aesthetic, the common thread across most of this app —
+   no reference photo/literal color instruction was given, so per
+   CLAUDE.md §6/DO NOT MODIFY rule 2 this reuses the existing tokens
+   rather than inventing a new palette) + gallery-card.css/.js (the
+   cover-art gallery card). See design-library-data.js's own header
+   comment for the full architecture and the ~20-nav-item → one generic
+   model consolidation this page renders.
+   ============================================================= */
+:root {
+  /* Softer, warmer text hierarchy than glass-theme.css's raw defaults —
+     scoped to this page only, per that file's own documented convention
+     (any --gt-* value redeclared here, after its own <link>, wins the
+     cascade — this can't affect any other page). A flat, cold near-white
+     (#fafafa) applied almost everywhere — headings, card titles, body
+     copy, and the stat/rollup numbers all sitting at nearly the same
+     stark brightness — reads as "everything is pure white" with no real
+     hierarchy. This widens the gap between primary/secondary/muted text
+     and warms the tone to match gallery-card.css's own ivory card-title
+     color (#f5f1e9), already used on every resource card on this page,
+     so headings and card titles finally read as the same family instead
+     of two subtly different whites sitting next to each other. */
+  --gt-text: #efe9df;
+  --gt-text-dim: rgba(239,233,223,0.66);
+  --gt-text-mute: rgba(239,233,223,0.42);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: thin; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--gt-accent-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; } }
+
+.dl-shell { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ---------- Sidebar ---------- */
+.dl-sidebar { width: 268px; flex-shrink: 0; padding: 18px 14px 26px; position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto; border-right: 1px solid var(--gt-hairline); background: rgba(255,255,255,0.015); }
+.dl-sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 6px 6px 16px; }
+.dl-sidebar-mark { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; background: linear-gradient(155deg, var(--gt-accent-bright) 0%, var(--gt-accent) 100%); color: var(--gt-accent-text); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(var(--gt-accent-rgb),0.3); }
+.dl-sidebar-text { display: flex; flex-direction: column; line-height: 1.2; }
+.dl-sidebar-title { font-size: 13.5px; font-weight: 800; }
+.dl-sidebar-sub { font-size: 10px; color: var(--gt-text-mute); letter-spacing: 0.02em; }
+.dl-back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--gt-text-mute); text-decoration: none; margin: 4px 6px 14px; }
+.dl-back-link:hover { color: var(--gt-accent-bright); }
+.dl-search-btn { width: 100%; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.045); border: 1px solid var(--gt-border); border-radius: 10px; padding: 9px 11px; color: var(--gt-text-mute); font-size: 12px; cursor: pointer; margin-bottom: 16px; }
+.dl-search-btn:hover { border-color: rgba(var(--gt-accent-rgb),0.4); }
+.dl-search-btn kbd { margin-left: auto; font-family: var(--font-mono, ui-monospace); font-size: 9.5px; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 5px; color: var(--gt-text-dim); }
+.dl-nav-group { margin-bottom: 16px; }
+.dl-nav-group-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; color: var(--gt-text-mute); padding: 0 9px; margin-bottom: 6px; }
+.dl-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 7px 9px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--gt-text-dim); cursor: pointer; background: none; border: none; }
+.dl-nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.dl-nav-item.active { background: rgba(var(--gt-accent-rgb),0.16); color: var(--gt-accent-bright); }
+.dl-nav-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+.dl-nav-count { margin-left: auto; font-family: var(--font-mono, ui-monospace); font-size: 10px; color: var(--gt-text-mute); }
+.dl-sidebar-toggle { display: none; }
+
+/* ---------- Main ---------- */
+.dl-main { flex: 1 1 auto; min-width: 0; }
+.dl-topbar { display: flex; align-items: center; gap: 12px; padding: 14px 26px; border-bottom: 1px solid var(--gt-hairline); position: sticky; top: 0; z-index: 5; background: rgba(10,10,11,0.72); backdrop-filter: blur(14px); }
+.dl-topbar-title { font-size: 13.5px; font-weight: 700; color: var(--gt-text-dim); }
+.dl-sync-status { font-size: 11px; font-weight: 600; color: var(--gt-text-mute); display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.dl-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gt-text-mute); flex-shrink: 0; }
+.dl-sync-status.is-saved .dl-sync-dot { background: var(--gt-good); }
+.dl-sync-status.is-error .dl-sync-dot, .dl-sync-status.is-offline .dl-sync-dot { background: var(--gt-bad); animation: dl-pulse 1.4s ease-in-out infinite; }
+@keyframes dl-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.dl-view { max-width: 1180px; margin: 0 auto; padding: 24px 26px 110px; }
+.dl-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.dl-page-title-wrap { display: flex; flex-direction: column; gap: 3px; }
+.dl-page-title { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-weight: 600; font-size: 30px; display: flex; align-items: center; gap: 10px; }
+.dl-page-sub { font-size: 12.5px; color: var(--gt-text-mute); max-width: 560px; }
+.dl-filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+.dl-search-input { flex: 1 1 auto; min-width: 160px; max-width: 260px; background: rgba(255,255,255,0.045); border: 1px solid var(--gt-border); border-radius: 999px; padding: 8px 14px; font-size: 12.5px; color: var(--gt-text); }
+.dl-empty { padding: 46px 16px; text-align: center; color: var(--gt-text-mute); font-size: 13px; border: 1px dashed var(--gt-border); border-radius: 18px; grid-column: 1 / -1; }
+.dl-empty-icon { font-size: 30px; margin-bottom: 10px; opacity: 0.6; }
+
+/* ---------- Home ---------- */
+.dl-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 26px; }
+.dl-stat-tile { text-align: center; background: linear-gradient(160deg, rgba(var(--gt-accent-rgb),0.12) 0%, rgba(255,255,255,0.025) 100%); border-color: rgba(var(--gt-accent-rgb),0.22); }
+.dl-stat-num { font-size: 27px; font-weight: 800; letter-spacing: -0.01em; color: var(--gt-accent-bright); text-shadow: 0 0 22px rgba(var(--gt-accent-rgb),0.35); }
+.dl-stat-label { font-size: 10px; font-weight: 700; color: var(--gt-text-mute); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 5px; }
+.dl-home-section { margin-bottom: 30px; }
+.dl-home-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.dl-home-section-title { font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.dl-see-all { font-size: 11.5px; font-weight: 700; color: var(--gt-text-mute); cursor: pointer; background: none; border: none; }
+.dl-see-all:hover { color: var(--gt-accent-bright); }
+.dl-quickfilter-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.dl-quickfilter-tile { flex: 1 1 150px; padding: 14px 16px; text-align: left; cursor: pointer; }
+.dl-quickfilter-icon { font-size: 20px; margin-bottom: 6px; }
+.dl-quickfilter-label { font-weight: 700; font-size: 13px; }
+.dl-quickfilter-count { font-size: 11px; color: var(--gt-text-mute); }
+
+/* ---------- Collections ---------- */
+.dl-col-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.dl-col-card { position: relative; padding: 16px; cursor: pointer; overflow: hidden; }
+.dl-col-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--dl-col-color, var(--gt-accent)); }
+.dl-col-icon { font-size: 22px; margin-bottom: 8px; }
+.dl-col-title { font-weight: 800; font-size: 15px; margin-bottom: 4px; }
+.dl-col-desc { font-size: 11.5px; color: var(--gt-text-mute); margin-bottom: 10px; min-height: 1.4em; }
+.dl-col-count { font-size: 11px; color: var(--gt-text-dim); font-weight: 600; }
+.dl-col-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+.dl-col-card:hover .dl-col-actions { opacity: 1; }
+.dl-col-actions button { background: rgba(0,0,0,0.4); border: 1px solid var(--gt-border); color: var(--gt-text-dim); border-radius: 7px; width: 24px; height: 24px; font-size: 11px; cursor: pointer; }
+.dl-col-actions button:hover { color: var(--gt-accent-bright); }
+.dl-swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.dl-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.dl-swatch.active { border-color: #fff; }
+
+/* ---------- Prompt Library / Saved Code rows ---------- */
+.dl-prompt-list, .dl-code-list { display: flex; flex-direction: column; gap: 12px; }
+.dl-prompt-row, .dl-code-row { padding: 16px 18px; }
+.dl-prompt-row-head, .dl-code-row-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.dl-prompt-title { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 600; font-size: 18px; }
+.dl-prompt-cat-tag, .dl-code-lang-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; background: rgba(var(--gt-accent-rgb),0.14); color: var(--gt-accent-bright); }
+.dl-code-block { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,0.28); border: 1px solid var(--gt-hairline); border-radius: 10px; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: var(--gt-text-dim); max-height: 130px; overflow: hidden; margin-bottom: 8px; }
+.dl-code-block.is-expanded { max-height: none; }
+.dl-expand-btn { background: none; border: none; color: var(--gt-accent-bright); font-size: 11px; font-weight: 700; cursor: pointer; padding: 0; margin-bottom: 8px; }
+.dl-row-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dl-tag-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--gt-text-dim); border: 1px solid var(--gt-hairline); }
+.dl-copy-btn { background: rgba(var(--gt-accent-rgb),0.14); border: 1px solid var(--gt-hairline); color: var(--gt-accent-bright); border-radius: 999px; padding: 5px 13px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.dl-copy-btn:hover { border-color: var(--gt-accent); }
+.dl-copy-btn.is-copied { color: var(--gt-good); border-color: var(--gt-good); }
+
+/* ---------- Resource grid card overlay meta (on top of gallery-card) ---------- */
+.dl-badge-row { position: absolute; bottom: 8px; left: 10px; right: 10px; z-index: 2; display: flex; gap: 5px; flex-wrap: wrap; pointer-events: none; }
+.dl-badge { font-size: 9px; font-weight: 800; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; background: rgba(5,4,3,0.72); backdrop-filter: blur(4px); color: var(--gc-text-dim); border: 1px solid var(--gc-hairline); }
+.dl-badge.is-status-production { color: var(--gt-good); }
+.dl-badge.is-status-progress { color: var(--gt-warn); }
+
+/* ---------- Command palette ---------- */
+#dlPaletteBg .gt-modal { max-width: 620px; padding: 0; overflow: hidden; }
+.dl-palette-input-row { padding: 16px 18px; border-bottom: 1px solid var(--gt-hairline); }
+.dl-palette-input { width: 100%; background: transparent; border: none; font-size: 16px; color: var(--gt-text); }
+.dl-palette-input:focus { outline: none; }
+.dl-palette-results { max-height: 60vh; overflow-y: auto; padding: 8px; }
+.dl-palette-group-label { font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--gt-text-mute); padding: 8px 10px 4px; }
+.dl-palette-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: 13px; }
+.dl-palette-row:hover, .dl-palette-row.is-active { background: rgba(var(--gt-accent-rgb),0.14); }
+.dl-palette-row-icon { width: 20px; text-align: center; flex-shrink: 0; }
+.dl-palette-row-sub { margin-left: auto; font-size: 10.5px; color: var(--gt-text-mute); }
+.dl-palette-empty { padding: 30px; text-align: center; color: var(--gt-text-mute); font-size: 12.5px; }
+
+/* ---------- Resource detail / editor full page ---------- */
+.dl-page-bg { position: fixed; inset: 0; z-index: 3200; background: var(--gt-bg-deep); display: none; overflow-y: auto; }
+.dl-page-bg.show { display: block; }
+.dl-detail-hero { position: relative; min-height: 240px; display: flex; align-items: flex-end; padding: 60px 26px 26px; overflow: hidden; background: linear-gradient(150deg, rgba(var(--gt-accent-rgb),0.28), rgba(10,10,11,0.94)); }
+.dl-detail-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.dl-detail-hero-overlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(5,5,6,0.2) 0%, rgba(5,5,6,0.55) 55%, rgba(5,5,6,0.94) 100%); }
+.dl-detail-hero-content { position: relative; z-index: 2; width: 100%; }
+.dl-detail-back { position: absolute; top: 14px; left: 14px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px 8px 10px; background: rgba(10,10,11,0.6); backdrop-filter: blur(10px); border: 1px solid var(--gt-border); border-radius: 999px; color: var(--gt-text-dim); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.dl-detail-back:hover { color: #fff; }
+.dl-detail-hero-actions { position: absolute; top: 14px; right: 14px; z-index: 5; display: flex; gap: 8px; }
+.dl-detail-hero-actions button { background: rgba(10,10,11,0.6); backdrop-filter: blur(10px); border: 1px solid var(--gt-border); border-radius: 999px; color: var(--gt-text-dim); font-size: 12px; font-weight: 700; padding: 8px 13px; cursor: pointer; }
+.dl-detail-hero-actions button:hover { color: var(--gt-accent-bright); border-color: var(--gt-accent); }
+.dl-detail-hero-actions button.is-fav { color: var(--gt-warn); border-color: var(--gt-warn); }
+.dl-detail-title-input { display: block; width: 100%; background: transparent; border: none; font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 700; font-size: clamp(26px, 4.5vw, 40px); color: var(--gt-text); margin-bottom: 6px; }
+.dl-detail-meta-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dl-detail-stars { display: inline-flex; gap: 1px; }
+.dl-detail-stars button { background: none; border: none; padding: 0; cursor: pointer; font-size: 15px; color: rgba(255,255,255,0.25); }
+.dl-detail-stars button.on { color: var(--gt-accent-bright); }
+
+.dl-detail-body { max-width: 920px; margin: 0 auto; padding: 22px 26px 120px; }
+.dl-quickmeta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.dl-quickmeta-field label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gt-text-mute); margin-bottom: 4px; }
+.dl-quickmeta-field input, .dl-quickmeta-field select { width: 100%; }
+.dl-toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.dl-toggle-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--gt-border); background: rgba(255,255,255,0.03); font-size: 12px; font-weight: 700; color: var(--gt-text-mute); cursor: pointer; }
+.dl-toggle-chip.on { background: rgba(var(--gt-accent-rgb),0.16); border-color: var(--gt-accent); color: var(--gt-accent-bright); }
+.dl-tag-input-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.dl-tag-input-row .dl-tag-chip button { background: none; border: none; color: inherit; opacity: 0.6; cursor: pointer; padding: 0 0 0 4px; font-size: 10px; }
+
+.dl-detail-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--gt-hairline); margin-bottom: 20px; padding-bottom: 2px; }
+.dl-detail-tab { background: none; border: none; padding: 9px 14px; font-size: 12.5px; font-weight: 700; color: var(--gt-text-mute); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.dl-detail-tab:hover { color: var(--gt-text-dim); }
+.dl-detail-tab.active { color: var(--gt-accent-bright); border-bottom-color: var(--gt-accent); }
+.dl-detail-tabpanel { display: none; }
+.dl-detail-tabpanel.active { display: block; }
+.dl-field { margin-bottom: 16px; }
+.dl-field-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gt-text-mute); margin-bottom: 6px; }
+.dl-field-hint { font-size: 11px; color: var(--gt-text-mute); margin-top: 4px; }
+.dl-field textarea, .dl-field input[type="text"] { width: 100%; }
+.dl-field textarea { min-height: 70px; resize: vertical; }
+.dl-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 700px) { .dl-two-col { grid-template-columns: 1fr; } }
+
+.dl-preview-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.dl-preview-wrap { display: flex; justify-content: center; background: repeating-conic-gradient(#111 0% 25%, #191919 0% 50%) 50% / 16px 16px; border-radius: 16px; padding: 20px; border: 1px solid var(--gt-hairline); }
+.dl-preview-frame { width: 100%; height: 480px; border: none; border-radius: 10px; background: #fff; box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
+.dl-preview-frame.dl-device-tablet { max-width: 760px; }
+.dl-preview-frame.dl-device-mobile { max-width: 380px; }
+.dl-preview-source { margin-top: 16px; }
+.dl-preview-source summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--gt-text-mute); margin-bottom: 10px; }
+.dl-preview-source summary:hover { color: var(--gt-accent-bright); }
+.dl-preview-source textarea { font-family: ui-monospace, monospace; font-size: 11.5px; min-height: 110px; }
+
+.dl-version-row, .dl-ai-log-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--gt-hairline); border-radius: 10px; margin-bottom: 8px; font-size: 12px; }
+.dl-version-body { flex: 1; }
+.dl-version-body .dl-code-block { margin-bottom: 4px; max-height: 70px; }
+.dl-ai-btn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.dl-ai-btn-grid button { text-align: left; padding: 10px 12px; font-size: 12px; }
+.dl-ai-result { background: rgba(var(--gt-accent-rgb),0.08); border: 1px solid rgba(var(--gt-accent-rgb),0.3); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
+.dl-ai-result-tag { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gt-accent-bright); margin-bottom: 6px; display: block; }
+
+.dl-cover-preview { aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: rgba(255,255,255,0.03); border: 1px solid var(--gt-hairline); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; color: var(--gt-text-mute); font-size: 12px; }
+.dl-cover-preview img { width: 100%; height: 100%; object-fit: cover; }
+.dl-collection-check-row { display: flex; flex-direction: column; gap: 6px; }
+.dl-collection-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.delete-link { display: block; text-align: center; margin-top: 16px; font-size: 12px; color: var(--gt-bad); cursor: pointer; }
+.delete-link:hover { text-decoration: underline; }
+.dl-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+
+@media (max-width: 900px) {
+  .dl-sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 2400; transform: translateX(-104%); transition: transform 0.22s ease; box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
+  .dl-sidebar.show { transform: translateX(0); }
+  .dl-sidebar-toggle { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--gt-border); border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; color: var(--gt-text-dim); cursor: pointer; }
+  .dl-topbar-title { display: none; }
+}
+</style>
+</head>
+<body class="gt-theme">
+<div id="gtHeroCoverBg"></div>
+<div class="dl-shell">
+  <aside class="dl-sidebar" id="dlSidebar">
+    <div class="dl-sidebar-brand">
+      <span class="dl-sidebar-mark">🧩</span>
+      <span class="dl-sidebar-text">
+        <span class="dl-sidebar-title">Design Library</span>
+        <span class="dl-sidebar-sub">Discover · Save · Reuse</span>
+      </span>
+    </div>
+    <a href="index.html" class="dl-back-link">← Back to dashboard</a>
+    <button type="button" class="dl-search-btn" id="dlSearchBtn">🔎 Search everything… <kbd>⌘K</kbd></button>
+
+    <div class="dl-nav-group">
+      <div class="dl-nav-group-label">Overview</div>
+      <button type="button" class="dl-nav-item" data-view="home"><span class="dl-nav-icon">🏠</span>Home</button>
+    </div>
+
+    <div class="dl-nav-group">
+      <div class="dl-nav-group-label">Library</div>
+      <button type="button" class="dl-nav-item" data-view="cat:component"><span class="dl-nav-icon">🧩</span>Components<span class="dl-nav-count" data-count="cat:component"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:theme"><span class="dl-nav-icon">🎨</span>Theme Gallery<span class="dl-nav-count" data-count="cat:theme"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:template"><span class="dl-nav-icon">📦</span>Template Marketplace<span class="dl-nav-count" data-count="cat:template"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:animation"><span class="dl-nav-icon">✨</span>Animations<span class="dl-nav-count" data-count="cat:animation"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:palette"><span class="dl-nav-icon">🌈</span>Color Palettes<span class="dl-nav-count" data-count="cat:palette"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:background"><span class="dl-nav-icon">🖼</span>Backgrounds<span class="dl-nav-count" data-count="cat:background"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:typography"><span class="dl-nav-icon">🔤</span>Typography<span class="dl-nav-count" data-count="cat:typography"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:iconpack"><span class="dl-nav-icon">🎭</span>Icon Packs<span class="dl-nav-count" data-count="cat:iconpack"></span></button>
+      <button type="button" class="dl-nav-item" data-view="cat:layout"><span class="dl-nav-icon">🧱</span>Layout Library<span class="dl-nav-count" data-count="cat:layout"></span></button>
+    </div>
+
+    <div class="dl-nav-group">
+      <div class="dl-nav-group-label">Quick Filters</div>
+      <button type="button" class="dl-nav-item" data-view="plat:mobile"><span class="dl-nav-icon">📱</span>Mobile UI</button>
+      <button type="button" class="dl-nav-item" data-view="plat:desktop"><span class="dl-nav-icon">💻</span>Desktop UI</button>
+      <button type="button" class="dl-nav-item" data-view="plat:dashboard"><span class="dl-nav-icon">📊</span>Dashboard Components</button>
+      <button type="button" class="dl-nav-item" data-view="plat:ai"><span class="dl-nav-icon">🤖</span>AI UI</button>
+    </div>
+
+    <div class="dl-nav-group">
+      <div class="dl-nav-group-label">Organize</div>
+      <button type="button" class="dl-nav-item" data-view="collections"><span class="dl-nav-icon">📚</span>Collections</button>
+      <button type="button" class="dl-nav-item" data-view="favorites"><span class="dl-nav-icon">⭐</span>Favorites</button>
+      <button type="button" class="dl-nav-item" data-view="recent"><span class="dl-nav-icon">🕒</span>Recently Added</button>
+      <button type="button" class="dl-nav-item" data-view="trending"><span class="dl-nav-icon">🔥</span>Trending</button>
+    </div>
+
+    <div class="dl-nav-group">
+      <div class="dl-nav-group-label">Resources</div>
+      <button type="button" class="dl-nav-item" data-view="prompts"><span class="dl-nav-icon">📝</span>Prompt Library</button>
+      <button type="button" class="dl-nav-item" data-view="code"><span class="dl-nav-icon">📄</span>Saved Code</button>
+      <button type="button" class="dl-nav-item" data-view="uploads"><span class="dl-nav-icon">📂</span>Personal Uploads</button>
+    </div>
+  </aside>
+
+  <main class="dl-main">
+    <div class="dl-topbar">
+      <button type="button" class="dl-sidebar-toggle" id="dlSidebarToggle">☰ Menu</button>
+      <span class="dl-topbar-title" id="dlTopbarTitle">Home</span>
+      <span class="dl-sync-status" id="dlSyncStatus"></span>
+    </div>
+    <div class="dl-view" id="dlView"></div>
+  </main>
+</div>
+
+<!-- Command palette -->
+<div class="gt-modal-bg" id="dlPaletteBg">
+  <div class="gt-modal">
+    <div class="dl-palette-input-row">
+      <input type="text" class="dl-palette-input" id="dlPaletteInput" placeholder="Search resources, collections, or a section…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="dl-palette-results" id="dlPaletteResults"></div>
+  </div>
+</div>
+
+<!-- Resource detail / editor -->
+<div class="dl-page-bg" id="dlDetailPageBg">
+  <div class="dl-detail-hero" id="dlDetailHero">
+    <img id="dlDetailCoverImg" style="display:none;" alt="">
+    <div class="dl-detail-hero-overlay"></div>
+    <button type="button" class="dl-detail-back" id="dlDetailBackBtn">← Back</button>
+    <div class="dl-detail-hero-actions">
+      <button type="button" id="dlDetailFavBtn">☆ Favorite</button>
+      <button type="button" id="dlDetailCoverBtn">🖼 Cover</button>
+      <input type="file" id="dlDetailCoverFileInput" accept="image/*" style="display:none;">
+      <button type="button" id="dlDetailDeleteBtn">🗑 Delete</button>
+    </div>
+    <div class="dl-detail-hero-content">
+      <textarea class="dl-detail-title-input" id="dlDetailTitleInput" rows="1" placeholder="Untitled"></textarea>
+      <div class="dl-detail-meta-row">
+        <span class="dl-detail-stars" id="dlDetailStars"></span>
+        <span id="dlDetailCatBadge" class="dl-tag-chip"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dl-detail-body">
+    <div class="dl-quickmeta-grid">
+      <div class="dl-quickmeta-field"><label>Category</label><select id="dlDetailCategoryInput"></select></div>
+      <div class="dl-quickmeta-field"><label>Creator</label><input type="text" id="dlDetailCreatorInput" placeholder="You / a site / a person"></div>
+      <div class="dl-quickmeta-field"><label>Framework</label><select id="dlDetailFrameworkInput"></select></div>
+      <div class="dl-quickmeta-field" id="dlDetailPlatformField"><label>Platform</label><select id="dlDetailPlatformInput"></select></div>
+      <div class="dl-quickmeta-field"><label>Complexity</label><select id="dlDetailComplexityInput"></select></div>
+      <div class="dl-quickmeta-field"><label>Status</label><select id="dlDetailStatusInput"></select></div>
+    </div>
+    <div class="dl-toggle-row" id="dlDetailToggleRow"></div>
+    <div class="dl-field">
+      <label class="dl-field-label">Tags</label>
+      <div class="dl-tag-input-row" id="dlDetailTagRow"></div>
+      <input type="text" id="dlDetailTagInput" placeholder="Type a tag and press Enter…">
+    </div>
+
+    <div class="dl-detail-tabs" id="dlDetailTabs">
+      <button type="button" class="dl-detail-tab active" data-tab="overview">Overview</button>
+      <button type="button" class="dl-detail-tab" data-tab="preview">Live Preview</button>
+      <button type="button" class="dl-detail-tab" data-tab="prompt">AI Prompt</button>
+      <button type="button" class="dl-detail-tab" data-tab="code">Code</button>
+      <button type="button" class="dl-detail-tab" data-tab="related">Notes &amp; Related</button>
+      <button type="button" class="dl-detail-tab" data-tab="ai">AI Assistant</button>
+    </div>
+
+    <div class="dl-detail-tabpanel active" data-panel="overview">
+      <div class="gt-card">
+        <div class="dl-field"><label class="dl-field-label">Description</label><textarea id="dlDetailDescInput" placeholder="What is this, at a glance?"></textarea></div>
+        <div class="dl-field"><label class="dl-field-label">Use Cases</label><textarea id="dlDetailUseCasesInput" placeholder="Where would you actually reach for this?"></textarea></div>
+        <div class="dl-two-col">
+          <div class="dl-field"><label class="dl-field-label">Accessibility Notes</label><textarea id="dlDetailA11yInput"></textarea></div>
+          <div class="dl-field"><label class="dl-field-label">Performance Notes</label><textarea id="dlDetailPerfInput"></textarea></div>
+        </div>
+        <div class="dl-two-col">
+          <div class="dl-field"><label class="dl-field-label">Dependencies</label><textarea id="dlDetailDepsInput"></textarea></div>
+          <div class="dl-field"><label class="dl-field-label">Installation</label><textarea id="dlDetailInstallInput"></textarea></div>
+        </div>
+        <div class="dl-field"><label class="dl-field-label">Browser Compatibility</label><input type="text" id="dlDetailBrowserInput"></div>
+      </div>
+      <div class="gt-card">
+        <div class="dl-card-head"><h3 class="gt-card-title">Cover Photo</h3></div>
+        <div class="dl-cover-preview" id="dlDetailCoverPreview">No cover set</div>
+        <div class="dl-field"><label class="dl-field-label">Upload</label><input type="file" id="dlDetailCoverModalFileInput" accept="image/*"></div>
+        <div class="dl-field"><label class="dl-field-label">— or paste a URL</label><input type="text" id="dlDetailCoverUrlInput" placeholder="https://…"></div>
+      </div>
+    </div>
+
+    <div class="dl-detail-tabpanel" data-panel="preview">
+      <div class="gt-card">
+        <div class="dl-preview-toolbar">
+          <div class="gt-chip-row" id="dlDeviceChips">
+            <button type="button" class="gt-chip active" data-device="desktop">💻 Desktop</button>
+            <button type="button" class="gt-chip" data-device="tablet">📱 Tablet</button>
+            <button type="button" class="gt-chip" data-device="mobile">📱 Mobile</button>
+          </div>
+        </div>
+        <div class="dl-preview-wrap"><iframe class="dl-preview-frame" id="dlPreviewFrame" title="Live preview" sandbox="allow-scripts"></iframe></div>
+        <details class="dl-preview-source">
+          <summary>Edit preview source (HTML / CSS / JS)</summary>
+          <div class="dl-field"><label class="dl-field-label">HTML</label><textarea id="dlDetailPreviewHtmlInput" placeholder="<div class=&quot;card&quot;>…</div>"></textarea></div>
+          <div class="dl-field"><label class="dl-field-label">CSS</label><textarea id="dlDetailPreviewCssInput" placeholder="body{ … }"></textarea></div>
+          <div class="dl-field"><label class="dl-field-label">JS (optional)</label><textarea id="dlDetailPreviewJsInput"></textarea></div>
+        </details>
+        <div class="dl-field-hint">Renders in a sandboxed iframe (scripts allowed, same-origin/top-navigation blocked) — this is a real live preview, not a screenshot.</div>
+      </div>
+    </div>
+
+    <div class="dl-detail-tabpanel" data-panel="prompt">
+      <div class="gt-card">
+        <div class="dl-card-head"><h3 class="gt-card-title">AI Prompt</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="gt-btn gt-btn-sm" id="dlPromptCopyBtn">📋 Copy Prompt</button>
+            <button type="button" class="gt-btn gt-btn-sm" id="dlPromptCopyMdBtn">Copy as Markdown</button>
+            <button type="button" class="gt-btn gt-btn-sm" id="dlPromptDuplicateBtn">Duplicate</button>
+          </div>
+        </div>
+        <div class="dl-field"><textarea id="dlDetailPromptBodyInput" style="min-height:140px;font-family:ui-monospace,monospace;font-size:12.5px;" placeholder="Create a modern glassmorphism dashboard card using…"></textarea></div>
+        <div class="dl-field"><label class="dl-field-label">Rating</label><span class="dl-detail-stars" id="dlPromptStars"></span></div>
+        <div class="dl-field"><label class="dl-field-label">Prompt Notes</label><textarea id="dlDetailPromptNotesInput"></textarea></div>
+        <div class="dl-field">
+          <label class="dl-field-label">Prompt Tags</label>
+          <div class="dl-tag-input-row" id="dlPromptTagRow"></div>
+          <input type="text" id="dlPromptTagInput" placeholder="Type a tag and press Enter…">
+        </div>
+        <h4 style="font-size:13px;margin-bottom:8px;">Version History</h4>
+        <div id="dlVersionList"></div>
+      </div>
+    </div>
+
+    <div class="dl-detail-tabpanel" data-panel="code">
+      <div class="gt-card">
+        <div class="dl-card-head"><h3 class="gt-card-title">Saved Code</h3><button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="dlAddSnippetBtn">+ Add Snippet</button></div>
+        <div id="dlSnippetList"></div>
+      </div>
+    </div>
+
+    <div class="dl-detail-tabpanel" data-panel="related">
+      <div class="gt-card">
+        <div class="dl-field"><label class="dl-field-label">Personal Notes</label><textarea id="dlDetailNotesInput" style="min-height:100px;" placeholder="Anything you want to remember about this…"></textarea></div>
+      </div>
+      <div class="gt-card">
+        <h3 class="gt-card-title" style="margin-bottom:12px;">In Collections</h3>
+        <div class="dl-collection-check-row" id="dlCollectionCheckRow"></div>
+      </div>
+      <div class="gt-card">
+        <h3 class="gt-card-title" style="margin-bottom:12px;">Related</h3>
+        <div class="dl-related-grid" id="dlRelatedGrid"></div>
+        <div class="dl-field-hint">Explicit links you've drawn, or — if none — same-category resources sharing a tag.</div>
+      </div>
+    </div>
+
+    <div class="dl-detail-tabpanel" data-panel="ai">
+      <div class="gt-card">
+        <h3 class="gt-card-title" style="margin-bottom:10px;">AI Assistant</h3>
+        <div class="dl-field-hint" style="margin-bottom:14px;" id="dlAiKeyHint"></div>
+        <div class="dl-ai-btn-grid" id="dlAiActionGrid"></div>
+        <div id="dlAiLogList"></div>
+      </div>
+    </div>
+
+    <span class="delete-link" id="dlDetailDeleteLink" style="display:none;">Delete this resource</span>
+  </div>
+</div>
+
+<!-- Collection add/edit modal -->
+<div class="gt-modal-bg" id="dlCollectionModalBg">
+  <div class="gt-modal">
+    <h3 id="dlCollectionModalTitle">New Collection</h3>
+    <div class="gt-field"><span class="gt-field-label">Icon (emoji)</span><input class="gt-input" type="text" id="dlColIconInput" maxlength="4" placeholder="📁"></div>
+    <div class="gt-field"><span class="gt-field-label">Title</span><input class="gt-input" type="text" id="dlColTitleInput" placeholder="e.g. Dark UI"></div>
+    <div class="gt-field"><span class="gt-field-label">Description</span><textarea class="gt-textarea" id="dlColDescInput"></textarea></div>
+    <div class="gt-field"><span class="gt-field-label">Color</span><div class="dl-swatch-row" id="dlColSwatchRow"></div></div>
+    <div class="gt-modal-actions">
+      <button type="button" class="gt-btn" id="dlColCancelBtn">Cancel</button>
+      <button type="button" class="gt-btn gt-btn-primary" id="dlColSaveBtn">Save</button>
+    </div>
+    <span class="delete-link" id="dlColDeleteLink" style="display:none;">Delete this collection</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  let DB = null;
+  let currentView = 'home';
+  let editingResourceId = null;
+  let editingCollectionId = null;
+  let editingResourceTags = [];
+  let editingPromptTags = [];
+  let expandedRows = {};
+  let activeDetailTab = 'overview';
+  let activeDevice = 'desktop';
+  let categorySubFilter = { framework: 'all', status: 'all', search: '' };
+  let sortableInstances = [];
+  const SWATCHES = ['#ff3b4a', '#7dd3fc', '#6ee7b7', '#fbbf24', '#a78bfa', '#f472b6', '#22d3ee', '#c9a876'];
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function autosize(ta) { if (!ta) return; ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  function fmtDate(ts) { return ts ? new Date(ts).toLocaleDateString() : ''; }
+
+  // Reads Customization's own shared settings key directly (same "read
+  // another page's own storage key" precedent this app's tasks-data.js
+  // importers already use) so this page's accent color repaints whenever
+  // Customization's Theme/Color Studio changes it — the real half of
+  // "controls every visual aspect" this page can honestly deliver; see
+  // design-library-data.js's own header comment for the disclosed split.
+  function applySharedTheme() {
+    try {
+      const s = JSON.parse(localStorage.getItem('customization:settings'));
+      if (!s || !s.colors) return;
+      const root = document.documentElement.style;
+      if (s.colors.accent) { root.setProperty('--gt-accent', s.colors.accent); root.setProperty('--gt-accent-rgb', DB.uid ? hexToRgbLocal(s.colors.accent) : ''); root.setProperty('--gt-bgfx-rgb', hexToRgbLocal(s.colors.accent)); }
+      if (s.colors.secondary) root.setProperty('--gt-accent-bright', s.colors.secondary);
+      if (s.cardRadius) root.setProperty('--gt-radius', s.cardRadius + 'px');
+    } catch (e) {}
+  }
+  function hexToRgbLocal(hex) {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return '255,59,74';
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',');
+  }
+
+  // ============================================================
+  // SYNC STATUS
+  // ============================================================
+  let syncTimer = null;
+  function setSyncStatus(mode, text) {
+    const el = $('dlSyncStatus'); if (!el) return;
+    el.className = 'dl-sync-status' + (mode ? ' is-' + mode : '');
+    el.innerHTML = '';
+    const dot = document.createElement('span'); dot.className = 'dl-sync-dot';
+    const label = document.createElement('span'); label.textContent = text;
+    el.appendChild(dot); el.appendChild(label);
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline — will sync later'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', "Storage may be full"); return; }
+    setSyncStatus('saved', 'Saved');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1600);
+  }
+
+  function migratePhotosToStorage() {
+    if (!window.PhotoStore || localStorage.getItem('dl:photosMigratedV1')) return;
+    const jobs = [];
+    const hero = DB.getHero();
+    if (typeof hero.photo === 'string' && hero.photo.indexOf('data:') === 0) {
+      jobs.push(window.PhotoStore.upload(hero.photo).then(function (url) { if (url && DB.getHero().photo === hero.photo) DB.saveHero({ photo: url }); return !!url; }));
+    }
+    DB.Resources.list().forEach(function (r) {
+      if (typeof r.cover === 'string' && r.cover.indexOf('data:') === 0) {
+        const orig = r.cover;
+        jobs.push(window.PhotoStore.upload(orig).then(function (url) {
+          if (!url) return false;
+          const fresh = DB.Resources.get(r.id);
+          if (fresh && fresh.cover === orig) DB.Resources.update(r.id, { cover: url });
+          return true;
+        }));
+      }
+    });
+    if (!jobs.length) { localStorage.setItem('dl:photosMigratedV1', 'true'); return; }
+    Promise.all(jobs).then(function (results) { if (results.every(Boolean)) localStorage.setItem('dl:photosMigratedV1', 'true'); renderView(); });
+  }
+
+  // ============================================================
+  // NAV / ROUTING
+  // ============================================================
+  const NAV_TITLES = {
+    home: 'Home', collections: 'Collections', favorites: 'Favorites', recent: 'Recently Added', trending: 'Trending',
+    prompts: 'Prompt Library', code: 'Saved Code', uploads: 'Personal Uploads'
+  };
+  function titleForView(view) {
+    if (NAV_TITLES[view]) return NAV_TITLES[view];
+    if (view.indexOf('cat:') === 0) return DB.CATEGORY_META[view.slice(4)].plural;
+    if (view.indexOf('plat:') === 0) return DB.PLATFORM_TAGS[view.slice(5)];
+    return 'Design Library';
+  }
+  function switchView(view) {
+    currentView = view;
+    document.querySelectorAll('.dl-nav-item').forEach(function (el) { el.classList.toggle('active', el.dataset.view === view); });
+    $('dlTopbarTitle').textContent = titleForView(view);
+    categorySubFilter = { framework: 'all', status: 'all', search: '' };
+    try { history.replaceState(null, '', '#' + view.replace(':', '-')); } catch (e) {}
+    document.querySelectorAll('#dlSidebar .tb-hide').forEach(function () {});
+    closeSidebarMobile();
+    renderView();
+  }
+  function closeSidebarMobile() { $('dlSidebar').classList.remove('show'); }
+
+  function renderNavCounts() {
+    const stats = DB.stats();
+    DB.CATEGORY_KEYS.forEach(function (c) {
+      const el = document.querySelector('[data-count="cat:' + c + '"]');
+      if (el) el.textContent = stats.byCategory[c] || '';
+    });
+  }
+
+  // ============================================================
+  // VIEW DISPATCH
+  // ============================================================
+  function renderView() {
+    const el = $('dlView');
+    if (currentView === 'home') return renderHome(el);
+    if (currentView === 'collections') return renderCollectionsView(el);
+    if (currentView === 'favorites') return renderResourceGridView(el, 'Favorites', 'Resources you\'ve starred for quick reach.', DB.favoriteResources());
+    if (currentView === 'recent') return renderResourceGridView(el, 'Recently Added', 'Newest first.', DB.recentlyAdded(60));
+    if (currentView === 'trending') return renderTrendingView(el);
+    if (currentView === 'prompts') return renderPromptsView(el);
+    if (currentView === 'code') return renderCodeView(el);
+    if (currentView === 'uploads') return renderResourceGridView(el, 'Personal Uploads', 'Everything you\'ve personally added (not the starter library).', DB.personalUploadResources());
+    if (currentView.indexOf('cat:') === 0) return renderCategoryView(el, currentView.slice(4));
+    if (currentView.indexOf('plat:') === 0) return renderResourceGridView(el, titleForView(currentView), '', DB.resourcesByPlatform(currentView.slice(5)));
+    renderHome(el);
+  }
+
+  function buildAddButton(label, onClick) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'gt-btn gt-btn-primary'; b.textContent = label; b.addEventListener('click', onClick); return b;
+  }
+
+  function resourceCardOpts(draggable) {
+    return {
+      fallbackIcon: '🧩', draggable: !!draggable,
+      onEdit: function (item) { openDetailPage(item.id); },
+      onFavoriteToggle: function (item) { DB.Resources.update(item.id, { favorite: !item.favorite }); renderView(); },
+      onRatingChange: function (item, r) { DB.Resources.update(item.id, { rating: r }); renderView(); }
+    };
+  }
+  function itemFromResource(r) {
+    const meta = DB.CATEGORY_META[r.category];
+    return { id: r.id, title: r.title, creator: r.creator, subtopic: meta.label + (r.framework && r.framework !== 'HTML/CSS/JS' ? ' · ' + r.framework : ''), cover: r.cover, description: r.description, lengthText: r.complexity, rating: r.rating, favorite: r.favorite, url: '' };
+  }
+  function buildGrid(list, containerClass, draggable, onReorder) {
+    const grid = document.createElement('div'); grid.className = containerClass || 'gc-grid';
+    if (!list.length) {
+      const e = document.createElement('div'); e.className = 'gc-empty'; e.innerHTML = '<div class="dl-empty-icon">🧩</div>Nothing here yet.';
+      grid.appendChild(e); return grid;
+    }
+    list.forEach(function (r) { grid.appendChild(GalleryCard.build(itemFromResource(r), resourceCardOpts(draggable))); });
+    if (draggable && typeof onReorder === 'function') GalleryCard.wireSortableGrid(grid, onReorder);
+    return grid;
+  }
+
+  // ---------- HOME ----------
+  function renderHome(el) {
+    const s = DB.stats();
+    const html = document.createElement('div');
+    html.innerHTML =
+      '<div class="dl-page-head"><div class="dl-page-title-wrap"><div class="dl-page-title">🏠 Design Library</div><div class="dl-page-sub">Your discovered, saved, and personally-uploaded design world, in one searchable place.</div></div></div>' +
+      '<div class="dl-stat-grid">' +
+        statTile(s.total, 'Resources') + statTile(s.favorites, 'Favorites') + statTile(s.withPrompts, 'With Prompts') + statTile(s.withCode, 'With Code') + statTile(s.collections, 'Collections') +
+      '</div>';
+    el.innerHTML = ''; el.appendChild(html);
+
+    // Quick filters
+    const qf = section('⚡ Quick Filters', null);
+    const qfRow = document.createElement('div'); qfRow.className = 'dl-quickfilter-row';
+    [['plat:mobile', '📱', 'Mobile UI'], ['plat:desktop', '💻', 'Desktop UI'], ['plat:dashboard', '📊', 'Dashboard'], ['plat:ai', '🤖', 'AI UI']].forEach(function (q) {
+      const t = document.createElement('div'); t.className = 'gt-card dl-quickfilter-tile';
+      t.innerHTML = '<div class="dl-quickfilter-icon">' + q[1] + '</div><div class="dl-quickfilter-label">' + q[2] + '</div><div class="dl-quickfilter-count">' + DB.resourcesByPlatform(q[0].slice(5)).length + ' saved</div>';
+      t.addEventListener('click', function () { switchView(q[0]); });
+      qfRow.appendChild(t);
+    });
+    qf.appendChild(qfRow); el.appendChild(qf);
+
+    homeCarousel(el, '🧩 Featured Components', 'cat:component', DB.resourcesByCategory('component').filter(function (r) { return r.rating >= 4; }).slice(0, 6));
+    homeCarousel(el, '🎨 Featured Themes', 'cat:theme', DB.resourcesByCategory('theme').slice(0, 6));
+    homeCarousel(el, '📦 Featured Templates', 'cat:template', DB.resourcesByCategory('template').slice(0, 6));
+    homeCarousel(el, '🕒 Recently Viewed', 'recent', DB.recentlyViewed().slice(0, 6));
+    homeCarousel(el, '✨ Recently Added', 'recent', DB.recentlyAdded(6));
+    homeCarousel(el, '⭐ Favorites', 'favorites', DB.favoriteResources().slice(0, 6));
+    homeCarousel(el, '🔥 Trending', 'trending', DB.trendingResources().slice(0, 6));
+
+    const randomSec = section('🎲 Random Inspiration', function () {
+      const all = DB.Resources.list();
+      if (!all.length) return;
+      openDetailPage(all[Math.floor(Math.random() * all.length)].id);
+    }, 'Surprise me');
+    el.appendChild(randomSec);
+
+    const colSec = section('📚 Collections', function () { switchView('collections'); }, 'See all');
+    const colGrid = document.createElement('div'); colGrid.className = 'dl-col-grid';
+    DB.collectionsSorted().slice(0, 4).forEach(function (c) { colGrid.appendChild(buildCollectionCard(c)); });
+    if (!DB.collectionsSorted().length) colGrid.innerHTML = '<div class="dl-empty">No collections yet — group resources from any view via "Add to Collection."</div>';
+    colSec.appendChild(colGrid); el.appendChild(colSec);
+  }
+  function statTile(num, label) {
+    return '<div class="gt-card dl-stat-tile"><div class="dl-stat-num">' + num + '</div><div class="dl-stat-label">' + label + '</div></div>';
+  }
+  function section(title, onSeeAll, seeAllLabel) {
+    const s = document.createElement('div'); s.className = 'dl-home-section';
+    const head = document.createElement('div'); head.className = 'dl-home-section-head';
+    const h = document.createElement('div'); h.className = 'dl-home-section-title'; h.textContent = title;
+    head.appendChild(h);
+    if (onSeeAll) { const b = document.createElement('button'); b.type = 'button'; b.className = 'dl-see-all'; b.textContent = (seeAllLabel || 'See all') + ' →'; b.addEventListener('click', onSeeAll); head.appendChild(b); }
+    s.appendChild(head);
+    return s;
+  }
+  function homeCarousel(el, title, seeAllView, list) {
+    const s = section(title, function () { switchView(seeAllView); });
+    s.appendChild(buildGrid(list, 'gc-grid', false));
+    el.appendChild(s);
+  }
+
+  // ---------- CATEGORY VIEW ----------
+  function renderCategoryView(el, cat) {
+    const meta = DB.CATEGORY_META[cat];
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">' + meta.icon + ' ' + meta.plural + '</div><div class="dl-page-sub">' + meta.hint + '</div></div>';
+    const addWrap = document.createElement('div'); addWrap.appendChild(buildAddButton('+ Add ' + meta.label, function () { createAndOpenResource(cat); }));
+    head.appendChild(addWrap);
+    el.appendChild(head);
+
+    const filterRow = document.createElement('div'); filterRow.className = 'dl-filter-row';
+    const frameworkChips = document.createElement('div'); frameworkChips.className = 'gt-chip-row';
+    const allChip = document.createElement('button'); allChip.type = 'button'; allChip.className = 'gt-chip' + (categorySubFilter.status === 'all' ? ' active' : ''); allChip.textContent = 'All';
+    allChip.addEventListener('click', function () { categorySubFilter.status = 'all'; renderView(); });
+    frameworkChips.appendChild(allChip);
+    DB.STATUSES.forEach(function (st) {
+      const c = document.createElement('button'); c.type = 'button'; c.className = 'gt-chip' + (categorySubFilter.status === st ? ' active' : ''); c.textContent = st;
+      c.addEventListener('click', function () { categorySubFilter.status = st; renderView(); });
+      frameworkChips.appendChild(c);
+    });
+    filterRow.appendChild(frameworkChips);
+    const search = document.createElement('input'); search.type = 'text'; search.className = 'dl-search-input'; search.placeholder = 'Search ' + meta.plural.toLowerCase() + '…'; search.value = categorySubFilter.search;
+    search.addEventListener('input', function () { categorySubFilter.search = this.value.trim().toLowerCase(); renderView(); });
+    filterRow.appendChild(search);
+    el.appendChild(filterRow);
+
+    let list = DB.resourcesByCategory(cat);
+    if (categorySubFilter.status !== 'all') list = list.filter(function (r) { return r.status === categorySubFilter.status; });
+    if (categorySubFilter.search) list = list.filter(function (r) { return (r.title || '').toLowerCase().indexOf(categorySubFilter.search) !== -1 || (r.tags || []).some(function (t) { return t.toLowerCase().indexOf(categorySubFilter.search) !== -1; }); });
+    el.appendChild(buildGrid(list, 'gc-grid', true, function (ids) { DB.reorderResourcesVisible(ids); renderView(); }));
+  }
+  function renderResourceGridView(el, title, sub, list) {
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">' + escapeHtml(title) + '</div><div class="dl-page-sub">' + escapeHtml(sub || '') + '</div></div>';
+    el.appendChild(head);
+    el.appendChild(buildGrid(list, 'gc-grid', false));
+  }
+  function renderTrendingView(el) {
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">🔥 Trending</div><div class="dl-page-sub">A manual "trending" flag (toggle it from a resource\'s Overview tab), sorted by view count as a secondary signal — this app has no real cross-user analytics to derive trending from.</div></div>';
+    el.appendChild(head);
+    el.appendChild(buildGrid(DB.trendingResources(), 'gc-grid', false));
+  }
+
+  // ---------- COLLECTIONS ----------
+  function buildCollectionCard(c) {
+    const card = document.createElement('div'); card.className = 'gt-card dl-col-card'; card.style.setProperty('--dl-col-color', c.color);
+    card.innerHTML = '<div class="dl-col-icon">' + escapeHtml(c.icon) + '</div><div class="dl-col-title">' + escapeHtml(c.title || 'Untitled') + '</div><div class="dl-col-desc">' + escapeHtml(c.description || '') + '</div><div class="dl-col-count">' + c.itemIds.length + ' item' + (c.itemIds.length === 1 ? '' : 's') + '</div>';
+    const actions = document.createElement('div'); actions.className = 'dl-col-actions';
+    const editBtn = document.createElement('button'); editBtn.type = 'button'; editBtn.textContent = '✎'; editBtn.addEventListener('click', function (e) { e.stopPropagation(); openCollectionModal(c.id); });
+    actions.appendChild(editBtn); card.appendChild(actions);
+    card.addEventListener('click', function () { openCollectionDetail(c.id); });
+    return card;
+  }
+  function renderCollectionsView(el) {
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">📚 Collections</div><div class="dl-page-sub">Group any mix of resources — a moodboard, a project\'s toolkit, whatever grouping is useful.</div></div>';
+    const addWrap = document.createElement('div'); addWrap.appendChild(buildAddButton('+ New Collection', function () { openCollectionModal(null); }));
+    head.appendChild(addWrap); el.appendChild(head);
+    const grid = document.createElement('div'); grid.className = 'dl-col-grid';
+    const cols = DB.collectionsSorted();
+    if (!cols.length) { grid.innerHTML = '<div class="dl-empty"><div class="dl-empty-icon">📚</div>No collections yet.</div>'; }
+    else cols.forEach(function (c) { grid.appendChild(buildCollectionCard(c)); });
+    el.appendChild(grid);
+  }
+  function openCollectionDetail(id) {
+    const c = DB.Collections.get(id); if (!c) return;
+    const el = $('dlView'); el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">' + escapeHtml(c.icon) + ' ' + escapeHtml(c.title) + '</div><div class="dl-page-sub">' + escapeHtml(c.description || '') + '</div></div>';
+    const back = document.createElement('button'); back.type = 'button'; back.className = 'gt-btn'; back.textContent = '← All Collections'; back.addEventListener('click', function () { switchView('collections'); });
+    head.appendChild(back); el.appendChild(head);
+    el.appendChild(buildGrid(DB.itemsInCollection(id), 'gc-grid', false));
+  }
+  function openCollectionModal(id) {
+    editingCollectionId = id;
+    const c = id ? DB.Collections.get(id) : null;
+    $('dlCollectionModalTitle').textContent = id ? 'Edit Collection' : 'New Collection';
+    $('dlColIconInput').value = c ? c.icon : '📁';
+    $('dlColTitleInput').value = c ? c.title : '';
+    $('dlColDescInput').value = c ? c.description : '';
+    const swatchRow = $('dlColSwatchRow'); swatchRow.innerHTML = '';
+    const currentColor = c ? c.color : SWATCHES[0];
+    SWATCHES.forEach(function (hex) {
+      const sw = document.createElement('button'); sw.type = 'button'; sw.className = 'dl-swatch' + (hex === currentColor ? ' active' : ''); sw.style.background = hex; sw.dataset.hex = hex;
+      sw.addEventListener('click', function () { swatchRow.querySelectorAll('.dl-swatch').forEach(function (s) { s.classList.remove('active'); }); sw.classList.add('active'); });
+      swatchRow.appendChild(sw);
+    });
+    $('dlColDeleteLink').style.display = id ? 'block' : 'none';
+    $('dlCollectionModalBg').classList.add('show');
+  }
+  function closeCollectionModal() { $('dlCollectionModalBg').classList.remove('show'); editingCollectionId = null; }
+  function saveCollectionModal() {
+    const title = $('dlColTitleInput').value.trim();
+    if (!title) { alert('Give this collection a title first.'); return; }
+    const activeSwatch = $('dlColSwatchRow').querySelector('.dl-swatch.active');
+    const patch = { title: title, icon: $('dlColIconInput').value.trim() || '📁', description: $('dlColDescInput').value.trim(), color: activeSwatch ? activeSwatch.dataset.hex : SWATCHES[0] };
+    if (editingCollectionId) DB.Collections.update(editingCollectionId, patch);
+    else DB.Collections.add(Object.assign({}, patch, { order: DB.nextOrder(DB.collectionsSorted()) }));
+    closeCollectionModal(); renderView();
+  }
+  function deleteCollectionModal() {
+    if (!editingCollectionId) return;
+    if (!confirm('Delete this collection? Its resources are untouched, just no longer grouped here.')) return;
+    DB.Collections.remove(editingCollectionId); closeCollectionModal(); renderView();
+  }
+
+  // ---------- PROMPT LIBRARY ----------
+  function renderPromptsView(el) {
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">📝 Prompt Library</div><div class="dl-page-sub">Every resource\'s original AI prompt, copy-ready.</div></div>';
+    el.appendChild(head);
+    const filterRow = document.createElement('div'); filterRow.className = 'dl-filter-row';
+    const search = document.createElement('input'); search.type = 'text'; search.className = 'dl-search-input'; search.placeholder = 'Search prompts…'; search.value = categorySubFilter.search;
+    search.addEventListener('input', function () { categorySubFilter.search = this.value.trim().toLowerCase(); renderView(); });
+    filterRow.appendChild(search);
+    const favChip = document.createElement('button'); favChip.type = 'button'; favChip.className = 'gt-chip' + (categorySubFilter.status === 'fav' ? ' active' : ''); favChip.textContent = '★ Favorites only';
+    favChip.addEventListener('click', function () { categorySubFilter.status = categorySubFilter.status === 'fav' ? 'all' : 'fav'; renderView(); });
+    filterRow.appendChild(favChip);
+    el.appendChild(filterRow);
+
+    let list = DB.promptResources();
+    if (categorySubFilter.status === 'fav') list = list.filter(function (r) { return r.favorite; });
+    if (categorySubFilter.search) list = list.filter(function (r) { return (r.title || '').toLowerCase().indexOf(categorySubFilter.search) !== -1 || (r.prompt.body || '').toLowerCase().indexOf(categorySubFilter.search) !== -1; });
+
+    const wrap = document.createElement('div'); wrap.className = 'dl-prompt-list';
+    if (!list.length) wrap.innerHTML = '<div class="dl-empty"><div class="dl-empty-icon">📝</div>No prompts saved yet — add one from any resource\'s AI Prompt tab.</div>';
+    list.forEach(function (r) {
+      const row = document.createElement('div'); row.className = 'gt-card dl-prompt-row';
+      const head2 = document.createElement('div'); head2.className = 'dl-prompt-row-head';
+      head2.innerHTML = '<div class="dl-prompt-title">' + escapeHtml(r.title) + '</div><span class="dl-prompt-cat-tag">' + DB.CATEGORY_META[r.category].label + '</span>';
+      row.appendChild(head2);
+      const expanded = !!expandedRows[r.id];
+      const block = document.createElement('div'); block.className = 'dl-code-block' + (expanded ? ' is-expanded' : ''); block.textContent = r.prompt.body;
+      row.appendChild(block);
+      if ((r.prompt.body || '').length > 200) {
+        const exp = document.createElement('button'); exp.type = 'button'; exp.className = 'dl-expand-btn'; exp.textContent = expanded ? 'Show less ▲' : 'Show more ▼';
+        exp.addEventListener('click', function () { expandedRows[r.id] = !expanded; renderView(); });
+        row.appendChild(exp);
+      }
+      const footer = document.createElement('div'); footer.className = 'dl-row-footer';
+      const left = document.createElement('div');
+      (r.prompt.tags || []).forEach(function (t) { const c = document.createElement('span'); c.className = 'dl-tag-chip'; c.textContent = t; left.appendChild(c); });
+      footer.appendChild(left);
+      const right = document.createElement('div'); right.style.display = 'flex'; right.style.gap = '8px';
+      const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'gt-btn gt-btn-sm'; openBtn.textContent = 'Open →';
+      openBtn.addEventListener('click', function () { openDetailPage(r.id, 'prompt'); });
+      const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'dl-copy-btn'; copyBtn.textContent = '📋 Copy';
+      copyBtn.addEventListener('click', function () { copyText(r.prompt.body, copyBtn); });
+      right.appendChild(openBtn); right.appendChild(copyBtn);
+      footer.appendChild(right);
+      row.appendChild(footer);
+      wrap.appendChild(row);
+    });
+    el.appendChild(wrap);
+  }
+
+  // ---------- SAVED CODE ----------
+  function renderCodeView(el) {
+    el.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'dl-page-head';
+    head.innerHTML = '<div class="dl-page-title-wrap"><div class="dl-page-title">📄 Saved Code</div><div class="dl-page-sub">Every code snippet saved on any resource, in one flat, filterable list.</div></div>';
+    el.appendChild(head);
+    let langs = ['all'].concat(Array.from(new Set(DB.allCodeSnippets().map(function (c) { return c.language; }))));
+    const filterRow = document.createElement('div'); filterRow.className = 'dl-filter-row';
+    const chips = document.createElement('div'); chips.className = 'gt-chip-row';
+    langs.forEach(function (l) {
+      const c = document.createElement('button'); c.type = 'button'; c.className = 'gt-chip' + ((categorySubFilter.framework === l || (l === 'all' && categorySubFilter.framework === 'all')) ? ' active' : ''); c.textContent = l === 'all' ? 'All' : l;
+      c.addEventListener('click', function () { categorySubFilter.framework = l; renderView(); });
+      chips.appendChild(c);
+    });
+    filterRow.appendChild(chips); el.appendChild(filterRow);
+
+    let list = DB.allCodeSnippets();
+    if (categorySubFilter.framework !== 'all') list = list.filter(function (c) { return c.language === categorySubFilter.framework; });
+    const wrap = document.createElement('div'); wrap.className = 'dl-code-list';
+    if (!list.length) wrap.innerHTML = '<div class="dl-empty"><div class="dl-empty-icon">📄</div>No code snippets saved yet.</div>';
+    list.forEach(function (cs) {
+      const row = document.createElement('div'); row.className = 'gt-card dl-code-row';
+      const head2 = document.createElement('div'); head2.className = 'dl-code-row-head';
+      head2.innerHTML = '<div><div class="dl-prompt-title" style="font-size:15px;">' + escapeHtml(cs.resourceTitle) + '</div><span class="dl-code-lang-tag">' + escapeHtml(cs.language) + '</span></div>';
+      row.appendChild(head2);
+      const expanded = !!expandedRows[cs.id];
+      const block = document.createElement('div'); block.className = 'dl-code-block' + (expanded ? ' is-expanded' : ''); block.textContent = cs.code;
+      row.appendChild(block);
+      if ((cs.code || '').length > 250) {
+        const exp = document.createElement('button'); exp.type = 'button'; exp.className = 'dl-expand-btn'; exp.textContent = expanded ? 'Show less ▲' : 'Show more ▼';
+        exp.addEventListener('click', function () { expandedRows[cs.id] = !expanded; renderView(); });
+        row.appendChild(exp);
+      }
+      if (cs.notes) { const n = document.createElement('div'); n.className = 'dl-field-hint'; n.style.marginBottom = '8px'; n.textContent = cs.notes; row.appendChild(n); }
+      const footer = document.createElement('div'); footer.className = 'dl-row-footer';
+      const openBtn = document.createElement('button'); openBtn.type = 'button'; openBtn.className = 'gt-btn gt-btn-sm'; openBtn.textContent = 'Open resource →';
+      openBtn.addEventListener('click', function () { openDetailPage(cs.resourceId, 'code'); });
+      const right = document.createElement('div'); right.style.display = 'flex'; right.style.gap = '8px';
+      const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'dl-copy-btn'; copyBtn.textContent = '📋 Copy';
+      copyBtn.addEventListener('click', function () { copyText(cs.code, copyBtn); });
+      const dlBtn = document.createElement('button'); dlBtn.type = 'button'; dlBtn.className = 'gt-btn gt-btn-sm'; dlBtn.textContent = '⬇ Download';
+      dlBtn.addEventListener('click', function () { downloadText(cs.code, cs.resourceTitle.replace(/\W+/g, '-') + '.txt'); });
+      right.appendChild(copyBtn); right.appendChild(dlBtn);
+      footer.appendChild(openBtn); footer.appendChild(right);
+      row.appendChild(footer);
+      wrap.appendChild(row);
+    });
+    el.appendChild(wrap);
+  }
+
+  function copyText(text, btn) {
+    const finish = function () { if (!btn) return; const orig = btn.textContent; btn.textContent = '✓ Copied'; btn.classList.add('is-copied'); setTimeout(function () { btn.textContent = orig; btn.classList.remove('is-copied'); }, 1400); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text || '').then(finish).catch(finish);
+    else finish();
+  }
+  function downloadText(text, filename) {
+    const blob = new Blob([text || ''], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+  }
+
+  // ============================================================
+  // DETAIL PAGE
+  // ============================================================
+  function createAndOpenResource(category) {
+    const r = DB.Resources.add({ category: category, title: '', order: DB.nextOrder(DB.resourcesByCategory(category)) });
+    openDetailPage(r.id, 'overview');
+  }
+  function openDetailPage(id, tab) {
+    editingResourceId = id;
+    DB.recordView(id);
+    activeDetailTab = tab || 'overview';
+    renderDetailPage();
+    $('dlDetailPageBg').classList.add('show');
+  }
+  function closeDetailPage() {
+    $('dlDetailPageBg').classList.remove('show');
+    editingResourceId = null;
+    renderView(); renderNavCounts();
+  }
+  function currentResource() { return editingResourceId ? DB.Resources.get(editingResourceId) : null; }
+
+  function renderDetailStars(containerId, rating, onSet) {
+    const wrap = $(containerId); wrap.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = '★'; b.className = i <= rating ? 'on' : '';
+      b.addEventListener('click', function () { onSet(i === rating ? 0 : i); });
+      wrap.appendChild(b);
+    }
+  }
+  function renderDetailTagRow(containerId, tags, onRemove) {
+    const wrap = $(containerId); wrap.innerHTML = '';
+    tags.forEach(function (t) {
+      const c = document.createElement('span'); c.className = 'dl-tag-chip';
+      const span = document.createElement('span'); span.textContent = t; c.appendChild(span);
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×'; del.addEventListener('click', function () { onRemove(t); });
+      c.appendChild(del); wrap.appendChild(c);
+    });
+  }
+  function wireTagInput(inputId, getTags, setTags, renderFn) {
+    $(inputId).addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const val = this.value.trim();
+      if (val && getTags().indexOf(val) === -1) { setTags(getTags().concat([val])); renderFn(); }
+      this.value = '';
+    });
+  }
+
+  function renderDetailCoverPreview(url) {
+    const el = $('dlDetailCoverPreview'); el.innerHTML = '';
+    if (url) { const img = document.createElement('img'); img.src = url; el.appendChild(img); } else el.textContent = 'No cover set';
+  }
+  function renderDetailHeroCover(r) {
+    const img = $('dlDetailCoverImg');
+    if (r.cover) { img.src = r.cover; img.style.display = 'block'; } else { img.style.display = 'none'; img.src = ''; }
+  }
+
+  function renderAiKeyHint() {
+    let key = '';
+    try { key = (JSON.parse(localStorage.getItem('customization:settings')) || {}).aiKey || ''; } catch (e) {}
+    $('dlAiKeyHint').textContent = key
+      ? 'An Anthropic key is configured in Customization → AI Settings — actions below call the real API.'
+      : 'No AI key configured — actions below run a genuine, rule-based local transform instead (labeled AUTO, not AI). Add a key in Customization → AI Settings for real model output.';
+  }
+  function buildAiActionGrid() {
+    const grid = $('dlAiActionGrid'); grid.innerHTML = '';
+    Object.keys(DB.AI_ACTIONS).forEach(function (key) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'gt-btn'; b.textContent = DB.AI_ACTIONS[key].label;
+      b.addEventListener('click', function () { runAi(key, b); });
+      grid.appendChild(b);
+    });
+  }
+  function runAi(actionKey, btn) {
+    const r = currentResource(); if (!r) return;
+    const orig = btn.textContent; btn.textContent = '…running'; btn.disabled = true;
+    DB.runAiAction(actionKey, r).then(function (result) {
+      btn.textContent = orig; btn.disabled = false;
+      renderAiLog();
+      // If this action rewrote the resource's own prompt, or spawned a
+      // brand-new one, both are already auto-saved by runAiAction() — this
+      // just refreshes the tabs so the save is visible immediately instead
+      // of only after a manual reopen.
+      if (result && result.promptUpdated) renderPromptTab();
+      if (result && result.newResourceId) {
+        renderNavCounts();
+        if (confirm('Saved as a new entry in the Prompt Library — open it now?')) openDetailPage(result.newResourceId, 'prompt');
+      }
+    });
+  }
+  function renderAiLog() {
+    const r = currentResource(); if (!r) return;
+    const wrap = $('dlAiLogList'); wrap.innerHTML = '';
+    (r.aiLog || []).slice().reverse().forEach(function (entry) {
+      const row = document.createElement('div'); row.className = 'dl-ai-result';
+      row.innerHTML = '<span class="dl-ai-result-tag">' + escapeHtml(entry.action) + ' · ' + (entry.isAI ? 'AI-GENERATED' : 'AUTO') + ' · ' + fmtDate(entry.createdAt) + '</span><div class="dl-code-block" style="max-height:none;">' + escapeHtml(entry.output) + '</div>';
+      wrap.appendChild(row);
+    });
+    if (!(r.aiLog || []).length) { const e = document.createElement('div'); e.className = 'dl-field-hint'; e.textContent = 'No AI actions run yet on this resource.'; wrap.appendChild(e); }
+  }
+
+  function renderPreviewFrame() {
+    const r = currentResource(); if (!r) return;
+    const frame = $('dlPreviewFrame');
+    frame.className = 'dl-preview-frame dl-device-' + activeDevice;
+    const doc = '<!doctype html><html><head><meta charset="utf-8"><style>' + (r.previewCss || '') + '</style></head><body>' + (r.previewHtml || '<div style="font-family:sans-serif;color:#999;padding:40px;text-align:center;">Add HTML/CSS below to see a live preview.</div>') + '<script>' + (r.previewJs || '') + '<\/script></body></html>';
+    frame.srcdoc = doc;
+  }
+
+  function renderCollectionChecks() {
+    const r = currentResource(); if (!r) return;
+    const wrap = $('dlCollectionCheckRow'); wrap.innerHTML = '';
+    const cols = DB.collectionsSorted();
+    if (!cols.length) { wrap.innerHTML = '<div class="dl-field-hint">No collections yet.</div>'; return; }
+    cols.forEach(function (c) {
+      const label = document.createElement('label'); label.className = 'dl-collection-check';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = c.itemIds.indexOf(r.id) !== -1;
+      cb.addEventListener('change', function () { DB.toggleResourceInCollection(c.id, r.id); });
+      label.appendChild(cb);
+      const span = document.createElement('span'); span.textContent = c.icon + ' ' + c.title; label.appendChild(span);
+      wrap.appendChild(label);
+    });
+  }
+  function renderRelatedGrid() {
+    const r = currentResource(); if (!r) return;
+    const wrap = $('dlRelatedGrid'); wrap.innerHTML = '';
+    const related = DB.relatedResources(r);
+    if (!related.length) { wrap.innerHTML = '<div class="dl-field-hint">Nothing related yet — add a shared tag, or link one explicitly.</div>'; return; }
+    related.forEach(function (rr) { wrap.appendChild(GalleryCard.build(itemFromResource(rr), { fallbackIcon: '🧩', onEdit: function (item) { openDetailPage(item.id); } })); });
+  }
+
+  function renderVersionList() {
+    const r = currentResource(); if (!r) return;
+    const wrap = $('dlVersionList'); wrap.innerHTML = '';
+    const versions = (r.prompt.versions || []).slice().reverse();
+    if (!versions.length) { wrap.innerHTML = '<div class="dl-field-hint">No earlier versions yet — every prompt edit is snapshotted here automatically.</div>'; return; }
+    versions.forEach(function (v) {
+      const row = document.createElement('div'); row.className = 'dl-version-row';
+      const body = document.createElement('div'); body.className = 'dl-version-body';
+      body.innerHTML = '<div class="dl-field-hint">' + fmtDate(v.createdAt) + '</div><div class="dl-code-block">' + escapeHtml(v.body) + '</div>';
+      row.appendChild(body);
+      const restore = document.createElement('button'); restore.type = 'button'; restore.className = 'gt-btn gt-btn-sm'; restore.textContent = 'Restore';
+      restore.addEventListener('click', function () {
+        const fresh = currentResource();
+        DB.Resources.update(fresh.id, { prompt: Object.assign({}, fresh.prompt, { body: v.body, versions: fresh.prompt.versions.concat([{ id: DB.uid('pv'), body: fresh.prompt.body, note: 'auto-saved before restore', createdAt: Date.now() }]) }) });
+        renderPromptTab();
+      });
+      row.appendChild(restore);
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderSnippetList() {
+    const r = currentResource(); if (!r) return;
+    const wrap = $('dlSnippetList'); wrap.innerHTML = '';
+    if (!(r.codeSnippets || []).length) { wrap.innerHTML = '<div class="dl-field-hint">No code snippets yet.</div>'; return; }
+    r.codeSnippets.forEach(function (cs) {
+      const isAutoSynced = cs.id === '__previewHtml' || cs.id === '__previewCss' || cs.id === '__previewJs';
+      const row = document.createElement('div'); row.className = 'dl-code-row'; row.style.marginBottom = '12px'; row.style.border = '1px solid var(--gt-hairline)'; row.style.borderRadius = '12px'; row.style.padding = '14px';
+      if (isAutoSynced) {
+        const badge = document.createElement('span'); badge.className = 'dl-tag-chip'; badge.style.marginBottom = '8px'; badge.style.display = 'inline-block';
+        badge.textContent = '🔄 Auto-synced from Live Preview (' + cs.language + ')';
+        row.appendChild(badge);
+      } else {
+        const langSel = document.createElement('select'); DB.CODE_LANGUAGES.forEach(function (l) { const o = document.createElement('option'); o.value = l; o.textContent = l; if (l === cs.language) o.selected = true; langSel.appendChild(o); });
+        langSel.addEventListener('change', function () { updateSnippet(cs.id, { language: this.value }); });
+        row.appendChild(langSel);
+      }
+      const codeTa = document.createElement('textarea'); codeTa.className = 'dl-code-block'; codeTa.style.width = '100%'; codeTa.style.background = 'rgba(0,0,0,.3)'; codeTa.style.border = '1px solid var(--gt-hairline)'; codeTa.style.color = 'var(--gt-text-dim)'; codeTa.style.marginTop = '8px'; codeTa.value = cs.code;
+      if (isAutoSynced) { codeTa.readOnly = true; codeTa.style.opacity = '0.75'; }
+      else codeTa.addEventListener('blur', function () { updateSnippet(cs.id, { code: this.value }); });
+      row.appendChild(codeTa);
+      if (!isAutoSynced) {
+        const notesInput = document.createElement('input'); notesInput.type = 'text'; notesInput.placeholder = 'Notes…'; notesInput.value = cs.notes; notesInput.style.marginTop = '8px';
+        notesInput.addEventListener('blur', function () { updateSnippet(cs.id, { notes: this.value }); });
+        row.appendChild(notesInput);
+      } else {
+        const hint = document.createElement('div'); hint.className = 'dl-field-hint'; hint.style.marginTop = '8px'; hint.textContent = 'Edit this in the Live Preview tab — it stays mirrored here automatically.';
+        row.appendChild(hint);
+      }
+      const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.marginTop = '10px';
+      const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'dl-copy-btn'; copyBtn.textContent = '📋 Copy';
+      copyBtn.addEventListener('click', function () { copyText(cs.code, copyBtn); });
+      const dlBtn = document.createElement('button'); dlBtn.type = 'button'; dlBtn.className = 'gt-btn gt-btn-sm'; dlBtn.textContent = '⬇ Download';
+      dlBtn.addEventListener('click', function () { downloadText(cs.code, 'snippet.txt'); });
+      actions.appendChild(copyBtn); actions.appendChild(dlBtn);
+      if (!isAutoSynced) {
+        const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'gt-btn gt-btn-sm'; delBtn.textContent = '🗑 Remove';
+        delBtn.addEventListener('click', function () { removeSnippet(cs.id); });
+        actions.appendChild(delBtn);
+      }
+      row.appendChild(actions);
+      wrap.appendChild(row);
+    });
+  }
+  function updateSnippet(id, patch) {
+    const r = currentResource(); if (!r) return;
+    DB.Resources.update(r.id, { codeSnippets: r.codeSnippets.map(function (cs) { return cs.id === id ? Object.assign({}, cs, patch) : cs; }) });
+  }
+  function removeSnippet(id) {
+    const r = currentResource(); if (!r) return;
+    DB.Resources.update(r.id, { codeSnippets: r.codeSnippets.filter(function (cs) { return cs.id !== id; }) });
+    renderSnippetList();
+  }
+
+  function renderDetailTogglesAndSelects(r) {
+    const catSel = $('dlDetailCategoryInput'); catSel.innerHTML = '';
+    DB.CATEGORY_KEYS.forEach(function (c) { const o = document.createElement('option'); o.value = c; o.textContent = DB.CATEGORY_META[c].plural; if (c === r.category) o.selected = true; catSel.appendChild(o); });
+    const fwSel = $('dlDetailFrameworkInput'); fwSel.innerHTML = '';
+    DB.FRAMEWORKS.forEach(function (f) { const o = document.createElement('option'); o.value = f; o.textContent = f; if (f === r.framework) o.selected = true; fwSel.appendChild(o); });
+    const platSel = $('dlDetailPlatformInput'); platSel.innerHTML = '';
+    Object.keys(DB.PLATFORM_TAGS).forEach(function (p) { const o = document.createElement('option'); o.value = p; o.textContent = DB.PLATFORM_TAGS[p]; if (p === r.platformTag) o.selected = true; platSel.appendChild(o); });
+    $('dlDetailPlatformField').style.display = r.category === 'component' ? '' : 'none';
+    const cxSel = $('dlDetailComplexityInput'); cxSel.innerHTML = '';
+    DB.COMPLEXITIES.forEach(function (c) { const o = document.createElement('option'); o.value = c; o.textContent = c; if (c === r.complexity) o.selected = true; cxSel.appendChild(o); });
+    const stSel = $('dlDetailStatusInput'); stSel.innerHTML = '';
+    DB.STATUSES.forEach(function (s) { const o = document.createElement('option'); o.value = s; o.textContent = s; if (s === r.status) o.selected = true; stSel.appendChild(o); });
+
+    const toggleRow = $('dlDetailToggleRow'); toggleRow.innerHTML = '';
+    [['darkMode', '🌙 Dark Mode'], ['responsive', '📐 Responsive'], ['accessible', '♿ Accessible'], ['animated', '✨ Animated'], ['trending', '🔥 Trending']].forEach(function (t) {
+      const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'dl-toggle-chip' + (r[t[0]] ? ' on' : ''); chip.textContent = t[1];
+      chip.addEventListener('click', function () { const patch = {}; patch[t[0]] = !r[t[0]]; DB.Resources.update(r.id, patch); renderDetailTogglesAndSelects(currentResource()); });
+      toggleRow.appendChild(chip);
+    });
+  }
+
+  function renderPromptTab() {
+    const r = currentResource(); if (!r) return;
+    $('dlDetailPromptBodyInput').value = r.prompt.body;
+    $('dlDetailPromptNotesInput').value = r.prompt.notes;
+    editingPromptTags = r.prompt.tags.slice();
+    renderDetailTagRow('dlPromptTagRow', editingPromptTags, function (t) { editingPromptTags = editingPromptTags.filter(function (x) { return x !== t; }); savePromptTags(); });
+    renderDetailStars('dlPromptStars', r.prompt.rating, function (v) { const fresh = currentResource(); DB.Resources.update(fresh.id, { prompt: Object.assign({}, fresh.prompt, { rating: v }) }); renderPromptTab(); });
+    renderVersionList();
+  }
+  function savePromptTags() { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { prompt: Object.assign({}, r.prompt, { tags: editingPromptTags }) }); renderDetailTagRow('dlPromptTagRow', editingPromptTags, function (t) { editingPromptTags = editingPromptTags.filter(function (x) { return x !== t; }); savePromptTags(); }); }
+  function savePromptBody() {
+    const r = currentResource(); if (!r) return;
+    const newBody = $('dlDetailPromptBodyInput').value;
+    if (newBody === r.prompt.body) return;
+    const versions = r.prompt.body ? r.prompt.versions.concat([{ id: DB.uid('pv'), body: r.prompt.body, createdAt: Date.now() }]) : r.prompt.versions;
+    DB.Resources.update(r.id, { prompt: Object.assign({}, r.prompt, { body: newBody, versions: versions.slice(-20) }) });
+    renderVersionList();
+  }
+
+  function switchDetailTab(tab) {
+    activeDetailTab = tab;
+    document.querySelectorAll('.dl-detail-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tab); });
+    document.querySelectorAll('.dl-detail-tabpanel').forEach(function (p) { p.classList.toggle('active', p.dataset.panel === tab); });
+    if (tab === 'preview') renderPreviewFrame();
+    if (tab === 'prompt') renderPromptTab();
+    if (tab === 'code') renderSnippetList();
+    if (tab === 'related') { renderCollectionChecks(); renderRelatedGrid(); }
+    if (tab === 'ai') { renderAiKeyHint(); buildAiActionGrid(); renderAiLog(); }
+  }
+
+  function renderDetailPage() {
+    const r = currentResource(); if (!r) return;
+    $('dlDetailTitleInput').value = r.title; autosize($('dlDetailTitleInput'));
+    renderDetailHeroCover(r);
+    renderDetailStars('dlDetailStars', r.rating, function (v) { DB.Resources.update(r.id, { rating: v }); renderDetailPage(); });
+    $('dlDetailCatBadge').textContent = DB.CATEGORY_META[r.category].icon + ' ' + DB.CATEGORY_META[r.category].label;
+    $('dlDetailFavBtn').textContent = r.favorite ? '★ Favorited' : '☆ Favorite';
+    $('dlDetailFavBtn').classList.toggle('is-fav', r.favorite);
+    renderDetailTogglesAndSelects(r);
+    editingResourceTags = r.tags.slice();
+    renderDetailTagRow('dlDetailTagRow', editingResourceTags, function (t) { editingResourceTags = editingResourceTags.filter(function (x) { return x !== t; }); saveResourceTags(); });
+    $('dlDetailDescInput').value = r.description;
+    $('dlDetailUseCasesInput').value = r.useCases;
+    $('dlDetailA11yInput').value = r.accessibilityNotes;
+    $('dlDetailPerfInput').value = r.performanceNotes;
+    $('dlDetailDepsInput').value = r.dependencies;
+    $('dlDetailInstallInput').value = r.installation;
+    $('dlDetailBrowserInput').value = r.browserCompat;
+    renderDetailCoverPreview(r.cover);
+    $('dlDetailCoverUrlInput').value = DB.isValidMediaUrl(r.cover) ? r.cover : '';
+    $('dlDetailPreviewHtmlInput').value = r.previewHtml;
+    $('dlDetailPreviewCssInput').value = r.previewCss;
+    $('dlDetailPreviewJsInput').value = r.previewJs;
+    $('dlDetailNotesInput').value = r.personalNotes;
+    $('dlDetailDeleteLink').style.display = 'block';
+    switchDetailTab(activeDetailTab);
+  }
+  function saveResourceTags() { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { tags: editingResourceTags }); renderDetailTagRow('dlDetailTagRow', editingResourceTags, function (t) { editingResourceTags = editingResourceTags.filter(function (x) { return x !== t; }); saveResourceTags(); }); }
+
+  function handleDetailCoverFile(fileInputId) {
+    const file = $(fileInputId).files && $(fileInputId).files[0];
+    $(fileInputId).value = '';
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      DB.compressImageDataUrl(reader.result, 900, 0.82).then(function (compressed) {
+        const r = currentResource(); if (!r) return;
+        DB.Resources.update(r.id, { cover: compressed });
+        renderDetailPage();
+        if (window.PhotoStore) window.PhotoStore.upload(compressed, function (url) { const fresh = currentResource(); if (fresh && fresh.cover === compressed) { DB.Resources.update(fresh.id, { cover: url }); renderDetailPage(); } });
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ============================================================
+  // COMMAND PALETTE
+  // ============================================================
+  const PALETTE_NAV = [
+    { icon: '🏠', label: 'Home', view: 'home' }, { icon: '📚', label: 'Collections', view: 'collections' },
+    { icon: '⭐', label: 'Favorites', view: 'favorites' }, { icon: '🕒', label: 'Recently Added', view: 'recent' },
+    { icon: '🔥', label: 'Trending', view: 'trending' }, { icon: '📝', label: 'Prompt Library', view: 'prompts' },
+    { icon: '📄', label: 'Saved Code', view: 'code' }, { icon: '📂', label: 'Personal Uploads', view: 'uploads' }
+  ];
+  function openPalette() {
+    $('dlPaletteBg').classList.add('show');
+    $('dlPaletteInput').value = '';
+    renderPaletteResults('');
+    setTimeout(function () { $('dlPaletteInput').focus(); }, 30);
+  }
+  function closePalette() { $('dlPaletteBg').classList.remove('show'); }
+  function renderPaletteResults(query) {
+    const wrap = $('dlPaletteResults'); wrap.innerHTML = '';
+    const q = query.trim();
+    if (!q) {
+      const label = document.createElement('div'); label.className = 'dl-palette-group-label'; label.textContent = 'Jump to'; wrap.appendChild(label);
+      PALETTE_NAV.forEach(function (n) { wrap.appendChild(buildPaletteRow(n.icon, n.label, '', function () { switchView(n.view); closePalette(); })); });
+      DB.CATEGORY_KEYS.forEach(function (c) { wrap.appendChild(buildPaletteRow(DB.CATEGORY_META[c].icon, DB.CATEGORY_META[c].plural, '', function () { switchView('cat:' + c); closePalette(); })); });
+      return;
+    }
+    const results = DB.searchAll(q);
+    if (!results.resources.length && !results.collections.length) { wrap.innerHTML = '<div class="dl-palette-empty">No matches for "' + escapeHtml(q) + '"</div>'; return; }
+    if (results.resources.length) {
+      const l1 = document.createElement('div'); l1.className = 'dl-palette-group-label'; l1.textContent = 'Resources'; wrap.appendChild(l1);
+      results.resources.forEach(function (r) { wrap.appendChild(buildPaletteRow(DB.CATEGORY_META[r.category].icon, r.title || 'Untitled', DB.CATEGORY_META[r.category].label, function () { openDetailPage(r.id); closePalette(); })); });
+    }
+    if (results.collections.length) {
+      const l2 = document.createElement('div'); l2.className = 'dl-palette-group-label'; l2.textContent = 'Collections'; wrap.appendChild(l2);
+      results.collections.forEach(function (c) { wrap.appendChild(buildPaletteRow(c.icon, c.title, 'Collection', function () { switchView('collections'); openCollectionDetail(c.id); closePalette(); })); });
+    }
+  }
+  function buildPaletteRow(icon, label, sub, onClick) {
+    const row = document.createElement('div'); row.className = 'dl-palette-row'; row.tabIndex = 0;
+    row.innerHTML = '<span class="dl-palette-row-icon">' + icon + '</span><span>' + escapeHtml(label) + '</span>' + (sub ? '<span class="dl-palette-row-sub">' + escapeHtml(sub) + '</span>' : '');
+    row.addEventListener('click', onClick);
+    row.addEventListener('keydown', function (e) { if (e.key === 'Enter') onClick(); });
+    return row;
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function init() {
+    DB = window.DesignLibraryData;
+    if (!DB) return;
+    applySharedTheme();
+    // Catches any resource whose Live Preview HTML/CSS/JS predates this
+    // sync existing (e.g. the seeded starter resources) so it shows up on
+    // the Saved Code page from the very first render, not just after the
+    // next edit. Idempotent — a no-op write for anything already in sync.
+    DB.syncAllPreviewCodeSnippets();
+
+    const hero = DB.getHero();
+    document.title = hero.title ? hero.title.replace(/\n/g, ' ') + ' · Design Library' : 'Design Library';
+
+    const initialHash = (location.hash || '').replace(/^#/, '').replace('-', ':');
+    currentView = initialHash && (NAV_TITLES[initialHash] || initialHash.indexOf('cat:') === 0 || initialHash.indexOf('plat:') === 0) ? initialHash : 'home';
+    switchView(currentView);
+    renderNavCounts();
+    setTimeout(migratePhotosToStorage, 3000);
+
+    document.querySelectorAll('.dl-nav-item[data-view]').forEach(function (btn) { btn.addEventListener('click', function () { switchView(btn.dataset.view); }); });
+    $('dlSidebarToggle').addEventListener('click', function () { $('dlSidebar').classList.toggle('show'); });
+    $('dlSearchBtn').addEventListener('click', openPalette);
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+      else if (e.key === 'Escape') { closePalette(); if ($('dlDetailPageBg').classList.contains('show')) closeDetailPage(); }
+    });
+    $('dlPaletteBg').addEventListener('click', function (e) { if (e.target === this) closePalette(); });
+    $('dlPaletteInput').addEventListener('input', function () { renderPaletteResults(this.value); });
+
+    // Detail page wiring
+    $('dlDetailBackBtn').addEventListener('click', closeDetailPage);
+    $('dlDetailDeleteBtn').addEventListener('click', function () { if (!editingResourceId) return; if (!confirm('Delete this resource? This cannot be undone.')) return; DB.Resources.remove(editingResourceId); closeDetailPage(); });
+    $('dlDetailDeleteLink').addEventListener('click', function () { $('dlDetailDeleteBtn').click(); });
+    $('dlDetailFavBtn').addEventListener('click', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { favorite: !r.favorite }); renderDetailPage(); });
+    $('dlDetailCoverBtn').addEventListener('click', function () { $('dlDetailCoverFileInput').click(); });
+    $('dlDetailCoverFileInput').addEventListener('change', function () { handleDetailCoverFile('dlDetailCoverFileInput'); });
+    $('dlDetailCoverModalFileInput').addEventListener('change', function () { handleDetailCoverFile('dlDetailCoverModalFileInput'); });
+    $('dlDetailCoverUrlInput').addEventListener('blur', function () {
+      const v = this.value.trim(); if (!v) return;
+      if (!DB.isValidMediaUrl(v)) { alert('That doesn\'t look like a valid http(s) URL.'); return; }
+      const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { cover: v }); renderDetailPage();
+    });
+    $('dlDetailTitleInput').addEventListener('input', function () { autosize(this); });
+    $('dlDetailTitleInput').addEventListener('blur', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { title: this.value.trim() }); });
+    ['dlDetailDescInput', 'dlDetailUseCasesInput', 'dlDetailA11yInput', 'dlDetailPerfInput', 'dlDetailDepsInput', 'dlDetailInstallInput', 'dlDetailBrowserInput', 'dlDetailNotesInput', 'dlDetailPreviewHtmlInput', 'dlDetailPreviewCssInput', 'dlDetailPreviewJsInput'].forEach(function (id) {
+      const fieldMap = { dlDetailDescInput: 'description', dlDetailUseCasesInput: 'useCases', dlDetailA11yInput: 'accessibilityNotes', dlDetailPerfInput: 'performanceNotes', dlDetailDepsInput: 'dependencies', dlDetailInstallInput: 'installation', dlDetailBrowserInput: 'browserCompat', dlDetailNotesInput: 'personalNotes', dlDetailPreviewHtmlInput: 'previewHtml', dlDetailPreviewCssInput: 'previewCss', dlDetailPreviewJsInput: 'previewJs' };
+      $(id).addEventListener('blur', function () {
+        const r = currentResource(); if (!r) return;
+        const patch = {}; patch[fieldMap[id]] = this.value;
+        DB.Resources.update(r.id, patch);
+        if (id.indexOf('Preview') !== -1) {
+          renderPreviewFrame();
+          // Any code typed into the Live Preview tab is real code — mirror
+          // it into this resource's own codeSnippets[] automatically, so
+          // it's guaranteed to actually appear on the Saved Code page too,
+          // not just live inside the preview iframe.
+          DB.syncPreviewCodeSnippets(r.id);
+          if (activeDetailTab === 'code') renderSnippetList();
+        }
+      });
+    });
+    $('dlDetailCategoryInput').addEventListener('change', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { category: this.value }); renderDetailPage(); });
+    $('dlDetailCreatorInput').addEventListener('blur', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { creator: this.value }); });
+    $('dlDetailFrameworkInput').addEventListener('change', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { framework: this.value }); });
+    $('dlDetailPlatformInput').addEventListener('change', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { platformTag: this.value }); });
+    $('dlDetailComplexityInput').addEventListener('change', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { complexity: this.value }); });
+    $('dlDetailStatusInput').addEventListener('change', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { status: this.value }); });
+    wireTagInput('dlDetailTagInput', function () { return editingResourceTags; }, function (t) { editingResourceTags = t; }, saveResourceTags);
+    document.querySelectorAll('.dl-detail-tab').forEach(function (b) { b.addEventListener('click', function () { switchDetailTab(b.dataset.tab); }); });
+    document.querySelectorAll('#dlDeviceChips .gt-chip').forEach(function (b) { b.addEventListener('click', function () { activeDevice = b.dataset.device; document.querySelectorAll('#dlDeviceChips .gt-chip').forEach(function (c) { c.classList.toggle('active', c === b); }); renderPreviewFrame(); }); });
+
+    // Prompt tab wiring
+    $('dlDetailPromptBodyInput').addEventListener('blur', savePromptBody);
+    $('dlDetailPromptNotesInput').addEventListener('blur', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { prompt: Object.assign({}, r.prompt, { notes: this.value }) }); });
+    wireTagInput('dlPromptTagInput', function () { return editingPromptTags; }, function (t) { editingPromptTags = t; }, savePromptTags);
+    $('dlPromptCopyBtn').addEventListener('click', function () { const r = currentResource(); copyText(r.prompt.body, this); });
+    $('dlPromptCopyMdBtn').addEventListener('click', function () { const r = currentResource(); copyText('```\n' + r.prompt.body + '\n```', this); });
+    $('dlPromptDuplicateBtn').addEventListener('click', function () {
+      const r = currentResource(); if (!r) return;
+      const copy = DB.Resources.add(Object.assign({}, r, { id: undefined, title: r.title + ' (Copy)', order: DB.nextOrder(DB.resourcesByCategory(r.category)), createdAt: undefined, updatedAt: undefined, viewCount: 0 }));
+      openDetailPage(copy.id, 'prompt');
+    });
+
+    // Code tab wiring
+    $('dlAddSnippetBtn').addEventListener('click', function () { const r = currentResource(); if (!r) return; DB.Resources.update(r.id, { codeSnippets: r.codeSnippets.concat([{ id: DB.uid('code'), language: DB.CODE_LANGUAGES[0], code: '', notes: '', createdAt: Date.now() }]) }); renderSnippetList(); });
+
+    // Collection modal wiring
+    $('dlColCancelBtn').addEventListener('click', closeCollectionModal);
+    $('dlColSaveBtn').addEventListener('click', saveCollectionModal);
+    $('dlColDeleteLink').addEventListener('click', deleteCollectionModal);
+    $('dlCollectionModalBg').addEventListener('click', function (e) { if (e.target === this) closeCollectionModal(); });
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('dl:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline'); });
+    window.addEventListener('storage', function (e) { if (e.key === 'customization:settings') applySharedTheme(); });
+
+    // Empty-storage seed-race safety — same reasoning as every other page
+    // in this app (dreamboard.html/business.html/aitech.html): seeding
+    // before the cloud pull has a real chance to answer could push a
+    // freshly-seeded "default" library to Supabase and clobber another
+    // device's real data.
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Resources.list().length > 0 || DB.Collections.list().length > 0) return;
+      DB.seedIfEmpty();
+      switchView(currentView); renderNavCounts();
+    }
+    const startedEmpty = DB.Resources.list().length === 0 && DB.Collections.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({ appKey: 'designlibrary', syncedPrefixes: ['dl:'], onApplied: function () { remoteAppliedOnce = true; switchView(currentView); renderNavCounts(); } });
+      if (startedEmpty) setTimeout(maybeSeedAfterSyncAttempt, 5000);
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+  }
+
+  function safeInit() {
+    try { init(); }
+    catch (err) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#3a0d0d;color:#fff;padding:14px 18px;font:13px -apple-system,sans-serif;';
+      banner.innerHTML = '<strong>Design Library failed to load.</strong> ' + (err && err.message ? err.message : String(err)) +
+        '<button type="button" style="margin-left:12px;padding:4px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;">Copy error details</button>';
+      banner.querySelector('button').addEventListener('click', function () {
+        const details = (err && err.stack) ? err.stack : String(err);
+        if (navigator.clipboard) navigator.clipboard.writeText(details).catch(function () {});
+      });
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { LocalStoreIDB.ready().then(safeInit); });
+  else LocalStoreIDB.ready().then(safeInit);
+})();
+</script>
+</body>
+</html>

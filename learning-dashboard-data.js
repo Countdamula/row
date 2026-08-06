@@ -1,25 +1,45 @@
 // learning-dashboard-data.js
 //
-// Data layer for learning-dashboard.html ("Learning Dashboard"). Same
-// conventions as aitech-data.js/business-data.js (see CLAUDE.md §4): plain
-// localStorage, JSON-serialized, one key per collection, no server/DB. All
-// keys live under an `lhub:` prefix (deliberately distinct from the
-// pre-existing `learning:` prefix used by learning.html/learning-topic.html
-// — a genuinely separate page/system, not a rebuild of that one) so
+// Data layer for learning-dashboard.html ("Learning Dashboard" — a personal
+// university: Zettelkasten + Cornell Notes + Progressive Summarization +
+// Mind Mapping + Project-Based Learning + Active Recall + Teaching-Based
+// Learning + AI Tutoring). Same conventions as aitech-data.js/business-data.js
+// (see CLAUDE.md §4): plain localStorage, JSON-serialized, one key per
+// collection, no server/DB. All keys live under an `lhub:` prefix so
 // learning-dashboard.html's initCloudSync({ syncedPrefixes: ['lhub:'] })
 // call covers every collection with no per-key list.
 //
-// Nine genuinely separate collections, never merged:
-//   Topics, DailyLogs (one per topic+date), Research, Maps, Frameworks,
-//   MasterNotes, Notes (atomic), Projects, Questions, Sessions (study
-//   timer log), plus a single Settings record.
+// THE SEVEN CORE DATABASES (the point of this system — knowledge
+// transformation, not information storage):
+//   SourceNotes      — one book/article/video/paper/lecture, captured raw.
+//   EvergreenNotes    — many Source Notes compiled into one owned concept.
+//   Questions         — the running Question Bank (questions drive learning,
+//                        not the reverse).
+//   ConnectionNotes   — Zettelkasten-style "how are these two ideas related".
+//   MOCs              — Map of Content: a template aggregator note for a
+//                        big field, genuinely separate from the Maps
+//                        node-link canvas below (two different tools for
+//                        two different methods — Map of Content vs. Mind
+//                        Mapping — kept deliberately distinct).
+//   Projects          — project-based learning: learn → build → hit a
+//                        problem → learn the missing piece → apply → repeat.
+//   TutorSessions     — AI Tutor mode selection, generated prompt, quiz
+//                        results, and a Mastery Score.
 //
-// A Topic's "Sources" tab and the global Research Library are the SAME
-// data (Research items filtered by topicId) — not a duplicate collection,
-// since a research source and a topic's sources are the same thing viewed
-// two ways. Deleting a Topic nulls out `topicId` on every record that
-// referenced it (Research/Maps/Frameworks/MasterNotes/Notes/Projects/
-// Questions/Sessions) rather than cascading a delete — same
+// Plus the pre-existing Topics (the umbrella every database hangs off of),
+// DailyLogs/Sessions (time & media tracking — narrower role now: new rich
+// capture goes into SourceNotes, not DailyLogs), Maps (node-link canvas),
+// Frameworks, Notes (atomic), and a single Settings record.
+//
+// SUPERSEDED COLLECTIONS: Research → SourceNotes, MasterNotes → EvergreenNotes.
+// The old `lhub:research`/`lhub:masterNotes` keys and collection objects are
+// kept instantiated (never deleted) and migrated ONCE into the new shape by
+// migrateLegacyLhubCollections() — orphaned-key precedent, not a rebuild.
+//
+// Deleting a Topic nulls out `topicId` on every dependent "shared library"
+// record (SourceNotes/EvergreenNotes/ConnectionNotes(via relatedTopicIds)/
+// MOCs/Research/Maps/Frameworks/MasterNotes/Notes/Projects/Questions/
+// TutorSessions/Sessions) rather than cascading a delete — same
 // null-out-the-reference precedent aitech-data.js's model deletion,
 // household-data.js's legion deletion, and business-data.js's week/day
 // deletion already established — so nothing is silently lost just because
@@ -58,7 +78,17 @@
     questions: 'lhub:questions',
     sessions: 'lhub:sessions',
     settings: 'lhub:settings',
-    seeded: 'lhub:seeded'
+    seeded: 'lhub:seeded',
+    // New databases (see header comment)
+    sourceNotes: 'lhub:sourceNotes',
+    evergreenNotes: 'lhub:evergreenNotes',
+    connectionNotes: 'lhub:connectionNotes',
+    mocs: 'lhub:mocs',
+    tutorSessions: 'lhub:tutorSessions',
+    // One-time migration flags — see the MIGRATIONS section.
+    migratedLegacyLhub: 'lhub:migratedLegacyLhub',
+    migratedFromLearningFolder: 'lhub:migratedFromLearningFolder',
+    normalizedQuestionsProjects: 'lhub:normalizedQuestionsProjects'
   };
 
   function uid(prefix) {
@@ -71,6 +101,10 @@
   function isoDaysAgo(n) {
     const d = new Date();
     d.setDate(d.getDate() - n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function isoFromMs(ms) {
+    const d = new Date(typeof ms === 'number' ? ms : Date.now());
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
@@ -107,8 +141,30 @@
   }
 
   // ============================================================
-  // FIXED REFERENCE DATA — the Monthly Workflow's four weeks. Not stored;
-  // every Topic just carries a `currentWeek` (1-4) pointer into this.
+  // CORE LEARNING LOOP — the homepage's visual workflow. Not stored; a
+  // fixed reference sequence, each stage citing which section(s) it
+  // hands off to so the homepage can link straight through.
+  // ============================================================
+  const LEARNING_LOOP = [
+    { key: 'research', label: 'Research', icon: '🔍', section: 'sourcenotes', desc: 'Gather books, articles, videos, papers, lectures.' },
+    { key: 'question', label: 'Question Everything', icon: '❓', section: 'questions', desc: 'What is missing, beneath, assumed, contradicted?' },
+    { key: 'capture', label: 'Capture Insights', icon: '✍️', section: 'sourcenotes', desc: 'One Source Note per source — raw, not yet understood.' },
+    { key: 'organize', label: 'Organize Notes', icon: '🗂️', section: 'sourcenotes', desc: 'Group by theme, cross-reference, spot patterns.' },
+    { key: 'incubate', label: 'Incubate / Reflect', icon: '🌙', section: 'home', desc: 'Let it sit. Understanding needs idle time.' },
+    { key: 'express', label: 'Express & Teach', icon: '🎓', section: 'tutor', desc: 'Explain it to the Tutor, or to someone else.' },
+    { key: 'rewrite', label: 'Rewrite in Your Own Words', icon: '📝', section: 'evergreennotes', desc: 'Compile Source Notes into one Evergreen Note.' },
+    { key: 'apply', label: 'Apply Immediately', icon: '🛠️', section: 'projects', desc: 'Use it in a real Learning Project.' },
+    { key: 'reflect', label: 'Reflect', icon: '🔎', section: 'evergreennotes', desc: 'Where does this idea fail? What are the limits?' },
+    { key: 'connect', label: 'Connect Across Disciplines', icon: '🕸️', section: 'connections', desc: 'How does this relate to something unrelated?' },
+    { key: 'repeat', label: 'Repeat at a Deeper Level', icon: '🔁', section: 'sourcenotes', desc: 'Back to Research — one level deeper this time.' }
+  ];
+
+  // ============================================================
+  // FIXED REFERENCE DATA — the Monthly Workflow's four weeks. Vestigial:
+  // kept for existing Topics/data that still reference it, but no longer
+  // the primary organizing paradigm of this rebuild (superseded
+  // conceptually by the Core Learning Loop + the seven databases above).
+  // Not stored; every Topic just carries a `currentWeek` (1-4) pointer.
   // ============================================================
   const WEEKS = [
     {
@@ -128,8 +184,8 @@
     },
     {
       week: 4, stage: 'Teach, Reflect & Expand',
-      tasks: ['Explain it to someone else', 'Build a cheat sheet', 'Synthesize the Master Note'],
-      outputs: ['Teaching Notes', 'Cheat Sheets', 'Master Note', 'Reflection', 'Flashcards']
+      tasks: ['Explain it to someone else', 'Build a cheat sheet', 'Synthesize the Evergreen Note'],
+      outputs: ['Teaching Notes', 'Cheat Sheets', 'Evergreen Note', 'Reflection', 'Flashcards']
     }
   ];
   function weekInfo(weekNum) { return WEEKS[Math.min(Math.max((weekNum || 1) - 1, 0), 3)]; }
@@ -165,7 +221,108 @@
   const RESEARCH_STATUSES = ['to-review', 'in-progress', 'done'];
   const NOTE_TYPES = ['atomic', 'quote', 'vocabulary', 'definition', 'raw'];
   const PROJECT_STATUSES = ['idea', 'in-progress', 'done'];
-  const QUESTION_STATUSES = ['open', 'answered'];
+  const PROJECT_WORKFLOW_STAGES = ['Learn Basics', 'Start Building', 'Encounter Problem', 'Learn Missing Skill', 'Apply Immediately', 'Continue Building'];
+
+  // Question Bank — spec's four-value status (legacy 'open'/'answered'
+  // records are remapped by normalizeExistingRecords(), see MIGRATIONS).
+  const QUESTION_STATUSES = ['Unanswered', 'Exploring', 'Answered', 'Integrated'];
+  const LEGACY_QUESTION_STATUS_MAP = { open: 'Unanswered', answered: 'Answered' };
+
+  // Source Notes
+  const SOURCE_TYPES = ['Book', 'Article', 'Video', 'Podcast', 'Research Paper', 'Course', 'Conversation', 'Other'];
+  const SOURCE_STATUSES = ['Capturing', 'Processing', 'Completed'];
+  const LEGACY_RESEARCH_CATEGORY_TO_SOURCE_TYPE = {
+    'Books': 'Book', 'Research Papers': 'Research Paper', 'Articles': 'Article',
+    'Videos': 'Video', 'Podcasts': 'Podcast', 'AI Conversations': 'Conversation',
+    'Courses': 'Course', 'PDFs': 'Other', 'Bookmarks': 'Other'
+  };
+  const LEGACY_RESEARCH_STATUS_TO_SOURCE_STATUS = { 'to-review': 'Capturing', 'in-progress': 'Processing', 'done': 'Completed' };
+
+  // Evergreen Knowledge Notes
+  const MASTERY_LEVELS = ['Beginner', 'Developing', 'Intermediate', 'Advanced', 'Expert'];
+
+  // AI Tutor System — fixed reference data, not stored. Each mode's
+  // buildPrompt(ctx) generates the exact prompt text shown (and made
+  // editable) in the Tutor Dashboard's prompt generator, ctx = {topic,
+  // currentLevel, goal}. Same "fixed reference array, not persisted"
+  // pattern as WEEKS above.
+  function fmtCtxLine(label, value) { return value ? ('\n\nMy ' + label + ': ' + value) : ''; }
+  const TUTOR_MODES = [
+    {
+      key: 'beginner', label: 'Beginner Teacher', icon: '🌱',
+      purpose: 'Explain concepts simply.',
+      buildPrompt: function (ctx) {
+        return 'You are my beginner-level tutor.\n\nTeach me:\n\n' + (ctx.topic || '[TOPIC]') +
+          '\n\nAssume I know nothing.\n\nExplain using:\n\n- Simple language\n- Analogies\n- Examples\n- Questions' +
+          '\n\nAfter explaining, test my understanding.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'intermediate', label: 'Intermediate Teacher', icon: '📘',
+      purpose: 'Challenge understanding and expand knowledge.',
+      buildPrompt: function (ctx) {
+        return 'You are my intermediate-level tutor for ' + (ctx.topic || '[TOPIC]') +
+          '.\n\nI already understand the basics. Challenge my understanding and expand my knowledge by:\n\n' +
+          '- Introducing nuance and edge cases\n- Connecting this to related concepts\n- Pointing out common misconceptions at this level\n- Asking me to apply the idea to a new scenario' +
+          '\n\nAfter explaining, quiz me on the deeper points.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'expert', label: 'Expert Teacher', icon: '🎓',
+      purpose: 'Deep analysis, limitations, advanced connections.',
+      buildPrompt: function (ctx) {
+        return 'You are my expert-level tutor for ' + (ctx.topic || '[TOPIC]') +
+          '.\n\nGive me a deep analysis: limitations of the mainstream view, edge cases, advanced connections to other fields, and where current understanding is still contested.' +
+          '\n\nDon\'t simplify. Assume graduate-level fluency.\n\nAfter explaining, challenge me with a hard, open-ended question.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'socratic', label: 'Socratic Tutor', icon: '🏛️',
+      purpose: 'Only ask questions that force deeper thinking.',
+      buildPrompt: function (ctx) {
+        return 'You are my Socratic tutor for ' + (ctx.topic || '[TOPIC]') +
+          '.\n\nDo not explain anything directly. Only ask me questions that force me to think more deeply and arrive at the understanding myself.' +
+          '\n\nStart with a simple question and build from my answers.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'debate', label: 'Debate Partner', icon: '⚔️',
+      purpose: 'Challenge beliefs and assumptions.',
+      buildPrompt: function (ctx) {
+        return 'You are my debate partner on ' + (ctx.topic || '[TOPIC]') +
+          '.\n\nTake the opposing position to whatever I currently believe and argue it seriously and rigorously. Challenge my assumptions, poke holes in my reasoning, and don\'t concede easily.' +
+          '\n\nAfter the debate, tell me honestly which points I handled well and which I didn\'t.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'examiner', label: 'Examiner', icon: '📋',
+      purpose: 'Test knowledge through quizzes.',
+      buildPrompt: function (ctx) {
+        return 'You are my examiner for ' + (ctx.topic || '[TOPIC]') +
+          '.\n\nTest my knowledge with a mix of question types (recall, application, analysis). Ask one question at a time, evaluate my answer honestly, then move to the next.' +
+          '\n\nAt the end, give me a Mastery Score across Understanding, Explanation Ability, Application Ability, and Confidence, plus my Knowledge Gaps and Next Learning Steps.' + fmtCtxLine('current level of understanding', ctx.currentLevel) + fmtCtxLine('goal', ctx.goal);
+      }
+    },
+    {
+      key: 'coach', label: 'Project Coach', icon: '🧭',
+      purpose: 'Help apply knowledge.',
+      buildPrompt: function (ctx) {
+        return 'You are my project coach helping me apply ' + (ctx.topic || '[TOPIC]') + ' to a real project' + (ctx.goal ? (': ' + ctx.goal) : '.') +
+          '\n\nHelp me:\n\n- Break the goal into concrete next steps\n- Identify the specific skill or knowledge gap blocking me right now\n- Suggest the smallest possible action to unblock it' +
+          '\n\nAsk me clarifying questions if you need more context about the project.' + fmtCtxLine('current level of understanding', ctx.currentLevel);
+      }
+    }
+  ];
+  function tutorMode(key) { return TUTOR_MODES.find(function (m) { return m.key === key; }) || TUTOR_MODES[0]; }
+  function buildTutorPrompt(modeKey, ctx) { return tutorMode(modeKey).buildPrompt(ctx || {}); }
+  /** A genuinely useful non-AI fallback when no Anthropic key is set —
+   * same "honest local computation, not a stub" precedent as
+   * knowledge-hub-data.js's aiLocalFallback(). */
+  function tutorLocalFallback(modeKey) {
+    const mode = tutorMode(modeKey);
+    return '📐 No AI key set (add one in Customization → AI Settings) — paste the prompt above into Claude/ChatGPT yourself, or self-run this ' + mode.label.toLowerCase() + ' session:\n\n' +
+      '1. Write your answer before checking any source.\n2. Compare against your Source/Evergreen Notes — what did you get wrong?\n3. Rate yourself honestly on Understanding, Explanation Ability, Application Ability, Confidence (0-100 each).\n4. Write down the one biggest Knowledge Gap this session revealed.';
+  }
 
   // ============================================================
   // MODELS
@@ -304,19 +461,37 @@
       title: typeof data.title === 'string' ? data.title : '',
       description: typeof data.description === 'string' ? data.description : '',
       status: PROJECT_STATUSES.indexOf(data.status) !== -1 ? data.status : 'idea',
+      // — Project-based learning fields —
+      goal: typeof data.goal === 'string' ? data.goal : '',
+      currentSkillLevel: typeof data.currentSkillLevel === 'string' ? data.currentSkillLevel : '',
+      skillsNeeded: Array.isArray(data.skillsNeeded) ? data.skillsNeeded : [],
+      relatedKnowledgeIds: Array.isArray(data.relatedKnowledgeIds) ? data.relatedKnowledgeIds : [],
+      problemsEncountered: Array.isArray(data.problemsEncountered) ? data.problemsEncountered : [],
+      lessonsLearned: Array.isArray(data.lessonsLearned) ? data.lessonsLearned : [],
+      workflowStage: PROJECT_WORKFLOW_STAGES.indexOf(data.workflowStage) !== -1 ? data.workflowStage : 'Learn Basics',
       order: typeof data.order === 'number' ? data.order : 0,
-      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
     };
   }
 
   function questionModel(data) {
     data = data || {};
+    let status = data.status;
+    if (LEGACY_QUESTION_STATUS_MAP[status]) status = LEGACY_QUESTION_STATUS_MAP[status];
     return {
       id: data.id || uid('q'),
       topicId: data.topicId || null,
       text: typeof data.text === 'string' ? data.text : '',
-      status: QUESTION_STATUSES.indexOf(data.status) !== -1 ? data.status : 'open',
+      category: typeof data.category === 'string' ? data.category : '',
+      subTopic: typeof data.subTopic === 'string' ? data.subTopic : '',
+      status: QUESTION_STATUSES.indexOf(status) !== -1 ? status : 'Unanswered',
       answer: typeof data.answer === 'string' ? data.answer : '',
+      relatedSourceNoteIds: Array.isArray(data.relatedSourceNoteIds) ? data.relatedSourceNoteIds : [],
+      relatedEvergreenIds: Array.isArray(data.relatedEvergreenIds) ? data.relatedEvergreenIds : [],
+      relatedConnectionIds: Array.isArray(data.relatedConnectionIds) ? data.relatedConnectionIds : [],
+      relatedProjectIds: Array.isArray(data.relatedProjectIds) ? data.relatedProjectIds : [],
+      relatedTutorSessionIds: Array.isArray(data.relatedTutorSessionIds) ? data.relatedTutorSessionIds : [],
       order: typeof data.order === 'number' ? data.order : 0,
       createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
     };
@@ -331,6 +506,187 @@
       minutes: typeof data.minutes === 'number' ? data.minutes : 0,
       mode: data.mode === 'pomodoro' ? 'pomodoro' : 'timer',
       completedAt: typeof data.completedAt === 'number' ? data.completedAt : Date.now()
+    };
+  }
+
+  /** One book chapter / article / video / podcast episode / paper / lecture
+   * — captured while researching, before trying to fully understand it. */
+  function sourceNoteModel(data) {
+    data = data || {};
+    const qr = data.questionsRaised || {};
+    const pn = data.patternsNoticed || {};
+    const ct = data.connectionsText || {};
+    const cur = data.curiosityThreads || {};
+    return {
+      id: data.id || uid('src'),
+      topicId: data.topicId || null,
+      title: typeof data.title === 'string' ? data.title : '',
+      sourceType: SOURCE_TYPES.indexOf(data.sourceType) !== -1 ? data.sourceType : 'Other',
+      author: typeof data.author === 'string' ? data.author : '',
+      dateAdded: typeof data.dateAdded === 'string' ? data.dateAdded : todayISO(),
+      subTopic: typeof data.subTopic === 'string' ? data.subTopic : '',
+      url: typeof data.url === 'string' ? data.url : '',
+      status: SOURCE_STATUSES.indexOf(data.status) !== -1 ? data.status : 'Capturing',
+      relatedEvergreenIds: Array.isArray(data.relatedEvergreenIds) ? data.relatedEvergreenIds : [],
+      relatedQuestionIds: Array.isArray(data.relatedQuestionIds) ? data.relatedQuestionIds : [],
+      relatedConnectionIds: Array.isArray(data.relatedConnectionIds) ? data.relatedConnectionIds : [],
+      // Why I'm Exploring This
+      whyExploring: typeof data.whyExploring === 'string' ? data.whyExploring : '',
+      // Main Ideas — dynamically generated sections, one per idea.
+      mainIdeas: Array.isArray(data.mainIdeas) ? data.mainIdeas : [],
+      // Questions Raised, Asked & Answered
+      questionsRaised: {
+        missing: typeof qr.missing === 'string' ? qr.missing : '',
+        beneath: typeof qr.beneath === 'string' ? qr.beneath : '',
+        assumptions: typeof qr.assumptions === 'string' ? qr.assumptions : '',
+        contradicts: typeof qr.contradicts === 'string' ? qr.contradicts : '',
+        implications: typeof qr.implications === 'string' ? qr.implications : ''
+      },
+      // Patterns Noticed
+      patternsNoticed: {
+        repeated: typeof pn.repeated === 'string' ? pn.repeated : '',
+        similar: typeof pn.similar === 'string' ? pn.similar : '',
+        unexpected: typeof pn.unexpected === 'string' ? pn.unexpected : '',
+        contradictions: typeof pn.contradictions === 'string' ? pn.contradictions : ''
+      },
+      // Connections
+      connectionsText: {
+        remindsMeOf: typeof ct.remindsMeOf === 'string' ? ct.remindsMeOf : '',
+        linkedConcepts: typeof ct.linkedConcepts === 'string' ? ct.linkedConcepts : ''
+      },
+      // Curiosity Threads
+      curiosityThreads: {
+        investigate: typeof cur.investigate === 'string' ? cur.investigate : '',
+        branching: typeof cur.branching === 'string' ? cur.branching : ''
+      },
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
+    };
+  }
+  function sourceNoteMainIdeaModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('mi'),
+      title: typeof data.title === 'string' ? data.title : 'Main Idea',
+      summary: typeof data.summary === 'string' ? data.summary : '',
+      quotes: typeof data.quotes === 'string' ? data.quotes : '',
+      info: typeof data.info === 'string' ? data.info : '',
+      reaction: typeof data.reaction === 'string' ? data.reaction : '',
+      order: typeof data.order === 'number' ? data.order : 0
+    };
+  }
+
+  /** Where raw information becomes personal understanding — many Source
+   * Notes compiled into one owned concept. The most important layer. */
+  function evergreenNoteModel(data) {
+    data = data || {};
+    const ctr = data.contradictions || {};
+    return {
+      id: data.id || uid('ev'),
+      title: typeof data.title === 'string' ? data.title : '',
+      conceptName: typeof data.conceptName === 'string' ? data.conceptName : (typeof data.title === 'string' ? data.title : ''),
+      topicId: data.topicId || null,
+      subTopic: typeof data.subTopic === 'string' ? data.subTopic : '',
+      relatedSourceNoteIds: Array.isArray(data.relatedSourceNoteIds) ? data.relatedSourceNoteIds : [],
+      relatedQuestionIds: Array.isArray(data.relatedQuestionIds) ? data.relatedQuestionIds : [],
+      relatedConnectionIds: Array.isArray(data.relatedConnectionIds) ? data.relatedConnectionIds : [],
+      relatedProjectIds: Array.isArray(data.relatedProjectIds) ? data.relatedProjectIds : [],
+      masteryLevel: MASTERY_LEVELS.indexOf(data.masteryLevel) !== -1 ? data.masteryLevel : 'Beginner',
+      coreIdea: typeof data.coreIdea === 'string' ? data.coreIdea : '',
+      myUnderstanding: typeof data.myUnderstanding === 'string' ? data.myUnderstanding : '',
+      mentalModel: typeof data.mentalModel === 'string' ? data.mentalModel : '',
+      principles: Array.isArray(data.principles) ? data.principles : [],
+      examples: typeof data.examples === 'string' ? data.examples : '',
+      contradictions: {
+        whereFails: typeof ctr.whereFails === 'string' ? ctr.whereFails : '',
+        limitations: typeof ctr.limitations === 'string' ? ctr.limitations : '',
+        opposingViewpoints: typeof ctr.opposingViewpoints === 'string' ? ctr.opposingViewpoints : ''
+      },
+      questionsUnresolved: typeof data.questionsUnresolved === 'string' ? data.questionsUnresolved : '',
+      applications: typeof data.applications === 'string' ? data.applications : '',
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
+    };
+  }
+
+  /** Zettelkasten-style connection between two (or more) ideas — the
+   * relationship itself is the note. */
+  function connectionNoteModel(data) {
+    data = data || {};
+    return {
+      id: data.id || uid('conn'),
+      title: typeof data.title === 'string' ? data.title : '',
+      relatedEvergreenIds: Array.isArray(data.relatedEvergreenIds) ? data.relatedEvergreenIds : [],
+      relatedSourceNoteIds: Array.isArray(data.relatedSourceNoteIds) ? data.relatedSourceNoteIds : [],
+      relatedQuestionIds: Array.isArray(data.relatedQuestionIds) ? data.relatedQuestionIds : [],
+      relatedProjectIds: Array.isArray(data.relatedProjectIds) ? data.relatedProjectIds : [],
+      relatedTopicIds: Array.isArray(data.relatedTopicIds) ? data.relatedTopicIds : [],
+      theRelationship: typeof data.theRelationship === 'string' ? data.theRelationship : '',
+      similarPattern: typeof data.similarPattern === 'string' ? data.similarPattern : '',
+      newInsight: typeof data.newInsight === 'string' ? data.newInsight : '',
+      applications: typeof data.applications === 'string' ? data.applications : '',
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now()
+    };
+  }
+
+  /** Map of Content — a template aggregator note for a big field.
+   * Genuinely separate from the Maps node-link canvas (Mind Mapping vs.
+   * Map of Content — two different methods, kept as two different tools). */
+  function mocModel(data) {
+    data = data || {};
+    const f = data.foundations || {};
+    return {
+      id: data.id || uid('moc'),
+      title: typeof data.title === 'string' ? data.title : '',
+      topicId: data.topicId || null,
+      foundations: {
+        relatedFields: typeof f.relatedFields === 'string' ? f.relatedFields : '',
+        relatedSubtopics: typeof f.relatedSubtopics === 'string' ? f.relatedSubtopics : '',
+        linkedKnowledgeNoteIds: Array.isArray(f.linkedKnowledgeNoteIds) ? f.linkedKnowledgeNoteIds : []
+      },
+      coreConceptIds: Array.isArray(data.coreConceptIds) ? data.coreConceptIds : [],
+      questionIds: Array.isArray(data.questionIds) ? data.questionIds : [],
+      connectionIds: Array.isArray(data.connectionIds) ? data.connectionIds : [],
+      order: typeof data.order === 'number' ? data.order : 0,
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
+    };
+  }
+
+  /** One AI Tutor session: a mode, a generated prompt, an optional quiz
+   * transcript, and a Mastery Score. */
+  function tutorSessionModel(data) {
+    data = data || {};
+    const ms = data.masteryScore || {};
+    return {
+      id: data.id || uid('tut'),
+      topicId: data.topicId || null,
+      topic: typeof data.topic === 'string' ? data.topic : '',
+      currentLevelOfUnderstanding: typeof data.currentLevelOfUnderstanding === 'string' ? data.currentLevelOfUnderstanding : '',
+      goal: typeof data.goal === 'string' ? data.goal : '',
+      tutorMode: TUTOR_MODES.some(function (m) { return m.key === data.tutorMode; }) ? data.tutorMode : 'beginner',
+      generatedPrompt: typeof data.generatedPrompt === 'string' ? data.generatedPrompt : '',
+      quiz: { questions: Array.isArray(data.quiz && data.quiz.questions) ? data.quiz.questions : [] },
+      masteryScore: {
+        understanding: typeof ms.understanding === 'number' ? ms.understanding : null,
+        explanationAbility: typeof ms.explanationAbility === 'number' ? ms.explanationAbility : null,
+        applicationAbility: typeof ms.applicationAbility === 'number' ? ms.applicationAbility : null,
+        confidence: typeof ms.confidence === 'number' ? ms.confidence : null
+      },
+      knowledgeGaps: Array.isArray(data.knowledgeGaps) ? data.knowledgeGaps : [],
+      nextSteps: Array.isArray(data.nextSteps) ? data.nextSteps : [],
+      relatedQuestionIds: Array.isArray(data.relatedQuestionIds) ? data.relatedQuestionIds : [],
+      relatedSourceNoteIds: Array.isArray(data.relatedSourceNoteIds) ? data.relatedSourceNoteIds : [],
+      relatedEvergreenIds: Array.isArray(data.relatedEvergreenIds) ? data.relatedEvergreenIds : [],
+      relatedConnectionIds: Array.isArray(data.relatedConnectionIds) ? data.relatedConnectionIds : [],
+      relatedProjectIds: Array.isArray(data.relatedProjectIds) ? data.relatedProjectIds : [],
+      status: data.status === 'completed' ? 'completed' : 'active',
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+      updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now()
     };
   }
 
@@ -349,9 +705,32 @@
   function getSettings() { return settingsModel(storeGet(KEYS.settings)); }
   function saveSettings(patch) { const next = settingsModel(Object.assign({}, getSettings(), patch)); storeSet(KEYS.settings, next); return next; }
 
+  /** Shared Anthropic key/persona — reads `customization:settings`
+   * directly (raw localStorage key owned by customization.html/
+   * customization-data.js), the same shared-key pattern
+   * design-library-data.js's getAiPrefs() already established, rather
+   * than storing a third duplicate API key on this page (a deliberate
+   * choice against knowledge-hub-data.js's own-key counter-precedent —
+   * asking Damian to paste the same key into a third page is worse UX). */
+  function getAiPrefs() {
+    const raw = storeGet('customization:settings') || {};
+    return {
+      apiKey: typeof raw.aiKey === 'string' ? raw.aiKey : '',
+      persona: typeof raw.aiPersona === 'string' ? raw.aiPersona : ''
+    };
+  }
+
   // ============================================================
   // GENERIC COLLECTION CRUD — same makeCollection recipe as
   // aitech-data.js/business-data.js/household-data.js.
+  //
+  // NOTE: list()/get() do NOT run stored records through model() (only
+  // add()/update() do) — an older stored record missing a newer field
+  // will not have it until it's next saved. Every UI read site for a
+  // field added after a record's creation must default defensively
+  // (`x.newField || []`), same as this file already had to for e.g.
+  // Question.category. normalizeExistingRecords() (see MIGRATIONS) forces
+  // every Question/Project through model() once to backfill this.
   // ============================================================
   function makeCollection(key, model) {
     function list() { return storeGet(key) || []; }
@@ -383,23 +762,37 @@
 
   const Topics = makeCollection(KEYS.topics, topicModel);
   const DailyLogs = makeCollection(KEYS.dailyLogs, dailyLogModel);
-  const Research = makeCollection(KEYS.research, researchModel);
+  const Research = makeCollection(KEYS.research, researchModel); // superseded by SourceNotes — kept for orphaned legacy data only
   const Maps = makeCollection(KEYS.maps, mapModel);
   const Frameworks = makeCollection(KEYS.frameworks, frameworkModel);
-  const MasterNotes = makeCollection(KEYS.masterNotes, masterNoteModel);
+  const MasterNotes = makeCollection(KEYS.masterNotes, masterNoteModel); // superseded by EvergreenNotes — kept for orphaned legacy data only
   const Notes = makeCollection(KEYS.notes, noteModel);
   const Projects = makeCollection(KEYS.projects, projectModel);
   const Questions = makeCollection(KEYS.questions, questionModel);
   const Sessions = makeCollection(KEYS.sessions, sessionModel);
+  const SourceNotes = makeCollection(KEYS.sourceNotes, sourceNoteModel);
+  const EvergreenNotes = makeCollection(KEYS.evergreenNotes, evergreenNoteModel);
+  const ConnectionNotes = makeCollection(KEYS.connectionNotes, connectionNoteModel);
+  const MOCs = makeCollection(KEYS.mocs, mocModel);
+  const TutorSessions = makeCollection(KEYS.tutorSessions, tutorSessionModel);
 
   /** Deleting a topic nulls out topicId on every dependent record instead
    * of cascading a delete — same null-out-the-reference precedent as
-   * aitech-data.js's removeModel(). */
+   * aitech-data.js's removeModel(). ConnectionNotes has no single topicId
+   * (it references relatedTopicIds[], since a connection can span
+   * topics) — pull this topic's id out of that array instead of nulling
+   * a field, same "strip the deleted id" treatment learning-data.js's
+   * removeTopic() already gives Resource.subjectIds. */
   function removeTopic(id) {
     Topics.remove(id);
-    [Research, Maps, Frameworks, MasterNotes, Notes, Projects, Questions, Sessions].forEach(function (col) {
+    [Research, Maps, Frameworks, MasterNotes, Notes, Projects, Questions, Sessions,
+      SourceNotes, EvergreenNotes, MOCs, TutorSessions].forEach(function (col) {
       col.replaceAll(col.list().map(function (r) { return r.topicId === id ? Object.assign({}, r, { topicId: null }) : r; }));
     });
+    ConnectionNotes.replaceAll(ConnectionNotes.list().map(function (c) {
+      if (!Array.isArray(c.relatedTopicIds) || c.relatedTopicIds.indexOf(id) === -1) return c;
+      return Object.assign({}, c, { relatedTopicIds: c.relatedTopicIds.filter(function (t) { return t !== id; }) });
+    }));
     DailyLogs.replaceAll(DailyLogs.list().filter(function (l) { return l.topicId !== id; }));
   }
 
@@ -432,6 +825,11 @@
   function notesForTopic(topicId) { return Notes.list().filter(function (n) { return n.topicId === topicId; }).sort(byOrder); }
   function projectsForTopic(topicId) { return Projects.list().filter(function (p) { return p.topicId === topicId; }).sort(byOrder); }
   function questionsForTopic(topicId) { return Questions.list().filter(function (q) { return q.topicId === topicId; }).sort(byOrder); }
+  function sourceNotesForTopic(topicId) { return SourceNotes.list().filter(function (s) { return s.topicId === topicId; }).sort(byOrder); }
+  function evergreenNotesForTopic(topicId) { return EvergreenNotes.list().filter(function (e) { return e.topicId === topicId; }).sort(byOrder); }
+  function connectionNotesForTopic(topicId) { return ConnectionNotes.list().filter(function (c) { return Array.isArray(c.relatedTopicIds) && c.relatedTopicIds.indexOf(topicId) !== -1; }).sort(byOrder); }
+  function mocsForTopic(topicId) { return MOCs.list().filter(function (m) { return m.topicId === topicId; }).sort(byOrder); }
+  function tutorSessionsForTopic(topicId) { return TutorSessions.list().filter(function (t) { return t.topicId === topicId; }); }
 
   /** Hours logged for a topic = timer Sessions + any minutes logged
    * directly on a DailyLog, summed and converted to hours. Computed live,
@@ -521,9 +919,74 @@
   }
 
   // ============================================================
+  // LEARNING PROGRESS — homepage stat selectors, all derived-not-stored
+  // (same convention as hoursLoggedForTopic/currentStreak above).
+  // ============================================================
+  function topicsStudiedCount() {
+    return topicsSorted().filter(function (t) {
+      return sourceNotesForTopic(t.id).length > 0 || evergreenNotesForTopic(t.id).length > 0 || hoursLoggedForTopic(t.id) > 0;
+    }).length;
+  }
+  function conceptsMasteredCount() {
+    return EvergreenNotes.list().filter(function (e) { return e.masteryLevel === 'Advanced' || e.masteryLevel === 'Expert'; }).length;
+  }
+  function questionsAnsweredCount() {
+    return Questions.list().filter(function (q) { return q.status === 'Answered' || q.status === 'Integrated'; }).length;
+  }
+  function connectionsCreatedCount() { return ConnectionNotes.list().length; }
+  function tutorSessionsCompletedCount() { return TutorSessions.list().filter(function (t) { return t.status === 'completed'; }).length; }
+  function projectsAppliedCount() { return Projects.list().filter(function (p) { return p.status === 'done'; }).length; }
+  function evergreenMasteryDistribution() {
+    const dist = {}; MASTERY_LEVELS.forEach(function (m) { dist[m] = 0; });
+    EvergreenNotes.list().forEach(function (e) { dist[e.masteryLevel] = (dist[e.masteryLevel] || 0) + 1; });
+    return dist;
+  }
+  function sourceNotesByStatus() {
+    const dist = {}; SOURCE_STATUSES.forEach(function (s) { dist[s] = 0; });
+    SourceNotes.list().forEach(function (s) { dist[s.status] = (dist[s.status] || 0) + 1; });
+    return dist;
+  }
+
+  // ============================================================
+  // GLOBAL SEARCH — spans every collection, old and new. Returns
+  // {collection, id, title, snippet, topicId}[], newest-relevance-agnostic
+  // (plain substring match — same "keyword substring, not a real search
+  // index" simplification precedent as this page's existing Ctrl+K
+  // command palette already used pre-rebuild).
+  // ============================================================
+  function snippet(text, max) {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    return s.length > (max || 140) ? s.slice(0, max || 140) + '…' : s;
+  }
+  function globalSearch(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    function scan(collectionName, items, getTitle, getSnippet, getTopicId) {
+      items.forEach(function (item) {
+        const title = getTitle(item) || '';
+        const body = getSnippet(item) || '';
+        if (title.toLowerCase().indexOf(q) !== -1 || body.toLowerCase().indexOf(q) !== -1) {
+          out.push({ collection: collectionName, id: item.id, title: title || '(untitled)', snippet: snippet(body || title), topicId: getTopicId(item) });
+        }
+      });
+    }
+    scan('sourceNotes', SourceNotes.list(), function (i) { return i.title; }, function (i) { return i.whyExploring + ' ' + (i.mainIdeas || []).map(function (m) { return m.summary; }).join(' '); }, function (i) { return i.topicId; });
+    scan('evergreenNotes', EvergreenNotes.list(), function (i) { return i.title; }, function (i) { return i.coreIdea + ' ' + i.myUnderstanding + ' ' + i.mentalModel + ' ' + i.applications; }, function (i) { return i.topicId; });
+    scan('questions', Questions.list(), function (i) { return i.text; }, function (i) { return i.answer; }, function (i) { return i.topicId; });
+    scan('connectionNotes', ConnectionNotes.list(), function (i) { return i.title; }, function (i) { return i.theRelationship + ' ' + i.newInsight; }, function (i) { return (i.relatedTopicIds || [])[0] || null; });
+    scan('mocs', MOCs.list(), function (i) { return i.title; }, function (i) { return i.foundations.relatedFields + ' ' + i.foundations.relatedSubtopics; }, function (i) { return i.topicId; });
+    scan('projects', Projects.list(), function (i) { return i.title; }, function (i) { return i.description + ' ' + i.goal; }, function (i) { return i.topicId; });
+    scan('tutorSessions', TutorSessions.list(), function (i) { return i.topic || tutorMode(i.tutorMode).label; }, function (i) { return i.goal; }, function (i) { return i.topicId; });
+    scan('topics', Topics.list(), function (i) { return i.title; }, function (i) { return i.description + ' ' + i.currentQuestion; }, function (i) { return i.id; });
+    return out.slice(0, 60);
+  }
+
+  // ============================================================
   // MARKDOWN-LITE — same lightweight renderer convention this app's other
   // note-reading surfaces already use (e.g. selfcare.html's journal
-  // render), extended with a [[Backlink]] token for Master Notes.
+  // render), extended with a [[Backlink]] token, now scanned across an
+  // Evergreen Note's structured fields rather than one flat `body`.
   // ============================================================
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -549,13 +1012,20 @@
     while ((m = re.exec(String(body || '')))) out.push(m[1].trim());
     return out;
   }
+  /** The four free-text fields on an Evergreen Note that can carry
+   * [[Title]] backlink tokens — Core Idea / My Understanding / Mental
+   * Model / Applications. Concatenated so backlinksTo() and the
+   * Connections mini-gallery scan the whole note, not just one field. */
+  function evergreenScanText(note) {
+    return [note.coreIdea, note.myUnderstanding, note.mentalModel, note.applications].join('\n');
+  }
   function backlinksTo(noteId) {
-    const target = MasterNotes.get(noteId);
+    const target = EvergreenNotes.get(noteId);
     if (!target) return [];
     const titleLower = target.title.toLowerCase();
-    return MasterNotes.list().filter(function (n) {
+    return EvergreenNotes.list().filter(function (n) {
       if (n.id === noteId) return false;
-      return extractBacklinkTitles(n.body).some(function (t) { return t.toLowerCase() === titleLower; });
+      return extractBacklinkTitles(evergreenScanText(n)).some(function (t) { return t.toLowerCase() === titleLower; });
     });
   }
   function renderMarkdownLite(body) {
@@ -611,6 +1081,150 @@
   }
 
   // ============================================================
+  // MIGRATIONS — one-time, idempotent-by-id, flag-gated. Deliberately NOT
+  // gated on target-collection emptiness (deviates from the
+  // tasksnotes-data.js migrateFromBusinessHub() reference precedent,
+  // which could rely on emptiness because its target was fresh) — this
+  // page already holds substantial real Research/MasterNotes/Topic data,
+  // so emptiness would never be true. Instead: preserve each old record's
+  // own id on the new record, so a retry after a partial failure can skip
+  // any id already present in the target collection, and only set the
+  // completion flag after a full successful pass.
+  // ============================================================
+
+  /** Research → SourceNotes, MasterNotes → EvergreenNotes. Both were
+   * superseded by this rebuild's richer templates; the old collections/
+   * keys are left instantiated and orphaned, never deleted. */
+  function migrateLegacyLhubCollections() {
+    if (storeGet(KEYS.migratedLegacyLhub)) return;
+    try {
+      const existingSourceIds = {}; SourceNotes.list().forEach(function (s) { existingSourceIds[s.id] = true; });
+      Research.list().forEach(function (r) {
+        if (existingSourceIds[r.id]) return;
+        SourceNotes.add({
+          id: r.id, topicId: r.topicId, title: r.title,
+          sourceType: LEGACY_RESEARCH_CATEGORY_TO_SOURCE_TYPE[r.category] || 'Other',
+          author: r.author, dateAdded: isoFromMs(r.createdAt), url: r.url,
+          status: LEGACY_RESEARCH_STATUS_TO_SOURCE_STATUS[r.status] || 'Capturing',
+          whyExploring: '',
+          mainIdeas: r.notes ? [sourceNoteMainIdeaModel({ title: 'Notes (migrated)', summary: r.notes, order: 0 })] : [],
+          order: r.order, createdAt: r.createdAt
+        });
+      });
+
+      const existingEvergreenIds = {}; EvergreenNotes.list().forEach(function (e) { existingEvergreenIds[e.id] = true; });
+      MasterNotes.list().forEach(function (m) {
+        if (existingEvergreenIds[m.id]) return;
+        EvergreenNotes.add({
+          id: m.id, title: m.title, conceptName: m.title, topicId: m.topicId,
+          myUnderstanding: m.body, tags: m.tags, masteryLevel: 'Intermediate',
+          order: m.order, createdAt: m.createdAt, updatedAt: m.updatedAt
+        });
+      });
+
+      storeSet(KEYS.migratedLegacyLhub, true);
+    } catch (e) { /* leave the flag unset — safe to retry, ids prevent duplicates */ }
+  }
+
+  /** learning:topics/resources/topicQuestions/topicNotes/topicSubjects
+   * (learning.html/learning-topic.html's own storage, read raw — that
+   * page's -data.js needs no changes) → this page's Topics/SourceNotes/
+   * Questions/EvergreenNotes. learning.html/learning-topic.html and their
+   * `learning:` keys are left on disk, untouched, forever (orphaned-key
+   * precedent). The Topic merge-by-title step is inherently
+   * non-idempotent if a title changes between runs — fine, since this
+   * runs once. */
+  function migrateFromLearningFolder() {
+    if (storeGet(KEYS.migratedFromLearningFolder)) return;
+    try {
+      const oldTopics = storeGet('learning:topics') || [];
+      const oldResources = storeGet('learning:resources') || [];
+      const oldTopicQuestions = storeGet('learning:topicQuestions') || [];
+      const oldTopicNotes = storeGet('learning:topicNotes') || [];
+      const oldTopicSubjects = storeGet('learning:topicSubjects') || [];
+      if (!oldTopics.length && !oldResources.length && !oldTopicQuestions.length && !oldTopicNotes.length) {
+        storeSet(KEYS.migratedFromLearningFolder, true);
+        return;
+      }
+
+      const currentTopics = Topics.list();
+      const topicIdMap = {}; // old learning:topics id -> lhub Topics id
+      oldTopics.forEach(function (t) {
+        const match = currentTopics.find(function (x) { return x.title.trim().toLowerCase() === (t.title || '').trim().toLowerCase(); });
+        if (match) { topicIdMap[t.id] = match.id; return; }
+        const created = Topics.add({ title: t.title, description: t.description || '', icon: t.icon || '📚', order: nextOrder(Topics.list()) });
+        topicIdMap[t.id] = created.id;
+        currentTopics.push(created);
+      });
+
+      const subjectNameById = {}; oldTopicSubjects.forEach(function (s) { subjectNameById[s.id] = s.name; });
+      const subTopicForOldTopic = {}; // old topicId -> first subject name, used as a subTopic tag
+      oldTopicSubjects.forEach(function (s) { if (!subTopicForOldTopic[s.topicId]) subTopicForOldTopic[s.topicId] = s.name; });
+
+      const RESOURCE_TYPE_TO_SOURCE_TYPE = { article: 'Article', book: 'Book', video: 'Video', social: 'Other', note: 'Other' };
+      const existingSourceIds = {}; SourceNotes.list().forEach(function (s) { existingSourceIds[s.id] = true; });
+      oldResources.forEach(function (r) {
+        if (existingSourceIds[r.id]) return;
+        const mainIdeas = (Array.isArray(r.sections) ? r.sections : []).map(function (sec, i) {
+          return sourceNoteMainIdeaModel({ title: sec.title || ('Section ' + (i + 1)), summary: sec.body || sec.bodyLeft || '', order: i });
+        });
+        SourceNotes.add({
+          id: r.id, topicId: topicIdMap[r.topicId] || null, title: r.title || r.subtitle || 'Untitled',
+          sourceType: RESOURCE_TYPE_TO_SOURCE_TYPE[r.type] || 'Other', author: r.author || '',
+          dateAdded: isoFromMs(r.createdAt), subTopic: subTopicForOldTopic[r.topicId] || '', url: r.url || '',
+          status: 'Completed', whyExploring: r.notes || '', mainIdeas: mainIdeas,
+          order: r.order, createdAt: r.createdAt
+        });
+      });
+
+      const existingQuestionIds = {}; Questions.list().forEach(function (q) { existingQuestionIds[q.id] = true; });
+      oldTopicQuestions.forEach(function (q) {
+        if (existingQuestionIds[q.id]) return;
+        Questions.add({
+          id: q.id, topicId: topicIdMap[q.topicId] || null, text: q.question || '',
+          answer: q.answer || '', status: q.answer ? 'Answered' : 'Unanswered',
+          subTopic: subTopicForOldTopic[q.topicId] || '', order: q.order, createdAt: q.createdAt
+        });
+      });
+
+      const existingEvergreenIds = {}; EvergreenNotes.list().forEach(function (e) { existingEvergreenIds[e.id] = true; });
+      oldTopicNotes.forEach(function (n) {
+        if (existingEvergreenIds[n.id]) return;
+        EvergreenNotes.add({
+          id: n.id, title: n.title || 'Untitled', conceptName: n.title || 'Untitled',
+          topicId: topicIdMap[n.topicId] || null, subTopic: subTopicForOldTopic[n.topicId] || '',
+          myUnderstanding: n.body || '', masteryLevel: 'Beginner',
+          order: n.order, createdAt: n.createdAt
+        });
+      });
+
+      storeSet(KEYS.migratedFromLearningFolder, true);
+    } catch (e) { /* leave the flag unset — safe to retry, ids prevent duplicates */ }
+  }
+
+  /** Forces every existing Question/Project through model() once so
+   * older stored records (from before this rebuild) get every new field
+   * backfilled and written to storage — closes the list()/get()-bypasses-
+   * model() gap for these two collections specifically. */
+  function normalizeExistingRecords() {
+    if (storeGet(KEYS.normalizedQuestionsProjects)) return;
+    Questions.list().forEach(function (q) { Questions.update(q.id, {}); });
+    Projects.list().forEach(function (p) { Projects.update(p.id, {}); });
+    storeSet(KEYS.normalizedQuestionsProjects, true);
+  }
+
+  /** Runs all three migrations in a safe order. The calling page should
+   * invoke this on the same delayed timer it already uses for
+   * seedIfEmpty() (i.e. after the initial cloud-sync pull has had a real
+   * chance to answer) — not at script-load time — same seed-race
+   * reasoning as this file's original seedIfEmpty() comment. */
+  function runOneTimeMigrations() {
+    migrateLegacyLhubCollections();
+    migrateFromLearningFolder();
+    normalizeExistingRecords();
+  }
+
+  // ============================================================
   // SEED — a small, realistic starting board so every section demonstrates
   // real data on first load rather than an empty state. Guarded by
   // KEYS.seeded; NOT called automatically at script-load time (see the
@@ -624,6 +1238,8 @@
     Topics.replaceAll([]); DailyLogs.replaceAll([]); Research.replaceAll([]); Maps.replaceAll([]);
     Frameworks.replaceAll([]); MasterNotes.replaceAll([]); Notes.replaceAll([]); Projects.replaceAll([]);
     Questions.replaceAll([]); Sessions.replaceAll([]);
+    SourceNotes.replaceAll([]); EvergreenNotes.replaceAll([]); ConnectionNotes.replaceAll([]);
+    MOCs.replaceAll([]); TutorSessions.replaceAll([]);
 
     const ai = Topics.add({
       title: 'Artificial Intelligence', icon: '🤖', color: '#E11D48', status: 'active',
@@ -647,16 +1263,27 @@
       order: 2, lastStudiedAt: null
     });
 
-    // Research
-    [
-      { topicId: ai.id, category: 'Research Papers', title: 'Attention Is All You Need', author: 'Vaswani et al.', status: 'done', notes: 'The original Transformer paper. Re-read the multi-head attention section twice.' },
-      { topicId: ai.id, category: 'Books', title: 'Deep Learning', author: 'Goodfellow, Bengio, Courville', status: 'in-progress', notes: 'Chapters 6-8 on optimization.' },
-      { topicId: ai.id, category: 'Videos', title: '3Blue1Brown — Neural Networks series', author: '3Blue1Brown', status: 'done', notes: 'Best visual intuition for backprop I have found.' },
-      { topicId: ai.id, category: 'AI Conversations', title: 'Explaining KV-cache like I\'m tired', author: '', status: 'done', notes: 'Finally clicked after asking for a bad-day-friendly explanation.' },
-      { topicId: phil.id, category: 'Books', title: 'Meditations', author: 'Marcus Aurelius', status: 'done', notes: 'Book 2 is the one I keep coming back to.' },
-      { topicId: phil.id, category: 'Podcasts', title: 'Practical Stoicism, ep. 12', author: '', status: 'to-review', notes: '' },
-      { topicId: design.id, category: 'Bookmarks', title: 'Refactoring UI notes', author: '', status: 'to-review', notes: '' }
-    ].forEach(function (r, i) { Research.add(Object.assign({ order: i }, r)); });
+    // Source Notes — one per real source, captured raw.
+    const srcAttention = SourceNotes.add({
+      topicId: ai.id, order: 0, sourceType: 'Research Paper', title: 'Attention Is All You Need',
+      author: 'Vaswani et al.', status: 'Completed', subTopic: 'Transformers',
+      whyExploring: 'Wanted the primary source instead of secondhand explanations of attention.',
+      mainIdeas: [
+        sourceNoteMainIdeaModel({ order: 0, title: 'Scaled dot-product attention', summary: 'Attention is a soft, differentiable lookup: softmax(QK^T/√d)V.', quotes: '"An attention function can be described as mapping a query and a set of key-value pairs to an output."', info: 'Multi-head just runs several of these lookups in parallel at different representation subspaces.', reaction: 'Clicked once I stopped thinking of it as "magic" and started thinking of it as a weighted dictionary lookup.' })
+      ],
+      questionsRaised: { missing: 'A real intuition for why softmax specifically, not just that it works.', implications: 'If attention is just weighted lookup, how much of "reasoning" is really search over memorized patterns?' },
+      patternsNoticed: { repeated: 'Every explanation eventually reduces to Query/Key/Value.' },
+      connectionsText: { remindsMeOf: 'Hash maps — a soft, differentiable version of key lookup.' },
+      curiosityThreads: { investigate: 'KV-caching during inference — how does storing K/V per token actually speed generation up?' }
+    });
+    const srcDl = SourceNotes.add({
+      topicId: ai.id, order: 1, sourceType: 'Book', title: 'Deep Learning', author: 'Goodfellow, Bengio, Courville',
+      status: 'Processing', subTopic: 'Optimization',
+      mainIdeas: [sourceNoteMainIdeaModel({ order: 0, title: 'Optimization landscape', summary: 'Chapters 6-8 on why SGD with momentum works better than plain gradient descent in practice.' })]
+    });
+    SourceNotes.add({ topicId: phil.id, order: 0, sourceType: 'Book', title: 'Meditations', author: 'Marcus Aurelius', status: 'Completed', subTopic: 'Practice', whyExploring: 'Wanted the primary text, not a summary of Stoicism.', mainIdeas: [sourceNoteMainIdeaModel({ order: 0, title: 'Book 2', summary: 'The one I keep coming back to — control only what is yours to control.', quotes: '"You have power over your mind — not outside events."' })] });
+    SourceNotes.add({ topicId: phil.id, order: 1, sourceType: 'Podcast', title: 'Practical Stoicism, ep. 12', status: 'Capturing' });
+    SourceNotes.add({ topicId: design.id, order: 0, sourceType: 'Other', title: 'Refactoring UI notes', status: 'Capturing' });
 
     // Notes (atomic)
     [
@@ -666,7 +1293,7 @@
     ].forEach(function (n, i) { Notes.add(Object.assign({ order: i }, n)); });
 
     // Frameworks
-    const fw1 = Frameworks.add({
+    Frameworks.add({
       topicId: ai.id, title: 'How I Evaluate a New Model', icon: '🧪', color: '#E11D48', order: 0,
       description: 'A quick checklist before trusting a new model\'s output on anything that matters.',
       sections: [
@@ -683,33 +1310,84 @@
       ]
     });
 
-    // Master notes (with a backlink between them, to demonstrate the feature)
-    MasterNotes.add({
-      topicId: ai.id, title: 'Transformers, End to End', order: 0,
-      tags: ['ai', 'deep-learning'],
-      body: '# Transformers, End to End\n\nA synthesis of everything gathered on how a transformer actually works, start to finish.\n\n## Attention\n\nSee [[How I Evaluate a New Model]] for how I sanity-check outputs once a model is trained — this section is about *how* it gets there.\n\nQuery/Key/Value attention is a soft, differentiable lookup. Multi-head just runs several of these lookups in parallel at different representation subspaces.\n\n## Training\n\n> The hard part was never the architecture, it was the data pipeline.\n\n- Pretraining: next-token prediction at massive scale\n- Fine-tuning: much smaller, much more curated\n- RLHF: shaping *how* it answers, not just *whether* it can\n\n## Open questions\n\n1. How much of "reasoning" is real search vs. memorized pattern completion?\n2. Where does the next real capability jump actually come from?'
+    // Evergreen Knowledge Notes — many Source Notes compiled into one
+    // owned concept (with a [[Backlink]] between two, to demonstrate it).
+    const evTransformers = EvergreenNotes.add({
+      topicId: ai.id, order: 0, title: 'Transformers, End to End', conceptName: 'Transformers', masteryLevel: 'Advanced',
+      tags: ['ai', 'deep-learning'], relatedSourceNoteIds: [srcAttention.id, srcDl.id],
+      coreIdea: 'A transformer builds a representation of a sequence entirely out of attention — a soft, differentiable lookup — instead of recurrence.',
+      myUnderstanding: 'Query/Key/Value attention is a soft, differentiable lookup. Multi-head just runs several of these lookups in parallel at different representation subspaces. See [[How I Evaluate a New Model]] for how I sanity-check outputs once a model trained this way is actually deployed — that note is about *using* the result, this one is about how it gets there.',
+      mentalModel: 'Pretraining teaches next-token prediction at massive scale. Fine-tuning is much smaller and more curated. RLHF shapes *how* it answers, not just *whether* it can.',
+      principles: ['Attention is a weighted lookup, not "focus" in any literal sense.', 'Scale (data + compute) has so far mattered more than architecture novelty.', 'Alignment (RLHF) is a separate axis from raw capability.'],
+      examples: 'GPT-family, Claude, and most modern LLMs are all decoder-only transformer stacks trained this way.',
+      contradictions: { whereFails: 'Struggles with tasks needing true multi-step symbolic search rather than pattern completion.', opposingViewpoints: 'Some argue in-context "reasoning" is closer to real search than pure memorization — genuinely contested.' },
+      questionsUnresolved: 'How much of "reasoning" is real search vs. memorized pattern completion? Where does the next real capability jump come from?',
+      applications: 'Use this mental model whenever evaluating a new model release — ask "what pattern is it completing here?" before trusting an answer.'
     });
-    MasterNotes.add({
-      topicId: ai.id, title: 'How I Evaluate a New Model', order: 1,
-      tags: ['ai', 'practice'],
-      body: '# How I Evaluate a New Model\n\nThe write-up version of the [[Transformers, End to End]] framework card.\n\n## Checklist\n\n- Ask it something you already know the answer to.\n- Ask it to show its reasoning.\n- Push on a follow-up that contradicts its first answer — does it notice?'
+    EvergreenNotes.add({
+      topicId: ai.id, order: 1, title: 'How I Evaluate a New Model', conceptName: 'Model evaluation practice', masteryLevel: 'Intermediate',
+      tags: ['ai', 'practice'], relatedEvergreenIds: [evTransformers.id],
+      coreIdea: 'Never trust a new model\'s output on anything that matters without a quick sanity pass first.',
+      myUnderstanding: 'The write-up version of the [[Transformers, End to End]] framework card — ask it something you already know, ask it to show its reasoning, then push a follow-up that contradicts its first answer and see if it notices.',
+      applications: 'Run this checklist before shipping any AI-generated content or code.'
     });
-    MasterNotes.add({
-      topicId: phil.id, title: 'A Practice, Not a Theory', order: 0,
+    EvergreenNotes.add({
+      topicId: phil.id, order: 0, title: 'A Practice, Not a Theory', conceptName: 'Stoicism as daily practice', masteryLevel: 'Advanced',
       tags: ['stoicism'],
-      body: '# A Practice, Not a Theory\n\nStoicism only ever mattered to me once I stopped reading it as philosophy and started using it as a daily practice.\n\n## The one habit that stuck\n\nEvery morning: what is actually in my control today?'
+      coreIdea: 'Stoicism only ever mattered once I stopped reading it as philosophy and started using it as a daily practice.',
+      myUnderstanding: 'Every morning: what is actually in my control today? That single question is the whole practice — everything else in the texts is commentary on it.',
+      contradictions: { whereFails: 'Can tip into passivity if "acceptance" is used to avoid action that was actually within my control.' },
+      questionsUnresolved: 'Where is the real line between acceptance and passivity?'
+    });
+
+    // Connection Notes
+    ConnectionNotes.add({
+      title: 'Attention as a soft key-value lookup', order: 0,
+      relatedEvergreenIds: [evTransformers.id], relatedTopicIds: [ai.id],
+      theRelationship: 'Transformer attention and a plain hash map both resolve a query to a value via a key — attention just makes the match "soft" (a weighted blend) instead of exact.',
+      similarPattern: 'Any time a system needs to retrieve "the most relevant thing" from many candidates without hard-coding which one, a soft/weighted lookup shows up — search ranking, recommendation systems, and attention are all the same underlying move.',
+      newInsight: 'This reframes "attention" from a mysterious cognitive metaphor into an ordinary data-structure operation, which made it much easier to actually reason about.',
+      applications: 'Use the "soft lookup" framing when explaining attention to someone who already understands hash maps.'
+    });
+
+    // MOC — a Map of Content aggregating the AI topic's knowledge.
+    MOCs.add({
+      title: 'Artificial Intelligence', topicId: ai.id, order: 0,
+      foundations: { relatedFields: 'Linear algebra, probability, optimization', relatedSubtopics: 'Transformers, training/RLHF, evaluation practice', linkedKnowledgeNoteIds: [evTransformers.id] },
+      coreConceptIds: [evTransformers.id]
     });
 
     // Projects
-    Projects.add({ topicId: ai.id, title: 'Build a tiny transformer from scratch', description: 'No frameworks — just numpy, to actually feel every matrix multiply.', status: 'in-progress', order: 0 });
-    Projects.add({ topicId: phil.id, title: 'Write a Stoic morning-page template', description: 'A repeatable 5-minute journal prompt based on the dichotomy of control.', status: 'done', order: 0 });
+    Projects.add({
+      topicId: ai.id, title: 'Build a tiny transformer from scratch', description: 'No frameworks — just numpy, to actually feel every matrix multiply.',
+      status: 'in-progress', order: 0, goal: 'Understand attention well enough to explain it without notes.',
+      currentSkillLevel: 'Comfortable with numpy, shaky on backprop internals.',
+      skillsNeeded: ['Manual backpropagation', 'Softmax gradient derivation'],
+      relatedKnowledgeIds: [evTransformers.id], workflowStage: 'Encounter Problem',
+      problemsEncountered: [{ id: uid('prob'), problem: 'Gradient of softmax kept coming out wrong.', dateEncountered: isoDaysAgo(2), resolved: false }],
+      lessonsLearned: ['Writing the forward pass first, then deriving gradients by hand, sticks far better than reading a derivation.']
+    });
+    Projects.add({ topicId: phil.id, title: 'Write a Stoic morning-page template', description: 'A repeatable 5-minute journal prompt based on the dichotomy of control.', status: 'done', order: 0, workflowStage: 'Continue Building', lessonsLearned: ['The prompt only stuck once it was one single question, not five.'] });
 
-    // Questions (running question bank)
-    Questions.add({ topicId: ai.id, text: 'Why does layer norm placement (pre vs post) matter so much for training stability?', status: 'open', order: 0 });
-    Questions.add({ topicId: ai.id, text: 'What actually is a "KV cache" doing during inference?', status: 'answered', answer: 'Caching the Key/Value projections for every already-generated token so they are not recomputed on every new token.', order: 1 });
-    Questions.add({ topicId: phil.id, text: 'Is Stoic acceptance different from learned helplessness?', status: 'open', order: 0 });
+    // Questions (running Question Bank)
+    Questions.add({ topicId: ai.id, text: 'Why does layer norm placement (pre vs post) matter so much for training stability?', status: 'Unanswered', order: 0, relatedEvergreenIds: [evTransformers.id] });
+    Questions.add({ topicId: ai.id, text: 'What actually is a "KV cache" doing during inference?', status: 'Answered', answer: 'Caching the Key/Value projections for every already-generated token so they are not recomputed on every new token.', order: 1, relatedSourceNoteIds: [srcAttention.id] });
+    Questions.add({ topicId: phil.id, text: 'Is Stoic acceptance different from learned helplessness?', status: 'Exploring', order: 0 });
 
-    // Knowledge map (a small starter graph for AI)
+    // Tutor session — a completed example demonstrating the Mastery Score.
+    TutorSessions.add({
+      topicId: ai.id, topic: 'Transformer attention', tutorMode: 'examiner', status: 'completed',
+      currentLevelOfUnderstanding: 'Intermediate — read the paper, built intuition, not yet fluent explaining it cold.',
+      goal: 'Be able to explain attention to a non-technical friend without notes.',
+      generatedPrompt: buildTutorPrompt('examiner', { topic: 'Transformer attention', currentLevel: 'Intermediate', goal: 'Explain it without notes' }),
+      masteryScore: { understanding: 78, explanationAbility: 62, applicationAbility: 70, confidence: 65 },
+      knowledgeGaps: ['Struggled to explain multi-head attention without falling back to the matrix formula.'],
+      nextSteps: ['Practice a plain-language explanation out loud, no notes, timed to 60 seconds.'],
+      relatedEvergreenIds: [evTransformers.id], relatedSourceNoteIds: [srcAttention.id]
+    });
+
+    // Knowledge map (a small starter graph for AI) — the Mind Mapping
+    // canvas, genuinely separate from the MOC above.
     Maps.add({
       topicId: ai.id, title: 'Transformer Concept Map', order: 0,
       nodes: [
@@ -758,12 +1436,20 @@
 
     saveSettings({});
     storeSet(KEYS.seeded, true);
+    // A freshly-seeded board has nothing to migrate from and is already
+    // in the new shape — mark every migration done so it's never retried
+    // against (and possibly duplicated onto) demo data.
+    storeSet(KEYS.migratedLegacyLhub, true);
+    storeSet(KEYS.migratedFromLearningFolder, true);
+    storeSet(KEYS.normalizedQuestionsProjects, true);
   }
 
   function isEmptyEverywhere() {
     return !Topics.list().length && !DailyLogs.list().length && !Research.list().length &&
       !Maps.list().length && !Frameworks.list().length && !MasterNotes.list().length &&
-      !Notes.list().length && !Projects.list().length && !Questions.list().length && !Sessions.list().length;
+      !Notes.list().length && !Projects.list().length && !Questions.list().length && !Sessions.list().length &&
+      !SourceNotes.list().length && !EvergreenNotes.list().length && !ConnectionNotes.list().length &&
+      !MOCs.list().length && !TutorSessions.list().length;
   }
   function seedIfEmpty() {
     if (storeGet(KEYS.seeded)) return;
@@ -777,6 +1463,7 @@
   global.LearningHubData = {
     KEYS: KEYS,
     WEEKS: WEEKS,
+    LEARNING_LOOP: LEARNING_LOOP,
     CRITICAL_QUESTIONS: CRITICAL_QUESTIONS,
     MEDIA_CHECKLIST: MEDIA_CHECKLIST,
     OUTPUT_FIELDS: OUTPUT_FIELDS,
@@ -786,23 +1473,42 @@
     RESEARCH_STATUSES: RESEARCH_STATUSES,
     NOTE_TYPES: NOTE_TYPES,
     PROJECT_STATUSES: PROJECT_STATUSES,
+    PROJECT_WORKFLOW_STAGES: PROJECT_WORKFLOW_STAGES,
     QUESTION_STATUSES: QUESTION_STATUSES,
-    uid: uid, todayISO: todayISO, isoDaysAgo: isoDaysAgo,
+    SOURCE_TYPES: SOURCE_TYPES,
+    SOURCE_STATUSES: SOURCE_STATUSES,
+    MASTERY_LEVELS: MASTERY_LEVELS,
+    TUTOR_MODES: TUTOR_MODES,
+    uid: uid, todayISO: todayISO, isoDaysAgo: isoDaysAgo, isoFromMs: isoFromMs,
     compressImageDataUrl: compressImageDataUrl, isValidMediaUrl: isValidMediaUrl,
     escapeHtml: escapeHtml, slugify: slugify, extractHeadings: extractHeadings,
     extractBacklinkTitles: extractBacklinkTitles, backlinksTo: backlinksTo, renderMarkdownLite: renderMarkdownLite,
+    evergreenScanText: evergreenScanText,
     weekInfo: weekInfo,
+    tutorMode: tutorMode, buildTutorPrompt: buildTutorPrompt, tutorLocalFallback: tutorLocalFallback,
+    getAiPrefs: getAiPrefs,
     Topics: Object.assign({}, Topics, { remove: removeTopic }),
     DailyLogs: DailyLogs, Research: Research, Maps: Maps, Frameworks: Frameworks,
     MasterNotes: MasterNotes, Notes: Notes, Projects: Projects, Questions: Questions, Sessions: Sessions,
+    SourceNotes: SourceNotes, EvergreenNotes: EvergreenNotes, ConnectionNotes: ConnectionNotes,
+    MOCs: MOCs, TutorSessions: TutorSessions,
+    sourceNoteMainIdeaModel: sourceNoteMainIdeaModel,
     getSettings: getSettings, saveSettings: saveSettings,
     topicsSorted: topicsSorted, activeTopics: activeTopics, nextOrder: nextOrder, reorderCollection: reorderCollection,
     sessionsForTopic: sessionsForTopic, dailyLogsForTopic: dailyLogsForTopic, dailyLogFor: dailyLogFor, upsertDailyLog: upsertDailyLog,
     researchForTopic: researchForTopic, mapsForTopic: mapsForTopic, frameworksForTopic: frameworksForTopic,
     masterNotesForTopic: masterNotesForTopic, notesForTopic: notesForTopic, projectsForTopic: projectsForTopic, questionsForTopic: questionsForTopic,
+    sourceNotesForTopic: sourceNotesForTopic, evergreenNotesForTopic: evergreenNotesForTopic,
+    connectionNotesForTopic: connectionNotesForTopic, mocsForTopic: mocsForTopic, tutorSessionsForTopic: tutorSessionsForTopic,
     hoursLoggedForTopic: hoursLoggedForTopic, totalHoursLogged: totalHoursLogged,
     currentTopic: currentTopic, markStudied: markStudied, recentlyStudiedTopics: recentlyStudiedTopics,
     currentStreak: currentStreak, weeklyActivityMinutes: weeklyActivityMinutes, monthlyCompletionTrend: monthlyCompletionTrend,
+    topicsStudiedCount: topicsStudiedCount, conceptsMasteredCount: conceptsMasteredCount, questionsAnsweredCount: questionsAnsweredCount,
+    connectionsCreatedCount: connectionsCreatedCount, tutorSessionsCompletedCount: tutorSessionsCompletedCount, projectsAppliedCount: projectsAppliedCount,
+    evergreenMasteryDistribution: evergreenMasteryDistribution, sourceNotesByStatus: sourceNotesByStatus,
+    globalSearch: globalSearch,
+    runOneTimeMigrations: runOneTimeMigrations,
+    migrateLegacyLhubCollections: migrateLegacyLhubCollections, migrateFromLearningFolder: migrateFromLearningFolder, normalizeExistingRecords: normalizeExistingRecords,
     seedDefaultData: seedDefaultData, seedIfEmpty: seedIfEmpty, isEmptyEverywhere: isEmptyEverywhere
   };
 })(window);

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="local-store-idb.js"></script>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<title>Customization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="glass-theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" defer></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="glass-theme.js" defer></script>
+<script src="customization-data.js" defer></script>
+<style>
+/* =============================================================
+   Customization Studio — this dashboard's own appearance/behavior
+   control center. Built on the same shared glass-theme.css foundation
+   as design-library.html (no reference photo/literal color instruction
+   was given, so this reuses the app's own common near-black/accent
+   thread rather than a new palette, per CLAUDE.md §6/DO NOT MODIFY
+   rule 2). See customization-data.js's own header comment for exactly
+   what "controls every visual aspect of the dashboard" does and
+   doesn't honestly reach across this app's ~30 independently-themed
+   pages, and for the real, dashboard-wide Navigation Manager wiring
+   into topbar.js.
+   ============================================================= */
+:root {
+  /* Softer, warmer text hierarchy than glass-theme.css's raw defaults —
+     scoped to this page only (see design-library.html's own matching
+     override for the full reasoning: a flat, cold near-white applied
+     almost everywhere — headings, body copy, and rollup numbers all
+     sitting at the same stark brightness — reads as "everything is pure
+     white" with no hierarchy). Any --gt-* value redeclared here, after
+     glass-theme.css's own <link>, wins the cascade and affects only
+     this page. */
+  --gt-text: #efe9df;
+  --gt-text-dim: rgba(239,233,223,0.66);
+  --gt-text-mute: rgba(239,233,223,0.42);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; -webkit-font-smoothing: antialiased; }
+html, body { scrollbar-width: thin; }
+img, video { max-width: 100%; display: block; }
+button, input, textarea, select { font-family: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--gt-accent-bright); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; } }
+body.cz-density-compact .gt-card { padding: 14px; margin-bottom: 12px; }
+body.cz-reduced-motion, body.cz-reduced-motion * { animation: none !important; transition: none !important; }
+
+.cz-shell { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+.cz-sidebar { width: 258px; flex-shrink: 0; padding: 18px 14px 26px; position: sticky; top: 0; align-self: flex-start; height: 100vh; overflow-y: auto; border-right: 1px solid var(--gt-hairline); background: rgba(255,255,255,0.015); }
+.cz-sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 6px 6px 16px; }
+.cz-sidebar-mark { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; background: linear-gradient(155deg, var(--gt-accent-bright) 0%, var(--gt-accent) 100%); color: var(--gt-accent-text); font-weight: 800; font-size: 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(var(--gt-accent-rgb),0.3); }
+.cz-sidebar-text { display: flex; flex-direction: column; line-height: 1.2; }
+.cz-sidebar-title { font-size: 13.5px; font-weight: 800; }
+.cz-sidebar-sub { font-size: 10px; color: var(--gt-text-mute); }
+.cz-back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--gt-text-mute); text-decoration: none; margin: 4px 6px 14px; }
+.cz-back-link:hover { color: var(--gt-accent-bright); }
+.cz-search-btn { width: 100%; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.045); border: 1px solid var(--gt-border); border-radius: 10px; padding: 9px 11px; color: var(--gt-text-mute); font-size: 12px; cursor: pointer; margin-bottom: 16px; }
+.cz-search-btn kbd { margin-left: auto; font-family: ui-monospace, monospace; font-size: 9.5px; font-weight: 700; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 5px; }
+.cz-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 7px 9px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--gt-text-dim); cursor: pointer; background: none; border: none; margin-bottom: 1px; }
+.cz-nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.cz-nav-item.active { background: rgba(var(--gt-accent-rgb),0.16); color: var(--gt-accent-bright); }
+.cz-sidebar-toggle { display: none; }
+
+.cz-main { flex: 1 1 auto; min-width: 0; }
+.cz-topbar { display: flex; align-items: center; gap: 12px; padding: 14px 26px; border-bottom: 1px solid var(--gt-hairline); position: sticky; top: 0; z-index: 5; background: rgba(10,10,11,0.72); backdrop-filter: blur(14px); }
+.cz-topbar-title { font-size: 13.5px; font-weight: 700; color: var(--gt-text-dim); }
+.cz-sync-status { font-size: 11px; font-weight: 600; color: var(--gt-text-mute); display: flex; align-items: center; gap: 5px; margin-left: auto; }
+.cz-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gt-text-mute); }
+.cz-sync-status.is-saved .cz-sync-dot { background: var(--gt-good); }
+.cz-view { max-width: 980px; margin: 0 auto; padding: 24px 26px 110px; }
+.cz-page-head { margin-bottom: 18px; }
+.cz-page-title { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 600; font-size: 28px; }
+.cz-page-sub { font-size: 12.5px; color: var(--gt-text-mute); max-width: 620px; margin-top: 4px; }
+
+.cz-field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 6px; }
+.cz-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.cz-stat-tile { text-align: center; padding: 14px 10px; border-radius: var(--gt-radius-sm); border: 1px solid rgba(var(--gt-accent-rgb),0.22); background: linear-gradient(160deg, rgba(var(--gt-accent-rgb),0.12) 0%, rgba(255,255,255,0.025) 100%); }
+.cz-stat-num { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--gt-accent-bright); text-shadow: 0 0 20px rgba(var(--gt-accent-rgb),0.32); }
+.cz-stat-label { font-size: 10px; font-weight: 700; color: var(--gt-text-mute); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 5px; }
+.cz-field { margin-bottom: 16px; }
+.cz-field-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gt-text-mute); margin-bottom: 6px; }
+.cz-field-hint { font-size: 11.5px; color: var(--gt-text-mute); margin-top: 5px; line-height: 1.5; }
+.cz-field input[type="text"], .cz-field input[type="number"], .cz-field select, .cz-field textarea { width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--gt-border); background: rgba(255,255,255,0.04); color: var(--gt-text); font-size: 13.5px; }
+.cz-field textarea { min-height: 70px; }
+.cz-range-row { display: flex; align-items: center; gap: 10px; }
+.cz-range-row input[type="range"] { flex: 1; }
+.cz-range-val { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: var(--gt-accent-bright); min-width: 44px; text-align: right; }
+.cz-color-field { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--gt-border); border-radius: 12px; background: rgba(255,255,255,0.03); margin-bottom: 10px; }
+.cz-color-field input[type="color"] { width: 34px; height: 34px; border: none; border-radius: 8px; cursor: pointer; background: none; padding: 0; flex-shrink: 0; }
+.cz-color-field-name { font-size: 12.5px; font-weight: 700; flex: 1; }
+.cz-color-field-val { font-family: ui-monospace, monospace; font-size: 11px; color: var(--gt-text-mute); }
+.cz-color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; }
+
+.cz-theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+.cz-theme-tile { cursor: pointer; overflow: hidden; padding: 0; }
+.cz-theme-swatch { height: 64px; display: flex; align-items: flex-end; padding: 8px; gap: 4px; }
+.cz-theme-swatch span { display: block; width: 10px; height: 10px; border-radius: 50%; }
+.cz-theme-tile-name { padding: 9px 11px; font-size: 12px; font-weight: 700; }
+.cz-theme-tile.active { outline: 2px solid var(--gt-accent); }
+
+.cz-preview-panel { border-radius: 18px; border: 1px solid var(--gt-border); padding: 26px; text-align: center; }
+.cz-preview-panel .cz-p-heading { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+.cz-preview-panel .cz-p-body { font-size: 13px; color: var(--gt-text-dim); margin-bottom: 14px; }
+
+.cz-gradient-bar { height: 46px; border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--gt-border); }
+.cz-palette-swatch-row { display: flex; gap: 6px; margin-top: 8px; }
+.cz-palette-swatch-row span { flex: 1; height: 28px; border-radius: 6px; }
+
+.cz-nav-manager-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--gt-hairline); border-radius: 12px; margin-bottom: 8px; cursor: grab; }
+.cz-nav-manager-row .cz-drag { color: var(--gt-text-mute); font-size: 13px; letter-spacing: -1px; }
+.cz-nav-manager-row .cz-nm-label { font-weight: 700; font-size: 13px; flex: 1; }
+.cz-pin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--gt-hairline); border-radius: 10px; margin-bottom: 6px; font-size: 12.5px; }
+
+.cz-persona-card, .cz-automation-card, .cz-preset-card, .cz-snapshot-card { padding: 14px 16px; margin-bottom: 10px; }
+.cz-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.cz-row-title { font-weight: 800; font-size: 13.5px; }
+.cz-row-actions { display: flex; gap: 6px; }
+.cz-row-actions button { background: transparent; border: 1px solid var(--gt-border); border-radius: 8px; padding: 4px 8px; font-size: 11px; color: var(--gt-text-mute); cursor: pointer; }
+.cz-row-actions button:hover { color: var(--gt-accent-bright); border-color: var(--gt-accent); }
+
+.cz-toggle-list { display: flex; flex-direction: column; gap: 4px; }
+.cz-toggle-row-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--gt-hairline); border-radius: 12px; margin-bottom: 8px; }
+.cz-switch { position: relative; width: 40px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.12); border: none; cursor: pointer; flex-shrink: 0; }
+.cz-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s ease; }
+.cz-switch.on { background: var(--gt-accent); }
+.cz-switch.on::after { transform: translateX(18px); }
+
+.cz-shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-bottom: 1px solid var(--gt-hairline); font-size: 12.5px; }
+.cz-shortcut-row kbd { font-family: ui-monospace, monospace; font-size: 11px; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 6px; }
+.cz-changelog-row { font-size: 12px; color: var(--gt-text-dim); padding: 6px 0; border-bottom: 1px solid var(--gt-hairline); display: flex; justify-content: space-between; gap: 10px; }
+.cz-changelog-row span:last-child { color: var(--gt-text-mute); flex-shrink: 0; }
+.cz-integration-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--gt-hairline); border-radius: 12px; margin-bottom: 8px; }
+.cz-status-pill { font-size: 10.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
+.cz-status-pill.ok { background: rgba(110,231,183,0.16); color: var(--gt-good); }
+.cz-status-pill.warn { background: rgba(251,191,36,0.16); color: var(--gt-warn); }
+.cz-status-pill.bad { background: rgba(255,138,138,0.16); color: var(--gt-bad); }
+.delete-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--gt-bad); cursor: pointer; }
+.delete-link:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .cz-sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 2400; transform: translateX(-104%); transition: transform 0.22s ease; box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
+  .cz-sidebar.show { transform: translateX(0); }
+  .cz-sidebar-toggle { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--gt-border); border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .cz-topbar-title { display: none; }
+}
+</style>
+</head>
+<body class="gt-theme">
+<div id="gtHeroCoverBg"></div>
+<div class="cz-shell">
+  <aside class="cz-sidebar" id="czSidebar">
+    <div class="cz-sidebar-brand">
+      <span class="cz-sidebar-mark">⚙️</span>
+      <span class="cz-sidebar-text"><span class="cz-sidebar-title">Customization</span><span class="cz-sidebar-sub">Your dashboard, your rules</span></span>
+    </div>
+    <a href="index.html" class="cz-back-link">← Back to dashboard</a>
+    <div id="czNavList"></div>
+  </aside>
+  <main class="cz-main">
+    <div class="cz-topbar">
+      <button type="button" class="cz-sidebar-toggle" id="czSidebarToggle">☰ Menu</button>
+      <span class="cz-topbar-title" id="czTopbarTitle">Dashboard Customization</span>
+      <span class="cz-sync-status" id="czSyncStatus"></span>
+    </div>
+    <div class="cz-view" id="czView"></div>
+  </main>
+</div>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  let DB = null;
+  let currentView = 'home';
+  let editingPersonaId = null, editingAutomationId = null;
+
+  const SECTIONS = [
+    { group: 'Overview', items: [['home', '🏠', 'Dashboard Customization']] },
+    { group: 'Appearance', items: [['appearance', '🌈', 'Themes & Appearance'], ['colors', '🎨', 'Color Studio'], ['wallpapers', '🖼', 'Wallpapers'], ['typography', '🔤', 'Typography'], ['icons', '🎭', 'Icon Library']] },
+    { group: 'Structure', items: [['widgets', '🧩', 'Widgets & Components'], ['layout', '🧱', 'Layout Builder'], ['navigation', '🧭', 'Navigation Manager']] },
+    { group: 'Behavior', items: [['productivity', '⚡', 'Productivity'], ['ai', '🤖', 'AI Settings'], ['integrations', '🔌', 'Integrations'], ['automations', '⚙️', 'Automations'], ['shortcuts', '⌨️', 'Shortcuts']] },
+    { group: 'System', items: [['privacy', '🔒', 'Privacy & Security'], ['backup', '💾', 'Backup & Restore'], ['presets', '📦', 'Workspace Templates'], ['experimental', '🧪', 'Experimental Features'], ['help', '📖', 'Help']] }
+  ];
+  const TITLES = {}; SECTIONS.forEach(function (g) { g.items.forEach(function (it) { TITLES[it[0]] = it[2]; }); });
+
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+  function renderSidebarNav() {
+    const wrap = $('czNavList'); wrap.innerHTML = '';
+    SECTIONS.forEach(function (g) {
+      const gEl = el('div', null, '<div style="font-size:9.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--gt-text-mute);padding:0 9px;margin:12px 0 6px;">' + g.group + '</div>');
+      wrap.appendChild(gEl);
+      g.items.forEach(function (it) {
+        const b = el('button', 'cz-nav-item' + (currentView === it[0] ? ' active' : ''), '<span style="width:16px;text-align:center;">' + it[1] + '</span><span>' + it[2] + '</span>');
+        b.type = 'button';
+        b.addEventListener('click', function () { switchView(it[0]); });
+        wrap.appendChild(b);
+      });
+    });
+  }
+  function switchView(view) {
+    currentView = view;
+    $('czTopbarTitle').textContent = TITLES[view] || 'Customization';
+    try { history.replaceState(null, '', '#' + view); } catch (e) {}
+    renderSidebarNav();
+    $('czSidebar').classList.remove('show');
+    renderView();
+  }
+
+  let syncTimer = null;
+  function setSyncStatus(mode, text) {
+    const wrap = $('czSyncStatus'); if (!wrap) return;
+    wrap.className = 'cz-sync-status' + (mode ? ' is-' + mode : '');
+    wrap.innerHTML = '<span class="cz-sync-dot"></span><span>' + escapeHtml(text) + '</span>';
+  }
+  function handleSaveEvent(e) {
+    if (!navigator.onLine) { setSyncStatus('offline', 'Offline'); return; }
+    if (e.detail && e.detail.ok === false) { setSyncStatus('error', 'Storage may be full'); return; }
+    setSyncStatus('saved', 'Saved');
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () { if (navigator.onLine) setSyncStatus('saved', 'Synced'); }, 1600);
+  }
+
+  // ============================================================
+  // LIVE APPLY — repaint this page (and, live, design-library.html —
+  // see that page's own applySharedTheme()) from current settings.
+  // ============================================================
+  function applyLive() { DB.applyThemeToDocument(); }
+
+  // ============================================================
+  // VIEW DISPATCH
+  // ============================================================
+  function renderView() {
+    const v = $('czView'); v.innerHTML = '';
+    const s = DB.getSettings();
+    const fns = {
+      home: renderHome, appearance: renderAppearance, colors: renderColors, wallpapers: renderWallpapers, typography: renderTypography, icons: renderIcons,
+      widgets: renderWidgets, layout: renderLayout, navigation: renderNavigation, productivity: renderProductivity, ai: renderAi, integrations: renderIntegrations,
+      automations: renderAutomations, shortcuts: renderShortcuts, privacy: renderPrivacy, backup: renderBackup, presets: renderPresets, experimental: renderExperimental, help: renderHelp
+    };
+    (fns[currentView] || renderHome)(v, s);
+  }
+  function pageHead(v, icon, title, sub) { const h = el('div', 'cz-page-head', '<div class="cz-page-title">' + icon + ' ' + escapeHtml(title) + '</div>' + (sub ? '<div class="cz-page-sub">' + escapeHtml(sub) + '</div>' : '')); v.appendChild(h); return h; }
+  function card(v) { const c = el('div', 'gt-card'); v.appendChild(c); return c; }
+
+  // ---------- HOME ----------
+  function renderHome(v, s) {
+    pageHead(v, '🏠', 'Dashboard Customization', 'Your command center for everything about how this dashboard looks and behaves.');
+    const c1 = card(v);
+    c1.innerHTML = '<div class="cz-stat-grid">' +
+      stat('Theme', DB.THEME_PRESETS[s.themePreset].label) + stat('Card Radius', s.cardRadius + 'px') + stat('Density', s.density) + stat('Font', s.bodyFont) +
+      stat('AI Key', s.aiKey ? 'Configured' : 'Not set') + stat('Last Backup', s.lastBackupAt ? DB.daysSince(s.lastBackupAt) + 'd ago' : 'Never') +
+      '</div>';
+    const quick = card(v);
+    quick.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Quick Actions</h3></div>';
+    const row = el('div', 'cz-field-row');
+    quick.appendChild(row);
+    row.appendChild(quickBtn('🌈 Change Theme', function () { switchView('appearance'); }));
+    row.appendChild(quickBtn('💾 Take a Backup', function () { DB.exportAllNow(); renderView(); }));
+    row.appendChild(quickBtn('🧭 Reorder Navigation', function () { switchView('navigation'); }));
+    row.appendChild(quickBtn('🔎 Search Settings', openPalette));
+
+    const preview = card(v);
+    preview.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Live Preview</h3></div>';
+    preview.appendChild(buildLivePreviewPanel());
+
+    const recent = card(v);
+    recent.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Recent Changes</h3></div>';
+    const changes = DB.recentChanges(8);
+    if (!changes.length) recent.appendChild(el('div', 'cz-field-hint', 'Nothing changed yet.'));
+    changes.forEach(function (c) { recent.appendChild(el('div', 'cz-changelog-row', '<span>' + escapeHtml(c.text) + '</span><span>' + new Date(c.at).toLocaleString() + '</span>')); });
+  }
+  function stat(label, val) { return '<div class="cz-stat-tile"><div class="cz-stat-num">' + escapeHtml(val) + '</div><div class="cz-stat-label">' + escapeHtml(label) + '</div></div>'; }
+  function quickBtn(label, onClick) { const b = el('button', 'gt-btn', escapeHtml(label)); b.type = 'button'; b.addEventListener('click', onClick); return b; }
+  function buildLivePreviewPanel() {
+    const s = DB.getSettings();
+    const wrap = el('div', 'cz-preview-panel');
+    wrap.style.background = s.colors.background;
+    wrap.style.color = s.colors.text;
+    wrap.innerHTML = '<div class="cz-p-heading" style="font-family:\'' + s.headingFont + '\',serif;">The quick brown fox</div>' +
+      '<div class="cz-p-body">This is how body text reads with your current settings.</div>' +
+      '<button type="button" class="gt-btn gt-btn-primary" style="pointer-events:none;">Primary Action</button>';
+    return wrap;
+  }
+
+  // ---------- APPEARANCE ----------
+  function renderAppearance(v, s) {
+    pageHead(v, '🌈', 'Themes & Appearance', 'Pick a full preset, or fine-tune every color yourself in Color Studio.');
+    const c = card(v);
+    const grid = el('div', 'cz-theme-grid');
+    Object.keys(DB.THEME_PRESETS).forEach(function (key) {
+      const def = DB.THEME_PRESETS[key];
+      const tile = el('div', 'gt-card cz-theme-tile' + (s.themePreset === key ? ' active' : ''));
+      tile.innerHTML = '<div class="cz-theme-swatch" style="background:' + def.bg + ';"><span style="background:' + def.accent + ';"></span><span style="background:' + def.accentBright + ';"></span><span style="background:' + def.text + ';"></span></div><div class="cz-theme-tile-name">' + def.label + '</div>';
+      tile.addEventListener('click', function () { DB.applyPreset(key); applyLive(); renderView(); });
+      grid.appendChild(tile);
+    });
+    c.appendChild(grid);
+    v.appendChild(buildPreviewCard());
+  }
+  function buildPreviewCard() { const c = el('div', 'gt-card', '<div class="gt-card-head"><h3 class="gt-card-title">Preview</h3></div>'); c.appendChild(buildLivePreviewPanel()); return c; }
+
+  // ---------- COLOR STUDIO ----------
+  const COLOR_FIELDS = [['primary', 'Primary'], ['secondary', 'Secondary'], ['accent', 'Accent'], ['background', 'Background'], ['sidebar', 'Sidebar'], ['buttons', 'Buttons'], ['borders', 'Borders'], ['links', 'Links'], ['text', 'Text'], ['highlight', 'Highlight'], ['warning', 'Warning'], ['error', 'Error'], ['success', 'Success']];
+  function renderColors(v, s) {
+    pageHead(v, '🎨', 'Color Studio', 'Every color role, live-applied to this Studio (and Design Library) as you edit — see Themes & Appearance\'s own note on scope.');
+    const c = card(v);
+    c.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Roles</h3><select id="czColorFormatSel"></select></div>';
+    const fmtSel = c.querySelector('#czColorFormatSel');
+    ['hex', 'rgb', 'hsl'].forEach(function (f) { const o = el('option', null, f.toUpperCase()); o.value = f; if (f === s.colorFormat) o.selected = true; fmtSel.appendChild(o); });
+    fmtSel.addEventListener('change', function () { DB.saveSettings({ colorFormat: this.value }); renderView(); });
+    const grid = el('div', 'cz-color-grid');
+    COLOR_FIELDS.forEach(function (f) {
+      const hex = s.colors[f[0]] && s.colors[f[0]].indexOf('#') === 0 ? s.colors[f[0]] : '#888888';
+      const display = s.colorFormat === 'hex' ? hex : s.colorFormat === 'rgb' ? 'rgb(' + DB.hexToRgbTriplet(hex) + ')' : (function () { const h = DB.hexToHsl(hex); return 'hsl(' + h.h + ',' + h.s + '%,' + h.l + '%)'; })();
+      const row = el('div', 'cz-color-field');
+      row.innerHTML = '<input type="color" value="' + hex + '"><span class="cz-color-field-name">' + f[1] + '</span><span class="cz-color-field-val">' + display + '</span>';
+      row.querySelector('input').addEventListener('input', function () {
+        const patch = {}; patch[f[0]] = this.value;
+        DB.saveSettings({ colors: patch }); applyLive();
+        row.querySelector('.cz-color-field-val').textContent = this.value;
+      });
+      grid.appendChild(row);
+    });
+    c.appendChild(grid);
+
+    const gc = card(v);
+    gc.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Gradient Builder</h3></div>';
+    const bar = el('div', 'cz-gradient-bar');
+    function paintGradient() { bar.style.background = 'linear-gradient(' + DB.getSettings().gradientAngle + 'deg, ' + DB.getSettings().colors.primary + ', ' + DB.getSettings().colors.secondary + ')'; }
+    paintGradient();
+    gc.appendChild(bar);
+    const angleField = el('div', 'cz-field'); angleField.innerHTML = '<label class="cz-field-label">Angle</label><div class="cz-range-row"><input type="range" min="0" max="360" value="' + s.gradientAngle + '"><span class="cz-range-val">' + s.gradientAngle + '°</span></div>';
+    angleField.querySelector('input').addEventListener('input', function () { DB.saveSettings({ gradientAngle: parseInt(this.value, 10) }); angleField.querySelector('.cz-range-val').textContent = this.value + '°'; paintGradient(); });
+    gc.appendChild(angleField);
+
+    const pc = card(v);
+    pc.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Saved Palettes</h3><button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="czSavePaletteBtn">+ Save Current 3 Colors</button></div>';
+    pc.querySelector('#czSavePaletteBtn').addEventListener('click', function () {
+      const title = prompt('Name this palette:', 'My Palette'); if (!title) return;
+      DB.Palettes.add({ title: title, colors: [DB.getSettings().colors.background, DB.getSettings().colors.accent, DB.getSettings().colors.secondary] });
+      renderView();
+    });
+    DB.Palettes.list().slice().reverse().forEach(function (p) {
+      const row = el('div', 'gt-card cz-persona-card');
+      row.innerHTML = '<div class="cz-row-head"><span class="cz-row-title">' + escapeHtml(p.title) + '</span><div class="cz-row-actions"><button type="button" data-apply>Apply</button><button type="button" data-del>Delete</button></div></div>';
+      const swRow = el('div', 'cz-palette-swatch-row'); p.colors.forEach(function (hex) { const sw = el('span'); sw.style.background = hex; swRow.appendChild(sw); }); row.appendChild(swRow);
+      row.querySelector('[data-apply]').addEventListener('click', function () { DB.saveSettings({ colors: { background: p.colors[0], accent: p.colors[1], primary: p.colors[1], secondary: p.colors[2] || p.colors[1] } }); applyLive(); renderView(); });
+      row.querySelector('[data-del]').addEventListener('click', function () { DB.Palettes.remove(p.id); renderView(); });
+      pc.appendChild(row);
+    });
+
+    const ac = card(v);
+    ac.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">AI Palette Suggestions</h3></div><div class="cz-field-hint" style="margin-bottom:12px;">Computed via color theory from your current accent (analogous/complementary/triadic) — deterministic, no AI key needed for this one.</div>';
+    const sugRow = el('div', 'cz-field-row');
+    ['Analogous', 'Complementary', 'Triadic'].forEach(function (kind) {
+      const b = el('button', 'gt-btn', kind);
+      b.addEventListener('click', function () { const suggestion = suggestPalette(DB.getSettings().colors.accent, kind); DB.Palettes.add({ title: kind + ' suggestion', colors: suggestion }); renderView(); });
+      sugRow.appendChild(b);
+    });
+    ac.appendChild(sugRow);
+  }
+  function suggestPalette(baseHex, kind) {
+    const hsl = DB.hexToHsl(baseHex);
+    function hslToHex(h, sPct, lPct) {
+      h = ((h % 360) + 360) % 360; const sN = sPct / 100, lN = lPct / 100;
+      const c = (1 - Math.abs(2 * lN - 1)) * sN, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = lN - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; }
+      else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+      return DB.rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+    }
+    if (kind === 'Analogous') return [hslToHex(hsl.h - 30, hsl.s, hsl.l), baseHex, hslToHex(hsl.h + 30, hsl.s, hsl.l), hslToHex(hsl.h, hsl.s, Math.max(8, hsl.l - 40))];
+    if (kind === 'Complementary') return [baseHex, hslToHex(hsl.h + 180, hsl.s, hsl.l), hslToHex(hsl.h, hsl.s, Math.max(8, hsl.l - 40)), hslToHex(hsl.h + 180, hsl.s, Math.max(8, hsl.l - 40))];
+    return [baseHex, hslToHex(hsl.h + 120, hsl.s, hsl.l), hslToHex(hsl.h + 240, hsl.s, hsl.l), hslToHex(hsl.h, hsl.s, Math.max(8, hsl.l - 40))];
+  }
+
+  // ---------- WALLPAPERS ----------
+  function renderWallpapers(v, s) {
+    pageHead(v, '🖼', 'Wallpapers', 'Sets the ambient background glow behind this Studio and Design Library.');
+    const c = card(v);
+    c.innerHTML = '<div class="cz-field"><label class="cz-field-label">Type</label><select id="czWpType"><option value="gradient">Gradient (default)</option><option value="solid">Solid Color</option><option value="image">Image</option><option value="none">None</option></select></div>';
+    c.querySelector('#czWpType').value = s.wallpaperType;
+    c.querySelector('#czWpType').addEventListener('change', function () { DB.saveSettings({ wallpaperType: this.value }); renderView(); });
+    if (s.wallpaperType === 'image') {
+      const imgField = el('div', 'cz-field');
+      imgField.innerHTML = '<label class="cz-field-label">Upload</label><input type="file" id="czWpFile" accept="image/*">' + (s.wallpaperImage ? '<img src="' + s.wallpaperImage + '" style="width:100%;border-radius:10px;margin-top:8px;">' : '');
+      imgField.querySelector('#czWpFile').addEventListener('change', function () {
+        const file = this.files && this.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function () { GlassTheme.compressImageDataUrl(reader.result, 1400, 0.8).then(function (compressed) { DB.saveSettings({ wallpaperImage: compressed }); renderView(); }); };
+        reader.readAsDataURL(file);
+      });
+      c.appendChild(imgField);
+    }
+    ['wallpaperBlur', 'wallpaperBrightness', 'wallpaperOpacity'].forEach(function (key) {
+      const conf = { wallpaperBlur: [0, 40, 1, 'px'], wallpaperBrightness: [0.4, 1.4, 0.05, ''], wallpaperOpacity: [0, 1, 0.05, ''] }[key];
+      const field = el('div', 'cz-field');
+      const label = key.replace('wallpaper', '');
+      field.innerHTML = '<label class="cz-field-label">' + label + '</label><div class="cz-range-row"><input type="range" min="' + conf[0] + '" max="' + conf[1] + '" step="' + conf[2] + '" value="' + s[key] + '"><span class="cz-range-val">' + s[key] + conf[3] + '</span></div>';
+      field.querySelector('input').addEventListener('input', function () { const patch = {}; patch[key] = parseFloat(this.value); DB.saveSettings(patch); field.querySelector('.cz-range-val').textContent = this.value + conf[3]; });
+      c.appendChild(field);
+    });
+    const motionToggle = buildSwitch('Drifting motion (respects Reduce Motion)', s.wallpaperMotion, function (v) { DB.saveSettings({ wallpaperMotion: v }); });
+    c.appendChild(motionToggle);
+  }
+  function buildSwitch(label, on, onChange) {
+    const row = el('div', 'cz-toggle-row-item', '<span>' + escapeHtml(label) + '</span>');
+    const sw = el('button', 'cz-switch' + (on ? ' on' : '')); sw.type = 'button';
+    sw.addEventListener('click', function () { const next = !this.classList.contains('on'); this.classList.toggle('on', next); onChange(next); });
+    row.appendChild(sw);
+    return row;
+  }
+
+  // ---------- TYPOGRAPHY ----------
+  function renderTypography(v, s) {
+    pageHead(v, '🔤', 'Typography', 'Heading, body, and code fonts, plus a live preview.');
+    const c = card(v);
+    ['heading', 'body', 'mono'].forEach(function (kind) {
+      const field = el('div', 'cz-field');
+      field.innerHTML = '<label class="cz-field-label">' + kind + ' Font</label><select></select>';
+      const sel = field.querySelector('select');
+      DB.FONT_OPTIONS[kind].forEach(function (f) { const o = el('option', null, f); o.value = f; if (f === s[kind + 'Font']) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', function () { const patch = {}; patch[kind + 'Font'] = this.value; DB.saveSettings(patch); applyLive(); renderView(); });
+      c.appendChild(field);
+    });
+    [['baseFontSize', 'Base Size', 11, 20, 1, 'px'], ['fontWeight', 'Weight', 300, 800, 100, ''], ['lineHeight', 'Line Height', 1.2, 2, 0.05, ''], ['letterSpacing', 'Letter Spacing', -0.05, 0.1, 0.01, 'em']].forEach(function (conf) {
+      const field = el('div', 'cz-field');
+      field.innerHTML = '<label class="cz-field-label">' + conf[1] + '</label><div class="cz-range-row"><input type="range" min="' + conf[2] + '" max="' + conf[3] + '" step="' + conf[4] + '" value="' + s[conf[0]] + '"><span class="cz-range-val">' + s[conf[0]] + conf[5] + '</span></div>';
+      field.querySelector('input').addEventListener('input', function () { const patch = {}; patch[conf[0]] = parseFloat(this.value); DB.saveSettings(patch); field.querySelector('.cz-range-val').textContent = this.value + conf[5]; applyLive(); });
+      c.appendChild(field);
+    });
+    v.appendChild(buildPreviewCard());
+  }
+
+  // ---------- ICONS ----------
+  function renderIcons(v, s) {
+    pageHead(v, '🎭', 'Icon Library', 'This app uses real emoji as icons throughout — zero icon-font/SVG-sprite dependency, works offline. Pick a preview density style below.');
+    const c = card(v);
+    c.innerHTML = '<div class="cz-field"><label class="cz-field-label">Style</label><select id="czIconStyle"><option value="emoji">Standard Emoji</option><option value="minimal">Minimal (muted)</option><option value="rounded">Rounded badges</option></select></div>';
+    c.querySelector('#czIconStyle').value = s.iconStyle;
+    c.querySelector('#czIconStyle').addEventListener('change', function () { DB.saveSettings({ iconStyle: this.value }); renderView(); });
+    const preview = el('div', 'cz-field-row');
+    ['🏠', '🧩', '🎨', '📦', '✨', '🤖'].forEach(function (icon) {
+      const tile = el('div', 'gt-card', '<div style="text-align:center;font-size:' + (s.iconStyle === 'minimal' ? '18px;opacity:.5' : '22px') + ';padding:10px;' + (s.iconStyle === 'rounded' ? 'background:rgba(var(--gt-accent-rgb),.14);border-radius:50%;' : '') + '">' + icon + '</div>');
+      preview.appendChild(tile);
+    });
+    c.appendChild(preview);
+    c.appendChild(el('div', 'cz-field-hint', 'A custom icon per nav item isn\'t wired dashboard-wide — that would mean editing topbar.js\'s own icon per page, which this preview intentionally keeps scoped to (see this file\'s own header comment on honest scope).'));
+  }
+
+  // ---------- WIDGETS & COMPONENTS ----------
+  function renderWidgets(v, s) {
+    pageHead(v, '🧩', 'Widgets & Components', 'This app is built from static pages, not a windowed/resizable widget dashboard — so this section is honestly scoped to a live component sandbox using your current theme, not draggable widgets that don\'t exist here.');
+    const c = card(v);
+    c.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Component Sandbox</h3></div>';
+    const grid = el('div', 'cz-field-row');
+    grid.appendChild(el('div', 'gt-card gt-glare-card', '<div style="font-weight:800;margin-bottom:6px;">Glare Card</div><div style="font-size:12px;color:var(--gt-text-mute);">Cursor-tracked highlight</div>'));
+    grid.appendChild((function () { const b = el('div', 'gt-beam-card'); b.innerHTML = '<div class="gt-beam-card-glow"></div><div class="gt-beam-card-inner"><div style="font-weight:800;margin-bottom:6px;">Beam Card</div><div style="font-size:12px;color:var(--gt-text-mute);">Rotating border light</div></div>'; return b; })());
+    grid.appendChild(el('div', 'gt-card', '<button class="gt-btn gt-btn-primary" style="width:100%;">Primary Button</button>'));
+    grid.appendChild(el('div', 'gt-card', '<div class="gt-chip-row"><span class="gt-chip active">Active Chip</span><span class="gt-chip">Chip</span></div>'));
+    c.appendChild(grid);
+    document.querySelectorAll('.gt-glare-card').forEach(function (card2) { if (window.GlassTheme) GlassTheme.wireGlareCard(card2); });
+  }
+
+  // ---------- LAYOUT BUILDER ----------
+  function renderLayout(v, s) {
+    pageHead(v, '🧱', 'Layout Builder', 'Card radius, spacing, and content width — live-applied here and in Design Library.');
+    const c = card(v);
+    [['cardRadius', 'Card Radius', 4, 32, 1, 'px'], ['spacingScale', 'Spacing Scale', 0.7, 1.6, 0.05, '×'], ['sidebarWidth', 'Sidebar Width', 200, 340, 4, 'px'], ['contentMaxWidth', 'Content Max Width', 800, 1600, 20, 'px']].forEach(function (conf) {
+      const field = el('div', 'cz-field');
+      field.innerHTML = '<label class="cz-field-label">' + conf[1] + '</label><div class="cz-range-row"><input type="range" min="' + conf[2] + '" max="' + conf[3] + '" step="' + conf[4] + '" value="' + s[conf[0]] + '"><span class="cz-range-val">' + s[conf[0]] + conf[5] + '</span></div>';
+      field.querySelector('input').addEventListener('input', function () { const patch = {}; patch[conf[0]] = parseFloat(this.value); DB.saveSettings(patch); field.querySelector('.cz-range-val').textContent = this.value + conf[5]; applyLive(); });
+      c.appendChild(field);
+    });
+    const densityField = el('div', 'cz-field'); densityField.innerHTML = '<label class="cz-field-label">Density</label><select><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select>';
+    densityField.querySelector('select').value = s.density;
+    densityField.querySelector('select').addEventListener('change', function () { DB.saveSettings({ density: this.value }); applyLive(); });
+    c.appendChild(densityField);
+    v.appendChild(buildPreviewCard());
+  }
+
+  // ---------- NAVIGATION MANAGER (genuinely wired dashboard-wide) ----------
+  function renderNavigation(v, s) {
+    pageHead(v, '🧭', 'Navigation Manager', 'Reorder the sidebar\'s own groups (drag by ⋮⋮) and pin pages into a Favorites group — both apply live, dashboard-wide, via topbar.js.');
+    const c = card(v);
+    c.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Group Order</h3></div>';
+    const list = el('div', null); c.appendChild(list);
+    const order = DB.getNavGroupOrder();
+    const byKey = {}; DB.NAV_MIRROR.forEach(function (g) { byKey[g.key] = g; });
+    const ordered = order.map(function (k) { return byKey[k]; }).filter(Boolean).concat(DB.NAV_MIRROR.filter(function (g) { return order.indexOf(g.key) === -1; }));
+    ordered.forEach(function (g) {
+      const row = el('div', 'cz-nav-manager-row'); row.dataset.key = g.key;
+      row.innerHTML = '<span class="cz-drag">⋮⋮</span><span class="cz-nm-label">' + escapeHtml(g.label) + '</span>';
+      list.appendChild(row);
+    });
+    if (window.Sortable) Sortable.create(list, { handle: '.cz-drag', animation: 150, onEnd: function () { DB.saveNavGroupOrder(Array.from(list.children).map(function (r) { return r.dataset.key; })); } });
+
+    const pc = card(v);
+    pc.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Pinned / Favorites</h3></div><div class="cz-field-hint" style="margin-bottom:10px;">Pinned pages appear in a synthetic "⭐ Favorites" group at the top of the sidebar on every page.</div>';
+    const pins = DB.getPinnedHrefs();
+    const allPages = [];
+    DB.NAV_MIRROR.forEach(function (g) { g.hrefs.forEach(function (h) { allPages.push(h); }); });
+    allPages.forEach(function (href) {
+      const row = el('div', 'cz-pin-row'); row.innerHTML = '<span>' + escapeHtml(href) + '</span>';
+      const sw = el('button', 'cz-switch' + (pins.indexOf(href) !== -1 ? ' on' : '')); sw.type = 'button';
+      sw.addEventListener('click', function () { DB.togglePinnedHref(href); renderView(); });
+      row.appendChild(sw); pc.appendChild(row);
+    });
+  }
+
+  // ---------- PRODUCTIVITY ----------
+  function renderProductivity(v, s) {
+    pageHead(v, '⚡', 'Productivity', 'Autosave is always on across this whole app (there\'s no separate save step anywhere) — the toggles below are the parts that are genuinely optional.');
+    const c = card(v);
+    c.appendChild(buildSwitch('Restore last-viewed section on reload (this Studio + Design Library)', s.restoreLastPage, function (val) { DB.saveSettings({ restoreLastPage: val }); }));
+    c.appendChild(buildSwitch('Zen Mode hint (hides the "Recent Changes" panel on Home)', s.zenMode, function (val) { DB.saveSettings({ zenMode: val }); }));
+    const remField = el('div', 'cz-field'); remField.innerHTML = '<label class="cz-field-label">Reminder Frequency</label><select><option value="off">Off</option><option value="daily">Daily</option><option value="weekly">Weekly</option></select>';
+    remField.querySelector('select').value = s.reminderFrequency;
+    remField.querySelector('select').addEventListener('change', function () { DB.saveSettings({ reminderFrequency: this.value }); });
+    c.appendChild(remField);
+    c.appendChild(el('div', 'cz-field-hint', 'This app has no backend/cron (see CLAUDE.md §1), so reminders surface as an Automation banner when this Studio or Design Library is actually open — not as an OS-level notification. See Automations.'));
+  }
+
+  // ---------- AI SETTINGS ----------
+  function renderAi(v, s) {
+    pageHead(v, '🤖', 'AI Settings', 'Powers Design Library\'s AI Assistant actions — real Anthropic calls when a key is set here, an honest local fallback otherwise.');
+    const c = card(v);
+    const keyField = el('div', 'cz-field'); keyField.innerHTML = '<label class="cz-field-label">Anthropic API Key</label><input type="text" placeholder="sk-ant-…" value="' + escapeHtml(s.aiKey) + '">';
+    keyField.querySelector('input').addEventListener('blur', function () { DB.saveSettings({ aiKey: this.value.trim() }); });
+    c.appendChild(keyField);
+    const personaField = el('div', 'cz-field'); personaField.innerHTML = '<label class="cz-field-label">Default Persona</label><textarea>' + escapeHtml(s.aiPersona) + '</textarea>';
+    personaField.querySelector('textarea').addEventListener('blur', function () { DB.saveSettings({ aiPersona: this.value }); });
+    c.appendChild(personaField);
+    const creativityField = el('div', 'cz-field'); creativityField.innerHTML = '<label class="cz-field-label">Creativity</label><div class="cz-range-row"><input type="range" min="0" max="1" step="0.05" value="' + s.aiCreativity + '"><span class="cz-range-val">' + s.aiCreativity + '</span></div>';
+    creativityField.querySelector('input').addEventListener('input', function () { DB.saveSettings({ aiCreativity: parseFloat(this.value) }); creativityField.querySelector('.cz-range-val').textContent = this.value; });
+    c.appendChild(creativityField);
+    const lenField = el('div', 'cz-field'); lenField.innerHTML = '<label class="cz-field-label">Response Length</label><select><option value="short">Short</option><option value="medium">Medium</option><option value="long">Long</option></select>';
+    lenField.querySelector('select').value = s.aiResponseLength;
+    lenField.querySelector('select').addEventListener('change', function () { DB.saveSettings({ aiResponseLength: this.value }); });
+    c.appendChild(lenField);
+    const memField = el('div', 'cz-field'); memField.innerHTML = '<label class="cz-field-label">Memory Preference</label><textarea>' + escapeHtml(s.aiMemoryPreference) + '</textarea><div class="cz-field-hint">Descriptive only — there\'s no server-side AI memory in this app; each call is stateless.</div>';
+    memField.querySelector('textarea').addEventListener('blur', function () { DB.saveSettings({ aiMemoryPreference: this.value }); });
+    c.appendChild(memField);
+
+    const pc = card(v);
+    pc.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Saved Personas</h3><button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="czAddPersonaBtn">+ New Persona</button></div>';
+    pc.querySelector('#czAddPersonaBtn').addEventListener('click', function () { editingPersonaId = DB.Personas.add({ name: 'New Persona' }).id; renderView(); });
+    DB.Personas.list().forEach(function (p) {
+      const row = el('div', 'gt-card cz-persona-card');
+      row.innerHTML = '<div class="cz-row-head"><input type="text" value="' + escapeHtml(p.name) + '" style="background:transparent;border:none;font-weight:800;font-size:13.5px;flex:1;"><div class="cz-row-actions"><button type="button" data-use>Use as Default</button><button type="button" data-del>Delete</button></div></div><select style="margin-bottom:8px;"></select><textarea placeholder="Persona prompt…">' + escapeHtml(p.prompt) + '</textarea>';
+      row.querySelector('input').addEventListener('blur', function () { DB.Personas.update(p.id, { name: this.value }); });
+      const useCaseSel = row.querySelector('select');
+      DB.AI_USE_CASES.forEach(function (uc) { const o = el('option', null, uc); o.value = uc; if (uc === p.useCase) o.selected = true; useCaseSel.appendChild(o); });
+      useCaseSel.addEventListener('change', function () { DB.Personas.update(p.id, { useCase: this.value }); });
+      row.querySelector('textarea').addEventListener('blur', function () { DB.Personas.update(p.id, { prompt: this.value }); });
+      row.querySelector('[data-use]').addEventListener('click', function () { DB.saveSettings({ aiPersona: p.prompt }); renderView(); });
+      row.querySelector('[data-del]').addEventListener('click', function () { DB.Personas.remove(p.id); renderView(); });
+      pc.appendChild(row);
+    });
+  }
+
+  // ---------- INTEGRATIONS ----------
+  function renderIntegrations(v, s) {
+    pageHead(v, '🔌', 'Integrations', 'Live health of the real services this dashboard actually connects to — no fake toggles for services that don\'t exist here.');
+    const c = card(v);
+    let supaOk = typeof window.supabase !== 'undefined';
+    c.appendChild(integrationRow('Supabase (cloud sync)', supaOk ? 'ok' : 'bad', supaOk ? 'SDK loaded — cross-device sync active' : 'SDK not loaded'));
+    c.appendChild(integrationRow('Anthropic (AI Assistant)', s.aiKey ? 'ok' : 'warn', s.aiKey ? 'Key configured' : 'No key set — using local fallbacks'));
+    c.appendChild(integrationRow('PhotoStore (cover photo hosting)', typeof window.PhotoStore !== 'undefined' ? 'ok' : 'bad', 'Requires a "dashboard-photos" Supabase Storage bucket'));
+    let idbOk = typeof window.LocalStoreIDB !== 'undefined';
+    c.appendChild(integrationRow('Local Storage Engine (IndexedDB)', idbOk ? 'ok' : 'warn', idbOk ? 'Active — no ~5MB quota ceiling' : 'Falling back to native localStorage'));
+    let keyCount = 0; try { keyCount = localStorage.length; } catch (e) {}
+    c.appendChild(integrationRow('Total Stored Keys', 'ok', keyCount + ' keys across every page you\'ve used'));
+  }
+  function integrationRow(name, status, sub) {
+    const row = el('div', 'cz-integration-row');
+    row.innerHTML = '<div><div style="font-weight:700;font-size:13px;">' + escapeHtml(name) + '</div><div style="font-size:11.5px;color:var(--gt-text-mute);margin-top:2px;">' + escapeHtml(sub) + '</div></div><span class="cz-status-pill ' + status + '">' + (status === 'ok' ? 'Connected' : status === 'warn' ? 'Optional' : 'Unavailable') + '</span>';
+    return row;
+  }
+
+  // ---------- AUTOMATIONS ----------
+  function renderAutomations(v, s) {
+    pageHead(v, '⚙️', 'Automations', 'Client-side triggers evaluated whenever this Studio or Design Library opens — this app has no server/cron, so these aren\'t OS notifications, they fire when you\'re actually here.');
+    const c = card(v);
+    c.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Rules</h3><button type="button" class="gt-btn gt-btn-primary gt-btn-sm" id="czAddAutoBtn">+ New Automation</button></div>';
+    c.querySelector('#czAddAutoBtn').addEventListener('click', function () { DB.Automations.add({ title: 'New Automation', message: 'Reminder text…' }); renderView(); });
+    DB.Automations.list().forEach(function (a) {
+      const row = el('div', 'gt-card cz-automation-card');
+      row.innerHTML = '<div class="cz-row-head"><input type="text" value="' + escapeHtml(a.title) + '" style="background:transparent;border:none;font-weight:800;font-size:13.5px;flex:1;"><div class="cz-row-actions"><button type="button" data-del>Delete</button></div></div>';
+      row.querySelector('input').addEventListener('blur', function () { DB.Automations.update(a.id, { title: this.value }); });
+      row.querySelector('[data-del]').addEventListener('click', function () { DB.Automations.remove(a.id); renderView(); });
+      const trigSel = el('select', null); Object.keys(DB.AUTOMATION_TRIGGERS).forEach(function (t) { const o = el('option', null, DB.AUTOMATION_TRIGGERS[t]); o.value = t; if (t === a.trigger) o.selected = true; trigSel.appendChild(o); });
+      trigSel.addEventListener('change', function () { DB.Automations.update(a.id, { trigger: this.value }); });
+      row.appendChild(trigSel);
+      const msg = el('textarea', null); msg.placeholder = 'Message…'; msg.value = a.message;
+      msg.addEventListener('blur', function () { DB.Automations.update(a.id, { message: this.value }); });
+      row.appendChild(msg);
+      row.appendChild(buildSwitch('Enabled', a.enabled, function (val) { DB.Automations.update(a.id, { enabled: val }); }));
+      c.appendChild(row);
+    });
+  }
+
+  // ---------- SHORTCUTS ----------
+  const SHORTCUTS = [['⌘/Ctrl + K', 'Open command palette / search'], ['Esc', 'Close any modal or overlay'], ['Click a theme tile', 'Apply that theme instantly'], ['Drag ⋮⋮', 'Reorder navigation groups or resource cards']];
+  function renderShortcuts(v, s) {
+    pageHead(v, '⌨️', 'Shortcuts', 'A quick reference for every keyboard shortcut in this Studio and Design Library.');
+    const c = card(v);
+    SHORTCUTS.forEach(function (sc) { c.appendChild(el('div', 'cz-shortcut-row', '<span>' + escapeHtml(sc[1]) + '</span><kbd>' + escapeHtml(sc[0]) + '</kbd>')); });
+  }
+
+  // ---------- PRIVACY ----------
+  function renderPrivacy(v, s) {
+    pageHead(v, '🔒', 'Privacy & Security', 'This app genuinely has no accounts, no login, and no server beyond a single sync relay table (see CLAUDE.md §2) — there\'s no auth system to configure here because none exists by design.');
+    const c = card(v);
+    c.innerHTML = '<div class="cz-field-hint" style="margin-bottom:14px;">Everything you enter lives in this browser (IndexedDB) and, if you\'re signed into the same Supabase project on another device, syncs there too. An Anthropic key you paste into AI Settings is stored the same way — locally, never sent anywhere except directly to Anthropic\'s API when you run an AI action.</div>';
+    const clearBtn = el('button', 'gt-btn', '🗑 Clear all Design Library + Customization data');
+    clearBtn.addEventListener('click', function () {
+      if (!confirm('This clears every dl: and customization: key from this device. Take a backup first if unsure. Continue?')) return;
+      Object.keys(localStorage).filter(function (k) { return k.indexOf('dl:') === 0 || k.indexOf('customization:') === 0; }).forEach(function (k) { localStorage.removeItem(k); });
+      location.reload();
+    });
+    c.appendChild(clearBtn);
+  }
+
+  // ---------- BACKUP & RESTORE ----------
+  function renderBackup(v, s) {
+    pageHead(v, '💾', 'Backup & Restore', 'A full export of every key across every page you\'ve used on this device — real, since this app\'s storage moved off the old browser localStorage cap onto IndexedDB (see this file\'s own header comment).');
+    const c = card(v);
+    const days = DB.daysSince(s.lastBackupAt);
+    c.innerHTML = '<div class="cz-field-hint" style="margin-bottom:14px;">' + (s.lastBackupAt ? 'Last backup: ' + days + ' day' + (days === 1 ? '' : 's') + ' ago.' : 'No backup taken yet.') + '</div>';
+    const row = el('div', 'cz-field-row');
+    row.appendChild(quickBtn('⬇ Export Full Backup Now', function () { DB.exportAllNow(); renderView(); }));
+    row.appendChild(quickBtn('📸 Save a Named Snapshot', function () { const label = prompt('Name this snapshot:', 'Snapshot — ' + new Date().toLocaleDateString()); if (label == null) return; DB.createSnapshot(label); renderView(); }));
+    c.appendChild(row);
+    const importField = el('div', 'cz-field'); importField.innerHTML = '<label class="cz-field-label">Import a Backup File</label><input type="file" accept="application/json">';
+    importField.querySelector('input').addEventListener('change', function () {
+      const file = this.files && this.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const obj = JSON.parse(reader.result);
+          if (!confirm('Import this backup? It will overwrite any matching keys already on this device.')) return;
+          const n = DB.importFromObject(obj);
+          alert('Imported ' + n + ' keys. Reload to see the restored data.');
+        } catch (e) { alert('That file doesn\'t look like a valid backup.'); }
+      };
+      reader.readAsText(file);
+    });
+    c.appendChild(importField);
+
+    const sc = card(v);
+    sc.innerHTML = '<div class="gt-card-head"><h3 class="gt-card-title">Snapshots (last 10)</h3></div>';
+    const snaps = DB.snapshotsSorted();
+    if (!snaps.length) sc.appendChild(el('div', 'cz-field-hint', 'No snapshots yet.'));
+    snaps.forEach(function (snap) {
+      const row = el('div', 'gt-card cz-snapshot-card');
+      row.innerHTML = '<div class="cz-row-head"><span class="cz-row-title">' + escapeHtml(snap.label) + '</span><div class="cz-row-actions"><button type="button" data-restore>Restore</button><button type="button" data-export>Export</button><button type="button" data-del>Delete</button></div></div><div class="cz-field-hint">' + new Date(snap.createdAt).toLocaleString() + ' · ' + snap.keyCount + ' keys · ' + (snap.sizeBytes / 1024).toFixed(1) + ' KB</div>';
+      row.querySelector('[data-restore]').addEventListener('click', function () { if (!confirm('Restore "' + snap.label + '"? This overwrites current data for every key it contains.')) return; DB.restoreSnapshot(snap.id); alert('Restored. Reload the page to see it fully applied.'); });
+      row.querySelector('[data-export]').addEventListener('click', function () { DB.exportSnapshotToFile(snap); });
+      row.querySelector('[data-del]').addEventListener('click', function () { DB.deleteSnapshot(snap.id); renderView(); });
+      sc.appendChild(row);
+    });
+  }
+
+  // ---------- WORKSPACE TEMPLATES (presets) ----------
+  function renderPresets(v, s) {
+    pageHead(v, '📦', 'Workspace Templates', 'Save just your appearance settings as a named, reusable preset — separate from a full data backup above.');
+    const c = card(v);
+    const saveBtn = el('button', 'gt-btn gt-btn-primary', '+ Save Current Settings as a Preset');
+    saveBtn.addEventListener('click', function () { const title = prompt('Name this preset:', 'My Preset'); if (!title) return; DB.saveCurrentAsPreset(title); renderView(); });
+    c.appendChild(saveBtn);
+    DB.Presets.list().slice().reverse().forEach(function (p) {
+      const row = el('div', 'gt-card cz-preset-card');
+      row.innerHTML = '<div class="cz-row-head"><span class="cz-row-title">' + escapeHtml(p.title) + '</span><div class="cz-row-actions"><button type="button" data-apply>Apply</button><button type="button" data-del>Delete</button></div></div><div class="cz-field-hint">' + new Date(p.createdAt).toLocaleDateString() + '</div>';
+      row.querySelector('[data-apply]').addEventListener('click', function () { DB.applyPresetById(p.id); applyLive(); renderView(); });
+      row.querySelector('[data-del]').addEventListener('click', function () { DB.Presets.remove(p.id); renderView(); });
+      c.appendChild(row);
+    });
+  }
+
+  // ---------- EXPERIMENTAL ----------
+  function renderExperimental(v, s) {
+    pageHead(v, '🧪', 'Experimental Features', 'A handful of small, real toggles scoped to this Studio + Design Library.');
+    const c = card(v);
+    [['reducedMotionOverride', 'Force Reduce Motion (overrides OS setting on these two pages)'], ['compactDensity', 'Beta: force Compact density everywhere'], ['betaFuzzySearch', 'Beta: fuzzy substring matching in the command palette']].forEach(function (f) {
+      c.appendChild(buildSwitch(f[1], s.flags[f[0]], function (val) { const patch = {}; patch[f[0]] = val; DB.saveSettings({ flags: patch }); applyLive(); }));
+    });
+  }
+
+  // ---------- HELP ----------
+  function renderHelp(v, s) {
+    pageHead(v, '📖', 'Help', 'What this Studio and Design Library actually do, and their honest limits.');
+    const c = card(v);
+    c.innerHTML = '<p style="font-size:13px;line-height:1.7;color:var(--gt-text-dim);">' +
+      '<strong>Design Library</strong> is a personal, searchable catalog of components/themes/templates/animations/palettes/backgrounds/typography/icon packs/layouts, each with its own AI prompt, code snippets, and a real live-preview sandbox (a sandboxed iframe rendering your saved HTML/CSS/JS).<br><br>' +
+      '<strong>Customization Studio</strong> (this page) is the control center for that library\'s and its own appearance — theme, colors, typography, layout tokens — all live-applied to itself and Design Library. It also genuinely controls dashboard-wide navigation (group order + pinned favorites, via topbar.js) and real backup/restore of every localStorage key on this device.<br><br>' +
+      'What it does <em>not</em> do: repaint the other ~30 independently-built pages in this app, each of which carries its own private color tokens (several by deliberate design). That would be a larger, separate architecture change — see this file\'s own top-of-file comment.</p>';
+    const shortcutsBtn = el('button', 'gt-btn', '⌨️ View Shortcuts'); shortcutsBtn.addEventListener('click', function () { switchView('shortcuts'); });
+    c.appendChild(shortcutsBtn);
+  }
+
+  // ============================================================
+  // COMMAND PALETTE — a lightweight search over settings sections.
+  // ============================================================
+  function openPalette() {
+    const q = prompt('Search settings sections:'); if (!q) return;
+    const query = q.toLowerCase();
+    let match = null;
+    SECTIONS.forEach(function (g) { g.items.forEach(function (it) { if (!match && it[2].toLowerCase().indexOf(query) !== -1) match = it[0]; }); });
+    if (match) switchView(match); else alert('No section matched "' + q + '".');
+  }
+
+  // ============================================================
+  // AUTOMATIONS BANNER
+  // ============================================================
+  function showAutomationBanners() {
+    const due = DB.dueAutomations();
+    due.forEach(function (a, i) {
+      const banner = el('div', null, escapeHtml(a.title) + ': ' + escapeHtml(a.message));
+      banner.style.cssText = 'position:fixed;bottom:' + (16 + i * 54) + 'px;right:16px;z-index:5000;max-width:320px;background:rgba(20,17,16,0.92);backdrop-filter:blur(20px);border:1px solid var(--gt-border);border-radius:14px;padding:12px 16px;font-size:12.5px;box-shadow:0 14px 34px rgba(0,0,0,0.4);';
+      const closeBtn = el('button', null, '✕'); closeBtn.style.cssText = 'position:absolute;top:6px;right:8px;background:none;border:none;color:var(--gt-text-mute);cursor:pointer;';
+      closeBtn.addEventListener('click', function () { banner.remove(); });
+      banner.style.position = 'fixed'; banner.appendChild(closeBtn);
+      document.body.appendChild(banner);
+      setTimeout(function () { banner.remove(); }, 12000);
+    });
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function init() {
+    DB = window.CustomizationData;
+    if (!DB) return;
+    applyLive();
+    const initialHash = (location.hash || '').replace(/^#/, '');
+    currentView = TITLES[initialHash] ? initialHash : 'home';
+    switchView(currentView);
+
+    $('czSidebarToggle').addEventListener('click', function () { $('czSidebar').classList.toggle('show'); });
+    document.addEventListener('keydown', function (e) { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); } });
+
+    setSyncStatus(navigator.onLine ? null : 'offline', navigator.onLine ? 'Changes save automatically' : 'Offline — will sync when reconnected');
+    window.addEventListener('customization:save', handleSaveEvent);
+    window.addEventListener('online', function () { setSyncStatus('saved', 'Back online — syncing…'); });
+    window.addEventListener('offline', function () { setSyncStatus('offline', 'Offline'); });
+
+    let remoteAppliedOnce = false;
+    function maybeSeedAfterSyncAttempt() {
+      if (remoteAppliedOnce) return;
+      if (DB.Palettes.list().length > 0 || DB.Personas.list().length > 0 || DB.Automations.list().length > 0) return;
+      DB.seedIfEmpty();
+      applyLive(); renderView();
+    }
+    const startedEmpty = DB.Palettes.list().length === 0 && DB.Personas.list().length === 0 && DB.Automations.list().length === 0;
+    if (typeof initCloudSync === 'function') {
+      initCloudSync({ appKey: 'customization', syncedPrefixes: ['customization:'], onApplied: function () { remoteAppliedOnce = true; applyLive(); renderView(); } });
+      if (startedEmpty) setTimeout(maybeSeedAfterSyncAttempt, 5000);
+    } else if (startedEmpty) {
+      maybeSeedAfterSyncAttempt();
+    }
+    setTimeout(showAutomationBanners, 1500);
+  }
+
+  function safeInit() {
+    try { init(); }
+    catch (err) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#3a0d0d;color:#fff;padding:14px 18px;font:13px -apple-system,sans-serif;';
+      banner.innerHTML = '<strong>Customization Studio failed to load.</strong> ' + (err && err.message ? err.message : String(err)) +
+        '<button type="button" style="margin-left:12px;padding:4px 10px;border-radius:6px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;">Copy error details</button>';
+      banner.querySelector('button').addEventListener('click', function () {
+        const details = (err && err.stack) ? err.stack : String(err);
+        if (navigator.clipboard) navigator.clipboard.writeText(details).catch(function () {});
+      });
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { LocalStoreIDB.ready().then(safeInit); });
+  else LocalStoreIDB.ready().then(safeInit);
+})();
+</script>
+</body>
+</html>

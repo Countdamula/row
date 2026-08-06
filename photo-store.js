@@ -62,6 +62,11 @@
 
   function extFromMime(mime) {
     if (mime.indexOf('video') === 0) return mime.indexOf('quicktime') !== -1 ? 'mov' : 'mp4';
+    if (mime.indexOf('audio') === 0) {
+      if (mime.indexOf('wav') !== -1) return 'wav';
+      if (mime.indexOf('ogg') !== -1) return 'ogg';
+      return 'mp3';
+    }
     if (mime.indexOf('png') !== -1) return 'png';
     if (mime.indexOf('webp') !== -1) return 'webp';
     if (mime.indexOf('gif') !== -1) return 'gif';

@@ -91,6 +91,8 @@
     characterTemplates: 'wds:characterTemplates',
     wikiTemplates: 'wds:wikiTemplates',
     plotPoints: 'wds:plotPoints',
+    plotTemplates: 'wds:plotTemplates',
+    compositionPresets: 'wds:compositionPresets',
     hero: 'wds:hero',
     settings: 'wds:settings',
     state: 'wds:state',
@@ -163,6 +165,75 @@
   const REVISION_STATUSES = ['not-started', 'first-pass', 'second-pass', 'polished', 'locked'];
   const REVISION_STATUS_LABELS = { 'not-started': 'Not Started', 'first-pass': 'First Pass', 'second-pass': 'Second Pass', polished: 'Polished', locked: 'Locked' };
   const POVS = ['First Person', 'Third Limited', 'Third Omniscient', 'Second Person', 'Multiple POV'];
+
+  // ============================================================
+  // COMPOSITION MODE — built-in background gallery + ambient-audio
+  // category shells. Backgrounds use Lorem Picsum seeded URLs (real,
+  // working, license-friendly placeholder photography — the same
+  // swap-for-your-own-assets role placehold.co plays elsewhere in this
+  // app's sibling project) so the gallery is never a wall of broken
+  // images during development; every entry is meant to be replaced with a
+  // real upload or pasted URL. There is no equivalent free, keyless CDN
+  // for categorized stock video/ambient audio, so those two ship as empty
+  // "upload your own or paste a URL" shells — same as every other media
+  // field in this app (book/chapter covers already work this way via
+  // openImageUpload()).
+  // ============================================================
+  const COMPOSITION_BG_CATEGORIES = [
+    { id: 'fantasy', label: 'Fantasy', icon: '🧙' },
+    { id: 'dark-fantasy', label: 'Dark Fantasy', icon: '🕯️' },
+    { id: 'romance', label: 'Romance', icon: '🌹' },
+    { id: 'horror', label: 'Horror', icon: '🕷️' },
+    { id: 'ancient-kingdoms', label: 'Ancient Kingdoms', icon: '🏛️' },
+    { id: 'castles', label: 'Castles', icon: '🏰' },
+    { id: 'libraries', label: 'Libraries', icon: '📚' },
+    { id: 'magic-academies', label: 'Magic Academies', icon: '🔮' },
+    { id: 'forests', label: 'Forests', icon: '🌲' },
+    { id: 'rain', label: 'Rain', icon: '🌧️' },
+    { id: 'snow', label: 'Snow', icon: '❄️' },
+    { id: 'campfires', label: 'Campfires', icon: '🔥' },
+    { id: 'ocean', label: 'Ocean', icon: '🌊' },
+    { id: 'mountains', label: 'Mountains', icon: '⛰️' },
+    { id: 'cities', label: 'Cities', icon: '🏙️' },
+    { id: 'cyberpunk', label: 'Cyberpunk', icon: '🌆' },
+    { id: 'space', label: 'Space', icon: '🌌' },
+    { id: 'coffee-shops', label: 'Coffee Shops', icon: '☕' },
+    { id: 'cozy-rooms', label: 'Cozy Rooms', icon: '🕯️' },
+    { id: 'night-sky', label: 'Night Sky', icon: '🌠' },
+    { id: 'dreamscapes', label: 'Dreamscapes', icon: '💭' },
+    { id: 'storms', label: 'Storms', icon: '⛈️' },
+    { id: 'deserts', label: 'Deserts', icon: '🏜️' },
+    { id: 'taverns', label: 'Taverns', icon: '🍺' },
+    { id: 'dungeons', label: 'Dungeons', icon: '⛓️' }
+  ];
+  // 3 seeded Picsum images per category = a real, browsable gallery
+  // without any API key. Seeds are just the category id + an index, so
+  // they're stable across reloads.
+  const COMPOSITION_BACKGROUND_LIBRARY = COMPOSITION_BG_CATEGORIES.map(function (cat) {
+    return {
+      id: cat.id, label: cat.label, icon: cat.icon, tags: [cat.id],
+      images: [0, 1, 2].map(function (i) {
+        return {
+          id: cat.id + '-' + i,
+          url: 'https://picsum.photos/seed/' + cat.id + '-' + i + '/1920/1080',
+          thumb: 'https://picsum.photos/seed/' + cat.id + '-' + i + '/320/180'
+        };
+      })
+    };
+  });
+  const COMPOSITION_AMBIENT_LIBRARY = [
+    { id: 'rain', label: 'Rain', icon: '🌧️' }, { id: 'thunderstorm', label: 'Thunderstorm', icon: '⛈️' },
+    { id: 'ocean', label: 'Ocean', icon: '🌊' }, { id: 'wind', label: 'Wind', icon: '🍃' },
+    { id: 'forest', label: 'Forest', icon: '🌲' }, { id: 'coffee-shop', label: 'Coffee Shop', icon: '☕' },
+    { id: 'fireplace', label: 'Fireplace', icon: '🔥' }, { id: 'fantasy-tavern', label: 'Fantasy Tavern', icon: '🍺' },
+    { id: 'dungeon', label: 'Dungeon', icon: '⛓️' }, { id: 'castle', label: 'Castle', icon: '🏰' },
+    { id: 'space', label: 'Space', icon: '🌌' }, { id: 'white-noise', label: 'White Noise', icon: '📻' },
+    { id: 'brown-noise', label: 'Brown Noise', icon: '📻' }, { id: 'pink-noise', label: 'Pink Noise', icon: '📻' },
+    { id: 'lofi', label: 'Lo-fi', icon: '🎧' }, { id: 'classical', label: 'Classical', icon: '🎻' },
+    { id: 'movie-score', label: 'Movie Score', icon: '🎬' }
+  ].map(function (a) { return Object.assign({ url: '' }, a); });
+  const COMPOSITION_FONTS = ['Cormorant Garamond', 'EB Garamond', 'Literata', 'Merriweather', 'Lora', 'Inter', 'IBM Plex Serif', 'JetBrains Mono', 'Bookerly', 'Georgia', 'Times New Roman'];
+  const COMPOSITION_PARTICLE_TYPES = ['snow', 'rain', 'fog', 'embers', 'dust', 'leaves', 'sparks', 'fireflies', 'stars', 'lightning'];
 
   const RELATIONSHIP_TYPES = ['friend', 'enemy', 'family', 'political', 'romantic', 'mentor', 'student', 'alliance', 'rival', 'former-ally', 'unknown'];
   const RELATIONSHIP_TYPE_LABELS = { friend: 'Friend', enemy: 'Enemy', family: 'Family', political: 'Political', romantic: 'Romantic', mentor: 'Mentor', student: 'Student', alliance: 'Alliance', rival: 'Rival', 'former-ally': 'Former Ally', unknown: 'Unknown' };
@@ -307,6 +378,49 @@
         { key: 'gesture', name: 'Grand Gesture', desc: 'One partner risks everything to prove their commitment.' },
         { key: 'reconciliation', name: 'Reconciliation', desc: 'Honest communication repairs the break.' },
         { key: 'hea', name: 'Happily Ever After / Commitment', desc: 'The relationship is affirmed for the long term.' }
+      ]
+    },
+    // The two default row-sets for the Trilogy Plot Grid / Romance Plot
+    // Grid — worded to match the writer's own requested beat names exactly
+    // (existing 'save-the-cat'/'romance-arc' above use different wording
+    // for overlapping beats), kept as real STRUCTURE_TEMPLATES entries so
+    // they flow through the same apply/Beats/Templates-tab pipeline as
+    // every other template rather than being a one-off row list baked into
+    // the grid renderer.
+    'trilogy-grid-default': {
+      label: 'Trilogy Plot Grid (default)', beats: [
+        { key: 'opening-image', name: 'Opening Image', desc: 'A snapshot of the world/protagonist before the story begins.' },
+        { key: 'theme', name: 'Theme', desc: 'What the story is really about, planted early.' },
+        { key: 'hook', name: 'Hook', desc: 'The moment that pulls the reader in.' },
+        { key: 'inciting-incident', name: 'Inciting Incident', desc: 'The event that sets the story in motion.' },
+        { key: 'debate', name: 'Debate', desc: 'The protagonist hesitates before committing.' },
+        { key: 'break-into-2', name: 'Break Into Act II', desc: 'The protagonist commits and enters the new situation.' },
+        { key: 'fun-and-games', name: 'Fun & Games', desc: 'The "promise of the premise" plays out.' },
+        { key: 'midpoint', name: 'Midpoint', desc: 'A major shift that raises the stakes or reverses the direction.' },
+        { key: 'bad-guys-close-in', name: 'Bad Guys Close In', desc: 'Pressure mounts, internally and externally.' },
+        { key: 'dark-night', name: 'Dark Night', desc: 'The lowest point — all seems lost.' },
+        { key: 'break-into-3', name: 'Break Into Act III', desc: 'A new understanding shows the protagonist how to win.' },
+        { key: 'climax', name: 'Climax', desc: 'The final confrontation where the central conflict is decided.' },
+        { key: 'resolution', name: 'Resolution', desc: 'The aftermath — how the world and characters have changed.' },
+        { key: 'final-image', name: 'Final Image', desc: 'A mirror of the opening image, showing what changed.' }
+      ]
+    },
+    'romance-grid-default': {
+      label: 'Romance Plot Grid (default)', beats: [
+        { key: 'meet-cute', name: 'Meet Cute', desc: 'The love interests first encounter each other.' },
+        { key: 'first-attraction', name: 'First Attraction', desc: 'An initial pull between them.' },
+        { key: 'chemistry', name: 'Chemistry', desc: 'Their dynamic sparks, even if resisted.' },
+        { key: 'growing-feelings', name: 'Growing Feelings', desc: 'The connection deepens.' },
+        { key: 'trust', name: 'Trust', desc: 'Real vulnerability is shared.' },
+        { key: 'first-kiss', name: 'First Kiss', desc: 'The relationship crosses a real threshold.' },
+        { key: 'intimacy', name: 'Intimacy', desc: 'The bond deepens further, physically and/or emotionally.' },
+        { key: 'relationship-high', name: 'Relationship High', desc: 'Things are at their best between them.' },
+        { key: 'conflict', name: 'Conflict', desc: 'A real obstacle threatens the relationship.' },
+        { key: 'breakup', name: 'Breakup', desc: 'The relationship fractures.' },
+        { key: 'reconciliation', name: 'Reconciliation', desc: 'Honest communication begins repairing the break.' },
+        { key: 'sacrifice', name: 'Sacrifice', desc: 'One partner risks something real to prove commitment.' },
+        { key: 'commitment', name: 'Commitment', desc: 'The relationship is affirmed.' },
+        { key: 'hea-hfn', name: 'HEA / HFN', desc: 'Happily Ever After / Happy For Now — the relationship\'s resolution.' }
       ]
     }
   };
@@ -456,6 +570,7 @@
       seriesId: d.seriesId || null,
       title: d.title || 'Untitled Book',
       cover: d.cover || '',
+      editorBgPhoto: d.editorBgPhoto || '',
       genre: GENRES.indexOf(d.genre) !== -1 ? d.genre : 'Fantasy',
       pov: d.pov || 'Third Limited',
       status: BOOK_STATUSES.indexOf(d.status) !== -1 ? d.status : 'outlining',
@@ -466,6 +581,12 @@
       deadline: d.deadline || '',
       mood: d.mood || '',
       theme: d.theme || '',
+      // Which STRUCTURE_TEMPLATES key each of this book's two parallel beat
+      // sets (general + romance) belongs to — lets a book carry both at
+      // once and tells the Trilogy/Romance Plot Grids which of its Beats
+      // rows are "active," since beatKey alone isn't unique across templates.
+      generalStructureTemplate: d.generalStructureTemplate || 'trilogy-grid-default',
+      romanceStructureTemplate: d.romanceStructureTemplate || 'romance-grid-default',
       order: d.order == null ? 0 : d.order,
       archived: !!d.archived,
       lastEditedAt: d.lastEditedAt || new Date().toISOString(),
@@ -491,7 +612,25 @@
       summary: d.summary || '',
       notes: d.notes || '',
       wordGoal: d.wordGoal == null ? 0 : Number(d.wordGoal) || 0,
-      revisionStatus: REVISION_STATUSES.indexOf(d.revisionStatus) !== -1 ? d.revisionStatus : 'not-started'
+      revisionStatus: REVISION_STATUSES.indexOf(d.revisionStatus) !== -1 ? d.revisionStatus : 'not-started',
+      compositionPresetId: d.compositionPresetId || null,
+      // Story-craft fields (Chapter Details) — Main/Romance Plot,
+      // Character Arc, Theme, Foreshadowing, Reveal, and Timeline are
+      // deliberately NOT duplicated here; they already live as real
+      // records (Beats/PlotPoints/Trackers/TimelineEvents) joined to a
+      // chapter via linkedChapterId, and are shown as a read-only,
+      // click-through Connections panel instead of a second copy that
+      // could drift out of sync with the record it mirrors.
+      purpose: d.purpose || '', goal: d.goal || '', obstacle: d.obstacle || '', stakes: d.stakes || '', outcome: d.outcome || '',
+      conflict: d.conflict || '', emotionalBeat: d.emotionalBeat || '',
+      revisionNotes: d.revisionNotes || '', dialogueNotes: d.dialogueNotes || '', researchNotes: d.researchNotes || '', callbackNotes: d.callbackNotes || '',
+      characterIds: Array.isArray(d.characterIds) ? d.characterIds : [],
+      // Generalized beyond just "Location" to every Worldbuilding Wiki
+      // category (culture/magic system/organization/object etc.), since
+      // WikiPages already spans all 56 — a location-only field would
+      // undersell what a chapter can actually reference.
+      linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
+      checklist: Array.isArray(d.checklist) ? d.checklist.map(function (item) { return { id: (item && item.id) || uid('chk'), text: (item && item.text) || '', done: !!(item && item.done) }; }) : []
     };
   }
   // A reusable Acts + Chapters skeleton — global (not scoped to any one
@@ -520,6 +659,65 @@
       order: d.order == null ? 0 : d.order,
       createdAt: d.createdAt || new Date().toISOString()
     };
+  }
+  // A saved Composition Mode environment — background/overlay/glass/
+  // typography/focus/audio/particle settings bundled under one name, same
+  // "one shared library, applied per-item" precedent as
+  // actChapterTemplateModel above. compositionPresetId on a chapter is how
+  // a preset gets auto-loaded for that chapter.
+  function compositionPresetModel(d) {
+    d = d || {};
+    const bg = d.background || {};
+    const ov = d.overlay || {};
+    const tint = ov.tint || {};
+    const gl = d.glass || {};
+    const ty = d.typography || {};
+    const aa = d.ambientAudio || {};
+    return {
+      id: d.id || uid('comppreset'),
+      name: d.name || 'Untitled Scene',
+      background: { type: bg.type === 'video' ? 'video' : 'image', url: bg.url || '', category: bg.category || '' },
+      overlay: {
+        blur: bg.type === 'video' ? clampNum(ov.blur, 0, 20, 6) : clampNum(ov.blur, 0, 20, 6),
+        darkOverlay: clampNum(ov.darkOverlay, 0, 90, 45),
+        gradientType: ['top', 'bottom', 'center', 'radial', 'none'].indexOf(ov.gradientType) !== -1 ? ov.gradientType : 'bottom',
+        tint: { color: tint.color || '#6b5bd6', opacity: clampNum(tint.opacity, 0, 100, 0) }
+      },
+      glass: {
+        opacity: clampNum(gl.opacity, 0, 100, 55),
+        blurIntensity: clampNum(gl.blurIntensity, 0, 40, 22),
+        radius: clampNum(gl.radius, 0, 40, 20),
+        shadowStrength: clampNum(gl.shadowStrength, 0, 100, 50),
+        padding: clampNum(gl.padding, 12, 96, 48),
+        width: ['centered', 'left', 'full', 'book', 'narrow'].indexOf(gl.width) !== -1 ? gl.width : 'book',
+        alignment: gl.alignment === 'left' ? 'left' : 'center'
+      },
+      typography: {
+        font: ty.font || 'Literata',
+        fontSize: clampNum(ty.fontSize, 14, 32, 19),
+        letterSpacing: ty.letterSpacing == null ? 0 : Number(ty.letterSpacing) || 0,
+        lineHeight: ty.lineHeight == null ? 1.7 : Number(ty.lineHeight) || 1.7,
+        paragraphSpacing: clampNum(ty.paragraphSpacing, 0, 48, 16),
+        textWidth: clampNum(ty.textWidth, 400, 1000, 680),
+        margins: clampNum(ty.margins, 0, 120, 48),
+        justification: ty.justification === 'justify' ? 'justify' : 'left',
+        themePreset: ty.themePreset || 'custom'
+      },
+      focusMode: ['none', 'line', 'sentence', 'paragraph', 'block', 'scene'].indexOf(d.focusMode) !== -1 ? d.focusMode : 'none',
+      typewriterMode: !!d.typewriterMode,
+      ambientAudio: { url: aa.url || '', category: aa.category || '', volume: clampNum(aa.volume, 0, 100, 60), loop: aa.loop !== false, fadeIn: clampNum(aa.fadeIn, 0, 10000, 1500), fadeOut: clampNum(aa.fadeOut, 0, 10000, 1500), autoplay: !!aa.autoplay },
+      particles: Array.isArray(d.particles) ? d.particles.slice() : [],
+      toolbarVisible: d.toolbarVisible !== false,
+      hudVisible: d.hudVisible !== false,
+      zenDefault: !!d.zenDefault,
+      favorite: !!d.favorite,
+      createdAt: d.createdAt || new Date().toISOString()
+    };
+  }
+  function clampNum(v, min, max, dflt) {
+    const n = v == null || v === '' ? dflt : Number(v);
+    if (isNaN(n)) return dflt;
+    return Math.max(min, Math.min(max, n));
   }
   function sceneModel(d) {
     d = d || {};
@@ -603,7 +801,10 @@
   var CHARACTER_TEMPLATE_FIELD_KEYS = ['role', 'species', 'race', 'occupation', 'status', 'personality', 'motivations', 'goals', 'strengths', 'weaknesses', 'fear', 'internalConflict', 'externalConflict', 'arc', 'voice', 'secrets', 'trauma', 'beliefs', 'skills', 'magic', 'weapons', 'appearance', 'backstory'];
   // A reusable character-archetype skeleton — global, same snapshot
   // (not-live-reference) precedent as wikiTemplateModel/
-  // actChapterTemplateModel above.
+  // actChapterTemplateModel above. `sections` snapshots the character's
+  // free-form Sections block (scope:'character') the same way `fields`
+  // snapshots its named fields — long-form archetype writeups (Core
+  // Archetype, Essential Traits, Quick Build Template, etc.) live here.
   function characterTemplateModel(d) {
     d = d || {};
     var fields = {};
@@ -613,6 +814,22 @@
       name: d.name || 'Untitled Template',
       description: d.description || '',
       fields: fields,
+      sections: Array.isArray(d.sections) ? d.sections.map(function (s) { return { title: (s && s.title) || 'Section', body: (s && s.body) || '' }; }) : [],
+      order: d.order == null ? 0 : d.order,
+      createdAt: d.createdAt || new Date().toISOString()
+    };
+  }
+  // A reusable General/Romance Plot skeleton (Story Architecture) —
+  // same snapshot precedent as actChapterTemplateModel: `points` are
+  // plain {title, description} copies, never live PlotPoint references.
+  function plotTemplateModel(d) {
+    d = d || {};
+    return {
+      id: d.id || uid('plottpl'),
+      name: d.name || 'Untitled Template',
+      description: d.description || '',
+      kind: PLOT_KINDS.indexOf(d.kind) !== -1 ? d.kind : 'general',
+      points: Array.isArray(d.points) ? d.points.map(function (p) { return { title: (p && p.title) || 'Untitled Plot Point', description: (p && p.description) || '' }; }) : [],
       order: d.order == null ? 0 : d.order,
       createdAt: d.createdAt || new Date().toISOString()
     };
@@ -624,6 +841,7 @@
       date: d.date || '', description: d.description || '',
       linkedCharacterIds: Array.isArray(d.linkedCharacterIds) ? d.linkedCharacterIds : [],
       linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
+      linkedChapterId: d.linkedChapterId || null,
       order: d.order == null ? 0 : d.order
     };
   }
@@ -734,7 +952,16 @@
   }
   function settingsModel(d) {
     d = d || {};
-    return { dailyGoal: d.dailyGoal == null ? 1000 : Number(d.dailyGoal) || 0, anthropicKey: d.anthropicKey || '' };
+    return {
+      dailyGoal: d.dailyGoal == null ? 1000 : Number(d.dailyGoal) || 0, anthropicKey: d.anthropicKey || '',
+      // The Composition Mode preset applied to any chapter that has no
+      // preset of its own AND has never been individually tweaked —
+      // "save as a template for all future chapters." A chapter's own
+      // assignment (chapter.compositionPresetId) or its own prior tweaks
+      // always take precedence over this — see composition-mode.js's
+      // loadDraftForChapter().
+      defaultCompositionPresetId: d.defaultCompositionPresetId || null
+    };
   }
 
   // ============================================================
@@ -770,6 +997,7 @@
   const Books = makeCollection(KEYS.books, bookModel);
   const Acts = makeCollection(KEYS.acts, actModel);
   const Chapters = makeCollection(KEYS.chapters, chapterModel);
+  const CompositionPresets = makeCollection(KEYS.compositionPresets, compositionPresetModel);
   const Scenes = makeCollection(KEYS.scenes, sceneModel);
   const Characters = makeCollection(KEYS.characters, characterModel);
   const WikiPages = makeCollection(KEYS.wikiPages, wikiPageModel);
@@ -787,6 +1015,7 @@
   const CharacterTemplates = makeCollection(KEYS.characterTemplates, characterTemplateModel);
   const WikiTemplates = makeCollection(KEYS.wikiTemplates, wikiTemplateModel);
   const PlotPoints = makeCollection(KEYS.plotPoints, plotPointModel);
+  const PlotTemplates = makeCollection(KEYS.plotTemplates, plotTemplateModel);
 
   function nextOrder(list) { return list.length ? Math.max.apply(null, list.map(function (x) { return x.order || 0; })) + 1 : 0; }
   function reorderCollection(col, orderedIds) {
@@ -837,20 +1066,61 @@
     });
     return { acts: actCount, chapters: chapterCount };
   }
+  // Applies a STRUCTURE_TEMPLATES beat sheet to a book by creating the
+  // Beats it's still missing — additive and idempotent per (bookId,
+  // templateKey) pair, same "safe to apply more than once, never touches
+  // what's already there" contract as applyActChapterTemplate/
+  // applyPlotTemplate above. Always keys off beatKey+template together
+  // (never beatKey alone — several templates reuse keys like 'midpoint').
+  function applyStructureTemplate(templateKey, bookId) {
+    const tpl = STRUCTURE_TEMPLATES[templateKey]; if (!tpl) return { beats: 0 };
+    const existingKeys = beatsForBook(bookId).filter(function (b) { return b.template === templateKey; }).map(function (b) { return b.beatKey; });
+    let order = nextOrder(beatsForBook(bookId));
+    let count = 0;
+    tpl.beats.forEach(function (beat) {
+      if (existingKeys.indexOf(beat.key) !== -1) return;
+      Beats.add({ bookId: bookId, template: templateKey, beatKey: beat.key, beatName: beat.name, description: beat.desc, order: order++ });
+      count++;
+    });
+    return { beats: count };
+  }
   // ---------- Reusable Character templates (archetypes) ----------
   function characterTemplatesSorted() { return CharacterTemplates.list().sort(function (a, b) { return (a.order || 0) - (b.order || 0); }); }
   function captureCharacterTemplateFromCharacter(characterId, name, description) {
     const c = Characters.get(characterId); if (!c) return null;
     const fields = {};
     CHARACTER_TEMPLATE_FIELD_KEYS.forEach(function (k) { fields[k] = c[k] || ''; });
-    return CharacterTemplates.add({ name: name || 'Untitled Template', description: description || '', fields: fields, order: nextOrder(CharacterTemplates.list()) });
+    const sections = sectionsFor('character', characterId).map(function (s) { return { title: s.title, body: s.body }; });
+    return CharacterTemplates.add({ name: name || 'Untitled Template', description: description || '', fields: fields, sections: sections, order: nextOrder(CharacterTemplates.list()) });
   }
   // Creates a brand-new real Character on the target series, prefilled
   // from the template's own field snapshot — never a live reference, so
-  // editing/deleting the template afterward never touches it.
+  // editing/deleting the template afterward never touches it — plus one
+  // generated Section per saved template section (same generated-on-
+  // demand-notes precedent applyWikiTemplate below already uses).
   function applyCharacterTemplate(templateId, seriesId) {
     const tpl = CharacterTemplates.get(templateId); if (!tpl) return null;
-    return Characters.add(Object.assign({ seriesId: seriesId, name: 'New ' + tpl.name, order: nextOrder(charactersForSeries(seriesId)) }, tpl.fields));
+    const rec = Characters.add(Object.assign({ seriesId: seriesId, name: 'New ' + tpl.name, order: nextOrder(charactersForSeries(seriesId)) }, tpl.fields));
+    tpl.sections.forEach(function (sec, i) { Sections.add({ scope: 'character', scopeId: rec.id, title: sec.title, body: sec.body, order: i }); });
+    return rec;
+  }
+  // ---------- Reusable General/Romance Plot templates (Story Architecture) ----------
+  function plotTemplatesSorted(kind) {
+    return PlotTemplates.list().filter(function (t) { return !kind || t.kind === kind; }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+  function capturePlotTemplateFromBook(bookId, kind, name, description) {
+    const points = plotPointsForBook(bookId, kind).map(function (p) { return { title: p.title, description: p.description }; });
+    return PlotTemplates.add({ name: name || 'Untitled Template', description: description || '', kind: kind, points: points, order: nextOrder(PlotTemplates.list()) });
+  }
+  // Creates brand-new PlotPoint records on the target book, appended
+  // after whatever's already there for that kind (never replaces or
+  // reorders existing plot points) — same safe-to-reapply contract as
+  // applyActChapterTemplate above.
+  function applyPlotTemplate(templateId, bookId) {
+    const tpl = PlotTemplates.get(templateId); if (!tpl) return { points: 0 };
+    let order = nextOrder(plotPointsForBook(bookId, tpl.kind));
+    tpl.points.forEach(function (p) { PlotPoints.add({ bookId: bookId, kind: tpl.kind, title: p.title, description: p.description, order: order++ }); });
+    return { points: tpl.points.length };
   }
   // ---------- Reusable Worldbuilding templates ----------
   function wikiTemplatesSorted() { return WikiTemplates.list().sort(function (a, b) { return (a.order || 0) - (b.order || 0); }); }
@@ -880,6 +1150,18 @@
   function plotPointsForSeries(seriesId, kind) {
     const bookIds = booksForSeries(seriesId).map(function (b) { return b.id; });
     return PlotPoints.list().filter(function (p) { return bookIds.indexOf(p.bookId) !== -1 && (!kind || p.kind === kind); });
+  }
+  // Series-wide Trackers of one type, across every book in the trilogy —
+  // same "Book N:" grouping precedent as plotPointsForSeries above, used
+  // by the Story Architecture section's Plot Threads/Character Arcs/Theme/
+  // Foreshadowing/Payoff filtered views.
+  function trackersForSeries(seriesId, type) {
+    const books = booksForSeries(seriesId);
+    const bookIndex = {}; books.forEach(function (b, i) { bookIndex[b.id] = i + 1; });
+    return Trackers.list()
+      .filter(function (t) { return bookIndex[t.bookId] && (!type || t.type === type); })
+      .map(function (t) { return Object.assign({}, t, { bookNumber: bookIndex[t.bookId] }); })
+      .sort(function (a, b) { return a.bookNumber - b.bookNumber || (a.order || 0) - (b.order || 0); });
   }
   function consistencyChecksForBook(bookId) { return ConsistencyChecks.list().filter(function (c) { return c.bookId === bookId; }).sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }); }
   function publishingForBook(bookId) {
@@ -1160,6 +1442,7 @@
     ConsistencyChecks.list().forEach(function (c) { if (c.linkedChapterId === id) ConsistencyChecks.update(c.id, { linkedChapterId: null }); });
     MindMapNodes.list().forEach(function (n) { if (n.linkedChapterId === id) MindMapNodes.update(n.id, { linkedChapterId: null }); });
     PlotPoints.list().forEach(function (p) { if (p.linkedChapterId === id) PlotPoints.update(p.id, { linkedChapterId: null }); });
+    TimelineEvents.list().forEach(function (t) { if (t.linkedChapterId === id) TimelineEvents.update(t.id, { linkedChapterId: null }); });
   }
   function removeCharacter(id) {
     Characters.remove(id);
@@ -1171,12 +1454,14 @@
     Scenes.list().forEach(function (s) { if (s.characterIds.indexOf(id) !== -1) Scenes.update(s.id, { characterIds: s.characterIds.filter(function (x) { return x !== id; }) }); });
     Trackers.list().forEach(function (t) { if (t.linkedCharacterId === id) Trackers.update(t.id, { linkedCharacterId: null }); });
     MindMapNodes.list().forEach(function (n) { if (n.linkedCharacterId === id) MindMapNodes.update(n.id, { linkedCharacterId: null }); });
+    Chapters.list().forEach(function (c) { if (c.characterIds.indexOf(id) !== -1) Chapters.update(c.id, { characterIds: c.characterIds.filter(function (x) { return x !== id; }) }); });
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'character' && s.scopeId === id); }));
   }
   function removeWikiPage(id) {
     WikiPages.remove(id);
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'wikipage' && s.scopeId === id); }));
     WikiPages.list().forEach(function (w) { if ((w.links || []).indexOf(id) !== -1) WikiPages.update(w.id, { links: w.links.filter(function (x) { return x !== id; }) }); });
+    Chapters.list().forEach(function (c) { if (c.linkedWikiPageIds.indexOf(id) !== -1) Chapters.update(c.id, { linkedWikiPageIds: c.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
   }
 
   // ============================================================
@@ -1186,6 +1471,209 @@
   // ============================================================
   function isEmptyEverywhere() {
     return !Series.list().length && !Books.list().length && !Characters.list().length && !WikiPages.list().length && !QuickCaptures.list().length;
+  }
+  // ---------- Default Character Templates (global archetype library) ----------
+  // Four full archetype writeups — Core Archetype, Character Foundation,
+  // Essential Traits, Character Voice, Visual Design, Fatal Flaws, and a
+  // Quick Build Template — stored as `sections` (the long-form document)
+  // plus a light `fields` prefill (short, usable defaults for an actual
+  // new Character created from the template). Supersedes the old
+  // three-template starter set (The Mentor / The Chosen One / The
+  // Antagonist) below via ensureDefaultCharacterTemplates().
+  var OBSOLETE_CHARACTER_TEMPLATE_NAMES = ['The Mentor', 'The Chosen One / Protagonist', 'The Antagonist'];
+  var DEFAULT_CHARACTER_TEMPLATES = [
+    {
+      name: 'The Intellectual Underdog Protagonist',
+      description: 'The character everyone assumes will die first — survives through intelligence, adaptability, and sheer refusal to break, not raw power.',
+      fields: {
+        role: 'Protagonist — Intellectual Underdog',
+        personality: 'Sharp, observant, quietly defiant. Compassionate but capable of terrifying resolve when cornered.',
+        motivations: 'Prove that intelligence and endurance matter as much as raw strength — and protect the people who see past their reputation.',
+        goals: 'Survive an environment built for people stronger than them, without losing who they are.',
+        strengths: 'Observation, strategy, pattern recognition, emotional intelligence, creativity under pressure — wins fights indirectly (poison, traps, terrain, exploiting arrogance).',
+        weaknesses: 'A genuine physical disadvantage that never fully disappears (chronic illness, small stature, lack of training, a trauma-based limitation, etc).',
+        fear: 'Becoming as monstrous as the world they\'re forced to survive in.',
+        internalConflict: 'Staying emotionally human — compassionate, loyal, afraid — while being pushed into increasingly violent circumstances.',
+        externalConflict: 'A world that has already decided they\'re a liability, and waits for them to fail or die first.',
+        arc: 'From underestimated and dismissed to impossible to ignore — without power ever replacing who they fundamentally are.',
+        voice: 'Dry humor and sharp internal observations hide real fear; constantly thinking three moves ahead.',
+        appearance: 'Visually contrasts their environment — smaller, paler, or more elegant than the people around them; one distinctive symbolic trait.',
+        backstory: 'A psychological wound and a social status that explain exactly why everyone underestimates them.'
+      },
+      sections: [
+        { title: 'Core Archetype', body: '"The character everyone assumes will die first… who survives through intelligence, adaptability, emotional resilience, and sheer refusal to break."\n\nThis protagonist is not the strongest, fastest, richest, or most naturally gifted fighter.\nThey survive because:\n- They think faster than others.\n- They adapt under pressure.\n- They weaponize perceived weakness.\n- They refuse to surrender emotionally.\n- They endure pain better than people expect.' },
+        { title: 'Character Foundation — Public Identity', body: 'The world sees them as:\n- Weak\n- Frail\n- Unsuitable\n- Too soft\n- Too intelligent for a brutal environment\n- A liability\n- Someone protected by privilege/family reputation\n- Someone who doesn\'t belong\n\nThe protagonist knows:\n- Some of this is true.\n- Most people underestimate them.\n- Underestimation is useful.' },
+        { title: 'The Core Contradiction', body: 'The best underdog protagonists are built around contradiction.\n\nExternal Trait → Internal Truth\n- Physically weak → Mentally relentless\n- Emotionally compassionate → Capable of terrifying violence when cornered\n- Intelligent/bookish → Learns combat through adaptation\n- Afraid → Still acts\n- Socially overlooked → Eventually becomes impossible to ignore' },
+        { title: 'Essential Underdog Traits', body: '1. Physical Disadvantage\nGive them a genuine disadvantage that cannot simply disappear.\nExamples: chronic illness, small stature, injury-prone body, lack of formal training, lower social class, late entry into an elite institution, trauma-induced limitation, magical deficiency, physical disability.\nThe key: the disadvantage must remain relevant even after they grow stronger. (Violet\'s fragility never truly disappears.)\n\n2. Intelligence as Survival\nThe protagonist wins through observation, preparation, strategy, pattern recognition, emotional intelligence, manipulation when necessary, creativity under pressure.\nThey should often defeat stronger opponents indirectly — poison, traps, psychological warfare, political maneuvering, exploiting arrogance, using terrain/environment.\n\n3. Emotional Core\nCore emotional traits: compassion, loyalty, empathy, protective instincts, fear of losing loved ones, desire to prove themselves, survivor\'s guilt, fear of becoming monstrous.\nThis creates tension: they are forced into increasingly violent worlds while trying not to lose themselves.\n\n4. Defiance\nThe underdog needs moments where they refuse to submit despite overwhelming odds — not because they think they\'ll win, but because their pride refuses surrender, someone weaker needs protection, their moral code demands action, or they\'d rather die than become cowardly. These moments create audience attachment.' },
+        { title: 'Character Voice', body: 'Internal Monologue Style\nUse: sharp observations, dry humor, self-awareness, fear hidden beneath sarcasm, constant tactical thinking.\nAvoid: endless self-pity, passive reactions, excessive whining.' },
+        { title: 'Visual Design', body: 'Underdog protagonists often visually contrast their environment.\nExamples: smaller silhouette among soldiers, pale/sickly appearance in warrior culture, elegant features in a brutal setting, visible scars/braces/wrappings, a distinctive symbolic trait (silver hair, strange eyes, ritual marks).\nThe goal: make them visually memorable while appearing vulnerable.' },
+        { title: 'Fatal Flaw Options', body: 'Choose 1–2 major flaws.\nGood Underdog Flaws: recklessness when loved ones are threatened, refusal to ask for help, self-sacrificial tendencies, stubbornness, emotional avoidance, trust issues, desire to prove themselves, fear of weakness, mercy toward dangerous enemies.' },
+        { title: 'The Most Important Rule', body: 'The protagonist cannot become interesting because they become powerful.\nThey become interesting because: they suffer, they adapt, they persist, they remain emotionally human while surviving inhuman circumstances.\nPower is only meaningful if it threatens to change who they are.' },
+        { title: 'Quick Build Template', body: 'Name:\nAge:\nEnvironment:\nSocial Status:\nPhysical Limitation:\nPsychological Wound:\nGreatest Fear:\nHidden Strength:\nPublic Reputation:\nCombat Style:\nSurvival Strategy:\nMoral Line They Refuse to Cross:\nPerson They Would Burn The World For:\nSymbolic Trait:\nFatal Flaw:\nCore Internal Conflict:\nExternal Goal:\nEmotional Need:\nWhat Makes Them Dangerous:\nWhat Makes Readers Root For Them:' }
+      ]
+    },
+    {
+      name: 'The Dangerous Love Interest',
+      description: 'Inspired by the "dangerous protector with hidden softness" archetype (Xaden Riorson, Fourth Wing) — feared by everyone except the one person he lets in.',
+      fields: {
+        role: 'Love Interest — Dangerous Protector',
+        personality: 'Ruthless and untouchable on the outside; loyal, exhausted, and quietly lonely underneath.',
+        motivations: 'Protect the people (or person) he\'s claimed, whatever the cost to himself.',
+        goals: 'Keep control of everything and everyone around him so no one else he loves gets taken from him.',
+        strengths: 'Overwhelming competence — combat, strategy, leadership, reading people; makes difficult things look effortless.',
+        weaknesses: 'Emotional repression, self-sacrificial to a fault, terrified that attachment is what gets people killed.',
+        fear: 'That loving someone openly will get them killed — or reveal how much he needs them.',
+        internalConflict: 'Wants peace and connection but was raised to believe love is a liability.',
+        externalConflict: 'A reputation as a monster/weapon that he never bothers to correct, even when it costs him.',
+        arc: 'From controlled and untouchable to devastatingly gentle with exactly one person, without ever fully losing his edge.',
+        voice: 'Short sentences, dry humor, controlled intensity — rare emotional admissions that land hard because they\'re so rare.',
+        secrets: 'The rumors about him are only partly true — he never corrects the rest.',
+        trauma: 'Learned early that love leads to loss; responsibility was forced on him before he was ready.',
+        appearance: '"Beautiful enough to be dangerous" — dark clothing, scars, sharp features, predatory stillness.',
+        backstory: 'A war, betrayal, or forced leadership that taught him survival requires emotional suppression.'
+      },
+      sections: [
+        { title: 'Core Archetype', body: 'A male love interest template inspired by Fourth Wing character Xaden Riorson — built around the "dangerous protector with hidden softness" archetype.\n\n"The man everyone fears… who becomes devastatingly gentle with only one person."\n\nThis character is: powerful, emotionally guarded, highly competent, morally gray, dangerous to everyone except the protagonist.\nBut underneath: he carries enormous guilt, he protects people through sacrifice, he secretly wants peace more than violence, love terrifies him because attachment creates weakness.' },
+        { title: 'The Core Fantasy', body: 'The appeal of this archetype comes from contradiction.\n\nExternal Persona → Internal Reality\n- Ruthless → Deeply loyal\n- Emotionally cold → Feels everything intensely\n- Feared leader → Exhausted protector\n- Violent → Selectively gentle\n- Untouchable → Secretly lonely\n- In control → One emotional trigger away from collapse' },
+        { title: 'Character Foundation — Public Reputation', body: 'The world sees him as: a monster, a weapon, a killer, a war hero, untouchable, dangerous, morally corrupt, the last person anyone should trust.\n\nRumors about him should circulate constantly, e.g.:\n- "He killed someone during initiation."\n- "He\'s never lost a fight."\n- "He executes traitors personally."\n- "He enjoys violence."\n- "He\'s incapable of love."\nSome rumors are true. Some are exaggerated. He never corrects them.' },
+        { title: 'Essential Traits', body: '1. Competence\nThis archetype must feel overwhelmingly capable — combat, strategy, leadership, reading people, manipulation, survival, crisis management. The key: he makes difficult things look effortless. Competence creates attraction before romance even begins.\n\n2. Emotional Restraint\nHe rarely shows vulnerability openly. Emotion leaks through actions — protection replaces confession, sacrifice replaces vulnerability, physical closeness replaces emotional honesty.\nExamples: standing guard outside her door, quietly patching wounds, remembering tiny details, watching exits automatically, positioning himself between danger and others.\n\n3. Controlled Violence\nViolence is part of his identity, but he uses it surgically and never loses control publicly. His rage becomes frightening because it is usually restrained. Important: he should feel dangerous even when calm.\n\n4. Buried Softness\nThe softness must exist beneath layers of discipline. Soft moments should feel rare and earned — dry humor, protective gestures, quiet intimacy, exhaustion slipping through, unexpected tenderness, gentle physical contact, revealing personal rituals or scars. This contrast is the emotional payoff.' },
+        { title: 'The Traumatized Protector Formula', body: 'This archetype works best when he learned early that love leads to loss, responsibility was forced onto him too young, and survival required emotional suppression.\nCommon backstory elements: failed rebellion, war orphan, betrayal, political hostage, dead family, forced leadership, childhood violence, burden of protecting others.' },
+        { title: 'The "Only Soft For Them" Dynamic', body: 'This is the emotional center of the archetype.\nEveryone else gets: coldness, discipline, intimidation, distance.\nThe protagonist gets: patience, honesty, protection, vulnerability, emotional attention.\nThe shift should happen gradually.' },
+        { title: 'Relationship Dynamics', body: 'With the Underdog Protagonist\nThe love interest initially underestimates them, or becomes fascinated immediately. Then realizes: they are emotionally dangerous to him, he cares too much, their survival affects his decisions. This terrifies him.\n\nWhy He Falls In Love\nHe doesn\'t fall for beauty alone. He falls because the protagonist challenges him, sees through him, refuses to fear him, makes him want to become better, survives despite impossible odds, understands loneliness, treats him like a human instead of a weapon.' },
+        { title: 'Visual Design', body: 'The visual goal: "Beautiful enough to be dangerous."\nCommon design elements: dark clothing, scars, tattoos/relics/marks, large silhouette, sharp features, intense eye contact, predatory stillness, elegant violence, black leather / military aesthetic, a distinct symbolic weapon.\nXaden\'s visual identity emphasizes shadows, scars, dark clothing, and lethal composure.' },
+        { title: 'Character Voice', body: 'Dialogue Style\nUse: short sentences, dry humor, controlled intensity, teasing dominance, strategic honesty, rare emotional admissions.\nExamples of tone: "Careful." / "You\'re staring." / "That\'s a terrible idea." / "Stay behind me." / "You\'re safer with me." / "I said I\'d protect you."' },
+        { title: 'The Mask vs. The Real Person', body: 'The Mask (what people see): ruthless, unfeeling, cold, arrogant, violent.\nThe Real Person (what the protagonist slowly discovers): exhausted, lonely, loyal to a fault, secretly compassionate, terrified of failure, self-sacrificial.\nThe romance works because the protagonist becomes one of the few people allowed behind the mask.' },
+        { title: 'The Moral Grayness', body: 'This archetype should not be morally clean. He should lie when necessary, kill without hesitation, manipulate strategically, break rules, commit morally questionable acts for survival. But he has lines he refuses to cross — his morality is rooted in protection, loyalty, and survival.' },
+        { title: 'Fatal Flaws', body: 'Choose 2–3: emotional repression, self-sacrificial behavior, obsessive protectiveness, trust issues, ruthlessness, martyr complex, belief he is unlovable, difficulty communicating, extreme independence, anger issues hidden beneath composure, need for control.' },
+        { title: 'The Secret Wound', body: 'Every version of this archetype needs a deep internal wound. Examples:\n- "Everyone I love dies."\n- "I am becoming the monster I hate."\n- "My usefulness is the only reason people keep me."\n- "If people truly knew me, they\'d fear me."\n- "I was raised to be a weapon, not a person."\nThis wound should drive most of his choices.' },
+        { title: 'The Power Dynamic', body: 'The relationship becomes compelling when the protagonist emotionally destabilizes him, he physically protects them, and they emotionally humanize him — both save each other differently.\nHe protects their body. They protect his soul.' },
+        { title: 'The Most Important Rule', body: 'The character should not just be "hot because he\'s dangerous." He becomes compelling because he carries unbearable responsibility, hides pain behind control, love forces him to become emotionally vulnerable, and the protagonist makes him want to live instead of merely survive.' },
+        { title: 'Quick Build Template', body: 'Name:\nAge:\nPublic Reputation:\nLeadership Position:\nCombat Specialty:\nSignature Weapon:\nDistinct Physical Trait:\nHidden Vulnerability:\nGreatest Fear:\nCore Trauma:\nWhat He Protects At All Costs:\nLove Language:\nEmotional Weakness:\nFatal Flaws:\nSecret Soft Spot:\nMoral Line He Won\'t Cross:\nWhat Makes Him Dangerous:\nWhat Makes Readers Fall In Love With Him:\nWhat Makes Him Terrifying:' }
+      ]
+    },
+    {
+      name: 'The Antagonist — Misguided Protector',
+      description: 'Inspired by Dain Aetos — a morally rigid, system-loyal antagonist who hurts the protagonist by loving them incorrectly, not by hating them.',
+      fields: {
+        role: 'Antagonist — Misguided Protector',
+        personality: 'Disciplined, dependable, rule-bound — genuinely convinced they know what\'s best for the protagonist.',
+        motivations: 'Keep the protagonist (and the world) safe by keeping them controlled, protected, and inside the rules.',
+        goals: 'Maintain order and protect the people they love, even if it means overriding those people\'s choices.',
+        strengths: 'Discipline, leadership, social trust — respected by authority figures for following the system without hesitation.',
+        weaknesses: 'Cannot accept the protagonist\'s growth; mistakes control for love.',
+        fear: 'Chaos — losing people, losing control, being powerless to stop disaster.',
+        internalConflict: 'Genuinely loves the protagonist but is loyal to systems over people when the two conflict.',
+        externalConflict: 'The protagonist keeps outgrowing the protection the antagonist insists on giving them.',
+        arc: 'Either admits they were wrong and chooses the protagonist over the system (redemption), or doubles down and becomes what they feared (tragic fall).',
+        voice: 'Controlled, rational, protectively worded — dangerous because they always sound reasonable.',
+        trauma: 'A childhood built on conditional love and pressure to perform, where usefulness became identity.',
+        beliefs: 'Rules and order are the only things standing between the world and catastrophe.',
+        backstory: 'Once the protagonist\'s emotional safe place — a friendship built long before it curdled into control.'
+      },
+      sections: [
+        { title: 'Core Archetype', body: 'A morally complex antagonist template inspired by Dain Aetos — built around control, loyalty to systems, emotional intimacy with the protagonist, and the tragedy of becoming the obstacle instead of the protector.\n\n"The person who genuinely believes they are protecting the protagonist… while slowly destroying their trust, freedom, and identity."\n\nThis antagonist is not: pure evil, sadistic, chaotic, power-hungry in an obvious way.\nInstead, they are: loyal to order, emotionally attached to the protagonist, morally rigid, terrified of losing control, convinced they know what\'s best.\nThe tragedy: they hurt the protagonist because they love them incorrectly.' },
+        { title: 'The Core Contradiction', body: 'External Persona → Internal Reality\n- Dependable → Emotionally controlling\n- Protective → Deeply insecure\n- Morally upright → Capable of violating trust\n- Loyal → Loyal to systems over people\n- Caring → Unable to truly listen\n- Safe → Emotionally dangerous' },
+        { title: 'The "Misguided Protector" Formula', body: 'This archetype becomes compelling when their intentions are understandable, their methods become unforgivable, and they never fully realize the damage until too late.\nThe audience should constantly feel: "If they had trusted the protagonist instead of controlling them, none of this would\'ve happened."' },
+        { title: 'Character Foundation — Public Reputation', body: 'The world sees them as: reliable, disciplined, honorable, responsible, leadership material, a model soldier/student/heir, someone people should trust.\nAuthority figures love them because they follow rules, value stability, obey systems, and make difficult choices without hesitation.\nUnlike chaotic antagonists, this character is socially respected.' },
+        { title: 'The Core Fear', body: 'At the center of this archetype is usually fear of chaos.\nExamples: fear of losing people, fear of disorder, fear of rebellion, fear of emotional unpredictability, fear of becoming powerless, fear of failing their duty, fear that love will destroy objectivity.\nThis fear drives their need for control, rules, structure, surveillance, certainty.' },
+        { title: 'Essential Traits', body: '1. Genuine Care\nThe audience must believe: "They really do care about the protagonist." Without this, they become a generic antagonist. They should worry constantly, try to protect the protagonist, remember small details, show emotional history, be unable to let go emotionally. The problem: their care becomes suffocating.\n\n2. Moral Rigidity\nThis character believes rules exist for survival, order prevents catastrophe, personal feelings cannot override duty. They often say things like: "There are reasons these rules exist." / "You don\'t understand the bigger picture." / "I\'m trying to protect you." / "You\'re being reckless." / "Someone has to think rationally."\n\n3. Infantilization Of The Protagonist\nThey cannot emotionally accept the protagonist\'s growth. They continue seeing them as fragile, naive, vulnerable, in need of protection — even after the protagonist proves themselves repeatedly. This becomes emotionally infuriating because the antagonist loves an outdated version of the protagonist. (Dain\'s conflict with Violet heavily stems from his inability to stop viewing her as fragile despite her growth and survival.)\n\n4. The "Crossed A Line" Moment\nThis archetype requires one major violation of trust — invading privacy, reporting the protagonist, choosing authority over friendship, revealing secrets, betraying confidence, making decisions for them, sacrificing someone "for the greater good." The key: they justify it completely at first.' },
+        { title: 'The System-Loyal Antagonist', body: 'This archetype often represents institutions, tradition, militarism, religion, political order, authority structures.\nThey are dangerous because they genuinely believe the system is morally correct — even when the system is corrupt, the protagonist suffers under it, and innocent people die.' },
+        { title: 'The Emotional Tragedy', body: 'This antagonist is strongest when they were once the protagonist\'s emotional safe place, they know the protagonist intimately, and they slowly become emotionally incompatible.\nThe audience mourns who they used to be together. (Dain\'s emotional impact comes largely from being Violet\'s childhood best friend before becoming someone she can no longer fully trust.)' },
+        { title: 'The Foil to the Love Interest', body: 'This archetype often exists as a foil.\nThe Antagonist Represents: safety, stability, rules, familiarity, predictability, approved choices.\nThe Love Interest Represents: freedom, risk, emotional truth, growth, rebellion, transformation.\nThe protagonist choosing the love interest symbolizes choosing self-actualization over safety.' },
+        { title: 'Relationship Dynamics', body: 'With The Protagonist\nThe antagonist often thinks they know the protagonist best, believes they understand what\'s good for them, becomes frustrated when ignored, feels replaced emotionally, resents losing influence.\nTheir emotional arc becomes: "Why won\'t you trust me anymore?" — without realizing they destroyed trust themselves.' },
+        { title: 'The Best Scenes For This Archetype', body: 'Scene Types: emotional arguments disguised as concern; "I\'m doing this for your own good"; rule-versus-morality conflicts; forced betrayals; watching the protagonist choose someone else; discovering they were wrong too late; realizing authority manipulated them; failed attempts at reconciliation; protectiveness becoming possessiveness; quiet regret after irreversible damage.' },
+        { title: 'Character Voice', body: 'Dialogue Style\nUse: controlled language, rational explanations, emotional restraint, protective wording, frustrated concern.\nExamples: "Think for one second." / "I\'m trying to keep you alive." / "You\'re acting emotionally." / "This isn\'t about trust." / "You don\'t understand what\'s at stake." / "I did what I had to do."\nTheir tone becomes dangerous because they sound reasonable.' },
+        { title: 'Visual Design', body: 'The visual goal: "Trusted authority figure hiding emotional instability."\nCommon elements: clean uniform/clothing, precise grooming, structured silhouette, military/academic aesthetic, controlled posture, warm eyes with tense expressions, subtle signs of exhaustion beneath perfection.\nUnlike chaotic villains, their appearance communicates control.' },
+        { title: 'The Secret Wound', body: 'This archetype usually has a foundational wound tied to conditional love, pressure to perform, fear of failure, parental expectations, emotional repression, identity built around usefulness.\nExamples: "If I stop being useful, I become worthless." / "Rules are the only thing keeping the world from collapsing." / "Love makes people weak." / "If I lose control, people die." / "Duty matters more than feelings."' },
+        { title: 'Fatal Flaws', body: 'Choose 2–3: need for control, moral rigidity, inability to adapt, emotional repression, fear of uncertainty, blind trust in authority, jealousy, possessiveness disguised as protection, inability to admit wrongdoing, viewing vulnerability as weakness, savior complex.' },
+        { title: 'The Fall Or Redemption', body: 'This archetype works best when they eventually face the horrifying realization: "I became part of the thing I thought I was protecting people from." This creates two paths.\n\nRedemption Path: they admit they were wrong, break from authority, choose the protagonist over the system, accept consequences, learn to trust instead of control. (Dain\'s later arc increasingly centers around guilt, shattered faith in authority, and attempts to repair the damage he caused.)\n\nTragic Fall Path: they double down, refuse accountability, become increasingly authoritarian, lose the protagonist permanently, become what they once feared. Most tragic version: they realize the truth too late to fix anything.' },
+        { title: 'The Most Important Rule', body: 'This antagonist should make readers feel angry, frustrated, sympathetic, heartbroken — sometimes simultaneously. Because the real emotional pain comes from watching someone who loves the protagonist become incapable of truly seeing them anymore.' },
+        { title: 'Quick Build Template', body: 'Name:\nPublic Reputation:\nRelationship To Protagonist:\nPosition Of Authority:\nCore Belief System:\nGreatest Fear:\nWhat They Think They\'re Protecting:\nWhat They\'re Actually Protecting:\nFatal Flaws:\nEmotional Weakness:\nChildhood Wound:\nHow They Control Situations:\nWhat They Cannot Accept About The Protagonist:\nThe Line They Cross:\nHow They Justify It:\nMoment They Realize They Were Wrong:\nRedemption Or Downfall?:\nFinal Relationship With Protagonist:\nMost Painful Thing They Say:\nMost Painful Thing They Realize Too Late:' },
+        { title: 'The Emotional Formula', body: 'Why this archetype works: villains who hate the protagonist are predictable. But someone who loves the protagonist while hurting them creates emotional devastation.' }
+      ]
+    },
+    {
+      name: 'The Betrayer Best Friend',
+      description: 'A once-real friendship that fractures under fear, ideology, jealousy, or duty — the betrayal that hurts because the love was real.',
+      fields: {
+        role: 'Best Friend — Eventual Betrayer',
+        personality: 'Warm, funny, emotionally open — the kind of friend the protagonist never thought to doubt.',
+        motivations: 'Depends on the betrayal type chosen: ideology, fear, jealousy, protection, or slow corruption.',
+        goals: 'Before the break: stand by the protagonist no matter what. After: justify why they didn\'t.',
+        strengths: 'Emotional accessibility and real history with the protagonist — they know exactly how to comfort them, and later, exactly how to hurt them.',
+        weaknesses: 'Fear of abandonment, need for validation, or blind loyalty to authority — whichever fuels their eventual breaking point.',
+        fear: 'Being left behind, replaced, or proven irrelevant as the protagonist grows beyond them.',
+        internalConflict: 'Still loves the protagonist even while betraying them — and knows it.',
+        externalConflict: 'A breaking point (ideological, fear-driven, jealous, protective, or corrupting) that outside pressure pushes them past.',
+        arc: 'Either seeks forgiveness and redemption, or lets pride keep them from reconciliation even though both still care.',
+        voice: 'Before: easy teasing and comforting honesty. After: sharper, more formal — notably, they stop using the protagonist\'s nickname.',
+        secrets: 'A resentment or fear they never said out loud until it was too late.',
+        backstory: 'A real, earned friendship — inside jokes, shared history, mutual survival — that makes the eventual betrayal feel personal, not villainous.'
+      },
+      sections: [
+        { title: 'Core Archetype', body: 'A best-friend-turned-betrayer template inspired by the emotional role characters like Rhiannon Matthias and Dain Aetos play in The Empyrean series — built around loyalty, emotional intimacy, fractured trust, and devastating ideological conflict.\n\n"The person who knew the protagonist best… and became the one capable of hurting them most."\n\nThis character is not evil. That\'s what makes the betrayal devastating.\nThey are: loyal, loving, protective, deeply bonded to the protagonist.\nBut eventually fear, ideology, jealousy, duty, survival, resentment, or love itself pushes them into betrayal.\nThe audience should think: "I understand why they did it… but it still hurts."' },
+        { title: 'The Core Emotional Formula', body: 'The betrayer works because they once represented safety, the protagonist trusted them completely, and their betrayal feels emotionally intimate.\nThis archetype is strongest when the betrayal feels PERSONAL rather than villainous.' },
+        { title: 'The Foundation of the Friendship', body: 'Before betrayal, the friendship must feel real. The best friend should defend the protagonist early, help them survive, share secrets, train/study/work together, develop rituals and inside jokes, become emotionally dependable.\nThe reader must genuinely believe: "These two would die for each other."' },
+        { title: 'The Core Contradiction', body: 'External Role → Internal Conflict\n- Loyal friend → Growing resentment\n- Supportive ally → Feels abandoned\n- Moral compass → Secretly compromised\n- Protector → Capable of betrayal\n- Trusted confidant → Hiding dangerous truths' },
+        { title: 'Types of Betrayal', body: 'Choose the emotional flavor carefully.\n\n1. The Ideological Betrayal — they believe the protagonist is wrong, duty outweighs friendship, the system matters more than personal loyalty. The "I thought I was saving you" betrayal.\n\n2. The Fear Betrayal — they\'re terrified, the consequences feel too large, survival instincts override loyalty. Most realistic version.\n\n3. The Jealousy Betrayal — the protagonist changes while they remain stagnant; they begin feeling left behind, replaced, inferior, invisible. Especially effective when the protagonist gains power/status/romance and the friendship becomes emotionally imbalanced.\n\n4. The Protective Betrayal — they betray because they think "This is the only way to save you." Usually tragic rather than malicious.\n\n5. The Slow Corruption Betrayal — the character gradually changes through power, trauma, manipulation, political pressure, forbidden magic, obsession. The protagonist notices too late.' },
+        { title: 'Essential Traits', body: '1. Genuine Loyalty (At First)\nThe betrayal only works if the loyalty was once real. The friendship cannot be fake from the beginning. They should save the protagonist, defend them publicly, know personal vulnerabilities, provide emotional stability. The betrayal hurts because the love was real.\n\n2. Emotional Accessibility\nUnlike colder characters, this archetype is emotionally open — they talk easily, joke often, show affection naturally, express emotion openly, feel approachable and human. This creates contrast with later emotional distance.\n\n3. Moral Conviction\nThe betrayer should believe they are justified. Even at their worst, they rationalize their actions morally, believe the protagonist forced their hand, see themselves as necessary. The audience should occasionally agree with them.\n\n4. Lingering Love\nEven after betrayal, they still care, they hesitate, they regret things, they try to justify themselves, they still know the protagonist intimately. This makes scenes emotionally volatile.' },
+        { title: 'The Betrayal Scene', body: 'The betrayal should attack trust, emotional intimacy, vulnerability — not just physical safety.\nThe best betrayal moments include lines like:\n- "I did this for you."\n- "You left me behind."\n- "You stopped trusting me first."\n- "I had no choice."\n- "You were becoming someone I didn\'t recognize."\n- "I still love you."\n- "I thought I was saving everyone."' },
+        { title: 'Aftermath of the Betrayal', body: 'The betrayer should not immediately become cartoonishly evil, fully detached, or emotionless. Instead, they still know the protagonist deeply, understand exactly how to hurt them, still care, may want forgiveness, may hate themselves.\nThis creates emotional warfare instead of simple hero-villain conflict.' },
+        { title: 'Visual Design', body: 'Before betrayal: warm colors, open posture, relaxed body language, expressive face, casual touch.\nAfter betrayal: sharper silhouette, colder emotional presentation, controlled expressions, more distance physically and emotionally.\nThe visual shift should feel subtle but painful.' },
+        { title: 'Character Voice', body: 'Before Betrayal — use humor, familiar teasing, emotional honesty, comforting language, easy rhythm.\nAfter Betrayal — the same voice becomes sharper, controlled, defensive, bitter, formal.\nMost painful technique: they stop using the protagonist\'s nickname.' },
+        { title: 'Fatal Flaws', body: 'Choose 2–3: fear of abandonment, need for validation, moral rigidity, jealousy, dependency, martyr complex, desire for control, fear of irrelevance, inability to adapt, blind loyalty to authority, emotional impulsiveness.' },
+        { title: 'The Secret Wound', body: 'The betrayal should stem from a deeper wound. Examples:\n- "People always leave me."\n- "I\'m never chosen first."\n- "I sacrificed everything and got nothing."\n- "Rules are the only thing keeping the world together."\n- "Without purpose, I\'m nothing."\n- "You outgrew me."' },
+        { title: 'Redemption or Tragedy?', body: 'Choose one early.\n\nRedemption Path: betrayal was misguided, they regret it, they seek forgiveness, they sacrifice themselves later. (Dain\'s arc in The Empyrean increasingly moves toward guilt, self-awareness, and attempted redemption after violating Violet\'s trust.)\n\nTragedy Path: they double down, pride prevents reconciliation, they become consumed by ideology/power, the friendship dies permanently.\nMost emotionally devastating version: both still love each other, but reconciliation becomes impossible.' },
+        { title: 'The Most Important Rule', body: 'The betrayal must feel emotionally inevitable AND emotionally avoidable.\nThe audience should think: "If they had just talked honestly sooner, this might never have happened." That tension creates obsession-level emotional investment.' },
+        { title: 'Quick Build Template', body: 'Name:\nRole In Protagonist\'s Life:\nHow They First Bonded:\nWhat Makes The Friendship Special:\nCore Personality:\nGreatest Fear:\nFatal Flaws:\nSecret Resentment:\nWhat They Admire About The Protagonist:\nWhat They Envy About The Protagonist:\nBreaking Point:\nNature Of The Betrayal:\nDid They Mean To Hurt The Protagonist?:\nDo They Regret It?:\nRedemption Or Tragedy?:\nFinal Dynamic With Protagonist:\nMost Painful Thing They Say:\nMost Painful Thing They Realize Too Late:' }
+      ]
+    }
+  ];
+  // Idempotent — safe to call on every boot. Removes the old three-
+  // template starter set (by exact name; anything the user has since
+  // renamed is left alone) and adds any of the four archetype templates
+  // above that aren't already present by name.
+  function ensureDefaultCharacterTemplates() {
+    CharacterTemplates.list().filter(function (t) { return OBSOLETE_CHARACTER_TEMPLATE_NAMES.indexOf(t.name) !== -1; }).forEach(function (t) { CharacterTemplates.remove(t.id); });
+    var names = CharacterTemplates.list().map(function (t) { return t.name; });
+    DEFAULT_CHARACTER_TEMPLATES.forEach(function (def) {
+      if (names.indexOf(def.name) === -1) CharacterTemplates.add(Object.assign({ order: nextOrder(CharacterTemplates.list()) }, def));
+    });
+  }
+  // ---------- Default Plot Templates (General/Romance Plot starter skeletons) ----------
+  var DEFAULT_PLOT_TEMPLATES = [
+    {
+      name: 'Rebellion Arc — General Plot', kind: 'general',
+      description: 'A reusable skeleton for a political/rebellion-driven main plot — apply it to any book\'s General Plot, then adjust the specifics.',
+      points: [
+        { title: 'Inciting incident exposes the rot in power', description: '' },
+        { title: 'Protagonist refuses the call, then is forced into it', description: '' },
+        { title: 'First real victory — and its cost', description: '' },
+        { title: 'Midpoint betrayal or reveal reshapes the stakes', description: '' },
+        { title: 'All is lost — the plan collapses', description: '' },
+        { title: 'Final confrontation with the true source of power', description: '' }
+      ]
+    },
+    {
+      name: 'Slow Burn — Romance Plot', kind: 'romance',
+      description: 'A reusable romance-beat skeleton — apply it to any book\'s Romance Plot, then adjust the specifics.',
+      points: [
+        { title: 'Antagonistic or wary first meeting', description: '' },
+        { title: 'Forced proximity builds reluctant respect', description: '' },
+        { title: 'First crack in the wall — a moment of real honesty', description: '' },
+        { title: 'Growing tension neither of them will name out loud', description: '' },
+        { title: 'Betrayal or misunderstanding threatens the bond', description: '' },
+        { title: 'Full emotional confession and commitment', description: '' }
+      ]
+    }
+  ];
+  // Idempotent — safe to call on every boot. Adds any default plot
+  // template not already present by name; never touches existing ones.
+  function ensureDefaultPlotTemplates() {
+    var names = PlotTemplates.list().map(function (t) { return t.name; });
+    DEFAULT_PLOT_TEMPLATES.forEach(function (def) {
+      if (names.indexOf(def.name) === -1) PlotTemplates.add(Object.assign({ order: nextOrder(PlotTemplates.list()) }, def));
+    });
   }
   function seedIfEmpty() {
     if (!isEmptyEverywhere()) return;
@@ -1247,21 +1735,7 @@
       ]
     });
 
-    CharacterTemplates.add({
-      name: 'The Mentor', order: 0,
-      description: 'A wise, experienced guide who trains or advises the protagonist — apply it to any series, then fill in the specifics.',
-      fields: { role: 'Mentor', personality: 'Patient, but carries old scars from their own failures.', motivations: 'Make sure the next generation doesn\'t repeat their mistakes.', arc: 'Often sacrifices something — sometimes their life — for the protagonist\'s growth.', strengths: 'Deep experience, calm under pressure.', weaknesses: 'Reluctant to fully explain the danger ahead.', fear: 'That their guidance won\'t be enough.' }
-    });
-    CharacterTemplates.add({
-      name: 'The Chosen One / Protagonist', order: 1,
-      description: 'A reluctant hero pulled into a conflict bigger than themselves.',
-      fields: { role: 'Protagonist', personality: 'Grounded, more capable than they believe.', motivations: 'Protect the people and place they love.', goals: 'Survive long enough to make a difference.', arc: 'From reluctant to willing, from uncertain to resolved.', fear: 'Becoming the thing they\'re fighting against.' }
-    });
-    CharacterTemplates.add({
-      name: 'The Antagonist', order: 2,
-      description: 'A villain who believes they\'re the hero of their own story.',
-      fields: { role: 'Antagonist', personality: 'Controlled, convinced of their own righteousness.', motivations: 'Correct a wrong the world refuses to acknowledge.', internalConflict: 'A belief that the ends justify the means.', arc: 'Doubles down rather than reforms, right up until the end.' }
-    });
+    ensureDefaultCharacterTemplates();
 
     WikiTemplates.add({
       name: 'Fantasy Kingdom', order: 0, category: 'kingdoms',
@@ -1286,9 +1760,11 @@
     PlotPoints.add({ bookId: b1.id, kind: 'general', title: 'Wren reclaims a fractured house', description: 'The first house to swear back to Wren, setting up the alliance she\'ll need for Act III.', status: 'planned', order: 1 });
     PlotPoints.add({ bookId: b1.id, kind: 'romance', title: 'Wren stops flinching when Kael stands close', description: 'A small, physical beat marking the shift from wary employer to something else.', status: 'planned', order: 0, linkedChapterId: ch1.id });
     PlotPoints.add({ bookId: b1.id, kind: 'romance', title: 'Kael turns down a contract to kill her', description: 'The moment his loyalty stops being about the coin.', status: 'planned', order: 1 });
+
+    ensureDefaultPlotTemplates();
   }
   function resetToDefault() {
-    [Series, Books, Acts, Chapters, Scenes, Characters, WikiPages, TimelineEvents, Beats, Trackers, ConsistencyChecks, Publishing, Sections, MindMapNodes, QuickCaptures, Documents, WritingSessions, ActChapterTemplates, CharacterTemplates, WikiTemplates, PlotPoints].forEach(function (c) { c.replaceAll([]); });
+    [Series, Books, Acts, Chapters, Scenes, Characters, WikiPages, TimelineEvents, Beats, Trackers, ConsistencyChecks, Publishing, Sections, MindMapNodes, QuickCaptures, Documents, WritingSessions, ActChapterTemplates, CharacterTemplates, WikiTemplates, PlotPoints, PlotTemplates, CompositionPresets].forEach(function (c) { c.replaceAll([]); });
     storeSet(KEYS.hero, null);
     seedIfEmpty();
   }
@@ -1301,6 +1777,8 @@
     BOOK_STATUSES: BOOK_STATUSES, BOOK_STATUS_LABELS: BOOK_STATUS_LABELS,
     CHAPTER_STATUSES: CHAPTER_STATUSES, CHAPTER_STATUS_LABELS: CHAPTER_STATUS_LABELS,
     SCENE_STATUSES: SCENE_STATUSES, REVISION_STATUSES: REVISION_STATUSES, REVISION_STATUS_LABELS: REVISION_STATUS_LABELS, POVS: POVS,
+    COMPOSITION_BG_CATEGORIES: COMPOSITION_BG_CATEGORIES, COMPOSITION_BACKGROUND_LIBRARY: COMPOSITION_BACKGROUND_LIBRARY,
+    COMPOSITION_AMBIENT_LIBRARY: COMPOSITION_AMBIENT_LIBRARY, COMPOSITION_FONTS: COMPOSITION_FONTS, COMPOSITION_PARTICLE_TYPES: COMPOSITION_PARTICLE_TYPES,
     RELATIONSHIP_TYPES: RELATIONSHIP_TYPES, RELATIONSHIP_TYPE_LABELS: RELATIONSHIP_TYPE_LABELS, RELATIONSHIP_COLORS: RELATIONSHIP_COLORS,
     QUICK_CAPTURE_TYPES: QUICK_CAPTURE_TYPES, QUICK_CAPTURE_META: QUICK_CAPTURE_META,
     DOCUMENT_KINDS: DOCUMENT_KINDS, DOCUMENT_KIND_LABELS: DOCUMENT_KIND_LABELS,
@@ -1315,16 +1793,19 @@
     WikiPages: WikiPages, TimelineEvents: TimelineEvents, Beats: Beats, Trackers: Trackers,
     ConsistencyChecks: ConsistencyChecks, Publishing: Publishing, Sections: Sections, MindMapNodes: MindMapNodes,
     QuickCaptures: QuickCaptures, Documents: Documents, WritingSessions: WritingSessions,
-    ActChapterTemplates: ActChapterTemplates, CharacterTemplates: CharacterTemplates, WikiTemplates: WikiTemplates, PlotPoints: PlotPoints,
+    ActChapterTemplates: ActChapterTemplates, CharacterTemplates: CharacterTemplates, WikiTemplates: WikiTemplates, PlotPoints: PlotPoints, PlotTemplates: PlotTemplates,
+    CompositionPresets: CompositionPresets, compositionPresetModel: compositionPresetModel,
     nextOrder: nextOrder, reorderCollection: reorderCollection,
     seriesSorted: seriesSorted, seriesArchived: seriesArchived, booksForSeries: booksForSeries,
     actsForBook: actsForBook, chaptersForBook: chaptersForBook, chaptersForAct: chaptersForAct, scenesForChapter: scenesForChapter,
     actChapterTemplatesSorted: actChapterTemplatesSorted, captureActChapterTemplateFromBook: captureActChapterTemplateFromBook, applyActChapterTemplate: applyActChapterTemplate,
+    applyStructureTemplate: applyStructureTemplate,
     characterTemplatesSorted: characterTemplatesSorted, captureCharacterTemplateFromCharacter: captureCharacterTemplateFromCharacter, applyCharacterTemplate: applyCharacterTemplate,
     wikiTemplatesSorted: wikiTemplatesSorted, captureWikiTemplateFromPage: captureWikiTemplateFromPage, applyWikiTemplate: applyWikiTemplate,
+    plotTemplatesSorted: plotTemplatesSorted, capturePlotTemplateFromBook: capturePlotTemplateFromBook, applyPlotTemplate: applyPlotTemplate,
     charactersForSeries: charactersForSeries, wikiPagesForSeries: wikiPagesForSeries, wikiPagesForCategory: wikiPagesForCategory,
     timelineForSeries: timelineForSeries, beatsForBook: beatsForBook, trackersForBook: trackersForBook,
-    plotPointsForBook: plotPointsForBook, plotPointsForSeries: plotPointsForSeries,
+    plotPointsForBook: plotPointsForBook, plotPointsForSeries: plotPointsForSeries, trackersForSeries: trackersForSeries,
     consistencyChecksForBook: consistencyChecksForBook, publishingForBook: publishingForBook,
     sectionsFor: sectionsFor, addSection: addSection, moveSection: moveSection, ensureDefaultWikiSections: ensureDefaultWikiSections,
     quickCapturesFor: quickCapturesFor, documentsFor: documentsFor, writingSessionsForBook: writingSessionsForBook, writingSessionsForSeries: writingSessionsForSeries,
@@ -1340,6 +1821,7 @@
     removeSeries: removeSeries, removeBook: removeBook, removeChapter: removeChapter, removeCharacter: removeCharacter, removeWikiPage: removeWikiPage,
     getHero: function () { return heroModel(storeGet(KEYS.hero)); },
     saveHero: function (patch) { const next = heroModel(Object.assign({}, heroModel(storeGet(KEYS.hero)), patch)); storeSet(KEYS.hero, next); return next; },
-    isEmptyEverywhere: isEmptyEverywhere, seedIfEmpty: seedIfEmpty, resetToDefault: resetToDefault
+    isEmptyEverywhere: isEmptyEverywhere, seedIfEmpty: seedIfEmpty, resetToDefault: resetToDefault,
+    ensureDefaultCharacterTemplates: ensureDefaultCharacterTemplates, ensureDefaultPlotTemplates: ensureDefaultPlotTemplates
   };
 })(window);

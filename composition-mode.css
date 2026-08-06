@@ -1,0 +1,283 @@
+/* =====================================================================
+   composition-mode.css — a fullscreen, cinematic distraction-free writing
+   environment for the Writing Dashboard's Editor tab. Extracted reusable
+   kit, same role glass-theme.css/gallery-card.css already play elsewhere
+   in this app: one <link> tag, paired with composition-mode.js.
+
+   Live-adjustable settings (blur amount, tint color/opacity, glass
+   opacity/radius/padding, font, sizes, etc.) are all driven by CSS custom
+   properties set on #cmRoot from JS — this file only defines the static
+   structure/classes that consume those variables, so every control in
+   the toolbar panels can update live with zero re-render of the DOM tree.
+
+   Layer order (back to front), matching the spec exactly:
+   background -> blur (baked into the bg layer's own filter) -> gradient
+   overlay -> tint overlay -> glass writing panel -> text.
+   ===================================================================== */
+
+#cmRoot {
+  position: fixed; inset: 0; z-index: 99990;
+  display: flex; align-items: stretch; justify-content: stretch;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  background: #050506;
+  transition: opacity .5s cubic-bezier(.22,.61,.36,1);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  color: #fafafa;
+}
+#cmRoot.cm-open { opacity: 1; visibility: visible; pointer-events: auto; }
+#cmRoot * { box-sizing: border-box; }
+
+/* ---------- Background layer (image or video), crossfade pair ---------- */
+.cm-bg-layer {
+  position: absolute; inset: -20px; z-index: 1;
+  opacity: 0; transition: opacity .9s cubic-bezier(.22,.61,.36,1);
+  overflow: hidden;
+}
+.cm-bg-layer.cm-bg-active { opacity: 1; }
+.cm-bg-layer img, .cm-bg-layer video {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: blur(var(--cm-blur, 6px)) brightness(0.62) saturate(1.12);
+  transform: scale(1.06);
+  transition: filter .35s ease;
+}
+
+/* ---------- Gradient overlay ---------- */
+.cm-gradient-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.cm-gradient-overlay[data-gradient="bottom"] { background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.75) 100%); }
+.cm-gradient-overlay[data-gradient="top"] { background: linear-gradient(0deg, rgba(0,0,0,0) 30%, rgba(0,0,0,0.75) 100%); }
+.cm-gradient-overlay[data-gradient="center"] { background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%); }
+.cm-gradient-overlay[data-gradient="radial"] { background: radial-gradient(ellipse 80% 80% at 50% 40%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.65) 100%); }
+.cm-gradient-overlay[data-gradient="none"] { background: none; }
+
+/* ---------- Dark overlay + color tint ---------- */
+.cm-dark-overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; background: #000; opacity: var(--cm-dark, 0.45); }
+.cm-tint-overlay { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: var(--cm-tint-color, transparent); opacity: var(--cm-tint-opacity, 0); mix-blend-mode: color; }
+
+/* ---------- Particles ---------- */
+.cm-particle-canvas { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+/* ---------- Glass writing panel ---------- */
+.cm-panel-wrap {
+  position: relative; z-index: 6; flex: 1; display: flex; align-items: center;
+  padding: 64px 32px; overflow: hidden;
+}
+.cm-panel-wrap[data-align="left"] { justify-content: flex-start; padding-left: 8vw; }
+.cm-panel-wrap[data-align="center"] { justify-content: center; }
+
+.cm-glass-panel {
+  position: relative;
+  background: rgba(255,255,255, var(--cm-glass-opacity, 0.06));
+  backdrop-filter: blur(var(--cm-glass-blur, 22px)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--cm-glass-blur, 22px)) saturate(1.4);
+  /* Border + inset highlight scale down WITH the opacity setting (see
+     applyGlass() in composition-mode.js) rather than being fixed, so
+     dragging Opacity to 0 — combined with Glass Blur/Shadow at 0 — leaves
+     genuinely nothing but the text floating over the live background:
+     the "maximize immersion" case, not just a see-through-but-still-
+     outlined card. */
+  border: 1px solid var(--cm-glass-border, rgba(255,255,255,0.14));
+  border-radius: var(--cm-glass-radius, 20px);
+  box-shadow: 0 var(--cm-shadow-y, 30px) var(--cm-shadow-blur, 80px) rgba(0,0,0, var(--cm-shadow-op, 0.5)), inset 0 1px 0 var(--cm-glass-border, rgba(255,255,255,0.08));
+  padding: var(--cm-glass-padding, 48px);
+  width: 100%; max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  transition: background .3s ease, backdrop-filter .3s ease, border-radius .3s ease, padding .3s ease, box-shadow .3s ease, border-color .3s ease, width .35s cubic-bezier(.22,.61,.36,1), max-width .35s cubic-bezier(.22,.61,.36,1);
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+.cm-glass-panel[data-width="narrow"] { max-width: 480px; }
+.cm-glass-panel[data-width="book"] { max-width: 680px; }
+.cm-glass-panel[data-width="centered"] { max-width: 760px; margin: 0 auto; }
+.cm-glass-panel[data-width="left"] { max-width: 680px; }
+.cm-glass-panel[data-width="full"] { max-width: 1100px; }
+
+/* ---------- Editor surface ---------- */
+.cm-editor-surface {
+  outline: none; caret-color: #fff;
+  font-family: var(--cm-font, "Literata", serif);
+  font-size: var(--cm-font-size, 19px);
+  letter-spacing: var(--cm-letter-spacing, 0em);
+  line-height: var(--cm-line-height, 1.7);
+  text-align: var(--cm-justify, left);
+  max-width: var(--cm-text-width, 680px);
+  margin: 0 auto;
+  min-height: 40vh;
+  color: rgba(255,255,255,0.94);
+}
+.cm-editor-surface .cm-para { margin: 0 0 var(--cm-para-spacing, 16px) 0; transition: opacity .4s cubic-bezier(.4,0,.2,1); }
+.cm-editor-surface .cm-para.cm-dim { opacity: 0.22; }
+.cm-editor-surface .cm-sentence { transition: opacity .4s cubic-bezier(.4,0,.2,1); }
+.cm-editor-surface .cm-sentence.cm-dim { opacity: 0.22; }
+.cm-editor-surface[data-reading="1"] { cursor: default; }
+.cm-editor-surface mark.cm-hit { background: rgba(255,214,102,0.55); color: #1a1a1a; border-radius: 2px; }
+.cm-editor-surface mark.cm-hit.cm-hit-active { background: #ffd666; }
+.cm-editor-surface:empty:before, .cm-para:only-child:empty:before {
+  content: attr(data-placeholder); color: rgba(255,255,255,0.35); pointer-events: none;
+}
+
+/* Typewriter mode gives room above/below so the active line can center */
+.cm-typewriter .cm-glass-panel { scroll-behavior: auto; }
+.cm-typewriter .cm-editor-surface { padding-top: 38vh; padding-bottom: 38vh; }
+
+/* ---------- Floating toolbar ---------- */
+.cm-toolbar {
+  position: absolute; left: 50%; bottom: 28px; z-index: 20;
+  transform: translate(-50%, 0); display: flex; align-items: center; gap: 4px;
+  background: rgba(20,20,22,0.55); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  opacity: 1; transition: opacity .4s cubic-bezier(.22,.61,.36,1), transform .4s cubic-bezier(.22,.61,.36,1);
+  max-width: calc(100vw - 32px); overflow-x: auto; scrollbar-width: none;
+}
+.cm-toolbar::-webkit-scrollbar { display: none; }
+.cm-toolbar.cm-hidden { opacity: 0; transform: translate(-50%, 14px); pointer-events: none; }
+.cm-toolbar-btn {
+  width: 38px; height: 38px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: none; background: transparent; color: rgba(255,255,255,0.82);
+  font-size: 16px; cursor: pointer; transition: background .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1), color .25s ease;
+}
+.cm-toolbar-btn:hover { background: rgba(255,255,255,0.12); transform: translateY(-2px); color: #fff; }
+.cm-toolbar-btn:active { transform: translateY(0); }
+.cm-toolbar-btn.cm-active { background: rgba(255,255,255,0.18); color: #fff; }
+.cm-toolbar-btn:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
+.cm-toolbar-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.14); margin: 0 4px; flex: 0 0 auto; }
+
+/* ---------- Exit button ---------- */
+.cm-exit-btn {
+  position: absolute; top: 20px; left: 20px; z-index: 20;
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(20,20,22,0.5); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: rgba(255,255,255,0.85); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: opacity .4s cubic-bezier(.22,.61,.36,1), background .2s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.cm-exit-btn:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+.cm-exit-btn:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
+.cm-exit-btn.cm-hidden { opacity: 0; pointer-events: none; }
+
+/* ---------- Word Goal HUD ---------- */
+.cm-hud {
+  position: absolute; top: 20px; right: 20px; z-index: 20;
+  background: rgba(20,20,22,0.55); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 12px 16px;
+  min-width: 180px; font-size: 11.5px; color: rgba(255,255,255,0.7);
+  opacity: 1; transition: opacity .4s cubic-bezier(.22,.61,.36,1), transform .4s cubic-bezier(.22,.61,.36,1);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+.cm-hud.cm-hidden { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+.cm-hud-row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 4px; }
+.cm-hud-row:last-child { margin-bottom: 0; }
+.cm-hud-num { color: #fff; font-weight: 700; }
+.cm-hud-bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,0.14); overflow: hidden; margin: 8px 0; }
+.cm-hud-bar-fill { height: 100%; background: linear-gradient(90deg, #7dd3fc, #a78bfa); border-radius: 999px; transition: width .3s ease; }
+
+/* ---------- Popover panels (Background / Typography / Glass / Focus / Timer / Presets / AI / Shortcuts) ---------- */
+.cm-panel {
+  position: absolute; z-index: 30; bottom: 84px; left: 50%; transform: translate(-50%, 8px) scale(0.98);
+  width: min(420px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto;
+  background: rgba(18,18,20,0.78); backdrop-filter: blur(26px) saturate(1.5); -webkit-backdrop-filter: blur(26px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .28s cubic-bezier(.22,.61,.36,1), transform .28s cubic-bezier(.22,.61,.36,1), visibility 0s linear .28s;
+}
+.cm-panel.cm-panel-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0) scale(1); transition: opacity .28s cubic-bezier(.22,.61,.36,1), transform .28s cubic-bezier(.22,.61,.36,1); }
+.cm-panel-title { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.cm-panel-close { background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 6px; }
+.cm-panel-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.cm-field { margin-bottom: 12px; }
+.cm-field-label { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.cm-field input[type="range"] { width: 100%; accent-color: #a78bfa; }
+.cm-field select, .cm-field input[type="text"], .cm-field input[type="url"], .cm-field input[type="number"] {
+  width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+  color: #fff; padding: 8px 10px; font-size: 13px; font-family: inherit;
+}
+.cm-field input[type="color"] { width: 40px; height: 28px; border: none; background: none; padding: 0; border-radius: 6px; overflow: hidden; }
+.cm-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cm-chip {
+  padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.75); font-size: 12px; font-weight: 600; cursor: pointer; transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.cm-chip:hover { background: rgba(255,255,255,0.1); }
+.cm-chip.cm-active { background: rgba(167,139,250,0.25); border-color: rgba(167,139,250,0.6); color: #fff; }
+.cm-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.06); color: #fff;
+  font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .2s ease, transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.cm-btn:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+.cm-btn-primary { background: linear-gradient(180deg, #a78bfa, #7c5cf0); border-color: transparent; }
+.cm-btn-primary:hover { background: linear-gradient(180deg, #b39dfc, #8a6cf5); }
+.cm-btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cm-hint { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 6px; line-height: 1.5; }
+
+/* Background gallery grid */
+.cm-gallery-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; max-height: 90px; overflow-y: auto; }
+.cm-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cm-gallery-thumb { position: relative; border-radius: 10px; overflow: hidden; aspect-ratio: 16/9; cursor: pointer; border: 2px solid transparent; }
+.cm-gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cm-gallery-thumb.cm-active { border-color: #a78bfa; }
+.cm-gallery-thumb:hover img { filter: brightness(1.1); }
+.cm-gallery-fav { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.5); border: none; color: #fff; border-radius: 999px; width: 22px; height: 22px; font-size: 12px; cursor: pointer; }
+
+/* Presets list */
+.cm-preset-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); margin-bottom: 6px; }
+.cm-preset-row b { flex: 1; font-size: 13px; font-weight: 700; }
+.cm-preset-row .cm-btn { padding: 4px 8px; font-size: 11px; }
+
+/* AI generator */
+.cm-ai-tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; margin-bottom: 8px; }
+.cm-ai-tag.cm-ai-real { background: rgba(167,139,250,0.22); color: #c4b5fd; }
+.cm-ai-tag.cm-ai-auto { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+
+/* ---------- Reading mode find bar ---------- */
+.cm-findbar { display: flex; align-items: center; gap: 6px; }
+.cm-findbar input { flex: 1; }
+.cm-find-count { font-size: 11px; color: rgba(255,255,255,0.5); white-space: nowrap; }
+
+/* ---------- Zen mode ---------- */
+#cmRoot.cm-zen .cm-toolbar,
+#cmRoot.cm-zen .cm-hud,
+#cmRoot.cm-zen .cm-exit-btn { opacity: 0; pointer-events: none; transform: translate(-50%, 14px); }
+#cmRoot.cm-zen .cm-hud { transform: translateY(-8px); }
+#cmRoot.cm-zen .cm-exit-btn { transform: none; }
+#cmRoot.cm-zen.cm-reveal .cm-toolbar { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+#cmRoot.cm-zen.cm-reveal .cm-hud { opacity: 1; pointer-events: auto; transform: translateY(0); }
+#cmRoot.cm-zen.cm-reveal .cm-exit-btn { opacity: 1; pointer-events: auto; }
+
+/* ---------- Reading mode banner ---------- */
+.cm-mode-badge {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 20;
+  background: rgba(167,139,250,0.2); border: 1px solid rgba(167,139,250,0.5); color: #d8cbff;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 6px 14px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .3s ease;
+}
+.cm-mode-badge.cm-show { opacity: 1; }
+
+/* ---------- Responsive (tablet / narrow) ---------- */
+@media (max-width: 900px) {
+  .cm-panel-wrap { padding: 24px 14px; }
+  .cm-glass-panel { padding: 28px; max-width: 100% !important; }
+  .cm-hud { min-width: 140px; padding: 10px 12px; font-size: 10.5px; }
+  .cm-toolbar-btn { width: 34px; height: 34px; font-size: 14.5px; }
+  .cm-panel { left: 16px; right: 16px; width: auto; transform: translate(0, 8px) scale(0.98); bottom: 76px; }
+  .cm-panel.cm-panel-open { transform: translate(0, 0) scale(1); }
+}
+@media (max-width: 520px) {
+  .cm-gallery-grid { grid-template-columns: repeat(2, 1fr); }
+  .cm-exit-btn span { display: none; }
+}
+
+/* ---------- Accessibility ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #cmRoot, .cm-bg-layer, .cm-glass-panel, .cm-toolbar, .cm-hud, .cm-exit-btn, .cm-panel, .cm-para, .cm-sentence, .cm-toolbar-btn, .cm-btn, .cm-mode-badge {
+    transition: none !important;
+  }
+  .cm-particle-canvas { display: none !important; }
+}
+#cmRoot.cm-high-contrast .cm-gradient-overlay,
+#cmRoot.cm-high-contrast .cm-tint-overlay { display: none; }
+#cmRoot.cm-high-contrast .cm-dark-overlay { opacity: 0.72; }
+#cmRoot.cm-high-contrast .cm-glass-panel { background: rgba(0,0,0,0.72); border-color: rgba(255,255,255,0.3); }
+#cmRoot.cm-high-contrast .cm-editor-surface { color: #fff; }
+#cmRoot.cm-high-contrast .cm-editor-surface .cm-para.cm-dim,
+#cmRoot.cm-high-contrast .cm-editor-surface .cm-sentence.cm-dim { opacity: 0.4; }

@@ -36,55 +36,13 @@
   // internal tabs at all simply have no `children` and render as a plain,
   // non-expandable row.
   //
-  // Learning is the one nav group whose items are DATA-DRIVEN rather than
-  // a fixed list: unlike Entertainment's four content pages (a fixed set
-  // of types), a Topic is a dynamic, user-created record — there's no way
-  // to know how many there are or what they're called ahead of time.
-  // buildLearningTopicItems() reads `learning:topics` straight out of
-  // localStorage (the same "read another page's own storage key
-  // directly" precedent index.html's former Connected Apps tiles and
-  // tasks-data.js's own importers already used) and turns each one into
-  // its own nav item — `learning-topic.html?id=<topicId>`, matching that
-  // page's own query-param addressing (see its header comment: the hash
-  // is reserved for this item's own Questions/Resources deep-links, so
-  // the topic id itself couldn't live there once a topic also needed two
-  // sub-page anchors). This runs once, when this script itself first
-  // executes — same as every other page's nav content, which is also
-  // built once at load — not live-updated if a topic is added/renamed/
-  // deleted in another open tab; reopening the drawer after a reload
-  // picks up the change.
-  function buildLearningTopicItems() {
-    const items = [
-      { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
-        { hash: 'topics', label: 'Topics' },
-        { hash: 'resources', label: 'Resources' },
-      ] },
-    ];
-    let topics = [];
-    try {
-      const raw = JSON.parse(localStorage.getItem('learning:topics'));
-      if (Array.isArray(raw)) topics = raw;
-    } catch (e) {}
-    topics
-      .filter((t) => t && t.id)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .forEach((t, i) => {
-        items.push({
-          href: 'learning-topic.html?id=' + encodeURIComponent(t.id),
-          icon: (typeof t.icon === 'string' && t.icon) || '📚',
-          label: (typeof t.title === 'string' && t.title) || 'Untitled Topic',
-          id: 'topbarLearningTopic' + i,
-          children: [
-            { hash: 'questions', label: 'Questions Database' },
-            { hash: 'notes', label: 'Notes Database' },
-            { hash: 'subjects', label: 'Subjects Database' },
-            { hash: 'resources', label: 'Resources Database' },
-          ],
-        });
-      });
-    return items;
-  }
-
+  // learning.html/learning-topic.html (the old Topics+Resources gallery)
+  // were superseded by learning-dashboard.html's Zettelkasten/AI-Tutor
+  // rebuild — their data was folded in via a one-time migration (see
+  // learning-dashboard-data.js's migrateFromLearningFolder()). The old
+  // pages/keys are left on disk, orphaned, never deleted — same
+  // superseded-page precedent as every other removed nav entry above —
+  // just no longer reachable from this sidebar.
   const NAV_GROUPS = [
     {
       key: 'command',
@@ -167,6 +125,32 @@
       label: 'Business',
       items: [
         { href: 'writing-dashboard.html', icon: '🖋️', label: 'Writing Dashboard', id: 'topbarWritingDash' },
+        // New sibling page in the same "Business" folder: a full YouTube
+        // Business Operating System (youtube-dashboard.html +
+        // youtube-dashboard-data.js — own `ytd:` prefix, own
+        // `key: 'youtubedash'` Supabase row). Genuinely separate from
+        // businessdash.html's own `kind:'youtube'` Business record
+        // (`bizdash:ytVideos`, an inline section on one business's page)
+        // and from businessos.html's generic `platform:'youtube'`
+        // calendar tag — nothing here reads or writes either. Unlike
+        // Writing Dashboard, this page's 9 top-level surfaces (Home/
+        // Channels/Notes/Templates/Assets/Analytics/Calendar/Archive/
+        // Settings) ARE fixed, so — same convention knowledge-hub.html's
+        // own children already use — they're real one-way deep links
+        // read once on load (plus a hashchange listener for in-page
+        // sidebar clicks), not the dynamic per-series JS page-stack
+        // Writing Dashboard's own single, childless item already is.
+        { href: 'youtube-dashboard.html', icon: '📺', label: 'YouTube Dashboard', id: 'topbarYoutubeDash', children: [
+          { hash: 'home', label: 'Dashboard Home' },
+          { hash: 'channels', label: 'Channels' },
+          { hash: 'notes', label: 'Global Notes' },
+          { hash: 'templates', label: 'Global Templates' },
+          { hash: 'assets', label: 'Global Assets' },
+          { hash: 'analytics', label: 'Global Analytics' },
+          { hash: 'calendar', label: 'Content Calendar' },
+          { hash: 'archive', label: 'Archive' },
+          { hash: 'settings', label: 'Settings' },
+        ] },
       ],
     },
     {
@@ -245,15 +229,36 @@
       ],
     },
     {
-      // New nav folder, right below Entertainment: Learning Hub's own
-      // topics/resources/questions system. learning.html (the Topics +
-      // Resources gallery) is the entry point; every real Topic gets its
-      // own nav entry right below it too, each expandable into its own
-      // Questions Database / Resources Database — see
-      // buildLearningTopicItems() above for how these are generated.
-      key: 'learningfolder',
+      // Learning Dashboard — a personal-university system built on
+      // Zettelkasten/Cornell Notes/Progressive Summarization/Mind Mapping/
+      // Project-Based Learning/Active Recall/Teaching-Based Learning/AI
+      // Tutoring: Source Notes, Evergreen Knowledge Notes, a Question
+      // Bank, Connection Notes, Map of Content, the node-link Knowledge
+      // Maps canvas, Learning Projects, and an AI Tutor Dashboard, all
+      // hanging off Topics. Superseded learning.html/learning-topic.html
+      // in this exact nav slot (right below Knowledge Hub) — see the
+      // header comment above for that migration.
+      key: 'learninghub',
       label: 'Learning',
-      items: buildLearningTopicItems(),
+      items: [
+        { href: 'learning-dashboard.html', icon: '🎓', label: 'Learning Dashboard', id: 'topbarLearningDash', children: [
+          { hash: 'home', label: '🏠 Home' },
+          { hash: 'sourcenotes', label: '📥 Source Notes' },
+          { hash: 'evergreennotes', label: '🌲 Evergreen Notes' },
+          { hash: 'questions', label: '❔ Question Bank' },
+          { hash: 'connections', label: '🔗 Connections' },
+          { hash: 'mocs', label: '🗂️ Map of Content' },
+          { hash: 'maps', label: '🗺️ Knowledge Maps' },
+          { hash: 'projects', label: '🚀 Learning Projects' },
+          { hash: 'tutor', label: '🎓 Tutor Dashboard' },
+          { hash: 'dashboard', label: '🧠 Topics Overview' },
+          { hash: 'topics', label: '📚 Active Topics' },
+          { hash: 'frameworks', label: '💡 Personal Frameworks' },
+          { hash: 'daily', label: '📝 Daily Notes' },
+          { hash: 'analytics', label: '📊 Analytics' },
+          { hash: 'settings', label: '⚙️ Settings' },
+        ] },
+      ],
     },
     {
       key: 'life',
@@ -288,7 +293,109 @@
         ] },
       ],
     },
+    {
+      // New nav group, deliberately last in this array so it renders at
+      // the very bottom of the sidebar — per an explicit placement
+      // request, with Design Library listed above Customization within
+      // it. Two genuinely new, standalone pages: design-library.html (a
+      // personal, searchable design knowledge base — components/themes/
+      // templates/animations/palettes/backgrounds/typography/icon packs/
+      // layouts, each with its own AI prompt + code snippets + a live
+      // preview sandbox, plus Collections) and customization.html (this
+      // dashboard's own appearance/behavior control center). Both are
+      // built on glass-theme.css/.js + gallery-card.css/.js, the same
+      // shared kits AI & Tech/Business Dashboard/Fitness Studio etc.
+      // already use — see design-library-data.js's/customization-data
+      // .js's own header comments for the full architecture and for a
+      // disclosed note on exactly what "controls every visual aspect of
+      // the dashboard" does and doesn't reach across this app's ~30
+      // independent, privately-themed pages.
+      key: 'system',
+      label: 'System',
+      items: [
+        { href: 'design-library.html', icon: '🧩', label: 'Design Library', id: 'topbarDesignLibrary', children: [
+          { hash: 'home', label: 'Home' },
+          { hash: 'components', label: 'Components' },
+          { hash: 'themes', label: 'Theme Gallery' },
+          { hash: 'templates', label: 'Template Marketplace' },
+          { hash: 'animations', label: 'Animations' },
+          { hash: 'palettes', label: 'Color Palettes' },
+          { hash: 'backgrounds', label: 'Backgrounds' },
+          { hash: 'typography', label: 'Typography' },
+          { hash: 'iconpacks', label: 'Icon Packs' },
+          { hash: 'layouts', label: 'Layout Library' },
+          { hash: 'mobile', label: 'Mobile UI' },
+          { hash: 'desktop', label: 'Desktop UI' },
+          { hash: 'dashboard', label: 'Dashboard Components' },
+          { hash: 'ai-ui', label: 'AI UI' },
+          { hash: 'collections', label: 'Collections' },
+          { hash: 'favorites', label: 'Favorites' },
+          { hash: 'recent', label: 'Recently Added' },
+          { hash: 'trending', label: 'Trending' },
+          { hash: 'prompts', label: 'Prompt Library' },
+          { hash: 'code', label: 'Saved Code' },
+          { hash: 'uploads', label: 'Personal Uploads' },
+        ] },
+        { href: 'customization.html', icon: '⚙️', label: 'Customization', id: 'topbarCustomization', children: [
+          { hash: 'home', label: 'Dashboard Customization' },
+          { hash: 'appearance', label: 'Themes & Appearance' },
+          { hash: 'colors', label: 'Color Studio' },
+          { hash: 'wallpapers', label: 'Wallpapers' },
+          { hash: 'typography', label: 'Typography' },
+          { hash: 'icons', label: 'Icon Library' },
+          { hash: 'widgets', label: 'Widgets & Components' },
+          { hash: 'layout', label: 'Layout Builder' },
+          { hash: 'navigation', label: 'Navigation Manager' },
+          { hash: 'productivity', label: 'Productivity' },
+          { hash: 'ai', label: 'AI Settings' },
+          { hash: 'integrations', label: 'Integrations' },
+          { hash: 'automations', label: 'Automations' },
+          { hash: 'shortcuts', label: 'Shortcuts' },
+          { hash: 'privacy', label: 'Privacy & Security' },
+          { hash: 'backup', label: 'Backup & Restore' },
+          { hash: 'presets', label: 'Workspace Templates' },
+          { hash: 'experimental', label: 'Experimental Features' },
+          { hash: 'help', label: 'Help' },
+        ] },
+      ],
+    },
   ];
+
+  // -------- Navigation Manager (Customization Studio) hooks --------
+  // Genuinely wired, dashboard-wide, unlike per-page appearance settings
+  // (see customization-data.js's own header comment on that split):
+  //   topbar:navGroupOrder — an array of group keys; groups are re-sorted
+  //     into this order (any key not present keeps its original relative
+  //     position, appended after the ones that ARE ordered) every time
+  //     this file builds its nav markup.
+  //   topbar:pinnedHrefs — an array of page hrefs; if non-empty, a
+  //     synthetic "⭐ Favorites" group is prepended listing those pages.
+  //     Pinned copies get their own element id (never the original's, to
+  //     avoid a duplicate-id collision with e.g. #topbarGoals) and drop
+  //     their `children`/count badge — a plain quick link, not a second
+  //     full copy of the real item's own sub-page tree.
+  function getEffectiveGroups() {
+    let order = [];
+    try { const raw = JSON.parse(localStorage.getItem('topbar:navGroupOrder')); if (Array.isArray(raw)) order = raw; } catch (e) {}
+    let groups = NAV_GROUPS.slice();
+    if (order.length) {
+      const byKey = {};
+      groups.forEach((g) => { byKey[g.key] = g; });
+      const ordered = order.map((k) => byKey[k]).filter(Boolean);
+      const remaining = groups.filter((g) => order.indexOf(g.key) === -1);
+      groups = ordered.concat(remaining);
+    }
+    let pins = [];
+    try { const raw = JSON.parse(localStorage.getItem('topbar:pinnedHrefs')); if (Array.isArray(raw)) pins = raw; } catch (e) {}
+    if (pins.length) {
+      const byHref = {};
+      NAV_GROUPS.forEach((g) => g.items.forEach((it) => { byHref[it.href] = it; }));
+      const pinnedItems = pins.map((h) => byHref[h]).filter(Boolean)
+        .map((it) => ({ href: it.href, icon: it.icon, label: it.label, id: it.id + 'Pinned' }));
+      if (pinnedItems.length) groups = [{ key: '__pinned', label: '⭐ Favorites', items: pinnedItems }].concat(groups);
+    }
+    return groups;
+  }
 
   // -------- CSS --------
   // Redesigned as a collapsible sidebar nav (matching the look of a
@@ -605,7 +712,8 @@ body.topbar-modal-open {
     </div>`;
   }
 
-  const html = `
+  function buildHtml() {
+    return `
 <button type="button" class="tb-launcher" id="tbLauncher" aria-label="Open navigation" aria-expanded="false">
   <span class="tb-launcher-mark">✦<span class="tb-launcher-dot" id="tbLauncherDot"></span></span>
   <span class="tb-launcher-text">
@@ -628,11 +736,12 @@ body.topbar-modal-open {
     <input type="text" class="tb-search" id="tbSearchInput" placeholder="Search pages…" autocomplete="off" spellcheck="false">
   </div>
   <nav class="tb-groups" id="tbGroups">
-    ${NAV_GROUPS.map(buildGroupHtml).join('')}
+    ${getEffectiveGroups().map(buildGroupHtml).join('')}
     <div class="tb-empty-state" id="tbEmptyState">No pages match “<span id="tbEmptyQuery"></span>”</div>
   </nav>
 </aside>
 `;
+  }
 
   let tbCollapsedGroups = [];
   function loadCollapsedGroups() {
@@ -682,7 +791,7 @@ body.topbar-modal-open {
     document.head.appendChild(style);
 
     const wrap = document.createElement('div');
-    wrap.innerHTML = html.trim();
+    wrap.innerHTML = buildHtml().trim();
     // Insert every top-level node (launcher button, scrim, sidebar) at the
     // very start of body, in document order, same "self-injects" contract
     // as before.
@@ -989,7 +1098,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.dl-page-bg', '.lhd-modal-bg', '.lhd-topic-page-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {

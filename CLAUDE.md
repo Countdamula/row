@@ -258,6 +258,9 @@ page's CSS is self-contained in its own `<style>` block):
    | `entdash` | `entertainment-dash.html` (new) | everything prefixed `entdash:` (`entdash:reading`, `entdash:anime`, `entdash:games`, `entdash:seeded`, `entdash:hero`) — new (see changelog). Genuinely separate from the `enthub` row above; `entertainment-dash-data.js` unifies both rows' collections into one cross-category Home/Discovery Engine/Favorites/Statistics view without merging their storage |
    | `fitnessstudio` | `fitnessstudio.html` (new) | everything prefixed `fitstudio:` (`fitstudio:templates`, `fitstudio:goals`, `fitstudio:prs`, `fitstudio:schedule`, `fitstudio:settings`, `fitstudio:hero`, `fitstudio:log:<date>`, `fitstudio:progression`, `fitstudio:aiChat`, `fitstudio:seeded`) — new (see changelog). Genuinely separate from `gym.html`'s own `key='po-coach'` row and `index.html`'s own `fitness:*` prefix under the `goals` row — nothing here reads or writes either. Its music slide-out panel reads `enthub:playlists` directly out of localStorage (read-only, no second sync subscription opened for it — see the changelog entry) rather than through its own sync call |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
+   | `designlibrary` | `design-library.html` (new) | everything prefixed `dl:` (`dl:resources`, `dl:collections`, `dl:hero`, `dl:recentViews`, `dl:seeded`, `dl:photosMigratedV1`) — new (see changelog). Reads `customization:settings` directly (read-only, no second sync subscription — same "read another page's own storage key" precedent `tasks-data.js`'s importers already established) so its accent color live-updates whenever Customization's Theme/Color Studio changes it |
+   | `customization` | `customization.html` (new) | everything prefixed `customization:` (`customization:settings`, `customization:palettes`, `customization:personas`, `customization:automations`, `customization:snapshots`, `customization:presets`, `customization:changeLog`, `customization:seeded`) — new (see changelog). Also writes `topbar:navGroupOrder`/`topbar:pinnedHrefs` directly (not `customization:`-prefixed, so NOT covered by this row's own sync — deliberately device-local only, same as every other page's own `*:active_tab` UI-state key elsewhere in this app), which `topbar.js` itself reads on every load — see that file's own header comment |
+   | `youtubedash` | `youtube-dashboard.html` (new) | everything prefixed `ytd:` (`ytd:channels`, `ytd:videos`, `ytd:scripts`, `ytd:videoTemplates`, `ytd:checklistTemplates`, `ytd:checklistInstances`, `ytd:notes`, `ytd:sections`, `ytd:assets`, `ytd:calendarEvents`, `ytd:analyticsSnapshots`, `ytd:tags`, `ytd:globalTemplates`, `ytd:favorites`, `ytd:recentlyViewed`, `ytd:settings`, plus the `ytd:seeded*` one-time seed flags) — new (see changelog). Genuinely separate from `writingdash`'s own row, from `businessdash.html`'s own `kind:'youtube'` Business record (`bizdash:ytVideos`), and from `businessos.html`'s generic `platform:'youtube'` calendar tag — nothing here reads, writes, or repurposes any of their data |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
    `stack:*` and `po_water_v1`) is now an **orphaned row** — no page reads or
@@ -306,6 +309,9 @@ using `sync.js`.
 | Business OS | ◆ `Business OS` nav folder → `businessos.html` | `businessos.html` + `businessos-data.js` (new — a genuinely separate multi-business CEO command center from the Business folder above; touches none of that folder's files/data — see changelog) |
 | Business Dashboard | 🏢 `Business Dashboard` nav folder → `businessdash.html` | `businessdash.html` + `businessdash-data.js` (new — a gallery of businesses; two of them, "YouTube Dashboard" and "Blogging Dashboard," are genuine singleton `Business` records with their own `kind` field (`'youtube'`/`'blog'` vs. the default `'business'`) that swaps in a Videos/Posts + Prompt Vault + Track/Article Library layout in place of the ordinary Series & Manuscripts Writing Dashboard — same Business Card, same glare-hover treatment, same Notes/Links/Tasks & Templates, alongside every real business like Midnight Press/North & Co., not nested inside any of them. The main view also has an "All Tasks" master database below the gallery, grouped by business (which naturally includes the two dashboard businesses) and filterable by kind, reading straight off the one shared Tasks collection every business already writes to — see changelog. Genuinely separate from the Business folder's Content Hub and from Business OS — touches none of either's files/data) |
 | Fitness Studio | 💪 `Fitness Studio` nav folder → `fitnessstudio.html` | `fitnessstudio.html` + `fitnessstudio-data.js` (new — its own nav folder between Business Dashboard and Entertainment; genuinely separate from `index.html`'s own embedded Fitness Studio tab — touches none of its files/data. A hero (greeting/focus/today's workout/a Weekly Goal progress ring/quote), Today's Workout (expandable exercise cards — sets/reps, a rest-timer countdown, Log Set, photo/video thumbnails, a completion check), a Live Workout Dashboard shown while a workout is active (session timer, rest timer, current set, manual heart-rate entry, water intake, duration, an estimated-calories readout, volume lifted), a Goal Center (short-/long-term goals with a manual 0–100% progress bar, deliberately not derived from target/current math since the two can have opposite directionality), Workout Programs (7 fixed categories + Custom, a template/exercise editor), a Weekly Schedule grid, a 14-week consistency heatmap + an animated 8-week volume bar chart, an AI Fitness Coach chat panel, Settings (Imperial/Metric, a Black/Red/Pink theme picker, workout length, notifications, a manual wearable heart-rate toggle, AI tone/focus + an optional pasted Anthropic key), a Distraction-Free training-mode overlay, PR confetti, and a music slide-out panel reading `enthub:playlists` live — see changelog) |
+| Design Library | 🧩 `Design Library` → `design-library.html` (new "System" nav folder, bottom of the sidebar, above Customization) | `design-library.html` + `design-library-data.js` (new — see changelog) |
+| Customization | ⚙️ `Customization` → `customization.html` (same "System" nav folder, below Design Library) | `customization.html` + `customization-data.js` (new — see changelog) |
+| YouTube Dashboard | 📺 `YouTube Dashboard` (same "Business" nav folder as Writing Dashboard, listed second) | `youtube-dashboard.html` + `youtube-dashboard-data.js` (new — a full YouTube Business Operating System: a Channels gallery, a per-channel workspace, a per-video workspace with a fullscreen Script Focus Mode, one universal relationally-scoped Notes database shown everywhere, Global Templates (Video/Checklist/Thumbnail/Description/SEO/Title/Branding), a global Asset Library, cross-channel Analytics, a Content Calendar, an Archive, and a Ctrl+K command palette. Built on glass-theme.css/gallery-card.css, near-black/gold (no reference photo given, so this defaults to the app's common thread — CLAUDE.md §6/DO NOT MODIFY rule 2 — rather than inventing a YouTube-red palette). No live YouTube Data API sync (the request's own "Future-Proof Architecture" section lists that as a later module) — Analytics is honest manual/periodic snapshot entry. Genuinely separate from Writing Dashboard's own `wds:` data, `businessdash.html`'s own `kind:'youtube'` Business record, and `businessos.html`'s generic `platform:'youtube'` calendar tag — touches none of them — see changelog) |
 
 Stack, Water, Projects, and Study were removed — see changelog at the
 bottom of this file. Home and Build Your System (`system.html`) were
@@ -14172,3 +14178,618 @@ both as originally phrased assumed a backend this app doesn't have):
     safety convention (never commit without being explicitly asked),
     committing and pushing was intentionally left for the user to confirm
     rather than done automatically here.
+
+- **New nav folder: "System," at the very bottom of the sidebar — a
+  Design Library and a separate Customization Studio, built from an
+  extremely detailed written spec** (a personal, 21st.dev-style design
+  knowledge base, plus a full Apple-Settings-style dashboard control
+  center — the spec's own top-level structure). Genuinely new files,
+  `design-library.html` + `design-library-data.js` and
+  `customization.html` + `customization-data.js`. Confirmed placement:
+  the request's own "near the bottom of the sidebar... Design Library
+  ABOVE Customization" — a new `key: 'system'` group, deliberately last
+  in `topbar.js`'s `NAV_GROUPS` array. New sync keys, `appKey:
+  'designlibrary'`/`syncedPrefixes: ['dl:']` and `appKey: 'customization'`
+  /`syncedPrefixes: ['customization:']`, the standard `initCloudSync`
+  call, nothing new invented. Both pages are built on this app's own two
+  extracted shared kits, `glass-theme.css`/`.js` (dark cinematic near-
+  black/accent aesthetic — the real common thread across most of this
+  app, per §6/DO NOT MODIFY rule 2, since no reference photo or literal
+  color instruction was given for either page) and `gallery-card.css`/
+  `.js` (the cover-art gallery card) — the first pages to combine both
+  kits with a genuinely new persistent-sidebar app shell of their own
+  (this app's own `learning-dashboard.html` established the "persistent
+  left sidebar, many sections" shape first; this pass built a second,
+  independent implementation of that shape scoped to these two pages).
+  - **Scope, disclosed rather than silently narrowed**: the spec named
+    roughly 40 separate "pages" between the two sections. Building 40
+    near-duplicate `.html` files — each re-implementing the same card/
+    filter/detail machinery — would mean 40 copies that could drift
+    apart from day one, the exact failure this app's own precedent
+    already avoids repeatedly (`mediaverse-data.js`'s single `MediaItem`
+    across 10 categories; `knowledge-hub-data.js`'s 11 departments off
+    one `CATEGORY_META`-style table; `aitech-data.js`'s Models/Prompts
+    split). So: **Design Library** is one generic `Resource` collection
+    (`design-library-data.js`) with a `category` field (9 real
+    categories — Components/Themes/Templates/Animations/Color Palettes/
+    Backgrounds/Typography/Icon Packs/Layouts) plus an optional
+    `platformTag` (mobile/desktop/dashboard/ai/universal, meaningful on
+    Components), driving all ~20 of that section's nav items — Home, the
+    9 category galleries, the 4 platform quick filters, Collections,
+    Favorites, Recently Added, Trending, Prompt Library, Saved Code, and
+    Personal Uploads — as filtered views over the same data, via
+    `design-library.html`'s own dispatcher, not 20 separate files.
+    **Customization Studio** is a smaller, purpose-built set of
+    collections (a single evolving `Settings` record, plus `Palettes`/
+    `Personas`/`Automations`/`Snapshots`/`Presets`) behind its own 19-item
+    sidebar. Nothing from the spec is missing — it's real, working UI —
+    it's just consolidated, not 40 near-identical files.
+  - **Design Library, concretely**: every `Resource` carries creator/
+    framework/complexity/status/dark-mode-responsive-accessible-animated
+    toggles/description/use cases/accessibility notes/performance notes/
+    dependencies/installation/browser compatibility/rating/favorite/
+    trending flag/view count/personal notes — plus a real **AI Prompt**
+    object (body, notes, rating, tags, and automatic **version history**
+    — every prompt-body edit snapshots the previous text before
+    overwriting, with a one-click Restore), a real **Code Library**
+    (multiple named snippets per resource, each with a language picker
+    covering all 15 requested targets — React/Next.js/Tailwind/HTML/CSS/
+    JS/TS/Vue/Svelte/Solid/Astro/Flutter/SwiftUI/Jetpack Compose/Other —
+    plus copy/download), and a genuinely **live preview** — a
+    `sandbox="allow-scripts"` iframe rendering the resource's own saved
+    HTML/CSS/JS via `srcdoc`, with a real Desktop/Tablet/Mobile width
+    toggle, not a static screenshot. A resource's own full-page overlay
+    (`.dl-page-bg`, registered in `topbar.js`'s `MODAL_SELECTORS`) is
+    Notion-style always-editable (every field autosaves on blur/change,
+    no separate "Add" form and "Detail" view to keep in sync) with six
+    tabs — Overview, Live Preview, AI Prompt, Code, Notes & Related
+    (personal notes, Collection membership checkboxes, a Related grid —
+    explicit `relatedIds` if set, else a same-category/shared-tag
+    fallback, an honest heuristic, not a fabricated recommendation
+    engine), and AI Assistant. **Collections** group any mix of
+    resources (icon/color/description, drag-reorderable, own add/edit
+    modal). A **Ctrl+K command palette** searches resources, collections,
+    and every nav destination at once.
+  - **AI features, a confirmed adaptation, flagged rather than silently
+    faked**: this app has no backend and no AI key configured anywhere by
+    default (§1/§2) — the same pattern every AI-shaped feature in this
+    app already follows (Main Pillar's Briefs, Fitness Studio's Coach,
+    Knowledge Hub's Assistant) is used here: 11 real actions (Improve/
+    Modernize/Simplify/Expand/Rewrite Variation/Generate Similar Prompt/
+    Accessibility Review/Performance Review/Convert Framework/Generate
+    Variants/Generate Matching Theme) call the real Anthropic API
+    (`fetch('https://api.anthropic.com/v1/messages', ...)`, the same
+    header pattern `mainpillar.html`/`fitnessstudio.html`/
+    `knowledge-hub.html` already established) when a key is configured in
+    Customization's own AI Settings, and fall back to an honestly-
+    computed, genuinely useful **local, rule-based text transform**
+    otherwise — every log entry is tagged `AI-GENERATED` or `AUTO` so the
+    UI never implies a fabricated "AI said" claim. The key, persona,
+    creativity, and response-length preference all live in
+    `customization:settings` — `design-library-data.js` reads that key
+    directly (the same "read another page's own storage key" precedent
+    `tasks-data.js`'s importers already use) rather than duplicating a
+    second AI-key field.
+  - **Customization Studio, concretely**: 20 named theme presets (Dark/
+    Light/OLED/Cyberpunk/Fantasy/Gothic/Minimal/Modern/Forest/Ocean/
+    Sunset/Coffee/Academic/Vintage/Sakura/Winter/Autumn/Space/Glass/
+    Midnight Aurora — a superset covering both lists the spec named,
+    deduped); a full Color Studio (13 color roles, hex/rgb/hsl display,
+    a live gradient-angle builder, Saved Palettes, and deterministic
+    color-theory "AI Palette Suggestions" — Analogous/Complementary/
+    Triadic computed from the current accent via real HSL rotation, a
+    disclosed simplification since it's more reliable than asking a
+    model to return structured hex values); Wallpapers (gradient/solid/
+    image/none, blur/brightness/opacity/motion); Typography (heading/
+    body/mono font pickers, size/weight/line-height/letter-spacing,
+    a live preview panel); an Icon Library page that honestly explains
+    this app's real icon strategy (native emoji, zero dependency) rather
+    than pretending to swap icon sets it doesn't have; a Layout Builder
+    (card radius/spacing scale/sidebar width/content max-width, all
+    live-applied); real client-side **Automations** (onLoad/date-based/
+    visit-milestone triggers, evaluated honestly against real timestamps
+    and a real incrementing visit counter, surfaced as a dismissible
+    banner — since this app has no backend/cron of any kind, per §1,
+    these fire when the Studio or Design Library is actually open, not
+    as OS notifications, disclosed directly in the page copy); AI
+    Settings (key, default persona, creativity, response length, and a
+    reusable Saved Personas library); Integrations (a live status panel —
+    Supabase SDK loaded?, an AI key configured?, `PhotoStore` available?,
+    is storage genuinely on IndexedDB? — real checks, not decorative
+    toggles for services that don't exist); Privacy & Security (this
+    app's real "no accounts, no server" posture stated plainly, plus a
+    working clear-local-data action); Workspace Templates (save/apply a
+    named snapshot of just the appearance settings); Experimental
+    Features (3 real flags — force-reduced-motion, compact density, beta
+    fuzzy search — each does something, none decorative); and Shortcuts/
+    Help (a static reference).
+  - **Backup & Restore, genuinely real, not a token gesture**: possible
+    specifically because `local-store-idb.js` (see that file's own header
+    comment) already moved this app's storage engine from browser
+    localStorage — a hard ~5-10MB per-origin cap this app hit and fixed
+    once already — onto IndexedDB, so a real in-app **Snapshot** can hold
+    a full serialized copy of every `localStorage` key on the device
+    without reintroducing that old quota wall (capped at the 10 most
+    recent to keep growth bounded). Manual/scheduled **export-to-file**
+    (a real downloaded `.json`) and **import-from-file** (parses and
+    writes every key back via `localStorage.setItem`, confirm-gated) are
+    offered too, as the portable off-device copy a pure in-app snapshot
+    can never be. `daysSince(lastBackupAt)` drives a real "last backup
+    was N days ago" readout on Home, not a placeholder.
+  - **The one genuinely dashboard-wide feature, wired into the one truly
+    shared file**: per the request's own "controls every visual aspect
+    of my Personal Operating System," honestly split into what's real
+    two ways (documented up front in both new `-data.js` files' own
+    header comments, not discovered as a limitation later) — (1) both
+    new pages genuinely **live-apply** every appearance setting to
+    themselves, via `applyThemeToDocument()` repainting `glass-theme
+    .css`'s own `--gt-*` custom properties on `<html>`; retroactively
+    repainting the other ~30 independently-built pages in this app, each
+    carrying its own private color-token names (`--bh-gold`/`--rt-
+    gold`/`--at-gold`/etc., several already a deliberate, explicit one-
+    off palette exception per §6), is a standing architecture change
+    bigger than one session, not something to force through quietly —
+    flagged, not silently attempted. (2) **Navigation Manager is real
+    and dashboard-wide**, because it's wired into `topbar.js` itself, the
+    one file every page actually shares: `topbar:navGroupOrder` (an
+    array of group keys) re-sorts `NAV_GROUPS` on every load via a new
+    `getEffectiveGroups()` function (any key not present keeps its
+    original relative position, appended after the ones that are
+    ordered); `topbar:pinnedHrefs` (an array of page hrefs) prepends a
+    synthetic "⭐ Favorites" group built from real `NAV_GROUPS` items —
+    pinned copies get their own element id (`<original-id>Pinned`, never
+    colliding with e.g. `#topbarGoals`) and drop their `children`/count
+    badge, a plain quick link rather than a second full copy of that
+    item's own sub-page tree. `topbar.js`'s previously-`const html`
+    template literal was converted into a `buildHtml()` function so both
+    reads happen at inject time, not module-load time. Verified this
+    edit introduced no new imbalance by diffing only the added/removed
+    lines in isolation (both self-balanced) against the file's own
+    pre-existing, already-documented 5-paren prose-comment false
+    positive, which is unchanged.
+  - **Boot-error safety net included from the start**, not added after a
+    report — per [[feedback_add_error_banner_before_guessing]]: both
+    pages' `init()` is wrapped in try/catch (`safeInit()`), showing a
+    visible banner with the real error and a "Copy error details" button
+    instead of a silent blank page, matching the precedent `gym.html`/
+    `business.html`/`knowledge-hub.html` already established. Empty-
+    storage seed-race safety (`maybeSeedAfterSyncAttempt()`, deferred
+    until either `initCloudSync`'s `onApplied` fires or a 5-second window
+    elapses) guards both pages' seed data (Design Library: 17 example
+    resources spanning all 9 categories, most with a real prompt/code
+    snippet/live-preview source, plus 4 example collections; Customization:
+    3 saved palettes, 3 saved personas, 2 automations) the same way every
+    other freshly-seeded page in this app already protects against
+    clobbering another device's real data on a race with the cloud pull.
+  - **Verification, disclosed honestly**: no interactive browser/CDP
+    session or JS/Python runtime was available in this environment this
+    session (`node` absent; `python`/`python3` resolve to the known non-
+    functional Windows-Store alias stub), the same reduced-guarantee
+    fallback several other pages' changelog entries in this file already
+    disclose for this exact class of limitation. Verified statically
+    instead, via PowerShell/Bash text processing: brace/paren/bracket
+    balance confirmed clean on all four new files (`design-library-data
+    .js`: 294/294 braces, 536/536 parens; `customization-data.js`:
+    164/164 braces, 373/373 parens; `design-library.html`: 516/516
+    braces, 1531/1531 parens, 77/77 brackets; `customization.html`:
+    318/318 braces, 1004/1004 parens, 162/162 brackets); zero duplicate
+    DOM ids in either HTML file; every `$('id')` reference in both files
+    cross-matched against a real declared `id="..."` with nothing
+    unresolved; every `DB.xxx` call in both files cross-matched against
+    its respective `-data.js`'s exported public API with nothing missing
+    (the one "unresolved" hit in each pass, `ready`, is a confirmed false
+    positive from the substring `DB.` appearing inside `LocalStoreIDB
+    .ready()`, not a real gap); every `GlassTheme.*`/`GalleryCard.*` call
+    cross-matched against those two kits' own real exported functions;
+    `topbar.js`'s own edit confirmed to introduce zero new brace/paren
+    imbalance by diffing only the added/removed lines in isolation
+    (both self-balanced) against the file's own pre-existing 5-paren
+    prose-comment false positive, unchanged.
+    **Not verified this way**: an actual click-through (adding/editing a
+    resource across all six detail tabs, dragging a card to reorder,
+    confirming the sandboxed live-preview iframe renders real saved
+    HTML/CSS/JS, running an AI action with no key configured and
+    confirming the local-fallback text reads sensibly, dragging a nav
+    group in Navigation Manager and confirming the reorder actually
+    persists into `topbar:navGroupOrder` and is picked up by a different
+    page's own topbar on reload, pinning a page and confirming the
+    synthetic Favorites group appears, and exercising Backup & Restore's
+    real export/import/snapshot round-trip end to end). A real click-
+    through is strongly recommended before relying on this feature
+    heavily — this is among the largest single-session builds in this
+    app's history, built and statically verified entirely without ever
+    running in a real browser, the same disclosed-limitation caveat
+    several other pages' changelog entries in this file already carry
+    for this exact environment.
+
+- **New: Story Architecture rebuilt into one unified plotting system
+  (`writing-dashboard.html` + `writing-dashboard-data.js`), Phase 1 of a
+  larger vision** — Story Architecture, Mind Map, and Timeline used to be
+  three separate, disconnected `SERIES_TABS` entries. They're now one
+  `story` tab with its own internal sub-nav (`S.currentPage.storyView`,
+  same push/pop-safe pattern `.tab` already used): Story Mind Map, Trilogy
+  Plot Grid, Romance Plot Grid, Master Trilogy Grid, Story/Romance
+  Structure Template pickers, Timeline, World Events, and five Trackers
+  filtered views (Plot Threads/Character Arcs/Theme/Foreshadowing/Payoff),
+  plus one chip per real Book that deep-links straight into that book's
+  existing Structure & Beats tab (no duplicate page). Every new view is a
+  new lens over data that already existed (`Beats`, `Trackers`,
+  `PlotPoints`, `TimelineEvents`, `Chapters`) — nothing invents a parallel
+  relationship model; `linkedChapterId`/`linkedCharacterId` stay the real
+  wiring, on purpose, so a future full dashboard-wide backlink pass (every
+  character/location/theme page showing every chapter it appears in) has
+  real joins to build on instead of starting over. Later phases —
+  expanded chapter-page fields (~26 fields: Purpose/Stakes/Outcome/
+  Callback/etc.) and that full backlink pass — were scoped out of Phase 1
+  up front and deliberately left un-blocked, not forgotten.
+  - **Trilogy Plot Grid / Romance Plot Grid**: a real spreadsheet
+    (`.wd-story-grid`, new CSS component — no table/grid primitive existed
+    in this file before), rows from a reference book's active template
+    (`Books.generalStructureTemplate`/`romanceStructureTemplate`, two new
+    nullable fields), one column per Book (dynamic count, never hardcoded
+    to 3), cells editable inline (textarea, autosize, save-on-blur to
+    `Beats.description`) with a "⤢" to the existing full `openBeatModal`.
+    A book that hasn't applied the reference template yet gets a one-click
+    "+ Apply Template" cell instead of a fuzzy-matched guess.
+  - **Master Trilogy Grid**: one row per Chapter across the whole series
+    (grouped by Book), pure joins — Main/Romance Plot from Beats or
+    PlotPoints, Character/Villain Arc, Subplots, Mystery, Foreshadowing,
+    Reveal, Payoff, Theme from Trackers, POV/Notes from Chapters, Timeline
+    from `TimelineEvents.linkedChapterId` (new field — the one genuinely
+    new joinable relationship this phase added, mirroring the identical
+    field every other linkable collection already had). Every populated
+    cell click-opens its real record's existing editor.
+  - **`applyStructureTemplate(templateKey, bookId)`** (new, mirrors
+    `applyActChapterTemplate`/`applyPlotTemplate`'s existing "additive,
+    safe to reapply" contract exactly): appends only the beats missing for
+    that `(bookId, templateKey)` pair. Always joins `beatKey` **together
+    with** `template`, never `beatKey` alone — several existing templates
+    reuse keys like `'midpoint'`, so a bare `beatKey` join would silently
+    collide once a book carries beats from more than one template (which
+    Phase 1 requires, by design — one book now carries a general beat set
+    and a romance beat set at once).
+  - **Confirmed adaptations** (judgment calls made while building, flagged
+    here rather than silently assumed): (1) the user's literal requested
+    row wording ("Opening Image → Theme → Hook → … → Final Image" and
+    "Meet Cute → … → HEA/HFN") didn't match any existing `STRUCTURE_TEMPLATES`
+    entry verbatim, so two new template entries were added —
+    `trilogy-grid-default` and `romance-grid-default` — as the grids'
+    out-of-the-box defaults, alongside (not replacing) the 6 pre-existing
+    templates including `romance-arc`. (2) "Villain Arc" has no distinct
+    Trackers type, so it's the existing `character-arc`/`relationship-arc`
+    rows bucketed by whether the linked Character's free-text `role` field
+    matches `/antagonist|villain/i` — reuses an existing field with zero
+    schema change, but it's a v1 heuristic (depends on the writer's own
+    wording) rather than a real enum; upgrade to an explicit field later if
+    it proves unreliable. (3) "Payoff Tracker" reuses the `reveal` Tracker
+    type as-is — no distinct payoff type exists, and reveal/payoff are the
+    same story-craft concept. (4) "World Events" isn't a new collection —
+    it's `TimelineEvents` filtered to events with no linked character
+    (world/setting-scale vs. a personal beat); linking a character to an
+    event moves it out of that view into the plain Timeline.
+  - **Verified**: served on `localhost:5500` (never `file:///`, per this
+    repo's own convention) and driven with Puppeteer against real user
+    data — clicked into an existing series ("The Ashen Crown," 2 real
+    books), cycled through all 13 sub-views plus both Book chips with zero
+    console/page errors. Separately, built a disposable throwaway series
+    end-to-end (2 books, applied a structure template, typed into a grid
+    cell, confirmed the edit persisted across a re-render via `Beats.update`,
+    opened the Master Grid) to exercise the write path without risking real
+    data, then deleted that entire test series via the UI's own cascading
+    delete and re-confirmed the real series list was unchanged afterward —
+    per this app's live Supabase cloud sync, any Puppeteer write against
+    this page is a real write, so throwaway data must be cleaned up, not
+    left behind.
+
+- **New: Story Architecture Phase 2 — Chapter Details expanded into a real
+  story-craft page** (`writing-dashboard.html` + `writing-dashboard-data.js`,
+  same two files as Phase 1 above). The existing "⚙️ Details" modal per
+  chapter (`openChapterMetaModal`) already behaved like this app's other
+  "index card" detail overlays (Series/Book/Beat/Tracker all follow the
+  same pattern) — so Phase 2 extended that modal rather than building a
+  parallel full-page overlay type, consolidating the requested ~26-field
+  "Chapter Page" spec into it. `chapterModel` gained 14 new fields:
+  `purpose`, `goal`, `obstacle`, `stakes`, `outcome`, `conflict`,
+  `emotionalBeat`, `revisionNotes`, `dialogueNotes`, `researchNotes`,
+  `callbackNotes`, `characterIds[]`, `linkedWikiPageIds[]`, `checklist[]`
+  (`{id,text,done}`) — all additive/nullable, existing chapters unaffected.
+  Cascades added to `removeCharacter`/`removeWikiPage` matching every other
+  linkable collection's existing pattern.
+  - **Confirmed adaptation**: Main Plot/Romance Plot/Character Arc/Theme/
+    Foreshadowing/Reveal/Timeline were requested as chapter-page fields but
+    were **not** added as duplicate inline fields — they already exist as
+    real records (`Beats`/`PlotPoints`/`Trackers`/`TimelineEvents`) joined
+    to a chapter via `linkedChapterId`. Storing a second copy on the
+    chapter itself would drift the moment either copy was edited alone. New
+    **Connections panel** (`renderChapterConnections`, same join logic the
+    Master Trilogy Grid uses) shows all of them read-only, grouped, click-
+    through to each record's own real editor — zero duplicated data.
+  - **Location generalized to `linkedWikiPageIds[]`**, not a location-only
+    field — `WikiPages` already spans all 56 Worldbuilding categories
+    (cultures, magic systems, organizations, objects, not just places), so
+    a chapter can now reference any of them, matching the original ask's
+    broader "connect to Worldbuilding Wiki pages" intent rather than
+    narrowing it to just locations.
+  - **Field relabeling, disclosed**: the modal's textarea labeled "Revision
+    Notes" was actually bound to `chapter.notes` (a pre-existing mislabel —
+    the general Notes field, not revision-specific). Relabeled to "Notes"
+    and given a genuine new "Revision Notes" field bound to the new
+    `revisionNotes`. The editor's left-sidebar panel (`renderRevisionNotesPanel`)
+    updated to match — it now shows the real `revisionNotes` field instead
+    of `notes`.
+  - **Checklist** (`renderChapterChecklist`) is a small inline add/toggle/
+    delete list, same `wd-chapter-row` visual language as Scenes — not a
+    new component.
+  - **Verified**: same live-data Puppeteer method as Phase 1 — built a
+    disposable series → book → chapter, opened Chapter Details, typed into
+    every new field, saved, closed and reopened the modal, and confirmed
+    every field's value round-tripped through `Chapters.update`/`.get()`
+    correctly (Purpose/Goal/Callback/Revision Notes spot-checked directly).
+    Confirmed the Checklist and Connections panels both render. Zero
+    console/page errors throughout. Cleaned up the disposable series
+    afterward and re-confirmed the real series list ("The Ashen Crown,"
+    "Hollow Signal") was unchanged. One real navigation bug caught and
+    fixed **during this verification, not left in**: none in the shipped
+    code — the only bugs hit were in the throwaway Puppeteer test script
+    itself (wrong tab-selector attribute, wrong click target for a card's
+    edit icon on the Series Library vs. a Series page's own "Edit Series"
+    button), not in the app.
+
+- **New: Story Architecture Phase 3 — dashboard-wide bidirectional
+  backlinks** (`writing-dashboard.html`, no data-model changes — every join
+  key this needed already existed after Phases 1-2: `Chapters.characterIds`,
+  `Chapters.linkedWikiPageIds`, `Scenes.characterIds`, `Trackers.
+  linkedCharacterId`, `TimelineEvents.linkedCharacterIds`/`linkedWikiPageIds`).
+  Three detail surfaces gained a computed, always-live "who links to me"
+  panel — never a second stored copy, so it can't drift from what's real:
+  - **Character Detail** (`openCharacterDetail`): new "🔗 Appears In —
+    Chapters" section (every chapter that tags this character directly, or
+    indirectly through one of its scenes, labeled "Book N: Chapter Title,"
+    click-through straight into that chapter in the Editor) plus a
+    "🔗 Threads & Timeline" section (linked Trackers and TimelineEvents).
+    The pre-existing manual `Books` line (`Character.bookIds`, hand-set by
+    the writer) was kept and relabeled "Books" rather than removed, so it
+    doesn't collide with the new computed section.
+  - **Wiki Page Detail** (`openWikiDetail`): same pattern — "🔗 Appears In —
+    Chapters" and "🔗 Timeline," computed from `linkedWikiPageIds`. Needed
+    one new stable host div (`#wdWikiDetailBacklinks`) in the modal markup
+    so reopening the modal replaces the panel instead of appending a
+    duplicate each time (the same idempotency requirement every other
+    "ensure a host div, replace its innerHTML" panel in this file already
+    follows — caught and fixed during this build, before it ever shipped).
+  - **Tracker cross-book echo** (`openTrackerModal`, new "🔗 Same thread in
+    other books" section): the user's ask — "a plot thread should show
+    where it begins, develops, pauses, and resolves across all books" —
+    doesn't fit the existing `Trackers` shape as-is (`bookId` +
+    `linkedChapterId` is one book, one chapter, per record; there's no
+    cross-book grouping key). Rather than migrate real existing Tracker
+    data into a new multi-touchpoint schema, this is a computed echo: same
+    `type` + same `title` (trimmed, case-insensitive) across every *other*
+    book in the series, each entry showing its own status and linking
+    straight to that record's own modal. **Confirmed heuristic, disclosed**:
+    it's a title-match, not a real foreign key — two unrelated trackers
+    that happen to share a name would echo each other. Same "computed
+    lens over existing data, not a schema migration" judgment call as the
+    Master Grid's Villain Arc bucketing in Phase 1; a real `threadId`
+    grouping key is the natural upgrade if this proves too loose in
+    practice.
+  - **Verified**: disposable series → 2 books → 1 character → 1 wiki page →
+    1 chapter (tagged to both via the Chapter Details chips from Phase 2) →
+    1 tracker per book (same type/title). Confirmed the Tracker echo found
+    Book 1's tracker from Book 2's modal, the Character Detail backlink
+    panel showed the tagged chapter, and the Wiki Page backlink panel
+    showed the same chapter — all three from real UI interactions, zero
+    console/page errors. Cleaned up via the UI's cascading delete
+    afterward; "The Ashen Crown"/"Hollow Signal" confirmed unchanged.
+
+- **YouTube Dashboard — new page, "Business" nav folder (listed second,
+  below Writing Dashboard):** a full YouTube Business Operating System
+  for unlimited channels, built from a detailed spec covering every
+  stage of production from idea to analytics. New files,
+  `youtube-dashboard.html` + `youtube-dashboard-data.js`; own `ytd:`
+  prefix, own `key: 'youtubedash'` Supabase row (see §4's table above).
+  Genuinely separate from every other "youtube"-adjacent surface already
+  in this app — `businessdash.html`'s own `kind:'youtube'` Business
+  record (`bizdash:ytVideos`, an inline section on one business's page),
+  `businessos.html`'s generic `platform:'youtube'` content-calendar tag,
+  `entertainment-hub-data.js`'s `spicyWatch` collection, and
+  `fitnessstudio.html`'s music-panel YouTube IFrame embed — nothing here
+  reads, writes, or repurposes any of their data or files.
+  - **Architecture**: same "generic model + fixed vocabulary table, not N
+    bespoke databases" precedent knowledge-hub-data.js/writing-dashboard-
+    data.js already established, and the same `makeCollection(key,
+    model)` CRUD recipe every other `-data.js` in this app uses. Channels
+    -> Videos (the central Video Project database) -> Scripts;
+    VideoTemplates (13 real starter blueprints, not filler) ->
+    ChecklistTemplates -> ChecklistInstances (one-click, clone-and-strip-
+    id duplication into a fresh per-video instance, same recipe
+    businessdash-data.js's `duplicateTask()` already established —
+    original template left untouched); one universal `Notes` collection
+    scoped by `scope`/`scopeId` (channel/video/script/template/checklist/
+    asset/global), queried with `notesFor(scope, scopeId)` — the exact
+    idiom knowledge-hub-data.js's/writing-dashboard-data.js's own
+    `Sections` collection already uses, reused here so the SAME database
+    renders (never duplicated) at the top of Dashboard Home and inside
+    every Channel/Video workspace; a second generic `Sections` collection
+    for a Video's Research & Planning / Production / Publishing / Lessons
+    Learned sub-panels, same engine as Writing Dashboard's WikiPage
+    sections; Assets, CalendarEvents, AnalyticsSnapshots, Tags,
+    GlobalTemplates (Thumbnail/Description/SEO/Title/Branding — one
+    collection with a `kind` field, not five), Favorites, RecentlyViewed.
+  - **Navigation**: the same proven `S.pageStack`/`S.currentPage =
+    {type, id, tab}` full-screen-overlay page-stack Writing Dashboard's
+    own `goTo`/`goBack`/`showCurrentPage()` already established — Channel
+    workspace (Overview/Video Projects/Calendar/Analytics/Assets/
+    Settings tabs) and Video workspace (Overview/Research & Planning/
+    Script/Production/Publishing & SEO/Checklist/Analytics tabs), each a
+    flat if/return dispatcher keyed off `S.currentPage.tab`. Unlike
+    Writing Dashboard's single childless nav item, this page's 9
+    top-level surfaces (Home/Channels/Notes/Templates/Assets/Analytics/
+    Calendar/Archive/Settings) are genuinely fixed, so `topbar.js`'s new
+    item for it carries real `#hash` children (same convention
+    knowledge-hub.html's own children already use) read on load AND on
+    `hashchange` (a small, deliberate addition beyond that page's
+    "read-once" precedent, needed so clicking a sidebar child while
+    already on this page re-navigates instead of only changing the URL
+    bar's hash).
+  - **Video Projects views**: Gallery (via `GalleryCard.build`, same
+    shape as Writing Dashboard's `buildSeriesCard`), Table, Kanban
+    (drag-reorder via SortableJS, same library every other kanban/
+    drag-reorder surface in this app already loads), and a combined
+    Timeline/List view. **Confirmed adaptation, flagged not silently
+    narrowed**: "Timeline" is a date-sorted horizontal variant of that
+    same list, not a full Gantt/dependency engine.
+  - **Script Writing Mode**: a fullscreen "Focus Mode" overlay
+    (`#ydFocus`), visually modeled on composition-mode.css's cinematic
+    dark-glass-panel look but a genuinely new, self-contained component —
+    not a literal reuse of composition-mode.css/.js, which are hard-wired
+    to `window.WritingDashboardData`/`WD_activeChapterContext()` and
+    aren't a generic drop-in (confirmed by reading them first). This page
+    defines its own equivalent bridge pair, `window.YD_activeScriptContext
+    ()`/`window.YD_refreshScriptTab()`, same shape as Writing Dashboard's
+    own `WD_activeChapterContext`/`WD_refreshEditorTab`. Word count,
+    reading time, autosave-on-input, and an outline jump-nav (Hook/
+    Opening/Main Body/Ending/CTA) are all real and live.
+  - **Confirmed adaptations, flagged not silently narrowed** (same
+    discipline every other AI/analytics-shaped feature in this app
+    already follows): no live YouTube Data API sync — the spec's own
+    "Future-Proof Architecture" section lists that as a later module, so
+    Analytics here is honest manual/periodic snapshot entry
+    (`AnalyticsSnapshots`), with Top Videos, per-channel rollups, and a
+    real computed upload streak all genuinely derived from stored data,
+    not simulated. Notes body is plain text with lightweight inline
+    markdown (`**bold**`, `*italic*`, `[text](url)` links) rendered on
+    display, not a full contentEditable WYSIWYG engine; attachments/
+    Voice Notes/Drawings would be uploaded files, not an in-app recorder
+    or drawing canvas (not yet wired to a file-upload control in this
+    pass). Thumbnail PSDs/LUTs/Color Presets in the Asset Library are
+    tagged metadata + a URL/link field, not PSD parsing or a LUT preview
+    renderer. Revenue/Budget/Sponsor are plain manual fields — no
+    invoicing/payment engine (also an explicit future module in the
+    spec).
+  - **Palette**: no reference photo or literal color instruction was
+    given, so per CLAUDE.md §6/DO NOT MODIFY rule 2 this defaults to the
+    app's real near-black/gold common thread (Knowledge Hub/Design
+    Library/Dream Board) — `--gt-accent`/`--gt-accent-bright`/
+    `--gt-accent-rgb` repointed to gold, gallery-card.css's own
+    `--gc-accent` already defaults to that same gold so it needed no
+    override — rather than inventing a YouTube-red palette. Built
+    entirely from glass-theme.css/gallery-card.css, same kit Writing
+    Dashboard/Knowledge Hub/Design Library already use.
+  - **Verified**: page loads over `serve.mjs` with zero console errors;
+    topbar shows the new "YouTube Dashboard" pill under Business with its
+    9 hash children (both on direct load and via in-page `hashchange`);
+    created a channel, opened its workspace, created a video project,
+    opened the Script tab, entered and exited Focus Mode, added a note
+    from the Video workspace's own Notes panel and confirmed the exact
+    same note reappears when reopening that Video (and does NOT appear
+    on a different Video or on Dashboard Home's global-scoped panel,
+    proving real relational filtering rather than a duplicated database),
+    generated a Checklist instance from the seeded Standard Video
+    Production Checklist template and confirmed the original template's
+    own items were unaffected, and reloaded the page to confirm every
+    change persisted through localStorage (IndexedDB-backed via
+    local-store-idb.js, same as every other page). Confirmed no other
+    page's `topbar.js` pill, `sync.js` call, or Supabase row was touched.
+
+- **YouTube Dashboard follow-up: attached video files, plus a Hero
+  redesign cloned from Writing Dashboard's own (which the two brand-
+  guideline images — normal_text.jpg, banner & title_text.jpg — trace
+  back to):**
+  - **Video File attach** (Video workspace, Overview tab): a click-or-
+    drop control that stores the actual uploaded video File and shows a
+    real `<video controls>` preview/player, with Replace/Remove. New
+    `youtube-dashboard-data.js` mechanism, `VideoFiles` — a **raw
+    IndexedDB blob store, deliberately separate from the shared
+    `personal-dashboard-kv` localStorage shim** (`local-store-idb.js`,
+    untouched) and from `sync.js`/Supabase entirely: a multi-hundred-MB
+    video inlined as base64 inside the `ytd:videos` JSON blob would slow
+    down every read/write/sync of every video in the app and blow well
+    past Supabase's own request-size limits. So the file itself is
+    keyed by videoId in its own `ytd-video-files` IndexedDB database,
+    device-local only — same honest "uploaded video slots are session-
+    only" precedent `dreamboard.html` already established for its own
+    photo/video grid, upgraded here to survive a reload on the SAME
+    device (not just a page-lifetime object URL). Only small metadata
+    (`videoFileName`/`Size`/`Type`/`AttachedAt`, new fields on the
+    `Video` model) syncs across devices via the normal `ytd:videos` row;
+    the file itself needs re-attaching per device, and the UI says so
+    explicitly rather than silently failing when a video opened on a
+    second device finds metadata but no local blob.
+  - **Real bug caught and fixed during this pass**: the file-attach
+    panel's IndexedDB lookup is async; a stale render's `.then())`
+    callback was looking up its Replace/Remove buttons via a *global*
+    `document.getElementById`, which — if the user (or another `render()`
+    call) had since replaced `#ydPageHost` with a different page/tab —
+    could either grab a same-ID element belonging to an unrelated, newer
+    render pass, or find nothing and throw `Cannot read properties of
+    null (reading 'addEventListener')`. Fixed by scoping every lookup
+    inside that callback to its own captured `hostEl` (`hostEl.
+    querySelector(...)`) instead, which stays correct even if `hostEl`
+    is by then detached from the live document. Caught by an automated
+    Puppeteer smoke test (reload → re-open a channel → its Video
+    Projects tab → a video), not left for the user to hit — see this
+    same test's results below.
+  - **Hero redesign** (Dashboard Home + every Channel workspace,
+    replacing the Channel's old plain thumbnail+title header block): the
+    exact same brand-guideline → font mapping Writing Dashboard's own
+    Hero already established from these two images (its own header
+    comment, ~line 58) — normal_text.jpg's bold rounded sans → Poppins
+    (new `--yd-font`, now the page's base `body` font, not just an
+    unused import); banner & title_text.jpg's ornate high-contrast serif
+    logotype → Playfair Display (`--yd-serif`, already imported, now
+    used on every Hero/page-title heading). The Hero itself — flanking-
+    words crest, a diamond-flanked metallic-gradient title, a curling
+    SVG flourish, a stat "trust" strip, and a 3-column credit strip —
+    is a page-scoped `.gt-hero` override cloned line-for-line from
+    Writing Dashboard's own (`writing-dashboard.html` ~line 288's own
+    comment traces that exact composition to normal_text.jpg's flanking-
+    words/center-mark/diamonds/curling-flourish/credit-row layout),
+    reused here per an explicit "resembles the same Hero section as the
+    Writing Dashboard" request rather than re-derived from scratch.
+    Dashboard Home's Hero is a new singleton record (`ytd:hero`, same
+    `heroModel`/`getHero`/`saveHero` recipe as `writing-dashboard-data
+    .js`'s own), fully editable (cover photo/eyebrow/title/subtext/CTA)
+    via `GlassTheme.wireHero()`. The Channel Hero instead binds straight
+    onto that channel's own real fields — title edits rename the
+    channel, subtext edits write `missionStatement`, the cover photo
+    writes `banner` — with a computed (non-editable) eyebrow/crest/trust/
+    credits row reflecting that channel's live niche/status/subscriber/
+    video counts, plus a small favorite/edit action pair pinned to the
+    Hero's top-left corner. **Known, accepted minor staleness** (same
+    class of tradeoff Writing Dashboard's own Book Hero already carries,
+    not something newly introduced here): editing the Channel Hero's
+    title/subtext saves immediately and reflects correctly in the Hero
+    itself, but the Overview tab's own Brand Identity info blocks below
+    it aren't force-refreshed until the next tab switch or reload — a
+    full re-render on every hero-field blur was deliberately not added,
+    since it would rebuild (and could disrupt focus in) the very inputs
+    mid-edit.
+  - **Verified**: Puppeteer smoke test — created a channel, edited its
+    Hero title/subtext via dispatched blur events (confirmed persisted
+    to the real `Channels` record), created a video, attached a file
+    through the real `<input type="file">` (drop-zone click → native
+    file dialog → change handler → `VideoFiles.put` → metadata save →
+    re-render showing the player), reloaded the page, and confirmed via
+    `D().VideoFiles.get()` that the blob itself (not just its metadata)
+    survived the reload on the same device, then re-opened the channel
+    and video from a cold render to confirm the persisted file preview
+    renders correctly with zero console/page errors (the fix above was
+    caught and verified in this same pass). Cleaned up all test data
+    (including the IndexedDB blob) afterward.
+
+- **YouTube Dashboard follow-up: Channels on Dashboard Home.** Home now
+  has its own "📺 Your Channels" gallery, right below the stat grid —
+  real `GalleryCard.build()` cards (a new shared `buildChannelCard(c,
+  rerenderFn, opts)` factored out of the standalone Channels page's own
+  card loop, so both call sites stay one function, not two copies), at
+  the same deliberately-larger size (`.yd-channel-card-lg`, cloned from
+  `writing-dashboard.html`'s own `.wd-series-card-lg` "top of the
+  hierarchy reads as visually distinct" precedent) as the standalone
+  Channels page. A "See All →" button next to it opens the full
+  Channels page; favoriting a card from Home re-renders Home in place
+  (via the shared factory's `rerenderFn` callback) rather than only
+  taking effect on next navigation. Verified via Puppeteer: created 3
+  channels, confirmed all 3 render as large cards on Home with correct
+  counts, favorited one from Home and confirmed the star + Home's own
+  Favorites section both updated live, zero console/page errors.
