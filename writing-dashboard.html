@@ -1066,6 +1066,8 @@ First real victory — and its cost"></textarea></div>
   <div class="gt-field"><label class="gt-field-label">Title</label><input class="gt-input" id="wdTrkTitleInput"></div>
   <div class="gt-field"><label class="gt-field-label">Description</label><textarea class="gt-textarea" id="wdTrkDescInput" rows="3"></textarea></div>
   <div class="gt-field"><label class="gt-field-label">Linked Chapter</label><select class="gt-select" id="wdTrkChapterInput"></select></div>
+  <div class="gt-field"><label class="gt-field-label">Characters</label><div id="wdTrkCharsChips" class="gt-chip-row"></div></div>
+  <div class="gt-field"><label class="gt-field-label">Worldbuilding</label><div id="wdTrkWikiChips" class="gt-chip-row"></div></div>
   <div id="wdTrkAcrossBooks" style="margin-top:6px;"></div>
   <div class="gt-modal-actions">
     <button type="button" class="gt-btn" id="wdTrkDeleteBtn" style="color:var(--wd-bad);margin-right:auto;">Delete</button>
@@ -1083,6 +1085,8 @@ First real victory — and its cost"></textarea></div>
   <div class="gt-field"><label class="gt-field-label">Title</label><input class="gt-input" id="wdPlotTitleInput"></div>
   <div class="gt-field"><label class="gt-field-label">Description</label><textarea class="gt-textarea" id="wdPlotDescInput" rows="3"></textarea></div>
   <div class="gt-field"><label class="gt-field-label">Linked Chapter</label><select class="gt-select" id="wdPlotChapterInput"></select></div>
+  <div class="gt-field"><label class="gt-field-label">Characters</label><div id="wdPlotCharsChips" class="gt-chip-row"></div></div>
+  <div class="gt-field"><label class="gt-field-label">Worldbuilding</label><div id="wdPlotWikiChips" class="gt-chip-row"></div></div>
   <div class="gt-modal-actions">
     <button type="button" class="gt-btn" id="wdPlotDeleteBtn" style="color:var(--wd-bad);margin-right:auto;">Delete</button>
     <button type="button" class="gt-btn" id="wdPlotCancelBtn">Cancel</button>
@@ -1096,6 +1100,9 @@ First real victory — and its cost"></textarea></div>
   <div class="gt-field"><label class="gt-field-label">Status</label><select class="gt-select" id="wdBeatStatusInput"></select></div>
   <div class="gt-field"><label class="gt-field-label">Linked Chapter</label><select class="gt-select" id="wdBeatChapterInput"></select></div>
   <div class="gt-field"><label class="gt-field-label">Notes</label><textarea class="gt-textarea" id="wdBeatNotesInput" rows="3"></textarea></div>
+  <div class="gt-field"><label class="gt-field-label">Characters</label><div id="wdBeatCharsChips" class="gt-chip-row"></div></div>
+  <div class="gt-field"><label class="gt-field-label">Worldbuilding</label><div id="wdBeatWikiChips" class="gt-chip-row"></div></div>
+  <div id="wdBeatConnections"></div>
   <div class="gt-modal-actions">
     <button type="button" class="gt-btn" id="wdBeatCancelBtn">Cancel</button>
     <button type="button" class="gt-btn gt-btn-primary" id="wdBeatSaveBtn">Save</button>
@@ -2245,7 +2252,7 @@ function openCharacterDetail(id) {
   // ---------- Backlinks: every chapter/scene/tracker/timeline event that
   // actually references this character, computed live from the real
   // records (Chapters.characterIds, Scenes.characterIds,
-  // Trackers.linkedCharacterId, TimelineEvents.linkedCharacterIds) —
+  // Trackers.linkedCharacterIds, TimelineEvents.linkedCharacterIds) —
   // never a second stored copy, so it can't drift from what's real.
   var books = D().booksForSeries(c.seriesId);
   var chapterHits = [];
@@ -2255,7 +2262,7 @@ function openCharacterDetail(id) {
       if (via) chapterHits.push({ bookLabel: 'Book ' + (bi + 1) + ': ' + b.title, chapter: ch, via: via });
     });
   });
-  var trackerHits = D().Trackers.list().filter(function (t) { return t.linkedCharacterId === id; });
+  var trackerHits = D().Trackers.list().filter(function (t) { return (t.linkedCharacterIds || []).indexOf(id) !== -1; });
   var tlHits = D().timelineForSeries(c.seriesId).filter(function (e) { return (e.linkedCharacterIds || []).indexOf(id) !== -1; });
   detailHtml += '<div class="wd-detail-section"><div class="wd-detail-label">🔗 Appears In — Chapters</div>' +
     (chapterHits.length ? chapterHits.map(function (h) { return '<div class="wd-lore-panel-item" data-back-chapter="' + h.chapter.id + '" data-back-book="' + h.chapter.bookId + '" style="cursor:pointer;padding:3px 0;">' + esc(h.bookLabel) + ' — ' + esc(h.chapter.title) + (h.via === 'scene' ? ' <span style="color:var(--gt-text-mute);">(via a scene)</span>' : '') + '</div>'; }).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">Not tagged in any chapter or scene yet.</div>') + '</div>';
@@ -2848,7 +2855,7 @@ function renderMasterTrilogyGrid(host, s, books) {
       var romanceSource = romanceBeats.length ? romanceBeats : forChapter(plotPoints.filter(function (p) { return p.kind === 'romance'; }), c.id);
       var romanceType = romanceBeats.length ? 'beat' : 'plot';
       var charArcs = forChapter(trackers.filter(function (t) { return t.type === 'character-arc' || t.type === 'relationship-arc'; }), c.id);
-      var villainArcs = charArcs.filter(function (t) { return t.linkedCharacterId && chars[t.linkedCharacterId] && /antagonist|villain/i.test(chars[t.linkedCharacterId].role || ''); });
+      var villainArcs = charArcs.filter(function (t) { return (t.linkedCharacterIds || []).some(function (cid) { return chars[cid] && /antagonist|villain/i.test(chars[cid].role || ''); }); });
       var heroArcs = charArcs.filter(function (t) { return villainArcs.indexOf(t) === -1; });
       var subplot = forChapter(trackers.filter(function (t) { return t.type === 'subplot'; }), c.id);
       var mystery = forChapter(trackers.filter(function (t) { return t.type === 'mystery'; }), c.id);
@@ -2887,6 +2894,10 @@ function openPlotPointModal(id, seriesId, kind) {
   $('wdPlotDescInput').value = p ? p.description : '';
   updatePlotChapterOptions(p);
   $('wdPlotBookInput').onchange = function () { updatePlotChapterOptions(p); };
+  S._plotCharIds = p ? (p.characterIds || []).slice() : [];
+  wireMultiToggleChips($('wdPlotCharsChips'), D().charactersForSeries(seriesId).map(function (c) { return { id: c.id, label: c.name }; }), S._plotCharIds);
+  S._plotWikiIds = p ? (p.linkedWikiPageIds || []).slice() : [];
+  wireMultiToggleChips($('wdPlotWikiChips'), D().wikiPagesForSeries(seriesId).map(function (w) { return { id: w.id, label: w.title }; }), S._plotWikiIds);
   $('wdPlotDeleteBtn').style.display = p ? '' : 'none';
   $('wdPlotModalBg').classList.add('show');
 }
@@ -2898,7 +2909,7 @@ function updatePlotChapterOptions(p) {
 $('wdPlotCancelBtn').addEventListener('click', function () { $('wdPlotModalBg').classList.remove('show'); });
 $('wdPlotSaveBtn').addEventListener('click', function () {
   var id = $('wdPlotModalBg').dataset.editId, seriesId = $('wdPlotModalBg').dataset.seriesId, kind = $('wdPlotModalBg').dataset.kind;
-  var patch = { bookId: $('wdPlotBookInput').value, kind: kind, status: $('wdPlotStatusInput').value, title: $('wdPlotTitleInput').value.trim() || 'Untitled Plot Point', description: $('wdPlotDescInput').value, linkedChapterId: $('wdPlotChapterInput').value || null };
+  var patch = { bookId: $('wdPlotBookInput').value, kind: kind, status: $('wdPlotStatusInput').value, title: $('wdPlotTitleInput').value.trim() || 'Untitled Plot Point', description: $('wdPlotDescInput').value, linkedChapterId: $('wdPlotChapterInput').value || null, characterIds: S._plotCharIds || [], linkedWikiPageIds: S._plotWikiIds || [] };
   if (id) D().PlotPoints.update(id, patch); else { patch.order = D().nextOrder(D().plotPointsForBook(patch.bookId, kind)); D().PlotPoints.add(patch); }
   $('wdPlotModalBg').classList.remove('show');
   if (S.currentPage.type === 'series') renderSeriesPage();
@@ -3335,6 +3346,28 @@ function ensureChapterConnectionsHost() {
   modal.insertBefore(host, actions);
   return host;
 }
+// Shared by the Chapter Details' "Connections" panel and the Beat
+// modal's "Also In This Chapter" panel — one HTML-building/click-wiring
+// pair over the same read-only join-by-linkedChapterId pattern, so the
+// two never fork into divergent renderings of the same data.
+function buildConnectionsHtml(groups) {
+  return groups.map(function (g) {
+    return '<div class="wd-detail-label" style="margin-top:6px;">' + esc(g.label) + '</div>' +
+      (g.items.length ? g.items.map(function (x) { return '<div class="wd-lore-panel-item" data-conn="' + g.type + ':' + x.id + '" style="cursor:pointer;padding:3px 0;">' + esc(x.title || x.beatName || 'Untitled') + '</div>'; }).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None linked yet.</div>');
+  }).join('');
+}
+function wireConnectionsClicks(host, bookId, seriesId, closeModalId) {
+  Array.prototype.forEach.call(host.querySelectorAll('[data-conn]'), function (el) {
+    el.addEventListener('click', function () {
+      var parts = el.dataset.conn.split(':'), type = parts[0], id = parts.slice(1).join(':');
+      if (closeModalId) $(closeModalId).classList.remove('show');
+      if (type === 'beat') openBeatModal(id, bookId);
+      else if (type === 'plot') { var p = D().PlotPoints.get(id); if (p) openPlotPointModal(id, seriesId, p.kind); }
+      else if (type === 'tracker') openTrackerModal(id, bookId);
+      else if (type === 'timeline') openTimelineModal(id, seriesId);
+    });
+  });
+}
 function renderChapterConnections(chapterId, bookId) {
   var host = ensureChapterConnectionsHost();
   var book = D().Books.get(bookId); var seriesId = book ? book.seriesId : null;
@@ -3353,21 +3386,30 @@ function renderChapterConnections(chapterId, bookId) {
     { label: '🎁 Reveal / Payoff', items: trackers.filter(function (t) { return t.type === 'reveal'; }), type: 'tracker' },
     { label: '⏳ Timeline', items: tlEvents, type: 'timeline' }
   ];
-  host.innerHTML = '<h4 style="margin:16px 0 6px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gt-text-mute);">🔗 Connections</h4>' +
-    groups.map(function (g) {
-      return '<div class="wd-detail-label" style="margin-top:6px;">' + esc(g.label) + '</div>' +
-        (g.items.length ? g.items.map(function (x) { return '<div class="wd-lore-panel-item" data-conn="' + g.type + ':' + x.id + '" style="cursor:pointer;padding:3px 0;">' + esc(x.title || x.beatName || 'Untitled') + '</div>'; }).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None linked yet.</div>');
-    }).join('');
-  Array.prototype.forEach.call(host.querySelectorAll('[data-conn]'), function (el) {
-    el.addEventListener('click', function () {
-      var parts = el.dataset.conn.split(':'), type = parts[0], id = parts.slice(1).join(':');
-      $('wdChapterMetaModalBg').classList.remove('show');
-      if (type === 'beat') openBeatModal(id, bookId);
-      else if (type === 'plot') { var p = D().PlotPoints.get(id); if (p) openPlotPointModal(id, seriesId, p.kind); }
-      else if (type === 'tracker') openTrackerModal(id, bookId);
-      else if (type === 'timeline') openTimelineModal(id, seriesId);
-    });
-  });
+  host.innerHTML = '<h4 style="margin:16px 0 6px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gt-text-mute);">🔗 Connections</h4>' + buildConnectionsHtml(groups);
+  wireConnectionsClicks(host, bookId, seriesId, 'wdChapterMetaModalBg');
+}
+// A Beat's own "what else happens in this chapter" view — same
+// same-linkedChapterId join as above, entered from the Beat side
+// instead of the Chapter side. No new storage: a beat "knowing" what
+// conflict/reveal/foreshadowing is active here is answered by this join,
+// not by adding more fields to beatModel.
+function renderBeatConnections(linkedChapterId, bookId, excludeBeatId) {
+  var host = $('wdBeatConnections');
+  var book = D().Books.get(bookId); var seriesId = book ? book.seriesId : null;
+  if (!linkedChapterId) { host.innerHTML = '<div class="wd-detail-value" style="font-size:11px;color:var(--gt-text-mute);margin-top:8px;">Link a chapter above to see what else happens there.</div>'; return; }
+  var beats = D().beatsForBook(bookId).filter(function (bt) { return bt.linkedChapterId === linkedChapterId && bt.id !== excludeBeatId; });
+  var plotPoints = D().PlotPoints.list().filter(function (p) { return p.bookId === bookId && p.linkedChapterId === linkedChapterId; });
+  var trackers = D().Trackers.list().filter(function (t) { return t.bookId === bookId && t.linkedChapterId === linkedChapterId; });
+  var tlEvents = seriesId ? D().timelineForSeries(seriesId).filter(function (e) { return e.linkedChapterId === linkedChapterId; }) : [];
+  var groups = [
+    { label: '📖 Other Beats Here', items: beats, type: 'beat' },
+    { label: '📌 Plot Points Here', items: plotPoints, type: 'plot' },
+    { label: '🧵 Trackers Here', items: trackers, type: 'tracker' },
+    { label: '⏳ Timeline', items: tlEvents, type: 'timeline' }
+  ];
+  host.innerHTML = '<h4 style="margin:16px 0 6px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gt-text-mute);">🔗 Also In This Chapter</h4>' + buildConnectionsHtml(groups);
+  wireConnectionsClicks(host, bookId, seriesId, 'wdBeatModalBg');
 }
 function openSceneModal(id, chapterId) {
   var sc = id ? D().Scenes.get(id) : null;
@@ -3623,18 +3665,25 @@ function renderBeatArea(host, b) {
 }
 function openBeatModal(id, bookId) {
   var beat = D().Beats.get(id); if (!beat) return;
-  $('wdBeatModalBg').dataset.editId = id;
+  var book = D().Books.get(bookId); var seriesId = book ? book.seriesId : null;
+  $('wdBeatModalBg').dataset.editId = id; $('wdBeatModalBg').dataset.bookId = bookId;
   $('wdBeatModalTitle').textContent = beat.beatName;
   $('wdBeatDesc').textContent = beat.description;
   fillSelect($('wdBeatStatusInput'), ['not-started', 'drafted', 'done'], { 'not-started': 'Not Started', drafted: 'Drafted', done: 'Done' }, beat.status);
   var chapters = D().chaptersForBook(bookId);
   $('wdBeatChapterInput').innerHTML = '<option value="">No chapter linked</option>' + chapters.map(function (c) { return '<option value="' + c.id + '"' + (c.id === beat.linkedChapterId ? ' selected' : '') + '>' + esc(c.title) + '</option>'; }).join('');
+  $('wdBeatChapterInput').onchange = function () { renderBeatConnections($('wdBeatChapterInput').value || null, bookId, id); };
   $('wdBeatNotesInput').value = beat.notes;
+  S._beatCharIds = (beat.characterIds || []).slice();
+  wireMultiToggleChips($('wdBeatCharsChips'), seriesId ? D().charactersForSeries(seriesId).map(function (c) { return { id: c.id, label: c.name }; }) : [], S._beatCharIds);
+  S._beatWikiIds = (beat.linkedWikiPageIds || []).slice();
+  wireMultiToggleChips($('wdBeatWikiChips'), seriesId ? D().wikiPagesForSeries(seriesId).map(function (w) { return { id: w.id, label: w.title }; }) : [], S._beatWikiIds);
+  renderBeatConnections(beat.linkedChapterId, bookId, id);
   $('wdBeatModalBg').classList.add('show');
 }
 $('wdBeatSaveBtn').addEventListener('click', function () {
   var id = $('wdBeatModalBg').dataset.editId;
-  D().Beats.update(id, { status: $('wdBeatStatusInput').value, linkedChapterId: $('wdBeatChapterInput').value || null, notes: $('wdBeatNotesInput').value });
+  D().Beats.update(id, { status: $('wdBeatStatusInput').value, linkedChapterId: $('wdBeatChapterInput').value || null, notes: $('wdBeatNotesInput').value, characterIds: S._beatCharIds || [], linkedWikiPageIds: S._beatWikiIds || [] });
   $('wdBeatModalBg').classList.remove('show');
   if (S.currentPage.type === 'series') renderSeriesPage();
   if (S.currentPage.type === 'book') renderBookPage();
@@ -3666,6 +3715,11 @@ function openTrackerModal(id, bookId) {
   var chapters = D().chaptersForBook(bookId);
   $('wdTrkChapterInput').innerHTML = '<option value="">No chapter linked</option>' + chapters.map(function (c) { return '<option value="' + c.id + '"' + (t && c.id === t.linkedChapterId ? ' selected' : '') + '>' + esc(c.title) + '</option>'; }).join('');
   $('wdTrkDeleteBtn').style.display = t ? '' : 'none';
+  var trkBook = D().Books.get(bookId); var trkSeriesId = trkBook ? trkBook.seriesId : null;
+  S._trkCharIds = t ? (t.linkedCharacterIds || []).slice() : [];
+  wireMultiToggleChips($('wdTrkCharsChips'), trkSeriesId ? D().charactersForSeries(trkSeriesId).map(function (c) { return { id: c.id, label: c.name }; }) : [], S._trkCharIds);
+  S._trkWikiIds = t ? (t.linkedWikiPageIds || []).slice() : [];
+  wireMultiToggleChips($('wdTrkWikiChips'), trkSeriesId ? D().wikiPagesForSeries(trkSeriesId).map(function (w) { return { id: w.id, label: w.title }; }) : [], S._trkWikiIds);
   // "Same thread across other books" — Trackers are single-chapter,
   // single-book records with no cross-book grouping key, so this is a
   // computed echo (same type + same title, case/space-insensitive,
@@ -3698,7 +3752,7 @@ function openTrackerModal(id, bookId) {
 $('wdTrkCancelBtn').addEventListener('click', function () { $('wdTrackerModalBg').classList.remove('show'); });
 $('wdTrkSaveBtn').addEventListener('click', function () {
   var id = $('wdTrackerModalBg').dataset.editId, bookId = $('wdTrackerModalBg').dataset.bookId;
-  var patch = { type: $('wdTrkTypeInput').value, status: $('wdTrkStatusInput').value, title: $('wdTrkTitleInput').value.trim() || 'Untitled Thread', description: $('wdTrkDescInput').value, linkedChapterId: $('wdTrkChapterInput').value || null };
+  var patch = { type: $('wdTrkTypeInput').value, status: $('wdTrkStatusInput').value, title: $('wdTrkTitleInput').value.trim() || 'Untitled Thread', description: $('wdTrkDescInput').value, linkedChapterId: $('wdTrkChapterInput').value || null, linkedCharacterIds: S._trkCharIds || [], linkedWikiPageIds: S._trkWikiIds || [] };
   if (id) D().Trackers.update(id, patch); else { patch.bookId = bookId; patch.order = D().nextOrder(D().trackersForBook(bookId)); D().Trackers.add(patch); }
   $('wdTrackerModalBg').classList.remove('show');
   if (S.currentPage.type === 'series') renderSeriesPage();
@@ -3988,6 +4042,7 @@ function ensureDefaultTemplatesOnce() {
   defaultTemplatesEnsured = true;
   D().ensureDefaultCharacterTemplates();
   D().ensureDefaultPlotTemplates();
+  D().ensureTrackerCharacterIdsMigrationOnce();
   refreshCurrentView();
 }
 function maybeSeedAfterSyncAttempt() {

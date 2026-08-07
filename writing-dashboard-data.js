@@ -857,9 +857,16 @@
       beatKey: d.beatKey || '', beatName: d.beatName || '', description: d.description || '',
       notes: d.notes || '', order: d.order == null ? 0 : d.order,
       linkedChapterId: d.linkedChapterId || null,
+      characterIds: Array.isArray(d.characterIds) ? d.characterIds : [],
+      linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
       status: ['not-started', 'drafted', 'done'].indexOf(d.status) !== -1 ? d.status : 'not-started'
     };
   }
+  // linkedCharacterIds is plural (matches TimelineEvent's precedent) —
+  // this was a breaking rename from the old singular linkedCharacterId.
+  // Existing Supabase-synced records with the old shape are normalized
+  // by ensureTrackerCharacterIdsMigrationOnce() (see boot-migration
+  // section below) rather than assumed to already match.
   function trackerModel(d) {
     d = d || {};
     return {
@@ -867,7 +874,9 @@
       type: TRACKER_TYPES.indexOf(d.type) !== -1 ? d.type : 'subplot',
       title: d.title || 'Untitled Thread', description: d.description || '',
       status: TRACKER_STATUSES.indexOf(d.status) !== -1 ? d.status : 'open',
-      linkedChapterId: d.linkedChapterId || null, linkedCharacterId: d.linkedCharacterId || null,
+      linkedChapterId: d.linkedChapterId || null,
+      linkedCharacterIds: Array.isArray(d.linkedCharacterIds) ? d.linkedCharacterIds : [],
+      linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
       order: d.order == null ? 0 : d.order
     };
   }
@@ -879,6 +888,8 @@
       title: d.title || 'Untitled Plot Point', description: d.description || '',
       status: PLOT_STATUSES.indexOf(d.status) !== -1 ? d.status : 'planned',
       linkedChapterId: d.linkedChapterId || null,
+      characterIds: Array.isArray(d.characterIds) ? d.characterIds : [],
+      linkedWikiPageIds: Array.isArray(d.linkedWikiPageIds) ? d.linkedWikiPageIds : [],
       order: d.order == null ? 0 : d.order, createdAt: d.createdAt || new Date().toISOString()
     };
   }
@@ -1681,9 +1692,12 @@
       }
     });
     Scenes.list().forEach(function (s) { if ((s.characterIds || []).indexOf(id) !== -1) Scenes.update(s.id, { characterIds: s.characterIds.filter(function (x) { return x !== id; }) }); });
-    Trackers.list().forEach(function (t) { if (t.linkedCharacterId === id) Trackers.update(t.id, { linkedCharacterId: null }); });
+    Trackers.list().forEach(function (t) { if ((t.linkedCharacterIds || []).indexOf(id) !== -1) Trackers.update(t.id, { linkedCharacterIds: t.linkedCharacterIds.filter(function (x) { return x !== id; }) }); });
     MindMapNodes.list().forEach(function (n) { if (n.linkedCharacterId === id) MindMapNodes.update(n.id, { linkedCharacterId: null }); });
     Chapters.list().forEach(function (c) { if ((c.characterIds || []).indexOf(id) !== -1) Chapters.update(c.id, { characterIds: c.characterIds.filter(function (x) { return x !== id; }) }); });
+    Beats.list().forEach(function (bt) { if ((bt.characterIds || []).indexOf(id) !== -1) Beats.update(bt.id, { characterIds: bt.characterIds.filter(function (x) { return x !== id; }) }); });
+    PlotPoints.list().forEach(function (p) { if ((p.characterIds || []).indexOf(id) !== -1) PlotPoints.update(p.id, { characterIds: p.characterIds.filter(function (x) { return x !== id; }) }); });
+    WikiPages.list().forEach(function (w) { if ((w.linkedCharacterIds || []).indexOf(id) !== -1) WikiPages.update(w.id, { linkedCharacterIds: w.linkedCharacterIds.filter(function (x) { return x !== id; }) }); });
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'character' && s.scopeId === id); }));
   }
   function removeWikiPage(id) {
@@ -1691,6 +1705,10 @@
     Sections.replaceAll(Sections.list().filter(function (s) { return !(s.scope === 'wikipage' && s.scopeId === id); }));
     WikiPages.list().forEach(function (w) { if ((w.links || []).indexOf(id) !== -1) WikiPages.update(w.id, { links: w.links.filter(function (x) { return x !== id; }) }); });
     Chapters.list().forEach(function (c) { if ((c.linkedWikiPageIds || []).indexOf(id) !== -1) Chapters.update(c.id, { linkedWikiPageIds: c.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
+    Characters.list().forEach(function (c) { if ((c.linkedWikiPageIds || []).indexOf(id) !== -1) Characters.update(c.id, { linkedWikiPageIds: c.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
+    Beats.list().forEach(function (bt) { if ((bt.linkedWikiPageIds || []).indexOf(id) !== -1) Beats.update(bt.id, { linkedWikiPageIds: bt.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
+    PlotPoints.list().forEach(function (p) { if ((p.linkedWikiPageIds || []).indexOf(id) !== -1) PlotPoints.update(p.id, { linkedWikiPageIds: p.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
+    Trackers.list().forEach(function (t) { if ((t.linkedWikiPageIds || []).indexOf(id) !== -1) Trackers.update(t.id, { linkedWikiPageIds: t.linkedWikiPageIds.filter(function (x) { return x !== id; }) }); });
   }
 
   // ============================================================
@@ -1904,6 +1922,22 @@
       if (names.indexOf(def.name) === -1) PlotTemplates.add(Object.assign({ order: nextOrder(PlotTemplates.list()) }, def));
     });
   }
+  // Trackers used to store a single linkedCharacterId (singular). It's now
+  // linkedCharacterIds (plural, matching TimelineEvent's precedent).
+  // list()/get() return raw stored records without re-running them through
+  // trackerModel() — only add()/update() do — so an existing Supabase-
+  // synced Tracker keeps its old shape until touched. This normalizes
+  // every Tracker once, deferred until after the first sync pull, same
+  // pattern as ensureDefaultCharacterTemplates/ensureDefaultPlotTemplates.
+  function ensureTrackerCharacterIdsMigrationOnce() {
+    Trackers.list().forEach(function (t) {
+      if (t.linkedCharacterId != null && !Array.isArray(t.linkedCharacterIds)) {
+        Trackers.update(t.id, { linkedCharacterIds: [t.linkedCharacterId] });
+      } else if (!Array.isArray(t.linkedCharacterIds)) {
+        Trackers.update(t.id, { linkedCharacterIds: [] });
+      }
+    });
+  }
   function seedIfEmpty() {
     if (!isEmptyEverywhere()) return;
     storeSet(KEYS.seeded, true);
@@ -2056,6 +2090,7 @@
     getHero: function () { return heroModel(storeGet(KEYS.hero)); },
     saveHero: function (patch) { const next = heroModel(Object.assign({}, heroModel(storeGet(KEYS.hero)), patch)); storeSet(KEYS.hero, next); return next; },
     isEmptyEverywhere: isEmptyEverywhere, seedIfEmpty: seedIfEmpty, resetToDefault: resetToDefault,
-    ensureDefaultCharacterTemplates: ensureDefaultCharacterTemplates, ensureDefaultPlotTemplates: ensureDefaultPlotTemplates
+    ensureDefaultCharacterTemplates: ensureDefaultCharacterTemplates, ensureDefaultPlotTemplates: ensureDefaultPlotTemplates,
+    ensureTrackerCharacterIdsMigrationOnce: ensureTrackerCharacterIdsMigrationOnce
   };
 })(window);
