@@ -3101,11 +3101,11 @@ function renderChapterList(b) {
       '<span class="wd-chapter-row-title">' + esc(c.title) + '</span><span class="wd-chapter-row-words">' + w.toLocaleString() + '</span></div>';
   }).join('') || '<div class="wd-empty" style="padding:10px;">No chapters yet.</div>';
   Array.prototype.forEach.call(list.querySelectorAll('[data-ch-id]'), function (el) {
-    el.addEventListener('click', function () { S.editorChapterId = el.dataset.chId; renderChapterList(b); renderEditorCenter(b); renderRevisionNotesPanel(b); renderEditorRight(b); });
+    el.addEventListener('click', function () { S.editorChapterId = el.dataset.chId; renderChapterList(b); renderEditorCenter(b); renderQuickLorePanel(b); renderRevisionNotesPanel(b); renderEditorRight(b); });
   });
   $('wdNewChapterBtn').addEventListener('click', function () {
     var rec = D().Chapters.add({ bookId: b.id, title: 'Chapter ' + (chapters.length + 1), order: D().nextOrder(chapters) });
-    S.editorChapterId = rec.id; renderChapterList(b); renderEditorCenter(b); renderRevisionNotesPanel(b); renderEditorRight(b);
+    S.editorChapterId = rec.id; renderChapterList(b); renderEditorCenter(b); renderQuickLorePanel(b); renderRevisionNotesPanel(b); renderEditorRight(b);
   });
 }
 function renderEditorCenter(b) {
@@ -3115,8 +3115,6 @@ function renderEditorCenter(b) {
   var pct = Math.min(100, Math.round(words / (b.targetWordCount || 1) * 100));
   var streak = D().currentWritingStreak();
   var suggestions = D().computeConsistencySuggestions(b.id);
-  var beats = D().beatsForBook(b.id);
-  var currentBeat = beats.filter(function (bt) { return bt.linkedChapterId === (chapter ? chapter.id : '__none__'); })[0] || beats.filter(function (bt) { return bt.status !== 'done'; })[0];
   var html = '<div class="gt-card"><div class="wd-editor-toolbar"><div><b>' + esc(b.title) + '</b> · ' + esc(b.genre) + ' · ' + esc(b.pov) + '</div><div style="display:flex;gap:8px;"><button type="button" class="gt-btn gt-btn-sm" id="wdEditorBgBtn">🖼️ Background</button><button type="button" class="gt-btn gt-btn-sm" id="wdEditBookMetaBtn">✎ Edit Metadata</button></div></div>' +
     '<div class="wd-stats-row" style="margin-top:6px;">' +
     '<div class="wd-stat"><div class="wd-stat-num" style="font-size:17px;">' + words.toLocaleString() + '</div><div class="wd-stat-label">Total Words</div></div>' +
@@ -3134,10 +3132,10 @@ function renderEditorCenter(b) {
     wireEditorCenterCommon(b);
     return;
   }
+  html += buildChapterPlotCardHtml(chapter, b);
   html += '<div class="gt-card wd-editor-chapter-card">';
   if (chapter.cover) html += '<div class="wd-chapter-cover"><img src="' + esc(chapter.cover) + '" alt=""></div>';
   html += '<div class="wd-editor-toolbar"><input class="wd-editor-toolbar-title" id="wdChapterTitleInline" value="' + esc(chapter.title) + '"><div style="display:flex;gap:8px;align-items:center;"><span class="wd-editor-stat">' + D().wordCount(chapter.content).toLocaleString() + ' words · ~' + D().readingMinutes(D().wordCount(chapter.content)) + ' min read</span><button type="button" class="gt-btn gt-btn-sm" id="wdComposeBtn" title="Enter Composition Mode (F11)">🎬 Compose</button><button type="button" class="gt-btn gt-btn-sm" id="wdChapterMetaBtn">⚙️ Details</button></div></div>' +
-    '<div class="wd-editor-context-strip"><span>🎯 Beat: ' + (currentBeat ? '<b>' + esc(currentBeat.beatName) + '</b>' : 'none applied — see Structure & Beats') + '</span><span>📝 Goal: <b>' + esc(chapter.summary || 'no summary yet') + '</b></span></div>' +
     '<textarea id="wdChapterContent" placeholder="Begin writing…">' + esc(chapter.content) + '</textarea></div>';
   host.innerHTML = html;
   wireEditorCenterCommon(b);
@@ -3368,8 +3366,10 @@ function wireConnectionsClicks(host, bookId, seriesId, closeModalId) {
     });
   });
 }
-function renderChapterConnections(chapterId, bookId) {
-  var host = ensureChapterConnectionsHost();
+// Shared by the Chapter Details modal's Connections panel and the
+// Editor's inline Reference Sidebar panel — one group-computing function
+// so the two never fork into divergent joins over the same data.
+function computeConnectionsGroups(chapterId, bookId) {
   var book = D().Books.get(bookId); var seriesId = book ? book.seriesId : null;
   var beats = D().beatsForBook(bookId).filter(function (bt) { return bt.linkedChapterId === chapterId; });
   var mainBeats = beats.filter(function (bt) { return ROMANCE_TEMPLATE_KEYS.indexOf(bt.template) === -1; });
@@ -3386,8 +3386,13 @@ function renderChapterConnections(chapterId, bookId) {
     { label: '🎁 Reveal / Payoff', items: trackers.filter(function (t) { return t.type === 'reveal'; }), type: 'tracker' },
     { label: '⏳ Timeline', items: tlEvents, type: 'timeline' }
   ];
-  host.innerHTML = '<h4 style="margin:16px 0 6px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gt-text-mute);">🔗 Connections</h4>' + buildConnectionsHtml(groups);
-  wireConnectionsClicks(host, bookId, seriesId, 'wdChapterMetaModalBg');
+  return { groups: groups, seriesId: seriesId };
+}
+function renderChapterConnections(chapterId, bookId) {
+  var host = ensureChapterConnectionsHost();
+  var computed = computeConnectionsGroups(chapterId, bookId);
+  host.innerHTML = '<h4 style="margin:16px 0 6px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.05em;color:var(--gt-text-mute);">🔗 Connections</h4>' + buildConnectionsHtml(computed.groups);
+  wireConnectionsClicks(host, bookId, computed.seriesId, 'wdChapterMetaModalBg');
 }
 // A Beat's own "what else happens in this chapter" view — same
 // same-linkedChapterId join as above, entered from the Beat side
@@ -3444,30 +3449,156 @@ $('wdScDeleteBtn').addEventListener('click', function () {
   renderChapterScenes(chapterId);
 });
 
+// Rich chapter-sidebar cards — portrait/role/personality/motivations/
+// relationship count/arc progress for a Character, category/summary/
+// tags/linked-character count for a WikiPage. "Arc progress" is a
+// computed heuristic (done vs. total linked character-arc Trackers),
+// same honest-heuristic spirit as the Consistency Checker — not a real
+// analysis, just a useful at-a-glance count.
+function buildCharacterCardHtml(c) {
+  var arcs = D().Trackers.list().filter(function (t) { return (t.linkedCharacterIds || []).indexOf(c.id) !== -1 && (t.type === 'character-arc' || t.type === 'relationship-arc'); });
+  var arcDone = arcs.filter(function (t) { return t.status === 'resolved'; }).length;
+  var relCount = (c.relationships || []).length;
+  var portraitHtml = c.portrait ? '<img src="' + esc(c.portrait) + '" alt="" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;">' : '<div style="width:36px;height:36px;border-radius:8px;background:var(--gt-card-hover);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">🧑</div>';
+  return '<div class="gt-card" data-lore-char="' + c.id + '" style="cursor:pointer;padding:8px;margin-bottom:6px;display:flex;gap:8px;">' + portraitHtml +
+    '<div style="flex:1;min-width:0;">' +
+    '<div style="font-weight:700;font-size:12.5px;color:var(--gt-text);">' + esc(c.name) + (c.role ? ' <span style="font-weight:500;color:var(--gt-text-mute);">· ' + esc(c.role) + '</span>' : '') + '</div>' +
+    (c.personality ? '<div style="font-size:11px;color:var(--gt-text-dim);margin-top:2px;">' + esc(c.personality.length > 80 ? c.personality.slice(0, 80) + '…' : c.personality) + '</div>' : '') +
+    (c.motivations ? '<div style="font-size:10.5px;color:var(--gt-text-mute);margin-top:2px;">🎯 ' + esc(c.motivations.length > 60 ? c.motivations.slice(0, 60) + '…' : c.motivations) + '</div>' : '') +
+    '<div style="font-size:10px;color:var(--gt-text-mute);margin-top:3px;">' + relCount + ' relationship' + (relCount === 1 ? '' : 's') + (arcs.length ? ' · arc ' + arcDone + '/' + arcs.length : '') + '</div>' +
+    '</div></div>';
+}
+function buildWikiCardHtml(w) {
+  var meta = D().wikiCategoryMeta(w.category);
+  var linkedCharCount = (w.linkedCharacterIds || []).length;
+  return '<div class="gt-card" data-lore-wiki="' + w.id + '" style="cursor:pointer;padding:8px;margin-bottom:6px;">' +
+    '<div style="font-weight:700;font-size:12.5px;color:var(--gt-text);">' + meta.icon + ' ' + esc(w.title) + ' <span style="font-weight:500;color:var(--gt-text-mute);font-size:10.5px;">· ' + esc(meta.label) + '</span></div>' +
+    (w.summary ? '<div style="font-size:11px;color:var(--gt-text-dim);margin-top:2px;">' + esc(w.summary.length > 90 ? w.summary.slice(0, 90) + '…' : w.summary) + '</div>' : '') +
+    (w.tags && w.tags.length ? '<div class="gt-chip-row" style="margin-top:4px;">' + w.tags.slice(0, 4).map(function (t) { return '<span class="gt-chip" style="font-size:9.5px;padding:2px 6px;">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+    (linkedCharCount ? '<div style="font-size:10px;color:var(--gt-text-mute);margin-top:3px;">🧑 ' + linkedCharCount + ' linked character' + (linkedCharCount === 1 ? '' : 's') + '</div>' : '') +
+    '</div>';
+}
+// Which "story moment" a beat represents — a small heuristic over its
+// name/key (hook/catalyst/inciting/opening -> hook, climax/finale/
+// confrontation -> climax, etc.), same disclosed-judgment-call spirit as
+// the Master Grid's villain-arc bucketing. Not a real classification —
+// just a useful label when a beat's own name already says what it is.
+function classifyBeatMoment(beat) {
+  var text = ((beat.beatKey || '') + ' ' + (beat.beatName || '')).toLowerCase();
+  if (/hook|catalyst|inciting|opening/.test(text)) return 'hook';
+  if (/climax|confrontation|finale|showdown/.test(text)) return 'climax';
+  if (/setup|establish/.test(text)) return 'setup';
+  if (/payoff|resolution|dark.night|all.is.lost|falling/.test(text)) return 'payoff';
+  return null;
+}
+// The consolidated Chapter Plot Card — purpose/goal/obstacle/stakes/
+// conflict/emotional beat/outcome/summary come straight from chapterModel
+// fields (already existed, previously only editable in a modal, never
+// surfaced inline). Hook/climax/setup/payoff are deliberately NOT new
+// chapter fields — pulled live from whichever Beat is linked to this
+// chapter, per the single-source-of-truth principle chapterModel's own
+// comments already establish (data.js ~line 617). Updates automatically
+// whenever Story Architecture changes, since it's a live read, not a copy.
+function buildChapterPlotCardHtml(chapter, book) {
+  var beats = D().beatsForBook(book.id).filter(function (bt) { return bt.linkedChapterId === chapter.id; });
+  var moments = {};
+  beats.forEach(function (bt) { var m = classifyBeatMoment(bt); if (m && !moments[m]) moments[m] = bt; });
+  var povChar = chapter.pov ? D().Characters.get(chapter.pov) : null;
+  var povLabel = povChar ? povChar.name : (chapter.pov || '');
+  var chaptersInBook = D().chaptersForBook(book.id);
+  var idx = chaptersInBook.findIndex(function (c) { return c.id === chapter.id; });
+  var nextChapter = idx !== -1 && idx < chaptersInBook.length - 1 ? chaptersInBook[idx + 1] : null;
+  var rows = [
+    ['Purpose', chapter.purpose], ['POV', povLabel], ['Goal', chapter.goal], ['Obstacle', chapter.obstacle],
+    ['Stakes', chapter.stakes], ['Conflict', chapter.conflict], ['Emotional Beat', chapter.emotionalBeat], ['Outcome', chapter.outcome]
+  ].filter(function (r) { return r[1]; });
+  var momentRows = ['hook', 'climax', 'setup', 'payoff'].map(function (k) { return moments[k] ? [k.charAt(0).toUpperCase() + k.slice(1), moments[k].beatName] : null; }).filter(Boolean);
+  var html = '<div class="gt-card wd-editor-plotcard"><div class="gt-card-title" style="font-size:13px;">📋 Chapter Plot Card</div>' +
+    '<div style="font-size:11.5px;color:var(--gt-text-dim);margin:2px 0 8px;">' + (chapter.summary ? esc(chapter.summary) : 'No scene summary yet — add one from Chapter Details.') + '</div>';
+  if (beats.length) html += '<div style="font-size:11px;margin-bottom:6px;"><span style="color:var(--gt-text-mute);">Story Beat:</span> <b>' + beats.map(function (bt) { return esc(bt.beatName); }).join(', ') + '</b></div>';
+  if (rows.length) html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;margin-bottom:6px;">' + rows.map(function (r) { return '<div style="font-size:10.5px;"><span style="color:var(--gt-text-mute);">' + esc(r[0]) + ':</span> <b style="color:var(--gt-text);">' + esc(r[1]) + '</b></div>'; }).join('') + '</div>';
+  if (momentRows.length) html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">' + momentRows.map(function (r) { return '<span class="gt-chip" style="font-size:10px;">' + esc(r[0]) + ': ' + esc(r[1]) + '</span>'; }).join('') + '</div>';
+  html += '<div style="font-size:10.5px;color:var(--gt-text-mute);">' + (nextChapter ? 'Next: <b style="color:var(--gt-text-dim);">' + esc(nextChapter.title) + '</b>' : 'This is the last chapter.') + '</div></div>';
+  return html;
+}
+// Planning Sidebar — filtered to exactly the OPEN CHAPTER's own
+// characterIds/linkedWikiPageIds (previously showed the first 6 of the
+// whole series, unfiltered by chapter, regardless of relevance).
 function renderQuickLorePanel(b) {
   var host = $('wdLorePanel');
   var seriesId = b.seriesId;
-  var chars = D().charactersForSeries(seriesId).slice(0, 6);
-  var wikis = D().wikiPagesForSeries(seriesId).slice(0, 6);
-  var html = '<div class="wd-detail-label" style="margin-top:6px;">Characters</div>' + (chars.map(function (c) { return '<div class="wd-lore-panel-item" data-lore-char="' + c.id + '" style="cursor:pointer;padding:3px 0;">🧑 ' + esc(c.name) + '</div>'; }).join('') || '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None yet</div>');
-  html += '<div class="wd-detail-label" style="margin-top:8px;">Lore & Locations</div>' + (wikis.map(function (w) { return '<div class="wd-lore-panel-item" data-lore-wiki="' + w.id + '" style="cursor:pointer;padding:3px 0;">' + D().wikiCategoryMeta(w.category).icon + ' ' + esc(w.title) + '</div>'; }).join('') || '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None yet</div>');
+  var chapter = S.editorChapterId ? D().Chapters.get(S.editorChapterId) : null;
+  var chars = chapter ? D().Characters.list().filter(function (c) { return (chapter.characterIds || []).indexOf(c.id) !== -1; }) : [];
+  var wikis = chapter ? D().WikiPages.list().filter(function (w) { return (chapter.linkedWikiPageIds || []).indexOf(w.id) !== -1; }) : [];
+  var html = '<div class="wd-detail-label" style="margin-top:6px;">Characters in This Chapter</div>' + (chars.length ? chars.map(buildCharacterCardHtml).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None linked — add some from Chapter Details.</div>');
+  html += '<div class="wd-detail-label" style="margin-top:8px;">Worldbuilding in This Chapter</div>' + (wikis.length ? wikis.map(buildWikiCardHtml).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">None linked — add some from Chapter Details.</div>');
   html += '<button type="button" class="gt-btn gt-btn-sm" style="margin-top:8px;width:100%;" id="wdLoreSeriesBtn">Open Series Dashboard →</button>';
   host.innerHTML = html;
   Array.prototype.forEach.call(host.querySelectorAll('[data-lore-char]'), function (el) { el.addEventListener('click', function () { openCharacterDetail(el.dataset.loreChar); }); });
   Array.prototype.forEach.call(host.querySelectorAll('[data-lore-wiki]'), function (el) { el.addEventListener('click', function () { openWikiDetail(el.dataset.loreWiki); }); });
   $('wdLoreSeriesBtn').addEventListener('click', function () { goTo({ type: 'series', id: seriesId }); });
 }
-// Top = AI Prompt Library, bottom = General/Romance Plot — per the
+// Top = AI Prompt Library, then General/Romance Plot — per the
 // Scrivener-clone mapping (Synopsis-slot -> AI Prompts, Notes-slot ->
 // Plot trackers). Scene Summary & Goal / Current Beat moved into the
-// middle chapter card's own context strip (see renderEditorCenter);
-// Revision Notes moved to the left panel (see renderRevisionNotesPanel).
+// middle chapter card's own Chapter Plot Card (see renderEditorCenter/
+// buildChapterPlotCardHtml); Revision Notes moved to the left panel (see
+// renderRevisionNotesPanel). Below that: prev/next chapter nav,
+// continuity reminders, inline Connections, and a Scenes summary — the
+// "Reference Sidebar" pieces that used to require leaving this tab.
 function renderEditorRight(b) {
   var host = $('wdEditorRight');
   host.innerHTML = '';
   renderPromptLibraryBlock(host);
   host.insertAdjacentHTML('beforeend', buildEditorPlotCardHtml(b, 'general', '📖', 'General Plot') + buildEditorPlotCardHtml(b, 'romance', '💕', 'Romance Plot'));
   wireEditorRightPlotClicks(host, b);
+  var chapter = S.editorChapterId ? D().Chapters.get(S.editorChapterId) : null;
+  renderEditorReferencePanel(host, b, chapter);
+}
+function renderEditorReferencePanel(host, b, chapter) {
+  if (!chapter) return;
+  var chaptersInBook = D().chaptersForBook(b.id);
+  var idx = chaptersInBook.findIndex(function (c) { return c.id === chapter.id; });
+  var prevCh = idx > 0 ? chaptersInBook[idx - 1] : null;
+  var nextCh = idx !== -1 && idx < chaptersInBook.length - 1 ? chaptersInBook[idx + 1] : null;
+  var navWrap = document.createElement('div');
+  navWrap.className = 'gt-card';
+  navWrap.innerHTML = '<div style="display:flex;gap:8px;">' +
+    '<button type="button" class="gt-btn gt-btn-sm" id="wdPrevChapterBtn" style="flex:1;"' + (prevCh ? '' : ' disabled') + '>← ' + (prevCh ? esc(prevCh.title) : 'No previous') + '</button>' +
+    '<button type="button" class="gt-btn gt-btn-sm" id="wdNextChapterBtn" style="flex:1;"' + (nextCh ? '' : ' disabled') + '>' + (nextCh ? esc(nextCh.title) : 'No next') + ' →</button>' +
+    '</div>';
+  host.appendChild(navWrap);
+  function jumpTo(id) { S.editorChapterId = id; renderChapterList(b); renderEditorCenter(b); renderQuickLorePanel(b); renderRevisionNotesPanel(b); renderEditorRight(b); }
+  if (prevCh) $('wdPrevChapterBtn').addEventListener('click', function () { jumpTo(prevCh.id); });
+  if (nextCh) $('wdNextChapterBtn').addEventListener('click', function () { jumpTo(nextCh.id); });
+
+  // Continuity reminders — the same heuristic already used for the
+  // center column's top-3 preview, filtered to suggestions tied to THIS
+  // chapter plus the book-wide ones (open trackers, unplaced beats) that
+  // have no single chapter to attach to but are still worth surfacing
+  // regardless of which chapter is open.
+  var allSuggestions = D().computeConsistencySuggestions(b.id);
+  var relevant = allSuggestions.filter(function (s) { return !s.linkedChapterId || s.linkedChapterId === chapter.id; });
+  var remindersWrap = document.createElement('div');
+  remindersWrap.className = 'gt-card';
+  remindersWrap.innerHTML = '<div class="gt-card-title" style="font-size:13px;">🧭 Continuity Reminders</div>' +
+    (relevant.length ? relevant.slice(0, 5).map(function (s2) { return '<div style="font-size:11px;color:var(--gt-text-dim);margin-bottom:4px;">• [' + esc(D().CONSISTENCY_LABELS[s2.category]) + '] ' + esc(s2.note) + '</div>'; }).join('') : '<div style="font-size:11.5px;color:var(--gt-text-mute);">Nothing flagged.</div>');
+  host.appendChild(remindersWrap);
+
+  var connWrap = document.createElement('div');
+  connWrap.className = 'gt-card';
+  var computed = computeConnectionsGroups(chapter.id, b.id);
+  connWrap.innerHTML = '<div class="gt-card-title" style="font-size:13px;">🔗 Connections</div>' + buildConnectionsHtml(computed.groups);
+  host.appendChild(connWrap);
+  wireConnectionsClicks(connWrap, b.id, computed.seriesId, null);
+
+  var scenes = D().scenesForChapter(chapter.id);
+  var scenesWrap = document.createElement('div');
+  scenesWrap.className = 'gt-card';
+  scenesWrap.innerHTML = '<div class="gt-card-title" style="font-size:13px;">🎬 Scenes</div>' +
+    (scenes.length ? scenes.map(function (sc) { return '<div class="wd-lore-panel-item" data-ref-scene="' + sc.id + '" style="cursor:pointer;padding:3px 0;">' + esc(sc.title) + ' <span style="color:var(--gt-text-mute);font-size:10px;">(' + esc(sc.status) + ')</span></div>'; }).join('') : '<div class="wd-lore-panel-item" style="color:var(--gt-text-mute);">No scenes yet — add some from Chapter Details.</div>');
+  host.appendChild(scenesWrap);
+  Array.prototype.forEach.call(scenesWrap.querySelectorAll('[data-ref-scene]'), function (el) { el.addEventListener('click', function () { openSceneModal(el.dataset.refScene, chapter.id); }); });
 }
 // Replaces the old static "✅ Checklist" card — both the General and
 // Romance Plot trackers (see Story Architecture, above) for THIS book,
