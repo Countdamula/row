@@ -87,7 +87,6 @@ body::before{
 .mark{ grid-area:mark } .tabstrip{ grid-area:tabs } .chrome-right{ grid-area:right }
 /* clears topbar.js's fixed launcher; the tab strip keeps its full width */
 .mark{ margin-left:186px }
-@media (max-width:720px){ .mark{ margin-left:0 } }
 .chrome.stuck .omni{ width:150px }
 .mark{ flex:0 0 auto; display:flex; align-items:center; gap:8px;
   font-family:'Archivo'; font-variation-settings:'wdth' 62; font-weight:900;
@@ -432,6 +431,41 @@ main{ position:relative; z-index:4 }
 .chip:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:translateY(-1px) }
 .stub{ padding:70px 0; text-align:center }
 
+/* ══ DISCOVERY ═════════════════════════════════════════ */
+.disc-controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:26px }
+.disc-select{ appearance:none; cursor:pointer;
+  background:rgba(51,31,42,.45) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' fill='none' stroke='%23A89490' stroke-width='1.4'%3E%3Cpath d='M1 1l3.5 3.5L8 1'/%3E%3C/svg%3E") no-repeat right 13px center;
+  border:1px solid var(--hair); color:var(--ink); border-radius:99px;
+  padding:8px 34px 8px 15px; font-family:'Martian Mono',monospace; font-size:10px;
+  letter-spacing:.09em; text-transform:uppercase;
+  transition:border-color .22s ease, background-color .22s ease }
+.disc-select:hover{ border-color:rgba(209,155,140,.4) }
+.disc-select:focus-visible{ outline:2px solid var(--gilt); outline-offset:2px }
+.disc-select option{ background:#200204; color:var(--ink); text-transform:none }
+.disc-roll{ cursor:pointer; border:0; border-radius:99px; padding:9px 22px;
+  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 55%,var(--gilt-deep));
+  color:#2A1710; font-family:'Martian Mono',monospace; font-size:10px;
+  letter-spacing:.13em; text-transform:uppercase;
+  box-shadow:0 1px 2px rgba(9,0,2,.6), 0 8px 22px -10px rgba(209,155,140,.7);
+  transition:transform .32s var(--spring), box-shadow .28s ease }
+.disc-roll:hover{ transform:translateY(-2px);
+  box-shadow:0 1px 2px rgba(9,0,2,.6), 0 14px 30px -10px rgba(209,155,140,.9) }
+.disc-roll:active{ transform:translateY(0) }
+.disc-roll:focus-visible{ outline:2px solid var(--gilt-hi); outline-offset:3px }
+.disc-stage{ display:flex; flex-direction:column; align-items:flex-start; gap:14px }
+.disc-card{ animation:discIn .5s var(--spring) both }
+@keyframes discIn{ from{ opacity:0; transform:translateY(14px) scale(.985) } to{ opacity:1; transform:none } }
+.disc-meta{ font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-faint) }
+.disc-empty{ color:var(--ink-dim); font-size:13px; padding:34px 0 }
+.disc-again{ cursor:pointer; background:none; border:1px solid var(--hair);
+  border-radius:99px; padding:7px 17px; color:var(--ink-dim);
+  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase; transition:color .22s ease, border-color .22s ease, transform .3s var(--spring) }
+.disc-again:hover{ color:var(--gilt-hi); border-color:rgba(209,155,140,.42); transform:translateY(-1px) }
+.disc-again:focus-visible{ outline:2px solid var(--gilt); outline-offset:2px }
+@media (prefers-reduced-motion:reduce){ .disc-card{ animation:none } }
+
 /* ══ BORDER BEAM ═══════════════════════════════════════ */
 /* Two comets orbit the border on a rotating conic gradient. The ring is that
    gradient cut down to a hairline by a two-layer CSS *alpha* mask
@@ -473,6 +507,53 @@ main{ position:relative; z-index:4 }
 @media (forced-colors:active){
   .beam-ring,.beam-glow{ display:none }
   .tile.beamed,.chip.beamed{ border-color:CanvasText }
+}
+
+/* ══ PHONE ═════════════════════════════════════════════ */
+/* topbar.js's launcher is a fixed 144x46 pill at (14,14) and cannot move —
+   every page in the dashboard shares it. At 390px it covers the VAULT mark
+   outright and clips the first two tabs. So on phones the mark is dropped
+   (the launcher itself already reads "The Vault") and the tab strip gets its
+   own row below the launcher's bottom edge. */
+@media (max-width:720px){
+  :root{ --chrome-h:104px }
+  .mark{ display:none }
+  .chrome{
+    grid-template-columns:1fr auto;
+    grid-template-areas:"gap right" "tabs tabs";
+    padding:14px 14px 10px; gap:26px 10px }
+  .chrome.stuck{ grid-template-areas:"gap right" "tabs tabs"; padding:12px 14px 8px }
+  .tabstrip{ gap:2px }
+  .tab{ padding:7px 9px }
+  /* The hero is shorter here, so its bright midground reaches the tab row.
+     A scrim keeps the tabs legible over any backdrop; the stuck bar brings
+     its own background, so it drops out there rather than doubling up. */
+  .chrome::before{ content:''; position:absolute; inset:0; z-index:-1;
+    pointer-events:none;
+    background:linear-gradient(to bottom, rgba(11,1,2,.88) 0%,
+      rgba(11,1,2,.7) 52%, rgba(11,1,2,.3) 82%, transparent 100%) }
+  .chrome.stuck::before{ opacity:0 }
+
+  /* 76vh of hero left barely 200px of content above the fold on an 844px
+     phone. Half the screen still reads as a full-bleed cover while putting
+     the first card within one short scroll. */
+  .hero{ height:52vh; min-height:340px }
+  .sheet{ margin-top:max(52vh,340px) }
+  .hero-inner{ padding:0 16px 14px }
+  .hero-clock{ margin-top:2px }
+  .hero-word{ font-size:clamp(30px,9vw,54px) }
+  /* the cue is redundant once the content is this close */
+  .scrollcue{ display:none }
+  .hero-foot{ padding-bottom:2px }
+
+  /* cards go near-full-width; a sliver of the next one still shows so the
+     row reads as scrollable */
+  .card{ width:86vw }
+  .row{ gap:12px }
+  main#body{ padding-left:16px; padding-right:16px; padding-top:34px }
+
+  .disc-controls{ gap:8px }
+  .disc-select,.disc-roll{ flex:1 1 auto; min-width:0 }
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -906,6 +987,22 @@ function liveStats(key){
             [String(rawAll().filter(v => v.favorite).length), 'starred'],
             [String(rawAll().filter(v => v.queued).length), 'tonight']];
   }
+  if(key === 'favorites'){
+    const favs = rawAll().filter(v => v.favorite);
+    if(!favs.length) return null;
+    return [[String(favs.length), 'starred'],
+            [String(new Set(favs.map(v => v._shelf)).size), 'shelves'],
+            [String(favs.filter(v => (v.rating || 0) >= 5).length), 'five star'],
+            [String(favs.filter(v => v.queued).length), 'tonight']];
+  }
+  if(key === 'discover'){
+    const pool = rawAll();
+    if(!pool.length) return null;
+    return [[String(pool.length), 'in pool'],
+            [String(Object.values(c).filter(Boolean).length), 'shelves'],
+            [String(pool.filter(v => !v.lastOpenedAt).length), 'untouched'],
+            [String(pool.filter(v => (v.rating || 0) >= 4).length), 'four plus']];
+  }
   if(!Vault.SHELVES.includes(key)) return null;
   const items = Vault.list(key);
   if(!items.length) return null;
@@ -1044,6 +1141,130 @@ function renderEmpty(shelf){
   body.appendChild(d);
 }
 
+/* ── Discovery Engine ──────────────────────────────────────
+   Matches the old page's behaviour: pick a shelf (or all), set a minimum
+   rating, roll one random item, roll again. State survives tab switches
+   within the session, exactly as discoveryState did there. */
+const discovery = { shelf:'all', minRating:0, pick:null, recent:[] };
+
+function renderDiscover(){
+  const wrap = el('section','mb-12');
+  wrap.appendChild(sechead('Discovery Engine', null));
+
+  const controls = el('div','disc-controls');
+
+  const shelfSel = el('select','disc-select');
+  shelfSel.innerHTML = '<option value="all">All shelves</option>' +
+    Vault.SHELVES.filter(s => Vault.list(s).length)
+      .map(s => `<option value="${s}">${esc(shelfOf(s).label)} · ${Vault.list(s).length}</option>`).join('');
+  shelfSel.value = discovery.shelf;
+  shelfSel.onchange = () => { discovery.shelf = shelfSel.value; };
+
+  const rateSel = el('select','disc-select');
+  rateSel.innerHTML = [0,1,2,3,4,5].map(n =>
+    `<option value="${n}">${n === 0 ? 'Any rating' : n + '+ stars'}</option>`).join('');
+  rateSel.value = discovery.minRating;
+  rateSel.onchange = () => { discovery.minRating = Number(rateSel.value); };
+
+  const roll = el('button','disc-roll','Discover');
+  roll.onclick = () => { rollDiscovery(); paintPick(); };
+
+  controls.append(shelfSel, rateSel, roll);
+  wrap.appendChild(controls);
+
+  const stage = el('div','disc-stage'); stage.id = 'discStage';
+  wrap.appendChild(stage);
+  body.appendChild(wrap);
+  paintPick();
+}
+
+function discoveryPool(){
+  const shelves = discovery.shelf === 'all' ? Vault.SHELVES : [discovery.shelf];
+  return shelves.flatMap(s => Vault.list(s).map(v => ({ ...v, _shelf:s })))
+    .filter(v => (Number(v.rating) || 0) >= discovery.minRating);
+}
+
+function rollDiscovery(){
+  const pool = discoveryPool();
+  if(!pool.length){ discovery.pick = null; return; }
+  /* Don't hand back the item you just rejected. The old engine used a bare
+     Math.random(), so pressing Try Another could return the same card and
+     read as a broken button. Only excludes the last few, so a small pool
+     still works. */
+  const avoid = new Set(discovery.recent.slice(-Math.min(5, pool.length - 1)));
+  const fresh = pool.filter(v => !avoid.has(v.id));
+  const from = fresh.length ? fresh : pool;
+  const hit = from[Math.floor(Math.random() * from.length)];
+  discovery.pick = hit;
+  discovery.recent.push(hit.id);
+  if(discovery.recent.length > 20) discovery.recent.shift();
+}
+
+function paintPick(){
+  const stage = document.getElementById('discStage');
+  if(!stage) return;
+  stage.innerHTML = '';
+  if(!discovery.pick){
+    const pool = discoveryPool().length;
+    stage.appendChild(el('p','disc-empty', pool
+      ? 'Press Discover for a random pick.'
+      : 'Nothing matches those filters yet — try a lower rating.'));
+    return;
+  }
+  const d = toCard(discovery.pick);
+  const holder = el('div','disc-card');
+  holder.appendChild(card(d, { shelf:discovery.pick._shelf }));
+  stage.appendChild(holder);
+
+  const meta = el('p','disc-meta',
+    `from ${esc(shelfOf(discovery.pick._shelf).label)}${d.tags[0] ? ' · ' + esc(d.tags[0]) : ''}`);
+  stage.appendChild(meta);
+
+  const again = el('button','disc-again','Try another');
+  again.onclick = () => { rollDiscovery(); paintPick(); };
+  stage.appendChild(again);
+}
+
+/* ── Favorites ─────────────────────────────────────────────
+   Every starred item on every shelf, grouped into one row per shelf. The
+   old page gated this behind filter chips — one chip click to see one
+   shelf. Stacked rows show all of them at once, which is the same reason
+   the galleries stack rather than filter. */
+function renderFavorites(){
+  const groups = Vault.SHELVES
+    .map(s => [s, Vault.list(s).filter(v => v.favorite).map(v => toCard({ ...v, _shelf:s }))])
+    .filter(([, list]) => list.length);
+
+  if(!groups.length){
+    const d = el('div','stub');
+    d.innerHTML = `<div style="color:var(--gilt);opacity:.4">${sig('sg-fav',34)}</div>
+      <p class="mono mt-5" style="color:var(--ink-faint)">No favourites yet</p>
+      <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
+        Tap the star at the top-left of any card to add one.</p>`;
+    body.appendChild(d);
+    return;
+  }
+
+  const total = groups.reduce((n, [, l]) => n + l.length, 0);
+  const chips = el('div','flex gap-2 overflow-x-auto pb-2 mb-10');
+  chips.style.scrollbarWidth = 'none';
+  groups.forEach(([s, list], i) => {
+    const b = el('button','chip', `${esc(shelfOf(s).label)} · ${list.length}`);
+    b.onclick = () => document.getElementById('fav-'+i)?.scrollIntoView({ behavior:'smooth', block:'start' });
+    beam(b, { tint:shelfOf(s).tint, seed:i+1 });
+    chips.appendChild(b);
+  });
+  body.appendChild(chips);
+
+  groups.forEach(([s, list], i) => {
+    const sec = section(shelfOf(s).label, list.length, 'Open shelf', list, { shelf:s });
+    sec.id = 'fav-'+i; sec.style.scrollMarginTop = '90px';
+    sec.querySelector('.more')?.addEventListener('click', () => go(s));
+    body.appendChild(sec);
+  });
+  body.dataset.favTotal = total;
+}
+
 function renderStub(){
   const s = shelfOf(active);
   const d = el('div','stub');
@@ -1058,6 +1279,8 @@ function renderStub(){
 function render(){
   closeDetail(); clearBeams(); body.innerHTML = '';
   if(active==='home') renderHome();
+  else if(active==='discover') renderDiscover();
+  else if(active==='favorites') renderFavorites();
   else if(Vault.SHELVES.includes(active)) renderGallery(active);
   else renderStub();
 }
