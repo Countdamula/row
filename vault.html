@@ -492,6 +492,20 @@ main{ position:relative; z-index:4 }
     transparent 261deg,
     transparent 360deg);
 }
+/* Safari didn't ship color-mix() until 16.2. On anything older the whole
+   `background` above is invalid and the ring renders as NOTHING — no comet,
+   no glow, on a phone that otherwise looks fine. This fallback trades the
+   soft toe for hard stops so the effect still runs there. */
+@supports not (background: color-mix(in srgb, red 50%, transparent)){
+  .beam-ring,.beam-glow{
+    background:conic-gradient(from var(--beam-a),
+      transparent 0deg, transparent 30deg,
+      var(--beam-1) 56deg, #FBEAE1 60deg, transparent 64deg,
+      transparent 198deg,
+      var(--beam-2) 254deg, #FBEAE1 258deg, transparent 262deg,
+      transparent 360deg);
+  }
+}
 .beam-ring{ z-index:3; padding:var(--beam-w);
   -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
   -webkit-mask-composite:xor;
@@ -563,9 +577,10 @@ main{ position:relative; z-index:4 }
      Drop the movement, keep the fades — those aren't motion. */
   .hero-bg img{ scale:1; translate:none }
   .hero-word{ translate:none }
-  /* beams park at 40° — both comets land on visible edges, so the border stays
-     lit and the element still reads as the same object, just without the orbit */
-  .beamed{ --beam-a:40deg }
+  /* The beams keep orbiting under reduced motion, only far slower (see BEAM.slow)
+     — so no --beam-a override here. What DOES get dropped is the glow bloom,
+     which is the loudest part of the effect. */
+  .beam-glow{ opacity:.14 }
 }
 </style>
 </head>
@@ -752,7 +767,15 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
    One rAF loop drives every beam on the page. The React original runs a loop
    per component, which is fine for one panel and wrong for the eighteen this
    page puts on screen at once. The loop stops entirely when nothing is live. */
-const BEAM = { idle:42, hover:240, k:30, d:11, parked:40 };
+/* `slow` is what runs under prefers-reduced-motion. The beam used to park
+   dead still there, which is why the effect looked broken on phones — iOS
+   Reduce Motion is on for a great many people, and it is exactly the kind of
+   setting you enable once for the app-open zoom and then forget.
+   12deg/s is a 30-second lap: a hairline of light drifting round a border,
+   small-area and non-parallax, which is not the kind of motion the
+   preference exists to suppress. The hover wind-up is still dropped there —
+   that IS a sudden change, and it's the part worth removing. */
+const BEAM = { idle:42, hover:240, k:30, d:11, slow:12 };
 const beams = new Set();
 const beamReduce = matchMedia('(prefers-reduced-motion: reduce)');
 /* park the loop for anything scrolled off screen — an orbiting comet nobody
@@ -773,16 +796,20 @@ function beam(node, opts={}){
 
   /* phase off the index, never Math.random — two runs of the same screenshot
      have to match or the comparison rounds are meaningless */
-  const b = { el:node, a:((opts.seed||1)*137.508)%360, sp:BEAM.idle, spv:0,
-              target:BEAM.idle, seen:true };
+  const rest = beamReduce.matches ? BEAM.slow : BEAM.idle;
+  const b = { el:node, a:((opts.seed||1)*137.508)%360, sp:rest, spv:0,
+              target:rest, seen:true };
   node._beam = b;
-  if(beamReduce.matches){ b.a = BEAM.parked; paintBeam(b); return node; }
   paintBeam(b);
 
-  const surge = () => { b.target = BEAM.hover }, settle = () => { b.target = BEAM.idle };
-  node.addEventListener('pointerenter', surge);
-  node.addEventListener('pointerleave', settle);
-  node.addEventListener('focus', surge); node.addEventListener('blur', settle);
+  /* No hover wind-up under reduced motion — the orbit continues, but nothing
+     accelerates. Touch has no hover anyway, so phones lose nothing here. */
+  if(!beamReduce.matches){
+    const surge = () => { b.target = BEAM.hover }, settle = () => { b.target = BEAM.idle };
+    node.addEventListener('pointerenter', surge);
+    node.addEventListener('pointerleave', settle);
+    node.addEventListener('focus', surge); node.addEventListener('blur', settle);
+  }
 
   beams.add(b); beamIO.observe(node); beamPump();
   return node;
@@ -806,15 +833,20 @@ function beamFrame(now){
   beamPump();
 }
 function beamPump(){
-  const live = tabLive && !beamReduce.matches && [...beams].some(b => b.seen);
+  /* beamReduce is deliberately NOT a gate here any more — the loop runs
+     either way, just slower. Offscreen and hidden-tab still park it. */
+  const live = tabLive && [...beams].some(b => b.seen);
   if(live && !beamRaf) beamRaf = requestAnimationFrame(beamFrame);
   if(!live && beamRaf){ cancelAnimationFrame(beamRaf); beamRaf = 0; beamLast = 0 }
 }
 document.addEventListener('visibilitychange', () => {
   tabLive = document.visibilityState !== 'hidden'; beamLast = 0; beamPump();
 });
+/* Toggling the OS setting mid-session retargets every live beam rather than
+   waiting for the next render. */
 beamReduce.addEventListener('change', () => {
-  if(beamReduce.matches) beams.forEach(b => { b.a = BEAM.parked; paintBeam(b) });
+  const rest = beamReduce.matches ? BEAM.slow : BEAM.idle;
+  beams.forEach(b => { b.target = rest; if(beamReduce.matches) b.sp = Math.min(b.sp, rest); });
   beamPump();
 });
 
@@ -1082,11 +1114,13 @@ function renderHome(){
      so it belongs directly under the hero — Continue and Tonight are subsets
      of it and read better as follow-ups. */
   const shelves = el('section','mb-12');
-  shelves.appendChild(sechead('Shelves', 10));
+  const counts = COUNTS();
+  const live = SHELVES.filter(s => counts[s.key]);
+  shelves.appendChild(sechead('Shelves', live.length));
   const grid = el('div','grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5');
-  SHELVES.filter(s => COUNTS[s.key]).forEach((s,i) => {
+  live.forEach((s,i) => {
     const t = el('button','tile', `<span style="color:${s.tint}">${sig(s.sigil,17)}</span>
-      <span class="tn">${s.label}</span><span class="tc">${COUNTS[s.key]} items</span>`);
+      <span class="tn">${s.label}</span><span class="tc">${counts[s.key]} items</span>`);
     t.style.setProperty('--tint', s.tint); t.onclick = () => go(s.key);
     /* second comet carries the shelf's own hue, so the tile is colour-coded by
        the light running round it as well as by its sigil */
