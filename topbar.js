@@ -121,6 +121,25 @@
       ],
     },
     {
+      // The Codex — codex.html + codex-data.js. Placed directly beneath
+      // The Vault per an explicit request.
+      //
+      // A PARALLEL build, not a replacement. The Writing Dashboard in the
+      // Business folder below is untouched and still listed. The Codex
+      // owns its own namespace ('cdx:*') and its own Supabase row (appKey
+      // 'codex'), so it never reads or writes a 'wds:' key — the two
+      // writing pages cannot affect each other's data.
+      key: 'codex',
+      label: 'The Codex',
+      items: [
+        { href: 'codex.html', icon: '❦', label: 'The Codex', id: 'topbarCodex', children: [
+          { hash: '/', label: 'Trilogy Shelf' },
+          { hash: '/prompts', label: 'AI Prompt Database' },
+          { hash: '/stats', label: 'Writing Statistics' },
+        ] },
+      ],
+    },
+    {
       key: 'command',
       label: 'Command Center',
       items: [
@@ -1023,7 +1042,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.cx-modal-bg', '.cx-comp-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
