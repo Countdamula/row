@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- MUST be first and MUST NOT be deferred — it replaces window.localStorage
+     with an IndexedDB-backed shim, and anything that reads storage before it
+     installs would see the old, frozen native copy. See local-store-idb.js. -->
+<script src="local-store-idb.js"></script>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#120103">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Vault — Personal Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62,900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..600&family=Martian+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<script src="vault-data.js" defer></script>
+<script>
+tailwind.config = { theme:{ extend:{
+  colors:{ s0:'#120103', s1:'#200204', s2:'#331f2a', s3:'#271e3d',
+    gilt:'#D19B8C', giltHi:'#F2CDBE', ink:'#EFE4E0', inkDim:'#A89490', inkFaint:'#6B5A57' }
+}}}
+</script>
+
+<style>
+:root{
+  --s0:#120103; --s1:#200204; --s2:#331f2a; --s3:#271e3d;
+  --card:#1E0D18;
+  --gilt:#D19B8C; --gilt-hi:#F2CDBE; --gilt-deep:#A05F4E;
+  --chrome:#D8DCE3; --chrome-dim:#8A8F99;
+  --ink:#EFE4E0; --ink-dim:#A89490; --ink-faint:#6B5A57;
+  --hair:rgba(209,155,140,.13);
+  --hair-soft:rgba(209,155,140,.07);
+  --shelf:var(--gilt);
+  --spring:cubic-bezier(.34,1.4,.64,1);
+  --chrome-h:82px;   /* two-row chrome at rest — clock/hero must clear it */
+}
+
+*{ -webkit-tap-highlight-color:transparent }
+html{ scroll-behavior:smooth }
+
+body{
+  margin:0; min-height:100vh; color:var(--ink);
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:14px; line-height:1.7;
+  background:
+    radial-gradient(1100px 560px at 18% -12%, rgba(209,155,140,.07), transparent 62%),
+    radial-gradient(880px 480px at 88% 2%, rgba(39,30,61,.5), transparent 66%),
+    var(--s0);
+  background-attachment:fixed;
+}
+body::before{
+  content:''; position:fixed; inset:0; z-index:70; pointer-events:none; opacity:.045;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.mono{ font-family:'Martian Mono',monospace; font-weight:400; font-size:10px;
+  letter-spacing:.13em; text-transform:uppercase }
+::selection{ background:rgba(209,155,140,.28); color:var(--gilt-hi) }
+:where(a,button,input,[tabindex]):focus-visible{
+  outline:1px solid var(--gilt); outline-offset:3px; border-radius:3px }
+
+/* ══ CHROME ROW ══ fixed; condenses on scroll ══════════ */
+/* Two rows at rest, one row when stuck. 14 tabs at a readable size plus the
+   paste box will not fit on one line at 1440 — measured, not assumed. */
+.chrome{
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  display:grid; align-items:center;
+  grid-template-columns:auto 1fr auto;
+  grid-template-areas:"mark gap right" "tabs tabs tabs";
+  gap:4px 18px; padding:12px 40px 8px;
+  transition:padding .35s ease, background-color .35s ease, border-color .35s ease;
+  border-bottom:1px solid transparent;
+}
+.chrome.stuck{
+  grid-template-areas:"mark tabs right";
+  padding:7px 40px;
+  background:rgba(11,1,2,.88); backdrop-filter:blur(20px) saturate(130%);
+  border-bottom-color:var(--hair-soft);
+}
+.mark{ grid-area:mark } .tabstrip{ grid-area:tabs } .chrome-right{ grid-area:right }
+/* clears topbar.js's fixed launcher; the tab strip keeps its full width */
+.mark{ margin-left:186px }
+@media (max-width:720px){ .mark{ margin-left:0 } }
+.chrome.stuck .omni{ width:150px }
+.mark{ flex:0 0 auto; display:flex; align-items:center; gap:8px;
+  font-family:'Archivo'; font-variation-settings:'wdth' 62; font-weight:900;
+  font-size:14px; letter-spacing:.14em; text-transform:uppercase;
+  background:linear-gradient(135deg,#F2CDBE 0%,#D19B8C 42%,#8E5744 66%,#E8BBA8 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent }
+
+.tabstrip{ display:flex; gap:1px; overflow-x:auto; scrollbar-width:none; flex:1 1 auto; min-width:0 }
+.tabstrip::-webkit-scrollbar{ display:none }
+.tab{ position:relative; flex:0 0 auto; display:flex; align-items:center; gap:6px;
+  padding:6px 10px; color:rgba(239,228,224,.52);
+  font-family:'Martian Mono',monospace; font-size:10px; letter-spacing:.11em;
+  text-transform:uppercase; white-space:nowrap; background:none; border:0; cursor:pointer;
+  transition:color .28s ease }
+.tab svg{ width:13px; height:13px; opacity:.55; transition:opacity .28s ease, transform .45s var(--spring) }
+.tab:hover{ color:rgba(239,228,224,.85) } .tab:hover svg{ opacity:.9 }
+.tab.on{ color:var(--gilt-hi) }
+.tab.on svg{ opacity:1; color:var(--shelf); transform:scale(1.1) }
+
+.chrome-right{ flex:0 0 auto; display:flex; align-items:center; gap:8px }
+.omni{ width:220px; background:rgba(51,31,42,.4); border:1px solid var(--hair);
+  color:var(--ink); border-radius:99px; padding:6px 14px 6px 32px; font-size:12px;
+  transition:width .35s var(--spring), border-color .25s ease, background-color .25s ease }
+.omni::placeholder{ color:var(--ink-faint) }
+.omni:focus{ outline:none; width:280px; border-color:rgba(209,155,140,.45); background:rgba(51,31,42,.7) }
+.iconbtn{ color:var(--ink-dim); border:1px solid var(--hair-soft); background:rgba(51,31,42,.3);
+  border-radius:99px; display:grid; place-items:center;
+  transition:color .2s ease, transform .3s var(--spring), border-color .2s ease }
+.iconbtn:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:translateY(-1px) }
+/* scroll gauge lives on the stuck bar */
+.gauge{ position:absolute; left:0; bottom:-1px; height:1px; width:100%;
+  transform:scaleX(0); transform-origin:left; opacity:0;
+  background:linear-gradient(to right,var(--gilt-deep),var(--gilt-hi));
+  transition:opacity .3s ease }
+.chrome.stuck .gauge{ opacity:.8 }
+
+/* ══ HERO ══════════════════════════════════════════════ */
+/* Curtain: the hero is pinned to the viewport and the sheet below slides up
+   over it. --p is scroll progress 0..1 across the hero's own height, set once
+   per frame by the scroll handler and consumed by the parallax rules below. */
+.hero{ position:fixed; top:0; left:0; right:0; z-index:1; --p:0;
+  overflow:hidden; padding-top:var(--chrome-h);
+  height:76vh; min-height:520px }
+
+/* backdrop pushes in and drifts down — `scale`/`translate` stay off `transform`
+   so they can't collide with the cross-fade or the inline filter */
+.hero-bg img{ scale:calc(1 + var(--p) * .16); translate:0 calc(var(--p) * 5vh) }
+/* wordmark rises and clears out first */
+.hero-word{ translate:0 calc(var(--p) * -8vh); opacity:calc(1 - var(--p) * 1.35) }
+/* the furniture goes sooner, so the image is the last thing standing */
+.hero-clock,.readouts,.rail,.hero-foot{ opacity:calc(1 - var(--p) * 1.9) }
+.tickrail{ opacity:calc(.5 - var(--p) * .5) }
+
+/* the sheet — full width so the hero can't peek past a max-width main */
+/* min-height ≥ 100vh so the curtain can always complete its travel, even on
+   a shelf with almost no content */
+.sheet{ position:relative; z-index:4;
+  margin-top:max(76vh, 520px); min-height:100vh;
+  background:
+    radial-gradient(1000px 520px at 78% 0%, rgba(39,30,61,.32), transparent 62%),
+    var(--s0);
+}
+/* leading edge of the curtain */
+.sheet::before{ content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(to right,transparent,var(--hair) 12%,var(--hair) 88%,transparent) }
+
+.hero-bg{ position:absolute; inset:0; z-index:0 }
+.hero-bg img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  opacity:0; transition:opacity .7s ease }
+.hero-bg img.on{ opacity:1 }
+.hero-sigil{ position:absolute; inset:0; display:grid; place-items:center;
+  color:var(--shelf); opacity:.12; transition:opacity .5s ease }
+.hero-sigil.hide{ opacity:0 }
+
+/* darkening + colour treatment, per house rules */
+.hero-veil{ position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:
+    /* left-side fall-off: hairline serifs need a quiet ground to sit on */
+    linear-gradient(to right, rgba(11,1,2,.74) 0%, rgba(11,1,2,.34) 32%,
+      rgba(11,1,2,.06) 56%, transparent 72%),
+    linear-gradient(to bottom, rgba(11,1,2,.8) 0%, rgba(11,1,2,.26) 20%,
+      rgba(11,1,2,.18) 48%, rgba(11,1,2,.68) 84%, #120103 100%),
+    radial-gradient(135% 100% at 50% 40%, transparent 30%, rgba(11,1,2,.62) 100%);
+}
+.hero-veil::after{ content:''; position:absolute; inset:0;
+  background:#271e3d; opacity:.15; mix-blend-mode:multiply }
+/* hero dims as the sheet rises, so the two never fight for attention */
+.hero-veil::before{ content:''; position:absolute; inset:0; z-index:1;
+  background:#120103; opacity:calc(var(--p) * .6) }
+
+/* vertical tick rails */
+.tickrail{ position:absolute; top:var(--chrome-h); bottom:0; width:11px; z-index:2;
+  pointer-events:none; opacity:.5;
+  background:repeating-linear-gradient(to bottom,
+    rgba(239,228,224,.3) 0 1px, transparent 1px 9px) }
+.tickrail.l{ left:14px } .tickrail.r{ right:14px }
+.tickrail::before,.tickrail::after{ content:''; position:absolute; left:0; width:11px; height:1px;
+  background:rgba(239,228,224,.4) }
+.tickrail::before{ top:0 } .tickrail::after{ bottom:0 }
+@media (max-width:720px){ .tickrail{ display:none } }
+
+.hero-inner{ position:relative; z-index:3; height:100%;
+  display:flex; flex-direction:column; padding:0 40px 22px;
+  /* full-bleed: the hero runs the whole viewport width on every shelf, so the
+     backdrop and the content below it share one edge instead of two */
+  width:100%; margin:0 }
+@media (max-width:720px){ .hero-inner{ padding:0 18px 18px } }
+
+.hero-clock{ align-self:center; color:rgba(239,228,224,.4); margin-top:10px;
+  font-variant-numeric:tabular-nums }
+
+/* Hero titles follow the INÉORA lockup in banner & title_text.jpg:
+   high-contrast didone, light weight, wide tracking, rose-gold metallic fill.
+   opsz 96 pushes Bodoni to its thinnest hairlines — that contrast is the whole
+   point of the reference, and weight 900 would destroy it. */
+.hero-word{
+  font-family:'Bodoni Moda',serif;
+  font-variation-settings:'opsz' 96;
+  font-weight:500;
+  /* INÉORA sets its caps close, almost touching — not widely tracked */
+  text-transform:uppercase; letter-spacing:.03em; line-height:.94;
+  margin:0; white-space:nowrap;
+  background:linear-gradient(177deg,
+    #FBEAE1 0%, #EFC4B3 13%, #D19B8C 32%, #9C6152 50%,
+    #7A4A3E 60%, #C08A78 75%, #EDC3B2 87%, #A8695A 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  /* drop-shadow, not text-shadow — on transparent glyphs text-shadow paints a
+     solid slab straight through the fill */
+  filter:drop-shadow(0 0 34px rgba(209,155,140,.26))
+         drop-shadow(0 10px 34px rgba(11,1,2,.85));
+  transition:opacity .34s ease, transform .34s var(--spring);
+}
+/* Bodoni caps are far wider than Archivo at wdth 62, so the old 186px ran the
+   title across the whole frame and over the subject. Sized to sit in the left
+   half, which is the quiet zone every backdrop was built around.
+   fitWord() shrinks it further when a long name would still overflow. */
+.hero-word{ font-size:clamp(34px,6.4vw,96px); margin-top:auto }
+.hero-word.swapping{ opacity:0; transform:translateY(12px) }
+
+/* the rail — now under the wordmark */
+.rail{ position:relative; height:1px; margin-top:16px;
+  background:linear-gradient(to right,transparent,var(--hair) 4%,var(--hair) 96%,transparent) }
+.bloom-node{ position:absolute; top:0; height:1px; width:120px; transform:translateX(-50%);
+  background:linear-gradient(to right,transparent,var(--shelf) 26%,var(--gilt-hi) 50%,var(--shelf) 74%,transparent);
+  transition:left .6s var(--spring), background .45s ease }
+.bloom-node::after{ content:''; position:absolute; left:50%; top:-4px; transform:translateX(-50%);
+  width:250px; height:9px; border-radius:99px;
+  background:radial-gradient(closest-side,var(--shelf),transparent);
+  filter:blur(6px); opacity:.7 }
+.bloom-wash{ position:absolute; top:-190px; height:200px; width:820px; transform:translateX(-50%);
+  pointer-events:none;
+  background:radial-gradient(ellipse 410px 170px at 50% 100%,
+    color-mix(in srgb,var(--shelf) 40%,transparent), transparent 72%);
+  opacity:.4; transition:left .6s var(--spring), background .45s ease }
+
+.readouts{ display:flex; justify-content:space-between; gap:16px; margin-top:13px }
+.readout{ display:flex; align-items:baseline; gap:7px; white-space:nowrap }
+.readout b{ font-family:'Martian Mono',monospace; font-size:11px; font-weight:500;
+  letter-spacing:.04em; color:var(--gilt-hi) }
+.readout span{ font-family:'Martian Mono',monospace; font-size:8.5px; letter-spacing:.15em;
+  text-transform:uppercase; color:rgba(239,228,224,.42) }
+@media (max-width:720px){ .readout:nth-child(n+3){ display:none } }
+
+.hero-foot{ display:flex; align-items:center; justify-content:space-between;
+  margin-top:auto; padding-top:18px }
+.dot{ color:rgba(239,228,224,.4) }
+.dot i{ font-style:normal; color:#7FB8A0; text-shadow:0 0 8px rgba(127,184,160,.8) }
+.scrollcue{ position:relative; font-family:'Bodoni Moda',serif; font-style:italic;
+  font-size:15px; color:rgba(239,228,224,.66); padding:9px 26px; cursor:pointer;
+  transition:color .25s ease, transform .4s var(--spring) }
+.scrollcue:hover{ color:var(--gilt-hi); transform:translateY(2px) }
+.scrollcue svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible }
+
+/* ══ SECTIONS / ROWS ═══════════════════════════════════ */
+main{ position:relative; z-index:4 }
+.sechead{ display:flex; align-items:baseline; gap:14px; margin-bottom:14px }
+.sechead .lbl{ color:var(--ink-dim); font-family:'Martian Mono',monospace; font-size:10px;
+  letter-spacing:.17em; text-transform:uppercase; white-space:nowrap }
+.sechead .num{ color:var(--gilt-deep); font-family:'Martian Mono',monospace;
+  font-size:9px; letter-spacing:.08em }
+.sechead .rule{ flex:1; height:1px; background:linear-gradient(to right,var(--hair),transparent) }
+.sechead .more{ color:var(--ink-faint); font-family:'Martian Mono',monospace; font-size:9.5px;
+  letter-spacing:.12em; text-transform:uppercase; background:none; border:0; cursor:pointer;
+  white-space:nowrap; transition:color .2s ease }
+.sechead .more:hover{ color:var(--gilt) }
+
+.rowwrap{ position:relative }
+.row{ display:flex; align-items:flex-start; gap:16px; overflow-x:auto; padding:4px 2px 14px;
+  scroll-snap-type:x proximity; scrollbar-width:thin;
+  scrollbar-color:rgba(209,155,140,.2) transparent }
+.row::-webkit-scrollbar{ height:5px }
+.row::-webkit-scrollbar-track{ background:transparent }
+.row::-webkit-scrollbar-thumb{ background:rgba(209,155,140,.16); border-radius:99px }
+.row:hover::-webkit-scrollbar-thumb{ background:rgba(209,155,140,.3) }
+.row > *{ scroll-snap-align:start }
+.rowfade{ position:absolute; top:0; bottom:14px; right:-2px; width:92px; pointer-events:none; z-index:2;
+  background:linear-gradient(to left,#120103 18%,rgba(18,1,3,.55) 55%,transparent) }
+.nudge{ position:absolute; top:38%; z-index:3; width:32px; height:32px; border-radius:50%;
+  display:grid; place-items:center; background:rgba(51,31,42,.92); border:1px solid var(--hair);
+  color:var(--ink-dim); cursor:pointer; opacity:0;
+  transition:opacity .25s ease, transform .35s var(--spring), color .2s ease }
+.rowwrap:hover .nudge{ opacity:1 }
+.nudge:hover{ color:var(--gilt-hi); transform:scale(1.1) }
+.nudge.l{ left:-8px } .nudge.r{ right:-8px }
+
+/* ══ CARD ══════════════════════════════════════════════ */
+.card{
+  position:relative; flex:0 0 auto; width:460px; aspect-ratio:16/9;
+  border-radius:14px; overflow:hidden; cursor:pointer; text-align:left;
+  border:1px solid var(--hair-soft); background:var(--card);
+  box-shadow:0 1px 2px rgba(9,0,2,.7), 0 12px 30px -14px rgba(160,95,78,.34);
+  transition:transform .42s var(--spring), border-color .3s ease,
+             box-shadow .3s ease, opacity .3s ease;
+}
+.card:hover{ transform:translateY(-5px); border-color:var(--hair);
+  box-shadow:0 2px 4px rgba(9,0,2,.75), 0 20px 44px -16px rgba(160,95,78,.5),
+             0 0 0 1px rgba(209,155,140,.09) }
+.card:active{ transform:translateY(-2px) scale(.995) }
+@media (max-width:560px){ .card{ width:min(460px,82vw) } }
+.row.has-open .card:not(.open){ opacity:.55 }
+.row.has-open .card:not(.open):hover{ opacity:.85 }
+
+.art{ position:absolute; inset:0; overflow:hidden }
+.art .bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  filter:blur(26px) saturate(1.35) brightness(.5); transform:scale(1.25) }
+.art .fg{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+  transition:transform .7s var(--spring) }
+.card:hover .art .fg{ transform:scale(1.045) }
+.art::before{ content:''; position:absolute; inset:0; z-index:1;
+  background:#271e3d; opacity:.13; mix-blend-mode:multiply }
+.art::after{ content:''; position:absolute; inset:0; z-index:2;
+  background:linear-gradient(to top, rgba(18,1,3,.96) 0%, rgba(18,1,3,.9) 16%,
+    rgba(18,1,3,.62) 38%, rgba(18,1,3,.22) 62%, transparent 88%) }
+
+.c-star{ position:absolute; left:12px; top:12px; z-index:5;
+  width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
+  background:rgba(18,1,3,.42); backdrop-filter:blur(6px);
+  border:1px solid rgba(239,228,224,.09); color:rgba(239,228,224,.42);
+  font-size:14px; line-height:1; cursor:pointer;
+  transition:transform .35s var(--spring), color .2s ease, background-color .2s ease }
+.card:hover .c-star{ background:rgba(18,1,3,.6); color:rgba(239,228,224,.72) }
+.c-star:hover{ transform:scale(1.14); color:var(--gilt-hi) }
+.c-star.on{ color:#F2CDBE; text-shadow:0 0 10px rgba(242,205,190,.6);
+  border-color:rgba(242,205,190,.34) }
+
+.c-score{ position:absolute; right:12px; top:12px; z-index:5;
+  padding:5px 9px; border-radius:8px;
+  background:rgba(18,1,3,.62); backdrop-filter:blur(6px);
+  border:1px solid rgba(239,228,224,.12);
+  font-family:'Martian Mono',monospace; font-size:11px; color:var(--gilt-hi) }
+
+.c-foot{ position:absolute; left:0; right:0; bottom:0; z-index:4; padding:15px 16px 15px;
+  display:flex; flex-direction:column; gap:8px }
+.c-title{ font-family:'Bodoni Moda',serif; font-style:italic; font-weight:600;
+  font-size:21px; line-height:1.18; letter-spacing:-.012em; color:#fff;
+  text-shadow:0 1px 12px rgba(9,0,2,.9), 0 1px 2px rgba(9,0,2,.8);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+.c-meta{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em;
+  text-transform:uppercase; color:rgba(239,228,224,.66);
+  text-shadow:0 1px 6px rgba(9,0,2,.9);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.c-acts{ display:flex; align-items:center; gap:8px; margin-top:3px }
+.c-play{ display:inline-flex; align-items:center; gap:7px;
+  padding:8px 16px 8px 13px; border-radius:99px; border:0; cursor:pointer;
+  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 55%,var(--gilt-deep));
+  color:#24190c; font-family:'Martian Mono',monospace; font-size:10px;
+  letter-spacing:.12em; text-transform:uppercase; font-weight:600;
+  box-shadow:0 2px 12px -4px rgba(209,155,140,.5);
+  transition:transform .3s var(--spring), box-shadow .3s ease }
+.c-play:hover{ transform:scale(1.05); box-shadow:0 4px 18px -4px rgba(209,155,140,.85) }
+.c-mini{ width:31px; height:31px; border-radius:50%; display:grid; place-items:center;
+  background:rgba(239,228,224,.1); backdrop-filter:blur(6px);
+  border:1px solid rgba(239,228,224,.2); color:rgba(239,228,224,.85);
+  cursor:pointer; transition:transform .3s var(--spring), background-color .2s ease, color .2s ease }
+.c-mini:hover{ transform:scale(1.1); background:rgba(239,228,224,.2); color:#fff }
+.c-mini.on{ background:var(--gilt); border-color:var(--gilt-hi); color:#24190c }
+.c-info{ margin-left:auto }
+
+/* ══ INLINE DETAIL ═════════════════════════════════════ */
+.detail{ margin:2px 0 22px; border-radius:14px; overflow:hidden;
+  background:linear-gradient(155deg,rgba(39,30,61,.55),rgba(32,2,4,.66));
+  border:1px solid var(--hair); box-shadow:0 20px 50px -22px rgba(9,0,2,.9);
+  animation:unfurl .42s var(--spring) both }
+@keyframes unfurl{ from{ opacity:0; transform:translateY(-8px) } to{ opacity:1; transform:none } }
+.d-tabs{ display:flex; align-items:center; gap:2px; padding:12px 16px 0;
+  border-bottom:1px solid var(--hair-soft) }
+.d-tab{ position:relative; padding:8px 12px 11px; background:none; border:0; cursor:pointer;
+  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-faint); transition:color .22s ease }
+.d-tab:hover{ color:var(--ink-dim) }
+.d-tab.on{ color:var(--gilt-hi) }
+.d-tab.on::after{ content:''; position:absolute; left:12px; right:12px; bottom:-1px; height:2px;
+  border-radius:2px; background:linear-gradient(to right,var(--gilt-hi),var(--gilt)) }
+.d-close{ margin-left:auto; width:26px; height:26px; border-radius:50%; display:grid;
+  place-items:center; background:none; border:1px solid var(--hair-soft);
+  color:var(--ink-faint); cursor:pointer; font-size:12px;
+  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
+.d-close:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:rotate(90deg) }
+.d-body{ display:grid; grid-template-columns:1fr 240px; gap:32px; padding:20px 16px }
+@media (max-width:720px){ .d-body{ grid-template-columns:1fr; gap:20px } }
+.d-lbl{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.17em;
+  text-transform:uppercase; color:var(--ink-faint); margin-bottom:9px }
+.d-text{ color:var(--ink-dim); font-size:13px; line-height:1.75; max-width:62ch }
+.d-acts{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap }
+.d-btn{ padding:6px 13px; border-radius:99px; cursor:pointer;
+  background:rgba(51,31,42,.55); border:1px solid var(--hair); color:var(--ink-dim);
+  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
+.d-btn:hover{ color:var(--gilt-hi); border-color:rgba(209,155,140,.4); transform:translateY(-1px) }
+.tagwrap{ display:flex; flex-wrap:wrap; gap:7px }
+.tagpill{ padding:4px 11px; border-radius:99px; cursor:pointer;
+  border:1px solid rgba(209,155,140,.32); color:var(--gilt);
+  background:rgba(209,155,140,.07);
+  font-family:'Martian Mono',monospace; font-size:8.5px; letter-spacing:.11em;
+  text-transform:uppercase; transition:background-color .2s ease, color .2s ease }
+.tagpill:hover{ background:rgba(209,155,140,.18); color:var(--gilt-hi) }
+
+/* ══ TILES ═════════════════════════════════════════════ */
+/* no overflow:hidden — the beam's cast light has to spill past the edge to read
+   as light. ::before clips itself with border-radius:inherit instead. */
+.tile{ position:relative; display:flex; flex-direction:column; gap:9px;
+  padding:15px 14px 13px; border-radius:10px; cursor:pointer; text-align:left;
+  background:rgba(32,2,4,.55); border:1px solid var(--hair-soft);
+  transition:transform .38s var(--spring), border-color .28s ease }
+.tile::before{ content:''; position:absolute; inset:0; pointer-events:none;
+  border-radius:inherit;
+  background:radial-gradient(120% 90% at 0% 0%,var(--tint),transparent 62%);
+  opacity:.2; transition:opacity .3s ease }
+.tile:hover{ transform:translateY(-3px); border-color:var(--hair) }
+.tile:hover::before{ opacity:.34 }
+.tile > *{ position:relative; z-index:1 }
+.tile svg{ width:17px; height:17px; opacity:.62; transition:opacity .28s ease, transform .45s var(--spring) }
+.tile:hover svg{ opacity:1; transform:scale(1.1) }
+.tile .tn{ font-family:'Bodoni Moda',serif; font-size:14.5px; color:var(--ink); line-height:1.25 }
+.tile .tc{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em; color:var(--ink-faint) }
+
+.chip{ flex:0 0 auto; padding:5px 12px; border-radius:99px; cursor:pointer;
+  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--ink-faint);
+  background:rgba(51,31,42,.34); border:1px solid var(--hair-soft); white-space:nowrap;
+  transition:color .22s ease, border-color .22s ease, transform .3s var(--spring) }
+.chip:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:translateY(-1px) }
+.stub{ padding:70px 0; text-align:center }
+
+/* ══ BORDER BEAM ═══════════════════════════════════════ */
+/* Two comets orbit the border on a rotating conic gradient. The ring is that
+   gradient cut down to a hairline by a two-layer CSS *alpha* mask
+   (mask-composite:exclude) — SVG luminance masks silently no-op in Chromium.
+   Only --beam-a changes per frame, so nothing inside the element repaints. */
+.beamed{ position:relative; isolation:isolate;
+  --beam-1:var(--gilt); --beam-2:var(--gilt-deep); --beam-w:1.5px; --beam-a:0deg }
+.beam-ring,.beam-glow{
+  position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
+  /* The toe of each comet is a 4% mix of its own colour, never `transparent` —
+     transparent is rgba(0,0,0,0) and a conic ramp through it dips visibly grey. */
+  background:conic-gradient(from var(--beam-a),
+    transparent 0deg,
+    color-mix(in srgb, var(--beam-1) 4%, transparent) 18deg,
+    color-mix(in srgb, var(--beam-1) 55%, transparent) 46deg,
+    var(--beam-1) 56deg,
+    color-mix(in srgb, var(--beam-1) 22%, #FBEAE1) 60deg,
+    transparent 63deg,
+    transparent 198deg,
+    color-mix(in srgb, var(--beam-2) 4%, transparent) 216deg,
+    color-mix(in srgb, var(--beam-2) 50%, transparent) 244deg,
+    var(--beam-2) 254deg,
+    color-mix(in srgb, var(--beam-2) 26%, #FBEAE1) 258deg,
+    transparent 261deg,
+    transparent 360deg);
+}
+.beam-ring{ z-index:3; padding:var(--beam-w);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite:exclude }
+/* the glow is cast light, not a wash — blur wide enough to bloom off the edge,
+   tight enough that the comet's tail doesn't smear across the tile face */
+.beam-glow{ z-index:0; filter:blur(10px); opacity:.26 }
+.chip.beamed{ --beam-w:1px }
+.chip.beamed .beam-glow{ filter:blur(8px); opacity:.26 }
+/* the ring sits exactly over the 1px border, so the hairline stays as the
+   resting edge — without it a tile has no shape wherever the comet isn't */
+@media (forced-colors:active){
+  .beam-ring,.beam-glow{ display:none }
+  .tile.beamed,.chip.beamed{ border-color:CanvasText }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{ animation-duration:.01ms!important; transition-duration:.01ms!important }
+  html{ scroll-behavior:auto }
+  /* the curtain is scroll-linked, not an animation, so the rule above misses it.
+     Drop the movement, keep the fades — those aren't motion. */
+  .hero-bg img{ scale:1; translate:none }
+  .hero-word{ translate:none }
+  /* beams park at 40° — both comets land on visible edges, so the border stays
+     lit and the element still reads as the same object, just without the orbit */
+  .beamed{ --beam-a:40deg }
+}
+</style>
+</head>
+
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="sg-home"><path d="M2.6 14V7.1L8 2.4l5.4 4.7V14H9.7v-4.2H6.3V14Z"/></g>
+<g id="sg-discover"><rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2"/><circle cx="5.9" cy="5.9" r=".85" fill="currentColor" stroke="none"/><circle cx="10.1" cy="10.1" r=".85" fill="currentColor" stroke="none"/><circle cx="10.1" cy="5.9" r=".85" fill="currentColor" stroke="none"/></g>
+<g id="sg-star"><path d="M8 1.9 9.8 6l4.4.45-3.3 3 .94 4.35L8 11.55 4.16 13.8l.94-4.35-3.3-3L6.2 6Z"/></g>
+<g id="sg-wave"><path d="M1.8 8v0M4.4 5.6v4.8M7 2.9v10.2M9.6 4.9v6.2M12.2 6.6v2.8M14.6 8v0"/></g>
+<g id="sg-web"><path d="M8 1.6v12.8M2.5 4.8l11 6.4M13.5 4.8l-11 6.4"/><path d="M8 5.1 10.5 6.55v2.9L8 10.9 5.5 9.45v-2.9Z"/></g>
+<g id="sg-eye"><path d="M1.4 8S4 3.7 8 3.7 14.6 8 14.6 8 12 12.3 8 12.3 1.4 8 1.4 8Z"/><circle cx="8" cy="8" r="1.9"/></g>
+<g id="sg-flame"><path d="M8 1.7c2.1 3.1 4.1 4.2 4.1 7.1a4.1 4.1 0 0 1-8.2 0c0-1.65.92-2.5 1.64-3.3.5.72 1.02 1.24 1.44 1.24.6 0 1.02-1.44 1.02-5.04Z"/></g>
+<g id="sg-waves"><circle cx="8" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M5.4 5.4a3.7 3.7 0 0 0 0 5.2M10.6 5.4a3.7 3.7 0 0 1 0 5.2M3.1 3.1a7 7 0 0 0 0 9.8M12.9 3.1a7 7 0 0 1 0 9.8"/></g>
+<g id="sg-play"><circle cx="8" cy="8" r="6.3"/><path d="M6.5 5.4 10.7 8l-4.2 2.6Z"/></g>
+<g id="sg-moon"><path d="M10.6 2.3a6.1 6.1 0 1 0 0 11.4 6.9 6.9 0 0 1 0-11.4Z"/><circle cx="12.6" cy="4.4" r=".7" fill="currentColor" stroke="none"/></g>
+<g id="sg-book"><path d="M8 4.3S6.1 2.9 2.2 3.3v9C6.1 11.9 8 13.3 8 13.3s1.9-1.4 5.8-1v-9C9.9 2.9 8 4.3 8 4.3Z"/><path d="M8 4.3v9"/></g>
+<g id="sg-spark"><path d="M6 1.6 7.15 5.05 10.6 6.2 7.15 7.35 6 10.8 4.85 7.35 1.4 6.2l3.45-1.15Z"/><path d="M11.6 8.6l.66 1.94 1.94.66-1.94.66-.66 1.94-.66-1.94-1.94-.66 1.94-.66Z"/></g>
+<g id="sg-pad"><path d="M5.7 2.6h4.6v3.1h3.1v4.6h-3.1v3.1H5.7v-3.1H2.6V5.7h3.1Z"/></g>
+<g id="sg-bars"><path d="M3 13.4V9.2M6.65 13.4V4.9M10.35 13.4V7.1M14 13.4V2.9"/></g>
+</defs></svg>
+
+<!-- ONE chrome row -->
+<div class="chrome" id="chrome">
+  <span class="mark">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#D19B8C" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><use href="#sg-spark"/></svg>
+    Vault
+  </span>
+  <nav class="tabstrip" id="tabstrip" aria-label="Shelves"></nav>
+  <div class="chrome-right">
+    <span class="relative hidden md:block">
+      <input class="omni" placeholder="Paste a link…" aria-label="Paste a link to add anything">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6B5A57" stroke-width="1.2" stroke-linecap="round">
+        <path d="M6.6 9.4 9.4 6.6M6.9 4.4 8.2 3.1a2.9 2.9 0 0 1 4.1 4.1L11 8.5M9.1 11.6 7.8 12.9a2.9 2.9 0 0 1-4.1-4.1L5 7.5"/></svg>
+    </span>
+    <button class="iconbtn mono px-2.5 py-[6px]" aria-label="Search everything">⌘K</button>
+    <button class="iconbtn w-[29px] h-[29px]" aria-label="Settings">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v1.8M8 12.7v1.8M14.5 8h-1.8M3.3 8H1.5M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3M12.6 12.6l-1.3-1.3M4.7 4.7 3.4 3.4"/></svg>
+    </button>
+  </div>
+  <span class="gauge" id="gauge"></span>
+</div>
+
+<header class="hero" id="hero">
+  <div class="hero-bg">
+    <img id="bgA" alt=""><img id="bgB" alt="">
+    <span class="hero-sigil" id="heroSigil"></span>
+  </div>
+  <div class="hero-veil"></div>
+  <span class="tickrail l"></span><span class="tickrail r"></span>
+
+  <div class="hero-inner">
+    <div class="hero-clock mono" id="clock">00:00:00</div>
+    <h1 class="hero-word" id="heroWord">The Vault</h1>
+    <div class="rail">
+      <span class="bloom-node" id="bloomNode"></span>
+      <span class="bloom-wash" id="bloomWash"></span>
+    </div>
+    <div class="readouts" id="readouts"></div>
+    <div class="hero-foot">
+      <span class="mono dot">Local <i>⦿</i></span>
+      <span class="scrollcue" id="scrollcue">scroll
+        <svg viewBox="0 0 120 44" fill="none" stroke="rgba(239,228,224,.4)" stroke-width="1">
+          <ellipse cx="60" cy="22" rx="57" ry="20" transform="rotate(-2 60 22)"/></svg>
+      </span>
+      <span class="mono" style="color:rgba(239,228,224,.3)">v0.1</span>
+    </div>
+  </div>
+</header>
+
+<div class="sheet">
+  <main id="body" class="px-10 pb-24 pt-14"></main>
+</div>
+
+<script>
+/* ── shelves ───────────────────────────────────────────── */
+const SHELVES = [
+  { key:'home', label:'Home', word:'The Vault', sigil:'sg-home', tint:'#D19B8C', verb:'Open',
+    pos:'50% 42%', stats:[['518','items'],['10','shelves'],['06','unfinished'],['03','tonight']] },
+  { key:'discover', label:'Discover', word:'Discover', sigil:'sg-discover', tint:'#C9A5B8', verb:'Open',
+    pos:'50% 27%', stats:[['518','in the pool'],['4.2','avg rating'],['20','no-repeat'],['1','pick']] },
+  { key:'favorites', label:'Favorites', word:'Favorites', sigil:'sg-star', tint:'#F2CDBE', verb:'Open',
+    pos:'50% 40%', stats:[['64','starred'],['11','shelves'],['4.7','avg rating'],['12','this month']] },
+  { key:'podcasts', label:'Podcasts', word:'Podcasts', sigil:'sg-wave', tint:'#D8DCE3', verb:'Listen',
+    pos:'50% 38%', stats:[['30','items'],['05','categories'],['08','starred'],['12h','unplayed']] },
+  { key:'creepypasta', label:'Creepypasta', word:'Creepypasta', sigil:'sg-web', tint:'#6E5A7A', verb:'Watch',
+    pos:'50% 38%', stats:[['64','items'],['04','categories'],['19','starred'],['31h','unwatched']] },
+  { key:'trueHorror', label:'True Stories', word:'True Stories', sigil:'sg-eye', tint:'#7A6A5E', verb:'Watch',
+    pos:'50% 34%', stats:[['41','items'],['04','categories'],['11','starred'],['18h','unwatched']] },
+  { key:'spicy', label:'Spicy', word:'Spicy', sigil:'sg-flame', tint:'#B0596B', verb:'Listen',
+    pos:'50% 58%', stats:[['18','items'],['04','categories'],['06','starred'],['private','shelf']] },
+  { key:'immersive', label:'Immersive', word:'Immersive', sigil:'sg-waves', tint:'#5A6E7A', verb:'Listen',
+    pos:'50% 50%', stats:[['37','items'],['03','categories'],['14','starred'],['62h','runtime']] },
+  { key:'watch', label:'Entertainment', word:'Entertainment', sigil:'sg-play', tint:'#8A7A4E', verb:'Watch',
+    pos:'50% 38%', stats:[['52','items'],['03','categories'],['17','starred'],['26h','unwatched']] },
+  { key:'playlists', label:'Music', word:'Music', sigil:'sg-moon', tint:'#D19B8C', verb:'Play',
+    pos:'50% 53%', stats:[['46','playlists'],['05','genres'],['23','artists'],['91','songs']] },
+  { key:'reading', label:'Reading', word:'Reading', sigil:'sg-book', tint:'#8E7B6B', verb:'Read',
+    pos:'50% 47%', stats:[['128','books'],['31','to be read'],['09','series'],['14','this year']] },
+  { key:'anime', label:'Anime', word:'Anime', sigil:'sg-spark', tint:'#9E5A7A', verb:'Watch',
+    pos:'50% 25%', stats:[['73','titles'],['22','plan to watch'],['06','watching'],['45','finished']] },
+  { key:'games', label:'Games', word:'Games', sigil:'sg-pad', tint:'#5F7A6E', verb:'Play',
+        pos:'50% 27%', stats:[['29','games'],['11','backlog'],['03','playing'],['312h','played']] },
+  { key:'stats', label:'Stats', word:'Statistics', sigil:'sg-bars', tint:'#8A8F99', verb:'Open',
+    pos:'50% 40%', stats:[['518','tracked'],['11','shelves'],['4.2','avg rating'],['1.2k','opens']] }
+];
+const shelfOf = k => SHELVES.find(s => s.key === k) || SHELVES[0];
+const HAS_BG = new Set(['home','discover','podcasts','creepypasta','trueHorror','spicy','immersive',
+  'watch','playlists','reading','anime','games']);
+
+/* ── fake data ─────────────────────────────────────────── */
+const yt   = id => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+const sq   = id => `https://picsum.photos/id/${id}/600/600`;
+const wide = id => `https://picsum.photos/id/${id}/1200/600`;
+const book = isbn => `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+
+let _id = 0;
+const it = o => Object.assign({ id:'i'+(++_id), rating:0, fav:false, queued:false, tags:[], desc:'' }, o);
+
+/* ── data ─────────────────────────────────────────────────
+   Everything reads from vault-data.js at RENDER time, never at parse
+   time: the IndexedDB shim hydrates asynchronously, so an array captured
+   when this script first runs would be the pre-hydration snapshot. */
+
+/* Category order carried over from the old Podcasts page so the rows land
+   in the sequence Damian already knows; anything new sorts after. */
+const CAT_ORDER = ['Learning','Photography / Videography','True Crime','Business','Writing'];
+
+/* Vault record → the shape card() already expects. Adapting here rather
+   than changing card() keeps the mockup and this page from drifting. */
+const toCard = v => ({
+  id:v.id, _shelf:v._shelf, url:v.url, title:v.title, creator:v.creator,
+  cover:v.cover, len:v.lengthText, rating:Number(v.rating) || 0,
+  fav:v.favorite === true, queued:v.queued === true,
+  tags:v.category ? [v.category] : [], desc:v.description || '',
+  lastOpenedAt:v.lastOpenedAt || null, createdAt:v.createdAt || 0
+});
+const rawAll = () => Vault.SHELVES.flatMap(s => Vault.list(s).map(v => ({ ...v, _shelf:s })));
+const shelfItems = shelf => Vault.list(shelf).map(v => toCard({ ...v, _shelf:shelf }));
+
+function byCategory(shelf){
+  const out = {};
+  shelfItems(shelf).forEach(d => { const c = d.tags[0] || 'Uncategorised'; (out[c] ||= []).push(d); });
+  const rank = k => { const i = CAT_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+  return Object.fromEntries(Object.keys(out)
+    .sort((a,b) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(k => [k, out[k]]));
+}
+
+const CONTINUE = () => rawAll().filter(v => v.lastOpenedAt)
+  .sort((a,b) => (b.lastOpenedAt||0) - (a.lastOpenedAt||0)).slice(0,8).map(toCard);
+const TONIGHT  = () => rawAll().filter(v => v.queued).map(toCard);
+const RECENT   = () => rawAll().sort((a,b) => (b.createdAt||0) - (a.createdAt||0)).slice(0,8).map(toCard);
+const COUNTS   = () => Vault.counts();
+
+/* Three at random, reshuffled on every Reroll. */
+function vaultPicks(k = 3){
+  const all = rawAll();
+  for(let i = all.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [all[i],all[j]] = [all[j],all[i]]; }
+  return all.slice(0,k).map(toCard);
+}
+
+/* ── helpers ───────────────────────────────────────────── */
+const el = (t,c,h) => { const n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; };
+const sig = (id,sz=16,sw=1.15) => `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><use href="#${id}"/></svg>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ── border beam ────────────────────────────────────────
+   Ported from the Motiq BorderBeamPanel. Two comets orbit the border; the
+   angular VELOCITY is what's sprung (k=30, d=11) toward 240°/s on hover and
+   back to 42°/s on leave, so a comet winds up and coasts rather than snapping
+   between speeds.
+
+   One rAF loop drives every beam on the page. The React original runs a loop
+   per component, which is fine for one panel and wrong for the eighteen this
+   page puts on screen at once. The loop stops entirely when nothing is live. */
+const BEAM = { idle:42, hover:240, k:30, d:11, parked:40 };
+const beams = new Set();
+const beamReduce = matchMedia('(prefers-reduced-motion: reduce)');
+/* park the loop for anything scrolled off screen — an orbiting comet nobody
+   can see is pure battery */
+const beamIO = new IntersectionObserver(es => {
+  es.forEach(e => { if(e.target._beam) e.target._beam.seen = e.isIntersecting });
+  beamPump();
+}, { threshold:.05 });
+
+function paintBeam(b){ b.el.style.setProperty('--beam-a', ((b.a%360+360)%360).toFixed(2)+'deg'); }
+
+function beam(node, opts={}){
+  node.classList.add('beamed');
+  if(opts.tint) node.style.setProperty('--beam-2', opts.tint);
+  const glow = el('span','beam-glow'), ring = el('span','beam-ring');
+  glow.setAttribute('aria-hidden','true'); ring.setAttribute('aria-hidden','true');
+  node.prepend(ring); node.prepend(glow);
+
+  /* phase off the index, never Math.random — two runs of the same screenshot
+     have to match or the comparison rounds are meaningless */
+  const b = { el:node, a:((opts.seed||1)*137.508)%360, sp:BEAM.idle, spv:0,
+              target:BEAM.idle, seen:true };
+  node._beam = b;
+  if(beamReduce.matches){ b.a = BEAM.parked; paintBeam(b); return node; }
+  paintBeam(b);
+
+  const surge = () => { b.target = BEAM.hover }, settle = () => { b.target = BEAM.idle };
+  node.addEventListener('pointerenter', surge);
+  node.addEventListener('pointerleave', settle);
+  node.addEventListener('focus', surge); node.addEventListener('blur', settle);
+
+  beams.add(b); beamIO.observe(node); beamPump();
+  return node;
+}
+
+/* every render() rebuilds the DOM, so the old beams are detached nodes — drop
+   them or the Set grows without bound */
+function clearBeams(){ beamIO.disconnect(); beams.clear(); }
+
+let beamRaf = 0, beamLast = 0, tabLive = true;
+function beamFrame(now){
+  const dt = Math.min(.05, (now - (beamLast || now))/1000);
+  beamLast = now; beamRaf = 0;
+  beams.forEach(b => {
+    if(!b.seen) return;
+    b.spv += (BEAM.k*(b.target - b.sp) - BEAM.d*b.spv) * dt;
+    b.sp  += b.spv * dt;
+    b.a   += b.sp * dt;
+    paintBeam(b);
+  });
+  beamPump();
+}
+function beamPump(){
+  const live = tabLive && !beamReduce.matches && [...beams].some(b => b.seen);
+  if(live && !beamRaf) beamRaf = requestAnimationFrame(beamFrame);
+  if(!live && beamRaf){ cancelAnimationFrame(beamRaf); beamRaf = 0; beamLast = 0 }
+}
+document.addEventListener('visibilitychange', () => {
+  tabLive = document.visibilityState !== 'hidden'; beamLast = 0; beamPump();
+});
+beamReduce.addEventListener('change', () => {
+  if(beamReduce.matches) beams.forEach(b => { b.a = BEAM.parked; paintBeam(b) });
+  beamPump();
+});
+
+/* ── card ──────────────────────────────────────────────── */
+function card(d, opts={}){
+  const shelf = shelfOf(opts.shelf || 'home');
+  const c = el('button','card');
+  const art = d.cover
+    ? `<img class="bg" src="${d.cover}" alt="" aria-hidden="true" loading="lazy">
+       <img class="fg" src="${d.cover}" alt="" loading="lazy">`
+    : `<span class="absolute inset-0 grid place-items-center" style="color:${shelf.tint};opacity:.28">${sig(shelf.sigil,52)}</span>`;
+
+  c.innerHTML = `
+    <span class="art">${art}</span>
+    <span class="c-star ${d.fav?'on':''}" role="button" tabindex="0" aria-label="Favourite">${d.fav?'★':'☆'}</span>
+    ${d.rating ? `<span class="c-score">${d.rating.toFixed(1)}</span>` : ''}
+    <span class="c-foot">
+      <span class="c-title">${esc(d.title)}</span>
+      <span class="c-meta">${esc(d.creator)}${d.len ? ' · '+esc(d.len) : ''}</span>
+      <span class="c-acts">
+        <span class="c-play" role="button" tabindex="0">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.6 13 8l-9 5.4Z"/></svg>
+          ${shelf.verb}
+        </span>
+        <span class="c-mini c-add ${d.queued?'on':''}" role="button" tabindex="0" aria-label="Add to Tonight">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="${d.queued?'M3.6 8.4 6.5 11.3 12.4 5.2':'M8 3.6v8.8M3.6 8h8.8'}"/></svg>
+        </span>
+        <span class="c-mini c-info" role="button" tabindex="0" aria-label="Details">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><circle cx="8" cy="4.9" r=".75" fill="currentColor" stroke="none"/></svg>
+        </span>
+      </span>
+    </span>`;
+
+  /* Every toggle writes through Vault.update() immediately. sync.js has
+     patched localStorage.setItem, so the write also schedules the debounced
+     Supabase push — no explicit save call needed anywhere. */
+  const persist = patch => { if(d._shelf && d.id) Vault.update(d._shelf, d.id, patch); };
+
+  const star = c.querySelector('.c-star');
+  star.onclick = e => { e.stopPropagation(); d.fav = !d.fav;
+    star.classList.toggle('on', d.fav); star.textContent = d.fav ? '★' : '☆';
+    persist({ favorite:d.fav }); };
+  const add = c.querySelector('.c-add');
+  add.onclick = e => { e.stopPropagation(); d.queued = !d.queued;
+    add.classList.toggle('on', d.queued);
+    add.querySelector('path').setAttribute('d', d.queued ? 'M3.6 8.4 6.5 11.3 12.4 5.2' : 'M8 3.6v8.8M3.6 8h8.8');
+    persist({ queued:d.queued }); };
+
+  const open = e => {
+    e.stopPropagation();
+    if(!d.url){ flash(c, 'No link on this item'); return; }
+    /* stamped before navigating — this is what fills the Continue row */
+    if(d._shelf && d.id) Vault.touch(d._shelf, d.id);
+    window.open(d.url, '_blank', 'noopener');
+  };
+  c.querySelector('.c-play').onclick = open;
+  c.onclick = open;
+  c.querySelector('.c-info').onclick = e => { e.stopPropagation(); toggleDetail(c, d, shelf); };
+  return c;
+}
+
+function flash(cardEl, msg){
+  const t = el('span','', msg);
+  Object.assign(t.style, { position:'absolute', inset:'auto 0 0 0', zIndex:9,
+    background:'rgba(209,155,140,.94)', color:'#24190c', padding:'8px 14px',
+    fontFamily:"'Martian Mono',monospace", fontSize:'9px', letterSpacing:'.11em',
+    textTransform:'uppercase' });
+  cardEl.appendChild(t); setTimeout(() => t.remove(), 1100);
+}
+
+/* ── inline detail ─────────────────────────────────────── */
+const D_TABS = { reading:['Details','Quotes','Journal'], anime:['Details','Resources','Notes','Tables'],
+  games:['Details','Resources','Notes','Tables'], _:['Details','Notes','Related'] };
+
+function closeDetail(){
+  document.querySelectorAll('.detail').forEach(p => p.remove());
+  document.querySelectorAll('.card.open').forEach(c => c.classList.remove('open'));
+  document.querySelectorAll('.row.has-open').forEach(r => r.classList.remove('has-open'));
+}
+function toggleDetail(cardEl, d, shelf){
+  const wasOpen = cardEl.classList.contains('open');
+  closeDetail(); if(wasOpen) return;
+  const row = cardEl.closest('.row'), wrap = cardEl.closest('.rowwrap');
+  row.classList.add('has-open'); cardEl.classList.add('open');
+  const tabs = D_TABS[shelf.key] || D_TABS._;
+  const panel = el('div','detail');
+  panel.innerHTML = `
+    <div class="d-tabs">
+      ${tabs.map((t,i)=>`<button class="d-tab ${i===0?'on':''}">${t}</button>`).join('')}
+      <button class="d-close" aria-label="Close">✕</button>
+    </div>
+    <div class="d-body">
+      <div>
+        <div class="d-lbl">Info</div>
+        <p class="d-text">${esc(d.desc || 'No description yet — paste the link again to re-run auto-fill.')}</p>
+        <div class="d-acts">
+          <button class="d-btn">Edit</button><button class="d-btn">Open full →</button>
+          <button class="d-btn">${d.queued ? 'In Tonight' : 'Add to Tonight'}</button>
+        </div>
+      </div>
+      <div>
+        <div class="d-lbl">Tags</div>
+        <div class="tagwrap">
+          ${(d.tags.length?d.tags:['Untagged']).map(t=>`<button class="tagpill">${esc(t)}</button>`).join('')}
+          <button class="tagpill" style="border-style:dashed">+ Tag</button>
+        </div>
+      </div>
+    </div>`;
+  panel.querySelectorAll('.d-tab').forEach(t => t.onclick = () => {
+    panel.querySelectorAll('.d-tab').forEach(x => x.classList.remove('on')); t.classList.add('on'); });
+  panel.querySelector('.d-close').onclick = closeDetail;
+  wrap.insertAdjacentElement('afterend', panel);
+}
+
+/* ── rows ──────────────────────────────────────────────── */
+function sechead(label, count, more){
+  const h = el('div','sechead');
+  h.innerHTML = `<span class="lbl">${label}</span>` +
+    (count!=null?`<span class="num">${String(count).padStart(2,'0')}</span>`:'') +
+    `<span class="rule"></span>` + (more?`<button class="more">${more} →</button>`:'');
+  return h;
+}
+function mediaRow(items, opts={}){
+  const wrap = el('div','rowwrap'), row = el('div','row');
+  items.forEach(d => row.appendChild(card(d, opts)));
+  wrap.appendChild(row); wrap.appendChild(el('span','rowfade'));
+  const mk = (dir,glyph) => {
+    const b = el('button','nudge '+dir, `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="${glyph}"/></svg>`);
+    b.setAttribute('aria-label', dir==='l'?'Scroll left':'Scroll right');
+    b.onclick = () => row.scrollBy({ left: dir==='l'?-700:700, behavior:'smooth' });
+    return b;
+  };
+  wrap.appendChild(mk('l','M9.6 3.4 5 8l4.6 4.6')); wrap.appendChild(mk('r','M6.4 3.4 11 8l-4.6 4.6'));
+  return wrap;
+}
+function section(label, count, more, items, opts){
+  const s = el('section','mb-12');
+  s.appendChild(sechead(label, count, more)); s.appendChild(mediaRow(items, opts));
+  return s;
+}
+
+/* ── hero ──────────────────────────────────────────────── */
+const hero = document.getElementById('hero');
+const heroWord = document.getElementById('heroWord');
+const heroSigil = document.getElementById('heroSigil');
+const readouts = document.getElementById('readouts');
+const bgA = document.getElementById('bgA'), bgB = document.getElementById('bgB');
+let bgFront = bgA;
+
+/* long names (ENTERTAINMENT, CREEPYPASTA) overflow the clamp at narrow widths —
+   shrink to fit rather than wrap, since the wordmark is single-line by design */
+function fitWord(){
+  heroWord.style.fontSize = '';
+  const avail = heroWord.clientWidth, need = heroWord.scrollWidth;
+  if(avail > 0 && need > avail){
+    const base = parseFloat(getComputedStyle(heroWord).fontSize);
+    heroWord.style.fontSize = Math.floor(base * avail / need) + 'px';
+  }
+}
+
+/* The reference's FPS:60 / REC readouts are replaced by real numbers —
+   anything that can't be filled with a true count is not shown. */
+function liveStats(key){
+  const c = Vault.counts();
+  if(key === 'home'){
+    const total = Object.values(c).reduce((a,b) => a+b, 0);
+    return [[String(total), 'items'], [String(Object.values(c).filter(Boolean).length), 'shelves'],
+            [String(rawAll().filter(v => v.favorite).length), 'starred'],
+            [String(rawAll().filter(v => v.queued).length), 'tonight']];
+  }
+  if(!Vault.SHELVES.includes(key)) return null;
+  const items = Vault.list(key);
+  if(!items.length) return null;
+  return [[String(items.length), 'items'],
+          [String(new Set(items.map(i => i.category).filter(Boolean)).size), 'categories'],
+          [String(items.filter(i => i.favorite).length), 'starred'],
+          [String(items.filter(i => i.queued).length), 'tonight']];
+}
+
+function paintHero(s){
+  heroWord.classList.add('swapping');
+  setTimeout(() => {
+    heroWord.textContent = s.word;
+    fitWord();
+    heroWord.classList.remove('swapping');
+  }, 180);
+
+  const stats = liveStats(s.key) || s.stats;
+  readouts.innerHTML = stats.map(([v,l]) =>
+    `<span class="readout"><b>${v}</b><span>${l}</span></span>`).join('');
+
+  heroSigil.innerHTML = `<span style="opacity:.9">${sig(s.sigil, 300, .35)}</span>`;
+
+  // cross-fade backdrops between two stacked <img>
+  if(HAS_BG.has(s.key)){
+    const back = bgFront === bgA ? bgB : bgA;
+    back.onload = () => { back.classList.add('on'); bgFront.classList.remove('on');
+      bgFront = back; heroSigil.classList.add('hide'); };
+    back.onerror = () => { bgFront.classList.remove('on'); heroSigil.classList.remove('hide'); };
+    back.style.objectPosition = s.pos;
+    back.style.filter = s.lift ? `brightness(${s.lift})` : '';
+    back.src = `images_by_admin/shelf/${s.key}.jpg`;
+  } else {
+    bgA.classList.remove('on'); bgB.classList.remove('on');
+    heroSigil.classList.remove('hide');
+  }
+}
+
+/* ── tabs ──────────────────────────────────────────────── */
+let active = 'home';
+const strip = document.getElementById('tabstrip');
+SHELVES.forEach(s => {
+  const b = el('button','tab', sig(s.sigil,12)+`<span>${s.label}</span>`);
+  b.dataset.key = s.key; b.onclick = () => go(s.key); strip.appendChild(b);
+});
+
+function positionBloom(){
+  const t = strip.querySelector('.tab.on'); if(!t) return;
+  const railRect = document.querySelector('.rail').getBoundingClientRect();
+  const tabRect = t.getBoundingClientRect();
+  const x = tabRect.left + tabRect.width/2 - railRect.left;
+  document.getElementById('bloomNode').style.left = x+'px';
+  document.getElementById('bloomWash').style.left = x+'px';
+}
+strip.addEventListener('scroll', positionBloom, { passive:true });
+addEventListener('resize', () => { positionBloom(); fitWord(); });
+
+function go(key){
+  active = key;
+  try { history.replaceState(null,'','#'+key) } catch(e){}
+  const s = shelfOf(key);
+  document.documentElement.style.setProperty('--shelf', s.tint);
+  strip.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.key===key));
+  strip.querySelector('.tab.on')?.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+  paintHero(s);
+  render();
+  requestAnimationFrame(positionBloom);
+  setTimeout(positionBloom, 120);
+  scrollTo({ top:0, behavior:'smooth' });
+}
+
+/* ── tab content ───────────────────────────────────────── */
+const body = document.getElementById('body');
+
+function renderHome(){
+  /* Shelves leads. It's the only block on Home that reaches every collection,
+     so it belongs directly under the hero — Continue and Tonight are subsets
+     of it and read better as follow-ups. */
+  const shelves = el('section','mb-12');
+  shelves.appendChild(sechead('Shelves', 10));
+  const grid = el('div','grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5');
+  SHELVES.filter(s => COUNTS[s.key]).forEach((s,i) => {
+    const t = el('button','tile', `<span style="color:${s.tint}">${sig(s.sigil,17)}</span>
+      <span class="tn">${s.label}</span><span class="tc">${COUNTS[s.key]} items</span>`);
+    t.style.setProperty('--tint', s.tint); t.onclick = () => go(s.key);
+    /* second comet carries the shelf's own hue, so the tile is colour-coded by
+       the light running round it as well as by its sigil */
+    beam(t, { tint:s.tint, seed:i+1 });
+    grid.appendChild(t);
+  });
+  shelves.appendChild(grid); body.appendChild(shelves);
+
+  const cont = CONTINUE(), tonight = TONIGHT(), recent = RECENT();
+  if(cont.length)    body.appendChild(section('Continue', cont.length, 'History', cont, { shelf:'watch' }));
+  if(tonight.length) body.appendChild(section('Tonight', tonight.length, 'Clear', tonight, { shelf:'immersive' }));
+  if(recent.length)  body.appendChild(section('Recently added', recent.length, 'All', recent, { shelf:'creepypasta' }));
+
+  const picks = vaultPicks(3);
+  if(picks.length) body.appendChild(section('From the vault', null, 'Reroll', picks, { shelf:'discover' }));
+}
+
+/* One gallery renderer for every link shelf — the old dashboard had a
+   separate hand-written block per page, which is why its shelves drifted
+   apart. Categories become stacked rows, not a filter. */
+function renderGallery(shelf){
+  const groups = byCategory(shelf);
+  const cats = Object.keys(groups);
+  if(!cats.length) return renderEmpty(shelf);
+
+  const chips = el('div','flex gap-2 overflow-x-auto pb-2 mb-10');
+  chips.style.scrollbarWidth = 'none';
+  const tint = shelfOf(active).tint;
+  cats.forEach((c,i) => {
+    const b = el('button','chip', `${c} · ${groups[c].length}`);
+    b.onclick = () => document.getElementById('cat-'+i)?.scrollIntoView({ behavior:'smooth', block:'start' });
+    /* tags keep their pill shape and their place in the strip — only the border
+       changes, from a static hairline to the orbiting one */
+    beam(b, { tint, seed:i+1 });
+    chips.appendChild(b);
+  });
+  body.appendChild(chips);
+
+  cats.forEach((c,i) => {
+    const s = section(c, groups[c].length, 'See all', groups[c], { shelf });
+    s.id = 'cat-'+i; s.style.scrollMarginTop = '90px'; body.appendChild(s);
+  });
+}
+
+function renderEmpty(shelf){
+  const s = shelfOf(shelf);
+  const d = el('div','stub');
+  d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
+    <p class="mono mt-5" style="color:var(--ink-faint)">Nothing here yet</p>
+    <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
+      Paste a link in the bar above to add the first item to ${esc(s.label)}.</p>`;
+  body.appendChild(d);
+}
+
+function renderStub(){
+  const s = shelfOf(active);
+  const d = el('div','stub');
+  d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
+    <p class="mono mt-5" style="color:var(--ink-faint)">Not in this mockup</p>
+    <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
+      Only Home and Podcasts are built out. Everything else is a placeholder
+      so you can feel the navigation and the hero.</p>`;
+  body.appendChild(d);
+}
+
+function render(){
+  closeDetail(); clearBeams(); body.innerHTML = '';
+  if(active==='home') renderHome();
+  else if(Vault.SHELVES.includes(active)) renderGallery(active);
+  else renderStub();
+}
+
+/* ── chrome condense + scroll gauge ────────────────────── */
+/* NB: `chrome` is a pre-existing global in Chromium — declaring const chrome
+   here throws "already been declared" and kills the whole script. */
+const chromeBar = document.getElementById('chrome'), gauge = document.getElementById('gauge');
+
+/* One rAF-throttled pass drives the curtain, the chrome condense and the gauge.
+   Everything visual is expressed in CSS off --p; this only writes the number. */
+let queued = false;
+function onScroll(){
+  queued = false;
+  const p = Math.min(1, Math.max(0, scrollY / hero.offsetHeight));
+  hero.style.setProperty('--p', p.toFixed(4));
+  hero.style.visibility = p >= 1 ? 'hidden' : '';   // stop compositing once buried
+  chromeBar.classList.toggle('stuck', scrollY > 30);
+  const max = document.documentElement.scrollHeight - innerHeight;
+  gauge.style.transform = `scaleX(${max > 0 ? scrollY/max : 0})`;
+}
+addEventListener('scroll', () => {
+  if(!queued){ queued = true; requestAnimationFrame(onScroll); }
+}, { passive:true });
+addEventListener('resize', onScroll);
+onScroll();
+
+/* ── clock ─────────────────────────────────────────────── */
+const clock = document.getElementById('clock');
+setInterval(() => { clock.textContent = new Date().toTimeString().slice(0,8); }, 1000);
+clock.textContent = new Date().toTimeString().slice(0,8);
+
+document.getElementById('scrollcue').onclick = () =>
+  document.getElementById('body').scrollIntoView({ behavior:'smooth', block:'start' });
+
+/* deep links: #podcasts must work on back/forward and on paste-into-address-bar */
+addEventListener('hashchange', () => {
+  const k = location.hash.slice(1);
+  if(k && k !== active && SHELVES.some(s => s.key === k)) go(k);
+});
+
+addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  if(e.key === 'Escape') return closeDetail();
+  const n = parseInt(e.key,10);
+  if(n>=1 && n<=9 && SHELVES[n-1]) go(SHELVES[n-1].key);
+});
+
+/* ── boot ──────────────────────────────────────────────────
+   Two gates, both required:
+     · DOMContentLoaded — sync.js, topbar.js and vault-data.js are deferred
+       and only finish executing right before it fires.
+     · LocalStoreIDB.ready() — the shim seeds a Map synchronously but
+       overlays the real IndexedDB contents asynchronously, and IndexedDB
+       wins. Rendering before it resolves shows stale data, then flickers. */
+function boot(){
+  const fromHash = location.hash.slice(1);
+  if(fromHash && SHELVES.some(s => s.key === fromHash)) active = fromHash;
+  const s0 = shelfOf(active);
+  document.documentElement.style.setProperty('--shelf', s0.tint);
+  strip.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.key === active));
+  paintHero(s0);
+  render();
+  requestAnimationFrame(positionBloom);
+  setTimeout(positionBloom, 400);
+
+  /* Its own Supabase row. Nothing here reads or writes 'enthub:',
+     'entdash:', 'entread:' or 'media:', so the existing Entertainment
+     dashboard is untouched by anything that happens on this page. */
+  const remoteRef = { applied:false };
+  if(typeof window.initCloudSync === 'function'){
+    window.initCloudSync({
+      appKey:'vault', syncedPrefixes:['vault:'],
+      onApplied(){ remoteRef.applied = true; paintHero(shelfOf(active)); render(); }
+    });
+    setStorageState('synced');
+  }
+
+  /* Additive: seeds only shelves that are empty, merging by canonical URL.
+     Never deletes, so anything removed here stays removed. */
+  Vault.maybeSeedAfterSyncAttempt(remoteRef, () => { paintHero(shelfOf(active)); render(); });
+}
+
+function setStorageState(mode){
+  const dot = document.querySelector('.hero-foot .mono');
+  if(dot) dot.firstChild.textContent = mode === 'synced' ? 'SYNCED ' : 'LOCAL ';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  (window.LocalStoreIDB ? window.LocalStoreIDB.ready() : Promise.resolve()).then(boot);
+});
+</script>
+</body>
+</html>

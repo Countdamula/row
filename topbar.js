@@ -87,6 +87,40 @@
 
   const NAV_GROUPS = [
     {
+      // The Vault — vault.html + vault-data.js. Pinned to the top of this
+      // sidebar per an explicit request.
+      //
+      // A PARALLEL build, not a replacement. entertainment-dash.html and the
+      // whole Entertainment folder below are untouched and still listed;
+      // nothing was removed from either. The Vault owns its own namespace
+      // ('vault:*') and its own Supabase row (appKey 'vault'), so it never
+      // reads or writes 'enthub:'/'entdash:'/'entread:'/'media:' keys — the
+      // two dashboards cannot affect each other's data.
+      //
+      // Its Podcasts shelf was populated by copying (not moving) the podcast
+      // library out of entertainment-dash.html#podcasts.
+      key: 'vault',
+      label: 'The Vault',
+      items: [
+        { href: 'vault.html', icon: '✦', label: 'The Vault', id: 'topbarVault', children: [
+          { hash: 'home', label: 'Home' },
+          { hash: 'discover', label: 'Discovery Engine' },
+          { hash: 'favorites', label: 'Favorites' },
+          { hash: 'podcasts', label: 'Podcasts' },
+          { hash: 'creepypasta', label: 'Horror Stories · Creepypastas' },
+          { hash: 'trueHorror', label: 'Horror Stories · True Stories' },
+          { hash: 'spicy', label: 'Spicy Stories' },
+          { hash: 'immersive', label: 'Immersive Experience' },
+          { hash: 'watch', label: 'Entertainment' },
+          { hash: 'playlists', label: 'Music & Playlists' },
+          { hash: 'reading', label: 'Reading Corner' },
+          { hash: 'anime', label: 'Anime' },
+          { hash: 'games', label: 'Games' },
+          { hash: 'stats', label: 'Statistics' },
+        ] },
+      ],
+    },
+    {
       key: 'command',
       label: 'Command Center',
       items: [
