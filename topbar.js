@@ -87,6 +87,136 @@
 
   const NAV_GROUPS = [
     {
+      // Promptarium — promptarium.html + promptarium-data.js. Pinned to the
+      // very top of this sidebar per an explicit request.
+      //
+      // Owns 'prm:*' and its own Supabase row (appKey 'promptarium'). It ALSO
+      // mounts a SECOND initCloudSync for appKey 'codex' / prefix 'cdx:', so
+      // its Fiction collection is THE SAME LIVE DATABASE as The Codex's AI
+      // Prompt Database (cdx:prompts + cdx:promptNotes) — edit a fiction
+      // prompt in either page and both see it. The two prefixes must stay
+      // disjoint or the two sync mounts would push each other in a loop.
+      //
+      // Promptarium's own fields (rating, purpose tags, creator, source,
+      // status) are NOT written into cdx: records: codex-data.js's
+      // promptModel() is a whitelist re-run on every edit and would strip
+      // them. They live in a sidecar, prm:fictionMeta, keyed by prompt id.
+      //
+      // aitech.html's prompts DB is untouched and still listed below; this
+      // page only cross-links to it.
+      key: 'promptarium',
+      label: 'Promptarium',
+      items: [
+        { href: 'promptarium.html', icon: '⚗️', label: 'Promptarium', id: 'topbarPromptarium', children: [
+          { hash: '/', label: 'Overview' },
+          { hash: '/library', label: 'Prompt Library' },
+          { hash: '/pinned', label: 'Favorites & Pinned' },
+          { hash: '/inbox', label: 'Quick Capture Inbox' },
+          { hash: '/c/chatgpt', label: 'ChatGPT' },
+          { hash: '/c/claude', label: 'Claude' },
+          { hash: '/c/gemini', label: 'Gemini' },
+          { hash: '/c/notebooklm', label: 'Gemini NotebookLM' },
+          { hash: '/c/suno', label: 'Suno AI' },
+          { hash: '/c/n8n', label: 'n8n' },
+          { hash: '/c/fiction', label: 'Fiction — shared with The Codex' },
+          { hash: '/flows', label: 'Prompt Chains & Workflows' },
+          { hash: '/tags', label: 'Purpose Tags' },
+        ] },
+      ],
+    },
+    {
+      // The Athenaeum — athenaeum.html + athenaeum-subject.html +
+      // athenaeum-curriculum.html + athenaeum-data.js. Placed directly
+      // beneath Promptarium per an explicit request.
+      //
+      // A learning dashboard built on one structural rule:
+      //   FIELD → CURRICULA → MODULES → LESSONS
+      // A field is permanent, a curriculum is temporary, and everything
+      // worth keeping (concepts, connections, contradictions, research)
+      // belongs to the FIELD so it survives the curriculum that taught it.
+      //
+      // A PARALLEL build, not a replacement. learning.html ('learning:'),
+      // learning-dashboard.html ('lhub:') and knowledge-hub.html ('kh:')
+      // are all untouched, share no data and no code with this, and are
+      // still listed in their own folders below — confirmed as an explicit
+      // choice with the user before the build started.
+      //
+      // Owns 'ath:*' and its own Supabase row (appKey 'athenaeum'). Both
+      // were unused before this build. It mounts exactly ONE initCloudSync
+      // and never reads or writes another page's prefix.
+      //
+      // Three pages, one namespace: the hub and curriculum pages take a
+      // ?id= query param (like learning-topic.html) so their hash stays
+      // free for in-page tabs. Sub-pages listed here are the main page's
+      // own hash routes.
+      key: 'athenaeum',
+      label: 'The Athenaeum',
+      items: [
+        { href: 'athenaeum.html', icon: '⌘', label: 'The Athenaeum', id: 'topbarAthenaeum', children: [
+          { hash: '/', label: 'The Reading Room' },
+          { hash: '/fields', label: 'All Fields' },
+          { hash: '/retention', label: 'Retention Center' },
+          { hash: '/calendar', label: 'Learning Calendar' },
+          { hash: '/experiments', label: 'Experiment Lab' },
+          { hash: '/box', label: 'The Box' },
+          { hash: '/inbox', label: 'Learning Inbox — every field' },
+          { hash: '/knowledge', label: 'Knowledge Base — every field' },
+          { hash: '/connections', label: 'Cross-Field Connections' },
+        ] },
+        // The Resource Library moved out of athenaeum.html's #/resources
+        // route onto its own page when it gained editing, filtering and
+        // per-resource detail pages. The old hash still works — it
+        // redirects here — but the nav points at the real page.
+        { href: 'athenaeum-resources.html', icon: '▤', label: 'Resource Library', id: 'topbarAthenaeumLibrary' },
+      ],
+    },
+    {
+      // The Chrysalis — chrysalis.html + chrysalis-stages.html +
+      // chrysalis-data.js + chrysalis-theme.css. Placed directly beneath
+      // The Athenaeum: both are permanent-record systems.
+      //
+      // About deliberately becoming a different person, on one rule:
+      //   A TRAIT is permanent. A VERSION is temporary.
+      //   A PRACTICE installs a trait. EVIDENCE belongs to the trait,
+      //   so it outlives the version that chased it.
+      //
+      // Owns 'chr:*' and its own Supabase row (appKey 'chrysalis'). Both
+      // were unused before this build. Exactly ONE initCloudSync mount
+      // per page; it never reads or writes another page's prefix.
+      //
+      // A PARALLEL build, not a replacement, and the boundary matters
+      // because three existing pages sit near it:
+      //   - index.html#subconscious keeps its own Identity Shifting data
+      //     (anchors + the single Future Self Vision snapshot). The
+      //     Chrysalis never reads, writes or migrates it — cross-link
+      //     only. Note that tab shares a dataset with Top Goals and
+      //     Your System, so it could not be cleanly retired anyway.
+      //   - dreamboard.html owns free-form boards of OUTCOMES and things.
+      //     The Chrysalis's images are of the PERSON.
+      //   - mainpillar.html owns gamified daily doing. Practices here
+      //     carry no streaks and no score, deliberately: a system that
+      //     scores you daily becomes an accusation on a bad week.
+      //
+      // Test for anything new: does it describe, evidence, or install
+      // who I am becoming? If it only tracks what I did, it is Main
+      // Pillar's, not this page's.
+      //
+      key: 'chrysalis',
+      label: 'The Chrysalis',
+      items: [
+        { href: 'chrysalis.html', icon: '☾', label: 'The Chrysalis', id: 'topbarChrysalis', children: [
+          { hash: '/', label: 'Today' },
+          { hash: '/versions', label: 'Versions' },
+          { hash: '/traits', label: 'Traits' },
+          { hash: '/practices', label: 'Practices' },
+          { hash: '/review', label: 'The Week' },
+          { hash: '/evidence', label: 'The Log' },
+          { hash: '/graduate', label: 'Graduate' },
+        ] },
+        { href: 'chrysalis-stages.html', icon: '✎', label: 'The Litany', id: 'topbarChrysalisLitany' },
+      ],
+    },
+    {
       // The Vault — vault.html + vault-data.js. Pinned to the top of this
       // sidebar per an explicit request.
       //
@@ -571,6 +701,35 @@ body.tb-drawer-open { overflow: hidden; }
   .tb-sidebar { width: 88vw; }
 }
 
+/* === Phone: the drawer has to be usable with a thumb ===
+   This nav is on all twenty pages, so everything below is fixed once here
+   rather than twenty times.
+
+   Two measured problems, both of which made every page in the dashboard
+   report the same failures:
+
+   1) .tb-search was 13px. Anything under 16px makes iOS Safari zoom the
+      whole page in the moment the field is focused — and it does not zoom
+      back out afterwards, so one tap on Search leaves every page in the
+      dashboard oversized until you pinch it back by hand.
+
+   2) The chevron that opens a page's sub-pages was 24x24, its close button
+      28x28, and each sub-page link 26px tall. Apple's own floor is 44pt and
+      the usual practical floor is around 40px; a 24px target sitting next to
+      other 24px targets is the specific arrangement that produces a
+      mis-tap. Heights are raised rather than font sizes, so nothing about
+      the drawer's typography or density on a desktop changes. */
+@media (max-width: 768px) {
+  .tb-search { font-size: 16px; padding-top: 11px; padding-bottom: 11px; }
+  .tb-node-toggle { width: 34px; height: 34px; flex: 0 0 34px; }
+  .tb-close-btn { width: 38px; height: 38px; font-size: 15px; }
+  .tb-group-head { min-height: 40px; }
+  .tb-item { min-height: 40px; }
+  /* Padding rather than flex + min-height: .tb-subitem relies on
+     display:block for its text-overflow ellipsis, and flex would drop it. */
+  .tb-subitem { padding-top: 11px; padding-bottom: 11px; }
+}
+
 /* === Global mobile lockdown ===
    1) Hide the right-side scrollbar on phones (iOS uses overlay scrollbars anyway).
    2) Stop iOS auto-text-size-adjust.
@@ -770,9 +929,27 @@ body.topbar-modal-open {
   // group/node never costs more than one click. Also re-run on every
   // in-page hashchange (a page switching its own internal tab without a
   // full reload) so the drawer's active sub-item stays in sync live.
+  // A DETAIL page has no nav entry of its own — it is only ever reached
+  // from its parent page, so it highlights the parent's entry instead of
+  // leaving the whole sidebar looking inactive.
+  //
+  // learning-topic.html is deliberately NOT listed here: the Learning
+  // folder builds a real nav item per topic (buildLearningTopicItems),
+  // so it already matches on filename+query below and an alias would
+  // break that finer-grained highlight.
+  const NAV_DETAIL_PARENTS = {
+    'athenaeum-subject.html': 'athenaeum.html',
+    'athenaeum-curriculum.html': 'athenaeum.html',
+    // Singular: one resource. The plural athenaeum-resources.html is a real
+    // nav item of its own and must NOT be aliased here, or it would
+    // highlight The Athenaeum instead of itself.
+    'athenaeum-resource.html': 'athenaeum-resources.html'
+  };
+
   function highlightActivePill() {
     let path = window.location.pathname.split('/').pop();
     if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
+    if (NAV_DETAIL_PARENTS[path]) path = NAV_DETAIL_PARENTS[path];
     const search = window.location.search || '';
     // Most pages are identified by filename alone; the Learning folder's
     // per-topic items are the one case with more than one nav entry
@@ -1042,7 +1219,7 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.cx-modal-bg', '.cx-comp-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.cx-modal-bg', '.cx-comp-bg', '.pm-modal-bg', '.pm-capture-bg', '.ath-modal-bg', '.ath-capture-bg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
