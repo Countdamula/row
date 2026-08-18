@@ -132,19 +132,62 @@
   }
 
   var idb = null; // set once IndexedDB is open
+
+  // -------- durability tracking --------
+  // setItem() returns synchronously because the Map is updated synchronously,
+  // but the IndexedDB transaction behind it only COMMITS once control returns
+  // to the event loop. Anything that writes and then tears the document down
+  // in the same tick — location.href, a real <a> click, a form submit, or the
+  // OS discarding a backgrounded tab — can lose that write, while the page it
+  // just left looked like it had saved. So every pending transaction is
+  // counted here, and flush() lets a caller wait for the count to reach zero
+  // before doing the thing that ends the document.
+  var pending = 0;
+  var waiters = [];
+  // Writes queued before IndexedDB finished opening have no transaction yet.
+  // They are replayed on open, and flush() must not report "done" while any
+  // are still sitting here.
+  var preOpen = [];
+
+  function settleWaiters() {
+    if (pending > 0 || preOpen.length) return;
+    var list = waiters; waiters = [];
+    list.forEach(function (fn) { try { fn(); } catch (e) {} });
+  }
+  function trackTx(tx) {
+    pending++;
+    var done = false;
+    var finish = function () { if (done) return; done = true; pending--; settleWaiters(); };
+    tx.oncomplete = finish; tx.onerror = finish; tx.onabort = finish;
+  }
   function persistPut(key, value) {
-    if (!idb) return;
+    if (!idb) { preOpen.push(['put', key, value]); return; }
     try {
       var tx = idb.transaction([KV_STORE], 'readwrite');
       tx.objectStore(KV_STORE).put(value, key);
+      trackTx(tx);
     } catch (e) {}
   }
   function persistRemove(key) {
-    if (!idb) return;
+    if (!idb) { preOpen.push(['del', key]); return; }
     try {
       var tx = idb.transaction([KV_STORE], 'readwrite');
       tx.objectStore(KV_STORE).delete(key);
+      trackTx(tx);
     } catch (e) {}
+  }
+  function drainPreOpen() {
+    if (!idb || !preOpen.length) return;
+    var queued = preOpen; preOpen = [];
+    try {
+      var tx = idb.transaction([KV_STORE], 'readwrite');
+      var store = tx.objectStore(KV_STORE);
+      queued.forEach(function (op) {
+        if (op[0] === 'put') store.put(op[2], op[1]); else store.delete(op[1]);
+      });
+      trackTx(tx);
+    } catch (e) {}
+    settleWaiters();
   }
 
   var shim = {
@@ -200,12 +243,46 @@
     // this tab's lifetime) still works for the current session — either
     // way, resolve ready() immediately so no page hangs waiting on a
     // hydration step that was never going to happen.
-    window.LocalStoreIDB = { ready: function () { return readyPromise; }, backend: function () { return installed ? 'memory-only' : 'native'; } };
+    window.LocalStoreIDB = {
+      ready: function () { return readyPromise; },
+      backend: function () { return installed ? 'memory-only' : 'native'; },
+      // No IndexedDB behind this, so there is nothing to wait for and
+      // nothing to lose that is not already lost. Resolve immediately so a
+      // caller's navigation is never held up.
+      flush: function () { return Promise.resolve(); },
+      navigate: function (url) { location.href = url; }
+    };
     resolveReadyNow();
     return;
   }
 
-  window.LocalStoreIDB = { ready: function () { return readyPromise; }, backend: function () { return 'indexeddb'; } };
+  /**
+   * Resolves once every write issued so far has actually committed to
+   * IndexedDB. Always resolves — never rejects, and never hangs: the timeout
+   * backstop means a wedged transaction can at worst delay a navigation by
+   * `timeoutMs`, rather than stranding the reader on a page that will not
+   * move. Call it before anything that ends the document.
+   */
+  function flush(timeoutMs) {
+    if (pending === 0 && !preOpen.length) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var done = false;
+      var finish = function () { if (done) return; done = true; resolve(); };
+      waiters.push(finish);
+      setTimeout(finish, typeof timeoutMs === 'number' ? timeoutMs : 1500);
+    });
+  }
+
+  window.LocalStoreIDB = {
+    ready: function () { return readyPromise; },
+    backend: function () { return 'indexeddb'; },
+    flush: flush,
+    /** The safe replacement for `location.href = url` after a write. */
+    navigate: function (url, timeoutMs) {
+      flush(timeoutMs).then(function () { location.href = url; });
+    },
+    pendingWrites: function () { return pending + preOpen.length; }
+  };
 
   // -------- Step 3: open IndexedDB, then merge/bulk-copy and resolve ready() --------
   try {
@@ -217,6 +294,10 @@
     };
     openReq.onsuccess = function (e) {
       idb = e.target.result;
+      // Anything written between install and open was buffered rather than
+      // dropped — a page that writes during boot (a seed, a migration, a
+      // route stamp) would otherwise persist nothing at all.
+      drainPreOpen();
       var metaTx = idb.transaction([META_STORE], 'readonly');
       var metaReq = metaTx.objectStore(META_STORE).get('migrated');
       metaReq.onsuccess = function () {
