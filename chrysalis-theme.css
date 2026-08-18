@@ -1,0 +1,960 @@
+/* ============================================================
+   THE CHRYSALIS — SHARED THEME
+   Linked by every chrysalis*.html page. Extracted the moment a
+   second page needed it: a pattern that appears twice is a
+   component, not a copy.
+
+   Sources of truth (brand_assets/):
+     Hero section #2.jpg ......... hero composition, boundary-less
+     Colors.jpg .................. grounds + surfaces (near-blacks)
+     Textures.jpg ................ material system
+     Title, Header, etc text.jpg . display type character
+     Normal text typography.jpg .. body type character
+     Icon style.png .............. fine-line engraving
+     brand_guidelines/ ........... rose-gold metal, lace ground
+
+   NOTE: the metallic accent is NOT in Colors.jpg — that sheet holds
+   no metals. Rose-gold is derived from Textures.jpg's chain and the
+   INEORA lettering. Stated openly rather than implied.
+   ============================================================ */
+
+:root{
+  /* --- grounds & surfaces (Colors.jpg, coherent subset) --- */
+  --chr-ground:       #131313;  /* Cod Gray      — page ground     */
+  --chr-ground-deep:  #100706;  /* Asphalt       — hero fade, edges */
+  --chr-surface:      #252525;  /* Mine Shaft    — raised           */
+  --chr-surface-warm: #221e17;  /* Zeus          — leather          */
+  --chr-surface-mute: #3e3a39;  /* Masala        — muted            */
+
+  /* --- brand grounds (Colors.jpg) --- */
+  --chr-oxblood:      #200204;  /* Sepia Black   — wine             */
+  --chr-violet:       #140b26;  /* Haiti         — silk / mesh      */
+  --chr-plum:         #331f2a;  /* Cocoa Brown   — velvet           */
+
+  /* --- metal (derived: Textures.jpg chain + INEORA) --- */
+  --chr-rose:         #C08A72;
+  --chr-rose-hi:      #E8C0AC;
+  --chr-gold:         #B08D57;
+
+  /* --- ink --- */
+  --chr-ink:          #EDE7E1;
+  --chr-ink-mute:     #8E8681;  /* floor: 4.5:1 on --chr-ground     */
+  --chr-hair:         rgba(237,231,225,.10);
+  --chr-hair-warm:    rgba(192,138,114,.22);
+
+  /* --- type --- */
+  --chr-display: 'Cormorant Garamond', 'Bodoni Moda', Georgia, serif;
+  --chr-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* --- rhythm ---
+     No page container. Content runs to the edge of the display, so the
+     only thing between it and the screen edge is the gutter, and that
+     is kept narrow. --chr-measure survives because a paragraph is not
+     a boundary: it is the width at which a line stays readable, and
+     240-character lines cannot be read at any screen size. */
+  --chr-measure: min(92ch, 100%);
+  --chr-gut:     clamp(16px, 2.4vw, 38px);
+  --chr-band:    clamp(72px, 12vh, 148px);
+  --chr-field-w: min(1100px, 100%);   /* forms: usable, not boxed */
+
+  /* Native controls — date pickers, scrollbars, spinners — render in
+     light mode by default and their glyphs vanish on this ground. */
+  color-scheme: dark;
+
+  /* --- motion --- */
+  --chr-slow:  1200ms;
+  --chr-mid:    620ms;
+  --chr-quick:  280ms;
+  --chr-ease:   cubic-bezier(.22,.61,.36,1);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth }
+
+body{
+  margin:0;
+  background:var(--chr-ground);
+  color:var(--chr-ink);
+  font-family:var(--chr-body);
+  font-weight:300;
+  font-size:16px;
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ============================================================
+   GRAIN — the one layer that touches every surface.
+   ============================================================ */
+.chr-grain{
+  position:fixed; inset:0; z-index:90; pointer-events:none;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+}
+
+/* ============================================================
+   THE REEL — hero and scroll stages share ONE frame. The
+   background never cuts and the video never restarts, so there is
+   no seam between the hero and what follows.
+   ============================================================ */
+.chr-reel{ position:relative; height:520svh }
+.chr-reel--short{ height:auto }
+
+.chr-reel__stage{
+  position:sticky; top:0;
+  height:100svh;
+  overflow:hidden;
+  isolation:isolate;
+  /* no border, no radius, no frame, no container edge — anywhere */
+}
+.chr-reel--short .chr-reel__stage{
+  position:relative;
+  height:auto; min-height:56svh;
+  display:grid; place-items:center;
+  padding:calc(var(--chr-band) * .8) var(--chr-gut);
+}
+
+.chr-reel__bg{
+  position:absolute; inset:0; z-index:0;
+  background:var(--chr-ground-deep);
+}
+.chr-reel__bg video,
+.chr-reel__bg img{
+  width:100%; height:100%;
+  object-fit:cover;
+  display:block;
+  /* Brightness only — NO desaturation. The sides keep the footage's own
+     hue but stay dark enough to read as night, so they never out-shout
+     the graded centre. The wine grade is masked to the middle instead. */
+  filter:brightness(.5) contrast(1.06) saturate(.9);
+}
+
+/* Centre-only crush. backdrop-filter desaturates just what sits beneath
+   the mask, so the wine wash has something neutral to sit on while the
+   edges stay exactly as they were shot. */
+.chr-reel__crush,
+.chr-reel__wine{
+  position:absolute; inset:0; pointer-events:none;
+  /* a long, soft falloff — a tight mask leaves a visible ring where the
+     graded centre meets the ungraded sides */
+  -webkit-mask-image:radial-gradient(66% 72% at 50% 44%,
+    #000 0%, #000 26%, rgba(0,0,0,.78) 48%, rgba(0,0,0,.42) 68%,
+    rgba(0,0,0,.14) 84%, transparent 100%);
+  mask-image:radial-gradient(66% 72% at 50% 44%,
+    #000 0%, #000 26%, rgba(0,0,0,.78) 48%, rgba(0,0,0,.42) 68%,
+    rgba(0,0,0,.14) 84%, transparent 100%);
+}
+.chr-reel__crush{
+  -webkit-backdrop-filter:saturate(.2) contrast(1.22) brightness(.42);
+  backdrop-filter:saturate(.2) contrast(1.22) brightness(.42);
+}
+.chr-reel__wine{
+  background:var(--chr-oxblood);
+  mix-blend-mode:color;
+  opacity:.8;
+}
+
+/* The one warm light, at the centre where the copy sits. */
+.chr-reel__glow{
+  position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(42% 32% at 50% 42%,
+    rgba(232,192,172,.20) 0%,
+    rgba(192,138,114,.09) 46%,
+    transparent 74%);
+  mix-blend-mode:screen;
+}
+
+/* Only the outermost perimeter resolves to the page ground — enough to
+   keep the frame edgeless, not so much that it swallows the sides. */
+.chr-reel__edge{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(126% 108% at 50% 46%,
+      transparent 0%, transparent 48%,
+      rgba(19,19,19,.34) 68%, rgba(19,19,19,.74) 86%, var(--chr-ground) 100%),
+    linear-gradient(to bottom,
+      var(--chr-ground) 0%, rgba(19,19,19,.44) 10%, rgba(19,19,19,.06) 24%,
+      rgba(19,19,19,.06) 74%, rgba(19,19,19,.52) 91%, var(--chr-ground) 100%);
+}
+
+.chr-reel__copy{
+  position:absolute; inset:0; z-index:1;
+  display:grid; place-items:center;
+  padding:var(--chr-band) var(--chr-gut);
+}
+.chr-reel--short .chr-reel__copy{
+  position:relative; inset:auto; padding:0;
+}
+
+.chr-cell{
+  grid-area:1/1;
+  /* The hero's centred composition is held from the reference and is
+     not a page boundary — but it gets more of the display now. */
+  width:min(1500px,94vw);
+  text-align:center;
+  opacity:1;                    /* JS takes over; without JS all show */
+  will-change:opacity, transform;
+}
+
+.chr-line{
+  margin:0;
+  font-family:var(--chr-display);
+  font-weight:300;
+  font-size:clamp(1.45rem,3.5vw,3rem);
+  line-height:1.3;
+  letter-spacing:.03em;
+  text-wrap:balance;
+  color:var(--chr-ink);
+  text-shadow:0 2px 30px rgba(16,7,6,.72);
+}
+.chr-js .chr-word{
+  display:inline-block;
+  opacity:0;
+  transform:translateY(.24em);
+  transition:opacity 420ms var(--chr-ease), transform 420ms var(--chr-ease);
+}
+.chr-js .chr-word.is-writ{ opacity:1; transform:none }
+
+.chr-hero__inner{
+  position:relative;
+  text-align:center;
+  max-width:min(1100px,92vw);
+}
+
+.chr-eyebrow{
+  margin:0 0 clamp(20px,3.4vh,34px);
+  font-family:var(--chr-body);
+  font-size:clamp(9.5px,1.1vw,11px);
+  font-weight:400;
+  letter-spacing:.46em;
+  text-indent:.46em;      /* tracking adds trailing space; recentre */
+  text-transform:uppercase;
+  color:var(--chr-ink-mute);
+}
+
+.chr-hero__title{
+  margin:0;
+  font-family:var(--chr-display);
+  font-weight:300;
+  /* sized to hold one line, as the reference does — tracking this wide
+     eats horizontal room fast */
+  font-size:clamp(2rem,6.4vw,6rem);
+  line-height:1.02;
+  letter-spacing:.2em;
+  text-indent:.2em;
+  text-wrap:balance;
+  text-transform:uppercase;
+  color:var(--chr-ink);
+}
+.chr-reel--short .chr-hero__title{ font-size:clamp(1.7rem,4.6vw,3.6rem) }
+
+.chr-hero__cue{
+  margin:clamp(26px,4.6vh,52px) 0 0;
+  font-size:clamp(9.5px,1.1vw,10.5px);
+  font-weight:400;
+  letter-spacing:.38em;
+  text-indent:.38em;
+  text-transform:uppercase;
+  color:var(--chr-ink-mute);
+}
+
+/* Over video, muted grey loses its footing. The reference sets its
+   eyebrow and cue in near-white for exactly this reason. */
+.chr-reel .chr-eyebrow,
+.chr-hero__cue{ color:rgba(237,231,225,.88) }
+.chr-reel .chr-eyebrow,
+.chr-hero__cue,
+.chr-hero__title{ text-shadow:0 2px 30px rgba(16,7,6,.72) }
+
+/* Reduced motion: the reel stops being a scroll machine and becomes
+   ordinary stacked sections. Nothing scrubs, nothing rotates, and every
+   line is present at once. */
+.chr-reel--flat{ height:auto }
+.chr-reel--flat .chr-reel__stage{ position:static; height:auto }
+.chr-reel--flat .chr-reel__bg{ position:absolute }
+.chr-reel--flat .chr-reel__copy{
+  position:relative; display:block;
+  padding-block:var(--chr-band);
+}
+.chr-reel--flat .chr-cell{
+  opacity:1 !important; transform:none !important;
+  margin-inline:auto;
+  padding-block:clamp(38px,7vh,72px);
+}
+.chr-reel--flat .chr-word{ opacity:1 !important; transform:none !important }
+
+/* ============================================================
+   THE THREAD — the signature.
+   Every material in Textures.jpg is thread: lace, embroidery, silk,
+   mesh, chain. So one rose-gold hairline runs the page and knots into
+   an engraved node at each section. On the Version page this same
+   thread becomes the Timeline of Becoming, where nodes carry dates.
+   ============================================================ */
+.chr-seam{
+  position:relative;
+  height:clamp(96px,13vh,140px);
+  display:grid; place-items:center;
+  overflow:hidden;
+}
+.chr-seam__rule{
+  position:absolute; left:0; right:0; top:50%;
+  height:1px; background:var(--chr-hair);
+}
+.chr-seam__thread{
+  position:absolute; top:0; bottom:0; width:1px;
+  background:linear-gradient(to bottom,
+    transparent 0,
+    var(--chr-hair-warm) 26%,
+    var(--chr-hair-warm) 74%,
+    transparent 100%);
+}
+.chr-seam .chr-knot{
+  z-index:1;
+  padding:0 12px;
+  background:var(--chr-ground);   /* the rule passes behind, not through */
+}
+
+.chr-knot{
+  position:relative;
+  display:grid; place-items:center;
+  height:34px;
+  color:var(--chr-rose);
+}
+/* an SVG with only a viewBox fills its container — always size it */
+.chr-knot svg{ display:block; width:34px; height:34px; flex:none }
+
+/* ============================================================
+   BANDS & TYPE — hairline rules and full-bleed bands.
+   No cards, no radii, no boxes: the references contain none.
+   ============================================================ */
+.chr-band{ position:relative; padding:var(--chr-band) var(--chr-gut) }
+/* No max-width and no auto margins: the band is the full width of the
+   display. Rules, rows, grids and images all run edge to edge. */
+.chr-band__inner{ position:relative; max-width:none; margin:0 }
+
+.chr-rule{ height:1px; border:0; margin:0; background:var(--chr-hair) }
+
+.chr-label{
+  margin:0 0 clamp(26px,4vw,44px);
+  font-size:10.5px;
+  font-weight:400;
+  letter-spacing:.34em;
+  text-indent:.34em;
+  text-transform:uppercase;
+  color:var(--chr-ink-mute);
+}
+
+.chr-h2{
+  margin:0 0 clamp(14px,2vw,22px);
+  font-family:var(--chr-display);
+  font-weight:300;
+  font-size:clamp(1.7rem,4.4vw,3.1rem);
+  line-height:1.1;
+  letter-spacing:.17em;
+  text-indent:.17em;
+  text-transform:uppercase;
+  color:var(--chr-ink);
+}
+
+.chr-h3{
+  margin:0 0 10px;
+  font-family:var(--chr-display);
+  font-weight:400;
+  font-size:1.24rem;
+  letter-spacing:.1em;
+  color:var(--chr-ink);
+}
+
+.chr-lede{
+  max-width:var(--chr-measure);
+  margin:0 0 clamp(30px,4vw,48px);
+  font-size:16.5px;
+  line-height:1.78;
+  color:var(--chr-ink-mute);
+}
+.chr-lede em{
+  font-family:var(--chr-display);
+  font-style:italic;
+  font-size:1.12em;
+  color:var(--chr-rose);
+}
+
+.chr-prose{ max-width:var(--chr-measure); color:var(--chr-ink-mute) }
+
+.chr-meta{
+  font-size:10.5px; font-weight:400;
+  letter-spacing:.28em; text-indent:.28em;
+  text-transform:uppercase;
+  color:var(--chr-ink-mute);
+}
+
+/* ============================================================
+   INTERACTIVE — hairline and underline. No filled radius buttons.
+   Every control carries hover, focus-visible and active.
+   ============================================================ */
+.chr-act{
+  display:inline-block;
+  padding:15px 34px;
+  border:1px solid var(--chr-hair-warm);
+  background:transparent;
+  color:var(--chr-ink);
+  font-family:var(--chr-body);
+  font-size:10.5px; font-weight:400;
+  letter-spacing:.3em; text-indent:.3em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:color var(--chr-quick) var(--chr-ease),
+             border-color var(--chr-quick) var(--chr-ease),
+             transform var(--chr-quick) var(--chr-ease);
+}
+.chr-act:hover{ color:var(--chr-rose-hi); border-color:var(--chr-rose) }
+.chr-act:focus-visible{
+  outline:1px solid var(--chr-rose-hi);
+  outline-offset:4px;
+  color:var(--chr-rose-hi);
+}
+.chr-act:active{ transform:translateY(1px) }
+.chr-act--small{ padding:9px 18px; font-size:9.5px; letter-spacing:.22em; text-indent:.22em }
+.chr-act[disabled]{ opacity:.4; cursor:not-allowed }
+
+.chr-link{
+  position:relative;
+  color:var(--chr-ink);
+  text-decoration:none;
+  padding-bottom:3px;
+  transition:color var(--chr-quick) var(--chr-ease);
+}
+.chr-link::after{
+  content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:var(--chr-rose);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform var(--chr-mid) var(--chr-ease);
+}
+.chr-link:hover{ color:var(--chr-rose-hi) }
+.chr-link:hover::after{ transform:scaleX(1) }
+.chr-link:focus-visible{
+  outline:1px solid var(--chr-rose-hi); outline-offset:4px; color:var(--chr-rose-hi);
+}
+.chr-link:focus-visible::after{ transform:scaleX(1) }
+
+/* ============================================================
+   FIELDS — an underline, never a box. A field is a ruled line you
+   write on, which is the only form treatment this world allows.
+   ============================================================ */
+.chr-field{
+  width:100%;
+  display:block;
+  border:0;
+  border-bottom:1px solid var(--chr-hair);
+  background:transparent;
+  color:var(--chr-ink);
+  font-family:var(--chr-body);
+  font-weight:300;
+  font-size:15px;
+  line-height:1.7;
+  padding:9px 2px;
+  resize:none;
+  transition:border-color var(--chr-quick) var(--chr-ease),
+             color var(--chr-quick) var(--chr-ease);
+}
+.chr-field::placeholder{ color:var(--chr-ink-mute); opacity:.7 }
+.chr-field:hover{ border-bottom-color:var(--chr-hair-warm) }
+.chr-field:focus{ outline:none; border-bottom-color:var(--chr-rose) }
+.chr-field:focus-visible{ outline:none }
+
+.chr-field--display{
+  font-family:var(--chr-display);
+  font-size:clamp(1.15rem,2.2vw,1.6rem);
+  font-weight:400;
+  letter-spacing:.06em;
+  color:var(--chr-ink);
+}
+.chr-field--label{
+  font-size:10.5px;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:var(--chr-rose-hi);
+}
+
+/* An icon-only control. Never smaller than 34px of hit area. */
+.chr-tick{
+  width:34px; height:34px;
+  display:grid; place-items:center;
+  border:0; background:transparent;
+  color:var(--chr-ink-mute);
+  cursor:pointer;
+  transition:color var(--chr-quick) var(--chr-ease),
+             transform var(--chr-quick) var(--chr-ease);
+}
+.chr-tick svg{ width:16px; height:16px; display:block }
+.chr-tick:hover{ color:var(--chr-rose-hi) }
+.chr-tick:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:2px; color:var(--chr-rose-hi) }
+.chr-tick:active{ transform:translateY(1px) }
+.chr-tick[disabled]{ opacity:.25; cursor:not-allowed }
+.chr-tick--danger:hover{ color:#d98b8b }
+
+/* ============================================================
+   THE ROUTE BAR — sits directly under the hero on every page, so
+   the whole of The Chrysalis is one hop away from anywhere in it.
+   Hairline rules and tracked caps; no pills, no filled tabs.
+   ============================================================ */
+.chr-subnav{
+  position:relative; z-index:2;
+  border-block:1px solid var(--chr-hair);
+  background:var(--chr-ground);
+}
+.chr-subnav__scroll{
+  display:flex; align-items:stretch;
+  gap:clamp(2px,1.4vw,26px);
+  padding:0 var(--chr-gut);
+  overflow-x:auto;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.chr-subnav__scroll::-webkit-scrollbar{ display:none }
+/* Only when it actually overflows — a fade on a bar that already fits
+   is a promise of content that is not there. The class is set by
+   chrysalis-nav.js, which is the only thing that can measure it. */
+.chr-subnav.is-scrollable .chr-subnav__scroll{
+  -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 38px), transparent 100%);
+  mask-image:linear-gradient(to right, #000 calc(100% - 38px), transparent 100%);
+}
+.chr-subnav.is-scrollable.is-end .chr-subnav__scroll{
+  -webkit-mask-image:none; mask-image:none;
+}
+
+.chr-subnav a{
+  position:relative;
+  flex:none;
+  display:flex; align-items:center;
+  padding:clamp(14px,2vh,19px) clamp(8px,1vw,14px);
+  font-family:var(--chr-body); font-size:10px; font-weight:400;
+  letter-spacing:.26em; text-indent:.26em; text-transform:uppercase;
+  color:var(--chr-ink-mute); text-decoration:none; white-space:nowrap;
+  transition:color var(--chr-quick) var(--chr-ease);
+}
+.chr-subnav a::after{
+  content:''; position:absolute; left:clamp(8px,1vw,14px); right:clamp(8px,1vw,14px);
+  bottom:0; height:1px; background:var(--chr-rose);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform var(--chr-mid) var(--chr-ease);
+}
+.chr-subnav a:hover{ color:var(--chr-ink) }
+.chr-subnav a:hover::after{ transform:scaleX(1) }
+.chr-subnav a:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:-4px; color:var(--chr-rose-hi) }
+.chr-subnav a[aria-current="page"]{ color:var(--chr-ink) }
+.chr-subnav a[aria-current="page"]::after{ transform:scaleX(1) }
+
+/* ============================================================
+   BACK — fixed to the top right, mirroring topbar.js's launcher
+   at the top left, so neither ever covers the other.
+   ============================================================ */
+.chr-back{
+  position:fixed; top:14px; right:16px; z-index:95;
+  display:inline-flex; align-items:center; gap:9px;
+  padding:10px 16px;
+  border:1px solid var(--chr-hair-warm);
+  background:rgba(19,19,19,.82);
+  -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
+  color:var(--chr-ink);
+  font-family:var(--chr-body); font-size:9.5px; font-weight:400;
+  letter-spacing:.24em; text-indent:.24em; text-transform:uppercase;
+  cursor:pointer;
+  transition:color var(--chr-quick) var(--chr-ease),
+             border-color var(--chr-quick) var(--chr-ease),
+             transform var(--chr-quick) var(--chr-ease);
+}
+.chr-back svg{ width:13px; height:13px; flex:none; display:block }
+.chr-back:hover{ color:var(--chr-rose-hi); border-color:var(--chr-rose) }
+.chr-back:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:3px; color:var(--chr-rose-hi) }
+.chr-back:active{ transform:translateY(1px) }
+
+@media (max-width:520px){
+  .chr-back{ top:10px; right:10px; padding:9px 12px; letter-spacing:.16em; text-indent:.16em }
+}
+
+/* ============================================================
+   THE HOW-TO — what this page is for and how to work it, at the
+   top of every page. Collapsible, and it remembers.
+   ============================================================ */
+.chr-howto{
+  border-bottom:1px solid var(--chr-hair);
+  padding:0 var(--chr-gut);
+}
+.chr-howto__head{
+  display:flex; align-items:center; gap:clamp(12px,2vw,22px);
+  width:100%; padding:clamp(16px,2.4vh,22px) 0;
+  border:0; background:transparent; cursor:pointer; text-align:left;
+  color:var(--chr-ink-mute);
+  transition:color var(--chr-quick) var(--chr-ease);
+}
+.chr-howto__head:hover{ color:var(--chr-ink) }
+.chr-howto__head:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:-3px }
+.chr-howto__title{
+  flex:1 1 auto; margin:0;
+  font-family:var(--chr-body); font-size:10px; font-weight:400;
+  letter-spacing:.3em; text-indent:.3em; text-transform:uppercase;
+  color:var(--chr-rose);
+}
+.chr-howto__hint{
+  flex:none; font-size:10px; letter-spacing:.24em; text-indent:.24em;
+  text-transform:uppercase; color:var(--chr-ink-mute);
+}
+.chr-howto__chev{ flex:none; width:14px; height:14px; display:block;
+  transition:transform var(--chr-mid) var(--chr-ease) }
+.chr-howto[data-open="false"] .chr-howto__chev{ transform:rotate(-90deg) }
+.chr-howto[data-open="false"] .chr-howto__body{ display:none }
+
+.chr-howto__body{ padding:0 0 clamp(28px,4vh,44px) }
+.chr-howto__lede{
+  max-width:var(--chr-measure); margin:0 0 clamp(22px,3vh,32px);
+  font-size:16.5px; line-height:1.78; color:var(--chr-ink);
+}
+.chr-howto__lede strong{ font-weight:400; color:var(--chr-rose-hi) }
+
+/* Numbered because these ARE a sequence — the order is the
+   instruction. Numerals set in the display face, hung in the margin. */
+.chr-howto__steps{ list-style:none; margin:0; padding:0; counter-reset:chrstep }
+.chr-howto__steps li{
+  position:relative;
+  counter-increment:chrstep;
+  padding:clamp(13px,1.8vh,17px) 0 clamp(13px,1.8vh,17px) clamp(46px,4vw,64px);
+  border-top:1px solid var(--chr-hair);
+  max-width:var(--chr-measure);
+  color:var(--chr-ink-mute); line-height:1.7;
+}
+.chr-howto__steps li:last-child{ border-bottom:1px solid var(--chr-hair) }
+.chr-howto__steps li::before{
+  content:counter(chrstep);
+  position:absolute; left:0; top:clamp(11px,1.6vh,15px);
+  font-family:var(--chr-display); font-size:1.15rem; font-weight:400;
+  letter-spacing:.04em; color:var(--chr-rose);
+}
+.chr-howto__steps b{ font-weight:400; color:var(--chr-ink) }
+.chr-howto__steps em{ font-style:normal; color:var(--chr-rose) }
+
+.chr-howto__note{
+  max-width:var(--chr-measure);
+  margin:clamp(22px,3vh,32px) 0 0;
+  padding-left:16px;
+  border-left:1px solid var(--chr-hair-warm);
+  color:var(--chr-ink-mute); font-size:14.5px; line-height:1.72;
+}
+
+/* ============================================================
+   AI PROMPTS — same disclosure as the how-to, so the top of every
+   page reads as one stack rather than two competing panels.
+   ============================================================ */
+.chr-howto--prompts .chr-howto__title{ color:var(--chr-gold) }
+
+.chr-prompts{ list-style:none; margin:0; padding:0; counter-reset:chrprompt }
+.chr-prompts > li{
+  counter-increment:chrprompt;
+  padding:clamp(20px,3vh,28px) 0;
+  border-top:1px solid var(--chr-hair);
+}
+.chr-prompts > li:last-child{ border-bottom:1px solid var(--chr-hair) }
+
+/* Capped to the same measure as the prompt itself, so Copy sits beside
+   the thing it copies instead of a screen-width away from it. */
+.chr-prompt__head{
+  display:flex; align-items:baseline; gap:clamp(14px,2vw,26px);
+  max-width:var(--chr-measure);
+  margin-bottom:14px;
+}
+.chr-prompt__title{
+  flex:1 1 auto; margin:0;
+  font-family:var(--chr-display); font-weight:400;
+  font-size:clamp(1.1rem,2vw,1.4rem); letter-spacing:.05em;
+  color:var(--chr-ink);
+}
+.chr-prompt__title::before{
+  content:counter(chrprompt, decimal-leading-zero);
+  margin-right:14px;
+  font-family:var(--chr-body); font-size:10px; letter-spacing:.24em;
+  color:var(--chr-gold); vertical-align:middle;
+}
+.chr-prompt__head .chr-act{ flex:none }
+
+/* The prompt itself is shown as what it is — a block of text to be
+   taken whole — on the leather surface, scrolling inside itself
+   rather than pushing the page sideways. */
+.chr-prompt__body{
+  margin:0;
+  max-width:var(--chr-measure);
+  padding:clamp(16px,2.2vh,22px) clamp(16px,2vw,22px);
+  background:var(--chr-surface-warm);
+  border-left:1px solid var(--chr-hair-warm);
+  color:var(--chr-ink-mute);
+  font-family:var(--chr-body);
+  font-size:13.5px; line-height:1.72;
+  white-space:pre-wrap; word-break:break-word;
+  /* Capped and scrolling: this is a block to be taken whole, not read
+     here. The fade says so — every prompt is longer than the box. */
+  max-height:210px; overflow-y:auto;
+  -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 34px), transparent 100%);
+  mask-image:linear-gradient(to bottom, #000 calc(100% - 34px), transparent 100%);
+}
+
+/* ============================================================
+   NOTES — the margin of the book, at the foot of every page.
+   ============================================================ */
+.chr-notes{ border-top:1px solid var(--chr-hair) }
+.chr-notes__form{
+  display:grid; gap:12px;
+  max-width:var(--chr-field-w);
+  margin-bottom:clamp(24px,4vh,36px);
+}
+.chr-notes__field{
+  width:100%; min-height:70px;
+  border:0; border-bottom:1px solid var(--chr-hair);
+  background:transparent; color:var(--chr-ink);
+  font-family:var(--chr-body); font-weight:300;
+  font-size:16px; line-height:1.75; padding:6px 2px 12px; resize:vertical;
+  transition:border-color var(--chr-quick) var(--chr-ease);
+}
+.chr-notes__field::placeholder{ color:var(--chr-ink-mute); opacity:.55 }
+.chr-notes__field:hover{ border-bottom-color:var(--chr-hair-warm) }
+.chr-notes__field:focus{ outline:none; border-bottom-color:var(--chr-rose) }
+
+.chr-notes__list{ list-style:none; margin:0; padding:0 }
+.chr-notes__list li{
+  display:flex; gap:clamp(12px,2vw,24px); align-items:baseline;
+  padding:16px 0; border-top:1px solid var(--chr-hair);
+}
+.chr-notes__list li:last-child{ border-bottom:1px solid var(--chr-hair) }
+.chr-notes__list li.is-pinned .chr-notes__when{ color:var(--chr-rose) }
+.chr-notes__when{ flex:none; width:clamp(92px,11vw,130px); color:var(--chr-ink-mute) }
+.chr-notes__what{ flex:1 1 auto; min-width:0 }
+.chr-notes__what p{ margin:0; color:var(--chr-ink); line-height:1.72; white-space:pre-wrap }
+.chr-notes__tools{ flex:none; display:flex; gap:2px }
+.chr-notes__tools [aria-pressed="true"]{ color:var(--chr-rose) }
+
+@media (max-width:700px){
+  .chr-notes__list li{ flex-wrap:wrap; gap:2px }
+  .chr-notes__when{ width:100% }
+  .chr-prompt__head{ flex-wrap:wrap }
+}
+
+/* ============================================================
+   THE IMAGE BOARD — shared by The Becoming and Today, so it lives
+   here rather than in either page. Markup and wiring: chrysalis-board.js.
+   ============================================================ */
+.chr-board{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));
+  gap:clamp(10px,1.4vw,18px);
+}
+.chr-shot{ position:relative; margin:0 }
+.chr-shot__frame{
+  position:relative;
+  aspect-ratio:4/5;
+  overflow:hidden;
+  background:var(--chr-surface-warm);
+  cursor:zoom-in;
+  display:block; width:100%; padding:0; border:0;
+}
+.chr-shot__frame img{
+  width:100%; height:100%; object-fit:cover; display:block;
+  transition:transform var(--chr-slow) var(--chr-ease),
+             filter var(--chr-mid) var(--chr-ease);
+}
+/* A gradient floor and a wine treatment, lifted on hover so the real
+   photograph is always one gesture away. */
+.chr-shot__frame::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(to top, rgba(16,7,6,.72) 0%, rgba(16,7,6,.10) 46%, transparent 70%),
+    linear-gradient(200deg, rgba(32,2,4,.30), transparent 60%);
+  transition:opacity var(--chr-mid) var(--chr-ease);
+}
+.chr-shot__frame:hover img{ transform:scale(1.03); filter:saturate(1.05) }
+.chr-shot__frame:hover::after{ opacity:.45 }
+.chr-shot__frame:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:3px }
+
+.chr-shot__anchor{
+  position:absolute; top:10px; left:10px; z-index:2;
+  font-size:9px; letter-spacing:.24em; text-transform:uppercase;
+  color:var(--chr-rose-hi);
+  text-shadow:0 1px 10px rgba(16,7,6,.9);
+}
+.chr-shot__local{
+  position:absolute; top:10px; right:10px; z-index:2;
+  font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  color:#e0b083; text-shadow:0 1px 10px rgba(16,7,6,.9);
+}
+.chr-shot__cap{ margin:8px 0 0 }
+.chr-shot__tools{ display:flex; gap:2px; margin-top:2px; flex-wrap:wrap }
+
+.chr-drop{
+  border:1px dashed var(--chr-hair-warm);
+  padding:clamp(28px,5vh,48px) 20px;
+  text-align:center;
+  color:var(--chr-ink-mute);
+  transition:border-color var(--chr-quick) var(--chr-ease),
+             color var(--chr-quick) var(--chr-ease);
+}
+.chr-drop.is-over{ border-color:var(--chr-rose); color:var(--chr-rose-hi) }
+
+.chr-warn{
+  margin-top:clamp(18px,3vh,26px);
+  padding-top:14px;
+  border-top:1px solid var(--chr-hair);
+  color:#e0b083;
+  font-size:14px;
+}
+
+.chr-lb{
+  position:fixed; inset:0; z-index:200;
+  display:grid; place-items:center;
+  padding:clamp(20px,4vw,60px);
+  background:rgba(11,7,8,.94);
+}
+.chr-lb img{ max-width:100%; max-height:80vh; object-fit:contain; display:block }
+.chr-lb__cap{ margin:18px 0 0; text-align:center; color:var(--chr-ink-mute) }
+.chr-lb__close{ position:absolute; top:18px; right:18px }
+
+/* ============================================================
+   THE EMBODIMENT LADDER — named rungs, never a number and never a
+   chart. Rungs below the current one stay warm, so the ladder reads
+   as ground already covered rather than a progress bar.
+   ============================================================ */
+.chr-ladder{
+  display:flex; flex-wrap:wrap; gap:1px;
+  background:var(--chr-hair);
+  border-block:1px solid var(--chr-hair);
+  margin-top:clamp(18px,3vh,26px);
+}
+.chr-ladder button{
+  flex:1 1 120px; padding:18px 10px;
+  background:var(--chr-ground); border:0; cursor:pointer;
+  font-family:var(--chr-body); font-size:10px; letter-spacing:.24em;
+  text-transform:uppercase; color:var(--chr-ink-mute);
+  transition:color var(--chr-quick) var(--chr-ease),
+             background-color var(--chr-quick) var(--chr-ease);
+}
+.chr-ladder button:hover{ color:var(--chr-rose-hi) }
+.chr-ladder button:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:-3px; color:var(--chr-rose-hi) }
+.chr-ladder button.is-at{ color:var(--chr-ink); background:var(--chr-surface-warm) }
+.chr-ladder button.is-below{ color:var(--chr-rose) }
+.chr-ladder--tight button{ flex:1 1 92px; padding:12px 8px; font-size:9.5px; letter-spacing:.2em }
+
+/* ============================================================
+   EVIDENCE — the log, and the box that writes to it.
+   Lived on the trait page first; promoted here the moment the daily
+   surface needed the same thing. A pattern that appears twice is a
+   component.
+   ============================================================ */
+.chr-ev{ list-style:none; margin:clamp(22px,4vh,34px) 0 0; padding:0 }
+.chr-ev li{
+  display:flex; gap:clamp(12px,2vw,24px); align-items:baseline;
+  padding:16px 0; border-top:1px solid var(--chr-hair);
+}
+.chr-ev__when{ flex:none; width:clamp(92px,13vw,140px); color:var(--chr-ink-mute) }
+.chr-ev__what{ flex:1 1 auto; min-width:0 }
+.chr-ev__what p{ margin:0; color:var(--chr-ink); line-height:1.7 }
+.chr-ev__kind{
+  display:block; margin-bottom:3px;
+  font-size:9px; letter-spacing:.24em; text-transform:uppercase;
+}
+/* Acted is warm, fell back is quiet. Neither is red: a fall-back is
+   information, and colouring it as an error would make the page an
+   accusation on a bad week. */
+.chr-ev__kind.acted{ color:var(--chr-rose) }
+.chr-ev__kind.fellback{ color:var(--chr-ink-mute) }
+
+.chr-capture{ display:grid; gap:14px; margin-top:clamp(18px,3vh,26px); max-width:var(--chr-field-w) }
+.chr-capture__row{ display:flex; flex-wrap:wrap; gap:12px; align-items:center }
+
+/* ============================================================
+   THE KNOT TOGGLE — a practice is a knot in the same rose-gold
+   thread that runs the whole page. Marking one ties it.
+   ============================================================ */
+.chr-tie{
+  width:40px; height:40px; flex:none;
+  display:grid; place-items:center;
+  border:0; background:transparent; padding:0;
+  color:var(--chr-ink-mute);
+  cursor:pointer;
+  transition:color var(--chr-quick) var(--chr-ease);
+}
+.chr-tie svg{ display:block; width:34px; height:34px }
+.chr-tie:hover{ color:var(--chr-rose-hi) }
+.chr-tie:focus-visible{ outline:1px solid var(--chr-rose-hi); outline-offset:2px; color:var(--chr-rose-hi) }
+.chr-tie:active{ transform:translateY(1px) }
+
+.chr-tie__thread{ stroke:currentColor; stroke-width:.9; opacity:.34 }
+.chr-tie__ring{ fill:none; stroke:currentColor; stroke-width:.9 }
+.chr-tie__core,
+.chr-tie__stitch{
+  opacity:0;
+  transition:opacity var(--chr-mid) var(--chr-ease);
+}
+.chr-tie__core{ fill:currentColor }
+.chr-tie__stitch{ stroke:currentColor; stroke-width:.9 }
+
+.chr-tie.is-tied{ color:var(--chr-rose) }
+.chr-tie.is-tied .chr-tie__core{ opacity:1 }
+.chr-tie.is-tied .chr-tie__stitch{ opacity:.5 }
+.chr-tie.is-tied .chr-tie__thread{ opacity:.7 }
+
+/* ============================================================
+   MOTION — transform and opacity only. Never transition-all.
+   ============================================================ */
+.chr-rise{
+  opacity:0;
+  transform:translateY(26px);
+  transition:opacity var(--chr-slow) var(--chr-ease),
+             transform var(--chr-slow) var(--chr-ease);
+}
+.chr-rise.is-in{ opacity:1; transform:none }
+
+.chr-draw{ transform:scaleY(0); transform-origin:top;
+  transition:transform var(--chr-slow) var(--chr-ease) }
+.chr-draw.is-in{ transform:scaleY(1) }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto }
+  .chr-rise,.chr-draw{ opacity:1; transform:none; transition:none }
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    transition-duration:.001ms !important;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — mobile-first quality floor
+   ============================================================ */
+@media (max-width:700px){
+  .chr-ev li{ flex-wrap:wrap; gap:2px }
+  .chr-ev__when{ width:100% }
+}
+
+@media (max-width:640px){
+  :root{ --chr-measure:100% }
+  .chr-hero__title{ letter-spacing:.14em; text-indent:.14em }
+  .chr-eyebrow{ letter-spacing:.34em; text-indent:.34em }
+}
+
+/* ---- phone: writing surfaces have to be writable ----------------------
+   A field under 16px makes iOS Safari zoom the page in the instant it takes
+   focus, and it never zooms back out. On a page whose whole purpose is
+   typing a sentence about your day, that means every capture leaves the
+   page magnified and mis-scrolled. 15px is the design size at every other
+   width; this raises only the phone.
+
+   The label variant is set in caps at 10.5px, which is a size the design
+   depends on — it is raised too, because being zoomed into is worse than a
+   label being a point larger than intended for one breakpoint. Its tracking
+   is pulled in to compensate so the line still fits. */
+@media (max-width:768px){
+  .chr-field{ font-size:16px }
+  .chr-field--label{ font-size:16px; letter-spacing:.16em }
+  .chr-field--display{ font-size:clamp(1.15rem,5vw,1.6rem) }
+  /* An inline link in a paragraph is a tap target too. Padding rather than
+     line-height, so the prose it sits in keeps its rhythm while the box you
+     have to hit grows — vertical padding on an inline element expands the
+     hit area without moving the line. */
+  .chr-link{ padding-top:10px; padding-bottom:11px }
+}
