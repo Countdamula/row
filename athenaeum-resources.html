@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Library — The Athenaeum</title>
+
+<!-- MUST be first and MUST NOT be deferred: local-store-idb.js replaces
+     window.localStorage with an IndexedDB-backed shim, and every later
+     script assumes the shim is already installed. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400&family=Italiana&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* =====================================================================
+   §TOKENS — copied from athenaeum.html's :root, values unchanged.
+
+   The home page's ink-and-rule naming, not the sub-pages' text-and-hair
+   naming, because the Library is a HERO page: it opens on a full-bleed
+   plate with the point cloud running, so it speaks the home page's
+   dialect. (Do not write a token family as a glob inside a CSS comment —
+   a star followed by a slash ends the comment and takes the rest of the
+   block down with it. That is not a hypothetical.)
+
+   THE ONE GROUND. --ath-paper is deliberately the same value as
+   --ath-void: hero and content are painted with the same colour, so there
+   is no seam anywhere for a boundary to appear at. Anything that needs to
+   read as a separate surface earns it with elevation — a hair lighter, a
+   soft shadow — never with a border against a different ground.
+   ===================================================================== */
+:root{
+  --ath-ground:#06080B;
+  --ath-paper:#0A0C0F;
+  --ath-paper-2:#12161C;
+  --ath-panel:#171C24;
+
+  --ath-void:#0A0C0F;
+  --ath-slate:#13171C;
+  --ath-raise:#1C212A;
+
+  --ath-ink:#F2EFE8;
+  --ath-ink-2:rgba(242,239,232,.72);
+  --ath-ink-3:rgba(242,239,232,.52);
+  --ath-ink-4:rgba(242,239,232,.38);
+  --ath-rule:rgba(242,239,232,.13);
+  --ath-rule-soft:rgba(242,239,232,.065);
+
+  --ath-verd:#3D7668;    --ath-verd-rgb:61,118,104;   --ath-verd-hi:#5A9E8C;
+  --ath-brass:#9A7830;   --ath-brass-rgb:154,120,48;  --ath-brass-hi:#C9A458;
+  --ath-bad:#A2453E;     --ath-bad-rgb:162,69,62;
+
+  --ath-onDark:#F2EFE8;
+  --ath-onDark-2:rgba(242,239,232,.70);
+  --ath-onDark-3:rgba(242,239,232,.42);
+  --ath-onDark-4:rgba(242,239,232,.22);
+
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:18px;
+  --sp-5:26px; --sp-6:38px; --sp-7:56px; --sp-8:84px; --sp-9:120px;
+
+  --ath-r-sm:2px; --ath-r:3px; --ath-r-lg:4px;
+
+  --ath-display:"Italiana", Didot, "Bodoni MT", Georgia, serif;
+  --ath-hero-face:"Bodoni Moda", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+  --ath-prose:"Newsreader", Georgia, "Times New Roman", serif;
+  --ath-ui:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ath-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --ath-spring:cubic-bezier(.34,1.32,.64,1);
+  --ath-ease:cubic-bezier(.32,.72,0,1);
+  --ath-pull:cubic-bezier(.16,.84,.24,1);
+
+  --ath-lift:0 1px 0 rgba(242,239,232,.055) inset, 0 14px 30px -22px rgba(0,0,0,.85);
+  --ath-lift-2:0 1px 0 rgba(242,239,232,.085) inset, 0 30px 60px -30px rgba(0,0,0,.95), 0 6px 18px -12px rgba(0,0,0,.6);
+  --ath-lift-dark:0 30px 70px -34px rgba(0,0,0,.9), 0 6px 20px -12px rgba(0,0,0,.6);
+
+  --ath-gut:clamp(20px, 4.6vw, 76px);
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ath-paper); color:var(--ath-ink);
+  font-family:var(--ath-ui); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
+}
+img{max-width:100%; display:block}
+button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+a{color:inherit; text-decoration:none}
+:focus-visible{outline:2px solid var(--ath-verd-hi); outline-offset:3px}
+.ath-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ath-sheet{width:100%; background:var(--ath-paper); overflow:clip}
+
+/* Fine tooth. `overlay` rather than `multiply`: on a near-black ground
+   multiply multiplies toward black and does nothing at all, so the grain
+   adds light instead of subtracting it. */
+.ath-grain{
+  position:fixed; inset:0; pointer-events:none; z-index:9; opacity:.28; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='180' height='180' filter='url(%23n)' opacity='.28'/></svg>");
+}
+
+/* ---------- shared type -------------------------------------------- */
+.ath-eyebrow{
+  display:flex; align-items:center; gap:var(--sp-3);
+  font-family:var(--ath-ui); font-size:11px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ath-ink-2);
+}
+.ath-eyebrow::before{content:""; width:42px; height:1px; background:var(--ath-brass-hi); flex:none}
+.ath-h1{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(44px, 7.4vw, 104px); line-height:.98; letter-spacing:.02em;
+  text-transform:uppercase; margin:0;
+}
+.ath-h3{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(20px, 2.3vw, 28px); line-height:1.15; letter-spacing:.05em;
+  text-transform:uppercase; margin:0;
+}
+.ath-lede{font-family:var(--ath-prose); font-size:17px; line-height:1.68; color:var(--ath-ink-2); margin:0}
+.ath-micro{
+  font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-3);
+}
+/* Numerals are Newsreader, never Italiana: Italiana's zero is
+   indistinguishable from a capital O, so "2026" reads as "2o26". Every
+   figure on this page goes through .ath-num or .ath-prose. */
+.ath-num{
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+}
+
+/* ---------- buttons ------------------------------------------------- */
+.ath-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  padding:12px 22px; border:1px solid var(--ath-ink); background:transparent;
+  color:var(--ath-ink); font-size:12.5px; font-weight:500; letter-spacing:.06em;
+  border-radius:var(--ath-r-sm);
+  transition:background-color .22s var(--ath-ease), color .22s var(--ath-ease),
+             transform .22s var(--ath-spring), border-color .22s var(--ath-ease);
+}
+.ath-btn:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+.ath-btn:active{transform:translateY(0)}
+.ath-btn-solid{background:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-solid:hover{background:var(--ath-verd); border-color:var(--ath-verd); color:#fff}
+.ath-btn-sm{padding:8px 14px; font-size:11.5px}
+.ath-btn-ghost{border-color:var(--ath-rule); color:var(--ath-ink-2)}
+.ath-btn-ghost:hover{background:var(--ath-ink); border-color:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-light{border-color:var(--ath-onDark-4); color:var(--ath-onDark)}
+.ath-btn-light:hover{background:var(--ath-onDark); color:var(--ath-void); border-color:var(--ath-onDark)}
+.ath-btn-danger{border-color:rgba(var(--ath-bad-rgb),.55); color:#D2726A}
+.ath-btn-danger:hover{background:var(--ath-bad); border-color:var(--ath-bad); color:#fff}
+.ath-btn-icon{
+  width:34px; height:34px; padding:0; border:1px solid var(--ath-rule);
+  border-radius:var(--ath-r-sm); color:var(--ath-ink-2); font-size:14px;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), transform .2s var(--ath-spring);
+}
+.ath-btn-icon:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+
+/* =====================================================================
+   §HERO — the full-bleed plate, lifted from athenaeum.html so the Library
+   opens the same way the Reading Room does.
+   ===================================================================== */
+.ath-hero{
+  position:relative; min-height:clamp(370px, 52vh, 520px);
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:var(--sp-5) var(--ath-gut) var(--sp-8);
+  background:var(--ath-void); color:var(--ath-onDark);
+  overflow:hidden; isolation:isolate;
+  --ath-arc:0; --ath-out:0;
+  clip-path:ellipse(
+    calc(420% - var(--ath-out) * 300%)
+    calc(100% - var(--ath-out) * 10%)
+    at 50% 0%);
+}
+.ath-plate{position:absolute; inset:0; z-index:-4;
+  transform:scale(calc(1 + var(--ath-out) * .07));
+  filter:blur(calc(var(--ath-out) * 7px));
+  opacity:calc(1 - var(--ath-out) * .5);
+}
+.ath-plate::before{
+  content:""; position:absolute; inset:0;
+  background:url("images_by_admin/athenaeum/hero-02.jpg") center 42% / cover no-repeat;
+}
+.ath-cloud{
+  position:absolute; inset:0; z-index:2;
+  width:100%; height:100%; object-fit:cover; object-position:center 44%;
+  opacity:0; transition:opacity .9s var(--ath-ease);
+}
+.ath-cloud.is-live{opacity:1}
+.ath-hero.has-cloud .ath-plate::before{opacity:0; transition:opacity 1s var(--ath-ease)}
+.ath-hero-rings{
+  position:absolute; z-index:-2; width:150vmax; height:150vmax; left:58%; top:6%;
+  transform:translate(-50%,-18%); pointer-events:none; opacity:.5;
+  background:repeating-radial-gradient(circle at 50% 50%,
+    rgba(var(--ath-brass-rgb),.16) 0 1px, transparent 1px 58px);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 12%, transparent 62%);
+          mask-image:radial-gradient(circle at 50% 50%, #000 12%, transparent 62%);
+}
+.ath-hero-glow{
+  position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(ellipse 900px 620px at 74% 14%, rgba(var(--ath-brass-rgb),.22) 0%, transparent 62%),
+    radial-gradient(ellipse 760px 640px at 8% 82%, rgba(var(--ath-verd-rgb),.16) 0%, transparent 66%),
+    linear-gradient(90deg, rgba(8,10,13,.86) 0%, rgba(8,10,13,.46) 46%, rgba(8,10,13,.18) 78%),
+    /* The last stop is the page's exact ground colour, not a near-match:
+       the hero has to end IN the page, not against it. */
+    linear-gradient(180deg, rgba(8,10,13,.52) 0%, rgba(8,10,13,.12) 30%, rgba(8,10,13,.86) 84%, var(--ath-void) 100%);
+}
+
+/* §HERO TYPE — Bodoni everywhere inside a plate, per the house rule. */
+.ath-hero, .ath-hero .ath-eyebrow, .ath-hero .ath-h1,
+.ath-hero .ath-btn, .ath-hero .lb-hero-stat b, .ath-hero .lb-hero-stat span{
+  font-family:var(--ath-hero-face); font-optical-sizing:auto;
+}
+.lb-hero-body{position:relative; z-index:2; max-width:1040px}
+.lb-hero-body .ath-eyebrow{color:var(--ath-onDark-2)}
+.lb-hero-body .ath-h1{margin-top:var(--sp-4); font-family:var(--ath-hero-face); letter-spacing:.04em; font-size:clamp(34px,4.4vw,62px); line-height:1.02}
+/* Two-tone headline: the second line drops to brass, the same rule the
+   Reading Room's hero uses to make a two-line title read as one thought. */
+.lb-hero-body .ath-h1 em{font-style:normal; color:var(--ath-brass-hi); display:block}
+.lb-hero-note{
+  margin:var(--sp-5) 0 0; max-width:560px; font-family:var(--ath-prose);
+  font-size:16px; line-height:1.7; color:var(--ath-onDark-2);
+}
+.lb-hero-foot{
+  position:relative; z-index:2; display:flex; align-items:flex-end;
+  justify-content:space-between; gap:var(--sp-5); flex-wrap:wrap; margin-top:var(--sp-7);
+}
+.lb-hero-stats{display:flex; gap:var(--sp-7); flex-wrap:wrap}
+.lb-hero-stat{display:grid; gap:5px}
+.lb-hero-stat b{
+  font-weight:400; font-size:30px; line-height:1;
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+  color:var(--ath-onDark);
+}
+.lb-hero-stat span{
+  font-family:var(--ath-ui); font-size:10px; font-weight:600;
+  letter-spacing:.2em; text-transform:uppercase; color:var(--ath-onDark-3);
+}
+/* Clears topbar.js's fixed launcher pill (top-left) and athenaeum-nav.js's
+   strip (top-right), both fixed over every page. */
+.ath-hero{padding-top:96px}
+
+/* On a phone the hero was running to nearly two screens before the search
+   field appeared — a headline over three lines, then four stats stacked
+   two-by-two. A hero you have to scroll past twice is a wall, not an
+   arrival. */
+@media (max-width:640px){
+  .ath-hero{min-height:0; padding-top:86px; padding-bottom:var(--sp-6)}
+  .lb-hero-body .ath-h1{font-size:clamp(27px,7.4vw,38px)}
+  .lb-hero-note{margin-top:var(--sp-4); font-size:15px}
+  .lb-hero-foot{margin-top:var(--sp-5); align-items:center}
+  .lb-hero-stats{gap:var(--sp-5) var(--sp-6)}
+  .lb-hero-stat b{font-size:23px}
+  /* Tags are a rail on this page, not a headline figure — the count only
+     earns its place where there is room for four. */
+  .lb-hero-stat:nth-child(3){display:none}
+  .lb-tools{padding-top:var(--sp-6)}
+}
+
+/* §HERO ARRIVAL — the headline resolves out of blur on first paint,
+   staged behind the cloud's own materialisation. `--t` is a NEGATIVE
+   offset written by introAttrs(), which is what lets a cloud-sync repaint
+   resume the sequence instead of replaying it from the top. */
+@keyframes lb-resolve{
+  from{opacity:0; filter:blur(13px); transform:translateY(16px) scale(.985)}
+  to{opacity:1; filter:blur(0); transform:none}
+}
+.ath-hero.is-intro .lb-rvl{
+  opacity:0; animation:lb-resolve 1.25s var(--ath-pull) forwards;
+  animation-delay:calc(var(--t, 0ms) + var(--d, 0s));
+}
+@media (prefers-reduced-motion:reduce){
+  .ath-hero.is-intro .lb-rvl{opacity:1; animation:none}
+}
+
+/* =====================================================================
+   §TOOLBAR — reference 1 opens on a search field flanked by the brand and
+   a small cluster of actions. Here the brand is already overhead in the
+   hero, so the row is search + the one primary action.
+   ===================================================================== */
+.lb-tools{
+  display:flex; align-items:center; gap:var(--sp-4);
+  padding:var(--sp-7) var(--ath-gut) 0;
+}
+.lb-search{
+  flex:1; min-width:0; position:relative;
+  display:flex; align-items:center; gap:var(--sp-3);
+  padding:13px 18px; background:var(--ath-paper-2);
+  border:1px solid var(--ath-rule); border-radius:999px;
+  box-shadow:var(--ath-lift);
+  transition:border-color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.lb-search:focus-within{border-color:var(--ath-verd-hi); background:var(--ath-panel)}
+.lb-search svg{flex:none; width:15px; height:15px; stroke:var(--ath-ink-3); fill:none; stroke-width:1.6}
+.lb-search input{
+  flex:1; min-width:0; background:none; border:0; outline:none;
+  color:var(--ath-ink); font:inherit; font-size:14.5px;
+}
+.lb-search input::placeholder{color:var(--ath-ink-4)}
+.lb-clear{flex:none; color:var(--ath-ink-3); font-size:15px; line-height:1; padding:2px 4px}
+.lb-clear:hover{color:var(--ath-ink)}
+
+/* =====================================================================
+   §TYPE RAIL — reference 1's category row (For you / Following / All /
+   Business / …). Here the categories are the media themselves, which is
+   the one classification a library actually needs at the top.
+   ===================================================================== */
+.lb-types{
+  display:flex; gap:var(--sp-6); align-items:center;
+  margin-top:var(--sp-6); padding:0 var(--ath-gut) var(--sp-3);
+  border-bottom:1px solid var(--ath-rule-soft);
+  overflow-x:auto; scrollbar-width:none;
+}
+.lb-types::-webkit-scrollbar{display:none}
+.lb-type{
+  position:relative; flex:none; padding:0 0 12px;
+  font-size:13px; letter-spacing:.03em; color:var(--ath-ink-3); white-space:nowrap;
+  transition:color .2s var(--ath-ease);
+}
+.lb-type i{
+  font-style:normal; margin-left:7px; font-size:11px;
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+  color:var(--ath-ink-4);
+}
+.lb-type::after{
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background:var(--ath-brass-hi); transform:scaleX(0); transform-origin:left;
+  transition:transform .3s var(--ath-ease);
+}
+.lb-type:hover{color:var(--ath-ink-2)}
+.lb-type.is-on{color:var(--ath-ink); font-weight:500}
+.lb-type.is-on::after{transform:scaleX(1)}
+.lb-type.is-on i{color:var(--ath-brass-hi)}
+
+/* ---------- secondary filters --------------------------------------- */
+.lb-filters{
+  display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;
+  padding:var(--sp-4) var(--ath-gut) 0;
+}
+.lb-select{
+  padding:7px 11px; background:var(--ath-paper-2); color:var(--ath-ink-2);
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm);
+  font:inherit; font-size:12px;
+}
+.lb-select:focus{outline:none; border-color:var(--ath-verd-hi)}
+.lb-active-tag{
+  display:inline-flex; align-items:center; gap:8px; padding:6px 8px 6px 12px;
+  border:1px solid rgba(var(--ath-verd-rgb),.5); background:rgba(var(--ath-verd-rgb),.14);
+  color:var(--ath-verd-hi); border-radius:999px; font-size:11.5px; letter-spacing:.05em;
+}
+.lb-active-tag button{color:inherit; font-size:13px; line-height:1}
+.lb-count{margin-left:auto; font-size:11.5px; color:var(--ath-ink-4);
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums}
+
+/* =====================================================================
+   §LAYOUT — reference 1's two columns: the feed, and a rail of who and
+   what is worth going back to.
+   ===================================================================== */
+.lb-layout{
+  display:grid; grid-template-columns:minmax(0,1fr) 382px; gap:var(--sp-8);
+  padding:var(--sp-6) var(--ath-gut) var(--sp-9); align-items:start;
+}
+@media (max-width:1080px){ .lb-layout{grid-template-columns:1fr; gap:var(--sp-7)} }
+
+/* ---------- the feed ------------------------------------------------ */
+.lb-feed{display:flex; flex-direction:column}
+/* One hairline BETWEEN rows, never around them. On one continuous ground a
+   boxed card would be the only edge on the page; a rule between rows is
+   the reference's own device and costs nothing. */
+.lb-row{
+  position:relative; display:grid; grid-template-columns:minmax(0,1fr) 132px;
+  gap:var(--sp-5); align-items:start; padding:var(--sp-5) var(--sp-4);
+  margin:0 calc(var(--sp-4) * -1);
+  border-bottom:1px solid var(--ath-rule-soft); cursor:pointer;
+  transition:background-color .22s var(--ath-ease);
+}
+.lb-row:hover{background:rgba(242,239,232,.032)}
+.lb-row-kind{
+  display:flex; align-items:center; gap:8px; margin:0 0 9px;
+  font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.lb-row-kind s{text-decoration:none; color:var(--ath-ink-4)}
+.lb-row-kind em{font-style:normal; color:var(--ath-ink-3); letter-spacing:.13em}
+.lb-row-t{
+  margin:0; font-family:var(--ath-display); font-weight:400;
+  font-size:22px; line-height:1.22; letter-spacing:.035em; text-transform:uppercase;
+  color:var(--ath-ink); transition:color .2s var(--ath-ease);
+}
+.lb-row:hover .lb-row-t{color:var(--ath-brass-hi)}
+.lb-row-x{
+  margin:9px 0 0; font-family:var(--ath-prose); font-size:14.5px; line-height:1.62;
+  color:var(--ath-ink-3);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.lb-row-by{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:var(--sp-4);
+  font-size:12px; color:var(--ath-ink-3);
+}
+.lb-row-by b{font-weight:500; color:var(--ath-ink-2)}
+.lb-dot{color:var(--ath-ink-4)}
+.lb-stars{color:var(--ath-brass-hi); letter-spacing:.08em; font-size:11px}
+.lb-face{
+  flex:none; width:22px; height:22px; border-radius:50%;
+  display:grid; place-items:center; font-size:10px; font-weight:600; letter-spacing:.02em;
+  color:#0A0C0F; background:linear-gradient(150deg,
+    hsl(var(--h,210) 30% 74%), hsl(calc(var(--h,210) + 26) 26% 52%));
+}
+/* The thumb. When there is no cover the same hue that drives the face
+   draws a plate — engraved rings on a tinted ground — so a resource
+   without artwork still has a face, and it is its OWN face. */
+.lb-row-thumb{
+  position:relative; width:132px; aspect-ratio:4/3; overflow:hidden;
+  border-radius:var(--ath-r); background:var(--ath-paper-2);
+  box-shadow:var(--ath-lift);
+}
+.lb-row-thumb img{width:100%; height:100%; object-fit:cover}
+/* House rule on images: a gradient scrim plus a colour treatment layer. */
+.lb-row-thumb::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 38%, rgba(8,10,13,.5) 100%);
+}
+.lb-plate{
+  position:absolute; inset:0;
+  background:
+    repeating-radial-gradient(circle at 62% 34%, rgba(242,239,232,.10) 0 1px, transparent 1px 13px),
+    linear-gradient(148deg, hsl(var(--h,210) 22% 26%), hsl(calc(var(--h,210) + 22) 24% 12%));
+}
+.lb-plate span{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-family:var(--ath-display); font-size:26px; letter-spacing:.1em;
+  color:rgba(242,239,232,.42);
+}
+.lb-row-acts{
+  position:absolute; top:var(--sp-4); right:var(--sp-4); display:flex; gap:6px;
+  opacity:0; transform:translateY(-3px);
+  transition:opacity .2s var(--ath-ease), transform .2s var(--ath-ease);
+}
+.lb-row:hover .lb-row-acts,
+.lb-row:focus-within .lb-row-acts{opacity:1; transform:none}
+.lb-row-acts .ath-btn{
+  padding:5px 10px; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  background:rgba(10,12,15,.82); backdrop-filter:blur(6px);
+}
+@media (max-width:560px){
+  .lb-row{grid-template-columns:minmax(0,1fr) 84px; gap:var(--sp-4)}
+  .lb-row-thumb{width:84px}
+  .lb-row-acts{opacity:1; transform:none; position:static; margin-top:var(--sp-3)}
+}
+
+/* On a phone, anything under 16px makes iOS Safari zoom the page in when the
+   field takes focus — and it does not zoom back out, so one tap on the search
+   box leaves the whole library oversized. Only on phones: at desktop widths
+   the smaller sizes are what keeps the filter row on one line. The type rail
+   gets a real tap height at the same time; 34px of it was decoration. */
+@media (max-width:768px){
+  .lb-search input{font-size:16px}
+  .lb-select{font-size:16px; padding:9px 12px}
+  .lb-type{padding-bottom:14px; font-size:14px}
+  .lb-clear{padding:8px 10px}
+}
+
+/* ---------- the rail ------------------------------------------------ */
+.lb-rail{display:grid; gap:var(--sp-6); position:sticky; top:var(--sp-5)}
+@media (max-width:1080px){ .lb-rail{position:static} }
+.lb-railsec{
+  padding:var(--sp-5); background:var(--ath-paper-2);
+  border-radius:var(--ath-r); box-shadow:var(--ath-lift);
+}
+.lb-railsec h4{
+  margin:0 0 var(--sp-4); display:flex; align-items:center; gap:9px;
+  font-family:var(--ath-display); font-weight:400; font-size:17px;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--ath-ink);
+}
+.lb-railsec h4 svg{width:14px; height:14px; stroke:var(--ath-brass-hi); fill:none; stroke-width:1.5}
+.lb-railsec p.lb-railnote{
+  margin:calc(var(--sp-4) * -1 + 4px) 0 var(--sp-4);
+  font-family:var(--ath-prose); font-size:13px; color:var(--ath-ink-4);
+}
+.lb-voice{
+  display:flex; align-items:center; gap:var(--sp-3); padding:9px 0;
+  border-top:1px solid var(--ath-rule-soft);
+}
+.lb-voice:first-of-type{border-top:0}
+.lb-voice .lb-face{width:30px; height:30px; font-size:12px}
+.lb-voice-n{flex:1; min-width:0}
+.lb-voice-n b{display:block; font-weight:500; font-size:13.5px; color:var(--ath-ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lb-voice-n span{font-size:11px; color:var(--ath-ink-4);
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums}
+.lb-voice-go{
+  flex:none; font-size:14px; color:var(--ath-ink-4);
+  transition:color .2s var(--ath-ease), transform .2s var(--ath-ease);
+}
+.lb-voice:hover .lb-voice-go{color:var(--ath-brass-hi); transform:translateX(3px)}
+.lb-tagcloud{display:flex; flex-wrap:wrap; gap:7px}
+.lb-tag{
+  padding:6px 12px; border:1px solid var(--ath-rule); border-radius:999px;
+  font-size:11.5px; letter-spacing:.04em; color:var(--ath-ink-2);
+  transition:border-color .2s var(--ath-ease), color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.lb-tag:hover{border-color:var(--ath-verd-hi); color:var(--ath-verd-hi); background:rgba(var(--ath-verd-rgb),.12)}
+.lb-tag.is-on{border-color:var(--ath-verd); background:var(--ath-verd); color:#fff}
+.lb-cont{
+  display:grid; grid-template-columns:minmax(0,1fr) 54px; gap:var(--sp-3);
+  align-items:center; padding:11px 0; border-top:1px solid var(--ath-rule-soft);
+}
+.lb-cont:first-of-type{border-top:0}
+.lb-cont-k{
+  margin:0 0 3px; font-size:9.5px; font-weight:600; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.lb-cont-t{
+  margin:0; font-family:var(--ath-prose); font-size:13.5px; line-height:1.4; color:var(--ath-ink-2);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.lb-cont-thumb{
+  position:relative; width:54px; aspect-ratio:1; overflow:hidden;
+  border-radius:var(--ath-r-sm); background:var(--ath-panel);
+}
+.lb-cont-thumb img{width:100%; height:100%; object-fit:cover}
+.lb-meter{grid-column:1/-1; height:2px; background:var(--ath-rule-soft); border-radius:2px; overflow:hidden}
+.lb-meter i{display:block; height:100%; background:var(--ath-verd-hi)}
+
+/* ---------- empty ---------------------------------------------------- */
+.ath-empty{
+  padding:var(--sp-8) var(--sp-5); text-align:center; border:1px dashed var(--ath-rule);
+  font-family:var(--ath-prose); color:var(--ath-ink-3); font-size:16px;
+}
+.ath-empty b{display:block; font-family:var(--ath-display); font-size:22px; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--ath-ink-2); margin-bottom:var(--sp-2); font-weight:400}
+
+/* =====================================================================
+   §MODAL — the shell, the form controls and the toast, copied from
+   athenaeum.html so an editor here looks and behaves like an editor
+   anywhere else in the Athenaeum.
+   ===================================================================== */
+.ath-modal-bg{
+  position:fixed; inset:0; z-index:120; background:rgba(12,14,18,.62); backdrop-filter:blur(4px);
+  display:none; align-items:center; justify-content:center; padding:var(--sp-5);
+}
+@keyframes ath-fade{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
+.ath-modal-bg.show{display:flex; animation:ath-fade .24s var(--ath-ease)}
+/* The one place on this page that SHOULD have an edge. Everything else is
+   one continuous ground; a dialog is a separate object floating over it,
+   and at the ground's own value it would dissolve into its own backdrop. */
+.ath-modal{
+  background:var(--ath-panel); width:min(680px,100%); max-height:88vh; overflow:auto;
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r);
+  box-shadow:0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.4);
+}
+.ath-modal.is-wide{width:min(940px,100%)}
+.ath-modal-head{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4);
+  padding:var(--sp-5) var(--sp-5) var(--sp-4); border-bottom:1px solid var(--ath-rule-soft);
+  position:sticky; top:0; background:var(--ath-panel); z-index:2;
+}
+.ath-modal-body{padding:var(--sp-5); display:grid; gap:var(--sp-4)}
+.ath-modal-foot{
+  display:flex; justify-content:flex-end; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-5) var(--sp-5); border-top:1px solid var(--ath-rule-soft);
+}
+.ath-field{display:grid; gap:7px}
+.ath-field-label{font-size:10.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-ink-3)}
+.ath-field-hint{margin:0; font-size:12.5px; color:var(--ath-ink-3); font-family:var(--ath-prose)}
+.ath-field-row{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4)}
+@media (max-width:600px){ .ath-field-row{grid-template-columns:1fr} }
+.ath-input,.ath-select,.ath-textarea{
+  width:100%; padding:10px 12px; background:var(--ath-paper-2); color:var(--ath-ink);
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm); font:inherit; font-size:14px;
+  transition:border-color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.ath-textarea{font-family:var(--ath-prose); font-size:15px; line-height:1.6; resize:vertical}
+.ath-input:focus,.ath-select:focus,.ath-textarea:focus{outline:none; border-color:var(--ath-verd-hi); background:var(--ath-panel)}
+/* Phone: a field under 16px makes iOS Safari zoom the page in on focus and
+   never zoom back out, so one tap on a form leaves the page magnified. */
+@media (max-width:768px){ .ath-input,.ath-select,.ath-textarea{font-size:16px; padding:12px} }
+
+/* Chip multi-select — the idiom athenaeum-subject.html uses for concept
+   links: visible toggles over a hidden input the save handler reads. */
+.ath-chip-row{display:flex; gap:6px; flex-wrap:wrap}
+.ath-chip{
+  padding:6px 12px; border:1px solid var(--ath-rule); border-radius:999px;
+  font-size:11.5px; color:var(--ath-ink-3); background:transparent;
+  transition:border-color .2s var(--ath-ease), color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.ath-chip:hover{border-color:var(--ath-ink-3); color:var(--ath-ink-2)}
+.ath-chip.is-on{border-color:var(--ath-verd); background:var(--ath-verd); color:#fff}
+
+/* URL fetch + cover upload rows */
+.lb-inline{display:flex; gap:var(--sp-2); align-items:stretch}
+.lb-inline .ath-input{flex:1}
+.lb-cover-row{display:grid; grid-template-columns:96px minmax(0,1fr); gap:var(--sp-4); align-items:start}
+.lb-cover-prev{
+  position:relative; width:96px; aspect-ratio:3/4; overflow:hidden;
+  border-radius:var(--ath-r-sm); background:var(--ath-paper-2); border:1px solid var(--ath-rule);
+}
+.lb-cover-prev img{width:100%; height:100%; object-fit:cover}
+.lb-file{
+  display:inline-flex; align-items:center; gap:8px; padding:8px 14px;
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm);
+  font-size:11.5px; color:var(--ath-ink-2); cursor:pointer;
+  transition:border-color .2s var(--ath-ease), color .2s var(--ath-ease);
+}
+.lb-file:hover{border-color:var(--ath-ink); color:var(--ath-ink)}
+.lb-file input{display:none}
+
+#athToast{
+  position:fixed; left:50%; bottom:var(--sp-5); transform:translate(-50%,20px); z-index:200;
+  background:var(--ath-ink); color:var(--ath-paper); padding:11px 20px; border-radius:var(--ath-r-sm);
+  font-size:13px; opacity:0; pointer-events:none;
+  transition:opacity .28s var(--ath-ease), transform .28s var(--ath-spring);
+}
+#athToast.show{opacity:1; transform:translate(-50%,0)}
+#athToast.is-bad{background:var(--ath-bad)}
+
+/* =====================================================================
+   §REVEAL — last on purpose, so its transition is never cancelled by a
+   later component rule that declares a `transition` of its own.
+   ===================================================================== */
+.ath-rise{opacity:0; transform:translateY(22px); transition:opacity .8s var(--ath-ease), transform .8s var(--ath-ease)}
+.ath-rise.is-in{opacity:1; transform:none}
+@media (prefers-reduced-motion:reduce){ .ath-rise{opacity:1; transform:none} }
+</style>
+</head>
+<body>
+
+<div class="ath-grain" aria-hidden="true"></div>
+
+<div class="ath-sheet" id="lbSheet">
+  <header class="ath-hero" id="lbHero" data-plate>
+    <div class="ath-plate" aria-hidden="true">
+      <canvas class="ath-cloud" width="640" height="360" aria-hidden="true"></canvas>
+    </div>
+    <div class="ath-hero-rings" aria-hidden="true"></div>
+    <div class="ath-hero-glow" aria-hidden="true"></div>
+    <div class="lb-hero-body">
+      <p class="ath-eyebrow lb-rvl" style="--d:.1s">The Athenaeum</p>
+      <h1 class="ath-h1 lb-rvl" style="--d:.24s">The Library<em>every voice on the shelf</em></h1>
+      <p class="lb-hero-note lb-rvl" style="--d:.44s">Books, papers, courses, articles, videos, lectures, podcasts and the people behind them — one database, filed by medium and by hand.</p>
+    </div>
+    <div class="lb-hero-foot">
+      <div class="lb-hero-stats lb-rvl" id="lbHeroStats" style="--d:.6s"></div>
+      <button class="ath-btn ath-btn-light lb-rvl" type="button" data-act="add" style="--d:.68s">Add resource</button>
+    </div>
+  </header>
+
+  <main id="lbApp">
+    <div class="lb-tools">
+      <label class="lb-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+        <input id="lbQ" type="search" placeholder="Search the library — title, person, tag, or anything written down" aria-label="Search the library">
+        <button class="lb-clear" type="button" id="lbQClear" aria-label="Clear search" hidden>✕</button>
+      </label>
+    </div>
+    <nav class="lb-types" id="lbTypes" aria-label="Filter by medium"></nav>
+    <div class="lb-filters" id="lbFilters"></div>
+    <div class="lb-layout">
+      <div class="lb-feed" id="lbFeed"></div>
+      <aside class="lb-rail" id="lbRail" aria-label="Voices, tags and what is open"></aside>
+    </div>
+  </main>
+</div>
+
+<div id="athToast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-data.js"></script>
+<script src="topbar.js" defer></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="athenaeum-resource-editor.js"></script>
+<script src="athenaeum-nav.js" defer></script>
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // §UTIL — same shapes as every other Athenaeum page.
+  // ============================================================
+  function $(id) { return document.getElementById(id); }
+  function D() { return window.Athenaeum; }
+  function esc(s) { return D().esc(s); }
+
+  function runSafely(fn, label) {
+    try { return fn(); } catch (e) {
+      try { console.error('[Athenaeum] ' + (label || 'error'), e); } catch (e2) {}
+      toast('Something went wrong — see the console', true);
+    }
+  }
+  var toastTimer = null;
+  function toast(msg, bad) {
+    var el = $('athToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('is-bad', !!bad);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+
+  /* Delegated binding. Every renderer paints innerHTML and the nodes it
+     painted are replaced on the next repaint, so handlers attach to the
+     host — which survives — and are registered exactly once. */
+  var bound = {};
+  function on(hostId, evt, sel, fn) {
+    var key = hostId + '|' + evt + '|' + sel;
+    if (bound[key]) return;
+    bound[key] = 1;
+    var host = $(hostId);
+    if (!host) return;
+    host.addEventListener(evt, function (e) {
+      var t = e.target.closest ? e.target.closest(sel) : null;
+      if (t && host.contains(t)) fn(e, t);
+    });
+  }
+
+  // ============================================================
+  // §STATE — every filter the reference's category row and sidebar imply,
+  // persisted so the Library reopens where it was left.
+  // ============================================================
+  var S = { type: 'all', q: '', field: '', bucket: '', tag: '', sort: 'recent' };
+
+  var TYPE_TABS = [
+    { id: 'all', label: 'All' },
+    { id: 'Book', label: 'Books' },
+    { id: 'Paper', label: 'Papers' },
+    { id: 'Course', label: 'Courses' },
+    { id: 'Article', label: 'Articles' },
+    { id: 'Video', label: 'Videos' },
+    { id: 'Lecture', label: 'Lectures' },
+    { id: 'Podcast', label: 'Podcasts' },
+    { id: 'Person', label: 'People' },
+    { id: 'Dataset', label: 'Datasets' },
+    { id: 'Tool', label: 'Tools' },
+    { id: 'Other', label: 'Other' }
+  ];
+  var SORTS = [
+    { id: 'recent', label: 'Recently added' },
+    { id: 'title', label: 'Title, A–Z' },
+    { id: 'rating', label: 'Rating' },
+    { id: 'progress', label: 'How far in' }
+  ];
+
+  // ============================================================
+  // §QUERY — one pass over the collection, in the order a reader reasons:
+  // medium, then field, then shelf, then tag, then words.
+  // ============================================================
+  function haystack(r) {
+    var d = D();
+    return [r.title, r.author, r.summary, r.source, r.year, (r.tags || []).join(' '),
+      d.htmlToText(r.bodyHtml)].join(' ').toLowerCase();
+  }
+  function visible() {
+    var d = D();
+    var list = d.Resources.list().slice();
+    if (S.type !== 'all') list = list.filter(function (r) { return r.type === S.type; });
+    if (S.field === '__none__') list = list.filter(function (r) { return !d.resFields(r).length; });
+    else if (S.field) list = list.filter(function (r) { return d.resFields(r).indexOf(S.field) >= 0; });
+    if (S.bucket) list = list.filter(function (r) { return r.bucket === S.bucket; });
+    if (S.tag) list = list.filter(function (r) { return (r.tags || []).indexOf(S.tag) >= 0; });
+    var q = S.q.trim().toLowerCase();
+    if (q) {
+      var words = q.split(/\s+/);
+      list = list.filter(function (r) {
+        var hay = haystack(r);
+        return words.every(function (w) { return hay.indexOf(w) >= 0; });
+      });
+    }
+    return list.sort(function (a, b) {
+      if (S.sort === 'title') return String(a.title).localeCompare(String(b.title));
+      if (S.sort === 'rating') return (b.rating - a.rating) || String(a.title).localeCompare(String(b.title));
+      if (S.sort === 'progress') return d.resourceProgress(b) - d.resourceProgress(a);
+      return String(b.createdAt).localeCompare(String(a.createdAt));
+    });
+  }
+
+  // ============================================================
+  // §PIECES
+  // ============================================================
+  function initials(name) {
+    var parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  /* A stable hue per string, so the same person is the same colour on
+     every render and on every page — a face you can recognise before you
+     have read the name. */
+  function hueOf(seed) {
+    var s = String(seed || ''), n = 0;
+    for (var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) % 360;
+    return n;
+  }
+  function face(name, seed) {
+    return '<span class="lb-face" style="--h:' + hueOf(seed || name) + '" aria-hidden="true">' +
+      esc(initials(name)) + '</span>';
+  }
+  function thumb(r, cls) {
+    var hue = r.hue || hueOf(r.id);
+    if (r.cover) {
+      return '<div class="' + cls + '"><img src="' + esc(r.cover) + '" alt="" loading="lazy" ' +
+        'style="object-position:' + esc(r.coverPos || '50% 50%') + '"></div>';
+    }
+    return '<div class="' + cls + '"><span class="lb-plate" style="--h:' + hue + '">' +
+      '<span>' + esc(String(r.title || '?').trim().charAt(0).toUpperCase() || '?') + '</span></span></div>';
+  }
+  function stars(n) {
+    return n ? '<span class="lb-stars" aria-label="' + n + ' out of 5">' +
+      '★'.repeat(n) + '</span>' : '';
+  }
+  /* The byline. A credited Person wins over the free-text author, because
+     it is the one that can be clicked through to their works. */
+  function bylineName(r) {
+    var d = D();
+    var ids = r.personIds || [];
+    for (var i = 0; i < ids.length; i++) {
+      var p = d.Resources.get(ids[i]);
+      if (p) return { name: p.title, id: p.id };
+    }
+    return { name: r.author, id: '' };
+  }
+  function fieldNames(r) {
+    var d = D();
+    return d.resFields(r).map(function (id) {
+      var s = d.Subjects.get(id);
+      return s ? s.name : '';
+    }).filter(Boolean);
+  }
+  function href(r) { return 'athenaeum-resource.html?id=' + encodeURIComponent(r.id); }
+
+  // ============================================================
+  // §HERO
+  // ============================================================
+  function renderHeroStats() {
+    var d = D(), all = d.Resources.list();
+    var people = all.filter(function (r) { return r.type === 'Person'; }).length;
+    var open = all.filter(function (r) { return r.bucket === 'active'; }).length;
+    var cells = [
+      { n: all.length - people, l: 'Works held' },
+      { n: people, l: 'Voices' },
+      { n: d.allResourceTags().length, l: 'Tags' },
+      { n: open, l: 'Open now' }
+    ];
+    $('lbHeroStats').innerHTML = cells.map(function (c) {
+      return '<div class="lb-hero-stat"><b>' + c.n + '</b><span>' + esc(c.l) + '</span></div>';
+    }).join('');
+  }
+
+  // ============================================================
+  // §TYPES + §FILTERS
+  // ============================================================
+  function renderTypes() {
+    var d = D(), all = d.Resources.list();
+    $('lbTypes').innerHTML = TYPE_TABS.map(function (t) {
+      var n = t.id === 'all' ? all.length : all.filter(function (r) { return r.type === t.id; }).length;
+      // A medium with nothing in it is not a filter, it is a dead end.
+      // 'All' always shows; the rest earn their place.
+      if (!n && t.id !== 'all' && t.id !== S.type) return '';
+      return '<button class="lb-type' + (S.type === t.id ? ' is-on' : '') + '" type="button" ' +
+        'data-type="' + esc(t.id) + '"' + (S.type === t.id ? ' aria-current="true"' : '') + '>' +
+        esc(t.label) + '<i>' + n + '</i></button>';
+    }).join('');
+  }
+
+  function renderFilters(shown, total) {
+    var d = D();
+    var fieldOpts = [{ id: '', label: 'Every field' }, { id: '__none__', label: 'Unfiled' }]
+      .concat(d.subjectList().map(function (s) { return { id: s.id, label: s.name }; }));
+    var bucketOpts = [{ id: '', label: 'Every shelf' }]
+      .concat(d.RESOURCE_BUCKETS.map(function (b) { return { id: b.id, label: b.label }; }));
+
+    function sel(id, val, opts, label) {
+      return '<select class="lb-select" data-filter="' + id + '" aria-label="' + esc(label) + '">' +
+        opts.map(function (o) {
+          return '<option value="' + esc(o.id) + '"' + (o.id === val ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+        }).join('') + '</select>';
+    }
+    $('lbFilters').innerHTML =
+      sel('field', S.field, fieldOpts, 'Filter by field') +
+      sel('bucket', S.bucket, bucketOpts, 'Filter by shelf') +
+      sel('sort', S.sort, SORTS, 'Sort') +
+      (S.tag ? '<span class="lb-active-tag">' + esc(S.tag) +
+        '<button type="button" data-act="cleartag" aria-label="Clear tag filter">✕</button></span>' : '') +
+      '<span class="lb-count">' + (shown === total ? (total + (total === 1 ? ' resource' : ' resources'))
+        : (shown + ' of ' + total)) + '</span>';
+  }
+
+  // ============================================================
+  // §FEED — reference 1's article rows: a medium label, the title, two
+  // clamped lines, a byline, and the cover out to the right.
+  // ============================================================
+  function feedRow(r) {
+    var d = D();
+    var by = bylineName(r);
+    var fields = fieldNames(r);
+    var prog = d.resourceProgress(r);
+    // Deliberately NOT .ath-rise. The hero carries this page's arrival; a
+    // fourteen-row database list that fades in one row at a time is motion
+    // for its own sake, and it means a reader who lands mid-list from a
+    // search sees an empty page until they scroll.
+    return '<article class="lb-row" data-id="' + esc(r.id) + '">' +
+      '<div class="lb-row-main">' +
+        '<p class="lb-row-kind">' + esc(r.type) +
+          (fields.length ? '<s>·</s><em>' + esc(fields.join(' · ')) + '</em>' : '') +
+          (r.bucket === 'active' ? '<s>·</s><em>' + prog + '% in</em>' : '') +
+        '</p>' +
+        '<h3 class="lb-row-t"><a href="' + esc(href(r)) + '">' + esc(r.title || 'Untitled') + '</a></h3>' +
+        (r.summary ? '<p class="lb-row-x">' + esc(r.summary) + '</p>' : '') +
+        '<div class="lb-row-by">' +
+          // A Person has no author — they ARE the author — so their line
+          // counts their works instead of naming somebody else.
+          (r.type === 'Person'
+            ? face(r.title, r.id) + '<b>' + (function () {
+                var n = d.resourcesCrediting(r.id).length;
+                return n ? (n + (n === 1 ? ' work here' : ' works here')) : 'Nothing credited yet';
+              })() + '</b><span class="lb-dot">·</span>'
+            : (by.name ? face(by.name, by.id || by.name) + '<b>' + esc(by.name) + '</b><span class="lb-dot">·</span>' : '')) +
+          '<span>' + esc(d.fmtAgo(r.createdAt) || 'just now') + '</span>' +
+          (r.lengthText ? '<span class="lb-dot">·</span><span class="ath-num">' + esc(r.lengthText) + '</span>' : '') +
+          stars(r.rating) +
+        '</div>' +
+      '</div>' +
+      thumb(r, 'lb-row-thumb') +
+      '<div class="lb-row-acts">' +
+        '<button class="ath-btn ath-btn-ghost" type="button" data-act="edit" data-id="' + esc(r.id) + '">Edit</button>' +
+        '<button class="ath-btn ath-btn-danger" type="button" data-act="del" data-id="' + esc(r.id) + '">Delete</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function renderFeed(list) {
+    if (!list.length) {
+      var anything = D().Resources.list().length;
+      $('lbFeed').innerHTML = '<div class="ath-empty"><b>' +
+        (anything ? 'Nothing matches' : 'The library is empty') + '</b>' +
+        (anything
+          ? 'No resource answers to that. Clear the search, or widen the filters above.'
+          : 'Add the first thing worth keeping — a book, a paper, a lecture, or the person who made it.') +
+        '<div style="margin-top:var(--sp-5)"><button class="ath-btn ath-btn-solid ath-btn-sm" type="button" data-act="add">Add resource</button></div></div>';
+      return;
+    }
+    $('lbFeed').innerHTML = list.map(feedRow).join('');
+  }
+
+  // ============================================================
+  // §RAIL — reference 1's sidebar: who is worth reading, what the library
+  // is about, and what is currently open.
+  // ============================================================
+  function icon(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>'; }
+
+  function railVoices() {
+    var d = D();
+    var people = d.peopleResources().map(function (p) {
+      return { p: p, n: d.resourcesCrediting(p.id).length };
+    }).sort(function (a, b) { return b.n - a.n || String(a.p.title).localeCompare(String(b.p.title)); }).slice(0, 6);
+    if (!people.length) {
+      return '<section class="lb-railsec">' +
+        '<h4>' + icon('<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>') + 'Voices</h4>' +
+        '<p class="lb-railnote">Add a resource of type <b>Person</b> and credit their work to it. Their page then collects everything of theirs on the shelf.</p>' +
+        '</section>';
+    }
+    return '<section class="lb-railsec">' +
+      '<h4>' + icon('<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>') + 'Voices</h4>' +
+      people.map(function (x) {
+        return '<a class="lb-voice" href="' + esc(href(x.p)) + '">' +
+          face(x.p.title, x.p.id) +
+          '<span class="lb-voice-n"><b>' + esc(x.p.title) + '</b>' +
+            '<span>' + x.n + (x.n === 1 ? ' work' : ' works') + '</span></span>' +
+          '<span class="lb-voice-go" aria-hidden="true">→</span></a>';
+      }).join('') + '</section>';
+  }
+
+  function railTags() {
+    var tags = D().allResourceTags().slice(0, 18);
+    if (!tags.length) return '';
+    return '<section class="lb-railsec">' +
+      '<h4>' + icon('<path d="M3 12V4h8l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.2"/>') + 'Tags</h4>' +
+      '<p class="lb-railnote">What the shelf is actually about, counted.</p>' +
+      '<div class="lb-tagcloud">' + tags.map(function (t) {
+        return '<button class="lb-tag' + (S.tag === t.tag ? ' is-on' : '') + '" type="button" ' +
+          'data-tag="' + esc(t.tag) + '">' + esc(t.tag) + '</button>';
+      }).join('') + '</div></section>';
+  }
+
+  function railOpen() {
+    var d = D();
+    var open = d.Resources.list().filter(function (r) { return r.bucket === 'active'; })
+      .sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); }).slice(0, 5);
+    if (!open.length) return '';
+    return '<section class="lb-railsec">' +
+      '<h4>' + icon('<path d="M12 6.5S9.5 4 4.5 4v13c5 0 7.5 2.5 7.5 2.5S14.5 17 19.5 17V4C14.5 4 12 6.5 12 6.5Z"/><path d="M12 6.5v13"/>') + 'Open now</h4>' +
+      open.map(function (r) {
+        var pct = d.resourceProgress(r);
+        return '<a class="lb-cont" href="' + esc(href(r)) + '">' +
+          '<div><p class="lb-cont-k">' + esc(r.type) + '</p>' +
+            '<p class="lb-cont-t">' + esc(r.title || 'Untitled') + '</p></div>' +
+          thumb(r, 'lb-cont-thumb') +
+          '<span class="lb-meter"><i style="width:' + pct + '%"></i></span>' +
+        '</a>';
+      }).join('') + '</section>';
+  }
+
+  /* No scroll reveal in here either, and for a harder reason than the feed:
+     the rail is position:sticky, so its cards hold their place in the
+     viewport as the page scrolls. A card that starts below the fold would
+     never intersect, and would stay invisible for the whole session. */
+  function renderRail() {
+    $('lbRail').innerHTML = railVoices() + railTags() + railOpen();
+  }
+
+  // ============================================================
+  // §REVEAL — one observer, re-armed after every repaint.
+  // ============================================================
+  var io = null;
+  function observeRises() {
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('.ath-rise').forEach(function (n) { n.classList.add('is-in'); });
+      return;
+    }
+    if (!io) {
+      io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: .06 });
+    }
+    document.querySelectorAll('.ath-rise:not(.is-in)').forEach(function (n) {
+      // Anything already at or above the fold is revealed outright. A
+      // repaint that keeps the scroll position re-creates nodes the reader
+      // has already scrolled past, and the observer reports those as
+      // not-intersecting — they would stay invisible forever.
+      if (n.getBoundingClientRect().top < window.innerHeight) { n.classList.add('is-in'); return; }
+      io.observe(n);
+    });
+  }
+
+  /* §ARRIVAL — a module-scope clock, deliberately outside the DOM, so a
+     cloud-sync repaint RESUMES the intro rather than replaying it. The
+     negative --t is added to every animation-delay. */
+  var ATH_INTRO_RUN = 2600;
+  var introAt = -1;
+  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function applyIntro(hero, arrived) {
+    var t = now();
+    if (arrived) introAt = t;
+    if (introAt < 0) return;
+    var elapsed = t - introAt;
+    if (elapsed >= ATH_INTRO_RUN) { hero.classList.remove('is-intro'); return; }
+    hero.classList.add('is-intro');
+    hero.style.setProperty('--t', (-Math.round(elapsed)) + 'ms');
+  }
+
+  // ============================================================
+  // §PLATES — the hero's scroll departure. One passive listener, coalesced
+  // into a frame, and EVERY rect is read before any style is written:
+  // interleaving them flushes layout once per plate, every scroll frame.
+  // ============================================================
+  function wirePlates() {
+    var plates = [].slice.call(document.querySelectorAll('#lbSheet [data-plate]'));
+    if (!plates.length) return;
+    var queued = false;
+    function tick() {
+      queued = false;
+      var vh = window.innerHeight || 1;
+      var rects = plates.map(function (p) { return p.getBoundingClientRect(); });
+      plates.forEach(function (p, i) {
+        var r = rects[i];
+        var out = r.height ? Math.min(1, Math.max(0, -r.top / r.height)) : 0;
+        p.style.setProperty('--ath-out', out.toFixed(3));
+      });
+    }
+    function req() { if (!queued) { queued = true; requestAnimationFrame(tick); } }
+    window.addEventListener('scroll', req, { passive: true });
+    window.addEventListener('resize', req);
+    tick();
+  }
+
+  // ============================================================
+  // §POINT CLOUD — the hero plate as drifting dust.
+  //
+  // Four philosophical plates, sampled onto one shared 320×180 grid, so a
+  // point keeps its index from image to image and a change of subject is
+  // a change of COLOUR plus a bulge outward, not a re-scatter. The cloud
+  // materialises once on arrival, holds an image, scatters, re-forms as
+  // the next, and goes round.
+  //
+  // Three things keep this honest on a page that is opened twenty times a
+  // day: the backing store is a fixed 640×360 no matter the viewport or
+  // the DPR; the loop only runs while the hero is actually on screen and
+  // the tab is visible; and asking for reduced motion paints one settled
+  // frame and stops.
+  // ============================================================
+  var ATH_CLOUD = { W: 640, H: 360, GW: 320, GH: 180 };
+
+  var athCloud = (function () {
+    var W = ATH_CLOUD.W, H = ATH_CLOUD.H, GW = ATH_CLOUD.GW, GH = ATH_CLOUD.GH;
+    var N = GW * GH;
+
+    var ARRIVE = 2000;      // materialisation, matched to the CSS arrival
+    var HOLD = 9600;        // how long an image is held, settled
+    var MORPH = 1700;       // scatter-and-re-form between two images
+    var SCATTER = 235;      // buffer px a point starts away from its place
+    var BULGE = 44;         // how far it is thrown during a morph
+    var DRIFT = 3.4;        // the shimmer that never fully stops
+
+    // A 256-step sine table: the drift needs two lookups per point per
+    // frame, and 115,000 Math.sin calls a frame is not a thing to do.
+    var SIN = new Float32Array(256);
+    for (var s = 0; s < 256; s++) SIN[s] = Math.sin(s / 256 * Math.PI * 2);
+
+    var dirX = null, dirY = null, wait = null, phase = null;
+    /* The ground is deliberately held under the points' own brightness.
+       Match them and the settled cloud is just the photograph again —
+       the dust has to out-read its own background or there is no cloud,
+       only a picture. */
+    var GROUND = 0.5;
+
+    var plates = [], ready = [], plateKey = '';
+    var cv = null, ctx = null, pix = null, buf32 = null;
+    var dots = null, dctx = null;   // the points, composited over the ground
+    var raf = 0, io = null, t0 = 0, host = null, onVis = null;
+
+    function reduced() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    /* Per-point constants. Independent of the images, so this runs once
+       for the life of the page however often the hero is re-created. */
+    function points() {
+      if (dirX) return;
+      dirX = new Float32Array(N); dirY = new Float32Array(N);
+      wait = new Float32Array(N); phase = new Uint8Array(N);
+      for (var i = 0; i < N; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var r = Math.pow(Math.random(), 0.6);
+        dirX[i] = Math.cos(a) * r;
+        dirY[i] = Math.sin(a) * r;
+        // Resolve roughly top-down, but never in a clean line.
+        wait[i] = ((i / GW | 0) / GH) * 0.55 + Math.random() * 0.45;
+        phase[i] = (Math.random() * 256) | 0;
+      }
+    }
+
+    // Cover-fit, framed at 48% like the plate's own background-position.
+    function cover(c, im, w, h) {
+      var k = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+      var dw = im.naturalWidth * k, dh = im.naturalHeight * k;
+      c.drawImage(im, (w - dw) / 2, (h - dh) * 0.48, dw, dh);
+    }
+
+    /* Each plate is sampled twice: once at grid resolution for the point
+       colours, and once at buffer resolution for the soft ground the
+       points sit on. The ground is what stops a settled cloud reading as
+       a sparse dot screen over black — the reference has the same blurred
+       image beneath its dust.
+
+       The ground is kept as a CANVAS rather than a pixel array, which is
+       what lets the compositing in draw() be three drawImage calls: the
+       outgoing ground, the incoming ground over it, and the dots on top.
+       Cross-fading two images and ramping the ground in behind the
+       materialisation both become a globalAlpha instead of a lerp across
+       921,600 array slots every frame. */
+    function load(src, slot) {
+      var im = new Image();
+      im.decoding = 'async';
+      im.onload = function () {
+        try {
+          var gc = document.createElement('canvas');
+          gc.width = GW; gc.height = GH;
+          var g = gc.getContext('2d', { willReadFrequently: true });
+          cover(g, im, GW, GH);
+          var d = g.getImageData(0, 0, GW, GH).data;
+          /* Gain, applied once here rather than per frame. Every plate is
+             a dark painting or a sepia manuscript, and the hero's own
+             scrim is layered on top of the canvas to keep the headline
+             legible — without a lift the cloud reads as black. Values are
+             clamped because a point is written as one packed Uint32 and an
+             overflowing channel would bleed into the next one. */
+          var rgb = new Uint8Array(N * 3);
+          for (var i = 0, j = 0, k = 0; i < N; i++, j += 4, k += 3) {
+            var r = d[j] * 1.75 + 14, gg = d[j + 1] * 1.75 + 14, bb = d[j + 2] * 1.75 + 14;
+            rgb[k] = r > 255 ? 255 : r;
+            rgb[k + 1] = gg > 255 ? 255 : gg;
+            rgb[k + 2] = bb > 255 ? 255 : bb;
+          }
+
+          var bc = document.createElement('canvas');
+          bc.width = W; bc.height = H;
+          var b = bc.getContext('2d');
+          b.filter = 'brightness(1.2) saturate(1.12)';
+          cover(b, im, W, H);
+          slot.ground = bc;
+          slot.rgb = rgb;
+          slot.ready = true;
+          ready = plates.filter(function (p) { return p.ready; });
+        } catch (e) {
+          // A tainted canvas would only happen if a hero image were set
+          // to a cross-origin URL from the editor. Leave the plate unready
+          // and the cycle skips it.
+          slot.ready = false;
+        }
+      };
+      im.src = src;
+    }
+
+    function ensure(srcs) {
+      var key = srcs.join('|');
+      if (key === plateKey) return;
+      plateKey = key;
+      ready = [];
+      plates = srcs.map(function (src) {
+        return { src: src, rgb: null, ground: null, ready: false };
+      });
+      /* The first plate is the one the arrival needs, and it is the same
+         file the stylesheet is already fetching as the plate background,
+         so it comes off the same cache entry. The other three are not
+         wanted for another ten seconds — holding them back keeps them
+         from racing the one image that has to be ready on time. */
+      load(plates[0].src, plates[0]);
+      var rest = plates.slice(1), mine = plateKey;
+      setTimeout(function () {
+        if (plateKey !== mine) return;
+        rest.forEach(function (p) { load(p.src, p); });
+      }, 1400);
+    }
+
+    function ease(x) { return 1 - Math.pow(1 - x, 3); }
+
+    function draw(ms) {
+      var e = ms - t0;
+      if (e < 0) e = 0;
+
+      // Which plate, and how far into a morph. With only one plate loaded
+      // there is nothing to morph TO, so the cycle holds it instead of
+      // throwing the points outward and bringing back the same image.
+      if (!ready.length) return false;
+      var cyc = Math.max(0, e - ARRIVE);
+      var span = HOLD + MORPH;
+      var step = Math.floor(cyc / span) % ready.length;
+      var into = cyc - Math.floor(cyc / span) * span;
+      var A = ready[step];
+      var B = ready[(step + 1) % ready.length];
+      var m = (ready.length < 2 || into <= HOLD) ? 0 : (into - HOLD) / MORPH;
+      var mix = m <= 0 ? 0 : m * m * (3 - 2 * m);   // smoothstep
+
+      buf32.fill(0);
+      var bulge = m > 0 ? Math.sin(m * Math.PI) * BULGE : 0;
+      var ti = (ms * 0.055) | 0;
+      var ra = A.rgb, rb = B.rgb;
+      var arriving = e < ARRIVE + 400;
+
+      for (var gy = 0, i = 0; gy < GH; gy++) {
+        var ty = gy * 2 + 1;
+        for (var gx = 0; gx < GW; gx++, i++) {
+          // Materialisation: each point waits its turn, then flies in.
+          var disp = bulge;
+          if (arriving) {
+            var a = (e - wait[i] * 950) / 1150;
+            if (a <= 0) continue;                 // not yet — leave the ground bare
+            if (a < 1) disp += SCATTER * (1 - ease(a));
+          }
+
+          var px = gx * 2 + 1 + dirX[i] * disp + SIN[(phase[i] + ti) & 255] * DRIFT;
+          var py = ty + dirY[i] * disp + SIN[(phase[i] + ti + 64) & 255] * DRIFT;
+          var x = px | 0, y = py | 0;
+          if (x < 0 || x >= W || y < 0 || y >= H) continue;
+
+          var k = i * 3, r, g, b;
+          if (mix <= 0) { r = ra[k]; g = ra[k + 1]; b = ra[k + 2]; }
+          else {
+            r = ra[k] + (rb[k] - ra[k]) * mix;
+            g = ra[k + 1] + (rb[k + 1] - ra[k + 1]) * mix;
+            b = ra[k + 2] + (rb[k + 2] - ra[k + 2]) * mix;
+          }
+          // Little-endian ABGR. Every browser this page runs in is LE.
+          buf32[y * W + x] = 0xff000000 | (b << 16) | (g << 8) | r;
+        }
+      }
+
+      /* Ground under, dots over. The ground is ramped in across the
+         materialisation rather than being there from the first frame —
+         otherwise the image is simply present at 300ms and the dust
+         reads as an effect laid over a picture instead of the thing the
+         picture is being built out of. */
+      var gA = GROUND * (e < ARRIVE ? ease(Math.max(0, e - 500) / (ARRIVE - 500)) : 1);
+      ctx.clearRect(0, 0, W, H);
+      if (gA > 0.002) {
+        ctx.globalAlpha = gA * (1 - mix);
+        ctx.drawImage(A.ground, 0, 0);
+        if (mix > 0 && B !== A) {
+          ctx.globalAlpha = gA * mix;
+          ctx.drawImage(B.ground, 0, 0);
+        }
+      }
+      ctx.globalAlpha = 1;
+      dctx.putImageData(pix, 0, 0);
+      ctx.drawImage(dots, 0, 0);
+      return true;
+    }
+
+    function tick(ms) {
+      raf = 0;
+      if (!cv || !cv.isConnected) return;
+      if (draw(ms)) live();
+      raf = requestAnimationFrame(tick);
+    }
+
+    function live() {
+      if (cv && !cv.classList.contains('is-live')) {
+        cv.classList.add('is-live');
+        if (host) host.classList.add('has-cloud');
+      }
+    }
+
+    function start() {
+      if (raf || !cv) return;
+      raf = requestAnimationFrame(tick);
+    }
+    function stop() {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    }
+
+    /* Called after every render, including the repaints cloud sync forces.
+       The canvas node is new each time; the sampled plates, the per-point
+       arrays and the clock are not. */
+    function mount(hero, srcs, clock) {
+      stop();
+      if (io) { io.disconnect(); io = null; }
+      if (onVis) { document.removeEventListener('visibilitychange', onVis); onVis = null; }
+
+      host = hero;
+      cv = hero.querySelector('.ath-cloud');
+      if (!cv || !cv.getContext) return;
+      ctx = cv.getContext('2d');
+      if (!ctx) return;
+
+      t0 = clock;
+      points();
+      ensure(srcs);
+
+      if (!dots) {
+        dots = document.createElement('canvas');
+        dots.width = W; dots.height = H;
+        dctx = dots.getContext('2d');
+      }
+      pix = dctx.createImageData(W, H);
+      buf32 = new Uint32Array(pix.data.buffer);
+
+      if (reduced()) {
+        // One settled frame, from a clock far enough past the arrival that
+        // nothing is still flying, and then nothing further.
+        var once = function () {
+          if (draw(t0 + ARRIVE + 500)) live();
+          else setTimeout(once, 120);
+        };
+        once();
+        return;
+      }
+
+      if ('IntersectionObserver' in window) {
+        io = new IntersectionObserver(function (es) {
+          if (es[0] && es[0].isIntersecting && document.visibilityState !== 'hidden') start();
+          else stop();
+        }, { rootMargin: '80px' });
+        io.observe(hero);
+      } else {
+        start();
+      }
+
+      onVis = function () {
+        if (document.visibilityState === 'hidden') stop();
+        else if (host && host.isConnected) start();
+      };
+      document.addEventListener('visibilitychange', onVis);
+    }
+
+    return { mount: mount, stop: stop };
+  })();
+
+  var ATH_PLATES = [
+    'images_by_admin/athenaeum/hero-02.jpg',
+    'images_by_admin/athenaeum/hero-03.jpg',
+    'images_by_admin/athenaeum/hero-04.jpg',
+    'images_by_admin/athenaeum/hero.jpg'
+  ];
+
+  // ============================================================
+  // §RENDER
+  // ============================================================
+  function render(opts) {
+    opts = opts || {};
+    var y = window.scrollY;
+    var total = D().Resources.list().length;
+    var list = visible();
+    renderHeroStats();
+    renderTypes();
+    renderFilters(list.length, total);
+    renderFeed(list);
+    renderRail();
+    observeRises();
+    var hero = $('lbHero');
+    applyIntro(hero, !!opts.arrived);
+    // The cloud's clock is introAt itself, so a repaint re-binds the canvas
+    // node without restarting the sequence.
+    athCloud.mount(hero, ATH_PLATES, introAt < 0 ? now() : introAt);
+    hero.classList.add('has-cloud');
+    if (!opts.top) window.scrollTo({ top: y, behavior: 'auto' });
+  }
+
+  /* A cloud pull must never wipe what is being typed, and must never
+     scroll. `isContentEditable` is in the guard because a rich editor is
+     not an INPUT and the earlier version of this check let a repaint eat a
+     half-written note. */
+  function refreshCurrentView() {
+    if (window.AthResourceEditor && AthResourceEditor.isOpen()) return;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+    runSafely(render, 'refresh');
+  }
+
+  /* §DURABLE-NAV — never leave the document with a write still in flight.
+     local-store-idb.js updates its in-memory map synchronously but commits to
+     IndexedDB asynchronously, so `location.href` in the same tick as a save
+     can lose the save. LocalStoreIDB.navigate() waits for the commit and
+     carries its own timeout, so navigation can never hang. */
+  function goDurable(url) {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.navigate) window.LocalStoreIDB.navigate(url);
+    else location.href = url;
+  }
+
+  // ============================================================
+  // §EDITOR — the form itself lives in athenaeum-resource-editor.js, so
+  // this page and the resource page share one definition of a resource.
+  // ============================================================
+  function openEditor(res) {
+    if (!window.AthResourceEditor) { toast('The editor did not load', true); return; }
+    AthResourceEditor.open(res, {
+      toast: toast,
+      onSaved: function (rec, isNew) {
+        // A new resource opens straight onto its own page: the next thing
+        // wanted after adding a book is to start putting the book in.
+        // Via §DURABLE-NAV — the record was written microseconds ago and its
+        // IndexedDB transaction has not committed yet; navigating in the same
+        // tick can land on a detail page for a resource that no longer exists.
+        if (isNew && rec) { goDurable(href(rec)); return; }
+        render({ top: false });
+      }
+    });
+  }
+
+  // ============================================================
+  // §WIRING
+  // ============================================================
+  function wire() {
+    on('lbTypes', 'click', '[data-type]', function (e, t) {
+      S.type = t.getAttribute('data-type');
+      D().setUiState({ libType: S.type });
+      render({ top: false });
+    });
+
+    on('lbFilters', 'change', '[data-filter]', function (e, t) {
+      var k = t.getAttribute('data-filter');
+      S[k] = t.value;
+      D().setUiState({ libField: S.field, libBucket: S.bucket, libSort: S.sort });
+      render({ top: false });
+    });
+    on('lbFilters', 'click', '[data-act="cleartag"]', function () {
+      S.tag = ''; render({ top: false });
+    });
+
+    on('lbRail', 'click', '[data-tag]', function (e, t) {
+      var tag = t.getAttribute('data-tag');
+      S.tag = (S.tag === tag) ? '' : tag;
+      render({ top: false });
+    });
+
+    // The whole row is a target, but a click that landed on a real control
+    // belongs to that control.
+    on('lbFeed', 'click', '.lb-row', function (e, row) {
+      if (e.target.closest('button, a')) return;
+      var r = D().Resources.get(row.getAttribute('data-id'));
+      if (r) goDurable(href(r));
+    });
+    on('lbFeed', 'click', '[data-act="edit"]', function (e, t) {
+      e.stopPropagation();
+      openEditor(D().Resources.get(t.getAttribute('data-id')));
+    });
+    on('lbFeed', 'click', '[data-act="del"]', function (e, t) {
+      e.stopPropagation();
+      var d = D(), r = d.Resources.get(t.getAttribute('data-id'));
+      if (!r) return;
+      var chapters = d.chaptersFor(r.id).length, marks = d.marksFor(r.id).length;
+      var extra = [];
+      if (chapters) extra.push(chapters + (chapters === 1 ? ' chapter' : ' chapters'));
+      if (marks) extra.push(marks + (marks === 1 ? ' note' : ' notes'));
+      var msg = 'Delete “' + (r.title || 'Untitled') + '”?\n\n' +
+        (extra.length ? 'Its ' + extra.join(' and ') + ' go with it. ' : '') +
+        'Anything crediting it keeps its own text — only the link is removed.';
+      if (!confirm(msg)) return;
+      d.removeResource(r.id);
+      toast('Deleted');
+      render({ top: false });
+    });
+    on('lbFeed', 'click', '[data-act="add"]', function () { openEditor(null); });
+
+    document.querySelector('.ath-hero [data-act="add"]').addEventListener('click', function () { openEditor(null); });
+
+    // --- search ---
+    var q = $('lbQ'), qTimer = null;
+    q.addEventListener('input', function () {
+      S.q = q.value;
+      $('lbQClear').hidden = !S.q;
+      clearTimeout(qTimer);
+      // Debounced: the haystack reads every body on every keystroke.
+      qTimer = setTimeout(function () {
+        var total = D().Resources.list().length, list = visible();
+        renderFilters(list.length, total);
+        renderFeed(list);
+        observeRises();
+      }, 140);
+    });
+    $('lbQClear').addEventListener('click', function () {
+      q.value = ''; S.q = ''; $('lbQClear').hidden = true; q.focus(); render({ top: false });
+    });
+
+    // The editor is athenaeum-resource-editor.js: one form, shared with
+    // the resource page, so a new field is only ever added in one place.
+  }
+
+  // ============================================================
+  // §BOOT
+  // ============================================================
+  var remoteRef = { applied: false };
+  if (typeof window.initCloudSync === 'function' && window.supabase) {
+    window.initCloudSync({
+      appKey: 'athenaeum',
+      syncedPrefixes: ['ath:'],
+      onApplied: function () { remoteRef.applied = true; refreshCurrentView(); }
+    });
+  }
+
+  function boot() {
+    var d = D();
+    if (!d) { console.error('[Athenaeum] athenaeum-data.js did not load'); return; }
+    var ui = d.getUiState();
+    if (ui.libType) S.type = ui.libType;
+    if (ui.libField) S.field = ui.libField;
+    if (ui.libBucket) S.bucket = ui.libBucket;
+    if (ui.libSort) S.sort = ui.libSort;
+    wire();
+    wirePlates();
+    render({ top: true, arrived: true });
+    d.maybeSeedAfterSyncAttempt(remoteRef, function () { refreshCurrentView(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
+      window.LocalStoreIDB.ready().then(function () { runSafely(boot, 'boot'); });
+    } else {
+      runSafely(boot, 'boot');
+    }
+  });
+})();
+</script>
+</body>
+</html>

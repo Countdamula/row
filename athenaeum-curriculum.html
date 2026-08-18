@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curriculum — The Athenaeum</title>
+
+<!-- MUST be first and MUST NOT be deferred. See athenaeum.html. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Bodoni Moda carries the hero. See athenaeum.html's own note. -->
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400&family=Italiana&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* =====================================================================
+   §TOKENS — same dark working surface as athenaeum-subject.html. A
+   curriculum is a working document, not a reading-room page, so it stays
+   on the desk with its parent field rather than reverting to paper.
+   ===================================================================== */
+:root{
+  --ath-ground:#C3C0B6; --ath-void:#0A0C0F; --ath-slate:#101419;
+  --ath-raise:#161B21; --ath-raise-2:#1D232B;
+  --ath-hair:rgba(242,239,232,.10); --ath-hair-soft:rgba(242,239,232,.055);
+  --ath-text:#F2EFE8; --ath-text-2:rgba(242,239,232,.70);
+  --ath-text-3:rgba(242,239,232,.44); --ath-text-4:rgba(242,239,232,.24);
+  --ath-verd:#5CA791; --ath-verd-rgb:92,167,145;
+  --ath-brass:#C9A458; --ath-brass-rgb:201,164,88;
+  --ath-bad:#D2726A; --ath-bad-rgb:210,114,106;
+  /* Session-kind hues, matching the Learning Calendar's legend so a
+     session reads the same colour wherever it appears. */
+  --k-class:#5CA791; --k-study:#C9A458; --k-research:#7E93C8;
+  --k-reflection:#B487B1; --k-experiment:#D2726A;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:18px; --sp-5:26px; --sp-6:38px; --sp-7:56px;
+  --ath-r-sm:2px; --ath-r:4px; --ath-r-lg:6px;
+  --ath-display:"Italiana", Didot, Georgia, serif;
+  --ath-hero-face:"Bodoni Moda", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+  --ath-prose:"Newsreader", Georgia, "Times New Roman", serif;
+  --ath-ui:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ath-spring:cubic-bezier(.34,1.32,.64,1); --ath-ease:cubic-bezier(.32,.72,0,1);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0; background:var(--ath-void); color:var(--ath-text); font-family:var(--ath-ui); font-size:14.5px; line-height:1.6; -webkit-font-smoothing:antialiased}
+@media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation-duration:.001ms !important; transition-duration:.001ms !important} }
+button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+a{color:inherit; text-decoration:none}
+:focus-visible{outline:2px solid var(--ath-verd); outline-offset:3px}
+
+/* FULL-BLEED — the 1180px cap and its hairline were removed on request.
+   Prose blocks keep their own measure caps so long text does not run the
+   full width of a large display. */
+.ath-shell{width:100%; min-height:100vh; background:var(--ath-void)}
+.ath-page{padding:var(--sp-6) clamp(20px, 4.6vw, 76px); padding-top:var(--sp-7)}
+@media (max-width:640px){ .ath-page{padding:var(--sp-4); padding-top:var(--sp-7)} }
+
+.ath-crumb{display:flex; align-items:center; gap:9px; font-size:10.5px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--ath-text-3); margin-bottom:var(--sp-5); flex-wrap:wrap}
+.ath-crumb a{transition:color .2s var(--ath-ease)}
+.ath-crumb a:hover{color:var(--ath-text)}
+.ath-crumb span{color:var(--ath-text-4)}
+
+.ath-eyebrow{display:flex; align-items:center; gap:var(--sp-3); font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--ath-text-3); margin:0}
+.ath-eyebrow::before{content:""; width:30px; height:1px; background:var(--ath-brass); flex:none}
+.ath-h1{font-family:var(--ath-display); font-size:clamp(30px,4.6vw,54px); line-height:1.04; letter-spacing:.04em; text-transform:uppercase; margin:var(--sp-3) 0 0; font-weight:400}
+/* Inside the hero the headline takes the Didone treatment: heavier, wider
+   tracking, with a shadow so it holds against the photograph. */
+.ath-hero .ath-h1{
+  font-weight:500; letter-spacing:.075em; line-height:1.08;
+  font-size:clamp(30px, 4.4vw, 58px); margin-top:var(--sp-4);
+  text-shadow:0 2px 44px rgba(0,0,0,.75), 0 1px 3px rgba(0,0,0,.6);
+}
+.ath-h3{font-family:var(--ath-display); font-size:18px; letter-spacing:.06em; text-transform:uppercase; margin:0; font-weight:400}
+.ath-prose{font-family:var(--ath-prose); font-size:16px; line-height:1.7; color:var(--ath-text-2)}
+.ath-micro{font-size:10px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ath-text-3); margin:0}
+
+.ath-btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:9px 16px; border:1px solid var(--ath-hair); border-radius:var(--ath-r-sm); font-size:12px; font-weight:500; color:var(--ath-text-2); transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), border-color .2s var(--ath-ease), transform .2s var(--ath-spring)}
+.ath-btn:hover{background:rgba(242,239,232,.07); color:var(--ath-text); border-color:var(--ath-text-4); transform:translateY(-1px)}
+.ath-btn-primary{background:var(--ath-verd); border-color:var(--ath-verd); color:#06120E; font-weight:600}
+.ath-btn-primary:hover{background:#6FBCA5; border-color:#6FBCA5; color:#06120E}
+.ath-btn-sm{padding:6px 11px; font-size:11px}
+.ath-btn-danger:hover{background:rgba(var(--ath-bad-rgb),.16); border-color:var(--ath-bad); color:var(--ath-bad)}
+
+.ath-tag{display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:var(--ath-r-sm); border:1px solid var(--ath-hair); font-size:10.5px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--ath-text-2)}
+.ath-tag.t-verd{border-color:rgba(var(--ath-verd-rgb),.42); color:var(--ath-verd); background:rgba(var(--ath-verd-rgb),.10)}
+.ath-tag.t-brass{border-color:rgba(var(--ath-brass-rgb),.42); color:var(--ath-brass); background:rgba(var(--ath-brass-rgb),.10)}
+.ath-tag.t-bad{border-color:rgba(var(--ath-bad-rgb),.42); color:var(--ath-bad); background:rgba(var(--ath-bad-rgb),.10)}
+
+/* §HERO — the same photograph and the same Didone as every other hero in
+   The Athenaeum. It bleeds out through the page gutter to sit flush with
+   the viewport edges. */
+.ath-hero{
+  position:relative; isolation:isolate; overflow:hidden;
+  margin:calc(var(--sp-7) * -1) calc(clamp(20px, 4.6vw, 76px) * -1) var(--sp-7);
+  padding:calc(var(--sp-7) + var(--sp-5)) clamp(20px, 4.6vw, 76px) var(--sp-6);
+  min-height:340px;
+  background:var(--ath-void);
+  display:flex; align-items:flex-end; justify-content:space-between; gap:var(--sp-5); flex-wrap:wrap;
+}
+/* The photograph sits on its own layer so the arrival sequence can scale
+   it without dragging the headline along with it. */
+.ath-hero::before{
+  content:""; position:absolute; inset:0; z-index:-2;
+  background:url("images_by_admin/athenaeum/hero.jpg") center 48% / cover no-repeat;
+}
+/* The title block takes the remaining width so the actions stay pinned
+   right instead of dropping under a wrapped headline. */
+.ath-hero > div:first-child{flex:1 1 460px; min-width:0}
+.ath-hero::after{
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:
+    linear-gradient(90deg, rgba(8,10,13,.90) 0%, rgba(8,10,13,.52) 46%, rgba(8,10,13,.20) 80%),
+    linear-gradient(180deg, rgba(8,10,13,.72) 0%, rgba(8,10,13,.24) 40%, rgba(8,10,13,.88) 100%);
+}
+.ath-hero > *{position:relative; z-index:1}
+.ath-hero,
+.ath-hero .ath-eyebrow,
+.ath-hero .ath-h1,
+.ath-hero .ath-btn{font-family:var(--ath-hero-face); font-optical-sizing:auto}
+/* A BOUNDED CHIP, like the badge above the reference's headline — a
+   leading mark, a hairline, glass behind it. Square rather than a pill:
+   near-zero radii are this build's discipline. */
+.ath-hero .ath-eyebrow{
+  display:inline-flex; align-items:center; gap:11px;
+  padding:6px 15px 6px 11px;
+  border:1px solid var(--ath-hair); border-radius:var(--ath-r-sm);
+  background:rgba(10,12,15,.44);
+  -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+  font-weight:400; letter-spacing:.34em; font-size:11.5px;
+}
+.ath-hero .ath-eyebrow::before{
+  width:7px; height:7px; background:var(--ath-brass);
+  box-shadow:0 0 0 3px rgba(var(--ath-brass-rgb),.20), 0 0 14px rgba(var(--ath-brass-rgb),.8);
+}
+.ath-hero-acts{display:flex; gap:var(--sp-2); flex-wrap:wrap}
+@media (max-width:640px){ .ath-hero{margin-left:calc(var(--sp-4) * -1); margin-right:calc(var(--sp-4) * -1); padding-left:var(--sp-4); padding-right:var(--sp-4)} }
+
+/* =====================================================================
+   §HERO ARRIVAL — the same three gestures as the hero on athenaeum.html:
+   the plate pulls back, the headline is uncovered left to right by a
+   brass beam, and the actions lift in behind it. `--t` carries how far
+   the sequence has already run, so the reveal RESUMES on a repainted
+   node rather than restarting — this page repaints on every data change.
+   ===================================================================== */
+:root{ --ath-pull:cubic-bezier(.16,.84,.24,1); --ath-wipe:cubic-bezier(.42,.02,.10,1) }
+
+@keyframes ath-plate{ from{ transform:scale(1.16) } }
+@keyframes ath-wipe{ from{ -webkit-mask-position:100% 0; mask-position:100% 0 } }
+@keyframes ath-bar{ from{ background-position:100% 0 } }
+@keyframes ath-lift-in{ from{ opacity:0; transform:translateY(14px) } }
+
+.ath-hero.is-intro::before{
+  animation:ath-plate 2s var(--ath-pull) backwards;
+  animation-delay:calc(var(--t,0ms) + 0s);
+}
+.ath-rvl{display:block; position:relative}
+.ath-hero.is-intro .ath-rvl{
+  -webkit-mask-image:linear-gradient(90deg,#000 0 40%,rgba(0,0,0,.42) 43%,transparent 46%);
+          mask-image:linear-gradient(90deg,#000 0 40%,rgba(0,0,0,.42) 43%,transparent 46%);
+  -webkit-mask-size:250% 100%;   mask-size:250% 100%;
+  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+  -webkit-mask-position:0 0;     mask-position:0 0;
+  animation:ath-wipe 1.1s var(--ath-wipe) backwards;
+  animation-delay:calc(var(--t,0ms) + .3s);
+}
+.ath-hero.is-intro .ath-rvl::after{
+  content:""; position:absolute; left:0; right:0; top:.04em; bottom:.06em;
+  pointer-events:none; mix-blend-mode:screen; opacity:.92;
+  background-image:linear-gradient(90deg,
+    transparent 0 40.9%,
+    rgba(var(--ath-brass-rgb),.5) 41.8%,
+    var(--ath-brass) 42.1% 42.9%,
+    rgba(var(--ath-brass-rgb),.5) 43.2%,
+    transparent 44.1% 100%);
+  background-size:250% 100%; background-repeat:no-repeat; background-position:0 0;
+  -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%);
+          mask-image:linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%);
+  animation:ath-bar 1.1s var(--ath-wipe) backwards;
+  animation-delay:calc(var(--t,0ms) + .3s);
+}
+.ath-hero.is-intro .ath-hero-acts,
+.ath-hero.is-intro .ath-eyebrow{ animation:ath-lift-in .84s var(--ath-ease) backwards }
+.ath-hero.is-intro .ath-hero-acts{ animation-delay:calc(var(--t,0ms) + 1.02s) }
+.ath-hero.is-intro .ath-eyebrow{ animation-delay:calc(var(--t,0ms) + 1.22s) }
+
+/* The global reduced-motion rule only collapses DURATION, and these are
+   delayed with a backwards fill — collapsing the duration alone would
+   hold the hero blank and then snap it in. */
+@media (prefers-reduced-motion:reduce){
+  .ath-hero.is-intro::before,
+  .ath-hero.is-intro .ath-hero-acts,
+  .ath-hero.is-intro .ath-eyebrow,
+  .ath-hero.is-intro .ath-rvl{ animation:none }
+  .ath-hero.is-intro .ath-rvl{-webkit-mask-image:none; mask-image:none}
+  .ath-hero.is-intro .ath-rvl::after{content:none}
+}
+
+.ath-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--ath-hair); border:1px solid var(--ath-hair); border-radius:var(--ath-r); overflow:hidden; margin-bottom:var(--sp-6)}
+@media (max-width:760px){ .ath-stats{grid-template-columns:repeat(2,1fr)} }
+.ath-stat{background:var(--ath-raise); padding:var(--sp-4)}
+.ath-stat b{display:block; font-family:var(--ath-prose); font-weight:300; font-size:30px; line-height:1.1; font-variant-numeric:lining-nums tabular-nums}
+.ath-stat span{font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-text-3)}
+
+.ath-sec{margin-bottom:var(--sp-7)}
+.ath-sechead{display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-4); margin-bottom:var(--sp-4); flex-wrap:wrap}
+.ath-sechead p{margin:var(--sp-2) 0 0; font-family:var(--ath-prose); font-size:14.5px; color:var(--ath-text-3); max-width:64ch}
+
+.ath-card{background:var(--ath-raise); border:1px solid var(--ath-hair-soft); border-radius:var(--ath-r); padding:var(--sp-5)}
+.ath-two{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4)}
+@media (max-width:800px){ .ath-two{grid-template-columns:1fr} }
+
+/* Scope vs anti-scope carry different left rules — what is in, and what
+   is deliberately kept out, should never be mistaken for each other. */
+.ath-scope{border-left:2px solid var(--ath-verd)}
+.ath-anti{border-left:2px solid var(--ath-bad)}
+.ath-scope ul,.ath-anti ul{margin:var(--sp-3) 0 0; padding-left:var(--sp-4); font-family:var(--ath-prose); font-size:16px; line-height:1.7; color:var(--ath-text-2)}
+.ath-scope li,.ath-anti li{margin-bottom:6px}
+
+.ath-outcome{background:var(--ath-raise); border:1px solid var(--ath-hair-soft); border-radius:var(--ath-r); padding:var(--sp-4) var(--sp-5); margin-bottom:var(--sp-2)}
+.ath-outcome-top{display:flex; align-items:baseline; gap:var(--sp-3); flex-wrap:wrap}
+.ath-outcome-t{font-family:var(--ath-prose); font-size:17px; line-height:1.4; margin:0; flex:1; min-width:200px}
+.ath-outcome-n{font-family:var(--ath-prose); font-weight:300; font-size:20px; color:var(--ath-verd); font-variant-numeric:tabular-nums}
+.ath-outcome input[type=range]{width:100%; margin-top:var(--sp-3); accent-color:var(--ath-verd)}
+
+.ath-meter{height:3px; background:rgba(242,239,232,.10); position:relative; overflow:hidden; margin-top:8px; border-radius:2px}
+.ath-meter i{position:absolute; inset:0 auto 0 0; width:100%; background:var(--ath-verd); transform-origin:left; display:block}
+
+.ath-mod{background:var(--ath-raise); border:1px solid var(--ath-hair-soft); border-radius:var(--ath-r); margin-bottom:var(--sp-3); overflow:hidden}
+.ath-mod-head{display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-4) var(--sp-5); border-bottom:1px solid var(--ath-hair-soft); flex-wrap:wrap}
+.ath-mod-head h4{margin:0; font-family:var(--ath-prose); font-size:18px; font-weight:400; flex:1; min-width:180px}
+.ath-mod-acts{display:flex; gap:6px}
+.ath-lesson{display:flex; align-items:center; gap:var(--sp-3); padding:10px var(--sp-5); border-top:1px solid var(--ath-hair-soft); transition:background-color .2s var(--ath-ease)}
+.ath-lesson:first-child{border-top:0}
+.ath-lesson:hover{background:var(--ath-raise-2)}
+.ath-lesson input[type=checkbox]{width:16px; height:16px; accent-color:var(--ath-verd); cursor:pointer; flex:none}
+.ath-lesson span{flex:1; font-family:var(--ath-prose); font-size:16px}
+.ath-lesson.is-done span{color:var(--ath-text-4); text-decoration:line-through}
+.ath-mod-foot{padding:var(--sp-3) var(--sp-5) var(--sp-4)}
+
+.ath-asg{display:flex; align-items:center; gap:var(--sp-3); background:var(--ath-raise); border:1px solid var(--ath-hair-soft); border-radius:var(--ath-r); padding:var(--sp-3) var(--sp-4); margin-bottom:var(--sp-2); flex-wrap:wrap}
+.ath-asg input[type=checkbox]{width:16px; height:16px; accent-color:var(--ath-verd); cursor:pointer}
+.ath-asg-t{flex:1; font-family:var(--ath-prose); font-size:16px; min-width:180px}
+.ath-asg.is-done .ath-asg-t{color:var(--ath-text-4); text-decoration:line-through}
+
+.ath-empty{padding:var(--sp-6) var(--sp-5); text-align:center; border:1px dashed var(--ath-hair); border-radius:var(--ath-r); font-family:var(--ath-prose); color:var(--ath-text-3); font-size:15px}
+.ath-empty b{display:block; font-family:var(--ath-display); font-size:18px; letter-spacing:.05em; text-transform:uppercase; color:var(--ath-text-2); margin-bottom:7px; font-weight:400}
+
+.ath-modal-bg{position:fixed; inset:0; z-index:120; background:rgba(4,6,9,.74); backdrop-filter:blur(4px); display:none; align-items:center; justify-content:center; padding:var(--sp-5)}
+.ath-modal-bg.show{display:flex; animation:ath-fade .22s var(--ath-ease)}
+.ath-modal{background:var(--ath-raise); width:min(700px,100%); max-height:88vh; overflow:auto; border:1px solid var(--ath-hair); border-radius:var(--ath-r); box-shadow:0 40px 90px -40px rgba(0,0,0,.95)}
+.ath-modal-head{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); padding:var(--sp-5) var(--sp-5) var(--sp-4); border-bottom:1px solid var(--ath-hair-soft); position:sticky; top:0; background:var(--ath-raise); z-index:2}
+.ath-modal-body{padding:var(--sp-5); display:grid; gap:var(--sp-4)}
+.ath-modal-foot{display:flex; justify-content:flex-end; gap:var(--sp-3); padding:var(--sp-4) var(--sp-5) var(--sp-5); border-top:1px solid var(--ath-hair-soft)}
+.ath-field{display:grid; gap:7px}
+.ath-field-label{font-size:10px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--ath-text-3)}
+.ath-field-hint{margin:0; font-size:12.5px; color:var(--ath-text-4); font-family:var(--ath-prose); line-height:1.55}
+.ath-field-row{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4)}
+@media (max-width:600px){ .ath-field-row{grid-template-columns:1fr} }
+/* Multi-select chips, used by the resource-attach modal. Same recipe as
+   athenaeum-subject.html's — copied rather than shared, per this repo's
+   self-contained-stylesheet convention. */
+.ath-chip{padding:6px 13px; border:1px solid var(--ath-hair); border-radius:var(--ath-r-sm); font-size:11.5px; color:var(--ath-text-2); transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), border-color .2s var(--ath-ease)}
+.ath-chip:hover{border-color:var(--ath-text-4); color:var(--ath-text)}
+.ath-chip.is-on{background:var(--ath-text); border-color:var(--ath-text); color:var(--ath-void); font-weight:600}
+.ath-chip-row{display:flex; gap:7px; flex-wrap:wrap}
+.ath-input,.ath-select,.ath-textarea{width:100%; padding:10px 12px; background:var(--ath-slate); color:var(--ath-text); border:1px solid var(--ath-hair); border-radius:var(--ath-r-sm); font:inherit; font-size:14px; transition:border-color .2s var(--ath-ease)}
+/* Phone: a field under 16px makes iOS Safari zoom the page in on focus and
+   never zoom back out, so one tap on a form leaves the page magnified. */
+@media (max-width:768px){ .ath-input,.ath-select,.ath-textarea{font-size:16px; padding:12px} }
+.ath-textarea{font-family:var(--ath-prose); font-size:15.5px; line-height:1.6; resize:vertical}
+.ath-input:focus,.ath-select:focus,.ath-textarea:focus{outline:none; border-color:var(--ath-verd)}
+.ath-select option{background:var(--ath-slate)}
+@keyframes ath-fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+
+#athToast{position:fixed; left:50%; bottom:var(--sp-5); transform:translate(-50%,20px); z-index:200; background:var(--ath-text); color:var(--ath-void); padding:11px 20px; border-radius:var(--ath-r-sm); font-size:13px; font-weight:500; opacity:0; pointer-events:none; transition:opacity .26s var(--ath-ease), transform .26s var(--ath-spring)}
+#athToast.show{opacity:1; transform:translate(-50%,0)}
+#athToast.is-bad{background:var(--ath-bad); color:#1A0B0A}
+
+/* Clear of topbar.js's fixed launcher pill. */
+.ath-page{padding-top:var(--sp-7)}
+</style>
+</head>
+<body>
+
+<div class="ath-shell"><div class="ath-page" id="athPage"></div></div>
+
+<div class="ath-modal-bg" id="athModalBg"><div class="ath-modal" id="athModal" role="dialog" aria-modal="true"></div></div>
+<div id="athToast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-data.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="topbar.js" defer></script>
+<script src="athenaeum-nav.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function D() { return window.Athenaeum; }
+  function esc(s) { return D().esc(s); }
+  function runSafely(fn, label) {
+    try { return fn(); } catch (e) {
+      try { console.error('[Athenaeum·curriculum] ' + (label || 'error'), e); } catch (e2) {}
+      toast('Something went wrong — see the console', true);
+    }
+  }
+  var toastTimer = null;
+  function toast(msg, bad) {
+    var el = $('athToast');
+    el.textContent = msg;
+    el.classList.toggle('is-bad', !!bad);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+  var bound = {};
+  function on(hostId, evt, sel, fn) {
+    var key = hostId + '|' + evt + '|' + sel;
+    if (bound[key]) return;
+    bound[key] = 1;
+    var host = $(hostId);
+    if (!host) return;
+    host.addEventListener(evt, function (e) {
+      var t = e.target.closest ? e.target.closest(sel) : null;
+      if (t && host.contains(t)) fn(e, t);
+    });
+  }
+
+  var S = { id: '' };
+  function cur() { return D().Curricula.get(S.id); }
+
+  /* §DURABLE-NAV — wait for pending IndexedDB writes to actually commit
+     before leaving the document.
+
+     local-store-idb.js's persistPut()/persistRemove() fire an IndexedDB
+     transaction and return immediately; the transaction only commits once
+     control returns to the event loop. removeCurriculum() performs a burst
+     of writes, so navigating in the same tick tore the page down mid-flight
+     and the delete silently did not stick — confirmed by reloading and
+     finding the curriculum still there.
+
+     Opening our own readwrite transaction on the same object store is the
+     deterministic wait: IndexedDB serialises readwrite transactions with
+     overlapping scope, so ours cannot start until the shim's have finished.
+     Falls back to a short timer if IndexedDB is unavailable, so navigation
+     can never hang. */
+  function navigateAfterWrites(url) {
+    var done = false;
+    var go = function () { if (done) return; done = true; location.href = url; };
+    // Belt and braces: never strand the user if IDB misbehaves.
+    setTimeout(go, 1200);
+    try {
+      if (typeof indexedDB === 'undefined') { setTimeout(go, 60); return; }
+      var req = indexedDB.open('personal-dashboard-kv', 1);
+      req.onsuccess = function () {
+        try {
+          var db = req.result;
+          var tx = db.transaction(['kv'], 'readwrite');
+          tx.oncomplete = function () { try { db.close(); } catch (e) {} go(); };
+          tx.onerror = tx.onabort = function () { try { db.close(); } catch (e) {} go(); };
+        } catch (e) { go(); }
+      };
+      req.onerror = function () { setTimeout(go, 60); };
+    } catch (e) { setTimeout(go, 60); }
+  }
+
+  function render(opts) {
+    opts = opts || {};
+    var y = window.scrollY;
+    var c = cur();
+    if (!c) { renderMissing(); return; }
+    runSafely(function () { paint(c); }, 'paint');
+    // Always keep the scroll: this page has no route changes, so every
+    // repaint is a data change and must not move the reader.
+    // behavior:'auto' — see the note in athenaeum.html's render().
+    if (!opts.top) requestAnimationFrame(function () { window.scrollTo({ top: y, behavior: 'auto' }); });
+  }
+  function refreshCurrentView() {
+    if ($('athModalBg').classList.contains('show')) return;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+    runSafely(render, 'refresh');
+  }
+
+  function renderMissing() {
+    $('athPage').innerHTML =
+      '<div class="ath-crumb"><a href="athenaeum.html">The Athenaeum</a></div>' +
+      '<div class="ath-empty"><b>No such curriculum</b>' +
+      'This page needs a curriculum id in its address, like <code>athenaeum-curriculum.html?id=…</code>. ' +
+      'Curricula are created inside their field.' +
+      '<div style="margin-top:var(--sp-5)"><a class="ath-btn" href="athenaeum.html#/fields">Back to the fields</a></div></div>';
+  }
+
+  function meter(pct) {
+    var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    return '<div class="ath-meter"><i style="transform:scaleX(' + (p / 100) + ')"></i></div>';
+  }
+
+  /* §ARRIVAL — see the long note in athenaeum.html. This page has no
+     route changes, so the reveal belongs to the first paint alone; every
+     repaint after it carries a negative `--t` and the sequence resumes on
+     the new node instead of starting over. Past ATH_INTRO_RUN nothing is
+     emitted and the hero is simply, immediately, there. */
+  var ATH_INTRO_RUN = 2300;
+  var introAt = -1;
+  function nowMs() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function introAttrs() {
+    var t = nowMs();
+    if (introAt < 0) introAt = t;
+    var elapsed = t - introAt;
+    if (elapsed >= ATH_INTRO_RUN) return { cls: '', style: '' };
+    return { cls: ' is-intro', style: ' style="--t:' + (-Math.round(elapsed)) + 'ms"' };
+  }
+
+  function paint(c) {
+    var d = D();
+    var subj = d.subjectById(c.subjectId);
+    var mods = d.modulesFor(c.id);
+    var lessons = d.lessonsForCurriculum(c.id);
+    var asgs = d.assignmentsFor(c.id);
+    var pct = d.curriculumProgress(c.id);
+    var attached = d.resourcesForCurriculum(c.id);
+    var raised = d.Inbox.list().filter(function (i) { return i.curriculumId === c.id; })
+      .sort(function (a, b) { return String(b.createdAt || '').localeCompare(String(a.createdAt || '')); });
+    var sessions = d.Sessions.list().filter(function (x) { return x.curriculumId === c.id; }).sort(d.byDate);
+    var doneLessons = lessons.filter(function (l) { return l.done; }).length;
+    var weeks = (c.startDate && c.endDate) ? Math.max(1, Math.round(d.daysBetween(c.startDate, c.endDate) / 7)) : 0;
+    var arrival = introAttrs();
+
+    $('athPage').innerHTML =
+      '<div class="ath-crumb">' +
+        '<a href="athenaeum.html">The Athenaeum</a><span>/</span>' +
+        (subj ? '<a href="athenaeum-subject.html?id=' + encodeURIComponent(subj.id) + '#/curricula">' + esc(subj.name) + '</a><span>/</span>' : '') +
+        '<span style="color:var(--ath-text-2)">Curriculum</span>' +
+      '</div>' +
+
+      '<div class="ath-hero' + arrival.cls + '"' + arrival.style + '>' +
+        '<div>' +
+          '<p class="ath-eyebrow">' + esc(d.labelFrom(d.CURRICULUM_STATUSES, c.status, 'Future')) + '</p>' +
+          '<h1 class="ath-h1"><span class="ath-rvl">' + esc(c.title || 'Untitled curriculum') + '</span></h1>' +
+        '</div>' +
+        '<div class="ath-hero-acts">' +
+          '<button class="ath-btn ath-btn-sm" type="button" data-act="edit">Edit overview</button>' +
+          '<button class="ath-btn ath-btn-sm ath-btn-danger" type="button" data-act="delete">Delete</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="ath-stats">' +
+        '<div class="ath-stat"><b>' + pct + '%</b><span>Toward outcomes</span></div>' +
+        '<div class="ath-stat"><b>' + doneLessons + '/' + lessons.length + '</b><span>Lessons done</span></div>' +
+        '<div class="ath-stat"><b>' + (c.weeklyHours || 0) + '</b><span>Hours per week</span></div>' +
+        '<div class="ath-stat"><b>' + (weeks || '—') + '</b><span>Weeks planned</span></div>' +
+      '</div>' +
+
+      section('Why this exists', 'Overview', '',
+        '<div class="ath-card">' +
+          (c.why ? '<p class="ath-prose" style="margin:0 0 var(--sp-4)">' + esc(c.why).replace(/\n/g, '<br>') + '</p>'
+                 : '<p class="ath-prose" style="margin:0 0 var(--sp-4);color:var(--ath-text-4);font-style:italic">No reason written yet — the first thing to fill in.</p>') +
+          '<div class="ath-two">' +
+            '<div>' + kv('Status', d.labelFrom(d.CURRICULUM_STATUSES, c.status, 'Future')) +
+              kv('Difficulty', '★'.repeat(c.difficulty) + '☆'.repeat(5 - c.difficulty)) + '</div>' +
+            '<div>' + kv('Start', c.startDate ? d.fmtDate(c.startDate) : 'Not set') +
+              kv('End', c.endDate ? d.fmtDate(c.endDate) : 'Open-ended') + '</div>' +
+          '</div>' +
+          (c.nextAction
+            ? '<div style="margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--ath-hair-soft)">' +
+              '<p class="ath-micro">Next action</p><p class="ath-prose" style="margin:6px 0 0;font-size:18px">' + esc(c.nextAction) + '</p></div>'
+            : '') +
+        '</div>') +
+
+      section('What is in, and what is deliberately out', 'Scope',
+        'The anti-scope is the half that does the work: naming what you are NOT studying is what keeps a curriculum finishable.',
+        '<div class="ath-two">' +
+          '<div class="ath-card ath-scope"><h3 class="ath-h3">In scope</h3>' + bullets(c.inScope, 'Nothing listed yet.') + '</div>' +
+          '<div class="ath-card ath-anti"><h3 class="ath-h3">Anti-scope</h3>' + bullets(c.antiScope, 'Nothing excluded yet.') + '</div>' +
+        '</div>',
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="edit-scope">Edit scope</button>') +
+
+      section('Three to five, measurable', 'Learning Outcomes',
+        'Progress on this page is scored against these, not against how many resources were consumed.',
+        (c.outcomes && c.outcomes.length
+          ? c.outcomes.map(function (o, i) {
+              return '<div class="ath-outcome">' +
+                '<div class="ath-outcome-top">' +
+                  '<span class="ath-outcome-n">' + esc(d.roman(i + 1)) + '</span>' +
+                  '<p class="ath-outcome-t">' + esc(o.text) + '</p>' +
+                  '<span class="ath-outcome-n">' + o.progress + '%</span>' +
+                '</div>' +
+                '<input type="range" min="0" max="100" step="5" value="' + o.progress + '" data-outcome="' + i + '" aria-label="Progress on outcome ' + (i + 1) + '">' +
+              '</div>';
+            }).join('')
+          : '<div class="ath-empty"><b>No outcomes yet</b>Without these, progress falls back to counting lessons — which measures activity, not learning.</div>'),
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="edit-outcomes">Edit outcomes</button>') +
+
+      section('Modules → lessons', 'Syllabus', '',
+        (mods.length
+          ? mods.map(function (m) {
+              var ls = d.lessonsFor(m.id);
+              return '<div class="ath-mod">' +
+                '<div class="ath-mod-head">' +
+                  '<h4>' + esc(m.title) + '</h4>' +
+                  '<span class="ath-tag' + (ls.length && ls.every(function (l) { return l.done; }) ? ' t-verd' : '') + '">' +
+                    ls.filter(function (l) { return l.done; }).length + ' / ' + ls.length + '</span>' +
+                  '<span class="ath-mod-acts">' +
+                    '<button class="ath-btn ath-btn-sm" type="button" data-act="add-lesson" data-id="' + esc(m.id) + '">＋ Lesson</button>' +
+                    '<button class="ath-btn ath-btn-sm" type="button" data-act="edit-module" data-id="' + esc(m.id) + '">Edit</button>' +
+                    '<button class="ath-btn ath-btn-sm ath-btn-danger" type="button" data-act="del-module" data-id="' + esc(m.id) + '">✕</button>' +
+                  '</span>' +
+                '</div>' +
+                (ls.length
+                  ? ls.map(function (l) {
+                      return '<label class="ath-lesson' + (l.done ? ' is-done' : '') + '">' +
+                        '<input type="checkbox" data-lesson="' + esc(l.id) + '"' + (l.done ? ' checked' : '') + '>' +
+                        '<span>' + esc(l.title) + '</span>' +
+                        '<button class="ath-btn ath-btn-sm ath-btn-danger" type="button" data-act="del-lesson" data-id="' + esc(l.id) + '">✕</button>' +
+                      '</label>';
+                    }).join('')
+                  : '<div class="ath-mod-foot"><p class="ath-field-hint">No lessons in this module yet.</p></div>') +
+              '</div>';
+            }).join('')
+          : '<div class="ath-empty"><b>No modules yet</b>A module is a chunk of the scope. Lessons are the sittings inside it.</div>'),
+        '<button class="ath-btn ath-btn-primary ath-btn-sm" type="button" data-act="add-module">Add module</button>') +
+
+      section('Essays, exams, case analyses, projects, teaching exercises', 'Assignments',
+        'The output side. Knowledge that never leaves your head cannot be graded by anything.',
+        (asgs.length
+          ? asgs.map(function (a) {
+              var overdue = !a.done && a.due && a.due < d.todayISO();
+              return '<div class="ath-asg' + (a.done ? ' is-done' : '') + '">' +
+                '<input type="checkbox" data-asg="' + esc(a.id) + '"' + (a.done ? ' checked' : '') + ' aria-label="Mark done">' +
+                '<span class="ath-asg-t">' + esc(a.title) + '</span>' +
+                '<span class="ath-tag">' + esc(a.type) + '</span>' +
+                (a.due ? '<span class="ath-tag' + (overdue ? ' t-bad' : '') + '">' + (overdue ? 'overdue ' : 'due ') + esc(d.fmtDateShort(a.due)) + '</span>' : '') +
+                '<button class="ath-btn ath-btn-sm ath-btn-danger" type="button" data-act="del-asg" data-id="' + esc(a.id) + '">✕</button>' +
+              '</div>';
+            }).join('')
+          : '<div class="ath-empty"><b>No assignments yet</b>Nothing to produce means nothing to be wrong about.</div>'),
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="add-asg">Add assignment</button>') +
+
+      section('Only what this curriculum uses', 'Resources',
+        'Pulled from ' + (subj ? subj.name : 'the field') + '’s library rather than duplicated — a resource still belongs to the field, and stays there when this ends.',
+        (attached.length
+          ? attached.map(function (r) {
+              return '<div class="ath-asg" style="align-items:flex-start">' +
+                '<div class="ath-asg-t"><a href="athenaeum-resource.html?id=' + encodeURIComponent(r.id) + '">' + esc(r.title) + '</a>' +
+                  '<em style="display:block;color:var(--ath-text-4);font-size:13px;margin-top:2px;font-style:normal">' +
+                  esc(r.type) + (r.author ? ' · ' + esc(r.author) : '') + '</em>' +
+                  (r.retention
+                    ? '<p style="margin:9px 0 0;font-family:var(--ath-prose);font-size:14px;color:var(--ath-text-3);line-height:1.6">' +
+                      '<em style="color:var(--ath-brass);font-style:normal">How it gets studied: </em>' + esc(r.retention) + '</p>'
+                    : '<p style="margin:9px 0 0;font-size:13px;color:var(--ath-text-4);font-style:italic">No retention strategy set — reading it is not studying it.</p>') +
+                '</div>' +
+                '<a class="ath-btn ath-btn-sm" href="athenaeum-resource.html?id=' + encodeURIComponent(r.id) + '">Open</a>' +
+                '<button class="ath-btn ath-btn-sm" type="button" data-act="detach-res" data-id="' + esc(r.id) + '">Detach</button>' +
+              '</div>';
+            }).join('')
+          : '<div class="ath-empty"><b>No resources attached</b>' +
+            'Attach the ones this curriculum actually runs on. Everything else stays in the field library.</div>'),
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="attach-res">Attach resources</button>') +
+
+      section('How this material is actually retained', 'Retention Strategy',
+        'Consuming a resource is not studying it. This is the plan for making it stick.',
+        '<div class="ath-card">' +
+          (c.retentionStrategy
+            ? '<p class="ath-prose" style="margin:0">' + esc(c.retentionStrategy).replace(/\n/g, '<br>') + '</p>'
+            : '<p class="ath-prose" style="margin:0;color:var(--ath-text-4);font-style:italic">Not written yet. Edit the overview to set it, and give each attached resource its own method above.</p>') +
+        '</div>') +
+
+      /* §RESEARCH FEEDS UP. A question raised while studying writes an
+         ath:inbox record carrying the FIELD's id, so it survives this
+         curriculum ending. Nothing knowledge-bearing is stored only here —
+         see athenaeum-data.js's header note. */
+      section('Feeds the field, not this page', 'Raise a research question',
+        'Anything worth chasing goes to ' + (subj ? subj.name : 'the field') + '’s permanent Learning Inbox, tagged with this curriculum. When this curriculum ends, the question stays.',
+        (raised.length
+          ? raised.map(function (i) {
+              return '<div class="ath-asg">' +
+                '<span class="ath-tag t-brass">' + esc(d.labelFrom(d.INBOX_KINDS, i.kind, 'Question')) + '</span>' +
+                '<span class="ath-asg-t">' + esc(i.text) + '</span>' +
+                '<span class="ath-tag">' + esc(d.labelFrom(d.INBOX_STATUSES, i.status, 'Unexamined')) + '</span>' +
+              '</div>';
+            }).join('') +
+            (subj ? '<p class="ath-field-hint" style="margin-top:var(--sp-3)">Work these in <a style="color:var(--ath-verd)" href="athenaeum-subject.html?id=' + encodeURIComponent(subj.id) + '#/research">the Deep Research Bar</a>.</p>' : '')
+          : '<div class="ath-empty"><b>Nothing raised yet</b>' +
+            'Questions that come up mid-curriculum belong to the field, not to the curriculum that happened to surface them.</div>'),
+        '<button class="ath-btn ath-btn-primary ath-btn-sm" type="button" data-act="raise">Raise a question</button>') +
+
+      /* Sessions are global — nine fields must not mean nine calendars —
+         so this reads from ath:sessions filtered to this curriculum and
+         sends every edit back to the one Learning Calendar. */
+      section('From the one global calendar', 'Schedule',
+        'Class sessions are primary learning; study sessions are processing and retention. Both live on the Learning Calendar and are filtered here.',
+        (sessions.length
+          ? '<div>' + sessions.map(function (ss) {
+              var past = ss.date < d.todayISO();
+              return '<div class="ath-asg' + (ss.done ? ' is-done' : '') + '">' +
+                '<span class="ath-tag" style="border-color:var(--k-' + esc(ss.kind) + ');color:var(--k-' + esc(ss.kind) + ')">' +
+                  esc(d.labelFrom(d.SESSION_KINDS, ss.kind, 'Study')) + '</span>' +
+                '<span class="ath-asg-t">' + esc(ss.title) + '</span>' +
+                '<span class="ath-tag' + (past && !ss.done ? ' t-bad' : '') + '">' + esc(d.fmtDateShort(ss.date)) +
+                  (ss.startTime ? ' · ' + esc(ss.startTime) : '') + '</span>' +
+                '<span class="ath-tag">' + esc(d.fmtHours(ss.minutes)) + '</span>' +
+              '</div>';
+            }).join('') +
+            '<p class="ath-field-hint" style="margin-top:var(--sp-3)">Edit these on the <a style="color:var(--ath-verd)" href="athenaeum.html#/calendar">Learning Calendar</a>.</p>'
+          : '<div class="ath-empty"><b>Nothing scheduled</b>' +
+            'Sessions for this curriculum will show here once they are on the calendar.</div>'),
+        '<a class="ath-btn ath-btn-sm" href="athenaeum.html#/calendar">Open the calendar</a>');
+  }
+
+  function section(eyebrow, title, blurb, body, action) {
+    return '<section class="ath-sec">' +
+      '<div class="ath-sechead"><div>' +
+        '<p class="ath-eyebrow">' + esc(eyebrow) + '</p>' +
+        '<h2 class="ath-h1" style="font-size:clamp(22px,2.6vw,30px);margin-top:var(--sp-2)">' + esc(title) + '</h2>' +
+        (blurb ? '<p>' + esc(blurb) + '</p>' : '') +
+      '</div>' + (action || '') + '</div>' + body + '</section>';
+  }
+  function kv(label, value) {
+    return '<p class="ath-micro" style="margin-bottom:3px">' + esc(label) + '</p>' +
+      '<p style="margin:0 0 var(--sp-3);font-size:15px">' + esc(value) + '</p>';
+  }
+  function bullets(list, emptyText) {
+    if (!list || !list.length) return '<p class="ath-prose" style="margin:var(--sp-3) 0 0;color:var(--ath-text-4);font-style:italic">' + esc(emptyText) + '</p>';
+    return '<ul>' + list.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+  }
+
+  // ============================================================
+  // §MODAL
+  // ============================================================
+  var modalCtx = null;
+  var modalDraft = null;
+  function fText(l, k, v, ph) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + k + '">' + esc(l) + '</label>' +
+      '<input class="ath-input" id="f_' + k + '" data-f="' + k + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '"></div>';
+  }
+  function fArea(l, k, v, ph, rows) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + k + '">' + esc(l) + '</label>' +
+      '<textarea class="ath-textarea" id="f_' + k + '" data-f="' + k + '" rows="' + (rows || 4) + '" placeholder="' + esc(ph || '') + '">' + esc(v || '') + '</textarea></div>';
+  }
+  function fSelect(l, k, v, opts) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + k + '">' + esc(l) + '</label>' +
+      '<select class="ath-select" id="f_' + k + '" data-f="' + k + '">' + opts.map(function (o) {
+        return '<option value="' + esc(o.id) + '"' + (String(o.id) === String(v) ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+      }).join('') + '</select></div>';
+  }
+  function fHint(t) { return '<p class="ath-field-hint">' + esc(t) + '</p>'; }
+  function fRow(a, b) { return '<div class="ath-field-row">' + a + b + '</div>'; }
+
+  function openModal(cfg) {
+    modalCtx = cfg;
+    var m = $('athModal');
+    m.innerHTML =
+      '<div class="ath-modal-head"><h3 class="ath-h3">' + esc(cfg.title) + '</h3>' +
+        '<button class="ath-btn ath-btn-sm" type="button" data-close aria-label="Close">✕</button></div>' +
+      '<div class="ath-modal-body">' + cfg.body + '</div>' +
+      '<div class="ath-modal-foot"><button class="ath-btn" type="button" data-close>Cancel</button>' +
+      '<button class="ath-btn ath-btn-primary" type="button" data-save>' + esc(cfg.saveLabel || 'Save') + '</button></div>';
+    $('athModalBg').classList.add('show');
+    // Autosave. Everything in this dialog lives only in the DOM until Save
+    // is pressed, so a refresh here used to take the whole form with it.
+    // The fingerprint keeps two records that share a title apart.
+    modalDraft = window.AthDraft ? AthDraft.bind(
+      'modal:curriculum:' + (cfg.title || '') + ':' + AthDraft.fingerprint(m), m,
+      { onRestore: function (when) { toast('Put back what you had typed ' + when); } }
+    ) : null;
+    var first = m.querySelector('[data-f]');
+    if (first) setTimeout(function () { first.focus(); }, 40);
+  }
+  /* Cancel, Escape and the backdrop are a DECISION to throw the form away,
+     so the draft goes with it. A refresh is not a decision, and its draft
+     has to survive — which is why only the explicit paths pass true. */
+  function closeModal(discard) {
+    $('athModalBg').classList.remove('show');
+    if (modalDraft) { if (discard) modalDraft.clear(); else modalDraft.save(); }
+    modalDraft = null;
+    modalCtx = null;
+  }
+  function modalValues() {
+    var out = {};
+    $('athModal').querySelectorAll('[data-f]').forEach(function (n) { out[n.getAttribute('data-f')] = n.value; });
+    return out;
+  }
+  // Multi-line textareas that stand in for a list: one item per row.
+  function toList(s) {
+    return String(s || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+
+  on('athModalBg', 'click', '[data-close]', function () { closeModal(true); });
+  on('athModalBg', 'click', '[data-save]', function () {
+    if (!modalCtx || !modalCtx.onSave) { closeModal(true); return; }
+    var cb = modalCtx.onSave, v = modalValues();
+    closeModal(true);
+    runSafely(function () { cb(v); refreshCurrentView(); }, 'modal save');
+  });
+  $('athModalBg').addEventListener('click', function (e) { if (e.target === $('athModalBg')) closeModal(true); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('athModalBg').classList.contains('show')) closeModal(true);
+  });
+
+  // ============================================================
+  // §WIRING
+  // ============================================================
+  on('athPage', 'click', '[data-act="edit"]', function () {
+    var d = D(), c = cur();
+    openModal({
+      title: 'Curriculum overview',
+      body:
+        fText('Title', 'title', c.title) +
+        fArea('Why I am learning this', 'why', c.why, '', 3) +
+        fRow(fSelect('Status', 'status', c.status, d.CURRICULUM_STATUSES), fText('Weekly hours', 'weeklyHours', c.weeklyHours)) +
+        fRow(fText('Start date', 'startDate', c.startDate, 'YYYY-MM-DD'), fText('End date', 'endDate', c.endDate, 'YYYY-MM-DD')) +
+        fSelect('Difficulty', 'difficulty', c.difficulty, [1, 2, 3, 4, 5].map(function (n) { return { id: n, label: '★'.repeat(n) }; })) +
+        fText('Next action', 'nextAction', c.nextAction, 'What to do next time this is opened') +
+        fArea('Retention strategy', 'retentionStrategy', c.retentionStrategy, 'How this material will actually be retained, not just read.', 3),
+      onSave: function (v) {
+        d.Curricula.update(c.id, v);
+        // Pinning follows status, so the homepage switcher stays honest.
+        if (v.status === 'current') d.setFocus({ currentId: c.id });
+        if (v.status === 'next') d.setFocus({ nextId: c.id });
+        if (v.status === 'backburner') d.setFocus({ backBurnerId: c.id });
+        toast('Curriculum updated');
+      }
+    });
+  });
+
+  on('athPage', 'click', '[data-act="edit-scope"]', function () {
+    var c = cur();
+    openModal({
+      title: 'Scope',
+      body:
+        fHint('One item per line.') +
+        fArea('In scope', 'inScope', (c.inScope || []).join('\n'), '', 6) +
+        fArea('Anti-scope — what I am deliberately excluding', 'antiScope', (c.antiScope || []).join('\n'), '', 6),
+      onSave: function (v) {
+        D().Curricula.update(c.id, { inScope: toList(v.inScope), antiScope: toList(v.antiScope) });
+        toast('Scope updated');
+      }
+    });
+  });
+
+  on('athPage', 'click', '[data-act="edit-outcomes"]', function () {
+    var c = cur();
+    openModal({
+      title: 'Learning outcomes',
+      body:
+        fHint('One outcome per line, three to five of them. Each should be something you could be tested on. Existing progress is kept for any line you leave unchanged.') +
+        fArea('Outcomes', 'outcomes', (c.outcomes || []).map(function (o) { return o.text; }).join('\n'), '', 7),
+      onSave: function (v) {
+        var prev = {};
+        (c.outcomes || []).forEach(function (o) { prev[o.text] = o.progress; });
+        D().Curricula.update(c.id, {
+          outcomes: toList(v.outcomes).map(function (t) { return { text: t, progress: prev[t] || 0 }; })
+        });
+        toast('Outcomes updated');
+      }
+    });
+  });
+
+  on('athPage', 'input', '[data-outcome]', function (e, t) {
+    var c = cur();
+    var i = Number(t.getAttribute('data-outcome'));
+    var outs = (c.outcomes || []).slice();
+    if (!outs[i]) return;
+    outs[i] = { text: outs[i].text, progress: Number(t.value) };
+    D().Curricula.update(c.id, { outcomes: outs });
+    // Repaint the two live numbers in place: a full render mid-drag would
+    // rebuild the slider and drop the pointer capture.
+    var card = t.closest('.ath-outcome');
+    if (card) card.querySelectorAll('.ath-outcome-n')[1].textContent = t.value + '%';
+    var stat = document.querySelector('.ath-stat b');
+    if (stat) stat.textContent = D().curriculumProgress(c.id) + '%';
+  });
+
+  on('athPage', 'click', '[data-act="add-module"]', function () {
+    var d = D(), c = cur();
+    openModal({
+      title: 'New module',
+      body: fText('Title', 'title', '', 'The six principles') + fArea('Note', 'note', '', '', 2),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('A module needs a title', true); return; }
+        d.Modules.add({ curriculumId: c.id, title: v.title, note: v.note, order: d.nextOrder(d.modulesFor(c.id)) });
+        toast('Module added');
+      }
+    });
+  });
+  on('athPage', 'click', '[data-act="edit-module"]', function (e, t) {
+    var d = D(), m = d.Modules.get(t.getAttribute('data-id'));
+    if (!m) return;
+    openModal({
+      title: 'Edit module',
+      body: fText('Title', 'title', m.title) + fArea('Note', 'note', m.note, '', 2),
+      onSave: function (v) { d.Modules.update(m.id, v); toast('Module updated'); }
+    });
+  });
+  on('athPage', 'click', '[data-act="del-module"]', function (e, t) {
+    var d = D(), m = d.Modules.get(t.getAttribute('data-id'));
+    if (!m || !confirm('Delete “' + m.title + '” and its lessons?')) return;
+    d.Lessons.removeWhere(function (l) { return l.moduleId === m.id; });
+    d.Modules.remove(m.id);
+    toast('Module deleted');
+    refreshCurrentView();
+  });
+  on('athPage', 'click', '[data-act="add-lesson"]', function (e, t) {
+    var d = D(), c = cur(), mid = t.getAttribute('data-id');
+    openModal({
+      title: 'New lesson',
+      body: fText('Title', 'title', '', 'Reciprocity — read and summarise') + fArea('Note', 'note', '', '', 2),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('A lesson needs a title', true); return; }
+        d.Lessons.add({ moduleId: mid, curriculumId: c.id, title: v.title, note: v.note, order: d.nextOrder(d.lessonsFor(mid)) });
+        toast('Lesson added');
+      }
+    });
+  });
+  on('athPage', 'change', '[data-lesson]', function (e, t) {
+    D().Lessons.update(t.getAttribute('data-lesson'), { done: t.checked });
+    refreshCurrentView();
+  });
+  on('athPage', 'click', '[data-act="del-lesson"]', function (e, t) {
+    e.preventDefault();
+    D().Lessons.remove(t.getAttribute('data-id'));
+    toast('Lesson deleted');
+    refreshCurrentView();
+  });
+
+  on('athPage', 'click', '[data-act="add-asg"]', function () {
+    var d = D(), c = cur();
+    openModal({
+      title: 'New assignment',
+      body:
+        fText('Title', 'title', '', 'Write the counter-argument to reciprocity') +
+        fRow(fSelect('Type', 'type', 'Essay', d.ASSIGNMENT_TYPES.map(function (x) { return { id: x, label: x }; })),
+             fText('Due date', 'due', '', 'YYYY-MM-DD')) +
+        fArea('Brief', 'brief', '', '', 3),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('An assignment needs a title', true); return; }
+        v.curriculumId = c.id; v.subjectId = c.subjectId;
+        v.order = d.nextOrder(d.assignmentsFor(c.id));
+        d.Assignments.add(v);
+        toast('Assignment added');
+      }
+    });
+  });
+  on('athPage', 'change', '[data-asg]', function (e, t) {
+    D().Assignments.update(t.getAttribute('data-asg'), { done: t.checked });
+    refreshCurrentView();
+  });
+  on('athPage', 'click', '[data-act="del-asg"]', function (e, t) {
+    D().Assignments.remove(t.getAttribute('data-id'));
+    toast('Assignment deleted');
+    refreshCurrentView();
+  });
+
+  /* Attaching is a multi-select over the FIELD's library — a resource is
+     never copied onto the curriculum, only referenced by id, so detaching
+     later cannot lose it. */
+  on('athPage', 'click', '[data-act="attach-res"]', function () {
+    var d = D(), c = cur();
+    var all = d.resourcesFor(c.subjectId);
+    if (!all.length) {
+      toast('Add resources to the field library first', true);
+      return;
+    }
+    var picked = all.filter(function (r) { return (r.curriculumIds || []).indexOf(c.id) >= 0; }).map(function (r) { return r.id; });
+    openModal({
+      title: 'Attach resources',
+      body:
+        fHint('These stay in the field library. Attaching only marks which ones this curriculum runs on.') +
+        '<div class="ath-field"><span class="ath-field-label">Resources</span>' +
+          '<input type="hidden" data-f="ids" value="' + esc(picked.join(',')) + '">' +
+          '<div class="ath-chip-row" data-multi="ids">' +
+            all.map(function (r) {
+              var on = picked.indexOf(r.id) >= 0;
+              return '<button type="button" class="ath-chip' + (on ? ' is-on' : '') + '" data-val="' + esc(r.id) + '">' +
+                esc(r.title) + '</button>';
+            }).join('') +
+          '</div></div>',
+      onSave: function (v) {
+        var want = String(v.ids || '').split(',').filter(Boolean);
+        all.forEach(function (r) {
+          var has = (r.curriculumIds || []).indexOf(c.id) >= 0;
+          var should = want.indexOf(r.id) >= 0;
+          if (has === should) return;
+          var next = should
+            ? (r.curriculumIds || []).concat([c.id])
+            : (r.curriculumIds || []).filter(function (x) { return x !== c.id; });
+          d.Resources.update(r.id, { curriculumIds: next });
+        });
+        toast('Resources updated');
+      }
+    });
+  });
+  on('athPage', 'click', '[data-act="detach-res"]', function (e, t) {
+    var d = D(), c = cur();
+    var r = d.Resources.get(t.getAttribute('data-id'));
+    if (!r) return;
+    d.Resources.update(r.id, { curriculumIds: (r.curriculumIds || []).filter(function (x) { return x !== c.id; }) });
+    toast('Detached — still in the field library');
+    refreshCurrentView();
+  });
+
+  on('athPage', 'click', '[data-act="raise"]', function () {
+    var d = D(), c = cur();
+    if (!c.subjectId) { toast('This curriculum has no field', true); return; }
+    openModal({
+      title: 'Raise a research question',
+      body:
+        fHint('Goes to ' + d.subjectName(c.subjectId) + '’s Learning Inbox, tagged with this curriculum. It outlives this page.') +
+        fArea('What needs chasing', 'text', '', '', 4) +
+        fRow(fSelect('Kind', 'kind', 'question', d.INBOX_KINDS), fText('Source', 'source', '', 'Where it came up')),
+      onSave: function (v) {
+        if (!v.text.trim()) { toast('Nothing to raise', true); return; }
+        d.Inbox.add({ subjectId: c.subjectId, curriculumId: c.id, text: v.text, kind: v.kind, source: v.source });
+        toast('Raised into the field');
+      }
+    });
+  });
+
+  on('athModalBg', 'click', '[data-multi] [data-val]', function (e, t) {
+    var wrap = t.closest('[data-multi]');
+    var hidden = $('athModal').querySelector('[data-f="' + wrap.getAttribute('data-multi') + '"]');
+    t.classList.toggle('is-on');
+    var ids = [];
+    wrap.querySelectorAll('.is-on').forEach(function (n) { ids.push(n.getAttribute('data-val')); });
+    hidden.value = ids.join(',');
+  });
+
+  on('athPage', 'click', '[data-act="delete"]', function () {
+    var d = D(), c = cur();
+    if (!confirm('Delete “' + c.title + '”?\n\nIts modules, lessons and assignments go with it. Concepts, research captures and resources stay in the field.')) return;
+    var sid = c.subjectId;
+    d.removeCurriculum(c.id);
+    // removeCurriculum() writes to seven collections; leaving the document
+    // in the same tick loses them. See §DURABLE-NAV.
+    navigateAfterWrites('athenaeum-subject.html?id=' + encodeURIComponent(sid) + '#/curricula');
+  });
+
+  // ============================================================
+  // §BOOT
+  // ============================================================
+  var remoteRef = { applied: false };
+  if (typeof window.initCloudSync === 'function' && window.supabase) {
+    window.initCloudSync({
+      appKey: 'athenaeum',
+      syncedPrefixes: ['ath:'],
+      onApplied: function () { remoteRef.applied = true; refreshCurrentView(); }
+    });
+  }
+
+  function boot() {
+    var d = D();
+    if (!d) { console.error('[Athenaeum] athenaeum-data.js did not load'); return; }
+    try { S.id = new URLSearchParams(location.search).get('id') || ''; } catch (e) { S.id = ''; }
+    render({ top: true });
+    d.maybeSeedAfterSyncAttempt(remoteRef, function () { refreshCurrentView(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
+      window.LocalStoreIDB.ready().then(function () { runSafely(boot, 'boot'); });
+    } else {
+      runSafely(boot, 'boot');
+    }
+  });
+})();
+</script>
+</body>
+</html>

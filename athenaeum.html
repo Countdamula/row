@@ -1,0 +1,3248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Athenaeum</title>
+
+<!-- MUST be first and MUST NOT be deferred: local-store-idb.js replaces
+     window.localStorage with an IndexedDB-backed shim, and every later
+     script assumes the shim is already installed. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Italiana is the closest free face to the reference's hairline deco
+     caps. Newsreader carries the prose — the register this page is
+     actually written in. Inter does the UI work, per repo convention. -->
+<!-- Bodoni Moda carries the hero sections, matching the brand's own
+     banner/title wordmark: a high-contrast Didone with hairline thins
+     against heavy stems, set in wide-tracked capitals. Its optical-size
+     axis is what makes the hairlines go properly fine at display sizes. -->
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400&family=Italiana&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* =====================================================================
+   §TOKENS — "The Reading Room": cold laid paper, oxidised brass,
+   patinated verdigris.
+
+   This page carries its own palette rather than the app's near-black/gold
+   thread, which §6 of CLAUDE.md permits only when the request was a
+   literal visual instruction — it was: two reference images, one of them
+   a light editorial layout this page follows structurally.
+
+   The palette deliberately avoids warm spa-cream: the ground is COLD
+   greige, and the accent is verdigris (patinated brass, library
+   instruments) rather than the terracotta the reference uses.
+
+   Radii are near-zero throughout. The reference has no rounded corners
+   and that squared-off discipline is most of its character.
+   ===================================================================== */
+:root{
+  /* THE ONE GROUND. `--ath-paper` is deliberately the same value as
+     `--ath-void`: the hero, the section banners and every content section
+     are painted with the same colour, so there is no seam anywhere on the
+     page for a boundary to appear at. Anything that needs to read as a
+     separate surface earns it with elevation — a hair lighter, a soft
+     shadow — never with a border against a different ground. */
+  --ath-ground:#06080B;
+  --ath-paper:#0A0C0F;
+  --ath-paper-2:#12161C;
+  --ath-panel:#171C24;
+
+  --ath-void:#0A0C0F;
+  --ath-slate:#13171C;
+  --ath-raise:#1C212A;
+
+  /* Ink is light now. The names are kept — ink is whatever the page writes
+     WITH, and paper is whatever it writes ON; that relationship is what
+     every component below depends on, and it did not change. */
+  /* The alphas are not the mirror of the old greys. Light-on-dark loses
+     contrast far faster than dark-on-light as it fades, so ink-3 — which
+     carries every small-caps label on the page — sits at .52, where it
+     measures 5.3:1 against the ground; the arithmetic mirror of the old
+     #7F848C would have been .46, and 4.2:1. */
+  --ath-ink:#F2EFE8;
+  --ath-ink-2:rgba(242,239,232,.72);
+  --ath-ink-3:rgba(242,239,232,.52);
+  --ath-ink-4:rgba(242,239,232,.38);
+  --ath-rule:rgba(242,239,232,.13);
+  --ath-rule-soft:rgba(242,239,232,.065);
+
+  --ath-verd:#3D7668;    --ath-verd-rgb:61,118,104;   --ath-verd-hi:#5A9E8C;
+  --ath-brass:#9A7830;   --ath-brass-rgb:154,120,48;  --ath-brass-hi:#C9A458;
+  --ath-bad:#A2453E;     --ath-bad-rgb:162,69,62;
+
+  --ath-onDark:#F2EFE8;
+  --ath-onDark-2:rgba(242,239,232,.70);
+  --ath-onDark-3:rgba(242,239,232,.42);
+  --ath-onDark-4:rgba(242,239,232,.22);
+
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:18px;
+  --sp-5:26px; --sp-6:38px; --sp-7:56px; --sp-8:84px; --sp-9:120px;
+
+  --ath-r-sm:2px; --ath-r:3px; --ath-r-lg:4px;
+
+  --ath-display:"Italiana", Didot, "Bodoni MT", Georgia, serif;
+  /* The hero voice. Every piece of text inside a hero section uses this,
+     per the brand's banner/title reference — headline, eyebrow, labels
+     and figures alike, distinguished by size and tracking rather than by
+     switching family. */
+  --ath-hero-face:"Bodoni Moda", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+  --ath-prose:"Newsreader", Georgia, "Times New Roman", serif;
+  --ath-ui:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ath-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --ath-spring:cubic-bezier(.34,1.32,.64,1);
+  --ath-ease:cubic-bezier(.32,.72,0,1);
+
+  /* Layering: ground → raised → floating. On a dark page a surface cannot
+     be lifted by a shadow alone — there is nothing lighter for it to fall
+     on. So the top edge catches a hairline of light instead, and the
+     shadow only deepens the ground beneath it. */
+  --ath-lift:0 1px 0 rgba(242,239,232,.055) inset, 0 14px 30px -22px rgba(0,0,0,.85);
+  --ath-lift-2:0 1px 0 rgba(242,239,232,.085) inset, 0 30px 60px -30px rgba(0,0,0,.95), 0 6px 18px -12px rgba(0,0,0,.6);
+  --ath-lift-dark:0 30px 70px -34px rgba(0,0,0,.9), 0 6px 20px -12px rgba(0,0,0,.6);
+
+  --ath-gut:clamp(20px, 4.6vw, 76px);
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ath-paper); color:var(--ath-ink);
+  font-family:var(--ath-ui); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
+}
+img{max-width:100%; display:block}
+button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+a{color:inherit; text-decoration:none}
+:focus-visible{outline:2px solid var(--ath-verd-hi); outline-offset:3px}
+.ath-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* FULL-BLEED. This used to be a discrete sheet floating on a greige
+   ground, matching the reference's inset page. That boundary was removed
+   on request: the page now spans the viewport edge to edge at every
+   width. `--ath-gut` is the only horizontal inset left, and it is padding
+   inside the page rather than a margin around it. */
+.ath-sheet{width:100%; background:var(--ath-paper); overflow:clip}
+
+/* Fine tooth. One SVG noise layer over the whole sheet, never per card, so
+   it reads as the material rather than as an effect. `multiply` was right
+   when the ground was cream; on a near-black ground it multiplies toward
+   black and does nothing at all, so the grain now works by adding light
+   instead of subtracting it. */
+.ath-grain{
+  position:fixed; inset:0; pointer-events:none; z-index:9; opacity:.28; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='180' height='180' filter='url(%23n)' opacity='.28'/></svg>");
+}
+
+/* ---------- shared type -------------------------------------------- */
+.ath-eyebrow{
+  display:flex; align-items:center; gap:var(--sp-3);
+  font-family:var(--ath-ui); font-size:11px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ath-ink-2);
+}
+.ath-eyebrow::before{content:""; width:42px; height:1px; background:var(--ath-brass-hi); flex:none}
+.ath-eyebrow.is-center{justify-content:center}
+
+.ath-h1{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(44px, 7.4vw, 104px); line-height:.98; letter-spacing:.02em;
+  text-transform:uppercase; margin:0;
+}
+.ath-h2{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(30px, 4.4vw, 60px); line-height:1.04; letter-spacing:.035em;
+  text-transform:uppercase; margin:0;
+}
+.ath-h3{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(20px, 2.3vw, 28px); line-height:1.15; letter-spacing:.05em;
+  text-transform:uppercase; margin:0;
+}
+.ath-lede{font-family:var(--ath-prose); font-size:17px; line-height:1.68; color:var(--ath-ink-2); margin:0}
+.ath-prose{font-family:var(--ath-prose); font-size:16px; line-height:1.72; color:var(--ath-ink-2)}
+.ath-micro{
+  font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-3);
+}
+.ath-num{font-family:var(--ath-display); font-size:13px; letter-spacing:.14em; color:var(--ath-brass-hi)}
+
+/* ---------- buttons ------------------------------------------------- */
+.ath-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  padding:12px 22px; border:1px solid var(--ath-ink); background:transparent;
+  color:var(--ath-ink); font-size:12.5px; font-weight:500; letter-spacing:.06em;
+  border-radius:var(--ath-r-sm);
+  transition:background-color .22s var(--ath-ease), color .22s var(--ath-ease),
+             transform .22s var(--ath-spring), border-color .22s var(--ath-ease);
+}
+.ath-btn:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+.ath-btn:active{transform:translateY(0)}
+.ath-btn-solid{background:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-solid:hover{background:var(--ath-verd); border-color:var(--ath-verd); color:#fff}
+.ath-btn-sm{padding:8px 14px; font-size:11.5px}
+.ath-btn-ghost{border-color:var(--ath-rule); color:var(--ath-ink-2)}
+.ath-btn-ghost:hover{background:var(--ath-ink); border-color:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-light{border-color:var(--ath-onDark-4); color:var(--ath-onDark)}
+.ath-btn-light:hover{background:var(--ath-onDark); color:var(--ath-void); border-color:var(--ath-onDark)}
+.ath-btn-icon{
+  width:34px; height:34px; padding:0; border:1px solid var(--ath-rule);
+  border-radius:var(--ath-r-sm); color:var(--ath-ink-2); font-size:14px;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), transform .2s var(--ath-spring);
+}
+.ath-btn-icon:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+
+/* ---------- section scaffolding ------------------------------------ */
+.ath-section{padding:var(--sp-9) var(--ath-gut)}
+.ath-section.is-tight{padding-top:var(--sp-8); padding-bottom:var(--sp-8)}
+/* No rule between sections. Everything is one ground now, and a hairline
+   across it would be the only boundary left on the page. Space separates
+   them instead, which is what the space was always doing anyway. */
+.ath-head{max-width:820px; margin:0 0 var(--sp-7)}
+.ath-head.is-center{margin-left:auto; margin-right:auto; text-align:center}
+.ath-head .ath-h2{margin-top:var(--sp-4)}
+.ath-head .ath-lede{margin-top:var(--sp-4)}
+.ath-head.is-center .ath-lede{margin-left:auto; margin-right:auto; max-width:640px}
+
+/* Scroll reveal lives at the very END of this stylesheet (§REVEAL) so its
+   transition is never overridden by a later component rule — .ath-card
+   declares its own `transition` and would otherwise cancel the fade. */
+
+/* =====================================================================
+   §HERO — a full-bleed dark plate. There is no photograph: the ground is
+   drawn from concentric engraved rings and two light pools, so the page
+   never depends on a stock image that might vanish. A real photo can be
+   set from the hero editor and simply layers on top.
+   ===================================================================== */
+/* §HERO IMAGE. The built-in background is images_by_admin/athenaeum/hero.jpg
+   — a Vitruvian Man / Leonardo manuscript collage. It is a portrait-format
+   source (676×1200), so it is framed from the upper third and carried
+   under the drawn rings, the light pools and the page grain, all of which
+   also cover for the upscale on a wide viewport. A hero image set in the
+   hero editor layers on top and wins. */
+.ath-hero{
+  position:relative; min-height:clamp(560px, 88vh, 940px);
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding:var(--sp-5) var(--ath-gut) var(--sp-9);
+  background:var(--ath-void);
+  color:var(--ath-onDark); overflow:hidden; isolation:isolate;
+  /* Every full-bleed plate on this page carries the same two: how much of
+     its curved arrival is still to come, and how far it has departed. The
+     hero never arrives — it is already there — so its arc stays 0. */
+  --ath-arc:0; --ath-out:0;
+}
+/* Every image layer is wrapped in ONE plate rather than sitting loose on
+   the hero, because two different things now transform the imagery and
+   they must not fight: the arrival scales the layers INSIDE the plate,
+   while the scroll departure curves and blurs the plate ITSELF. Put both
+   on the same element and a reader who scrolls during the first two
+   seconds gets a snap when the arrival animation ends and hands the
+   transform back to the stylesheet. Framed at 48% so the Vitruvian figure
+   lands in the middle of the band a wide viewport actually shows. */
+.ath-plate{position:absolute; inset:0; z-index:-4}
+.ath-plate::before{
+  content:""; position:absolute; inset:0;
+  background:url("images_by_admin/athenaeum/hero.jpg") center 48% / cover no-repeat;
+}
+.ath-hero-photo{position:absolute; inset:0; background-size:cover; background-position:center; z-index:1}
+/* Colour treatment over any photo, per the house rule on images. */
+.ath-hero-photo::after{content:""; position:absolute; inset:0; background:var(--ath-slate); mix-blend-mode:multiply; opacity:.55}
+
+/* --- §POINT CLOUD -----------------------------------------------------
+   The reference's hero is a photograph rendered as drifting point-cloud
+   dust that settles into the image and, on the sections that follow,
+   scatters and re-forms as a different one. That is WebGL there
+   (three.js + a bespoke .mdpc format); here it is a plain 2D canvas.
+
+   The trick that makes it cheap enough to belong on a dashboard: the
+   backing store is a fixed 640×360 and never scales with the viewport or
+   with devicePixelRatio. Points are plotted one pixel at a time into a
+   Uint32 view of a single ImageData, which is one typed-array write each
+   rather than a canvas draw call, and the browser's own upscale to the
+   real hero size supplies the softness the reference gets from a blur
+   pass. The sampling grid is exactly half the buffer in both axes, so a
+   settled cloud lights every other pixel — a 50%-density dot screen, which
+   is what the dusty look actually is.
+
+   `object-fit` is what makes a fixed 16:9 buffer survive a hero box that
+   is 1.8:1 on a desktop and 0.6:1 on a phone; the framing matches the
+   background-position of the plate underneath it. */
+.ath-cloud{
+  position:absolute; inset:0; z-index:2;
+  width:100%; height:100%; object-fit:cover; object-position:center 48%;
+  opacity:0; transition:opacity .9s var(--ath-ease);
+}
+.ath-cloud.is-live{opacity:1}
+/* The cloud draws its own soft ground, so once it is running the plate's
+   photograph underneath would be a SECOND, differently-framed image
+   showing through the gaps between points. It is held until then, and
+   left alone entirely if the canvas never starts — a browser without the
+   canvas, or a reader who has asked for reduced motion, still gets the
+   photograph. */
+.ath-hero.has-cloud .ath-plate::before,
+.ath-hero.has-cloud .ath-hero-photo{opacity:0; transition:opacity 1s var(--ath-ease)}
+.ath-hero-rings{
+  position:absolute; z-index:-2; width:150vmax; height:150vmax; left:58%; top:6%;
+  transform:translate(-50%,-18%); pointer-events:none; opacity:.5;
+  background:repeating-radial-gradient(circle at 50% 50%,
+    rgba(var(--ath-brass-rgb),.16) 0 1px, transparent 1px 58px);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 12%, transparent 62%);
+          mask-image:radial-gradient(circle at 50% 50%, #000 12%, transparent 62%);
+}
+/* Scrim graded so the headline sits on the darkest part of the plate and
+   the Vitruvian figure stays legible behind the middle of the page. */
+.ath-hero-glow{
+  position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(ellipse 900px 620px at 74% 14%, rgba(var(--ath-brass-rgb),.22) 0%, transparent 62%),
+    radial-gradient(ellipse 760px 640px at 8% 82%, rgba(var(--ath-verd-rgb),.16) 0%, transparent 66%),
+    linear-gradient(90deg, rgba(8,10,13,.86) 0%, rgba(8,10,13,.46) 46%, rgba(8,10,13,.18) 78%),
+    /* The last stop is the page's exact ground colour, not a near-match:
+       the hero has to end IN the page, not against it. */
+    linear-gradient(180deg, rgba(8,10,13,.62) 0%, rgba(8,10,13,.12) 34%, rgba(8,10,13,.86) 88%, var(--ath-void) 100%);
+}
+
+/* =====================================================================
+   §HERO DEPARTURE — the reference's scroll transition. There, the next
+   scene arrives as a curved cylindrical sheet sweeping up over the hero
+   while the outgoing plate smears into a radial zoom blur.
+
+   The section that follows this hero is the Focus switcher — light paper,
+   not another cinematic scene — so a dark sheet sweeping over it would
+   read as a mistake. The gesture is given to the hero's OWN plate
+   instead: it curves along its bottom edge, pushes back and blurs out as
+   it leaves. `--ath-exit` runs 0→1 across the hero's height and is
+   written by the scroll handler in wireHome().
+   ===================================================================== */
+/* The curve goes on the HERO, not on the plate. Clipping the plate alone
+   is invisible: what it uncovers is the hero's own void, which is the same
+   near-black the plate already is. Clipping the hero uncovers the Focus
+   section — cream paper — so the arc reads at full contrast, which is the
+   only reason the reference's sweep is legible at all.
+
+   The ellipse is centred on the top edge, so its lower arc is what bows
+   across the hero. Both radii are animated: at rest the horizontal radius
+   is enormous and the arc is a straight line, and as the hero leaves it
+   tightens and lifts. Animating only the vertical radius would crop the
+   bottom corners while the hero is sitting still. */
+.ath-hero{
+  /* 120% is as tight as the horizontal radius can go before the arc stops
+     reading as a curve and starts cutting a visible corner off the stat
+     labels at the hero's left and right edges. */
+  clip-path:ellipse(
+    calc(420% - var(--ath-out) * 300%)
+    calc(100% - var(--ath-out) * 10%)
+    at 50% 0%);
+}
+/* The imagery, meanwhile, pushes back and smears — the reference's
+   outgoing scene goes to a radial zoom blur as the next one arrives. */
+.ath-plate{
+  transform:scale(calc(1 + var(--ath-out) * .07));
+  filter:blur(calc(var(--ath-out) * 7px));
+  opacity:calc(1 - var(--ath-out) * .5);
+}
+
+/* =====================================================================
+   §HERO ARRIVAL — the motion of Shopify's Spring '26 Edition hero
+   ("Everywhere"), rebuilt on this page's own material. Four gestures,
+   overlapping in this order:
+
+     1. the plate MATERIALISES — coloured dust condenses into the image,
+        top-down, and then never quite stops drifting (see §POINT CLOUD);
+     2. the motto RING scales up out of nothing and turns, continuously,
+        for as long as the hero is on screen;
+     3. the headline RESOLVES — each line lifts and sharpens out of blur,
+        the way the reference's title comes out of its own cloud;
+     4. everything else LIFTS in behind it, ending on the eyebrow — the
+        delay is what makes the sequence read as staged rather than as
+        one lump.
+
+   The whole thing is gated on `.is-intro`, which only a genuine arrival
+   sets, and every delay below is offset by `--t`. That offset is what
+   makes this survive contact with the app: cloud sync re-creates this
+   DOM wholesale — a remote pull or the first seed lands within a second
+   of load — and a CSS animation on a brand-new node always restarts from
+   zero. So the renderer hands the header a NEGATIVE `--t` equal to the
+   time already elapsed, and the sequence picks up exactly where the
+   discarded one left off instead of stuttering back to the beginning.
+   Past the end of the run the class is simply not emitted, and a repaint
+   leaves the hero statically, immediately there. The canvas resumes the
+   same way, from the same clock — see athCloud.mount().
+   ===================================================================== */
+:root{ --ath-pull:cubic-bezier(.16,.84,.24,1); --ath-wipe:cubic-bezier(.42,.02,.10,1) }
+
+@keyframes ath-plate{ from{ transform:scale(1.16) } }
+@keyframes ath-lift-in{ from{ opacity:0; transform:translateY(14px) } }
+@keyframes ath-seal-in{ from{ opacity:0; transform:translate(-50%,50%) scale(.7) } }
+/* The headline arrives the way type does in the reference: out of focus
+   and slightly enlarged, as though it were still part of the cloud, then
+   settling to its real size and sharpening. */
+@keyframes ath-resolve{
+  from{ opacity:0; transform:translateY(20px) scale(1.05); filter:blur(13px) }
+  60% { opacity:1 }
+  to  { opacity:1; transform:none; filter:blur(0) }
+}
+@keyframes ath-ring-in{ from{ opacity:0; transform:scale(.62) } }
+
+.ath-hero.is-intro .ath-plate > *,
+.ath-hero.is-intro .ath-plate::before{
+  animation:ath-plate 2.4s var(--ath-pull) backwards;
+  animation-delay:calc(var(--t,0ms) + 0s);
+}
+
+/* `.ath-rvl` is still one block per authored line — the two-tone rule
+   below colours every line after the first — but the brass wipe bar it
+   used to carry belonged to the old reference and is gone. */
+.ath-rvl{display:block; position:relative}
+.ath-hero.is-intro .ath-rvl{
+  animation:ath-resolve 1.15s var(--ath-pull) backwards;
+  animation-delay:calc(var(--t,0ms) + var(--d,.62s));
+}
+
+.ath-hero.is-intro .ath-ring{
+  animation:ath-ring-in 1.5s var(--ath-pull) backwards;
+  animation-delay:calc(var(--t,0ms) + .22s);
+}
+.ath-hero.is-intro .ath-topline,
+.ath-hero.is-intro .ath-hero-stat,
+.ath-hero.is-intro .ath-hero-note,
+.ath-hero.is-intro .ath-hero-body .ath-eyebrow{ animation:ath-lift-in .84s var(--ath-ease) backwards }
+.ath-hero.is-intro .ath-topline{ animation-delay:calc(var(--t,0ms) + .08s) }
+.ath-hero.is-intro .ath-hero-stat:nth-child(1){ animation-delay:calc(var(--t,0ms) + 1.42s) }
+.ath-hero.is-intro .ath-hero-stat:nth-child(2){ animation-delay:calc(var(--t,0ms) + 1.51s) }
+.ath-hero.is-intro .ath-hero-stat:nth-child(3){ animation-delay:calc(var(--t,0ms) + 1.60s) }
+.ath-hero.is-intro .ath-hero-stat:nth-child(4){ animation-delay:calc(var(--t,0ms) + 1.69s) }
+.ath-hero.is-intro .ath-hero-note{ animation-delay:calc(var(--t,0ms) + 1.54s) }
+.ath-hero.is-intro .ath-hero-body .ath-eyebrow{ animation-delay:calc(var(--t,0ms) + 1.86s) }
+.ath-hero.is-intro .ath-orrery{
+  animation:ath-seal-in .9s var(--ath-spring) backwards;
+  animation-delay:calc(var(--t,0ms) + 2.06s);
+}
+
+/* The global reduced-motion rule only collapses DURATION. These are
+   delayed and fill backwards, so collapsing the duration alone would
+   leave the hero blank for two seconds and then snap. The ring's own
+   rotation and the canvas both stop themselves — see .ath-ring-spin and
+   athCloud.start(). */
+@media (prefers-reduced-motion:reduce){
+  .ath-hero.is-intro .ath-plate > *,
+  .ath-hero.is-intro .ath-plate::before,
+  .ath-hero.is-intro .ath-topline,
+  .ath-hero.is-intro .ath-hero-stat,
+  .ath-hero.is-intro .ath-hero-note,
+  .ath-hero.is-intro .ath-hero-body .ath-eyebrow,
+  .ath-hero.is-intro .ath-orrery,
+  .ath-hero.is-intro .ath-ring,
+  .ath-hero.is-intro .ath-rvl{ animation:none }
+  .ath-hero{clip-path:none}
+  .ath-plate{transform:none; filter:none; opacity:1}
+}
+
+/* =====================================================================
+   §SIGNATURE: the motto ring.
+
+   The reference's one unmistakable element is its title wrapped around a
+   tilted ring that turns in real 3D — the near arc reads large and
+   forward, and the far arc shows through REVERSED, because you are
+   looking at the back of the letters. That mirroring is the whole effect,
+   and CSS gives it away for free: with `transform-style:preserve-3d` and
+   backfaces left visible, the characters on the far side of the hoop are
+   simply seen from behind.
+
+   Here it carries the Athenaeum's motto, which used to be set around the
+   orrery seal at the hero's foot. Said once and said large is better than
+   said twice, so the seal below now keeps only its descent arrow.
+
+   Each character is placed with `rotateY(φ) translateZ(R)`, which builds
+   a horizontal hoop of upright letters; the wrapper then tips the whole
+   hoop with `rotateX` so its near arc rises to the top of the frame, and
+   spins it about its own axis. The radius is large enough that the
+   headline sits INSIDE the ring rather than beside it.
+   ===================================================================== */
+/* The tilt is the whole geometry, and it is easy to get wrong. The hoop
+   lies in the XZ plane, so on screen it draws an ellipse with a horizontal
+   semi-axis of r and a VERTICAL one of r·sin(tilt) — a big tilt gives a
+   near-circle that overshoots the frame, not the flat ellipse the
+   reference has. 26° gives an ellipse 0.44 as tall as it is wide, leaves
+   the letters only 26° off square so they stay readable, and still swings
+   the far arc 0.9r away from the camera, which is what makes the back of
+   the ring read so much smaller than the front. */
+.ath-ring{
+  /* Sunk below centre so the near arc clears the topline nav, which the
+     reference has no equivalent of. */
+  position:absolute; left:50%; top:58%; z-index:1;
+  width:0; height:0; pointer-events:none;
+  perspective:1100px; perspective-origin:50% 50%;
+  /* Radius lives here, not on the characters, so the ring is responsive
+     without a resize listener — the letters inherit it. */
+  --r:clamp(200px, 30vw, 480px);
+  /* Held well back: the far arc passes behind the headline, and the
+     reference has no headline to compete with. */
+  opacity:.58;
+}
+.ath-ring-spin{
+  position:absolute; left:0; top:0;
+  transform-style:preserve-3d;
+  /* POSITIVE rotateX, so the hoop's near arc rises to the top of the
+     frame and the far arc falls away below — get the sign wrong and the
+     legible copy ends up underneath, small, with the mirrored ones on
+     top. rotateY is innermost so it turns the hoop in its own tilted
+     plane instead of swinging the tilt around with it. */
+  transform:rotateX(26deg) rotateZ(-6deg) rotateY(0deg);
+  animation:ath-ring-turn var(--ath-ring-dur,54s) linear infinite;
+}
+@keyframes ath-ring-turn{ to{ transform:rotateX(26deg) rotateZ(-6deg) rotateY(360deg) } }
+.ath-ring b{
+  position:absolute; left:0; top:0;
+  display:block; width:1.2em; margin:-.6em 0 0 -.6em;
+  font-family:var(--ath-hero-face); font-optical-sizing:auto;
+  font-weight:400; font-size:clamp(24px, 4vw, 64px); line-height:1;
+  text-align:center; color:var(--ath-onDark);
+  text-shadow:0 0 30px rgba(var(--ath-brass-rgb),.5), 0 2px 18px rgba(0,0,0,.8);
+  transform:rotateY(var(--a)) translateZ(var(--r));
+  /* Depth cueing the browser will not do on its own: a 3D transform
+     scales a letter as it recedes but never dims it. Each character runs
+     the same fade on the same clock as the ring's rotation, started at a
+     NEGATIVE delay equal to its own angle — so the dimming is welded to
+     where the letter actually is, and a letter that turns to the front
+     brightens on the way. */
+  animation:ath-ring-fade var(--ath-ring-dur,54s) linear infinite;
+  animation-delay:var(--fd,0s);
+}
+@keyframes ath-ring-fade{ 0%{opacity:1} 50%{opacity:.34} 100%{opacity:1} }
+/* On a shorter hero the far arc lands exactly on the stats row, where
+   thin wide-tracked caps have nothing to spare. Lifting the ring puts
+   that arc behind the headline instead, which is big enough to hold its
+   own against it. */
+@media (max-width:980px){ .ath-ring{top:46%; opacity:.4} }
+/* Below this the ring cannot be itself: the hoop is smaller than the
+   motto needs and it reads as a scribble across the copy rather than as
+   the page's signature. The same width already drops the topline nav. A
+   phone gets the cloud and the headline, and that is enough. */
+@media (max-width:860px){ .ath-ring{display:none} }
+@media (prefers-reduced-motion:reduce){
+  .ath-ring-spin{animation:none}
+  .ath-ring b{animation:none; opacity:.62}
+}
+
+/* §HERO TYPE — every piece of text inside the hero is Bodoni Moda, per
+   the brand's banner/title reference. Hierarchy comes from size, weight
+   and tracking, never from swapping family. Wide tracking is essential:
+   a Didone set tight reads as a magazine masthead, not a wordmark. */
+.ath-hero,
+.ath-hero .ath-eyebrow,
+.ath-hero .ath-h1,
+.ath-hero .ath-topnav a,
+.ath-hero .ath-btn,
+.ath-hero .ath-hero-note,
+.ath-hero .ath-hero-stat b,
+.ath-hero .ath-hero-stat span{
+  font-family:var(--ath-hero-face);
+  font-optical-sizing:auto;
+}
+.ath-topline{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-5); position:relative; z-index:2}
+.ath-wordmark{
+  display:flex; align-items:baseline; gap:12px;
+  font-family:var(--ath-hero-face); font-optical-sizing:auto; font-weight:500;
+  letter-spacing:.34em; text-transform:uppercase; font-size:17px;
+}
+.ath-wordmark span{font-size:9.5px; font-weight:400; letter-spacing:.3em; color:var(--ath-onDark-3)}
+.ath-topnav{display:flex; gap:var(--sp-5); align-items:center}
+.ath-topnav a{
+  font-size:13px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--ath-onDark-2); position:relative; padding:4px 0;
+  transition:color .2s var(--ath-ease);
+}
+.ath-topnav a::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:var(--ath-brass-hi); transform:scaleX(0); transform-origin:left;
+  transition:transform .3s var(--ath-ease);
+}
+.ath-topnav a:hover{color:var(--ath-onDark)}
+.ath-topnav a:hover::after{transform:scaleX(1)}
+@media (max-width:860px){ .ath-topnav{display:none} }
+
+.ath-hero-body{position:relative; z-index:2; max-width:1100px}
+/* The eyebrow becomes a BOUNDED CHIP, after the reference's badge above
+   its headline: a leading mark, a hairline, and enough glass behind it to
+   hold the label off the photograph. The reference's chip is a pill; this
+   one is square, because near-zero radii are most of this page's
+   character and a lone pill would read as borrowed. */
+.ath-hero-body .ath-eyebrow{
+  display:inline-flex; align-items:center; gap:11px;
+  padding:6px 15px 6px 11px;
+  border:1px solid var(--ath-onDark-4);
+  border-radius:var(--ath-r-sm);
+  background:rgba(10,12,15,.44);
+  -webkit-backdrop-filter:blur(7px); backdrop-filter:blur(7px);
+  color:var(--ath-onDark-2); font-weight:400; letter-spacing:.34em; font-size:11.5px;
+}
+.ath-hero-body .ath-eyebrow::before{
+  width:7px; height:7px; background:var(--ath-brass-hi);
+  box-shadow:0 0 0 3px rgba(var(--ath-brass-rgb),.20), 0 0 14px rgba(var(--ath-brass-rgb),.8);
+}
+/* The headline is the wordmark moment: heaviest weight the Didone offers
+   at display optical size, wide-tracked caps, tight leading. */
+.ath-hero-body .ath-h1{
+  margin-top:var(--sp-5); font-weight:500; letter-spacing:.075em; line-height:1.06;
+  font-size:clamp(38px, 6.2vw, 92px);
+  text-shadow:0 2px 50px rgba(0,0,0,.65), 0 1px 3px rgba(0,0,0,.5);
+}
+/* TWO-TONE, straight from the reference: the opening line is stated in
+   full, and every line after it is the answer, set in the accent. On a
+   one-line headline nothing changes. */
+.ath-hero-body .ath-h1 .ath-rvl + .ath-rvl{ color:var(--ath-brass-hi) }
+.ath-hero-foot{
+  position:relative; z-index:2; display:flex; align-items:flex-end;
+  justify-content:space-between; gap:var(--sp-6); flex-wrap:wrap; margin-top:var(--sp-6);
+}
+/* Set a touch larger than body copy would be: a Didone's hairlines lose
+   too much at 15px to read comfortably. */
+.ath-hero-note{
+  font-size:16.5px; line-height:1.72; letter-spacing:.012em;
+  color:var(--ath-onDark-2); max-width:430px; margin-left:auto; text-align:right;
+  text-shadow:0 1px 14px rgba(0,0,0,.7);
+}
+/* The hero's own control, moved down here when the section links in the
+   top line became athenaeum-nav.js's fixed strip. It belongs beside the
+   note it edits, not up under a bar that would cover it. */
+.ath-hero-side{display:grid; gap:var(--sp-4); justify-items:end; margin-left:auto}
+@media (max-width:760px){ .ath-hero-side{justify-items:start; margin-left:0} }
+.ath-hero-stats{display:flex; gap:var(--sp-6); flex-wrap:wrap}
+.ath-hero-stat{display:flex; flex-direction:column; gap:4px}
+/* Numerals are set in the PROSE serif, never the display face: Italiana
+   has no true lowercase and its zero is indistinguishable from a capital
+   O, so "0h logged" reads as the word "oh". This applies to every figure
+   on the page — hero stats, percentages, standing-system counts. */
+/* Bodoni's lining figures are unambiguous, so the hero's numbers can stay
+   in the hero face — unlike Italiana, whose zero reads as a capital O. */
+.ath-hero-stat b{font-weight:500; font-size:40px; line-height:1; letter-spacing:.02em; font-variant-numeric:lining-nums tabular-nums; text-shadow:0 1px 20px rgba(0,0,0,.6)}
+.ath-hero-stat span{font-size:10px; font-weight:400; letter-spacing:.26em; text-transform:uppercase; color:var(--ath-onDark-3)}
+@media (max-width:720px){
+  .ath-hero-note{text-align:left; margin-left:0}
+  /* Wide-tracked caps run out of room at phone widths and the stat labels
+     start touching, so the pairs get their own row and tighter tracking. */
+  .ath-hero-stats{gap:var(--sp-5) var(--sp-4)}
+  .ath-hero-stat{flex:1 1 calc(50% - var(--sp-4))}
+  .ath-hero-stat span{letter-spacing:.16em; font-size:9.5px}
+  .ath-hero-stat b{font-size:34px}
+}
+
+/* --- The descent seal ----------------------------------------------
+   This used to carry the motto around a slowly turning circle. The motto
+   now belongs to the ring above (see §SIGNATURE), so the seal is left as
+   what it always also was: the way down. Chanel's rule — one accessory
+   removed before leaving the house. */
+.ath-orrery{
+  position:absolute; left:50%; bottom:0; transform:translate(-50%,50%);
+  width:112px; height:112px; z-index:5; border-radius:50%;
+  display:grid; place-items:center; background:var(--ath-paper);
+  box-shadow:0 0 0 1px var(--ath-rule), 0 18px 34px -22px rgba(0,0,0,.7);
+}
+/* A single engraved hairline inside the seal's edge, where the motto used
+   to run. Nothing turns here any more. */
+.ath-orrery svg{position:absolute; inset:0; width:100%; height:100%}
+.ath-orrery svg circle{fill:none; stroke:var(--ath-rule); stroke-width:1}
+.ath-orrery-core{
+  position:relative; width:46px; height:46px; border-radius:50%;
+  display:grid; place-items:center; font-size:16px; color:var(--ath-ink);
+  border:1px solid var(--ath-rule);
+  transition:background-color .3s var(--ath-ease), color .3s var(--ath-ease), transform .4s var(--ath-spring);
+}
+.ath-orrery:hover .ath-orrery-core{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(3px)}
+@media (max-width:640px){ .ath-orrery{width:88px; height:88px} .ath-orrery-core{width:38px;height:38px} }
+
+/* =====================================================================
+   §BANNER — the reference's section title cards.
+
+   Its page runs title card → content → curved sheet → title card: a
+   full-bleed ambient plate carrying the section's name in giant type,
+   then the section's actual content, then the next plate sweeping up
+   over it on a curved leading edge.
+
+   Two departures from the reference, both deliberate:
+
+   1. Its content sections are dark too, so plate and content differ only
+      in imagery. Here the content stays on the Reading Room's cream
+      paper, which means the alternation is plate → paper → plate → paper
+      and the curved edge lands against maximum contrast. That is the same
+      thing that makes the hero's departure legible: a dark curve on a
+      dark ground is not a curve, it is nothing.
+   2. Its title cards are a full viewport each. Four of those would put
+      three screens of chapter headings between Damian and the data on a
+      page he opens every day, so these are 46vh — enough to read as a
+      plate, not enough to be a wall.
+
+   The plate is a philosophical work chosen for its section rather than
+   for decoration: a lecture in progress over Current Learning, a scholar
+   at his desk over Today, the School of Athens over the eleven fields,
+   Vitruvian proportion over the standing systems.
+   ===================================================================== */
+.ath-banner{
+  position:relative; isolation:isolate;
+  min-height:clamp(300px, 46vh, 460px);
+  /* Centred, not bottom-aligned — which is how the reference sets its
+     title cards, and which also keeps the title clear of the pill parked
+     at the foot of the viewport. Bottom-aligning put the two in exactly
+     the same place at exactly the moment the section arrives. */
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-6);
+  padding:var(--sp-8) var(--ath-gut);
+  background:var(--ath-void); color:var(--ath-onDark);
+  overflow:hidden;
+  --ath-arc:0; --ath-out:0;
+  /* The curved leading edge. Centred on the BOTTOM of the box, so it is
+     the top edge that bows — highest at the middle, falling away at both
+     sides, like the reference's sheet rising over the section below it.
+     A huge horizontal radius is a straight line; tightening it is what
+     bends the arc, so the arc is drawn by rx alone. */
+  clip-path:ellipse(calc(430% - var(--ath-arc) * 310%) 100% at 50% 100%);
+}
+/* Full-bleed: the sections around it are padded, the plate is not. */
+.ath-section + .ath-banner{border-top:0}
+
+.ath-banner-plate{position:absolute; inset:0; z-index:-2; overflow:hidden}
+.ath-banner-plate::before{
+  content:""; position:absolute; inset:-6%;
+  background-image:var(--plate);
+  background-size:cover; background-position:center 42%;
+  /* Parallax on the way in, then push back and smear on the way out —
+     the reference's outgoing scene goes to a radial zoom blur. */
+  transform:translateY(calc(var(--ath-arc) * 5%)) scale(calc(1 + var(--ath-out) * .08));
+  filter:blur(calc(var(--ath-out) * 8px));
+}
+/* The house rule on images: a colour treatment layer, never a raw photo. */
+.ath-banner-plate::after{
+  content:""; position:absolute; inset:0;
+  background:var(--ath-slate); mix-blend-mode:multiply; opacity:.58;
+}
+/* Graded so the type sits on the darkest part of the plate, matching how
+   the hero grades its own. */
+/* Three things at once, and the order matters.
+
+   The LEADING EDGE catches light while the sheet is arriving — on a page
+   with one continuous ground there is no contrast between a dark plate
+   and the dark behind it, so the curve would simply not be visible. The
+   glow is tied to `--ath-arc`, so the edge flares as it sweeps in and
+   goes out once the banner has settled, exactly when the curve stops
+   being the point.
+
+   The plate is left UNSCRIMMED at the top, so the brightest part of the
+   artwork is at the leading edge, and taken all the way down to the
+   ground colour at the bottom — not to a near-match, to the same value —
+   so the artwork dissolves into the page instead of ending at a line. */
+.ath-banner-scrim{
+  position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(var(--ath-brass-rgb), calc(var(--ath-arc) * .40)) 0%, transparent 150px),
+    radial-gradient(ellipse 760px 420px at 18% 84%, rgba(var(--ath-brass-rgb),.18) 0%, transparent 64%),
+    linear-gradient(180deg,
+      rgba(10,12,15,.06) 0%,
+      rgba(10,12,15,.34) 38%,
+      rgba(10,12,15,.80) 84%,
+      var(--ath-void) 100%);
+}
+/* The engraved rings the hero uses, reused at a smaller scale so a banner
+   reads as the same material and not as a stock photo with text on it. */
+.ath-banner-rings{
+  position:absolute; z-index:-1; width:120vmax; height:120vmax; left:78%; top:50%;
+  transform:translate(-50%,-50%); pointer-events:none; opacity:.4;
+  background:repeating-radial-gradient(circle at 50% 50%,
+    rgba(var(--ath-brass-rgb),.15) 0 1px, transparent 1px 54px);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 8%, transparent 56%);
+          mask-image:radial-gradient(circle at 50% 50%, #000 8%, transparent 56%);
+}
+
+.ath-banner-body{position:relative; z-index:1; max-width:1000px; flex:0 1 auto}
+/* A full-bleed dark plate is a hero by any other name, so it takes the
+   hero voice — Bodoni, per the brand's banner/title reference — rather
+   than the Italiana the paper sections are set in. Same rule as §HERO
+   TYPE, applied to the same kind of object. */
+.ath-banner-body .ath-eyebrow,
+.ath-banner-body .ath-h2,
+.ath-banner-body .ath-lede{font-family:var(--ath-hero-face); font-optical-sizing:auto}
+.ath-banner-body .ath-eyebrow{color:var(--ath-onDark-2); letter-spacing:.3em; font-size:11px; font-weight:400}
+.ath-banner-body .ath-eyebrow::before{background:var(--ath-brass-hi)}
+.ath-banner-body .ath-h2{
+  margin-top:var(--sp-4); font-weight:500; letter-spacing:.06em; line-height:1.05;
+  font-size:clamp(34px, 5.4vw, 78px);
+  text-shadow:0 2px 44px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.5);
+}
+.ath-banner-body .ath-lede{
+  margin-top:var(--sp-4); max-width:560px; font-size:16.5px; line-height:1.7;
+  color:var(--ath-onDark-2); text-shadow:0 1px 14px rgba(0,0,0,.75);
+}
+/* The section's own actions ride the plate's lower right, the way the
+   reference parks its "Explore apps" link opposite the title. */
+/* A flex sibling of the body rather than an absolutely-positioned one, so
+   the entrance transform below is free to move it — an `align-items`
+   centring survives a translateY, an absolute one does not. */
+.ath-banner-aside{
+  position:relative; z-index:1; flex:none;
+  display:flex; align-items:center; gap:var(--sp-3);
+}
+@media (max-width:820px){
+  .ath-banner{
+    min-height:clamp(250px, 38vh, 340px);
+    flex-direction:column; align-items:flex-start; justify-content:center;
+  }
+  .ath-banner-aside{margin-top:var(--sp-5)}
+}
+
+/* The title resolves out of the plate the way the hero's headline does —
+   out of focus and slightly large, then settling. Driven by the reveal
+   observer, not by scroll position, so it fires once. */
+.ath-banner-body .ath-h2{
+  opacity:0; transform:translateY(18px) scale(1.035); filter:blur(12px);
+  transition:opacity .9s var(--ath-pull), transform .9s var(--ath-pull), filter .9s var(--ath-pull);
+}
+.ath-banner.is-in .ath-banner-body .ath-h2{opacity:1; transform:none; filter:blur(0)}
+.ath-banner-body .ath-eyebrow,
+.ath-banner-body .ath-lede,
+.ath-banner-aside{opacity:0; transform:translateY(14px); transition:opacity .7s var(--ath-ease) .18s, transform .7s var(--ath-ease) .18s}
+.ath-banner.is-in .ath-banner-body .ath-eyebrow,
+.ath-banner.is-in .ath-banner-body .ath-lede,
+.ath-banner.is-in .ath-banner-aside{opacity:1; transform:none}
+
+@media (prefers-reduced-motion:reduce){
+  .ath-banner{clip-path:none}
+  .ath-banner-plate::before{transform:none; filter:none}
+  .ath-banner-body .ath-h2,
+  .ath-banner-body .ath-eyebrow,
+  .ath-banner-body .ath-lede,
+  .ath-banner-aside{opacity:1; transform:none; filter:none; transition:none}
+}
+
+/* =====================================================================
+   §PILL — the reference keeps a small pill parked at the bottom of the
+   viewport naming the section you are currently in, with a menu beside
+   it. On a page this long that is navigation, not decoration, so it is
+   kept and given the jump list the reference only implies.
+   ===================================================================== */
+.ath-pill{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
+  z-index:60; display:flex; align-items:stretch;
+  background:rgba(10,12,15,.82);
+  -webkit-backdrop-filter:blur(14px) saturate(1.3); backdrop-filter:blur(14px) saturate(1.3);
+  border:1px solid var(--ath-onDark-4); border-radius:var(--ath-r-lg);
+  box-shadow:var(--ath-lift-dark);
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .45s var(--ath-ease), transform .45s var(--ath-ease), visibility .45s;
+}
+/* Held back until the reader is past the hero — over the hero it would
+   sit on top of the descent seal and name a section they can already see. */
+.ath-pill.is-on{opacity:1; visibility:visible; pointer-events:auto}
+.ath-pill:not(.is-on){transform:translateX(-50%) translateY(14px)}
+.ath-pill-now{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 16px; color:var(--ath-onDark);
+  font-family:var(--ath-hero-face); font-optical-sizing:auto;
+  font-size:12.5px; letter-spacing:.2em; text-transform:uppercase; white-space:nowrap;
+}
+.ath-pill-now::before{
+  content:""; width:6px; height:6px; background:var(--ath-brass-hi); flex:none;
+  box-shadow:0 0 0 3px rgba(var(--ath-brass-rgb),.2), 0 0 12px rgba(var(--ath-brass-rgb),.85);
+}
+/* The reference's label does not cut — it wipes as the name changes. */
+.ath-pill-now span{display:block; transition:opacity .22s var(--ath-ease), transform .22s var(--ath-ease)}
+.ath-pill.is-turning .ath-pill-now span{opacity:0; transform:translateY(-6px)}
+.ath-pill-menu{
+  display:grid; place-items:center; width:38px;
+  border:0; border-left:1px solid var(--ath-onDark-4);
+  background:transparent; color:var(--ath-onDark-2); cursor:pointer;
+  transition:background-color .25s var(--ath-ease), color .25s var(--ath-ease);
+}
+.ath-pill-menu:hover{background:rgba(242,239,232,.09); color:var(--ath-onDark)}
+.ath-pill-menu:focus-visible{outline:2px solid var(--ath-brass-hi); outline-offset:-2px}
+.ath-pill-menu i{display:block; width:14px; height:1px; background:currentColor; position:relative}
+.ath-pill-menu i::before,.ath-pill-menu i::after{
+  content:""; position:absolute; left:0; width:14px; height:1px; background:currentColor;
+}
+.ath-pill-menu i::before{top:-4px} .ath-pill-menu i::after{top:4px}
+
+.ath-pill-list{
+  position:absolute; right:0; bottom:calc(100% + 8px); min-width:238px;
+  background:rgba(10,12,15,.94);
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  border:1px solid var(--ath-onDark-4); border-radius:var(--ath-r-lg);
+  box-shadow:var(--ath-lift-dark); padding:6px; display:none;
+}
+.ath-pill.is-open .ath-pill-list{display:block}
+.ath-pill-list button{
+  display:flex; width:100%; align-items:baseline; gap:12px;
+  padding:9px 12px; border:0; background:transparent; cursor:pointer; text-align:left;
+  color:var(--ath-onDark-2); font-family:var(--ath-ui); font-size:12.5px;
+  letter-spacing:.06em; border-radius:var(--ath-r-sm);
+  transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease);
+}
+.ath-pill-list button em{
+  font-style:normal; font-family:var(--ath-hero-face); font-size:10.5px;
+  letter-spacing:.16em; color:var(--ath-onDark-3); flex:none; width:22px;
+}
+.ath-pill-list button:hover{background:rgba(242,239,232,.09); color:var(--ath-onDark)}
+.ath-pill-list button:focus-visible{outline:2px solid var(--ath-brass-hi); outline-offset:-2px}
+.ath-pill-list button.is-on{color:var(--ath-brass-hi)}
+@media (max-width:560px){ .ath-pill{bottom:14px} .ath-pill-now{padding:8px 12px; font-size:11px; letter-spacing:.14em} }
+
+/* =====================================================================
+   §FOCUS — the three-way curriculum switcher.
+   ===================================================================== */
+.ath-tabs{display:flex; gap:var(--sp-5); border-bottom:1px solid var(--ath-rule); margin-bottom:var(--sp-6); flex-wrap:wrap}
+.ath-tab{
+  position:relative; padding:0 0 14px; font-size:12px; font-weight:500;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--ath-ink-3);
+  transition:color .22s var(--ath-ease);
+}
+.ath-tab::after{
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--ath-ink);
+  transform:scaleX(0); transform-origin:left; transition:transform .34s var(--ath-ease);
+}
+.ath-tab:hover{color:var(--ath-ink-2)}
+.ath-tab.is-on{color:var(--ath-ink)}
+.ath-tab.is-on::after{transform:scaleX(1)}
+.ath-tab-n{font-family:var(--ath-display); font-size:11px; color:var(--ath-brass-hi); margin-right:7px}
+
+.ath-focus{
+  display:grid; grid-template-columns:1.35fr 1fr; gap:0;
+  background:var(--ath-paper-2); border-radius:var(--ath-r-sm);
+  overflow:hidden; box-shadow:var(--ath-lift);
+}
+.ath-focus-main{padding:var(--sp-6); border-right:1px solid var(--ath-rule-soft)}
+.ath-focus-side{padding:var(--sp-6); background:var(--ath-panel); display:flex; flex-direction:column; gap:var(--sp-4)}
+@media (max-width:900px){
+  .ath-focus{grid-template-columns:1fr}
+  .ath-focus-main{border-right:0; border-bottom:1px solid var(--ath-rule-soft)}
+}
+.ath-focus-subject{display:flex; align-items:center; gap:10px; margin-bottom:var(--sp-3)}
+.ath-focus-subject a{font-size:11.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-verd-hi)}
+.ath-focus-subject a:hover{text-decoration:underline; text-underline-offset:3px}
+.ath-focus-title{font-family:var(--ath-display); font-size:clamp(26px,3.2vw,40px); line-height:1.06; letter-spacing:.03em; text-transform:uppercase; margin:0}
+.ath-focus-why{margin-top:var(--sp-4); max-width:56ch}
+
+/* Label → value rows. The whole page uses this one device for structured
+   data instead of inventing a second card style per section. */
+.ath-rows{display:grid; gap:0; margin-top:var(--sp-5)}
+.ath-row{
+  display:grid; grid-template-columns:minmax(120px,.42fr) 1fr; gap:var(--sp-4);
+  padding:11px 0; border-top:1px solid var(--ath-rule-soft); align-items:baseline;
+}
+.ath-row:first-child{border-top:0}
+.ath-row dt{font-size:10.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-ink-3); margin:0}
+.ath-row dd{margin:0; font-size:14px; color:var(--ath-ink)}
+.ath-row dd.is-quiet{color:var(--ath-ink-3); font-style:italic; font-family:var(--ath-prose)}
+
+.ath-meter{height:3px; background:rgba(242,239,232,.12); position:relative; overflow:hidden; margin-top:9px}
+/* The lifted variants: a 3px bar of #3D7668 on near-black is a dark smear. */
+.ath-meter i{position:absolute; inset:0 auto 0 0; background:var(--ath-verd-hi); transform-origin:left; display:block}
+.ath-meter.is-brass i{background:var(--ath-brass-hi)}
+.ath-pct{font-family:var(--ath-prose); font-weight:300; font-size:42px; line-height:1; font-variant-numeric:lining-nums tabular-nums}
+
+.ath-next{
+  margin-top:auto; padding-top:var(--sp-4); border-top:1px solid var(--ath-rule);
+}
+.ath-next p{margin:8px 0 0; font-family:var(--ath-prose); font-size:17px; line-height:1.5; color:var(--ath-ink)}
+
+/* =====================================================================
+   §TODAY — three plain columns. Deliberately the least decorated section
+   on the page: it is read at a glance, before anything else.
+   ===================================================================== */
+/* Three cells sharing one raised surface, divided by the ground showing
+   through a 1px gap — not a bordered box on a different ground. The outer
+   border is gone; the surface itself is what says "these three belong
+   together". */
+.ath-today{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--ath-rule-soft); border-radius:var(--ath-r-sm); overflow:hidden; box-shadow:var(--ath-lift)}
+.ath-today-cell{background:var(--ath-paper-2); padding:var(--sp-5); display:flex; flex-direction:column; gap:var(--sp-2); min-height:150px}
+.ath-today-cell h4{margin:0; font-size:10.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-3)}
+.ath-today-cell strong{font-family:var(--ath-prose); font-weight:400; font-size:21px; line-height:1.3; color:var(--ath-ink)}
+.ath-today-cell .ath-meta{font-size:12px; color:var(--ath-ink-3); margin-top:auto}
+.ath-today-cell.is-empty strong{color:var(--ath-ink-4); font-style:italic; font-size:17px}
+.ath-today-cell.is-flag{box-shadow:inset 3px 0 0 var(--ath-bad)}
+@media (max-width:800px){ .ath-today{grid-template-columns:1fr} }
+.ath-intention{
+  margin-top:var(--sp-5); padding:var(--sp-4) var(--sp-5); border-left:2px solid var(--ath-brass);
+  background:var(--ath-paper-2); font-family:var(--ath-prose); font-size:17px; font-style:italic; color:var(--ath-ink-2);
+}
+
+/* =====================================================================
+   §GALLERY — the eleven fields.
+   Card structure follows the reference exactly: a tall cover, then a
+   translucent panel inset over its lower edge. The seven required
+   properties that will not fit inside that panel sit beneath the image
+   as label→value rows, so the card keeps the reference's silhouette
+   without cramming.
+   ===================================================================== */
+.ath-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-5)}
+@media (max-width:1080px){ .ath-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:680px){ .ath-grid{grid-template-columns:1fr} }
+
+/* No border. A card is a raised surface on the one ground, and its own
+   cover image is most of what defines it — an outline would be the only
+   hard edge left in the gallery. */
+.ath-card{
+  display:flex; flex-direction:column; background:var(--ath-paper-2);
+  border-radius:var(--ath-r-sm); overflow:hidden; box-shadow:var(--ath-lift);
+  transition:transform .42s var(--ath-ease), box-shadow .42s var(--ath-ease), background-color .42s var(--ath-ease);
+}
+.ath-card:hover{transform:translateY(-5px); box-shadow:var(--ath-lift-2); background:var(--ath-panel)}
+.ath-card:focus-visible{outline:2px solid var(--ath-verd-hi); outline-offset:3px}
+.ath-cover{position:relative; aspect-ratio:4/5; overflow:hidden; background:var(--ath-slate)}
+.ath-cover-img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:transform .8s var(--ath-ease)}
+.ath-card:hover .ath-cover-img{transform:scale(1.045)}
+/* Drawn plate for a field with no photograph yet: a hue-derived wash,
+   engraved rings, and the field's glyph. An unphotographed field should
+   still look deliberate. */
+/* Three light sources, not one: a hue-saturated dome behind the glyph, a
+   warm brass rake from the upper left, and a cool floor bounce. A single
+   radial over near-black photographs as a black rectangle. */
+.ath-cover-plate{
+  position:absolute; inset:0; display:grid; place-items:center;
+  background:
+    radial-gradient(circle 46% at 50% 38%, hsl(var(--h) 58% 44%) 0%, hsl(var(--h) 52% 24%) 42%, transparent 74%),
+    radial-gradient(ellipse 90% 60% at 12% 2%, hsl(38 46% 46% / .45) 0%, transparent 60%),
+    radial-gradient(ellipse 120% 70% at 50% 108%, hsl(var(--h) 40% 30%) 0%, transparent 66%),
+    linear-gradient(168deg, hsl(var(--h) 26% 16%) 0%, hsl(var(--h) 30% 8%) 100%);
+}
+/* Engraved rings — the orrery motif carried down onto every field. */
+.ath-cover-plate::before{
+  content:""; position:absolute; inset:-40%;
+  background:repeating-radial-gradient(circle at 50% 41%, rgba(255,255,255,.10) 0 1px, transparent 1px 24px);
+  -webkit-mask-image:radial-gradient(circle at 50% 41%, #000 4%, transparent 62%);
+          mask-image:radial-gradient(circle at 50% 41%, #000 4%, transparent 62%);
+}
+/* A soft halo directly under the glyph so it sits in light rather than on
+   top of a flat wash. */
+.ath-cover-plate::after{
+  content:""; position:absolute; left:50%; top:38%; width:58%; aspect-ratio:1; transform:translate(-50%,-50%);
+  border-radius:50%; background:radial-gradient(circle, hsl(var(--h) 72% 62% / .34) 0%, transparent 68%);
+}
+.ath-cover-plate i{
+  position:relative; z-index:1; font-style:normal; font-size:104px; line-height:1;
+  color:hsl(var(--h) 62% 88%); opacity:.92; transform:translateY(-16%);
+  text-shadow:0 0 60px hsl(var(--h) 80% 62% / .75), 0 0 14px hsl(var(--h) 70% 70% / .4);
+}
+/* Gradient scrim + colour treatment on every cover, photo or plate. */
+.ath-cover::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(to top, rgba(8,10,13,.72) 0%, rgba(8,10,13,.14) 46%, transparent 74%);
+}
+.ath-cover-n{
+  position:absolute; top:var(--sp-4); left:var(--sp-4); z-index:2;
+  font-family:var(--ath-display); font-size:13px; letter-spacing:.2em; color:var(--ath-onDark-2);
+}
+.ath-cover-season{
+  position:absolute; top:var(--sp-4); right:var(--sp-4); z-index:2;
+  font-size:9.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ath-onDark); padding:5px 9px; border:1px solid var(--ath-onDark-4);
+  background:rgba(10,12,15,.42); backdrop-filter:blur(6px);
+}
+/* The reference's inset panel. */
+.ath-cover-panel{
+  position:absolute; left:var(--sp-4); right:var(--sp-4); bottom:var(--sp-4); z-index:2;
+  /* Was a pane of cream glass. On a dark page it was the brightest thing
+     in the gallery and read as eleven white blocks; it is smoked glass
+     now, and the type on it went light with everything else. */
+  padding:var(--sp-4); background:rgba(10,12,15,.62); backdrop-filter:blur(12px) saturate(1.2);
+  border:1px solid rgba(242,239,232,.10);
+  border-radius:var(--ath-r-sm); text-align:center;
+  transition:background-color .4s var(--ath-ease);
+}
+.ath-card:hover .ath-cover-panel{background:rgba(10,12,15,.76)}
+.ath-cover-panel h3{
+  margin:0; font-family:var(--ath-display); font-size:19px; line-height:1.18;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ath-onDark);
+}
+.ath-cover-panel p{
+  margin:9px 0 0; font-family:var(--ath-prose); font-size:13px; line-height:1.5; color:var(--ath-onDark-2);
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+.ath-card-data{padding:var(--sp-4) var(--sp-5) var(--sp-5)}
+.ath-card-data .ath-row{grid-template-columns:minmax(96px,.5fr) 1fr; padding:9px 0}
+.ath-card-data .ath-row dd{font-size:13px}
+.ath-card-cta{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  margin-top:var(--sp-4); padding-top:var(--sp-4); border-top:1px solid var(--ath-rule-soft);
+  font-size:11.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--ath-ink-2);
+}
+.ath-card-cta span:last-child{transition:transform .3s var(--ath-spring)}
+.ath-card:hover .ath-card-cta{color:var(--ath-verd-hi)}
+.ath-card:hover .ath-card-cta span:last-child{transform:translateX(5px)}
+
+.ath-dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ath-ink-4); margin-right:7px; vertical-align:middle}
+.ath-dot.t-go{background:var(--ath-verd-hi)}
+.ath-dot.t-hold{background:var(--ath-brass-hi)}
+.ath-dot.t-off{background:var(--ath-ink-4)}
+
+/* Gallery filter bar, used by the /fields route. */
+.ath-filters{display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-6); align-items:center}
+.ath-chip{
+  padding:7px 14px; border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm);
+  font-size:11.5px; font-weight:500; letter-spacing:.06em; color:var(--ath-ink-2);
+  transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), border-color .2s var(--ath-ease);
+}
+.ath-chip:hover{border-color:var(--ath-ink-3); color:var(--ath-ink)}
+.ath-chip.is-on{background:var(--ath-ink); border-color:var(--ath-ink); color:var(--ath-paper)}
+
+/* =====================================================================
+   §STANDING — the four global systems. Summary strips only: each links
+   out to its own view rather than expanding inline, which is what keeps
+   the homepage from becoming the whole application.
+   ===================================================================== */
+.ath-standing{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--ath-rule-soft); border-radius:var(--ath-r-sm); overflow:hidden; box-shadow:var(--ath-lift)}
+@media (max-width:1000px){ .ath-standing{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:560px){ .ath-standing{grid-template-columns:1fr} }
+.ath-standing a{
+  background:var(--ath-paper-2); padding:var(--sp-5); display:flex; flex-direction:column; gap:var(--sp-2);
+  min-height:168px; transition:background-color .3s var(--ath-ease);
+}
+.ath-standing a:hover{background:var(--ath-panel)}
+.ath-standing b{font-family:var(--ath-display); font-size:20px; letter-spacing:.05em; text-transform:uppercase; font-weight:400}
+.ath-standing p{margin:0; font-family:var(--ath-prose); font-size:13.5px; line-height:1.5; color:var(--ath-ink-3)}
+.ath-standing .ath-count{margin-top:auto; font-family:var(--ath-prose); font-weight:300; font-size:36px; line-height:1; color:var(--ath-ink); font-variant-numeric:lining-nums tabular-nums}
+.ath-standing .ath-count em{font-style:normal; font-family:var(--ath-ui); font-size:11px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--ath-ink-3); margin-left:9px}
+
+/* =====================================================================
+   §COLOPHON — the reference closes on a giant wordmark bleeding off the
+   bottom edge. Kept, because it is the single best thing in it.
+   ===================================================================== */
+.ath-colophon{padding:var(--sp-8) var(--ath-gut) 0}
+.ath-colophon-rows{display:flex; gap:var(--sp-8); flex-wrap:wrap; justify-content:space-between; padding-bottom:var(--sp-7)}
+.ath-colophon-rows section{min-width:180px}
+.ath-colophon-rows h5{margin:0 0 var(--sp-3); font-size:10px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--ath-ink-3)}
+.ath-colophon-rows a{display:block; font-size:13.5px; color:var(--ath-ink-2); padding:4px 0; transition:color .2s var(--ath-ease)}
+.ath-colophon-rows a:hover{color:var(--ath-verd-hi)}
+.ath-bleed{
+  font-family:var(--ath-display); text-transform:uppercase; letter-spacing:.02em;
+  font-size:clamp(46px, 12.2vw, 190px); line-height:.82; margin:0; color:var(--ath-ink);
+  white-space:nowrap; overflow:hidden; text-align:center; padding-top:var(--sp-5);
+  /* Crops the baseline only — enough to read as bleeding off the sheet
+     without cutting through the letterforms. */
+  transform:translateY(7%);
+}
+
+/* =====================================================================
+   §GLOBAL — the four Standing Systems and the four cross-field roll-ups.
+   These stay on paper: they are part of the reading room, not the desk.
+
+   Session kinds get their own hues because the Learning Calendar's whole
+   job is distinguishing "class" from "study" at a glance.
+   ===================================================================== */
+:root{
+  --k-class:#3D7668;      /* primary learning */
+  --k-study:#9A7830;      /* processing and retention */
+  --k-research:#4A5C86;   /* deep research */
+  --k-reflection:#7A5578; /* review and synthesis */
+  --k-experiment:#A2453E; /* application */
+}
+.k-class{--kc:var(--k-class)} .k-study{--kc:var(--k-study)} .k-research{--kc:var(--k-research)}
+.k-reflection{--kc:var(--k-reflection)} .k-experiment{--kc:var(--k-experiment)}
+
+.ath-gsec{margin-bottom:var(--sp-7)}
+.ath-gsec-head{display:flex; align-items:baseline; gap:var(--sp-3); margin-bottom:var(--sp-3); flex-wrap:wrap}
+.ath-gsec-head h3{font-family:var(--ath-display); font-size:22px; letter-spacing:.055em; text-transform:uppercase; margin:0; font-weight:400}
+.ath-gsec-head p{margin:0; font-family:var(--ath-prose); font-size:14px; color:var(--ath-ink-3)}
+
+/* One list-row component shared by retention, inbox, box and resources —
+   four sections that are all "a labelled thing with a subject and some
+   actions" and do not need four card designs. */
+.ath-list{display:grid; gap:1px; background:var(--ath-rule-soft); border:1px solid var(--ath-rule-soft); border-radius:var(--ath-r-sm); overflow:hidden}
+.ath-li{background:var(--ath-paper); padding:var(--sp-4) var(--sp-5); display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap; transition:background-color .2s var(--ath-ease)}
+.ath-li:hover{background:var(--ath-paper-2)}
+.ath-li-main{flex:1; min-width:220px}
+.ath-li-t{font-family:var(--ath-prose); font-size:17px; line-height:1.35; margin:0}
+.ath-li-m{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:5px; font-size:11.5px; color:var(--ath-ink-3)}
+.ath-li-m a{color:var(--ath-verd)}
+.ath-li-m a:hover{text-decoration:underline; text-underline-offset:3px}
+.ath-li-acts{display:flex; gap:6px; flex-wrap:wrap}
+.ath-li.is-late{box-shadow:inset 3px 0 0 var(--ath-bad)}
+.ath-li-body{width:100%; font-family:var(--ath-prose); font-size:14.5px; line-height:1.6; color:var(--ath-ink-2); margin:8px 0 0}
+
+.ath-pill{
+  display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:var(--ath-r-sm);
+  border:1px solid var(--ath-rule); font-size:10px; font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ath-ink-2); white-space:nowrap;
+}
+.ath-pill.t-good{border-color:rgba(var(--ath-verd-rgb),.45); color:var(--ath-verd); background:rgba(var(--ath-verd-rgb),.08)}
+.ath-pill.t-warn{border-color:rgba(var(--ath-brass-rgb),.45); color:var(--ath-brass); background:rgba(var(--ath-brass-rgb),.08)}
+.ath-pill.t-bad{border-color:rgba(var(--ath-bad-rgb),.45); color:var(--ath-bad); background:rgba(var(--ath-bad-rgb),.08)}
+.ath-pill.t-kind{border-color:var(--kc); color:var(--kc); background:color-mix(in srgb, var(--kc) 10%, transparent)}
+.ath-pill.t-mute{color:var(--ath-ink-4)}
+
+/* Filter bars share the chip from the gallery. */
+.ath-gfilters{display:flex; gap:var(--sp-2); flex-wrap:wrap; align-items:center; margin-bottom:var(--sp-5)}
+.ath-gsearch{
+  flex:1; min-width:200px; padding:9px 13px; background:var(--ath-paper-2); color:var(--ath-ink);
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm); font:inherit; font-size:13.5px;
+  transition:border-color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.ath-gsearch:focus{outline:none; border-color:var(--ath-verd-hi); background:var(--ath-panel)}
+
+/* --- Learning Calendar ---------------------------------------------- */
+.ath-calbar{display:flex; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-4); flex-wrap:wrap}
+/* Prose face, not display: the month label carries a year, and Italiana's
+   zero is indistinguishable from a capital O — "2026" renders as "2o26". */
+.ath-calbar h3{font-family:var(--ath-prose); font-weight:400; font-size:26px; letter-spacing:.02em; margin:0; min-width:230px; font-variant-numeric:lining-nums}
+.ath-legend{display:flex; gap:var(--sp-4); flex-wrap:wrap; margin-left:auto}
+.ath-legend span{display:inline-flex; align-items:center; gap:7px; font-size:11px; color:var(--ath-ink-2)}
+.ath-legend i{width:9px; height:9px; border-radius:2px; background:var(--kc); display:block}
+
+.ath-cal{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--ath-rule-soft); border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm); overflow:hidden}
+.ath-cal-dow{background:var(--ath-paper-2); padding:9px var(--sp-3); font-size:9.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-ink-3); text-align:center}
+.ath-day{
+  background:var(--ath-paper); min-height:112px; padding:8px 9px; display:flex; flex-direction:column; gap:5px;
+  text-align:left; align-items:stretch; transition:background-color .2s var(--ath-ease);
+}
+.ath-day:hover{background:var(--ath-paper-2)}
+.ath-day.is-out{background:var(--ath-paper-2); opacity:.5}
+.ath-day.is-today{box-shadow:inset 0 2px 0 var(--ath-brass)}
+.ath-day-n{font-family:var(--ath-prose); font-size:14px; color:var(--ath-ink-2); font-variant-numeric:tabular-nums}
+.ath-day.is-today .ath-day-n{color:var(--ath-brass); font-weight:500}
+.ath-ev{
+  display:block; text-align:left; font-size:11px; line-height:1.35; padding:3px 6px; border-radius:2px;
+  border-left:2px solid var(--kc); background:color-mix(in srgb, var(--kc) 9%, transparent);
+  color:var(--ath-ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  transition:background-color .2s var(--ath-ease);
+}
+.ath-ev:hover{background:color-mix(in srgb, var(--kc) 20%, transparent)}
+.ath-ev.is-done{opacity:.5; text-decoration:line-through}
+@media (max-width:760px){
+  .ath-cal{grid-template-columns:1fr; border:0; gap:var(--sp-2); background:none}
+  .ath-cal-dow{display:none}
+  .ath-day{min-height:0; border:1px solid var(--ath-rule-soft); border-radius:var(--ath-r-sm)}
+  .ath-day.is-out{display:none}
+}
+
+/* --- Experiment Lab + The Box ---------------------------------------- */
+.ath-ggrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:var(--sp-4)}
+.ath-gcard{
+  background:var(--ath-paper); border:1px solid var(--ath-rule-soft); border-radius:var(--ath-r-sm);
+  padding:var(--sp-5); display:flex; flex-direction:column; gap:var(--sp-3);
+  transition:border-color .24s var(--ath-ease), transform .24s var(--ath-ease), box-shadow .24s var(--ath-ease);
+}
+.ath-gcard:hover{border-color:var(--ath-rule); transform:translateY(-3px); box-shadow:var(--ath-lift)}
+.ath-gcard h4{margin:0; font-family:var(--ath-prose); font-size:19px; font-weight:400; line-height:1.3}
+.ath-gcard .hyp{margin:0; font-family:var(--ath-prose); font-size:15px; line-height:1.6; color:var(--ath-ink-2)}
+.ath-gcard .meta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:auto; padding-top:var(--sp-3); border-top:1px solid var(--ath-rule-soft)}
+.ath-gcard .lab{font-size:9.5px; font-weight:600; letter-spacing:.15em; text-transform:uppercase; color:var(--ath-ink-3); margin:0 0 3px}
+
+/* Interest and priority as a five-dot readout — compact and comparable
+   down a column, which a number is not. */
+.ath-dots{display:inline-flex; gap:3px; align-items:center}
+.ath-dots i{width:6px; height:6px; border-radius:50%; background:var(--ath-ink-4); display:block}
+.ath-dots i.on{background:var(--ath-brass)}
+
+/* --- global connections map ------------------------------------------ */
+.ath-map{background:var(--ath-paper-2); border:1px solid var(--ath-rule-soft); border-radius:var(--ath-r-sm); padding:var(--sp-5); margin-bottom:var(--sp-5); overflow-x:auto}
+.ath-map svg{display:block; width:100%; max-width:820px; margin:0 auto; height:auto; min-width:460px}
+.ath-map .edge{stroke:rgba(var(--ath-verd-rgb),.42); fill:none; stroke-width:1.3}
+.ath-map g.node circle{fill:var(--ath-paper); stroke:var(--ath-rule); stroke-width:1.2; transition:fill .2s var(--ath-ease), stroke .2s var(--ath-ease)}
+.ath-map g.node:hover circle{fill:var(--ath-verd); stroke:var(--ath-verd)}
+.ath-map g.node.is-linked circle{fill:rgba(var(--ath-brass-rgb),.3); stroke:var(--ath-brass)}
+.ath-map g.node text{fill:var(--ath-ink-2); font-family:var(--ath-ui); font-size:9px; font-weight:500}
+.ath-map g.node:hover text{fill:var(--ath-ink)}
+
+/* =====================================================================
+   §VIEWS + §MODAL
+   ===================================================================== */
+.ath-view{display:none}
+.ath-view.is-on{display:block; animation:ath-fade .45s var(--ath-ease)}
+@keyframes ath-fade{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
+
+.ath-empty{
+  padding:var(--sp-8) var(--sp-5); text-align:center; border:1px dashed var(--ath-rule);
+  font-family:var(--ath-prose); color:var(--ath-ink-3); font-size:16px;
+}
+.ath-empty b{display:block; font-family:var(--ath-display); font-size:22px; letter-spacing:.05em; text-transform:uppercase; color:var(--ath-ink-2); margin-bottom:var(--sp-2); font-weight:400}
+
+.ath-modal-bg{
+  position:fixed; inset:0; z-index:120; background:rgba(12,14,18,.62); backdrop-filter:blur(4px);
+  display:none; align-items:center; justify-content:center; padding:var(--sp-5);
+}
+.ath-modal-bg.show{display:flex; animation:ath-fade .24s var(--ath-ease)}
+/* The one place on this page that SHOULD have an edge. Everything else is
+   one continuous ground; a dialog is a separate object floating over it,
+   and at the ground's own value it would have dissolved into its own
+   backdrop. Raised a step, with a hairline to catch the light. */
+.ath-modal{
+  background:var(--ath-panel); width:min(680px,100%); max-height:88vh; overflow:auto;
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r);
+  box-shadow:0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.4);
+}
+.ath-modal.is-wide{width:min(940px,100%)}
+.ath-modal-head{
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4);
+  padding:var(--sp-5) var(--sp-5) var(--sp-4); border-bottom:1px solid var(--ath-rule-soft);
+  position:sticky; top:0; background:var(--ath-panel); z-index:2;
+}
+.ath-modal-body{padding:var(--sp-5); display:grid; gap:var(--sp-4)}
+.ath-modal-foot{
+  display:flex; justify-content:flex-end; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-5) var(--sp-5); border-top:1px solid var(--ath-rule-soft);
+}
+.ath-field{display:grid; gap:7px}
+.ath-field-label{font-size:10.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-ink-3)}
+.ath-field-hint{margin:0; font-size:12.5px; color:var(--ath-ink-3); font-family:var(--ath-prose)}
+.ath-field-row{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4)}
+@media (max-width:600px){ .ath-field-row{grid-template-columns:1fr} }
+.ath-input,.ath-select,.ath-textarea{
+  width:100%; padding:10px 12px; background:var(--ath-paper-2); color:var(--ath-ink);
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm); font:inherit; font-size:14px;
+  transition:border-color .2s var(--ath-ease), background-color .2s var(--ath-ease);
+}
+.ath-textarea{font-family:var(--ath-prose); font-size:15px; line-height:1.6; resize:vertical}
+.ath-input:focus,.ath-select:focus,.ath-textarea:focus{outline:none; border-color:var(--ath-verd-hi); background:var(--ath-panel)}
+.ath-chip-row{display:flex; gap:6px; flex-wrap:wrap}
+/* Phone: 14px and 15px both sit under iOS Safari's 16px threshold, so
+   focusing any field zooms the page in and leaves it that way. */
+@media (max-width:768px){
+  .ath-input,.ath-select,.ath-textarea{font-size:16px; padding:12px}
+}
+
+#athToast{
+  position:fixed; left:50%; bottom:var(--sp-5); transform:translate(-50%,20px); z-index:200;
+  background:var(--ath-ink); color:var(--ath-paper); padding:11px 20px; border-radius:var(--ath-r-sm);
+  font-size:13px; opacity:0; pointer-events:none; transition:opacity .28s var(--ath-ease), transform .28s var(--ath-spring);
+}
+#athToast.show{opacity:1; transform:translate(-50%,0)}
+#athToast.is-bad{background:var(--ath-bad)}
+
+/* Clears topbar.js's fixed launcher pill, which sits over the top-left of
+   every page. */
+.ath-backbar{padding:72px var(--ath-gut) 0}
+.ath-back{
+  display:inline-flex; align-items:center; gap:9px; font-size:11.5px; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--ath-ink-3);
+  transition:color .2s var(--ath-ease), gap .2s var(--ath-ease);
+}
+.ath-back:hover{color:var(--ath-ink); gap:13px}
+
+/* topbar.js injects a fixed launcher pill at the top-left of every page.
+   Wide viewports have room to sit the wordmark beside it; narrow ones do
+   not, so the whole hero top line drops below it instead. */
+@media (min-width:861px){ .ath-topline{padding-left:150px} }
+@media (max-width:860px){ .ath-hero{padding-top:70px} }
+
+/* =====================================================================
+   §REVEAL — last on purpose. Components below the fold declare their own
+   `transition` (.ath-card does), and a later rule wins, so the reveal's
+   own transition must be declared after all of them or the fade is
+   silently dropped and elements pop in.
+   ===================================================================== */
+.ath-rise{opacity:0; transform:translateY(26px)}
+.ath-rise,.ath-rise.is-in{
+  transition:opacity .8s var(--ath-ease), transform .8s var(--ath-ease),
+             box-shadow .42s var(--ath-ease), border-color .42s var(--ath-ease);
+}
+.ath-rise.is-in{opacity:1; transform:none}
+/* Hovering a revealed card must still lift it — .ath-card's own transform
+   rule is re-stated here because .ath-rise.is-in{transform:none} outranks
+   it on specificity. */
+.ath-card.ath-rise.is-in:hover{transform:translateY(-5px)}
+@media (prefers-reduced-motion:reduce){ .ath-rise{opacity:1; transform:none} }
+</style>
+</head>
+<body>
+
+<div class="ath-grain" aria-hidden="true"></div>
+
+<div class="ath-sheet">
+  <main id="athApp">
+    <section class="ath-view" id="athViewHome" aria-label="The Reading Room"></section>
+    <section class="ath-view" id="athViewFields" aria-label="All fields"></section>
+    <section class="ath-view" id="athViewGlobal" aria-label="Standing systems"></section>
+  </main>
+
+  <footer class="ath-colophon" id="athColophon">
+    <div class="ath-colophon-rows">
+      <section>
+        <h5>The Fields</h5>
+        <div id="athFootFields"></div>
+      </section>
+      <section>
+        <h5>Standing Systems</h5>
+        <a href="#/retention">Retention Center</a>
+        <a href="#/calendar">Learning Calendar</a>
+        <a href="#/experiments">Experiment Lab</a>
+        <a href="#/box">The Box</a>
+      </section>
+      <section>
+        <h5>Across Every Field</h5>
+        <a href="#/inbox">Learning Inbox</a>
+        <a href="#/knowledge">Knowledge Base</a>
+        <a href="athenaeum-resources.html">Resource Library</a>
+        <a href="#/connections">Connections</a>
+      </section>
+      <section>
+        <h5>The Rule</h5>
+        <p class="ath-prose" style="margin:0;font-size:14px;max-width:34ch">A field is permanent. A curriculum is temporary. Everything worth keeping outlives the curriculum that taught it.</p>
+      </section>
+    </div>
+    <p class="ath-bleed">The Athenaeum</p>
+  </footer>
+</div>
+
+<div class="ath-modal-bg" id="athModalBg"><div class="ath-modal" id="athModal" role="dialog" aria-modal="true"></div></div>
+<div id="athToast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-data.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="topbar.js" defer></script>
+<script src="athenaeum-nav.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // §UTIL
+  // ============================================================
+  function $(id) { return document.getElementById(id); }
+  function D() { return window.Athenaeum; }
+  function esc(s) { return D().esc(s); }
+
+  function runSafely(fn, label) {
+    try { return fn(); } catch (e) {
+      try { console.error('[Athenaeum] ' + (label || 'error'), e); } catch (e2) {}
+      toast('Something went wrong — see the console', true);
+    }
+  }
+  var toastTimer = null;
+  function toast(msg, bad) {
+    var el = $('athToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('is-bad', !!bad);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+
+  /* Delegated binding. Every renderer paints innerHTML and the nodes it
+     painted are replaced on the next repaint, so handlers attach to the
+     host — which survives — and are registered exactly once. */
+  var bound = {};
+  function on(hostId, evt, sel, fn) {
+    var key = hostId + '|' + evt + '|' + sel;
+    if (bound[key]) return;
+    bound[key] = 1;
+    var host = $(hostId);
+    if (!host) return;
+    host.addEventListener(evt, function (e) {
+      var t = e.target.closest ? e.target.closest(sel) : null;
+      if (t && host.contains(t)) fn(e, t);
+    });
+  }
+
+  // ============================================================
+  // §ROUTER — real hash routes, so Back works.
+  //   #/            the reading room
+  //   #/fields      every field, filterable
+  //   #/retention   #/calendar  #/experiments  #/box
+  //   #/inbox  #/knowledge  #/resources  #/connections
+  // ============================================================
+  var GLOBAL_ROUTES = {
+    retention:   { title: 'Retention Center',       blurb: 'Everything due for review today, across every field at once — because a Tuesday can owe you a psychology concept and a Roman collapse in the same sitting.' },
+    calendar:    { title: 'Learning Calendar',      blurb: 'One calendar, five kinds of session: class, study, research, reflection, experiment. Nine fields, never nine calendars.' },
+    experiments: { title: 'Experiment Lab',         blurb: 'Where knowledge starts changing behaviour. Global here, filtered to one field inside its hub.' },
+    box:         { title: 'The Box',                blurb: 'The intellectual parking lot. Future fields, rabbit holes, books to investigate, questions with nowhere to go yet.' },
+    inbox:       { title: 'Learning Inbox',         blurb: 'Every capture from every field in one stream. Each one still belongs to its field.' },
+    knowledge:   { title: 'Knowledge Base',         blurb: 'Every concept you have written down, across all eleven fields.' },
+    connections: { title: 'Cross-Field Connections', blurb: 'Where the fields touch each other. This is the part that makes it a system rather than eleven folders.' }
+  };
+
+  /* The Resource Library outgrew a hash route: it now has editing,
+     filtering by medium and tag, and a page per resource. It lives at
+     athenaeum-resources.html. This entry stays so that #/resources — in
+     the colophon, in the topbar drawer, in a bookmark — still arrives
+     somewhere. `replace` rather than `assign`, so Back does not bounce
+     off the redirect. */
+  var MOVED_ROUTES = { resources: 'athenaeum-resources.html' };
+
+  var S = {
+    route: { name: 'home' }, focusSlot: 'current', filter: 'all',
+    calMonth: '', expSubject: '', boxKind: '', inboxKind: '', globalQuery: ''
+  };
+
+  function parseHash() {
+    var raw = String(location.hash || '').replace(/^#/, '');
+    if (!raw || raw === '/') return { name: 'home' };
+    var p = raw.replace(/^\//, '').split('/');
+    if (p[0] === 'fields') return { name: 'fields' };
+    if (MOVED_ROUTES[p[0]]) return { name: 'moved', id: p[0] };
+    if (GLOBAL_ROUTES[p[0]]) return { name: 'global', id: p[0] };
+    return { name: 'home' };
+  }
+  function go(hash) { if (hash) location.hash = hash; }
+
+  var VIEW_OF = { home: 'athViewHome', fields: 'athViewFields', global: 'athViewGlobal' };
+  function showView(name) {
+    var want = VIEW_OF[name] || 'athViewHome';
+    ['athViewHome', 'athViewFields', 'athViewGlobal'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.classList.toggle('is-on', id === want);
+    });
+    return $(want);
+  }
+
+  var paintedKey = null;
+  function routeKey(r) { return r.name + ':' + (r.id || ''); }
+
+  function render(opts) {
+    opts = opts || {};
+    S.route = parseHash();
+    // A route that has moved to its own page never paints anything here.
+    if (S.route.name === 'moved') { location.replace(MOVED_ROUTES[S.route.id]); return; }
+    var key = routeKey(S.route);
+    var navigated = key !== paintedKey;
+    // A repaint caused by a data change or a cloud pull must never move
+    // the page. Only a genuine route change resets the scroll.
+    var keepScroll = opts.keepScroll || !navigated;
+    var y = window.scrollY;
+
+    var host = showView(S.route.name);
+    if (!host) return;
+    if (S.route.name === 'fields') runSafely(function () { renderFields(host); }, 'renderFields');
+    else if (S.route.name === 'global') runSafely(function () { renderGlobal(host); }, 'renderGlobal');
+    // `navigated` doubles as the arrival cue: the hero plays its reveal
+    // when the reader actually lands on home, never on a data repaint.
+    else runSafely(function () { renderHome(host, navigated); }, 'renderHome');
+
+    runSafely(renderFooterFields, 'renderFooterFields');
+    paintedKey = key;
+    D().setUiState({ lastRoute: location.hash || '#/' });
+
+    // behavior:'auto' is explicit because html{scroll-behavior:smooth} is
+    // set for the in-page anchors — without it, restoring the position
+    // after a repaint would visibly ANIMATE back, which is the same bug
+    // as scrolling on re-render, just slower.
+    if (keepScroll) requestAnimationFrame(function () { window.scrollTo({ top: y, behavior: 'auto' }); });
+    else window.scrollTo({ top: 0, behavior: 'auto' });
+    observeRises();
+  }
+
+  /* Repaint after a data change from anywhere — a modal save, or a
+     realtime pull from another device. Never scrolls, and never yanks the
+     DOM out from under an open dialog or a field being typed into. */
+  function refreshCurrentView() {
+    if ($('athModalBg').classList.contains('show')) return;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+    runSafely(function () { render({ keepScroll: true }); }, 'refresh');
+  }
+
+  // ============================================================
+  // §REVEAL — one observer, re-armed after every repaint.
+  // ============================================================
+  var io = null;
+  function observeRises() {
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('.ath-rise, .ath-banner').forEach(function (n) { n.classList.add('is-in'); });
+      return;
+    }
+    if (!io) {
+      io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: .06 });
+    }
+    document.querySelectorAll('.ath-rise:not(.is-in), .ath-banner:not(.is-in)').forEach(function (n) {
+      // Anything already at or above the fold is revealed outright. A
+      // repaint that keeps the scroll position (a cloud pull, a modal
+      // save) re-creates nodes the reader has already scrolled past, and
+      // the observer reports those as not-intersecting — they would stay
+      // invisible forever.
+      if (n.getBoundingClientRect().top < window.innerHeight) { n.classList.add('is-in'); return; }
+      io.observe(n);
+    });
+  }
+
+  // ============================================================
+  // §PIECES — small builders shared by every renderer.
+  // ============================================================
+  function eyebrow(text, center) {
+    return '<p class="ath-eyebrow' + (center ? ' is-center' : '') + '">' + esc(text) + '</p>';
+  }
+  /* §ARRIVAL — the attribute that drives the hero's reveal.
+
+     Called once per render. On a genuine arrival it restarts the clock;
+     on a repaint it reports how far the sequence has already got, as a
+     negative `--t` the stylesheet adds to every animation-delay. The
+     re-created header therefore RESUMES rather than replaying, which is
+     what keeps a cloud pull landing at 900ms from yanking the headline
+     back out of focus. Past ATH_INTRO_RUN nothing is emitted.
+
+     `introAt` is also the point cloud's clock — it lives outside the DOM,
+     so it is the one thing a repaint cannot destroy. */
+  var ATH_INTRO_RUN = 3100;
+  var introAt = -1;
+  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+  function introAttrs(arrived) {
+    var t = now();
+    if (arrived) introAt = t;
+    if (introAt < 0) return { cls: '', style: '' };
+    var elapsed = t - introAt;
+    if (elapsed >= ATH_INTRO_RUN) return { cls: '', style: '' };
+    return { cls: ' is-intro', style: ' style="--t:' + (-Math.round(elapsed)) + 'ms"' };
+  }
+
+  /* Each authored line of a hero headline becomes its own block, so the
+     reveal can resolve them one at a time and so every line after the
+     first can take the accent. `--d` staggers them by a beat. */
+  function headlineLines(text) {
+    return String(text == null ? '' : text).split('\n').map(function (line, i) {
+      return '<span class="ath-rvl"' + (i ? ' style="--d:' + (0.62 + i * 0.1).toFixed(2) + 's"' : '') + '>' +
+        (esc(line) || '&nbsp;') + '</span>';
+    }).join('');
+  }
+  function meter(pct, brass) {
+    var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    return '<div class="ath-meter' + (brass ? ' is-brass' : '') + '" role="img" aria-label="' + p + ' percent">' +
+      '<i style="transform:scaleX(' + (p / 100) + ')"></i></div>';
+  }
+  function row(label, value, quiet) {
+    return '<div class="ath-row"><dt>' + esc(label) + '</dt>' +
+      '<dd' + (quiet ? ' class="is-quiet"' : '') + '>' + value + '</dd></div>';
+  }
+  function statusDot(subject) {
+    var d = D();
+    var tone = 'off';
+    d.SUBJECT_STATUSES.forEach(function (s) { if (s.id === subject.status) tone = s.tone; });
+    return '<span class="ath-dot t-' + tone + '"></span>' + esc(d.labelFrom(d.SUBJECT_STATUSES, subject.status, 'Dormant'));
+  }
+  function subjectHref(id) { return 'athenaeum-subject.html?id=' + encodeURIComponent(id); }
+
+  // The cover: a real photo when there is one, otherwise a drawn plate.
+  function coverInner(s) {
+    if (s.cover) {
+      return '<img class="ath-cover-img" src="' + esc(s.cover) + '" alt="" loading="lazy" ' +
+        'style="object-position:' + esc(s.coverPos || '50% 50%') + '">';
+    }
+    return '<div class="ath-cover-plate" style="--h:' + (s.hue || 200) + '"><i>' + esc(s.glyph || '✦') + '</i></div>';
+  }
+
+  function subjectCard(s, index) {
+    var d = D();
+    var st = d.subjectStats(s.id);
+    var active = st.active;
+    return '<a class="ath-card ath-rise" href="' + subjectHref(s.id) + '" style="transition-delay:' + Math.min(index * 55, 440) + 'ms">' +
+      '<div class="ath-cover">' +
+        coverInner(s) +
+        '<span class="ath-cover-n">' + esc(d.roman(index + 1)) + '</span>' +
+        '<span class="ath-cover-season">' + esc(d.labelFrom(d.SEASONS, s.season, 'Fallow')) + '</span>' +
+        '<div class="ath-cover-panel">' +
+          '<h3>' + esc(s.name) + '</h3>' +
+          (s.blurb ? '<p>' + esc(s.blurb) + '</p>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="ath-card-data"><dl class="ath-rows" style="margin-top:0">' +
+        row('Status', statusDot(s)) +
+        row('Mastery', esc(d.masteryLabel(s.mastery)) + meter(d.masteryPct(s.mastery), true)) +
+        row('Curriculum', active ? esc(active.title) + meter(st.progress) : '<span class="is-quiet">None running</span>') +
+        row('Completed', String(st.completed)) +
+        row('Focus', s.currentFocus ? esc(s.currentFocus) : '<span style="color:var(--ath-ink-4)">Not set</span>') +
+      '</dl>' +
+      '<div class="ath-card-cta"><span>Enter the hub</span><span>→</span></div>' +
+      '</div></a>';
+  }
+
+  // ============================================================
+  // §POINT CLOUD — the hero plate as drifting dust.
+  //
+  // Four philosophical plates, sampled onto one shared 320×180 grid, so a
+  // point keeps its index from image to image and a change of subject is
+  // a change of COLOUR plus a bulge outward, not a re-scatter. The cloud
+  // materialises once on arrival, holds an image, scatters, re-forms as
+  // the next, and goes round.
+  //
+  // Three things keep this honest on a page that is opened twenty times a
+  // day: the backing store is a fixed 640×360 no matter the viewport or
+  // the DPR; the loop only runs while the hero is actually on screen and
+  // the tab is visible; and asking for reduced motion paints one settled
+  // frame and stops.
+  // ============================================================
+  var ATH_CLOUD = { W: 640, H: 360, GW: 320, GH: 180 };
+
+  var athCloud = (function () {
+    var W = ATH_CLOUD.W, H = ATH_CLOUD.H, GW = ATH_CLOUD.GW, GH = ATH_CLOUD.GH;
+    var N = GW * GH;
+
+    var ARRIVE = 2000;      // materialisation, matched to the CSS arrival
+    var HOLD = 9600;        // how long an image is held, settled
+    var MORPH = 1700;       // scatter-and-re-form between two images
+    var SCATTER = 235;      // buffer px a point starts away from its place
+    var BULGE = 44;         // how far it is thrown during a morph
+    var DRIFT = 3.4;        // the shimmer that never fully stops
+
+    // A 256-step sine table: the drift needs two lookups per point per
+    // frame, and 115,000 Math.sin calls a frame is not a thing to do.
+    var SIN = new Float32Array(256);
+    for (var s = 0; s < 256; s++) SIN[s] = Math.sin(s / 256 * Math.PI * 2);
+
+    var dirX = null, dirY = null, wait = null, phase = null;
+    /* The ground is deliberately held under the points' own brightness.
+       Match them and the settled cloud is just the photograph again —
+       the dust has to out-read its own background or there is no cloud,
+       only a picture. */
+    var GROUND = 0.5;
+
+    var plates = [], ready = [], plateKey = '';
+    var cv = null, ctx = null, pix = null, buf32 = null;
+    var dots = null, dctx = null;   // the points, composited over the ground
+    var raf = 0, io = null, t0 = 0, host = null, onVis = null;
+
+    function reduced() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    /* Per-point constants. Independent of the images, so this runs once
+       for the life of the page however often the hero is re-created. */
+    function points() {
+      if (dirX) return;
+      dirX = new Float32Array(N); dirY = new Float32Array(N);
+      wait = new Float32Array(N); phase = new Uint8Array(N);
+      for (var i = 0; i < N; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var r = Math.pow(Math.random(), 0.6);
+        dirX[i] = Math.cos(a) * r;
+        dirY[i] = Math.sin(a) * r;
+        // Resolve roughly top-down, but never in a clean line.
+        wait[i] = ((i / GW | 0) / GH) * 0.55 + Math.random() * 0.45;
+        phase[i] = (Math.random() * 256) | 0;
+      }
+    }
+
+    // Cover-fit, framed at 48% like the plate's own background-position.
+    function cover(c, im, w, h) {
+      var k = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+      var dw = im.naturalWidth * k, dh = im.naturalHeight * k;
+      c.drawImage(im, (w - dw) / 2, (h - dh) * 0.48, dw, dh);
+    }
+
+    /* Each plate is sampled twice: once at grid resolution for the point
+       colours, and once at buffer resolution for the soft ground the
+       points sit on. The ground is what stops a settled cloud reading as
+       a sparse dot screen over black — the reference has the same blurred
+       image beneath its dust.
+
+       The ground is kept as a CANVAS rather than a pixel array, which is
+       what lets the compositing in draw() be three drawImage calls: the
+       outgoing ground, the incoming ground over it, and the dots on top.
+       Cross-fading two images and ramping the ground in behind the
+       materialisation both become a globalAlpha instead of a lerp across
+       921,600 array slots every frame. */
+    function load(src, slot) {
+      var im = new Image();
+      im.decoding = 'async';
+      im.onload = function () {
+        try {
+          var gc = document.createElement('canvas');
+          gc.width = GW; gc.height = GH;
+          var g = gc.getContext('2d', { willReadFrequently: true });
+          cover(g, im, GW, GH);
+          var d = g.getImageData(0, 0, GW, GH).data;
+          /* Gain, applied once here rather than per frame. Every plate is
+             a dark painting or a sepia manuscript, and the hero's own
+             scrim is layered on top of the canvas to keep the headline
+             legible — without a lift the cloud reads as black. Values are
+             clamped because a point is written as one packed Uint32 and an
+             overflowing channel would bleed into the next one. */
+          var rgb = new Uint8Array(N * 3);
+          for (var i = 0, j = 0, k = 0; i < N; i++, j += 4, k += 3) {
+            var r = d[j] * 1.75 + 14, gg = d[j + 1] * 1.75 + 14, bb = d[j + 2] * 1.75 + 14;
+            rgb[k] = r > 255 ? 255 : r;
+            rgb[k + 1] = gg > 255 ? 255 : gg;
+            rgb[k + 2] = bb > 255 ? 255 : bb;
+          }
+
+          var bc = document.createElement('canvas');
+          bc.width = W; bc.height = H;
+          var b = bc.getContext('2d');
+          b.filter = 'brightness(1.2) saturate(1.12)';
+          cover(b, im, W, H);
+          slot.ground = bc;
+          slot.rgb = rgb;
+          slot.ready = true;
+          ready = plates.filter(function (p) { return p.ready; });
+        } catch (e) {
+          // A tainted canvas would only happen if a hero image were set
+          // to a cross-origin URL from the editor. Leave the plate unready
+          // and the cycle skips it.
+          slot.ready = false;
+        }
+      };
+      im.src = src;
+    }
+
+    function ensure(srcs) {
+      var key = srcs.join('|');
+      if (key === plateKey) return;
+      plateKey = key;
+      ready = [];
+      plates = srcs.map(function (src) {
+        return { src: src, rgb: null, ground: null, ready: false };
+      });
+      /* The first plate is the one the arrival needs, and it is the same
+         file the stylesheet is already fetching as the plate background,
+         so it comes off the same cache entry. The other three are not
+         wanted for another ten seconds — holding them back keeps them
+         from racing the one image that has to be ready on time. */
+      load(plates[0].src, plates[0]);
+      var rest = plates.slice(1), mine = plateKey;
+      setTimeout(function () {
+        if (plateKey !== mine) return;
+        rest.forEach(function (p) { load(p.src, p); });
+      }, 1400);
+    }
+
+    function ease(x) { return 1 - Math.pow(1 - x, 3); }
+
+    function draw(ms) {
+      var e = ms - t0;
+      if (e < 0) e = 0;
+
+      // Which plate, and how far into a morph. With only one plate loaded
+      // there is nothing to morph TO, so the cycle holds it instead of
+      // throwing the points outward and bringing back the same image.
+      if (!ready.length) return false;
+      var cyc = Math.max(0, e - ARRIVE);
+      var span = HOLD + MORPH;
+      var step = Math.floor(cyc / span) % ready.length;
+      var into = cyc - Math.floor(cyc / span) * span;
+      var A = ready[step];
+      var B = ready[(step + 1) % ready.length];
+      var m = (ready.length < 2 || into <= HOLD) ? 0 : (into - HOLD) / MORPH;
+      var mix = m <= 0 ? 0 : m * m * (3 - 2 * m);   // smoothstep
+
+      buf32.fill(0);
+      var bulge = m > 0 ? Math.sin(m * Math.PI) * BULGE : 0;
+      var ti = (ms * 0.055) | 0;
+      var ra = A.rgb, rb = B.rgb;
+      var arriving = e < ARRIVE + 400;
+
+      for (var gy = 0, i = 0; gy < GH; gy++) {
+        var ty = gy * 2 + 1;
+        for (var gx = 0; gx < GW; gx++, i++) {
+          // Materialisation: each point waits its turn, then flies in.
+          var disp = bulge;
+          if (arriving) {
+            var a = (e - wait[i] * 950) / 1150;
+            if (a <= 0) continue;                 // not yet — leave the ground bare
+            if (a < 1) disp += SCATTER * (1 - ease(a));
+          }
+
+          var px = gx * 2 + 1 + dirX[i] * disp + SIN[(phase[i] + ti) & 255] * DRIFT;
+          var py = ty + dirY[i] * disp + SIN[(phase[i] + ti + 64) & 255] * DRIFT;
+          var x = px | 0, y = py | 0;
+          if (x < 0 || x >= W || y < 0 || y >= H) continue;
+
+          var k = i * 3, r, g, b;
+          if (mix <= 0) { r = ra[k]; g = ra[k + 1]; b = ra[k + 2]; }
+          else {
+            r = ra[k] + (rb[k] - ra[k]) * mix;
+            g = ra[k + 1] + (rb[k + 1] - ra[k + 1]) * mix;
+            b = ra[k + 2] + (rb[k + 2] - ra[k + 2]) * mix;
+          }
+          // Little-endian ABGR. Every browser this page runs in is LE.
+          buf32[y * W + x] = 0xff000000 | (b << 16) | (g << 8) | r;
+        }
+      }
+
+      /* Ground under, dots over. The ground is ramped in across the
+         materialisation rather than being there from the first frame —
+         otherwise the image is simply present at 300ms and the dust
+         reads as an effect laid over a picture instead of the thing the
+         picture is being built out of. */
+      var gA = GROUND * (e < ARRIVE ? ease(Math.max(0, e - 500) / (ARRIVE - 500)) : 1);
+      ctx.clearRect(0, 0, W, H);
+      if (gA > 0.002) {
+        ctx.globalAlpha = gA * (1 - mix);
+        ctx.drawImage(A.ground, 0, 0);
+        if (mix > 0 && B !== A) {
+          ctx.globalAlpha = gA * mix;
+          ctx.drawImage(B.ground, 0, 0);
+        }
+      }
+      ctx.globalAlpha = 1;
+      dctx.putImageData(pix, 0, 0);
+      ctx.drawImage(dots, 0, 0);
+      return true;
+    }
+
+    function tick(ms) {
+      raf = 0;
+      if (!cv || !cv.isConnected) return;
+      if (draw(ms)) live();
+      raf = requestAnimationFrame(tick);
+    }
+
+    function live() {
+      if (cv && !cv.classList.contains('is-live')) {
+        cv.classList.add('is-live');
+        if (host) host.classList.add('has-cloud');
+      }
+    }
+
+    function start() {
+      if (raf || !cv) return;
+      raf = requestAnimationFrame(tick);
+    }
+    function stop() {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    }
+
+    /* Called after every render, including the repaints cloud sync forces.
+       The canvas node is new each time; the sampled plates, the per-point
+       arrays and the clock are not. */
+    function mount(hero, srcs, clock) {
+      stop();
+      if (io) { io.disconnect(); io = null; }
+      if (onVis) { document.removeEventListener('visibilitychange', onVis); onVis = null; }
+
+      host = hero;
+      cv = hero.querySelector('.ath-cloud');
+      if (!cv || !cv.getContext) return;
+      ctx = cv.getContext('2d');
+      if (!ctx) return;
+
+      t0 = clock;
+      points();
+      ensure(srcs);
+
+      if (!dots) {
+        dots = document.createElement('canvas');
+        dots.width = W; dots.height = H;
+        dctx = dots.getContext('2d');
+      }
+      pix = dctx.createImageData(W, H);
+      buf32 = new Uint32Array(pix.data.buffer);
+
+      if (reduced()) {
+        // One settled frame, from a clock far enough past the arrival that
+        // nothing is still flying, and then nothing further.
+        var once = function () {
+          if (draw(t0 + ARRIVE + 500)) live();
+          else setTimeout(once, 120);
+        };
+        once();
+        return;
+      }
+
+      if ('IntersectionObserver' in window) {
+        io = new IntersectionObserver(function (es) {
+          if (es[0] && es[0].isIntersecting && document.visibilityState !== 'hidden') start();
+          else stop();
+        }, { rootMargin: '80px' });
+        io.observe(hero);
+      } else {
+        start();
+      }
+
+      onVis = function () {
+        if (document.visibilityState === 'hidden') stop();
+        else if (host && host.isConnected) start();
+      };
+      document.addEventListener('visibilitychange', onVis);
+    }
+
+    return { mount: mount, stop: stop };
+  })();
+
+  // ============================================================
+  // §HOME
+  // ============================================================
+  function renderHome(host, intro) {
+    var d = D();
+    var hero = d.getHero();
+    var subjects = d.subjectList();
+    var slot = d.focusSlot(S.focusSlot);
+    var today = d.todayLines();
+
+    /* The section register the pill's jump list is built from. Rebuilt on
+       every render because the banners fill it as they render, and the
+       hero seeds it — it is a plate like the rest, and being able to get
+       back to the top is the one jump a reader always wants. */
+    ATH_SECTIONS = [{ id: 'athHero', label: 'The Reading Room' }];
+
+    host.innerHTML =
+      heroHtml(hero, subjects, intro) +
+      focusSection(slot) +
+      todaySection(today) +
+      gallerySection(subjects, false) +
+      standingSection();
+
+    wireHome();
+  }
+
+  function heroHtml(hero, subjects, intro) {
+    var d = D();
+    var active = d.Curricula.list().filter(function (c) { return c.status === 'current'; }).length;
+    var concepts = d.Concepts.list().length;
+    // Split the unit off the number: Italiana has no true lowercase, so
+    // "0h" set in the display face reads as the word "oh".
+    var mins = subjects.reduce(function (a, s) { return a + (s.studyMinutes || 0); }, 0);
+    var hours = String(Math.floor(mins / 60));
+    var motto = String(hero.motto || 'STUDY · SYNTHESISE · APPLY · ').toUpperCase();
+
+    var arrival = introAttrs(intro);
+
+    return '<header class="ath-hero' + arrival.cls + '"' + arrival.style +
+      ' id="athHero" data-plate data-section="The Reading Room">' +
+      '<div class="ath-plate" aria-hidden="true">' +
+        (hero.image ? '<div class="ath-hero-photo" style="background-image:url(' + esc(hero.image) + ')"></div>' : '') +
+        '<canvas class="ath-cloud" width="' + ATH_CLOUD.W + '" height="' + ATH_CLOUD.H + '"></canvas>' +
+      '</div>' +
+      '<div class="ath-hero-rings" aria-hidden="true"></div>' +
+      '<div class="ath-hero-glow" aria-hidden="true"></div>' +
+      ringHtml(motto) +
+
+      // The section links that used to live here are now athenaeum-nav.js's
+      // strip, which is fixed over the top-right of EVERY Athenaeum page —
+      // including this one, where it sat directly on top of them. The
+      // wordmark stays (it belongs to the hero, not to navigation) and so
+      // does Edit, which is a control for this hero rather than a way to
+      // somewhere else.
+      '<div class="ath-topline">' +
+        '<p class="ath-wordmark">The Athenaeum <span>EST. MMXXVI</span></p>' +
+      '</div>' +
+
+      '<div class="ath-hero-body">' +
+        eyebrow(hero.eyebrow) +
+        '<h1 class="ath-h1">' + headlineLines(hero.line) + '</h1>' +
+      '</div>' +
+
+      '<div class="ath-hero-foot">' +
+        '<div class="ath-hero-stats">' +
+          '<div class="ath-hero-stat"><b>' + subjects.length + '</b><span>Permanent fields</span></div>' +
+          '<div class="ath-hero-stat"><b>' + active + '</b><span>Curricula running</span></div>' +
+          '<div class="ath-hero-stat"><b>' + concepts + '</b><span>Concepts kept</span></div>' +
+          '<div class="ath-hero-stat"><b>' + esc(hours) + '</b><span>Hours logged</span></div>' +
+        '</div>' +
+        '<div class="ath-hero-side">' +
+          '<p class="ath-hero-note">' + esc(hero.note) + '</p>' +
+          '<button class="ath-btn ath-btn-light ath-btn-sm" data-act="edit-hero" type="button">Edit the hero</button>' +
+        '</div>' +
+      '</div>' +
+
+      // The descent seal, straddling the hero's lower edge. The motto it
+      // used to carry is now the ring above.
+      '<button class="ath-orrery" type="button" data-act="descend" aria-label="Scroll to the fields">' +
+        '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="44"/></svg>' +
+        '<span class="ath-orrery-core">↓</span>' +
+      '</button>' +
+    '</header>';
+  }
+
+  /* §SIGNATURE — the motto set around a turning 3D ring, after the
+     reference's title treatment. One <b> per character, each placed at
+     its own angle; the stylesheet does the rest.
+
+     The motto is repeated until it fills the hoop, because a ring is only
+     legible if the text closes on itself — a half-empty ring reads as a
+     broken arc. `--fd` is the negative delay that welds each character's
+     depth-fade to where it actually is; see .ath-ring b.
+
+     Marked aria-hidden: this is the same motto the reader can already
+     find in the hero editor, and a screen reader spelling out sixty
+     single characters is noise, not content. */
+  var ATH_RING_TARGET = 54;   // characters that comfortably fill the hoop
+  var ATH_RING_DUR = 54;
+  function ringHtml(motto) {
+    var src = String(motto || '').trim();
+    if (!src) return '';
+    if (src.slice(-1) !== '·') src += ' ·';
+
+    /* A WHOLE number of repetitions, always. Filling to a fixed character
+       count and slicing leaves a butchered word at the seam — "APPLY"
+       coming round as "APPL" — which is the one thing a closed ring
+       cannot hide. */
+    var unit = src + ' ';
+    var reps = Math.max(1, Math.round(ATH_RING_TARGET / unit.length));
+    var text = '';
+    for (var r = 0; r < reps; r++) text += unit;
+
+    var n = text.length;
+    var out = '';
+    for (var i = 0; i < n; i++) {
+      var ch = text.charAt(i);
+      if (ch === ' ') continue;          // still consumes its slot: the word gap
+      var a = (360 / n) * i;
+      out += '<b style="--a:' + a.toFixed(2) + 'deg;--fd:' +
+        (-ATH_RING_DUR * a / 360).toFixed(2) + 's">' + esc(ch) + '</b>';
+    }
+    return '<div class="ath-ring" aria-hidden="true" style="--ath-ring-dur:' + ATH_RING_DUR + 's">' +
+      '<div class="ath-ring-spin">' + out + '</div></div>';
+  }
+
+  /* §BANNER — a section's own eyebrow, title and lede, moved onto a
+     full-bleed plate. Nothing is invented here and nothing is dropped:
+     these are the exact strings the sections used to set on paper.
+
+     `id` is what the pill's jump list scrolls to and what it reads its
+     label from, so every banner needs one. The plate is passed in rather
+     than cycled, because which work sits over which section is meant to
+     say something — see §BANNER in the stylesheet. */
+  var ATH_SECTIONS = [];
+  function banner(id, label, eyebrowText, title, lede, plate, aside) {
+    ATH_SECTIONS.push({ id: id, label: label });
+    return '<header class="ath-banner" id="' + id + '" data-plate data-section="' + esc(label) + '">' +
+      '<div class="ath-banner-plate" aria-hidden="true" ' +
+        'style="--plate:url(&quot;images_by_admin/athenaeum/' + plate + '&quot;)"></div>' +
+      '<div class="ath-banner-rings" aria-hidden="true"></div>' +
+      '<div class="ath-banner-scrim" aria-hidden="true"></div>' +
+      '<div class="ath-banner-body">' +
+        eyebrow(eyebrowText) +
+        '<h2 class="ath-h2">' + esc(title) + '</h2>' +
+        (lede ? '<p class="ath-lede">' + esc(lede) + '</p>' : '') +
+      '</div>' +
+      (aside ? '<div class="ath-banner-aside">' + aside + '</div>' : '') +
+    '</header>';
+  }
+
+  function focusSection(slot) {
+    var tabs = [
+      { id: 'current', label: 'Current curriculum' },
+      { id: 'next', label: 'Next curriculum' },
+      { id: 'back', label: 'Back burner' }
+    ];
+
+    return banner('athFocus', 'Current Learning', 'What is running', 'Current Learning',
+      'One curriculum at a time is the rule. The next one and the back burner are visible so they stop competing for attention.',
+      'hero-04.jpg') +
+    '<section class="ath-section" id="athFocusSec">' +
+      '<div class="ath-tabs" role="tablist">' +
+        tabs.map(function (t, i) {
+          return '<button class="ath-tab' + (S.focusSlot === t.id ? ' is-on' : '') + '" type="button" role="tab" ' +
+            'aria-selected="' + (S.focusSlot === t.id) + '" data-slot="' + t.id + '">' +
+            '<span class="ath-tab-n">' + D().roman(i + 1) + '</span>' + esc(t.label) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<div id="athFocusBody">' + focusBody(slot) + '</div>' +
+    '</section>';
+  }
+
+  /* Split out from focusSection so a tab click can repaint the body alone.
+     Rebuilding the whole section would re-create the banner, which would
+     replay its title reveal and reset the scroll-driven arc under a click
+     that has nothing to do with either. */
+  function focusBody(slot) {
+    var d = D();
+    var body;
+    if (!slot) {
+      body = '<div class="ath-empty"><b>Nothing pinned here yet</b>' +
+        'Curricula live inside their field. Open a field hub, create one, then pin it to this slot.' +
+        '<div style="margin-top:var(--sp-5)"><a class="ath-btn ath-btn-sm" href="#/fields">Choose a field</a></div></div>';
+    } else {
+      var c = slot.curriculum, s = slot.subject;
+      body = '<div class="ath-focus">' +
+        '<div class="ath-focus-main">' +
+          '<p class="ath-focus-subject">' +
+            (s ? '<a href="' + subjectHref(s.id) + '">' + esc(s.name) + '</a>' : '<span class="ath-micro">Unassigned field</span>') +
+          '</p>' +
+          '<h3 class="ath-focus-title">' + esc(c.title || 'Untitled curriculum') + '</h3>' +
+          (c.why ? '<p class="ath-prose ath-focus-why">' + esc(c.why) + '</p>' : '') +
+          '<dl class="ath-rows">' +
+            row('Module', slot.module ? esc(slot.module.title) : 'No modules yet', !slot.module) +
+            row('Lesson', slot.lesson ? esc(slot.lesson.title) : 'No lessons yet', !slot.lesson) +
+            row('Weekly hours', c.weeklyHours ? esc(c.weeklyHours) + ' h' : 'Not set', !c.weeklyHours) +
+            row('Window', c.startDate || c.endDate
+              ? esc((c.startDate ? d.fmtDate(c.startDate) : '—') + '  →  ' + (c.endDate ? d.fmtDate(c.endDate) : '—'))
+              : 'Open-ended', !(c.startDate || c.endDate)) +
+          '</dl>' +
+        '</div>' +
+        '<div class="ath-focus-side">' +
+          '<div>' +
+            '<p class="ath-micro">Progress toward outcomes</p>' +
+            '<p class="ath-pct" style="margin:6px 0 0">' + slot.progress + '<span style="font-size:16px">%</span></p>' +
+            meter(slot.progress) +
+          '</div>' +
+          '<div class="ath-next">' +
+            '<p class="ath-micro">Next action</p>' +
+            '<p>' + (slot.nextAction ? esc(slot.nextAction) : '<span style="color:var(--ath-ink-4);font-style:italic">Not decided yet</span>') + '</p>' +
+            '<div style="margin-top:var(--sp-4);display:flex;gap:var(--sp-2);flex-wrap:wrap">' +
+              '<a class="ath-btn ath-btn-solid ath-btn-sm" href="athenaeum-curriculum.html?id=' + encodeURIComponent(c.id) + '">Open curriculum</a>' +
+              '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="edit-next" data-id="' + esc(c.id) + '">Set next action</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    return body;
+  }
+
+  function todaySection(t) {
+    function cell(title, data, flag) {
+      var empty = data.empty;
+      return '<div class="ath-today-cell' + (empty ? ' is-empty' : '') + (flag && !empty ? ' is-flag' : '') + '">' +
+        '<h4>' + esc(title) + '</h4>' +
+        '<strong>' + (empty ? 'Nothing scheduled' : esc(data.text)) + '</strong>' +
+        (data.meta ? '<p class="ath-meta">' + esc(data.meta) + '</p>' : '') +
+      '</div>';
+    }
+    // No lede: this section never had one, and the banner is not a reason
+    // to write copy that was not already on the page.
+    return banner('athToday', 'Today', 'Today', 'Today’s Learning', '',
+      'hero-03.jpg',
+      '<button class="ath-btn ath-btn-light ath-btn-sm" type="button" data-act="edit-today">Edit today</button>') +
+    '<section class="ath-section is-tight">' +
+      '<div class="ath-today">' +
+        cell('Study session', t.study) +
+        cell('Review due', t.review) +
+        cell('Assignment due', t.assignment, t.assignment.overdue) +
+      '</div>' +
+      (t.intention ? '<p class="ath-intention">' + esc(t.intention) + '</p>' : '') +
+    '</section>';
+  }
+
+  function gallerySection(subjects, showFilters) {
+    var cards = subjects.length
+      ? '<div class="ath-grid">' + subjects.map(function (s, i) { return subjectCard(s, i); }).join('') + '</div>'
+      : '<div class="ath-empty"><b>No fields</b>The eleven fields seed themselves on first load. If this is empty, the cloud pull may still be running — reload in a moment.</div>';
+
+    /* The Fields route reuses this whole section under its own back bar,
+       where a full-bleed plate would be a second hero on a page that is
+       not the home page. Only home gets the banner; the filtered view
+       keeps the paper head it always had. */
+    var head = showFilters
+      ? '<div class="ath-head is-center">' + eyebrow('The permanent shelf', true) +
+          '<h2 class="ath-h2">The Fields I Study</h2>' +
+          '<p class="ath-lede">Eleven fields that do not end. Curricula come and go inside them; what is learned stays behind.</p>' +
+        '</div>'
+      : '';
+
+    return (showFilters ? '' : banner('athGallery', 'The Fields', 'The permanent shelf', 'The Fields I Study',
+      'Eleven fields that do not end. Curricula come and go inside them; what is learned stays behind.',
+      'hero-02.jpg')) +
+    '<section class="ath-section" id="' + (showFilters ? 'athGalleryFiltered' : 'athGallerySec') + '">' +
+      head +
+      (showFilters ? filterBar() : '') +
+      cards +
+      (showFilters ? '' : '<div style="text-align:center;margin-top:var(--sp-7)"><a class="ath-btn" href="#/fields">Browse all fields</a></div>') +
+    '</section>';
+  }
+
+  function filterBar() {
+    var d = D();
+    var opts = [{ id: 'all', label: 'All fields' }].concat(d.SUBJECT_STATUSES.map(function (s) { return { id: s.id, label: s.label }; }));
+    return '<div class="ath-filters">' + opts.map(function (o) {
+      return '<button class="ath-chip' + (S.filter === o.id ? ' is-on' : '') + '" type="button" data-filter="' + o.id + '">' + esc(o.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function standingSection() {
+    var d = D();
+    var due = d.reviewsDue().length;
+    var week = d.sessionsBetween(d.todayISO(), d.addDays(d.todayISO(), 6)).length;
+    var running = d.Experiments.list().filter(function (e) { return e.status === 'running'; }).length;
+    var box = d.BoxItems.list().filter(function (b) { return !b.promotedId; }).length;
+    function tile(href, name, blurb, n, unit) {
+      return '<a href="' + href + '"><b>' + esc(name) + '</b><p>' + esc(blurb) + '</p>' +
+        '<span class="ath-count">' + n + '<em>' + esc(unit) + '</em></span></a>';
+    }
+    return banner('athStanding', 'Standing Systems', 'Kept global on purpose', 'Standing Systems',
+      'Four things that cut across every field, so they live here rather than nine times over.',
+      'hero.jpg') +
+    '<section class="ath-section">' +
+      '<div class="ath-standing ath-rise">' +
+        tile('#/retention', 'Retention', 'Reviews owed today, from any field.', due, due === 1 ? 'due' : 'due') +
+        tile('#/calendar', 'Calendar', 'Class, study, research, reflection, experiment.', week, 'this week') +
+        tile('#/experiments', 'Experiment Lab', 'Where knowledge starts changing behaviour.', running, 'running') +
+        tile('#/box', 'The Box', 'The intellectual parking lot.', box, 'parked') +
+      '</div>' +
+    '</section>';
+  }
+
+  function wireHome() {
+    on('athViewHome', 'click', '[data-slot]', function (e, t) {
+      S.focusSlot = t.getAttribute('data-slot');
+      D().setUiState({ focusSlot: S.focusSlot });
+      /* Repaint just the switcher's body so the page does not move under a
+         click — and so the banner above it is left alone. Re-rendering the
+         whole section would re-create the banner, replaying its title
+         reveal and resetting its scroll-driven arc. */
+      var body = $('athFocusBody');
+      if (!body) { refreshCurrentView(); return; }
+      body.innerHTML = focusBody(D().focusSlot(S.focusSlot));
+      var sec = $('athFocusSec');
+      if (sec) sec.querySelectorAll('[data-slot]').forEach(function (b) {
+        var on = b.getAttribute('data-slot') === S.focusSlot;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      observeRises();
+    });
+    on('athViewHome', 'click', '[data-act="descend"]', function () {
+      var g = $('athGallery');
+      if (g) g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    on('athViewHome', 'click', '[data-act="edit-hero"]', function () { openHeroModal(); });
+    on('athViewHome', 'click', '[data-act="edit-today"]', function () { openTodayModal(); });
+    on('athViewHome', 'click', '[data-act="edit-next"]', function (e, t) { openNextActionModal(t.getAttribute('data-id')); });
+    wireHeroPlate();
+    wirePlates();
+    wirePill();
+  }
+
+  /* The three plates the cloud cycles through after the reader's own hero
+     image: Raphael's School of Athens, Rembrandt's Aristotle with a Bust
+     of Homer, and Wright of Derby's A Philosopher Lecturing on the Orrery.
+     All public domain, all sitting in the void/brass/verdigris the page is
+     already built from — which is why the Cellarius celestial plate that
+     was tried first is not here: a cream page scan blows out to a pale
+     slab on a dark hero. */
+  var ATH_PLATES = [
+    'images_by_admin/athenaeum/hero-02.jpg',
+    'images_by_admin/athenaeum/hero-03.jpg',
+    'images_by_admin/athenaeum/hero-04.jpg'
+  ];
+
+  function wireHeroPlate() {
+    var hero = $('athHero');
+    if (!hero) return;
+    var h = D().getHero();
+    athCloud.mount(
+      hero,
+      [h.image || 'images_by_admin/athenaeum/hero.jpg'].concat(ATH_PLATES),
+      introAt < 0 ? now() : introAt
+    );
+  }
+
+  /* §PLATES — the scroll driver for every full-bleed plate on the page:
+     the hero and the four section banners. Each gets two numbers.
+
+       --ath-arc  how much of its curved arrival is still to come, 1→0 as
+                  its top edge climbs the viewport. The stylesheet turns
+                  it into the bowed leading edge and the plate parallax.
+       --ath-out  how far it has departed, 0→1 over its own height. The
+                  stylesheet turns it into the zoom blur and, on the hero,
+                  the curve of its trailing edge.
+
+     The listener is attached to the window exactly once and re-collects
+     its elements after every repaint, because a repaint replaces the
+     nodes but never the window. */
+  var plates = [], plateRaf = 0, plateBound = false;
+  function clamp01(n) { return n < 0 ? 0 : n > 1 ? 1 : n; }
+
+  function wirePlates() {
+    plates = [].slice.call(document.querySelectorAll('#athViewHome [data-plate]'));
+    applyPlates();
+    if (plateBound) return;
+    plateBound = true;
+    window.addEventListener('scroll', queuePlates, { passive: true });
+    window.addEventListener('resize', queuePlates);
+  }
+  function queuePlates() {
+    if (plateRaf) return;
+    plateRaf = requestAnimationFrame(function () { plateRaf = 0; applyPlates(); });
+  }
+  /* Every rect is read before any style is written. Interleaving them
+     makes the browser flush layout once per plate, and this runs on every
+     scroll frame. */
+  function applyPlates() {
+    var vh = window.innerHeight || 1;
+    var i, rects = [];
+    for (i = 0; i < plates.length; i++) {
+      rects[i] = plates[i].isConnected ? plates[i].getBoundingClientRect() : null;
+    }
+    var end = $('athColophon');
+    var endTop = end ? end.getBoundingClientRect().top : Infinity;
+
+    for (i = 0; i < plates.length; i++) {
+      var r = rects[i];
+      if (!r) continue;
+      // Arriving while the top edge is between the foot of the viewport
+      // and 30% up it; settled from there on. The hero starts at top 0,
+      // so it is born settled and its arc never leaves 0.
+      plates[i].style.setProperty('--ath-arc', clamp01((r.top - vh * 0.30) / (vh * 0.70)).toFixed(3));
+      plates[i].style.setProperty('--ath-out', clamp01(-r.top / Math.max(1, r.height)).toFixed(3));
+    }
+    pillTick(rects, vh, endTop);
+  }
+
+  /* §PILL — the reference parks a small pill at the foot of the viewport
+     naming the section you are in. Built once and kept OUTSIDE the view
+     host so a repaint cannot destroy it mid-scroll; only its jump list is
+     refreshed, from the section register the banners fill as they render. */
+  var pill = null, pillLabel = null, pillList = null, pillNow = '', pillTurn = 0;
+
+  function buildPill() {
+    if (pill) return;
+    pill = document.createElement('div');
+    pill.className = 'ath-pill';
+    pill.innerHTML =
+      '<p class="ath-pill-now"><span></span></p>' +
+      '<button class="ath-pill-menu" type="button" aria-haspopup="true" aria-expanded="false" ' +
+        'aria-label="Jump to a section"><i></i></button>' +
+      '<div class="ath-pill-list" role="menu"></div>';
+    document.body.appendChild(pill);
+    pillLabel = pill.querySelector('.ath-pill-now span');
+    pillList = pill.querySelector('.ath-pill-list');
+
+    var menu = pill.querySelector('.ath-pill-menu');
+    menu.addEventListener('click', function () {
+      var open = pill.classList.toggle('is-open');
+      menu.setAttribute('aria-expanded', String(open));
+    });
+    pillList.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-goto]') : null;
+      if (!b) return;
+      var target = $(b.getAttribute('data-goto'));
+      pill.classList.remove('is-open');
+      menu.setAttribute('aria-expanded', 'false');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.addEventListener('click', function (e) {
+      if (pill.classList.contains('is-open') && !pill.contains(e.target)) {
+        pill.classList.remove('is-open');
+        menu.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && pill.classList.contains('is-open')) {
+        pill.classList.remove('is-open');
+        menu.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  function wirePill() {
+    buildPill();
+    pillList.innerHTML = ATH_SECTIONS.map(function (s, i) {
+      return '<button type="button" role="menuitem" data-goto="' + s.id + '">' +
+        '<em>' + D().roman(i + 1) + '</em>' + esc(s.label) + '</button>';
+    }).join('');
+    pillTick();
+  }
+
+  /* Called from applyPlates with the rects it already measured, so this
+     adds no layout reads of its own. */
+  function pillTick(rects, vh, endTop) {
+    if (!pill) return;
+    // Off the home route there are no sections to name.
+    if (S.route.name !== 'home') { pill.classList.remove('is-on', 'is-open'); return; }
+    if (!rects) { queuePlates(); return; }
+
+    var mark = vh * 0.35, current = null;
+    for (var i = 0; i < plates.length; i++) {
+      if (rects[i] && rects[i].top <= mark) current = plates[i];
+    }
+    // Held back over the hero, where it would sit on the descent seal and
+    // name a section the reader is already looking at — and again over the
+    // colophon, where the page has ended and it would sit on the wordmark
+    // the whole close is built around.
+    var past = rects[0] ? rects[0].bottom < vh * 0.5 : false;
+    var ended = endTop < vh * 0.62;
+    pill.classList.toggle('is-on', past && !ended && !!current);
+    if (!past || ended) pill.classList.remove('is-open');
+
+    var name = current ? (current.getAttribute('data-section') || '') : '';
+    if (!name || name === pillNow) return;
+    pillNow = name;
+    // The label wipes rather than cutting, the way the reference's does.
+    pill.classList.add('is-turning');
+    clearTimeout(pillTurn);
+    pillTurn = setTimeout(function () {
+      pillLabel.textContent = pillNow;
+      pill.classList.remove('is-turning');
+      pillList.querySelectorAll('[data-goto]').forEach(function (b) {
+        b.classList.toggle('is-on', b.getAttribute('data-goto') === (current && current.id));
+      });
+    }, 200);
+  }
+
+  // ============================================================
+  // §FIELDS — the same gallery, filterable.
+  // ============================================================
+  function renderFields(host) {
+    var d = D();
+    var all = d.subjectList();
+    var shown = S.filter === 'all' ? all : all.filter(function (s) { return s.status === S.filter; });
+    host.innerHTML =
+      '<div class="ath-backbar"><a class="ath-back" href="#/">← The Reading Room</a></div>' +
+      gallerySection(shown, true);
+    on('athViewFields', 'click', '[data-filter]', function (e, t) {
+      S.filter = t.getAttribute('data-filter');
+      render({ keepScroll: true });
+    });
+  }
+
+  // ============================================================
+  // §GLOBAL — the four standing systems and the four cross-field views.
+  //
+  // These are global on purpose: a Tuesday can owe you a psychology
+  // concept and a Roman collapse in the same sitting, and nine fields must
+  // never mean nine calendars. Everything here links back to its field.
+  // ============================================================
+  function renderGlobal(host) {
+    var id = S.route.id;
+    var r = GLOBAL_ROUTES[id] || GLOBAL_ROUTES.retention;
+    var fn = ({
+      retention: retentionBody, calendar: calendarBody, experiments: experimentsBody,
+      box: boxBody, inbox: inboxBody, knowledge: knowledgeBody,
+      connections: connectionsBody
+    })[id];
+
+    host.innerHTML =
+      '<div class="ath-backbar"><a class="ath-back" href="#/">← The Reading Room</a></div>' +
+      '<section class="ath-section" id="athGlobalSec">' +
+        '<div class="ath-head" style="max-width:none;display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-5);flex-wrap:wrap">' +
+          '<div style="max-width:760px">' +
+            eyebrow(id === 'retention' || id === 'calendar' || id === 'experiments' || id === 'box'
+              ? 'Kept global on purpose' : 'Across every field') +
+            '<h2 class="ath-h2">' + esc(r.title) + '</h2>' +
+            '<p class="ath-lede">' + esc(r.blurb) + '</p>' +
+          '</div>' +
+          globalAction(id) +
+        '</div>' +
+        (fn ? runSafely(fn, 'global ' + id) || '' : '') +
+      '</section>';
+  }
+
+  function globalAction(id) {
+    var map = {
+      calendar: '<button class="ath-btn ath-btn-solid" type="button" data-act="add-session">Schedule a session</button>',
+      experiments: '<button class="ath-btn ath-btn-solid" type="button" data-act="add-exp">New experiment</button>',
+      box: '<button class="ath-btn ath-btn-solid" type="button" data-act="add-box">Park something</button>',
+      retention: '<button class="ath-btn ath-btn-solid" type="button" data-act="add-review">Add to review</button>'
+    };
+    return map[id] || '';
+  }
+
+  // Every global row names its field and links back to it.
+  function subjLink(subjectId, hash) {
+    var d = D();
+    if (!subjectId) return '<span style="color:var(--ath-ink-4)">Unfiled</span>';
+    var s = d.subjectById(subjectId);
+    if (!s) return '<span style="color:var(--ath-ink-4)">Unknown field</span>';
+    return '<a href="' + subjectHref(subjectId) + (hash || '') + '">' + esc(s.name) + '</a>';
+  }
+  function dots(n, of) {
+    var out = '';
+    for (var i = 1; i <= (of || 5); i++) out += '<i class="' + (i <= n ? 'on' : '') + '"></i>';
+    return '<span class="ath-dots">' + out + '</span>';
+  }
+  function gsec(title, blurb, body) {
+    return '<div class="ath-gsec"><div class="ath-gsec-head"><h3>' + esc(title) + '</h3>' +
+      (blurb ? '<p>' + esc(blurb) + '</p>' : '') + '</div>' + body + '</div>';
+  }
+  function emptyNote(title, text, action) {
+    return '<div class="ath-empty"><b>' + esc(title) + '</b>' + esc(text) +
+      (action ? '<div style="margin-top:var(--sp-5)">' + action + '</div>' : '') + '</div>';
+  }
+
+  // --- Retention Center ------------------------------------------------
+  function retentionBody() {
+    var d = D(), today = d.todayISO();
+    var due = d.reviewsDue(today);
+    var overdue = d.reviewsOverdue(today);
+    var dueToday = due.filter(function (r) { return r.dueDate === today; });
+    var weak = d.reviewsWeak();
+    var recent = d.reviewsRecent(14);
+    var mastered = d.reviewsMastered();
+    if (!d.Reviews.list().length) {
+      return emptyNote('Nothing in review yet',
+        'A concept enters the review schedule from its own page in the Knowledge Base, or straight from here. Intervals run 1 · 3 · 7 · 16 · 35 · 75 · 150 days, doubling on a good recall and resetting to one on a bad one.',
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="add-review">Add the first item</button>');
+    }
+    function list(items, opts) {
+      opts = opts || {};
+      if (!items.length) return '<p class="ath-lede" style="font-size:15px;color:var(--ath-ink-4);font-style:italic">Nothing here.</p>';
+      return '<div class="ath-list">' + items.map(function (r) {
+        var late = r.dueDate < today;
+        var strength = d.labelFrom(d.REVIEW_STRENGTHS, r.strength, 'Learning');
+        return '<div class="ath-li' + (late && opts.flagLate ? ' is-late' : '') + '">' +
+          '<div class="ath-li-main">' +
+            '<p class="ath-li-t">' + esc(r.label || 'Untitled') + '</p>' +
+            '<p class="ath-li-m">' + subjLink(r.subjectId, r.conceptId ? '#/knowledge/' + encodeURIComponent(r.conceptId) : '#/knowledge') +
+              '<span>·</span><span>' + (late ? 'overdue since ' : 'due ') + esc(d.fmtDateShort(r.dueDate)) + '</span>' +
+              '<span>·</span><span>every ' + r.intervalDays + 'd</span>' +
+              (r.reps ? '<span>·</span><span>' + r.reps + ' review' + (r.reps === 1 ? '' : 's') + '</span>' : '') +
+            '</p>' +
+          '</div>' +
+          '<span class="ath-pill ' + (r.strength === 'weak' ? 't-bad' : r.strength === 'mastered' ? 't-good' : 't-warn') + '">' + esc(strength) + '</span>' +
+          (opts.grade
+            ? '<span class="ath-li-acts">' +
+              '<button class="ath-btn ath-btn-sm ath-btn-solid" type="button" data-grade="good" data-id="' + esc(r.id) + '">Recalled</button>' +
+              '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-grade="bad" data-id="' + esc(r.id) + '">Forgot</button>' +
+              '</span>'
+            : '<span class="ath-li-acts">' +
+              '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="del-review" data-id="' + esc(r.id) + '">Remove</button></span>') +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    return (overdue.length ? gsec('Overdue', overdue.length + ' past their date. Answer these first — a lapse resets the interval to one day.', list(overdue, { grade: true, flagLate: true })) : '') +
+      gsec('Due today', dueToday.length ? 'Across every field.' : '', list(dueToday, { grade: true })) +
+      gsec('Weak concepts', 'Missed at the last attempt.', list(weak)) +
+      gsec('Recently reviewed', 'The last fortnight.', list(recent)) +
+      gsec('Mastered', 'Reached the long intervals. Still comes back, just rarely.', list(mastered));
+  }
+
+  // --- Learning Calendar ------------------------------------------------
+  function calendarBody() {
+    var d = D();
+    var parts = String(S.calMonth || '').split('-');
+    var y = Number(parts[0]), m = Number(parts[1]);
+    if (!y || !m) { var n = new Date(); y = n.getFullYear(); m = n.getMonth() + 1; S.calMonth = y + '-' + String(m).padStart(2, '0'); }
+
+    var first = new Date(y, m - 1, 1);
+    var start = new Date(first);
+    start.setDate(1 - first.getDay()); // back to the Sunday on or before the 1st
+    var today = d.todayISO();
+    var monthName = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    var byDate = {};
+    d.Sessions.list().forEach(function (s) { (byDate[s.date] = byDate[s.date] || []).push(s); });
+
+    var cells = '';
+    var cur = new Date(start);
+    for (var i = 0; i < 42; i++) {
+      var iso = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+      var out = (cur.getMonth() + 1) !== m;
+      var evs = (byDate[iso] || []).sort(function (a, b) { return String(a.startTime || '').localeCompare(String(b.startTime || '')); });
+      cells += '<div class="ath-day' + (out ? ' is-out' : '') + (iso === today ? ' is-today' : '') + '" data-day="' + iso + '">' +
+        '<span class="ath-day-n">' + cur.getDate() + '</span>' +
+        evs.map(function (s) {
+          return '<button class="ath-ev k-' + esc(s.kind) + (s.done ? ' is-done' : '') + '" type="button" data-session="' + esc(s.id) + '" ' +
+            'title="' + esc(d.labelFrom(d.SESSION_KINDS, s.kind, 'Study') + ' · ' + s.title) + '">' +
+            (s.startTime ? esc(s.startTime) + ' ' : '') + esc(s.title || 'Untitled') + '</button>';
+        }).join('') +
+        '<button class="ath-day-add ath-sr" type="button" data-newday="' + iso + '">Add on ' + iso + '</button>' +
+      '</div>';
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    var week = d.sessionsBetween(today, d.addDays(today, 6));
+    return '<div class="ath-calbar">' +
+        '<button class="ath-btn-icon" type="button" data-cal="-1" aria-label="Previous month">←</button>' +
+        '<h3>' + esc(monthName) + '</h3>' +
+        '<button class="ath-btn-icon" type="button" data-cal="1" aria-label="Next month">→</button>' +
+        '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-cal="0">Today</button>' +
+        '<div class="ath-legend">' + d.SESSION_KINDS.map(function (k) {
+          return '<span class="k-' + k.id + '"><i></i>' + esc(k.label) + '</span>';
+        }).join('') + '</div>' +
+      '</div>' +
+      '<div class="ath-cal">' +
+        ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(function (x) { return '<div class="ath-cal-dow">' + x + '</div>'; }).join('') +
+        cells +
+      '</div>' +
+      '<p class="ath-lede" style="margin-top:var(--sp-4);font-size:14px">' +
+        (week.length ? week.length + ' session' + (week.length === 1 ? '' : 's') + ' in the next seven days. Click any day to add one.'
+                     : 'Nothing scheduled in the next seven days. Click any day to add a session.') + '</p>';
+  }
+
+  // --- Experiment Lab ---------------------------------------------------
+  function experimentsBody() {
+    var d = D();
+    var all = d.Experiments.list().slice().sort(d.byOrder);
+    var shown = S.expSubject ? all.filter(function (e) { return e.subjectId === S.expSubject; }) : all;
+    if (!all.length) {
+      return emptyNote('No experiments yet',
+        'An experiment is where a claim stops being something you read and starts being something you tested. Remove the phone during deep work. Change the pricing. Try a different opening hook.',
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="add-exp">Design the first one</button>');
+    }
+    var used = {};
+    all.forEach(function (e) { if (e.subjectId) used[e.subjectId] = 1; });
+    return '<div class="ath-gfilters">' +
+        '<button class="ath-chip' + (S.expSubject ? '' : ' is-on') + '" type="button" data-expsub="">Every field</button>' +
+        d.subjectList().filter(function (s) { return used[s.id]; }).map(function (s) {
+          return '<button class="ath-chip' + (S.expSubject === s.id ? ' is-on' : '') + '" type="button" data-expsub="' + esc(s.id) + '">' + esc(s.name) + '</button>';
+        }).join('') +
+      '</div>' +
+      (shown.length ? '<div class="ath-ggrid">' + shown.map(experimentCard).join('') + '</div>'
+                    : '<p class="ath-lede">No experiments in that field yet.</p>');
+  }
+
+  function experimentCard(e) {
+    var d = D();
+    var tone = e.status === 'running' ? 't-good' : e.status === 'done' ? 't-warn' : e.status === 'abandoned' ? 't-mute' : '';
+    return '<article class="ath-gcard">' +
+      '<h4>' + esc(e.title || 'Untitled experiment') + '</h4>' +
+      (e.hypothesis ? '<div><p class="lab">Hypothesis</p><p class="hyp">' + esc(e.hypothesis) + '</p></div>' : '') +
+      (e.protocol ? '<div><p class="lab">Protocol</p><p class="hyp">' + esc(e.protocol) + '</p></div>' : '') +
+      (e.conclusion ? '<div><p class="lab">Conclusion</p><p class="hyp">' + esc(e.conclusion) + '</p></div>'
+                    : e.result ? '<div><p class="lab">Result so far</p><p class="hyp">' + esc(e.result) + '</p></div>' : '') +
+      '<div class="meta">' +
+        '<span class="ath-pill ' + tone + '">' + esc(d.labelFrom(d.EXPERIMENT_STATUSES, e.status, 'Planned')) + '</span>' +
+        '<span style="font-size:11.5px;color:var(--ath-ink-3)">' + subjLink(e.subjectId, '#/knowledge') + '</span>' +
+        (e.startDate ? '<span style="font-size:11.5px;color:var(--ath-ink-3)">from ' + esc(d.fmtDateShort(e.startDate)) + '</span>' : '') +
+        '<span style="margin-left:auto;display:flex;gap:6px">' +
+          '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="edit-exp" data-id="' + esc(e.id) + '">Edit</button>' +
+          '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="del-exp" data-id="' + esc(e.id) + '">✕</button>' +
+        '</span>' +
+      '</div>' +
+    '</article>';
+  }
+
+  // --- The Box -----------------------------------------------------------
+  function boxBody() {
+    var d = D();
+    var all = d.BoxItems.list().slice().sort(function (a, b) {
+      var p = (b.priority || 0) - (a.priority || 0);
+      return p !== 0 ? p : String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
+    var open = all.filter(function (b) { return !b.promotedId; });
+    var promoted = all.filter(function (b) { return b.promotedId; });
+    if (!all.length) {
+      return emptyNote('The box is empty',
+        'This is the parking lot: future fields, rabbit holes, books to investigate, questions with nowhere to go yet. Nothing here is a commitment — that is the point of having somewhere to put it.',
+        '<button class="ath-btn ath-btn-sm" type="button" data-act="add-box">Park the first thing</button>');
+    }
+    var shown = S.boxKind ? open.filter(function (b) { return b.kind === S.boxKind; }) : open;
+    var used = {};
+    open.forEach(function (b) { used[b.kind] = 1; });
+    // The filter bar only earns its place while something is still parked.
+    return (open.length
+      ? '<div class="ath-gfilters">' +
+          '<button class="ath-chip' + (S.boxKind ? '' : ' is-on') + '" type="button" data-boxkind="">Everything</button>' +
+          d.BOX_KINDS.filter(function (k) { return used[k.id]; }).map(function (k) {
+            return '<button class="ath-chip' + (S.boxKind === k.id ? ' is-on' : '') + '" type="button" data-boxkind="' + esc(k.id) + '">' + esc(k.label) + '</button>';
+          }).join('') +
+        '</div>'
+      : '') +
+      (shown.length
+        ? '<div class="ath-ggrid">' + shown.map(boxCard).join('') + '</div>'
+        : open.length
+          ? '<p class="ath-lede">Nothing of that kind parked.</p>'
+          : emptyNote('The lot is clear',
+              'Everything parked here has been promoted into a curriculum. That is the box working as intended — it is a waiting room, not a graveyard.',
+              '<button class="ath-btn ath-btn-sm" type="button" data-act="add-box">Park something new</button>')) +
+      (promoted.length ? gsec('Already promoted', 'Kept so the trail from curiosity to curriculum stays readable.',
+        '<div class="ath-list">' + promoted.map(function (b) {
+          var c = d.Curricula.get(b.promotedId);
+          return '<div class="ath-li"><div class="ath-li-main"><p class="ath-li-t">' + esc(b.title) + '</p>' +
+            '<p class="ath-li-m">' + subjLink(b.subjectId, '#/curricula') + '<span>·</span>' +
+            (c ? '<a href="athenaeum-curriculum.html?id=' + encodeURIComponent(c.id) + '">became “' + esc(c.title) + '”</a>'
+               : '<span>its curriculum was since deleted</span>') + '</p></div>' +
+            '<span class="ath-li-acts"><button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="del-box" data-id="' + esc(b.id) + '">✕</button></span>' +
+          '</div>';
+        }).join('') + '</div>') : '');
+  }
+
+  function boxCard(b) {
+    var d = D();
+    return '<article class="ath-gcard">' +
+      '<h4>' + esc(b.title || 'Untitled') + '</h4>' +
+      (b.why ? '<div><p class="lab">Why it caught me</p><p class="hyp">' + esc(b.why) + '</p></div>' : '') +
+      '<div style="display:flex;gap:var(--sp-5);flex-wrap:wrap">' +
+        '<div><p class="lab">Interest</p>' + dots(b.interest) + '</div>' +
+        '<div><p class="lab">Priority</p>' + dots(b.priority) + '</div>' +
+      '</div>' +
+      (b.potentialCurriculum ? '<div><p class="lab">Could become</p><p class="hyp">' + esc(b.potentialCurriculum) + '</p></div>' : '') +
+      '<div class="meta">' +
+        '<span class="ath-pill">' + esc(d.labelFrom(d.BOX_KINDS, b.kind, 'Curiosity')) + '</span>' +
+        '<span style="font-size:11.5px;color:var(--ath-ink-3)">' + subjLink(b.subjectId, '#/curricula') + '</span>' +
+        '<span style="font-size:11.5px;color:var(--ath-ink-4)">' + esc(d.fmtAgo(b.createdAt)) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="ath-btn ath-btn-sm ath-btn-solid" type="button" data-act="promote-next" data-id="' + esc(b.id) + '">Promote to next</button>' +
+        '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="promote-back" data-id="' + esc(b.id) + '">Back burner</button>' +
+        '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="edit-box" data-id="' + esc(b.id) + '">Edit</button>' +
+        '<button class="ath-btn ath-btn-sm ath-btn-ghost" type="button" data-act="del-box" data-id="' + esc(b.id) + '">✕</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  // --- Cross-field roll-ups ---------------------------------------------
+  // Read-only on purpose: each of these is edited inside its own field, so
+  // a global view that also edited would be a second source of truth.
+  function inboxBody() {
+    var d = D();
+    var all = d.inboxAll();
+    if (!all.length) return emptyNote('Nothing captured anywhere', 'Captures are made inside a field, in its Deep Research Bar. They gather here so you can see the whole stream at once.');
+    var shown = S.inboxKind ? all.filter(function (i) { return i.kind === S.inboxKind; }) : all;
+    var used = {};
+    all.forEach(function (i) { used[i.kind] = 1; });
+    return '<div class="ath-gfilters">' +
+        '<button class="ath-chip' + (S.inboxKind ? '' : ' is-on') + '" type="button" data-inkind="">Everything</button>' +
+        d.INBOX_KINDS.filter(function (k) { return used[k.id]; }).map(function (k) {
+          return '<button class="ath-chip' + (S.inboxKind === k.id ? ' is-on' : '') + '" type="button" data-inkind="' + esc(k.id) + '">' + esc(k.label) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<div class="ath-list">' + shown.map(function (i) {
+        return '<div class="ath-li"><div class="ath-li-main">' +
+          '<p class="ath-li-t">' + esc(i.text) + '</p>' +
+          '<p class="ath-li-m">' + subjLink(i.subjectId, '#/research') +
+            '<span>·</span><span>' + esc(d.labelFrom(d.INBOX_KINDS, i.kind, 'Question')) + '</span>' +
+            '<span>·</span><span>' + esc(d.fmtAgo(i.createdAt)) + '</span></p>' +
+        '</div>' +
+        '<span class="ath-pill ' + (i.status === 'investigating' ? 't-warn' : i.status === 'resolved' ? 't-good' : 't-mute') + '">' +
+          esc(d.labelFrom(d.INBOX_STATUSES, i.status, 'Unexamined')) + '</span>' +
+        '</div>';
+      }).join('') + '</div>';
+  }
+
+  function knowledgeBody() {
+    var d = D();
+    var all = d.Concepts.list().slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    if (!all.length) return emptyNote('No concepts yet', 'Concepts belong to a field. Open a field hub and its Knowledge Base to write the first one.');
+    var q = String(S.globalQuery || '').trim().toLowerCase();
+    var shown = q ? all.filter(function (c) { return (c.name + ' ' + c.simple + ' ' + c.definition).toLowerCase().indexOf(q) >= 0; }) : all;
+    return '<div class="ath-gfilters"><input class="ath-gsearch" id="athGlobalQ" type="search" placeholder="Search every field…" value="' + esc(S.globalQuery || '') + '"></div>' +
+      '<div class="ath-list" id="athGlobalList">' + shown.map(conceptRow).join('') + '</div>';
+  }
+  function conceptRow(c) {
+    var d = D();
+    return '<a class="ath-li" href="' + subjectHref(c.subjectId) + '#/knowledge/' + encodeURIComponent(c.id) + '">' +
+      '<div class="ath-li-main"><p class="ath-li-t">' + esc(c.name) + '</p>' +
+        '<p class="ath-li-m"><span style="color:var(--ath-verd)">' + esc(d.subjectName(c.subjectId)) + '</span>' +
+        '<span>·</span><span>' + esc(d.masteryLabel(c.mastery)) + '</span>' +
+        '<span>·</span><span>confidence ' + c.confidence + '/5</span></p>' +
+        (c.simple ? '<p class="ath-li-body">' + esc(c.simple) + '</p>' : '') +
+      '</div></a>';
+  }
+
+  /* resourcesBody() was removed when the Resource Library moved to
+     athenaeum-resources.html. It was read-only — no add, no edit, no
+     search — and keeping a second, weaker view of the same collection
+     would only be a place for the two to disagree. #/resources
+     redirects; see MOVED_ROUTES. */
+
+  /* The global map: all eleven fields on a ring, with a chord for every
+     cross-field link. This is the payoff view — the one place the whole
+     thing reads as a single system rather than eleven folders. */
+  function connectionsBody() {
+    var d = D();
+    var cross = d.Connections.list().filter(function (c) { return c.kind === 'cross'; });
+    var subjects = d.subjectList();
+    if (!cross.length) {
+      return emptyNote('No cross-field links yet',
+        'Draw them from inside a field — its Connections tab. Psychology ↔ Persuasion, History ↔ Entrepreneurship. A link drawn once shows from both ends.');
+    }
+    var linked = {};
+    cross.forEach(function (c) { linked[c.subjectId] = 1; linked[c.toId] = 1; });
+
+    // Height is set from the radius rather than the other way round, so
+    // the ring is not left floating in vertical whitespace.
+    var W = 820, r = 165, H = r * 2 + 140, cx = W / 2, cy = H / 2;
+    var pos = {};
+    subjects.forEach(function (s, i) {
+      var a = (i / subjects.length) * Math.PI * 2 - Math.PI / 2;
+      pos[s.id] = { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, a: a };
+    });
+    var edges = cross.map(function (c) {
+      var p1 = pos[c.subjectId], p2 = pos[c.toId];
+      if (!p1 || !p2) return '';
+      var mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      var qx = mx + (cx - mx) * 0.6, qy = my + (cy - my) * 0.6;
+      return '<path class="edge" d="M' + p1.x.toFixed(1) + ',' + p1.y.toFixed(1) +
+        ' Q' + qx.toFixed(1) + ',' + qy.toFixed(1) + ' ' + p2.x.toFixed(1) + ',' + p2.y.toFixed(1) + '"/>';
+    }).join('');
+    var nodes = subjects.map(function (s) {
+      var p = pos[s.id];
+      var right = Math.cos(p.a) > -0.15;
+      var label = s.name.length > 26 ? s.name.slice(0, 25) + '…' : s.name;
+      return '<g class="node' + (linked[s.id] ? ' is-linked' : '') + '">' +
+        '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (linked[s.id] ? 7 : 4.5) + '"/>' +
+        '<text x="' + (p.x + (right ? 13 : -13)).toFixed(1) + '" y="' + (p.y + 3.5).toFixed(1) + '" ' +
+        'text-anchor="' + (right ? 'start' : 'end') + '">' + esc(label) + '</text></g>';
+    }).join('');
+
+    return '<div class="ath-map"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" ' +
+      'aria-label="' + cross.length + ' links between your fields">' + edges + nodes + '</svg></div>' +
+      '<div class="ath-list">' + cross.map(function (c) {
+        return '<div class="ath-li"><div class="ath-li-main">' +
+          '<p class="ath-li-t">' + esc(d.subjectName(c.subjectId)) +
+            ' <span style="color:var(--ath-verd)">' + (c.label ? '→ ' + esc(c.label) + ' →' : '↔') + '</span> ' +
+            esc(d.subjectName(c.toId)) + '</p>' +
+          (c.note ? '<p class="ath-li-body">' + esc(c.note) + '</p>' : '') +
+        '</div>' +
+        '<span class="ath-li-acts"><a class="ath-btn ath-btn-sm ath-btn-ghost" href="' + subjectHref(c.subjectId) + '#/connections">Open</a></span>' +
+        '</div>';
+      }).join('') + '</div>';
+  }
+
+  function renderFooterFields() {
+    var host = $('athFootFields');
+    if (!host) return;
+    host.innerHTML = D().subjectList().slice(0, 6).map(function (s) {
+      return '<a href="' + subjectHref(s.id) + '">' + esc(s.name) + '</a>';
+    }).join('') + '<a href="#/fields" style="color:var(--ath-verd)">All eleven →</a>';
+  }
+
+  // ============================================================
+  // §MODAL
+  // ============================================================
+  var modalCtx = null;
+  var modalDraft = null;
+  function fieldText(label, key, val, ph) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + key + '">' + esc(label) + '</label>' +
+      '<input class="ath-input" id="f_' + key + '" data-f="' + key + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+  }
+  function fieldArea(label, key, val, ph, rows) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + key + '">' + esc(label) + '</label>' +
+      '<textarea class="ath-textarea" id="f_' + key + '" data-f="' + key + '" rows="' + (rows || 4) + '" placeholder="' + esc(ph || '') + '">' + esc(val || '') + '</textarea></div>';
+  }
+  function fieldHint(text) { return '<p class="ath-field-hint">' + esc(text) + '</p>'; }
+
+  function openModal(cfg) {
+    modalCtx = cfg;
+    var m = $('athModal');
+    m.classList.toggle('is-wide', !!cfg.wide);
+    m.innerHTML =
+      '<div class="ath-modal-head">' +
+        '<h3 class="ath-h3">' + esc(cfg.title) + '</h3>' +
+        '<button class="ath-btn-icon" type="button" data-close aria-label="Close">✕</button>' +
+      '</div>' +
+      '<div class="ath-modal-body">' + cfg.body + '</div>' +
+      '<div class="ath-modal-foot">' +
+        '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-close>Cancel</button>' +
+        '<button class="ath-btn ath-btn-solid ath-btn-sm" type="button" data-save>' + esc(cfg.saveLabel || 'Save') + '</button>' +
+      '</div>';
+    $('athModalBg').classList.add('show');
+    // Autosave. Everything in this dialog lives only in the DOM until Save
+    // is pressed, so a refresh here used to take the whole form with it.
+    // The fingerprint keeps two records that share a title apart.
+    modalDraft = window.AthDraft ? AthDraft.bind(
+      'modal:home:' + (cfg.title || '') + ':' + AthDraft.fingerprint(m), m,
+      { onRestore: function (when) { toast('Put back what you had typed ' + when); } }
+    ) : null;
+    var first = m.querySelector('[data-f]');
+    if (first) setTimeout(function () { first.focus(); }, 40);
+  }
+  /* Cancel, Escape and the backdrop are a DECISION to throw the form away,
+     so the draft goes with it. A refresh is not a decision, and its draft
+     has to survive — which is why only the explicit paths pass true. */
+  function closeModal(discard) {
+    $('athModalBg').classList.remove('show');
+    if (modalDraft) { if (discard) modalDraft.clear(); else modalDraft.save(); }
+    modalDraft = null;
+    modalCtx = null;
+  }
+  function modalValues() {
+    var out = {};
+    $('athModal').querySelectorAll('[data-f]').forEach(function (n) { out[n.getAttribute('data-f')] = n.value; });
+    return out;
+  }
+
+  function openHeroModal() {
+    var h = D().getHero();
+    openModal({
+      title: 'The hero',
+      body:
+        fieldText('Eyebrow', 'eyebrow', h.eyebrow, 'A private academy of one') +
+        fieldArea('Headline', 'line', h.line, 'One line per row', 3) +
+        fieldHint('Each row becomes its own line in the display type.') +
+        fieldArea('Note', 'note', h.note, '', 3) +
+        fieldText('Ring motto', 'motto', h.motto, 'STUDY · SYNTHESISE · APPLY · ') +
+        fieldHint('Set on the turning seal below the hero. Keep the trailing separator so it reads continuously.') +
+        fieldText('Background image URL', 'image', h.image, 'Optional — overrides the built-in image') +
+        fieldHint('Leave empty to keep the built-in hero photograph. Anything you put here layers over it.'),
+      onSave: function (v) { D().setHero(v); toast('Hero updated'); }
+    });
+  }
+
+  function openTodayModal() {
+    var t = D().getToday();
+    openModal({
+      title: 'Today’s Learning',
+      body:
+        fieldText('Intention', 'intention', t.intention, 'One line. What today is for.') +
+        fieldHint('The three cells below fill themselves from your sessions, reviews and assignments. Fill one in only to override it for today.') +
+        fieldText('Study session override', 'studyOverride', t.studyOverride) +
+        fieldText('Review override', 'reviewOverride', t.reviewOverride) +
+        fieldText('Assignment override', 'assignmentOverride', t.assignmentOverride),
+      onSave: function (v) { D().setToday(v); toast('Today updated'); }
+    });
+  }
+
+  function openNextActionModal(id) {
+    var c = D().Curricula.get(id);
+    if (!c) return;
+    openModal({
+      title: 'Next action',
+      body:
+        fieldHint('The one thing to do the next time this curriculum is opened. It shows on the homepage.') +
+        fieldText('Next action', 'nextAction', c.nextAction, 'Read chapter 4 and write the counter-argument'),
+      onSave: function (v) { D().Curricula.update(id, { nextAction: v.nextAction }); toast('Next action set'); }
+    });
+  }
+
+  function fieldSelect(label, key, val, opts) {
+    return '<div class="ath-field"><label class="ath-field-label" for="f_' + key + '">' + esc(label) + '</label>' +
+      '<select class="ath-select" id="f_' + key + '" data-f="' + key + '">' + opts.map(function (o) {
+        return '<option value="' + esc(o.id) + '"' + (String(o.id) === String(val) ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+      }).join('') + '</select></div>';
+  }
+  function fieldRow(a, b) { return '<div class="ath-field-row">' + a + b + '</div>'; }
+  function subjectOptions(allowNone) {
+    var opts = D().subjectList().map(function (s) { return { id: s.id, label: s.name }; });
+    return allowNone ? [{ id: '', label: '— no field —' }].concat(opts) : opts;
+  }
+
+  // ============================================================
+  // §GLOBAL MODALS
+  // ============================================================
+  function openSessionModal(session, presetDate) {
+    var d = D();
+    var s = session || {};
+    // Curricula are listed with their field, since this picker spans all
+    // eleven and two fields can name a curriculum similarly.
+    var curOpts = [{ id: '', label: '— not tied to a curriculum —' }].concat(
+      d.Curricula.list().map(function (c) {
+        return { id: c.id, label: d.subjectName(c.subjectId) + ' · ' + (c.title || 'Untitled') };
+      }));
+    openModal({
+      title: session ? 'Edit session' : 'Schedule a session',
+      wide: true,
+      body:
+        fieldText('Title', 'title', s.title, 'Read Cialdini ch. 4') +
+        fieldRow(
+          fieldSelect('Kind', 'kind', s.kind || 'study', d.SESSION_KINDS.map(function (k) { return { id: k.id, label: k.label + ' — ' + k.blurb }; })),
+          fieldSelect('Field', 'subjectId', s.subjectId || '', subjectOptions(true))
+        ) +
+        fieldRow(
+          fieldText('Date', 'date', s.date || presetDate || d.todayISO(), 'YYYY-MM-DD'),
+          fieldText('Start time', 'startTime', s.startTime, '09:30')
+        ) +
+        fieldRow(
+          fieldText('Minutes', 'minutes', s.minutes == null ? 60 : s.minutes),
+          fieldSelect('Curriculum', 'curriculumId', s.curriculumId || '', curOpts)
+        ) +
+        fieldArea('Note', 'note', s.note, '', 2) +
+        (session ? fieldSelect('Done', 'done', s.done ? '1' : '', [{ id: '', label: 'Not yet' }, { id: '1', label: 'Completed' }]) : ''),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('A session needs a title', true); return; }
+        v.done = v.done === '1';
+        if (session) { d.Sessions.update(session.id, v); toast('Session updated'); }
+        else { d.Sessions.add(v); toast('Session scheduled'); }
+      }
+    });
+  }
+
+  function openExperimentModal(exp) {
+    var d = D();
+    var e = exp || {};
+    openModal({
+      title: exp ? 'Edit experiment' : 'New experiment',
+      wide: true,
+      body:
+        fieldText('Title', 'title', e.title, 'Remove the phone during deep work') +
+        fieldRow(
+          fieldSelect('Field', 'subjectId', e.subjectId || '', subjectOptions(true)),
+          fieldSelect('Status', 'status', e.status || 'planned', d.EXPERIMENT_STATUSES)
+        ) +
+        fieldArea('Hypothesis', 'hypothesis', e.hypothesis, 'What you expect to happen, stated so it could be wrong.', 3) +
+        fieldArea('Protocol', 'protocol', e.protocol, 'What you will actually do, and for how long.', 3) +
+        fieldRow(fieldText('Start', 'startDate', e.startDate, 'YYYY-MM-DD'), fieldText('End', 'endDate', e.endDate, 'YYYY-MM-DD')) +
+        fieldArea('Result', 'result', e.result, 'What happened.', 3) +
+        fieldArea('Conclusion', 'conclusion', e.conclusion, 'What you now believe, and what changes because of it.', 3),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('An experiment needs a title', true); return; }
+        if (exp) { d.Experiments.update(exp.id, v); toast('Experiment updated'); }
+        else { v.order = d.nextOrder(d.Experiments.list()); d.Experiments.add(v); toast('Experiment designed'); }
+      }
+    });
+  }
+
+  function openBoxModal(item) {
+    var d = D();
+    var b = item || {};
+    openModal({
+      title: item ? 'Edit parked item' : 'Park something',
+      body:
+        fieldText('What it is', 'title', b.title, 'Sortition and lottery-based governance') +
+        fieldRow(
+          fieldSelect('Kind', 'kind', b.kind || 'curiosity', d.BOX_KINDS),
+          fieldSelect('Field', 'subjectId', b.subjectId || '', subjectOptions(true))
+        ) +
+        fieldArea('Why it caught me', 'why', b.why, 'The reason it was interesting, while you still remember it.', 3) +
+        fieldRow(
+          fieldSelect('Interest', 'interest', b.interest == null ? 3 : b.interest, [1, 2, 3, 4, 5].map(function (n) { return { id: n, label: n + ' / 5' }; })),
+          fieldSelect('Priority', 'priority', b.priority == null ? 3 : b.priority, [1, 2, 3, 4, 5].map(function (n) { return { id: n, label: n + ' / 5' }; }))
+        ) +
+        fieldText('Could become the curriculum', 'potentialCurriculum', b.potentialCurriculum, 'Optional — used as the title when promoted'),
+      onSave: function (v) {
+        if (!v.title.trim()) { toast('Give it a name', true); return; }
+        if (item) { d.BoxItems.update(item.id, v); toast('Updated'); }
+        else { v.order = d.nextOrder(d.BoxItems.list()); d.BoxItems.add(v); toast('Parked'); }
+      }
+    });
+  }
+
+  /* A review item usually points at a concept, so the picker lists every
+     concept that is not already scheduled. A free-text label is allowed
+     for anything that is not yet written up as a concept. */
+  function openReviewModal() {
+    var d = D();
+    var scheduled = {};
+    d.Reviews.list().forEach(function (r) { if (r.conceptId) scheduled[r.conceptId] = 1; });
+    var concepts = d.Concepts.list().filter(function (c) { return !scheduled[c.id]; });
+    openModal({
+      title: 'Add to review',
+      body:
+        (concepts.length
+          ? fieldSelect('Concept', 'conceptId', '', [{ id: '', label: '— something else —' }].concat(
+              concepts.map(function (c) { return { id: c.id, label: d.subjectName(c.subjectId) + ' · ' + c.name }; })))
+          : fieldHint('Every concept you have written is already in the schedule. Add a free-text item below instead.')) +
+        fieldText('Or a label of your own', 'label', '', 'Fall of Rome — the fiscal argument') +
+        fieldSelect('Field', 'subjectId', '', subjectOptions(true)) +
+        fieldHint('First review lands tomorrow, then 3 · 7 · 16 · 35 · 75 · 150 days — doubling on a good recall, back to one day on a bad one.'),
+      onSave: function (v) {
+        var label = v.label.trim();
+        var subjectId = v.subjectId;
+        if (v.conceptId) {
+          var c = d.Concepts.get(v.conceptId);
+          if (c) { label = label || c.name; subjectId = subjectId || c.subjectId; }
+        }
+        if (!label) { toast('Pick a concept or write a label', true); return; }
+        d.Reviews.add({
+          conceptId: v.conceptId, subjectId: subjectId, label: label,
+          dueDate: d.addDays(d.todayISO(), 1), intervalDays: 1, strength: 'learning'
+        });
+        toast('Added to the review schedule');
+      }
+    });
+  }
+
+  // ============================================================
+  // §GLOBAL WIRING
+  // ============================================================
+  on('athViewGlobal', 'click', '[data-act="add-session"]', function () { openSessionModal(null); });
+  on('athViewGlobal', 'click', '[data-act="add-exp"]', function () { openExperimentModal(null); });
+  on('athViewGlobal', 'click', '[data-act="add-box"]', function () { openBoxModal(null); });
+  on('athViewGlobal', 'click', '[data-act="add-review"]', function () { openReviewModal(); });
+
+  on('athViewGlobal', 'click', '[data-grade]', function (e, t) {
+    D().gradeReview(t.getAttribute('data-id'), t.getAttribute('data-grade') === 'good');
+    toast(t.getAttribute('data-grade') === 'good' ? 'Interval extended' : 'Back to one day');
+    refreshCurrentView();
+  });
+  on('athViewGlobal', 'click', '[data-act="del-review"]', function (e, t) {
+    D().Reviews.remove(t.getAttribute('data-id'));
+    toast('Removed from review');
+    refreshCurrentView();
+  });
+
+  on('athViewGlobal', 'click', '[data-cal]', function (e, t) {
+    var step = Number(t.getAttribute('data-cal'));
+    var d = D();
+    if (!step) {
+      var n = new Date();
+      S.calMonth = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
+    } else {
+      var p = String(S.calMonth).split('-');
+      var dt = new Date(Number(p[0]), Number(p[1]) - 1 + step, 1);
+      S.calMonth = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    }
+    refreshCurrentView();
+  });
+  on('athViewGlobal', 'click', '[data-session]', function (e, t) {
+    e.stopPropagation();
+    openSessionModal(D().Sessions.get(t.getAttribute('data-session')));
+  });
+  // Clicking anywhere else on a day opens a new session pre-dated to it.
+  on('athViewGlobal', 'click', '.ath-day', function (e, t) {
+    if (e.target.closest('[data-session]')) return;
+    openSessionModal(null, t.getAttribute('data-day'));
+  });
+
+  on('athViewGlobal', 'click', '[data-expsub]', function (e, t) { S.expSubject = t.getAttribute('data-expsub'); refreshCurrentView(); });
+  on('athViewGlobal', 'click', '[data-act="edit-exp"]', function (e, t) { openExperimentModal(D().Experiments.get(t.getAttribute('data-id'))); });
+  on('athViewGlobal', 'click', '[data-act="del-exp"]', function (e, t) {
+    if (!confirm('Delete this experiment?')) return;
+    D().Experiments.remove(t.getAttribute('data-id'));
+    toast('Deleted');
+    refreshCurrentView();
+  });
+
+  on('athViewGlobal', 'click', '[data-boxkind]', function (e, t) { S.boxKind = t.getAttribute('data-boxkind'); refreshCurrentView(); });
+  on('athViewGlobal', 'click', '[data-inkind]', function (e, t) { S.inboxKind = t.getAttribute('data-inkind'); refreshCurrentView(); });
+  on('athViewGlobal', 'click', '[data-act="edit-box"]', function (e, t) { openBoxModal(D().BoxItems.get(t.getAttribute('data-id'))); });
+  on('athViewGlobal', 'click', '[data-act="del-box"]', function (e, t) {
+    if (!confirm('Delete this parked item?')) return;
+    D().BoxItems.remove(t.getAttribute('data-id'));
+    toast('Deleted');
+    refreshCurrentView();
+  });
+
+  /* Promotion creates a real curriculum in the item's field and stamps the
+     box entry rather than deleting it, so the trail stays readable. */
+  function promote(id, status) {
+    var d = D();
+    var b = d.BoxItems.get(id);
+    if (!b) return;
+    if (!b.subjectId) {
+      toast('Give it a field first — a curriculum lives inside one', true);
+      openBoxModal(b);
+      return;
+    }
+    var c = d.promoteBoxItem(id, b.subjectId, status);
+    if (!c) { toast('Could not promote that', true); return; }
+    toast('Promoted into ' + d.subjectName(b.subjectId));
+    refreshCurrentView();
+  }
+  on('athViewGlobal', 'click', '[data-act="promote-next"]', function (e, t) { promote(t.getAttribute('data-id'), 'next'); });
+  on('athViewGlobal', 'click', '[data-act="promote-back"]', function (e, t) { promote(t.getAttribute('data-id'), 'backburner'); });
+
+  on('athViewGlobal', 'input', '#athGlobalQ', function (e, t) {
+    S.globalQuery = t.value;
+    // Repaint the list alone so the search box keeps focus.
+    var host = $('athGlobalList');
+    if (!host) { refreshCurrentView(); return; }
+    var d = D(), q = S.globalQuery.trim().toLowerCase();
+    var all = d.Concepts.list().slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    var shown = q ? all.filter(function (c) { return (c.name + ' ' + c.simple + ' ' + c.definition).toLowerCase().indexOf(q) >= 0; }) : all;
+    host.innerHTML = shown.length ? shown.map(conceptRow).join('')
+      : '<div class="ath-li"><p class="ath-li-t" style="color:var(--ath-ink-4);font-style:italic">Nothing matches that.</p></div>';
+  });
+
+  on('athModalBg', 'click', '[data-close]', function () { closeModal(true); });
+  on('athModalBg', 'click', '[data-save]', function () {
+    if (!modalCtx || !modalCtx.onSave) { closeModal(true); return; }
+    var cb = modalCtx.onSave, v = modalValues();
+    closeModal(true);
+    runSafely(function () { cb(v); refreshCurrentView(); }, 'modal save');
+  });
+  $('athModalBg').addEventListener('click', function (e) { if (e.target === $('athModalBg')) closeModal(true); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('athModalBg').classList.contains('show')) closeModal(true);
+  });
+
+  // ============================================================
+  // §BOOT
+  // ============================================================
+  // Mounted at parse time, before the first paint, so a remote pull can
+  // land before seedNow() ever runs. 'ath:' is this page's alone.
+  var remoteRef = { applied: false };
+  if (typeof window.initCloudSync === 'function' && window.supabase) {
+    window.initCloudSync({
+      appKey: 'athenaeum',
+      syncedPrefixes: ['ath:'],
+      onApplied: function () { remoteRef.applied = true; refreshCurrentView(); }
+    });
+  }
+
+  window.addEventListener('hashchange', function () { runSafely(render, 'hashchange'); });
+
+  function boot() {
+    var d = D();
+    if (!d) { console.error('[Athenaeum] athenaeum-data.js did not load'); return; }
+    var ui = d.getUiState();
+    if (ui.focusSlot) S.focusSlot = ui.focusSlot;
+    render();
+    // Never seed before the cloud has had its chance: a push from a
+    // fresh-install blank would replace the whole 'athenaeum' row.
+    d.maybeSeedAfterSyncAttempt(remoteRef, function () { refreshCurrentView(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
+      window.LocalStoreIDB.ready().then(function () { runSafely(boot, 'boot'); });
+    } else {
+      runSafely(boot, 'boot');
+    }
+  });
+})();
+</script>
+</body>
+</html>

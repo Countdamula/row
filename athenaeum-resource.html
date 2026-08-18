@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resource — The Athenaeum</title>
+
+<!-- MUST be first and MUST NOT be deferred: local-store-idb.js replaces
+     window.localStorage with an IndexedDB-backed shim, and every later
+     script assumes the shim is already installed. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400&family=Italiana&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* Tokens, resets, shared type and buttons — identical to
+   athenaeum-resources.html by construction. */
+:root{
+  --ath-ground:#06080B;
+  --ath-paper:#0A0C0F;
+  --ath-paper-2:#12161C;
+  --ath-panel:#171C24;
+
+  --ath-void:#0A0C0F;
+  --ath-slate:#13171C;
+  --ath-raise:#1C212A;
+
+  --ath-ink:#F2EFE8;
+  --ath-ink-2:rgba(242,239,232,.72);
+  --ath-ink-3:rgba(242,239,232,.52);
+  --ath-ink-4:rgba(242,239,232,.38);
+  --ath-rule:rgba(242,239,232,.13);
+  --ath-rule-soft:rgba(242,239,232,.065);
+
+  --ath-verd:#3D7668;    --ath-verd-rgb:61,118,104;   --ath-verd-hi:#5A9E8C;
+  --ath-brass:#9A7830;   --ath-brass-rgb:154,120,48;  --ath-brass-hi:#C9A458;
+  --ath-bad:#A2453E;     --ath-bad-rgb:162,69,62;
+
+  --ath-onDark:#F2EFE8;
+  --ath-onDark-2:rgba(242,239,232,.70);
+  --ath-onDark-3:rgba(242,239,232,.42);
+  --ath-onDark-4:rgba(242,239,232,.22);
+
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:18px;
+  --sp-5:26px; --sp-6:38px; --sp-7:56px; --sp-8:84px; --sp-9:120px;
+
+  --ath-r-sm:2px; --ath-r:3px; --ath-r-lg:4px;
+
+  --ath-display:"Italiana", Didot, "Bodoni MT", Georgia, serif;
+  --ath-hero-face:"Bodoni Moda", Didot, "Bodoni MT", "Playfair Display", Georgia, serif;
+  --ath-prose:"Newsreader", Georgia, "Times New Roman", serif;
+  --ath-ui:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ath-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --ath-spring:cubic-bezier(.34,1.32,.64,1);
+  --ath-ease:cubic-bezier(.32,.72,0,1);
+  --ath-pull:cubic-bezier(.16,.84,.24,1);
+
+  --ath-lift:0 1px 0 rgba(242,239,232,.055) inset, 0 14px 30px -22px rgba(0,0,0,.85);
+  --ath-lift-2:0 1px 0 rgba(242,239,232,.085) inset, 0 30px 60px -30px rgba(0,0,0,.95), 0 6px 18px -12px rgba(0,0,0,.6);
+  --ath-lift-dark:0 30px 70px -34px rgba(0,0,0,.9), 0 6px 20px -12px rgba(0,0,0,.6);
+
+  --ath-gut:clamp(20px, 4.6vw, 76px);
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ath-paper); color:var(--ath-ink);
+  font-family:var(--ath-ui); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
+}
+img{max-width:100%; display:block}
+button{font:inherit; color:inherit; cursor:pointer; border:0; background:none}
+a{color:inherit; text-decoration:none}
+:focus-visible{outline:2px solid var(--ath-verd-hi); outline-offset:3px}
+.ath-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ath-sheet{width:100%; background:var(--ath-paper); overflow:clip}
+
+/* Fine tooth. `overlay` rather than `multiply`: on a near-black ground
+   multiply multiplies toward black and does nothing at all, so the grain
+   adds light instead of subtracting it. */
+.ath-grain{
+  position:fixed; inset:0; pointer-events:none; z-index:9; opacity:.28; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='180' height='180' filter='url(%23n)' opacity='.28'/></svg>");
+}
+
+/* ---------- shared type -------------------------------------------- */
+.ath-eyebrow{
+  display:flex; align-items:center; gap:var(--sp-3);
+  font-family:var(--ath-ui); font-size:11px; font-weight:500;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ath-ink-2);
+}
+.ath-eyebrow::before{content:""; width:42px; height:1px; background:var(--ath-brass-hi); flex:none}
+.ath-h1{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(44px, 7.4vw, 104px); line-height:.98; letter-spacing:.02em;
+  text-transform:uppercase; margin:0;
+}
+.ath-h3{
+  font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(20px, 2.3vw, 28px); line-height:1.15; letter-spacing:.05em;
+  text-transform:uppercase; margin:0;
+}
+.ath-lede{font-family:var(--ath-prose); font-size:17px; line-height:1.68; color:var(--ath-ink-2); margin:0}
+.ath-micro{
+  font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-3);
+}
+/* Numerals are Newsreader, never Italiana: Italiana's zero is
+   indistinguishable from a capital O, so "2026" reads as "2o26". Every
+   figure on this page goes through .ath-num or .ath-prose. */
+.ath-num{
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+}
+
+/* ---------- buttons ------------------------------------------------- */
+.ath-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2);
+  padding:12px 22px; border:1px solid var(--ath-ink); background:transparent;
+  color:var(--ath-ink); font-size:12.5px; font-weight:500; letter-spacing:.06em;
+  border-radius:var(--ath-r-sm);
+  transition:background-color .22s var(--ath-ease), color .22s var(--ath-ease),
+             transform .22s var(--ath-spring), border-color .22s var(--ath-ease);
+}
+.ath-btn:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+.ath-btn:active{transform:translateY(0)}
+.ath-btn-solid{background:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-solid:hover{background:var(--ath-verd); border-color:var(--ath-verd); color:#fff}
+.ath-btn-sm{padding:8px 14px; font-size:11.5px}
+.ath-btn-ghost{border-color:var(--ath-rule); color:var(--ath-ink-2)}
+.ath-btn-ghost:hover{background:var(--ath-ink); border-color:var(--ath-ink); color:var(--ath-paper)}
+.ath-btn-light{border-color:var(--ath-onDark-4); color:var(--ath-onDark)}
+.ath-btn-light:hover{background:var(--ath-onDark); color:var(--ath-void); border-color:var(--ath-onDark)}
+.ath-btn-danger{border-color:rgba(var(--ath-bad-rgb),.55); color:#D2726A}
+.ath-btn-danger:hover{background:var(--ath-bad); border-color:var(--ath-bad); color:#fff}
+.ath-btn-icon{
+  width:34px; height:34px; padding:0; border:1px solid var(--ath-rule);
+  border-radius:var(--ath-r-sm); color:var(--ath-ink-2); font-size:14px;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:background-color .2s var(--ath-ease), color .2s var(--ath-ease), transform .2s var(--ath-spring);
+}
+.ath-btn-icon:hover{background:var(--ath-ink); color:var(--ath-paper); transform:translateY(-1px)}
+
+/* =====================================================================
+   ONE PAGE, THREE TEMPLATES.
+
+   A resource's page is chosen by its medium, because the three media want
+   genuinely different things from a page and pretending otherwise would
+   serve none of them:
+
+     reader   Book                     a table of contents and a column of prose
+     page     Paper Course Article
+              Person Dataset Tool      a title, a plate, and a margin of facts
+     media    Video Podcast Lecture    a player, a queue, and notes with times
+
+   Everything above this line is shared, and so is the modal, the toast and
+   the rich-text editor below it.
+   ===================================================================== */
+.rs-shell{width:100%; min-height:100vh; background:var(--ath-paper); overflow:clip}
+
+/* The way back. Every template opens with it, in the same place, because
+   the Library is where you came from and where you are going next. */
+.rs-back{
+  display:inline-flex; align-items:center; gap:9px;
+  font-family:var(--ath-ui); font-size:11.5px; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--ath-onDark-2);
+  transition:color .2s var(--ath-ease), gap .2s var(--ath-ease);
+}
+.rs-back:hover{color:var(--ath-onDark); gap:14px}
+.rs-back.on-paper{color:var(--ath-ink-3)}
+.rs-back.on-paper:hover{color:var(--ath-ink)}
+
+.rs-tags{display:flex; flex-wrap:wrap; gap:7px}
+.rs-tag{
+  padding:5px 12px; border:1px solid var(--ath-rule); border-radius:999px;
+  font-family:var(--ath-ui); font-size:11px; letter-spacing:.06em; color:var(--ath-ink-3);
+  transition:border-color .2s var(--ath-ease), color .2s var(--ath-ease);
+}
+.rs-tag:hover{border-color:var(--ath-verd-hi); color:var(--ath-verd-hi)}
+.rs-tag.on-dark{border-color:var(--ath-onDark-4); color:var(--ath-onDark-2)}
+.rs-tag.on-dark:hover{border-color:var(--ath-onDark); color:var(--ath-onDark)}
+
+/* Shared prose treatment for every pasted body and chapter. Pasted markup
+   arrives stripped of style and class (see §SANITISE), so these rules are
+   the ONLY thing dressing it — which is exactly why a chapter from a white
+   PDF lands on this page's ground instead of bringing its own. */
+.rs-rich{
+  font-family:var(--ath-prose); font-size:17.5px; line-height:1.78; color:var(--ath-ink-2);
+}
+.rs-rich > *:first-child{margin-top:0}
+.rs-rich p{margin:0 0 1.15em}
+.rs-rich h2{
+  margin:2em 0 .7em; font-family:var(--ath-display); font-weight:400;
+  font-size:26px; line-height:1.2; letter-spacing:.05em; text-transform:uppercase; color:var(--ath-ink);
+}
+.rs-rich h3{margin:1.7em 0 .6em; font-family:var(--ath-display); font-weight:400; font-size:21px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ath-ink)}
+.rs-rich h4{margin:1.5em 0 .5em; font-family:var(--ath-ui); font-size:12px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-brass-hi)}
+.rs-rich strong{color:var(--ath-ink); font-weight:600}
+.rs-rich em{font-style:italic}
+.rs-rich a{color:var(--ath-verd-hi); text-decoration:underline; text-underline-offset:3px}
+.rs-rich ul,.rs-rich ol{margin:0 0 1.15em; padding-left:1.4em}
+.rs-rich li{margin:0 0 .45em}
+.rs-rich blockquote{
+  margin:1.6em 0; padding:2px 0 2px var(--sp-5); border-left:1px solid var(--ath-brass);
+  font-size:20px; line-height:1.6; color:var(--ath-ink); font-style:italic;
+}
+.rs-rich hr{border:0; height:1px; background:var(--ath-rule); margin:2.2em 0}
+.rs-rich img{margin:1.6em 0; border-radius:var(--ath-r)}
+.rs-rich code{font-family:var(--ath-mono); font-size:.88em; background:var(--ath-paper-2); padding:2px 6px; border-radius:2px}
+.rs-rich pre{background:var(--ath-paper-2); padding:var(--sp-4); border-radius:var(--ath-r); overflow:auto}
+.rs-rich figcaption{font-size:13px; color:var(--ath-ink-4); text-align:center; margin-top:-1em}
+
+/* A contenteditable that is visually indistinguishable from the rendered
+   article, so editing is not a mode you enter but a place you click. */
+[data-rich]{outline:none; border-radius:var(--ath-r); transition:box-shadow .2s var(--ath-ease)}
+[data-rich]:focus{box-shadow:0 0 0 1px var(--ath-rule), 0 0 0 6px rgba(var(--ath-verd-rgb),.10)}
+[data-rich].is-empty::before{
+  content:attr(data-ph); color:var(--ath-ink-4); pointer-events:none; display:block;
+}
+
+/* =====================================================================
+   §READER — Books. Reference 2: a full-bleed image, the way back sitting
+   on it, a Didone title, the dek, the person, then the date and the tags
+   on one rule; and below, a sticky table of contents beside the prose.
+   ===================================================================== */
+.rd-hero{
+  position:relative; min-height:clamp(420px, 66vh, 620px);
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:96px var(--ath-gut) var(--sp-6);
+  background:var(--ath-void); color:var(--ath-onDark); overflow:hidden; isolation:isolate;
+  --ath-out:0;
+  clip-path:ellipse(calc(420% - var(--ath-out) * 300%) calc(100% - var(--ath-out) * 8%) at 50% 0%);
+}
+.rd-hero .ath-plate{
+  position:absolute; inset:0; z-index:-3;
+  transform:scale(calc(1 + var(--ath-out) * .06));
+  filter:blur(calc(var(--ath-out) * 6px));
+  opacity:calc(1 - var(--ath-out) * .45);
+  background-size:cover; background-position:center;
+}
+/* House rule on images: a colour treatment layer, then a scrim graded so
+   the title always sits on the darkest part of the picture, ending on the
+   page's exact ground so the plate dissolves rather than stopping. */
+.rd-hero .ath-plate::after{
+  content:""; position:absolute; inset:0; background:var(--ath-slate); mix-blend-mode:multiply; opacity:.5;
+}
+/* The coverless plate. Rings large enough to read as an engraving at hero
+   scale rather than as the thumbnail texture scaled up. */
+.rd-hero .ath-plate.is-drawn{
+  background:
+    repeating-radial-gradient(circle at 72% 28%, rgba(242,239,232,.055) 0 1px, transparent 1px 46px),
+    linear-gradient(148deg, hsl(var(--h,210) 26% 21%), hsl(calc(var(--h,210) + 24) 24% 8%));
+}
+.rd-hero .ath-plate.is-drawn::after{opacity:.2}
+.rd-hero::before{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(ellipse 800px 560px at 18% 88%, rgba(var(--ath-brass-rgb),.20) 0%, transparent 64%),
+    linear-gradient(180deg, rgba(8,10,13,.72) 0%, rgba(8,10,13,.18) 30%, rgba(8,10,13,.88) 82%, var(--ath-void) 100%);
+}
+.rd-hero-in{position:relative; z-index:2; max-width:1000px}
+.rd-hero .rs-back{margin-bottom:var(--sp-5)}
+/* Bodoni for every piece of text inside a plate. Same rule as every other
+   hero in the Athenaeum. */
+.rd-hero, .rd-hero .rd-title, .rd-hero .rs-back{font-family:var(--ath-hero-face); font-optical-sizing:auto}
+.rd-title{
+  margin:0; font-family:var(--ath-hero-face); font-optical-sizing:auto; font-weight:500;
+  font-size:clamp(34px, 4.6vw, 62px); line-height:1.04; letter-spacing:-.005em;
+}
+.rd-dek{
+  margin:var(--sp-4) 0 0; max-width:720px; font-family:var(--ath-prose);
+  font-size:17px; line-height:1.62; color:var(--ath-onDark-2);
+}
+.rd-byline{
+  display:flex; align-items:center; gap:var(--sp-5); flex-wrap:wrap;
+  margin-top:var(--sp-6);
+}
+.rd-person{display:flex; align-items:center; gap:var(--sp-3)}
+.rd-person .rs-face{width:38px; height:38px; font-size:13px}
+.rd-person b{display:block; font-family:var(--ath-ui); font-weight:500; font-size:13.5px; color:var(--ath-onDark)}
+.rd-person span{font-family:var(--ath-ui); font-size:11.5px; color:var(--ath-onDark-3)}
+.rd-acts{margin-left:auto; display:flex; gap:var(--sp-2); flex-wrap:wrap}
+/* The rule under the byline carries the date on the left and the tags on
+   the right, exactly as the reference does. */
+.rd-strip{
+  position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between;
+  gap:var(--sp-5); flex-wrap:wrap; margin-top:var(--sp-6); padding-top:var(--sp-4);
+  border-top:1px solid var(--ath-onDark-4);
+}
+.rd-strip .ath-micro{color:var(--ath-onDark-3)}
+
+.rd-body{
+  display:grid; grid-template-columns:250px minmax(0,1fr); gap:var(--sp-8);
+  max-width:1180px; margin:0 auto; padding:var(--sp-8) var(--ath-gut) var(--sp-9); align-items:start;
+}
+@media (max-width:940px){ .rd-body{grid-template-columns:1fr; gap:var(--sp-6)} }
+
+.rd-toc{position:sticky; top:var(--sp-5); display:grid; gap:var(--sp-4)}
+@media (max-width:940px){ .rd-toc{position:static} }
+.rd-toc h4{margin:0; font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-3)}
+.rd-toc-list{display:grid; gap:1px}
+/* The active chapter is marked with a left rule, as in the reference. */
+.rd-chap{
+  position:relative; display:block; width:100%; text-align:left;
+  padding:8px 0 8px var(--sp-4); margin-left:-1px;
+  border-left:1px solid var(--ath-rule-soft);
+  font-family:var(--ath-prose); font-size:14px; line-height:1.45; color:var(--ath-ink-4);
+  transition:color .2s var(--ath-ease), border-color .2s var(--ath-ease);
+}
+.rd-chap:hover{color:var(--ath-ink-2); border-color:var(--ath-rule)}
+.rd-chap.is-on{color:var(--ath-ink); border-color:var(--ath-brass-hi)}
+.rd-chap.is-read::after{
+  content:"✓"; position:absolute; right:0; top:8px; font-size:10px; color:var(--ath-verd-hi);
+}
+.rd-toc-foot{display:grid; gap:var(--sp-2); padding-top:var(--sp-3); border-top:1px solid var(--ath-rule-soft)}
+.rd-progress{display:flex; align-items:center; gap:var(--sp-3)}
+.rd-progress .lb-meter{flex:1; height:2px; background:var(--ath-rule-soft); border-radius:2px; overflow:hidden}
+.rd-progress .lb-meter i{display:block; height:100%; background:var(--ath-verd-hi)}
+.rd-progress span{font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+  font-size:11.5px; color:var(--ath-ink-4)}
+
+.rd-main{min-width:0; max-width:74ch}
+.rd-chap-head{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:var(--sp-5); margin-bottom:var(--sp-5);
+}
+.rd-chap-title{
+  margin:0; font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(26px,3vw,36px); line-height:1.12; letter-spacing:.045em; text-transform:uppercase;
+  color:var(--ath-ink);
+}
+.rd-chap-sub{margin:var(--sp-2) 0 0; font-family:var(--ath-prose); font-size:15px; color:var(--ath-ink-3)}
+.rd-chap-meta{display:flex; gap:var(--sp-4); align-items:center; margin-top:var(--sp-3)}
+.rd-chap-acts{display:flex; gap:var(--sp-2); flex:none; flex-wrap:wrap; justify-content:flex-end}
+
+/* Notes sit in their own surface below the chapter, raised a step — the
+   one thing on this page that is yours rather than the book's. */
+.rd-notes{
+  margin-top:var(--sp-8); padding:var(--sp-5); background:var(--ath-paper-2);
+  border-radius:var(--ath-r); box-shadow:var(--ath-lift);
+}
+.rd-notes h4{
+  margin:0 0 var(--sp-3); font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.rd-notes .rs-rich{font-size:15.5px; line-height:1.7}
+
+/* =====================================================================
+   §PAGE — Papers, Courses, Articles, People, Datasets, Tools.
+   Reference 3: a centred title with tag pills under it, a wide plate, and
+   then a narrow rail of facts beside the prose with an accented lede.
+   ===================================================================== */
+.pg-wrap{max-width:1060px; margin:0 auto; padding:112px var(--ath-gut) var(--sp-9)}
+.pg-top{text-align:center; display:grid; gap:var(--sp-5); justify-items:center}
+/* The way back and the two controls share one rule above the title, so the
+   title arrives clean. Centring Edit and Delete under the headline made
+   them the second thing on the page, which they are not. */
+.pg-bar{
+  width:100%; display:flex; align-items:center; justify-content:space-between;
+  gap:var(--sp-4); margin-bottom:var(--sp-3);
+}
+.pg-bar-acts{display:flex; gap:var(--sp-2)}
+.pg-title{
+  margin:0; max-width:22ch; font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(30px, 4vw, 50px); line-height:1.12; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--ath-ink);
+}
+.pg-kind{
+  font-family:var(--ath-ui); font-size:10.5px; font-weight:600; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.pg-plate{
+  position:relative; margin:var(--sp-7) 0 0; aspect-ratio:16/7; overflow:hidden;
+  border-radius:var(--ath-r); background:var(--ath-paper-2); box-shadow:var(--ath-lift-2);
+}
+.pg-plate img{width:100%; height:100%; object-fit:cover}
+.pg-plate::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 52%, rgba(8,10,13,.55) 100%);
+}
+.pg-plate .lb-plate span{font-size:64px}
+/* A Person gets a portrait plate, not a landscape one — a face wants its
+   own proportion. */
+.pg-plate.is-portrait{aspect-ratio:auto; width:min(300px,60vw); margin-left:auto; margin-right:auto}
+.pg-plate.is-portrait::before{content:""; display:block; padding-top:125%}
+.pg-plate.is-portrait img{position:absolute; inset:0}
+
+.pg-body{
+  display:grid; grid-template-columns:186px minmax(0,1fr); gap:var(--sp-7);
+  margin-top:var(--sp-8); align-items:start;
+}
+@media (max-width:860px){ .pg-body{grid-template-columns:1fr; gap:var(--sp-5)} }
+/* Tight on purpose: reference 3's margin carries two facts, ours carries
+   eight, and at the reference's rhythm the last of them would sit level
+   with the middle of the article. */
+.pg-meta{position:sticky; top:var(--sp-5); display:grid; gap:var(--sp-3)}
+@media (max-width:860px){ .pg-meta{position:static; grid-template-columns:repeat(auto-fit,minmax(140px,1fr))} }
+.pg-mrow{display:grid; gap:4px; padding-bottom:var(--sp-3); border-bottom:1px solid var(--ath-rule-soft)}
+.pg-mrow:last-child{border-bottom:0; padding-bottom:0}
+.pg-mrow > span{font-family:var(--ath-ui); font-size:9.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-4)}
+.pg-mrow b{font-family:var(--ath-prose); font-weight:400; font-size:14px; color:var(--ath-ink-2);
+  font-variant-numeric:lining-nums tabular-nums}
+.pg-mperson{display:flex; align-items:center; gap:10px}
+.pg-mperson .rs-face{width:30px; height:30px; font-size:11px}
+.pg-main{min-width:0; max-width:70ch}
+/* The reference sets its opening paragraph in the accent colour. Ours is
+   verdigris, and it is applied to the first paragraph only. */
+.pg-main .rs-rich > p:first-of-type{color:var(--ath-verd-hi); font-size:18.5px; line-height:1.7}
+
+/* Tails — the blocks a particular medium earns under its prose. */
+.pg-tail{margin-top:var(--sp-8); padding-top:var(--sp-6); border-top:1px solid var(--ath-rule-soft)}
+.pg-tail h4{
+  margin:0 0 var(--sp-4); font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.pg-link{
+  display:flex; align-items:center; gap:var(--sp-4); padding:var(--sp-4);
+  background:var(--ath-paper-2); border-radius:var(--ath-r); box-shadow:var(--ath-lift);
+  transition:transform .22s var(--ath-spring), box-shadow .22s var(--ath-ease);
+}
+.pg-link:hover{transform:translateY(-2px); box-shadow:var(--ath-lift-2)}
+.pg-link-n{flex:1; min-width:0}
+.pg-link-n b{display:block; font-family:var(--ath-display); font-weight:400; font-size:19px;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ath-ink)}
+.pg-link-n span{font-family:var(--ath-prose); font-size:13px; color:var(--ath-ink-4);
+  font-variant-numeric:lining-nums tabular-nums}
+.pg-works{display:grid; gap:var(--sp-5)}
+.pg-workgroup > p{
+  margin:0 0 var(--sp-3); font-family:var(--ath-ui); font-size:9.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-ink-4);
+}
+.pg-work{
+  display:flex; align-items:center; gap:var(--sp-3); padding:10px 0;
+  border-top:1px solid var(--ath-rule-soft);
+  font-family:var(--ath-prose); font-size:15px; color:var(--ath-ink-2);
+  transition:color .2s var(--ath-ease), padding-left .2s var(--ath-ease);
+}
+.pg-work:hover{color:var(--ath-brass-hi); padding-left:6px}
+.pg-work i{margin-left:auto; font-style:normal; font-size:12px; color:var(--ath-ink-4);
+  font-variant-numeric:lining-nums tabular-nums}
+
+/* =====================================================================
+   §MEDIA — Videos, Podcasts, Lectures. Reference 4: a dark rail of what
+   is next, a player on a darker stage, a title row, a row of actions,
+   and a panel of notes below.
+   ===================================================================== */
+.md-shell{
+  display:grid; grid-template-columns:282px minmax(0,1fr); min-height:100vh; align-items:start;
+}
+@media (max-width:940px){ .md-shell{grid-template-columns:1fr} }
+.md-queue{
+  position:sticky; top:0; align-self:start; min-height:100vh;
+  padding:96px var(--sp-5) var(--sp-6); background:var(--ath-ground);
+  border-right:1px solid var(--ath-rule-soft);
+}
+@media (max-width:940px){ .md-queue{position:static; min-height:0; border-right:0;
+  border-bottom:1px solid var(--ath-rule-soft); padding-top:96px} }
+.md-queue h4{
+  margin:var(--sp-6) 0 var(--sp-3); font-family:var(--ath-ui); font-size:9.5px; font-weight:600;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--ath-ink-4);
+}
+.md-q{
+  display:grid; grid-template-columns:64px minmax(0,1fr); gap:var(--sp-3); align-items:center;
+  padding:9px 0; border-top:1px solid var(--ath-rule-soft);
+}
+.md-q:first-of-type{border-top:0}
+.md-q-thumb{position:relative; width:64px; aspect-ratio:16/10; overflow:hidden;
+  border-radius:var(--ath-r-sm); background:var(--ath-panel)}
+.md-q-thumb img{width:100%; height:100%; object-fit:cover}
+.md-q-n b{display:block; font-family:var(--ath-prose); font-weight:400; font-size:13px; line-height:1.35;
+  color:var(--ath-ink-2); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.md-q-n span{font-family:var(--ath-ui); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ath-ink-4)}
+.md-q:hover .md-q-n b{color:var(--ath-brass-hi)}
+.md-q.is-on{padding-left:9px; border-left:1px solid var(--ath-brass-hi)}
+.md-q.is-on .md-q-n b{color:var(--ath-ink)}
+
+.md-main{min-width:0; padding:96px var(--ath-gut) var(--sp-9) var(--sp-6)}
+@media (max-width:940px){ .md-main{padding:var(--sp-6) var(--ath-gut) var(--sp-9)} }
+/* The stage. The reference floats the player on a darker ground with the
+   frame's own imagery blurred out behind it; here that backdrop is the
+   cover, so the stage takes its colour from the thing being played. */
+.md-stage{
+  position:relative; border-radius:var(--ath-r); overflow:hidden;
+  background:var(--ath-ground); box-shadow:var(--ath-lift-dark);
+}
+.md-stage-bg{
+  position:absolute; inset:-8%; background-size:cover; background-position:center;
+  filter:blur(38px) saturate(1.15); opacity:.42;
+}
+/* The reference floats the player ON the stage rather than filling it, so
+   the blurred backdrop shows around the frame and the video reads as an
+   object sitting in a room. A full-bleed frame at desktop width is also
+   simply too tall — it pushes the title, the actions and every note below
+   the fold. */
+.md-frame{
+  position:relative; aspect-ratio:16/9; width:min(100%, 900px);
+  margin:0 auto; display:block; border:0;
+  box-shadow:0 30px 70px -34px rgba(0,0,0,.95);
+}
+.md-stage{padding:var(--sp-5) var(--sp-5)}
+@media (max-width:700px){ .md-stage{padding:0} .md-frame{width:100%; box-shadow:none} }
+.md-frame iframe,.md-frame video{position:absolute; inset:0; width:100%; height:100%; border:0}
+.md-audio{position:relative; padding:var(--sp-7) var(--sp-6); display:grid; gap:var(--sp-4); justify-items:center}
+.md-audio audio{width:100%; max-width:640px}
+/* No embed: the cover, and one honest button. A dead frame is worse than
+   a link that works. */
+.md-nolink{
+  position:relative; aspect-ratio:16/9; display:grid; place-items:center; gap:var(--sp-4);
+  align-content:center; text-align:center; padding:var(--sp-6);
+}
+.md-nolink p{margin:0; font-family:var(--ath-prose); font-size:15px; color:var(--ath-ink-3); max-width:44ch}
+
+.md-bar{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-5);
+  flex-wrap:wrap; margin-top:var(--sp-5);
+}
+.md-title{
+  margin:0; font-family:var(--ath-display); font-weight:400;
+  font-size:clamp(24px,2.8vw,34px); line-height:1.12; letter-spacing:.045em; text-transform:uppercase;
+  color:var(--ath-ink);
+}
+.md-sub{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:var(--sp-3);
+  font-family:var(--ath-ui); font-size:12px; color:var(--ath-ink-3)}
+.md-acts{
+  display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap;
+  margin-top:var(--sp-5); padding-top:var(--sp-4); border-top:1px solid var(--ath-rule-soft);
+}
+.md-acts .rs-face{width:30px; height:30px; font-size:11px}
+.md-acts-person{display:flex; align-items:center; gap:10px; margin-right:auto;
+  font-family:var(--ath-ui); font-size:13px; color:var(--ath-ink-2)}
+
+.md-notes{margin-top:var(--sp-7)}
+.md-notes > h4{
+  margin:0 0 var(--sp-4); font-family:var(--ath-ui); font-size:10.5px; font-weight:600;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ath-brass-hi);
+}
+.md-mark{
+  display:grid; grid-template-columns:78px minmax(0,1fr) auto; gap:var(--sp-4);
+  align-items:start; padding:var(--sp-3) 0; border-top:1px solid var(--ath-rule-soft);
+}
+/* A note is one or two sentences, not an essay — it does not need the
+   article measure's leading, and it must not push the next timestamp off
+   the screen. */
+.md-mark .rs-rich{font-size:15.5px; line-height:1.6}
+.md-mark .rs-rich p{margin:0 0 .5em}
+.md-mark .rs-rich > *:last-child{margin-bottom:0}
+.md-at{
+  font-family:var(--ath-prose); font-variant-numeric:lining-nums tabular-nums;
+  font-size:14px; color:var(--ath-brass-hi); text-align:left; padding-top:2px;
+  transition:color .2s var(--ath-ease);
+}
+button.md-at:hover{color:var(--ath-ink); text-decoration:underline; text-underline-offset:3px}
+.md-at.is-loose{color:var(--ath-ink-4)}
+.md-mark-x{opacity:0; transition:opacity .2s var(--ath-ease)}
+.md-mark:hover .md-mark-x, .md-mark:focus-within .md-mark-x{opacity:1}
+
+/* ---------- shared small pieces -------------------------------------- */
+.rs-face{
+  flex:none; width:22px; height:22px; border-radius:50%;
+  display:grid; place-items:center; font-family:var(--ath-ui);
+  font-size:10px; font-weight:600; color:#0A0C0F;
+  background:linear-gradient(150deg, hsl(var(--h,210) 30% 74%), hsl(calc(var(--h,210) + 26) 26% 52%));
+}
+.lb-plate{
+  position:absolute; inset:0;
+  background:
+    repeating-radial-gradient(circle at 62% 34%, rgba(242,239,232,.10) 0 1px, transparent 1px 13px),
+    linear-gradient(148deg, hsl(var(--h,210) 22% 26%), hsl(calc(var(--h,210) + 22) 24% 12%));
+}
+.lb-plate span{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-family:var(--ath-display); font-size:26px; letter-spacing:.1em; color:rgba(242,239,232,.42);
+}
+
+.ath-empty{
+  padding:var(--sp-8) var(--sp-5); text-align:center; border:1px dashed var(--ath-rule);
+  font-family:var(--ath-prose); color:var(--ath-ink-3); font-size:16px;
+}
+.ath-empty b{display:block; font-family:var(--ath-display); font-size:22px; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--ath-ink-2); margin-bottom:var(--sp-2); font-weight:400}
+.rs-missing{max-width:640px; margin:0 auto; padding:140px var(--ath-gut) var(--sp-9)}
+
+#athToast{
+  position:fixed; left:50%; bottom:var(--sp-5); transform:translate(-50%,20px); z-index:200;
+  background:var(--ath-ink); color:var(--ath-paper); padding:11px 20px; border-radius:var(--ath-r-sm);
+  font-size:13px; opacity:0; pointer-events:none;
+  transition:opacity .28s var(--ath-ease), transform .28s var(--ath-spring);
+}
+#athToast.show{opacity:1; transform:translate(-50%,0)}
+#athToast.is-bad{background:var(--ath-bad)}
+
+/* The small dialog this page owns (a chapter's title, a note's time).
+   The resource form itself is athenaeum-resource-editor.js. */
+.rs-dlg-bg{
+  position:fixed; inset:0; z-index:130; background:rgba(12,14,18,.62); backdrop-filter:blur(4px);
+  display:none; align-items:center; justify-content:center; padding:var(--sp-5);
+}
+@keyframes ath-fade{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
+.rs-dlg-bg.show{display:flex; animation:ath-fade .24s var(--ath-ease)}
+.rs-dlg{
+  background:var(--ath-panel); width:min(620px,100%); max-height:88vh; overflow:auto;
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r);
+  box-shadow:0 40px 90px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.4);
+}
+.rs-dlg-head{display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4);
+  padding:var(--sp-5) var(--sp-5) var(--sp-4); border-bottom:1px solid var(--ath-rule-soft)}
+.rs-dlg-body{padding:var(--sp-5); display:grid; gap:var(--sp-4)}
+.rs-dlg-foot{display:flex; justify-content:flex-end; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-5) var(--sp-5); border-top:1px solid var(--ath-rule-soft)}
+.ath-field{display:grid; gap:7px}
+.ath-field-label{font-size:10.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--ath-ink-3)}
+.ath-field-hint{margin:0; font-size:12.5px; color:var(--ath-ink-3); font-family:var(--ath-prose)}
+.ath-input,.ath-textarea{
+  width:100%; padding:10px 12px; background:var(--ath-paper-2); color:var(--ath-ink);
+  border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm); font:inherit; font-size:14px;
+}
+.ath-textarea{font-family:var(--ath-prose); font-size:15px; line-height:1.6; resize:vertical}
+.ath-input:focus,.ath-textarea:focus{outline:none; border-color:var(--ath-verd-hi); background:var(--ath-panel)}
+/* Phone: a field under 16px makes iOS Safari zoom the page in on focus and
+   never zoom back out, so one tap on a form leaves the page magnified. This
+   is the page you read a whole book in — being left zoomed matters here. */
+@media (max-width:768px){
+  .ath-input,.ath-textarea{font-size:16px; padding:12px}
+  .rs-rich{font-size:16px}
+}
+/* The paste target in the bulk-chapter dialog: a real editable surface, so
+   what you see there is exactly what will be saved. */
+.rs-paste{
+  min-height:220px; max-height:44vh; overflow:auto; padding:var(--sp-4);
+  background:var(--ath-paper-2); border:1px solid var(--ath-rule); border-radius:var(--ath-r-sm);
+}
+.rs-paste .rs-rich{font-size:15px; line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="ath-grain" aria-hidden="true"></div>
+<div class="rs-shell" id="rsShell"><div id="rsPage"></div></div>
+
+<div class="rs-dlg-bg" id="rsDlgBg"><div class="rs-dlg" id="rsDlg" role="dialog" aria-modal="true"></div></div>
+<div id="athToast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-data.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="athenaeum-resource-editor.js"></script>
+<script src="topbar.js" defer></script>
+<script src="athenaeum-nav.js" defer></script>
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // §UTIL
+  // ============================================================
+  function $(id) { return document.getElementById(id); }
+  function D() { return window.Athenaeum; }
+  function esc(s) { return D().esc(s); }
+
+  function runSafely(fn, label) {
+    try { return fn(); } catch (e) {
+      try { console.error('[Athenaeum] ' + (label || 'error'), e); } catch (e2) {}
+      toast('Something went wrong — see the console', true);
+    }
+  }
+  var toastTimer = null;
+  function toast(msg, bad) {
+    var el = $('athToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('is-bad', !!bad);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+  }
+  var bound = {};
+  function on(hostId, evt, sel, fn, capture) {
+    var key = hostId + '|' + evt + '|' + sel;
+    if (bound[key]) return;
+    bound[key] = 1;
+    var host = $(hostId);
+    if (!host) return;
+    host.addEventListener(evt, function (e) {
+      var t = e.target.closest ? e.target.closest(sel) : null;
+      if (t && host.contains(t)) fn(e, t);
+    }, !!capture);
+  }
+  function hueOf(seed) {
+    var s = String(seed || ''), n = 0;
+    for (var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) % 360;
+    return n;
+  }
+  function initials(name) {
+    var parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  function face(name, seed) {
+    return '<span class="rs-face" style="--h:' + hueOf(seed || name) + '" aria-hidden="true">' +
+      esc(initials(name)) + '</span>';
+  }
+
+  // ============================================================
+  // §STATE
+  // ============================================================
+  var S = { id: '', chapterId: '' };
+
+  var TEMPLATE_OF = {
+    Book: 'reader',
+    Paper: 'page', Course: 'page', Article: 'page', Person: 'page', Dataset: 'page', Tool: 'page', Other: 'page',
+    Video: 'media', Podcast: 'media', Lecture: 'media'
+  };
+
+  function res() { return D().Resources.get(S.id); }
+  function href(r) { return 'athenaeum-resource.html?id=' + encodeURIComponent(r.id); }
+  function backLink(onPaper) {
+    return '<a class="rs-back' + (onPaper ? ' on-paper' : '') + '" href="athenaeum-resources.html">' +
+      '<span aria-hidden="true">←</span> The Library</a>';
+  }
+  function tagChips(r, onDark) {
+    if (!(r.tags || []).length) return '';
+    return '<div class="rs-tags">' + r.tags.map(function (t) {
+      return '<a class="rs-tag' + (onDark ? ' on-dark' : '') +
+        '" href="athenaeum-resources.html">' + esc(t) + '</a>';
+    }).join('') + '</div>';
+  }
+  function creditedPeople(r) {
+    var d = D();
+    return (r.personIds || []).map(function (id) { return d.Resources.get(id); }).filter(Boolean);
+  }
+  function coverHtml(r, cls, extra) {
+    var hue = r.hue || hueOf(r.id);
+    if (r.cover) {
+      return '<div class="' + cls + '"' + (extra || '') + '><img src="' + esc(r.cover) + '" alt="" ' +
+        'style="object-position:' + esc(r.coverPos || '50% 50%') + '"></div>';
+    }
+    return '<div class="' + cls + '"' + (extra || '') + '><span class="lb-plate" style="--h:' + hue + '">' +
+      '<span>' + esc(String(r.title || '?').trim().charAt(0).toUpperCase() || '?') + '</span></span></div>';
+  }
+
+  // ============================================================
+  // §RICH — a contenteditable that preserves what you paste.
+  //
+  // Ported from promptarium.html. The whole point of this page for a book:
+  // paste a chapter out of anywhere and keep its headings, emphasis,
+  // blockquotes and lists — while `style` and `class` are stripped, so it
+  // arrives on this page's ground instead of dragging a white one with it.
+  // ============================================================
+  var RICH_MAX = 1200000;
+  var richFocus = { key: '', composing: false };
+  var commitTimer = null;
+
+  /* data-rich="<collection>:<id>:<field>" — the field list is a whitelist
+     because the models are whitelists: a typo here would write a key the
+     model drops on the next save, and the text would vanish later rather
+     than now. */
+  var RICH_FIELDS = {
+    chapter: ['bodyHtml', 'notesHtml'],
+    resource: ['bodyHtml'],
+    mark: ['bodyHtml']
+  };
+
+  function markEmpty(el) {
+    var text = D().htmlToText(el.innerHTML);
+    el.classList.toggle('is-empty', !text && !el.querySelector('img'));
+  }
+  function insertRich(html) {
+    try { if (document.execCommand('insertHTML', false, html)) return true; } catch (e) {}
+    try {
+      var sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return false;
+      var r = sel.getRangeAt(0);
+      r.deleteContents();
+      var tpl = document.createElement('div');
+      tpl.innerHTML = html;
+      var frag = document.createDocumentFragment(), node;
+      while ((node = tpl.firstChild)) frag.appendChild(node);
+      r.insertNode(frag);
+      sel.collapseToEnd();
+      return true;
+    } catch (e) { return false; }
+  }
+  function commitRich(el, force) {
+    if (!el || (richFocus.composing && !force)) return;
+    var d = D(), key = el.getAttribute('data-rich');
+    if (!key) return;
+    var value = el.innerHTML;
+    if (value.length > RICH_MAX) {
+      toast('That is too large to save — link the image instead of pasting it', true);
+      return;
+    }
+    var parts = key.split(':');
+    var kind = parts[0], id = parts[1], field = parts[2];
+    if (!RICH_FIELDS[kind] || RICH_FIELDS[kind].indexOf(field) < 0) return;
+    var patch = {};
+    patch[field] = value;
+    if (kind === 'chapter') d.Chapters.update(id, patch);
+    else if (kind === 'resource') d.Resources.update(id, patch);
+    else if (kind === 'mark') d.Marks.update(id, patch);
+    // Committed for real — the keystroke-level draft is no longer needed.
+    if (window.AthDraft) AthDraft.clear('rich:' + key);
+  }
+
+  /* Two tiers, because the expensive part and the urgent part are not the
+     same part.
+     - URGENT, every keystroke: the raw innerHTML goes to a draft. No
+       sanitising, no model, no collection — one synchronous string write,
+       cheap enough to do on every input.
+     - EXPENSIVE, debounced: the real commit, which re-runs sanitizeHtml
+       over the whole chapter and re-models the record.
+     Before this, a refresh inside the 700ms window took everything typed in
+     it. Now the worst case is the handful of milliseconds since the last
+     keystroke. */
+  function scheduleCommit(el) {
+    var key = el.getAttribute('data-rich');
+    if (key && window.AthDraft) {
+      AthDraft.put('rich:' + key, { __rich0: el.innerHTML });
+    }
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(function () { commitRich(el); }, 700);
+  }
+
+  /* A draft only wins if it actually differs from what was committed —
+     otherwise every reopened chapter would announce a rescue that did not
+     happen. */
+  function restoreRichDrafts() {
+    if (!window.AthDraft) return;
+    var recovered = 0;
+    document.querySelectorAll('#rsPage [data-rich]').forEach(function (el) {
+      var key = el.getAttribute('data-rich');
+      var d = AthDraft.get('rich:' + key);
+      if (!d || !d.fields || typeof d.fields.__rich0 !== 'string') return;
+      if (d.fields.__rich0 === el.innerHTML) { AthDraft.clear('rich:' + key); return; }
+      el.innerHTML = d.fields.__rich0;
+      markEmpty(el);
+      // Write it through to the record immediately, so the draft and the
+      // truth stop disagreeing the moment the reader sees it.
+      commitRich(el, true);
+      recovered++;
+    });
+    if (recovered) {
+      toast(recovered === 1
+        ? 'Recovered what you were writing'
+        : 'Recovered ' + recovered + ' unsaved edits');
+    }
+  }
+  /* Anything focused must be written down before the page can be rebuilt,
+     or a repaint eats it. Called before every render. */
+  function commitPending() {
+    var a = document.activeElement;
+    if (a && a.getAttribute && a.getAttribute('data-rich')) commitRich(a, true);
+  }
+
+  function handleRichPaste(el, e) {
+    var d = D();
+    var dt = e.clipboardData || e.dataTransfer;
+    if (!dt) return;
+    e.preventDefault();      // always — the browser never inserts raw markup
+
+    // 1. Images first: a screenshot paste carries both an image and, often,
+    //    a junk text/html wrapper that would win otherwise.
+    if (dt.items) {
+      for (var i = 0; i < dt.items.length; i++) {
+        var it = dt.items[i];
+        if (it.kind === 'file' && it.type && it.type.indexOf('image/') === 0) {
+          var file = it.getAsFile();
+          if (!file) continue;
+          var reader = new FileReader();
+          reader.onload = function (ev) {
+            d.compressImageDataUrl(String(ev.target.result), 1400, 0.82).then(function (small) {
+              el.focus();
+              insertRich('<img src="' + small + '" alt="Pasted image">');
+              commitRich(el, true);
+              markEmpty(el);
+              if (window.PhotoStore && PhotoStore.upload) {
+                PhotoStore.upload(small, function (url) {
+                  if (!url) return;                  // offline / no bucket → the data URL stays
+                  el.innerHTML = el.innerHTML.split(small).join(url);
+                  commitRich(el, true);
+                });
+              }
+            });
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    }
+
+    // 2. Real markup. This is the branch that keeps a chapter's formatting.
+    var html = dt.getData ? dt.getData('text/html') : '';
+    if (html) { insertRich(d.sanitizeHtml(html)); markEmpty(el); scheduleCommit(el); return; }
+
+    // 3. Plain text — blank lines become paragraphs, single ones a break.
+    var text = dt.getData ? dt.getData('text/plain') : '';
+    if (!text) return;
+    insertRich(text.split(/\n{2,}/).map(function (p) {
+      return '<p>' + d.esc(p).replace(/\n/g, '<br>') + '</p>';
+    }).join(''));
+    markEmpty(el);
+    scheduleCommit(el);
+  }
+
+  function wireRich() {
+    on('rsPage', 'paste', '[data-rich]', function (e, el) { handleRichPaste(el, e); });
+    on('rsPage', 'drop', '[data-rich]', function (e, el) { handleRichPaste(el, e); });
+    on('rsPage', 'input', '[data-rich]', function (e, el) { markEmpty(el); scheduleCommit(el); });
+    on('rsPage', 'blur', '[data-rich]', function (e, el) {
+      richFocus.key = ''; commitRich(el, true); markEmpty(el);
+    }, true);
+    on('rsPage', 'focus', '[data-rich]', function (e, el) {
+      richFocus.key = el.getAttribute('data-rich');
+    }, true);
+    on('rsPage', 'compositionstart', '[data-rich]', function () { richFocus.composing = true; });
+    on('rsPage', 'compositionend', '[data-rich]', function (e, el) {
+      richFocus.composing = false; commitRich(el, true);
+    });
+  }
+  function richBox(key, html, placeholder, cls) {
+    var empty = !D().htmlToText(html);
+    return '<div class="rs-rich ' + (cls || '') + (empty ? ' is-empty' : '') + '" contenteditable="true" ' +
+      'data-rich="' + esc(key) + '" data-ph="' + esc(placeholder) + '" spellcheck="true">' + html + '</div>';
+  }
+
+  // ============================================================
+  // §DIALOG — the small one this page owns.
+  // ============================================================
+  var dlgCtx = null;
+  var dlgDraft = null;
+  function fText(label, key, val, ph) {
+    return '<div class="ath-field"><label class="ath-field-label" for="d_' + key + '">' + esc(label) + '</label>' +
+      '<input class="ath-input" id="d_' + key + '" data-f="' + key + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+  }
+  function fHint(t) { return '<p class="ath-field-hint">' + esc(t) + '</p>'; }
+  function openDlg(cfg) {
+    dlgCtx = cfg;
+    $('rsDlg').innerHTML =
+      '<div class="rs-dlg-head"><h3 class="ath-h3">' + esc(cfg.title) + '</h3>' +
+        '<button class="ath-btn-icon" type="button" data-close aria-label="Close">✕</button></div>' +
+      '<div class="rs-dlg-body">' + cfg.body + '</div>' +
+      '<div class="rs-dlg-foot">' +
+        '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-close>Cancel</button>' +
+        '<button class="ath-btn ath-btn-solid ath-btn-sm" type="button" data-save>' + esc(cfg.saveLabel || 'Save') + '</button>' +
+      '</div>';
+    $('rsDlgBg').classList.add('show');
+
+    // Autosave this dialog too. `Paste chapters` in particular can hold an
+    // entire book that has not been written anywhere yet.
+    var scope = 'dlg:' + S.id + ':' + (cfg.draftKey || cfg.title);
+    dlgDraft = window.AthDraft ? AthDraft.bind(scope, $('rsDlg'), {
+      onRestore: function (when) { toast('Put back what you had typed ' + when); }
+    }) : null;
+
+    var first = $('rsDlg').querySelector('[data-f], [contenteditable]');
+    if (first) setTimeout(function () { first.focus(); }, 40);
+  }
+  /* Cancel, Escape and the backdrop are a decision to discard; a refresh is
+     not, so only the explicit paths clear the draft. */
+  function closeDlg(discard) {
+    $('rsDlgBg').classList.remove('show');
+    if (dlgDraft) { if (discard) dlgDraft.clear(); else dlgDraft.save(); }
+    dlgDraft = null;
+    dlgCtx = null;
+  }
+  function dlgValues() {
+    var out = {};
+    $('rsDlg').querySelectorAll('[data-f]').forEach(function (n) { out[n.getAttribute('data-f')] = n.value; });
+    return out;
+  }
+
+  // ============================================================
+  // §READER — Books.
+  //
+  // A book is the one medium here whose text you actually keep, so this
+  // template is built around getting it IN: a chapter is a paste target
+  // that preserves formatting, and the table of contents is the reference's
+  // own left column.
+  // ============================================================
+  function currentChapter(r) {
+    var list = D().chaptersFor(r.id);
+    if (!list.length) return null;
+    var found = S.chapterId && list.filter(function (c) { return c.id === S.chapterId; })[0];
+    if (found) return found;
+    // Default to the first UNREAD chapter — reopening a book should land
+    // where reading stopped, not back at the beginning.
+    var next = list.filter(function (c) { return !c.read; })[0];
+    return next || list[0];
+  }
+
+  function renderReader(r) {
+    var d = D();
+    var chapters = d.chaptersFor(r.id);
+    var cur = currentChapter(r);
+    if (cur) S.chapterId = cur.id;
+    var people = creditedPeople(r);
+    var who = people[0];
+    var pct = d.resourceProgress(r);
+    var readCount = chapters.filter(function (c) { return c.read; }).length;
+    var hue = r.hue || hueOf(r.id);
+
+    // No cover is not the same as no hero. A drawn plate — engraved rings
+    // over the book's own tint, the same device the Library's thumbnails
+    // use — keeps its identity and stops the top of the page reading as a
+    // hole in the ground.
+    var plate = r.cover
+      ? '<div class="ath-plate" aria-hidden="true" style="background-image:url(' +
+          esc(r.cover).replace(/"/g, '') + '); background-position:' + esc(r.coverPos || '50% 50%') + '"></div>'
+      : '<div class="ath-plate is-drawn" aria-hidden="true" style="--h:' + hue + '"></div>';
+
+    var hero =
+      '<header class="rd-hero" data-plate>' +
+        plate +
+        '<div class="rd-hero-in">' +
+          backLink() +
+          '<h1 class="rd-title">' + esc(r.title || 'Untitled') + '</h1>' +
+          (r.summary ? '<p class="rd-dek">' + esc(r.summary) + '</p>' : '') +
+          '<div class="rd-byline">' +
+            (who || r.author
+              ? '<div class="rd-person">' +
+                  face(who ? who.title : r.author, who ? who.id : r.author) +
+                  '<span>' +
+                    (who
+                      ? '<b><a href="' + esc(href(who)) + '">' + esc(who.title) + '</a></b>'
+                      : '<b>' + esc(r.author) + '</b>') +
+                    '<span>' + esc([r.source, r.year].filter(Boolean).join(' · ') || 'Author') + '</span>' +
+                  '</span></div>'
+              : '') +
+            '<div class="rd-acts">' +
+              (r.url ? '<a class="ath-btn ath-btn-light ath-btn-sm" href="' + esc(r.url) + '" target="_blank" rel="noopener">Open at source</a>' : '') +
+              '<button class="ath-btn ath-btn-light ath-btn-sm" type="button" data-act="edit-resource">Edit</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rd-strip">' +
+          '<p class="ath-micro">' + esc(r.type) +
+            (r.lengthText ? ' · ' + esc(r.lengthText) : '') +
+            ' · Added ' + esc(d.fmtDate(r.createdAt)) + '</p>' +
+          tagChips(r, true) +
+        '</div>' +
+      '</header>';
+
+    var toc =
+      '<aside class="rd-toc">' +
+        '<h4>Contents</h4>' +
+        (chapters.length
+          ? '<div class="rd-toc-list">' + chapters.map(function (c) {
+              return '<button class="rd-chap' + (cur && c.id === cur.id ? ' is-on' : '') +
+                (c.read ? ' is-read' : '') + '" type="button" data-chapter="' + esc(c.id) + '">' +
+                esc(c.title || 'Untitled chapter') + '</button>';
+            }).join('') + '</div>'
+          : '<p class="ath-field-hint">Nothing in yet.</p>') +
+        '<div class="rd-toc-foot">' +
+          (chapters.length
+            ? '<div class="rd-progress"><span class="lb-meter"><i style="width:' + pct + '%"></i></span>' +
+              '<span>' + readCount + '/' + chapters.length + '</span></div>'
+            : '') +
+          '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="add-chapter">Add a chapter</button>' +
+          '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="paste-chapters">Paste chapters</button>' +
+        '</div>' +
+      '</aside>';
+
+    var main;
+    if (!cur) {
+      main = '<div class="rd-main"><div class="ath-empty"><b>The book is empty</b>' +
+        'Add a chapter, then paste it in — headings, emphasis, blockquotes and lists all survive the paste. ' +
+        'Or use <b style="display:inline">Paste chapters</b> to drop the whole thing in at once and split it at its own headings.' +
+        '<div style="margin-top:var(--sp-5)">' +
+          '<button class="ath-btn ath-btn-solid ath-btn-sm" type="button" data-act="paste-chapters">Paste chapters</button>' +
+        '</div></div></div>';
+    } else {
+      var mins = d.readingMinutes(cur.bodyHtml);
+      main =
+        '<div class="rd-main">' +
+          '<div class="rd-chap-head">' +
+            '<div>' +
+              '<h2 class="rd-chap-title">' + esc(cur.title || 'Untitled chapter') + '</h2>' +
+              (cur.subtitle ? '<p class="rd-chap-sub">' + esc(cur.subtitle) + '</p>' : '') +
+              '<div class="rd-chap-meta">' +
+                '<span class="ath-micro">' + (mins ? mins + ' min read' : 'Empty') + '</span>' +
+                '<span class="ath-micro">' + (cur.read ? 'Read' : 'Unread') + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="rd-chap-acts">' +
+              '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="toggle-read" data-id="' + esc(cur.id) + '">' +
+                (cur.read ? 'Mark unread' : 'Mark read') + '</button>' +
+              '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="rename-chapter" data-id="' + esc(cur.id) + '">Rename</button>' +
+              '<button class="ath-btn ath-btn-danger ath-btn-sm" type="button" data-act="del-chapter" data-id="' + esc(cur.id) + '">Delete</button>' +
+            '</div>' +
+          '</div>' +
+          richBox('chapter:' + cur.id + ':bodyHtml', cur.bodyHtml,
+            'Paste the chapter here. Its headings, bold, italics, blockquotes and lists are kept; its colours and fonts are not, so it arrives in the Athenaeum’s own hand.') +
+          '<section class="rd-notes">' +
+            '<h4>Notes on this chapter</h4>' +
+            richBox('chapter:' + cur.id + ':notesHtml', cur.notesHtml,
+              'What you actually took from it. Yours, not the book’s.') +
+          '</section>' +
+        '</div>';
+    }
+
+    $('rsPage').innerHTML = hero + '<div class="rd-body">' + toc + main + '</div>';
+  }
+
+  /* Splitting a pasted book. The headings are the only structure a pasted
+     document reliably carries, so they are what a chapter break is inferred
+     from — and the split is SHOWN before anything is written, because
+     guessing wrong on a whole book is not a small mistake. */
+  function splitIntoChapters(html) {
+    var doc;
+    try { doc = new DOMParser().parseFromString('<!doctype html><body>' + html, 'text/html'); }
+    catch (e) { return []; }
+    var kids = [].slice.call(doc.body.children);
+    // sanitizeHtml renames h1 to h2, so h2 is the top level by the time it
+    // gets here. h3 is only used as a break if there are no h2s at all.
+    var level = kids.some(function (n) { return n.tagName === 'H2'; }) ? 'H2'
+      : (kids.some(function (n) { return n.tagName === 'H3'; }) ? 'H3' : '');
+    if (!level) return [];
+    var out = [], cur = null;
+    kids.forEach(function (n) {
+      if (n.tagName === level) {
+        if (cur) out.push(cur);
+        cur = { title: (n.textContent || '').trim() || 'Untitled chapter', body: '' };
+        return;
+      }
+      if (!cur) return;                    // anything before the first heading is front matter
+      cur.body += n.outerHTML;
+    });
+    if (cur) out.push(cur);
+    return out.filter(function (c) { return c.title; });
+  }
+
+  function openPasteChapters() {
+    var r = res();
+    if (!r) return;
+    openDlg({
+      title: 'Paste chapters',
+      saveLabel: 'Add chapters',
+      body:
+        '<p class="ath-field-hint">Paste as much of the book as you like below. Formatting is kept. ' +
+        'If it carries its own headings, each one becomes a chapter; if it does not, the whole paste becomes a single chapter.</p>' +
+        '<div class="rs-paste"><div class="rs-rich" contenteditable="true" spellcheck="false" ' +
+          'data-ph="Paste here (Ctrl+V)"></div></div>' +
+        fText('If it is all one chapter, call it', 'title', '', 'Chapter One'),
+      onSave: function (v) {
+        var d = D(), html = d.sanitizeHtml(v.__html || '');
+        if (!d.htmlToText(html)) { toast('Nothing was pasted', true); return; }
+        var parts = splitIntoChapters(html);
+        var base = d.nextOrder(d.chaptersFor(r.id));
+        if (!parts.length) {
+          d.Chapters.add({ resourceId: r.id, title: v.title || 'Untitled chapter', bodyHtml: html, order: base });
+          toast('Chapter added');
+          S.chapterId = '';
+          return;
+        }
+        parts.forEach(function (p, i) {
+          d.Chapters.add({ resourceId: r.id, title: p.title, bodyHtml: p.body, order: base + i });
+        });
+        toast(parts.length + ' chapters added');
+        S.chapterId = '';
+      }
+    });
+  }
+
+  function wireReader() {
+    on('rsPage', 'click', '[data-chapter]', function (e, t) {
+      commitPending();
+      S.chapterId = t.getAttribute('data-chapter');
+      // Which chapter you were on is worth keeping too: a refresh should
+      // put you back on the page you were reading, not at chapter one.
+      D().setUiState({ lastChapter: S.id + ':' + S.chapterId });
+      render({ top: true });
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    });
+    on('rsPage', 'click', '[data-act="add-chapter"]', function () {
+      var r = res();
+      if (!r) return;
+      openDlg({
+        title: 'New chapter',
+        saveLabel: 'Add chapter',
+        body: fText('Title', 'title', '', 'Chapter One') +
+          fText('Subtitle', 'subtitle', '', 'Optional') +
+          fHint('You can paste the text straight into the page once the chapter exists.'),
+        onSave: function (v) {
+          var d = D();
+          if (!String(v.title).trim()) { toast('A chapter needs a title', true); return; }
+          var made = d.Chapters.add({
+            resourceId: r.id, title: v.title, subtitle: v.subtitle,
+            order: d.nextOrder(d.chaptersFor(r.id))
+          });
+          S.chapterId = made.id;
+          toast('Chapter added');
+        }
+      });
+    });
+    on('rsPage', 'click', '[data-act="paste-chapters"]', openPasteChapters);
+    on('rsPage', 'click', '[data-act="rename-chapter"]', function (e, t) {
+      var d = D(), c = d.Chapters.get(t.getAttribute('data-id'));
+      if (!c) return;
+      openDlg({
+        title: 'Rename chapter',
+        body: fText('Title', 'title', c.title, '') + fText('Subtitle', 'subtitle', c.subtitle, ''),
+        onSave: function (v) { d.Chapters.update(c.id, { title: v.title, subtitle: v.subtitle }); toast('Renamed'); }
+      });
+    });
+    on('rsPage', 'click', '[data-act="toggle-read"]', function (e, t) {
+      var d = D(), c = d.Chapters.get(t.getAttribute('data-id'));
+      if (!c) return;
+      commitPending();
+      d.Chapters.update(c.id, { read: !c.read });
+      render({ top: false });
+    });
+    on('rsPage', 'click', '[data-act="del-chapter"]', function (e, t) {
+      var d = D(), c = d.Chapters.get(t.getAttribute('data-id'));
+      if (!c) return;
+      if (!confirm('Delete “' + (c.title || 'Untitled chapter') + '”?\n\nIts text and its notes go with it. The book keeps its other chapters.')) return;
+      d.Chapters.remove(c.id);
+      S.chapterId = '';
+      toast('Chapter deleted');
+      render({ top: false });
+    });
+  }
+
+  // ============================================================
+  // §PAGE — Papers, Courses, Articles, People, Datasets, Tools.
+  //
+  // One centred title, the tags under it, a wide plate, then facts in the
+  // margin and the writing beside them. What differs by medium is only the
+  // block underneath: a course points at the curriculum built from it, a
+  // person lists their works, a paper states its citation.
+  // ============================================================
+  function metaRow(label, value) {
+    if (!value) return '';
+    return '<div class="pg-mrow"><span>' + esc(label) + '</span><b>' + value + '</b></div>';
+  }
+
+  function pageTail(r) {
+    var d = D();
+
+    if (r.type === 'Person') {
+      var works = d.resourcesCrediting(r.id);
+      if (!works.length) {
+        return '<div class="pg-tail"><h4>Works in the library</h4>' +
+          '<p class="ath-field-hint">Nothing is credited to them yet. Open any resource, edit it, and pick this person under <b>Credited people</b>.</p></div>';
+      }
+      var groups = {};
+      works.forEach(function (w) { (groups[w.type] = groups[w.type] || []).push(w); });
+      return '<div class="pg-tail"><h4>Works in the library</h4><div class="pg-works">' +
+        Object.keys(groups).sort().map(function (k) {
+          return '<div class="pg-workgroup"><p>' + esc(k) + '</p>' +
+            groups[k].map(function (w) {
+              return '<a class="pg-work" href="' + esc(href(w)) + '">' + esc(w.title || 'Untitled') +
+                (w.year ? '<i>' + esc(w.year) + '</i>' : '') + '</a>';
+            }).join('') + '</div>';
+        }).join('') + '</div></div>';
+    }
+
+    if (r.type === 'Course') {
+      var c = r.curriculumId ? d.Curricula.get(r.curriculumId) : null;
+      if (c) {
+        var mods = d.Modules.list().filter(function (m) { return m.curriculumId === c.id; }).length;
+        var lessons = d.Lessons.list().filter(function (l) { return l.curriculumId === c.id; });
+        var done = lessons.filter(function (l) { return l.done; }).length;
+        return '<div class="pg-tail"><h4>Studied as</h4>' +
+          '<a class="pg-link" href="athenaeum-curriculum.html?id=' + encodeURIComponent(c.id) + '">' +
+            '<span class="pg-link-n"><b>' + esc(c.title || 'Untitled curriculum') + '</b>' +
+            '<span>' + mods + (mods === 1 ? ' module' : ' modules') + ' · ' +
+              lessons.length + (lessons.length === 1 ? ' lesson' : ' lessons') +
+              (lessons.length ? ' · ' + Math.round((done / lessons.length) * 100) + '% done' : '') +
+            '</span></span>' +
+            '<span aria-hidden="true" style="font-size:18px;color:var(--ath-ink-4)">→</span></a>' +
+          '<p class="ath-field-hint" style="margin-top:var(--sp-3)">The curriculum owns its modules and lessons. This is the way back to it.</p></div>';
+      }
+      return '<div class="pg-tail"><h4>Studied as</h4>' +
+        '<p class="ath-field-hint">This course has not been turned into a curriculum yet. Edit it and pick one under <b>Studied as</b> — the curriculum is where the modules, the lessons and the schedule live.</p></div>';
+    }
+
+    if (r.type === 'Paper' && (r.source || r.year)) {
+      return '<div class="pg-tail"><h4>Citation</h4>' +
+        // Newsreader, never Italiana: Italiana's zero is indistinguishable
+        // from a capital O, so a year set in it reads as "2o17".
+        '<p class="rs-rich ath-num" style="font-size:15px">' +
+          (r.author ? esc(r.author) + '. ' : '') +
+          '<em>' + esc(r.title) + '</em>' +
+          (r.source ? '. ' + esc(r.source) : '') +
+          (r.year ? ', ' + esc(r.year) : '') + '.' +
+        '</p></div>';
+    }
+    return '';
+  }
+
+  function renderPage(r) {
+    var d = D();
+    var people = creditedPeople(r);
+    var fields = d.resFields(r).map(function (id) {
+      var s = d.Subjects.get(id);
+      return s ? '<a href="athenaeum-subject.html?id=' + encodeURIComponent(s.id) + '">' + esc(s.name) + '</a>' : '';
+    }).filter(Boolean);
+    var mins = d.readingMinutes(r.bodyHtml);
+    var isPerson = r.type === 'Person';
+
+    var meta =
+      '<aside class="pg-meta">' +
+        (people.length
+          ? '<div class="pg-mrow"><span>' + (isPerson ? 'Also' : 'Contributor') + '</span>' +
+            people.map(function (p) {
+              return '<a class="pg-mperson" href="' + esc(href(p)) + '">' + face(p.title, p.id) +
+                '<b style="font-family:var(--ath-ui);font-size:13px">' + esc(p.title) + '</b></a>';
+            }).join('') + '</div>'
+          : (r.author ? '<div class="pg-mrow"><span>Contributor</span><div class="pg-mperson">' +
+              face(r.author, r.author) + '<b style="font-family:var(--ath-ui);font-size:13px">' + esc(r.author) + '</b></div></div>' : '')) +
+        metaRow('Added', esc(d.fmtDate(r.createdAt))) +
+        (mins ? metaRow(isPerson ? 'Length' : 'Reading time', mins + ' min') : '') +
+        metaRow(isPerson ? 'Lived' : 'Published', esc(r.year)) +
+        metaRow('Source', esc(r.source)) +
+        metaRow('Length', esc(r.lengthText)) +
+        (fields.length ? metaRow(fields.length === 1 ? 'Field' : 'Fields', fields.join('<br>')) : '') +
+        metaRow('Shelf', esc(d.labelFrom(d.RESOURCE_BUCKETS, r.bucket, ''))) +
+        (r.rating ? metaRow('Rating', '<span style="color:var(--ath-brass-hi)">' + '★'.repeat(r.rating) + '</span>') : '') +
+        (r.url ? '<div class="pg-mrow"><span>Source</span><a class="ath-btn ath-btn-ghost ath-btn-sm" href="' +
+          esc(r.url) + '" target="_blank" rel="noopener">Open at source</a></div>' : '') +
+      '</aside>';
+
+    $('rsPage').innerHTML =
+      '<div class="pg-wrap">' +
+        '<div class="pg-top">' +
+          '<div class="pg-bar">' + backLink(true) +
+            '<span class="pg-bar-acts">' +
+              '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="edit-resource">Edit</button>' +
+              '<button class="ath-btn ath-btn-danger ath-btn-sm" type="button" data-act="del-resource">Delete</button>' +
+            '</span>' +
+          '</div>' +
+          '<p class="pg-kind">' + esc(r.type) + '</p>' +
+          '<h1 class="pg-title">' + esc(r.title || 'Untitled') + '</h1>' +
+          tagChips(r) +
+        '</div>' +
+        coverHtml(r, 'pg-plate' + (isPerson ? ' is-portrait' : ''), ' data-plate') +
+        '<div class="pg-body">' +
+          meta +
+          '<div class="pg-main">' +
+            (r.summary ? '<p class="ath-lede" style="margin-bottom:var(--sp-5)">' + esc(r.summary) + '</p>' : '') +
+            richBox('resource:' + r.id + ':bodyHtml', r.bodyHtml,
+              isPerson
+                ? 'Who they are, what they argued, and why they are on this shelf. Paste from anywhere — the formatting survives.'
+                : 'Paste the article, the abstract, or your own write-up. Headings, emphasis, blockquotes and lists are all kept.') +
+            pageTail(r) +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function wirePage() { /* every control here is handled by the shared wiring */ }
+
+  // ============================================================
+  // §MEDIA — Videos, Podcasts, Lectures.
+  //
+  // A queue on the left, the player on its stage, and notes with times
+  // under it. What can be driven from the page depends entirely on what is
+  // playing: a native <video>/<audio> can be seeked, a YouTube frame can
+  // once its API loads, and a Spotify embed cannot be touched at all. The
+  // page says which it is rather than offering a control that does nothing.
+  // ============================================================
+  var ytPlayer = null, ytReady = false;
+
+  function embedHtml(r) {
+    var d = D(), em = d.embedFor(r.url);
+    var bg = r.cover ? '<div class="md-stage-bg" style="background-image:url(' + esc(r.cover).replace(/"/g, '') + ')"></div>' : '';
+    if (em.kind === 'youtube') {
+      return '<div class="md-stage">' + bg + '<div class="md-frame">' +
+        '<iframe id="mdYT" src="' + esc(em.src) + '" title="' + esc(r.title) + '" ' +
+        'allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>' +
+        '</div></div>';
+    }
+    if (em.kind === 'vimeo' || em.kind === 'spotify' || em.kind === 'apple' || em.kind === 'soundcloud') {
+      var tall = (em.kind === 'spotify' || em.kind === 'apple' || em.kind === 'soundcloud');
+      return '<div class="md-stage">' + bg +
+        '<div class="md-frame"' + (tall ? ' style="aspect-ratio:auto;height:232px"' : '') + '>' +
+        '<iframe src="' + esc(em.src) + '" title="' + esc(r.title) + '" ' +
+        'allow="autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>' +
+        '</div></div>';
+    }
+    if (em.kind === 'video') {
+      return '<div class="md-stage">' + bg + '<div class="md-frame">' +
+        '<video id="mdMedia" controls preload="metadata"' + (r.cover ? ' poster="' + esc(r.cover) + '"' : '') +
+        ' src="' + esc(em.src) + '"></video></div></div>';
+    }
+    if (em.kind === 'audio') {
+      return '<div class="md-stage">' + bg + '<div class="md-audio">' +
+        coverHtml(r, 'lb-cont-thumb', ' style="width:160px;border-radius:var(--ath-r)"') +
+        '<audio id="mdMedia" controls preload="metadata" src="' + esc(em.src) + '"></audio></div></div>';
+    }
+    // Nothing playable. Show the cover and one honest button — a dead frame
+    // would be worse than a link that works.
+    return '<div class="md-stage">' + bg + '<div class="md-nolink">' +
+      '<p>' + (r.url
+        ? 'This one does not embed. It plays at its source, and your notes stay here.'
+        : 'No link yet. Add one and it plays here — YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, or a direct audio or video file.') + '</p>' +
+      (r.url
+        ? '<a class="ath-btn ath-btn-solid" href="' + esc(r.url) + '" target="_blank" rel="noopener">Open at source</a>'
+        : '<button class="ath-btn ath-btn-solid" type="button" data-act="edit-resource">Add a link</button>') +
+      '</div></div>';
+  }
+
+  /* The queue is what you would actually reach for next: the same person
+     first, then the same medium, then the same field. */
+  function queueFor(r) {
+    var d = D();
+    var mine = d.resFields(r);
+    return d.Resources.list().filter(function (o) {
+      if (o.id === r.id) return false;
+      var t = TEMPLATE_OF[o.type];
+      return t === 'media';
+    }).map(function (o) {
+      var score = 0;
+      if ((r.personIds || []).some(function (p) { return (o.personIds || []).indexOf(p) >= 0; })) score += 4;
+      if (o.type === r.type) score += 2;
+      if (d.resFields(o).some(function (f) { return mine.indexOf(f) >= 0; })) score += 1;
+      return { r: o, score: score };
+    }).sort(function (a, b) {
+      return b.score - a.score || String(b.r.createdAt).localeCompare(String(a.r.createdAt));
+    }).slice(0, 8).map(function (x) { return x.r; });
+  }
+
+  function renderMedia(r) {
+    var d = D();
+    var people = creditedPeople(r);
+    var who = people[0];
+    var marks = d.marksFor(r.id);
+    var em = d.embedFor(r.url);
+    var queue = queueFor(r);
+
+    var rail =
+      '<aside class="md-queue">' +
+        backLink(true) +
+        '<h4>Up next</h4>' +
+        (queue.length
+          ? queue.map(function (o) {
+              return '<a class="md-q" href="' + esc(href(o)) + '">' +
+                coverHtml(o, 'md-q-thumb') +
+                '<span class="md-q-n"><b>' + esc(o.title || 'Untitled') + '</b>' +
+                '<span>' + esc(o.type) + (o.lengthText ? ' · ' + esc(o.lengthText) : '') + '</span></span></a>';
+            }).join('')
+          : '<p class="ath-field-hint">Nothing else to watch or listen to yet.</p>') +
+      '</aside>';
+
+    var main =
+      '<div class="md-main">' +
+        embedHtml(r) +
+        '<div class="md-bar">' +
+          '<div style="min-width:0">' +
+            '<h1 class="md-title">' + esc(r.title || 'Untitled') + '</h1>' +
+            '<div class="md-sub">' +
+              '<span class="ath-micro" style="color:var(--ath-brass-hi)">' + esc(r.type) + '</span>' +
+              (r.source ? '<span>·</span><span>' + esc(r.source) + '</span>' : '') +
+              (r.year ? '<span>·</span><span class="ath-num">' + esc(r.year) + '</span>' : '') +
+              (r.lengthText ? '<span>·</span><span class="ath-num">' + esc(r.lengthText) + '</span>' : '') +
+              (r.rating ? '<span>·</span><span style="color:var(--ath-brass-hi)">' + '★'.repeat(r.rating) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+          tagChips(r) +
+        '</div>' +
+        (r.summary ? '<p class="ath-lede" style="margin-top:var(--sp-4); max-width:70ch">' + esc(r.summary) + '</p>' : '') +
+        '<div class="md-acts">' +
+          (who
+            ? '<a class="md-acts-person" href="' + esc(href(who)) + '">' + face(who.title, who.id) + esc(who.title) + '</a>'
+            : (r.author ? '<span class="md-acts-person">' + face(r.author, r.author) + esc(r.author) + '</span>' : '<span class="md-acts-person"></span>')) +
+          '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="watched">' +
+            (r.bucket === 'completed' ? 'Watched' : 'Mark watched') + '</button>' +
+          '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="add-mark">Add a note</button>' +
+          (em.seekable
+            ? '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="capture">Note at this moment</button>'
+            : '') +
+          (r.url ? '<a class="ath-btn ath-btn-ghost ath-btn-sm" href="' + esc(r.url) + '" target="_blank" rel="noopener">Source</a>' : '') +
+          '<button class="ath-btn ath-btn-ghost ath-btn-sm" type="button" data-act="edit-resource">Edit</button>' +
+          '<button class="ath-btn ath-btn-danger ath-btn-sm" type="button" data-act="del-resource">Delete</button>' +
+        '</div>' +
+        '<section class="md-notes">' +
+          '<h4>Notes</h4>' +
+          (marks.length
+            ? marks.map(function (m) {
+                var at = m.at >= 0 ? d.fmtClock(m.at) : '—';
+                // A time is only a BUTTON when the page can actually act on
+                // it. On an embed it cannot be seeked, so it links out with
+                // ?t= instead; on nothing playable it is just a label.
+                var timeEl = (m.at >= 0 && em.seekable)
+                  ? '<button class="md-at" type="button" data-seek="' + m.at + '">' + at + '</button>'
+                  : (m.at >= 0 && r.url
+                      ? '<a class="md-at" href="' + esc(r.url) + (r.url.indexOf('?') >= 0 ? '&' : '?') + 't=' + m.at +
+                        '" target="_blank" rel="noopener">' + at + '</a>'
+                      : '<span class="md-at is-loose">' + at + '</span>');
+                return '<div class="md-mark">' + timeEl +
+                  richBox('mark:' + m.id + ':bodyHtml', m.bodyHtml, 'What happened here.') +
+                  '<button class="ath-btn ath-btn-ghost ath-btn-sm md-mark-x" type="button" ' +
+                    'data-act="del-mark" data-id="' + esc(m.id) + '">Remove</button>' +
+                '</div>';
+              }).join('')
+            : '<div class="ath-empty"><b>No notes yet</b>' +
+              (em.seekable
+                ? 'Press <b style="display:inline">Note at this moment</b> while it is playing and the time is filled in for you.'
+                : 'Add a note and give it a time like <b style="display:inline">12:40</b>.') +
+              '</div>') +
+        '</section>' +
+      '</div>';
+
+    $('rsPage').innerHTML = '<div class="md-shell">' + rail + main + '</div>';
+    mountYouTube();
+  }
+
+  /* The YouTube iframe API is loaded only when there is a YouTube frame on
+     the page, and everything that uses it degrades if it never arrives. */
+  function mountYouTube() {
+    var frame = $('mdYT');
+    ytPlayer = null;
+    if (!frame) return;
+    function make() {
+      try {
+        ytPlayer = new window.YT.Player('mdYT', {
+          events: { onReady: function () { ytReady = true; } }
+        });
+      } catch (e) { ytPlayer = null; }
+    }
+    if (window.YT && window.YT.Player) { make(); return; }
+    if (!document.getElementById('ytApi')) {
+      var s = document.createElement('script');
+      s.id = 'ytApi';
+      s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+    var prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () {
+      if (typeof prev === 'function') try { prev(); } catch (e) {}
+      make();
+    };
+  }
+
+  function currentTime() {
+    var el = $('mdMedia');
+    if (el && isFinite(el.currentTime)) return Math.floor(el.currentTime);
+    if (ytPlayer && ytPlayer.getCurrentTime) {
+      try { return Math.floor(ytPlayer.getCurrentTime() || 0); } catch (e) {}
+    }
+    return -1;
+  }
+  function seekTo(secs) {
+    var el = $('mdMedia');
+    if (el) { try { el.currentTime = secs; el.play(); return true; } catch (e) {} }
+    if (ytPlayer && ytPlayer.seekTo) {
+      try { ytPlayer.seekTo(secs, true); ytPlayer.playVideo(); return true; } catch (e) {}
+    }
+    return false;
+  }
+
+  function openMarkDialog(at) {
+    var r = res();
+    if (!r) return;
+    var d = D();
+    openDlg({
+      title: at >= 0 ? ('Note at ' + d.fmtClock(at)) : 'New note',
+      saveLabel: 'Add note',
+      body:
+        fText('Time', 'at', at >= 0 ? d.fmtClock(at) : '', 'e.g. 12:40 — leave empty for a note with no time') +
+        '<div class="ath-field"><span class="ath-field-label">Note</span>' +
+          '<div class="rs-paste" style="min-height:120px"><div class="rs-rich" contenteditable="true" ' +
+          'data-ph="What happened here."></div></div></div>',
+      onSave: function (v) {
+        var html = d.sanitizeHtml(v.__html || '');
+        if (!d.htmlToText(html)) { toast('The note is empty', true); return; }
+        d.Marks.add({ resourceId: r.id, at: d.parseClock(v.at), bodyHtml: html });
+        toast('Note added');
+      }
+    });
+  }
+
+  function wireMedia() {
+    on('rsPage', 'click', '[data-act="add-mark"]', function () { openMarkDialog(-1); });
+    on('rsPage', 'click', '[data-act="capture"]', function () {
+      var t = currentTime();
+      if (t < 0) { toast('Start it playing first, then the time fills itself in'); }
+      openMarkDialog(t);
+    });
+    on('rsPage', 'click', '[data-seek]', function (e, t) {
+      if (!seekTo(parseInt(t.getAttribute('data-seek'), 10) || 0)) {
+        toast('That player will not take a cue from this page', true);
+      }
+    });
+    on('rsPage', 'click', '[data-act="del-mark"]', function (e, t) {
+      var d = D(), m = d.Marks.get(t.getAttribute('data-id'));
+      if (!m) return;
+      if (!confirm('Remove this note?')) return;
+      d.Marks.remove(m.id);
+      toast('Note removed');
+      render({ top: false });
+    });
+    on('rsPage', 'click', '[data-act="watched"]', function () {
+      var d = D(), r = res();
+      if (!r) return;
+      var done = r.bucket === 'completed';
+      d.Resources.update(r.id, {
+        bucket: done ? 'active' : 'completed',
+        progress: done ? r.progress : 100,
+        finishedAt: done ? '' : d.todayISO()
+      });
+      toast(done ? 'Back on the active shelf' : 'Marked watched');
+      render({ top: false });
+    });
+  }
+
+  // ============================================================
+  // §RENDER
+  // ============================================================
+  function renderMissing() {
+    $('rsPage').innerHTML =
+      '<div class="rs-missing">' + backLink(true) +
+      '<div class="ath-empty" style="margin-top:var(--sp-5)"><b>No such resource</b>' +
+      'This page needs a resource id in its address, like <code>athenaeum-resource.html?id=…</code>. ' +
+      'Everything on the shelf is reachable from the Library.' +
+      '<div style="margin-top:var(--sp-5)"><a class="ath-btn ath-btn-sm" href="athenaeum-resources.html">Back to the Library</a></div>' +
+      '</div></div>';
+  }
+
+  function render(opts) {
+    opts = opts || {};
+    var y = window.scrollY;
+    var r = res();
+    // NOT terminal: the first paint can legitimately find nothing, because
+    // the cloud pull may not have landed yet. onApplied re-runs this.
+    if (!r) { renderMissing(); return; }
+    document.title = (r.title || 'Resource') + ' — The Athenaeum';
+    var template = TEMPLATE_OF[r.type] || 'page';
+    if (template === 'reader') renderReader(r);
+    else if (template === 'media') renderMedia(r);
+    else renderPage(r);
+    wirePlates();
+    // Every repaint re-creates the editors, so anything a refresh (or a
+    // cloud pull) interrupted has to be put back into the new nodes.
+    runSafely(restoreRichDrafts, 'restoreRichDrafts');
+    if (!opts.top) window.scrollTo({ top: y, behavior: 'auto' });
+  }
+
+  /* A cloud pull must never wipe what is being typed, and must never
+     scroll. isContentEditable is in the guard because a rich editor is not
+     an INPUT — without it, a sync repaint eats a half-written chapter. */
+  function refreshCurrentView() {
+    if ($('rsDlgBg').classList.contains('show')) return;
+    if (window.AthResourceEditor && AthResourceEditor.isOpen()) return;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable)) return;
+    runSafely(render, 'refresh');
+  }
+
+  function wirePlates() {
+    var plates = [].slice.call(document.querySelectorAll('#rsPage [data-plate]'));
+    if (!plates.length || wirePlates.done) { wirePlates.done = true; }
+    if (!plates.length) return;
+    if (!wirePlates.bound) {
+      wirePlates.bound = true;
+      var queued = false;
+      function tick() {
+        queued = false;
+        var live = [].slice.call(document.querySelectorAll('#rsPage [data-plate]'));
+        var rects = live.map(function (p) { return p.getBoundingClientRect(); });
+        live.forEach(function (p, i) {
+          var rc = rects[i];
+          var out = rc.height ? Math.min(1, Math.max(0, -rc.top / rc.height)) : 0;
+          p.style.setProperty('--ath-out', out.toFixed(3));
+        });
+      }
+      function req() { if (!queued) { queued = true; requestAnimationFrame(tick); } }
+      window.addEventListener('scroll', req, { passive: true });
+      window.addEventListener('resize', req);
+      wirePlates.tick = tick;
+    }
+    if (wirePlates.tick) wirePlates.tick();
+  }
+
+  function openEditor() {
+    var r = res();
+    if (!window.AthResourceEditor) { toast('The editor did not load', true); return; }
+    AthResourceEditor.open(r, { toast: toast, onSaved: function () { render({ top: false }); } });
+  }
+
+  function deleteResource() {
+    var d = D(), r = res();
+    if (!r) return;
+    var chapters = d.chaptersFor(r.id).length, marks = d.marksFor(r.id).length;
+    var extra = [];
+    if (chapters) extra.push(chapters + (chapters === 1 ? ' chapter' : ' chapters'));
+    if (marks) extra.push(marks + (marks === 1 ? ' note' : ' notes'));
+    if (!confirm('Delete “' + (r.title || 'Untitled') + '”?\n\n' +
+      (extra.length ? 'Its ' + extra.join(' and ') + ' go with it. ' : '') +
+      'Anything crediting it keeps its own text — only the link is removed.')) return;
+    d.removeResource(r.id);
+    navigateAfterWrites('athenaeum-resources.html');
+  }
+
+  /* §DURABLE-NAV. local-store-idb.js's setItem returns as soon as the
+     in-memory map is updated; the IndexedDB transaction it fires is still
+     in flight. Leaving the document in the same tick can lose it. Opening
+     our own readwrite transaction on the same store and waiting for it to
+     complete guarantees everything queued before it has committed. */
+  function navigateAfterWrites(url) {
+    var go = function () { location.href = url; };
+    try {
+      var req = indexedDB.open('personal-dashboard-kv');
+      req.onsuccess = function () {
+        var db = req.result;
+        try {
+          var tx = db.transaction('kv', 'readwrite');
+          tx.oncomplete = go; tx.onerror = go; tx.onabort = go;
+          tx.objectStore('kv').get('__flush__');
+        } catch (e) { go(); }
+      };
+      req.onerror = go;
+      setTimeout(go, 600);           // never hang on a browser that refuses
+    } catch (e) { go(); }
+  }
+
+  // ============================================================
+  // §WIRING
+  // ============================================================
+  function wire() {
+    wireRich();
+    on('rsPage', 'click', '[data-act="edit-resource"]', openEditor);
+    on('rsPage', 'click', '[data-act="del-resource"]', deleteResource);
+
+    on('rsDlgBg', 'click', '[data-close]', function () { closeDlg(true); });
+    $('rsDlgBg').addEventListener('click', function (e) { if (e.target === $('rsDlgBg')) closeDlg(true); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && $('rsDlgBg').classList.contains('show')) closeDlg(true);
+    });
+    on('rsDlgBg', 'click', '[data-save]', function () {
+      if (!dlgCtx || !dlgCtx.onSave) { closeDlg(true); return; }
+      var cb = dlgCtx.onSave, v = dlgValues();
+      // The dialog's own rich surface has to be read BEFORE it is torn down.
+      var richEl = $('rsDlg').querySelector('[contenteditable]');
+      v.__html = richEl ? richEl.innerHTML : '';
+      closeDlg(true);
+      runSafely(function () { cb(v); render({ top: false }); }, 'dialog save');
+    });
+    on('rsDlgBg', 'paste', '[contenteditable]', function (e, el) { handleRichPaste(el, e); });
+
+    wireReader();
+    wireMedia();
+    wirePage();
+  }
+
+  // ============================================================
+  // §BOOT
+  // ============================================================
+  var remoteRef = { applied: false };
+  if (typeof window.initCloudSync === 'function' && window.supabase) {
+    window.initCloudSync({
+      appKey: 'athenaeum',
+      syncedPrefixes: ['ath:'],
+      onApplied: function () { remoteRef.applied = true; refreshCurrentView(); }
+    });
+  }
+
+  /* §HIDE-FLUSH — switching apps is not a blur.
+     A rich field commits on a 700ms debounce and on blur. Backgrounding the
+     page on a phone fires neither: the field keeps focus, and the OS may
+     discard the document before the debounce runs. AthDraft's keystroke
+     draft means nothing is truly lost, but it would surface as a "Recovered
+     what you were writing" toast on the next visit rather than as text that
+     had simply been saved. Commit properly instead. */
+  function flushRich() {
+    document.querySelectorAll('#rsPage [data-rich]').forEach(function (el) {
+      runSafely(function () { commitRich(el, true); }, 'hide flush');
+    });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushRich();
+  });
+  window.addEventListener('pagehide', flushRich);
+
+  function boot() {
+    var d = D();
+    if (!d) { console.error('[Athenaeum] athenaeum-data.js did not load'); return; }
+    try {
+      var p = new URLSearchParams(location.search);
+      S.id = p.get('id') || '';
+      S.chapterId = p.get('c') || '';
+    } catch (e) { S.id = ''; }
+    if (!S.chapterId) {
+      var last = String(d.getUiState().lastChapter || '');
+      if (last.indexOf(S.id + ':') === 0) S.chapterId = last.slice(S.id.length + 1);
+    }
+    wire();
+    render({ top: true });
+    d.maybeSeedAfterSyncAttempt(remoteRef, function () { refreshCurrentView(); });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
+      window.LocalStoreIDB.ready().then(function () { runSafely(boot, 'boot'); });
+    } else {
+      runSafely(boot, 'boot');
+    }
+  });
+})();
+</script>
+</body>
+</html>
