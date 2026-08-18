@@ -246,6 +246,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
+   | `athenaeum` | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` (new — see changelog) | everything prefixed `ath:` — `ath:subjects`, `ath:topics`, `ath:concepts`, `ath:connections`, `ath:contradictions`, `ath:resources`, `ath:curricula`, `ath:modules`, `ath:lessons`, `ath:assignments`, `ath:inbox`, `ath:lenses`, `ath:reviews`, `ath:sessions`, `ath:experiments`, `ath:box`, plus the singletons `ath:focus`, `ath:hero`, `ath:today`, `ath:uiState`, `ath:settings`, `ath:seededAt`. All three pages mount the SAME single `initCloudSync({appKey:'athenaeum', syncedPrefixes:['ath:']})` — one row, one prefix, no second mount anywhere. Deliberately a different prefix and a different appKey from `learning.html`'s `learning:`/`learning`, `learning-dashboard.html`'s `lhub:`/`learninghub` and `knowledge-hub.html`'s `kh:`/`knowledgehub`, so the four learning-adjacent pages can never collide |
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
@@ -290,6 +291,8 @@ using `sync.js`.
 
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
+| The Athenaeum | ⌘ `The Athenaeum` nav folder → `athenaeum.html` (**the second group in the sidebar, directly beneath Promptarium** — an explicit placement request) | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` + `athenaeum-data.js` (new — see changelog). A learning dashboard whose whole architecture is one rule: **Field → Curricula → Modules → Lessons**, a field being permanent and a curriculum temporary, so concepts/research/connections/contradictions hang off the FIELD and survive the curriculum that produced them. Eleven permanent fields, seeded with the user's own names and descriptions. Owns `ath:*` / appKey `athenaeum`, one sync mount, never touches another page's prefix. **A parallel build, not a replacement**: `learning.html`, `learning-dashboard.html` and `knowledge-hub.html` are untouched, share nothing with it, and are still listed in their own folders — confirmed as an explicit choice with the user before any code was written. The main page is a light editorial sheet (cold greige ground, laid-paper surface, Italiana/Newsreader/Inter, near-zero radii); the Subject Hub inverts the same palette into a dark working surface. Both grounds are DRAWN in CSS — layered radial gradients plus engraved orrery rings — never a stock photograph, so no page depends on an asset that can disappear |
+| Promptarium | ⚗️ `Promptarium` nav folder → `promptarium.html` (**the first group in the sidebar**) | `promptarium.html` + `promptarium-data.js` (new — a prompt operating system: one collection page per AI model (ChatGPT / Claude / Gemini / Gemini NotebookLM / Suno AI / n8n / Perplexity), a searchable library with eight filters and five sorts, star ratings feeding a Favorites & Pinned page, a user-owned second tag axis ("purpose tags"), multi-step Prompt Chains whose steps carry copyable sub-prompts and generatable run-checklist notes, and a Quick Capture inbox on a `q` hotkey. Owns `prm:*` / appKey `promptarium`. **It also mounts a SECOND `initCloudSync` for appKey `codex` / prefix `cdx:`, so its Fiction collection IS The Codex's AI Prompt Database — the same records, not a copy.** See the shared-database rules below. The page is **full-bleed** — no content max-width anywhere; `--pm-gutter` is the only horizontal inset and the hero ticker bleeds back out through it. Each model page carries a Substack-shaped **article** (`prm:collectionArticles`) above the prompt list and a rich **notes database** (`prm:collectionNotes`) below it, both `contenteditable` and both accepting pasted HTML and inline images — see the rich-editor rules below. The hero is a tall (82vh), left-aligned editorial block — a hairline display serif word-mark in tracked capitals over a looping muted background video mounted in the **static body markup** (`#pmStage`), never inside a renderer, plus a house rAF `--p` parallax) |
 | Home | 🏠 `HOME` → `home.html` (leads the nav row — see changelog) | `home.html` + `home-data.js` (rebuilt into one continuous scrollable page — see changelog) |
 | Main | 🎯 `MAIN` → `index.html` | `index.html` (rebuilt as a command center — see changelog; briefly deleted, then restored — see the changelog entry near the bottom of this file) |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
@@ -407,6 +410,71 @@ between this app and either data loss or a wide-open write target:
      wired — don't invent a new sync mechanism, don't call Supabase
      directly from new code paths, and don't loosen what's synced without
      being asked to.
+   - **`promptarium.html` is the one page that mounts two rows** (`prm:` under
+     appKey `promptarium`, and `cdx:` under appKey `codex`, so its Fiction
+     collection is The Codex's own prompt database rather than a copy). Three
+     things keep that safe, and none of them may be removed:
+     1. **The two prefixes must stay disjoint.** `sync.js` installs one
+        localStorage patch per call and they chain; an overlap would make the
+        two rows push each other in a loop.
+     2. **The write gate.** `pushNow()` replaces a row's whole `data` column,
+        so a `cdx:` write made before the codex row has been pulled into this
+        page would upsert a *partial* set over the real one — taking
+        `cdx:trilogies`/`chapters`/`scenes`, i.e. the manuscripts, with it.
+        Every `cdx:` mutation therefore goes through `codexWrite()` in
+        §CODEX GATE. The invariant to check in review: `C().Prompts.` and
+        `C().PromptNotes.` appear nowhere outside a `codexWrite` callback.
+     3. **The sidecar.** `codex-data.js`'s `promptModel()` is a whitelist of
+        sixteen fields re-run on every `update()`, so any Promptarium-only
+        field written onto a `cdx:` record is silently dropped the next time
+        The Codex edits it. Rating, purpose tags, creator, source and status
+        live in `prm:fictionMeta`, keyed by prompt id. `assertCodexFields()`
+        catches a regression here in the console.
+   - **`promptarium.html`'s rich editors** (the per-model article and the
+     collection notes DB) have three rules of their own, none removable:
+     1. **Everything pasted goes through `sanitizeHtml`**, which parses with
+        `DOMParser` — never `div.innerHTML`, which would *execute* an
+        `<img onerror>` while "cleaning" it. It runs inside the data models,
+        so `makeCollection.update()` re-applies it on every write and no code
+        path can get a dirty value into storage. It strips `style` and `class`
+        deliberately: that is what keeps pasted content on this page's palette.
+     2. **`refreshCurrentView()` is DEFERRED while a `[contenteditable]` has
+        focus** (`richHasFocus()` / `refreshPending`). Cloud sync, the boot
+        grace timer and online/offline all fire it at moments nobody chose,
+        and one landing mid-sentence destroys the buffer and the caret.
+        `render()` — real navigation — always wins, after `flushRich()`.
+     3. **Saves are debounced 1200 ms**, not per-keystroke, because every
+        `storeSet` trips `sync.js`'s `schedulePush`, which re-serialises and
+        upserts the *entire* `prm:` row. A pasted screenshot would otherwise
+        re-upload the whole library on every letter.
+   - **The hero video** (`#pmStage`) is static body markup on purpose. Every
+     view renderer does `host.innerHTML = …`, so a `<video>` inside a header
+     would be re-created — and restart — several times a minute. Its `src` is
+     assigned from JS only above 720px with motion allowed, so a phone never
+     downloads it.
+   - **The hero is tall, left-aligned, and set in `--pm-hero`.** Three rules
+     hold it together, and all three are easy to undo by accident:
+     1. `.pm-head` is a **flex column** with `min-height:clamp(600px,82vh,960px)`
+        (66vh under 720px). `.pm-head-grid` takes `flex:1` and
+        `align-items:flex-end`, which is what drops the word-mark low in the
+        frame; the ticker is the last child and lands on the fold. The header's
+        height is also `--pm-par-px`, so `#pmStage` and every parallax rate
+        follow it automatically — don't hard-code a height anywhere.
+     2. `.pm-head-grid` is **flex, not grid**. The two metadata blocks sit in a
+        `.pm-head-side` stack beside the type; under grid, the much taller
+        word-mark spanning both rows distributes its height across them and
+        prises the two blocks apart. `.pm-head-side` carries `pm-par-4` — the
+        blocks inside it must NOT, or the translate applies twice.
+     3. `--pm-hero` (Italiana) is **hero-only** — the eyebrow, title, subtitle
+        and ticker. It is a single-weight display face with no italic: never
+        give it a `font-weight`, and never let it reach body copy or controls.
+        Interface type stays `--pm-display` (Instrument Serif) and `--pm-ui`
+        (Inter), which is what keeps the rest of the page's grading intact.
+     The accent orb and the title's clipped accent twin were **removed**; the
+     word-mark's sheen is now a `background-clip:text` gradient on
+     `.pm-head-title`, stated in the existing `--pm-text`/`--pm-accent` tokens
+     so it introduces no new colour. Parallax rate 2 (.55) went with the orb
+     and is left defined but unoccupied rather than renumbering the layers.
 
 2. **All rebuilt UI must reuse the existing design tokens and shared
    components — no new hard-coded colors.** Concretely:
@@ -506,6 +574,83 @@ both as originally phrased assumed a backend this app doesn't have):
   Edge" notes).
 
 ## Changelog
+
+- **New: The Athenaeum's Resource Library — `athenaeum-resources.html` (the
+  library) and `athenaeum-resource.html?id=` (one resource), plus two new
+  shared files, `athenaeum-nav.js` and `athenaeum-resource-editor.js`.**
+  Resources already existed (`ath:resources`) but could only be created
+  inside a field hub, and the cross-field view at `athenaeum.html#/resources`
+  was read-only, unsearchable, untagged, and linked from one place in the
+  colophon. That hash route now **redirects** (`MOVED_ROUTES` in
+  `athenaeum.html`) and `resourcesBody()` was deleted rather than left as a
+  second, weaker view of the same collection.
+  - **Data layer.** `resourceModel` gained `subjectIds` (many fields, not
+    one — `subjectId` is kept as a written-back legacy shim and `resFields()`
+    reads either shape), `tags`, `summary`, `bodyHtml`,
+    `cover`/`coverPos`/`hue`, `personIds`, `curriculumId`, `year`, `source`,
+    `lengthText`, `progress`, `startedAt`/`finishedAt`; `type` is now
+    `oneOf(RESOURCE_TYPES)` rather than free text. Two new collections,
+    `ath:chapters` and `ath:resmarks` — deliberately NOT fields on the
+    resource, because `ath:resources` is re-serialised whole on every edit
+    and pasted book chapters in there would make renaming a resource cost as
+    much as saving a book. `migrateResourcesV2()` runs once, gated behind
+    `maybeSeedAfterSyncAttempt` for the same reason seeding is. New cascade
+    `removeResource()` takes a resource's chapters and marks and only NULLS
+    references to it — deleting a Person must never delete their books.
+  - **Rich text.** `sanitizeHtml`/`htmlToText` ported from
+    `promptarium-data.js` (DOMParser, never `innerHTML`; node/depth caps
+    raised to 12000/14 because a pasted book is legitimately large), and the
+    `wireRich`/`insertRich`/`commitRich`/`handleRichPaste` editor ported from
+    `promptarium.html`. Stripping `style`/`class` is load-bearing rather than
+    cosmetic here: a chapter copied out of a PDF reader carries
+    `background:#fff`, and the Athenaeum is one continuous near-black ground.
+  - **Three templates, one file**, chosen by medium: `reader` (Book — a table
+    of contents beside a column of prose, per-chapter notes, a read toggle,
+    and a bulk paste that splits at the document's own headings), `page`
+    (Paper/Course/Article/Person/Dataset/Tool/Other — a centred title, a
+    plate, and facts in the margin, with a per-medium tail: a Course links to
+    the curriculum built from it, a Person lists their works, a Paper states
+    its citation), and `media` (Video/Podcast/Lecture — a queue, an embedded
+    player, and notes with timestamps). `embedFor()` covers YouTube, Vimeo,
+    Spotify, Apple Podcasts, SoundCloud and direct media files; anything else
+    degrades to the cover plus an "Open at source" button rather than an
+    empty frame, and a timestamp is only rendered as a seek control where the
+    page can actually drive the playhead.
+  - **Two files are shared rather than pasted per page**, against this repo's
+    usual per-page-inline convention, and both for the same reason: five
+    pages need the identical thing and the one that gets missed is the bug.
+    `athenaeum-nav.js` is the Library link at the top of every Athenaeum page
+    (fixed top-right, because `topbar.js`'s launcher pill owns the top-left
+    and a strip in normal flow would push a full-bleed hero off the top of
+    the viewport); `athenaeum-resource-editor.js` is the one resource form,
+    because `resourceModel` is a whitelist and three copies of the form means
+    every new field has to be added in four places.
+  - **Follow-up: nothing typed in The Athenaeum is lost to a refresh
+    (`athenaeum-drafts.js`, loaded by all five pages).** Three separate
+    windows existed: every modal held 100% of its form in the DOM until Save
+    (35 call sites across five pages), the rich editors committed on a 700ms
+    debounce, and the storage shim's IndexedDB write commits after the tick.
+    The fix follows this repo's own conclusion that *a flush on beforeunload
+    often never commits — autosave while typing is the real fix*: drafts are
+    written on every keystroke, to the **real synchronous localStorage**
+    reached through a hidden same-origin iframe (the shim only patches the
+    top window), under an `athdraft:` prefix that cannot match
+    `syncedPrefixes:['ath:']`, so scratch never reaches Supabase. Rich
+    editors are now two-tier — a cheap raw draft per keystroke, the expensive
+    sanitised commit still debounced. A restored form says so and offers to
+    discard. Cancel/Escape/backdrop clear the draft (a decision); a refresh
+    does not (not a decision). Scope keys carry a fingerprint of the form's
+    opening values so two records sharing a modal title never share a draft.
+    **The bug worth remembering:** `bind()`'s `pagehide` listener was not
+    detached on clear, so a *cancelled* form was re-written from the stale
+    DOM and came back on the next refresh — a binding must stop listening
+    when it is finished with.
+  - **Also fixed:** every Athenaeum page's `refreshCurrentView()` guard now
+    includes `a.isContentEditable`. Without it a cloud-sync repaint eats a
+    half-written chapter — the same bug `promptarium.html` documents fixing.
+    `athenaeum.html`'s in-hero `.ath-topnav` links were removed, since the
+    new fixed strip sat directly on top of them; the wordmark stays and the
+    hero's Edit control moved down beside the note it edits.
 
 - **New: Writing Dashboard — a 5th Business Hub tab (`layout: 'writing'`),
   built from `docs/WRITING_DASHBOARD_SPEC.md`'s plan** — effectively its own
@@ -14172,3 +14317,428 @@ both as originally phrased assumed a backend this app doesn't have):
     safety convention (never commit without being explicitly asked),
     committing and pushing was intentionally left for the user to confirm
     rather than done automatically here.
+
+- **New page set: The Athenaeum (`athenaeum.html` + `athenaeum-subject.html`
+  + `athenaeum-curriculum.html` + `athenaeum-data.js`), a learning
+  dashboard, placed as its own nav folder directly beneath Promptarium per
+  an explicit placement request.** Genuinely new files; nothing existing was
+  rewritten. The only edits outside the new files are in `topbar.js`: the
+  new `NAV_GROUPS` entry, two additions to `MODAL_SELECTORS`
+  (`.ath-modal-bg`, `.ath-capture-bg`), and a new `NAV_DETAIL_PARENTS` map
+  (see below).
+
+  - **The architecture is one structural rule**, and every other decision
+    follows from it: **Field → Curricula → Modules → Lessons**, where a
+    field is PERMANENT and a curriculum is TEMPORARY. So `ath:concepts`,
+    `ath:inbox`, `ath:connections` and `ath:contradictions` all carry a
+    `subjectId` and only optionally a `curriculumId` — knowledge belongs to
+    the field and outlives the curriculum that taught it. `removeCurriculum()`
+    enforces this directly: it deletes its own modules/lessons/assignments
+    (meaningless outside it) but NULLS the reference on inbox captures,
+    sessions and resources rather than taking them with it. `removeTopic()`
+    re-parents children instead of deleting a branch, and `removeConcept()`
+    unlinks rather than cascading.
+
+  - **Deliberately a PARALLEL build.** `learning.html` (`learning:`),
+    `learning-dashboard.html` (`lhub:`) and `knowledge-hub.html` (`kh:`)
+    all overlap this in subject matter. The user was asked directly, before
+    any code was written, whether The Athenaeum should supersede them,
+    import from them, or stand alone, and chose stand-alone: all three are
+    untouched, still nav-listed, and share no data and no code with it. New
+    prefix `ath:`, new appKey `athenaeum`, both unused beforehand.
+
+  - **One sync mount, one prefix.** All three pages carry the identical
+    `initCloudSync({appKey:'athenaeum', syncedPrefixes:['ath:']})` at parse
+    time. Unlike `promptarium.html` there is no second mount and no borrowed
+    row, so none of the write-gate/sidecar machinery the Promptarium ↔ Codex
+    sharing needs applies here. Seeding goes through
+    `maybeSeedAfterSyncAttempt(ref, cb)` copied from `promptarium-data.js`,
+    so a fresh install can never push a blank over the remote row.
+
+  - **Data model** (`athenaeum-data.js`, same `storeGet`/`storeSet` +
+    `makeCollection(key, model)` + model-factory conventions as
+    `promptarium-data.js`/`codex-data.js`): sixteen collections — Subjects,
+    Topics, Concepts, Connections, Contradictions, Resources, Curricula,
+    Modules, Lessons, Assignments, Inbox, Lenses, Reviews, Sessions,
+    Experiments, BoxItems — plus five patch-merged singletons (`ath:focus`,
+    `ath:hero`, `ath:today`, `ath:uiState`, `ath:settings`). Mastery and
+    "current understanding" share ONE seven-rung integer ladder (0–6,
+    Untouched → Adept) so a topic's target and its actual knowledge are
+    directly comparable; the labels are derived, never stored, so renaming a
+    rung needs no migration. Every derived number the UI shows
+    (`subjectStats`, `curriculumProgress`, `curriculumPosition`,
+    `todayLines`, `focusSlot`) lives in the data file, so a gallery card and
+    its own hub can never disagree. `curriculumProgress()` scores LEARNING
+    OUTCOMES when a curriculum has them and only falls back to lessons-done
+    when it does not — a curriculum with real outcomes is never graded on
+    how many videos got watched.
+
+  - **Seed**: the eleven fields only, with the user's own names, blurbs and
+    "why I study this" text verbatim, plus the five Research Lens questions.
+    No fake curricula, no fake concepts, no sample topics — an empty field is
+    honest and a fake one would have to be deleted before the page was
+    usable. `migrateSubjects()` mirrors `promptarium-data.js`'s
+    `migrateCollections()` so a field added to the seed later still reaches a
+    device that already seeded.
+
+  - **Design** — a page-scoped palette, which §6 permits only when the
+    request was a literal visual instruction: it was, two reference images
+    (a light editorial spa landing page for the main page, a dark app
+    dashboard for the hub). The main page is a cold-greige ground carrying a
+    laid-paper sheet; the Subject Hub INVERTS the same tokens into a dark
+    working surface — the reading room versus the desk it sits on. Italiana
+    (display) / Newsreader (prose) / Inter (UI), near-zero radii throughout,
+    verdigris + oxidised brass accents rather than the reference's
+    terracotta. Both grounds are **drawn in CSS** — layered radial gradients
+    plus engraved concentric "orrery" rings — never a stock photo, per the
+    standing lesson that stock-media hotlinks are unusable as built-in
+    assets. A field with no cover photo gets a hue-derived generated plate
+    rather than a grey placeholder.
+    - **Numerals are set in Newsreader, never Italiana.** Italiana has no
+      true lowercase and its zero is indistinguishable from a capital O, so
+      "0h logged" rendered as the word "oh". Every figure on both pages —
+      hero stats, percentages, standing-system counts — uses the prose face
+      with `lining-nums tabular-nums`. Worth remembering before reaching for
+      the display face on a number anywhere in this app.
+    - **The scroll-reveal rules sit at the very END of the stylesheet**
+      (`§REVEAL`). `.ath-card` declares its own `transition`, and a later
+      rule wins, so a reveal declared earlier had its fade silently dropped.
+      `observeRises()` also force-reveals anything already at or above the
+      fold before observing: a `keepScroll` repaint re-creates nodes the
+      reader has already scrolled past, and IntersectionObserver reports
+      those as not-intersecting, which would leave them invisible forever.
+
+  - **Re-renders must not scroll**, and this needed one extra step beyond the
+    usual `render({keepScroll:true})` split: `html` carries
+    `scroll-behavior:smooth` for the in-page anchors, so a bare
+    `window.scrollTo(0, y)` to restore position would visibly ANIMATE back.
+    Both pages pass `{top:y, behavior:'auto'}` explicitly.
+    `refreshCurrentView()` additionally bails while a modal is open or an
+    input/textarea/select has focus.
+
+  - **`topbar.js` gained `NAV_DETAIL_PARENTS`**, a small map consulted at the
+    top of `highlightActivePill()`: a page only ever reached FROM another
+    page (`athenaeum-subject.html`, `athenaeum-curriculum.html`) highlights
+    its parent's nav entry instead of leaving the whole sidebar looking
+    inactive. `learning-topic.html` is deliberately NOT in the map — the
+    Learning folder builds a real nav item per topic
+    (`buildLearningTopicItems`) and already matches on filename+query, which
+    an alias would coarsen. Verified no regression: `promptarium.html`,
+    `codex.html` and `index.html` still highlight exactly as before.
+
+  - **Built and verified in phase one**: the main page (hero, three-way
+    Current/Next/Back-Burner curriculum switcher, Today's Learning computed
+    from real sessions/reviews/assignments with optional manual overrides,
+    the eleven-field gallery, the four Standing Systems summary strips) and
+    the Subject Hub (Overview with all eight header properties, the Subject
+    Map parent→child skill tree, the Deep Research Bar — Learning Inbox plus
+    a permanently visible Research Lens you can capture answers against —
+    Curricula in Completed/Current/Future columns, and the field-filtered
+    Resource Library across all six buckets). The **Curriculum page**
+    (`athenaeum-curriculum.html`) was pulled forward out of phase two
+    rather than ship a dead link, since both other pages link into it:
+    Overview, Scope vs Anti-Scope (different coloured left rules, because
+    "what I am deliberately NOT studying" must never be mistaken for "what
+    I am"), Learning Outcomes with live progress sliders, Syllabus
+    (modules → checkable lessons) and Assignments. **Explicitly NOT built
+    yet, and saying so in the UI rather than faking it**: Knowledge
+    Base/Concepts, Connections, Contradiction Lab, the per-curriculum
+    Resources/Retention/Schedule sections, and the four global Standing
+    System views. Those routes exist, are nav-listed, and render a named
+    "not built yet" panel — a staged build agreed with the user up front,
+    not an oversight.
+
+  - **Verified** with Puppeteer against a local static server for `row/`
+    (the workshop's own `serve.mjs` serves its own directory and cannot
+    reach this repo), with `*.supabase.co` blocked on every run so a
+    half-built schema was never pushed to the live row: created a root topic
+    and a nested sub-topic, captured to the Learning Inbox both directly and
+    through a lens, promoted a capture into a permanent concept, created a
+    curriculum (confirming it auto-pins to `ath:focus` and then surfaces on
+    the homepage switcher by title), added a resource, and confirmed all of
+    it survived a full reload. Separately, on the Curriculum page: created a
+    curriculum in a field, followed the real link into it, set scope and
+    anti-scope, added three learning outcomes, dragged one to 60% and
+    confirmed the header stat recomputed to 20% (60 ÷ 3 outcomes) and that
+    the same 20% then appeared on the homepage switcher, then added a
+    module, a lesson, ticked it, and added an assignment. Brace/paren/bracket
+    balance confirmed on all four new files (`athenaeum-data.js` 383/383,
+    960/960, 80/80; `athenaeum.html` 361/361, 903/903, 25/25;
+    `athenaeum-subject.html` 377/377, 1110/1110, 48/48;
+    `athenaeum-curriculum.html` 221/221, 679/679, 39/39) and `node --check`
+    passes on `athenaeum-data.js` and the edited `topbar.js`. Nothing was
+    committed — per this repo's git convention, that is left for the user to
+    confirm.
+
+- **The Athenaeum, phase two: the permanent-knowledge layer** — Knowledge
+  Base, Connections and the Contradiction Lab inside each Subject Hub, plus
+  the Curriculum page's Resources / Retention / research sections. Additive
+  only: no phase-one behaviour changed, no new prefix, no new sync mount,
+  no shared file touched. `athenaeum-subject.html` and
+  `athenaeum-curriculum.html` grew; `athenaeum-data.js` did not change at
+  all — phase one had already defined every collection and query these read,
+  which is the point of having written the data layer whole up front.
+
+  - **The hub router gained a second hash segment**, `#/<tab>/<recordId>`.
+    A concept now has its own address (`#/knowledge/<id>`), so Back returns
+    to the grid instead of leaving the hub entirely. `paintedTab` became
+    `paintedKey` (`tab + ':' + detailId`) so opening a concept counts as a
+    navigation and resets scroll, while a data-change repaint still does not.
+
+  - **Knowledge Base** (`ath:concepts`): a searchable, topic-filterable grid
+    plus a full reading page per concept. Confidence renders as a spine down
+    the card's left edge (opacity driven by a `--conf` custom property)
+    rather than as another badge — it is the first thing worth knowing and
+    should not need a legend. Criticism and My Interpretation get their own
+    coloured rules on the detail page, because they are the two blocks most
+    likely to be skipped and a uniform stack hides that. Related concepts
+    are edited as a multi-select chip group over the field's own concepts —
+    never a free-text id — and the detail page also lists **backlinks**, so a
+    one-way link is still visible from both ends.
+
+  - **Connections**: two hand-rolled SVG figures, no library (adding one for
+    two diagrams would not pay for itself). Internal links draw a chord
+    circle whose curves bend toward the centre so parallel chords stay
+    distinguishable; cross-field draws hub-and-spoke with this field at the
+    centre. Both canvases size to their node count — a fixed height turns
+    three nodes into a mostly-empty box — and the `<svg>` is capped at 720px
+    and centred rather than stretched to the column width.
+    - **A cross-field link is stored ONCE**, on the field it was drawn from.
+      `connectionsFor()` already read it from both ends; the renderer swaps
+      the ends when read from the far side so it still reads outward from
+      wherever you are standing, and the far side shows a "from <field>"
+      badge instead of Edit/Delete. Storing it on both fields would have
+      doubled it in the diagram.
+
+  - **Contradiction Lab** (`ath:contradictions`): Theory A and Theory B in a
+    strictly symmetrical two-column layout — same width, same type, only the
+    spine colour differs — because an asymmetric layout takes a side before
+    you have. Below them: assumptions, methodological differences, where each
+    may be correct, and your own interpretation set apart in brass. Open and
+    Settled are separate sections; the rail count shows only the open ones.
+
+  - **Curriculum page** gained Resources, Retention Strategy and **Raise a
+    research question**. Resources are *referenced by id* from the field's
+    library, never copied onto the curriculum, so detaching cannot lose one;
+    the attach modal is a multi-select over the field's own library, and each
+    attached resource shows its retention method ("reading it is not studying
+    it"). Raising a question writes an `ath:inbox` record carrying the
+    FIELD's id and the curriculum's, which is the curriculum→field escape
+    hatch the architecture depends on.
+
+  - **REAL BUG FOUND AND FIXED — a destructive action's writes were being
+    lost.** Deleting a curriculum calls `removeCurriculum()`, which writes to
+    seven collections, and then navigated back to the field hub with
+    `location.href` in the same tick. `local-store-idb.js`'s `persistPut()`/
+    `persistRemove()` fire an IndexedDB transaction and return immediately —
+    the transaction only commits once control returns to the event loop — so
+    tearing the document down synchronously **silently abandoned the whole
+    delete**. Confirmed by reloading and finding the curriculum still there.
+    Fixed with `navigateAfterWrites()` in `athenaeum-curriculum.html`: it
+    opens its own connection to `personal-dashboard-kv` and starts a
+    `readwrite` transaction on `kv`, which by IndexedDB's serialisation rules
+    cannot begin until the shim's pending overlapping transactions have
+    finished — so its `oncomplete` is a real guarantee, not a guessed delay.
+    Falls back to a short timer (and a 1200 ms backstop) so navigation can
+    never hang. **This is the same failure family as the known
+    "IndexedDB writes at unload are not durable" lesson, and it will bite any
+    page in this app that writes and then leaves the document in one tick —
+    `local-store-idb.js` itself was NOT modified.**
+
+  - **Verified** with Puppeteer, Supabase blocked throughout: created three
+    topics and two concepts, linked them and confirmed the backlink appears
+    on the target concept, confirmed search filters without stealing focus
+    from the box, drew two internal links (Memory → drives → Emotion →
+    shapes → Decision Making) and one cross-field link, confirmed the chord
+    diagram rendered three nodes and that the cross link appeared from
+    `persuasion`'s side with a "from" badge, logged a contradiction and
+    toggled it settled (rail count 1 → 0), attached one of two field
+    resources to a curriculum and confirmed the library still held both, and
+    raised a research question from the curriculum page. **Then deleted that
+    curriculum and confirmed the field kept everything**: curricula 1 → 0,
+    while the research question survived with its `curriculumId` nulled and
+    still visible in the field's Deep Research Bar, and both resources stayed
+    in the library. Every route re-smoked for JS errors (14 addresses,
+    including bad-id fallbacks) — all clean. Balance re-confirmed:
+    `athenaeum-subject.html` 546/546, 1773/1773, 102/102;
+    `athenaeum-curriculum.html` 246/246, 810/810, 53/53.
+
+  - **Still not built** (phase three, and the UI says so): the four global
+    Standing Systems — Retention Center, Learning Calendar, Experiment Lab,
+    The Box — the four cross-field roll-up routes on the main page, the
+    Subject Hub's per-field Experiments tab (it is the global lab
+    pre-filtered, so it arrives with it), and the Curriculum page's Schedule
+    section (it needs the calendar). `athenaeum-data.js` already carries
+    `ath:reviews`, `ath:sessions`, `ath:experiments` and `ath:box` plus
+    `gradeReview()` and the whole retention ladder, so phase three is UI only.
+
+- **The Athenaeum, phase three: the global Standing Systems** — Retention
+  Center, Learning Calendar, Experiment Lab and The Box, plus the four
+  cross-field roll-ups, the Subject Hub's Experiments tab and the Curriculum
+  page's Schedule section. **The Athenaeum is now feature-complete against
+  the original spec**; nothing in it renders a "not built yet" panel any
+  more. Additive again: `athenaeum-data.js` was not touched in phase two or
+  phase three — every collection, enum and query these read was defined in
+  phase one, which is the return on having written the data layer whole
+  before any UI.
+
+  - **All four are global on purpose**, and the copy says why: a Tuesday can
+    owe you a psychology concept and a Roman collapse in the same sitting,
+    and nine fields must never mean nine calendars. Every row in every global
+    view names its field and links back to it (`subjLink()`).
+
+  - **Retention Center**: overdue / due today / weak / recently reviewed /
+    mastered, each item graded **Recalled** or **Forgot**. The schedule is
+    deliberately legible rather than clever — `REVIEW_LADDER` is
+    `1·3·7·16·35·75·150` days, stepping up one rung on a good recall and
+    back to one day on a bad one — so Damian can predict when something will
+    return, which SM-2 does not give you. Verified: a good grade moved 1 → 3
+    days and pushed the due date; a bad one reset to 1 day, flipped strength
+    to `weak` and incremented `lapses`. Items enter from the "Add to review"
+    picker, which lists every concept **not already scheduled** and also
+    accepts a free-text label for anything not yet written up.
+
+  - **Learning Calendar**: a real 42-cell month grid with prev/next/Today,
+    five colour-coded session kinds carried on `--kc` custom properties, and
+    click-any-day-to-schedule (the clicked date pre-fills the modal). The
+    same five hues are redeclared in `athenaeum-curriculum.html` so a session
+    reads the same colour on the Schedule section there. On mobile the grid
+    collapses to a single column and out-of-month days are hidden outright
+    rather than shown greyed.
+
+  - **Experiment Lab**: global, filterable by field, with hypothesis /
+    protocol / result / conclusion. The Subject Hub's Experiments tab is
+    **the same records, read-only, pre-filtered** and links back here to
+    edit — one editor rather than two, so there is no second source of truth.
+
+  - **The Box**: kinds, interest and priority as five-dot readouts (compact
+    and comparable down a column in a way a number is not), plus
+    **Promote to next** / **Back burner**, which call `promoteBoxItem()` to
+    create a real curriculum in the item's field, pin it to the matching
+    homepage slot, and **stamp the box entry rather than delete it** so the
+    trail from curiosity to curriculum stays readable. Promoting an item with
+    no field opens its editor instead of failing, because a curriculum has to
+    live inside a field. The filter bar only renders while something is still
+    parked, and a fully-promoted box says so ("a waiting room, not a
+    graveyard") rather than showing an empty filter row.
+
+  - **Cross-field roll-ups** (`#/inbox`, `#/knowledge`, `#/resources`,
+    `#/connections`) are **read-only on purpose**: each record is edited
+    inside its own field, and a global view that also edited would be a
+    second source of truth. `#/connections` is the payoff view — all eleven
+    fields on one ring with a chord per cross-field link, linked fields
+    filled in brass and unlinked ones left hollow, so the shape of the system
+    is visible at a glance.
+
+  - **Design notes worth keeping.** A single `.ath-li` list row serves
+    retention, inbox, box and resources — four sections that are all "a
+    labelled thing with a field and some actions" and did not need four card
+    designs. **The Italiana numeral trap bit again**: the calendar's month
+    heading rendered "August 2026" as "August 2o26", so `.ath-calbar h3` was
+    moved to Newsreader like every other figure on the page. `.ath-backbar`
+    also needed 72px of top padding — topbar.js's fixed launcher pill sits
+    over the top-left of every page and was covering the back link on all
+    eight global routes.
+
+  - **Verified** with Puppeteer, Supabase blocked throughout: graded a review
+    both ways and checked the interval, strength, due date and lapse count
+    each time; confirmed the calendar renders 42 cells and 5 legend entries,
+    that clicking a day pre-fills that date, that the saved session paints on
+    the right day carrying its kind class, and that month navigation and
+    Today both work; created two experiments in different fields, filtered to
+    one, and confirmed the Subject Hub's own tab showed the same single
+    record; parked a box item and promoted it, confirming a curriculum was
+    created with the title from `potentialCurriculum`, the box entry was
+    stamped not deleted, and the Next slot was pinned; searched the global
+    knowledge roll-up without losing focus from the box; and confirmed the
+    global map drew 11 nodes, 2 edges and 4 highlighted fields. All eight
+    global routes plus all fourteen page addresses re-smoked for JS errors —
+    clean. Everything survived a reload. Balance on all four files:
+    `athenaeum.html` 582/582, 1723/1723, 77/77; `athenaeum-subject.html`
+    548/548, 1790/1790, 102/102; `athenaeum-curriculum.html` 267/267,
+    875/875, 54/54; `athenaeum-data.js` unchanged at 383/383, 960/960, 80/80.
+
+  - **Known remaining gap, stated rather than hidden**: `ath:sessions` has no
+    recurrence — a weekly class has to be added week by week. That was not in
+    the original spec and was not invented here. Nothing was committed.
+
+- **The Athenaeum: hero photograph, hero typography, and every page made
+  full-bleed** — three explicit visual instructions, applied across all
+  three pages. No behaviour changed; `athenaeum-data.js` untouched again.
+
+  - **Hero image**: `images_by_admin/athenaeum/hero.jpg` (a Vitruvian Man /
+    Leonardo-manuscript collage, supplied as a Pinterest URL and downloaded
+    into the repo — never hotlinked, per the standing lesson that external
+    image CDNs are unusable as built-in assets). It is now the CSS
+    background of all three heroes: `.ath-hero` on `athenaeum.html`,
+    `.ath-banner` on `athenaeum-subject.html`, and `.ath-hero` on
+    `athenaeum-curriculum.html`. Framed `center 48%` so the figure — the
+    subject of the image — lands in the middle of the band a wide viewport
+    actually shows; at `center 26%` it was cropped out entirely.
+    - **The source is 676×1200 portrait**, so on a 2200px-wide hero it is
+      upscaled ~3.3× and is visibly soft. It survives because it is dark
+      and heavily textured and because the drawn rings, the light pools,
+      the scrim and the page grain all sit over it. Flagged to the user
+      rather than silently accepted; a larger source would be a drop-in
+      replacement at the same path.
+    - The hero editor's own `hero.image` still layers ON TOP (it is a
+      `z-index:-3` child, which paints above the element's own background),
+      so a user-set image continues to win. Its field hint was corrected —
+      it used to say the drawn plate was the fallback.
+    - On the Subject Hub the per-field drawn plate became a **hue WASH**
+      (`mix-blend-mode:soft-light`) over the photograph instead of an
+      opaque plate, so each field still reads as itself without hiding the
+      image. The gallery cards on the main page keep their full drawn
+      plates — those are not heroes and were not in scope.
+
+  - **Hero typography**: `Bodoni Moda`, matching
+    `brand_assets/brand_guidelines/banner & title_text.jpg` (the INÉORA
+    wordmark) — a high-contrast Didone with hairline thins against heavy
+    stems, set in wide-tracked capitals. Loaded with its `opsz` 6..96 axis
+    and `font-optical-sizing:auto`, which is what actually makes the
+    hairlines go fine at display sizes; a static Didone looks muddy at
+    90px. **Every piece of text inside a hero uses it** — headline,
+    eyebrow, wordmark, nav, buttons, stat figures and stat labels, and the
+    orrery seal's ring text — with hierarchy from size, weight and tracking
+    rather than from swapping family, which is how the reference itself is
+    built. Two deliberate calls: the hero note is set at 16.5px rather than
+    the usual 15px because a Didone's hairlines disappear in small body
+    copy, and hero figures stay in the hero face because Bodoni's lining
+    numerals are unambiguous (unlike Italiana's, which is the reason every
+    OTHER figure in this app is set in Newsreader).
+    - `--ath-hero-face` is declared on all three pages. `--ath-display`
+      (Italiana) is unchanged and still carries every non-hero heading, so
+      the two registers now read as hero vs. page rather than as one voice.
+
+  - **Full-bleed**: every page-level boundary removed on request.
+    `athenaeum.html`'s `.ath-sheet` lost `max-width:1500px`, its centring
+    margin and its hairline+drop-shadow; `athenaeum-subject.html`'s
+    `.ath-shell` lost `max-width:1680px` and the `@media (min-width:1740px)`
+    block that gave it a margin and rounded corners above that width;
+    `athenaeum-curriculum.html`'s `.ath-shell` lost `max-width:1180px`.
+    Each `body` background moved from the greige `--ath-ground` to the
+    page's own surface, since there is no longer a margin for the ground to
+    show through. The Subject Hub banner and the curriculum hero were also
+    given negative margins so they bleed out through the page padding and
+    sit flush with the viewport edges rather than reading as inset cards.
+    - **What was deliberately KEPT**: the inner *measure* caps
+      (`.ath-head{max-width:820px}`, `.ath-detail{max-width:900px}`,
+      `.ath-hero-body{max-width:1100px}`, the SVG diagram caps, and the
+      `--ath-gut` horizontal padding). Those are typographic line-length
+      controls, not page boundaries — removing them would run body copy the
+      full 2200px of a large display. Called out to the user explicitly so
+      it is their call, not a silent deviation.
+    - Verified at a 2200px viewport: all three shells report
+      `width:2200, left:0, maxWidth:none, boxShadow:none` and no horizontal
+      overflow.
+
+  - **Verified**: all fourteen page addresses re-smoked for JS errors —
+    clean; computed-style checks confirmed `Bodoni Moda` on every hero
+    headline and `hero.jpg` on every hero background, including the
+    curriculum page (checked against a real created curriculum, since the
+    bare URL renders the not-found state); screenshots at 1600px, 2200px
+    and 390px. Mobile needed one fix — wide-tracked caps ran out of room and
+    the stat labels touched, so at ≤720px the stats go two-up with tighter
+    tracking. Balance: `athenaeum.html` 583/583, 1729/1729, 77/77;
+    `athenaeum-subject.html` 551/551, 1795/1795, 102/102;
+    `athenaeum-curriculum.html` 275/275, 904/904, 54/54. Nothing committed.
