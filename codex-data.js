@@ -64,6 +64,7 @@
     lore: 'cdx:lore',
     sidebarPrefs: 'cdx:sidebarPrefs',
     compositionPrefs: 'cdx:compositionPrefs',
+    manuscriptPrefs: 'cdx:manuscriptPrefs',
     uiState: 'cdx:uiState',
     settings: 'cdx:settings'
   };
@@ -869,6 +870,17 @@
     motion: true, timerMinutes: 25, sprintWords: 500, serif: true,
     customUrl: '', customKind: 'image'
   };
+  // How the manuscript page itself is set — distinct from COMPOSITION_
+  // DEFAULTS above (that is the full-screen writing mode) and from
+  // SETTINGS.exportFont below (that is the compiled PDF). Three different
+  // surfaces, three different preferences, and conflating any two of them
+  // would mean changing how a manuscript prints by changing how it looks.
+  //
+  //   surface  'page'  a lit sheet on the scene — prose stays dark-on-light
+  //            'scene' the whole column dark, pale prose on the photograph
+  var MANUSCRIPT_DEFAULTS = {
+    surface: 'page', font: 'garamond', fontSize: 20, lineHeight: 1.85, measure: 72
+  };
   var SETTINGS_DEFAULTS = { dailyGoal: 1000, exportFont: 'garamond', exportTrim: 'letter', sceneBreak: '⁂' };
 
   function readSingleton(key, defaults) {
@@ -893,6 +905,8 @@
   function saveSidebarPrefs(patch) { return writeSingleton(KEYS.sidebarPrefs, SIDEBAR_DEFAULTS, patch); }
   function getCompositionPrefs() { return readSingleton(KEYS.compositionPrefs, COMPOSITION_DEFAULTS); }
   function saveCompositionPrefs(patch) { return writeSingleton(KEYS.compositionPrefs, COMPOSITION_DEFAULTS, patch); }
+  function getManuscriptPrefs() { return readSingleton(KEYS.manuscriptPrefs, MANUSCRIPT_DEFAULTS); }
+  function saveManuscriptPrefs(patch) { return writeSingleton(KEYS.manuscriptPrefs, MANUSCRIPT_DEFAULTS, patch); }
   function getSettings() { return readSingleton(KEYS.settings, SETTINGS_DEFAULTS); }
   function saveSettings(patch) { return writeSingleton(KEYS.settings, SETTINGS_DEFAULTS, patch); }
   function getUiState() { return readSingleton(KEYS.uiState, { lastTrilogyId: '', lastBookId: '', lastChapterId: '' }); }
@@ -996,8 +1010,13 @@
   // ============================================================
   // HOUSE ART — the photographs the heroes are built on.
   //
-  // ART.codex and ART.trilogy are fixed: the Codex banner and the
-  // trilogy banner are house furniture and never change with content.
+  // ART.codex, ART.trilogy, ART.book and ART.chapter are fixed: the four
+  // banners are house furniture and never change with content. The last two
+  // are DEFAULTS rather than the only answer — a book or chapter with its
+  // own `headerArt` set by hand still wears it, because that field exists
+  // for exactly that. What they replaced was the old fallback chain, which
+  // reached for the book's cover and then the trilogy's, so a page with no
+  // art of its own opened wearing a picture chosen for something else.
   // ART.covers is a rotation: a series with no cover art of its own gets
   // one by its place in the order the trilogies were created, so two
   // series made back to back never wear the same picture.
@@ -1012,6 +1031,8 @@
   var ART = {
     codex: 'images_by_admin/codex/codex-hero.jpg',
     trilogy: 'images_by_admin/codex/trilogy-hero.jpg',
+    book: 'images_by_admin/codex/book-hero.jpg',
+    chapter: 'images_by_admin/codex/chapter-hero.jpg',
     covers: [
       'images_by_admin/codex/cover-moth.jpg',
       'images_by_admin/codex/cover-fae.jpg'
@@ -1164,6 +1185,7 @@
     logProgress: logProgress,
 
     getSidebarPrefs: getSidebarPrefs, saveSidebarPrefs: saveSidebarPrefs,
+    getManuscriptPrefs: getManuscriptPrefs, saveManuscriptPrefs: saveManuscriptPrefs,
     getCompositionPrefs: getCompositionPrefs, saveCompositionPrefs: saveCompositionPrefs,
     getSettings: getSettings, saveSettings: saveSettings,
     getUiState: getUiState, saveUiState: saveUiState,
