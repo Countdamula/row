@@ -47,7 +47,13 @@
     }
   }
 
-  var SHELVES = ["podcasts","creepypasta","trueHorror","spicy","immersive","watch","playlists"];
+  // The seven shelves that arrived with the migration, plus three that were
+  // tabs in vault.html with no shelf behind them — opening them showed a
+  // "not built out" stub rather than an empty shelf you could put something
+  // on. They carry no SEED, so they start empty and stay empty until used;
+  // seedShelf() returns 0 for a shelf with nothing to seed.
+  var SHELVES = ["podcasts","creepypasta","trueHorror","spicy","immersive","watch","playlists",
+                 "reading","anime","games"];
   var keyFor = function (shelf) { return 'vault:media:' + shelf; };
 
   var SEED = {
@@ -9068,6 +9074,70 @@
     return all[i];
   }
 
+  function remove(shelf, id) {
+    var all = list(shelf);
+    var i = all.findIndex(function (x) { return x.id === id; });
+    if (i < 0) return null;
+    var gone = all[i];
+    all.splice(i, 1);
+    // Keep `order` dense, or a later insert lands on top of an existing slot.
+    all.forEach(function (x, n) { x.order = n; });
+    replaceAll(shelf, all);
+    return gone;
+  }
+
+  /**
+   * Moving an item between shelves is a remove plus an add, not an update —
+   * the shelf is part of the storage key, not a field on the record. The id
+   * is carried across so anything holding a reference still resolves, and
+   * createdAt survives so it does not jump to the top of Recently Added.
+   */
+  function move(fromShelf, id, toShelf) {
+    if (fromShelf === toShelf) return list(fromShelf).find(function (x) { return x.id === id; }) || null;
+    if (SHELVES.indexOf(toShelf) < 0) return null;
+    var it = remove(fromShelf, id);
+    if (!it) return null;
+    var all = list(toShelf);
+    it.order = all.length;
+    it.updatedAt = Date.now();
+    all.push(it);
+    replaceAll(toShelf, all);
+    return it;
+  }
+
+  /** Every category in use on a shelf, most-used first — what the composer
+   *  offers so a new item lands in an existing row instead of starting a
+   *  one-item row of its own through a typo. */
+  function categories(shelf) {
+    var n = {};
+    list(shelf).forEach(function (x) {
+      var c = String(x.category || '').trim();
+      if (c) n[c] = (n[c] || 0) + 1;
+    });
+    return Object.keys(n).sort(function (a, b) { return n[b] - n[a] || a.localeCompare(b); });
+  }
+
+  /** Every category across every shelf — for the composer before a shelf is
+   *  chosen, and for spotting that "Learning" already exists elsewhere. */
+  function allCategories() {
+    var seen = {};
+    SHELVES.forEach(function (s) { categories(s).forEach(function (c) { seen[c] = true; }); });
+    return Object.keys(seen).sort();
+  }
+
+  /** Does this link already exist anywhere? Returns {shelf, item} or null.
+   *  Pasting the same thing twice is the single easiest way to make a
+   *  library untrustworthy, so the composer checks before it saves. */
+  function findByUrl(url) {
+    var c = canonUrl(url);
+    if (!c) return null;
+    for (var i = 0; i < SHELVES.length; i++) {
+      var hit = list(SHELVES[i]).find(function (x) { return canonUrl(x.url) === c; });
+      if (hit) return { shelf: SHELVES[i], item: hit };
+    }
+    return null;
+  }
+
   /** Stamped on every card open — powers Continue and the activity stats. */
   function touch(shelf, id) {
     var it = list(shelf).find(function (x) { return x.id === id; });
@@ -9150,9 +9220,14 @@
     list: list,
     add: add,
     update: update,
+    remove: remove,
+    move: move,
     replaceAll: replaceAll,
     touch: touch,
     counts: counts,
+    categories: categories,
+    allCategories: allCategories,
+    findByUrl: findByUrl,
     canonUrl: canonUrl,
     seedNow: seedNow,
     maybeSeedAfterSyncAttempt: maybeSeedAfterSyncAttempt,

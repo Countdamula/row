@@ -523,6 +523,175 @@ main{ position:relative; z-index:4 }
   .tile.beamed,.chip.beamed{ border-color:CanvasText }
 }
 
+/* ══ COMPOSER ══════════════════════════════════════════
+   The add/edit surface. Everything on this page was readable before and
+   writable nowhere — the paste bar in the chrome had no handler at all, so
+   the empty state's "paste a link in the bar above" was advice you could not
+   take. This is that missing half.
+
+   It is a sheet, not a centred modal: on a phone a centred dialog with nine
+   fields fights the keyboard for the same 300px. Here it rises from the
+   bottom, scrolls internally, and keeps its actions pinned in view. */
+.cmp-scrim{ position:fixed; inset:0; z-index:80; background:rgba(9,0,2,.72);
+  backdrop-filter:blur(3px); opacity:0; pointer-events:none;
+  transition:opacity .3s ease }
+.cmp-scrim.on{ opacity:1; pointer-events:auto }
+
+.cmp{ position:fixed; z-index:81; left:50%; bottom:0; width:min(680px,100%);
+  max-height:min(88vh,860px); display:flex; flex-direction:column;
+  border-radius:18px 18px 0 0; overflow:hidden;
+  background:linear-gradient(168deg,#2A1220 0%,#1B0710 42%,#160409 100%);
+  border:1px solid var(--hair); border-bottom:0;
+  box-shadow:0 -2px 0 rgba(209,155,140,.08), 0 -30px 80px -30px rgba(9,0,2,.95);
+  transform:translate(-50%,100%);
+  transition:transform .42s var(--spring) }
+.cmp.on{ transform:translate(-50%,0) }
+
+.cmp-head{ flex:0 0 auto; display:flex; align-items:center; gap:12px;
+  padding:16px 20px 13px; border-bottom:1px solid var(--hair-soft) }
+.cmp-head h2{ margin:0; font-family:'Bodoni Moda',serif; font-style:italic;
+  font-weight:500; font-size:20px; letter-spacing:-.01em; color:var(--ink) }
+.cmp-x{ margin-left:auto; width:32px; height:32px; border-radius:50%; display:grid;
+  place-items:center; background:none; border:1px solid var(--hair-soft);
+  color:var(--ink-faint); cursor:pointer; font-size:14px; line-height:1;
+  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
+.cmp-x:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:rotate(90deg) }
+
+.cmp-body{ flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain;
+  padding:18px 20px 22px; display:grid; gap:14px;
+  grid-template-columns:1fr 1fr }
+.cmp-body::-webkit-scrollbar{ width:6px }
+.cmp-body::-webkit-scrollbar-thumb{ background:rgba(209,155,140,.18); border-radius:99px }
+.cmp-f{ display:flex; flex-direction:column; gap:6px; min-width:0 }
+.cmp-f.wide{ grid-column:1 / -1 }
+.cmp-f label{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--ink-faint) }
+/* 16px is not a style choice — anything smaller makes iOS Safari zoom the
+   whole page in on focus, and it does not zoom back out. */
+.cmp-f input,.cmp-f select,.cmp-f textarea{
+  width:100%; font-size:16px; font-family:'Instrument Sans',system-ui,sans-serif;
+  color:var(--ink); background:rgba(51,31,42,.42); border:1px solid var(--hair);
+  border-radius:9px; padding:10px 12px; line-height:1.45;
+  transition:border-color .2s ease, background-color .2s ease }
+.cmp-f textarea{ resize:vertical; min-height:78px }
+.cmp-f input::placeholder,.cmp-f textarea::placeholder{ color:var(--ink-faint) }
+.cmp-f input:focus,.cmp-f select:focus,.cmp-f textarea:focus{
+  outline:none; border-color:rgba(209,155,140,.5); background:rgba(51,31,42,.68) }
+.cmp-f select{ appearance:none; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' fill='none' stroke='%23A89490' stroke-width='1.4'%3E%3Cpath d='M1 1l3.5 3.5L8 1'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 13px center; padding-right:34px }
+.cmp-f select option{ background:#200204; color:var(--ink) }
+.cmp-hint{ font-size:11px; line-height:1.5; color:var(--ink-faint) }
+.cmp-hint a,.cmp-hint button{ color:var(--gilt); background:none; border:0; padding:0;
+  cursor:pointer; text-decoration:underline; font:inherit }
+
+/* rating as five real buttons — a number input for a 0-5 scale is a worse
+   version of the thing it replaces */
+.cmp-stars{ display:flex; gap:4px; align-items:center }
+.cmp-star{ width:34px; height:34px; border-radius:8px; display:grid; place-items:center;
+  background:rgba(51,31,42,.42); border:1px solid var(--hair); cursor:pointer;
+  color:var(--ink-faint); font-size:15px; line-height:1;
+  transition:color .18s ease, border-color .18s ease, transform .3s var(--spring) }
+.cmp-star:hover{ transform:translateY(-2px); color:var(--gilt) }
+.cmp-star.on{ color:var(--gilt-hi); border-color:rgba(242,205,190,.34);
+  text-shadow:0 0 10px rgba(242,205,190,.5) }
+.cmp-clearstars{ margin-left:6px; background:none; border:0; cursor:pointer;
+  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-faint); transition:color .2s ease }
+.cmp-clearstars:hover{ color:var(--gilt) }
+
+/* live cover preview: pasting a broken image URL should be obvious here,
+   not after saving */
+.cmp-prev{ grid-column:1 / -1; display:flex; gap:13px; align-items:center;
+  padding:11px; border-radius:11px; background:rgba(18,1,3,.5);
+  border:1px solid var(--hair-soft) }
+.cmp-prev img{ width:112px; height:63px; object-fit:cover; border-radius:7px;
+  background:#160409; flex:0 0 auto }
+.cmp-prev .cmp-prevmeta{ min-width:0; font-size:12px; color:var(--ink-dim); line-height:1.5 }
+.cmp-prev b{ display:block; color:var(--ink); font-family:'Bodoni Moda',serif;
+  font-style:italic; font-size:15px; font-weight:600; margin-bottom:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+
+.cmp-toggles{ grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px }
+.cmp-tog{ display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+  padding:8px 14px; border-radius:99px; background:rgba(51,31,42,.4);
+  border:1px solid var(--hair); color:var(--ink-dim);
+  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase;
+  transition:color .2s ease, border-color .2s ease, background-color .2s ease }
+.cmp-tog:hover{ color:var(--ink) }
+.cmp-tog.on{ color:#24190c; border-color:var(--gilt-hi);
+  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 60%,var(--gilt-deep)) }
+
+.cmp-foot{ flex:0 0 auto; display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  padding:14px 20px; border-top:1px solid var(--hair-soft);
+  background:rgba(11,1,2,.5);
+  /* clears the iPhone home indicator */
+  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px)) }
+.cmp-save{ cursor:pointer; border:0; border-radius:99px; padding:11px 24px;
+  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 55%,var(--gilt-deep));
+  color:#2A1710; font-family:'Martian Mono',monospace; font-size:10px;
+  letter-spacing:.13em; text-transform:uppercase; font-weight:600;
+  box-shadow:0 1px 2px rgba(9,0,2,.6), 0 8px 22px -10px rgba(209,155,140,.7);
+  transition:transform .3s var(--spring), box-shadow .28s ease }
+.cmp-save:hover{ transform:translateY(-2px);
+  box-shadow:0 1px 2px rgba(9,0,2,.6), 0 14px 30px -10px rgba(209,155,140,.9) }
+.cmp-save:active{ transform:translateY(0) }
+.cmp-ghost{ cursor:pointer; background:none; border:1px solid var(--hair);
+  border-radius:99px; padding:10px 17px; color:var(--ink-dim);
+  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
+  text-transform:uppercase;
+  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
+.cmp-ghost:hover{ color:var(--gilt-hi); border-color:rgba(209,155,140,.42); transform:translateY(-1px) }
+.cmp-del{ margin-left:auto; color:#C77 }
+.cmp-del:hover{ color:#E88; border-color:rgba(224,136,136,.45) }
+.cmp-msg{ grid-column:1 / -1; font-size:12px; line-height:1.55; padding:9px 12px;
+  border-radius:9px; display:none }
+.cmp-msg.on{ display:block }
+.cmp-msg.warn{ color:#F0C9A8; background:rgba(209,155,140,.11);
+  border:1px solid rgba(209,155,140,.3) }
+.cmp-msg.bad{ color:#F2B4B4; background:rgba(224,136,136,.1);
+  border:1px solid rgba(224,136,136,.3) }
+
+/* the always-there add button — the chrome's paste bar is desktop-only, and
+   an add path that disappears on the device you use in bed is not an add path */
+.addfab{ position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  z-index:60; width:54px; height:54px; border-radius:50%; display:grid; place-items:center;
+  cursor:pointer; border:1px solid rgba(242,205,190,.34);
+  background:linear-gradient(140deg,var(--gilt-hi),var(--gilt) 52%,var(--gilt-deep));
+  color:#2A1710;
+  box-shadow:0 2px 5px rgba(9,0,2,.6), 0 14px 34px -12px rgba(209,155,140,.75);
+  transition:transform .34s var(--spring), box-shadow .28s ease }
+.addfab:hover{ transform:scale(1.07) translateY(-2px);
+  box-shadow:0 2px 5px rgba(9,0,2,.6), 0 20px 44px -12px rgba(209,155,140,.95) }
+.addfab:active{ transform:scale(1.01) }
+
+/* the small "+" that sits in a section head, so a category can be added to
+   from the row it belongs to rather than from a global form */
+.sechead .addhere{ flex:0 0 auto; display:grid; place-items:center;
+  width:24px; height:24px; border-radius:50%; cursor:pointer;
+  background:rgba(51,31,42,.4); border:1px solid var(--hair-soft);
+  color:var(--ink-faint); font-size:14px; line-height:1;
+  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
+.sechead .addhere:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:scale(1.12) }
+
+.emptyadd{ margin-top:18px }
+
+@media (max-width:720px){
+  /* Nearly full height, because the keyboard takes the rest — but stopping
+     76px down, which is where topbar.js's fixed launcher pill ends. That
+     pill sits above everything on every page in the dashboard and cannot be
+     moved, so the sheet clears it rather than sliding under it. */
+  .cmp{ width:100%; max-height:calc(100vh - 76px); border-radius:16px 16px 0 0 }
+  .cmp-body{ grid-template-columns:1fr; padding:16px 16px 20px }
+  .cmp-foot{ padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px)) }
+  .cmp-save,.cmp-ghost{ flex:1 1 auto; text-align:center }
+  .cmp-del{ flex:0 0 100%; margin-left:0; order:9 }
+}
+@media (prefers-reduced-motion:reduce){
+  .cmp{ transition:none } .cmp-scrim{ transition:none }
+}
+
 /* ══ PHONE ═════════════════════════════════════════════ */
 /* topbar.js's launcher is a fixed 144x46 pill at (14,14) and cannot move —
    every page in the dashboard shares it. At 390px it covers the VAULT mark
@@ -568,6 +737,26 @@ main{ position:relative; z-index:4 }
 
   .disc-controls{ gap:8px }
   .disc-select,.disc-roll{ flex:1 1 auto; min-width:0 }
+
+  /* Tap targets. Measured at 390px, these were 24x24 (the row "+"), 38x14
+     (the section "more" link) and 26px tall (the category chips) — small
+     enough that hitting the one you meant is luck, and they sit next to each
+     other, which is the arrangement that actually produces mis-taps. Only
+     the hit area grows; nothing here changes at desktop widths. */
+  .sechead{ gap:10px }
+  .sechead .addhere{ width:34px; height:34px; font-size:17px }
+  .sechead .more{ padding:9px 4px }
+  .chip{ padding:9px 14px }
+  .iconbtn{ min-width:36px; min-height:36px }
+  .c-mini{ width:36px; height:36px }
+  .c-star{ width:36px; height:36px }
+  .d-btn{ padding:9px 15px }
+  .d-tab{ padding:11px 12px 13px }
+  .nudge{ display:none }   /* a hover affordance on a device with no hover */
+  /* The discovery selects and the search box: under 16px iOS zooms the page
+     in on focus and does not zoom back out. */
+  .disc-select{ font-size:16px }
+  .omni{ font-size:16px }
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -655,6 +844,98 @@ main{ position:relative; z-index:4 }
 <div class="sheet">
   <main id="body" class="px-10 pb-24 pt-14"></main>
 </div>
+
+<!-- The add/edit sheet. One form serves both — an item you are correcting and
+     an item you are creating want exactly the same fields. -->
+<div class="cmp-scrim" id="cmpScrim" hidden></div>
+<section class="cmp" id="cmp" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" hidden>
+  <div class="cmp-head">
+    <h2 id="cmpTitle">Add to the Vault</h2>
+    <button class="cmp-x" id="cmpX" aria-label="Close">✕</button>
+  </div>
+
+  <form class="cmp-body" id="cmpForm">
+    <div class="cmp-msg" id="cmpMsg" role="status"></div>
+
+    <div class="cmp-f wide">
+      <label for="cmpUrl">Link</label>
+      <input id="cmpUrl" type="url" inputmode="url" autocomplete="off"
+        spellcheck="false" placeholder="https://…">
+      <p class="cmp-hint" id="cmpUrlHint">Paste a link and the title, channel and cover fill themselves in where they can be read.</p>
+    </div>
+
+    <div class="cmp-f wide">
+      <label for="cmpTitleIn">Title</label>
+      <input id="cmpTitleIn" type="text" autocomplete="off" placeholder="What is it called?">
+    </div>
+
+    <div class="cmp-f">
+      <label for="cmpShelf">Shelf</label>
+      <select id="cmpShelf"></select>
+    </div>
+
+    <div class="cmp-f">
+      <label for="cmpCat">Category</label>
+      <input id="cmpCat" type="text" autocomplete="off" list="cmpCatList"
+        placeholder="Type or pick one">
+      <datalist id="cmpCatList"></datalist>
+    </div>
+
+    <div class="cmp-f">
+      <label for="cmpCreator">Creator</label>
+      <input id="cmpCreator" type="text" autocomplete="off" placeholder="Channel, author, artist">
+    </div>
+
+    <div class="cmp-f">
+      <label for="cmpLen">Length</label>
+      <input id="cmpLen" type="text" autocomplete="off" placeholder="42 min · 6 eps · 310 pp">
+    </div>
+
+    <div class="cmp-f wide">
+      <label for="cmpCover">Cover image</label>
+      <input id="cmpCover" type="url" inputmode="url" autocomplete="off"
+        spellcheck="false" placeholder="https://… (optional)">
+    </div>
+
+    <div class="cmp-prev" id="cmpPrev" hidden>
+      <img id="cmpPrevImg" alt="">
+      <span class="cmp-prevmeta"><b id="cmpPrevTitle"></b><span id="cmpPrevSub"></span></span>
+    </div>
+
+    <div class="cmp-f wide">
+      <label>Rating</label>
+      <div class="cmp-stars" id="cmpStars">
+        <button type="button" class="cmp-star" data-n="1" aria-label="1 star">★</button>
+        <button type="button" class="cmp-star" data-n="2" aria-label="2 stars">★</button>
+        <button type="button" class="cmp-star" data-n="3" aria-label="3 stars">★</button>
+        <button type="button" class="cmp-star" data-n="4" aria-label="4 stars">★</button>
+        <button type="button" class="cmp-star" data-n="5" aria-label="5 stars">★</button>
+        <button type="button" class="cmp-clearstars" id="cmpStarsClear">Clear</button>
+      </div>
+    </div>
+
+    <div class="cmp-f wide">
+      <label for="cmpDesc">Notes</label>
+      <textarea id="cmpDesc" placeholder="Why is this here? What is it for?"></textarea>
+    </div>
+
+    <div class="cmp-toggles">
+      <button type="button" class="cmp-tog" id="cmpFav">☆ Favourite</button>
+      <button type="button" class="cmp-tog" id="cmpQueue">＋ Tonight</button>
+    </div>
+  </form>
+
+  <div class="cmp-foot">
+    <button class="cmp-save" id="cmpSave" type="button">Save</button>
+    <button class="cmp-ghost" id="cmpAgain" type="button">Save &amp; add another</button>
+    <button class="cmp-ghost cmp-del" id="cmpDel" type="button" hidden>Delete</button>
+  </div>
+</section>
+
+<button class="addfab" id="addFab" aria-label="Add something to the Vault">
+  <svg width="21" height="21" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+    stroke-width="1.8" stroke-linecap="round"><path d="M8 3.4v9.2M3.4 8h9.2"/></svg>
+</button>
 
 <script>
 /* ── shelves ───────────────────────────────────────────── */
@@ -945,8 +1226,10 @@ function toggleDetail(cardEl, d, shelf){
         <div class="d-lbl">Info</div>
         <p class="d-text">${esc(d.desc || 'No description yet — paste the link again to re-run auto-fill.')}</p>
         <div class="d-acts">
-          <button class="d-btn">Edit</button><button class="d-btn">Open full →</button>
-          <button class="d-btn">${d.queued ? 'In Tonight' : 'Add to Tonight'}</button>
+          <button class="d-btn" data-act="edit">Edit</button>
+          <button class="d-btn" data-act="open">Open full →</button>
+          <button class="d-btn" data-act="queue">${d.queued ? 'In Tonight' : 'Add to Tonight'}</button>
+          <button class="d-btn" data-act="del" style="color:#C77">Delete</button>
         </div>
       </div>
       <div>
@@ -960,15 +1243,63 @@ function toggleDetail(cardEl, d, shelf){
   panel.querySelectorAll('.d-tab').forEach(t => t.onclick = () => {
     panel.querySelectorAll('.d-tab').forEach(x => x.classList.remove('on')); t.classList.add('on'); });
   panel.querySelector('.d-close').onclick = closeDetail;
+
+  /* These four were markup only until now — the panel looked like an editor
+     and was a label. `d._shelf` is the shelf the record actually lives on,
+     which is not `shelf` here: Home, Favorites and Discover all render cards
+     from shelves other than the one being viewed. */
+  const rec = () => d._shelf ? Vault.list(d._shelf).find(x => x.id === d.id) : null;
+  panel.querySelector('[data-act="edit"]').onclick = () => {
+    const r = rec();
+    if(!r) return note('That item is no longer on the shelf', true);
+    closeDetail();
+    openComposer({ shelf:d._shelf, item:r });
+  };
+  panel.querySelector('[data-act="open"]').onclick = () => {
+    if(!d.url) return note('No link on this item', true);
+    if(d._shelf && d.id) Vault.touch(d._shelf, d.id);
+    window.open(d.url, '_blank', 'noopener');
+  };
+  const qb = panel.querySelector('[data-act="queue"]');
+  qb.onclick = () => {
+    d.queued = !d.queued;
+    if(d._shelf && d.id) Vault.update(d._shelf, d.id, { queued:d.queued });
+    qb.textContent = d.queued ? 'In Tonight' : 'Add to Tonight';
+    const mini = cardEl.querySelector('.c-add');
+    if(mini){
+      mini.classList.toggle('on', d.queued);
+      mini.querySelector('path').setAttribute('d',
+        d.queued ? 'M3.6 8.4 6.5 11.3 12.4 5.2' : 'M8 3.6v8.8M3.6 8h8.8');
+    }
+  };
+  panel.querySelector('[data-act="del"]').onclick = () => {
+    const r = rec();
+    if(!r) return note('That item is no longer on the shelf', true);
+    if(!confirm('Delete “' + (r.title || 'this item') + '”?\n\nThis cannot be undone.')) return;
+    Vault.remove(d._shelf, r.id);
+    closeDetail(); note('Deleted');
+    paintHero(shelfOf(active)); render();
+  };
+
   wrap.insertAdjacentElement('afterend', panel);
 }
 
 /* ── rows ──────────────────────────────────────────────── */
-function sechead(label, count, more){
+/* `add` is {shelf, category}: a "+" that files straight into THIS row. The
+   global add button exists too, but picking the shelf and retyping the
+   category for something you are looking at is friction with no purpose. */
+function sechead(label, count, more, add){
   const h = el('div','sechead');
   h.innerHTML = `<span class="lbl">${label}</span>` +
     (count!=null?`<span class="num">${String(count).padStart(2,'0')}</span>`:'') +
     `<span class="rule"></span>` + (more?`<button class="more">${more} →</button>`:'');
+  if(add){
+    const b = el('button','addhere','+');
+    b.setAttribute('aria-label', 'Add to ' + (add.category || shelfOf(add.shelf).label));
+    b.title = 'Add to ' + (add.category || shelfOf(add.shelf).label);
+    b.onclick = () => openComposer({ shelf:add.shelf, category:add.category });
+    h.appendChild(b);
+  }
   return h;
 }
 function mediaRow(items, opts={}){
@@ -985,8 +1316,9 @@ function mediaRow(items, opts={}){
   return wrap;
 }
 function section(label, count, more, items, opts){
+  opts = opts || {};
   const s = el('section','mb-12');
-  s.appendChild(sechead(label, count, more)); s.appendChild(mediaRow(items, opts));
+  s.appendChild(sechead(label, count, more, opts.addTo)); s.appendChild(mediaRow(items, opts));
   return s;
 }
 
@@ -1116,7 +1448,7 @@ function renderHome(){
   const shelves = el('section','mb-12');
   const counts = COUNTS();
   const live = SHELVES.filter(s => counts[s.key]);
-  shelves.appendChild(sechead('Shelves', live.length));
+  shelves.appendChild(sechead('Shelves', live.length, null, { shelf: Vault.SHELVES[0] }));
   const grid = el('div','grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5');
   live.forEach((s,i) => {
     const t = el('button','tile', `<span style="color:${s.tint}">${sig(s.sigil,17)}</span>
@@ -1131,11 +1463,31 @@ function renderHome(){
 
   const cont = CONTINUE(), tonight = TONIGHT(), recent = RECENT();
   if(cont.length)    body.appendChild(section('Continue', cont.length, 'History', cont, { shelf:'watch' }));
-  if(tonight.length) body.appendChild(section('Tonight', tonight.length, 'Clear', tonight, { shelf:'immersive' }));
+
+  if(tonight.length){
+    const sec = section('Tonight', tonight.length, 'Clear', tonight, { shelf:'immersive' });
+    /* Clear was a label. Emptying the queue is the one thing you want from
+       this row that is not opening something in it. */
+    sec.querySelector('.more').onclick = () => {
+      if(!confirm('Take all ' + tonight.length + ' out of Tonight?')) return;
+      tonight.forEach(d => { if(d._shelf) Vault.update(d._shelf, d.id, { queued:false }); });
+      paintHero(shelfOf(active)); render();
+    };
+    body.appendChild(sec);
+  }
+
   if(recent.length)  body.appendChild(section('Recently added', recent.length, 'All', recent, { shelf:'creepypasta' }));
 
   const picks = vaultPicks(3);
-  if(picks.length) body.appendChild(section('From the vault', null, 'Reroll', picks, { shelf:'discover' }));
+  if(picks.length){
+    const sec = section('From the vault', null, 'Reroll', picks, { shelf:'discover' });
+    sec.querySelector('.more').onclick = () => {
+      const fresh = vaultPicks(3);
+      const wrap = sec.querySelector('.rowwrap');
+      wrap.replaceWith(mediaRow(fresh, { shelf:'discover' }));
+    };
+    body.appendChild(sec);
+  }
 }
 
 /* One gallery renderer for every link shelf — the old dashboard had a
@@ -1160,9 +1512,19 @@ function renderGallery(shelf){
   body.appendChild(chips);
 
   cats.forEach((c,i) => {
-    const s = section(c, groups[c].length, 'See all', groups[c], { shelf });
+    const s = section(c, groups[c].length, null, groups[c],
+      { shelf, addTo:{ shelf, category: c === 'Uncategorised' ? '' : c } });
     s.id = 'cat-'+i; s.style.scrollMarginTop = '90px'; body.appendChild(s);
   });
+
+  /* Starting a new row has to be possible from the shelf itself. Without
+     this the only way to create a category is to guess that the composer's
+     Category box accepts text it has never seen. */
+  const foot = el('div','mt-2 mb-14');
+  const nb = el('button','cmp-ghost','+ New category on this shelf');
+  nb.onclick = () => openComposer({ shelf, category:'' });
+  foot.appendChild(nb);
+  body.appendChild(foot);
 }
 
 function renderEmpty(shelf){
@@ -1171,7 +1533,10 @@ function renderEmpty(shelf){
   d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
     <p class="mono mt-5" style="color:var(--ink-faint)">Nothing here yet</p>
     <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
-      Paste a link in the bar above to add the first item to ${esc(s.label)}.</p>`;
+      Paste a link, or fill the form in by hand — a title is enough to start with.</p>`;
+  const b = el('button','cmp-save emptyadd','Add the first item');
+  b.onclick = () => openComposer({ shelf });
+  d.appendChild(b);
   body.appendChild(d);
 }
 
@@ -1299,14 +1664,17 @@ function renderFavorites(){
   body.dataset.favTotal = total;
 }
 
+/* Only Stats reaches this now — every other tab is a real shelf you can put
+   something on. Stats is a view over the shelves rather than a place items
+   live, so it has nothing to add TO. */
 function renderStub(){
   const s = shelfOf(active);
   const d = el('div','stub');
   d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
-    <p class="mono mt-5" style="color:var(--ink-faint)">Not in this mockup</p>
+    <p class="mono mt-5" style="color:var(--ink-faint)">Not built yet</p>
     <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
-      Only Home and Podcasts are built out. Everything else is a placeholder
-      so you can feel the navigation and the hero.</p>`;
+      ${esc(s.label)} reads across the other shelves rather than holding
+      anything of its own.</p>`;
   body.appendChild(d);
 }
 
@@ -1357,11 +1725,373 @@ addEventListener('hashchange', () => {
 });
 
 addEventListener('keydown', e => {
-  if(e.target.tagName === 'INPUT') return;
+  /* Escape closes the sheet from anywhere, including from inside a field —
+     it is the one key that has to work while typing. */
+  if(e.key === 'Escape' && cmp.open) return closeComposer();
+  /* TEXTAREA and SELECT were missing here, so typing a "3" into the notes
+     box would have jumped the page to another shelf. */
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if(cmp.open) return;
   if(e.key === 'Escape') return closeDetail();
+  if(e.key === 'n' || e.key === 'N'){ e.preventDefault(); return openComposer({}); }
   const n = parseInt(e.key,10);
   if(n>=1 && n<=9 && SHELVES[n-1]) go(SHELVES[n-1].key);
 });
+
+/* ══ §COMPOSER ═══════════════════════════════════════════
+   Everything that writes an item goes through here. Before this the page
+   was read-only in practice: the chrome's "Paste a link…" box had no
+   listener, the detail panel's Edit button had no listener, and there was
+   no delete at all — so the only items in the Vault were the ones the
+   migration put there.
+
+   One form covers add and edit, because correcting an item and creating one
+   want the same nine fields, and two forms would drift. */
+const cmp = {
+  el: document.getElementById('cmp'),
+  scrim: document.getElementById('cmpScrim'),
+  form: document.getElementById('cmpForm'),
+  msg: document.getElementById('cmpMsg'),
+  url: document.getElementById('cmpUrl'),
+  title: document.getElementById('cmpTitleIn'),
+  shelf: document.getElementById('cmpShelf'),
+  cat: document.getElementById('cmpCat'),
+  catList: document.getElementById('cmpCatList'),
+  creator: document.getElementById('cmpCreator'),
+  len: document.getElementById('cmpLen'),
+  cover: document.getElementById('cmpCover'),
+  desc: document.getElementById('cmpDesc'),
+  stars: document.getElementById('cmpStars'),
+  fav: document.getElementById('cmpFav'),
+  queue: document.getElementById('cmpQueue'),
+  del: document.getElementById('cmpDel'),
+  prev: document.getElementById('cmpPrev'),
+  prevImg: document.getElementById('cmpPrevImg'),
+  prevTitle: document.getElementById('cmpPrevTitle'),
+  prevSub: document.getElementById('cmpPrevSub'),
+  heading: document.getElementById('cmpTitle'),
+  /* editing: {shelf, id} or null. rating: 0-5. touched: fields the reader
+     has typed in, which auto-fill must never overwrite. */
+  editing: null, rating: 0, touched: new Set(), lastFocus: null, open: false
+};
+
+/* A small centred note. flash() needs a card to attach to, and half of what
+   the composer has to say happens with no card on screen. */
+function note(msg, bad){
+  document.querySelectorAll('.vnote').forEach(n => n.remove());
+  const t = el('div','vnote', esc(msg));
+  Object.assign(t.style, {
+    position:'fixed', left:'50%', bottom:'26px', transform:'translateX(-50%)',
+    zIndex:'95', maxWidth:'min(420px,92vw)', textAlign:'center',
+    padding:'11px 20px', borderRadius:'99px',
+    background: bad ? 'rgba(224,136,136,.95)' : 'rgba(209,155,140,.96)',
+    color:'#24190c', fontFamily:"'Martian Mono',monospace", fontSize:'10px',
+    letterSpacing:'.11em', textTransform:'uppercase',
+    boxShadow:'0 12px 34px -12px rgba(9,0,2,.9)'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+/* ── auto-fill ────────────────────────────────────────────
+   Only ever fills a field the reader has left alone, and only from the
+   site's OWN oEmbed endpoint — no third-party metadata service, which would
+   mean every link pasted here being reported to a stranger. When there is no
+   endpoint, the host name and the URL slug still beat an empty form. */
+const OEMBED = {
+  'youtube.com':   u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
+  'youtu.be':      u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
+  'vimeo.com':     u => 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(u),
+  'open.spotify.com': u => 'https://open.spotify.com/oembed?url=' + encodeURIComponent(u),
+  'soundcloud.com':u => 'https://soundcloud.com/oembed?format=json&url=' + encodeURIComponent(u)
+};
+
+function ytId(u){
+  try{
+    const url = new URL(u), h = url.hostname.replace(/^www\./,'');
+    if(h === 'youtu.be') return url.pathname.slice(1).split('/')[0] || '';
+    if(!/youtube\.com$/.test(h)) return '';
+    if(url.searchParams.get('v')) return url.searchParams.get('v');
+    const m = url.pathname.match(/\/(shorts|embed|live)\/([^/?#]+)/);
+    return m ? m[2] : '';
+  }catch(e){ return '' }
+}
+
+function titleFromSlug(u){
+  try{
+    const seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
+    if(!seg || /^[0-9a-f]{8,}$/i.test(seg)) return '';
+    return decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i,'')
+      .replace(/[-_+]+/g,' ').replace(/\s+/g,' ').trim()
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }catch(e){ return '' }
+}
+
+function fillIfUntouched(field, value){
+  if(!value) return;
+  const node = cmp[field];
+  if(!node || cmp.touched.has(field) || node.value.trim()) return;
+  node.value = value;
+}
+
+let autofillSeq = 0;
+async function autofill(raw){
+  const u = String(raw || '').trim();
+  if(!/^https?:\/\//i.test(u)) return;
+  const seq = ++autofillSeq;
+
+  // Instant, offline, always right: the host is the creator until something
+  // better arrives, and a YouTube thumbnail is derivable from the id alone.
+  let host = '';
+  try{ host = new URL(u).hostname.replace(/^www\./,'') }catch(e){}
+  fillIfUntouched('creator', host);
+  fillIfUntouched('title', titleFromSlug(u));
+  const vid = ytId(u);
+  if(vid) fillIfUntouched('cover', `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
+  paintPreview();
+
+  const endpoint = OEMBED[host];
+  if(!endpoint) return;
+  try{
+    const r = await fetch(endpoint(u), { headers:{ Accept:'application/json' } });
+    if(!r.ok) return;
+    const j = await r.json();
+    if(seq !== autofillSeq) return;         // a newer paste already won
+    fillIfUntouched('title', j.title);
+    fillIfUntouched('creator', j.author_name);
+    // The oEmbed thumbnail beats the derived one, but not a typed one.
+    if(j.thumbnail_url && !cmp.touched.has('cover')) cmp.cover.value = j.thumbnail_url;
+    paintPreview();
+  }catch(e){ /* offline, blocked, or the endpoint moved — the form still works */ }
+}
+
+function paintPreview(){
+  const cover = cmp.cover.value.trim(), title = cmp.title.value.trim();
+  if(!cover && !title){ cmp.prev.hidden = true; return; }
+  cmp.prev.hidden = false;
+  cmp.prevTitle.textContent = title || 'Untitled';
+  const bits = [cmp.creator.value.trim(), cmp.len.value.trim(), cmp.cat.value.trim()].filter(Boolean);
+  cmp.prevSub.textContent = bits.join(' · ');
+  if(cover){
+    cmp.prevImg.hidden = false;
+    if(cmp.prevImg.getAttribute('src') !== cover) cmp.prevImg.src = cover;
+  } else { cmp.prevImg.hidden = true; cmp.prevImg.removeAttribute('src'); }
+}
+/* A cover that 404s must look wrong here rather than after saving. */
+cmp.prevImg.addEventListener('error', () => {
+  if(!cmp.cover.value.trim()) return;
+  say('That cover link did not load. It will still save — the card falls back to the shelf sigil.', 'warn');
+});
+
+function say(text, kind){
+  cmp.msg.textContent = text || '';
+  cmp.msg.className = 'cmp-msg' + (text ? ' on ' + (kind || 'warn') : '');
+}
+
+function paintStars(){
+  cmp.stars.querySelectorAll('.cmp-star').forEach(b =>
+    b.classList.toggle('on', Number(b.dataset.n) <= cmp.rating));
+}
+function paintToggles(){
+  cmp.fav.textContent = cmp.fav.classList.contains('on') ? '★ Favourite' : '☆ Favourite';
+  cmp.queue.textContent = cmp.queue.classList.contains('on') ? '✓ Tonight' : '＋ Tonight';
+}
+
+/* Shelves the composer can file into: the real data shelves only. Home,
+   Discover, Favorites and Stats are views over those, not places. */
+function fillShelfSelect(selected){
+  cmp.shelf.innerHTML = Vault.SHELVES
+    .map(s => `<option value="${s}">${esc(shelfOf(s).label)}</option>`).join('');
+  cmp.shelf.value = Vault.SHELVES.includes(selected) ? selected : Vault.SHELVES[0];
+}
+function fillCatList(){
+  const own = Vault.categories(cmp.shelf.value);
+  const rest = Vault.allCategories().filter(c => !own.includes(c));
+  cmp.catList.innerHTML = own.concat(rest).map(c => `<option value="${esc(c)}">`).join('');
+}
+
+function openComposer(opts){
+  opts = opts || {};
+  const item = opts.item || null;
+  cmp.editing = item ? { shelf: opts.shelf, id: item.id } : null;
+  cmp.touched.clear();
+  say('');
+
+  cmp.heading.textContent = item ? 'Edit item' : 'Add to the Vault';
+  fillShelfSelect(item ? opts.shelf : (Vault.SHELVES.includes(active) ? active : opts.shelf));
+  fillCatList();
+
+  cmp.url.value     = item ? (item.url || '') : (opts.url || '');
+  cmp.title.value   = item ? (item.title || '') : '';
+  cmp.cat.value     = item ? (item.category || '') : (opts.category || '');
+  cmp.creator.value = item ? (item.creator || '') : '';
+  cmp.len.value     = item ? (item.lengthText || '') : '';
+  cmp.cover.value   = item ? (item.cover || '') : '';
+  cmp.desc.value    = item ? (item.description || '') : '';
+  cmp.rating        = item ? (Number(item.rating) || 0) : 0;
+  cmp.fav.classList.toggle('on', !!(item && item.favorite));
+  cmp.queue.classList.toggle('on', !!(item && item.queued));
+  paintStars(); paintToggles(); paintPreview();
+  cmp.del.hidden = !item;
+
+  cmp.lastFocus = document.activeElement;
+  cmp.el.hidden = false; cmp.scrim.hidden = false;
+  requestAnimationFrame(() => { cmp.el.classList.add('on'); cmp.scrim.classList.add('on'); });
+  cmp.open = true;
+  // Editing starts at the title, adding starts at the link — that is the
+  // field each case actually wants first.
+  setTimeout(() => { (item ? cmp.title : cmp.url).focus(); }, 90);
+  if(!item && opts.url) autofill(opts.url);
+}
+
+function closeComposer(){
+  if(!cmp.open) return;
+  cmp.open = false;
+  cmp.el.classList.remove('on'); cmp.scrim.classList.remove('on');
+  setTimeout(() => { cmp.el.hidden = true; cmp.scrim.hidden = true; }, 320);
+  if(cmp.lastFocus && cmp.lastFocus.focus) { try{ cmp.lastFocus.focus() }catch(e){} }
+}
+
+function readComposer(){
+  return {
+    url: cmp.url.value.trim(),
+    title: cmp.title.value.trim(),
+    category: cmp.cat.value.trim(),
+    creator: cmp.creator.value.trim(),
+    lengthText: cmp.len.value.trim(),
+    cover: cmp.cover.value.trim(),
+    description: cmp.desc.value.trim(),
+    rating: cmp.rating,
+    favorite: cmp.fav.classList.contains('on'),
+    queued: cmp.queue.classList.contains('on')
+  };
+}
+
+/* Returns true when it saved. `keepOpen` is Save & add another, which keeps
+   the shelf and the category — the case it exists for is emptying a browser
+   tab group onto one shelf, where re-picking the shelf nine times is the
+   entire friction. */
+function saveComposer(keepOpen){
+  const f = readComposer(), shelf = cmp.shelf.value;
+  if(!f.title && !f.url){
+    say('Give it a title or a link — everything else is optional.', 'bad');
+    cmp.title.focus(); return false;
+  }
+  if(!f.title) f.title = titleFromSlug(f.url) || f.url;
+
+  if(cmp.editing){
+    // A shelf change is a move, not a field edit — the shelf is part of the
+    // storage key rather than a property of the record.
+    if(shelf !== cmp.editing.shelf) Vault.move(cmp.editing.shelf, cmp.editing.id, shelf);
+    Vault.update(shelf, cmp.editing.id, f);
+    note('Saved');
+  } else {
+    const dupe = f.url ? Vault.findByUrl(f.url) : null;
+    if(dupe){
+      say('That link is already on ' + shelfOf(dupe.shelf).label +
+          ' as “' + dupe.item.title + '”. Saving again will make a second copy.', 'warn');
+      // Only blocks once: pressing Save a second time is a deliberate answer
+      // to the question, not an accident.
+      if(!cmp.dupeWarned){ cmp.dupeWarned = true; return false; }
+    }
+    Vault.add(shelf, f);
+    note('Added to ' + shelfOf(shelf).label);
+  }
+  cmp.dupeWarned = false;
+
+  if(keepOpen){
+    const keptShelf = shelf, keptCat = f.category;
+    cmp.editing = null; cmp.touched.clear(); say('');
+    ['url','title','creator','len','cover','desc'].forEach(k => { cmp[k].value = ''; });
+    cmp.rating = 0; cmp.fav.classList.remove('on'); cmp.queue.classList.remove('on');
+    paintStars(); paintToggles(); paintPreview();
+    cmp.heading.textContent = 'Add to the Vault';
+    cmp.del.hidden = true;
+    fillShelfSelect(keptShelf); cmp.cat.value = keptCat; fillCatList();
+    cmp.url.focus();
+  } else {
+    closeComposer();
+  }
+  paintHero(shelfOf(active));
+  render();
+  return true;
+}
+
+function deleteComposer(){
+  if(!cmp.editing) return;
+  const it = Vault.list(cmp.editing.shelf).find(x => x.id === cmp.editing.id);
+  if(!confirm('Delete “' + (it ? it.title : 'this item') + '” from ' +
+      shelfOf(cmp.editing.shelf).label + '?\n\nThis cannot be undone.')) return;
+  Vault.remove(cmp.editing.shelf, cmp.editing.id);
+  closeComposer();
+  note('Deleted');
+  paintHero(shelfOf(active));
+  render();
+}
+
+/* ── composer wiring ─────────────────────────────────── */
+['url','title','cat','creator','len','cover','desc'].forEach(k => {
+  cmp[k].addEventListener('input', () => {
+    cmp.touched.add(k);
+    if(k !== 'desc') paintPreview();
+    if(k === 'url') say('');
+  });
+});
+/* Paste is the main way a link arrives. Read it after the browser has put it
+   in the box, then go looking for its title. */
+cmp.url.addEventListener('paste', () => setTimeout(() => {
+  cmp.touched.delete('title'); cmp.touched.delete('creator'); cmp.touched.delete('cover');
+  autofill(cmp.url.value);
+}, 0));
+cmp.url.addEventListener('change', () => autofill(cmp.url.value));
+cmp.shelf.addEventListener('change', fillCatList);
+cmp.stars.addEventListener('click', e => {
+  const b = e.target.closest('.cmp-star'); if(!b) return;
+  const n = Number(b.dataset.n);
+  cmp.rating = (cmp.rating === n) ? n - 1 : n;   // click the current star to step down
+  paintStars();
+});
+document.getElementById('cmpStarsClear').onclick = () => { cmp.rating = 0; paintStars(); };
+cmp.fav.onclick   = () => { cmp.fav.classList.toggle('on'); paintToggles(); };
+cmp.queue.onclick = () => { cmp.queue.classList.toggle('on'); paintToggles(); };
+document.getElementById('cmpSave').onclick  = () => saveComposer(false);
+document.getElementById('cmpAgain').onclick = () => saveComposer(true);
+cmp.del.onclick = deleteComposer;
+document.getElementById('cmpX').onclick = closeComposer;
+cmp.scrim.onclick = closeComposer;
+/* Enter saves from any single-line field; the notes box keeps its newlines. */
+cmp.form.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.tagName !== 'TEXTAREA'){ e.preventDefault(); saveComposer(false); }
+});
+/* Focus must not escape an open sheet — behind it is a page full of links. */
+cmp.el.addEventListener('keydown', e => {
+  if(e.key !== 'Tab') return;
+  const f = [...cmp.el.querySelectorAll('input,select,textarea,button')]
+    .filter(n => !n.hidden && !n.disabled && n.offsetParent !== null);
+  if(!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
+
+document.getElementById('addFab').onclick = () => openComposer({});
+
+/* The chrome's paste bar, which until now was decoration. */
+const omni = document.querySelector('.omni');
+omni.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const v = omni.value.trim();
+  if(!v) return;
+  omni.value = '';
+  openComposer({ url: v });
+});
+omni.addEventListener('paste', () => setTimeout(() => {
+  const v = omni.value.trim();
+  if(!/^https?:\/\//i.test(v)) return;
+  omni.value = '';
+  openComposer({ url: v });
+}, 0));
 
 /* ── boot ──────────────────────────────────────────────────
    Two gates, both required:
