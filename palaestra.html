@@ -42,6 +42,7 @@
 <script src="photo-store.js"></script>
 <script src="palaestra-data.js"></script>
 <script src="palaestra-ui.js"></script>
+<script src="palaestra-hero.js"></script>
 <script src="palaestra-music.js"></script>
 <script src="topbar.js" defer></script>
 
@@ -77,14 +78,15 @@
 
 <body class="pal">
 
-<header class="pal-header">
-  <p class="pal-eyebrow">Training ground</p>
-  <div class="pal-header__title">
-    <h1 class="pal-h1">The Palaestra</h1>
+<!-- The hero, the ribbon and the badge are injected by palaestra-hero.js
+     ONCE at boot, before the router first runs, and live outside #palRoot so
+     no render can touch them — see that file's header comment on why a
+     <video> may never be created by a renderer. -->
+<div class="pal-routebar" id="palRouteBar">
+  <div class="pal-routebar__in">
+    <nav class="pal-routes" id="palRoutes" aria-label="Sections"></nav>
   </div>
-  <p class="pal-header__meta" id="palToday">—</p>
-  <nav class="pal-routes" id="palRoutes" aria-label="Sections"></nav>
-</header>
+</div>
 
 <main class="pal-shell" id="palRoot" tabindex="-1"></main>
 
@@ -96,16 +98,46 @@
 
   var P, U, root, routesEl;
 
+  // Each route carries its own hero scene. The reference recording is
+  // three different headlines over one continuous world, and this is
+  // how that reads here: the backdrop never changes, the words do.
   var ROUTES = [
-    { hash: '/',          label: 'Today' },
-    { hash: '/steps',     label: 'Steps' },
-    { hash: '/body',      label: 'Body' },
-    { hash: '/calendar',  label: 'Calendar' },
-    { hash: '/volume',    label: 'Volume' },
-    { hash: '/templates', label: 'Workouts' },
-    { hash: '/exercises', label: 'Exercises' },
-    { hash: '/history',   label: 'History' },
-    { hash: '/settings',  label: 'Settings' }
+    { hash: '/', label: 'Today',
+      eyebrow: 'Today',
+      lines: ['Strength is', 'a habit,', 'not a mood'],
+      note: 'Whatever the plan says, the only version of it that counts is the one you actually did. Start there.' },
+    { hash: '/steps', label: 'Steps',
+      eyebrow: 'Ground covered',
+      lines: ['Every mile', 'was walked', 'one step'],
+      note: 'The least dramatic thing you do all day is the one that compounds hardest. Ten thousand of them.' },
+    { hash: '/body', label: 'Body',
+      eyebrow: 'The long arc',
+      lines: ['Proof', 'arrives', 'slowly'],
+      note: 'A week is noise. A season is a signal. Weigh in often, and read the line, not the point.' },
+    { hash: '/calendar', label: 'Calendar',
+      eyebrow: 'The plan',
+      lines: ['A promise', 'kept on', 'a Tuesday'],
+      note: 'Rest days are part of the plan, not a gap in it. Resting on one keeps the streak; skipping a session breaks it.' },
+    { hash: '/volume', label: 'Volume',
+      eyebrow: 'The work itself',
+      lines: ['Load is', 'the whole', 'story'],
+      note: 'Sets per muscle, this week against last. More honest than how hard it felt at the time.' },
+    { hash: '/templates', label: 'Workouts',
+      eyebrow: 'Routines',
+      lines: ['Decide once,', 'lift many', 'times'],
+      note: 'A routine is a decision you already made, so the tired version of you does not have to make it again.' },
+    { hash: '/exercises', label: 'Exercises',
+      eyebrow: 'The library',
+      lines: ['Master', 'the few'],
+      note: 'A short list of movements you do well beats a long list you do once. This is that list.' },
+    { hash: '/history', label: 'History',
+      eyebrow: 'Everything so far',
+      lines: ['You have', 'already', 'done this'],
+      note: 'Every session you finished is still here, and so is every weight you have beaten.' },
+    { hash: '/settings', label: 'Settings',
+      eyebrow: 'Your terms',
+      lines: ['Your rules,', 'your', 'numbers'],
+      note: 'Goals, units and what gets tracked at all. Nothing here is scored against anybody else.' }
   ];
 
   // View state that belongs to the screen, not to storage: which week
@@ -132,11 +164,30 @@
   // and always renders. Neither ever scrolls: scroll-to-top belongs
   // to navigation only.
   // ============================================================
+  // The scene that is currently ON SCREEN. A cloud pull calls render()
+  // too, and re-running the word reveal every time another device syncs
+  // would restart the intro at random — the same trap
+  // `intro_animations_restart_on_repaint` records. The hero is only
+  // re-armed when the route genuinely changed.
+  var shownRoute = null;
+
   function render() {
     var r = route();
     Array.prototype.forEach.call(routesEl.children, function (b) {
       b.setAttribute('aria-current', b.getAttribute('data-route') === r ? 'true' : 'false');
     });
+    if (window.PalHero) {
+      if (shownRoute !== r) {
+        var i = 0;
+        for (var k = 0; k < ROUTES.length; k++) if (ROUTES[k].hash === r) i = k;
+        var meta = ROUTES[i];
+        window.PalHero.setScene({
+          eyebrow: meta.eyebrow, lines: meta.lines, note: meta.note, index: i
+        });
+        shownRoute = r;
+      }
+      updateBadge();
+    }
     var view =
       r === '/steps'     ? viewSteps()
     : r === '/body'      ? viewBody()
@@ -158,8 +209,40 @@
     render();
   }
   function navigate() {
+    // Already past the hero? Land on the top of the new route's CONTENT,
+    // not back at the top of a video. Replaying a 100vh hero every time
+    // you change tab is the navigation equivalent of the repaint bug
+    // `rerender_must_not_scroll` records.
+    var h = window.PalHero ? window.PalHero.height() : 0;
+    var below = h > 0 && (window.scrollY || window.pageYOffset || 0) > h * 0.6;
     render();
-    toTop();
+    if (!below) { toTop(); return; }
+    var top = root.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0) - 70;
+    try { window.scrollTo({ top: Math.max(0, top), behavior: 'auto' }); }
+    catch (e) { window.scrollTo(0, Math.max(0, top)); }
+  }
+
+  // The badge on the ribbon is the page's primary action, so it says what
+  // the page would say: resume what is open, start what is planned, or
+  // start something when nothing is.
+  function updateBadge() {
+    if (!window.PalHero) return;
+    var live = P.getLive();
+    if (live) {
+      window.PalHero.setBadge({ lead: 'Resume', main: 'Workout',
+        onClick: function () { location.href = 'palaestra-workout.html'; } });
+      return;
+    }
+    var planned = P.plannedFor(P.today());
+    if (planned && !planned.rest) {
+      window.PalHero.setBadge({ lead: 'Start', main: planned.name,
+        onClick: function () { startTemplate(planned.templateId); } });
+    } else if (planned && planned.rest) {
+      window.PalHero.setBadge({ lead: 'Rest day', main: 'Train anyway',
+        onClick: startFree });
+    } else {
+      window.PalHero.setBadge({ lead: 'Start', main: 'Today', onClick: startFree });
+    }
   }
   function toTop() {
     try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
@@ -1469,7 +1552,18 @@
     root = document.getElementById('palRoot');
     routesEl = document.getElementById('palRoutes');
 
-    document.getElementById('palToday').textContent = P.prettyLong(P.today());
+    // ONCE, before the router first runs, and outside #palRoot — so no
+    // render can ever re-create the <video> inside it.
+    window.PalHero.mount({
+      variant: 'full',
+      mark: 'The Palaestra',
+      markHref: 'palaestra.html',
+      dateText: P.prettyLong(P.today()),
+      routes: ROUTES,
+      routebar: document.getElementById('palRouteBar'),
+      onRoute: function (r) { go(r.hash); },
+      badge: { lead: 'Start', main: 'Today' }
+    });
 
     routesEl.innerHTML = ROUTES.map(function (r) {
       return '<button class="pal-route" data-route="' + r.hash + '">' + esc(r.label) + '</button>';

@@ -207,25 +207,295 @@ a:hover { color: var(--pal-sand); }
 .pal-spacer { flex: 1 1 auto; }
 
 /* =============================================================
-   HEADER
-   topbar.js injects a fixed launcher pill over the top-left of every
-   page, so the header's own content starts below it.
+   THE HERO
+   ─────────────────────────────────────────────────────────────
+   Built to the motion of the reference recording: an overscaled
+   backdrop that settles then drifts forever, a glowing ring that
+   scales in then rotates, a serif headline that arrives WORD BY
+   WORD out of line masks, a note column that follows it, faint
+   column hairlines, and a left rail of dashes.
+
+   Everything animates transform and opacity only. The scroll-out is
+   driven by ONE custom property, --pal-hero-p (0 → 1 across the
+   hero's own height), written by palaestra-hero.js from a
+   rAF-throttled passive listener — the CSS below does the rest, so
+   no layout is ever read inside a scroll handler.
    ============================================================= */
-.pal-header {
-  padding: clamp(76px, 11vh, 128px) var(--pal-gutter) var(--pal-5);
-  max-width: 1320px; margin: 0 auto;
-  border-bottom: 1px solid var(--pal-hair);
+.pal-hero {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  --pal-hero-p: 0;                 /* 0 at the top, 1 once scrolled past */
+  --pal-hero-obj: 50% 45%;         /* the clip is 9:16; aim the crop */
 }
-.pal-header__title { display: flex; align-items: flex-end; gap: var(--pal-4); flex-wrap: wrap; }
-.pal-header__meta {
-  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .16em;
-  text-transform: uppercase; color: var(--pal-ash);
+.pal-hero--full { min-height: 100svh; }
+.pal-hero--band { min-height: clamp(360px, 42vh, 480px); }
+
+/* --- the backdrop ------------------------------------------------ */
+.pal-hero__stage {
+  position: absolute; inset: 0; z-index: 0;
+  /* The reference is near-black with one lit subject. This clip is a warm,
+     evenly-lit render, so it is graded down before the type goes over it —
+     otherwise the whole hero reads as haze rather than as depth. */
+  filter: brightness(.58) contrast(1.22) saturate(.82);
+  background-color: var(--pal-stone);
+  background-image: var(--pal-hero-poster, none);
+  background-size: cover;
+  background-position: 50% 45%;
+  background-repeat: no-repeat;
+  transform: scale(calc(1 + var(--pal-hero-p) * 0.12));
+  transform-origin: 50% 40%;
+  will-change: transform;
+}
+.pal-hero__vid {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: var(--pal-hero-obj);
+  opacity: 0;
+  transition: opacity .9s var(--pal-ease);
+}
+/* Only once the element is genuinely playing — a black first frame
+   would otherwise wipe the poster out before there is anything to see. */
+.pal-hero.is-live .pal-hero__vid { opacity: 1; }
+
+/* The ground under the type. The clip carries its own vignette, so this
+   is a warm scrim rather than a blackout: enough to hold sand-coloured
+   text, not enough to lose the sunset in the cave mouth. */
+.pal-hero__veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(to top,
+      var(--pal-stone) 0%,
+      rgba(20,18,15,.88) 16%,
+      rgba(20,18,15,.46) 52%,
+      rgba(20,18,15,.72) 100%),
+    radial-gradient(110% 72% at 50% 42%, transparent 18%, rgba(12,11,9,.78) 100%);
+}
+/* Six columns — the reference's own structural device. */
+.pal-hero__cols {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(to right,
+    transparent 0 calc(100% / 6 - 1px),
+    rgba(234,223,201,.055) calc(100% / 6 - 1px) calc(100% / 6));
 }
 
-/* --- route bar --- */
+/* --- the ring ----------------------------------------------------
+   A conic gradient masked to an annulus: one bright arc riding a dim
+   circle, exactly as in the reference. Two layers — the line, and a
+   blurred copy beneath it for the glow. */
+.pal-hero__ring,
+.pal-hero__ringglow {
+  position: absolute; z-index: 1; pointer-events: none;
+  left: 50%; top: 44%;
+  width: clamp(260px, 34vw, 520px); aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg,
+    rgba(234,223,201,.02) 0deg,
+    rgba(234,223,201,.13) 55deg,
+    rgba(255,248,232,1)  140deg,
+    rgba(255,255,255,1)  175deg,
+    rgba(255,244,224,.92) 212deg,
+    rgba(234,223,201,.11) 292deg,
+    rgba(234,223,201,.02) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+          mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+  opacity: 0;
+}
+/* The glow ADDS light rather than sitting on top of the picture as a
+   pale film — screen is what makes it read as a lamp instead of paint. */
+.pal-hero__ringglow {
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 9px) 50%, transparent 50%);
+          mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 9px) 50%, transparent 50%);
+}
+@keyframes pal-ringspin { to { rotate: 360deg; } }
+@keyframes pal-ringin { from { scale: .82; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes pal-ringinglow { from { scale: .82; opacity: 0; } to { scale: 1; opacity: .85; } }
+.pal-hero.is-in .pal-hero__ring {
+  animation: pal-ringin 1.5s var(--pal-ease) .15s both, pal-ringspin 48s linear infinite;
+}
+.pal-hero.is-in .pal-hero__ringglow {
+  animation: pal-ringinglow 1.8s var(--pal-ease) .15s both, pal-ringspin 48s linear infinite;
+}
+
+/* --- the frame: nav row, rail, copy ------------------------------ */
+.pal-hero__in {
+  position: relative; z-index: 3;
+  min-height: inherit;
+  max-width: 1320px; margin: 0 auto;
+  padding: clamp(70px, 9vh, 104px) var(--pal-gutter) clamp(64px, 11vh, 132px);
+  display: flex; flex-direction: column;
+  justify-content: space-between;   /* the copy sits low, as in the reference */
+  gap: var(--pal-5);
+}
+.pal-hero--band .pal-hero__in { padding-bottom: var(--pal-5); }
+
+.pal-hero__top {
+  display: flex; align-items: center; gap: var(--pal-4);
+  flex-wrap: wrap;
+  opacity: 0; transform: translateY(-8px);
+}
+.pal-hero.is-in .pal-hero__top {
+  transition: opacity .7s var(--pal-ease), transform .7s var(--pal-ease);
+  opacity: 1; transform: none;
+}
+.pal-hero__mark {
+  font-family: var(--pal-display); font-weight: 700;
+  font-size: 18px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--pal-sand); flex: none; text-decoration: none;
+}
+.pal-hero__top { justify-content: flex-end; }
+.pal-hero__date {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--pal-sand-2);
+  margin: 0;
+}
+
+/* The left rail. The reference used it as decoration; here it is the
+   route indicator — one dash per route, the current one lit. */
+.pal-hero__rail {
+  position: absolute; z-index: 3;
+  left: max(14px, calc(var(--pal-gutter) - 24px));
+  top: 50%; translate: 0 -50%;
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 0;
+}
+.pal-hero.is-in .pal-hero__rail { transition: opacity .8s var(--pal-ease) .3s; opacity: 1; }
+.pal-hero__dash {
+  appearance: none; border: 0; padding: 5px 0; background: transparent;
+  width: 24px; cursor: pointer; display: block;
+}
+.pal-hero__dash::before {
+  content: ''; display: block; height: 1px; width: 10px;
+  background: var(--pal-ash);
+  transition: width .3s var(--pal-ease), background .3s var(--pal-ease);
+}
+.pal-hero__dash:hover::before { width: 17px; background: var(--pal-sand-2); }
+.pal-hero__dash[aria-current='true']::before { width: 24px; background: var(--pal-bronze); }
+
+/* The copy block. It, and only it, carries the scroll-out. */
+.pal-hero__copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  align-items: end; gap: clamp(20px, 4vw, 56px);
+  transform: translateY(calc(var(--pal-hero-p) * -60px));
+  opacity: calc(1 - var(--pal-hero-p) * 1.35);
+  will-change: transform, opacity;
+}
+.pal-hero__eyebrow {
+  font-family: var(--pal-mono); font-size: 10.5px;
+  letter-spacing: .28em; text-transform: uppercase;
+  color: var(--pal-bronze-2);
+  margin: 0 0 clamp(10px, 1.6vh, 20px);
+  opacity: 0; transform: translateY(10px);
+}
+.pal-hero.is-in .pal-hero__eyebrow {
+  transition: opacity .7s var(--pal-ease) .12s, transform .7s var(--pal-ease) .12s;
+  opacity: 1; transform: none;
+}
+
+/* --- the headline: word by word, out of line masks ---------------- */
+.pal-hero__head {
+  font-family: var(--pal-display);
+  font-weight: 600;
+  font-size: clamp(40px, 7.2vw, 104px);
+  line-height: .96;
+  letter-spacing: -.005em;
+  color: var(--pal-sand);
+  margin: 0;
+  text-shadow: 0 2px 40px rgba(20,18,15,.8);
+}
+.pal-hero--band .pal-hero__head { font-size: clamp(32px, 5vw, 62px); }
+/* The band is 378px tall; a ring sized for a full screen runs off both
+   ends of it and reads as a stray arc rather than a circle. */
+.pal-hero--band .pal-hero__ring,
+.pal-hero--band .pal-hero__ringglow { width: clamp(190px, 24vw, 300px); top: 46%; }
+/* One mask per line. A word rises out of nothing rather than sliding
+   across the backdrop — that is what makes the reference's reveal read
+   as printing rather than as motion. */
+.pal-hero__line { display: block; overflow: hidden; padding-bottom: .06em; }
+.pal-hero__w { display: inline-block; transform: translateY(1em); opacity: 0; }
+.pal-hero.is-in .pal-hero__w {
+  transition:
+    transform .62s cubic-bezier(.16,1,.3,1) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms),
+    opacity   .62s cubic-bezier(.16,1,.3,1) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms);
+  transform: none; opacity: 1;
+}
+
+.pal-hero__note {
+  font-size: 13.5px; line-height: 1.7; color: var(--pal-sand-2);
+  margin: 0; max-width: 34ch;
+  opacity: 0; transform: translateY(12px);
+}
+.pal-hero.is-in .pal-hero__note {
+  transition: opacity .8s var(--pal-ease) var(--pal-note-delay, .9s),
+              transform .8s var(--pal-ease) var(--pal-note-delay, .9s);
+  opacity: 1; transform: none;
+}
+
+/* A quiet cue that there is a page under this. It fades as you use it. */
+.pal-hero__scroll {
+  position: absolute; z-index: 3; left: 50%; translate: -50% 0;
+  bottom: clamp(10px, 2vh, 22px);
+  font-family: var(--pal-mono); font-size: 9.5px;
+  letter-spacing: .24em; text-transform: uppercase; color: var(--pal-ash);
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: calc((1 - var(--pal-hero-p) * 3) * .9);
+  pointer-events: none;
+}
+.pal-hero__scroll::after {
+  content: ''; width: 1px; height: 26px;
+  background: linear-gradient(to bottom, var(--pal-ash), transparent);
+  animation: pal-scrollcue 2.4s var(--pal-ease) infinite;
+}
+@keyframes pal-scrollcue {
+  0%   { transform: scaleY(0); transform-origin: top;    opacity: 0; }
+  40%  { transform: scaleY(1); transform-origin: top;    opacity: 1; }
+  60%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+
+/* --- the route bar ------------------------------------------------
+   Sticky over the hero from the first paint, as the reference's nav
+   is, so navigation is reachable without scrolling a full screen
+   back up. Transparent until it is actually stuck.
+
+   THE LEFT INSET IS NOT DECORATION. topbar.js fixes its launcher pill
+   at top:14px / left:14px, ~190px wide, at z-index 2600 — above
+   everything this page can draw. A bar starting at the gutter would
+   sit underneath it. So on desktop the pills begin clear of it, and
+   the launcher reads as this page's wordmark.
+
+   On a phone that inset would eat half the screen, so there the bar
+   moves to the BOTTOM of the viewport instead — out of the
+   launcher's way entirely, and in reach of a thumb. */
+.pal-routebar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background .28s var(--pal-ease), border-color .28s var(--pal-ease),
+              backdrop-filter .28s var(--pal-ease);
+}
+.pal-routebar.is-stuck {
+  background: color-mix(in srgb, var(--pal-stone) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  border-bottom-color: var(--pal-hair);
+}
+.pal-routebar__in {
+  max-width: 1320px; margin: 0 auto;
+  padding: 0 var(--pal-gutter) 0 216px;   /* clears topbar.js's launcher */
+  display: flex; align-items: center; gap: var(--pal-4);
+  min-height: 62px;
+}
+.pal-routebar__mark { display: none; }     /* the launcher is the wordmark */
 .pal-routes {
   display: flex; gap: 2px; flex-wrap: wrap;
-  margin-top: var(--pal-5);
+  margin: 0; flex: 1 1 auto;
 }
 .pal-route {
   appearance: none; border: 0; background: transparent;
@@ -238,6 +508,130 @@ a:hover { color: var(--pal-sand); }
 }
 .pal-route:hover { color: var(--pal-sand-2); }
 .pal-route[aria-current='true'] { color: var(--pal-sand); border-bottom-color: var(--pal-bronze); }
+
+@media (max-width: 900px) {
+  .pal-routebar__in { padding-left: 200px; }
+}
+
+/* =============================================================
+   THE RIBBON — the divider from the reference photo, redrawn.
+   The source image's band is ~925×140 inside a 1024px screenshot
+   with its badge baked in and a jet behind it, so it is rebuilt as
+   SVG rather than cropped: stacked beziers with their own
+   gradients, each drifting at its own rate for parallax, plus the
+   badge riding centred on it as the page's primary action.
+   ============================================================= */
+.pal-ribbon {
+  position: relative;
+  height: clamp(112px, 15vw, 168px);
+  margin-top: -1px;
+  background: var(--pal-stone);
+  overflow: hidden;
+  isolation: isolate;
+}
+.pal-ribbon__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pal-ribbon__band { will-change: transform; }
+.pal-ribbon__band--a { animation: pal-drift-a 34s ease-in-out infinite alternate; }
+.pal-ribbon__band--b { animation: pal-drift-b 44s ease-in-out infinite alternate; }
+.pal-ribbon__band--c { animation: pal-drift-c 28s ease-in-out infinite alternate; }
+@keyframes pal-drift-a { from { transform: translateX(-1.5%); } to { transform: translateX(1.5%);  } }
+@keyframes pal-drift-b { from { transform: translateX(2%);    } to { transform: translateX(-2%);   } }
+@keyframes pal-drift-c { from { transform: translateX(-1%);   } to { transform: translateX(2.5%);  } }
+
+.pal-badge2 {
+  position: absolute; z-index: 2;
+  left: 50%; top: 50%; translate: -50% -50%;
+  width: clamp(100px, 12vw, 136px); aspect-ratio: 1;
+  border-radius: 50%;
+  appearance: none; cursor: pointer;
+  background: radial-gradient(circle at 50% 32%, rgba(58,50,40,.96), rgba(12,11,9,.98) 72%);
+  border: 1px solid rgba(234,223,201,.34);
+  box-shadow:
+    0 0 0 6px rgba(20,18,15,.8),
+    0 0 0 7px rgba(234,223,201,.13),
+    0 18px 46px -14px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(234,223,201,.14);
+  color: var(--pal-sand);
+  font-family: var(--pal-mono);
+  font-size: clamp(8px, 1vw, 9.5px);
+  letter-spacing: .2em; text-transform: uppercase;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 6px;
+  transition: transform .24s var(--pal-ease), border-color .24s var(--pal-ease);
+}
+.pal-badge2:hover { transform: translate(-50%, -50%) scale(1.055); border-color: var(--pal-bronze); }
+.pal-badge2:active { transform: translate(-50%, -50%) scale(1.01); }
+.pal-badge2__lead { color: var(--pal-bronze-2); }
+.pal-badge2__main {
+  font-family: var(--pal-display); font-weight: 700;
+  font-size: clamp(15px, 1.9vw, 21px); letter-spacing: .03em;
+  color: var(--pal-sand); line-height: 1.02; text-transform: uppercase;
+  max-width: 88%; text-align: center;
+}
+
+/* =============================================================
+   HERO — PHONE
+   ============================================================= */
+@media (max-width: 719px) {
+  .pal-hero--full { min-height: 86svh; }
+  .pal-hero--band { min-height: 292px; }
+  .pal-hero__in { padding-top: 84px; padding-bottom: var(--pal-5); }
+  .pal-hero__copy { grid-template-columns: 1fr; align-items: start; gap: var(--pal-4); }
+  .pal-hero__note { max-width: none; }
+  /* Nine dashes will not fit, and the route bar already says where you are. */
+  .pal-hero__rail { display: none; }
+  .pal-hero__ring, .pal-hero__ringglow { width: clamp(210px, 62vw, 320px); top: 38%; }
+  .pal-hero__cols {
+    background: repeating-linear-gradient(to right,
+      transparent 0 calc(100% / 3 - 1px),
+      rgba(234,223,201,.05) calc(100% / 3 - 1px) calc(100% / 3));
+  }
+  .pal-hero__date { display: none; }
+
+  /* The launcher pill owns the top-left corner on a phone too, and a
+     200px left inset would eat half the screen. The bar goes to the
+     bottom instead — clear of it, and in reach of a thumb. */
+  .pal-routebar {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0;
+    background: color-mix(in srgb, var(--pal-stone) 94%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border-bottom: 0; border-top: 1px solid var(--pal-hair);
+  }
+  .pal-routebar__in {
+    padding: 0 var(--pal-gutter);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 56px;
+  }
+  .pal-routes { overflow-x: auto; flex-wrap: nowrap; }
+  .pal-route { flex: none; padding: 8px 12px; min-height: 48px; }
+  /* and everything that lived at the bottom moves up over it.
+     body.pal is not decoration: .pal-fab and .pal-shell are both declared
+     further down this file, so a bare class selector here would lose on
+     source order and the button would sit on top of the tabs. */
+  body.pal .pal-fab { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  body.pal .pal-shell { padding-bottom: calc(var(--pal-8) + 72px); }
+  .pal-ribbon { height: 104px; }
+}
+
+/* =============================================================
+   HERO — REDUCED MOTION
+   The global guard further down zeroes durations; these rules make
+   sure the END state is the visible one, not the hidden start state.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .pal-hero__w,
+  .pal-hero__eyebrow,
+  .pal-hero__note,
+  .pal-hero__top,
+  .pal-hero__rail { opacity: 1 !important; transform: none !important; }
+  .pal-hero__ring { opacity: .5 !important; animation: none !important; }
+  .pal-hero__ringglow { opacity: .3 !important; animation: none !important; }
+  .pal-hero__scroll { display: none !important; }
+  .pal-ribbon__band { animation: none !important; }
+  .pal-hero__stage { transform: none !important; }
+  .pal-hero__copy { transform: none !important; opacity: 1 !important; }
+}
 
 /* =============================================================
    THE WEEK BAR — the signature.

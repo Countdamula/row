@@ -15300,3 +15300,100 @@ unchanged after pinning, local-not-UTC dates, a repaint that neither scrolls
 nor drops the caret, the read-only view having no editable fields, and no field
 under 16px on either page. No horizontal overflow at 320/360/390/414/768/1024/
 1280/1440. Screenshots at 1280 and 390.
+
+---
+
+## The Palaestra — the hero (2026-08-20)
+
+Both Palaestra pages now open on a cinematic hero built to a reference
+recording Damian supplied, with his own cave-temple clip behind it and the
+ribbon device from a reference photo between the hero and the page.
+
+**The reference, decoded.** There is no ffmpeg on this machine, so frames were
+pulled out of both videos through headless Chrome's canvas (serve the file with
+`Access-Control-Allow-Origin: *`, set `crossorigin="anonymous"` on the
+`<video>`, seek, `drawImage`, `toDataURL` — without the CORS header the canvas
+is tainted and `toDataURL` throws). The recording is a dark museum site,
+720×720, 12.1s, moving through three full-screen scenes. Its devices, all of
+which are reproduced: an overscaled backdrop that settles then drifts; a
+glowing ring that scales in then rotates forever; a serif headline revealed
+**word by word** out of line masks; a note column that follows it; six vertical
+column hairlines; a left rail of dashes; and a scroll-out where the headline
+slides and fades while the backdrop scales.
+
+**Six files became eight.** New: `palaestra-hero.js` (the shared cinematic
+layer — video mount, ring, word reveal, hairlines, rail, scroll-drive, ribbon,
+badge) and `images_by_admin/palaestra/hero.mp4` + `hero-poster.jpg`.
+
+**Damian chose**: one 100vh hero per page rather than a three-scene pinned
+sequence; a ~40vh band on the logger so sets stay reachable mid-workout; a
+headline per hub route that **replays the reveal**; and the ribbon's badge as
+the real primary action.
+
+**A `<video>` is never created by a renderer.** Both pages do
+`host.innerHTML = …` on every repaint, so a `<video>` inside one would be a new
+element each time, re-downloading 4.3 MB several times a minute. `PalHero
+.mount()` injects the hero ONCE at boot, before the router first runs, outside
+`#palRoot`/`#palLog`. Same rule and same reason as `kdp-velvet.js`. A test
+asserts exactly one `<video>` survives ten route changes.
+
+**A phone never downloads the clip.** Under `(max-width:720px)` or
+`prefers-reduced-motion` the `src` is removed and `load()`ed rather than
+hidden, and the poster is the whole backdrop — `promptarium.html`'s
+`stageAllowed()`, copied.
+
+**The reveal is re-armed on a route change and NEVER on a repaint.** Both pages
+track the scene currently on screen (`shownRoute` / `shownScene`); a cloud pull
+calls render too, and re-running the reveal every time another device syncs
+would restart the intro at random — the `intro_animations_restart_on_repaint`
+trap. Re-arming is a class off, a forced reflow, the class on. Timing is two
+custom properties, `--i` (word) and `--l` (line), so the stylesheet owns the
+stagger and the script owns only the order.
+
+**The scroll-out is one custom property.** A passive, rAF-throttled listener
+writes `--pal-hero-p` (0→1 across the hero's height); the hero's height is
+measured on resize, never in the handler, so scrolling never forces layout.
+
+**`navigate()` no longer scrolls to the top unconditionally.** Past the hero,
+changing route lands on the top of the new route's CONTENT; inside the hero it
+returns to the top. Replaying a full-screen video every time you change tab is
+the navigation form of `rerender_must_not_scroll`.
+
+**The ribbon is drawn, not cropped.** In the reference photo the band is
+~925×140 inside a 1024px screenshot, with the badge baked in and a jet behind
+it. It is rebuilt as inline SVG — stacked beziers with their own gradients and
+two rim-light strokes, each drifting at its own rate. The badge is the page's
+primary action: `START / <today's workout>`, `START / TODAY`, or `RESUME /
+WORKOUT` on the hub, and `FINISH / WORKOUT` on the logger, which opens the
+existing confirm sheet so one tap can never end a workout.
+
+**Traps this pass hit:**
+
+1. **topbar.js's launcher owns the top-left corner** — fixed at top:14/left:14,
+   ~190px wide, z-index 2600. The hub's route bar clears it with a 216px left
+   inset on desktop; on a phone that would eat half the screen, so the bar goes
+   to the BOTTOM instead. The logger's control bar had the same collision and
+   the same answer, which also put Finish and the clock in reach of a thumb.
+2. **`position: sticky` after the hero sticks too late**, and before it eats
+   62px of flow. Both bars are `position: fixed`.
+3. **Source order beats a media query at equal specificity.** `.pal-fab` and
+   `.pal-shell` are declared further down the theme than the phone block, so
+   the phone overrides had to be `body.pal .pal-fab` or the button sat on top
+   of the tabs.
+4. **On the logger the quick-add button lands on the ✓ column**, which is the
+   rightmost control in every set row — so it moves left at phone width there.
+5. **A `page.evaluate()` that navigates destroys its own execution context.**
+   The badge-click check awaits `waitForNavigation` outside the evaluate.
+6. **The clip is a warm, evenly-lit render**, not the reference's near-black
+   plate, so the stage carries `brightness(.58) contrast(1.22) saturate(.82)`
+   before any type goes over it — ungraded it reads as haze, not depth.
+
+**Verified**: 103 checks across four scratchpad suites (`test-palaestra.mjs`
+56, `test-hero.mjs` 36, `test-readonly.mjs` 11, plus `widths.mjs`) — the clip
+loading on desktop and being absent on a phone and under reduced motion, one
+video across ten route changes, the word split and its line masks, the reveal
+re-arming on route change but not on a repaint, the scroll-out progress, the
+navigation scroll rule, all three badge states, and nothing in the hero or
+ribbon still animating under reduced motion. No horizontal overflow at
+320/360/390/414/768/1024/1280/1440. A filmstrip at 140ms intervals was compared
+against the extracted reference frames.

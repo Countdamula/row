@@ -37,18 +37,28 @@
 <script src="photo-store.js"></script>
 <script src="palaestra-data.js"></script>
 <script src="palaestra-ui.js"></script>
+<script src="palaestra-hero.js"></script>
 <script src="palaestra-music.js"></script>
 <script src="topbar.js" defer></script>
 
 <style>
-.pal-wshell { max-width: 820px; margin: 0 auto; padding: 0 var(--pal-gutter) 140px; }
+.pal-wshell { max-width: 820px; margin: 0 auto; padding: var(--pal-5) var(--pal-gutter) 140px; }
+/* The hero band above carries the workout's name and type, so this is
+   now only the controls — and it stays compact and sticky, because
+   between sets you need Finish and the clock, not a headline. */
 .pal-whead {
   position: sticky; top: 0; z-index: 50;
-  background: linear-gradient(to bottom, var(--pal-stone) 78%, transparent);
-  padding: clamp(70px, 10vh, 104px) var(--pal-gutter) var(--pal-4);
-  max-width: 820px; margin: 0 auto;
+  background: color-mix(in srgb, var(--pal-stone) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--pal-hair-2);
 }
-.pal-whead__row { display: flex; align-items: flex-end; gap: var(--pal-3); flex-wrap: wrap; }
+.pal-whead__in {
+  max-width: 820px; margin: 0 auto;
+  padding: 10px var(--pal-gutter);
+  display: flex; align-items: center; gap: var(--pal-3); flex-wrap: wrap;
+}
+.pal-whead__row { display: flex; align-items: center; gap: var(--pal-3); flex-wrap: wrap; }
 .pal-whead__clock {
   font-family: var(--pal-display); font-weight: 700; font-size: 30px;
   line-height: 1; font-variant-numeric: tabular-nums; color: var(--pal-sand-2);
@@ -63,9 +73,40 @@
      the rest bar tall enough to bury the set you are looking at. */
   .pal-restpresets { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .pal-restpresets > * { flex: none; }
-  .pal-rest { gap: var(--pal-3); }
   .pal-rest__track { flex-basis: 60px; }
-  .pal-wshell { padding-bottom: 190px; }
+
+  /* THE CONTROL BAR MOVES TO THE THUMB.
+     Stuck to the top it sat directly underneath topbar.js's launcher pill
+     — fixed at top:14/left:14, ~190px wide, z-index 2600 — which covered
+     the clock and half of Finish. Clearing it horizontally would cost half
+     a 390px screen, so the bar goes to the bottom instead: out of the
+     launcher's way, and where a hand already is between sets. Everything
+     else that lived down there stacks above it. */
+  .pal-whead {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 55;
+    border-top: 1px solid var(--pal-hair); border-bottom: 0;
+  }
+  .pal-whead__in {
+    padding: 8px var(--pal-gutter);
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    gap: var(--pal-2);
+  }
+  .pal-whead__clock { font-size: 24px; }
+  .pal-whead .pal-btn { padding: 8px 12px; }
+  .pal-rest {
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+    gap: var(--pal-3);
+    border-bottom: 1px solid var(--pal-hair-2);
+  }
+  /* And to the LEFT, only here: the tick that completes a set is the
+     rightmost control in every row, so a right-hand button lands squarely
+     on top of it at phone width. */
+  body.pal .pal-fab {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    left: var(--pal-4); right: auto;
+  }
+  body.pal.is-resting .pal-fab { bottom: calc(168px + env(safe-area-inset-bottom, 0px)); }
+  .pal-wshell { padding-bottom: 240px; }
 }
 </style>
 </head>
@@ -131,29 +172,60 @@
   // ============================================================
   // HEADER
   // ============================================================
+  // The hero band carries the workout's name, type and date. This builds
+  // only the controls — and unlike the band, it is re-rendered constantly,
+  // which is exactly why the <video> is not in here.
   function renderHead() {
-    if (!session) {
-      headEl.innerHTML =
-        '<p class="pal-eyebrow">The Palaestra</p>' +
-        '<h1 class="pal-h2">No workout open</h1>';
-      return;
-    }
+    if (!session) { headEl.innerHTML = ''; headEl.hidden = true; paintHero(); return; }
+    headEl.hidden = false;
     var live = P.getLive();
     headEl.innerHTML =
-      '<p class="pal-eyebrow"><a href="palaestra.html">← The Palaestra</a></p>' +
-      '<div class="pal-whead__row">' +
-        '<h1 class="pal-h2" style="flex:1 1 auto">' + esc(session.name) + '</h1>' +
-        '<span class="pal-badge" data-lane="' + esc(P.laneOf(session.type)) + '">' + esc(session.type) + '</span>' +
+      '<div class="pal-whead__in">' +
         '<span class="pal-whead__clock" id="palElapsed">0:00</span>' +
-      '</div>' +
-      '<div class="pal-row" style="margin-top:12px">' +
-        (readOnly
-          ? '<span class="pal-sub">Logged ' + esc(P.prettyLong(session.date)) + ' · read-only</span>'
-          : '<button class="pal-btn pal-btn--primary" data-act="finish">✓ Finish workout</button>' +
-            '<button class="pal-btn pal-btn--ghost" data-act="abandon">Discard</button>') +
+        '<div class="pal-whead__row" style="flex:1 1 auto">' +
+          (readOnly
+            ? '<span class="pal-sub">Read-only</span>'
+            : '<button class="pal-btn pal-btn--primary" data-act="finish">✓ Finish workout</button>' +
+              '<button class="pal-btn pal-btn--ghost" data-act="abandon">Discard</button>') +
+        '</div>' +
         window.PalMusic.button({ scope: 'session:' + session.id, trackId: session.trackId, label: session.name }) +
       '</div>';
     if (live && live.runningSince) startClock();
+    paintHero();
+  }
+
+  // The hero band's own copy. Its scene changes only when the workout
+  // does, never on a repaint — a re-armed reveal on every tick would be
+  // the `intro_animations_restart_on_repaint` trap.
+  var shownScene = '';
+  function paintHero() {
+    if (!window.PalHero) return;
+    var key, scene, badge;
+    if (!session) {
+      key = 'empty';
+      scene = { eyebrow: 'Nothing open',
+                lines: ['One set', 'at a', 'time'],
+                note: 'Start a workout from The Palaestra and it opens here, exercise by exercise.' };
+      badge = { lead: 'Go to', main: 'The Palaestra',
+                onClick: function () { location.href = 'palaestra.html'; } };
+    } else if (readOnly) {
+      key = 'ro:' + session.id;
+      scene = { eyebrow: 'Logged ' + P.prettyLong(session.date),
+                lines: [session.name],
+                note: P.sessionSetCount(session) + ' sets · ' +
+                      P.fmtInt(P.sessionVolume(session)) + ' ' + P.getSettings().weightUnit +
+                      ' · ' + P.fmtDuration(session.elapsedSec) + '. Read-only.' };
+      badge = { lead: 'Back to', main: 'The Palaestra',
+                onClick: function () { location.href = 'palaestra.html'; } };
+    } else {
+      key = 'live:' + session.id;
+      scene = { eyebrow: session.type + ' · in progress',
+                lines: [session.name],
+                note: 'One set at a time. Tick a set and the rest timer starts itself.' };
+      badge = { lead: 'Finish', main: 'Workout', onClick: sheetFinish };
+    }
+    if (shownScene !== key) { window.PalHero.setScene(scene); shownScene = key; }
+    window.PalHero.setBadge(badge);
   }
 
   function startClock() {
@@ -638,6 +710,16 @@
     restHost = document.getElementById('palRestHost');
 
     loadSession();
+
+    // ONCE, before anything renders, and outside #palLog — so no repaint
+    // can re-create the <video>. See palaestra-hero.js's header comment.
+    window.PalHero.mount({
+      variant: 'band',
+      before: headEl,
+      dateText: P.prettyLong(P.today()),
+      badge: { lead: 'Finish', main: 'Workout' }
+    });
+
     renderRest();
     render();
 
