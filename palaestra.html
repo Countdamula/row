@@ -69,7 +69,7 @@
   padding-left: var(--pal-4);
   border-left: 1px solid var(--pal-hair);
 }
-@media (max-width: 720px) { .pal-score__overall { border-left: 0; padding-left: 0; } }
+@media (max-width: 719px) { .pal-score__overall { border-left: 0; padding-left: 0; } }
 
 .pal-bodybar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--pal-4); }
 .pal-spark { display: block; width: 100%; height: 34px; overflow: visible; }
@@ -84,7 +84,7 @@
      <video> may never be created by a renderer. -->
 <div class="pal-routebar" id="palRouteBar">
   <div class="pal-routebar__in">
-    <nav class="pal-routes" id="palRoutes" aria-label="Sections"></nav>
+    <nav class="pal-routes pal-scrollx" id="palRoutes" aria-label="Sections"></nav>
   </div>
 </div>
 
@@ -732,7 +732,9 @@
     var sched = P.getSchedule();
     var templates = P.templatesSorted();
 
-    var grid = '<div class="pal-cal" style="margin-bottom:6px">' +
+    // One pane holds the whole month: the blur is the pane's, and the 42
+    // cells are alpha over it. See --pal-glass.
+    var grid = '<div class="pal-pane"><div class="pal-cal" style="margin-bottom:6px">' +
       P.WEEKDAYS.map(function (w) { return '<div class="pal-cal__dow">' + esc(w.short) + '</div>'; }).join('') +
       '</div><div class="pal-cal">' +
       cal.cells.map(function (c) {
@@ -743,9 +745,10 @@
           (c.lane !== 'none' ? '<span class="pal-calday__bar"></span>' : '') +
           '<span class="pal-calday__label">' + esc(c.label) + '</span>' +
         '</button>';
-      }).join('') + '</div>';
+      }).join('') + '</div></div>';
 
-    var plan = '<div class="pal-card" style="margin-top:24px">' +
+    var todayKey = P.weekdayKey(P.today());
+    var plan = '<div class="pal-pane" style="margin-top:24px">' +
       '<div class="pal-card__head"><h3 class="pal-h3">The weekly plan</h3>' +
       '<span class="pal-sub">what the calendar projects forward</span></div>' +
       '<ul class="pal-list">' + P.WEEKDAYS.map(function (w) {
@@ -753,7 +756,8 @@
         var tpl = slot && slot.templateId ? P.Templates.get(slot.templateId) : null;
         var label = slot && slot.rest ? 'Rest' : (tpl ? tpl.name : 'Nothing scheduled');
         var lane = slot && slot.rest ? 'rest' : (tpl ? P.laneOf(tpl.type) : 'none');
-        return '<li class="pal-listrow" data-lane="' + esc(lane) + '">' +
+        return '<li class="pal-listrow pal-planrow" data-lane="' + esc(lane) + '"' +
+          ' data-today="' + (w.key === todayKey ? 'true' : 'false') + '">' +
           '<div class="pal-listrow__meta" style="width:52px;flex:none">' + esc(w.short) + '</div>' +
           '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(label) + '</div></div>' +
           '<select class="pal-select" style="max-width:220px" data-sched="' + esc(w.key) + '">' +
@@ -905,7 +909,7 @@
     list.forEach(function (e) { present[e.muscle] = (present[e.muscle] || 0) + 1; });
     if (exMuscle !== 'All' && !present[exMuscle]) exMuscle = 'All';
 
-    var chips = '<div class="pal-xfilter" role="group" aria-label="Filter by muscle group">' +
+    var chips = '<div class="pal-xfilter pal-scrollx" role="group" aria-label="Filter by muscle group">' +
       ['All'].concat(P.MUSCLES.filter(function (m) { return present[m]; }))
         .map(function (m) {
           var on = m === exMuscle;

@@ -57,7 +57,10 @@
   var SRC    = 'images_by_admin/palaestra/hero.mp4';
   var POSTER = 'images_by_admin/palaestra/hero-poster.jpg';
 
-  var mqNarrow = global.matchMedia('(max-width: 720px)');
+  // 719, matching palaestra-theme.css's phone breakpoint exactly. At 720
+  // this said "phone" while the stylesheet said "desktop", so a
+  // desktop-sized hero rendered poster-only.
+  var mqNarrow = global.matchMedia('(max-width: 719px)');
   var mqMotion = global.matchMedia('(prefers-reduced-motion: reduce)');
 
   var hero = null, vid = null, copyEl = null, railEl = null, ribbonEl = null, badgeEl = null;

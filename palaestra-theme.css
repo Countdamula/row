@@ -95,6 +95,26 @@
                0 4px 14px rgba(0,0,0,.5),
                0 32px 80px -28px rgba(0,0,0,.9);
 
+  /* GLASS is a PANE, never a cell. The rule five lines above forbids
+     per-card backdrop-filter, and a month is 42 cells; the blur goes on
+     the one element that holds them and the cells are alpha over it.
+     athenaeum.html learned the other half the hard way — light glass at
+     that count "read as eleven white blocks" — so the pane is smoked,
+     not frosted, and the cells stay dark. */
+  --pal-glass:      rgba(26,23,18,.58);
+  --pal-glass-edge: rgba(234,223,201,.10);
+  --pal-glass-blur: blur(14px) saturate(1.25);
+
+  /* GLOW is three stacked shadows, tight/bright -> mid -> wide/faint, on
+     box-shadow and never on a pseudo-element: box-shadow paints outside
+     the border box AND behind the background, which is where light
+     spilling off an object belongs. Needs --lane-rgb, declared with the
+     lane colours further down. */
+  --pal-glow:
+    0 0 14px -2px rgba(var(--lane-rgb, 200,130,60), .42),
+    0 0 34px -6px rgba(var(--lane-rgb, 200,130,60), .26),
+    0 0 76px -22px rgba(var(--lane-rgb, 200,130,60), .18);
+
   --pal-ease: cubic-bezier(.2,.8,.2,1);
 
   /* --- parallax --------------------------------------------------
@@ -139,7 +159,7 @@ body.pal {
   font-family: var(--pal-body);
   font-size: 15px;
   line-height: 1.6;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -553,9 +573,12 @@ a:hover { color: var(--pal-sand); }
   will-change: transform;
 }
 .pal-hero.is-in .pal-hero__rail { transition: opacity .8s var(--pal-ease) .3s; opacity: 1; }
+/* The visible dash is 1×10px. The BUTTON has to be finger-sized around
+   it, or the rail is decoration with a hit area nobody can find. */
 .pal-hero__dash {
-  appearance: none; border: 0; padding: 5px 0; background: transparent;
-  width: 24px; cursor: pointer; display: block;
+  appearance: none; border: 0; padding: 0; background: transparent;
+  width: 44px; min-height: 44px; cursor: pointer;
+  display: flex; align-items: center;
 }
 .pal-hero__dash::before {
   content: ''; display: block; height: 1px; width: 10px;
@@ -688,6 +711,16 @@ a:hover { color: var(--pal-sand); }
   min-height: 62px;
 }
 .pal-routebar__mark { display: none; }     /* the launcher is the wordmark */
+/* topbar.js hides every scrollbar under 768px, so a horizontal scroller
+   has no affordance at all on a phone. The fade IS the affordance. */
+.pal-scrollx {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 26px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 26px), transparent 100%);
+}
+.pal-scrollx::-webkit-scrollbar { display: none; }
+
 .pal-routes {
   display: flex; gap: 2px; flex-wrap: wrap;
   margin: 0; flex: 1 1 auto;
@@ -819,9 +852,15 @@ a:hover { color: var(--pal-sand); }
      body.pal is not decoration: .pal-fab and .pal-shell are both declared
      further down this file, so a bare class selector here would lose on
      source order and the button would sit on top of the tabs. */
-  body.pal .pal-fab { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
-  body.pal .pal-shell { padding-bottom: calc(var(--pal-8) + 72px); }
+  /* ONE number for what is docked at the bottom of a phone screen. The
+     route bar is 56px + its inset; everything that has to clear it —
+     the buttons, the toast, the shell's own padding — reads this rather
+     than restating a magic number that then drifts. */
+  body.pal { --pal-dock-h: 56px; }
+  body.pal .pal-fab { bottom: calc(var(--pal-dock-h) + 18px + env(safe-area-inset-bottom, 0px)); }
+  body.pal .pal-shell { padding-bottom: calc(var(--pal-8) + var(--pal-dock-h) + 16px); }
   .pal-ribbon { height: 104px; }
+
 
   /* An 86svh hero on a phone makes a .70 travel read as a jump rather
      than as depth, and the ribbon is 104px tall here. Halve both. */
@@ -867,6 +906,7 @@ a:hover { color: var(--pal-sand); }
   .pal-ribbon__depth { transform: none !important; }
   .pal-badge2 { translate: -50% -50% !important; }
   .pal-hero__copy { transform: none !important; opacity: 1 !important; }
+  .pal-calday:hover, .pal-xcard:hover { transform: none !important; }
 }
 
 /* =============================================================
@@ -1394,7 +1434,10 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
   padding-right: 32px;
 }
 .pal-input--num { font-family: var(--pal-mono); font-variant-numeric: tabular-nums; }
-.pal-check { width: 22px; height: 22px; accent-color: var(--pal-bronze); cursor: pointer; }
+/* 22px of visible box, 44px of target — the label beside it is not
+   always long enough to be the hit area. */
+.pal-check { width: 22px; height: 22px; outline-offset: 4px;
+  margin: 11px; box-sizing: content-box; padding: 0; accent-color: var(--pal-bronze); cursor: pointer; }
 
 /* =============================================================
    TABLES — volume, history. Always scroll inside their own box so
@@ -1439,6 +1482,26 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
 }
 .pal-listrow__actions { display: flex; gap: 4px; flex: none; }
 
+/* THE WEEKLY PLAN. Its rows have carried data-lane since the first
+   build and nothing has ever consumed it. A scheduled day now lights its
+   own left edge; a day with nothing on it stays a plain ruled row, which
+   is the whole point — the glow is the schedule, drawn. */
+.pal-planrow { position: relative; padding-left: var(--pal-3); }
+.pal-planrow::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
+  border-radius: 2px;
+  background: var(--lane, var(--pal-ash));
+  opacity: 0;
+  transition: opacity .2s var(--pal-ease);
+}
+.pal-planrow[data-lane]:not([data-lane='none'])::before {
+  opacity: 1;
+  box-shadow: 0 0 10px 0 rgba(var(--lane-rgb, 200,130,60), .6),
+              0 0 24px -4px rgba(var(--lane-rgb, 200,130,60), .34);
+}
+.pal-planrow[data-lane='rest']::before { opacity: .5; box-shadow: none; }
+.pal-planrow[data-today='true'] .pal-listrow__meta { color: var(--pal-bronze-2); }
+
 .pal-badge {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--pal-mono); font-size: 10px;
@@ -1471,32 +1534,97 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
 /* =============================================================
    CALENDAR
    ============================================================= */
+/* THE PANE. One backdrop-filter for the whole month, not one per day.
+   Everything inside it is alpha. */
+.pal-pane {
+  position: relative;
+  padding: var(--pal-4);
+  border-radius: var(--pal-radius-lg);
+  background: var(--pal-glass);
+  border: 1px solid var(--pal-glass-edge);
+  backdrop-filter: var(--pal-glass-blur);
+  -webkit-backdrop-filter: var(--pal-glass-blur);
+  box-shadow:
+    0 1px 0 rgba(234,223,201,.07) inset,
+    0 24px 60px -32px rgba(0,0,0,.9);
+  max-width: 1214px;
+}
+/* The lit top edge — light catches the near edge of a pane of glass, and
+   without it the panel reads as a flat rectangle of paint. */
+.pal-pane::before {
+  content: ''; position: absolute; left: 12%; right: 12%; top: -1px; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(234,223,201,.34), transparent);
+}
+
 /* Seven columns across 2560px turns a month into hairlines. */
-.pal-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
-  max-width: 1180px; }
+.pal-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .pal-cal__dow {
   font-family: var(--pal-mono); font-size: 10px; letter-spacing: .14em;
   text-transform: uppercase; color: var(--pal-ash);
   text-align: center; padding-bottom: 6px;
 }
+/* A cell is alpha over the pane, so the ground and the pane's blur read
+   through it. No filter of its own — see --pal-glass. */
 .pal-calday {
-  appearance: none; border: 1px solid var(--pal-hair-2); background: var(--pal-stone-2);
+  appearance: none; border: 1px solid var(--pal-hair-2);
+  background: rgba(12,10,8,.34);
   border-radius: var(--pal-radius);
   min-height: clamp(58px, 9vw, 88px);
   padding: 7px 8px; cursor: pointer; text-align: left;
   display: flex; flex-direction: column; gap: 4px;
   color: var(--pal-sand);
-  transition: border-color .16s var(--pal-ease), background .16s var(--pal-ease);
+  transition: border-color .18s var(--pal-ease), background .18s var(--pal-ease),
+              box-shadow .18s var(--pal-ease), transform .18s var(--pal-ease);
 }
-.pal-calday:hover { border-color: var(--pal-hair); background: var(--pal-stone-3); }
+.pal-calday:hover {
+  border-color: color-mix(in srgb, var(--lane, var(--pal-bronze)) 44%, transparent);
+  background: rgba(30,26,20,.5);
+  transform: translateY(-2px);
+  box-shadow: var(--pal-glow);
+}
+/* GLOW SAYS SOMETHING. Only today and the days that carry work are lit —
+   done brightest, planned dimmer, an empty day not at all. A calendar
+   where every cell glows is a calendar that tells you nothing. */
+.pal-calday[data-status='done'] {
+  background: rgba(34,28,20,.46);
+  border-color: color-mix(in srgb, var(--lane) 34%, transparent);
+  box-shadow: var(--pal-glow);
+}
+.pal-calday[data-status='planned'],
+.pal-calday[data-status='rest'] {
+  box-shadow:
+    0 0 12px -3px rgba(var(--lane-rgb, 200,130,60), .22),
+    0 0 30px -12px rgba(var(--lane-rgb, 200,130,60), .14);
+}
+.pal-calday[data-status='missed'] {
+  border-color: color-mix(in srgb, var(--pal-bad) 28%, transparent);
+}
 .pal-calday[data-inmonth='false'] { opacity: .3; }
 .pal-calday__num {
   font-family: var(--pal-mono); font-size: 11px; color: var(--pal-ash);
   font-variant-numeric: tabular-nums;
 }
-.pal-calday[data-today='true'] { border-color: var(--pal-bronze); }
+/* Today is the one cell that is lit whatever is on it. */
+.pal-calday[data-today='true'] {
+  border-color: var(--pal-bronze);
+  background: rgba(38,31,21,.5);
+  box-shadow:
+    0 0 0 1px rgba(200,130,60,.28),
+    0 0 16px -2px rgba(200,130,60,.5),
+    0 0 40px -8px rgba(200,130,60,.3),
+    0 0 86px -26px rgba(200,130,60,.2);
+}
 .pal-calday[data-today='true'] .pal-calday__num { color: var(--pal-bronze-2); }
-.pal-calday__bar { height: 3px; border-radius: 2px; background: var(--lane); }
+/* The bar is the brightest thing in a cell, so the bloom belongs on it
+   rather than on the cell — the same reasoning as kdp's progress fill. */
+.pal-calday__bar {
+  height: 3px; border-radius: 2px; background: var(--lane);
+  box-shadow: 0 0 10px -1px rgba(var(--lane-rgb, 200,130,60), .7),
+              0 0 22px -6px rgba(var(--lane-rgb, 200,130,60), .45);
+}
+.pal-calday[data-status='planned'] .pal-calday__bar,
+.pal-calday[data-status='missed'] .pal-calday__bar { box-shadow: none; }
 /* Planned but not done: a dotted trace of the work, not the work. At
    3px an inset outline reads as solid, so this has to be a pattern. */
 .pal-calday[data-status='planned'] .pal-calday__bar {
@@ -1651,9 +1779,15 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(to top, rgba(20,18,15,.55), transparent 55%);
 }
+/* 26px of visible button inside a 44px hit area: the chrome stays small
+   in the corner of a 92px tile, the target does not. */
 .pal-media__kill {
-  position: absolute; top: 3px; right: 3px; z-index: 2;
-  width: 26px; height: 26px; border-radius: 2px;
+  position: absolute; top: -6px; right: -6px; z-index: 2;
+  width: 44px; height: 44px; border-radius: 2px;
+  padding: 15px;
+  background-clip: content-box;
+  -webkit-background-clip: content-box;
+  box-sizing: border-box;
   background: rgba(16,14,12,.82); border: 1px solid var(--pal-hair);
   color: var(--pal-sand); cursor: pointer; font-size: 13px; line-height: 1;
 }
@@ -1672,7 +1806,9 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
 .pal-sheetbg.is-open { display: flex; }
 @media (min-width: 720px) { .pal-sheetbg { align-items: center; } }
 .pal-sheet {
-  width: 100%; max-width: 620px; max-height: 88vh; overflow-y: auto;
+  /* dvh for the same reason as the dock: at its ceiling a vh-measured
+     sheet pushes its own action row below the fold on iOS. */
+  width: 100%; max-width: 620px; max-height: 88dvh; overflow-y: auto;
   background: var(--pal-stone-3);
   border: 1px solid var(--pal-hair);
   border-radius: var(--pal-radius-lg);
@@ -1750,7 +1886,10 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    ============================================================= */
 .pal-music {
   position: fixed; top: 0; right: 0; z-index: 95;
-  width: min(380px, 100vw); height: 100vh;
+  /* dvh, not vh. With vh the dock is measured against the LARGE viewport,
+     so on iOS its bottom — which is the play/pause row — sits under the
+     browser chrome and cannot be reached. */
+  width: min(380px, 100vw); height: 100dvh;
   background: var(--pal-stone-3);
   border-left: 1px solid var(--pal-hair);
   box-shadow: var(--pal-float);
@@ -1854,7 +1993,7 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
 
 @media (max-width: 719px) {
   .pal-music {
-    width: 100vw; height: min(86vh, 620px);
+    width: 100vw; height: min(86dvh, 620px);
     top: auto; bottom: 0;
     border-left: 0; border-top: 1px solid var(--pal-hair);
     border-radius: var(--pal-radius-lg) var(--pal-radius-lg) 0 0;
@@ -1879,7 +2018,11 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
 
 .pal-toast {
   position: fixed; left: 50%; z-index: 120;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  /* Clear of whatever is docked at the bottom, and narrow enough that a
+     long string does not run off both edges of a 360px screen. */
+  max-width: min(560px, calc(100vw - 2 * var(--pal-gutter)));
+  text-align: center;
+  bottom: calc(24px + var(--pal-dock-h, 0px) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%) translateY(12px);
   background: var(--pal-stone-3); border: 1px solid var(--pal-hair);
   border-radius: var(--pal-radius); box-shadow: var(--pal-float);
@@ -1893,9 +2036,6 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    PHONE
    ============================================================= */
 @media (max-width: 719px) {
-  .pal-header { padding-top: 84px; }
-  .pal-routes { overflow-x: auto; flex-wrap: nowrap; }
-  .pal-route { flex: none; }
   .pal-setrow, .pal-sethead { grid-template-columns: 26px 1fr 1fr 56px 44px; }
   .pal-rest__clock { font-size: 31px; }
   .pal-week { gap: 2px; }
@@ -1903,6 +2043,61 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
   /* Seven cells across a phone leave ~48px each — only the day fits. */
   .pal-weekcell__sets { display: none; }
   .pal-weekcell__label { font-size: 9px; letter-spacing: .08em; }
+
+  /* CALENDAR ON A PHONE.
+     These live in THIS block, not the hero one further up, for the same
+     reason .pal-fab's overrides do: .pal-pane and .pal-calday are both
+     declared after that block, and at equal specificity source order
+     wins — the rules were being silently discarded.
+
+     A backdrop-filter is the most expensive thing a phone GPU can be
+     asked for and the pane is full-width. Alpha carries it here. */
+  .pal-pane {
+    padding: var(--pal-3);
+    background: rgba(20,17,13,.76);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* Seven glass cells at 390px is unreadable before it is pretty. */
+  .pal-cal { gap: 2px; }
+  .pal-calday { min-height: 54px; padding: 5px; gap: 2px; }
+  .pal-calday__label { display: none; }
+  /* The bloom radii are sized for a 1200px pane; at 390px they merge
+     into one wash. */
+  .pal-calday[data-today='true'],
+  .pal-calday[data-status='done'] {
+    box-shadow: 0 0 0 1px rgba(var(--lane-rgb, 200,130,60), .32),
+                0 0 12px -3px rgba(var(--lane-rgb, 200,130,60), .42);
+  }
+  .pal-calday[data-status='planned'],
+  .pal-calday[data-status='rest'] { box-shadow: none; }
+  .pal-calday:hover { transform: none; box-shadow: none; }
+
+  /* THE COVER CARD ON A PHONE.
+     A 16/11 cover on a 358px card is 246px of gradient before any words,
+     so two cards fill the screen. Shorter here; the media and the
+     figures are what the card is for. */
+  .pal-xcard__cover { aspect-ratio: 16 / 8.5; max-height: 190px; }
+  .pal-xcard__ghost { font-size: clamp(30px, 9vw, 40px); padding-right: 66px; }
+  .pal-xcard__body { padding: var(--pal-3); gap: var(--pal-2); }
+  .pal-xcard__name { font-size: 22px; }
+  .pal-xcard__stats { gap: var(--pal-4); }
+  .pal-xcard:hover { transform: none; }
+  /* Five rows of chips is not a filter, it is a wall. One row that
+     scrolls, with the fade as its cue. */
+  .pal-xfilter {
+    flex-wrap: nowrap; overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .pal-xfilter .pal-chip { flex: none; }
+
+  /* A short label left these 37px WIDE — the month stepper's arrows.
+     Height was never the only dimension that had to clear 44. */
+  .pal-btn--sm, .pal-chip { min-height: 44px; min-width: 44px; }
+  /* Seven cells, a 16px gutter and the pane's own padding left each day
+     43.9px wide at 375 — just under a finger. The pane gives the width
+     back rather than the days getting smaller. */
+  .pal-pane { padding: var(--pal-2); }
 }
 
 /* =============================================================
@@ -1925,6 +2120,24 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    PRINT — the weekly scorecard is the one thing worth putting on
    a fridge.
    ============================================================= */
+/* =============================================================
+   TOUCH
+   ─────────────────────────────────────────────────────────────
+   Width cannot tell a tablet from a small window: an 820px iPad is a
+   thumb and an 820px browser window on a desk is a cursor. Pointer
+   type can. Everything here is a hit area, never a look, so a mouse
+   sees no change at any size.
+   ============================================================= */
+@media (hover: none) and (pointer: coarse) {
+  .pal-btn--sm, .pal-chip, .pal-musicbtn, .pal-quickbtn { min-height: 44px; min-width: 44px; }
+  .pal-hero__dash { min-height: 44px; }
+  .pal-track__pin { width: 44px; height: 44px; }
+  .pal-music__ctrl { min-width: 44px; min-height: 44px; }
+  /* A hover lift on a touch screen fires on tap and sticks until you
+     touch something else, which reads as a stuck card. */
+  .pal-xcard:hover, .pal-calday:hover { transform: none; }
+}
+
 @media print {
   body.pal { background: #fff; color: #000; }
   body.pal::before, .pal-fab, .pal-music, .pal-routes, .pal-rest { display: none !important; }
