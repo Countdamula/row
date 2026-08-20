@@ -22,14 +22,37 @@
 :root {
   /* --- ground and surfaces: a real layering system, not one flat plane --- */
   --pal-stone:    #14120F;   /* base: the yard */
-  --pal-stone-2:  #1C1914;   /* elevated: a card */
-  --pal-stone-3:  #262119;   /* floating: a sheet, the dock */
+  /* Elevated surfaces are TRANSLUCENT, not opaque. The ground below is a
+     composed field, not a flat colour, so an opaque card reads as a grey
+     patch punched out of it. Alpha — never backdrop-filter: there are
+     dozens of cards on a route and each filter is its own compositing
+     pass. The two backdrop-filters in this file are single-instance. */
+  --pal-stone-2:  rgba(30,26,20,.90);   /* elevated: a card */
+  --pal-stone-3:  rgba(40,35,26,.95);   /* floating: a sheet, the dock */
   --pal-well:     #100E0C;   /* recessed: inputs, tracks, wells */
+
+  /* --- the ground -------------------------------------------------
+     Read off the long-exposure reference, hue-matched to the dark
+     floral palette. The reference's cool streak band is --pal-patina
+     shifted, its warm lower blur is --pal-bronze shifted, and its one
+     bright horizon line is --pal-sand shifted — so the ground and the
+     hero share a palette by construction rather than by eye. */
+  --pal-ground:      #0C0A08;   /* the field — deeper than the yard */
+  --pal-ground-cool: #3C5C55;   /* the upper streak band */
+  --pal-ground-warm: #6B4021;   /* the lower wash */
+  --pal-ground-lit:  #D6B587;   /* the horizon, and streak cores */
 
   /* --- ink --- */
   --pal-sand:     #EADFC9;   /* primary text */
   --pal-sand-2:   #A99D87;   /* secondary */
-  --pal-ash:      #6F6659;   /* labels, disabled, rest */
+  /* Lifted from #6F6659. Any translucency over a ground with light in
+     it costs the faintest ink some contrast — the arithmetic leaves no
+     card alpha that both blends and holds #6F6659. On the brightest
+     spot the ground reaches, this reads 3.85:1 against a card, where
+     the old value on the old flat card managed 3.10:1. So the labels
+     end up MORE legible than before, not less. --pal-rest is the same
+     hex but is a lane colour, not ink, and is deliberately unchanged. */
+  --pal-ash:      #837A69;   /* labels, disabled, rest */
   --pal-hair:     rgba(234,223,201,.11);
   --pal-hair-2:   rgba(234,223,201,.055);
 
@@ -68,6 +91,24 @@
                0 32px 80px -28px rgba(0,0,0,.9);
 
   --pal-ease: cubic-bezier(.2,.8,.2,1);
+
+  /* --- parallax --------------------------------------------------
+     Two scrub ranges, written by palaestra-hero.js from ONE
+     rAF-throttled passive listener. Both are plain 0 → 1 ramps and
+     every layer is linear against them — ease "none", scrub 0.
+       --pal-hero-p  the hero's own height   (hero → ribbon)
+       --pal-join-p  the ribbon's traverse   (ribbon → the page)
+       --pal-hero-h  the hero's height in px, written on measure only
+     Depth ratios are .70 / .55 / .40 / .10 throughout, back to front.
+     Transition A multiplies them by --pal-hero-h, so a layer travels
+     that fraction of its trigger. Transition B multiplies them by
+     --pal-join-t instead: its trigger is a whole viewport traverse
+     while its layers are a ~140px ribbon, and a travel scaled to the
+     trigger there would throw the ribbon clean off the screen. */
+  --pal-hero-p: 0;
+  --pal-hero-h: 100vh;
+  --pal-join-p: 0;
+  --pal-join-t: clamp(48px, 8vh, 96px);
 }
 
 /* =============================================================
@@ -83,16 +124,7 @@ html { -webkit-text-size-adjust: 100%; }
    element topbar.js injects into this page — its launcher and sidebar
    dropped into normal flow and pushed the whole page down 2000px. The
    page must not restyle anything it did not render. */
-html.pal-root { background: var(--pal-stone); }
-html.pal-root::before {
-  content: '';
-  position: fixed; inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: .5;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-}
+html.pal-root { background: var(--pal-ground); }
 body.pal {
   margin: 0;
   position: relative;   /* above the dust; NOT a containing block for fixed children */
@@ -105,6 +137,96 @@ body.pal {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* =============================================================
+   THE GROUND
+   ─────────────────────────────────────────────────────────────
+   The reference is a long-exposure photograph: a near-black field,
+   a band of cool motion streaks high up, a long quiet dark middle
+   where the content actually sits, a warm blur across the bottom,
+   and one bright horizon line through it. Rebuilt here in gradients
+   rather than shipped as a photograph, so it costs nothing, scales
+   to any viewport, and takes every colour from the tokens above.
+
+   NO GRAIN. The reference's texture is deliberately not reproduced.
+
+   Every streak is a very flat ellipse with a wide stop ramp — never
+   filter: blur(). A blurred fixed full-viewport layer repaints on
+   every scroll frame; a 70%-wide colour ramp is already soft and
+   composites for free.
+
+   Three layers, because the parallax needs three depths and two
+   pseudo-elements cannot give them. Mounted once by
+   palaestra-hero.js, outside #palRoot/#palLog, so no repaint can
+   reach it — the same rule as the hero's <video>.
+   ============================================================= */
+.pal-ground {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  isolation: isolate;         /* the screen blends stay inside the ground */
+  contain: layout paint style;
+}
+.pal-ground > div { position: absolute; inset: 0; }
+/* Only the warm layer translates, so only it needs spare material below
+   — and it carries it alone, so the other two keep clean viewport
+   percentages. Its own gradient stops are stated against ITS box, which
+   is 120px taller than the viewport; that is why they read low. */
+.pal-ground__warm { bottom: -120px; }
+
+/* The field: near-black, warm rather than neutral, and held darkest
+   through the middle on purpose — that band is where cards land. */
+.pal-ground__field {
+  background:
+    radial-gradient(128% 62% at 50% 99%, rgba(107,64,33,.26), transparent 64%),
+    radial-gradient(132% 82% at 50% 44%, rgba(12,10,8,0), rgba(3,3,2,.70) 100%),
+    linear-gradient(180deg,
+      #0A0907 0%,
+      var(--pal-ground) 30%,
+      var(--pal-ground) 64%,
+      #080706 100%);
+}
+
+/* The cool band, high in the frame. Four flat streaks at different
+   heights and widths, so it reads as motion rather than as a stripe. */
+.pal-ground__cool {
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 58% 2.0% at 28% 9%,     rgba(214,181,135,.20), transparent 72%),
+    radial-gradient(ellipse 98% 4.0% at 42% 12.5%,  rgba(60,92,85,.44),    transparent 74%),
+    radial-gradient(ellipse 72% 2.6% at 64% 17%,    rgba(60,92,85,.30),    transparent 76%),
+    radial-gradient(ellipse 132% 9.5% at 50% 21%,   rgba(44,70,68,.22),    transparent 80%);
+}
+
+/* The warm wash, low, and the horizon line through it — the single
+   brightest thing on any Palaestra page. This is transition B's
+   layer 1, the farthest plane, so it is the one that travels most. */
+.pal-ground__warm {
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(214,181,135,.10) 12%,
+      rgba(236,214,182,.26) 47%,
+      rgba(214,181,135,.12) 74%,
+      transparent 100%)
+      0 calc(100% - 120px - 24vh) / 100% 2px no-repeat,
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(214,181,135,.06) 20%,
+      rgba(214,181,135,.09) 50%,
+      transparent 100%)
+      0 calc(100% - 120px - 24vh) / 100% 34px no-repeat,
+    radial-gradient(ellipse 78% 2.6% at 36% 79%, rgba(200,130,60,.26), transparent 74%),
+    radial-gradient(ellipse 118% 5.0% at 57% 85%, rgba(107,64,33,.42), transparent 76%),
+    linear-gradient(to top,
+      rgba(107,64,33,.34) 0%,
+      rgba(88,51,25,.14) 14%,
+      transparent 37%);
+  transform: translate3d(0, calc(var(--pal-join-p) * var(--pal-join-t) * .70), 0);
+  will-change: transform;
 }
 
 ::selection { background: rgba(200,130,60,.28); color: var(--pal-sand); }
@@ -226,25 +348,36 @@ a:hover { color: var(--pal-sand); }
   width: 100%;
   overflow: hidden;
   isolation: isolate;
-  --pal-hero-p: 0;                 /* 0 at the top, 1 once scrolled past */
-  --pal-hero-obj: 50% 45%;         /* the clip is 9:16; aim the crop */
+  --pal-hero-obj: 50% 62%;         /* the clip is 9:16; aim the crop */
 }
 .pal-hero--full { min-height: 100svh; }
 .pal-hero--band { min-height: clamp(360px, 42vh, 480px); }
 
 /* --- the backdrop ------------------------------------------------ */
+/* PARALLAX LAYER 1 — the backmost plane, and so the one that lags most.
+   It is 1.7x the hero's height, anchored to the hero's bottom edge, for
+   one reason: a background that lags leaves a gap at the top of the
+   frame unless it carries exactly its own travel in spare material.
+   0.70 x --pal-hero-h of travel needs 0.70 x --pal-hero-h of headroom.
+   The clip is portrait 9:16 inside a landscape frame, so a taller box
+   crops LESS of it, not more — the oversize is also why more of the
+   footage now reads. */
 .pal-hero__stage {
-  position: absolute; inset: 0; z-index: 0;
-  /* The reference is near-black with one lit subject. This clip is a warm,
-     evenly-lit render, so it is graded down before the type goes over it —
-     otherwise the whole hero reads as haze rather than as depth. */
-  filter: brightness(.58) contrast(1.22) saturate(.82);
-  background-color: var(--pal-stone);
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.70 * var(--pal-hero-h));
+  z-index: 0;
+  /* Graded, not blacked out. The clip is a warm, evenly-lit render and
+     the old grade plus a full-frame veil left almost none of it
+     readable. The scrim below is local now, so this can open up. */
+  filter: brightness(.82) contrast(1.10) saturate(.92);
+  background-color: var(--pal-ground);
   background-image: var(--pal-hero-poster, none);
   background-size: cover;
-  background-position: 50% 45%;
+  background-position: 50% 62%;
   background-repeat: no-repeat;
-  transform: scale(calc(1 + var(--pal-hero-p) * 0.12));
+  transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .70), 0)
+             scale(calc(1 + var(--pal-hero-p) * 0.12));
   transform-origin: 50% 40%;
   will-change: transform;
 }
@@ -266,25 +399,46 @@ a:hover { color: var(--pal-sand); }
 .pal-hero__veil {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
+    /* THE LOCAL SCRIM. The copy keeps a dark bed of its own so the rest
+       of the frame does not have to be darkened to hold it. If a frame
+       of the clip ever fails contrast behind the headline, tighten
+       THIS — never re-darken the two below it. */
+    radial-gradient(78% 44% at 50% 76%, rgba(9,8,6,.82), transparent 72%),
     linear-gradient(to top,
-      var(--pal-stone) 0%,
-      rgba(20,18,15,.88) 16%,
-      rgba(20,18,15,.46) 52%,
-      rgba(20,18,15,.72) 100%),
-    radial-gradient(110% 72% at 50% 42%, transparent 18%, rgba(12,11,9,.78) 100%);
+      var(--pal-ground) 0%,        /* the hand-off: the hero ends ON the ground */
+      rgba(16,14,11,.80) 15%,
+      rgba(18,16,13,.22) 52%,
+      rgba(18,16,13,.50) 100%),
+    radial-gradient(110% 72% at 50% 42%, transparent 28%, rgba(12,11,9,.62) 100%);
 }
 /* Six columns — the reference's own structural device. */
+/* PARALLAX LAYER 3, with the rail. Same headroom rule as the stage:
+   the pattern is columns, so extending it upward costs nothing. */
 .pal-hero__cols {
-  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.40 * var(--pal-hero-h));
+  z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(to right,
     transparent 0 calc(100% / 6 - 1px),
     rgba(234,223,201,.055) calc(100% / 6 - 1px) calc(100% / 6));
+  transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .40), 0);
+  will-change: transform;
 }
 
 /* --- the ring ----------------------------------------------------
    A conic gradient masked to an annulus: one bright arc riding a dim
    circle, exactly as in the reference. Two layers — the line, and a
    blurred copy beneath it for the glow. */
+/* PARALLAX LAYER 2. The translate goes on the WRAPPER, never on the
+   ring itself: the ring spins forever, and CSS applies `transform`
+   inside `rotate`, so a transform on the ring would be carried round
+   by the rotation and travel in a circle instead of downward. */
+.pal-hero__l2 {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .55), 0);
+  will-change: transform;
+}
 .pal-hero__ring,
 .pal-hero__ringglow {
   position: absolute; z-index: 1; pointer-events: none;
@@ -323,10 +477,13 @@ a:hover { color: var(--pal-sand); }
 }
 
 /* --- the frame: nav row, rail, copy ------------------------------ */
+/* No max-width. The hero is the one full-screen surface on the page:
+   the frame runs to the glass on every side and only the gutter — the
+   safe-area inset, not a boundary — holds the type off the edge. */
 .pal-hero__in {
   position: relative; z-index: 3;
   min-height: inherit;
-  max-width: 1320px; margin: 0 auto;
+  max-width: none; margin: 0;
   padding: clamp(70px, 9vh, 104px) var(--pal-gutter) clamp(64px, 11vh, 132px);
   display: flex; flex-direction: column;
   justify-content: space-between;   /* the copy sits low, as in the reference */
@@ -363,6 +520,9 @@ a:hover { color: var(--pal-sand); }
   top: 50%; translate: 0 -50%;
   display: flex; flex-direction: column; gap: 8px;
   opacity: 0;
+  /* layer 3, with the columns */
+  transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .40), 0);
+  will-change: transform;
 }
 .pal-hero.is-in .pal-hero__rail { transition: opacity .8s var(--pal-ease) .3s; opacity: 1; }
 .pal-hero__dash {
@@ -377,12 +537,15 @@ a:hover { color: var(--pal-sand); }
 .pal-hero__dash:hover::before { width: 17px; background: var(--pal-sand-2); }
 .pal-hero__dash[aria-current='true']::before { width: 24px; background: var(--pal-bronze); }
 
-/* The copy block. It, and only it, carries the scroll-out. */
+/* PARALLAX LAYER 4 — the nearest plane, so it very nearly tracks the
+   scroll and barely appears to move at all. That is the point of a
+   near plane; the depth is carried by the three behind it. It fades
+   as it goes, which is the reference's own bottom fade. */
 .pal-hero__copy {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
-  align-items: end; gap: clamp(20px, 4vw, 56px);
-  transform: translateY(calc(var(--pal-hero-p) * -60px));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  align-items: end; gap: clamp(20px, 4vw, 72px);
+  transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .10), 0);
   opacity: calc(1 - var(--pal-hero-p) * 1.35);
   will-change: transform, opacity;
 }
@@ -402,12 +565,15 @@ a:hover { color: var(--pal-sand); }
 .pal-hero__head {
   font-family: var(--pal-display);
   font-weight: 600;
-  font-size: clamp(40px, 7.2vw, 104px);
+  /* The cap rose with the frame: the hero is edge-to-edge now, and a
+     104px ceiling left the headline floating on a 1920 screen. Below
+     ~1830px wide the 7.2vw term still wins, so nothing else changes. */
+  font-size: clamp(40px, 7.2vw, 132px);
   line-height: .96;
   letter-spacing: -.005em;
   color: var(--pal-sand);
   margin: 0;
-  text-shadow: 0 2px 40px rgba(20,18,15,.8);
+  text-shadow: 0 1px 14px rgba(0,0,0,.55), 0 2px 40px rgba(20,18,15,.7);
 }
 .pal-hero--band .pal-hero__head { font-size: clamp(32px, 5vw, 62px); }
 /* The band is 378px tall; a ring sized for a full screen runs off both
@@ -428,6 +594,7 @@ a:hover { color: var(--pal-sand); }
 
 .pal-hero__note {
   font-size: 13.5px; line-height: 1.7; color: var(--pal-sand-2);
+  text-shadow: 0 1px 12px rgba(0,0,0,.6);
   margin: 0; max-width: 34ch;
   opacity: 0; transform: translateY(12px);
 }
@@ -481,7 +648,7 @@ a:hover { color: var(--pal-sand); }
               backdrop-filter .28s var(--pal-ease);
 }
 .pal-routebar.is-stuck {
-  background: color-mix(in srgb, var(--pal-stone) 88%, transparent);
+  background: color-mix(in srgb, var(--pal-ground) 86%, transparent);
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border-bottom-color: var(--pal-hair);
@@ -525,12 +692,22 @@ a:hover { color: var(--pal-sand); }
   position: relative;
   height: clamp(112px, 15vw, 168px);
   margin-top: -1px;
-  background: var(--pal-stone);
+  background: transparent;   /* the ground runs straight through it */
   overflow: hidden;
   isolation: isolate;
 }
 .pal-ribbon__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .pal-ribbon__band { will-change: transform; }
+
+/* TRANSITION B, layers 2 and 3. Each band already runs its own endless
+   translateX drift, so the parallax cannot share that transform — it
+   goes on a wrapper <g> instead and the drift keyframes stay untouched.
+   These lengths are SVG user units of the 180-unit viewBox, not CSS
+   pixels, and they hold the .55 : .40 ratio (46 : 33 = 1.39). */
+.pal-ribbon__depth   { will-change: transform; }
+.pal-ribbon__depth--c { transform: translate(0, calc(var(--pal-join-p) * 46px)); }
+.pal-ribbon__depth--a,
+.pal-ribbon__depth--b { transform: translate(0, calc(var(--pal-join-p) * 33px)); }
 .pal-ribbon__band--a { animation: pal-drift-a 34s ease-in-out infinite alternate; }
 .pal-ribbon__band--b { animation: pal-drift-b 44s ease-in-out infinite alternate; }
 .pal-ribbon__band--c { animation: pal-drift-c 28s ease-in-out infinite alternate; }
@@ -540,7 +717,10 @@ a:hover { color: var(--pal-sand); }
 
 .pal-badge2 {
   position: absolute; z-index: 2;
-  left: 50%; top: 50%; translate: -50% -50%;
+  left: 50%; top: 50%;
+  /* TRANSITION B, layer 4 — the near plane, which barely moves. It
+     rides the `translate` property because `transform` is the hover's. */
+  translate: -50% calc(-50% + var(--pal-join-p) * var(--pal-join-t) * .10);
   width: clamp(100px, 12vw, 136px); aspect-ratio: 1;
   border-radius: 50%;
   appearance: none; cursor: pointer;
@@ -557,10 +737,12 @@ a:hover { color: var(--pal-sand); }
   letter-spacing: .2em; text-transform: uppercase;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px; padding: 6px;
-  transition: transform .24s var(--pal-ease), border-color .24s var(--pal-ease);
+  transition: scale .24s var(--pal-ease), border-color .24s var(--pal-ease);
 }
-.pal-badge2:hover { transform: translate(-50%, -50%) scale(1.055); border-color: var(--pal-bronze); }
-.pal-badge2:active { transform: translate(-50%, -50%) scale(1.01); }
+/* scale, not transform: translate(-50%,-50%) here would stack on top of
+   the `translate` property above and jump the badge a full half-width. */
+.pal-badge2:hover  { scale: 1.055; border-color: var(--pal-bronze); }
+.pal-badge2:active { scale: 1.01; }
 .pal-badge2__lead { color: var(--pal-bronze-2); }
 .pal-badge2__main {
   font-family: var(--pal-display); font-weight: 700;
@@ -593,7 +775,7 @@ a:hover { color: var(--pal-sand); }
      bottom instead — clear of it, and in reach of a thumb. */
   .pal-routebar {
     position: fixed; top: auto; left: 0; right: 0; bottom: 0;
-    background: color-mix(in srgb, var(--pal-stone) 94%, transparent);
+    background: color-mix(in srgb, var(--pal-ground) 93%, transparent);
     backdrop-filter: blur(12px) saturate(1.2);
     -webkit-backdrop-filter: blur(12px) saturate(1.2);
     border-bottom: 0; border-top: 1px solid var(--pal-hair);
@@ -612,6 +794,21 @@ a:hover { color: var(--pal-sand); }
   body.pal .pal-fab { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
   body.pal .pal-shell { padding-bottom: calc(var(--pal-8) + 72px); }
   .pal-ribbon { height: 104px; }
+
+  /* An 86svh hero on a phone makes a .70 travel read as a jump rather
+     than as depth, and the ribbon is 104px tall here. Halve both. */
+  .pal-hero__stage { top: calc(-0.35 * var(--pal-hero-h)); }
+  .pal-hero__cols  { top: calc(-0.20 * var(--pal-hero-h)); }
+  .pal-hero__stage {
+    transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .35), 0)
+               scale(calc(1 + var(--pal-hero-p) * 0.12));
+  }
+  .pal-hero__l2   { transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .275), 0); }
+  .pal-hero__cols { transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .20), 0); }
+  .pal-hero__copy { transform: translate3d(0, calc(var(--pal-hero-p) * var(--pal-hero-h) * .05), 0); }
+  .pal-ribbon__depth--c { transform: translate(0, calc(var(--pal-join-p) * 23px)); }
+  .pal-ribbon__depth--a,
+  .pal-ribbon__depth--b { transform: translate(0, calc(var(--pal-join-p) * 17px)); }
 }
 
 /* =============================================================
@@ -629,7 +826,18 @@ a:hover { color: var(--pal-sand); }
   .pal-hero__ringglow { opacity: .3 !important; animation: none !important; }
   .pal-hero__scroll { display: none !important; }
   .pal-ribbon__band { animation: none !important; }
-  .pal-hero__stage { transform: none !important; }
+  /* Every parallax plane sits still; the ground stays fully composed. */
+  .pal-hero__stage {
+    top: 0 !important;
+    transform: none !important;
+  }
+  .pal-hero__cols { top: 0 !important; }
+  .pal-hero__cols,
+  .pal-hero__l2,
+  .pal-hero__rail,
+  .pal-ground__warm,
+  .pal-ribbon__depth { transform: none !important; }
+  .pal-badge2 { translate: -50% -50% !important; }
   .pal-hero__copy { transform: none !important; opacity: 1 !important; }
 }
 
