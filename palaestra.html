@@ -30,7 +30,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="palaestra-theme.css">
 
 <!-- Not deferred, and before the page's own inline script: the inline
@@ -145,6 +145,7 @@
   // the scorecard is showing, which month the calendar is on.
   var scoreWeek = null;
   var calYear = null, calMonth = null;
+  var exMuscle = 'All';        // the exercise library's muscle filter
   var volWindow = 'week';
 
   function esc(s) { return P.escapeHtml(s); }
@@ -298,15 +299,103 @@
     }).join('') + '<span class="pal-lanekey__item"><span class="pal-lanekey__dot" style="background:transparent;box-shadow:inset 0 0 0 1px var(--pal-ash)"></span>Planned</span>' +
     '</div>';
   }
-  function countLabel(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+  // The duration estimate is sets × (work + rest). Meaningful for lifting,
+  // meaningless for a treadmill walk where the whole session is one "set" —
+  // it read "2 min est." for a 45-minute Zone 2. A cardio card shows no
+  // estimate at all rather than a wrong one; see workoutCard.
 
-  // The duration estimate is sets × (work + rest). That is meaningful for
-  // lifting and meaningless for a treadmill walk, where the whole session
-  // is one "set" — it read "2 min est." for a 45-minute Zone 2. Cardio
-  // gets no estimate rather than a wrong one.
-  function durationNote(tpl, entries) {
-    if (P.laneOf(tpl.type) === 'cardio') return '';
-    return ' · ' + P.estimatedDuration(entries) + ' min est.';
+  // ============================================================
+  // THE COVER CARD
+  //
+  // One builder, two shapes, so an exercise card and a workout card
+  // can never drift apart. The cover is drawn entirely in CSS from
+  // --lane (see .pal-xcard__cover) — there is no image to load and no
+  // empty state to design, which matters because the 21 seeded
+  // exercises ship with no media at all.
+  //
+  // A card shows PHOTOS only. Videos are counted in a badge and open
+  // with the card; twenty <video> elements on one route is the most
+  // expensive thing this page could ask a phone to do. See
+  // PalUI.cardMedia.
+  // ============================================================
+  function xcover(name, lane, mediaHtml, tagHtml) {
+    return '<div class="pal-xcard__cover">' +
+      '<p class="pal-xcard__ghost" aria-hidden="true">' + esc(name) + '</p>' +
+      (tagHtml || '') + (mediaHtml || '') +
+    '</div>';
+  }
+  function xstat(val, key) {
+    return '<span class="pal-xcard__stat">' +
+      '<span class="pal-xcard__val">' + esc(val) + '</span>' +
+      '<span class="pal-xcard__key">' + esc(key) + '</span>' +
+    '</span>';
+  }
+  function xmeta(bits) {
+    var live = bits.filter(function (b) { return b; });
+    if (!live.length) return '';
+    return '<p class="pal-xcard__meta">' +
+      live.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</p>';
+  }
+
+  // An exercise card IS a button: the whole face opens its editor,
+  // which is also where its videos live.
+  function exerciseCard(e) {
+    var lane = P.laneOf(e.muscle === 'Cardio' ? 'Cardio' : 'Strength');
+    var media = U.mediaLabel(e.media);
+    return '<button type="button" class="pal-xcard" data-lane="' + esc(lane) + '"' +
+        ' data-muscle="' + esc(e.muscle) + '"' +
+        ' data-act="edit-exercise" data-id="' + esc(e.id) + '"' +
+        ' aria-label="' + esc(e.name + ', ' + P.setsAndReps(e) + ', ' + P.fmtRest(e.restSec) +
+                            ' rest' + (e.equipment ? ', ' + e.equipment : '') +
+                            (media ? ', ' + media : '')) + '">' +
+      xcover(e.name, lane, U.cardMedia(e.media, 3), '') +
+      '<span class="pal-xcard__body">' +
+        '<span class="pal-xcard__name">' + esc(e.name) + '</span>' +
+        xmeta([e.muscle, e.equipment]) +
+        '<span class="pal-xcard__stats">' +
+          xstat(P.setsAndReps(e), 'sets \u00d7 reps') +
+          xstat(P.fmtRest(e.restSec), 'rest') +
+        '</span>' +
+      '</span>' +
+    '</button>';
+  }
+
+  // A workout card is NOT a button — its actions start a session, and
+  // that is not something a stray tap on a card should be able to do.
+  function workoutCard(t, entries, opts) {
+    opts = opts || {};
+    var lane = P.laneOf(t.type);
+    var cap = opts.cap || 6;
+    var shown = entries.slice(0, cap);
+    var more = entries.length - shown.length;
+    var isCardio = lane === 'cardio';
+    var media = [];
+    entries.forEach(function (en) { if (en.media && en.media.length) media = media.concat(en.media); });
+
+    return '<div class="pal-xcard" data-lane="' + esc(lane) + '" data-tpl="' + esc(t.id) + '">' +
+      xcover(t.name, lane, U.cardMedia(media, 3),
+        '<span class="pal-xcard__tag"><span class="pal-badge">' + esc(t.type) + '</span></span>') +
+      '<div class="pal-xcard__body">' +
+        (opts.eyebrow ? '<p class="pal-eyebrow">' + esc(opts.eyebrow) + '</p>' : '') +
+        '<h3 class="pal-xcard__name">' + esc(t.name) + '</h3>' +
+        (shown.length
+          ? '<ul class="pal-xcard__list">' + shown.map(function (en) {
+              return '<li class="pal-xcard__li"><span>' + esc(en.name) + '</span>' +
+                     '<span>' + esc(en.sets.length + ' \u00d7 ' + en.targetReps) + '</span></li>';
+            }).join('') + '</ul>' +
+            (more ? '<p class="pal-sub">and ' + more + ' more</p>' : '')
+          : '<p class="pal-sub">No exercises in this routine yet.</p>') +
+        '<div class="pal-xcard__stats">' +
+          xstat(String(entries.length), entries.length === 1 ? 'exercise' : 'exercises') +
+          (isCardio ? '' : xstat(P.estimatedDuration(entries) + 'm', 'est.')) +
+        '</div>' +
+        '<div class="pal-xcard__acts">' +
+          '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="start-template" data-id="' + esc(t.id) + '">\u25b6 Start</button>' +
+          '<button class="pal-btn pal-btn--sm" data-act="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
+          window.PalMusic.button({ scope: 'template:' + t.id, trackId: t.trackId, label: t.name }) +
+        '</div>' +
+      '</div>' +
+    '</div>';
   }
 
   function band(title, inner, headExtra) {
@@ -344,29 +433,8 @@
         '<a class="pal-btn pal-btn--primary" href="palaestra-workout.html">Back to the workout →</a>' +
       '</div>';
     } else if (planned && !planned.rest) {
-      var entries = P.entriesFromTemplate(planned.template);
-      card = '<div class="pal-card" data-lane="' + esc(P.laneOf(planned.type)) + '">' +
-        '<div class="pal-card__head">' +
-          '<div><p class="pal-eyebrow">Today</p><h3 class="pal-h2">' + esc(planned.name) + '</h3></div>' +
-          '<span class="pal-badge">' + esc(planned.type) + '</span>' +
-        '</div>' +
-        '<div class="pal-row" style="gap:28px;margin-bottom:18px">' +
-          U.fig(entries.length, entries.length === 1 ? 'exercise' : 'exercises', 'md') +
-          (P.laneOf(planned.type) === 'cardio' ? '' : U.fig(P.estimatedDuration(entries), 'min est.', 'md')) +
-        '</div>' +
-        '<ul class="pal-list" style="margin-bottom:18px">' + entries.slice(0, 8).map(function (e) {
-          return '<li class="pal-listrow">' +
-            '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(e.name) + '</div>' +
-            '<div class="pal-listrow__meta">' + e.sets.length + ' × ' + esc(e.targetReps) + ' · ' + esc(e.muscle) + '</div></div>' +
-            window.PalMusic.button({ scope: 'exercise:' + e.exerciseId, trackId: e.trackId, label: e.name }) +
-          '</li>';
-        }).join('') + '</ul>' +
-        (entries.length > 8 ? '<p class="pal-sub" style="margin-bottom:14px">and ' + (entries.length - 8) + ' more</p>' : '') +
-        '<div class="pal-row">' +
-          '<button class="pal-btn pal-btn--primary" data-act="start-template" data-id="' + esc(planned.templateId) + '">▶ Start ' + esc(planned.name) + '</button>' +
-          window.PalMusic.button({ scope: 'template:' + planned.templateId, trackId: (planned.template && planned.template.trackId) || '', label: planned.name }) +
-        '</div>' +
-      '</div>';
+      card = workoutCard(planned.template, P.entriesFromTemplate(planned.template),
+                         { eyebrow: 'Today', cap: 8 });
     } else if (planned && planned.rest) {
       card = '<div class="pal-card" data-lane="rest">' +
         '<p class="pal-eyebrow">Today</p><h3 class="pal-h2">Rest</h3>' +
@@ -811,29 +879,10 @@
         head);
     }
 
-    var cards = '<div class="pal-grid pal-grid--2">' + list.map(function (t) {
-      var entries = P.entriesFromTemplate(t);
-      return '<div class="pal-card" data-lane="' + esc(P.laneOf(t.type)) + '">' +
-        '<div class="pal-card__head" style="align-items:center;flex-wrap:nowrap">' +
-          '<div style="flex:1 1 auto;min-width:0"><h3 class="pal-h2">' + esc(t.name) + '</h3>' +
-          '<p class="pal-sub">' + countLabel(entries.length, 'exercise') + durationNote(t, entries) + '</p></div>' +
-          '<div style="flex:none;display:flex;align-items:center;gap:8px">' +
-            '<span class="pal-badge">' + esc(t.type) + '</span>' +
-            window.PalMusic.button({ scope: 'template:' + t.id, trackId: t.trackId, label: t.name }) +
-          '</div>' +
-        '</div>' +
-        '<ul class="pal-list" style="margin-bottom:14px">' + entries.map(function (e) {
-          return '<li class="pal-listrow">' +
-            '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(e.name) + '</div>' +
-            '<div class="pal-listrow__meta">' + e.sets.length + ' × ' + esc(e.targetReps) + '</div></div>' +
-            window.PalMusic.button({ scope: 'exercise:' + e.exerciseId, trackId: e.trackId, label: e.name }) +
-          '</li>';
-        }).join('') + '</ul>' +
-        '<div class="pal-row">' +
-          '<button class="pal-btn pal-btn--primary" data-act="start-template" data-id="' + esc(t.id) + '">▶ Start ' + esc(t.name) + '</button>' +
-          '<button class="pal-btn" data-act="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
-        '</div>' +
-      '</div>';
+    // entriesFromTemplate allocates a setModel per set, so it is called
+    // ONCE per card and the result handed on — not re-derived per field.
+    var cards = '<div class="pal-xgrid">' + list.map(function (t) {
+      return workoutCard(t, P.entriesFromTemplate(t));
     }).join('') + '</div>';
 
     return band('Workouts', cards, head);
@@ -849,28 +898,27 @@
       return band('Exercise library',
         U.empty('The library is empty', 'Every routine is built from these.', 'Add an exercise', 'new-exercise'), head);
     }
-    var byMuscle = {};
-    list.forEach(function (e) { (byMuscle[e.muscle] = byMuscle[e.muscle] || []).push(e); });
+    // Flat grid, not a panel per muscle. Every card already names its own
+    // muscle, so twelve labelled bands repeated the same fact twelve times
+    // and made the page four screens long. The chips filter instead.
+    var present = {};
+    list.forEach(function (e) { present[e.muscle] = (present[e.muscle] || 0) + 1; });
+    if (exMuscle !== 'All' && !present[exMuscle]) exMuscle = 'All';
 
-    var body = P.MUSCLES.filter(function (m) { return byMuscle[m]; }).map(function (m) {
-      return '<div class="pal-card" style="margin-bottom:14px">' +
-        '<div class="pal-card__head"><h3 class="pal-h3">' + esc(m) + '</h3>' +
-        '<span class="pal-sub">' + byMuscle[m].length + '</span></div>' +
-        '<ul class="pal-list">' + byMuscle[m].map(function (e) {
-          return '<li class="pal-listrow">' +
-            '<div class="pal-listrow__main">' +
-              '<div class="pal-listrow__title">' + esc(e.name) + '</div>' +
-              '<div class="pal-listrow__meta">' + e.sets + ' × ' + e.repMin + '–' + e.repMax +
-              ' · ' + e.restSec + 's rest' + (e.equipment ? ' · ' + esc(e.equipment) : '') +
-              (e.media.length ? ' · ' + e.media.length + ' media' : '') + '</div>' +
-            '</div>' +
-            '<div class="pal-listrow__actions">' +
-              window.PalMusic.button({ scope: 'exercise:' + e.id, trackId: e.trackId, label: e.name }) +
-              '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-exercise" data-id="' + esc(e.id) + '">Edit</button>' +
-            '</div>' +
-          '</li>';
-        }).join('') + '</ul></div>';
-    }).join('');
+    var chips = '<div class="pal-xfilter" role="group" aria-label="Filter by muscle group">' +
+      ['All'].concat(P.MUSCLES.filter(function (m) { return present[m]; }))
+        .map(function (m) {
+          var on = m === exMuscle;
+          return '<button type="button" class="pal-chip" data-act="ex-filter" data-muscle="' + esc(m) + '"' +
+                 ' aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(m) +
+                 (m === 'All' ? '' : ' <span class="pal-mono">' + present[m] + '</span>') + '</button>';
+        }).join('') + '</div>';
+
+    var shown = exMuscle === 'All' ? list : list.filter(function (e) { return e.muscle === exMuscle; });
+    var body = chips +
+      '<div class="pal-xgrid" id="palExGrid" style="margin-top:var(--pal-4)">' +
+        shown.map(exerciseCard).join('') +
+      '</div>';
 
     return band('Exercise library', body, head);
   }
@@ -1512,6 +1560,9 @@
     'edit-template': function (el) { sheetTemplate(el.getAttribute('data-id')); },
     'new-exercise': function () { sheetExercise(null); },
     'edit-exercise': function (el) { sheetExercise(el.getAttribute('data-id')); },
+    // Filtering is a re-render, not a navigation: it must not scroll.
+    // refresh() renders in place; only navigate() ever moves the page.
+    'ex-filter': function (el) { exMuscle = el.getAttribute('data-muscle') || 'All'; refresh(); },
     'log-body': function () { sheetBody(null); },
     'edit-body': function (el) { sheetBody(el.getAttribute('data-id')); },
     'weigh-in': sheetWeighIn,

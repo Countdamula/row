@@ -1271,6 +1271,39 @@
   // FORMATTING
   // ============================================================
   function fmtInt(n) { return String(Math.round(num(n, 0))).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  // THE REP RANGE. Reps are stored as two integers and shown as one
+  // string, with an EN DASH — and that derivation used to be written out
+  // in three separate places, in two files, which is exactly how the
+  // dash in one of them ends up a hyphen. It lives here now.
+  //   { repMin: 5, repMax: 8 }  -> '5–8'
+  //   { repMin: 5, repMax: 5 }  -> '5'
+  function repRange(o) {
+    if (!o) return '';
+    var lo = Math.round(num(o.repMin, 0)), hi = Math.round(num(o.repMax, 0));
+    if (!lo && !hi) return '';
+    if (!hi || lo === hi) return String(lo || hi);
+    return lo + '\u2013' + hi;
+  }
+
+  // '4 × 5–8'. The multiplication sign is U+00D7, not the letter x.
+  function setsAndReps(o) {
+    if (!o) return '';
+    var reps = repRange(o);
+    var sets = Math.round(num(o.sets, 0));
+    if (!sets) return reps;
+    return reps ? sets + ' \u00d7 ' + reps : String(sets);
+  }
+
+  // '90s' / '2m' / '2m 30s'. Rest of 0 is a real answer for cardio, and
+  // reads better as a dash than as '0s'.
+  function fmtRest(sec) {
+    var s = Math.max(0, Math.round(num(sec, 0)));
+    if (!s) return '\u2014';
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60), r = s % 60;
+    return r ? m + 'm ' + r + 's' : m + 'm';
+  }
+
   function fmtWeight(n) {
     var v = Math.round(num(n, 0) * 10) / 10;
     return String(v).replace(/\.0$/, '');
@@ -1333,6 +1366,7 @@
     readFileAsDataUrl: readFileAsDataUrl,
     autosave: autosave, onChange: onChange, uid: uid,
     fmtInt: fmtInt, fmtWeight: fmtWeight, fmtClock: fmtClock,
+    repRange: repRange, setsAndReps: setsAndReps, fmtRest: fmtRest,
     fmtDuration: fmtDuration, escapeHtml: escapeHtml, clamp: clamp, num: num
   };
 })(window);

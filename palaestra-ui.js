@@ -125,18 +125,66 @@
   // ways in (photo, video, paste a link) and calls onChange(nextList)
   // after every change. The caller owns the record; this owns nothing.
   // ------------------------------------------------------------
-  function mediaStrip(list) {
-    if (!list.length) return '';
+  // opts.editable defaults TRUE so every existing call keeps its
+  // behaviour. Read-only callers pass false: sheetSession and the cards
+  // render a strip nothing is listening to, and an inert ✕ that does
+  // nothing when tapped is worse than no ✕ at all.
+  function mediaStrip(list, opts) {
+    if (!list || !list.length) return '';
+    var editable = !opts || opts.editable !== false;
     return '<div class="pal-media" data-media-strip>' + list.map(function (m) {
       var inner = m.kind === 'video'
         ? '<video src="' + esc(m.url) + '" muted playsinline preload="metadata"></video>'
         : '<img src="' + esc(m.url) + '" alt="' + esc(m.name || '') + '" loading="lazy">';
       return '<div class="pal-media__item" data-pending="' + (m.sessionOnly ? 'true' : 'false') + '">' +
                inner +
-               '<button type="button" class="pal-media__kill" data-media-kill="' + esc(m.id) +
-               '" aria-label="Remove ' + esc(m.name || 'item') + '">✕</button>' +
+               (editable
+                 ? '<button type="button" class="pal-media__kill" data-media-kill="' + esc(m.id) +
+                   '" aria-label="Remove ' + esc(m.name || 'item') + '">✕</button>'
+                 : '') +
              '</div>';
     }).join('') + '</div>';
+  }
+
+  // THE CARD MEDIA STRIP — photos only, deliberately.
+  //
+  // A route can hold twenty cards. Twenty <video> elements, even at
+  // preload="metadata", is the single most expensive thing this page
+  // could ask a phone to do, so a card NEVER creates one: photos are
+  // thumbnails, and videos are counted in a badge that opens the card.
+  // The full strip, videos and all, lives in the editor sheet.
+  function cardMedia(list, max) {
+    if (!list || !list.length) return '';
+    var photos = [], videos = 0, i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].kind === 'video') videos++;
+      else if (list[i].url) photos.push(list[i]);
+    }
+    var cap = max || 3;
+    var shown = photos.slice(0, cap);
+    var more = photos.length - shown.length;
+    if (!shown.length && !videos) return '';
+
+    return '<div class="pal-xmedia" aria-hidden="true">' +
+      shown.map(function (m) {
+        return '<span class="pal-xmedia__item">' +
+          '<img src="' + esc(m.url) + '" alt="" loading="lazy" decoding="async">' +
+        '</span>';
+      }).join('') +
+      (more ? '<span class="pal-xmedia__more">+' + more + '</span>' : '') +
+      (videos ? '<span class="pal-xmedia__vid">\u25b8 ' + videos + '</span>' : '') +
+    '</div>';
+  }
+
+  // What a screen reader gets instead of the strip above.
+  function mediaLabel(list) {
+    if (!list || !list.length) return '';
+    var p = 0, v = 0;
+    list.forEach(function (m) { if (m.kind === 'video') v++; else p++; });
+    var bits = [];
+    if (p) bits.push(p + (p === 1 ? ' photo' : ' photos'));
+    if (v) bits.push(v + (v === 1 ? ' video' : ' videos'));
+    return bits.join(', ');
   }
 
   function mountMedia(host, list, onChange) {
@@ -280,6 +328,7 @@
     toast: toast,
     openSheet: openSheet, closeSheet: closeSheet, sheetEl: sheetEl, sheetOpen: sheetOpen,
     mountMedia: mountMedia, mediaStrip: mediaStrip,
+    cardMedia: cardMedia, mediaLabel: mediaLabel,
     fig: fig, meter: meter, pips: pips, tile: tile, empty: empty,
     selectOptions: selectOptions
   };
