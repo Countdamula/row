@@ -29,6 +29,12 @@
 //
 // Any element carrying data-pal-music="<scope>" is handled by one
 // delegated listener, so re-rendered rows never need re-binding.
+//
+// A button that also carries data-pal-music-toggle is a GLOBAL opener
+// rather than a row's own — the music button beside quick-add on both
+// pages. It closes the dock if the dock is already open, and it tracks
+// aria-expanded. A row's button never closes: clicking one exercise's
+// music while another's is showing should switch to it, not shut.
 // =============================================================
 
 (function (global) {
@@ -390,6 +396,7 @@
     renderList();
     dock.classList.add('is-open');
     dock.setAttribute('aria-hidden', 'false');
+    syncToggles();
 
     // A pinned track starts straight away — the whole point of pinning
     // it to a lift is not having to go looking for it mid-set.
@@ -407,10 +414,19 @@
     if (!dock) return;
     dock.classList.remove('is-open');
     dock.setAttribute('aria-hidden', 'true');
+    syncToggles();
     // Playback deliberately continues. Closing the dock during a set is
     // how you get the screen back, not how you stop the music.
   }
   function isOpen() { return !!(dock && dock.classList.contains('is-open')); }
+
+  // The global openers are the only buttons that claim to be expandable,
+  // so they are the only ones whose state has to be kept honest.
+  function syncToggles() {
+    var open = isOpen() ? 'true' : 'false';
+    var all = document.querySelectorAll('[data-pal-music-toggle]');
+    for (var i = 0; i < all.length; i++) all[i].setAttribute('aria-expanded', open);
+  }
 
   // ------------------------------------------------------------
   // BUTTONS — one delegated listener, so re-rendered rows never need
@@ -435,6 +451,7 @@
       var btn = e.target.closest('[data-pal-music]');
       if (!btn) return;
       e.preventDefault();
+      if (btn.hasAttribute('data-pal-music-toggle') && isOpen()) { close(); return; }
       open({
         scope: btn.getAttribute('data-pal-music'),
         trackId: btn.getAttribute('data-pal-track') || '',
