@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Velvet Grimoire</title>
+
+<!-- MUST be first and MUST NOT be deferred: local-store-idb.js replaces
+     window.localStorage with an IndexedDB-backed shim, and every later
+     script assumes the shim is already installed. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kdp-theme.css">
+<link rel="stylesheet" href="kdp-velvet.css">
+<style>
+  /* --- Command Center only --------------------------------------------- */
+  .cc-greet{font-family:var(--kd-display);font-weight:400;
+    font-size:clamp(30px,5vw,52px);line-height:1.02;letter-spacing:-.02em;margin:0}
+  .cc-greet em{font-style:italic;color:var(--kd-iris)}
+  .cc-now{display:grid;gap:var(--kd-4)}
+  .cc-now-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:var(--kd-4) var(--kd-5)}
+  .cc-queue{list-style:none;margin:0;padding:0;display:grid;gap:var(--kd-2)}
+  .cc-queue li{margin:0}
+  .cc-q{display:flex;align-items:center;gap:var(--kd-3);width:100%;text-align:left;
+    padding:var(--kd-3);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r-xs);color:var(--kd-tx-dim);cursor:pointer;
+    font-family:var(--kd-body);font-size:14px;
+    transition:border-color .28s var(--kd-ease),color .28s var(--kd-ease),
+               transform .28s var(--kd-spring)}
+  .cc-q:hover{transform:translateX(2px);border-color:rgba(var(--kd-iris-rgb),.45);color:var(--kd-tx)}
+  .cc-q-w{font-family:var(--kd-mono);font-size:10px;color:var(--kd-iris);flex:none;
+    border:1px solid rgba(var(--kd-iris-rgb),.4);border-radius:99px;padding:2px 7px}
+  .cc-week{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--kd-2)}
+  .cc-week-b{padding:var(--kd-3) var(--kd-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r-xs);background:none;color:var(--kd-tx-mute);cursor:pointer;
+    text-align:center;transition:border-color .28s var(--kd-ease),color .28s var(--kd-ease),
+               background-color .28s var(--kd-ease)}
+  .cc-week-b:hover{color:var(--kd-tx);border-color:rgba(var(--kd-iris-rgb),.45)}
+  .cc-week-b.is-now{border-color:var(--kd-iris);background:rgba(var(--kd-iris-rgb),.14);
+    color:var(--kd-iris-hi)}
+  .cc-week-b.is-done{border-color:rgba(var(--kd-seal-rgb),.34);color:var(--kd-seal)}
+  .cc-week-n{display:block;font-family:var(--kd-mono);font-size:15px;margin-bottom:3px}
+  .cc-week-l{display:block;font-family:var(--kd-ui);font-size:9px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;line-height:1.3}
+  /* min() so the track can never demand more width than the page has */
+  .cc-tri{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));
+    gap:var(--kd-4)}
+  .cc-tri-c{padding:var(--kd-4);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r);cursor:pointer;text-align:left;color:inherit;
+    transition:border-color .3s var(--kd-ease),transform .3s var(--kd-spring)}
+  .cc-tri-c:hover{transform:translateY(-2px);border-color:rgba(var(--kd-iris-rgb),.45)}
+  .cc-spines{display:flex;gap:6px;height:64px;align-items:flex-end;margin-top:var(--kd-4)}
+  .cc-spine{flex:1;background:rgba(242,239,232,.08);border-radius:2px;position:relative;
+    height:100%;overflow:hidden;border:0;cursor:pointer;padding:0}
+  .cc-spine i{position:absolute;left:0;right:0;bottom:0;display:block;
+    background:linear-gradient(180deg,var(--kd-iris),var(--kd-iris-deep));
+    transition:height .8s var(--kd-ease)}
+  .cc-tabs{display:flex;gap:var(--kd-2);flex-wrap:wrap;margin-bottom:var(--kd-5)}
+  .lib-list{display:grid;gap:var(--kd-3)}
+  .lib-card{padding:var(--kd-4);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r)}
+  .lib-head{display:flex;justify-content:space-between;align-items:flex-start;
+    gap:var(--kd-3);flex-wrap:wrap;margin-bottom:var(--kd-3)}
+  .lib-cat{font-family:var(--kd-mono);font-size:10px;color:var(--kd-iris);
+    letter-spacing:.08em;text-transform:uppercase}
+  .lib-body{font-family:var(--kd-mono);font-size:12px;line-height:1.7;color:var(--kd-tx-dim);
+    white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;
+    padding:var(--kd-3);background:var(--kd-void);border-radius:var(--kd-r-xs)}
+  .cc-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--kd-4)}
+  /* five weeks in a row needs about 400px; below that it wraps rather than
+     shrinking the labels into illegibility */
+  @media (max-width:520px){
+    .cc-week{grid-template-columns:repeat(3,1fr)}
+    .cc-week-l{font-size:8px;letter-spacing:.06em}
+  }
+  @media (max-width:360px){ .cc-week{grid-template-columns:repeat(2,1fr)} }
+
+</style>
+</head>
+<body>
+
+<div class="kd-gauge" id="kdpGauge"></div>
+<div class="kd-toast" id="kdpToast" role="status" aria-live="polite"></div>
+<div class="kd-modal-bg" id="kdpModalBg"></div>
+<pre class="kd-boot-error" id="kdpBootError"></pre>
+
+<!-- The <video> stages are injected here by Velvet.mountStages() at boot,
+     before the router first runs. They are NOT written by any renderer:
+     every view does host.innerHTML = …, so a <video> inside one would be a
+     brand-new element on each repaint, re-downloading its file and restarting
+     from zero several times a minute. -->
+<header class="kd-hero" id="kdpHero">
+  <div class="kd-hero-in" id="kdpHeroIn"></div>
+</header>
+
+<!-- THE REEL — five weeks, pinned. Emptied and hidden off the
+     Command Center route so it costs nothing elsewhere. -->
+<section class="vg-reel" id="vgReel" hidden aria-label="The five weeks">
+  <div class="vg-reel-stage" id="vgReelStage"></div>
+</section>
+
+<main class="kd-app"><div class="kd-sheet" id="kdpBody"></div></main>
+<div class="kd-grain" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="kdp-data.js"></script>
+<script src="kdp-nav.js"></script>
+<script src="kdp-velvet.js"></script>
+<script src="topbar.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+  var D = window.KdpData, K = window.Kdp;
+  var $ = K.$, esc = K.esc, on = K.on;
+  var router = null;
+
+  // ---------------------------------------------------------------------------
+  // HERO
+  // ---------------------------------------------------------------------------
+  function hero(eyebrow, title, lede) {
+    $('kdpHeroIn').innerHTML =
+      '<p class="kd-eyebrow kd-rise">' + esc(eyebrow) + '</p>' +
+      '<h1 class="kd-h1 kd-rise">' + esc(title) + '</h1>' +
+      (lede ? '<p class="kd-lede kd-rise">' + esc(lede) + '</p>' : '');
+  }
+
+  // The cinematic layer — the hero, the scenes, the reel — now lives in
+  // kdp-velvet.js so every page can wear it. What stays here is the part that
+  // knows what a week and a book ARE.
+  var V = window.Velvet;
+  var velvetHero = V.hero, buildReel = V.buildReel;
+
+  function gotoWeek(n, book, tri) {
+    var ui = D.getUiState();
+    tri = tri || D.Trilogies.get(ui.lastTrilogyId) || D.trilogiesSorted()[0];
+    if (!tri) { K.navigate('#/shelf'); return; }
+    book = book || D.Books.get(ui.lastBookId) || D.booksForTrilogy(tri.id)[0];
+    // Week 1 is per-trilogy and needs no book. Weeks 2–5 are per-book, so a
+    // trilogy whose books are missing has nowhere to send them — say so
+    // rather than throwing on book.id.
+    if (n !== 1 && !book) {
+      K.toast('This trilogy has no books yet — repair it first');
+      K.navigate('#/t/' + tri.id);
+      return;
+    }
+    if (n === 1) K.navigate('kdp-foundations.html?tri=' + tri.id + '#/');
+    else if (n === 2 || n === 3) K.navigate('kdp-draft.html?book=' + book.id + '&week=' + n + '#/b/' + book.id);
+    else if (n === 4) K.navigate('kdp-continuity.html?book=' + book.id + '#/');
+    else K.navigate('kdp-publish.html?book=' + book.id + '#/');
+  }
+
+  var WEEK_COPY = {
+    1: 'Everything the trilogy stands on, built once — the dossier, four leads, twelve worldbuilding elements, the plan, and 120 chapter outlines.',
+    2: 'Twenty-eight chapters. Each one passes through four indexes, and only the last of them counts toward the novel.',
+    3: 'The final twelve chapters. When the last one is sealed, the draft is a book.',
+    4: 'Six passes over a finished draft. Nothing here changes the prose — it finds what the prose got wrong.',
+    5: 'Compile the manuscript, write the blurb, choose seven keywords and three categories, set the price. Then it is on Amazon.'
+  };
+
+  /** The Command Center's five cells. */
+  function weekCells(book) {
+    return D.WEEKS.map(function (w) {
+      var p = D.weekProgress(book.id, w.n);
+      var done = p.pct >= 100;
+      return {
+        key: String(w.n), numeral: D.romanize(w.n),
+        kicker: 'Week ' + w.n + ' · ' + (w.scope === 'trilogy' ? 'Per trilogy' : 'Per book'),
+        title: w.label, copy: WEEK_COPY[w.n], pct: p.pct, sealed: done,
+        count: p.done + ' of ' + p.total + ' ' + p.label + ' · ' + p.pct + '%' +
+               (done ? ' · sealed' : ''),
+        action: (done ? 'Revisit' : 'Open') + ' week ' + w.n
+      };
+    });
+  }
+
+  /** A trilogy page's three cells. */
+  function bookCells(books) {
+    var ORD = ['one', 'two', 'three'];
+    return books.map(function (b, i) {
+      var c = D.countFinal(b.id);
+      var pct = D.bookProgress(b.id);
+      var done = c.done >= c.total && c.total > 0;
+      return {
+        key: b.id, numeral: D.romanize(b.position),
+        kicker: 'Book ' + (ORD[i] || b.position) + ' · ' + c.total + ' chapters',
+        title: b.title,
+        copy: b.logline || 'No logline yet. Week 1 writes one.',
+        pct: pct, sealed: done,
+        count: c.done + ' of ' + c.total + ' final · ' + D.fmtWords(D.bookWordCount(b.id)) + ' words',
+        action: (done ? 'Revisit' : 'Open') + ' book ' + D.romanize(b.position)
+      };
+    });
+  }
+
+
+  function greeting() {
+    var h = new Date().getHours();
+    if (h < 5) return 'Still up';
+    if (h < 12) return 'Good morning';
+    if (h < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  // ---------------------------------------------------------------------------
+  // ROUTE: COMMAND CENTER
+  // ---------------------------------------------------------------------------
+  function renderCommand() {
+    var ui = D.getUiState();
+    var tris = D.trilogiesSorted();
+    var na = D.nextAction();
+
+    if (!tris.length) {
+      velvetHero({
+        corner: 'NOTHING ON THE SHELF',
+        eyebrow: 'Amazon KDP · A five-week trilogy engine',
+        sub: 'Begin',
+        cta: 'Start a trilogy',
+        foot: D.WEEKS.map(function (w) {
+          return '<button type="button" class="vg-wk" data-vgfoot="' + w.n + '">W' + w.n + '</button>';
+        }).join(''),
+        onFoot: function (n) { gotoWeek(Number(n)); },
+        onGo: openNewTrilogy
+      });
+      buildReel(null, null);
+      $('kdpBody').innerHTML =
+        '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="kd-panel"><div class="kd-empty">' +
+          '<div class="kd-empty-glyph">❖</div>' +
+          '<p class="kd-lede" style="margin:0 auto var(--kd-5)">Start a trilogy and the whole workflow builds itself around it — three books, three acts each, forty chapters apiece, twelve worldbuilding sections and four character sheets, all waiting.</p>' +
+          '<button type="button" class="kd-btn kd-btn-primary" id="ccNew">Start a trilogy</button>' +
+        '</div></div>' +
+        '</div></section>';
+      $('ccNew').addEventListener('click', openNewTrilogy);
+      return;
+    }
+
+    var tri = D.Trilogies.get(ui.lastTrilogyId) || tris[0];
+    var books = D.booksForTrilogy(tri.id);
+    var book = D.Books.get(ui.lastBookId);
+    if (!book || book.trilogyId !== tri.id) book = books[0];
+    // A trilogy is seeded with three books, so a trilogy WITHOUT them is a
+    // half-written record — a create that failed partway, or a partial sync.
+    // Every renderer here has to survive it: crashing takes the whole
+    // dashboard down over one damaged row.
+    if (!book) {
+      var healthy = tris.filter(function (t) { return D.booksForTrilogy(t.id).length; })[0];
+      if (healthy) { D.setUiState({ lastTrilogyId: healthy.id, lastBookId: '' }); renderCommand(); return; }
+      velvetHero({
+        corner: 'INCOMPLETE TRILOGY',
+        eyebrow: esc(tri.title),
+        sub: 'No books — this trilogy did not finish being created',
+        cta: 'Repair it',
+        foot: '',
+        onGo: function () { K.navigate('#/t/' + tri.id); }
+      });
+      buildReel(null, null);
+      $('kdpBody').innerHTML =
+        '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="kd-panel"><div class="kd-empty">' +
+          '<div class="kd-empty-glyph">❖</div>' +
+          '<p class="kd-lede" style="margin:0 auto var(--kd-5)">' + esc(tri.title) +
+            ' has no books. A trilogy is seeded with three at once, so this one stopped ' +
+            'partway through being created. Repairing adds whatever is missing and ' +
+            'leaves everything already there untouched.</p>' +
+          '<button type="button" class="kd-btn kd-btn-primary" id="ccFix">Open and repair</button>' +
+        '</div></div></div></section>';
+      $('ccFix').addEventListener('click', function () { K.navigate('#/t/' + tri.id); });
+      return;
+    }
+    var week = na.week || 1;
+    var wp = D.weekProgress(book.id, week);
+    var wm = D.weekMeta(week);
+    var queue = D.todaysQueue(5);
+    var words = D.bookWordCount(book.id);
+
+    velvetHero({
+      corner: 'WEEK ' + week + ' · <b>' + esc(wm.label.toUpperCase()) + '</b>',
+      eyebrow: tri.title + ' · Book ' + D.romanize(book.position) + ' — ' + book.title,
+      sub: D.fmtWords(words) + ' words · ' + wp.done + ' of ' + wp.total + ' ' + wp.label,
+      cta: na.label,
+      foot: D.WEEKS.map(function (w) {
+        var p = D.weekProgress(book.id, w.n);
+        var cls = w.n === week ? ' is-now' : (p.pct >= 100 ? ' is-done' : '');
+        return '<button type="button" class="vg-wk' + cls + '" data-vgfoot="' + w.n + '">W' + w.n + '</button>';
+      }).join(''),
+      onFoot: function (n) { gotoWeek(Number(n), book, tri); },
+      onGo: function () { K.navigate(na.href); }
+    });
+    buildReel(weekCells(book), function (n) { gotoWeek(Number(n), book, tri); });
+
+    $('kdpBody').innerHTML =
+      // --- BAND 1 — the spread: what is true, and what to do about it -----
+      //     Full-bleed: the two pages run to the screen edges and the fold
+      //     falls down the true centre. Each page's .vg-pg holds the measure
+      //     and pushes its text toward the fold.
+      '<section class="vg-band is-spread kd-rise">' +
+      '<div class="kd-spread">' +
+        '<div class="kd-verso-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Verso</span><span>Where you are</span></p>' +
+          '<h2 class="cc-greet">' + esc(greeting()) + ',<br><em>' + esc(D.getSettings().authorName) + '</em></h2>' +
+          '<p class="kd-lede" style="margin-top:var(--kd-4)">' + esc(lede(book, words, wp, wm)) + '</p>' +
+          '<div class="cc-now-grid" style="margin-top:var(--kd-5)">' +
+            K.statBlock('Trilogy', esc(tri.title)) +
+            // The seeded title IS "Book I", so only name it twice when it has
+            // been given a real one.
+            K.statBlock('Book ' + D.romanize(book.position),
+              '<em style="color:var(--kd-iris)">' + esc(book.title) + '</em>') +
+            K.statBlock('Week & phase', 'Week ' + week + ' · ' + esc(wm.label)) +
+            K.statBlock('Current task', esc(na.label)) +
+          '</div>' +
+        '</div></div>' +
+        '<div class="kd-gutter-p"></div>' +
+        '<div class="kd-recto-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Recto · Week ' + week + '</span><span>' +
+            D.fmtWords(words) + ' / ' + D.fmtWords(book.targetWords) + ' w</span></p>' +
+
+          '<div class="kd-bar-head">' +
+            '<span class="kd-label">Weekly progress</span>' +
+            '<span class="kd-meta">' + wp.done + ' of ' + wp.total + ' ' + esc(wp.label) + ' · ' + wp.pct + '%</span>' +
+          '</div>' +
+          K.meter(wp.pct, wp.pct >= 100) +
+
+          '<div style="margin-top:var(--kd-5)">' +
+            '<p class="kd-label" style="margin-bottom:var(--kd-3)">The five weeks</p>' +
+            '<div class="cc-week">' + D.WEEKS.map(function (w) {
+              var p = D.weekProgress(book.id, w.n);
+              var cls = w.n === week ? ' is-now' : (p.pct >= 100 ? ' is-done' : '');
+              return '<button type="button" class="cc-week-b' + cls + '" data-week="' + w.n + '">' +
+                '<span class="cc-week-n">' + w.n + '</span>' +
+                '<span class="cc-week-l">' + esc(w.label) + '</span></button>';
+            }).join('') + '</div>' +
+          '</div>' +
+
+          '<button type="button" class="kd-btn kd-btn-primary" id="ccContinue" ' +
+            'style="margin-top:var(--kd-5);width:100%;justify-content:center">' +
+            'Continue → ' + esc(na.label) + '</button>' +
+
+          '<hr class="kd-rule">' +
+          '<div class="cc-now-grid">' +
+            K.statBlock('Chapters final', (function () {
+              var c = D.countFinal(book.id); return c.done + ' <span style="color:var(--kd-tx-faint)">/ ' + c.total + '</span>';
+            })()) +
+            K.statBlock('Written today', D.fmtWords(D.wordsOnDate(D.todayISO())) + ' <span style="color:var(--kd-tx-faint)">w</span>') +
+            K.statBlock('Trilogy total', D.fmtCompact(D.trilogyWordCount(tri.id)) + ' <span style="color:var(--kd-tx-faint)">w</span>') +
+          '</div>' +
+        '</div></div>' +
+      '</div>' +
+      '</section>' +
+
+      // --- BAND 2 — today's queue + the shelf -----------------------------
+      //     The band's surface bleeds; .vg-band-in keeps the measure and
+      //     clears the floating rail.
+      '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+      '<div class="kd-split">' +
+        '<div class="kd-panel">' +
+          '<div class="kd-panel-head">' +
+            '<p class="kd-label">Your trilogies</p>' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="ccNew2">+ New trilogy</button>' +
+          '</div>' +
+          '<div class="cc-tri">' + tris.map(triCard).join('') + '</div>' +
+        '</div>' +
+        '<aside class="kd-panel">' +
+          '<div class="kd-panel-head"><p class="kd-label">Today’s queue</p>' +
+            '<span class="kd-meta">' + queue.length + ' next</span></div>' +
+          (queue.length
+            ? '<ul class="cc-queue">' + queue.map(function (q) {
+                return '<li><button type="button" class="cc-q" data-q="' + esc(q.href) + '">' +
+                  '<span class="cc-q-w">W' + q.week + '</span>' +
+                  '<span style="flex:1;min-width:0">' + esc(q.label) + '</span></button></li>';
+              }).join('') + '</ul>'
+            : '<p class="kd-meta">Nothing queued. That means a book is finished.</p>') +
+          '<hr class="kd-rule">' +
+          '<div class="kd-panel-head" style="border:0;margin-bottom:var(--kd-3)">' +
+            '<p class="kd-label">This week</p>' +
+            '<span class="kd-meta">' + D.fmtWords(D.wordsInLastNDays(7)) + ' words</span></div>' +
+          weekStrip() +
+        '</aside>' +
+      '</div>' +
+      '</div></section>';
+
+    $('ccContinue').addEventListener('click', function () { K.navigate(na.href); });
+    $('ccNew2').addEventListener('click', openNewTrilogy);
+    on($('kdpBody'), '[data-q]', 'click', function () { K.navigate(this.dataset.q); });
+    on($('kdpBody'), '[data-week]', 'click', function () {
+      var w = D.weekMeta(Number(this.dataset.week));
+      if (w.n === 1) K.navigate('kdp-foundations.html?tri=' + tri.id + '#/');
+      else if (w.n === 2 || w.n === 3) K.navigate('kdp-draft.html?book=' + book.id + '&week=' + w.n + '#/b/' + book.id);
+      else if (w.n === 4) K.navigate('kdp-continuity.html?book=' + book.id + '#/');
+      else K.navigate('kdp-publish.html?book=' + book.id + '#/');
+    });
+    wireTriCards();
+  }
+
+  function lede(book, words, wp, wm) {
+    var today = D.wordsOnDate(D.todayISO());
+    if (today > 0) {
+      return D.fmtWords(today) + ' words down today. ' + book.title + ' sits at ' +
+        D.fmtWords(words) + ', and week ' + wm.n + ' is ' + wp.pct + '% through.';
+    }
+    if (wp.pct >= 100) return 'Week ' + wm.n + ' is done. ' + wm.label + ' is behind you — the next phase is one click away.';
+    return book.title + ' is at ' + D.fmtWords(words) + ' words. ' + wm.label +
+      ' is ' + wp.pct + '% through, with ' + (wp.total - wp.done) + ' ' + wp.label + ' left.';
+  }
+
+  function triCard(t) {
+    var books = D.booksForTrilogy(t.id);
+    return '<button type="button" class="cc-tri-c" data-tri="' + esc(t.id) + '">' +
+      '<p class="kd-label">' + books.length + ' books · ' + D.fmtCompact(D.trilogyWordCount(t.id)) + ' words</p>' +
+      '<h3 class="kd-h2" style="margin-top:6px">' + esc(t.title) + '</h3>' +
+      (t.premise ? '<p class="kd-meta" style="margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.premise) + '</p>' : '') +
+      '<div class="cc-spines">' + books.map(function (b) {
+        var pct = D.bookProgress(b.id);
+        return '<span class="cc-spine" title="' + esc(b.title) + ' — ' + pct + '%">' +
+          '<i style="height:' + pct + '%"></i></span>';
+      }).join('') + '</div>' +
+    '</button>';
+  }
+  function wireTriCards() {
+    on($('kdpBody'), '[data-tri]', 'click', function () {
+      K.navigate('#/t/' + this.dataset.tri);
+    });
+  }
+
+  function weekStrip() {
+    var days = D.weekStrip();
+    var max = Math.max(1, Math.max.apply(null, days.map(function (d) { return d.words; })));
+    return '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;align-items:end;height:64px">' +
+      days.map(function (d) {
+        var h = Math.round((d.words / max) * 100);
+        return '<div style="display:flex;flex-direction:column;justify-content:flex-end;height:100%" ' +
+          'title="' + esc(d.date) + ' — ' + D.fmtWords(d.words) + ' words">' +
+          '<span style="display:block;border-radius:2px;height:' + Math.max(h, 3) + '%;background:' +
+          (d.isToday ? 'var(--kd-iris)' : 'rgba(242,239,232,.16)') + '"></span></div>';
+      }).join('') + '</div>';
+  }
+
+  // ---------------------------------------------------------------------------
+  // ROUTE: SHELF
+  // ---------------------------------------------------------------------------
+  function renderShelf() {
+    var tris = D.trilogiesSorted();
+    var words = tris.reduce(function (s, t) { return s + D.trilogyWordCount(t.id); }, 0);
+
+    velvetHero({
+      word: 'Trilogies',
+      corner: '<b>' + tris.length + '</b> ON THE SHELF',
+      eyebrow: 'Amazon KDP · A five-week trilogy engine',
+      sub: tris.length
+        ? D.fmtWords(words) + ' words across ' + tris.length +
+          (tris.length === 1 ? ' trilogy' : ' trilogies')
+        : 'Nothing here yet',
+      cta: 'New trilogy',
+      // the shelf has no fixed set of five, so its foot names what it holds
+      foot: tris.slice(0, 5).map(function (t) {
+        return '<button type="button" class="vg-wk" data-vgfoot="' + esc(t.id) + '">' +
+          esc(t.title) + '</button>';
+      }).join(''),
+      // on the shelf the foot names trilogies, not weeks
+      onFoot: function (id2) { K.navigate('#/t/' + id2); },
+      onGo: openNewTrilogy
+    });
+    // No reel: a variable-length list is not a sequence. The hero hands
+    // straight off to the band.
+    buildReel(null, null);
+
+    $('kdpBody').innerHTML =
+      '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="vg-head">' +
+          '<p class="kd-label">All trilogies</p>' +
+          '<button type="button" class="kd-btn kd-btn-primary kd-btn-sm" id="ccNew3">+ New trilogy</button>' +
+        '</div>' +
+        (tris.length ? '<div class="cc-tri">' + tris.map(triCard).join('') + '</div>'
+          : '<p class="kd-meta">Nothing yet.</p>') +
+      '</div></section>';
+    $('ccNew3').addEventListener('click', openNewTrilogy);
+        wireTriCards();
+  }
+
+  // ---------------------------------------------------------------------------
+  // ROUTE: ONE TRILOGY
+  // ---------------------------------------------------------------------------
+  function renderTrilogy(id) {
+    var t = D.Trilogies.get(id);
+    if (!t) { K.navigate('#/shelf'); return; }
+    var books = D.booksForTrilogy(t.id);
+    // Both, not just the trilogy: velvetHero's own W1–W5 handler resolves the
+    // book through lastBookId, and a stale id from another trilogy would send
+    // the week buttons into the wrong manuscript.
+    var lastB = D.Books.get(D.getUiState().lastBookId);
+    D.setUiState({ lastTrilogyId: t.id,
+      lastBookId: (lastB && lastB.trilogyId === t.id ? lastB.id
+                                                     : (books[0] ? books[0].id : '')) });
+
+    // A half-created trilogy renders as a repair page rather than throwing.
+    // This is the route the Command Center sends you to, so it has to be the
+    // one place that can actually fix it.
+    if (!books.length) { renderBrokenTrilogy(t); return; }
+
+    var na = D.nextAction();
+    var book = D.Books.get(D.getUiState().lastBookId);
+    if (!book || book.trilogyId !== t.id) book = books[0];
+    var week = na.week || 1;
+    var words = D.trilogyWordCount(t.id);
+    var chFinal = books.reduce(function (a, b) {
+      var c = D.countFinal(b.id); return { done: a.done + c.done, total: a.total + c.total };
+    }, { done: 0, total: 0 });
+
+    velvetHero({
+      word: t.title,
+      corner: 'BOOK ' + D.romanize(book.position) + ' · <b>WEEK ' + week + '</b>',
+      eyebrow: 'Amazon KDP · Trilogy · ' + books.length + ' books',
+      sub: D.fmtWords(words) + ' words · ' + chFinal.done + ' of ' + chFinal.total + ' chapters final',
+      cta: na.label,
+      foot: D.WEEKS.map(function (w) {
+        var p = D.weekProgress(book.id, w.n);
+        var cls = w.n === week ? ' is-now' : (p.pct >= 100 ? ' is-done' : '');
+        return '<button type="button" class="vg-wk' + cls + '" data-vgfoot="' + w.n + '">W' + w.n + '</button>';
+      }).join(''),
+      onFoot: function (n) { gotoWeek(Number(n), book, t); },
+      onGo: function () { K.navigate(na.href); }
+    });
+    // the trilogy's equivalent of the five weeks: its three books
+    buildReel(bookCells(books), function (id2) {
+      D.setUiState({ lastBookId: id2 });
+      K.navigate('kdp-draft.html?book=' + id2 + '&week=2#/b/' + id2);
+    });
+
+    $('kdpBody').innerHTML =
+      // --- BAND 1 — the trilogy on the verso, its foundations on the recto -
+      '<section class="vg-band is-spread kd-rise">' +
+      '<div class="kd-spread">' +
+        '<div class="kd-verso-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Verso</span><span>The trilogy</span></p>' +
+          '<h2 class="cc-greet">' + esc(t.title) + '</h2>' +
+          (t.premise ? '<p class="kd-lede" style="margin-top:var(--kd-4)">' + esc(t.premise) + '</p>' : '') +
+          '<div class="cc-now-grid" style="margin-top:var(--kd-5)">' +
+            K.statBlock('Books', books.length) +
+            K.statBlock('Chapters final', chFinal.done +
+              ' <span style="color:var(--kd-tx-faint)">/ ' + chFinal.total + '</span>') +
+            K.statBlock('Words', D.fmtWords(words)) +
+            K.statBlock('Week & phase', 'Week ' + week + ' · ' + esc(D.weekMeta(week).label)) +
+          '</div>' +
+        '</div></div>' +
+        '<div class="kd-gutter-p"></div>' +
+        '<div class="kd-recto-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Recto · Foundations</span><span>Week 1</span></p>' +
+          '<p class="kd-label" style="margin-bottom:var(--kd-3)">Built once, for the whole trilogy</p>' +
+          '<ul class="vg-gates">' +
+            gate('Story dossier', D.dossierComplete(t.id)) +
+            gate('Characters', D.charactersComplete(t.id)) +
+            gate('Worldbuilding', D.worldComplete(t.id)) +
+            gate('Trilogy plan', D.planComplete(t.id)) +
+            gate('Chapter outlines', books.every(function (b) { return D.outlineComplete(b.id); })) +
+            gate('Style &amp; prose', D.styleComplete(t.id)) +
+          '</ul>' +
+          '<button type="button" class="kd-btn kd-btn-primary" data-go-f ' +
+            'style="margin-top:var(--kd-5);width:100%;justify-content:center">' +
+            'Open week 1 → Foundations</button>' +
+        '</div></div>' +
+      '</div>' +
+      '</section>' +
+
+      // --- BAND 2 — the three books, as an instrument rather than a reel ---
+      '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="vg-head">' +
+          '<p class="kd-label">The three books</p>' +
+          '<span class="kd-meta">' + chFinal.done + ' of ' + chFinal.total + ' chapters final</span>' +
+        '</div>' +
+        '<div class="vg-books">' + books.map(function (b) {
+          var c = D.countFinal(b.id);
+          return '<article class="vg-book">' +
+            // the numeral says "Book I"; saying it again underneath is noise
+            '<p class="vg-book-n">' + D.romanize(b.position) + '</p>' +
+            '<h3 class="vg-book-t">' + esc(b.title) + '</h3>' +
+            (b.logline ? '<p class="vg-book-l">' + esc(b.logline) + '</p>' : '') +
+            K.meter(D.bookProgress(b.id)) +
+            '<p class="kd-meta" style="margin-top:10px">' + c.done + ' / ' + c.total +
+              ' chapters final · ' + D.fmtWords(D.bookWordCount(b.id)) + ' words</p>' +
+            '<div class="vg-book-acts">' +
+              '<button type="button" class="kd-btn kd-btn-sm" data-open-book="' + esc(b.id) + '">Open</button>' +
+              '<button type="button" class="kd-btn kd-btn-sm" data-edit-book="' + esc(b.id) + '">Edit</button>' +
+            '</div>' +
+          '</article>';
+        }).join('') + '</div>' +
+      '</div></section>' +
+
+      // --- BAND 3 — the trilogy itself. Quiet, at the foot. ----------------
+      '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="vg-head"><p class="kd-label">Trilogy</p></div>' +
+        '<div class="vg-acts">' +
+          '<button type="button" class="kd-btn kd-btn-sm" id="triEdit">Edit trilogy</button>' +
+          '<button type="button" class="kd-btn kd-btn-sm kd-btn-seal" id="triArchive">Archive &amp; back up</button>' +
+          '<button type="button" class="kd-btn kd-btn-sm kd-btn-danger" id="triDelete">Delete</button>' +
+        '</div>' +
+        '<p class="vg-caution">Archiving downloads a full backup, then lifts this trilogy out of live cloud sync so it stops being re-uploaded. Deleting does not.</p>' +
+      '</div></section>';
+
+    on($('kdpBody'), '[data-go-f]', 'click', function () {
+      K.navigate('kdp-foundations.html?tri=' + t.id + '#/');
+    });
+    on($('kdpBody'), '[data-open-book]', 'click', function () {
+      var id2 = this.dataset.openBook;
+      D.setUiState({ lastBookId: id2 });
+      K.navigate('kdp-draft.html?book=' + id2 + '&week=2#/b/' + id2);
+    });
+    on($('kdpBody'), '[data-edit-book]', 'click', function () { openEditBook(this.dataset.editBook); });
+    $('triEdit').addEventListener('click', function () { openEditTrilogy(t.id); });
+    $('triDelete').addEventListener('click', function () {
+      if (!window.confirm('Delete "' + t.title + '" and every chapter in it? This cannot be undone. Export a backup first from Settings.')) return;
+      D.removeTrilogy(t.id);
+      K.toast('Trilogy deleted');
+      K.navigate('#/shelf');
+    });
+    $('triArchive').addEventListener('click', function () {
+      if (!window.confirm('Archive "' + t.title + '"? A full backup downloads first, then it is removed from live sync.')) return;
+      var r = D.archiveTrilogy(t.id);
+      K.toast(r.ok ? 'Archived — backup downloaded' : r.reason);
+      if (r.ok) K.navigate('#/shelf');
+    });
+  }
+
+  /* A trilogy that stopped partway through being created. It renders as a
+     repair page rather than throwing, and repairing only ADDS what is
+     missing — nothing already written is touched. */
+  function renderBrokenTrilogy(t) {
+    var h = D.trilogyHealth(t.id);
+    velvetHero({
+      word: t.title,
+      corner: '<b>INCOMPLETE</b>',
+      eyebrow: 'Amazon KDP · Trilogy',
+      sub: h.books + ' of 3 books · ' + h.chapters + ' of 120 chapters',
+      cta: 'Repair this trilogy',
+      foot: '',
+      onGo: doRepair
+    });
+    buildReel(null, null);
+
+    $('kdpBody').innerHTML =
+      '<section class="vg-band kd-rise"><div class="vg-band-in">' +
+        '<div class="vg-head"><p class="kd-label">What is missing</p></div>' +
+        '<p class="kd-lede" style="margin-bottom:var(--kd-5)">A trilogy is seeded with ' +
+          'three books, nine acts and 120 chapters in one pass, so this one stopped ' +
+          'partway through being created. Repairing adds only what is absent — every ' +
+          'chapter, draft and note already here is left exactly as it is.</p>' +
+        '<ul class="vg-gates">' + h.missing.map(function (m) {
+          return '<li class="vg-gate"><span>' + esc(m) + '</span>' +
+            '<span class="kd-pill kd-tone-live"><i class="kd-dot"></i>Missing</span></li>';
+        }).join('') + '</ul>' +
+        '<div class="vg-acts" style="margin-top:var(--kd-5)">' +
+          '<button type="button" class="kd-btn kd-btn-primary" id="triRepair">Repair this trilogy</button>' +
+          '<button type="button" class="kd-btn kd-btn-sm kd-btn-danger" id="triDelete2">Delete it instead</button>' +
+        '</div>' +
+      '</div></section>';
+
+    $('triRepair').addEventListener('click', doRepair);
+    $('triDelete2').addEventListener('click', function () {
+      if (!window.confirm('Delete "' + t.title + '"? This cannot be undone.')) return;
+      D.removeTrilogy(t.id);
+      K.toast('Trilogy deleted');
+      K.navigate('#/shelf');
+    });
+
+    function doRepair() {
+      var r = D.repairTrilogy(t.id);
+      K.toast(r.ok ? 'Repaired — the trilogy is complete' : r.reason);
+      if (r.ok) K.navigate('#/t/' + t.id);
+      else router.refresh();
+    }
+  }
+
+  function gate(label, done) {
+    return '<li class="vg-gate">' +
+      '<span>' + label + '</span>' +
+      '<span class="kd-pill ' + (done ? 'kd-tone-seal' : 'kd-tone-idle') + '">' +
+        '<i class="kd-dot"></i>' + (done ? 'Final' : 'Open') + '</span></li>';
+  }
+
+  // ---------------------------------------------------------------------------
+  // ROUTE: LIBRARY
+  // ---------------------------------------------------------------------------
+  var libFilter = { cat: '', q: '' };
+
+  function libTabs(active) {
+    return '<nav class="cc-tabs">' +
+      '<button type="button" class="kd-chip' + (active === 'prompts' ? ' is-on' : '') + '" data-lib="prompts">Prompt library</button>' +
+      '<button type="button" class="kd-chip' + (active === 'templates' ? ' is-on' : '') + '" data-lib="templates">Templates</button>' +
+      '<button type="button" class="kd-chip' + (active === 'settings' ? ' is-on' : '') + '" data-lib="settings">Settings &amp; backup</button>' +
+    '</nav>';
+  }
+
+  function renderPrompts() {
+    hero('Library', 'Prompt library', 'Every prompt, in one place, reusable across every trilogy.');
+    var all = D.Prompts.list().sort(D.byOrder);
+    var rows = all.filter(function (p) {
+      if (libFilter.cat && p.category !== libFilter.cat) return false;
+      if (libFilter.q) {
+        var hay = (p.title + ' ' + p.text).toLowerCase();
+        if (hay.indexOf(libFilter.q.toLowerCase()) < 0) return false;
+      }
+      return true;
+    });
+
+    $('kdpBody').innerHTML = '<section class="vg-band kd-rise"><div class="vg-band-in">' + libTabs('prompts') +
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head">' +
+          '<p class="kd-label">' + rows.length + ' of ' + all.length + ' prompts</p>' +
+          '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap">' +
+            '<input class="kd-input" id="libQ" placeholder="Search prompts…" style="width:210px" value="' + esc(libFilter.q) + '">' +
+            '<button type="button" class="kd-btn kd-btn-primary kd-btn-sm" id="libNew">+ Prompt</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--kd-4)">' +
+          '<button type="button" class="kd-chip' + (!libFilter.cat ? ' is-on' : '') + '" data-cat="">All</button>' +
+          D.PROMPT_CATEGORIES.map(function (c) {
+            return '<button type="button" class="kd-chip' + (libFilter.cat === c ? ' is-on' : '') +
+              '" data-cat="' + esc(c) + '">' + esc(c) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="lib-list">' + (rows.length ? rows.map(function (p) {
+          return '<div class="lib-card">' +
+            '<div class="lib-head">' +
+              '<div style="min-width:0">' +
+                '<p class="lib-cat">' + esc(p.category) + (p.useCount ? ' · used ' + p.useCount + '×' : '') + '</p>' +
+                '<h3 class="kd-h3" style="margin-top:4px">' + esc(p.title) + '</h3>' +
+              '</div>' +
+              '<div style="display:flex;gap:var(--kd-2)">' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-p-copy="' + esc(p.id) + '">Copy</button>' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-p-edit="' + esc(p.id) + '">Edit</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="lib-body">' + D.highlightVars(p.text) + '</div>' +
+          '</div>';
+        }).join('') : '<p class="kd-meta">Nothing matches.</p>') + '</div>' +
+      '</div>' + '</div></section>';
+
+    wireLibTabs();
+    on($('kdpBody'), '[data-cat]', 'click', function () {
+      libFilter.cat = this.dataset.cat; renderPrompts(); K.armReveals(document.body, false);
+    });
+    $('libQ').addEventListener('input', function () {
+      libFilter.q = this.value;
+      var pos = this.selectionStart;
+      renderPrompts(); K.armReveals(document.body, false);
+      var q = $('libQ'); if (q) { q.focus(); q.setSelectionRange(pos, pos); }
+    });
+    $('libNew').addEventListener('click', function () { openPrompt(null); });
+    on($('kdpBody'), '[data-p-edit]', 'click', function () { openPrompt(this.dataset.pEdit); });
+    on($('kdpBody'), '[data-p-copy]', 'click', function () {
+      var p = D.Prompts.get(this.dataset.pCopy);
+      if (!p) return;
+      K.copyText(p.text, this);
+      D.Prompts.update(p.id, { useCount: Number(p.useCount || 0) + 1, lastUsedAt: D.nowISO() });
+    });
+  }
+
+  function openPrompt(id) {
+    var p = id ? D.Prompts.get(id) : null;
+    K.openModal({
+      title: p ? 'Edit prompt' : 'New prompt', wide: true,
+      body: K.fieldText('Title', 'title', p ? p.title : '') +
+            K.fieldSelect('Category', 'category', p ? p.category : 'Brainstorming', D.PROMPT_CATEGORIES) +
+            K.fieldArea('Prompt', 'text', p ? p.text : '', 12, 'Use {{PLACEHOLDERS}} for the parts that change per book.'),
+      onSave: function (root) {
+        var f = K.readFields(root);
+        if (!f.title.trim()) { K.toast('Give it a title'); return false; }
+        if (p) D.Prompts.update(p.id, f);
+        else D.Prompts.add(Object.assign(f, { order: D.nextOrder(D.Prompts) }));
+        K.toast('Saved');
+      },
+      onDelete: p ? function () { D.Prompts.remove(p.id); K.toast('Deleted'); } : null,
+      deleteConfirm: 'Delete this prompt?',
+      after: function () { renderPrompts(); K.armReveals(document.body, false); }
+    });
+  }
+
+  function renderTemplates() {
+    hero('Library', 'Templates', 'The blank documents every step starts from.');
+    var rows = D.Templates.list().sort(D.byOrder);
+    $('kdpBody').innerHTML = '<section class="vg-band kd-rise"><div class="vg-band-in">' + libTabs('templates') +
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">' + rows.length + ' templates</p>' +
+          '<button type="button" class="kd-btn kd-btn-primary kd-btn-sm" id="tplNew">+ Template</button></div>' +
+        '<div class="lib-list">' + rows.map(function (t) {
+          return '<div class="lib-card">' +
+            '<div class="lib-head">' +
+              '<div style="min-width:0"><p class="lib-cat">' + esc(t.kind) + '</p>' +
+              '<h3 class="kd-h3" style="margin-top:4px">' + esc(t.title) + '</h3></div>' +
+              '<div style="display:flex;gap:var(--kd-2)">' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-t-copy="' + esc(t.id) + '">Copy</button>' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-t-edit="' + esc(t.id) + '">Edit</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="lib-body">' + esc(t.body) + '</div>' +
+          '</div>';
+        }).join('') + '</div>' +
+      '</div>' + '</div></section>';
+    wireLibTabs();
+    $('tplNew').addEventListener('click', function () { openTemplate(null); });
+    on($('kdpBody'), '[data-t-edit]', 'click', function () { openTemplate(this.dataset.tEdit); });
+    on($('kdpBody'), '[data-t-copy]', 'click', function () {
+      var t = D.Templates.get(this.dataset.tCopy);
+      if (t) K.copyText(t.body, this);
+    });
+  }
+
+  /* The same editor the Foundations steps use. Passing `kinds` is what makes
+     this one show a Kind select, since the Library spans all of them. One
+     implementation, so the two surfaces cannot drift apart. */
+  function openTemplate(id) {
+    K.openBlankSheet(id, {
+      kinds: D.TEMPLATE_KINDS,
+      after: function () { renderTemplates(); K.armReveals(document.body, false); }
+    });
+  }
+
+  function renderSettings() {
+    hero('Library', 'Settings & backup', 'What sync is carrying, and how to get it all out.');
+    var h = D.storageHealth();
+    var s = D.getSettings();
+    $('kdpBody').innerHTML = '<section class="vg-band kd-rise"><div class="vg-band-in">' + libTabs('settings') +
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Storage health</p>' +
+          (h.heavy ? '<span class="kd-pill kd-tone-live"><i class="kd-dot"></i>Manuscript row is heavy</span>' :
+                     '<span class="kd-pill kd-tone-seal"><i class="kd-dot"></i>Healthy</span>') + '</div>' +
+        '<div class="cc-health">' +
+          K.statBlock('Metadata (kdp:)', h.metaMB + ' MB') +
+          K.statBlock('Manuscript (kdpms:)', h.manuscriptMB + ' MB') +
+          K.statBlock('Archived (kdparc:)', h.archiveMB + ' MB') +
+        '</div>' +
+        '<p class="kd-meta" style="margin-top:var(--kd-4)">Metadata and manuscript sync as two separate cloud rows, so editing prose never re-uploads the whole dashboard. Past about 4 MB of manuscript, archive a finished trilogy — it downloads a backup and lifts that trilogy out of live sync.</p>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Backup</p></div>' +
+        '<p class="kd-lede" style="margin-bottom:var(--kd-4)">Everything — structure, statuses, notes, prompts and all four drafts of every chapter — as one JSON file you keep.</p>' +
+        '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap">' +
+          '<button type="button" class="kd-btn kd-btn-primary" id="setBackup">Export full backup</button>' +
+          '<button type="button" class="kd-btn" id="setCompile">Compile current book to markdown</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Preferences</p></div>' +
+        K.fieldText('Author name', 'authorName', s.authorName) +
+        K.fieldNum('Daily word target', 'dailyTarget', s.dailyTarget) +
+        '<button type="button" class="kd-btn kd-btn-sm" id="setSave">Save preferences</button>' +
+      '</div>' + '</div></section>';
+
+    wireLibTabs();
+    $('setBackup').addEventListener('click', function () {
+      K.toast(D.exportBackup() ? 'Backup downloaded' : 'Download was blocked');
+    });
+    $('setCompile').addEventListener('click', function () {
+      var ui = D.getUiState();
+      var b = D.Books.get(ui.lastBookId);
+      if (!b) { K.toast('No current book'); return; }
+      D.download(b.title.replace(/[^\w-]+/g, '-') + '.md', D.compileBook(b.id), 'text/markdown');
+      K.toast('Compiled');
+    });
+    $('setSave').addEventListener('click', function () {
+      var f = K.readFields($('kdpBody'));
+      D.setSettings({ authorName: f.authorName, dailyTarget: Number(f.dailyTarget) || 3000 });
+      K.toast('Saved');
+    });
+  }
+
+  function wireLibTabs() {
+    on($('kdpBody'), '[data-lib]', 'click', function () {
+      var v = this.dataset.lib;
+      K.navigate(v === 'settings' ? '#/settings' : '#/library/' + v);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // MODALS
+  // ---------------------------------------------------------------------------
+  function openNewTrilogy() {
+    K.openModal({
+      title: 'New trilogy', wide: true,
+      body: K.fieldText('Title', 'title', '', 'The Saltbound Trilogy') +
+            K.fieldArea('Premise', 'premise', '', 3, 'One or two sentences. You can refine it in the dossier.') +
+            '<p class="kd-meta">Creating this builds three books, nine acts, 120 chapters, twelve worldbuilding sections, four character sheets and three style documents. You will never type a chapter number by hand.</p>',
+      saveLabel: 'Create trilogy',
+      onSave: function (root) {
+        var f = K.readFields(root);
+        if (!f.title.trim()) { K.toast('Give the trilogy a title'); return false; }
+        var t = D.createTrilogy({ title: f.title.trim(), premise: f.premise });
+        K.toast('Trilogy built — 120 chapters ready');
+        setTimeout(function () { K.navigate('kdp-foundations.html?tri=' + t.id + '#/'); }, 300);
+      }
+    });
+  }
+
+  function openEditTrilogy(id) {
+    var t = D.Trilogies.get(id);
+    if (!t) return;
+    K.openModal({
+      title: 'Edit trilogy', wide: true,
+      body: K.fieldText('Title', 'title', t.title) + K.fieldArea('Premise', 'premise', t.premise, 4),
+      onSave: function (root) { D.Trilogies.update(id, K.readFields(root)); K.toast('Saved'); },
+      after: function () { router.refresh(); }
+    });
+  }
+
+  function openEditBook(id) {
+    var b = D.Books.get(id);
+    if (!b) return;
+    K.openModal({
+      title: 'Edit ' + b.title, wide: true,
+      body: K.fieldText('Title', 'title', b.title) +
+            K.fieldArea('Logline', 'logline', b.logline, 2) +
+            K.fieldArea('Main plot', 'mainPlot', b.mainPlot, 4) +
+            K.fieldArea('Romance arc', 'romanceArc', b.romanceArc, 4) +
+            K.fieldArea('Stakes', 'stakes', b.stakes, 3) +
+            K.fieldNum('Target words', 'targetWords', b.targetWords),
+      onSave: function (root) {
+        var f = K.readFields(root);
+        f.targetWords = Number(f.targetWords) || 120000;
+        D.Books.update(id, f);
+        K.toast('Saved');
+      },
+      after: function () { router.refresh(); }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOOT
+  // ---------------------------------------------------------------------------
+  K.boot(function () {
+    K.initPage({
+      onSync: function () { if (router) router.refresh(); },
+      onSyncManuscript: function () { if (router) router.refresh(); }
+    });
+
+    router = K.makeRouter({
+      parse: function (parts) {
+        if (!parts.length || parts[0] === '') return { name: 'command' };
+        if (parts[0] === 'shelf') return { name: 'shelf' };
+        if (parts[0] === 't' && parts[1]) return { name: 'trilogy', id: parts[1] };
+        if (parts[0] === 'settings') return { name: 'settings' };
+        if (parts[0] === 'library') return { name: 'library', tab: parts[1] || 'prompts' };
+        return { name: 'command' };
+      },
+      key: function (r) { return r.name + ':' + (r.id || r.tab || ''); },
+      render: function (r) {
+        // The full-screen treatment covers the Command Center and both
+        // trilogy routes. The Library and Settings keep the compact hero.
+        // Every route wears the treatment. What differs is the HERO: the
+        // Command Center and the two trilogy routes open on the full curtain,
+        // while the Library and Settings are working surfaces and take the
+        // compact band instead.
+        var landing = (r.name === 'command' || r.name === 'shelf' || r.name === 'trilogy');
+        V.velvetOn(true);
+        // which backdrop, and therefore which <video> element
+        V.setScene((r.name === 'shelf' || r.name === 'trilogy') ? 'tri' : 'cmd');
+        document.querySelector('.kd-hero').classList.toggle('is-compact', !landing);
+        // a route with no reel must clear the last one's inline height, or it
+        // inherits a screenful of blank ground
+        if (!landing) buildReel(null, null);
+
+        if (r.name === 'command') renderCommand();
+        else if (r.name === 'shelf') renderShelf();
+        else if (r.name === 'trilogy') renderTrilogy(r.id);
+        else if (r.name === 'settings') renderSettings();
+        else if (r.name === 'library') {
+          if (r.tab === 'templates') renderTemplates(); else renderPrompts();
+        }
+
+        // After the dispatch: vg-on is settled and the reel exists, so the
+        // controller can decide whether a file is worth fetching at all.
+        V.mountStage();
+      }
+    });
+    // Injected once, here, before the first render. This page uses two scenes.
+    V.mountStages(['cmd', 'tri']);
+    // The bar is built ONCE, before the first render, and only synced after.
+    // It lives outside #kdpHeroIn and #kdpBody so no renderer can destroy it.
+    K.mountBar({ page: 'kdp.html', routeKey: function (r) {
+        return r.name === 'library' ? (r.tab === 'templates' ? 'templates' : 'prompts') : r.name;
+      } });
+    router.render();
+  });
+})();
+</script>
+</body>
+</html>

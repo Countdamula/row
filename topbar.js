@@ -171,6 +171,62 @@
       ],
     },
     {
+      // The KDP Dashboard — kdp.html + kdp-foundations.html + kdp-draft.html
+      // + kdp-continuity.html + kdp-publish.html, over kdp-data.js /
+      // kdp-nav.js / kdp-theme.css. Placed beneath The Athenaeum.
+      //
+      // A production system for romantasy trilogies on one rule:
+      //   WEEK 1 runs ONCE PER TRILOGY. WEEKS 2–5 repeat PER BOOK.
+      // Foundations → Draft 1–28 → Draft 29–40 → Continuity → Publish.
+      // The Command Center's Continue button resolves to the exact next
+      // page through KdpData.nextAction(), so the bar and the button can
+      // never disagree about what comes next.
+      //
+      // A book is always 40 chapters in three acts (10 / 20 / 10), all
+      // seeded the moment a trilogy is created. Each chapter carries FOUR
+      // indexes — Original, Improvement plan, Rewritten, Final — and only
+      // Index IV counts toward the word total.
+      //
+      // TWO Supabase rows, split by weight, which is the whole reason this
+      // is not one prefix: 'kdp:' (appKey 'kdp') holds structure and
+      // statuses and stays small; 'kdpms:' (appKey 'kdpms') holds the
+      // manuscript, one key per chapter, and is only pushed when prose
+      // changes. sync.js uploads an app's ENTIRE prefix on every save, and
+      // four drafts across three books is 7–10 MB. 'kdparc:' holds archived
+      // trilogies and is deliberately outside BOTH synced prefixes.
+      //
+      // Genuinely separate from The Codex ('cdx:'), confirmed with the user
+      // before any code was written: it never reads or writes that prefix.
+      key: 'kdp',
+      label: 'KDP Dashboard',
+      items: [
+        { href: 'kdp.html', icon: '❖', label: 'The Velvet Grimoire', id: 'topbarKdp', children: [
+          { hash: '/', label: 'The Velvet Grimoire' },
+          { hash: '/shelf', label: 'Trilogies' },
+          { hash: '/library/prompts', label: 'Prompt Library' },
+          { hash: '/library/templates', label: 'Templates' },
+          { hash: '/settings', label: 'Settings & backup' },
+        ] },
+        { href: 'kdp-foundations.html', icon: '❶', label: 'Week 1 · Foundations', id: 'topbarKdpW1', children: [
+          { hash: '/dossier', label: 'Story Dossier' },
+          { hash: '/characters', label: 'Characters' },
+          { hash: '/world', label: 'Worldbuilding' },
+          { hash: '/plan', label: 'Trilogy Planning' },
+          { hash: '/style', label: 'Style & Prose Prep' },
+        ] },
+        { href: 'kdp-draft.html', icon: '❷', label: 'Weeks 2–3 · Drafting', id: 'topbarKdpDraft' },
+        { href: 'kdp-continuity.html', icon: '❹', label: 'Week 4 · Continuity', id: 'topbarKdpW4', children: [
+          { hash: '/plot', label: 'Plot' },
+          { hash: '/character', label: 'Character' },
+          { hash: '/world', label: 'World' },
+          { hash: '/timeline', label: 'Timeline' },
+          { hash: '/romance', label: 'Romance' },
+          { hash: '/read', label: 'Full read-through' },
+        ] },
+        { href: 'kdp-publish.html', icon: '❺', label: 'Week 5 · Publish', id: 'topbarKdpW5' },
+      ],
+    },
+    {
       // The Chrysalis — chrysalis.html + chrysalis-stages.html +
       // chrysalis-data.js + chrysalis-theme.css. Placed directly beneath
       // The Athenaeum: both are permanent-record systems.

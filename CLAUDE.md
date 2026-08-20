@@ -258,6 +258,9 @@ page's CSS is self-contained in its own `<style>` block):
    | `enthub` | `entertainment-dash.html` (via `entertainment-hub-data.js`), plus `fitnessstudio.html`'s music panel (read-only) | everything prefixed `enthub:` — `enthub:podcasts`, `enthub:horrorReading`/`horrorWatch`, `enthub:spicyReading`/`spicyWatch`, `enthub:storiesImmersive`, `enthub:entertainment`, `enthub:playlists`, `enthub:seeded`, `enthub:heroes`. The old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`) that originally owned this row was deleted and merged into one page, `entertainment-dash.html` — `entertainment-hub-data.js` itself was kept (not deleted) since `fitnessstudio.html`'s own music panel still reads `enthub:playlists` from it. `enthub:stories` (the old single Stories collection) is now an **orphaned key** — Stories was split into `horrorReading`/`horrorWatch`/`spicyReading`/`spicyWatch`/`storiesImmersive`, migrated once via `migrateStoriesSplitIfNeeded()`, left alone afterward (see changelog). Genuinely separate from `entertainment.html`/"Media"'s own `key='entertainment'` row and `media:*` prefix — nothing here reads, writes, or repurposes that page's data |
    | `entdash` | `entertainment-dash.html` (new) | everything prefixed `entdash:` (`entdash:reading`, `entdash:anime`, `entdash:games`, `entdash:seeded`, `entdash:hero`) — new (see changelog). Genuinely separate from the `enthub` row above; `entertainment-dash-data.js` unifies both rows' collections into one cross-category Home/Discovery Engine/Favorites/Statistics view without merging their storage |
    | `fitnessstudio` | `fitnessstudio.html` (new) | everything prefixed `fitstudio:` (`fitstudio:templates`, `fitstudio:goals`, `fitstudio:prs`, `fitstudio:schedule`, `fitstudio:settings`, `fitstudio:hero`, `fitstudio:log:<date>`, `fitstudio:progression`, `fitstudio:aiChat`, `fitstudio:seeded`) — new (see changelog). Genuinely separate from `gym.html`'s own `key='po-coach'` row and `index.html`'s own `fitness:*` prefix under the `goals` row — nothing here reads or writes either. Its music slide-out panel reads `enthub:playlists` directly out of localStorage (read-only, no second sync subscription opened for it — see the changelog entry) rather than through its own sync call |
+   | `kdp` | `kdp.html` + `kdp-foundations.html` + `kdp-draft.html` + `kdp-continuity.html` + `kdp-publish.html` (new — see changelog) | everything prefixed `kdp:` — `kdp:trilogies`, `kdp:books`, `kdp:acts`, `kdp:chapters`, `kdp:characters`, `kdp:world`, `kdp:dossiers`, `kdp:styleDocs`, `kdp:notes`, `kdp:promptBlocks`, `kdp:prompts`, `kdp:templates`, `kdp:continuity`, `kdp:timeline`, `kdp:romanceBeats`, `kdp:listings`, `kdp:sessions`, plus the singletons `kdp:uiState`, `kdp:settings`, `kdp:seededAt`. **Metadata only — no prose.** All five pages mount the SAME `initCloudSync({appKey:'kdp', syncedPrefixes:['kdp:']})` via `Kdp.initPage()`. Deliberately a different prefix and appKey from The Codex's `cdx:`/`codex`, confirmed with the user before any code was written: this page never reads or writes that prefix |
+   | `kdpms` | the same five pages | everything prefixed `kdpms:` — one key per chapter, `kdpms:<chapterId>`, holding that chapter's FOUR drafts (`original`/`plan`/`rewrite`/`final`). **This is the only reason the KDP dashboard has two rows instead of one.** `sync.js`'s `pushNow()` collects every key under a prefix and uploads the whole blob on each debounced save; four full drafts across 40 chapters × 3 books is 7–10 MB, which would be re-pushed on every keystroke batch if it shared a row with the metadata. Splitting it means editing prose never re-uploads the dashboard, and opening a menu never re-uploads the manuscript. Word counts are **cached** onto `kdp:chapters[].wordsFinal` so a book total never has to open a single manuscript key. Mounted as a SECOND `initCloudSync({appKey:'kdpms', syncedPrefixes:['kdpms:']})` in `Kdp.initPage()` — the same two-mount pattern `promptarium.html` uses, for a different reason |
+   | *(none — deliberately unsynced)* | the same five pages | everything prefixed `kdparc:` — archived trilogies. Outside **both** synced prefixes on purpose, so a finished trilogy stops being re-uploaded forever. `KdpData.archiveTrilogy()` forces a full JSON backup download FIRST, refuses to proceed if that download is blocked, then moves the trilogy under `kdparc:` and removes it from the live collections |
    | `home` | `home.html` (rebuilt) | everything prefixed `home:` — `home:scheduleTasks`, `home:affirmations`, `home:reprogramSections`, `home:ritualItems`, `home:ritualDate`, `home:heroTitle`, `home:heroSubtext`, `home:heroPhoto` (new — the cover photo, see changelog), `home:seeded`, `home:photosMigratedV1`. `home:active_tab` (from this page's first build, a 6-panel tab-switcher) is now orphaned — Home was rebuilt into one continuous scrollable page, so nothing reads or writes it anymore. The eight embedded pages (Dream Board/Tasks & Notes/AI & Tech/Self-Care/Main/Main Pillar/Household/Brain Dump) keep syncing under their own existing `key`s (`dreamboard`/`tasksnotes`/`aitech`/`selfcare`/`goals`/`mainpillar`/`household`/`braindump`) exactly as before — `home.html` never reads or writes those, it only embeds the live pages in an iframe |
 
    `health` (previously owned by `health.html`/`po-water.html`, syncing
@@ -293,6 +296,7 @@ using `sync.js`.
 |---|---|---|
 | The Athenaeum | ⌘ `The Athenaeum` nav folder → `athenaeum.html` (**the second group in the sidebar, directly beneath Promptarium** — an explicit placement request) | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` + `athenaeum-data.js` (new — see changelog). A learning dashboard whose whole architecture is one rule: **Field → Curricula → Modules → Lessons**, a field being permanent and a curriculum temporary, so concepts/research/connections/contradictions hang off the FIELD and survive the curriculum that produced them. Eleven permanent fields, seeded with the user's own names and descriptions. Owns `ath:*` / appKey `athenaeum`, one sync mount, never touches another page's prefix. **A parallel build, not a replacement**: `learning.html`, `learning-dashboard.html` and `knowledge-hub.html` are untouched, share nothing with it, and are still listed in their own folders — confirmed as an explicit choice with the user before any code was written. The main page is a light editorial sheet (cold greige ground, laid-paper surface, Italiana/Newsreader/Inter, near-zero radii); the Subject Hub inverts the same palette into a dark working surface. Both grounds are DRAWN in CSS — layered radial gradients plus engraved orrery rings — never a stock photograph, so no page depends on an asset that can disappear |
 | Promptarium | ⚗️ `Promptarium` nav folder → `promptarium.html` (**the first group in the sidebar**) | `promptarium.html` + `promptarium-data.js` (new — a prompt operating system: one collection page per AI model (ChatGPT / Claude / Gemini / Gemini NotebookLM / Suno AI / n8n / Perplexity), a searchable library with eight filters and five sorts, star ratings feeding a Favorites & Pinned page, a user-owned second tag axis ("purpose tags"), multi-step Prompt Chains whose steps carry copyable sub-prompts and generatable run-checklist notes, and a Quick Capture inbox on a `q` hotkey. Owns `prm:*` / appKey `promptarium`. **It also mounts a SECOND `initCloudSync` for appKey `codex` / prefix `cdx:`, so its Fiction collection IS The Codex's AI Prompt Database — the same records, not a copy.** See the shared-database rules below. The page is **full-bleed** — no content max-width anywhere; `--pm-gutter` is the only horizontal inset and the hero ticker bleeds back out through it. Each model page carries a Substack-shaped **article** (`prm:collectionArticles`) above the prompt list and a rich **notes database** (`prm:collectionNotes`) below it, both `contenteditable` and both accepting pasted HTML and inline images — see the rich-editor rules below. The hero is a tall (82vh), left-aligned editorial block — a hairline display serif word-mark in tracked capitals over a looping muted background video mounted in the **static body markup** (`#pmStage`), never inside a renderer, plus a house rAF `--p` parallax) |
+| KDP Dashboard | ❖ `KDP Dashboard` nav folder → `kdp.html` (**placed beneath The Chrysalis**) | `kdp.html` (**The Velvet Grimoire** — Command Center · Trilogies · Prompt Library · Templates · Settings) + `kdp-foundations.html` (Week 1, all seven step pages) + `kdp-draft.html` (Weeks 2 **and** 3 — one engine, two entry points, filtered to ch 1–28 / 29–40) + `kdp-continuity.html` (Week 4, six passes) + `kdp-publish.html` (Week 5, Amazon KDP) over five shared sidecars: `kdp-data.js`, `kdp-nav.js`, `kdp-theme.css`, and the extracted cinematic layer `kdp-velvet.css` + `kdp-velvet.js`. A production system for romantasy trilogies on one rule: **Week 1 runs ONCE PER TRILOGY; Weeks 2–5 repeat PER BOOK.** A book is always **40 chapters in three acts (10 / 20 / 10)**, and `createTrilogy()` seeds all of it in one pass — 3 books, 9 acts, 120 chapters, 12 worldbuilding sections, 4 character sheets, 3 style documents, 1 dossier — so a chapter number is never typed by hand. Every chapter carries **four indexes** (I Original · II Improvement plan · III Rewritten · IV Final ★) and **only Index IV counts toward the word total**. `KdpData.nextAction()` is the single resolver behind both the Command Center's Continue button and the icon rail, so the two can never disagree about what comes next. Owns `kdp:` + `kdpms:` (two rows, split by weight — see §4) and `kdparc:` (unsynced). Aesthetic is **Recto / Verso** (the interface is a two-page spread with a real fold, reference on the verso, work on the recto, generatable notes as actual marginalia) rendered in **The Athenaeum's palette** — ground `#0A0C0F`, ink `#F2EFE8`, verdigris = current, brass = final, warm red = in revision, plus rose-gold for the hero wordmark alone. **Three scenes wear the treatment**, each its own clip, metal and ground: the Command Center is the castle in rose-gold, both trilogy routes are the palace in blossom pink, and the book/chapter pages are the garden library in brass. Every one pairs a full-screen hero with a pinned scroll sequence (five weeks / three books / three acts) — except the chapter page, which keeps a compact header because it is an instrument, and adds **Composition Mode**: a distraction-free writing surface over the castle clip that shares the page own saver, so Index IV can never be counted twice. The Library, Settings and the other three week pages keep the ordinary compact hero. `kdp-styletile.html` is the three-direction comparison the look was chosen from — it is scaffolding, linked from nothing, and safe to delete |
 | Home | 🏠 `HOME` → `home.html` (leads the nav row — see changelog) | `home.html` + `home-data.js` (rebuilt into one continuous scrollable page — see changelog) |
 | Main | 🎯 `MAIN` → `index.html` | `index.html` (rebuilt as a command center — see changelog; briefly deleted, then restored — see the changelog entry near the bottom of this file) |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
@@ -574,6 +578,427 @@ both as originally phrased assumed a backend this app doesn't have):
   Edge" notes).
 
 ## Changelog
+
+- **The Velvet Grimoire: one top bar, one aesthetic, real Blank Sheets, and a
+  phone you can work on.** Six asks in one pass, plus one pre-existing bug the
+  fourth ask exposed.
+  - **Navigation is now a horizontal top bar, on every page, reaching every
+    route.** `Kdp.mountBar`/`syncBar`/`barParent` in `kdp-nav.js`, over a
+    `ROUTES` table that is the single source of truth for both the links and the
+    Back crumb. It replaced the floating icon rail (`buildRail`, `.kd-rail`,
+    `.kd-rail-spine`, every page's `railKey`). Built **once** into `<body>`,
+    outside `#kdpHeroIn` and `#kdpBody` so no renderer can destroy it, with two
+    delegated listeners; thereafter `syncBar` only rewrites attributes. The old
+    rail rebuilt its own `innerHTML` and re-attached its listeners on every
+    render. The bar also mounts BEFORE each page's no-trilogy/no-book dead-end
+    return — that is exactly where a way out matters.
+    - **Namespace: `kd-nav-*`, never `kd-bar-*`.** `.kd-bar`/`.kd-bar-fill`/
+      `.kd-bar-head` is the progress METER, used in 12 places across all five
+      pages. The first build collided with it and the bar silently rendered as a
+      10px sliver.
+    - **`--kd-rail-w` is set to `0px`, not deleted.** Five rules across two files
+      spend it as left padding; one token edit has one failure mode where five
+      `calc()` deletions have five. The comment at `kdp-theme.css` §4 about
+      negative margins is why.
+  - **Back on every route, two ways.** A logical-parent crumb resolved from
+    `ROUTES` (a Foundations step → Week 1 → the trilogy → Trilogies → the
+    Grimoire) and a separate `history.back()` arrow. Three buttons in
+    `kdp-foundations.html` were using `data-back` as a FORWARD CTA and were
+    converted to `data-fwd` first — deleting `wireBack` without that would have
+    killed three primary CTAs silently.
+  - **Velvet now covers every page**, scene per scope: Week 1 = `tri` (blossom
+    pink, palace), Weeks 4–5 = `book` (brass, garden-library), Library /
+    Templates / Settings = `cmd` (rose-gold, castle). Landing routes get the
+    100svh curtain through `V.hero()`; inner routes get `.kd-hero.is-compact`
+    and `buildReel(null,null)`. Two traps found:
+    - Only `.vg-reel` ever carried `margin-top:var(--vg-hero-h)`, so a landing
+      route with a *hidden* reel let the sheet slide straight over the fixed
+      curtain and the title vanished. Hence
+      `html.vg-on .kd-hero:not(.is-compact) ~ .vg-reel[hidden] ~ .kd-app`.
+    - The three week pages have 22 `body().innerHTML` assignments between them,
+      and a missed `.vg-band` wrapper fails SILENTLY (`html.vg-on .kd-sheet`
+      zeroes the gap, so it renders as content running edge to edge rather than
+      as an error). They use `.kd-sheet.vg-sheet` — **the sheet IS the band** —
+      instead of per-renderer surgery. `kdp.html` and `kdp-draft.html` still use
+      real `.vg-band` sections.
+  - **Blank Sheets can be created, edited and deleted, from every Week 1 step.**
+    They were never a type of their own — they are `Templates` records filtered
+    by `kind`. `Kdp.blankRack`/`wireBlankRack`/`openBlankSheet` is the fourth
+    rack primitive; the Library passes `kinds` (a Kind select), a step passes
+    `kind` (fixed), so the two surfaces cannot drift. `workbench(scope, kind)`
+    puts the right rack on every step. `Style Sheet` added to `TEMPLATE_KINDS`.
+    - **The "black box" was never a rendering bug.** An empty `t.body` was being
+      rendered into a read-only `<pre>` on `--kd-void` — a near-black rectangle
+      you could not paste into, because a `<pre>` is not an input. An empty sheet
+      now states that it is empty and offers the button that fixes it.
+  - **THE MODAL BUG — every dialog in the app was saving the wrong values.**
+    `#kdpModalBg` outlives each dialog; only its `innerHTML` is replaced. Every
+    `openModal()` called `on(bg,'[data-modal-save]',…)` again, so handlers
+    stacked, and the OLDEST fires first holding a **detached** body — while the
+    first handler's `closeModal()` makes `root.contains(t)` false for all the
+    rest. Net effect across the whole app: **the second dialog you opened
+    silently saved the FIRST one's values.** Proven by opening one modal, typing,
+    cancelling, opening another, typing something else and saving — the
+    cancelled one was written. Fixed by wiring the modal ONCE (`modalWired`) and
+    reading the live dialog off `modalState` + `$('kdpModalBody')` rather than a
+    closure. **Any new delegated handler on `#kdpBody` needs the same guard** —
+    `wireBlankRack` uses a `root._blankWired` flag and reads its kind off the
+    clicked button.
+  - **Phones and tablets.** Audited across five devices × 20 routes.
+    - **Target size is keyed to `@media (pointer:coarse)`, not to a width** — a
+      tablet at 768 or 1024 is a phone-shaped hazard with a desktop layout, and
+      keying it to width is what left the bar at 30px there. 44px floor
+      throughout (`.kd-btn` was 38px, `.kd-btn-icon` 32px, `.vg-wk` had
+      two-character labels 17px wide, `.ct-cell` was 22px). The coarse block sits
+      AFTER the width blocks so equal-specificity rules win.
+    - **The bar docks to the bottom under 720px** — the shared launcher pill owns
+      the top-left corner — and the whole strip scrolls as one, ordered so the
+      page's own route chips come first and the week pips after. Every hero's top
+      padding is `max(<original>, calc(var(--kd-nav-space) + …))`: on a phone
+      `--kd-nav-space` is 0 and the original clamp is the only thing clearing
+      that pill.
+    - Hero is `86svh` on a phone so the ground below it shows the page scrolls;
+      in landscape under 520px tall it stops being a curtain and becomes a band.
+      The hero's week strip scrolls on one masked line — making it `nowrap`
+      without `min-width:0` first pushed the whole hero to 924px on a 412px
+      screen, unreachable because `body` is `overflow-x:hidden`.
+    - Dialogs use `svh` and clear the notch and home indicator; the toast lifts
+      above the docked bar; the heat grid's cells are 44px inside their existing
+      scroller. No form control is under 16px, so iOS never zooms in.
+    - `topbar.js`'s own targets (38px close, 34px toggles) are still small and
+      were left alone deliberately — it is shared by all 17 dashboards.
+
+- **A half-created trilogy took the whole dashboard down. Fixed at three levels.**
+  Damian hit `TypeError: Cannot read properties of undefined (reading 'id')` in
+  `renderTrilogy`, and every other page broke with it.
+  - **The state.** A trilogy record with no books. `createTrilogy()` wrote the trilogy
+    FIRST and then seeded 3 books / 9 acts / 120 chapters, with no rollback — so
+    anything that failed after that first write (a quota, a throw inside a bulk
+    write, a partial sync) left a trilogy that every renderer then assumed was
+    complete.
+  - **1 — it can no longer be created.** `createTrilogy()` now seeds inside a `try`,
+    then VERIFIES with the new `trilogyHealth()`, and removes the trilogy again on
+    either failure shape — a throw, or a write that silently did not stick. It
+    throws with what was missing and leaves nothing behind. Both shapes are covered
+    because they fail differently: the throw skips the verify entirely.
+  - **2 — it can be repaired.** `repairTrilogy()` adds back only what is absent.
+    `seedTrilogy()` was split out of `createTrilogy` and made idempotent — books by
+    position, acts by number, chapters by number, world sections by id, style docs by
+    kind — so running it on a trilogy with prose in it changes nothing. Asserted:
+    title kept, 200 words of manuscript kept, chapter count still exactly 120.
+  - **3 — no page crashes on it regardless.** `renderCommand` skips to a healthy
+    trilogy if there is one and otherwise offers repair; `renderTrilogy` renders a
+    repair page listing what is missing; `gotoWeek` refuses weeks 2–5 with a toast
+    instead of throwing on `book.id`; `kdp-foundations.html` sends you back to repair
+    rather than indexing `books[0]`. **The guards stay even though the cause is
+    fixed** — a damaged record can also arrive from a partial cloud pull, and one bad
+    row must never be able to take down the app.
+  - `kdp-data.js` exports `repairTrilogy` and `trilogyHealth`.
+
+
+- **The velvet layer was EXTRACTED into `kdp-velvet.css` + `kdp-velvet.js`, and
+  `kdp-draft.html` became the third page to wear it — plus Composition Mode.**
+  - **Why extract.** The whole treatment lived inside `kdp.html`: ~680 lines of CSS
+    and ~310 of JS. Copying it into a second page would have forked it permanently.
+    `kdp.html` now keeps only what is genuinely its own (`.cc-*`, `weekCells`,
+    `bookCells`, `gotoWeek`, `WEEK_COPY`) and links the shared pair. The remaining
+    three week pages are now cheap.
+  - **The scene registry is data.** `SCENES = { cmd, tri, book }`, each `{src, poster,
+    obj}`, and `Velvet.mountStages([...])` injects one `<div class="vg-stage">` per
+    scene **once at boot, before the router first runs**. That is the invariant the
+    whole file is shaped by and it is written at the top of it: a `<video>` must never
+    be created by a renderer, and a source, once assigned, is never dropped.
+  - **A page declares only the scenes it uses**, so `kdp-draft.html` never fetches the
+    palace clip and `kdp.html` never fetches the library one.
+  - **`velvetHero` lost its hardcoded knowledge.** It takes `word` and a general
+    `foot` + `onFoot(key)` instead of a hardwired W1–W5 handler, so the Command
+    Center passes weeks, the shelf passes trilogies, a trilogy passes weeks and a book
+    passes acts. Likewise `buildReel(cells, onOpen)` — five weeks, three books, three
+    acts, one engine.
+  - **`html.vg-type-strict` replaced per-scene type selectors.** The strict reading of
+    the type reference is now keyed to a marker class that `setScene()` sets for the
+    scenes in `STRICT_TYPE`; adding a scene is one array entry instead of duplicating
+    forty selectors. The Command Center is deliberately NOT in that list — it keeps
+    the lighter settings it was signed off with.
+  - **The book scene is BRASS** (`#D9A845`), sampled from the garden-library clip's
+    clock and lamps — the third metal after rose-gold and blossom pink, by the same
+    token substitution. Its own bloom stack, as always: alphas do not transfer
+    between pigments.
+  - **The book page takes the full landing treatment** — library hero, a pinned reel
+    of its three acts, and bands — while **the chapter page stays an instrument**:
+    palette, strict type and gradient ground, full-bleed container, but the three
+    columns, the four indexes and the sticky bar all keep working.
+    **"No boundaries" there means the container, not the controls** — and the editor
+    keeps a `78ch` cap, because full-bleed at 2560 would otherwise set prose ~1900px
+    wide. Verified: 683px at both 1920 and 2560.
+  - **Composition Mode** (`Velvet.openCompose`) — a writing surface and nothing else
+    over the Command Center's own clip, entered from the chapter bar and left by that
+    button or Escape. **It does not own a saver**: the page passes the one it already
+    uses, so there is exactly one write path to `D.writeDraft()` and no way for the
+    two surfaces to disagree or for Index IV to be counted twice. Asserted: text
+    carries in, survives Escape, the page editor stays in sync, Index I moves no
+    total, and Index IV moves the book total by exactly the chapter's own delta.
+    It hides the topbar pill, locks body scroll, restores focus, and on a phone or
+    under reduced motion it still works — just without a video, and with nothing
+    fetched.
+  - Two test expectations went stale and were updated, not worked around: the video
+    elements are `vgVid_<scene>` now, and `kdp-draft.html`'s routes are *supposed* to
+    carry `vg-on`.
+  - **Worth knowing:** two tabs on this origin can stall `local-store-idb.js`'s
+    hydration, so a second tab may render nothing for a long time. Pre-existing and
+    shared by every page in `row/`; the phone test now uses its own browser.
+
+
+- **The trilogy routes went PINK, and took the type reference literally.**
+  - **A second metal, by substitution rather than by rewriting.** `--vg-m-*` are
+    redefined on `html.vg-on.vg-scene-tri` to the blossom pink sampled from that
+    scene's video (`#F7D6DE → #DB8AA3 → #8A4560`). Because `html.vg-on` declares
+    `--kd-iris:var(--vg-m)` and friends, those resolve to the new values on the same
+    element and **every fill/value/texture rule for the four states carries over
+    untouched**. Only the `-rgb` triplets and the two hairlines are restated, since
+    those are literals.
+  - **Prerequisite: the rose-gold literals had to become tokens first.** Eleven
+    `rgba(240,201,188,…)` / `rgba(201,138,115,…)` / `rgba(216,164,143,…)` values were
+    hardcoded through the `.vg-on` block and would not have followed the
+    substitution. They are now `rgba(var(--vg-m-hi-rgb),…)` etc. If you add a rule
+    here, use the tokens or a third scene will silently keep the wrong colour.
+  - **The ground gets its own bloom stack, not the Command Centre's with swapped
+    pigments** — those alphas were tuned for dark mulberry and moss, and blossom pink
+    at `.56` lights the page up like a lamp. Same seam rule, independently tuned.
+  - **Typography, from `brand_assets/Normal text typography.jpg` read strictly.** That
+    page is one high-contrast serif at full brightness and *everything* else is small,
+    widely tracked, uppercase sans at low contrast, with no monospace anywhere. So on
+    `.vg-scene-tri`: Bodoni for every heading, 9px/`.32em` micro-caps for labels and
+    folios, the serif dimmed for reading text, and counts/captions as tracked
+    uppercase Inter with `tabular-nums` carried across explicitly.
+  - **Scoped to `#kdpBody` and the reel, never `#kdpHeroIn`** — Damian excluded the
+    hero, which already *is* the reference's display line. So the hero wordmark and
+    emblem on a trilogy page are still **rose-gold**, deliberately: it is the one
+    thing tying these pages back to The Velvet Grimoire. The 31 rose-gold values the
+    colour audit still finds on those routes are that emblem, and they are expected.
+
+- **The Velvet Grimoire, part three — `#/shelf` and `#/t/:id` joined the world.**
+  `velvet` in the router widened from `command` to `command | shelf | trilogy`, so
+  every rule already written under `html.vg-on` applied to both trilogy routes with
+  no duplication. Only the furniture is new.
+  - **A SECOND video, and two `<video>` elements — not one with a swapped src.**
+    `mountStage()` is built so a source is assigned once and never dropped, because
+    dropping it re-downloads the file and restarts it from zero. Swapping would have
+    reintroduced exactly that. So both elements live in static markup, `SCENES` maps
+    scene → element + file, and each is fetched **the first time its own scene is
+    opened and never again**. A session that stays on the Command Center never pays
+    for `trilogy.mp4`; one that never opens a trilogy never pays for `hero.mp4`.
+    Verified: one fetch each, both `currentTime` values still advancing after
+    `#/ → #/t/:id → #/ → #/t/:id`.
+  - **The `is-on`/`is-live` handshake moved onto the `<video>` elements.** With two
+    scenes a class on `<html>` could not say WHICH video had decoded a frame.
+  - **Per-stage `--vg-poster` / `--vg-obj`**, since the two clips frame differently,
+    and a per-scene grade: the palace is a night interior lit by lanterns, so it is
+    exposed a stop brighter and crushed less than the daylit archway.
+  - **The trilogy scene's ground leans wisteria** (`--vg-ground:#080610`, violet
+    blooms, one lantern-gold ember) where the Command Center leans mulberry. Same
+    construction and the same seam rule — only the pigments differ, which is what
+    makes the two pages siblings rather than twins.
+  - **`buildReel()` is source-agnostic now** — it takes cells and an open handler.
+    `weekCells()` feeds it five, `bookCells()` feeds it three; `reelFrame()`, the
+    flat fallback and the svh-per-cell height did not change at all.
+  - **The wordmark is bucketed by length** (`is-w-xs/s/m/l` on both the word and the
+    lockup, so the emblem scales with it). The base size was tuned for the 19
+    characters of "The Velvet Grimoire"; a trilogy title is whatever Damian typed.
+    `is-w-s` reproduces the original figure exactly, so `#/` is untouched.
+  - **Every fact on `#/t/:id` survived** — six gates, three books with loglines,
+    Open ×3, Edit ×3, Edit trilogy / Archive / Delete and the archiving caution —
+    restructured into three full-bleed bands. Asserted by name in the test.
+  - **A latent bug this surfaced: `.vg-on .vg-reel{display:block}` outranks the UA
+    rule for `[hidden]`,** and `buildReel(null)` never cleared the inline height. A
+    route with no reel therefore inherited the last one's scroll length — the shelf
+    opened with **4500px of blank ground** between its hero and its content. Fixed
+    with `.vg-on .vg-reel[hidden]{display:none}` plus clearing `reel.style.height`.
+    This was already wrong for an empty Command Center before the trilogy work.
+
+- **The Velvet Grimoire, part two — everything BELOW the hero on `kdp.html#/`
+  was rebuilt in one metal, on the video's own colours, full-bleed.** All of it
+  lives in one commented section at the end of `kdp.html`'s `<style>`, scoped
+  to `html.vg-on` — the class the router sets for the Command Center route
+  alone — so no other route and no other page can be reached by any of it.
+  Verified across 31 routes: verdigris is back and `.kd-app` is a 1560px column
+  again on every one of them.
+  - **One metal, no exceptions.** Damian chose full rose-gold monochrome. The
+    five `--vg-m-*` tokens are literally the five stops of the wordmark's own
+    gradient, lifted out. Rather than hunting rule by rule, `html.vg-on`
+    **redefines** `--kd-iris` / `--kd-seal` / `--kd-proof` (+ `-rgb`, `--kd-good`
+    / `warn` / `bad`, and the two hairlines) — redefines, never edits, so
+    `kdp-theme.css` still ships the Athenaeum palette to everything else.
+  - **Hue no longer separates the states, so fill, value and texture do.**
+    inert = hairline, no fill · current = stroke + faint tint · **FINAL =
+    filled**, the only filled thing on the page · in revision = a 45° hatch.
+    That is a stronger signal than colour was and survives colour-blindness.
+  - **The ground** is sampled from `hero-poster.jpg`: warm near-black base
+    (`--vg-ground:#080609`) plus five blooms — mulberry, rose, moss, coral, and
+    one faint sliver of the arch-sky so it is not one note. All at ≤.16 alpha.
+    Sizes are in `svh`, not `%`, so a long page cannot dilute the wash.
+  - **THE SEAM RULE, which is why it is built this way.** Every gradient layer
+    stops strictly *inside* its element, so the top and bottom edge of the hero,
+    the reel and the sheet are all exactly `--vg-ground`. The joins are seamless
+    by construction, not by tuning, and a computed-style check can prove it.
+    Not `background-attachment:fixed` (janks, ignored on iOS) and not a fixed
+    backdrop element — that would paint over the hero, which is itself a fixed
+    curtain the page slides across.
+  - **Full-bleed without a negative margin.** `.kd-app` drops `max-width` and
+    sets padding to **zero**; the new `.vg-band` / `.vg-band-in` pair owns
+    layout. Surfaces bleed edge to edge, `.vg-band-in` holds the measure and
+    reserves `calc(var(--kd-rail-w) + var(--kd-pad))` so content clears the
+    floating rail. A negative margin here is exactly what pushed the document
+    44px wide the first time this page went full-bleed.
+  - **No boxes — and nothing may end in a rectangle.** Panels and cards lose
+    border, radius and background. The verso/recto washes, the fold (masked)
+    and the trilogy card's tint all **dissolve** at their edges; a flat tint
+    would draw back the one thing this page must not have.
+  - **Type** from `brand_assets/Normal text typography.jpg`: Bodoni Moda (already
+    loaded for the wordmark, so free) for headings, 9px/`.3em` micro-caps, and
+    Courier Prime → Inter *on this route only* because the reference has no
+    monospace — `tabular-nums lining-nums` carried across explicitly or the
+    counts stop aligning. The manuscript pages keep the typewriter.
+  - The struck primary button, the rail's slate and the shared topbar pill were
+    all warmed under `html.vg-on` too — the pill via specificity, since
+    `topbar.js` injects its CSS at runtime, after this file's `<style>`.
+
+- **The Velvet Grimoire — `kdp.html`'s Command Center became a full-screen
+  cinematic hero over video, with a pinned five-week scroll sequence beneath
+  it, and the whole KDP dashboard was re-tokened to The Athenaeum's palette.**
+  - **Rename.** "Command Center" → **The Velvet Grimoire** in the page title,
+    the hero, `topbar.js`'s `topbarKdp` label and its `/` child, the rail
+    tooltip in `kdp-nav.js`, and every back-link in the four week pages. The
+    nav **folder** is still `KDP Dashboard`. Note `topbar.js`'s *other*
+    `key:'command'` folder (index.html's "Main") is a different app and was
+    deliberately left alone.
+  - **Palette.** Values-only edit to `kdp-theme.css` §1 — no component CSS
+    changed, because nothing outside that block held a hex. Ground `#0A0C0F`,
+    ink `#F2EFE8`, and the three meanings re-pigmented without changing what
+    they mean: `--kd-iris` → verdigris `#5A9E8C` (navigable/current),
+    `--kd-seal` → brass `#C9A458` (final/counted), `--kd-proof` → warm red
+    `#D2726A` (**in revision, nothing else, ever**). One colour was added
+    outside the Athenaeum set — `--kd-rose`, rose-gold, which belongs to the
+    hero wordmark alone. Chrysalis's `stitchTiles` grain was ported as
+    `.kd-grain`. A sweep removed the last stale literals (the old ink
+    `rgba(239,237,229,…)`, `.dr-bar`'s ground, `.dr-ed.is-final`).
+  - **The hero is route-gated.** `<html class="vg-on">` is set for `#/` only;
+    `#/shelf`, `#/library/*` and `#/settings` keep the ordinary compact hero.
+    Full-bleed via the established fixed-curtain pattern (`codex.html:800`),
+    with `--vg-hero-h:100vh; --vg-hero-h:100svh` declared twice so a URL-bar
+    collapse cannot resize the curtain mid-scroll. Structure follows
+    `brand_assets/Hero section #2.jpg`; the wordmark is Bodoni Moda in a
+    rose-gold `background-clip:text` gradient (with a solid `color` set first,
+    so a browser without background-clip shows type rather than nothing), per
+    `brand_assets/brand_guidelines/banner & title_text.jpg`. The emblem — a
+    gothic arch with an eye set into it, echoing both the video and
+    `brand_assets/Icon style.png` — is inline SVG, never a shipped raster.
+    Every line of furniture in the hero is live `KdpData`, not decoration.
+  - **THE STAGE LIVES INSIDE `<header class="kd-hero">`, and both halves of
+    that matter.** *Inside the header* because renderers only ever rewrite
+    `#kdpHeroIn`, so the `<video>` survives every repaint — a video inside a
+    renderer would be a new element several times a minute. *Not a page-level
+    fixed layer* because `body`'s background propagates to the canvas and
+    leaves the body box transparent, so a `z-index:-2` fixed video showed
+    through the entire document behind the dashboard panels. Mounting follows
+    Promptarium (`promptarium.html:1294`): `preload="none"`, **no `autoplay`
+    attribute**, `src` assigned from JS only when
+    `!(max-width:720px) && !prefers-reduced-motion` — a phone never fetches
+    the 2.1 MB file at all — and a two-class handshake (`vg-video-on` →
+    display, `vg-video-live` → opacity) so there is no black flash. Leaving
+    `#/` **pauses without dropping `src`**; dropping it re-downloaded the file
+    and restarted playback from zero on every return.
+  - **The reel** reuses Chrysalis's pinned-stage engine (`chrysalis.html:1723`)
+    — 5 × 100svh, one rAF-throttled handler, progress from the container's own
+    rect, only `opacity`/`transform` written. `.vg-reel--flat` unpins and
+    stacks all five cells for phones and reduced motion, so the content is
+    never unreachable.
+  - **`kdp-nav.js`**: `initScroll()` no longer reads `offsetHeight` inside the
+    scroll handler — that forced a synchronous layout every frame, which a
+    pinned sequence cannot afford. It measures on resize and on a new
+    `kdp:painted` event the router now fires. `armReveals()` also gained a
+    failsafe that force-reveals anything still hidden 1.4 s after paint: a
+    reveal starts at `opacity:0`, so failing to fire it does not degrade the
+    page, it hides the page.
+  - **Assets**: `images_by_admin/kdp/hero.mp4` (2.1 MB, 720×1280 **portrait**,
+    6.7 s — hence `object-position:50% 35%`, which keeps the archway centred
+    in a landscape crop) and `hero-poster.jpg` (115 KB), the poster extracted
+    with the installed puppeteer rather than by adding ffmpeg.
+
+- **New: The KDP Dashboard — five pages (`kdp.html`, `kdp-foundations.html`,
+  `kdp-draft.html`, `kdp-continuity.html`, `kdp-publish.html`) over three new
+  shared sidecars (`kdp-data.js`, `kdp-nav.js`, `kdp-theme.css`), plus one
+  throwaway (`kdp-styletile.html`).** A production system for the user's
+  fixed five-week romantasy trilogy workflow. It **runs the process**; The
+  Codex stores the output. One structural rule: **Week 1 runs once per
+  trilogy, Weeks 2–5 repeat per book.**
+  - **Genuinely separate from The Codex**, confirmed with the user before any
+    code was written. It never reads or writes `cdx:`, has its own appKeys,
+    and duplicates nothing. `codex.html` and `codex-data.js` are untouched.
+  - **Two sync rows, split by weight — the one decision the whole build is
+    shaped around.** `sync.js:91` (`pushNow`) collects *every* key under a
+    prefix and uploads the whole blob on each debounced save. Four full
+    drafts across 40 chapters × 3 books is 7–10 MB; sharing one row with the
+    metadata would re-upload the entire manuscript every time a status pill
+    changed. So `kdp:` carries structure/statuses (small, instant) and
+    `kdpms:` carries prose, one key per chapter (pushed only when prose
+    changes). Word counts are **cached** onto `kdp:chapters[].wordsFinal` so
+    a book total never opens a manuscript key. Both mounted in
+    `Kdp.initPage()`. A third prefix, `kdparc:`, sits outside both on
+    purpose: `archiveTrilogy()` forces a backup download first, **refuses to
+    proceed if that download is blocked**, and only then moves the trilogy
+    out of live sync. Storage health is readable at `kdp.html#/settings`.
+  - **Seeding.** `createTrilogy()` builds 3 books, 9 acts, 120 chapters
+    (Act I 1–10, Act II 11–30, Act III 31–40), 12 worldbuilding sections, 4
+    character sheets, 3 style documents and 1 dossier in one pass. A chapter
+    number is never entered by hand. Chapters are written with one
+    `addMany()`, not 40 `add()` calls.
+  - **The four indexes.** Every chapter holds I Original · II Improvement
+    plan · III Rewritten · IV Final ★. All four paste in and copy out; **only
+    Index IV feeds the word count**, and `compileBook()` pulls Index IV
+    alone. `writeDraft()` returns a `delta` that is zero for every index but
+    `final`, and derives the chapter's status from its index state so a
+    chapter can never read "not started" with 3,000 words in Index I.
+  - **`nextAction()`** walks the workflow gates in order (dossier → characters
+    → world → plan → outlines → style → ch 1–28 → ch 29–40 → continuity →
+    publish) and is the single source for both the Command Center's Continue
+    button and the icon rail, so they cannot disagree.
+  - **Weeks 2 and 3 are one engine, two entry points** (`?week=2|3`), filtered
+    to their chapter range with an "All 40" toggle — the user's explicit
+    choice over duplicating the page.
+  - **Timeline continuity detects its own conflicts**: a row can record what
+    the prose *claims* has elapsed, and `timelineConflicts()` reports where
+    that disagrees with the day column, in the phrasing the user asked for.
+  - **Three primitives carry ~15 pages**, all in `kdp-nav.js`: `pasteBlock`
+    (paste + copy + word count + status + autosave), `noteRack` (generatable
+    notes, rendered as real marginalia), `promptRack` (generatable prompt
+    blocks with `{{PLACEHOLDER}}` highlighting).
+  - **Data loss.** `local-store-idb.js` first and undeferred; autosave on an
+    800 ms debounce, on blur, on `visibilitychange → hidden` and on
+    `pagehide`; `flushAndGo()` pushes IndexedDB to disk **before** any
+    navigation, because a write issued in the same tick as an unload is lost;
+    a failed `storeSet` raises `kdp:save` and toasts rather than failing
+    silently; full JSON export and per-book markdown compile from Settings.
+  - **Traps honoured.** `makeRouter()` splits navigation from repaint on a
+    route key: a cloud pull restores scroll position instead of jumping to
+    top, `refresh()` bails while a modal or a focused field is open, and
+    `armReveals(root, navigated)` shows everything instantly on a repaint so
+    entrance animations never replay mid-sentence. Fields are 16px under
+    both `max-width:640px` and `pointer:coarse` so iOS never zooms in on
+    focus. Grid children carry `min-width:0` so inner `overflow-x` containers
+    actually scroll instead of widening the page.
+  - **Aesthetic: Recto / Verso.** The interface is a two-page spread with a
+    real fold — shadow deepening at the centre, because pages curve *into*
+    the spine. Reference on the verso, work on the recto, notes in the actual
+    margin. Instrument Serif / Source Serif 4 / Inter / Courier Prime on a
+    dark ground, with three semantic colours and no fourth: indigo =
+    navigable/current, proof-red = **in revision, nothing else ever**, bone =
+    sealed/counted. Chosen from `kdp-styletile.html`, which rendered three
+    full directions on identical components; the other two ("The Bindery",
+    "The Ledger") are still in that file. It is linked from nothing and is
+    safe to delete.
+  - **`topbar.js`** gained one nav folder (`key: 'kdp'`) beneath The
+    Chrysalis — the only edit made to that shared file.
 
 - **New: The Athenaeum's Resource Library — `athenaeum-resources.html` (the
   library) and `athenaeum-resource.html?id=` (one resource), plus two new

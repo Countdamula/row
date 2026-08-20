@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KDP · Week 4 — Continuity</title>
+
+<!-- MUST be first and MUST NOT be deferred. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kdp-theme.css">
+<link rel="stylesheet" href="kdp-velvet.css">
+<style>
+  .ct-cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--kd-4)}
+  .ct-cat{padding:var(--kd-5);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r);cursor:pointer;text-align:left;color:inherit;
+    transition:border-color .3s var(--kd-ease),transform .3s var(--kd-spring)}
+  .ct-cat:hover{transform:translateY(-2px);border-color:rgba(var(--kd-iris-rgb),.5)}
+  .ct-cat.is-done{border-color:rgba(var(--kd-seal-rgb),.4)}
+  .ct-item{border:1px solid var(--kd-hair);border-radius:var(--kd-r-xs);
+    background:var(--kd-leaf-2);margin-bottom:var(--kd-3);overflow:hidden}
+  .ct-item.is-flagged{border-color:var(--kd-proof)}
+  .ct-item.is-resolved{border-color:rgba(var(--kd-seal-rgb),.42)}
+  .ct-item-h{display:flex;align-items:center;gap:var(--kd-3);width:100%;text-align:left;
+    padding:var(--kd-3) var(--kd-4);background:none;border:0;color:inherit;cursor:pointer}
+  .ct-item-t{flex:1;min-width:0;font-family:var(--kd-body);font-size:15px;color:var(--kd-tx)}
+  .ct-item-b{padding:0 var(--kd-4) var(--kd-4);border-top:1px solid var(--kd-hair-soft)}
+  .ct-flags{display:grid;gap:var(--kd-3);margin-top:var(--kd-4)}
+  .ct-flag{padding:var(--kd-3) var(--kd-4);border:1px solid var(--kd-proof);
+    border-radius:var(--kd-r-xs);background:rgba(var(--kd-proof-rgb),.09);
+    font-family:var(--kd-body);font-size:14.5px;color:var(--kd-tx)}
+  .ct-arc{width:100%;height:180px;display:block}
+  .ct-grid{display:grid;grid-template-columns:150px repeat(40,minmax(22px,1fr));
+    gap:2px;min-width:940px}
+  .ct-grid-l{font-family:var(--kd-ui);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--kd-tx-mute);display:flex;align-items:center;
+    padding-right:var(--kd-2)}
+  .ct-cell{aspect-ratio:1;border:0;border-radius:2px;cursor:pointer;padding:0;
+    background:rgba(242,239,232,.07);
+    transition:transform .2s var(--kd-spring)}
+  .ct-cell:hover{transform:scale(1.25)}
+  /* A 22px square is a desk density and a miss under a thumb. The grid is
+     already inside a scrolling .kd-table-wrap, so a wider row costs nothing.
+     Keyed to the pointer, not the width: a tablet is the same hazard. */
+  @media (pointer:coarse){
+    .ct-grid{grid-template-columns:120px repeat(40,minmax(44px,1fr))}
+    .ct-cell:hover{transform:none}
+  }
+  .ct-num{font-family:var(--kd-mono);font-size:8.5px;color:var(--kd-tx-faint);
+    text-align:center;line-height:1}
+</style>
+</head>
+<body>
+
+<div class="kd-gauge" id="kdpGauge"></div>
+<div class="kd-toast" id="kdpToast" role="status" aria-live="polite"></div>
+<div class="kd-modal-bg" id="kdpModalBg"></div>
+<pre class="kd-boot-error" id="kdpBootError"></pre>
+
+<header class="kd-hero" id="kdpHero"><div class="kd-hero-in" id="kdpHeroIn"></div></header>
+
+<!-- The reel is present but hidden until a landing route fills it. buildReel()
+     and the hero's scroll cue both resolve it by id. -->
+<section class="vg-reel" id="vgReel" hidden><div class="vg-reel-stage" id="vgReelStage"></div></section>
+<main class="kd-app"><div class="kd-sheet vg-sheet" id="kdpBody"></div></main>
+<div class="kd-grain" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="kdp-data.js"></script>
+<script src="kdp-nav.js"></script>
+<script src="kdp-velvet.js"></script>
+<script src="topbar.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+  var D = window.KdpData, K = window.Kdp, V = window.Velvet;
+  var $ = K.$, esc = K.esc, on = K.on;
+  var router = null, BOOK = null, TRI = null;
+  var openItems = {}, arcDim = 'attraction';
+
+  function body() { return $('kdpBody'); }
+  function refresh() { router.refresh(); }
+
+  function hero(eyebrow, title, lede, crumb) {
+    $('kdpHeroIn').innerHTML =
+      '<p class="kd-eyebrow kd-rise">' + esc(eyebrow) + '</p>' +
+      '<h1 class="kd-h1 kd-rise">' + esc(title) + '</h1>' +
+      (lede ? '<p class="kd-lede kd-rise">' + esc(lede) + '</p>' : '') +
+      (crumb ? '<div class="kd-rise" style="margin-top:var(--kd-5);display:flex;gap:var(--kd-2);flex-wrap:wrap">' + crumb + '</div>' : '');
+    on($('kdpHeroIn'), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+  }
+  function navBtn(href, label, primary) {
+    return '<button type="button" class="kd-btn kd-btn-sm' + (primary ? ' kd-btn-primary' : '') +
+      '" data-nav="' + esc(href) + '">' + esc(label) + '</button>';
+  }
+  function catMeta(id) {
+    return D.CONTINUITY_CATEGORIES.filter(function (c) { return c.id === id; })[0];
+  }
+
+  /** Checklist rows are created on demand, so the store stays empty until used. */
+  function rowFor(catId, item) {
+    var rows = D.Continuity.where(function (r) {
+      return r.bookId === BOOK.id && r.category === catId && r.item === item;
+    });
+    return rows[0] || D.Continuity.add({ bookId: BOOK.id, category: catId, item: item });
+  }
+  function catProgress(catId) {
+    var cat = catMeta(catId);
+    if (!cat.items.length) {
+      if (catId === 'timeline') {
+        var rows = D.timelineForBook(BOOK.id);
+        var bad = D.timelineConflicts(BOOK.id).length;
+        return { done: rows.length && !bad ? 1 : 0, total: 1 };
+      }
+      var beats = D.RomanceBeats.where(function (r) { return r.bookId === BOOK.id; });
+      return { done: beats.length ? 1 : 0, total: 1 };
+    }
+    var resolved = D.Continuity.where(function (r) {
+      return r.bookId === BOOK.id && r.category === catId && r.status === 'resolved';
+    }).length;
+    return { done: resolved, total: cat.items.length };
+  }
+
+  // ===========================================================================
+  // OVERVIEW
+  // ===========================================================================
+  function renderOverview() {
+    var wp = D.weekProgress(BOOK.id, 4);
+    V.hero({
+      word: 'Continuity',
+      corner: 'WEEK 4 · <b>CONTINUITY</b>',
+      eyebrow: TRI.title + ' · ' + BOOK.title,
+      sub: wp.done + ' of ' + wp.total + ' checks cleared · nothing here changes the prose',
+      cta: 'Week 5 — Publish & Launch',
+      foot: D.CONTINUITY_CATEGORIES.map(function (c) {
+        return '<button type="button" class="vg-wk" data-vgfoot="' + esc(c.id) + '">' +
+          esc(c.label) + '</button>';
+      }).join(''),
+      onFoot: function (id) { K.navigate('#/' + id); },
+      onGo: function () { K.navigate('kdp-publish.html?book=' + BOOK.id + '#/'); }
+    });
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Week 4 progress</span>' +
+          '<span class="kd-meta">' + wp.done + ' of ' + wp.total + ' checks · ' + wp.pct + '%</span></div>' +
+        K.meter(wp.pct, wp.pct >= 100) +
+      '</div>' +
+      '<div class="ct-cats">' + D.CONTINUITY_CATEGORIES.map(function (c) {
+        var p = catProgress(c.id);
+        var done = p.total && p.done === p.total;
+        return '<button type="button" class="ct-cat kd-rise' + (done ? ' is-done' : '') +
+          '" data-cat="' + esc(c.id) + '">' +
+          '<p class="kd-label">' + (p.total ? p.done + ' / ' + p.total : '') + (done ? ' · CLEAR' : '') + '</p>' +
+          '<h3 class="kd-h2" style="margin:6px 0 var(--kd-3)">' + esc(c.label) + '</h3>' +
+          K.meter(p.total ? Math.round((p.done / p.total) * 100) : 0, done) +
+        '</button>';
+      }).join('') + '</div>';
+
+    on(body(), '[data-cat]', 'click', function () { K.navigate('#/' + this.dataset.cat); });
+  }
+
+  // ===========================================================================
+  // CHECKLIST CATEGORIES — plot, character, world, read
+  // ===========================================================================
+  function renderChecklist(catId) {
+    var cat = catMeta(catId);
+    var scope = 'w4.' + catId + '.' + BOOK.id;
+    var p = catProgress(catId);
+
+    hero('Week 4 · ' + BOOK.title, cat.label,
+      'Work down the list. Flag what is broken, resolve what is clean.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Resolved</span>' +
+          '<span class="kd-meta">' + p.done + ' of ' + p.total + '</span></div>' +
+        K.meter(Math.round((p.done / p.total) * 100), p.done === p.total) +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">' + cat.items.length + ' checks</p>' +
+          '<div style="display:flex;gap:var(--kd-2)">' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="ctExpand">Expand all</button>' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="ctCollapse">Collapse all</button>' +
+          '</div></div>' +
+        cat.items.map(function (item) {
+          var r = rowFor(catId, item);
+          var isOpen = !!openItems[r.id];
+          return '<div class="ct-item is-' + esc(r.status) + '">' +
+            '<button type="button" class="ct-item-h" data-item="' + esc(r.id) + '">' +
+              '<span class="kd-caret"' + (isOpen ? ' style="rotate:90deg"' : '') + '>›</span>' +
+              '<span class="ct-item-t">' + esc(item) + '</span>' +
+              K.statusPill(D.TASK_STATUSES, r.status) +
+            '</button>' +
+            (isOpen ? '<div class="ct-item-b">' +
+              K.fieldSelect('Status', 'st_' + r.id, r.status, D.TASK_STATUSES) +
+              K.fieldText('Chapters involved', 'ch_' + r.id, (r.chapterRefs || []).join(', '), 'e.g. 12, 17, 31') +
+              K.fieldArea('What is wrong, and the smallest fix', 'bd_' + r.id, r.body, 5) +
+            '</div>' : '') +
+          '</div>';
+        }).join('') +
+      '</div>';
+
+    on($('kdpHeroIn'), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+
+    on(body(), '[data-item]', 'click', function () {
+      var id = this.dataset.item;
+      openItems[id] = !openItems[id];
+      refresh();
+    });
+    $('ctExpand').addEventListener('click', function () {
+      cat.items.forEach(function (i) { openItems[rowFor(catId, i).id] = true; }); refresh();
+    });
+    $('ctCollapse').addEventListener('click', function () { openItems = {}; refresh(); });
+
+    cat.items.forEach(function (item) {
+      var r = rowFor(catId, item);
+      if (!openItems[r.id]) return;
+      var sel = body().querySelector('[data-f="st_' + r.id + '"]');
+      if (sel) sel.addEventListener('change', function () {
+        D.Continuity.update(r.id, { status: sel.value }); refresh();
+      });
+      var chs = body().querySelector('[data-f="ch_' + r.id + '"]');
+      if (chs) {
+        var s1 = K.createSaver(function (v) {
+          D.Continuity.update(r.id, {
+            chapterRefs: v.split(',').map(function (x) { return x.trim(); }).filter(Boolean)
+          });
+        });
+        chs.addEventListener('input', function () { s1.queue(chs.value); });
+        chs.addEventListener('blur', function () { s1.flush(); });
+      }
+      var bd = body().querySelector('[data-f="bd_' + r.id + '"]');
+      if (bd) {
+        var s2 = K.createSaver(function (v) { D.Continuity.update(r.id, { body: v }); });
+        bd.addEventListener('input', function () { s2.queue(bd.value); });
+        bd.addEventListener('blur', function () { s2.flush(); });
+      }
+    });
+  }
+
+  // ===========================================================================
+  // TIMELINE
+  // ===========================================================================
+  function renderTimeline() {
+    var rows = D.timelineForBook(BOOK.id);
+    var conflicts = D.timelineConflicts(BOOK.id);
+    var scope = 'w4.timeline.' + BOOK.id;
+
+    hero('Week 4 · ' + BOOK.title, 'Timeline continuity',
+      'Log what happens on which day. Anything the prose claims that the table contradicts is flagged automatically.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head">' +
+          '<p class="kd-label">' + rows.length + ' entries</p>' +
+          '<button type="button" class="kd-btn kd-btn-primary kd-btn-sm" id="tlAdd">+ Entry</button>' +
+        '</div>' +
+        (rows.length
+          ? '<div class="kd-table-wrap"><table class="kd-table">' +
+              '<thead><tr><th>Day</th><th>Chapters</th><th>Event</th><th>Prose claims</th><th></th></tr></thead>' +
+              '<tbody>' + rows.map(function (r) {
+                return '<tr>' +
+                  '<td>Day ' + r.day + '</td>' +
+                  '<td>Ch. ' + r.chapterFrom + (r.chapterTo !== r.chapterFrom ? '–' + r.chapterTo : '') + '</td>' +
+                  '<td style="color:var(--kd-tx)">' + esc(r.event) + '</td>' +
+                  '<td>' + (r.statedElapsed === '' ? '—' : '+' + r.statedElapsed + 'd') + '</td>' +
+                  '<td style="text-align:right"><button type="button" class="kd-btn kd-btn-sm" data-tl="' + esc(r.id) + '">Edit</button></td>' +
+                '</tr>';
+              }).join('') + '</tbody></table></div>'
+          : '<p class="kd-meta">Nothing logged. Add the first day.</p>') +
+
+        (conflicts.length
+          ? '<div class="ct-flags">' +
+              '<p class="kd-label" style="color:var(--kd-proof)">' + conflicts.length +
+                ' conflict' + (conflicts.length === 1 ? '' : 's') + ' detected</p>' +
+              conflicts.map(function (c) { return '<div class="ct-flag">' + esc(c.message) + '</div>'; }).join('') +
+            '</div>'
+          : (rows.length ? '<p class="kd-meta" style="margin-top:var(--kd-4);color:var(--kd-seal)">No timeline conflicts.</p>' : '')) +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    on($('kdpHeroIn'), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+
+    $('tlAdd').addEventListener('click', function () { openTimeline(null); });
+    on(body(), '[data-tl]', 'click', function () { openTimeline(this.dataset.tl); });
+  }
+
+  function openTimeline(id) {
+    var r = id ? D.Timeline.get(id) : null;
+    K.openModal({
+      title: r ? 'Edit timeline entry' : 'New timeline entry',
+      body: K.fieldNum('Day', 'day', r ? r.day : 1) +
+            K.fieldNum('From chapter', 'chapterFrom', r ? r.chapterFrom : 1) +
+            K.fieldNum('To chapter', 'chapterTo', r ? r.chapterTo : 1) +
+            K.fieldText('Event', 'event', r ? r.event : '') +
+            K.fieldText('Elapsed time the prose claims (days)', 'statedElapsed',
+              r && r.statedElapsed !== '' ? r.statedElapsed : '',
+              'Leave blank unless the text states it') +
+            '<p class="kd-meta">If the prose says "three days later" put 3 here. It is checked against the day column.</p>',
+      onSave: function (root) {
+        var f = K.readFields(root);
+        f.day = Number(f.day) || 1;
+        f.chapterFrom = Number(f.chapterFrom) || 1;
+        f.chapterTo = Number(f.chapterTo) || f.chapterFrom;
+        f.statedElapsed = String(f.statedElapsed).trim() === '' ? '' : Number(f.statedElapsed);
+        f.bookId = BOOK.id;
+        if (r) D.Timeline.update(r.id, f);
+        else D.Timeline.add(Object.assign(f, { order: D.nextOrder(D.Timeline) }));
+      },
+      onDelete: r ? function () { D.Timeline.remove(r.id); } : null,
+      deleteConfirm: 'Delete this entry?',
+      after: refresh
+    });
+  }
+
+  // ===========================================================================
+  // ROMANCE
+  // ===========================================================================
+  function renderRomance() {
+    var scope = 'w4.romance.' + BOOK.id;
+    var N = D.CHAPTERS_PER_BOOK;
+
+    hero('Week 4 · ' + BOOK.title, 'Romance continuity',
+      'Ten dimensions across forty chapters. Click a cell to set its level 0–5.');
+
+    var series = D.romanceArcSeries(BOOK.id, arcDim);
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head">' +
+          '<p class="kd-label">Arc — ' +
+            esc(D.ROMANCE_DIMENSIONS.filter(function (d) { return d.id === arcDim; })[0].label) + '</p>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' + D.ROMANCE_DIMENSIONS.map(function (d) {
+            return '<button type="button" class="kd-chip' + (d.id === arcDim ? ' is-on' : '') +
+              '" data-dim="' + esc(d.id) + '">' + esc(d.label) + '</button>';
+          }).join('') + '</div>' +
+        '</div>' +
+        arcSvg(series) +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">All dimensions</p>' +
+          '<span class="kd-meta">Darker is higher — click to cycle 0 → 5</span></div>' +
+        '<div class="kd-table-wrap"><div class="ct-grid">' +
+          '<span></span>' +
+          (function () {
+            var o = '';
+            for (var n = 1; n <= N; n++) o += '<span class="ct-num">' + (n % 5 === 0 || n === 1 ? n : '') + '</span>';
+            return o;
+          })() +
+          D.ROMANCE_DIMENSIONS.map(function (d) {
+            var s = D.romanceArcSeries(BOOK.id, d.id);
+            var cells = '';
+            for (var n = 1; n <= N; n++) {
+              var v = s[n - 1];
+              var alpha = v == null ? 0 : (0.14 + (v / 5) * 0.8);
+              cells += '<button type="button" class="ct-cell" data-cell="' + esc(d.id) + ':' + n +
+                '" title="' + esc(d.label) + ' · ch ' + n + ' · ' + (v == null ? 'unset' : v) + '"' +
+                (v == null ? '' : ' style="background:rgba(var(--kd-iris-rgb),' + alpha.toFixed(2) + ')"') +
+                '></button>';
+            }
+            return '<span class="ct-grid-l">' + esc(d.label) + '</span>' + cells;
+          }).join('') +
+        '</div></div>' +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    on($('kdpHeroIn'), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+
+    on(body(), '[data-dim]', 'click', function () { arcDim = this.dataset.dim; refresh(); });
+    on(body(), '[data-cell]', 'click', function () {
+      var parts = this.dataset.cell.split(':');
+      var dim = parts[0], n = Number(parts[1]);
+      var rows = D.RomanceBeats.where(function (r) {
+        return r.bookId === BOOK.id && r.chapter === n && r.dimension === dim;
+      });
+      if (!rows.length) D.RomanceBeats.add({ bookId: BOOK.id, chapter: n, dimension: dim, value: 1 });
+      else if (rows[0].value >= 5) D.RomanceBeats.remove(rows[0].id);
+      else D.RomanceBeats.update(rows[0].id, { value: rows[0].value + 1 });
+      refresh();
+    });
+  }
+
+  function arcSvg(series) {
+    var N = series.length, W = 1000, H = 160, pad = 14;
+    var pts = [];
+    for (var i = 0; i < N; i++) {
+      if (series[i] == null) continue;
+      var x = pad + (i / (N - 1)) * (W - pad * 2);
+      var y = H - pad - (series[i] / 5) * (H - pad * 2);
+      pts.push([x, y]);
+    }
+    var path = pts.map(function (p, i) {
+      return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+    }).join(' ');
+    var grid = '';
+    for (var g = 0; g <= 5; g++) {
+      var gy = H - pad - (g / 5) * (H - pad * 2);
+      grid += '<line x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy +
+        '" stroke="rgba(242,239,232,.08)" stroke-width="1"/>';
+    }
+    return '<svg class="ct-arc" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" role="img" ' +
+      'aria-label="Romance arc across 40 chapters">' + grid +
+      (pts.length > 1
+        ? '<path d="' + path + '" fill="none" stroke="var(--kd-iris)" stroke-width="2.5" ' +
+          'stroke-linejoin="round" stroke-linecap="round"/>'
+        : '') +
+      pts.map(function (p) {
+        return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) +
+          '" r="3.5" fill="var(--kd-iris-hi)"/>';
+      }).join('') +
+      (pts.length ? '' : '<text x="' + (W / 2) + '" y="' + (H / 2) +
+        '" text-anchor="middle" fill="rgba(242,239,232,.34)" font-size="13" ' +
+        'font-family="Inter,sans-serif">Nothing logged for this dimension yet</text>') +
+    '</svg>';
+  }
+
+  // ===========================================================================
+  // BOOT
+  // ===========================================================================
+  K.boot(function () {
+    K.initPage({ onSync: function () { if (router) router.refresh(); } });
+
+    BOOK = D.Books.get(K.param('book')) || D.Books.get(D.getUiState().lastBookId);
+    if (!BOOK) {
+      var t = D.trilogiesSorted()[0];
+      BOOK = t ? D.booksForTrilogy(t.id)[0] : null;
+    }
+    // Mount the bar BEFORE the dead-end below. A page with no trilogy or
+    // book is exactly where navigation matters most; bailing out first
+    // used to strand the reader with no way out but the browser Back button.
+    K.mountBar({ page: 'kdp-continuity.html', routeKey: function (r) { return r ? r.name : ''; } });
+    if (!BOOK) {
+      $('kdpHeroIn').innerHTML = '<h1 class="kd-h1">No book</h1>';
+      body().innerHTML = '<div class="kd-panel"><div class="kd-empty">' +
+        '<div class="kd-empty-glyph">❖</div><p class="kd-lede">Start a trilogy first.</p>' +
+        '<a class="kd-btn kd-btn-primary" href="kdp.html#/shelf">Go to The Velvet Grimoire</a></div></div>';
+      return;
+    }
+    TRI = D.Trilogies.get(BOOK.trilogyId);
+    D.setUiState({ lastBookId: BOOK.id, lastTrilogyId: TRI.id });
+
+    router = K.makeRouter({
+      parse: function (parts) {
+        var known = ['plot', 'character', 'world', 'timeline', 'romance', 'read'];
+        if (parts[0] && known.indexOf(parts[0]) >= 0) return { name: parts[0] };
+        return { name: 'overview' };
+      },
+      key: function (r) { return r.name + ':' + arcDim; },
+      render: function (r) {
+        // See kdp-velvet.js: this order is load-bearing.
+        var landing = (r.name === 'overview');
+        V.velvetOn(true);
+        V.setScene('book');
+        $('kdpHero').classList.toggle('is-compact', !landing);
+        if (!landing) V.buildReel(null, null);
+
+        if (r.name === 'overview') renderOverview();
+        else if (r.name === 'timeline') renderTimeline();
+        else if (r.name === 'romance') renderRomance();
+        else renderChecklist(r.name);
+
+        // vg-on is settled and the reel exists, so the controller can now
+        // decide whether a video file is worth fetching.
+        V.mountStage();
+      }
+    });
+    // Injected once, here, before the first render. A <video> created by a
+    // renderer restarts on every repaint; this is the invariant kdp-velvet.js
+    // is shaped around.
+    V.mountStages(['book']);
+    router.render();
+  });
+})();
+</script>
+</body>
+</html>

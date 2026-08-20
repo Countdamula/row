@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KDP · Week 1 — Foundations</title>
+
+<!-- MUST be first and MUST NOT be deferred. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kdp-theme.css">
+<link rel="stylesheet" href="kdp-velvet.css">
+<style>
+  .fd-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--kd-4)}
+  .fd-step{position:relative;padding:var(--kd-5);background:var(--kd-leaf-2);
+    border:1px solid var(--kd-hair);border-radius:var(--kd-r);cursor:pointer;
+    text-align:left;color:inherit;
+    transition:border-color .3s var(--kd-ease),transform .3s var(--kd-spring)}
+  .fd-step:hover{transform:translateY(-2px);border-color:rgba(var(--kd-iris-rgb),.5)}
+  .fd-step.is-done{border-color:rgba(var(--kd-seal-rgb),.36)}
+  .fd-step-n{font-family:var(--kd-mono);font-size:11px;letter-spacing:.14em;
+    color:var(--kd-tx-faint);margin:0 0 var(--kd-3)}
+  .fd-step.is-done .fd-step-n{color:var(--kd-seal)}
+  .fd-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .fd-axis{margin-bottom:var(--kd-5)}
+  .fd-axis-head{display:flex;align-items:baseline;justify-content:space-between;
+    gap:var(--kd-3);margin-bottom:var(--kd-3)}
+  .fd-sel{padding:var(--kd-4);background:var(--kd-recto);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r)}
+  .fd-sel-line{display:flex;gap:var(--kd-3);align-items:flex-start;
+    padding:var(--kd-2) 0;border-bottom:1px solid var(--kd-hair-soft)}
+  .fd-sel-line:last-child{border-bottom:0}
+  .fd-sel-k{flex:none;width:120px;font-family:var(--kd-ui);font-size:9.5px;font-weight:600;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--kd-tx-mute);padding-top:3px}
+  .fd-sel-v{flex:1;min-width:0;font-family:var(--kd-body);font-size:14.5px;
+    line-height:1.6;color:var(--kd-tx)}
+  .fd-gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:var(--kd-4)}
+  .fd-card{padding:var(--kd-4);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r);cursor:pointer;text-align:left;color:inherit;
+    transition:border-color .3s var(--kd-ease),transform .3s var(--kd-spring)}
+  .fd-card:hover{transform:translateY(-2px);border-color:rgba(var(--kd-iris-rgb),.5)}
+  .fd-card.is-done{border-color:rgba(var(--kd-seal-rgb),.4)}
+  .fd-kv{display:grid;grid-template-columns:150px 1fr;gap:var(--kd-2) var(--kd-4);
+    font-size:14px;align-items:baseline}
+  .fd-kv dt{font-family:var(--kd-ui);font-size:9.5px;font-weight:600;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--kd-tx-mute)}
+  .fd-kv dd{margin:0;font-family:var(--kd-body);color:var(--kd-tx);min-width:0;
+    word-break:break-word}
+  .fd-actbar{display:flex;align-items:center;justify-content:space-between;gap:var(--kd-3);
+    flex-wrap:wrap;margin-bottom:var(--kd-4)}
+  .fd-act{margin-bottom:var(--kd-5)}
+  .fd-act-h{display:flex;align-items:center;justify-content:space-between;gap:var(--kd-3);
+    flex-wrap:wrap;padding:var(--kd-3) var(--kd-4);background:var(--kd-verso);
+    border:1px solid var(--kd-hair);border-radius:var(--kd-r) var(--kd-r) 0 0}
+  .fd-act-h > div{min-width:0}
+  .fd-chs{display:grid;gap:6px;padding:var(--kd-3);border:1px solid var(--kd-hair);
+    border-top:0;border-radius:0 0 var(--kd-r) var(--kd-r);background:var(--kd-leaf)}
+  .fd-ch-h{display:flex;align-items:center;gap:var(--kd-3);width:100%;text-align:left;
+    padding:10px var(--kd-3);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r-xs);color:inherit;cursor:pointer;
+    transition:border-color .26s var(--kd-ease)}
+  .fd-ch-h:hover{border-color:rgba(var(--kd-iris-rgb),.45)}
+  .fd-ch-h.is-open{border-radius:var(--kd-r-xs) var(--kd-r-xs) 0 0;
+    border-color:rgba(var(--kd-iris-rgb),.45)}
+  .fd-ch-n{flex:none;font-family:var(--kd-mono);font-size:11px;color:var(--kd-tx-mute);
+    min-width:58px}
+  .fd-ch-t{flex:1;min-width:0;font-family:var(--kd-body);font-size:14.5px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fd-ch-b{padding:var(--kd-4);border:1px solid rgba(var(--kd-iris-rgb),.45);border-top:0;
+    border-radius:0 0 var(--kd-r-xs) var(--kd-r-xs);background:var(--kd-verso)}
+  .fd-dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--kd-tx-faint)}
+  .fd-dot.is-on{background:var(--kd-seal)}
+</style>
+</head>
+<body>
+
+<div class="kd-gauge" id="kdpGauge"></div>
+<div class="kd-toast" id="kdpToast" role="status" aria-live="polite"></div>
+<div class="kd-modal-bg" id="kdpModalBg"></div>
+<pre class="kd-boot-error" id="kdpBootError"></pre>
+
+<header class="kd-hero" id="kdpHero"><div class="kd-hero-in" id="kdpHeroIn"></div></header>
+
+<!-- The reel is present but hidden until a landing route fills it. buildReel()
+     and the hero's scroll cue both resolve it by id. -->
+<section class="vg-reel" id="vgReel" hidden><div class="vg-reel-stage" id="vgReelStage"></div></section>
+<main class="kd-app"><div class="kd-sheet vg-sheet" id="kdpBody"></div></main>
+<div class="kd-grain" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="kdp-data.js"></script>
+<script src="kdp-nav.js"></script>
+<script src="kdp-velvet.js"></script>
+<script src="topbar.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+  var D = window.KdpData, K = window.Kdp, V = window.Velvet;
+  var $ = K.$, esc = K.esc, on = K.on;
+  var router = null, TRI = null;
+
+  function body() { return $('kdpBody'); }
+  function refresh() { router.refresh(); }
+
+  function hero(eyebrow, title, lede, crumb) {
+    $('kdpHeroIn').innerHTML =
+      '<p class="kd-eyebrow kd-rise">' + esc(eyebrow) + '</p>' +
+      '<h1 class="kd-h1 kd-rise">' + esc(title) + '</h1>' +
+      (lede ? '<p class="kd-lede kd-rise">' + esc(lede) + '</p>' : '') +
+      (crumb ? '<div class="kd-rise" style="margin-top:var(--kd-5);display:flex;gap:var(--kd-2);flex-wrap:wrap">' + crumb + '</div>' : '');
+  }
+  /* The BACK crumb lives in the top bar now — one control, on every route of
+     every page, that cannot be forgotten on a new step. What stays in the hero
+     is the forward CTA that carries a step to the next one. */
+  function wireHeroNav() {
+    on($('kdpHeroIn'), '[data-fwd]', 'click', function () { K.navigate(this.dataset.fwd); });
+  }
+
+  /**
+   * Notes + prompts, side by side, and — when the step works in one — the
+   * blank sheets of that Template kind. Every step gets this set.
+   * @param kind optional D.TEMPLATE_KINDS entry. Steps that already render
+   *             their own rack (characters, plan, outline) pass nothing.
+   */
+  function workbench(scope, kind) {
+    return '<div class="kd-split">' +
+      '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+      '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+    '</div>' +
+    (kind ? '<div class="kd-panel kd-rise">' + K.blankRack(kind) + '</div>' : '');
+  }
+  function wireWorkbench(scope, kind) {
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+    if (kind) K.wireBlankRack(body(), kind, refresh);
+  }
+
+  // ===========================================================================
+  // OVERVIEW
+  // ===========================================================================
+  function renderOverview() {
+    var books = D.booksForTrilogy(TRI.id);
+    // A trilogy is seeded with three books at once, so fewer than three means
+    // it stopped partway through being created. Send it to the one page that
+    // can repair it rather than throwing on books[0].id.
+    if (books.length < 3) {
+      hero('Amazon KDP · Week 1', TRI.title, 'This trilogy is incomplete — it has ' +
+        books.length + ' of its three books. Repair it before starting Week 1.');
+      body().innerHTML =
+        '<div class="kd-panel kd-rise"><div class="kd-empty">' +
+          '<div class="kd-empty-glyph">❖</div>' +
+          '<p class="kd-lede" style="margin:0 auto var(--kd-5)">Repairing adds only what is ' +
+            'missing and leaves everything already written untouched.</p>' +
+          '<a class="kd-btn kd-btn-primary" href="kdp.html#/t/' + esc(TRI.id) + '">Open and repair</a>' +
+        '</div></div>';
+      return;
+    }
+    var steps = [
+      { n: 1, label: 'Story dossier',     hash: '#/dossier',   done: D.dossierComplete(TRI.id),
+        sub: 'Concept, critique, revision.' },
+      { n: 2, label: 'Characters',        hash: '#/characters', done: D.charactersComplete(TRI.id),
+        sub: 'The four leads, sheet by sheet.' },
+      { n: 3, label: 'Worldbuilding',     hash: '#/world',      done: D.worldComplete(TRI.id),
+        sub: 'Twelve elements, each sealed.' },
+      { n: 4, label: 'Trilogy planning',  hash: '#/plan',       done: D.planComplete(TRI.id),
+        sub: 'All three books at a glance.' },
+      { n: 5, label: 'Book I outline',    hash: '#/outline/' + books[0].id, done: D.outlineComplete(books[0].id),
+        sub: '40 chapters, three acts.' },
+      { n: 6, label: 'Book II outline',   hash: '#/outline/' + books[1].id, done: D.outlineComplete(books[1].id),
+        sub: '40 chapters, three acts.' },
+      { n: 7, label: 'Book III outline',  hash: '#/outline/' + books[2].id, done: D.outlineComplete(books[2].id),
+        sub: '40 chapters, three acts.' }
+    ];
+    var done = steps.filter(function (s) { return s.done; }).length;
+    var styleDone = D.styleComplete(TRI.id);
+
+    V.hero({
+      word: 'Foundations',
+      corner: 'WEEK 1 · <b>FOUNDATIONS</b>',
+      eyebrow: TRI.title,
+      sub: done + ' of ' + steps.length + ' pages sealed · built once, for all three books',
+      cta: (steps.filter(function (s2) { return !s2.done; })[0] || {}).label
+        ? 'Continue — ' + steps.filter(function (s2) { return !s2.done; })[0].label
+        : 'Week 1 is complete',
+      foot: steps.map(function (s2) {
+        return '<button type="button" class="vg-wk' + (s2.done ? ' is-on' : '') +
+          '" data-vgfoot="' + esc(s2.hash) + '">' + esc(s2.label) + '</button>';
+      }).join(''),
+      onFoot: function (hash) { K.navigate(hash); },
+      onGo: function () {
+        var next = steps.filter(function (s2) { return !s2.done; })[0];
+        K.navigate(next ? next.hash : '#/style');
+      }
+    });
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head">' +
+          '<span class="kd-label">Week 1 progress</span>' +
+          '<span class="kd-meta">' + done + ' of ' + steps.length + ' pages · ' +
+            Math.round((done / steps.length) * 100) + '%</span>' +
+        '</div>' + K.meter(Math.round((done / steps.length) * 100), done === steps.length) +
+      '</div>' +
+      '<div class="fd-steps">' + steps.map(function (s) {
+        return '<button type="button" class="fd-step kd-rise' + (s.done ? ' is-done' : '') +
+          '" data-step="' + esc(s.hash) + '">' +
+          '<p class="fd-step-n">STEP ' + s.n + (s.done ? ' · SEALED' : '') + '</p>' +
+          '<h3 class="kd-h2">' + esc(s.label) + '</h3>' +
+          '<p class="kd-meta" style="margin-top:var(--kd-2)">' + esc(s.sub) + '</p>' +
+        '</button>';
+      }).join('') +
+      '<button type="button" class="fd-step kd-rise' + (styleDone ? ' is-done' : '') + '" data-step="#/style">' +
+        '<p class="fd-step-n">ALSO' + (styleDone ? ' · SEALED' : '') + '</p>' +
+        '<h3 class="kd-h2">Style &amp; prose prep</h3>' +
+        '<p class="kd-meta" style="margin-top:var(--kd-2)">Sample prose, style sheet, forbidden words.</p>' +
+      '</button>' +
+      '</div>';
+
+    wireHeroNav();
+    on(body(), '[data-step]', 'click', function () { K.navigate(this.dataset.step); });
+  }
+
+  // ===========================================================================
+  // STEP 1 — STORY DOSSIER
+  // ===========================================================================
+  var AXES = [
+    { key: 'genres',      label: 'Genres',       src: 'genre' },
+    { key: 'tropes',      label: 'Tropes',       src: 'trope' },
+    { key: 'themes',      label: 'Themes',       src: 'theme' },
+    { key: 'romanceArcs', label: 'Romance arcs', src: 'romance' },
+    { key: 'loglines',    label: 'Logline shapes', src: 'logline' }
+  ];
+
+  function renderDossier() {
+    var dos = D.dossierFor(TRI.id);
+    var scope = 'w1.dossier';
+
+    hero('Week 1 · Step 1', 'Story dossier',
+      'Pick the shape, then paste what you build from it.',
+      (dos.initialStatus !== 'not_started'
+        ? '<button type="button" class="kd-btn kd-btn-sm kd-btn-primary" data-fwd="#/dossier/critique">Critique &amp; revise →</button>' : ''));
+
+    body().innerHTML =
+      // --- the idea picker ------------------------------------------------
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head">' +
+          '<p class="kd-label">Concept picker</p>' +
+          '<span class="kd-meta">Select as many as you like — they collect below</span>' +
+        '</div>' +
+        AXES.map(function (a) {
+          var chosen = TRI[a.key] || [];
+          var pool = D.IDEAS[a.src].concat(chosen.filter(function (c) {
+            return D.IDEAS[a.src].indexOf(c) < 0;
+          }));
+          return '<div class="fd-axis">' +
+            '<div class="fd-axis-head">' +
+              '<p class="kd-label">' + esc(a.label) + '</p>' +
+              '<button type="button" class="kd-btn kd-btn-sm" data-own="' + esc(a.key) + '">+ Add your own</button>' +
+            '</div>' +
+            '<div class="fd-chips">' + pool.map(function (v) {
+              return '<button type="button" class="kd-chip' + (chosen.indexOf(v) >= 0 ? ' is-on' : '') +
+                '" data-axis="' + esc(a.key) + '" data-val="' + esc(v) + '">' + esc(v) + '</button>';
+            }).join('') + '</div>' +
+          '</div>';
+        }).join('') +
+
+        '<div class="fd-sel">' +
+          '<div class="fd-axis-head" style="margin-bottom:var(--kd-3)">' +
+            '<p class="kd-label">Selected concept</p>' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="dsCopySel">Copy as text</button>' +
+          '</div>' +
+          AXES.map(function (a) {
+            var v = TRI[a.key] || [];
+            return '<div class="fd-sel-line">' +
+              '<span class="fd-sel-k">' + esc(a.label) + '</span>' +
+              '<span class="fd-sel-v">' + (v.length ? esc(v.join(' · ')) :
+                '<span style="color:var(--kd-tx-faint)">—</span>') + '</span></div>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+
+      workbench(scope, 'Story Dossier') +
+
+      // --- the dossier itself ---------------------------------------------
+      '<div class="kd-rise">' +
+        K.pasteBlock({
+          id: 'dosInit', title: 'Story dossier — initial',
+          value: dos.initial, status: dos.initialStatus, statuses: D.DOSSIER_STATUSES,
+          minHeight: 320,
+          placeholder: 'Paste your initial story dossier here. Set the status to Drafted to unlock the critique step.'
+        }) +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise" style="text-align:center">' +
+        (dos.initialStatus === 'not_started'
+          ? '<p class="kd-meta">Mark the dossier <strong>Drafted</strong> above to continue to the critique.</p>'
+          : '<button type="button" class="kd-btn kd-btn-primary" data-fwd="#/dossier/critique">Continue → Critique &amp; rewrite</button>') +
+      '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope, 'Story Dossier');
+
+    K.wirePasteBlock(body(), 'dosInit',
+      function (v) { D.Dossiers.update(dos.id, { initial: v }); },
+      function (s) { D.Dossiers.update(dos.id, { initialStatus: s }); refresh(); });
+
+    on(body(), '[data-axis]', 'click', function () {
+      var key = this.dataset.axis, val = this.dataset.val;
+      var cur = (D.Trilogies.get(TRI.id)[key] || []).slice();
+      var i = cur.indexOf(val);
+      if (i >= 0) cur.splice(i, 1); else cur.push(val);
+      var patch = {}; patch[key] = cur;
+      D.Trilogies.update(TRI.id, patch);
+      TRI = D.Trilogies.get(TRI.id);
+      refresh();
+    });
+    on(body(), '[data-own]', 'click', function () {
+      var key = this.dataset.own;
+      K.openModal({
+        title: 'Add your own',
+        body: K.fieldText('Add to ' + key, 'v', '', 'One per line is fine — separate with commas'),
+        onSave: function (root) {
+          var f = K.readFields(root);
+          var vals = String(f.v).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          if (!vals.length) return false;
+          var cur = (D.Trilogies.get(TRI.id)[key] || []).slice();
+          for (var i = 0; i < vals.length; i++) if (cur.indexOf(vals[i]) < 0) cur.push(vals[i]);
+          var patch = {}; patch[key] = cur;
+          D.Trilogies.update(TRI.id, patch);
+          TRI = D.Trilogies.get(TRI.id);
+        },
+        after: refresh
+      });
+    });
+    $('dsCopySel').addEventListener('click', function () {
+      var t = D.Trilogies.get(TRI.id);
+      var out = AXES.map(function (a) {
+        return a.label.toUpperCase() + ': ' + ((t[a.key] || []).join(', ') || '—');
+      }).join('\n');
+      K.copyText('TRILOGY: ' + t.title + '\n' + out, this);
+    });
+  }
+
+  // ===========================================================================
+  // STEP 1b — CRITIQUE & REWRITE
+  // ===========================================================================
+  function renderCritique() {
+    var dos = D.dossierFor(TRI.id);
+    var scope = 'w1.critique';
+    var chars = D.charactersForTrilogy(TRI.id);
+
+    hero('Week 1 · Step 1', 'Critique & rewrite',
+      'Two critiques go in. One revised dossier comes out.');
+
+    body().innerHTML =
+      '<div class="kd-rise">' +
+        K.pasteBlock({ id: 'dosRO', title: 'Story dossier — initial (reference)',
+          value: dos.initial, readOnly: true }) +
+      '</div>' +
+
+      workbench(scope, 'Story Dossier') +
+
+      '<div class="kd-split">' +
+        '<div class="kd-rise">' + K.pasteBlock({
+          id: 'critEmo', title: 'Emotional critique — results',
+          value: dos.emotionalCritique, minHeight: 260,
+          placeholder: 'Paste the emotional critique here.'
+        }) + '</div>' +
+        '<div class="kd-rise">' +
+          '<div class="kd-panel" style="padding:0;overflow:hidden">' +
+            '<div class="kd-paste-head"><p class="kd-paste-t">Character name critiques — all four</p></div>' +
+            '<div style="padding:var(--kd-4);display:grid;gap:var(--kd-3)">' +
+              dos.nameCritiques.map(function (v, i) {
+                var c = chars[i];
+                return K.pasteBlock({
+                  id: 'critName' + i,
+                  title: (c && c.name ? c.name : (c && c.role ? c.role : 'Character ' + (i + 1))),
+                  value: v, minHeight: 110,
+                  placeholder: 'Paste the name critique for this character.'
+                });
+              }).join('') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="kd-rise">' +
+        K.pasteBlock({
+          id: 'dosRev', title: 'Story dossier — revised',
+          value: dos.revised, status: dos.revisedStatus, statuses: D.DOSSIER_STATUSES,
+          minHeight: 340,
+          placeholder: 'Paste the revised dossier here, then set the status to Final.'
+        }) +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise" style="text-align:center">' +
+        (dos.revisedStatus === 'final'
+          ? '<button type="button" class="kd-btn kd-btn-primary" data-fwd="#/characters">Continue → Characters</button>'
+          : '<p class="kd-meta">Set the revised dossier to <strong>Final</strong> to seal step 1 and unlock the characters.</p>') +
+      '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope, 'Story Dossier');
+    K.wirePasteBlock(body(), 'critEmo', function (v) {
+      D.Dossiers.update(dos.id, { emotionalCritique: v });
+    });
+    for (var i = 0; i < 4; i++) {
+      (function (idx) {
+        K.wirePasteBlock(body(), 'critName' + idx, function (v) {
+          var arr = (D.Dossiers.get(dos.id).nameCritiques || ['', '', '', '']).slice();
+          arr[idx] = v;
+          D.Dossiers.update(dos.id, { nameCritiques: arr });
+        });
+      })(i);
+    }
+    K.wirePasteBlock(body(), 'dosRev',
+      function (v) { D.Dossiers.update(dos.id, { revised: v }); },
+      function (s) { D.Dossiers.update(dos.id, { revisedStatus: s }); refresh(); });
+  }
+
+  // ===========================================================================
+  // STEP 2 — CHARACTERS
+  // ===========================================================================
+  function renderCharacters() {
+    var chars = D.charactersForTrilogy(TRI.id);
+    var scope = 'w1.characters';
+
+    hero('Week 1 · Step 2', 'Characters',
+      'Four leads. Paste a filled sheet and the page builds itself.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">The four leads</p>' +
+          '<span class="kd-meta">' + chars.filter(function (c) { return c.status === 'complete'; }).length +
+          ' of ' + chars.length + ' complete</span></div>' +
+        '<div class="fd-gal">' + chars.map(function (c) {
+          return '<button type="button" class="fd-card' + (c.status === 'complete' ? ' is-done' : '') +
+            '" data-char="' + esc(c.id) + '">' +
+            '<p class="kd-label">' + esc(c.role || 'Character') + '</p>' +
+            '<h3 class="kd-h2" style="margin:6px 0 var(--kd-3)">' +
+              esc(c.name || 'Unnamed') + '</h3>' +
+            K.statusPill(D.CHAR_STATUSES, c.status) +
+          '</button>';
+        }).join('') + '</div>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' + K.blankRack('Character Sheet', {
+        title: 'Blank character sheets',
+        empty: 'No blank character sheets yet. Add one and it is here on every step that uses it.'
+      }) + '</div>' +
+
+      workbench(scope) +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Filled sheets — quick copy</p>' +
+          '<span class="kd-meta">All four, ready to lift</span></div>' +
+        '<div class="kd-grid kd-grid-2">' + chars.map(function (c, i) {
+          return K.pasteBlock({
+            id: 'chSheet' + i,
+            title: (c.name || c.role || 'Character ' + (i + 1)),
+            value: c.sheet, minHeight: 150,
+            placeholder: 'Paste this character’s filled-in sheet.'
+          });
+        }).join('') + '</div>' +
+      '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope);
+    on(body(), '[data-char]', 'click', function () { K.navigate('#/characters/' + this.dataset.char); });
+    K.wireBlankRack(body(), 'Character Sheet', refresh);
+    chars.forEach(function (c, i) {
+      K.wirePasteBlock(body(), 'chSheet' + i, function (v) { saveSheet(c.id, v); });
+    });
+  }
+
+  /**
+   * A filled sheet is the source of truth. Parse "KEY: value" lines out of it
+   * so the character page can render without asking you to retype anything.
+   */
+  function parseSheet(text) {
+    var out = {}, lines = String(text || '').split(/\r?\n/), lastKey = null;
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^\s*([A-Za-z][A-Za-z0-9 '\/&()-]{1,40}?)\s*:\s*(.*)$/);
+      if (m) { lastKey = m[1].trim(); out[lastKey] = m[2].trim(); }
+      else if (lastKey && lines[i].trim()) {
+        out[lastKey] = (out[lastKey] ? out[lastKey] + ' ' : '') + lines[i].trim();
+      }
+    }
+    return out;
+  }
+  function pickField(fields, names) {
+    for (var i = 0; i < names.length; i++) {
+      for (var k in fields) {
+        if (k.toLowerCase() === names[i]) return fields[k];
+      }
+    }
+    return '';
+  }
+  function saveSheet(id, text) {
+    var fields = parseSheet(text);
+    var patch = { sheet: text, fields: fields };
+    var nm = pickField(fields, ['name', 'character', 'full name']);
+    if (nm) patch.name = nm;
+    var rl = pickField(fields, ['role', 'archetype']);
+    if (rl) patch.role = rl;
+    D.Characters.update(id, patch);
+  }
+
+  function renderCharacter(id) {
+    var c = D.Characters.get(id);
+    if (!c) { K.navigate('#/characters'); return; }
+    var scope = 'w1.char.' + id;
+    var keys = Object.keys(c.fields || {});
+
+    hero('Week 1 · Step 2 · ' + (c.role || 'Character'), c.name || 'Unnamed',
+      'Paste the filled sheet and everything below fills itself in.');
+
+    body().innerHTML =
+      '<div class="kd-spread kd-rise">' +
+        '<div class="kd-verso-p">' +
+          '<p class="kd-folio"><span>VERSO</span><span>THE SHEET</span></p>' +
+          K.pasteBlock({
+            id: 'charSheet', title: 'Filled character sheet',
+            value: c.sheet, minHeight: 380,
+            placeholder: 'Paste the filled-in sheet. Lines shaped LIKE THIS: value become fields on the right.'
+          }) +
+        '</div>' +
+        '<div class="kd-gutter-p"></div>' +
+        '<div class="kd-recto-p">' +
+          '<p class="kd-folio"><span>RECTO · PARSED</span><span>' + keys.length + ' FIELDS</span></p>' +
+          (keys.length
+            ? '<dl class="fd-kv">' + keys.map(function (k) {
+                return '<dt>' + esc(k) + '</dt><dd>' + esc(c.fields[k] || '—') + '</dd>';
+              }).join('') + '</dl>'
+            : '<p class="kd-meta">Nothing parsed yet. Paste a sheet on the left.</p>') +
+          '<hr class="kd-rule">' +
+          '<div style="display:flex;gap:var(--kd-3);align-items:center;flex-wrap:wrap">' +
+            K.statusPill(D.CHAR_STATUSES, c.status) +
+            '<span style="flex:1"></span>' +
+            (c.status === 'complete'
+              ? '<button type="button" class="kd-btn kd-btn-sm" id="chReopen">Reopen</button>'
+              : '<button type="button" class="kd-btn kd-btn-sm kd-btn-seal" id="chDone">Mark complete</button>') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      workbench(scope, 'Character Sheet');
+
+    wireHeroNav();
+    wireWorkbench(scope, 'Character Sheet');
+    K.wirePasteBlock(body(), 'charSheet', function (v) { saveSheet(id, v); refresh(); });
+    var done = $('chDone'), reopen = $('chReopen');
+    if (done) done.addEventListener('click', function () {
+      D.Characters.update(id, { status: 'complete' }); K.toast('Marked complete'); refresh();
+    });
+    if (reopen) reopen.addEventListener('click', function () {
+      D.Characters.update(id, { status: 'drafting' }); refresh();
+    });
+  }
+
+  // ===========================================================================
+  // STEP 3 — WORLDBUILDING
+  // ===========================================================================
+  function renderWorld() {
+    var rows = D.worldForTrilogy(TRI.id);
+    var scope = 'w1.world';
+    var done = rows.filter(function (r) { return r.status === 'final'; }).length;
+
+    hero('Week 1 · Step 3', 'Worldbuilding',
+      'Twelve elements. Each one gets sealed before the world is done.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Sections final</span>' +
+        '<span class="kd-meta">' + done + ' of ' + rows.length + '</span></div>' +
+        K.meter(Math.round((done / rows.length) * 100), done === rows.length) +
+      '</div>' +
+      workbench(scope, 'Worldbuilding Sheet') +
+      '<div class="kd-grid">' + rows.map(function (r, i) {
+        var meta = D.WORLD_SECTIONS.filter(function (s) { return s.id === r.section; })[0] ||
+                   { label: r.section };
+        return '<div class="kd-rise">' + K.pasteBlock({
+          id: 'wld' + i, title: meta.label,
+          value: r.body, status: r.status, statuses: D.WORLD_STATUSES,
+          minHeight: 170,
+          placeholder: 'Paste the ' + meta.label.toLowerCase() + ' here.'
+        }) + '</div>';
+      }).join('') + '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope, 'Worldbuilding Sheet');
+    rows.forEach(function (r, i) {
+      K.wirePasteBlock(body(), 'wld' + i,
+        function (v) { D.World.update(r.id, { body: v }); },
+        function (s) { D.World.update(r.id, { status: s }); refresh(); });
+    });
+  }
+
+  // ===========================================================================
+  // STEP 4 — TRILOGY PLANNING
+  // ===========================================================================
+  function renderPlan() {
+    var books = D.booksForTrilogy(TRI.id);
+    var scope = 'w1.plan';
+
+    hero('Week 1 · Step 4', 'Trilogy planning',
+      'The whole story at a glance, then chapter by chapter.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' + K.blankRack('Trilogy Outline', {
+        title: 'Outline documents', addLabel: '+ Document',
+        empty: 'No trilogy outline documents yet.'
+      }) + '</div>' +
+
+      workbench(scope) +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">The trilogy at a glance</p>' +
+          '<span class="kd-meta">All three books, side by side</span></div>' +
+        '<div class="kd-grid kd-grid-3">' + books.map(function (b) {
+          return '<div class="kd-card">' +
+            '<p class="kd-label">Book ' + D.romanize(b.position) + '</p>' +
+            '<h3 class="kd-h2" style="margin:6px 0 var(--kd-4)">' + esc(b.title) + '</h3>' +
+            '<dl class="fd-kv" style="grid-template-columns:1fr">' +
+              '<dt>Logline</dt><dd>' + (esc(b.logline) || '—') + '</dd>' +
+              '<dt style="margin-top:var(--kd-3)">Main plot</dt><dd>' + (esc(b.mainPlot) || '—') + '</dd>' +
+              '<dt style="margin-top:var(--kd-3)">Romance arc</dt><dd>' + (esc(b.romanceArc) || '—') + '</dd>' +
+              '<dt style="margin-top:var(--kd-3)">Stakes</dt><dd>' + (esc(b.stakes) || '—') + '</dd>' +
+            '</dl>' +
+            '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap;margin-top:var(--kd-4)">' +
+              '<button type="button" class="kd-btn kd-btn-sm" data-edit-b="' + esc(b.id) + '">Edit</button>' +
+              '<button type="button" class="kd-btn kd-btn-sm kd-btn-primary" data-out-b="' + esc(b.id) + '">Outline →</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>' +
+      '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope);
+    K.wireBlankRack(body(), 'Trilogy Outline', refresh);
+    on(body(), '[data-out-b]', 'click', function () { K.navigate('#/outline/' + this.dataset.outB); });
+    on(body(), '[data-edit-b]', 'click', function () {
+      var b = D.Books.get(this.dataset.editB);
+      K.openModal({
+        title: 'Edit ' + b.title, wide: true,
+        body: K.fieldText('Title', 'title', b.title) +
+              K.fieldArea('Logline', 'logline', b.logline, 2) +
+              K.fieldArea('Main plot', 'mainPlot', b.mainPlot, 4) +
+              K.fieldArea('Romance arc', 'romanceArc', b.romanceArc, 4) +
+              K.fieldArea('Stakes', 'stakes', b.stakes, 3) +
+              K.fieldNum('Target words', 'targetWords', b.targetWords),
+        onSave: function (root) {
+          var f = K.readFields(root);
+          f.targetWords = Number(f.targetWords) || 120000;
+          D.Books.update(b.id, f);
+        },
+        after: refresh
+      });
+    });
+  }
+
+  // ===========================================================================
+  // STEP 5-7 — CHAPTER-BY-CHAPTER OUTLINE, ONE PAGE PER BOOK
+  // ===========================================================================
+  var openChapters = {};
+
+  function renderOutline(bookId) {
+    var b = D.Books.get(bookId);
+    if (!b || b.trilogyId !== TRI.id) { K.navigate('#/plan'); return; }
+    var scope = 'w1.outline.' + bookId;
+    var acts = D.actsForBook(bookId);
+    var chs = D.chaptersForBook(bookId);
+    var done = chs.filter(function (c) { return String(c.outline || '').trim(); }).length;
+
+    hero('Week 1 · Outline · Book ' + D.romanize(b.position), b.title,
+      '40 chapters across three acts, already laid out. Paste your own outline into each.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Chapters outlined</span>' +
+        '<span class="kd-meta">' + done + ' of ' + chs.length + '</span></div>' +
+        K.meter(Math.round((done / chs.length) * 100), done === chs.length) +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' + K.blankRack('Chapter Outline', {
+        title: 'Chapter outline documents', addLabel: '+ Document',
+        empty: 'No chapter outline documents yet.'
+      }) + '</div>' +
+
+      workbench(scope) +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="fd-actbar">' +
+          '<p class="kd-label">The forty chapters</p>' +
+          '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap">' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="olExpand">Expand all</button>' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="olCollapse">Collapse all</button>' +
+          '</div>' +
+        '</div>' +
+        acts.map(function (a) {
+          var actChs = D.chaptersInRange(bookId, a.from, a.to);
+          var actDone = actChs.filter(function (c) { return String(c.outline || '').trim(); }).length;
+          return '<div class="fd-act">' +
+            '<div class="fd-act-h">' +
+              '<div><p class="kd-h3">' + esc(a.label) + '</p>' +
+              '<p class="kd-meta" style="margin-top:2px">Chapters ' + a.from + '–' + a.to +
+                ' · ' + actDone + '/' + actChs.length + ' outlined</p></div>' +
+              '<div style="display:flex;gap:var(--kd-2)">' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-act-x="' + esc(a.id) + '" data-from="' + a.from + '" data-to="' + a.to + '">Expand act</button>' +
+                '<button type="button" class="kd-btn kd-btn-sm" data-act-c="' + esc(a.id) + '" data-from="' + a.from + '" data-to="' + a.to + '">Collapse act</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="fd-chs">' + actChs.map(function (c) {
+              var isOpen = !!openChapters[c.id];
+              var hasOutline = !!String(c.outline || '').trim();
+              return '<div data-chwrap="' + esc(c.id) + '">' +
+                '<button type="button" class="fd-ch-h' + (isOpen ? ' is-open' : '') + '" data-ch="' + esc(c.id) + '">' +
+                  '<span class="kd-caret">›</span>' +
+                  '<span class="fd-ch-n">Ch. ' + c.number + '</span>' +
+                  '<span class="fd-ch-t">' + (esc(c.title) || '<span style="color:var(--kd-tx-faint)">Untitled</span>') + '</span>' +
+                  '<span class="fd-dot' + (hasOutline ? ' is-on' : '') + '"></span>' +
+                '</button>' +
+                (isOpen ? '<div class="fd-ch-b">' +
+                  K.fieldText('Chapter title', 'chtitle_' + c.id, c.title) +
+                  K.pasteBlock({ id: 'ol' + c.id, title: 'Chapter ' + c.number + ' outline',
+                    value: c.outline, minHeight: 200,
+                    placeholder: 'Paste your chapter outline here, in your own template.' }) +
+                '</div>' : '') +
+              '</div>';
+            }).join('') + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope);
+    K.wireBlankRack(body(), 'Chapter Outline', refresh);
+
+    on(body(), '[data-ch]', 'click', function () {
+      var id = this.dataset.ch;
+      openChapters[id] = !openChapters[id];
+      refresh();
+    });
+    $('olExpand').addEventListener('click', function () {
+      chs.forEach(function (c) { openChapters[c.id] = true; }); refresh();
+    });
+    $('olCollapse').addEventListener('click', function () {
+      openChapters = {}; refresh();
+    });
+    on(body(), '[data-act-x]', 'click', function () {
+      var f = Number(this.dataset.from), t = Number(this.dataset.to);
+      D.chaptersInRange(bookId, f, t).forEach(function (c) { openChapters[c.id] = true; });
+      refresh();
+    });
+    on(body(), '[data-act-c]', 'click', function () {
+      var f = Number(this.dataset.from), t = Number(this.dataset.to);
+      D.chaptersInRange(bookId, f, t).forEach(function (c) { delete openChapters[c.id]; });
+      refresh();
+    });
+
+    // Wire only what is actually open.
+    chs.forEach(function (c) {
+      if (!openChapters[c.id]) return;
+      K.wirePasteBlock(body(), 'ol' + c.id, function (v) {
+        var patch = { outline: v };
+        var cur = D.Chapters.get(c.id);
+        if (v.trim() && cur.status === 'not_started') patch.status = 'outlined';
+        D.Chapters.update(c.id, patch);
+      });
+      var ti = body().querySelector('[data-f="chtitle_' + c.id + '"]');
+      if (ti) {
+        var s = K.createSaver(function (v) { D.Chapters.update(c.id, { title: v }); });
+        ti.addEventListener('input', function () { s.queue(ti.value); });
+        ti.addEventListener('blur', function () { s.flush(); });
+      }
+    });
+  }
+
+  // ===========================================================================
+  // STEP 5 — STYLE & PROSE PREP
+  // ===========================================================================
+  function renderStyle() {
+    var docs = D.styleDocsFor(TRI.id);
+    var scope = 'w1.style';
+    var done = docs.filter(function (d) { return d.status === 'final'; }).length;
+
+    hero('Week 1 · Step 5', 'Style & prose prep',
+      'The three documents every chapter prompt in weeks 2 and 3 will draw on.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Documents final</span>' +
+        '<span class="kd-meta">' + done + ' of ' + docs.length + '</span></div>' +
+        K.meter(Math.round((done / docs.length) * 100), done === docs.length) +
+      '</div>' +
+      workbench(scope, 'Style Sheet') +
+      '<div class="kd-grid">' + docs.map(function (d, i) {
+        var meta = D.STYLE_DOCS.filter(function (s) { return s.id === d.kind; })[0] || { label: d.kind };
+        var extra = '';
+        if (d.kind === 'forbidden_words') {
+          var n = D.forbiddenList(TRI.id).length;
+          extra = '<p class="kd-meta" style="margin:var(--kd-2) 0 0">' + n +
+            ' word' + (n === 1 ? '' : 's') + ' parsed. Every chapter in weeks 2 and 3 can be checked against this list.</p>';
+        }
+        return '<div class="kd-rise">' + K.pasteBlock({
+          id: 'sty' + i, title: meta.label,
+          value: d.body, status: d.status, statuses: D.WORLD_STATUSES,
+          minHeight: d.kind === 'sample_prose' ? 300 : 200,
+          placeholder: d.kind === 'forbidden_words'
+            ? 'One word or phrase per line (or comma separated).'
+            : 'Paste the ' + meta.label.toLowerCase() + ' here.'
+        }) + extra + '</div>';
+      }).join('') + '</div>';
+
+    wireHeroNav();
+    wireWorkbench(scope, 'Style Sheet');
+    docs.forEach(function (d, i) {
+      K.wirePasteBlock(body(), 'sty' + i,
+        function (v) { D.StyleDocs.update(d.id, { body: v }); },
+        function (s) { D.StyleDocs.update(d.id, { status: s }); refresh(); });
+    });
+  }
+
+  // ===========================================================================
+  // BOOT
+  // ===========================================================================
+  K.boot(function () {
+    K.initPage({ onSync: function () { if (router) router.refresh(); } });
+
+    var triId = K.param('tri');
+    TRI = D.Trilogies.get(triId);
+    if (!TRI) {
+      var ui = D.getUiState();
+      TRI = D.Trilogies.get(ui.lastTrilogyId) || D.trilogiesSorted()[0];
+    }
+    // Mount the bar BEFORE the dead-end below. A page with no trilogy or
+    // book is exactly where navigation matters most; bailing out first
+    // used to strand the reader with no way out but the browser Back button.
+    K.mountBar({ page: 'kdp-foundations.html', routeKey: function (r) { return r ? r.name : ''; } });
+    if (!TRI) {
+      $('kdpHeroIn').innerHTML = '<h1 class="kd-h1">No trilogy</h1>';
+      body().innerHTML = '<div class="kd-panel"><div class="kd-empty">' +
+        '<div class="kd-empty-glyph">❖</div><p class="kd-lede">Start a trilogy first.</p>' +
+        '<a class="kd-btn kd-btn-primary" href="kdp.html#/shelf">Go to The Velvet Grimoire</a>' +
+        '</div></div>';
+      return;
+    }
+    D.setUiState({ lastTrilogyId: TRI.id });
+
+    router = K.makeRouter({
+      parse: function (parts) {
+        if (!parts.length || parts[0] === '') return { name: 'overview' };
+        if (parts[0] === 'dossier') return { name: parts[1] === 'critique' ? 'critique' : 'dossier' };
+        if (parts[0] === 'characters') return parts[1]
+          ? { name: 'character', id: parts[1] } : { name: 'characters' };
+        if (parts[0] === 'world') return { name: 'world' };
+        if (parts[0] === 'plan') return { name: 'plan' };
+        if (parts[0] === 'outline' && parts[1]) return { name: 'outline', id: parts[1] };
+        if (parts[0] === 'style') return { name: 'style' };
+        return { name: 'overview' };
+      },
+      key: function (r) { return r.name + ':' + (r.id || ''); },
+      render: function (r) {
+        // See kdp-velvet.js: this order is load-bearing.
+        var landing = (r.name === 'overview');
+        V.velvetOn(true);
+        V.setScene('tri');
+        $('kdpHero').classList.toggle('is-compact', !landing);
+        if (!landing) V.buildReel(null, null);
+
+        if (r.name === 'overview') renderOverview();
+        else if (r.name === 'dossier') renderDossier();
+        else if (r.name === 'critique') renderCritique();
+        else if (r.name === 'characters') renderCharacters();
+        else if (r.name === 'character') renderCharacter(r.id);
+        else if (r.name === 'world') renderWorld();
+        else if (r.name === 'plan') renderPlan();
+        else if (r.name === 'outline') renderOutline(r.id);
+        else if (r.name === 'style') renderStyle();
+
+        // vg-on is settled and the reel exists, so the controller can now
+        // decide whether a video file is worth fetching.
+        V.mountStage();
+      }
+    });
+    // Injected once, here, before the first render. A <video> created by a
+    // renderer restarts on every repaint; this is the invariant kdp-velvet.js
+    // is shaped around.
+    V.mountStages(['tri']);
+    router.render();
+  });
+})();
+</script>
+</body>
+</html>

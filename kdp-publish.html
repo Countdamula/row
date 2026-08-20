@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KDP · Week 5 — Publish &amp; Launch</title>
+
+<!-- MUST be first and MUST NOT be deferred. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kdp-theme.css">
+<link rel="stylesheet" href="kdp-velvet.css">
+<style>
+  .pb-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--kd-4)}
+  .pb-step{padding:var(--kd-5);background:var(--kd-leaf-2);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r);cursor:pointer;text-align:left;color:inherit;
+    transition:border-color .3s var(--kd-ease),transform .3s var(--kd-spring)}
+  .pb-step:hover{transform:translateY(-2px);border-color:rgba(var(--kd-iris-rgb),.5)}
+  .pb-step.is-done{border-color:rgba(var(--kd-seal-rgb),.4)}
+  .pb-kw{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--kd-3)}
+  .pb-count{font-family:var(--kd-mono);font-size:11px;color:var(--kd-tx-mute)}
+  .pb-count.is-over{color:var(--kd-proof)}
+  .pb-check{display:flex;align-items:center;gap:var(--kd-3);width:100%;text-align:left;
+    padding:var(--kd-3) var(--kd-4);background:var(--kd-leaf-2);
+    border:1px solid var(--kd-hair);border-radius:var(--kd-r-xs);color:var(--kd-tx-dim);
+    cursor:pointer;font-family:var(--kd-body);font-size:14.5px;margin-bottom:var(--kd-2);
+    transition:border-color .26s var(--kd-ease),color .26s var(--kd-ease)}
+  .pb-check:hover{border-color:rgba(var(--kd-iris-rgb),.45);color:var(--kd-tx)}
+  .pb-check.is-on{border-color:rgba(var(--kd-seal-rgb),.42);color:var(--kd-tx)}
+  .pb-box{flex:none;width:15px;height:15px;border-radius:2px;
+    border:1px solid var(--kd-tx-faint);display:grid;place-items:center;font-size:10px;
+    color:var(--kd-void)}
+  .pb-check.is-on .pb-box{background:var(--kd-seal);border-color:var(--kd-seal)}
+  .pb-cover{width:100%;max-width:260px;aspect-ratio:1600/2560;object-fit:cover;
+    border:1px solid var(--kd-hair);border-radius:var(--kd-r-xs);background:var(--kd-void)}
+</style>
+</head>
+<body>
+
+<div class="kd-gauge" id="kdpGauge"></div>
+<div class="kd-toast" id="kdpToast" role="status" aria-live="polite"></div>
+<div class="kd-modal-bg" id="kdpModalBg"></div>
+<pre class="kd-boot-error" id="kdpBootError"></pre>
+
+<header class="kd-hero" id="kdpHero"><div class="kd-hero-in" id="kdpHeroIn"></div></header>
+
+<!-- The reel is present but hidden until a landing route fills it. buildReel()
+     and the hero's scroll cue both resolve it by id. -->
+<section class="vg-reel" id="vgReel" hidden><div class="vg-reel-stage" id="vgReelStage"></div></section>
+<main class="kd-app"><div class="kd-sheet vg-sheet" id="kdpBody"></div></main>
+<div class="kd-grain" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="kdp-data.js"></script>
+<script src="kdp-nav.js"></script>
+<script src="kdp-velvet.js"></script>
+<script src="topbar.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+  var D = window.KdpData, K = window.Kdp, V = window.Velvet;
+  var $ = K.$, esc = K.esc, on = K.on;
+  var router = null, BOOK = null, TRI = null, LST = null;
+
+  // The launch checklist is fixed — these are the steps KDP actually requires,
+  // in the order they unblock each other.
+  var LAUNCH = [
+    'Manuscript compiled and proofread',
+    'Front matter written (title page, copyright, dedication)',
+    'Back matter written (author note, also-by, newsletter link)',
+    'Cover finalised at 1600 × 2560 or larger',
+    'Blurb written and formatted for KDP',
+    'Title, subtitle and series name set',
+    '7 keyword phrases chosen',
+    '3 categories chosen',
+    'Price and territories set',
+    'Preview checked in the KDP previewer',
+    'Release date scheduled',
+    'Series page linked'
+  ];
+
+  function body() { return $('kdpBody'); }
+  function refresh() { router.refresh(); }
+  function saveL(patch) { LST = D.Listings.update(LST.id, patch); }
+
+  function hero(eyebrow, title, lede, crumb) {
+    $('kdpHeroIn').innerHTML =
+      '<p class="kd-eyebrow kd-rise">' + esc(eyebrow) + '</p>' +
+      '<h1 class="kd-h1 kd-rise">' + esc(title) + '</h1>' +
+      (lede ? '<p class="kd-lede kd-rise">' + esc(lede) + '</p>' : '') +
+      (crumb ? '<div class="kd-rise" style="margin-top:var(--kd-5);display:flex;gap:var(--kd-2);flex-wrap:wrap">' + crumb + '</div>' : '');
+  }
+  /**
+   * Read an image file and re-encode it no wider than maxW, as a JPEG data
+   * URL. Covers are the only binary this dashboard stores, and they live
+   * inside the synced JSON blob, so the downscale is not optional.
+   */
+  function downscale(file, maxW, cb) {
+    var reader = new FileReader();
+    reader.onerror = function () { cb(null); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { cb(null); };
+      img.onload = function () {
+        var scale = Math.min(1, maxW / img.width);
+        var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        var cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { cb(cv.toDataURL('image/jpeg', 0.86)); }
+        catch (e) { cb(null); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /** Bind a plain text/textarea field straight to the listing record. */
+  function bindField(name, key, transform) {
+    var n = body().querySelector('[data-f="' + name + '"]');
+    if (!n) return;
+    var s = K.createSaver(function (v) {
+      var patch = {}; patch[key] = transform ? transform(v) : v;
+      saveL(patch);
+    });
+    n.addEventListener('input', function () { s.queue(n.value); });
+    n.addEventListener('blur', function () { s.flush(); });
+    return n;
+  }
+
+  // ===========================================================================
+  // OVERVIEW
+  // ===========================================================================
+  function renderOverview() {
+    var wp = D.weekProgress(BOOK.id, 5);
+    var words = D.bookWordCount(BOOK.id);
+    var c = D.countFinal(BOOK.id);
+    var steps = [
+      { hash: '#/manuscript', label: 'Manuscript',  sub: 'Compile every Index IV into one file.',
+        done: c.done === c.total && c.total > 0 },
+      { hash: '#/listing',    label: 'Listing',     sub: 'Title, blurb, keywords, categories.',
+        done: !!LST.title && !!LST.blurb && LST.keywords.filter(Boolean).length >= 7 &&
+              LST.categories.filter(Boolean).length >= 3 },
+      { hash: '#/cover',      label: 'Cover',       sub: 'Brief, then the finished artwork.',
+        done: !!LST.cover || !!LST.coverBrief },
+      { hash: '#/pricing',    label: 'Pricing',     sub: 'Price and release date.',
+        done: !!LST.price && !!LST.releaseDate },
+      { hash: '#/launch',     label: 'Launch',      sub: 'The upload checklist.',
+        done: LST.launchDone.length >= LAUNCH.length }
+    ];
+
+    V.hero({
+      word: 'Publish & Launch',
+      corner: 'WEEK 5 · <b>PUBLISH</b>',
+      eyebrow: TRI.title + ' · ' + BOOK.title,
+      sub: D.fmtWords(words) + ' words · ' +
+        steps.filter(function (s2) { return s2.done; }).length + ' of ' + steps.length + ' steps done',
+      cta: (steps.filter(function (s2) { return !s2.done; })[0] || {}).label
+        ? 'Continue — ' + steps.filter(function (s2) { return !s2.done; })[0].label
+        : 'Ready to upload',
+      foot: steps.map(function (s2) {
+        return '<button type="button" class="vg-wk' + (s2.done ? ' is-on' : '') +
+          '" data-vgfoot="' + esc(s2.hash) + '">' + esc(s2.label) + '</button>';
+      }).join(''),
+      onFoot: function (hash) { K.navigate(hash); },
+      onGo: function () {
+        var next = steps.filter(function (s2) { return !s2.done; })[0];
+        K.navigate(next ? next.hash : '#/launch');
+      }
+    });
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Week 5 progress</span>' +
+          '<span class="kd-meta">' + wp.done + ' of ' + wp.total + ' steps · ' + wp.pct + '%</span></div>' +
+        K.meter(wp.pct, wp.pct >= 100) +
+        '<hr class="kd-rule">' +
+        '<div class="kd-grid kd-grid-4">' +
+          K.statBlock('Manuscript', D.fmtWords(words) + ' <span style="color:var(--kd-tx-faint)">w</span>') +
+          K.statBlock('Chapters final', c.done + ' <span style="color:var(--kd-tx-faint)">/ ' + c.total + '</span>') +
+          K.statBlock('Price', LST.price ? esc(LST.price) : '—') +
+          K.statBlock('Release', LST.releaseDate ? esc(LST.releaseDate) : '—') +
+        '</div>' +
+      '</div>' +
+      '<div class="pb-steps">' + steps.map(function (s) {
+        return '<button type="button" class="pb-step kd-rise' + (s.done ? ' is-done' : '') +
+          '" data-step="' + esc(s.hash) + '">' +
+          '<p class="kd-label">' + (s.done ? 'DONE' : 'OPEN') + '</p>' +
+          '<h3 class="kd-h2" style="margin:6px 0 var(--kd-2)">' + esc(s.label) + '</h3>' +
+          '<p class="kd-meta">' + esc(s.sub) + '</p>' +
+        '</button>';
+      }).join('') + '</div>';
+
+    on(body(), '[data-step]', 'click', function () { K.navigate(this.dataset.step); });
+  }
+
+  // ===========================================================================
+  // MANUSCRIPT
+  // ===========================================================================
+  function renderManuscript() {
+    var c = D.countFinal(BOOK.id);
+    var missing = D.chaptersForBook(BOOK.id).filter(function (ch) { return !D.chapterIsFinal(ch); });
+    var scope = 'w5.manuscript.' + BOOK.id;
+
+    hero('Week 5 · ' + BOOK.title, 'Manuscript',
+      'Every chapter’s Index IV, in order, as one file.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Compile</p>' +
+          '<span class="kd-meta">' + c.done + ' of ' + c.total + ' chapters have a final draft</span></div>' +
+        (missing.length
+          ? '<div class="ct-flag" style="padding:var(--kd-3) var(--kd-4);border:1px solid var(--kd-proof);' +
+            'border-radius:var(--kd-r-xs);background:rgba(var(--kd-proof-rgb),.09);margin-bottom:var(--kd-4)">' +
+            missing.length + ' chapter' + (missing.length === 1 ? '' : 's') + ' still without a final draft: ' +
+            esc(missing.slice(0, 12).map(function (m) { return m.number; }).join(', ')) +
+            (missing.length > 12 ? '…' : '') + '. They will be skipped.</div>'
+          : '<p class="kd-meta" style="color:var(--kd-seal);margin-bottom:var(--kd-4)">Every chapter has a final draft.</p>') +
+        '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap">' +
+          '<button type="button" class="kd-btn kd-btn-primary" id="pbMd">Download markdown</button>' +
+          '<button type="button" class="kd-btn" id="pbTxt">Download plain text</button>' +
+          '<button type="button" class="kd-btn" id="pbCopy">Copy to clipboard</button>' +
+          '<button type="button" class="kd-btn" id="pbPrint">Print / save as PDF</button>' +
+        '</div>' +
+        '<p class="kd-meta" style="margin-top:var(--kd-3)">Print uses the page’s print stylesheet, so the browser’s own “Save as PDF” produces the file — nothing here fabricates a document format.</p>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Front &amp; back matter</p></div>' +
+        K.fieldArea('Front matter', 'front', LST.front, 6,
+          'Title page, copyright, dedication.') +
+        K.fieldArea('Back matter', 'back', LST.back, 6,
+          'Author note, also-by, newsletter link.') +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+    bindField('front', 'front');
+    bindField('back', 'back');
+
+    function full() {
+      return [LST.front || '', D.compileBook(BOOK.id), LST.back || ''].filter(Boolean).join('\n\n');
+    }
+    var safe = BOOK.title.replace(/[^\w-]+/g, '-');
+    $('pbMd').addEventListener('click', function () {
+      K.toast(D.download(safe + '.md', full(), 'text/markdown') ? 'Downloaded' : 'Download blocked');
+    });
+    $('pbTxt').addEventListener('click', function () {
+      K.toast(D.download(safe + '.txt', full(), 'text/plain') ? 'Downloaded' : 'Download blocked');
+    });
+    $('pbCopy').addEventListener('click', function () { K.copyText(full(), this); });
+    $('pbPrint').addEventListener('click', function () {
+      var w = window.open('', '_blank');
+      if (!w) { K.toast('Pop-up blocked'); return; }
+      w.document.write('<!doctype html><meta charset="utf-8"><title>' + esc(BOOK.title) + '</title>' +
+        '<style>body{font-family:Georgia,serif;font-size:12pt;line-height:1.6;max-width:34em;' +
+        'margin:0 auto;padding:2em;color:#000;background:#fff}' +
+        'h3{page-break-before:always;font-size:14pt;margin-top:2em}' +
+        'h2{page-break-before:always;font-size:16pt;text-align:center;margin-top:4em}' +
+        'p{margin:0 0 .9em;text-indent:1.4em}p:first-of-type{text-indent:0}</style>' +
+        '<div>' + D.mdToHtml(full()) + '</div>');
+      w.document.close();
+      setTimeout(function () { w.print(); }, 500);
+    });
+  }
+
+  // ===========================================================================
+  // LISTING
+  // ===========================================================================
+  function renderListing() {
+    var scope = 'w5.listing.' + BOOK.id;
+    var blurbLen = String(LST.blurb || '').length;
+
+    hero('Week 5 · ' + BOOK.title, 'Listing',
+      'What Amazon shows a reader before they buy.');
+
+    body().innerHTML =
+      '<div class="kd-spread kd-rise is-even">' +
+        '<div class="kd-verso-p">' +
+          '<p class="kd-folio"><span>VERSO</span><span>THE DETAILS</span></p>' +
+          K.fieldText('Title', 'title', LST.title || BOOK.title) +
+          K.fieldText('Subtitle', 'subtitle', LST.subtitle) +
+          K.fieldText('Series name', 'series', LST.series || TRI.title) +
+        '</div>' +
+        '<div class="kd-gutter-p"></div>' +
+        '<div class="kd-recto-p">' +
+          '<p class="kd-folio"><span>RECTO · BLURB</span>' +
+            '<span class="pb-count' + (blurbLen > 4000 ? ' is-over' : '') + '" id="pbBlurbN">' +
+            blurbLen + ' / 4000</span></p>' +
+          K.fieldArea('Blurb', 'blurb', LST.blurb, 12,
+            'Hook in the first line. Under 200 words reads best. End on the question.') +
+          '<button type="button" class="kd-btn kd-btn-sm" id="pbBlurbCopy">Copy blurb</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Seven keyword phrases</p>' +
+          '<span class="kd-meta">' + LST.keywords.filter(Boolean).length + ' of 7</span></div>' +
+        '<div class="pb-kw">' + LST.keywords.map(function (k, i) {
+          return K.fieldText('Keyword ' + (i + 1), 'kw' + i, k, 'A phrase readers actually search');
+        }).join('') + '</div>' +
+      '</div>' +
+
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Three categories</p>' +
+          '<span class="kd-meta">' + LST.categories.filter(Boolean).length + ' of 3</span></div>' +
+        '<div class="pb-kw">' + LST.categories.map(function (c, i) {
+          return K.fieldText('Category ' + (i + 1), 'cat' + i, c,
+            'e.g. Fantasy › Romantic Fantasy');
+        }).join('') + '</div>' +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+
+    bindField('title', 'title');
+    bindField('subtitle', 'subtitle');
+    bindField('series', 'series');
+    var b = bindField('blurb', 'blurb');
+    if (b) b.addEventListener('input', function () {
+      var n = $('pbBlurbN');
+      if (n) {
+        n.textContent = b.value.length + ' / 4000';
+        n.classList.toggle('is-over', b.value.length > 4000);
+      }
+    });
+    for (var i = 0; i < 7; i++) {
+      (function (idx) {
+        var n = body().querySelector('[data-f="kw' + idx + '"]');
+        if (!n) return;
+        var s = K.createSaver(function (v) {
+          var arr = D.Listings.get(LST.id).keywords.slice();
+          arr[idx] = v; saveL({ keywords: arr });
+        });
+        n.addEventListener('input', function () { s.queue(n.value); });
+        n.addEventListener('blur', function () { s.flush(); });
+      })(i);
+    }
+    for (var j = 0; j < 3; j++) {
+      (function (idx) {
+        var n = body().querySelector('[data-f="cat' + idx + '"]');
+        if (!n) return;
+        var s = K.createSaver(function (v) {
+          var arr = D.Listings.get(LST.id).categories.slice();
+          arr[idx] = v; saveL({ categories: arr });
+        });
+        n.addEventListener('input', function () { s.queue(n.value); });
+        n.addEventListener('blur', function () { s.flush(); });
+      })(j);
+    }
+    $('pbBlurbCopy').addEventListener('click', function () {
+      K.copyText(D.Listings.get(LST.id).blurb, this);
+    });
+  }
+
+  // ===========================================================================
+  // COVER
+  // ===========================================================================
+  function renderCover() {
+    var scope = 'w5.cover.' + BOOK.id;
+    hero('Week 5 · ' + BOOK.title, 'Cover',
+      'The brief first, then the artwork.');
+
+    body().innerHTML =
+      '<div class="kd-split kd-rise">' +
+        '<div class="kd-panel">' +
+          '<div class="kd-panel-head"><p class="kd-label">Cover brief</p></div>' +
+          K.fieldArea('Brief', 'coverBrief', LST.coverBrief, 12,
+            'Mood, palette, typography, the one image that must be on it, and three comp covers.') +
+        '</div>' +
+        '<aside class="kd-panel">' +
+          '<div class="kd-panel-head"><p class="kd-label">Artwork</p>' +
+            '<button type="button" class="kd-btn kd-btn-sm" id="pbUp">Upload</button></div>' +
+          (LST.cover
+            ? '<img class="pb-cover" src="' + esc(LST.cover) + '" alt="Cover for ' + esc(BOOK.title) + '">' +
+              '<button type="button" class="kd-btn kd-btn-sm kd-btn-danger" id="pbRm" style="margin-top:var(--kd-3)">Remove</button>'
+            : '<div class="pb-cover" style="display:grid;place-items:center;color:var(--kd-tx-faint)">No cover yet</div>') +
+          '<input type="file" id="pbFile" accept="image/*" hidden>' +
+          '<p class="kd-meta" style="margin-top:var(--kd-3)">KDP wants 1600 × 2560 or larger. The upload is downscaled before it is stored.</p>' +
+        '</aside>' +
+      '</div>' +
+
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+    bindField('coverBrief', 'coverBrief');
+
+    $('pbUp').addEventListener('click', function () { $('pbFile').click(); });
+    $('pbFile').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      // Downscale through a <canvas> BEFORE storing. A 6 MB cover stored raw
+      // would ride in the metadata sync row on every subsequent save.
+      downscale(f, 900, function (dataUrl) {
+        if (!dataUrl) { K.toast('Could not read that image'); return; }
+        saveL({ cover: dataUrl });
+        K.toast('Cover set');
+        refresh();
+      });
+    });
+    var rm = $('pbRm');
+    if (rm) rm.addEventListener('click', function () { saveL({ cover: '' }); refresh(); });
+  }
+
+  // ===========================================================================
+  // PRICING
+  // ===========================================================================
+  function renderPricing() {
+    var scope = 'w5.pricing.' + BOOK.id;
+    hero('Week 5 · ' + BOOK.title, 'Pricing & release',
+      'What it costs, and when it goes live.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-panel-head"><p class="kd-label">Pricing</p></div>' +
+        '<div class="kd-grid kd-grid-2">' +
+          K.fieldText('List price (USD)', 'price', LST.price, 'e.g. 4.99') +
+          K.fieldDate('Release date', 'releaseDate', LST.releaseDate) +
+        '</div>' +
+        '<p class="kd-meta">KDP pays 70% between $2.99 and $9.99, and 35% outside that band. A trilogy usually prices book I lowest.</p>' +
+      '</div>' +
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+    bindField('price', 'price');
+    var d = body().querySelector('[data-f="releaseDate"]');
+    if (d) d.addEventListener('change', function () { saveL({ releaseDate: d.value }); refresh(); });
+  }
+
+  // ===========================================================================
+  // LAUNCH
+  // ===========================================================================
+  function renderLaunch() {
+    var scope = 'w5.launch.' + BOOK.id;
+    var done = LST.launchDone || [];
+
+    hero('Week 5 · ' + BOOK.title, 'Launch checklist',
+      done.length + ' of ' + LAUNCH.length + ' cleared.');
+
+    body().innerHTML =
+      '<div class="kd-panel kd-rise">' +
+        '<div class="kd-bar-head"><span class="kd-label">Ready to upload</span>' +
+          '<span class="kd-meta">' + done.length + ' / ' + LAUNCH.length + '</span></div>' +
+        K.meter(Math.round((done.length / LAUNCH.length) * 100), done.length === LAUNCH.length) +
+        '<div style="margin-top:var(--kd-5)">' + LAUNCH.map(function (item, i) {
+          var on2 = done.indexOf(item) >= 0;
+          return '<button type="button" class="pb-check' + (on2 ? ' is-on' : '') +
+            '" data-check="' + i + '">' +
+            '<span class="pb-box">' + (on2 ? '✓' : '') + '</span>' +
+            '<span>' + esc(item) + '</span></button>';
+        }).join('') + '</div>' +
+        (done.length === LAUNCH.length
+          ? '<p class="kd-meta" style="margin-top:var(--kd-4);color:var(--kd-seal)">Everything is cleared. ' +
+            BOOK.title + ' is ready to upload.</p>' : '') +
+      '</div>' +
+      '<div class="kd-split">' +
+        '<div class="kd-panel kd-rise">' + K.promptRack(scope) + '</div>' +
+        '<aside class="kd-panel kd-rise">' + K.noteRack(scope) + '</aside>' +
+      '</div>';
+
+    K.wirePromptRack(body(), scope, refresh);
+    K.wireNoteRack(body(), scope, refresh);
+    on(body(), '[data-check]', 'click', function () {
+      var item = LAUNCH[Number(this.dataset.check)];
+      var arr = (D.Listings.get(LST.id).launchDone || []).slice();
+      var i = arr.indexOf(item);
+      if (i >= 0) arr.splice(i, 1); else arr.push(item);
+      saveL({ launchDone: arr });
+      refresh();
+    });
+  }
+
+  // ===========================================================================
+  // BOOT
+  // ===========================================================================
+  K.boot(function () {
+    K.initPage({ onSync: function () { if (router) router.refresh(); } });
+
+    BOOK = D.Books.get(K.param('book')) || D.Books.get(D.getUiState().lastBookId);
+    if (!BOOK) {
+      var t = D.trilogiesSorted()[0];
+      BOOK = t ? D.booksForTrilogy(t.id)[0] : null;
+    }
+    // Mount the bar BEFORE the dead-end below. A page with no trilogy or
+    // book is exactly where navigation matters most; bailing out first
+    // used to strand the reader with no way out but the browser Back button.
+    K.mountBar({ page: 'kdp-publish.html', routeKey: function (r) { return r ? r.name : ''; } });
+    if (!BOOK) {
+      $('kdpHeroIn').innerHTML = '<h1 class="kd-h1">No book</h1>';
+      body().innerHTML = '<div class="kd-panel"><div class="kd-empty">' +
+        '<div class="kd-empty-glyph">❖</div><p class="kd-lede">Start a trilogy first.</p>' +
+        '<a class="kd-btn kd-btn-primary" href="kdp.html#/shelf">Go to The Velvet Grimoire</a></div></div>';
+      return;
+    }
+    TRI = D.Trilogies.get(BOOK.trilogyId);
+    LST = D.listingFor(BOOK.id);
+    D.setUiState({ lastBookId: BOOK.id, lastTrilogyId: TRI.id });
+
+    router = K.makeRouter({
+      parse: function (parts) {
+        var known = ['manuscript', 'listing', 'cover', 'pricing', 'launch'];
+        if (parts[0] && known.indexOf(parts[0]) >= 0) return { name: parts[0] };
+        return { name: 'overview' };
+      },
+      key: function (r) { return r.name; },
+      render: function (r) {
+        LST = D.listingFor(BOOK.id);
+        // See kdp-velvet.js: this order is load-bearing.
+        var landing = (r.name === 'overview');
+        V.velvetOn(true);
+        V.setScene('book');
+        $('kdpHero').classList.toggle('is-compact', !landing);
+        if (!landing) V.buildReel(null, null);
+
+
+        if (r.name === 'manuscript') renderManuscript();
+        else if (r.name === 'listing') renderListing();
+        else if (r.name === 'cover') renderCover();
+        else if (r.name === 'pricing') renderPricing();
+        else if (r.name === 'launch') renderLaunch();
+        else renderOverview();
+
+        // vg-on is settled and the reel exists, so the controller can now
+        // decide whether a video file is worth fetching.
+        V.mountStage();
+      }
+    });
+    // Injected once, here, before the first render. A <video> created by a
+    // renderer restarts on every repaint; this is the invariant kdp-velvet.js
+    // is shaped around.
+    V.mountStages(['book']);
+    router.render();
+  });
+})();
+</script>
+</body>
+</html>

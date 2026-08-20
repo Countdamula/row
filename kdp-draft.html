@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KDP · Drafting</title>
+
+<!-- MUST be first and MUST NOT be deferred. -->
+<script src="local-store-idb.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kdp-theme.css">
+<link rel="stylesheet" href="kdp-velvet.css">
+<style>
+  .dr-wr{display:grid;grid-template-columns:262px minmax(0,1fr) 300px;gap:var(--kd-4);
+    align-items:start}
+  .dr-side{position:sticky;top:var(--kd-4);max-height:calc(100vh - var(--kd-6));
+    overflow-y:auto;background:var(--kd-leaf);border:1px solid var(--kd-hair);
+    border-radius:var(--kd-r);padding:var(--kd-4)}
+  .dr-rail{position:sticky;top:var(--kd-4);max-height:calc(100vh - var(--kd-6));
+    overflow-y:auto;display:grid;gap:var(--kd-3)}
+  .dr-act{font-family:var(--kd-ui);font-size:9.5px;font-weight:600;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--kd-tx-mute);margin:var(--kd-4) 0 var(--kd-2)}
+  .dr-act:first-child{margin-top:0}
+  .dr-ch{display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+    padding:7px 9px;background:none;border:1px solid transparent;border-radius:var(--kd-r-xs);
+    color:var(--kd-tx-dim);cursor:pointer;font-family:var(--kd-body);font-size:13.5px;
+    transition:background-color .26s var(--kd-ease),color .26s var(--kd-ease),
+               border-color .26s var(--kd-ease)}
+  .dr-ch:hover{background:var(--kd-leaf-2);color:var(--kd-tx)}
+  .dr-ch.is-on{border-color:var(--kd-iris);background:rgba(var(--kd-iris-rgb),.14);
+    color:var(--kd-tx)}
+  .dr-ch-n{flex:none;font-family:var(--kd-mono);font-size:10.5px;color:var(--kd-tx-faint);
+    min-width:26px}
+  .dr-ch-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dr-ch-d{flex:none;width:6px;height:6px;border-radius:50%;background:var(--kd-tx-faint)}
+  .dr-ch-d.is-live{background:var(--kd-proof)}
+  .dr-ch-d.is-seal{background:var(--kd-seal)}
+  .dr-bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:var(--kd-3);
+    flex-wrap:wrap;padding:var(--kd-3) var(--kd-4);margin-bottom:var(--kd-4);
+    background:rgba(18,22,28,.94);backdrop-filter:blur(10px);
+    border:1px solid var(--kd-hair);border-radius:var(--kd-r)}
+  .dr-title{flex:1;min-width:160px;font-family:var(--kd-display);font-size:21px;
+    letter-spacing:-.012em;color:var(--kd-tx);background:none;border:0;padding:0}
+  .dr-title:focus{outline:none;color:var(--kd-iris-hi)}
+  .dr-ed{width:100%;min-height:62vh;padding:var(--kd-5);
+    font-family:var(--kd-body);font-size:17px;line-height:1.78;color:var(--kd-tx);
+    background:var(--kd-recto);border:1px solid var(--kd-hair);border-radius:var(--kd-r);
+    resize:vertical}
+  .dr-ed:focus{outline:none;border-color:var(--kd-iris)}
+  .dr-ed::placeholder{color:var(--kd-tx-faint);font-style:italic}
+  .dr-ed.is-final{background:#20242B;box-shadow:inset 0 0 0 1px rgba(var(--kd-seal-rgb),.18)}
+  .dr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--kd-4)}
+  .dr-fw{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--kd-3)}
+  .dr-fw span{font-family:var(--kd-mono);font-size:11px;padding:3px 8px;border-radius:99px;
+    border:1px solid rgba(var(--kd-proof-rgb),.5);color:var(--kd-proof)}
+  @media (max-width:1240px){
+    .dr-wr{grid-template-columns:230px minmax(0,1fr)}
+    .dr-rail{grid-column:1 / -1;position:static;max-height:none;
+      grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  }
+  @media (max-width:900px){
+    .dr-wr{grid-template-columns:1fr}
+    .dr-side{position:static;max-height:340px}
+  }
+</style>
+</head>
+<body>
+
+<div class="kd-gauge" id="kdpGauge"></div>
+<div class="kd-toast" id="kdpToast" role="status" aria-live="polite"></div>
+<div class="kd-modal-bg" id="kdpModalBg"></div>
+<pre class="kd-boot-error" id="kdpBootError"></pre>
+
+<!-- The <video> stages are injected here by Velvet.mountStages() at boot,
+     before the router first runs — never by a renderer. -->
+<header class="kd-hero" id="kdpHero"><div class="kd-hero-in" id="kdpHeroIn"></div></header>
+
+<!-- THE REEL — the book’s three acts. Hidden on a chapter route. -->
+<section class="vg-reel" id="vgReel" hidden aria-label="The three acts">
+  <div class="vg-reel-stage" id="vgReelStage"></div>
+</section>
+
+<main class="kd-app"><div class="kd-sheet" id="kdpBody"></div></main>
+<div class="kd-grain" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="athenaeum-drafts.js"></script>
+<script src="kdp-data.js"></script>
+<script src="kdp-nav.js"></script>
+<script src="kdp-velvet.js"></script>
+<script src="topbar.js" defer></script>
+
+<script>
+(function () {
+  'use strict';
+  var D = window.KdpData, K = window.Kdp;
+  var $ = K.$, esc = K.esc, on = K.on;
+  var V = window.Velvet;
+  var router = null, BOOK = null, TRI = null, WEEK = 2;
+  var showAll = false;          // week filter override
+  var activeIndex = 'original'; // which of the four is being edited
+  var editorSaver = null;
+
+  function body() { return $('kdpBody'); }
+  function refresh() { router.refresh(); }
+  function range() {
+    if (showAll) return { from: 1, to: D.CHAPTERS_PER_BOOK };
+    var w = D.weekMeta(WEEK);
+    return { from: w.from || 1, to: w.to || D.CHAPTERS_PER_BOOK };
+  }
+
+  function hero(eyebrow, title, lede, crumb) {
+    $('kdpHeroIn').innerHTML =
+      '<p class="kd-eyebrow kd-rise">' + esc(eyebrow) + '</p>' +
+      '<h1 class="kd-h1 kd-rise">' + esc(title) + '</h1>' +
+      (lede ? '<p class="kd-lede kd-rise">' + esc(lede) + '</p>' : '') +
+      (crumb ? '<div class="kd-rise" style="margin-top:var(--kd-5);display:flex;gap:var(--kd-2);flex-wrap:wrap">' + crumb + '</div>' : '');
+    on($('kdpHeroIn'), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+  }
+  function navBtn(href, label, primary) {
+    return '<button type="button" class="kd-btn kd-btn-sm' + (primary ? ' kd-btn-primary' : '') +
+      '" data-nav="' + esc(href) + '">' + esc(label) + '</button>';
+  }
+
+  /** The contents tree. Shared by the book page and every chapter page. */
+  function tree(activeId) {
+    var r = range();
+    var acts = D.actsForBook(BOOK.id);
+    var out = '<div class="kd-panel-head" style="margin-bottom:var(--kd-3)">' +
+      '<p class="kd-label">Contents</p>' +
+      '<button type="button" class="kd-btn kd-btn-sm" id="drAll">' +
+        (showAll ? 'Week ' + WEEK : 'All 40') + '</button></div>';
+    for (var i = 0; i < acts.length; i++) {
+      var a = acts[i];
+      var chs = D.chaptersForBook(BOOK.id).filter(function (c) {
+        return c.number >= Math.max(a.from, r.from) && c.number <= Math.min(a.to, r.to);
+      });
+      if (!chs.length) continue;
+      out += '<p class="dr-act">' + esc(a.label) + '</p>';
+      out += chs.map(function (c) {
+        var ms = c.idxState || {};
+        var tone = D.chapterIsFinal(c) ? ' is-seal'
+          : (ms.original === 'done' || ms.rewrite === 'done' ? ' is-live' : '');
+        return '<button type="button" class="dr-ch' + (c.id === activeId ? ' is-on' : '') +
+          '" data-go-ch="' + esc(c.id) + '">' +
+          '<span class="dr-ch-n">' + c.number + '</span>' +
+          '<span class="dr-ch-t">' + (esc(c.title) || 'Untitled') + '</span>' +
+          '<span class="dr-ch-d' + tone + '"></span></button>';
+      }).join('');
+    }
+    return out;
+  }
+  function wireTree() {
+    on(body(), '[data-go-ch]', 'click', function () { K.navigate('#/w/' + this.dataset.goCh); });
+    var all = $('drAll');
+    if (all) all.addEventListener('click', function () { showAll = !showAll; refresh(); });
+  }
+
+  /** Everything Week 1 produced, kept beside the work it feeds. */
+  function contextRail(chapter) {
+    var chars = D.charactersForTrilogy(TRI.id).filter(function (c) { return c.status === 'complete'; });
+    var world = D.worldForTrilogy(TRI.id).filter(function (w) { return w.status === 'final'; });
+    var out = '';
+    if (chapter) {
+      out += '<div class="kd-panel">' +
+        '<div class="kd-panel-head" style="margin-bottom:var(--kd-3)">' +
+          '<p class="kd-label">Chapter ' + chapter.number + ' outline</p>' +
+          '<button type="button" class="kd-btn kd-btn-sm" id="drOutCopy">Copy</button></div>' +
+        (String(chapter.outline || '').trim()
+          ? '<div class="kd-prose" style="font-size:14px">' + D.mdToHtml(chapter.outline) + '</div>'
+          : '<p class="kd-meta">No outline yet. Week 1 → Outline.</p>') +
+      '</div>';
+    }
+    out += '<div class="kd-panel">' +
+      '<div class="kd-panel-head" style="margin-bottom:var(--kd-3)"><p class="kd-label">Cast</p>' +
+      '<span class="kd-meta">' + chars.length + ' complete</span></div>' +
+      (chars.length ? chars.map(function (c) {
+        return '<div style="padding:6px 0;border-bottom:1px solid var(--kd-hair-soft)">' +
+          '<p class="kd-h3" style="font-size:13px">' + esc(c.name || 'Unnamed') + '</p>' +
+          '<p class="kd-meta">' + esc(c.role || '') + '</p></div>';
+      }).join('') : '<p class="kd-meta">No characters marked complete.</p>') +
+    '</div>';
+    out += '<div class="kd-panel">' +
+      '<div class="kd-panel-head" style="margin-bottom:var(--kd-3)"><p class="kd-label">World</p>' +
+      '<span class="kd-meta">' + world.length + ' final</span></div>' +
+      (world.length ? world.map(function (w) {
+        var m = D.WORLD_SECTIONS.filter(function (s) { return s.id === w.section; })[0] || { label: w.section };
+        return '<button type="button" class="kd-row" style="margin-bottom:5px;padding:7px 9px" ' +
+          'data-world="' + esc(w.id) + '"><span class="kd-row-t" style="font-size:13px">' +
+          esc(m.label) + '</span></button>';
+      }).join('') : '<p class="kd-meta">No world sections marked final.</p>') +
+    '</div>';
+    return out;
+  }
+  function wireContextRail(chapter) {
+    on(body(), '[data-world]', 'click', function () {
+      var w = D.World.get(this.dataset.world);
+      var m = D.WORLD_SECTIONS.filter(function (s) { return s.id === w.section; })[0] || { label: w.section };
+      K.openModal({ title: m.label, wide: true,
+        body: '<div class="kd-prose">' + D.mdToHtml(w.body) + '</div>' });
+    });
+    var oc = $('drOutCopy');
+    if (oc && chapter) oc.addEventListener('click', function () { K.copyText(chapter.outline, oc); });
+  }
+
+  // ===========================================================================
+  // BOOK PAGE
+  // ===========================================================================
+  function renderBook(bookId) {
+    var r = range();
+    var w = D.weekMeta(WEEK);
+    var c = D.countFinal(BOOK.id, r.from, r.to);
+    var all = D.countFinal(BOOK.id);
+    var words = D.bookWordCount(BOOK.id);
+    var scope = 'draft.book.' + BOOK.id;
+
+    var pct = c.total ? Math.round((c.done / c.total) * 100) : 0;
+    var next = D.firstUndone(BOOK.id, r.from, r.to);
+
+    // --- the full-screen hero, the book's own arrival -----------------------
+    V.hero({
+      word: BOOK.title,
+      corner: 'WEEK ' + WEEK + ' · <b>' + esc(w.label.toUpperCase()) + '</b>',
+      eyebrow: TRI.title + ' · Book ' + D.romanize(BOOK.position),
+      sub: D.fmtWords(words) + ' words · ' + all.done + ' of ' + all.total + ' chapters final',
+      cta: next ? 'Write chapter ' + next.number : 'Every chapter is final',
+      foot: D.actsForBook(BOOK.id).map(function (a) {
+        return '<button type="button" class="vg-wk" data-vgfoot="' + esc(a.id) + '">' +
+          esc(a.label) + '</button>';
+      }).join(''),
+      onFoot: function (id) {
+        var a = D.Acts.get(id);
+        var first = D.chaptersForBook(BOOK.id).filter(function (ch) { return ch.number >= a.from; })[0];
+        if (first) K.navigate('#/w/' + first.id);
+      },
+      onGo: function () { if (next) K.navigate('#/w/' + next.id); }
+    });
+    // the book's equivalent of the five weeks and the three books: its acts
+    V.buildReel(actCells(), function (id) {
+      var a = D.Acts.get(id);
+      var first = D.chaptersForBook(BOOK.id).filter(function (ch) { return ch.number >= a.from; })[0];
+      if (first) K.navigate('#/w/' + first.id);
+    });
+
+    body().innerHTML =
+      // --- BAND 1 — where this book stands ---------------------------------
+      '<section class="vg-band is-spread kd-rise">' +
+      '<div class="kd-spread">' +
+        '<div class="kd-verso-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Verso</span><span>The book</span></p>' +
+          '<h2 class="cc-greet">' + esc(BOOK.title) + '</h2>' +
+          (BOOK.logline ? '<p class="kd-lede" style="margin-top:var(--kd-4)">' + esc(BOOK.logline) + '</p>' : '') +
+          '<div class="cc-now-grid" style="margin-top:var(--kd-5)">' +
+            K.statBlock('Words (Index IV only)', D.fmtWords(words)) +
+            K.statBlock('Target', D.fmtWords(BOOK.targetWords)) +
+            K.statBlock('Chapters final', all.done + ' <span style="color:var(--kd-tx-faint)">/ ' + all.total + '</span>') +
+            K.statBlock('Book progress', D.bookProgress(BOOK.id) + '%') +
+          '</div>' +
+        '</div></div>' +
+        '<div class="kd-gutter-p"></div>' +
+        '<div class="kd-recto-p"><div class="vg-pg">' +
+          '<p class="kd-folio"><span>Recto · Week ' + WEEK + '</span><span>Chapters ' + r.from + '–' + r.to + '</span></p>' +
+          '<div class="kd-bar-head">' +
+            '<span class="kd-label">This week</span>' +
+            '<span class="kd-meta">' + c.done + ' of ' + c.total + ' final · ' + pct + '%</span>' +
+          '</div>' + K.meter(pct, c.done === c.total) +
+          '<div style="margin-top:var(--kd-5)">' +
+            '<p class="kd-label" style="margin-bottom:var(--kd-3)">Pick up where you left off</p>' +
+            (next
+              ? '<p class="kd-lede" style="margin-bottom:var(--kd-4)">Chapter ' + next.number +
+                  (next.title ? ' — ' + esc(next.title) : '') + ' is the next one without a final draft.</p>' +
+                '<button type="button" class="kd-btn kd-btn-primary" data-go-ch="' + esc(next.id) + '" ' +
+                  'style="width:100%;justify-content:center">Open chapter ' + next.number + '</button>'
+              : '<p class="kd-meta">Every chapter in this week is final. Move on to week ' +
+                  (WEEK === 2 ? '3' : '4') + '.</p>') +
+          '</div>' +
+          '<hr class="kd-rule">' +
+          '<div class="vg-acts">' +
+            (WEEK === 2 ? navBtn('kdp-draft.html?book=' + BOOK.id + '&week=3#/b/' + BOOK.id, 'Week 3 →')
+                        : '') +
+            navBtn('kdp-continuity.html?book=' + BOOK.id + '#/', 'Week 4 →') +
+          '</div>' +
+        '</div></div>' +
+      '</div>' +
+      '</section>' +
+
+      // --- BAND 2 — the contents, the prompts, the context ------------------
+      '<section class="vg-band kd-rise">' +
+        '<div class="dr-wr">' +
+          '<aside class="dr-side">' + tree(null) + '</aside>' +
+          '<div>' +
+            '<div class="kd-panel">' + K.promptRack(scope, { title: 'AI prompt database — chapter generation' }) + '</div>' +
+          '</div>' +
+          '<aside class="dr-rail">' + contextRail(null) + '</aside>' +
+        '</div>' +
+      '</section>';
+
+    wireTree();
+    wireContextRail(null);
+    K.wirePromptRack(body(), scope, refresh);
+    on(body(), '[data-nav]', 'click', function () { K.navigate(this.dataset.nav); });
+  }
+
+  /** The book's three acts, as reel cells. */
+  function actCells() {
+    var chs = D.chaptersForBook(BOOK.id);
+    return D.actsForBook(BOOK.id).map(function (a) {
+      var mine = chs.filter(function (c) { return c.number >= a.from && c.number <= a.to; });
+      var done = mine.filter(D.chapterIsFinal).length;
+      var wordsIn = mine.reduce(function (s, c) { return s + (c.wordsFinal || 0); }, 0);
+      var pct = mine.length ? Math.round((done / mine.length) * 100) : 0;
+      return {
+        key: a.id, numeral: D.romanize(a.number),
+        kicker: 'Act · chapters ' + a.from + '–' + a.to,
+        title: a.label,
+        copy: a.summary || 'Chapters ' + a.from + ' to ' + a.to + ' of ' + BOOK.title + '.',
+        pct: pct, sealed: done === mine.length && mine.length > 0,
+        count: done + ' of ' + mine.length + ' final · ' + D.fmtWords(wordsIn) + ' words',
+        action: (done === mine.length && mine.length ? 'Revisit' : 'Open') + ' ' + a.label
+      };
+    });
+  }
+
+  // ===========================================================================
+  // CHAPTER PAGE — the four indexes
+  // ===========================================================================
+  function renderChapter(chapterId) {
+    var ch = D.Chapters.get(chapterId);
+    if (!ch || ch.bookId !== BOOK.id) { K.navigate('#/b/' + BOOK.id); return; }
+    D.setUiState({ lastChapterId: ch.id, lastIndex: activeIndex });
+    D.Books.update(BOOK.id, { currentChapterId: ch.id, lastEditedAt: D.nowISO() });
+
+    var ms = D.readManuscript(ch.id);
+    var act = D.actForChapter(ch.number);
+    var finalWords = D.wordCount(ms.final.text);
+    var forbidden = D.forbiddenList(TRI.id);
+    var hits = forbidden.length ? D.scanForbidden(ms[activeIndex].text, forbidden) : [];
+    var prev = D.chaptersForBook(BOOK.id).filter(function (c) { return c.number === ch.number - 1; })[0];
+    var next = D.chaptersForBook(BOOK.id).filter(function (c) { return c.number === ch.number + 1; })[0];
+
+    // A compact band, not a 100vh curtain: a chapter is opened dozens of
+    // times per book and the manuscript should not sit a screen down.
+    hero('Week ' + WEEK + ' · ' + BOOK.title + ' · ' + act.label,
+      'Chapter ' + ch.number + (ch.title ? ' — ' + ch.title : ''),
+      '', '');
+
+    body().innerHTML =
+      '<div class="dr-wr kd-rise">' +
+        '<aside class="dr-side">' + tree(ch.id) + '</aside>' +
+
+        '<div>' +
+          '<div class="dr-bar">' +
+            '<input class="dr-title" id="drTitle" value="' + esc(ch.title) + '" placeholder="Chapter title">' +
+            '<span class="kd-meta" id="drWords">' + D.fmtWords(finalWords) + ' counted</span>' +
+            K.statusPill(D.CHAPTER_STATUSES, ch.status) +
+            '<button type="button" class="kd-btn kd-btn-sm" id="drCompose">Compose</button>' +
+          '</div>' +
+
+          // --- the four indexes -----------------------------------------
+          '<div class="kd-idx" style="margin-bottom:var(--kd-4)">' + D.INDEXES.map(function (ix) {
+            var d = ms[ix.id];
+            var wc = D.wordCount(d.text);
+            var cls = ix.id === activeIndex ? ' is-active' : '';
+            if (ix.id === 'final' && wc) cls += ' is-final';
+            else if (ix.id === 'rewrite' && !wc && ms.plan.text) cls += ' is-live';
+            else if (wc) cls += ' is-done';
+            return '<button type="button" class="kd-idx-card' + cls + '" data-ix="' + esc(ix.id) + '">' +
+              (ix.counts ? '<span class="kd-idx-star">★</span>' : '') +
+              '<p class="kd-idx-n">' + ix.n + '</p>' +
+              '<p class="kd-idx-t">' + esc(ix.label) + '</p>' +
+              '<p class="kd-idx-m">' + (wc ? D.fmtWords(wc) + ' w' : 'Empty') + '</p>' +
+            '</button>';
+          }).join('') + '</div>' +
+
+          '<div class="kd-panel" style="padding:var(--kd-4)">' +
+            '<div class="kd-panel-head">' +
+              '<div><p class="kd-label">Index ' +
+                D.INDEXES.filter(function (i) { return i.id === activeIndex; })[0].n + ' · ' +
+                esc(D.INDEXES.filter(function (i) { return i.id === activeIndex; })[0].label) + '</p>' +
+                '<p class="kd-meta" style="margin-top:4px">' +
+                esc(D.INDEXES.filter(function (i) { return i.id === activeIndex; })[0].hint) + '</p></div>' +
+              '<div style="display:flex;gap:var(--kd-2);flex-wrap:wrap">' +
+                '<span class="kd-meta" id="drIxWords">' +
+                  D.fmtWords(D.wordCount(ms[activeIndex].text)) + ' words</span>' +
+                '<button type="button" class="kd-btn kd-btn-sm" id="drCopy">Copy</button>' +
+              '</div>' +
+            '</div>' +
+            '<textarea class="dr-ed' + (activeIndex === 'final' ? ' is-final' : '') + '" id="drEd" ' +
+              'placeholder="' + (activeIndex === 'final'
+                ? 'Paste the final chapter. Only this index counts toward the novel.'
+                : 'Paste the ' + D.INDEXES.filter(function (i) { return i.id === activeIndex; })[0].label.toLowerCase() + ' here.') +
+              '">' + esc(ms[activeIndex].text) + '</textarea>' +
+            (activeIndex === 'final'
+              ? '<p class="kd-meta" style="margin-top:var(--kd-3)">★ This is the counted draft. Its word count is the one the book total uses.</p>'
+              : '<p class="kd-meta" style="margin-top:var(--kd-3)">This index does not count toward the novel’s word total.</p>') +
+            (hits.length
+              ? '<div style="margin-top:var(--kd-4)"><p class="kd-label">Forbidden words found</p>' +
+                '<div class="dr-fw">' + hits.map(function (h) {
+                  return '<span>' + esc(h.word) + ' ×' + h.count + '</span>';
+                }).join('') + '</div></div>'
+              : (forbidden.length ? '<p class="kd-meta" style="margin-top:var(--kd-3);color:var(--kd-seal)">No forbidden words in this index.</p>' : '')) +
+          '</div>' +
+
+          '<div style="display:flex;gap:var(--kd-2);justify-content:space-between;margin-top:var(--kd-4);flex-wrap:wrap">' +
+            (prev ? '<button type="button" class="kd-btn kd-btn-sm" data-go-ch="' + esc(prev.id) + '">‹ Ch. ' + prev.number + '</button>' : '<span></span>') +
+            '<button type="button" class="kd-btn kd-btn-sm" id="drStatus">Set status</button>' +
+            (next ? '<button type="button" class="kd-btn kd-btn-sm" data-go-ch="' + esc(next.id) + '">Ch. ' + next.number + ' ›</button>' : '<span></span>') +
+          '</div>' +
+        '</div>' +
+
+        '<aside class="dr-rail">' + contextRail(ch) + '</aside>' +
+      '</div>';
+
+    wireTree();
+    wireContextRail(ch);
+
+    on(body(), '[data-ix]', 'click', function () {
+      if (editorSaver) editorSaver.flush();
+      activeIndex = this.dataset.ix;
+      refresh();
+    });
+
+    var ed = $('drEd'), ixWords = $('drIxWords'), words = $('drWords');
+    var idx = activeIndex;
+    editorSaver = K.createSaver(function (text) {
+      var res = D.writeDraft(ch.id, idx, text);
+      if (!res.ok) { K.toast('Save failed — export a backup now'); return; }
+      // writeDraft already moves the chapter's status to match its indexes.
+      if (idx === 'final') {
+        if (res.delta > 0) D.logProgress(BOOK.id, res.delta);
+        if (words) words.textContent = D.fmtWords(res.words) + ' counted';
+      }
+    });
+    ed.addEventListener('input', function () {
+      if (ixWords) ixWords.textContent = D.fmtWords(D.wordCount(ed.value)) + ' words';
+      editorSaver.queue(ed.value);
+    });
+    ed.addEventListener('blur', function () { editorSaver.flush(); });
+
+    $('drCopy').addEventListener('click', function () { K.copyText(ed.value, this); });
+
+    // --- Composition Mode -------------------------------------------------
+    // It is handed THE SAME saver the editor above uses. Not a second one:
+    // one write path to D.writeDraft means the two surfaces cannot disagree,
+    // and Index IV's total cannot be counted twice for the same text.
+    var ixMeta = D.INDEXES.filter(function (i) { return i.id === activeIndex; })[0];
+    $('drCompose').addEventListener('click', function () {
+      editorSaver.flush();
+      V.openCompose({
+        text: ed.value,
+        where: 'Chapter ' + ch.number + ' · Index ' + ixMeta.n + ' · ' + ixMeta.label,
+        placeholder: activeIndex === 'final'
+          ? 'The final chapter. Only this index counts toward the novel.'
+          : 'The ' + ixMeta.label.toLowerCase() + '.',
+        countLabel: function (v) {
+          return D.fmtWords(D.wordCount(v)) + ' words' + (ixMeta.counts ? ' · counted' : '');
+        },
+        saver: editorSaver,
+        onInput: function (v) {
+          if (ixWords) ixWords.textContent = D.fmtWords(D.wordCount(v)) + ' words';
+          editorSaver.queue(v);
+        },
+        // put the text back in the page's own editor so the two never drift
+        onClose: function (v) { ed.value = v; }
+      });
+    });
+
+    var ti = $('drTitle');
+    var tSaver = K.createSaver(function (v) { D.Chapters.update(ch.id, { title: v }); });
+    ti.addEventListener('input', function () { tSaver.queue(ti.value); });
+    ti.addEventListener('blur', function () { tSaver.flush(); });
+
+    $('drStatus').addEventListener('click', function () {
+      K.openModal({
+        title: 'Chapter ' + ch.number + ' status',
+        body: K.fieldSelect('Status', 'status', D.Chapters.get(ch.id).status, D.CHAPTER_STATUSES) +
+              K.fieldText('POV character', 'pov', ch.pov),
+        onSave: function (root) { D.Chapters.update(ch.id, K.readFields(root)); },
+        after: refresh
+      });
+    });
+  }
+
+  // ===========================================================================
+  // BOOT
+  // ===========================================================================
+  K.boot(function () {
+    K.initPage({
+      onSync: function () { if (router) router.refresh(); },
+      onSyncManuscript: function () { if (router) router.refresh(); }
+    });
+
+    var bookId = K.param('book');
+    BOOK = D.Books.get(bookId) || D.Books.get(D.getUiState().lastBookId);
+    if (!BOOK) {
+      var t = D.trilogiesSorted()[0];
+      BOOK = t ? D.booksForTrilogy(t.id)[0] : null;
+    }
+    if (!BOOK) {
+      $('kdpHeroIn').innerHTML = '<h1 class="kd-h1">No book</h1>';
+      body().innerHTML = '<div class="kd-panel"><div class="kd-empty">' +
+        '<div class="kd-empty-glyph">❖</div><p class="kd-lede">Start a trilogy first.</p>' +
+        '<a class="kd-btn kd-btn-primary" href="kdp.html#/shelf">Go to The Velvet Grimoire</a></div></div>';
+      return;
+    }
+    TRI = D.Trilogies.get(BOOK.trilogyId);
+    WEEK = Number(K.param('week')) === 3 ? 3 : 2;
+    D.setUiState({ lastBookId: BOOK.id, lastTrilogyId: TRI.id });
+    activeIndex = D.getUiState().lastIndex || 'original';
+
+    router = K.makeRouter({
+      parse: function (parts) {
+        if (parts[0] === 'w' && parts[1]) return { name: 'chapter', id: parts[1] };
+        if (parts[0] === 'b' && parts[1]) return { name: 'book', id: parts[1] };
+        return { name: 'book', id: BOOK.id };
+      },
+      key: function (r) { return r.name + ':' + r.id + ':' + activeIndex + ':' + showAll; },
+      render: function (r) {
+        // Both routes wear the treatment; only the BOOK page is a landing
+        // page. A chapter keeps a compact header and no reel, because it is
+        // an instrument and the manuscript should be one scroll away.
+        var chapter = (r.name === 'chapter');
+        V.velvetOn(true);
+        V.setScene('book');
+        document.querySelector('.kd-hero').classList.toggle('is-compact', chapter);
+        if (chapter) V.buildReel(null, null);
+
+        if (chapter) renderChapter(r.id);
+        else renderBook(r.id);
+
+        V.mountStage();
+      }
+    });
+    // Injected once, before the first render. 'compose' is not a hero stage —
+    // Composition Mode builds its own element the first time it opens, and it
+    // reuses the Command Center's clip, so it is usually already cached.
+    V.mountStages(['book']);
+    // The bar is built ONCE, before the first render, and only synced after.
+    // It lives outside #kdpHeroIn and #kdpBody so no renderer can destroy it.
+    K.mountBar({ page: 'kdp-draft.html', routeKey: function (r) { return r.name; } });
+    router.render();
+  });
+})();
+</script>
+</body>
+</html>

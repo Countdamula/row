@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KDP Dashboard — Aesthetic Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Literata:opsz,wght@7..72,300..600&family=Inter+Tight:wght@400..700&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..700,0..100,0..1&family=Newsreader:opsz,wght@6..72,300..600&family=Inter:wght@400..700&family=Courier+Prime:wght@400;700&family=Instrument+Serif&family=Source+Serif+4:opsz,wght@8..60,300..600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PAGE CHROME — deliberately neutral. It must never compete
+   with the directions it is presenting.
+   ============================================================ */
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#0B0B0D;color:#E9E9EC;
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{max-width:1200px;margin:0 auto;padding:clamp(28px,5vw,72px) clamp(16px,4vw,40px) clamp(80px,12vw,140px)}
+
+.intro h1{font-size:clamp(23px,3.2vw,32px);font-weight:700;letter-spacing:-.025em;margin:0 0 12px}
+.intro p{max-width:64ch;line-height:1.68;color:#9C9CA6;margin:0 0 10px;font-size:15px}
+.intro strong{color:#D8D8DE;font-weight:600}
+
+.dir{margin-top:clamp(52px,8vw,96px);scroll-margin-top:24px}
+.dir-head{display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;
+  margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #232327}
+.dir-key{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:#6E6E78}
+.dir-name{font-size:20px;font-weight:700;letter-spacing:-.015em;margin:0}
+.dir-note{font-size:13.5px;color:#8B8B95;line-height:1.62;flex:1 1 340px;margin:0}
+.dir-note b{color:#BDBDC6;font-weight:600}
+
+/* ============================================================
+   SHARED COMPONENT SHELL — one set of rules, driven entirely by
+   the custom properties each direction supplies. Identical
+   markup in all three, so what you compare is the design.
+   ============================================================ */
+.demo{border-radius:var(--r);overflow:hidden;background:var(--surface);
+  color:var(--tx);border:1px solid var(--edge)}
+
+/* --- hero band --- */
+.hero{position:relative;isolation:isolate;overflow:hidden;
+  padding:clamp(32px,4.4vw,58px) clamp(22px,3.4vw,46px);
+  background:var(--hero-bg);border-bottom:1px solid var(--hero-hair)}
+.eyebrow{font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+.wordmark{font-family:var(--display);font-weight:var(--display-w);
+  font-size:clamp(30px,5.4vw,58px);line-height:.98;
+  letter-spacing:var(--display-ls);margin:0;color:var(--hero-tx);
+  font-variation-settings:var(--display-vf,normal)}
+.hero-sub{font-family:var(--body);font-size:15.5px;line-height:1.62;
+  color:var(--hero-dim);max-width:52ch;margin:16px 0 0}
+
+/* --- working surface --- */
+.body{padding:clamp(22px,3.4vw,44px);background:var(--surface);
+  display:grid;gap:clamp(18px,2.6vw,30px)}
+.panel{background:var(--card);border:1px solid var(--hair);
+  border-radius:var(--r-s);padding:clamp(18px,2.4vw,26px)}
+.sec{font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--dim);margin:0 0 16px}
+
+/* --- command plate --- */
+.plate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:20px 26px}
+.stat-l{font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--dim);margin:0 0 7px}
+.stat-v{font-family:var(--body);font-size:17px;line-height:1.34;margin:0;color:var(--tx)}
+.stat-v em{font-style:italic;color:var(--accent)}
+
+/* --- the glowing weekly progress bar --- */
+.bar-wrap{margin-top:26px;padding-top:22px;border-top:1px solid var(--hair)}
+.bar-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 0 11px}
+.bar-num{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.02em}
+.bar{height:10px;border-radius:var(--bar-r);background:var(--track);
+  position:relative;overflow:hidden}
+.bar-fill{height:100%;width:62%;border-radius:var(--bar-r);
+  background:var(--bar-grad);box-shadow:var(--bar-glow)}
+
+/* --- primary action --- */
+.cta{display:inline-flex;align-items:center;gap:10px;margin-top:22px;
+  font-family:var(--ui);font-size:11.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;cursor:pointer;
+  padding:13px 22px;border-radius:var(--cta-r);border:1px solid var(--cta-edge);
+  background:var(--cta-bg);color:var(--cta-tx);
+  transition:transform .32s cubic-bezier(.34,1.32,.64,1),
+             box-shadow .32s cubic-bezier(.32,.72,0,1)}
+.cta:hover{transform:translateY(-1px);box-shadow:var(--cta-glow)}
+.cta:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.cta:active{transform:translateY(0)}
+
+/* --- chapter row with its four indexes --- */
+.ch-top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.ch-no{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.04em}
+.ch-t{font-family:var(--display);font-weight:var(--display-w);font-size:clamp(19px,2.3vw,24px);
+  letter-spacing:var(--display-ls);margin:0;color:var(--tx);
+  font-variation-settings:var(--display-vf,normal)}
+.idx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:20px}
+.card{border:1px solid var(--hair);border-radius:var(--r-xs);padding:13px 13px 15px;
+  background:var(--card2);position:relative;min-width:0}
+.card-n{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--dim);margin:0 0 7px}
+.card-t{font-family:var(--ui);font-size:12px;font-weight:600;line-height:1.35;margin:0 0 10px;
+  color:var(--tx);letter-spacing:-.005em}
+.card-m{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin:0}
+.card.is-done{border-color:var(--done-edge);background:var(--done-bg)}
+.card.is-done .card-n{color:var(--done)}
+.card.is-live{border-color:var(--accent);background:var(--live-bg)}
+.card.is-live .card-n{color:var(--accent)}
+.card.is-final{border-color:var(--seal-edge);background:var(--seal-bg)}
+.card.is-final .card-n{color:var(--seal)}
+.card-star{position:absolute;top:11px;right:12px;font-size:11px;color:var(--seal);line-height:1}
+.counts{font-family:var(--mono);font-size:11px;color:var(--dim);margin:16px 0 0}
+.counts b{color:var(--seal);font-weight:500}
+
+/* --- AI prompt block --- */
+.pr{background:var(--code-bg);border:1px solid var(--code-hair);
+  border-radius:var(--r-s);overflow:hidden}
+.pr-head{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:11px 15px;border-bottom:1px solid var(--code-hair);background:var(--code-head)}
+/* the code block can invert against the surface, so it carries its own
+   muted tone rather than borrowing the surface's */
+.pr-name{font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--code-dim,var(--dim))}
+.copy{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;cursor:pointer;padding:6px 12px;border-radius:var(--r-xs);
+  border:1px solid var(--hair);background:transparent;color:var(--accent);
+  transition:background-color .3s cubic-bezier(.32,.72,0,1),color .3s cubic-bezier(.32,.72,0,1)}
+.copy:hover{background:var(--accent);color:var(--cta-tx)}
+.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pr pre{margin:0;padding:17px 15px;font-family:var(--mono);font-size:12.5px;
+  line-height:1.78;overflow-x:auto;color:var(--code-tx);white-space:pre-wrap;word-break:break-word}
+.ph{color:var(--accent);font-weight:500}
+
+/* ============================================================
+   DIRECTION A — THE BINDERY
+   The book-manufacturing floor, not the library. Bookcloth,
+   board, palladium foil stamping, and magenta proof ink.
+   Signature: chapters as sewn gatherings.
+   ============================================================ */
+[data-dir="bindery"] .demo{
+  --display:'Young Serif',Georgia,serif; --display-w:400; --display-ls:-.005em;
+  --body:'Literata',Georgia,serif;
+  --ui:'Inter Tight',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --hero-bg:#150E1A; --hero-tx:#F2EEF4; --hero-dim:rgba(242,238,244,.60); --hero-hair:rgba(195,200,206,.20);
+  --surface:#1C1322; --card:#241831; --card2:#2C1E3A;
+  --tx:#F2EEF4; --dim:rgba(242,238,244,.52);
+  --edge:#2E2038; --hair:rgba(195,200,206,.16);
+
+  --accent:#C3C8CE;
+  --done:#B8A9C9; --done-edge:rgba(184,169,201,.42); --done-bg:rgba(184,169,201,.07);
+  --live-bg:rgba(224,53,123,.10);
+  --seal:#8FB3A0; --seal-edge:rgba(143,179,160,.50); --seal-bg:rgba(143,179,160,.09);
+
+  --track:rgba(195,200,206,.13);
+  --bar-grad:linear-gradient(90deg,#7E6A93 0%,#C3C8CE 62%,#E8ECEF 100%);
+  --bar-glow:0 0 20px -3px rgba(195,200,206,.75),0 0 42px -8px rgba(224,53,123,.45);
+  --bar-r:99px;
+
+  --cta-bg:linear-gradient(180deg,#D6DADF 0%,#AFB5BC 100%); --cta-tx:#150E1A;
+  --cta-edge:rgba(232,236,239,.5); --cta-r:99px;
+  --cta-glow:0 8px 26px -8px rgba(195,200,206,.6);
+
+  --code-bg:#120C17; --code-head:#1A1020; --code-hair:rgba(195,200,206,.16); --code-tx:#D9D3DE;
+  --r:6px; --r-s:5px; --r-xs:4px;
+}
+/* proof ink — reserved strictly for the index in revision */
+[data-dir="bindery"] .card.is-live{--accent:#E0357B}
+[data-dir="bindery"] .hero{
+  background:
+    radial-gradient(120% 90% at 88% -20%,rgba(224,53,123,.22) 0%,transparent 60%),
+    radial-gradient(90% 80% at 6% 110%,rgba(126,106,147,.30) 0%,transparent 62%),
+    #150E1A}
+/* bookcloth weave, drawn — no image asset that can go missing */
+[data-dir="bindery"] .hero::after{content:"";position:absolute;inset:0;z-index:-1;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px);
+  pointer-events:none}
+[data-dir="bindery"] .wordmark{
+  text-shadow:0 1px 0 rgba(255,255,255,.14),0 -1px 0 rgba(0,0,0,.5)}
+
+/* SIGNATURE — five sewn gatherings of eight chapters.
+   Sewn / half-sewn / open must read at a glance, so the state is carried
+   by three things at once: the head band, the fill, and the thread. */
+.gath{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.gath-b{border:1px solid var(--hair);border-radius:2px;padding:11px 10px 13px;
+  background:linear-gradient(180deg,rgba(143,179,160,.14),rgba(143,179,160,.04));
+  border-top:3px solid var(--seal)}
+.gath-b.is-part{border-top-color:rgba(224,53,123,.85);
+  background:linear-gradient(180deg,rgba(224,53,123,.13),rgba(224,53,123,.03))}
+.gath-b.is-open{border:1px dashed rgba(242,238,244,.22);background:none}
+.gath-n{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);margin:0 0 8px}
+.gath-r{font-family:var(--body);font-size:13px;color:var(--tx);margin:0}
+/* the thread itself: a full run of stitches, a half run, or bare signature */
+.stitch{margin-top:13px;height:2px;border-radius:2px;
+  background:repeating-linear-gradient(90deg,var(--seal) 0 7px,transparent 7px 12px)}
+.gath-b.is-part .stitch{width:45%;
+  background:repeating-linear-gradient(90deg,#E0357B 0 7px,transparent 7px 12px)}
+.gath-b.is-open .stitch{height:1px;
+  background:repeating-linear-gradient(90deg,rgba(242,238,244,.16) 0 3px,transparent 3px 9px)}
+
+/* ============================================================
+   DIRECTION B — THE LEDGER
+   Publishing as a going concern. A ruled accounting book:
+   pale ledger stock, red column rules, typewriter entries,
+   and a violet approval stamp.
+   Signature: the interface IS ruled paper; status is a stamp.
+   ============================================================ */
+[data-dir="ledger"] .demo{
+  --display:'Fraunces',Georgia,serif; --display-w:600; --display-ls:-.02em;
+  --display-vf:'SOFT' 30,'WONK' 1,'opsz' 120;
+  --body:'Newsreader',Georgia,serif;
+  --ui:'Inter',system-ui,sans-serif;
+  --mono:'Courier Prime',ui-monospace,monospace;
+
+  --hero-bg:#1C2621; --hero-tx:#EDF0E9; --hero-dim:rgba(237,240,233,.62); --hero-hair:rgba(184,52,44,.45);
+  --surface:#E4E9E2; --card:#EEF1EA; --card2:#F5F7F1;
+  --tx:#16211D; --dim:rgba(22,33,29,.56);
+  --edge:#C3CFC6; --hair:#C3CFC6;
+
+  --accent:#B8342C;
+  --done:#1B2A4A; --done-edge:rgba(27,42,74,.34); --done-bg:rgba(27,42,74,.05);
+  --live-bg:rgba(184,52,44,.07);
+  --seal:#6B3FA0; --seal-edge:rgba(107,63,160,.42); --seal-bg:rgba(107,63,160,.06);
+
+  --track:rgba(22,33,29,.10);
+  --bar-grad:linear-gradient(90deg,#1B2A4A 0%,#6B3FA0 72%,#8B5FC4 100%);
+  --bar-glow:0 0 16px -3px rgba(107,63,160,.62),0 1px 0 rgba(255,255,255,.5);
+  --bar-r:1px;
+
+  --cta-bg:#1B2A4A; --cta-tx:#F5F7F1; --cta-edge:#1B2A4A; --cta-r:1px;
+  --cta-glow:0 7px 20px -8px rgba(27,42,74,.7);
+
+  --code-bg:#1C2621; --code-head:#16201C; --code-hair:rgba(237,240,233,.16); --code-tx:#DDE4DA;
+  --code-dim:rgba(237,240,233,.60);
+  --r:2px; --r-s:1px; --r-xs:1px;
+}
+/* SIGNATURE — the ruling belongs to the PAGE, so it runs through every
+   panel rather than hiding behind them. Each panel is a ruled leaf. */
+[data-dir="ledger"] .body{background:#E4E9E2}
+[data-dir="ledger"] .panel{
+  background:
+    repeating-linear-gradient(180deg,transparent 0 27px,rgba(93,124,105,.24) 27px 28px),
+    #EFF2EB;
+  background-position:0 12px}
+/* the account column: a double red rule the figures are posted against */
+[data-dir="ledger"] .led{position:relative}
+[data-dir="ledger"] .led td:last-child,
+[data-dir="ledger"] .led th:last-child{
+  border-left:1px solid rgba(184,52,44,.30);
+  box-shadow:inset 5px 0 0 -4px rgba(184,52,44,.30);
+  padding-left:16px;width:1%;white-space:nowrap}
+[data-dir="ledger"] .hero{
+  background:
+    repeating-linear-gradient(180deg,transparent 0 27px,rgba(237,240,233,.055) 27px 28px),
+    #1C2621}
+[data-dir="ledger"] .hero::after{content:"";position:absolute;top:0;bottom:0;
+  right:clamp(22px,3.4vw,46px);width:1px;background:rgba(184,52,44,.55)}
+.stamp{display:inline-block;transform:rotate(-4.5deg);
+  font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.2em;
+  text-transform:uppercase;color:#6B3FA0;
+  border:2px solid rgba(107,63,160,.72);border-radius:2px;padding:8px 14px;
+  box-shadow:inset 0 0 0 1px rgba(107,63,160,.20)}
+.stamp.is-open{color:#B8342C;border-color:rgba(184,52,44,.65);
+  box-shadow:inset 0 0 0 1px rgba(184,52,44,.18);transform:rotate(2.5deg)}
+.stamp-row{display:flex;gap:22px;align-items:center;flex-wrap:wrap;padding:6px 0 4px}
+.led{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;margin-top:20px}
+.led th{text-align:left;font-family:'Inter',sans-serif;font-size:9.5px;font-weight:600;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--dim);
+  padding:0 12px 9px 0;border-bottom:1px solid rgba(184,52,44,.34)}
+.led td{padding:9px 12px 9px 0;border-bottom:1px solid rgba(93,124,105,.30);color:var(--tx)}
+.led td:last-child,.led th:last-child{text-align:right;padding-right:0}
+.led .neg{color:#B8342C}
+
+/* ============================================================
+   DIRECTION C — RECTO / VERSO
+   The two-page spread as the whole interface. A real gutter
+   down the middle, reference on the verso, work on the recto,
+   and notes that live in the actual margin.
+   Signature: the gutter, and first-class marginalia.
+   ============================================================ */
+[data-dir="rectoverso"] .demo{
+  --display:'Instrument Serif',Georgia,serif; --display-w:400; --display-ls:-.015em;
+  --body:'Source Serif 4',Georgia,serif;
+  --ui:'Inter',system-ui,sans-serif;
+  --mono:'Courier Prime',ui-monospace,monospace;
+
+  --hero-bg:#0A0A08; --hero-tx:#F0EEE6; --hero-dim:rgba(240,238,230,.56); --hero-hair:rgba(143,143,230,.34);
+  --surface:#131310; --card:#1B1B17; --card2:#222220;
+  --tx:#EFEDE5; --dim:rgba(239,237,229,.55);
+  --edge:#26261F; --hair:rgba(239,237,229,.14);
+
+  --accent:#8F8FE6;
+  --done:#8F8FE6; --done-edge:rgba(143,143,230,.40); --done-bg:rgba(143,143,230,.09);
+  --live-bg:rgba(232,112,94,.10);
+  --seal:#DCD6C4; --seal-edge:rgba(220,214,196,.42); --seal-bg:rgba(220,214,196,.06);
+
+  --track:rgba(239,237,229,.11);
+  --bar-grad:linear-gradient(90deg,#3E3E96 0%,#8F8FE6 76%,#C7C7FF 100%);
+  --bar-glow:0 0 20px -3px rgba(143,143,230,.78),0 0 44px -10px rgba(143,143,230,.50);
+  --bar-r:99px;
+
+  --cta-bg:#5A5AC0; --cta-tx:#F4F2EA; --cta-edge:#6E6ED4; --cta-r:3px;
+  --cta-glow:0 8px 24px -8px rgba(143,143,230,.75);
+
+  --code-bg:#0E0E0C; --code-head:#151512; --code-hair:rgba(239,237,229,.14); --code-tx:#DAD7CC;
+  --r:3px; --r-s:2px; --r-xs:2px;
+}
+[data-dir="rectoverso"] .card.is-live{--accent:#E8705E}
+[data-dir="rectoverso"] .hero{
+  background:
+    radial-gradient(100% 120% at 50% -30%,rgba(53,53,125,.30) 0%,transparent 58%),
+    #12120F}
+/* the fore-edge: stacked page ends under the hero */
+[data-dir="rectoverso"] .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
+  background:repeating-linear-gradient(90deg,rgba(240,238,230,.14) 0 2px,transparent 2px 4px)}
+
+/* SIGNATURE — the spread: verso, gutter, recto.
+   The recto is the lit page, so it sits a shade above the verso. */
+.spread{display:grid;grid-template-columns:1fr clamp(28px,4vw,54px) 1.35fr;
+  background:var(--card);border:1px solid var(--hair);border-radius:var(--r-s);overflow:hidden}
+.verso{padding:clamp(18px,2.4vw,26px);background:#191915}
+/* the fold: pages curve INTO the spine, so the shadow deepens at the
+   centre. A bright highlight here would read as chrome, not paper. */
+.gutter{background:linear-gradient(90deg,
+  rgba(0,0,0,.06) 0%,rgba(0,0,0,.32) 34%,
+  rgba(0,0,0,.62) 50%,
+  rgba(0,0,0,.32) 66%,rgba(0,0,0,.06) 100%)}
+.recto{padding:clamp(18px,2.4vw,26px);background:#212120}
+.folio{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.08em;
+  margin:0 0 14px;display:flex;justify-content:space-between;gap:10px}
+.mnote{border-left:2px solid var(--accent);padding:2px 0 2px 12px;margin:0 0 14px;
+  font-family:var(--body);font-size:13px;font-style:italic;line-height:1.55;
+  color:rgba(239,237,229,.74)}
+.mnote-l{display:block;font-family:var(--ui);font-style:normal;font-size:9px;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+.rprose{font-family:var(--body);font-size:15px;line-height:1.72;color:var(--tx);margin:0 0 12px}
+.rprose .mark{background:rgba(232,112,94,.16);border-bottom:1px solid rgba(232,112,94,.62);padding:0 2px}
+
+/* ============================================================
+   RESPONSIVE — the quality floor, not an afterthought
+   ============================================================ */
+@media (max-width:900px){
+  .gath{grid-template-columns:repeat(2,1fr)}
+  .spread{grid-template-columns:1fr}
+  .gutter{height:3px;background:linear-gradient(180deg,rgba(26,26,24,.20),rgba(255,255,255,.4))}
+}
+@media (max-width:640px){
+  .idx{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .plate-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+  .stamp-row{gap:14px}
+  .led{font-size:11.5px}
+  /* the posted column crowds a narrow page */
+  [data-dir="ledger"] .led td:last-child,
+  [data-dir="ledger"] .led th:last-child{padding-left:10px}
+}
+@media (max-width:420px){
+  .idx{grid-template-columns:1fr}
+  .gath{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms !important;animation-duration:.01ms !important}
+  .cta:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="intro">
+    <h1>Three directions for the KDP dashboard</h1>
+    <p>Each panel renders the <strong>same five components</strong> with the same content — hero, Command Center plate with its weekly progress bar, a signature element, a chapter with its four indexes, and an AI prompt block. Only the design changes.</p>
+    <p>These are not three colourways. Each direction has its own structural idea, and that idea is the third block in every panel. Pick the one you would want to look at for five weeks straight.</p>
+  </div>
+
+  <!-- ============ A ============ -->
+  <section class="dir" data-dir="bindery">
+    <div class="dir-head">
+      <span class="dir-key">A</span>
+      <h2 class="dir-name">The Bindery</h2>
+      <p class="dir-note">The book-manufacturing floor, not the library. Bookcloth ground, palladium foil, and magenta proof ink reserved strictly for what is <b>in revision</b>. <b>Structural idea:</b> 40 chapters are five sewn gatherings of eight — progress is something physically bound, not a percentage.</p>
+    </div>
+
+    <div class="demo">
+      <header class="hero">
+        <p class="eyebrow">Week 3 · Drafting · Chapters 29–40</p>
+        <h3 class="wordmark">The Bindery</h3>
+        <p class="hero-sub">A Debt of Tides is nine chapters from a complete first pass. Gathering IV is sewn; gathering V is open on the bench.</p>
+      </header>
+
+      <div class="body">
+        <div class="panel">
+          <p class="sec">Command</p>
+          <div class="plate-grid">
+            <div><p class="stat-l">Trilogy</p><p class="stat-v">The Saltbound Trilogy</p></div>
+            <div><p class="stat-l">Book</p><p class="stat-v">II — <em>A Debt of Tides</em></p></div>
+            <div><p class="stat-l">Week &amp; phase</p><p class="stat-v">Week 3 · Drafting</p></div>
+            <div><p class="stat-l">Current task</p><p class="stat-v">Draft Ch. 31 — Index I</p></div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-head">
+              <span class="stat-l" style="margin:0">Weekly progress</span>
+              <span class="bar-num">7 of 12 chapters · 62%</span>
+            </div>
+            <div class="bar"><div class="bar-fill"></div></div>
+          </div>
+          <button class="cta" type="button">Continue → Chapter 31</button>
+        </div>
+
+        <div class="panel">
+          <p class="sec">Gatherings · Book II</p>
+          <div class="gath">
+            <div class="gath-b"><p class="gath-n">I</p><p class="gath-r">Ch. 1–8</p><div class="stitch"></div></div>
+            <div class="gath-b"><p class="gath-n">II</p><p class="gath-r">Ch. 9–16</p><div class="stitch"></div></div>
+            <div class="gath-b"><p class="gath-n">III</p><p class="gath-r">Ch. 17–24</p><div class="stitch"></div></div>
+            <div class="gath-b is-part"><p class="gath-n">IV</p><p class="gath-r">Ch. 25–32</p><div class="stitch"></div></div>
+            <div class="gath-b is-open"><p class="gath-n">V</p><p class="gath-r">Ch. 33–40</p><div class="stitch"></div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="ch-top">
+            <span class="ch-no">CH. 30 · ACT III</span>
+            <h4 class="ch-t">What the Water Kept</h4>
+          </div>
+          <div class="idx">
+            <div class="card is-done"><p class="card-n">I</p><p class="card-t">Original</p><p class="card-m">3,140 w</p></div>
+            <div class="card is-done"><p class="card-n">II</p><p class="card-t">Improvement plan</p><p class="card-m">610 w</p></div>
+            <div class="card is-live"><p class="card-n">III</p><p class="card-t">Rewritten</p><p class="card-m">In revision</p></div>
+            <div class="card is-final"><span class="card-star">★</span><p class="card-n">IV</p><p class="card-t">Final</p><p class="card-m">Not started</p></div>
+          </div>
+          <p class="counts">Only Index IV counts toward the novel. Book II total: <b>68,420 words</b>.</p>
+        </div>
+
+        <div class="pr">
+          <div class="pr-head"><span class="pr-name">Prompt · Generate chapter</span><button class="copy" type="button">Copy</button></div>
+<pre>Write Chapter <span class="ph">{{CHAPTER_NO}}</span> of <span class="ph">{{BOOK_TITLE}}</span>.
+
+Outline:      <span class="ph">{{CHAPTER_OUTLINE}}</span>
+POV:          <span class="ph">{{POV_CHARACTER}}</span>
+Prior beat:   <span class="ph">{{PREVIOUS_CHAPTER_END}}</span>
+Style sheet:  <span class="ph">{{STYLE_SHEET}}</span>
+Never use:    <span class="ph">{{FORBIDDEN_WORDS}}</span>
+
+Target 3,000–3,400 words. End on the turn, not the aftermath.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ B ============ -->
+  <section class="dir" data-dir="ledger">
+    <div class="dir-head">
+      <span class="dir-key">B</span>
+      <h2 class="dir-name">The Ledger</h2>
+      <p class="dir-note">Publishing as a going concern — the KDP half taken seriously. Pale ledger stock, red column rules, typewriter entries. <b>Structural idea:</b> the interface <i>is</i> ruled paper, statuses are rubber stamps, and every book is an account you read down a column.</p>
+    </div>
+
+    <div class="demo">
+      <header class="hero">
+        <p class="eyebrow">Week 3 · Drafting · Chapters 29–40</p>
+        <h3 class="wordmark">The Ledger</h3>
+        <p class="hero-sub">A Debt of Tides is nine chapters from a complete first pass. Two entries posted today; the column closes Sunday.</p>
+      </header>
+
+      <div class="body">
+        <div class="panel">
+          <p class="sec">Command</p>
+          <div class="plate-grid">
+            <div><p class="stat-l">Trilogy</p><p class="stat-v">The Saltbound Trilogy</p></div>
+            <div><p class="stat-l">Book</p><p class="stat-v">II — <em>A Debt of Tides</em></p></div>
+            <div><p class="stat-l">Week &amp; phase</p><p class="stat-v">Week 3 · Drafting</p></div>
+            <div><p class="stat-l">Current task</p><p class="stat-v">Draft Ch. 31 — Index I</p></div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-head">
+              <span class="stat-l" style="margin:0">Weekly progress</span>
+              <span class="bar-num">7 of 12 chapters · 62%</span>
+            </div>
+            <div class="bar"><div class="bar-fill"></div></div>
+          </div>
+          <button class="cta" type="button">Continue → Chapter 31</button>
+        </div>
+
+        <div class="panel">
+          <p class="sec">Account · Book II</p>
+          <div class="stamp-row">
+            <span class="stamp">Outline passed</span>
+            <span class="stamp">Characters final</span>
+            <span class="stamp is-open">Draft open</span>
+          </div>
+          <table class="led">
+            <thead><tr><th>Entry</th><th>Chapters</th><th>Posted</th><th>Words</th></tr></thead>
+            <tbody>
+              <tr><td>Act I</td><td>1–10</td><td>14 Jul</td><td>31,880</td></tr>
+              <tr><td>Act II</td><td>11–30</td><td>02 Aug</td><td>36,540</td></tr>
+              <tr><td>Act III</td><td>31–40</td><td>—</td><td class="neg">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="ch-top">
+            <span class="ch-no">CH. 30 · ACT III</span>
+            <h4 class="ch-t">What the Water Kept</h4>
+          </div>
+          <div class="idx">
+            <div class="card is-done"><p class="card-n">I</p><p class="card-t">Original</p><p class="card-m">3,140 w</p></div>
+            <div class="card is-done"><p class="card-n">II</p><p class="card-t">Improvement plan</p><p class="card-m">610 w</p></div>
+            <div class="card is-live"><p class="card-n">III</p><p class="card-t">Rewritten</p><p class="card-m">In revision</p></div>
+            <div class="card is-final"><span class="card-star">★</span><p class="card-n">IV</p><p class="card-t">Final</p><p class="card-m">Not started</p></div>
+          </div>
+          <p class="counts">Only Index IV counts toward the novel. Book II total: <b>68,420 words</b>.</p>
+        </div>
+
+        <div class="pr">
+          <div class="pr-head"><span class="pr-name">Prompt · Generate chapter</span><button class="copy" type="button">Copy</button></div>
+<pre>Write Chapter <span class="ph">{{CHAPTER_NO}}</span> of <span class="ph">{{BOOK_TITLE}}</span>.
+
+Outline:      <span class="ph">{{CHAPTER_OUTLINE}}</span>
+POV:          <span class="ph">{{POV_CHARACTER}}</span>
+Prior beat:   <span class="ph">{{PREVIOUS_CHAPTER_END}}</span>
+Style sheet:  <span class="ph">{{STYLE_SHEET}}</span>
+Never use:    <span class="ph">{{FORBIDDEN_WORDS}}</span>
+
+Target 3,000–3,400 words. End on the turn, not the aftermath.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ C ============ -->
+  <section class="dir" data-dir="rectoverso">
+    <div class="dir-head">
+      <span class="dir-key">C</span>
+      <h2 class="dir-name">Recto / Verso</h2>
+      <p class="dir-note">The two-page spread as the entire interface, with a real gutter down the middle. <b>Structural idea:</b> reference lives on the verso, the work lives on the recto, and your notes live in the actual margin beside the line that provoked them — which is where the generatable notes go on every page.</p>
+    </div>
+
+    <div class="demo">
+      <header class="hero">
+        <p class="eyebrow">Week 3 · Drafting · Chapters 29–40</p>
+        <h3 class="wordmark">Recto / Verso</h3>
+        <p class="hero-sub">A Debt of Tides is nine chapters from a complete first pass. Chapter 30 is open on the recto, its outline facing it.</p>
+      </header>
+
+      <div class="body">
+        <div class="panel">
+          <p class="sec">Command</p>
+          <div class="plate-grid">
+            <div><p class="stat-l">Trilogy</p><p class="stat-v">The Saltbound Trilogy</p></div>
+            <div><p class="stat-l">Book</p><p class="stat-v">II — <em>A Debt of Tides</em></p></div>
+            <div><p class="stat-l">Week &amp; phase</p><p class="stat-v">Week 3 · Drafting</p></div>
+            <div><p class="stat-l">Current task</p><p class="stat-v">Draft Ch. 31 — Index I</p></div>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-head">
+              <span class="stat-l" style="margin:0">Weekly progress</span>
+              <span class="bar-num">7 of 12 chapters · 62%</span>
+            </div>
+            <div class="bar"><div class="bar-fill"></div></div>
+          </div>
+          <button class="cta" type="button">Continue → Chapter 31</button>
+        </div>
+
+        <div class="spread">
+          <div class="verso">
+            <p class="folio"><span>VERSO</span><span>OUTLINE · CH. 30</span></p>
+            <p class="mnote"><span class="mnote-l">Beat</span>Kesta finds the tide-ledger her mother swore was burned.</p>
+            <p class="mnote"><span class="mnote-l">Turn</span>She reads her own name in a debt entry dated before her birth.</p>
+            <p class="mnote"><span class="mnote-l">Romance</span>Distrust ↑ · Vulnerability ↑ · first admission of fear to Aurel.</p>
+          </div>
+          <div class="gutter"></div>
+          <div class="recto">
+            <p class="folio"><span>RECTO · INDEX III</span><span>1,204 / 3,200 w</span></p>
+            <p class="rprose">The ledger was not burned. It had only been kept somewhere the fire was never invited, and Kesta understood, turning the first swollen page, that this was a distinction her mother had spent thirty years maintaining.</p>
+            <p class="rprose">Her own name sat in the third column, <span class="mark">written in a hand she did not recognise</span>, against a debt dated four years before she was born.</p>
+            <p class="mnote"><span class="mnote-l">Margin · you</span>Check against Ch. 12 — did Aurel already know? Continuity flag.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="ch-top">
+            <span class="ch-no">CH. 30 · ACT III</span>
+            <h4 class="ch-t">What the Water Kept</h4>
+          </div>
+          <div class="idx">
+            <div class="card is-done"><p class="card-n">I</p><p class="card-t">Original</p><p class="card-m">3,140 w</p></div>
+            <div class="card is-done"><p class="card-n">II</p><p class="card-t">Improvement plan</p><p class="card-m">610 w</p></div>
+            <div class="card is-live"><p class="card-n">III</p><p class="card-t">Rewritten</p><p class="card-m">In revision</p></div>
+            <div class="card is-final"><span class="card-star">★</span><p class="card-n">IV</p><p class="card-t">Final</p><p class="card-m">Not started</p></div>
+          </div>
+          <p class="counts">Only Index IV counts toward the novel. Book II total: <b>68,420 words</b>.</p>
+        </div>
+
+        <div class="pr">
+          <div class="pr-head"><span class="pr-name">Prompt · Generate chapter</span><button class="copy" type="button">Copy</button></div>
+<pre>Write Chapter <span class="ph">{{CHAPTER_NO}}</span> of <span class="ph">{{BOOK_TITLE}}</span>.
+
+Outline:      <span class="ph">{{CHAPTER_OUTLINE}}</span>
+POV:          <span class="ph">{{POV_CHARACTER}}</span>
+Prior beat:   <span class="ph">{{PREVIOUS_CHAPTER_END}}</span>
+Style sheet:  <span class="ph">{{STYLE_SHEET}}</span>
+Never use:    <span class="ph">{{FORBIDDEN_WORDS}}</span>
+
+Target 3,000–3,400 words. End on the turn, not the aftermath.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
