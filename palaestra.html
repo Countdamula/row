@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en" class="pal-root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14120F">
+<title>The Palaestra</title>
+
+<!-- MUST be first and never deferred: it replaces window.localStorage
+     before any other script reads it. -->
+<script src="local-store-idb.js"></script>
+
+<!--
+  THE PALAESTRA — hub.
+
+  A new, parallel fitness page. index.html's embedded Fitness Studio
+  tab (`fitness:`) and fitnessstudio.html (`fitstudio:`) are untouched
+  and still in the nav. Everything here is `pal:`-prefixed with its own
+  Supabase row (appKey 'palaestra'); the only contact with those pages
+  is the explicit "Import my programs" button, which reads their
+  template keys and never writes back. See palaestra-data.js's header.
+
+  Routes live in the hash: #/ · #/steps · #/body · #/calendar ·
+  #/volume · #/templates · #/exercises · #/history · #/settings.
+  The live workout logger is its own page, palaestra-workout.html —
+  it is the one screen used mid-set on a phone and it should not share
+  a document that repaints on every cloud pull.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="palaestra-theme.css">
+
+<!-- Not deferred, and before the page's own inline script: the inline
+     script in <body> runs during parsing, which is BEFORE any deferred
+     script executes, so window.Pal has to already exist by then. Same
+     arrangement as chrysalis.html. topbar.js is the one that can wait. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="palaestra-data.js"></script>
+<script src="palaestra-ui.js"></script>
+<script src="palaestra-music.js"></script>
+<script src="topbar.js" defer></script>
+
+<style>
+/* Page-specific only — everything structural is in palaestra-theme.css. */
+.pal-today {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--pal-4);
+}
+@media (max-width: 900px) { .pal-today { grid-template-columns: 1fr; } }
+
+.pal-today__main { display: flex; flex-direction: column; gap: var(--pal-4); }
+.pal-today__side { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--pal-3); align-content: start; }
+
+.pal-score {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--pal-4);
+  align-items: end;
+}
+.pal-score__overall {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-left: var(--pal-4);
+  border-left: 1px solid var(--pal-hair);
+}
+@media (max-width: 720px) { .pal-score__overall { border-left: 0; padding-left: 0; } }
+
+.pal-bodybar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--pal-4); }
+.pal-spark { display: block; width: 100%; height: 34px; overflow: visible; }
+</style>
+</head>
+
+<body class="pal">
+
+<header class="pal-header">
+  <p class="pal-eyebrow">Training ground</p>
+  <div class="pal-header__title">
+    <h1 class="pal-h1">The Palaestra</h1>
+  </div>
+  <p class="pal-header__meta" id="palToday">—</p>
+  <nav class="pal-routes" id="palRoutes" aria-label="Sections"></nav>
+</header>
+
+<main class="pal-shell" id="palRoot" tabindex="-1"></main>
+
+<button class="pal-fab" id="palFab" aria-label="Quick add">＋</button>
+
+<script>
+(function () {
+  'use strict';
+
+  var P, U, root, routesEl;
+
+  var ROUTES = [
+    { hash: '/',          label: 'Today' },
+    { hash: '/steps',     label: 'Steps' },
+    { hash: '/body',      label: 'Body' },
+    { hash: '/calendar',  label: 'Calendar' },
+    { hash: '/volume',    label: 'Volume' },
+    { hash: '/templates', label: 'Workouts' },
+    { hash: '/exercises', label: 'Exercises' },
+    { hash: '/history',   label: 'History' },
+    { hash: '/settings',  label: 'Settings' }
+  ];
+
+  // View state that belongs to the screen, not to storage: which week
+  // the scorecard is showing, which month the calendar is on.
+  var scoreWeek = null;
+  var calYear = null, calMonth = null;
+  var volWindow = 'week';
+
+  function esc(s) { return P.escapeHtml(s); }
+  function route() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return '/';
+    return ROUTES.some(function (r) { return r.hash === h; }) ? h : '/';
+  }
+  function go(hash) { location.hash = '#' + hash; }
+
+  // ============================================================
+  // RENDER
+  //
+  // refresh() and repaint() are deliberately two functions.
+  // repaint() is someone ELSE acting — a cloud pull, another tab —
+  // and is deferred while the caret is in a field, so a re-render
+  // never drops focus mid-sentence. refresh() is the reader acting,
+  // and always renders. Neither ever scrolls: scroll-to-top belongs
+  // to navigation only.
+  // ============================================================
+  function render() {
+    var r = route();
+    Array.prototype.forEach.call(routesEl.children, function (b) {
+      b.setAttribute('aria-current', b.getAttribute('data-route') === r ? 'true' : 'false');
+    });
+    var view =
+      r === '/steps'     ? viewSteps()
+    : r === '/body'      ? viewBody()
+    : r === '/calendar'  ? viewCalendar()
+    : r === '/volume'    ? viewVolume()
+    : r === '/templates' ? viewTemplates()
+    : r === '/exercises' ? viewExercises()
+    : r === '/history'   ? viewHistory()
+    : r === '/settings'  ? viewSettings()
+    :                      viewToday();
+    root.innerHTML = view;
+    afterRender(r);
+  }
+  function refresh() { render(); }
+  function repaint() {
+    var a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    if (U.sheetOpen()) return;
+    render();
+  }
+  function navigate() {
+    render();
+    toTop();
+  }
+  function toTop() {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
+  }
+
+  // Anything that needs a real element after innerHTML lands.
+  function afterRender(r) {
+    if (r === '/settings') wireSettings();
+    if (r === '/') wireTodayNotes();
+  }
+
+  // ============================================================
+  // SHARED FRAGMENTS
+  // ============================================================
+  // The Week Bar. One device carrying three true things: fill height is
+  // the day's training volume against the week's best day, hue is the
+  // lane, and an outline-only column is scheduled-but-not-done. The rule
+  // underneath is that day's steps against goal — without it a week of
+  // walking and no lifting draws as seven empty boxes, which is not what
+  // that week was.
+  function weekBarHtml(weekStart) {
+    var goal = P.getSettings().stepGoal;
+    var wb = P.weekBar(weekStart);
+    return '<div class="pal-week" role="group" aria-label="This week">' + wb.cells.map(function (c) {
+      var title = c.name || (c.status === 'rest' ? 'Rest' : '');
+      var stepPct = goal ? Math.min(1, c.steps / goal) : 0;
+      var read = c.short + ' — ' + (title || 'nothing scheduled') +
+                 (c.sets ? ', ' + c.sets + ' sets' : '') +
+                 (c.steps ? ', ' + P.fmtInt(c.steps) + ' steps' : '');
+      return '<button class="pal-weekcell" data-lane="' + esc(c.lane) + '" data-status="' + esc(c.status) + '"' +
+             ' data-today="' + (c.isToday ? 'true' : 'false') + '" data-act="open-day" data-date="' + esc(c.date) + '"' +
+             ' aria-label="' + esc(read) + '">' +
+               '<span class="pal-weekcell__col">' +
+                 '<span class="pal-weekcell__fill" style="--fill:' + c.fill + '"></span>' +
+               '</span>' +
+               '<span class="pal-weekcell__steps"><span style="--steps:' + stepPct + '"></span></span>' +
+               '<span class="pal-weekcell__label"><span>' + esc(c.short) + '</span>' +
+                 (c.sets ? '<span class="pal-weekcell__sets">' + c.sets + '</span>' : '') + '</span>' +
+               '<span class="pal-weekcell__name">' + esc(title) + '</span>' +
+             '</button>';
+    }).join('') + '</div>';
+  }
+  function laneKeyHtml() {
+    var keys = [['strength', 'Strength'], ['cardio', 'Cardio'], ['mobility', 'Mobility'], ['rest', 'Rest']];
+    return '<div class="pal-lanekey">' + keys.map(function (k) {
+      return '<span class="pal-lanekey__item" data-lane="' + k[0] + '"><span class="pal-lanekey__dot"></span>' + k[1] + '</span>';
+    }).join('') + '<span class="pal-lanekey__item"><span class="pal-lanekey__dot" style="background:transparent;box-shadow:inset 0 0 0 1px var(--pal-ash)"></span>Planned</span>' +
+    '</div>';
+  }
+  function countLabel(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  // The duration estimate is sets × (work + rest). That is meaningful for
+  // lifting and meaningless for a treadmill walk, where the whole session
+  // is one "set" — it read "2 min est." for a 45-minute Zone 2. Cardio
+  // gets no estimate rather than a wrong one.
+  function durationNote(tpl, entries) {
+    if (P.laneOf(tpl.type) === 'cardio') return '';
+    return ' · ' + P.estimatedDuration(entries) + ' min est.';
+  }
+
+  function band(title, inner, headExtra) {
+    return '<section class="pal-band">' +
+      '<div class="pal-band__head"><h2 class="pal-h2">' + esc(title) + '</h2>' +
+      (headExtra || '') + '</div>' + inner + '</section>';
+  }
+
+  // ============================================================
+  // TODAY
+  // ============================================================
+  function viewToday() {
+    var t = P.today();
+    var s = P.getSettings();
+    var live = P.getLive();
+    var liveSes = live ? P.Sessions.get(live.sessionId) : null;
+    var planned = P.plannedFor(t);
+    var doneToday = P.sessionsOn(t);
+    var day = P.getDay(t);
+    var bp = P.bodyProgress();
+
+    // --- the workout card -------------------------------------------
+    var card;
+    if (liveSes) {
+      var remaining = liveSes.entries.filter(function (e) { return !e.done; }).length;
+      card = '<div class="pal-card" data-lane="' + esc(P.laneOf(liveSes.type)) + '">' +
+        '<div class="pal-card__head">' +
+          '<div><p class="pal-eyebrow">In progress</p><h3 class="pal-h2">' + esc(liveSes.name) + '</h3></div>' +
+          '<span class="pal-badge">' + esc(liveSes.type) + '</span>' +
+        '</div>' +
+        '<div class="pal-row" style="gap:24px;margin-bottom:18px">' +
+          U.fig(remaining, 'left', 'md') +
+          U.fig(P.sessionSetCount(liveSes), 'sets done', 'md') +
+        '</div>' +
+        '<a class="pal-btn pal-btn--primary" href="palaestra-workout.html">Back to the workout →</a>' +
+      '</div>';
+    } else if (planned && !planned.rest) {
+      var entries = P.entriesFromTemplate(planned.template);
+      card = '<div class="pal-card" data-lane="' + esc(P.laneOf(planned.type)) + '">' +
+        '<div class="pal-card__head">' +
+          '<div><p class="pal-eyebrow">Today</p><h3 class="pal-h2">' + esc(planned.name) + '</h3></div>' +
+          '<span class="pal-badge">' + esc(planned.type) + '</span>' +
+        '</div>' +
+        '<div class="pal-row" style="gap:28px;margin-bottom:18px">' +
+          U.fig(entries.length, entries.length === 1 ? 'exercise' : 'exercises', 'md') +
+          (P.laneOf(planned.type) === 'cardio' ? '' : U.fig(P.estimatedDuration(entries), 'min est.', 'md')) +
+        '</div>' +
+        '<ul class="pal-list" style="margin-bottom:18px">' + entries.slice(0, 8).map(function (e) {
+          return '<li class="pal-listrow">' +
+            '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(e.name) + '</div>' +
+            '<div class="pal-listrow__meta">' + e.sets.length + ' × ' + esc(e.targetReps) + ' · ' + esc(e.muscle) + '</div></div>' +
+            window.PalMusic.button({ scope: 'exercise:' + e.exerciseId, trackId: e.trackId, label: e.name }) +
+          '</li>';
+        }).join('') + '</ul>' +
+        (entries.length > 8 ? '<p class="pal-sub" style="margin-bottom:14px">and ' + (entries.length - 8) + ' more</p>' : '') +
+        '<div class="pal-row">' +
+          '<button class="pal-btn pal-btn--primary" data-act="start-template" data-id="' + esc(planned.templateId) + '">▶ Start ' + esc(planned.name) + '</button>' +
+          window.PalMusic.button({ scope: 'template:' + planned.templateId, trackId: (planned.template && planned.template.trackId) || '', label: planned.name }) +
+        '</div>' +
+      '</div>';
+    } else if (planned && planned.rest) {
+      card = '<div class="pal-card" data-lane="rest">' +
+        '<p class="pal-eyebrow">Today</p><h3 class="pal-h2">Rest</h3>' +
+        '<p class="pal-lede" style="margin:12px 0 18px">Scheduled recovery. Resting today keeps the streak, it does not break it.</p>' +
+        '<div class="pal-row">' +
+          '<button class="pal-btn" data-act="start-free">Train anyway</button>' +
+          '<button class="pal-btn pal-btn--ghost" data-act="go-templates">Change the plan</button>' +
+        '</div>' +
+      '</div>';
+    } else {
+      card = '<div class="pal-card">' +
+        '<p class="pal-eyebrow">Today</p><h3 class="pal-h2">Nothing scheduled</h3>' +
+        '<p class="pal-lede" style="margin:12px 0 18px">Set a weekly plan and this card fills itself in every morning.</p>' +
+        '<div class="pal-row">' +
+          '<button class="pal-btn pal-btn--primary" data-act="start-free">▶ Start a workout</button>' +
+          '<button class="pal-btn" data-act="go-templates">Build the week</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    if (doneToday.length) {
+      card += '<div class="pal-card" style="margin-top:16px">' +
+        '<p class="pal-eyebrow">Logged today</p>' +
+        '<ul class="pal-list">' + doneToday.map(function (x) {
+          return '<li class="pal-listrow" data-lane="' + esc(P.laneOf(x.type)) + '">' +
+            '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(x.name) + '</div>' +
+            '<div class="pal-listrow__meta">' + P.sessionSetCount(x) + ' sets · ' + P.fmtInt(P.sessionVolume(x)) + ' ' + esc(s.weightUnit) + ' · ' + P.fmtDuration(x.elapsedSec) + '</div></div>' +
+            '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="open-session" data-id="' + esc(x.id) + '">Open</button>' +
+          '</li>';
+        }).join('') + '</ul></div>';
+    }
+
+    // --- the day's numbers ------------------------------------------
+    var stepPct = s.stepGoal ? day.steps / s.stepGoal : 0;
+    var waterPct = s.waterGoalMl ? day.water / s.waterGoalMl : 0;
+    // The goal lives on the note line, never inside the figure: a unit
+    // long enough to wrap ("of 3,000 ml") breaks the number's baseline
+    // and the tile stops reading as one thing.
+    var side =
+      '<div class="pal-tile">' +
+        '<div class="pal-tile__label">Steps</div>' +
+        U.fig(P.fmtInt(day.steps), 'steps', 'md') +
+        U.meter(stepPct) +
+        '<div class="pal-tile__note">of ' + P.fmtInt(s.stepGoal) + ' · ' + Math.round(stepPct * 100) + '%</div>' +
+        '<div class="pal-row" style="margin-top:4px">' +
+          '<button class="pal-btn pal-btn--sm" data-act="steps-set">Set</button>' +
+          '<button class="pal-btn pal-btn--sm" data-act="steps-add" data-n="1000">+1k</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-tile">' +
+        '<div class="pal-tile__label">Water</div>' +
+        U.fig(P.fmtInt(day.water), 'ml', 'md') +
+        U.meter(waterPct) +
+        '<div class="pal-tile__note">of ' + P.fmtInt(s.waterGoalMl) + ' ml</div>' +
+        '<div class="pal-row" style="margin-top:4px">' +
+          '<button class="pal-btn pal-btn--sm" data-act="water-add" data-n="250">+250</button>' +
+          '<button class="pal-btn pal-btn--sm" data-act="water-add" data-n="500">+500</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-tile">' +
+        '<div class="pal-tile__label">Bodyweight</div>' +
+        U.fig(bp.current ? P.fmtWeight(bp.current) : '—', s.weightUnit, 'md') +
+        '<div class="pal-tile__note">' + (bp.asOf ? 'as of ' + esc(P.prettyDate(bp.asOf)) : 'not logged yet') + '</div>' +
+        '<button class="pal-btn pal-btn--sm" data-act="weigh-in" style="margin-top:4px">Weigh in</button>' +
+      '</div>' +
+      (s.trackMacros
+        ? '<div class="pal-tile">' +
+            '<div class="pal-tile__label">Calories</div>' +
+            U.fig(P.fmtInt(day.kcal), 'kcal', 'md') +
+            U.meter(s.kcalGoal ? day.kcal / s.kcalGoal : 0) +
+            '<div class="pal-tile__note">' + (s.kcalGoal ? 'of ' + P.fmtInt(s.kcalGoal) + ' · ' : '') +
+              'P ' + P.fmtInt(day.protein) + ' · C ' + P.fmtInt(day.carbs) + ' · F ' + P.fmtInt(day.fat) + '</div>' +
+            '<button class="pal-btn pal-btn--sm" data-act="macros-edit" style="margin-top:4px">Log food</button>' +
+          '</div>'
+        : '');
+
+    // --- streaks ------------------------------------------------------
+    var st = P.streaks();
+    var streakBand = band('Consistency',
+      '<div class="pal-card">' +
+        '<div class="pal-row" style="gap:12px;align-items:baseline;margin-bottom:6px">' +
+          '<span style="font-size:26px">🔥</span>' +
+          U.fig(st.weekDone + ' / ' + st.weekGoal, 'workouts this week', 'lg') +
+        '</div>' +
+        U.pips(st.weekDone, st.weekGoal) +
+        '<div class="pal-grid pal-grid--4" style="margin-top:22px">' +
+          U.tile('Workout streak', U.fig(st.workout, 'days', 'sm'), 'days you did what the plan said') +
+          U.tile('Step streak', U.fig(st.steps, 'days', 'sm'), P.fmtInt(s.stepGoal) + '+ a day') +
+          U.tile('Cardio streak', U.fig(st.cardio, 'weeks', 'sm'), s.weeklyCardioGoal + ' sessions a week') +
+          U.tile('This month', U.fig(st.monthDone, 'workouts', 'sm'), '') +
+          U.tile('PR streak', U.fig(st.pr, 'weeks', 'sm'), 'weeks with a new best') +
+        '</div>' +
+      '</div>');
+
+    // --- scorecard ----------------------------------------------------
+    var sc = P.scorecard(scoreWeek || t);
+    var scoreBand = band('Weekly scorecard',
+      '<div class="pal-card">' + scorecardHtml(sc) + '</div>',
+      '<div class="pal-row">' +
+        '<button class="pal-btn pal-btn--sm" data-act="week-step" data-n="-1" aria-label="Previous week">←</button>' +
+        '<span class="pal-mono" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pal-ash)">' +
+          esc(P.prettyDate(sc.weekStart)) + ' – ' + esc(P.prettyDate(sc.weekEnd)) + '</span>' +
+        '<button class="pal-btn pal-btn--sm" data-act="week-step" data-n="1" aria-label="Next week"' +
+          (sc.isCurrent ? ' disabled' : '') + '>→</button>' +
+      '</div>');
+
+    // --- notes --------------------------------------------------------
+    var todayNote = P.Notes.list().filter(function (n) { return n.date === t; })[0];
+    var notesBand = band('Training note',
+      '<div class="pal-card">' +
+        '<textarea class="pal-textarea" id="palTodayNote" placeholder="How did it feel? What is worth remembering about today?">' +
+        esc(todayNote ? todayNote.body : '') + '</textarea>' +
+      '</div>');
+
+    return '' +
+      '<section class="pal-band" style="border-top:0">' +
+        '<div class="pal-band__head">' +
+          '<h2 class="pal-h2">This week</h2>' + laneKeyHtml() +
+        '</div>' +
+        weekBarHtml(t) +
+      '</section>' +
+      '<section class="pal-band">' +
+        '<div class="pal-today">' +
+          '<div class="pal-today__main">' + card + '</div>' +
+          '<div class="pal-today__side">' + side + '</div>' +
+        '</div>' +
+      '</section>' +
+      streakBand + scoreBand + notesBand;
+  }
+
+  function scorecardHtml(sc) {
+    var s = P.getSettings();
+    var wDelta = sc.weight.delta;
+    var deltaClass = wDelta === 0 ? 'flat'
+      : ((s.goalWeight && s.goalWeight < s.startWeight) ? (wDelta < 0 ? 'up' : 'down') : (wDelta > 0 ? 'up' : 'down'));
+    return '<div class="pal-score">' +
+      U.tile('Training', U.fig(sc.training.done + ' / ' + sc.training.goal, 'workouts', 'sm'), '') +
+      U.tile('Steps', U.fig(P.fmtInt(sc.steps.total), 'of ' + P.fmtInt(sc.steps.goal), 'sm'), '') +
+      U.tile('Cardio', U.fig(sc.cardio.done + ' / ' + sc.cardio.goal, 'sessions', 'sm'), '') +
+      U.tile('Bodyweight',
+        '<span class="pal-fig pal-fig--sm">' +
+          (sc.weight.from ? esc(P.fmtWeight(sc.weight.from)) + ' → ' + esc(P.fmtWeight(sc.weight.to)) : '—') +
+          '<span class="pal-fig__unit">' + esc(sc.weight.unit) + '</span></span>',
+        wDelta ? (wDelta > 0 ? '+' : '') + P.fmtWeight(wDelta) : 'no change') +
+      U.tile('Strength PRs', U.fig(sc.prs, sc.prs === 1 ? 'best' : 'bests', 'sm'), '') +
+      '<div class="pal-score__overall">' +
+        '<div class="pal-tile__label">Overall</div>' +
+        U.fig(sc.overall + '%', '', 'lg') +
+        U.meter(sc.overall / 100) +
+      '</div>' +
+    '</div>' +
+    '<p class="pal-sub pal-delta--' + deltaClass + '" style="margin-top:14px;color:var(--pal-ash)">' +
+    'Training, steps and cardio against their goals, averaged. ' +
+    'PRs and bodyweight are reported, not scored — a week without a PR is not a failed week.</p>';
+  }
+
+  function wireTodayNotes() {
+    var el = document.getElementById('palTodayNote');
+    if (!el) return;
+    var t = P.today();
+    P.autosave(el, function (val) {
+      var existing = P.Notes.list().filter(function (n) { return n.date === t; })[0];
+      // A day with no words gets no record — otherwise paging back
+      // through a year writes a year of blank rows.
+      if (!String(val).trim()) { if (existing) P.Notes.remove(existing.id); return; }
+      if (existing) P.Notes.update(existing.id, { body: val });
+      else P.Notes.add({ date: t, body: val });
+    }, 400);
+  }
+
+  // ============================================================
+  // STEPS
+  // ============================================================
+  function viewSteps() {
+    var s = P.getSettings();
+    var st = P.stepStats();
+    var pct = s.stepGoal ? st.today / s.stepGoal : 0;
+
+    return band('Steps',
+      '<div class="pal-card" style="margin-bottom:16px">' +
+        U.fig(P.fmtInt(st.today), 'of ' + P.fmtInt(st.goal), 'xl') +
+        '<div style="margin:18px 0 10px">' + U.meter(pct) + '</div>' +
+        '<p class="pal-sub">' + Math.round(pct * 100) + '% of today\'s goal</p>' +
+        '<div class="pal-row" style="margin-top:16px">' +
+          '<button class="pal-btn pal-btn--primary" data-act="steps-set">Set today\'s count</button>' +
+          '<button class="pal-btn" data-act="steps-add" data-n="1000">+1,000</button>' +
+          '<button class="pal-btn" data-act="steps-add" data-n="2500">+2,500</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-grid pal-grid--4" style="margin-bottom:24px">' +
+        U.tile('7-day average', U.fig(P.fmtInt(st.avg7), 'a day', 'sm'), '') +
+        U.tile('30-day average', U.fig(P.fmtInt(st.avg30), 'a day', 'sm'), '') +
+        U.tile('Highest day', U.fig(P.fmtInt(st.best.steps), '', 'sm'), st.best.steps ? P.prettyDate(st.best.date) : 'nothing logged yet') +
+        U.tile('Current streak', U.fig(st.streak, 'days', 'sm'), 'at or above goal') +
+      '</div>' +
+      '<div class="pal-card">' +
+        '<div class="pal-card__head"><h3 class="pal-h3">The last year</h3>' +
+          '<span class="pal-sub">darker = more</span></div>' +
+        heatmapHtml(st) +
+      '</div>',
+      '<button class="pal-btn pal-btn--sm" data-act="steps-history">Edit another day</button>');
+  }
+
+  function heatmapHtml(st) {
+    var s = P.getSettings();
+    var rows = st.rows;
+    // Pad the front so every column is a full Monday-first week.
+    var lead = (P.parseISO(rows[0].date).getDay() + 6) % 7;
+    var cells = [];
+    for (var i = 0; i < lead; i++) cells.push(null);
+    cells = cells.concat(rows);
+
+    var weeks = [], w = [];
+    cells.forEach(function (c) {
+      w.push(c);
+      if (w.length === 7) { weeks.push(w); w = []; }
+    });
+    if (w.length) { while (w.length < 7) w.push(null); weeks.push(w); }
+
+    return '<div class="pal-heat">' + weeks.map(function (wk) {
+      return '<div class="pal-heat__week">' + wk.map(function (c) {
+        if (!c) return '<span class="pal-heat__cell" style="visibility:hidden"></span>';
+        var ratio = s.stepGoal ? c.steps / s.stepGoal : 0;
+        var level = c.steps === 0 ? 0 : ratio >= 1 ? 4 : ratio >= .7 ? 3 : ratio >= .4 ? 2 : 1;
+        return '<span class="pal-heat__cell" data-level="' + level + '" title="' +
+               esc(P.prettyDate(c.date) + ' — ' + P.fmtInt(c.steps) + ' steps') + '"></span>';
+      }).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // ============================================================
+  // BODY
+  // ============================================================
+  function viewBody() {
+    var s = P.getSettings();
+    var bp = P.bodyProgress();
+    var log = P.bodySorted().slice().reverse();
+
+    var head = '<div class="pal-card" style="margin-bottom:16px">' +
+      '<div class="pal-bodybar">' +
+        U.tile('Current', U.fig(bp.current ? P.fmtWeight(bp.current) : '—', s.weightUnit, 'lg'), bp.asOf ? P.prettyDate(bp.asOf) : '') +
+        U.tile('Starting', U.fig(bp.start ? P.fmtWeight(bp.start) : '—', s.weightUnit, 'lg'), '') +
+        U.tile('Goal', U.fig(bp.goal ? P.fmtWeight(bp.goal) : '—', s.weightUnit, 'lg'), '') +
+        U.tile('Progress', U.fig(P.fmtWeight(bp.moved) + ' / ' + P.fmtWeight(bp.target), s.weightUnit + ' ' + bp.direction, 'lg'), '') +
+      '</div>' +
+      '<div style="margin-top:20px">' + U.meter(bp.pct / 100) + '</div>' +
+      '<p class="pal-sub" style="margin-top:8px">' + bp.pct + '% of the way there' +
+        (bp.goal ? '' : ' — set a goal weight in Settings to fill this in') + '</p>' +
+    '</div>';
+
+    var measures = '';
+    if (log.length) {
+      measures = '<div class="pal-card" style="margin-bottom:16px"><div class="pal-card__head">' +
+        '<h3 class="pal-h3">Measurements</h3><span class="pal-sub">latest first</span></div>' +
+        '<div class="pal-tablewrap"><table class="pal-table"><thead><tr><th>Date</th>' +
+        P.MEASURE_FIELDS.map(function (f) { return '<th>' + esc(f.label) + '</th>'; }).join('') +
+        '<th></th></tr></thead><tbody>' +
+        log.map(function (b) {
+          return '<tr>' +
+            '<td>' + esc(P.prettyDate(b.date)) + '</td>' +
+            P.MEASURE_FIELDS.map(function (f) {
+              return '<td class="pal-num">' + (b[f.key] ? P.fmtWeight(b[f.key]) : '·') + '</td>';
+            }).join('') +
+            '<td class="pal-num"><button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-body" data-id="' + esc(b.id) + '">Edit</button></td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody></table></div></div>';
+    } else {
+      measures = U.empty('No measurements yet',
+        'One weigh-in is enough to start the bar moving.', 'Log measurements', 'log-body');
+    }
+
+    var photos = P.bodySorted().filter(function (b) { return b.photos.length; }).reverse();
+    var photoBlock = photos.length
+      ? '<div class="pal-card"><div class="pal-card__head"><h3 class="pal-h3">Progress photos</h3></div>' +
+        photos.map(function (b) {
+          return '<div style="margin-bottom:18px">' +
+            '<div class="pal-listrow__meta" style="margin-bottom:8px">' + esc(P.prettyLong(b.date)) +
+            (b.weight ? ' · ' + P.fmtWeight(b.weight) + ' ' + esc(s.weightUnit) : '') + '</div>' +
+            U.mediaStrip(b.photos) + '</div>';
+        }).join('') + '</div>'
+      : '';
+
+    return band('Body progress', head + measures + photoBlock,
+      '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="log-body">＋ Log measurements</button>');
+  }
+
+  // ============================================================
+  // CALENDAR
+  // ============================================================
+  function viewCalendar() {
+    var now = new Date();
+    if (calYear == null) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+    var cal = P.calendarMonth(calYear, calMonth);
+    var sched = P.getSchedule();
+    var templates = P.templatesSorted();
+
+    var grid = '<div class="pal-cal" style="margin-bottom:6px">' +
+      P.WEEKDAYS.map(function (w) { return '<div class="pal-cal__dow">' + esc(w.short) + '</div>'; }).join('') +
+      '</div><div class="pal-cal">' +
+      cal.cells.map(function (c) {
+        return '<button class="pal-calday" data-lane="' + esc(c.lane) + '" data-status="' + esc(c.status) + '"' +
+          ' data-inmonth="' + c.inMonth + '" data-today="' + c.isToday + '"' +
+          ' data-act="open-day" data-date="' + esc(c.date) + '">' +
+          '<span class="pal-calday__num">' + c.day + '</span>' +
+          (c.lane !== 'none' ? '<span class="pal-calday__bar"></span>' : '') +
+          '<span class="pal-calday__label">' + esc(c.label) + '</span>' +
+        '</button>';
+      }).join('') + '</div>';
+
+    var plan = '<div class="pal-card" style="margin-top:24px">' +
+      '<div class="pal-card__head"><h3 class="pal-h3">The weekly plan</h3>' +
+      '<span class="pal-sub">what the calendar projects forward</span></div>' +
+      '<ul class="pal-list">' + P.WEEKDAYS.map(function (w) {
+        var slot = sched[w.key];
+        var tpl = slot && slot.templateId ? P.Templates.get(slot.templateId) : null;
+        var label = slot && slot.rest ? 'Rest' : (tpl ? tpl.name : 'Nothing scheduled');
+        var lane = slot && slot.rest ? 'rest' : (tpl ? P.laneOf(tpl.type) : 'none');
+        return '<li class="pal-listrow" data-lane="' + esc(lane) + '">' +
+          '<div class="pal-listrow__meta" style="width:52px;flex:none">' + esc(w.short) + '</div>' +
+          '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(label) + '</div></div>' +
+          '<select class="pal-select" style="max-width:220px" data-sched="' + esc(w.key) + '">' +
+            '<option value="">Nothing scheduled</option>' +
+            '<option value="rest"' + (slot && slot.rest ? ' selected' : '') + '>Rest</option>' +
+            templates.map(function (tp) {
+              return '<option value="' + esc(tp.id) + '"' + (tpl && tpl.id === tp.id ? ' selected' : '') + '>' + esc(tp.name) + '</option>';
+            }).join('') +
+          '</select>' +
+        '</li>';
+      }).join('') + '</ul></div>';
+
+    return band(cal.monthName + ' ' + cal.year, grid + plan,
+      '<div class="pal-row">' + laneKeyHtml() +
+        '<button class="pal-btn pal-btn--sm" data-act="cal-step" data-n="-1" aria-label="Previous month">←</button>' +
+        '<button class="pal-btn pal-btn--sm" data-act="cal-today">Today</button>' +
+        '<button class="pal-btn pal-btn--sm" data-act="cal-step" data-n="1" aria-label="Next month">→</button>' +
+      '</div>');
+  }
+
+  // ============================================================
+  // VOLUME
+  // ============================================================
+  function viewVolume() {
+    var s = P.getSettings();
+    var wkStart = P.mondayOf(P.today());
+    var rows, headLabel, cmpLabel;
+    if (volWindow === 'month') {
+      var from = P.addDays(P.today(), -27), mid = P.addDays(P.today(), -55);
+      var a = P.volumeByMuscle(from, P.today());
+      var b = P.volumeByMuscle(mid, P.addDays(from, -1));
+      rows = P.MUSCLES.map(function (m) {
+        return { muscle: m, thisWeek: a[m].sets, lastWeek: b[m].sets, thisVolume: a[m].volume, lastVolume: b[m].volume };
+      }).filter(function (r) { return r.thisWeek || r.lastWeek; });
+      headLabel = 'Last 28 days'; cmpLabel = 'Previous 28';
+    } else {
+      rows = P.volumeComparison(wkStart);
+      headLabel = 'This week'; cmpLabel = 'Last week';
+    }
+
+    if (!rows.length) {
+      return band('Training volume',
+        U.empty('Nothing logged yet',
+          'Volume is counted from completed sets, so it fills in as you log workouts.',
+          'Start a workout', 'start-free'),
+        windowToggle());
+    }
+
+    var peak = Math.max.apply(null, rows.map(function (r) { return Math.max(r.thisWeek, r.lastWeek); }).concat([1]));
+    var totalThis = rows.reduce(function (a, r) { return a + r.thisWeek; }, 0);
+    var totalLast = rows.reduce(function (a, r) { return a + r.lastWeek; }, 0);
+
+    var table = '<div class="pal-card"><div class="pal-tablewrap"><table class="pal-table">' +
+      '<thead><tr><th>Muscle</th><th>' + esc(headLabel) + '</th><th>' + esc(cmpLabel) + '</th><th>Change</th><th>Load</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var d = r.thisWeek - r.lastWeek;
+        var cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+        return '<tr>' +
+          '<td>' + esc(r.muscle) + '</td>' +
+          '<td class="pal-num">' + r.thisWeek + ' sets</td>' +
+          '<td class="pal-num">' + r.lastWeek + '</td>' +
+          '<td class="pal-num pal-delta--' + cls + '">' + (d > 0 ? '+' : '') + d + '</td>' +
+          '<td class="pal-num">' + P.fmtInt(r.thisVolume) + ' ' + esc(s.weightUnit) + '</td>' +
+        '</tr>';
+      }).join('') +
+      '<tr><td><strong>All</strong></td><td class="pal-num"><strong>' + totalThis + ' sets</strong></td>' +
+      '<td class="pal-num">' + totalLast + '</td>' +
+      '<td class="pal-num pal-delta--' + (totalThis - totalLast > 0 ? 'up' : totalThis - totalLast < 0 ? 'down' : 'flat') + '">' +
+      (totalThis - totalLast > 0 ? '+' : '') + (totalThis - totalLast) + '</td><td></td></tr>' +
+      '</tbody></table></div>' +
+      (volWindow === 'week'
+        // Comparing a Thursday against a finished week always reads as a
+        // drop. Say so, rather than letting the red numbers imply a
+        // problem that is really just the calendar.
+        ? '<p class="pal-sub" style="margin-top:12px">This week is still open — it is being compared with a finished one, ' +
+          'so the change column runs negative until the week catches up.</p>'
+        : '') +
+      '</div>';
+
+    var bars = '<div class="pal-card" style="margin-top:16px">' +
+      '<div class="pal-card__head"><h3 class="pal-h3">Sets by muscle</h3>' +
+      '<span class="pal-sub">bar = ' + esc(headLabel.toLowerCase()) + ', line = ' + esc(cmpLabel.toLowerCase()) + '</span></div>' +
+      rows.map(function (r) {
+        return '<div style="margin-bottom:14px">' +
+          '<div class="pal-row" style="justify-content:space-between;margin-bottom:5px">' +
+            '<span style="font-size:13px">' + esc(r.muscle) + '</span>' +
+            '<span class="pal-mono" style="font-size:11px;color:var(--pal-ash)">' + r.thisWeek + ' vs ' + r.lastWeek + '</span>' +
+          '</div>' +
+          '<div style="position:relative">' + U.meter(r.thisWeek / peak) +
+            '<span style="position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--pal-sand-2);left:' +
+            (Math.min(1, r.lastWeek / peak) * 100) + '%"></span>' +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+
+    return band('Training volume', table + bars, windowToggle());
+  }
+  function windowToggle() {
+    return '<div class="pal-row">' +
+      '<button class="pal-chip" data-act="vol-window" data-n="week" aria-pressed="' + (volWindow === 'week') + '">Week</button>' +
+      '<button class="pal-chip" data-act="vol-window" data-n="month" aria-pressed="' + (volWindow === 'month') + '">28 days</button>' +
+    '</div>';
+  }
+
+  // ============================================================
+  // TEMPLATES
+  // ============================================================
+  function viewTemplates() {
+    var list = P.templatesSorted();
+    var canImport = P.importAvailable();
+    var head = '<div class="pal-row">' +
+      (canImport ? '<button class="pal-btn pal-btn--sm" data-act="import">↻ Import my programs</button>' : '') +
+      '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="new-template">＋ New workout</button>' +
+    '</div>';
+
+    if (!list.length) {
+      return band('Workouts',
+        U.empty('No routines yet',
+          canImport
+            ? 'Import the programs already in your Fitness Studio, or build one from scratch. Importing copies them across and leaves the originals alone.'
+            : 'A routine is a named list of exercises you can start with one button.',
+          'Build your first workout', 'new-template'),
+        head);
+    }
+
+    var cards = '<div class="pal-grid pal-grid--2">' + list.map(function (t) {
+      var entries = P.entriesFromTemplate(t);
+      return '<div class="pal-card" data-lane="' + esc(P.laneOf(t.type)) + '">' +
+        '<div class="pal-card__head" style="align-items:center;flex-wrap:nowrap">' +
+          '<div style="flex:1 1 auto;min-width:0"><h3 class="pal-h2">' + esc(t.name) + '</h3>' +
+          '<p class="pal-sub">' + countLabel(entries.length, 'exercise') + durationNote(t, entries) + '</p></div>' +
+          '<div style="flex:none;display:flex;align-items:center;gap:8px">' +
+            '<span class="pal-badge">' + esc(t.type) + '</span>' +
+            window.PalMusic.button({ scope: 'template:' + t.id, trackId: t.trackId, label: t.name }) +
+          '</div>' +
+        '</div>' +
+        '<ul class="pal-list" style="margin-bottom:14px">' + entries.map(function (e) {
+          return '<li class="pal-listrow">' +
+            '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(e.name) + '</div>' +
+            '<div class="pal-listrow__meta">' + e.sets.length + ' × ' + esc(e.targetReps) + '</div></div>' +
+            window.PalMusic.button({ scope: 'exercise:' + e.exerciseId, trackId: e.trackId, label: e.name }) +
+          '</li>';
+        }).join('') + '</ul>' +
+        '<div class="pal-row">' +
+          '<button class="pal-btn pal-btn--primary" data-act="start-template" data-id="' + esc(t.id) + '">▶ Start ' + esc(t.name) + '</button>' +
+          '<button class="pal-btn" data-act="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    return band('Workouts', cards, head);
+  }
+
+  // ============================================================
+  // EXERCISES
+  // ============================================================
+  function viewExercises() {
+    var list = P.exercisesSorted();
+    var head = '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="new-exercise">＋ New exercise</button>';
+    if (!list.length) {
+      return band('Exercise library',
+        U.empty('The library is empty', 'Every routine is built from these.', 'Add an exercise', 'new-exercise'), head);
+    }
+    var byMuscle = {};
+    list.forEach(function (e) { (byMuscle[e.muscle] = byMuscle[e.muscle] || []).push(e); });
+
+    var body = P.MUSCLES.filter(function (m) { return byMuscle[m]; }).map(function (m) {
+      return '<div class="pal-card" style="margin-bottom:14px">' +
+        '<div class="pal-card__head"><h3 class="pal-h3">' + esc(m) + '</h3>' +
+        '<span class="pal-sub">' + byMuscle[m].length + '</span></div>' +
+        '<ul class="pal-list">' + byMuscle[m].map(function (e) {
+          return '<li class="pal-listrow">' +
+            '<div class="pal-listrow__main">' +
+              '<div class="pal-listrow__title">' + esc(e.name) + '</div>' +
+              '<div class="pal-listrow__meta">' + e.sets + ' × ' + e.repMin + '–' + e.repMax +
+              ' · ' + e.restSec + 's rest' + (e.equipment ? ' · ' + esc(e.equipment) : '') +
+              (e.media.length ? ' · ' + e.media.length + ' media' : '') + '</div>' +
+            '</div>' +
+            '<div class="pal-listrow__actions">' +
+              window.PalMusic.button({ scope: 'exercise:' + e.id, trackId: e.trackId, label: e.name }) +
+              '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-exercise" data-id="' + esc(e.id) + '">Edit</button>' +
+            '</div>' +
+          '</li>';
+        }).join('') + '</ul></div>';
+    }).join('');
+
+    return band('Exercise library', body, head);
+  }
+
+  // ============================================================
+  // HISTORY
+  // ============================================================
+  function viewHistory() {
+    var s = P.getSettings();
+    var list = P.sessionsSorted().filter(function (x) { return x.status !== 'live'; });
+    if (!list.length) {
+      return band('History', U.empty('Nothing logged yet', 'Finished workouts land here.', 'Start a workout', 'start-free'));
+    }
+    var bests = P.personalBests();
+    var prBlock = bests.length
+      ? '<div class="pal-card" style="margin-bottom:16px">' +
+          '<div class="pal-card__head"><h3 class="pal-h3">Personal bests</h3>' +
+          '<span class="pal-sub">estimated 1RM · Epley</span></div>' +
+          '<div class="pal-tablewrap"><table class="pal-table"><thead><tr>' +
+          '<th>Exercise</th><th>Best set</th><th>Est. 1RM</th><th>When</th></tr></thead><tbody>' +
+          bests.map(function (b) {
+            return '<tr><td>' + esc(b.exercise) + '</td>' +
+              '<td class="pal-num">' + P.fmtWeight(b.weight) + ' × ' + b.reps + '</td>' +
+              '<td class="pal-num">' + P.fmtInt(b.e1rm) + ' ' + esc(s.weightUnit) + '</td>' +
+              '<td class="pal-num">' + esc(P.prettyDate(b.date)) + '</td></tr>';
+          }).join('') + '</tbody></table></div></div>'
+      : '';
+
+    var rows = '<div class="pal-card"><ul class="pal-list">' + list.slice(0, 120).map(function (x) {
+      return '<li class="pal-listrow" data-lane="' + esc(P.laneOf(x.type)) + '">' +
+        '<div class="pal-listrow__meta" style="width:70px;flex:none">' + esc(P.prettyDate(x.date)) + '</div>' +
+        '<div class="pal-listrow__main">' +
+          '<div class="pal-listrow__title">' + esc(x.name) +
+          (x.status === 'abandoned' ? ' <span class="pal-sub">(not finished)</span>' : '') + '</div>' +
+          '<div class="pal-listrow__meta">' + P.sessionSetCount(x) + ' sets · ' +
+          P.fmtInt(P.sessionVolume(x)) + ' ' + esc(s.weightUnit) + ' · ' + P.fmtDuration(x.elapsedSec) + '</div>' +
+        '</div>' +
+        '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="open-session" data-id="' + esc(x.id) + '">Open</button>' +
+      '</li>';
+    }).join('') + '</ul></div>';
+
+    return band('History', prBlock + rows);
+  }
+
+  // ============================================================
+  // SETTINGS
+  // ============================================================
+  function viewSettings() {
+    var s = P.getSettings();
+    function f(key, label, value, type, extra) {
+      return '<div class="pal-field"><label class="pal-label" for="set_' + key + '">' + esc(label) + '</label>' +
+        '<input class="pal-input pal-input--num" id="set_' + key + '" data-set="' + key + '" type="' + (type || 'number') +
+        '" value="' + esc(value) + '"' + (extra || '') + '></div>';
+    }
+    return band('Settings',
+      '<div class="pal-card" style="margin-bottom:16px">' +
+        '<h3 class="pal-h3" style="margin-bottom:14px">Goals</h3>' +
+        '<div class="pal-grid pal-grid--3">' +
+          f('stepGoal', 'Daily steps', s.stepGoal) +
+          f('waterGoalMl', 'Daily water (ml)', s.waterGoalMl) +
+          f('weeklyWorkoutGoal', 'Workouts a week', s.weeklyWorkoutGoal) +
+          f('weeklyCardioGoal', 'Cardio sessions a week', s.weeklyCardioGoal) +
+          f('startWeight', 'Starting weight', s.startWeight) +
+          f('goalWeight', 'Goal weight', s.goalWeight) +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-card" style="margin-bottom:16px">' +
+        '<h3 class="pal-h3" style="margin-bottom:14px">Units</h3>' +
+        '<div class="pal-grid pal-grid--3">' +
+          '<div class="pal-field"><label class="pal-label" for="set_weightUnit">Weight</label>' +
+            '<select class="pal-select" id="set_weightUnit" data-set="weightUnit">' +
+            U.selectOptions(['lb', 'kg'], s.weightUnit) + '</select></div>' +
+          '<div class="pal-field"><label class="pal-label" for="set_lengthUnit">Measurements</label>' +
+            '<select class="pal-select" id="set_lengthUnit" data-set="lengthUnit">' +
+            U.selectOptions(['in', 'cm'], s.lengthUnit) + '</select></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pal-card" style="margin-bottom:16px">' +
+        '<div class="pal-card__head"><h3 class="pal-h3">Calories and macros</h3>' +
+          '<label class="pal-row" style="gap:8px;cursor:pointer"><input class="pal-check" type="checkbox" data-set="trackMacros"' +
+          (s.trackMacros ? ' checked' : '') + '><span class="pal-sub">Track them</span></label></div>' +
+        (s.trackMacros
+          ? '<div class="pal-grid pal-grid--4">' +
+              f('kcalGoal', 'Calories', s.kcalGoal) + f('proteinGoal', 'Protein (g)', s.proteinGoal) +
+              f('carbGoal', 'Carbs (g)', s.carbGoal) + f('fatGoal', 'Fat (g)', s.fatGoal) +
+            '</div>'
+          : '<p class="pal-sub">Off. Today\'s card leaves the calorie tile out entirely rather than showing an empty one.</p>') +
+      '</div>' +
+      '<div class="pal-card">' +
+        '<h3 class="pal-h3" style="margin-bottom:10px">Bringing work across</h3>' +
+        '<p class="pal-sub" style="margin-bottom:14px">Reads the routines in your Fitness Studio pages and copies them here. ' +
+          'It never changes them, and running it again only adds what is new.</p>' +
+        '<button class="pal-btn" data-act="import">↻ Import my programs (' + P.importAvailable() + ' found)</button>' +
+      '</div>');
+  }
+
+  function wireSettings() {
+    root.querySelectorAll('[data-set]').forEach(function (el) {
+      var key = el.getAttribute('data-set');
+      el.addEventListener('change', function () {
+        var val = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? parseFloat(el.value) : el.value);
+        P.saveSettings((function () { var o = {}; o[key] = val; return o; })());
+        if (key === 'trackMacros') refresh();
+        U.toast('Saved');
+      });
+    });
+  }
+
+  // ============================================================
+  // SHEETS
+  // ============================================================
+  function numField(key, label, value, unit) {
+    return '<div class="pal-field"><label class="pal-label" for="fld_' + key + '">' + esc(label) +
+      (unit ? ' (' + esc(unit) + ')' : '') + '</label>' +
+      '<input class="pal-input pal-input--num" id="fld_' + key + '" name="' + key + '" type="number" step="any" inputmode="decimal" value="' +
+      (value ? esc(value) : '') + '"></div>';
+  }
+  function val(sheet, name) {
+    var el = sheet.querySelector('[name="' + name + '"]');
+    if (!el) return '';
+    return el.type === 'checkbox' ? el.checked : el.value;
+  }
+
+  function sheetSteps() {
+    var t = P.today();
+    U.openSheet({
+      title: 'Steps today',
+      body: numField('steps', 'Steps', P.getDay(t).steps || ''),
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        P.patchDay(t, { steps: Math.max(0, parseInt(val(sheet, 'steps'), 10) || 0) });
+        U.closeSheet(); refresh(); U.toast('Steps saved');
+      }
+    });
+  }
+
+  function sheetStepsHistory() {
+    var rows = P.daysRange(P.addDays(P.today(), -13), P.today()).reverse();
+    U.openSheet({
+      title: 'Recent days',
+      lede: 'Fill in a day you forgot. Blank leaves it at zero.',
+      body: '<div class="pal-grid pal-grid--2">' + rows.map(function (r) {
+        return '<div class="pal-field"><label class="pal-label" for="fld_' + r.date + '">' + esc(P.prettyLong(r.date)) + '</label>' +
+          '<input class="pal-input pal-input--num" id="fld_' + r.date + '" name="' + r.date + '" type="number" inputmode="numeric" value="' +
+          (r.steps || '') + '"></div>';
+      }).join('') + '</div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save all', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        rows.forEach(function (r) {
+          var v = parseInt(val(sheet, r.date), 10);
+          P.patchDay(r.date, { steps: isFinite(v) && v > 0 ? v : 0 });
+        });
+        U.closeSheet(); refresh(); U.toast('Days saved');
+      }
+    });
+  }
+
+  function sheetWater() {
+    U.openSheet({
+      title: 'Water today',
+      body: numField('water', 'Millilitres', P.getDay(P.today()).water || ''),
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        P.patchDay(P.today(), { water: Math.max(0, parseInt(val(sheet, 'water'), 10) || 0) });
+        U.closeSheet(); refresh();
+      }
+    });
+  }
+
+  function sheetMacros() {
+    var d = P.getDay(P.today());
+    U.openSheet({
+      title: 'Food today',
+      body: '<div class="pal-grid pal-grid--2">' +
+        numField('kcal', 'Calories', d.kcal || '') + numField('protein', 'Protein', d.protein || '', 'g') +
+        numField('carbs', 'Carbs', d.carbs || '', 'g') + numField('fat', 'Fat', d.fat || '', 'g') + '</div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        P.patchDay(P.today(), {
+          kcal: parseFloat(val(sheet, 'kcal')) || 0, protein: parseFloat(val(sheet, 'protein')) || 0,
+          carbs: parseFloat(val(sheet, 'carbs')) || 0, fat: parseFloat(val(sheet, 'fat')) || 0
+        });
+        U.closeSheet(); refresh(); U.toast('Saved');
+      }
+    });
+  }
+
+  function sheetWeighIn() {
+    var s = P.getSettings();
+    U.openSheet({
+      title: 'Weigh in',
+      body: numField('weight', 'Weight', '', s.weightUnit),
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var w = parseFloat(val(sheet, 'weight'));
+        if (!(w > 0)) { U.toast('Enter a weight'); return; }
+        var t = P.today();
+        var existing = P.Body.list().filter(function (b) { return b.date === t; })[0];
+        if (existing) P.Body.update(existing.id, { weight: w });
+        else P.Body.add({ date: t, weight: w });
+        P.patchDay(t, { weight: w });
+        U.closeSheet(); refresh(); U.toast('Logged');
+      }
+    });
+  }
+
+  function sheetBody(id) {
+    var s = P.getSettings();
+    var rec = id ? P.Body.get(id) : null;
+    var media = rec ? rec.photos.slice() : [];
+    U.openSheet({
+      title: rec ? 'Edit measurements' : 'Log measurements',
+      body:
+        '<div class="pal-field" style="margin-bottom:14px"><label class="pal-label" for="fld_date">Date</label>' +
+          '<input class="pal-input" id="fld_date" name="date" type="date" value="' + esc(rec ? rec.date : P.today()) + '"></div>' +
+        '<div class="pal-grid pal-grid--3">' +
+          numField('weight', 'Weight', rec ? rec.weight : '', s.weightUnit) +
+          numField('waist', 'Waist', rec ? rec.waist : '', s.lengthUnit) +
+          numField('chest', 'Chest', rec ? rec.chest : '', s.lengthUnit) +
+          numField('arms', 'Arms', rec ? rec.arms : '', s.lengthUnit) +
+          numField('thighs', 'Thighs', rec ? rec.thighs : '', s.lengthUnit) +
+          numField('hips', 'Hips', rec ? rec.hips : '', s.lengthUnit) +
+          numField('bodyFat', 'Body fat', rec ? rec.bodyFat : '', '%') +
+        '</div>' +
+        '<div class="pal-field" style="margin-top:14px"><label class="pal-label" for="fld_note">Note</label>' +
+          '<textarea class="pal-textarea" id="fld_note" name="note" rows="2">' + esc(rec ? rec.note : '') + '</textarea></div>' +
+        '<div class="pal-field" style="margin-top:14px"><span class="pal-label">Progress photos</span>' +
+          '<div id="palBodyMedia"></div></div>',
+      actions: (rec ? [{ label: 'Delete', act: 'del', kind: 'danger' }] : [])
+        .concat([{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }]),
+      onMount: function (sheet) {
+        U.mountMedia(sheet.querySelector('#palBodyMedia'), media, function (next) { media = next; });
+      },
+      onAction: function (act, sheet) {
+        if (act === 'del') {
+          P.Body.remove(rec.id); U.closeSheet(); refresh(); U.toast('Removed');
+          return;
+        }
+        if (act !== 'save') return;
+        var patch = { date: val(sheet, 'date') || P.today(), note: val(sheet, 'note'), photos: media };
+        P.MEASURE_FIELDS.forEach(function (f) { patch[f.key] = parseFloat(val(sheet, f.key)) || 0; });
+        if (rec) P.Body.update(rec.id, patch); else P.Body.add(patch);
+        if (patch.weight > 0) P.patchDay(patch.date, { weight: patch.weight });
+        U.closeSheet(); refresh(); U.toast('Saved');
+      }
+    });
+  }
+
+  function sheetExercise(id) {
+    var rec = id ? P.Exercises.get(id) : null;
+    var media = rec ? rec.media.slice() : [];
+    U.openSheet({
+      title: rec ? 'Edit exercise' : 'New exercise',
+      body:
+        '<div class="pal-field" style="margin-bottom:14px"><label class="pal-label" for="fld_name">Name</label>' +
+          '<input class="pal-input" id="fld_name" name="name" value="' + esc(rec ? rec.name : '') + '" placeholder="Dumbbell Row"></div>' +
+        '<div class="pal-grid pal-grid--2" style="margin-bottom:14px">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_muscle">Muscle group</label>' +
+            '<select class="pal-select" id="fld_muscle" name="muscle">' +
+            U.selectOptions(P.MUSCLES, rec ? rec.muscle : 'Back') + '</select></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_equipment">Equipment</label>' +
+            '<select class="pal-select" id="fld_equipment" name="equipment">' +
+            '<option value="">—</option>' + U.selectOptions(P.EQUIPMENT, rec ? rec.equipment : '') + '</select></div>' +
+        '</div>' +
+        '<div class="pal-grid pal-grid--4">' +
+          numField('sets', 'Sets', rec ? rec.sets : 3) +
+          numField('repMin', 'Reps from', rec ? rec.repMin : 8) +
+          numField('repMax', 'Reps to', rec ? rec.repMax : 12) +
+          numField('restSec', 'Rest', rec ? rec.restSec : 90, 'sec') +
+        '</div>' +
+        '<div class="pal-field" style="margin-top:14px"><label class="pal-label" for="fld_notes">Form cues</label>' +
+          '<textarea class="pal-textarea" id="fld_notes" name="notes" rows="3">' + esc(rec ? rec.notes : '') + '</textarea></div>' +
+        '<div class="pal-field" style="margin-top:14px"><span class="pal-label">Photos and videos</span>' +
+          '<div id="palExMedia"></div></div>',
+      actions: (rec ? [{ label: 'Delete', act: 'del', kind: 'danger' }] : [])
+        .concat([{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }]),
+      onMount: function (sheet) {
+        U.mountMedia(sheet.querySelector('#palExMedia'), media, function (next) { media = next; });
+      },
+      onAction: function (act, sheet) {
+        if (act === 'del') {
+          if (!confirm('Delete "' + rec.name + '"? Workouts that use it keep their own copy of the name.')) return;
+          P.Exercises.remove(rec.id); U.closeSheet(); refresh(); U.toast('Deleted');
+          return;
+        }
+        if (act !== 'save') return;
+        var name = String(val(sheet, 'name')).trim();
+        if (!name) { U.toast('Give it a name'); return; }
+        var patch = {
+          name: name, muscle: val(sheet, 'muscle'), equipment: val(sheet, 'equipment'),
+          sets: parseInt(val(sheet, 'sets'), 10) || 3,
+          repMin: parseInt(val(sheet, 'repMin'), 10) || 8,
+          repMax: parseInt(val(sheet, 'repMax'), 10) || 12,
+          restSec: parseInt(val(sheet, 'restSec'), 10) || 90,
+          notes: val(sheet, 'notes'), media: media
+        };
+        if (rec) P.Exercises.update(rec.id, patch);
+        else P.Exercises.add(Object.assign(patch, { order: P.Exercises.nextOrder() }));
+        U.closeSheet(); refresh(); U.toast('Saved');
+      }
+    });
+  }
+
+  function sheetTemplate(id) {
+    var rec = id ? P.Templates.get(id) : null;
+    var items = rec ? rec.items.slice() : [];
+    var library = P.exercisesSorted();
+
+    function itemsHtml() {
+      if (!items.length) return '<p class="pal-sub">No exercises yet. Add one below.</p>';
+      return '<ul class="pal-list">' + items.map(function (it, i) {
+        var ex = P.Exercises.get(it.exerciseId);
+        return '<li class="pal-listrow">' +
+          '<div class="pal-listrow__meta" style="width:24px;flex:none">' + (i + 1) + '</div>' +
+          '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(ex ? ex.name : 'Missing exercise') + '</div>' +
+            '<div class="pal-listrow__meta">' + esc(ex ? ex.muscle : '') + '</div></div>' +
+          '<div class="pal-listrow__actions">' +
+            '<button type="button" class="pal-btn pal-btn--sm pal-btn--ghost" data-tpl-move="' + i + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button type="button" class="pal-btn pal-btn--sm pal-btn--ghost" data-tpl-move="' + i + '" data-dir="1" aria-label="Move down"' + (i === items.length - 1 ? ' disabled' : '') + '>↓</button>' +
+            '<button type="button" class="pal-btn pal-btn--sm pal-btn--danger" data-tpl-del="' + i + '" aria-label="Remove">✕</button>' +
+          '</div>' +
+        '</li>';
+      }).join('') + '</ul>';
+    }
+
+    function redraw(sheet) { sheet.querySelector('#palTplItems').innerHTML = itemsHtml(); }
+
+    U.openSheet({
+      title: rec ? 'Edit workout' : 'New workout',
+      body:
+        '<div class="pal-grid pal-grid--2" style="margin-bottom:16px">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_name">Name</label>' +
+            '<input class="pal-input" id="fld_name" name="name" value="' + esc(rec ? rec.name : '') + '" placeholder="Pull Day"></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_type">Type</label>' +
+            '<select class="pal-select" id="fld_type" name="type">' +
+            U.selectOptions(P.TYPE_KEYS.filter(function (k) { return k !== 'Rest'; }), rec ? rec.type : 'Pull') + '</select></div>' +
+        '</div>' +
+        '<div class="pal-field"><span class="pal-label">Exercises</span><div id="palTplItems">' + itemsHtml() + '</div></div>' +
+        '<div class="pal-row" style="margin-top:12px">' +
+          '<select class="pal-select" id="palTplPick" style="max-width:280px" aria-label="Exercise to add">' +
+            '<option value="">Add an exercise…</option>' +
+            library.map(function (e) { return '<option value="' + esc(e.id) + '">' + esc(e.name) + ' · ' + esc(e.muscle) + '</option>'; }).join('') +
+          '</select>' +
+          '<button type="button" class="pal-btn" id="palTplAdd">Add</button>' +
+          '<button type="button" class="pal-btn pal-btn--ghost" id="palTplNewEx">＋ New exercise instead</button>' +
+        '</div>',
+      actions: (rec ? [{ label: 'Delete', act: 'del', kind: 'danger' }] : [])
+        .concat([{ label: 'Cancel', act: 'cancel' }, { label: 'Save workout', act: 'save', kind: 'primary' }]),
+      onMount: function (sheet) {
+        sheet.querySelector('#palTplAdd').addEventListener('click', function () {
+          var pick = sheet.querySelector('#palTplPick');
+          if (!pick.value) return;
+          items.push({ exerciseId: pick.value });
+          pick.value = '';
+          redraw(sheet);
+        });
+        sheet.querySelector('#palTplNewEx').addEventListener('click', function () {
+          U.closeSheet();
+          sheetExercise(null);
+        });
+        sheet.querySelector('#palTplItems').addEventListener('click', function (e) {
+          var mv = e.target.closest('[data-tpl-move]');
+          if (mv) {
+            var i = parseInt(mv.getAttribute('data-tpl-move'), 10);
+            var d = parseInt(mv.getAttribute('data-dir'), 10);
+            var j = i + d;
+            if (j < 0 || j >= items.length) return;
+            var tmp = items[i]; items[i] = items[j]; items[j] = tmp;
+            redraw(sheet);
+            return;
+          }
+          var del = e.target.closest('[data-tpl-del]');
+          if (del) {
+            items.splice(parseInt(del.getAttribute('data-tpl-del'), 10), 1);
+            redraw(sheet);
+          }
+        });
+      },
+      onAction: function (act, sheet) {
+        if (act === 'del') {
+          if (!confirm('Delete "' + rec.name + '"? Workouts already logged from it are kept.')) return;
+          P.Templates.remove(rec.id); U.closeSheet(); refresh(); U.toast('Deleted');
+          return;
+        }
+        if (act !== 'save') return;
+        var name = String(val(sheet, 'name')).trim();
+        if (!name) { U.toast('Give it a name'); return; }
+        if (!items.length) { U.toast('Add at least one exercise'); return; }
+        var patch = { name: name, type: val(sheet, 'type'), items: items };
+        if (rec) P.Templates.update(rec.id, patch);
+        else P.Templates.add(Object.assign(patch, { order: P.Templates.nextOrder() }));
+        U.closeSheet(); refresh(); U.toast('Saved');
+      }
+    });
+  }
+
+  function sheetDay(date) {
+    var info = P.dayStatus(date);
+    var s = P.getSettings();
+    var day = P.getDay(date);
+    var body = '';
+
+    if (info.sessions.length) {
+      body += info.sessions.map(function (x) {
+        return '<div class="pal-card" style="margin-bottom:12px" data-lane="' + esc(P.laneOf(x.type)) + '">' +
+          '<div class="pal-card__head"><h3 class="pal-h3">' + esc(x.name) + '</h3>' +
+          '<span class="pal-badge">' + esc(x.type) + '</span></div>' +
+          '<p class="pal-sub">' + P.sessionSetCount(x) + ' sets · ' + P.fmtInt(P.sessionVolume(x)) + ' ' +
+          esc(s.weightUnit) + ' · ' + P.fmtDuration(x.elapsedSec) + '</p>' +
+          '<button class="pal-btn pal-btn--sm" style="margin-top:10px" data-sheet-act="open:' + esc(x.id) + '">Open the log</button>' +
+        '</div>';
+      }).join('');
+    } else if (info.planned && !info.planned.rest) {
+      body += '<div class="pal-card" data-lane="' + esc(P.laneOf(info.planned.type)) + '">' +
+        '<p class="pal-eyebrow">' + (info.status === 'missed' ? 'Planned, not done' : 'Planned') + '</p>' +
+        '<h3 class="pal-h2">' + esc(info.planned.name) + '</h3>' +
+        (info.status === 'missed'
+          ? '<p class="pal-sub" style="margin-top:8px">You can still log it — pick the date when you finish.</p>'
+          : '') +
+        '<button class="pal-btn pal-btn--primary" style="margin-top:14px" data-sheet-act="start:' + esc(info.planned.templateId) + '">▶ Start it</button>' +
+      '</div>';
+    } else if (info.planned && info.planned.rest) {
+      body += '<div class="pal-card" data-lane="rest"><h3 class="pal-h2">Rest</h3>' +
+        '<p class="pal-sub" style="margin-top:8px">Scheduled recovery.</p></div>';
+    } else {
+      body += '<p class="pal-sub">Nothing scheduled and nothing logged.</p>';
+    }
+
+    body += '<div class="pal-grid pal-grid--3" style="margin-top:16px">' +
+      U.tile('Steps', U.fig(P.fmtInt(day.steps), '', 'sm'), '') +
+      U.tile('Water', U.fig(P.fmtInt(day.water), 'ml', 'sm'), '') +
+      U.tile('Weight', U.fig(day.weight ? P.fmtWeight(day.weight) : '—', s.weightUnit, 'sm'), '') +
+    '</div>';
+
+    U.openSheet({
+      title: P.prettyLong(date),
+      body: body,
+      actions: [{ label: 'Close', act: 'cancel' }],
+      onAction: function (act) {
+        if (act.indexOf('open:') === 0) { U.closeSheet(); sheetSession(act.slice(5)); return; }
+        if (act.indexOf('start:') === 0) { U.closeSheet(); startTemplate(act.slice(6)); }
+      }
+    });
+  }
+
+  function sheetSession(id) {
+    var x = P.Sessions.get(id);
+    if (!x) return;
+    var s = P.getSettings();
+    var body = '<p class="pal-sub" style="margin-bottom:14px">' + esc(P.prettyLong(x.date)) + ' · ' +
+      P.fmtDuration(x.elapsedSec) + ' · ' + P.fmtInt(P.sessionVolume(x)) + ' ' + esc(s.weightUnit) + ' lifted</p>';
+
+    body += x.entries.map(function (e) {
+      var done = e.sets.filter(function (st) { return st.done; });
+      return '<div class="pal-card" style="margin-bottom:10px">' +
+        '<div class="pal-card__head"><h3 class="pal-h3">' + esc(e.name) + '</h3>' +
+        '<span class="pal-listrow__meta">' + esc(e.muscle) + '</span></div>' +
+        (done.length
+          ? '<div class="pal-mono" style="font-size:13px">' + done.map(function (st, i) {
+              return (i + 1) + '.  ' + P.fmtWeight(st.weight) + ' × ' + st.reps + (st.rpe ? '  @' + st.rpe : '');
+            }).join('<br>') + '</div>'
+          : '<p class="pal-sub">No sets completed</p>') +
+        (e.notes ? '<p class="pal-sub" style="margin-top:8px">' + esc(e.notes) + '</p>' : '') +
+        (e.media.length ? '<div style="margin-top:10px">' + U.mediaStrip(e.media) + '</div>' : '') +
+      '</div>';
+    }).join('');
+
+    if (x.notes) body += '<div class="pal-card"><p class="pal-eyebrow">Note</p><p>' + esc(x.notes) + '</p></div>';
+    if (x.media.length) body += '<div style="margin-top:12px">' + U.mediaStrip(x.media) + '</div>';
+
+    U.openSheet({
+      title: x.name,
+      body: body,
+      actions: [{ label: 'Delete', act: 'del', kind: 'danger' }, { label: 'Close', act: 'cancel' }],
+      onAction: function (act) {
+        if (act !== 'del') return;
+        if (!confirm('Delete this logged workout? Its volume and any PR it set go with it.')) return;
+        P.Sessions.remove(x.id);
+        U.closeSheet(); refresh(); U.toast('Deleted');
+      }
+    });
+  }
+
+  function sheetGoal() {
+    U.openSheet({
+      title: 'New goal',
+      body:
+        '<div class="pal-field" style="margin-bottom:12px"><label class="pal-label" for="fld_title">Goal</label>' +
+          '<input class="pal-input" id="fld_title" name="title" placeholder="Deadlift 315 for 5"></div>' +
+        '<div class="pal-grid pal-grid--2">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_target">Target</label>' +
+            '<input class="pal-input" id="fld_target" name="target" placeholder="315 × 5"></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_due">By</label>' +
+            '<input class="pal-input" id="fld_due" name="due" type="date"></div>' +
+        '</div>' +
+        '<div class="pal-field" style="margin-top:12px"><label class="pal-label" for="fld_detail">Why</label>' +
+          '<textarea class="pal-textarea" id="fld_detail" name="detail" rows="3"></textarea></div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var title = String(val(sheet, 'title')).trim();
+        if (!title) { U.toast('Name the goal'); return; }
+        P.Goals.add({ title: title, target: val(sheet, 'target'), due: val(sheet, 'due'), detail: val(sheet, 'detail') });
+        U.closeSheet(); U.toast('Goal saved');
+      }
+    });
+  }
+
+  function sheetNote() {
+    U.openSheet({
+      title: 'Note',
+      body: '<div class="pal-field"><label class="pal-label" for="fld_body">Today</label>' +
+        '<textarea class="pal-textarea" id="fld_body" name="body" rows="5"></textarea></div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var b = String(val(sheet, 'body')).trim();
+        if (!b) { U.closeSheet(); return; }
+        var t = P.today();
+        var existing = P.Notes.list().filter(function (n) { return n.date === t; })[0];
+        if (existing) P.Notes.update(existing.id, { body: existing.body ? existing.body + '\n\n' + b : b });
+        else P.Notes.add({ date: t, body: b });
+        U.closeSheet(); refresh(); U.toast('Noted');
+      }
+    });
+  }
+
+  function sheetCardio() {
+    U.openSheet({
+      title: 'Log cardio',
+      body:
+        '<div class="pal-grid pal-grid--2">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_name">What</label>' +
+            '<input class="pal-input" id="fld_name" name="name" value="Cardio" placeholder="Treadmill walk"></div>' +
+          numField('minutes', 'Minutes', 30) +
+        '</div>' +
+        '<div class="pal-field" style="margin-top:12px"><label class="pal-label" for="fld_date">Date</label>' +
+          '<input class="pal-input" id="fld_date" name="date" type="date" value="' + esc(P.today()) + '"></div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var mins = parseInt(val(sheet, 'minutes'), 10) || 0;
+        var date = val(sheet, 'date') || P.today();
+        var ses = P.Sessions.add({
+          date: date, name: String(val(sheet, 'name')).trim() || 'Cardio', type: 'Cardio',
+          status: 'done', startedAt: Date.now(), endedAt: Date.now(),
+          elapsedSec: mins * 60, cardioMin: mins
+        });
+        if (mins > 0) P.addToDay(date, 'cardioMin', mins);
+        U.closeSheet(); refresh(); U.toast('Cardio logged');
+        return ses;
+      }
+    });
+  }
+
+  function sheetQuickAdd() {
+    var opts = [
+      ['Log a workout', 'q-workout'], ['Log weight', 'q-weight'], ['Log measurements', 'q-body'],
+      ['Log cardio', 'q-cardio'], ['Log steps', 'q-steps'], ['Add a progress photo', 'q-photo'],
+      ['Add an exercise', 'q-exercise'], ['Add a goal', 'q-goal'], ['Add a note', 'q-note']
+    ];
+    U.openSheet({
+      title: 'Quick add',
+      body: '<div class="pal-quickgrid">' + opts.map(function (o) {
+        return '<button class="pal-quickbtn" data-sheet-act="' + o[1] + '">' + esc(o[0]) + '</button>';
+      }).join('') + '</div>',
+      actions: [],
+      onAction: function (act) {
+        U.closeSheet();
+        if (act === 'q-workout') startFree();
+        if (act === 'q-weight') sheetWeighIn();
+        if (act === 'q-body') sheetBody(null);
+        if (act === 'q-cardio') sheetCardio();
+        if (act === 'q-steps') sheetSteps();
+        if (act === 'q-photo') sheetBody(null);
+        if (act === 'q-exercise') sheetExercise(null);
+        if (act === 'q-goal') sheetGoal();
+        if (act === 'q-note') sheetNote();
+      }
+    });
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+  function startTemplate(id) {
+    var live = P.getLive();
+    if (live && live.sessionId) {
+      // Never silently orphan a half-logged workout.
+      if (!confirm('A workout is already in progress. Open that one instead?')) return;
+      location.href = 'palaestra-workout.html';
+      return;
+    }
+    P.startWorkout({ templateId: id });
+    location.href = 'palaestra-workout.html';
+  }
+  function startFree() {
+    var live = P.getLive();
+    if (live && live.sessionId) { location.href = 'palaestra-workout.html'; return; }
+    var tpls = P.templatesSorted();
+    if (!tpls.length) { P.startWorkout({}); location.href = 'palaestra-workout.html'; return; }
+    U.openSheet({
+      title: 'Start a workout',
+      body: '<div class="pal-quickgrid">' + tpls.map(function (t) {
+        return '<button class="pal-quickbtn" data-sheet-act="t:' + esc(t.id) + '">' + esc(t.name) +
+               '<br><span class="pal-sub">' + esc(t.type) + '</span></button>';
+      }).join('') + '<button class="pal-quickbtn" data-sheet-act="free">Freestyle<br><span class="pal-sub">build it as you go</span></button></div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }],
+      onAction: function (act) {
+        if (act === 'free') { U.closeSheet(); P.startWorkout({}); location.href = 'palaestra-workout.html'; return; }
+        if (act.indexOf('t:') === 0) { U.closeSheet(); startTemplate(act.slice(2)); }
+      }
+    });
+  }
+
+  function doImport() {
+    var res = P.importPrograms();
+    refresh();
+    if (!res.templates && !res.exercises) {
+      U.toast(res.skipped ? 'Already imported — nothing new' : 'Nothing found to import');
+    } else {
+      U.toast('Imported ' + res.templates + ' workout' + (res.templates === 1 ? '' : 's') +
+              ' and ' + res.exercises + ' exercise' + (res.exercises === 1 ? '' : 's'));
+    }
+  }
+
+  var ACTIONS = {
+    'open-day': function (el) { sheetDay(el.getAttribute('data-date')); },
+    'open-session': function (el) { sheetSession(el.getAttribute('data-id')); },
+    'start-template': function (el) { startTemplate(el.getAttribute('data-id')); },
+    'start-free': startFree,
+    'go-templates': function () { go('/templates'); },
+    'new-template': function () { sheetTemplate(null); },
+    'edit-template': function (el) { sheetTemplate(el.getAttribute('data-id')); },
+    'new-exercise': function () { sheetExercise(null); },
+    'edit-exercise': function (el) { sheetExercise(el.getAttribute('data-id')); },
+    'log-body': function () { sheetBody(null); },
+    'edit-body': function (el) { sheetBody(el.getAttribute('data-id')); },
+    'weigh-in': sheetWeighIn,
+    'steps-set': sheetSteps,
+    'steps-history': sheetStepsHistory,
+    'steps-add': function (el) {
+      P.addToDay(P.today(), 'steps', parseInt(el.getAttribute('data-n'), 10) || 0);
+      refresh();
+    },
+    'water-add': function (el) {
+      P.addToDay(P.today(), 'water', parseInt(el.getAttribute('data-n'), 10) || 0);
+      refresh();
+    },
+    'macros-edit': sheetMacros,
+    'import': doImport,
+    'week-step': function (el) {
+      var n = parseInt(el.getAttribute('data-n'), 10) || 0;
+      var cur = scoreWeek || P.today();
+      var next = P.addDays(P.mondayOf(cur), n * 7);
+      if (P.daysBetween(P.today(), next) > 0) return;    // never page into the future
+      scoreWeek = next;
+      refresh();
+    },
+    'cal-step': function (el) {
+      var n = parseInt(el.getAttribute('data-n'), 10) || 0;
+      var d = new Date(calYear, calMonth + n, 1);
+      calYear = d.getFullYear(); calMonth = d.getMonth();
+      refresh();
+    },
+    'cal-today': function () {
+      var now = new Date();
+      calYear = now.getFullYear(); calMonth = now.getMonth();
+      refresh();
+    },
+    'vol-window': function (el) { volWindow = el.getAttribute('data-n'); refresh(); }
+  };
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function boot() {
+    P = window.Pal;
+    U = window.PalUI;
+    root = document.getElementById('palRoot');
+    routesEl = document.getElementById('palRoutes');
+
+    document.getElementById('palToday').textContent = P.prettyLong(P.today());
+
+    routesEl.innerHTML = ROUTES.map(function (r) {
+      return '<button class="pal-route" data-route="' + r.hash + '">' + esc(r.label) + '</button>';
+    }).join('');
+    routesEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-route]');
+      if (b) go(b.getAttribute('data-route'));
+    });
+
+    // One delegated listener for everything the views render.
+    root.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-act]');
+      if (!el || !root.contains(el)) return;
+      var fn = ACTIONS[el.getAttribute('data-act')];
+      if (!fn) return;
+      e.preventDefault();
+      fn(el);
+    });
+    root.addEventListener('change', function (e) {
+      var sel = e.target.closest('[data-sched]');
+      if (!sel) return;
+      var v = sel.value;
+      P.setScheduleDay(sel.getAttribute('data-sched'),
+        !v ? null : (v === 'rest' ? { rest: true } : { templateId: v }));
+      refresh();
+      U.toast('Plan updated');
+    });
+
+    document.getElementById('palFab').addEventListener('click', sheetQuickAdd);
+
+    // A track pinned inside the music dock belongs to an exercise or a
+    // workout. The dock does not know that; it just reports the scope.
+    document.addEventListener('pal:music:pin', function (e) {
+      var d = e.detail || {};
+      var parts = String(d.scope || '').split(':');
+      if (parts[0] === 'exercise' && parts[1]) P.Exercises.update(parts[1], { trackId: d.trackId });
+      if (parts[0] === 'template' && parts[1]) P.Templates.update(parts[1], { trackId: d.trackId });
+      refresh();
+      U.toast(d.trackId ? 'Track pinned' : 'Track unpinned');
+    });
+
+    window.addEventListener('hashchange', navigate);
+
+    var remoteRef = { applied: false };
+    if (typeof window.initCloudSync === 'function' && window.supabase) {
+      window.initCloudSync({
+        appKey: 'palaestra',
+        syncedPrefixes: ['pal:'],
+        onApplied: function () { remoteRef.applied = true; repaint(); }
+      });
+    }
+    // Never seed before the cloud has had its chance — on a fresh
+    // device an immediate seed would be pushed over the real row.
+    P.seedAfterSyncAttempt(remoteRef, function (seeded) { if (seeded) refresh(); });
+
+    P.onChange(repaint);
+    window.PalMusic.init();
+    render();
+  }
+
+  // Two gates, both required: the DOM has to exist, and the IndexedDB
+  // shim has to have hydrated — reading `pal:` before that lands shows
+  // an empty page for a beat and then repaints.
+  function whenReady() {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) window.LocalStoreIDB.ready().then(boot);
+    else boot();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', whenReady);
+  else whenReady();
+})();
+</script>
+</body>
+</html>

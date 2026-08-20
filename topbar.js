@@ -372,6 +372,44 @@
       ],
     },
     {
+      // New nav folder, directly above Fitness Studio: THE PALAESTRA —
+      // palaestra.html (hub) + palaestra-workout.html (the live logger)
+      // + palaestra-data.js / palaestra-theme.css / palaestra-music.js.
+      //
+      // A PARALLEL build, not a replacement, exactly like The Vault vs
+      // Entertainment and The Codex vs the Writing Dashboard. The
+      // Fitness Studio folder below is untouched and still listed, and
+      // index.html's own embedded Fitness Studio tab is untouched too.
+      // The Palaestra owns its own namespace ('pal:*') and its own
+      // Supabase row (appKey 'palaestra'), so it never reads or writes
+      // a 'fitstudio:' or 'fitness:' key — the one exception is its
+      // explicit, button-triggered "Import my programs", which READS
+      // those two pages' template keys and never writes back.
+      //
+      // What it adds over the older pages: body measurements, a steps
+      // tracker with a year heatmap, training-volume analytics, a
+      // weekly scorecard, per-exercise photos and videos, a floating
+      // Quick Add, and a music dock that reads THE VAULT's
+      // 'vault:media:playlists' (the current library) rather than the
+      // older 'enthub:playlists' — read-only, no second sync
+      // subscription, same precedent as the Fitness Studio's own panel.
+      key: 'palaestra',
+      label: 'The Palaestra',
+      items: [
+        { href: 'palaestra.html', icon: '⟠', label: 'The Palaestra', id: 'topbarPalaestra', children: [
+          { hash: '/', label: 'Today' },
+          { hash: '/steps', label: 'Steps' },
+          { hash: '/body', label: 'Body Progress' },
+          { hash: '/calendar', label: 'Calendar' },
+          { hash: '/volume', label: 'Training Volume' },
+          { hash: '/templates', label: 'Workouts' },
+          { hash: '/exercises', label: 'Exercise Library' },
+          { hash: '/history', label: 'History' },
+        ] },
+        { href: 'palaestra-workout.html', icon: '⏱', label: 'Workout Logger', id: 'topbarPalaestraWorkout' },
+      ],
+    },
+    {
       // New nav folder, right between Business Dashboard and
       // Entertainment: Fitness Studio — a genuinely new, standalone
       // top-level page (fitnessstudio.html + fitnessstudio-data.js),

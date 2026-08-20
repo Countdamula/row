@@ -15167,3 +15167,136 @@ both as originally phrased assumed a backend this app doesn't have):
     tracking. Balance: `athenaeum.html` 583/583, 1729/1729, 77/77;
     `athenaeum-subject.html` 551/551, 1795/1795, 102/102;
     `athenaeum-curriculum.html` 275/275, 904/904, 54/54. Nothing committed.
+
+---
+
+## The Palaestra (2026-08-20)
+
+A **new, parallel fitness dashboard**, built alongside the two that already
+exist rather than on top of either. `index.html`'s embedded Fitness Studio tab
+(`fitness:`) and `fitnessstudio.html` (`fitstudio:`) are untouched and both
+stay in the nav — same precedent as The Vault vs Entertainment and The Codex
+vs the Writing Dashboard.
+
+Named for the Greek training yard attached to the gymnasium — the counterpart
+to The Athenaeum's library.
+
+**Files** (six; nav group `palaestra` sits directly above `fitnessstudiotab`
+in topbar.js, the only pre-existing file edited):
+
+- `palaestra.html` — the hub. Hash routes `#/`, `#/steps`, `#/body`,
+  `#/calendar`, `#/volume`, `#/templates`, `#/exercises`, `#/history`,
+  `#/settings`.
+- `palaestra-workout.html` — the live logger. `?id=` opens a finished
+  workout read-only.
+- `palaestra-data.js` — everything `pal:`-prefixed; one
+  `initCloudSync({ appKey:'palaestra', syncedPrefixes:['pal:'] })` per page.
+- `palaestra-theme.css` — private `--pal-*` tokens.
+- `palaestra-ui.js` — the sheet, the toast, and the media picker, shared by
+  both pages so neither carries a second copy.
+- `palaestra-music.js` — the music dock.
+
+**Why the logger is a separate page and not a route.** It is the one screen
+used mid-set on a phone. On the hub a cloud pull re-renders the whole document;
+here the only things that repaint on their own are the two clocks, and the
+number fields never trigger a render at all — re-rendering the list while a
+thumb is in a field is how you lose the number you were typing.
+
+**What is stored and what is derived.** Streaks, the weekly scorecard,
+volume-per-muscle, step averages, PR history and the bodyweight progress bar
+are pure functions over `pal:sessions` + `pal:days` + `pal:body`. None is
+written to storage. A stored copy of a computed number is how two figures on
+the same screen end up disagreeing after one is recalculated and the other is
+not — the same reason `chr:reviews` deliberately does not duplicate rung
+movements.
+
+**`pal:days` is ONE key**, an object keyed `YYYY-MM-DD`, not `pal:day:<date>`
+× 365. The heatmap, the 7- and 30-day averages and the scorecard each need a
+whole span in one read; per-date keys would make every one of them a full scan
+of localStorage. Trimmed to 730 days on write.
+
+**The workout streak counts days you did WHAT THE PLAN SAID** — a scheduled
+rest day you rested on keeps it alive, a scheduled workout you skipped breaks
+it, and a day with nothing planned and nothing done is neutral. A plain "days
+trained in a row" counter tops out at 2 for anyone training four times a week,
+which makes it useless as the number on the front page. Cardio and PR streaks
+are counted by WEEK for the same reason.
+
+**The step streak counts back from today only if today's goal is already met**,
+otherwise from yesterday. Counting from today unconditionally shows a hard-won
+40-day streak as 0 every morning until the first walk.
+
+**The Week Bar is the signature**, and encodes three true things at once: fill
+height is the day's training volume against the week's best day, hue is the
+lane, an outline-only column is scheduled-but-not-done, and the rule underneath
+is that day's steps against goal. Without the step rule a week of walking and
+no lifting drew as seven empty boxes, which is not what that week was.
+
+**Nine workout types collapse into four LANES** (strength / cardio / mobility /
+rest) so the month grid stays readable. Every surface that colours a workout
+uses the same four.
+
+**Media is never base64 in a synced key.** Images are compressed then handed to
+`PhotoStore.upload()`; videos go straight up as a Blob and are held under an
+object URL marked `sessionOnly`, which every model strips on write. Separate
+`accept="image/*"` and `accept="video/*"` inputs, never one combined accept —
+dreamboard.html already documents that as unreliable.
+
+**Import is explicit, additive and read-only.** The button reads
+`fitstudio:templates`, `fitness:templates` and `fitness:equipment` straight out
+of localStorage and copies each routine in with its exercises, media, sets, rep
+range, rest and notes. Dedupe is per record via `importSource` +
+`importSourceId`, so re-running only adds what is new and never overwrites a
+program since customised here. Nothing is ever written back.
+
+**Seeding is exercises only, and never before the cloud has had its chance.**
+`seedAfterSyncAttempt` copies the chrysalis/athenaeum guard. No templates, no
+schedule, no invented history — a routine is a decision, and the app does not
+get to make it for you.
+
+**The music dock reads THE VAULT**, `vault:media:playlists`, straight out of
+localStorage — read-only, no second Supabase subscription for a collection this
+page never writes to, plus a `storage` listener so an edit in The Vault shows
+up without a reload. It deliberately does **not** read the older
+`enthub:playlists` that `fitnessstudio.html`'s own panel uses. Chips are the
+categories actually present on the records, not a hard-coded list. The dock
+knows nothing about exercises: a button carries a SCOPE string, and pinning
+fires a `pal:music:pin` event that the page turns into a write. A track pinned
+mid-workout is written to the underlying library exercise too, not just to
+today's session.
+
+**Traps this build hit, all worth remembering:**
+
+1. **Never restyle what the page did not render.** `body.pal > * { position:
+   relative; z-index: 1 }` — added to lift content above a grain layer —
+   silently overrode `position: fixed` on every element `topbar.js` injects,
+   dropping its launcher and sidebar into normal flow and pushing the whole
+   page down 2000px. The ground and its dust now live on `<html>` instead.
+2. **A `<span>` cannot be ellipsised.** `min-width:0` and `overflow:hidden` do
+   nothing to an inline box, so the music dock's track titles ran straight out
+   of the panel. They have to be blocks in a flex column.
+3. **`position: sticky` is not `position: fixed`.** The rest bar was sticky at
+   `bottom:0` inside a host div at the end of a long page, so mid-workout it
+   was scrolled out of sight — precisely when it is needed.
+4. **A right-aligned label collides with the next cell's.** In a seven-column
+   grid with a 3px gap, `justify-content: space-between` put Monday's set count
+   3px from Tuesday's name: "MON" + "17" read as "17 TUE". Left-aligned with a
+   separator, and the label clipped to its own cell.
+5. **A ticking clock must not parse the whole database.** `getLive()` validates
+   against `pal:sessions`, which means parsing every session ever logged;
+   calling it from a 4Hz interval was re-parsing megabytes a second. Added
+   `getLiveRaw()`, which reads only the small `pal:live` record, and dropped
+   the tick to 500ms.
+6. **Scope every text assertion to the page's own root.** `document.body
+   .innerText` includes the whole sidebar `topbar.js` injects, so a test for
+   what the logger says matched The Chrysalis's nav entries instead.
+
+**Verified**: 67 Puppeteer checks across two suites in the scratchpad —
+route rendering, set logging and its refusal without reps, reload persistence
+of both the set and the rest timer, the derived scorecard/volume/streak numbers
+against hand-computed values, import dedupe with the source key byte-identical
+afterwards, the dock listing real `vault:media:playlists` records with `vault:`
+unchanged after pinning, local-not-UTC dates, a repaint that neither scrolls
+nor drops the caret, the read-only view having no editable fields, and no field
+under 16px on either page. No horizontal overflow at 320/360/390/414/768/1024/
+1280/1440. Screenshots at 1280 and 390.

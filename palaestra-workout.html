@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en" class="pal-root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14120F">
+<title>Workout · The Palaestra</title>
+
+<!-- MUST be first and never deferred. -->
+<script src="local-store-idb.js"></script>
+
+<!--
+  THE PALAESTRA — the live workout logger.
+
+  Its own page, not a route on the hub, for one reason: this is the
+  screen used mid-set on a phone, and it must not share a document
+  that re-renders wholesale every time a cloud pull lands. Here the
+  only things that repaint on their own are the two clocks.
+
+  Timer state lives in `pal:live` as ABSOLUTE timestamps, never as a
+  counter ticking in memory — a locked phone stops firing intervals,
+  so a decrementing counter comes back wrong by exactly however long
+  the screen was off. A reload mid-workout resumes; it does not reset.
+
+  ?id=<sessionId> opens a finished workout read-only. With no id it
+  opens whatever is live, and offers to start something if nothing is.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="palaestra-theme.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js"></script>
+<script src="photo-store.js"></script>
+<script src="palaestra-data.js"></script>
+<script src="palaestra-ui.js"></script>
+<script src="palaestra-music.js"></script>
+<script src="topbar.js" defer></script>
+
+<style>
+.pal-wshell { max-width: 820px; margin: 0 auto; padding: 0 var(--pal-gutter) 140px; }
+.pal-whead {
+  position: sticky; top: 0; z-index: 50;
+  background: linear-gradient(to bottom, var(--pal-stone) 78%, transparent);
+  padding: clamp(70px, 10vh, 104px) var(--pal-gutter) var(--pal-4);
+  max-width: 820px; margin: 0 auto;
+}
+.pal-whead__row { display: flex; align-items: flex-end; gap: var(--pal-3); flex-wrap: wrap; }
+.pal-whead__clock {
+  font-family: var(--pal-display); font-weight: 700; font-size: 30px;
+  line-height: 1; font-variant-numeric: tabular-nums; color: var(--pal-sand-2);
+}
+.pal-prev {
+  font-family: var(--pal-mono); font-size: 11px; color: var(--pal-ash);
+  letter-spacing: .06em; margin-bottom: 8px;
+}
+.pal-restpresets { display: flex; gap: 5px; flex-wrap: wrap; }
+@media (max-width: 719px) {
+  /* One scrolling row, never a second line: a wrapped preset strip makes
+     the rest bar tall enough to bury the set you are looking at. */
+  .pal-restpresets { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pal-restpresets > * { flex: none; }
+  .pal-rest { gap: var(--pal-3); }
+  .pal-rest__track { flex-basis: 60px; }
+  .pal-wshell { padding-bottom: 190px; }
+}
+</style>
+</head>
+
+<body class="pal">
+
+<header class="pal-whead" id="palWHead"></header>
+<main class="pal-wshell" id="palLog" tabindex="-1"></main>
+<div id="palRestHost"></div>
+<button class="pal-fab" id="palFab" aria-label="Quick add">＋</button>
+
+<script>
+(function () {
+  'use strict';
+
+  var P, U, headEl, logEl, restHost;
+  var session = null;
+  var readOnly = false;
+  var tick = null;
+
+  function esc(s) { return P.escapeHtml(s); }
+  function qs(name) {
+    try { return new URLSearchParams(location.search).get(name) || ''; }
+    catch (e) { return ''; }
+  }
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+  function loadSession() {
+    var id = qs('id');
+    if (id) {
+      session = P.Sessions.get(id);
+      readOnly = !!session && session.status !== 'live';
+      return;
+    }
+    var live = P.getLive();
+    session = live ? P.Sessions.get(live.sessionId) : null;
+    readOnly = false;
+  }
+  function saveSession(patch) {
+    if (!session) return;
+    session = P.Sessions.update(session.id, patch) || session;
+  }
+  function saveEntries() { saveSession({ entries: session.entries }); }
+
+  // What this exercise looked like the last time it was actually done.
+  // Shown as placeholder text, never pre-filled — a number you did not
+  // type is not a number you lifted.
+  function lastTime(name, excludeId) {
+    var prior = P.doneSessions()
+      .filter(function (x) { return x.id !== excludeId; })
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)) || b.startedAt - a.startedAt; });
+    for (var i = 0; i < prior.length; i++) {
+      var hit = prior[i].entries.filter(function (e) {
+        return e.name === name && e.sets.some(function (s) { return s.done; });
+      })[0];
+      if (hit) return { date: prior[i].date, sets: hit.sets.filter(function (s) { return s.done; }) };
+    }
+    return null;
+  }
+
+  // ============================================================
+  // HEADER
+  // ============================================================
+  function renderHead() {
+    if (!session) {
+      headEl.innerHTML =
+        '<p class="pal-eyebrow">The Palaestra</p>' +
+        '<h1 class="pal-h2">No workout open</h1>';
+      return;
+    }
+    var live = P.getLive();
+    headEl.innerHTML =
+      '<p class="pal-eyebrow"><a href="palaestra.html">← The Palaestra</a></p>' +
+      '<div class="pal-whead__row">' +
+        '<h1 class="pal-h2" style="flex:1 1 auto">' + esc(session.name) + '</h1>' +
+        '<span class="pal-badge" data-lane="' + esc(P.laneOf(session.type)) + '">' + esc(session.type) + '</span>' +
+        '<span class="pal-whead__clock" id="palElapsed">0:00</span>' +
+      '</div>' +
+      '<div class="pal-row" style="margin-top:12px">' +
+        (readOnly
+          ? '<span class="pal-sub">Logged ' + esc(P.prettyLong(session.date)) + ' · read-only</span>'
+          : '<button class="pal-btn pal-btn--primary" data-act="finish">✓ Finish workout</button>' +
+            '<button class="pal-btn pal-btn--ghost" data-act="abandon">Discard</button>') +
+        window.PalMusic.button({ scope: 'session:' + session.id, trackId: session.trackId, label: session.name }) +
+      '</div>';
+    if (live && live.runningSince) startClock();
+  }
+
+  function startClock() {
+    if (tick) clearInterval(tick);
+    // Twice a second is enough for a clock reading in whole seconds.
+    tick = setInterval(paintClocks, 500);
+    paintClocks();
+  }
+  function paintClocks() {
+    if (!session) return;
+    // getLiveRaw, not getLive: the validating version parses every
+    // session ever logged, and this runs twice a second forever.
+    var live = P.getLiveRaw();
+    var el = document.getElementById('palElapsed');
+    if (el) {
+      var extra = live && live.runningSince ? Math.round((Date.now() - live.runningSince) / 1000) : 0;
+      el.textContent = P.fmtClock(session.elapsedSec + extra);
+    }
+    paintRest(live);
+  }
+
+  // ============================================================
+  // REST TIMER
+  // ============================================================
+  function renderRest() {
+    restHost.innerHTML =
+      '<div class="pal-rest" id="palRest" hidden>' +
+        '<span class="pal-rest__clock" id="palRestClock">0:00</span>' +
+        '<div class="pal-rest__track"><div class="pal-rest__fill" id="palRestFill"></div></div>' +
+        '<div class="pal-restpresets" id="palRestPresets">' +
+          P.REST_PRESETS.map(function (n) {
+            // Lifters say "90 seconds", never "1.5 minutes". Only whole
+            // minutes get the minute label.
+            var label = (n % 60 === 0 && n >= 120) ? (n / 60) + ' min' : n + ' sec';
+            return '<button class="pal-chip" data-rest="' + n + '">' + label + '</button>';
+          }).join('') +
+          '<button class="pal-btn pal-btn--sm" data-rest="0">Skip</button>' +
+        '</div>' +
+      '</div>';
+    restHost.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rest]');
+      if (!b) return;
+      var n = parseInt(b.getAttribute('data-rest'), 10) || 0;
+      if (n === 0) P.setLive({ restEndsAt: null, restSec: 0 });
+      else P.setLive({ restEndsAt: Date.now() + n * 1000, restSec: n });
+      paintClocks();
+    });
+  }
+
+  function startRest(seconds) {
+    if (readOnly || !seconds) return;
+    P.setLive({ restEndsAt: Date.now() + seconds * 1000, restSec: seconds });
+    paintClocks();
+  }
+
+  function paintRest(live) {
+    var bar = document.getElementById('palRest');
+    if (!bar) return;
+    if (readOnly || !live || !live.restEndsAt) {
+      bar.hidden = true;
+      document.body.classList.remove('is-resting');
+      return;
+    }
+    bar.hidden = false;
+    document.body.classList.add('is-resting');
+    var left = Math.round((live.restEndsAt - Date.now()) / 1000);
+    var over = left <= 0;
+    bar.setAttribute('data-over', over ? 'true' : 'false');
+    document.getElementById('palRestClock').textContent =
+      over ? '+' + P.fmtClock(-left) : P.fmtClock(left);
+    var pct = live.restSec > 0 ? Math.max(0, Math.min(1, left / live.restSec)) : 0;
+    document.getElementById('palRestFill').style.setProperty('--pct', over ? 1 : pct);
+  }
+
+  // ============================================================
+  // THE LOG
+  // ============================================================
+  function render() {
+    if (!session) {
+      logEl.innerHTML = U.empty('Nothing in progress',
+        'Start a workout from The Palaestra and it opens here.',
+        'Go to The Palaestra', 'go-hub');
+      renderHead();
+      return;
+    }
+    renderHead();
+    logEl.innerHTML =
+      session.entries.map(entryHtml).join('') +
+      (readOnly ? '' :
+        '<div class="pal-row" style="margin:18px 0 24px">' +
+          '<button class="pal-btn" data-act="add-exercise">＋ Add an exercise</button>' +
+        '</div>') +
+      notesHtml();
+    if (!readOnly) mountSessionMedia();
+  }
+
+  function entryHtml(e, i) {
+    var doneSets = e.sets.filter(function (s) { return s.done; }).length;
+    var prev = readOnly ? null : lastTime(e.name, session.id);
+    return '<article class="pal-ex" data-entry="' + esc(e.id) + '" data-done="' + (e.done ? 'true' : 'false') + '">' +
+      '<div class="pal-ex__head">' +
+        '<div class="pal-ex__title">' +
+          '<div class="pal-ex__name">' + esc(e.name) + '</div>' +
+          '<div class="pal-ex__meta">' + esc(e.muscle) + (e.equipment ? ' · ' + esc(e.equipment) : '') +
+          ' · ' + doneSets + '/' + e.sets.length + ' sets · ' + e.restSec + 's rest</div>' +
+        '</div>' +
+        window.PalMusic.button({ scope: 'entry:' + e.id, trackId: e.trackId, label: e.name }) +
+        (readOnly ? '' :
+          '<button class="pal-setdone" data-act="entry-done" data-entry="' + esc(e.id) + '"' +
+          ' aria-pressed="' + (e.done ? 'true' : 'false') + '" aria-label="Mark ' + esc(e.name) + ' complete">✓</button>') +
+      '</div>' +
+      '<div class="pal-ex__body">' +
+        (prev ? '<p class="pal-prev">Last time (' + esc(P.prettyDate(prev.date)) + '): ' +
+                prev.sets.map(function (s) { return P.fmtWeight(s.weight) + '×' + s.reps; }).join(', ') + '</p>' : '') +
+        (readOnly ? ''
+          : '<div class="pal-sethead"><span>Set</span><span>Weight</span><span>Reps</span><span>RPE</span><span></span></div>') +
+        '<div class="' + (readOnly ? 'pal-rosets' : 'pal-sets') + '">' +
+          e.sets.map(function (st, n) { return setHtml(e, st, n, prev); }).join('') + '</div>' +
+        (readOnly ? '' :
+          '<div class="pal-row" style="margin-top:10px">' +
+            '<button class="pal-btn pal-btn--sm" data-act="add-set" data-entry="' + esc(e.id) + '">＋ Set</button>' +
+            '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="rest-now" data-entry="' + esc(e.id) + '">Rest ' + e.restSec + 's</button>' +
+            '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="entry-notes" data-entry="' + esc(e.id) + '">Notes &amp; media</button>' +
+            '<button class="pal-btn pal-btn--sm pal-btn--danger" data-act="drop-entry" data-entry="' + esc(e.id) + '">Remove</button>' +
+          '</div>') +
+        (e.notes ? '<p class="pal-sub" style="margin-top:10px">' + esc(e.notes) + '</p>' : '') +
+        (e.media.length ? '<div style="margin-top:10px">' + U.mediaStrip(e.media) + '</div>' : '') +
+      '</div>' +
+    '</article>';
+  }
+
+  function setHtml(e, st, n, prev) {
+    var ph = prev && prev.sets[n] ? prev.sets[n] : null;
+    if (readOnly) {
+      // With nothing to type into, a grid of bare numbers is just a grid.
+      // Read it back the way a lifter would say it, same as the hub's
+      // own session view: "95 × 8 @8".
+      return '<div class="pal-rosets__row" data-done="' + (st.done ? 'true' : 'false') + '">' +
+        '<span class="pal-rosets__n">' + (n + 1) + '</span>' +
+        '<span class="pal-mono">' +
+          (st.done ? P.fmtWeight(st.weight) + ' × ' + st.reps + (st.rpe ? '  @' + st.rpe : '')
+                   : 'not completed') +
+        '</span>' +
+      '</div>';
+    }
+    return '<div class="pal-setrow" data-set="' + esc(st.id) + '" data-entry="' + esc(e.id) + '" data-done="' + (st.done ? 'true' : 'false') + '">' +
+      '<span class="pal-setrow__n">' + (n + 1) + '</span>' +
+      '<input class="pal-input pal-input--num" type="number" step="any" inputmode="decimal" data-f="weight"' +
+        ' value="' + (st.weight || '') + '" placeholder="' + (ph ? P.fmtWeight(ph.weight) : '—') + '" aria-label="Weight, set ' + (n + 1) + '">' +
+      '<input class="pal-input pal-input--num" type="number" inputmode="numeric" data-f="reps"' +
+        ' value="' + (st.reps || '') + '" placeholder="' + (ph ? ph.reps : e.targetReps || '—') + '" aria-label="Reps, set ' + (n + 1) + '">' +
+      '<input class="pal-input pal-input--num" type="number" step="0.5" min="0" max="10" inputmode="decimal" data-f="rpe"' +
+        ' value="' + (st.rpe || '') + '" placeholder="RPE" aria-label="RPE, set ' + (n + 1) + '">' +
+      '<button class="pal-setdone" data-act="set-done" aria-pressed="' + (st.done ? 'true' : 'false') +
+        '" aria-label="Complete set ' + (n + 1) + '">✓</button>' +
+    '</div>';
+  }
+
+  function notesHtml() {
+    if (readOnly) {
+      return (session.notes ? '<div class="pal-card"><p class="pal-eyebrow">Note</p><p>' + esc(session.notes) + '</p></div>' : '') +
+             (session.media.length ? '<div style="margin-top:12px">' + U.mediaStrip(session.media) + '</div>' : '');
+    }
+    return '<div class="pal-card">' +
+      '<div class="pal-card__head"><h2 class="pal-h3">How it went</h2></div>' +
+      '<textarea class="pal-textarea" id="palSesNote" placeholder="Anything worth remembering about this session.">' +
+      esc(session.notes) + '</textarea>' +
+      '<div style="margin-top:14px"><span class="pal-label">Photos and videos</span>' +
+      '<div id="palSesMedia"></div></div>' +
+    '</div>';
+  }
+
+  function mountSessionMedia() {
+    var note = document.getElementById('palSesNote');
+    if (note) P.autosave(note, function (v) { saveSession({ notes: v }); }, 400);
+    var host = document.getElementById('palSesMedia');
+    if (host) U.mountMedia(host, session.media, function (next) { saveSession({ media: next }); });
+  }
+
+  // ============================================================
+  // EDITS
+  //
+  // Number fields are written on change and NEVER trigger a re-render —
+  // re-rendering the list while a thumb is in a field is how you lose
+  // the number you were typing. Only structural changes redraw.
+  // ============================================================
+  function findEntry(id) {
+    for (var i = 0; i < session.entries.length; i++) if (session.entries[i].id === id) return session.entries[i];
+    return null;
+  }
+  function findSet(entry, id) {
+    for (var i = 0; i < entry.sets.length; i++) if (entry.sets[i].id === id) return entry.sets[i];
+    return null;
+  }
+  function refreshEntryMeta(entryId) {
+    var e = findEntry(entryId);
+    var card = logEl.querySelector('[data-entry="' + entryId + '"]');
+    if (!e || !card) return;
+    var meta = card.querySelector('.pal-ex__meta');
+    var doneSets = e.sets.filter(function (s) { return s.done; }).length;
+    if (meta) {
+      meta.textContent = e.muscle + (e.equipment ? ' · ' + e.equipment : '') +
+        ' · ' + doneSets + '/' + e.sets.length + ' sets · ' + e.restSec + 's rest';
+    }
+    card.setAttribute('data-done', e.done ? 'true' : 'false');
+  }
+
+  function onFieldChange(input) {
+    var row = input.closest('[data-set]');
+    if (!row) return;
+    var e = findEntry(row.getAttribute('data-entry'));
+    if (!e) return;
+    var st = findSet(e, row.getAttribute('data-set'));
+    if (!st) return;
+    var f = input.getAttribute('data-f');
+    var v = parseFloat(input.value);
+    st[f] = isFinite(v) ? v : 0;
+    saveEntries();
+  }
+
+  function toggleSet(btn) {
+    var row = btn.closest('[data-set]');
+    var e = findEntry(row.getAttribute('data-entry'));
+    var st = findSet(e, row.getAttribute('data-set'));
+    if (!e || !st) return;
+
+    if (!st.done) {
+      // Take whatever is in the fields at this moment — including a
+      // number typed but not yet blurred.
+      row.querySelectorAll('[data-f]').forEach(function (inp) {
+        var v = parseFloat(inp.value);
+        st[inp.getAttribute('data-f')] = isFinite(v) ? v : 0;
+      });
+      if (!st.reps) { U.toast('Enter the reps first'); return; }
+      st.done = true;
+      st.at = Date.now();
+      row.classList.add('is-logged');
+      setTimeout(function () { row.classList.remove('is-logged'); }, 600);
+      // Completing the last set finishes the exercise on its own.
+      if (e.sets.every(function (s) { return s.done; })) e.done = true;
+      saveEntries();
+      startRest(e.restSec);
+    } else {
+      st.done = false;
+      st.at = null;
+      e.done = false;
+      saveEntries();
+    }
+    row.setAttribute('data-done', st.done ? 'true' : 'false');
+    btn.setAttribute('aria-pressed', st.done ? 'true' : 'false');
+    var entryBtn = logEl.querySelector('[data-act="entry-done"][data-entry="' + e.id + '"]');
+    if (entryBtn) entryBtn.setAttribute('aria-pressed', e.done ? 'true' : 'false');
+    refreshEntryMeta(e.id);
+  }
+
+  function sheetEntryNotes(entryId) {
+    var e = findEntry(entryId);
+    if (!e) return;
+    var media = e.media.slice();
+    U.openSheet({
+      title: e.name,
+      body:
+        '<div class="pal-field"><label class="pal-label" for="fld_notes">Notes</label>' +
+          '<textarea class="pal-textarea" id="fld_notes" name="notes" rows="4">' + esc(e.notes) + '</textarea></div>' +
+        '<div class="pal-grid pal-grid--2" style="margin-top:14px">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_rest">Rest (sec)</label>' +
+            '<input class="pal-input pal-input--num" id="fld_rest" name="rest" type="number" inputmode="numeric" value="' + e.restSec + '"></div>' +
+        '</div>' +
+        '<div class="pal-field" style="margin-top:14px"><span class="pal-label">Photos and videos</span>' +
+          '<div id="palEntryMedia"></div></div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
+      onMount: function (sheet) {
+        U.mountMedia(sheet.querySelector('#palEntryMedia'), media, function (next) { media = next; });
+      },
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        e.notes = sheet.querySelector('[name="notes"]').value;
+        e.restSec = parseInt(sheet.querySelector('[name="rest"]').value, 10) || e.restSec;
+        e.media = media;
+        saveEntries();
+        U.closeSheet(); render();
+      }
+    });
+  }
+
+  function sheetAddExercise() {
+    var library = P.exercisesSorted();
+    U.openSheet({
+      title: 'Add an exercise',
+      body:
+        '<div class="pal-field"><label class="pal-label" for="palPick">From the library</label>' +
+          '<select class="pal-select" id="palPick" name="pick">' +
+            '<option value="">Choose…</option>' +
+            library.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + ' · ' + esc(x.muscle) + '</option>'; }).join('') +
+          '</select></div>' +
+        '<p class="pal-sub" style="margin:16px 0 8px">Or something not in the library yet:</p>' +
+        '<div class="pal-grid pal-grid--2">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_name">Name</label>' +
+            '<input class="pal-input" id="fld_name" name="name" placeholder="Cable Crossover"></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_muscle">Muscle group</label>' +
+            '<select class="pal-select" id="fld_muscle" name="muscle">' + U.selectOptions(P.MUSCLES, 'Chest') + '</select></div>' +
+        '</div>' +
+        '<div class="pal-grid pal-grid--2" style="margin-top:12px">' +
+          '<div class="pal-field"><label class="pal-label" for="fld_sets">Sets</label>' +
+            '<input class="pal-input pal-input--num" id="fld_sets" name="sets" type="number" inputmode="numeric" value="3"></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_rest">Rest (sec)</label>' +
+            '<input class="pal-input pal-input--num" id="fld_rest" name="rest" type="number" inputmode="numeric" value="90"></div>' +
+        '</div>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Add', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var sets = parseInt(sheet.querySelector('[name="sets"]').value, 10) || 3;
+        var rest = parseInt(sheet.querySelector('[name="rest"]').value, 10) || 90;
+        var pickId = sheet.querySelector('[name="pick"]').value;
+        var name, muscle, equipment = '', exId = '', media = [], trackId = '', target = '';
+
+        if (pickId) {
+          var ex = P.Exercises.get(pickId);
+          if (!ex) return;
+          name = ex.name; muscle = ex.muscle; equipment = ex.equipment; exId = ex.id;
+          media = ex.media; trackId = ex.trackId;
+          target = ex.repMin === ex.repMax ? String(ex.repMin) : (ex.repMin + '–' + ex.repMax);
+        } else {
+          name = String(sheet.querySelector('[name="name"]').value).trim();
+          if (!name) { U.toast('Pick one or name a new one'); return; }
+          muscle = sheet.querySelector('[name="muscle"]').value;
+          // Anything logged is worth keeping: a one-off typed here joins
+          // the library so the next routine can reach it.
+          var made = P.Exercises.add({
+            name: name, muscle: muscle, sets: sets, restSec: rest, order: P.Exercises.nextOrder()
+          });
+          exId = made.id;
+        }
+
+        var blank = [];
+        for (var i = 0; i < sets; i++) blank.push({});
+        session.entries.push({
+          exerciseId: exId, name: name, muscle: muscle, equipment: equipment,
+          restSec: rest, targetReps: target, sets: blank, media: media, trackId: trackId
+        });
+        saveEntries();
+        session = P.Sessions.get(session.id);
+        U.closeSheet(); render();
+      }
+    });
+  }
+
+  function sheetFinish() {
+    var vol = P.sessionVolume(session);
+    var sets = P.sessionSetCount(session);
+    var s = P.getSettings();
+    var isCardio = P.laneOf(session.type) === 'cardio';
+    U.openSheet({
+      title: 'Finish ' + session.name,
+      body:
+        '<div class="pal-grid pal-grid--3" style="margin-bottom:16px">' +
+          U.tile('Sets', U.fig(sets, '', 'sm'), '') +
+          U.tile('Volume', U.fig(P.fmtInt(vol), s.weightUnit, 'sm'), '') +
+          U.tile('Time', U.fig(P.fmtClock(elapsedNow()), '', 'sm'), '') +
+        '</div>' +
+        '<div class="pal-field"><label class="pal-label" for="fld_cardio">Cardio minutes' +
+          (isCardio ? '' : ' (if any)') + '</label>' +
+          '<input class="pal-input pal-input--num" id="fld_cardio" name="cardio" type="number" inputmode="numeric" value="' +
+          (isCardio ? Math.round(elapsedNow() / 60) : '') + '"></div>' +
+        '<div class="pal-field" style="margin-top:12px"><label class="pal-label" for="fld_note">Note</label>' +
+          '<textarea class="pal-textarea" id="fld_note" name="note" rows="3">' + esc(session.notes) + '</textarea></div>',
+      actions: [{ label: 'Keep going', act: 'cancel' }, { label: 'Finish', act: 'save', kind: 'primary' }],
+      onAction: function (act, sheet) {
+        if (act !== 'save') return;
+        var mins = parseInt(sheet.querySelector('[name="cardio"]').value, 10) || 0;
+        var note = sheet.querySelector('[name="note"]').value;
+        P.finishWorkout(session.id, { cardioMin: mins, notes: note });
+        if (tick) clearInterval(tick);
+        U.closeSheet();
+        // Commit first, navigate second. An IndexedDB write started as
+        // the document goes away commits asynchronously and is silently
+        // lost, so the write must land before the navigation begins.
+        setTimeout(function () { location.href = 'palaestra.html'; }, 120);
+      }
+    });
+  }
+  function elapsedNow() {
+    var live = P.getLive();
+    var extra = live && live.runningSince ? Math.round((Date.now() - live.runningSince) / 1000) : 0;
+    return session.elapsedSec + extra;
+  }
+
+  function sheetQuickAdd() {
+    var opts = [['Add an exercise', 'q-ex'], ['Log water', 'q-water'], ['Log steps', 'q-steps'],
+                ['Add a photo or video', 'q-photo'], ['Rest 90 seconds', 'q-rest']];
+    U.openSheet({
+      title: 'Quick add',
+      body: '<div class="pal-quickgrid">' + opts.map(function (o) {
+        return '<button class="pal-quickbtn" data-sheet-act="' + o[1] + '">' + esc(o[0]) + '</button>';
+      }).join('') + '</div>',
+      actions: [],
+      onAction: function (act) {
+        U.closeSheet();
+        if (act === 'q-ex') { if (session && !readOnly) sheetAddExercise(); return; }
+        if (act === 'q-rest') { startRest(90); return; }
+        if (act === 'q-photo') {
+          var host = document.getElementById('palSesMedia');
+          if (host) { host.scrollIntoView({ block: 'center' }); host.querySelector('[data-media-add="image"]').click(); }
+          return;
+        }
+        if (act === 'q-water') {
+          var ml = parseInt(prompt('Water, in millilitres', '500'), 10);
+          if (ml > 0) { P.addToDay(P.today(), 'water', ml); U.toast('Logged'); }
+          return;
+        }
+        if (act === 'q-steps') {
+          var n = parseInt(prompt('Steps today', String(P.getDay(P.today()).steps || '')), 10);
+          if (n >= 0) { P.patchDay(P.today(), { steps: n }); U.toast('Steps saved'); }
+        }
+      }
+    });
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+  var ACTIONS = {
+    'go-hub': function () { location.href = 'palaestra.html'; },
+    'finish': sheetFinish,
+    'abandon': function () {
+      if (!confirm('Discard this workout? Everything logged in it is removed.')) return;
+      var id = session.id;
+      P.abandonWorkout(id);
+      P.Sessions.remove(id);
+      if (tick) clearInterval(tick);
+      setTimeout(function () { location.href = 'palaestra.html'; }, 120);
+    },
+    'set-done': toggleSet,
+    'entry-done': function (btn) {
+      var e = findEntry(btn.getAttribute('data-entry'));
+      if (!e) return;
+      e.done = !e.done;
+      // Ticking the whole exercise ticks the sets that have numbers in
+      // them; it never invents a set you did not log.
+      if (e.done) {
+        e.sets.forEach(function (st) { if (st.reps > 0) { st.done = true; st.at = st.at || Date.now(); } });
+      }
+      saveEntries();
+      btn.setAttribute('aria-pressed', e.done ? 'true' : 'false');
+      render();
+    },
+    'add-set': function (btn) {
+      var e = findEntry(btn.getAttribute('data-entry'));
+      if (!e) return;
+      e.sets.push({});
+      e.done = false;
+      saveEntries();
+      session = P.Sessions.get(session.id);
+      render();
+    },
+    'drop-entry': function (btn) {
+      var id = btn.getAttribute('data-entry');
+      var e = findEntry(id);
+      if (!e) return;
+      if (e.sets.some(function (s) { return s.done; }) &&
+          !confirm('Remove "' + e.name + '"? The sets logged under it go too.')) return;
+      session.entries = session.entries.filter(function (x) { return x.id !== id; });
+      saveEntries();
+      render();
+    },
+    'entry-notes': function (btn) { sheetEntryNotes(btn.getAttribute('data-entry')); },
+    'rest-now': function (btn) {
+      var e = findEntry(btn.getAttribute('data-entry'));
+      startRest(e ? e.restSec : 90);
+    },
+    'add-exercise': sheetAddExercise
+  };
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function boot() {
+    P = window.Pal;
+    U = window.PalUI;
+    headEl = document.getElementById('palWHead');
+    logEl = document.getElementById('palLog');
+    restHost = document.getElementById('palRestHost');
+
+    loadSession();
+    renderRest();
+    render();
+
+    logEl.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-act]');
+      if (!el || !logEl.contains(el)) return;
+      var fn = ACTIONS[el.getAttribute('data-act')];
+      if (!fn) return;
+      e.preventDefault();
+      fn(el);
+    });
+    headEl.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-act]');
+      if (!el) return;
+      var fn = ACTIONS[el.getAttribute('data-act')];
+      if (!fn) return;
+      e.preventDefault();
+      fn(el);
+    });
+    logEl.addEventListener('change', function (e) {
+      var inp = e.target.closest('[data-f]');
+      if (inp) onFieldChange(inp);
+    });
+    document.getElementById('palFab').addEventListener('click', sheetQuickAdd);
+
+    document.addEventListener('pal:music:pin', function (e) {
+      var d = e.detail || {};
+      var parts = String(d.scope || '').split(':');
+      if (parts[0] === 'session' && session) { saveSession({ trackId: d.trackId }); }
+      if (parts[0] === 'entry' && session) {
+        var en = findEntry(parts[1]);
+        if (en) {
+          en.trackId = d.trackId;
+          saveEntries();
+          // A track pinned mid-workout belongs to the exercise, not just
+          // to today — otherwise it has to be found again next week.
+          if (en.exerciseId) P.Exercises.update(en.exerciseId, { trackId: d.trackId });
+        }
+      }
+      U.toast(d.trackId ? 'Track pinned' : 'Track unpinned');
+    });
+
+    if (typeof window.initCloudSync === 'function' && window.supabase) {
+      window.initCloudSync({ appKey: 'palaestra', syncedPrefixes: ['pal:'] });
+    }
+    window.PalMusic.init();
+
+    // A phone locking and coming back is the normal case here, not the
+    // exception: catch up both clocks the moment the tab is visible.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { session = session ? P.Sessions.get(session.id) || session : session; paintClocks(); }
+    });
+    // The number in a field that was never blurred is still a number
+    // that was lifted.
+    window.addEventListener('pagehide', function () { P.autosave.flushAll(); });
+  }
+
+  function whenReady() {
+    if (window.LocalStoreIDB && window.LocalStoreIDB.ready) window.LocalStoreIDB.ready().then(boot);
+    else boot();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', whenReady);
+  else whenReady();
+})();
+</script>
+</body>
+</html>

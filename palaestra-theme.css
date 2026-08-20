@@ -1,0 +1,996 @@
+/* =============================================================
+   palaestra-theme.css — THE PALAESTRA
+   Shared by palaestra.html and palaestra-workout.html.
+
+   DIRECTION
+   The palaestra was a sand-floored training yard: dusted ground,
+   bronze fittings, terracotta, oiled skin, verdigris on old fixtures.
+   So the ground here is a WARM near-black (olive-tinged, never blue),
+   text is sand, and the accent is bronze. That is also what keeps it
+   visibly distinct from fitnessstudio.html, which is cold black with
+   a crimson LED — two fitness pages in one app must not look like
+   the same page.
+
+   FOUR LANES, FOUR COLOURS. Nine workout types collapse into four
+   lanes (strength / cardio / mobility / rest) so a month grid stays
+   readable. Every surface that colours a workout uses the same four.
+
+   Own private --pal-* tokens throughout. Nothing here leaks into or
+   reads from another page's stylesheet.
+   ============================================================= */
+
+:root {
+  /* --- ground and surfaces: a real layering system, not one flat plane --- */
+  --pal-stone:    #14120F;   /* base: the yard */
+  --pal-stone-2:  #1C1914;   /* elevated: a card */
+  --pal-stone-3:  #262119;   /* floating: a sheet, the dock */
+  --pal-well:     #100E0C;   /* recessed: inputs, tracks, wells */
+
+  /* --- ink --- */
+  --pal-sand:     #EADFC9;   /* primary text */
+  --pal-sand-2:   #A99D87;   /* secondary */
+  --pal-ash:      #6F6659;   /* labels, disabled, rest */
+  --pal-hair:     rgba(234,223,201,.11);
+  --pal-hair-2:   rgba(234,223,201,.055);
+
+  /* --- lanes --- */
+  --pal-bronze:   #C8823C;   /* strength, and the primary accent */
+  --pal-bronze-2: #E3A462;
+  --pal-terra:    #B44A33;   /* cardio */
+  --pal-patina:   #5E9079;   /* mobility, and "done" */
+  --pal-rest:     #6F6659;   /* rest */
+
+  /* --- semantics --- */
+  --pal-good:     #5E9079;
+  --pal-warn:     #C8823C;
+  --pal-bad:      #B44A33;
+
+  /* --- type --- */
+  --pal-display: 'Big Shoulders Display', 'Inter', system-ui, sans-serif;
+  --pal-body:    'Inter', system-ui, -apple-system, sans-serif;
+  --pal-mono:    'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* --- spacing scale: one ladder, used everywhere --- */
+  --pal-1: 4px;  --pal-2: 8px;  --pal-3: 12px; --pal-4: 16px;
+  --pal-5: 24px; --pal-6: 32px; --pal-7: 48px; --pal-8: 72px;
+
+  --pal-radius: 3px;          /* stone is cut, not moulded */
+  --pal-radius-lg: 6px;
+  --pal-gutter: clamp(16px, 4vw, 44px);
+  --pal-measure: 68ch;
+
+  /* Layered, colour-tinted, low-opacity — never a flat drop shadow. */
+  --pal-lift: 0 1px 0 rgba(234,223,201,.05) inset,
+              0 2px 6px rgba(0,0,0,.45),
+              0 18px 44px -22px rgba(0,0,0,.85);
+  --pal-float: 0 1px 0 rgba(234,223,201,.07) inset,
+               0 4px 14px rgba(0,0,0,.5),
+               0 32px 80px -28px rgba(0,0,0,.9);
+
+  --pal-ease: cubic-bezier(.2,.8,.2,1);
+}
+
+/* =============================================================
+   RESET + GROUND
+   ============================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+/* The ground and its dust both live on <html>, never on body's
+   children. An earlier version stacked them with `body > * { position:
+   relative }`, which silently overrode `position: fixed` on every
+   element topbar.js injects into this page — its launcher and sidebar
+   dropped into normal flow and pushed the whole page down 2000px. The
+   page must not restyle anything it did not render. */
+html.pal-root { background: var(--pal-stone); }
+html.pal-root::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+body.pal {
+  margin: 0;
+  position: relative;   /* above the dust; NOT a containing block for fixed children */
+  z-index: 1;
+  background: transparent;
+  color: var(--pal-sand);
+  font-family: var(--pal-body);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: rgba(200,130,60,.28); color: var(--pal-sand); }
+
+a { color: var(--pal-bronze-2); text-decoration: none; }
+a:hover { color: var(--pal-sand); }
+
+/* Keyboard focus is visible everywhere, and never removed. */
+:focus-visible {
+  outline: 2px solid var(--pal-bronze-2);
+  outline-offset: 2px;
+  border-radius: var(--pal-radius);
+}
+
+[hidden] { display: none !important; }
+
+/* =============================================================
+   TYPE
+   ============================================================= */
+.pal-eyebrow {
+  font-family: var(--pal-mono);
+  font-size: 10.5px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--pal-ash);
+  margin: 0 0 var(--pal-2);
+}
+.pal-h1 {
+  font-family: var(--pal-display);
+  font-weight: 700;
+  font-size: clamp(44px, 9vw, 104px);
+  line-height: .86;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.pal-h2 {
+  font-family: var(--pal-display);
+  font-weight: 600;
+  font-size: clamp(24px, 3.4vw, 36px);
+  line-height: 1;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.pal-h3 {
+  font-family: var(--pal-body);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -.01em;
+  margin: 0;
+}
+.pal-lede { color: var(--pal-sand-2); max-width: var(--pal-measure); margin: 0; }
+.pal-sub  { color: var(--pal-ash); font-size: 13px; margin: 0; }
+.pal-mono { font-family: var(--pal-mono); font-variant-numeric: tabular-nums; }
+
+/* THE NUMERAL TREATMENT — the one type idea carried everywhere.
+   A number is architecture; its unit is a footnote. Used for every
+   figure that matters: bodyweight, steps, the rest timer, the score. */
+.pal-fig {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .28em;
+  font-family: var(--pal-display);
+  font-weight: 700;
+  line-height: .82;
+  letter-spacing: -.015em;
+  font-variant-numeric: tabular-nums;
+}
+.pal-fig--xl  { font-size: clamp(48px, 10vw, 88px); }
+.pal-fig--lg  { font-size: clamp(34px, 6vw, 52px); }
+.pal-fig--md  { font-size: 30px; }
+.pal-fig--sm  { font-size: 22px; }
+.pal-fig__unit {
+  font-family: var(--pal-mono);
+  font-weight: 400;
+  font-size: clamp(11px, .28em, 16px);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--pal-sand-2);
+  transform: translateY(-.1em);
+}
+
+/* =============================================================
+   LAYOUT
+   ============================================================= */
+.pal-shell { max-width: 1320px; margin: 0 auto; padding: 0 var(--pal-gutter) var(--pal-8); }
+.pal-band { padding: var(--pal-6) 0; border-top: 1px solid var(--pal-hair-2); }
+.pal-band:first-of-type { border-top: 0; }
+.pal-band__head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--pal-4); flex-wrap: wrap; margin-bottom: var(--pal-4);
+}
+.pal-grid { display: grid; gap: var(--pal-4); }
+.pal-grid--2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.pal-grid--3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.pal-grid--4 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.pal-row { display: flex; align-items: center; gap: var(--pal-2); flex-wrap: wrap; }
+.pal-spacer { flex: 1 1 auto; }
+
+/* =============================================================
+   HEADER
+   topbar.js injects a fixed launcher pill over the top-left of every
+   page, so the header's own content starts below it.
+   ============================================================= */
+.pal-header {
+  padding: clamp(76px, 11vh, 128px) var(--pal-gutter) var(--pal-5);
+  max-width: 1320px; margin: 0 auto;
+  border-bottom: 1px solid var(--pal-hair);
+}
+.pal-header__title { display: flex; align-items: flex-end; gap: var(--pal-4); flex-wrap: wrap; }
+.pal-header__meta {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+
+/* --- route bar --- */
+.pal-routes {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  margin-top: var(--pal-5);
+}
+.pal-route {
+  appearance: none; border: 0; background: transparent;
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .18s var(--pal-ease), border-color .18s var(--pal-ease);
+  min-height: 44px;
+}
+.pal-route:hover { color: var(--pal-sand-2); }
+.pal-route[aria-current='true'] { color: var(--pal-sand); border-bottom-color: var(--pal-bronze); }
+
+/* =============================================================
+   THE WEEK BAR — the signature.
+
+   Seven cells, Monday first. Each encodes three true things at once:
+   FILL HEIGHT is that day's training volume against the week's best
+   day, HUE is the lane, and an OUTLINE-ONLY cell is scheduled but not
+   done. So it is the calendar, the streak and the volume chart in one
+   device, and clicking a cell opens that day. Everything else on the
+   page stays quiet so this can be the thing you remember.
+   ============================================================= */
+.pal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  align-items: end;
+  padding: var(--pal-4) 0 0;
+}
+.pal-weekcell {
+  appearance: none; border: 0; background: transparent;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 0; cursor: pointer; text-align: left;
+  font: inherit; color: inherit;
+}
+.pal-weekcell__col {
+  position: relative;
+  height: clamp(56px, 8vw, 96px);
+  background: rgba(234,223,201,.045);
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius);
+  overflow: hidden;
+}
+/* The second thing each cell encodes: the day's steps against goal, as
+   a rule under the column. Without it a week of walking and no lifting
+   draws as seven empty boxes, which is not what that week was. */
+.pal-weekcell__steps {
+  height: 3px; border-radius: 2px;
+  background: rgba(234,223,201,.09);
+  overflow: hidden;
+}
+.pal-weekcell__steps > span {
+  display: block; height: 100%;
+  background: var(--pal-sand-2);
+  transform-origin: left;
+  transform: scaleX(var(--steps, 0));
+  transition: transform .5s var(--pal-ease);
+}
+.pal-weekcell__fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--lane, var(--pal-bronze));
+  transform-origin: bottom;
+  height: 100%;
+  transform: scaleY(var(--fill, 0));
+  transition: transform .5s var(--pal-ease);
+}
+/* Scheduled but not yet done: the outline of the work, not the work. */
+.pal-weekcell[data-status='planned'] .pal-weekcell__col,
+.pal-weekcell[data-status='missed'] .pal-weekcell__col {
+  border-color: var(--lane, var(--pal-bronze));
+  border-style: dashed;
+}
+.pal-weekcell[data-status='missed'] .pal-weekcell__col { opacity: .5; }
+.pal-weekcell[data-status='rest'] .pal-weekcell__col {
+  background: repeating-linear-gradient(
+    -45deg, transparent 0 5px, rgba(234,223,201,.05) 5px 6px);
+}
+/* Left-aligned with a separator, NOT space-between: a right-aligned set
+   count sits 3px from the next day's name and reads as part of it —
+   "MON" and "17" became "17 TUE". */
+.pal-weekcell__label {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+  display: flex; gap: 6px; align-items: baseline;
+  /* Clipped to its own cell. Without this the label runs under the next
+     day's, and two cells read as one word. */
+  overflow: hidden; white-space: nowrap; min-width: 0;
+}
+.pal-weekcell__sets { color: var(--pal-bronze); letter-spacing: .04em; }
+.pal-weekcell__sets::before { content: '·'; margin-right: 5px; color: var(--pal-ash); }
+.pal-weekcell[data-today='true'] .pal-weekcell__label { color: var(--pal-sand); }
+.pal-weekcell[data-today='true'] .pal-weekcell__col {
+  box-shadow: 0 2px 0 var(--pal-bronze);
+}
+.pal-weekcell:hover .pal-weekcell__col { border-color: var(--pal-hair); }
+.pal-weekcell__name {
+  font-size: 11px; color: var(--pal-sand-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* lane colours, shared by every surface that colours a workout */
+[data-lane='strength'] { --lane: var(--pal-bronze); }
+[data-lane='cardio']   { --lane: var(--pal-terra); }
+[data-lane='mobility'] { --lane: var(--pal-patina); }
+[data-lane='rest']     { --lane: var(--pal-rest); }
+[data-lane='none']     { --lane: var(--pal-ash); }
+
+.pal-lanekey { display: flex; gap: var(--pal-4); flex-wrap: wrap; }
+.pal-lanekey__item {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--pal-mono); font-size: 10px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-lanekey__dot { width: 9px; height: 9px; border-radius: 2px; background: var(--lane); }
+
+/* =============================================================
+   CARDS + TILES
+   ============================================================= */
+.pal-card {
+  background: var(--pal-stone-2);
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius-lg);
+  padding: var(--pal-5);
+  box-shadow: var(--pal-lift);
+}
+.pal-card--flush { padding: 0; overflow: hidden; }
+.pal-card__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--pal-3); flex-wrap: wrap; margin-bottom: var(--pal-4);
+}
+
+.pal-tile {
+  background: var(--pal-stone-2);
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius);
+  padding: var(--pal-4);
+  display: flex; flex-direction: column; gap: var(--pal-2);
+}
+.pal-tile__label {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-tile__note { font-size: 12px; color: var(--pal-ash); }
+
+/* =============================================================
+   METER — one bar, used by steps, water, macros, streaks, progress.
+   ============================================================= */
+/* The empty half of a meter has to be visible as a TRACK, not read as
+   a hairline — otherwise a bar at 0% looks like a rule under the number
+   and the reader learns nothing from it. */
+.pal-meter {
+  height: 8px; border-radius: 2px; overflow: hidden;
+  background: rgba(234,223,201,.09);
+  border: 1px solid var(--pal-hair-2);
+}
+.pal-meter--tall { height: 14px; }
+.pal-meter__fill {
+  height: 100%;
+  background: var(--lane, var(--pal-bronze));
+  transform-origin: left;
+  transform: scaleX(var(--pct, 0));
+  transition: transform .6s var(--pal-ease);
+}
+.pal-meter__fill[data-full='true'] { background: var(--pal-patina); }
+
+/* Segmented meter — for goals counted in whole units (4 of 4
+   workouts), where a continuous bar would imply a half workout. */
+.pal-pips { display: flex; gap: 4px; }
+.pal-pip {
+  flex: 1 1 0; height: 12px; border-radius: 2px;
+  background: rgba(234,223,201,.09); border: 1px solid var(--pal-hair-2);
+}
+.pal-pip[data-on='true'] { background: var(--lane, var(--pal-bronze)); border-color: transparent; }
+
+/* =============================================================
+   BUTTONS — every clickable element gets hover, focus-visible, active.
+   ============================================================= */
+.pal-btn {
+  appearance: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 18px;
+  background: var(--pal-stone-3);
+  border: 1px solid var(--pal-hair);
+  border-radius: var(--pal-radius);
+  color: var(--pal-sand);
+  font-family: var(--pal-body); font-size: 14px; font-weight: 500;
+  transition: background .16s var(--pal-ease), border-color .16s var(--pal-ease),
+              transform .16s var(--pal-ease), color .16s var(--pal-ease);
+}
+.pal-btn:hover { background: #2E2820; border-color: var(--pal-hair); }
+.pal-btn:active { transform: translateY(1px); }
+.pal-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+.pal-btn--primary {
+  background: var(--pal-bronze); border-color: var(--pal-bronze);
+  color: #17120B; font-weight: 600;
+}
+.pal-btn--primary:hover { background: var(--pal-bronze-2); border-color: var(--pal-bronze-2); }
+
+.pal-btn--ghost { background: transparent; }
+.pal-btn--ghost:hover { background: rgba(234,223,201,.05); }
+
+.pal-btn--sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.pal-btn--danger { color: var(--pal-bad); }
+.pal-btn--danger:hover { background: rgba(180,74,51,.14); }
+
+.pal-btn--icon {
+  min-width: 44px; padding: 8px; min-height: 44px;
+  font-family: var(--pal-mono); font-size: 15px;
+}
+
+.pal-chip {
+  appearance: none; cursor: pointer;
+  min-height: 36px; padding: 6px 13px;
+  background: transparent;
+  border: 1px solid var(--pal-hair);
+  border-radius: 999px;
+  color: var(--pal-sand-2);
+  font-family: var(--pal-mono); font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase;
+  transition: background .16s var(--pal-ease), color .16s var(--pal-ease),
+              border-color .16s var(--pal-ease);
+}
+.pal-chip:hover { color: var(--pal-sand); border-color: var(--pal-sand-2); }
+.pal-chip[aria-pressed='true'], .pal-chip.is-on {
+  background: var(--pal-bronze); border-color: var(--pal-bronze); color: #17120B;
+}
+
+/* =============================================================
+   FORMS
+   16px minimum on EVERY field. Below that, iOS Safari zooms the
+   viewport in on focus and never zooms back out — the single bug
+   every page of this dashboard has shipped at least once.
+   ============================================================= */
+.pal-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pal-label {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-input, .pal-select, .pal-textarea {
+  width: 100%;
+  font-family: var(--pal-body);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--pal-sand);
+  background: var(--pal-well);
+  border: 1px solid var(--pal-hair);
+  border-radius: var(--pal-radius);
+  padding: 10px 12px;
+  min-height: 44px;
+  transition: border-color .16s var(--pal-ease), background .16s var(--pal-ease);
+}
+.pal-input:hover, .pal-select:hover, .pal-textarea:hover { border-color: rgba(234,223,201,.2); }
+.pal-input:focus, .pal-select:focus, .pal-textarea:focus {
+  outline: none; border-color: var(--pal-bronze); background: #0C0A08;
+}
+.pal-input::placeholder, .pal-textarea::placeholder { color: var(--pal-ash); }
+.pal-textarea { min-height: 96px; resize: vertical; }
+.pal-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%236F6659'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+.pal-input--num { font-family: var(--pal-mono); font-variant-numeric: tabular-nums; }
+.pal-check { width: 22px; height: 22px; accent-color: var(--pal-bronze); cursor: pointer; }
+
+/* =============================================================
+   TABLES — volume, history. Always scroll inside their own box so
+   the page body never scrolls sideways.
+   ============================================================= */
+.pal-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pal-table { width: 100%; border-collapse: collapse; min-width: 460px; }
+.pal-table th {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+  text-align: left; font-weight: 400;
+  padding: 8px 12px; border-bottom: 1px solid var(--pal-hair);
+}
+.pal-table td {
+  padding: 11px 12px; border-bottom: 1px solid var(--pal-hair-2);
+  font-size: 14px;
+}
+.pal-table td.pal-num {
+  font-family: var(--pal-mono); font-variant-numeric: tabular-nums; text-align: right;
+}
+.pal-table tr:hover td { background: rgba(234,223,201,.025); }
+.pal-delta--up   { color: var(--pal-patina); }
+.pal-delta--down { color: var(--pal-terra); }
+.pal-delta--flat { color: var(--pal-ash); }
+
+/* =============================================================
+   LIST ROWS — exercises, sessions, measurements. Ruled lines, not
+   a wall of identical cards.
+   ============================================================= */
+.pal-list { list-style: none; margin: 0; padding: 0; }
+.pal-listrow {
+  display: flex; align-items: center; gap: var(--pal-3);
+  padding: var(--pal-3) 0;
+  border-top: 1px solid var(--pal-hair-2);
+}
+.pal-listrow:last-child { border-bottom: 1px solid var(--pal-hair-2); }
+.pal-listrow__main { flex: 1 1 auto; min-width: 0; }
+.pal-listrow__title { font-weight: 500; }
+.pal-listrow__meta {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .06em;
+  color: var(--pal-ash);
+}
+.pal-listrow__actions { display: flex; gap: 4px; flex: none; }
+
+.pal-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--pal-mono); font-size: 10px;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 2px;
+  color: var(--lane, var(--pal-bronze));
+  border: 1px solid color-mix(in srgb, var(--lane, var(--pal-bronze)) 40%, transparent);
+  background: color-mix(in srgb, var(--lane, var(--pal-bronze)) 11%, transparent);
+}
+
+/* =============================================================
+   HEATMAP — steps. Darker/denser = more.
+   ============================================================= */
+.pal-heat { display: flex; gap: 3px; overflow-x: auto; padding-bottom: var(--pal-2); }
+.pal-heat__week { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+.pal-heat__cell {
+  width: 12px; height: 12px; border-radius: 2px;
+  background: var(--pal-well); border: 1px solid var(--pal-hair-2);
+}
+.pal-heat__cell[data-level='1'] { background: rgba(200,130,60,.24); border-color: transparent; }
+.pal-heat__cell[data-level='2'] { background: rgba(200,130,60,.45); border-color: transparent; }
+.pal-heat__cell[data-level='3'] { background: rgba(200,130,60,.7);  border-color: transparent; }
+.pal-heat__cell[data-level='4'] { background: var(--pal-bronze-2);  border-color: transparent; }
+.pal-heat__months {
+  display: flex; gap: 3px; font-family: var(--pal-mono); font-size: 9px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--pal-ash);
+  margin-bottom: 4px;
+}
+
+/* =============================================================
+   CALENDAR
+   ============================================================= */
+.pal-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.pal-cal__dow {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+  text-align: center; padding-bottom: 6px;
+}
+.pal-calday {
+  appearance: none; border: 1px solid var(--pal-hair-2); background: var(--pal-stone-2);
+  border-radius: var(--pal-radius);
+  min-height: clamp(58px, 9vw, 88px);
+  padding: 7px 8px; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 4px;
+  color: var(--pal-sand);
+  transition: border-color .16s var(--pal-ease), background .16s var(--pal-ease);
+}
+.pal-calday:hover { border-color: var(--pal-hair); background: var(--pal-stone-3); }
+.pal-calday[data-inmonth='false'] { opacity: .3; }
+.pal-calday__num {
+  font-family: var(--pal-mono); font-size: 11px; color: var(--pal-ash);
+  font-variant-numeric: tabular-nums;
+}
+.pal-calday[data-today='true'] { border-color: var(--pal-bronze); }
+.pal-calday[data-today='true'] .pal-calday__num { color: var(--pal-bronze-2); }
+.pal-calday__bar { height: 3px; border-radius: 2px; background: var(--lane); }
+/* Planned but not done: a dotted trace of the work, not the work. At
+   3px an inset outline reads as solid, so this has to be a pattern. */
+.pal-calday[data-status='planned'] .pal-calday__bar {
+  background: repeating-linear-gradient(90deg, var(--lane) 0 3px, transparent 3px 7px);
+  opacity: .6;
+}
+.pal-calday[data-status='planned'] .pal-calday__label,
+.pal-calday[data-status='future'] .pal-calday__label { color: var(--pal-ash); }
+.pal-calday[data-status='missed'] .pal-calday__bar {
+  background: repeating-linear-gradient(-45deg, var(--lane) 0 3px, transparent 3px 6px);
+  opacity: .7;
+}
+.pal-calday[data-status='rest'] .pal-calday__bar { background: var(--pal-rest); opacity: .5; }
+.pal-calday__label {
+  font-size: 11px; color: var(--pal-sand-2); line-height: 1.25;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+/* =============================================================
+   WORKOUT LOGGER
+   ============================================================= */
+.pal-ex {
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius-lg);
+  background: var(--pal-stone-2);
+  margin-bottom: var(--pal-3);
+  overflow: hidden;
+}
+.pal-ex[data-done='true'] { border-color: color-mix(in srgb, var(--pal-patina) 40%, transparent); }
+.pal-ex[data-focus='true'] { border-color: var(--pal-bronze); box-shadow: var(--pal-lift); }
+.pal-ex__head {
+  display: flex; align-items: center; gap: var(--pal-3);
+  padding: var(--pal-4);
+  border-bottom: 1px solid var(--pal-hair-2);
+}
+.pal-ex__title { flex: 1 1 auto; min-width: 0; }
+.pal-ex__name { font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
+.pal-ex__meta {
+  font-family: var(--pal-mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-ex__body { padding: var(--pal-3) var(--pal-4) var(--pal-4); }
+
+/* The set grid. Columns are fixed so weights line up down the column
+   and a heavier number never shifts the row. */
+.pal-sets { display: grid; gap: 6px; }
+.pal-setrow {
+  display: grid;
+  grid-template-columns: 34px 1fr 1fr 68px 44px;
+  gap: 6px; align-items: center;
+}
+.pal-setrow__n {
+  font-family: var(--pal-mono); font-size: 12px; color: var(--pal-ash);
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.pal-setrow[data-done='true'] .pal-setrow__n { color: var(--pal-patina); }
+.pal-sethead {
+  display: grid;
+  grid-template-columns: 34px 1fr 1fr 68px 44px;
+  gap: 6px;
+  font-family: var(--pal-mono); font-size: 9.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+  padding-bottom: 2px;
+}
+.pal-sethead > *:not(:first-child) { padding-left: 2px; }
+
+/* Read-only sets: a list of what was lifted, not an empty form. */
+.pal-rosets { display: grid; gap: 4px; }
+.pal-rosets__row {
+  display: flex; align-items: baseline; gap: 12px;
+  font-size: 14px; padding: 3px 0;
+}
+.pal-rosets__row[data-done='false'] { color: var(--pal-ash); }
+.pal-rosets__n {
+  font-family: var(--pal-mono); font-size: 12px; color: var(--pal-ash);
+  width: 20px; flex: none; font-variant-numeric: tabular-nums;
+}
+.pal-rosets__row[data-done='true'] .pal-rosets__n { color: var(--pal-patina); }
+
+.pal-setdone {
+  appearance: none; cursor: pointer;
+  min-height: 44px; min-width: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--pal-well); border: 1px solid var(--pal-hair);
+  border-radius: var(--pal-radius); color: var(--pal-ash);
+  font-size: 16px;
+  transition: background .16s var(--pal-ease), color .16s var(--pal-ease),
+              border-color .16s var(--pal-ease);
+}
+.pal-setdone:hover { border-color: var(--pal-sand-2); color: var(--pal-sand); }
+.pal-setdone[aria-pressed='true'] {
+  background: var(--pal-patina); border-color: var(--pal-patina); color: #0C1310;
+}
+@keyframes pal-logged {
+  from { box-shadow: 0 0 0 0 rgba(200,130,60,.5); }
+  to   { box-shadow: 0 0 0 14px rgba(200,130,60,0); }
+}
+.pal-setrow.is-logged .pal-setdone { animation: pal-logged .5s var(--pal-ease); }
+
+/* --- rest timer ---
+   Fixed, not sticky. Sticky only holds while its own container is in
+   view, and this bar lives at the bottom of a long page — mid-workout
+   it was scrolled out of sight, which is precisely when it is needed. */
+.pal-rest {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  background: var(--pal-stone-3);
+  border-top: 1px solid var(--pal-bronze);
+  box-shadow: var(--pal-float);
+  padding: var(--pal-3) var(--pal-gutter);
+  /* Clear the quick-add button, which sits over this bar's right end —
+   * without this the last preset is unreachable. */
+  padding-right: calc(var(--pal-gutter) + 72px);
+  padding-bottom: calc(var(--pal-3) + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: var(--pal-4); flex-wrap: wrap;
+}
+/* And lift the button itself clear of the bar while a rest is running. */
+body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.pal-rest__clock {
+  font-family: var(--pal-display); font-weight: 700; font-size: 44px;
+  line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  color: var(--pal-bronze-2); min-width: 3.2ch;
+}
+.pal-rest__track {
+  flex: 1 1 180px; height: 4px; border-radius: 2px; overflow: hidden;
+  background: var(--pal-well);
+}
+.pal-rest__fill {
+  height: 100%; background: var(--pal-bronze);
+  transform-origin: left; transform: scaleX(var(--pct, 1));
+}
+.pal-rest[data-over='true'] .pal-rest__clock { color: var(--pal-patina); }
+.pal-rest[data-over='true'] .pal-rest__fill { background: var(--pal-patina); }
+
+/* =============================================================
+   MEDIA STRIP
+   ============================================================= */
+.pal-media { display: flex; gap: var(--pal-2); flex-wrap: wrap; }
+.pal-media__item {
+  position: relative; width: 92px; height: 92px;
+  border-radius: var(--pal-radius); overflow: hidden;
+  border: 1px solid var(--pal-hair-2); background: var(--pal-well);
+}
+.pal-media__item img, .pal-media__item video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+/* Images get a treatment layer so a bright phone photo doesn't tear a
+   hole in a warm dark page. */
+.pal-media__item::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(20,18,15,.55), transparent 55%);
+}
+.pal-media__kill {
+  position: absolute; top: 3px; right: 3px; z-index: 2;
+  width: 26px; height: 26px; border-radius: 2px;
+  background: rgba(16,14,12,.82); border: 1px solid var(--pal-hair);
+  color: var(--pal-sand); cursor: pointer; font-size: 13px; line-height: 1;
+}
+.pal-media__item[data-pending='true'] { opacity: .55; }
+
+/* =============================================================
+   SHEETS + THE QUICK ADD FAB
+   ============================================================= */
+.pal-sheetbg {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(8,7,6,.74);
+  backdrop-filter: blur(3px);
+  display: none; align-items: flex-end; justify-content: center;
+  padding: var(--pal-4);
+}
+.pal-sheetbg.is-open { display: flex; }
+@media (min-width: 720px) { .pal-sheetbg { align-items: center; } }
+.pal-sheet {
+  width: 100%; max-width: 620px; max-height: 88vh; overflow-y: auto;
+  background: var(--pal-stone-3);
+  border: 1px solid var(--pal-hair);
+  border-radius: var(--pal-radius-lg);
+  box-shadow: var(--pal-float);
+  padding: var(--pal-5);
+  padding-bottom: calc(var(--pal-5) + env(safe-area-inset-bottom, 0px));
+}
+.pal-sheet__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--pal-3); margin-bottom: var(--pal-4);
+}
+.pal-sheet__actions {
+  display: flex; gap: var(--pal-2); justify-content: flex-end;
+  margin-top: var(--pal-5); flex-wrap: wrap;
+}
+
+.pal-fab {
+  position: fixed; z-index: 80;
+  right: var(--pal-4);
+  bottom: calc(var(--pal-4) + env(safe-area-inset-bottom, 0px));
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--pal-bronze); border: 0; color: #17120B;
+  font-size: 26px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--pal-float);
+  transition: transform .18s var(--pal-ease), background .18s var(--pal-ease);
+}
+.pal-fab:hover { background: var(--pal-bronze-2); transform: scale(1.06); }
+.pal-fab:active { transform: scale(1); }
+
+.pal-quickgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--pal-2); }
+.pal-quickbtn {
+  appearance: none; cursor: pointer; text-align: left;
+  padding: var(--pal-3) var(--pal-4); min-height: 56px;
+  background: var(--pal-stone-2); border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius); color: var(--pal-sand);
+  font-family: var(--pal-body); font-size: 14px;
+  transition: background .16s var(--pal-ease), border-color .16s var(--pal-ease);
+}
+.pal-quickbtn:hover { background: var(--pal-stone-3); border-color: var(--pal-hair); }
+
+/* =============================================================
+   MUSIC DOCK — palaestra-music.js. Slides in from the right on
+   desktop, up from the bottom on a phone.
+   ============================================================= */
+.pal-music {
+  position: fixed; top: 0; right: 0; z-index: 95;
+  width: min(380px, 100vw); height: 100vh;
+  background: var(--pal-stone-3);
+  border-left: 1px solid var(--pal-hair);
+  box-shadow: var(--pal-float);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .32s var(--pal-ease);
+}
+.pal-music.is-open { transform: translateX(0); }
+.pal-music__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--pal-2); padding: var(--pal-4);
+  padding-top: calc(var(--pal-4) + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--pal-hair-2);
+}
+.pal-music__chips {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  padding: var(--pal-3) var(--pal-4);
+  border-bottom: 1px solid var(--pal-hair-2);
+}
+.pal-music__list { flex: 1 1 auto; overflow-y: auto; padding: var(--pal-2) var(--pal-3); }
+.pal-track {
+  display: flex; align-items: center; gap: var(--pal-3);
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 8px; border: 0; border-radius: var(--pal-radius);
+  background: transparent; color: var(--pal-sand);
+  font-family: var(--pal-body); font-size: 13px; min-height: 56px;
+  transition: background .14s var(--pal-ease);
+}
+.pal-track:hover { background: rgba(234,223,201,.05); }
+.pal-track[aria-current='true'] { background: rgba(200,130,60,.14); }
+.pal-track__cover {
+  flex: none; width: 44px; height: 44px; border-radius: 2px;
+  background: var(--pal-well); overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.pal-track__cover img { width: 100%; height: 100%; object-fit: cover; }
+/* A <span> is inline, so min-width:0 and overflow:hidden do nothing to
+   it — the titles ran straight out of the dock. These have to be blocks
+   in a column for the ellipsis to bite. */
+.pal-track__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.pal-track__title {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500;
+}
+.pal-track__sub {
+  display: block; min-width: 0;
+  font-size: 11px; color: var(--pal-ash);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pal-track__pin {
+  flex: none; width: 34px; height: 34px; border-radius: 2px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--pal-ash); cursor: pointer; font-size: 13px;
+}
+.pal-track__pin:hover { color: var(--pal-bronze-2); border-color: var(--pal-hair); }
+.pal-track__pin[data-pinned='true'] { color: var(--pal-bronze); }
+
+.pal-music__player {
+  border-top: 1px solid var(--pal-hair-2);
+  padding: var(--pal-3) var(--pal-4);
+  padding-bottom: calc(var(--pal-3) + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: var(--pal-2);
+}
+.pal-music__now { display: flex; align-items: center; gap: var(--pal-3); min-width: 0; }
+.pal-music__stage { border-radius: var(--pal-radius); overflow: hidden; background: #000; }
+.pal-music__stage:empty { display: none; }
+.pal-music__stage iframe { display: block; width: 100%; height: 180px; border: 0; }
+.pal-music__controls { display: flex; align-items: center; justify-content: center; gap: var(--pal-3); }
+.pal-music__ctrl {
+  appearance: none; cursor: pointer;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--pal-stone-2); border: 1px solid var(--pal-hair);
+  color: var(--pal-sand); font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .16s var(--pal-ease), transform .16s var(--pal-ease);
+}
+.pal-music__ctrl:hover { background: #322B22; }
+.pal-music__ctrl:active { transform: scale(.94); }
+.pal-music__ctrl--play {
+  width: 54px; height: 54px; font-size: 19px;
+  background: var(--pal-bronze); border-color: var(--pal-bronze); color: #17120B;
+}
+.pal-music__ctrl--play:hover { background: var(--pal-bronze-2); }
+.pal-music__vol { width: 100%; accent-color: var(--pal-bronze); min-height: 24px; }
+.pal-music__empty { padding: var(--pal-5); text-align: center; color: var(--pal-ash); font-size: 13px; }
+
+/* The per-exercise / per-workout music button. Sits on the side of a
+   row, quiet until hovered, bronze once that row has a pinned track. */
+.pal-musicbtn {
+  appearance: none; cursor: pointer; flex: none;
+  width: 44px; height: 44px; border-radius: var(--pal-radius);
+  background: transparent; border: 1px solid var(--pal-hair-2);
+  color: var(--pal-ash); font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .16s var(--pal-ease), border-color .16s var(--pal-ease),
+              background .16s var(--pal-ease);
+}
+.pal-musicbtn:hover { color: var(--pal-bronze-2); border-color: var(--pal-hair); background: rgba(200,130,60,.08); }
+.pal-musicbtn[data-pinned='true'] { color: var(--pal-bronze); border-color: color-mix(in srgb, var(--pal-bronze) 40%, transparent); }
+
+@media (max-width: 719px) {
+  .pal-music {
+    width: 100vw; height: min(86vh, 620px);
+    top: auto; bottom: 0;
+    border-left: 0; border-top: 1px solid var(--pal-hair);
+    border-radius: var(--pal-radius-lg) var(--pal-radius-lg) 0 0;
+    transform: translateY(100%);
+  }
+  .pal-music.is-open { transform: translateY(0); }
+}
+
+/* =============================================================
+   EMPTY STATES — an invitation to act, never an apology.
+   ============================================================= */
+.pal-empty {
+  border: 1px dashed var(--pal-hair);
+  border-radius: var(--pal-radius-lg);
+  padding: var(--pal-6) var(--pal-5);
+  text-align: center;
+  color: var(--pal-sand-2);
+}
+.pal-empty__title { font-family: var(--pal-display); font-size: 24px;
+  text-transform: uppercase; letter-spacing: .01em; color: var(--pal-sand); }
+.pal-empty .pal-btn { margin-top: var(--pal-4); }
+
+.pal-toast {
+  position: fixed; left: 50%; z-index: 120;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(12px);
+  background: var(--pal-stone-3); border: 1px solid var(--pal-hair);
+  border-radius: var(--pal-radius); box-shadow: var(--pal-float);
+  padding: 11px 18px; font-size: 14px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s var(--pal-ease), transform .2s var(--pal-ease);
+}
+.pal-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* =============================================================
+   PHONE
+   ============================================================= */
+@media (max-width: 719px) {
+  .pal-header { padding-top: 84px; }
+  .pal-routes { overflow-x: auto; flex-wrap: nowrap; }
+  .pal-route { flex: none; }
+  .pal-setrow, .pal-sethead { grid-template-columns: 26px 1fr 1fr 56px 44px; }
+  .pal-rest__clock { font-size: 36px; }
+  .pal-week { gap: 2px; }
+  .pal-weekcell__name { display: none; }
+  /* Seven cells across a phone leave ~48px each — only the day fits. */
+  .pal-weekcell__sets { display: none; }
+  .pal-weekcell__label { font-size: 9px; letter-spacing: .08em; }
+}
+
+/* =============================================================
+   MOTION
+   Only transform and opacity animate anywhere in this file. Under
+   reduced motion everything settles instantly — including the
+   meters and the week bar, whose scale transitions are the only
+   ambient movement on the page.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================
+   PRINT — the weekly scorecard is the one thing worth putting on
+   a fridge.
+   ============================================================= */
+@media print {
+  body.pal { background: #fff; color: #000; }
+  body.pal::before, .pal-fab, .pal-music, .pal-routes, .pal-rest { display: none !important; }
+  .pal-card { box-shadow: none; border-color: #ccc; }
+}
