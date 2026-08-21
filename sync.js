@@ -13,6 +13,9 @@
     const syncedKeys = (config && config.syncedKeys) || [];
     const syncedPrefixes = (config && config.syncedPrefixes) || [];
     const onApplied = config && config.onApplied;
+    // OPT-IN, and off unless a page asks for it — every existing caller keeps
+    // exactly the behaviour it has today. See §HANDOFF below.
+    const wantHandoff = !!(config && config.handoff);
     if (!appKey || !window.supabase) return;
     if (!SUPABASE_URL || !SUPABASE_KEY) return;
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
@@ -52,13 +55,89 @@
     }
     const origSet = localStorage.setItem.bind(localStorage);
     const origRemove = localStorage.removeItem.bind(localStorage);
+    // ---------------------------------------------------------------
+    // §HANDOFF — carrying "this key is newer than the cloud" ACROSS a
+    // navigation.
+    //
+    // localDirtyKeys is per-document, in memory, and dies with the page. On a
+    // single-page dashboard that is fine. On an app split across two documents
+    // that share one row — palaestra.html handing off to
+    // palaestra-workout.html — it is a data-loss bug: the second document
+    // boots with an empty dirty set, so its opening pull treats the row as
+    // authoritative and applyRemote() below overwrites (and deletes) the keys
+    // the first document just wrote and had no time to push. The write is then
+    // pushed back as an erasure. Measured: with a fast cloud read the
+    // just-started workout was destroyed 6 times out of 6.
+    //
+    // So the dirty set is mirrored to a small record the next document reads
+    // before its first pull. That record is deliberately NOT in any synced
+    // prefix — it is local bookkeeping, never cloud state — and every entry
+    // expires, because a key held dirty forever would block real updates to it
+    // from another device.
+    // ---------------------------------------------------------------
+    const HANDOFF_KEY = 'syncdirty:' + appKey;
+    const HANDOFF_TTL_MS = 90000;
+    // If a page ever synced a prefix that swallowed the bookkeeping key, the
+    // record would be pushed to the cloud and deleted by applyRemote. Refuse
+    // rather than corrupt: better no handoff than a poisoned one.
+    const handoff = wantHandoff && !matches(HANDOFF_KEY);
+
+    function readHandoff() {
+      if (!handoff) return null;
+      try {
+        const raw = localStorage.getItem(HANDOFF_KEY);
+        const o = raw ? JSON.parse(raw) : null;
+        return o && typeof o === 'object' && !Array.isArray(o) ? o : null;
+      } catch (e) { return null; }
+    }
+    function writeHandoff(o) {
+      if (!handoff) return;
+      // origSet/origRemove: this key is not synced state and must never mark
+      // itself dirty or schedule a push.
+      try {
+        if (!o || !Object.keys(o).length) origRemove(HANDOFF_KEY);
+        else origSet(HANDOFF_KEY, JSON.stringify(o));
+      } catch (e) {}
+    }
+    function markDirty(k) {
+      localDirtyKeys.add(k);
+      if (!handoff) return;
+      const o = readHandoff() || {};
+      o[k] = Date.now();
+      writeHandoff(o);
+    }
+    function clearDirty(keys) {
+      keys.forEach((k) => localDirtyKeys.delete(k));
+      if (!handoff) return;
+      const o = readHandoff();
+      if (!o) return;
+      let changed = false;
+      keys.forEach((k) => { if (k in o) { delete o[k]; changed = true; } });
+      if (changed) writeHandoff(o);
+    }
+    // Runs before the first pull, or it is pointless.
+    function adoptHandoff() {
+      if (!handoff) return 0;
+      const o = readHandoff();
+      if (!o) return 0;
+      const now = Date.now(), keep = {};
+      let n = 0;
+      for (const k of Object.keys(o)) {
+        if (!matches(k)) continue;
+        if (now - Number(o[k] || 0) > HANDOFF_TTL_MS) continue;
+        localDirtyKeys.add(k); keep[k] = o[k]; n++;
+      }
+      writeHandoff(keep);
+      return n;
+    }
+
     localStorage.setItem = function (k, v) {
       origSet(k, v);
-      try { if (!suppressSync && matches(k)) { localDirtyKeys.add(k); schedulePush(); } } catch (e) {}
+      try { if (!suppressSync && matches(k)) { markDirty(k); schedulePush(); } } catch (e) {}
     };
     localStorage.removeItem = function (k) {
       origRemove(k);
-      try { if (!suppressSync && matches(k)) { localDirtyKeys.add(k); schedulePush(); } } catch (e) {}
+      try { if (!suppressSync && matches(k)) { markDirty(k); schedulePush(); } } catch (e) {}
     };
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
@@ -93,7 +172,7 @@
       const state = collect();
       const pushedKeys = Object.keys(state);
       const json = JSON.stringify(state);
-      if (json === lastSyncedJson) { pushedKeys.forEach((k) => localDirtyKeys.delete(k)); return; }
+      if (json === lastSyncedJson) { clearDirty(pushedKeys); return; }
       pushing = true;
       let ok = false;
       try {
@@ -104,7 +183,7 @@
         if (!error) {
           ok = true;
           lastSyncedJson = json;
-          pushedKeys.forEach((k) => localDirtyKeys.delete(k));
+          clearDirty(pushedKeys);
         }
       } catch (e) {} finally { pushing = false; }
       if (ok) { retryStep = 0; clearTimeout(retryTimer); retryTimer = null; return; }
@@ -161,6 +240,11 @@
 
     (async function init() {
       supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      // Synchronous, and before the select below — the whole point is that the
+      // incoming row cannot overwrite a key the previous document wrote and
+      // did not get to confirm. Push straight away too: the local copy is the
+      // newer truth, and a confirmed push is what clears the flags again.
+      if (adoptHandoff() > 0) schedulePush();
       try {
         const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
         if (!error && data && data.data && Object.keys(data.data).length > 0) {

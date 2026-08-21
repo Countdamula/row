@@ -86,6 +86,9 @@
     goals:     'pal:goals',
     live:      'pal:live',
     seeded:    'pal:seeded',
+    // Synced deliberately: the offer is answered once, on whichever device
+    // sees it first, and the others should not ask again.
+    swept:     'pal:orphanSwept',
     imported:  'pal:importedAt'
   };
 
@@ -408,12 +411,25 @@
       return next.length !== all.length;
     }
     function replaceAll(recs) { storeSet(key, (Array.isArray(recs) ? recs : []).map(model)); }
+    // add() mints a new id; this puts a record back under the one it already
+    // has. Used when a remote apply has erased a record the page is still
+    // working in — see palaestra-workout.html's restoreSession().
+    function restore(rec) {
+      if (!rec || !rec.id) return null;
+      var all = list();
+      for (var i = 0; i < all.length; i++) if (all[i].id === rec.id) return all[i];
+      var kept = model(rec);
+      kept.id = rec.id;
+      all.push(kept); storeSet(key, all);
+      return kept;
+    }
     function nextOrder() {
       var all = list();
       return all.length ? Math.max.apply(null, all.map(function (x) { return num(x.order, 0); })) + 1 : 0;
     }
     return { key: key, list: list, get: get, add: add, update: update,
-             remove: remove, replaceAll: replaceAll, nextOrder: nextOrder };
+             remove: remove, replaceAll: replaceAll, restore: restore,
+             nextOrder: nextOrder };
   }
 
   var Exercises = makeCollection(KEYS.exercises, exerciseModel);
@@ -612,10 +628,55 @@
   }
   // One live session at a time. Starting a second resumes the first
   // rather than silently orphaning a half-logged workout.
+  // A session left at status 'live' with no pointer at it and nothing logged
+  // in it. These were being minted one per failed start: the pal:sessions
+  // write landed, the pal:live write did not, and the next attempt found no
+  // live session and added another. History filters them out, so they were
+  // invisible while still riding in every sync push.
+  function orphanLiveSessions() {
+    var raw = storeGet(KEYS.live);
+    var liveId = raw && raw.sessionId ? raw.sessionId : '';
+    return Sessions.list().filter(function (s) {
+      if (s.status !== 'live' || s.id === liveId) return false;
+      return !(s.entries || []).some(function (e) {
+        return (e.sets || []).some(function (x) { return x.done; });
+      });
+    });
+  }
+  // Removes them. Never touches a session with a single completed set in it —
+  // that is a workout someone did, however it ended.
+  function orphanSweepDone() { return !!storeGet(KEYS.swept); }
+  function setOrphanSweepDone() { storeSet(KEYS.swept, Date.now()); }
+  function sweepOrphanLiveSessions() {
+    var doomed = orphanLiveSessions();
+    if (!doomed.length) return 0;
+    var ids = {};
+    doomed.forEach(function (s) { ids[s.id] = true; });
+    Sessions.replaceAll(Sessions.list().filter(function (s) { return !ids[s.id]; }));
+    return doomed.length;
+  }
+
   function startWorkout(opts) {
     opts = opts || {};
     var existing = getLive();
     if (existing) return Sessions.get(existing.sessionId);
+
+    // Adopt an empty live session started moments ago rather than adding a
+    // second one. Belt to the braces of the durable navigation: if a pal:live
+    // write is ever lost again, this is what stops it turning into a pile of
+    // orphans.
+    // Only a genuinely EMPTY freestyle shell qualifies. An orphan built from
+    // a template carries that template's exercises and its name, and handing
+    // it back to someone who asked for a freestyle workout would be a worse
+    // answer than a clean one.
+    var recent = orphanLiveSessions().filter(function (s) {
+      if (s.templateId || (s.entries || []).length) return false;
+      return Date.now() - num(s.startedAt, 0) < 10 * 60 * 1000;
+    }).sort(function (a, b) { return num(b.startedAt, 0) - num(a.startedAt, 0); })[0];
+    if (recent && !opts.templateId) {
+      setLive({ sessionId: recent.id, focusIndex: 0, restEndsAt: null, restSec: 0, runningSince: Date.now() });
+      return recent;
+    }
 
     var tpl = opts.templateId ? Templates.get(opts.templateId) : null;
     var ses = Sessions.add({
@@ -1361,6 +1422,8 @@
     // import + seed
     importPrograms: importPrograms, importAvailable: importAvailable,
     ensureSeeded: ensureSeeded, seedAfterSyncAttempt: seedAfterSyncAttempt,
+    orphanLiveSessions: orphanLiveSessions, sweepOrphanLiveSessions: sweepOrphanLiveSessions,
+    orphanSweepDone: orphanSweepDone, setOrphanSweepDone: setOrphanSweepDone,
     // media + utils
     mediaModel: mediaModel, compressImageDataUrl: compressImageDataUrl,
     readFileAsDataUrl: readFileAsDataUrl,

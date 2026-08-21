@@ -41,15 +41,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=1">
+<link rel="stylesheet" href="palaestra-theme.css?v=2">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js"></script>
+<!-- sync.js was the one shared file with no version on it, so a device
+     holding the old copy would never get the handoff fix. One number for
+     the whole app: everything here is at v2. -->
+<script src="sync.js?v=2"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=1"></script>
-<script src="palaestra-ui.js?v=1"></script>
-<script src="palaestra-hero.js?v=1"></script>
-<script src="palaestra-music.js?v=1"></script>
+<script src="palaestra-data.js?v=2"></script>
+<script src="palaestra-ui.js?v=2"></script>
+<script src="palaestra-hero.js?v=2"></script>
+<script src="palaestra-music.js?v=2"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -175,7 +178,48 @@
   }
   function saveSession(patch) {
     if (!session) return;
+    // update() returns null when the id is not in the array, and the fallback
+    // below keeps the in-memory object — which is right for one tick and wrong
+    // for a whole workout. If the record has gone, put it back before writing,
+    // or every set logged from here on writes nowhere and Finish saves
+    // nothing. restoreSession() is what makes that impossible rather than
+    // merely unlikely.
+    if (!readOnly && !P.Sessions.get(session.id)) restoreSession();
     session = P.Sessions.update(session.id, patch) || session;
+  }
+
+  // A remote apply landed and took the live session with it. The copy in
+  // memory is the newer truth — it is the workout being done right now — so
+  // it goes back, together with the pointer to it.
+  function restoreSession() {
+    if (!session || readOnly) return false;
+    if (P.Sessions.get(session.id)) return false;
+    P.Sessions.restore(session);
+    // Keep the elapsed clock running from where it was. runningSince is what
+    // the header clock counts from; losing it stops the workout dead at the
+    // moment of the overwrite.
+    var prev = P.getLiveRaw();
+    P.setLive({
+      sessionId: session.id,
+      runningSince: (prev && prev.runningSince) || session.startedAt || Date.now()
+    });
+    return true;
+  }
+
+  // Called when the cloud overwrites local state. It must NOT re-render:
+  // this screen is used mid-set, and a wholesale repaint destroys the number
+  // half-typed in a field and re-arms the hero's entrance reveal. It re-reads
+  // the record, repairs it if it has been erased, and repaints only the
+  // clocks.
+  function onRemoteApplied() {
+    if (!session) return;
+    if (readOnly) { session = P.Sessions.get(session.id) || session; return; }
+    if (restoreSession()) {
+      U.toast('Recovered this workout — a sync had overwritten it');
+    } else {
+      session = P.Sessions.get(session.id) || session;
+    }
+    paintClocks();
   }
   function saveEntries() { saveSession({ entries: session.entries }); }
 
@@ -627,13 +671,14 @@
         if (act !== 'save') return;
         var mins = parseInt(sheet.querySelector('[name="cardio"]').value, 10) || 0;
         var note = sheet.querySelector('[name="note"]').value;
+        // finishWorkout() reads the record by id and returns null if it is not
+        // there — the same hole saveSession() covers. A rollback that lands
+        // while the finish sheet is open must not throw the workout away.
+        restoreSession();
         P.finishWorkout(session.id, { cardioMin: mins, notes: note });
         if (tick) clearInterval(tick);
         U.closeSheet();
-        // Commit first, navigate second. An IndexedDB write started as
-        // the document goes away commits asynchronously and is silently
-        // lost, so the write must land before the navigation begins.
-        setTimeout(function () { location.href = 'palaestra.html'; }, 120);
+        goHub();
       }
     });
   }
@@ -677,8 +722,19 @@
   // ============================================================
   // ACTIONS
   // ============================================================
+  // Finishing and discarding both write and then leave, and an IndexedDB
+  // write started as the document goes away is silently lost. This used to be
+  // a 120ms setTimeout — a guess that is too long when there is nothing
+  // pending and too short when there is. LocalStoreIDB.navigate() waits for
+  // the actual commit and has its own timeout backstop.
+  function goHub() {
+    var url = 'palaestra.html';
+    if (window.LocalStoreIDB && window.LocalStoreIDB.navigate) window.LocalStoreIDB.navigate(url);
+    else location.href = url;
+  }
+
   var ACTIONS = {
-    'go-hub': function () { location.href = 'palaestra.html'; },
+    'go-hub': goHub,
     'finish': sheetFinish,
     'abandon': function () {
       if (!confirm('Discard this workout? Everything logged in it is removed.')) return;
@@ -686,7 +742,7 @@
       P.abandonWorkout(id);
       P.Sessions.remove(id);
       if (tick) clearInterval(tick);
-      setTimeout(function () { location.href = 'palaestra.html'; }, 120);
+      goHub();
     },
     'set-done': toggleSet,
     'entry-done': function (btn) {
@@ -793,7 +849,14 @@
     });
 
     if (typeof window.initCloudSync === 'function' && window.supabase) {
-      window.initCloudSync({ appKey: 'palaestra', syncedPrefixes: ['pal:'] });
+      window.initCloudSync({
+        appKey: 'palaestra',
+        syncedPrefixes: ['pal:'],
+        // See §HANDOFF in sync.js — this is the document the hub hands off to,
+        // and the one whose opening pull was destroying the new workout.
+        handoff: true,
+        onApplied: onRemoteApplied
+      });
     }
     window.PalMusic.init();
 

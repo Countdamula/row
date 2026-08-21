@@ -42,19 +42,22 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=1">
+<link rel="stylesheet" href="palaestra-theme.css?v=2">
 
 <!-- Not deferred, and before the page's own inline script: the inline
      script in <body> runs during parsing, which is BEFORE any deferred
      script executes, so window.Pal has to already exist by then. Same
      arrangement as chrysalis.html. topbar.js is the one that can wait. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js"></script>
+<!-- sync.js was the one shared file with no version on it, so a device
+     holding the old copy would never get the handoff fix. One number for
+     the whole app: everything here is at v2. -->
+<script src="sync.js?v=2"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=1"></script>
-<script src="palaestra-ui.js?v=1"></script>
-<script src="palaestra-hero.js?v=1"></script>
-<script src="palaestra-music.js?v=1"></script>
+<script src="palaestra-data.js?v=2"></script>
+<script src="palaestra-ui.js?v=2"></script>
+<script src="palaestra-hero.js?v=2"></script>
+<script src="palaestra-music.js?v=2"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -1524,22 +1527,42 @@
   // ============================================================
   // ACTIONS
   // ============================================================
+  // LEAVING THE DOCUMENT AFTER A WRITE.
+  //
+  // localStorage here is local-store-idb.js's shim: setItem updates a Map
+  // synchronously and fires an IndexedDB transaction that only commits once
+  // control returns to the event loop. `location.href` in the same tick
+  // abandons it. startWorkout() writes TWO keys — pal:sessions and pal:live —
+  // and both were being thrown away, which is why starting a workout took
+  // several tries to stick.
+  //
+  // LocalStoreIDB.navigate() waits for the commit and always resolves, with a
+  // timeout backstop, so this can never strand the page. Everything that
+  // navigates away from here goes through it, including the paths that do not
+  // write today — the cost is one already-resolved promise, and the next
+  // person to add a write above one of them does not have to know this.
+  function goLogger() {
+    var url = 'palaestra-workout.html';
+    if (window.LocalStoreIDB && window.LocalStoreIDB.navigate) window.LocalStoreIDB.navigate(url);
+    else location.href = url;
+  }
+
   function startTemplate(id) {
     var live = P.getLive();
     if (live && live.sessionId) {
       // Never silently orphan a half-logged workout.
       if (!confirm('A workout is already in progress. Open that one instead?')) return;
-      location.href = 'palaestra-workout.html';
+      goLogger();
       return;
     }
     P.startWorkout({ templateId: id });
-    location.href = 'palaestra-workout.html';
+    goLogger();
   }
   function startFree() {
     var live = P.getLive();
-    if (live && live.sessionId) { location.href = 'palaestra-workout.html'; return; }
+    if (live && live.sessionId) { goLogger(); return; }
     var tpls = P.templatesSorted();
-    if (!tpls.length) { P.startWorkout({}); location.href = 'palaestra-workout.html'; return; }
+    if (!tpls.length) { P.startWorkout({}); goLogger(); return; }
     U.openSheet({
       title: 'Start a workout',
       body: '<div class="pal-quickgrid">' + tpls.map(function (t) {
@@ -1548,8 +1571,49 @@
       }).join('') + '<button class="pal-quickbtn" data-sheet-act="free">Freestyle<br><span class="pal-sub">build it as you go</span></button></div>',
       actions: [{ label: 'Cancel', act: 'cancel' }],
       onAction: function (act) {
-        if (act === 'free') { U.closeSheet(); P.startWorkout({}); location.href = 'palaestra-workout.html'; return; }
+        if (act === 'free') { U.closeSheet(); P.startWorkout({}); goLogger(); return; }
         if (act.indexOf('t:') === 0) { U.closeSheet(); startTemplate(act.slice(2)); }
+      }
+    });
+  }
+
+  // A ONE-TIME OFFER, asked once and never again.
+  //
+  // Starting a workout used to fail silently: the pal:sessions write landed,
+  // the pal:live write did not, and the next attempt added another session
+  // rather than finding the first. History filters status 'live' out, so the
+  // leftovers were invisible while still riding in every sync push. The bug
+  // that made them is fixed; these are the ones it already made.
+  //
+  // Only ever offered for sessions with NOT ONE completed set in them. A
+  // workout someone actually did is never a candidate, however it ended.
+  function offerOrphanSweep() {
+    if (P.orphanSweepDone()) return;
+    var doomed = P.orphanLiveSessions();
+    if (!doomed.length) { P.setOrphanSweepDone(); return; }
+    var shown = doomed.slice(0, 12);
+    U.openSheet({
+      title: 'Tidy up ' + doomed.length + ' abandoned record' + (doomed.length === 1 ? '' : 's'),
+      body: '<p class="pal-prose">Starting a workout could fail part-way and leave a record ' +
+            'behind. These have nothing logged in them — no completed sets — and anything ' +
+            'you actually did is never touched.</p>' +
+            '<ul class="pal-list">' + shown.map(function (s) {
+              return '<li class="pal-listrow"><span>' + esc(s.name || 'Workout') + '</span>' +
+                     '<span class="pal-listrow__meta">' + esc(s.date) + '</span></li>';
+            }).join('') + '</ul>' +
+            (doomed.length > shown.length
+              ? '<p class="pal-sub">and ' + (doomed.length - shown.length) + ' more</p>' : ''),
+      actions: [{ label: 'Keep them', act: 'keep' },
+                { label: 'Remove ' + doomed.length, act: 'sweep', kind: 'primary' }],
+      // Dismissing the sheet without answering is not an answer — the marker
+      // is only set by an actual choice, so it asks again next time.
+      onAction: function (act) {
+        P.setOrphanSweepDone();
+        U.closeSheet();
+        if (act !== 'sweep') return;
+        var n = P.sweepOrphanLiveSessions();
+        refresh();
+        U.toast('Removed ' + n + ' abandoned record' + (n === 1 ? '' : 's'));
       }
     });
   }
@@ -1684,12 +1748,22 @@
       window.initCloudSync({
         appKey: 'palaestra',
         syncedPrefixes: ['pal:'],
+        // The Palaestra is TWO documents on one row. Without this, the logger
+        // boots with no memory of what this page just wrote and its opening
+        // pull erases it. See §HANDOFF in sync.js.
+        handoff: true,
         onApplied: function () { remoteRef.applied = true; repaint(); }
       });
     }
     // Never seed before the cloud has had its chance — on a fresh
     // device an immediate seed would be pushed over the real row.
-    P.seedAfterSyncAttempt(remoteRef, function (seeded) { if (seeded) refresh(); });
+    // Both of these wait for the cloud's first word for the same reason: a
+    // decision made against a local store that has not been filled in yet is a
+    // decision made about the wrong data.
+    P.seedAfterSyncAttempt(remoteRef, function (seeded) {
+      if (seeded) refresh();
+      offerOrphanSweep();
+    });
 
     P.onChange(repaint);
     window.PalMusic.init();
