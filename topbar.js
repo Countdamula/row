@@ -246,10 +246,13 @@
           { hash: 'discover', label: 'Discovery Engine' },
           { hash: 'favorites', label: 'Favorites' },
           { hash: 'podcasts', label: 'Podcasts' },
-          { hash: 'creepypasta', label: 'Horror Stories · Creepypastas' },
-          { hash: 'trueHorror', label: 'Horror Stories · True Stories' },
-          { hash: 'spicy', label: 'Spicy Stories' },
-          { hash: 'immersive', label: 'Immersive Experience' },
+          // Two tabs, not four: Creepypasta + True Stories became one
+          // Horror page, and Spicy + Immersive became one. NOTHING MERGED
+          // IN STORAGE — all four vault:media:* keys still exist and still
+          // hold what they held; only the tab strip changed. The retired
+          // hashes still resolve, via vault.html's own TAB_ALIAS.
+          { hash: 'horror', label: 'Horror Stories' },
+          { hash: 'spicy', label: 'Spicy · Immersive' },
           { hash: 'watch', label: 'Entertainment' },
           { hash: 'playlists', label: 'Music & Playlists' },
           { hash: 'reading', label: 'Reading Corner' },

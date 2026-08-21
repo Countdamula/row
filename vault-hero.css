@@ -1,0 +1,595 @@
+/* =============================================================
+   vault-hero.css — the cinematic layer for The Vault.
+
+   Three things live here and nowhere else: THE GROUND (the background
+   of every page in The Vault), THE HERO, and THE RIBBON that joins
+   them to the collection. vault.html owns everything below the ribbon.
+
+   Built to the motion of the reference recording — the same one The
+   Palaestra was built to: an overscaled backdrop that settles then
+   drifts, a glowing ring that scales in then rotates forever, a serif
+   headline that arrives WORD BY WORD out of line masks, a note column
+   that follows it, six column hairlines, and a left rail of dashes.
+   The ribbon is the divider from the reference photo, redrawn.
+
+   Everything animates transform and opacity only. The two scroll
+   transitions are driven by exactly two custom properties written by
+   vault-hero.js — the CSS below does the rest, so no layout is ever
+   read inside a scroll handler.
+
+     A  hero -> ribbon   --vt-hero-p   across the hero's own height
+     B  ribbon -> page   --vt-join-p   across the ribbon's traverse
+
+   THE PALETTE is sampled from the dark-floral reference: gold-lit
+   petals coming out of near-black, with one cold pale bloom. So the
+   page is gilt on black with a single ash-teal accent, and the accent
+   is used sparingly enough to stay an accent.
+   ============================================================= */
+
+:root {
+  /* --- the palette ---------------------------------------------- */
+  --vt-void:   #0A0705;   /* the field — warm near-black, never neutral */
+  --vt-deep:   #17100A;   /* surfaces: card panels, the composer        */
+  --vt-raise:  #221709;   /* the one step up from a surface             */
+  --vt-umber:  #4A2E17;   /* the warm wash, low in the frame            */
+  --vt-gilt:   #B8853F;   /* the gold petal — the primary accent        */
+  --vt-lit:    #D9AC6A;   /* rim light, the horizon, hover              */
+  --vt-cream:  #E8D6B0;   /* headings and anything that must be read    */
+  --vt-ash:    #7E9A93;   /* the one cold bloom, and the streak band    */
+  --vt-shade:  #24332F;   /* cool shadow                                */
+
+  --vt-ink:       #E8D6B0;
+  --vt-ink-dim:   #A8916B;
+  --vt-ink-faint: #6E5A3E;
+  --vt-hair:      rgba(184,133,63,.16);
+  --vt-hair-soft: rgba(184,133,63,.08);
+
+  --vt-ease:   cubic-bezier(.22,1,.36,1);
+  --vt-gutter: clamp(18px, 3.4vw, 52px);
+
+  /* --- the two transitions --------------------------------------
+     Both follow the supplied component's own spec: ease "none",
+     scrub 0, a strictly linear ramp across the trigger's own height.
+     A linear ramp IS a plain division, so both are computed as one,
+     inside the single rAF vault-hero.js already runs.
+
+     GSAP, ScrollTrigger and Lenis are deliberately not loaded. The
+     four layers the component specifies (yPercent 70 / 55 / 40 / 10)
+     are reproduced exactly, as the four multipliers below. Lenis's
+     only job is smoothing document scroll, and taking that over here
+     would fight .chrome's condense-on-scroll, the scroll gauge, the
+     floating add button and topbar.js's fixed launcher. */
+  --vt-hero-p: 0;      /* 0 -> 1 across the hero          */
+  --vt-hero-h: 100vh;  /* the hero's measured height      */
+  --vt-join-p: 0;      /* 0 -> 1 across the ribbon's pass */
+  --vt-join-t: 90px;   /* that transition's travel unit   */
+}
+
+/* =============================================================
+   THE GROUND — the background of every page in The Vault.
+
+   The reference image is a near-black field with soft horizontal
+   motion streaks: cool ones high in the frame, a warm wash and a
+   bright horizon low. Reproduced with flat colour ramps rather than
+   filter: blur() — a blurred fixed full-viewport layer repaints on
+   every scroll frame, while a wide colour ramp is already soft and
+   composites for free. NO GRAIN: the reference's texture and its text
+   are both deliberately left out.
+
+   Three layers, because transition B needs three depths and two
+   pseudo-elements cannot give them. Mounted once by vault-hero.js as
+   body's first child, so no repaint can reach it — the same rule as
+   the hero's <video>.
+   ============================================================= */
+html { background: var(--vt-void); }
+
+.vt-ground {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  isolation: isolate;          /* the screen blends stay inside the ground */
+  contain: layout paint style;
+}
+.vt-ground > div { position: absolute; inset: 0; }
+/* Only the warm layer travels, so only it carries spare material below.
+   Its gradient stops are stated against ITS box, 120px taller than the
+   viewport, which is why they read low. */
+.vt-ground__warm { bottom: -120px; }
+
+/* The field. Held darkest through the middle band on purpose — that is
+   where the cards land, and they need a quiet ground to sit on. */
+.vt-ground__field {
+  background:
+    radial-gradient(126% 60% at 50% 99%, rgba(74,46,23,.30), transparent 64%),
+    radial-gradient(130% 80% at 50% 44%, rgba(10,7,5,0), rgba(2,2,1,.72) 100%),
+    linear-gradient(180deg,
+      #0B0806 0%,
+      var(--vt-void) 30%,
+      var(--vt-void) 66%,
+      #070505 100%);
+}
+
+/* The cool band, high in the frame — the reference's teal streaks.
+   Four flat ellipses at different heights and widths, so it reads as
+   motion rather than as a stripe. This is the one cold thing on the
+   page, and it is kept faint. */
+.vt-ground__cool {
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 56% 1.9% at 27% 9%,    rgba(217,172,106,.16), transparent 72%),
+    radial-gradient(ellipse 96% 3.8% at 42% 12.5%, rgba(126,154,147,.38), transparent 74%),
+    radial-gradient(ellipse 70% 2.5% at 65% 17%,   rgba(126,154,147,.26), transparent 76%),
+    radial-gradient(ellipse 130% 9%   at 50% 21%,  rgba(36,51,47,.30),    transparent 80%);
+}
+
+/* The warm wash, low, and the horizon line through it — the brightest
+   thing on any Vault page. This is transition B's layer 1, the
+   farthest plane, so it is the one that travels most (.70). */
+.vt-ground__warm {
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(90deg,
+      transparent 0%, rgba(217,172,106,.10) 12%, rgba(232,214,176,.24) 47%,
+      rgba(217,172,106,.11) 74%, transparent 100%)
+      0 calc(100% - 120px - 24vh) / 100% 2px no-repeat,
+    linear-gradient(90deg,
+      transparent 0%, rgba(217,172,106,.05) 20%, rgba(217,172,106,.08) 50%, transparent 100%)
+      0 calc(100% - 120px - 24vh) / 100% 34px no-repeat,
+    radial-gradient(ellipse 76% 2.5% at 36% 79%,  rgba(184,133,63,.24), transparent 74%),
+    radial-gradient(ellipse 116% 4.8% at 57% 85%, rgba(74,46,23,.44),   transparent 76%),
+    linear-gradient(to top,
+      rgba(74,46,23,.36) 0%, rgba(58,36,18,.15) 14%, transparent 37%);
+  transform: translate3d(0, calc(var(--vt-join-p) * var(--vt-join-t) * .70), 0);
+  will-change: transform;
+}
+
+/* =============================================================
+   THE HERO
+   ============================================================= */
+.vt-hero {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;          /* full screen: no boundary, no frame */
+  overflow: hidden;
+  isolation: isolate;
+  --vt-hero-obj: 50% 46%;      /* the clip is 9:16; aim the crop at the shelves */
+}
+
+/* --- the backdrop -------------------------------------------------
+   PARALLAX LAYER 1 — the backmost plane, so the one that lags most.
+   It is anchored to the hero's bottom edge and extended 0.70x the
+   hero's height above it, because a plane that lags leaves a gap at
+   the top of the frame unless it carries exactly its own travel in
+   spare material. The clip is portrait inside a landscape frame, so a
+   taller box crops LESS of it — the oversize buys back footage too. */
+.vt-hero__stage {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.70 * var(--vt-hero-h));
+  z-index: 0;
+  /* The clip is a bright, evenly-lit render of a garden library: green
+     canopy, violet wisteria, warm lamps. Ungraded it fights the gilt
+     palette outright. Pulling saturation down, and letting the warm
+     multiply layer below sit on top of it, lands the greens in umber
+     and keeps the lamps gold — so the footage joins the page instead
+     of arguing with it. */
+  filter: brightness(.92) contrast(1.06) saturate(.62);
+  background-color: var(--vt-void);
+  background-image: var(--vt-hero-poster, none);
+  background-size: cover;
+  background-position: 50% 46%;
+  background-repeat: no-repeat;
+  transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .70), 0)
+             scale(calc(1 + var(--vt-hero-p) * 0.12));
+  transform-origin: 50% 40%;
+  will-change: transform;
+}
+.vt-hero__vid {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: var(--vt-hero-obj);
+  opacity: 0;
+  transition: opacity .9s var(--vt-ease);
+}
+/* Only once it is genuinely playing — a black first frame would wipe
+   the poster out before there is anything to replace it with. */
+.vt-hero.is-live .vt-hero__vid { opacity: 1; }
+
+/* The warm tie-in. multiply over the graded clip is what actually
+   marries the footage to the palette; the veil below only darkens. */
+.vt-hero__stage::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(74,46,23,.30), rgba(35,21,10,.44));
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* The ground under the type. A local scrim, not a blackout: the copy
+   keeps a dark bed of its own so the rest of the frame does not have
+   to be darkened to hold it. If a frame ever fails contrast behind the
+   headline, tighten THIS — never re-darken the layers under it. */
+.vt-hero__veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(70% 42% at 30% 76%, rgba(8,6,4,.88), transparent 74%),
+    linear-gradient(to right,
+      rgba(8,6,4,.58) 0%, rgba(8,6,4,.20) 34%, transparent 62%),
+    linear-gradient(to top,
+      var(--vt-void) 0%,           /* the hand-off: the hero ends ON the ground */
+      rgba(12,9,6,.72) 12%,
+      rgba(14,11,7,.06) 46%,
+      rgba(14,11,7,.52) 100%),     /* and a top scrim, so the tab strip reads */
+    radial-gradient(116% 76% at 50% 40%, transparent 34%, rgba(9,7,5,.52) 100%);
+}
+
+/* Six columns — the reference's own structural device.
+   PARALLAX LAYER 3, with the rail. Same headroom rule as the stage;
+   the pattern is columns, so extending it upward costs nothing. */
+.vt-hero__cols {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.40 * var(--vt-hero-h));
+  z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(to right,
+    transparent 0 calc(100% / 6 - 1px),
+    rgba(232,214,176,.05) calc(100% / 6 - 1px) calc(100% / 6));
+  transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .40), 0);
+  will-change: transform;
+}
+
+/* --- the ring ------------------------------------------------------
+   A conic gradient masked to an annulus: one bright arc riding a dim
+   circle, exactly as in the reference. Two layers — the line, and a
+   blurred copy beneath it for the glow. It reads --shelf, so the ring
+   is the one place each shelf's own colour still shows.
+
+   PARALLAX LAYER 2. The translate goes on the WRAPPER, never on the
+   ring: the ring spins forever, and CSS applies `transform` inside
+   `rotate`, so a transform on the ring itself would be carried round
+   by the rotation and travel in a circle instead of downward. */
+.vt-hero__l2 {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .55), 0);
+  will-change: transform;
+}
+.vt-hero__ring,
+.vt-hero__ringglow {
+  position: absolute; z-index: 1; pointer-events: none;
+  left: 50%; top: 44%;
+  width: clamp(240px, 32vw, 500px); aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg,
+    rgba(232,214,176,.02)  0deg,
+    rgba(232,214,176,.12)  55deg,
+    var(--shelf, #D9AC6A)  140deg,
+    rgba(255,246,226,1)    175deg,
+    rgba(217,172,106,.90)  212deg,
+    rgba(232,214,176,.10)  292deg,
+    rgba(232,214,176,.02)  360deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+          mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+  opacity: 0;
+}
+/* The glow ADDS light rather than sitting on the picture as a pale
+   film — screen is what makes it read as a lamp instead of paint. */
+.vt-hero__ringglow {
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 9px) 50%, transparent 50%);
+          mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 9px) 50%, transparent 50%);
+}
+@keyframes vt-ringspin   { to { rotate: 360deg; } }
+@keyframes vt-ringin     { from { scale: .82; opacity: 0; } to { scale: 1; opacity: 1;   } }
+@keyframes vt-ringinglow { from { scale: .82; opacity: 0; } to { scale: 1; opacity: .85; } }
+.vt-hero.is-in .vt-hero__ring     { animation: vt-ringin 1.5s var(--vt-ease) .15s both,     vt-ringspin 48s linear infinite; }
+.vt-hero.is-in .vt-hero__ringglow { animation: vt-ringinglow 1.8s var(--vt-ease) .15s both, vt-ringspin 48s linear infinite; }
+
+/* --- the frame ----------------------------------------------------
+   No max-width. The hero is a full-screen surface: it runs to the
+   glass on every side, and only the gutter — a safe inset, not a
+   boundary — holds the type off the edge. */
+.vt-hero__in {
+  position: relative; z-index: 3;
+  min-height: 100svh;
+  padding: clamp(74px, 10vh, 116px) var(--vt-gutter) clamp(66px, 11vh, 128px);
+  display: flex; flex-direction: column;
+  justify-content: space-between;   /* the copy sits low, as in the reference */
+  gap: clamp(24px, 4vh, 48px);
+}
+
+.vt-hero__top {
+  display: flex; align-items: center; justify-content: flex-end; gap: 18px;
+  flex-wrap: wrap;
+  opacity: 0; transform: translateY(-8px);
+}
+.vt-hero.is-in .vt-hero__top {
+  transition: opacity .7s var(--vt-ease), transform .7s var(--vt-ease);
+  opacity: 1; transform: none;
+}
+.vt-hero__clock,
+.vt-hero__state {
+  font-family: 'Martian Mono', monospace; font-size: 10px;
+  letter-spacing: .2em; text-transform: uppercase; margin: 0;
+}
+/* The top row has no scrim of its own — the local one is down with the
+   copy — so these need their own shadow to hold against a bright frame. */
+.vt-hero__clock,
+.vt-hero__state { text-shadow: 0 1px 10px rgba(0,0,0,.85); }
+.vt-hero__clock { color: var(--vt-ink-dim); font-variant-numeric: tabular-nums; }
+.vt-hero__state { color: var(--vt-ink-dim); display: flex; align-items: center; gap: 7px; }
+.vt-hero__state::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--vt-gilt); box-shadow: 0 0 8px rgba(184,133,63,.9);
+}
+
+/* The left rail. The reference used it as decoration; here each dash
+   is one shelf, the current one lit — so it says where you are as well
+   as holding the reference's shape. */
+.vt-hero__rail {
+  position: absolute; z-index: 3;
+  left: max(12px, calc(var(--vt-gutter) - 24px));
+  top: 50%; translate: 0 -50%;
+  display: flex; flex-direction: column; gap: 6px;
+  opacity: 0;
+  transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .40), 0);
+  will-change: transform;
+}
+.vt-hero.is-in .vt-hero__rail { transition: opacity .8s var(--vt-ease) .3s; opacity: 1; }
+/* The visible dash is 1x10px. The BUTTON has to be finger-sized around
+   it, or the rail is decoration with a hit area nobody can find. */
+.vt-hero__dash {
+  appearance: none; border: 0; padding: 0; background: transparent;
+  width: 44px; min-height: 34px; cursor: pointer;
+  display: flex; align-items: center;
+}
+.vt-hero__dash::before {
+  content: ''; display: block; height: 1px; width: 10px;
+  background: var(--vt-ink-faint);
+  transition: width .3s var(--vt-ease), background .3s var(--vt-ease);
+}
+.vt-hero__dash:hover::before { width: 17px; background: var(--vt-ink-dim); }
+.vt-hero__dash[aria-current='true']::before { width: 24px; background: var(--vt-lit); }
+.vt-hero__dash:focus-visible { outline: 1px solid var(--vt-gilt); outline-offset: 2px; border-radius: 3px; }
+
+/* PARALLAX LAYER 4 — the nearest plane, so it very nearly tracks the
+   scroll and barely appears to move. That is the point of a near
+   plane; the depth is carried by the three behind it. It fades as it
+   goes, which is the reference's own bottom fade. */
+.vt-hero__copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  align-items: end; gap: clamp(20px, 4vw, 72px);
+  transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .10), 0);
+  opacity: calc(1 - var(--vt-hero-p) * 1.35);
+  will-change: transform, opacity;
+}
+/* A shelf is a place items live; a view reads across the shelves. That
+   distinction is real in this app, so the eyebrow carries it. */
+.vt-hero__eyebrow {
+  font-family: 'Martian Mono', monospace; font-size: 10px;
+  letter-spacing: .28em; text-transform: uppercase;
+  color: var(--vt-gilt);
+  margin: 0 0 clamp(10px, 1.6vh, 20px);
+  opacity: 0; transform: translateY(10px);
+}
+.vt-hero.is-in .vt-hero__eyebrow {
+  transition: opacity .7s var(--vt-ease) .12s, transform .7s var(--vt-ease) .12s;
+  opacity: 1; transform: none;
+}
+
+/* --- the headline: word by word, out of line masks ----------------- */
+.vt-hero__head {
+  font-family: 'Bodoni Moda', serif;
+  font-weight: 400; font-style: italic;
+  font-size: clamp(40px, 6.2vw, 108px);
+  line-height: 1.02;
+  letter-spacing: -.012em;
+  color: var(--vt-cream);
+  margin: 0;
+  text-shadow: 0 1px 14px rgba(0,0,0,.6), 0 2px 40px rgba(10,7,5,.75);
+}
+/* One mask per line. A word rises out of nothing rather than sliding
+   across the backdrop — that is what makes the reference's reveal read
+   as printing rather than as motion. */
+.vt-hero__line { display: block; overflow: hidden; padding-bottom: .08em; }
+.vt-hero__w { display: inline-block; transform: translateY(1em); opacity: 0; }
+.vt-hero.is-in .vt-hero__w {
+  transition:
+    transform .62s cubic-bezier(.16,1,.3,1) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms),
+    opacity   .62s cubic-bezier(.16,1,.3,1) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms);
+  transform: none; opacity: 1;
+}
+
+.vt-hero__side { display: flex; flex-direction: column; gap: 20px; }
+.vt-hero__note {
+  font-size: 13.5px; line-height: 1.72; color: var(--vt-ink-dim);
+  text-shadow: 0 1px 12px rgba(0,0,0,.65);
+  margin: 0; max-width: 34ch;
+  opacity: 0; transform: translateY(12px);
+}
+.vt-hero.is-in .vt-hero__note {
+  transition: opacity .8s var(--vt-ease) .9s, transform .8s var(--vt-ease) .9s;
+  opacity: 1; transform: none;
+}
+/* The four live readouts, kept from the old hero. */
+.vt-hero__readouts { display: flex; flex-wrap: wrap; gap: 10px 26px; opacity: 0; }
+.vt-hero.is-in .vt-hero__readouts { transition: opacity .8s var(--vt-ease) 1.05s; opacity: 1; }
+.vt-readout { display: flex; flex-direction: column; gap: 2px; }
+.vt-readout b {
+  font-family: 'Bodoni Moda', serif; font-weight: 600; font-size: 19px;
+  color: var(--vt-cream); line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.vt-readout span {
+  font-family: 'Martian Mono', monospace; font-size: 8.5px;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--vt-ink-faint);
+}
+
+/* A quiet cue that there is a page under this. It fades as you use it. */
+.vt-hero__scroll {
+  position: absolute; z-index: 3; left: 50%; translate: -50% 0;
+  bottom: clamp(10px, 2vh, 22px);
+  font-family: 'Martian Mono', monospace; font-size: 9px;
+  letter-spacing: .24em; text-transform: uppercase; color: var(--vt-ink-faint);
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: calc((1 - var(--vt-hero-p) * 3) * .9);
+  pointer-events: none;
+}
+.vt-hero__scroll::after {
+  content: ''; width: 1px; height: 26px;
+  background: linear-gradient(to bottom, var(--vt-ink-faint), transparent);
+  animation: vt-scrollcue 2.4s var(--vt-ease) infinite;
+}
+@keyframes vt-scrollcue {
+  0%   { transform: scaleY(0); transform-origin: top;    opacity: 0; }
+  40%  { transform: scaleY(1); transform-origin: top;    opacity: 1; }
+  60%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+
+/* =============================================================
+   THE RIBBON — the divider from the reference photo, redrawn.
+
+   In the source the band is ~925x140 inside a 1024px screenshot, with
+   its badge baked in and a jet behind it, so it is rebuilt as SVG
+   rather than cropped: three stacked beziers with their own gradients,
+   each drifting at its own rate, plus two rim-light strokes — which is
+   what actually reads as silk against black. The badge rides it as the
+   page's primary action.
+
+   This is the page's one loud element. Everything around it is kept
+   quiet on purpose.
+   ============================================================= */
+.vt-ribbon {
+  position: relative;
+  height: clamp(112px, 15vw, 168px);
+  margin-top: -1px;
+  background: transparent;    /* the ground runs straight through it */
+  overflow: hidden;
+  isolation: isolate;
+}
+.vt-ribbon__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vt-ribbon__band { will-change: transform; }
+
+/* TRANSITION B, layers 2 and 3. Each band already runs its own endless
+   translateX drift, so the parallax cannot share that transform — it
+   goes on a wrapper <g> and the drift keyframes stay untouched. These
+   lengths are SVG user units of the 180-unit viewBox, not CSS pixels,
+   and they hold the .55 : .40 ratio (46 : 33 = 1.39). */
+.vt-ribbon__depth    { will-change: transform; }
+.vt-ribbon__depth--c { transform: translate(0, calc(var(--vt-join-p) * 46px)); }
+.vt-ribbon__depth--a,
+.vt-ribbon__depth--b { transform: translate(0, calc(var(--vt-join-p) * 33px)); }
+.vt-ribbon__band--a { animation: vt-drift-a 34s ease-in-out infinite alternate; }
+.vt-ribbon__band--b { animation: vt-drift-b 44s ease-in-out infinite alternate; }
+.vt-ribbon__band--c { animation: vt-drift-c 28s ease-in-out infinite alternate; }
+@keyframes vt-drift-a { from { transform: translateX(-1.5%); } to { transform: translateX(1.5%);  } }
+@keyframes vt-drift-b { from { transform: translateX(2%);    } to { transform: translateX(-2%);   } }
+@keyframes vt-drift-c { from { transform: translateX(-1%);   } to { transform: translateX(2.5%);  } }
+
+.vt-badge {
+  position: absolute; z-index: 2;
+  left: 50%; top: 50%;
+  /* TRANSITION B, layer 4 — the near plane, which barely moves. It
+     rides the `translate` property because `transform` is the hover's. */
+  translate: -50% calc(-50% + var(--vt-join-p) * var(--vt-join-t) * .10);
+  width: clamp(104px, 12vw, 140px); aspect-ratio: 1;
+  border-radius: 50%;
+  appearance: none; cursor: pointer;
+  background: radial-gradient(circle at 50% 32%, rgba(52,36,18,.96), rgba(10,7,5,.98) 72%);
+  border: 1px solid rgba(232,214,176,.32);
+  box-shadow:
+    0 0 0 6px rgba(16,11,7,.82),
+    0 0 0 7px rgba(232,214,176,.12),
+    0 18px 46px -14px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(232,214,176,.14);
+  color: var(--vt-cream);
+  font-family: 'Martian Mono', monospace;
+  font-size: clamp(7.5px, 1vw, 9px);
+  letter-spacing: .2em; text-transform: uppercase;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 6px;
+  transition: scale .24s var(--vt-ease), border-color .24s var(--vt-ease);
+}
+/* scale, not transform: a translate(-50%,-50%) here would stack on the
+   `translate` property above and jump the badge a full half-width. */
+.vt-badge:hover  { scale: 1.055; border-color: var(--vt-gilt); }
+.vt-badge:active { scale: 1.01; }
+.vt-badge:focus-visible { outline: 1px solid var(--vt-lit); outline-offset: 4px; }
+.vt-badge__lead { color: var(--vt-gilt); }
+.vt-badge__main {
+  font-family: 'Bodoni Moda', serif; font-weight: 500; font-style: italic;
+  font-size: clamp(16px, 2vw, 23px); letter-spacing: .03em;
+  color: var(--vt-cream); line-height: 1.02; text-transform: none;
+  max-width: 90%; text-align: center;
+}
+
+/* =============================================================
+   HERO — PHONE
+   ============================================================= */
+@media (max-width: 719px) {
+  .vt-hero { min-height: 88svh; }
+  /* .chrome is two rows tall at rest and ~105px of it sits over the hero on
+     a 390px screen. At 76px the sync dot landed exactly on the tab strip. */
+  .vt-hero__in { min-height: 88svh; padding-top: 124px; padding-bottom: clamp(28px, 6vh, 56px); }
+  .vt-hero__copy { grid-template-columns: 1fr; align-items: start; gap: 22px; }
+  .vt-hero__note { max-width: none; }
+  /* Twelve dashes will not fit, and the tab strip already says where
+     you are. */
+  .vt-hero__rail { display: none; }
+  .vt-hero__ring, .vt-hero__ringglow { width: clamp(200px, 60vw, 310px); top: 38%; }
+  .vt-hero__cols {
+    background: repeating-linear-gradient(to right,
+      transparent 0 calc(100% / 3 - 1px),
+      rgba(232,214,176,.045) calc(100% / 3 - 1px) calc(100% / 3));
+  }
+  .vt-hero__clock { display: none; }
+  /* The cue is redundant once the ribbon is this close, and centred at the
+     foot it landed straight on top of the readouts. */
+  .vt-hero__scroll { display: none; }
+  .vt-ribbon { height: 104px; }
+  /* Halved travel: the same ratios over a shorter screen, so no plane
+     overshoots its own headroom. */
+  .vt-hero__stage {
+    top: calc(-0.35 * var(--vt-hero-h));
+    transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .35), 0)
+               scale(calc(1 + var(--vt-hero-p) * 0.12));
+  }
+  .vt-hero__l2   { transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .275), 0); }
+  .vt-hero__cols { top: calc(-0.20 * var(--vt-hero-h));
+                   transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .20), 0); }
+  .vt-hero__copy { transform: translate3d(0, calc(var(--vt-hero-p) * var(--vt-hero-h) * .05), 0); }
+  .vt-ribbon__depth--c { transform: translate(0, calc(var(--vt-join-p) * 23px)); }
+  .vt-ribbon__depth--a,
+  .vt-ribbon__depth--b { transform: translate(0, calc(var(--vt-join-p) * 17px)); }
+}
+
+/* =============================================================
+   REDUCED MOTION
+   Every parallax plane sits still and the ground stays fully composed
+   — the page loses its motion, never its picture.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .vt-hero__w,
+  .vt-hero__eyebrow,
+  .vt-hero__note,
+  .vt-hero__readouts,
+  .vt-hero__top,
+  .vt-hero__rail { opacity: 1 !important; transform: none !important; }
+  .vt-hero__ring     { opacity: .5 !important; animation: none !important; }
+  .vt-hero__ringglow { opacity: .3 !important; animation: none !important; }
+  .vt-hero__scroll { display: none !important; }
+  .vt-ribbon__band { animation: none !important; }
+  .vt-hero__stage { top: 0 !important; transform: none !important; }
+  .vt-hero__cols  { top: 0 !important; }
+  .vt-hero__cols,
+  .vt-hero__l2,
+  .vt-hero__rail,
+  .vt-ground__warm,
+  .vt-ribbon__depth { transform: none !important; }
+  .vt-badge { translate: -50% -50% !important; }
+  .vt-hero__copy { transform: none !important; opacity: 1 !important; }
+}
