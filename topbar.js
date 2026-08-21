@@ -35,55 +35,6 @@
   // (`<href>#<hash>`), e.g. `nutrition.html#grocery`. Leaf pages with no
   // internal tabs at all simply have no `children` and render as a plain,
   // non-expandable row.
-  //
-  // Learning is the one nav group whose items are DATA-DRIVEN rather than
-  // a fixed list: unlike Entertainment's four content pages (a fixed set
-  // of types), a Topic is a dynamic, user-created record — there's no way
-  // to know how many there are or what they're called ahead of time.
-  // buildLearningTopicItems() reads `learning:topics` straight out of
-  // localStorage (the same "read another page's own storage key
-  // directly" precedent index.html's former Connected Apps tiles and
-  // tasks-data.js's own importers already used) and turns each one into
-  // its own nav item — `learning-topic.html?id=<topicId>`, matching that
-  // page's own query-param addressing (see its header comment: the hash
-  // is reserved for this item's own Questions/Resources deep-links, so
-  // the topic id itself couldn't live there once a topic also needed two
-  // sub-page anchors). This runs once, when this script itself first
-  // executes — same as every other page's nav content, which is also
-  // built once at load — not live-updated if a topic is added/renamed/
-  // deleted in another open tab; reopening the drawer after a reload
-  // picks up the change.
-  function buildLearningTopicItems() {
-    const items = [
-      { href: 'learning.html', icon: '📚', label: 'Learning Hub', id: 'topbarLearning', children: [
-        { hash: 'topics', label: 'Topics' },
-        { hash: 'resources', label: 'Resources' },
-      ] },
-    ];
-    let topics = [];
-    try {
-      const raw = JSON.parse(localStorage.getItem('learning:topics'));
-      if (Array.isArray(raw)) topics = raw;
-    } catch (e) {}
-    topics
-      .filter((t) => t && t.id)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .forEach((t, i) => {
-        items.push({
-          href: 'learning-topic.html?id=' + encodeURIComponent(t.id),
-          icon: (typeof t.icon === 'string' && t.icon) || '📚',
-          label: (typeof t.title === 'string' && t.title) || 'Untitled Topic',
-          id: 'topbarLearningTopic' + i,
-          children: [
-            { hash: 'questions', label: 'Questions Database' },
-            { hash: 'notes', label: 'Notes Database' },
-            { hash: 'subjects', label: 'Subjects Database' },
-            { hash: 'resources', label: 'Resources Database' },
-          ],
-        });
-      });
-    return items;
-  }
 
   const NAV_GROUPS = [
     {
@@ -102,8 +53,9 @@
       // promptModel() is a whitelist re-run on every edit and would strip
       // them. They live in a sidecar, prm:fictionMeta, keyed by prompt id.
       //
-      // aitech.html's prompts DB is untouched and still listed below; this
-      // page only cross-links to it.
+      // It used to cross-link to aitech.html's own prompts DB. That page was
+      // deleted in the 2026-08-21 tidy-up, so this is now the only prompt
+      // library in the app.
       key: 'promptarium',
       label: 'Promptarium',
       items: [
@@ -135,19 +87,19 @@
       // worth keeping (concepts, connections, contradictions, research)
       // belongs to the FIELD so it survives the curriculum that taught it.
       //
-      // A PARALLEL build, not a replacement. learning.html ('learning:'),
-      // learning-dashboard.html ('lhub:') and knowledge-hub.html ('kh:')
-      // are all untouched, share no data and no code with this, and are
-      // still listed in their own folders below — confirmed as an explicit
-      // choice with the user before the build started.
+      // Built as a PARALLEL build alongside learning.html ('learning:'),
+      // learning-dashboard.html ('lhub:') and knowledge-hub.html ('kh:').
+      // learning.html and knowledge-hub.html were deleted in the 2026-08-21
+      // tidy-up; learning-dashboard.html survives on disk but has no nav
+      // entry. The Athenaeum shares no data and no code with any of them, so
+      // nothing here changed when they went.
       //
       // Owns 'ath:*' and its own Supabase row (appKey 'athenaeum'). Both
       // were unused before this build. It mounts exactly ONE initCloudSync
       // and never reads or writes another page's prefix.
       //
       // Three pages, one namespace: the hub and curriculum pages take a
-      // ?id= query param (like learning-topic.html) so their hash stays
-      // free for in-page tabs. Sub-pages listed here are the main page's
+      // ?id= query param so their hash stays free for in-page tabs. Sub-pages listed here are the main page's
       // own hash routes.
       key: 'athenaeum',
       label: 'The Athenaeum',
@@ -247,15 +199,18 @@
       //     Chrysalis never reads, writes or migrates it — cross-link
       //     only. Note that tab shares a dataset with Top Goals and
       //     Your System, so it could not be cleanly retired anyway.
-      //   - dreamboard.html owns free-form boards of OUTCOMES and things.
+      //   - dreamboard.html owned free-form boards of OUTCOMES and things.
       //     The Chrysalis's images are of the PERSON.
-      //   - mainpillar.html owns gamified daily doing. Practices here
+      //   - mainpillar.html owned gamified daily doing. Practices here
       //     carry no streaks and no score, deliberately: a system that
       //     scores you daily becomes an accusation on a bad week.
+      // Both of those pages were deleted in the 2026-08-21 tidy-up; the
+      // boundary is kept here because it is why this page is shaped as it
+      // is, not because those pages still exist.
       //
       // Test for anything new: does it describe, evidence, or install
-      // who I am becoming? If it only tracks what I did, it is Main
-      // Pillar's, not this page's.
+      // who I am becoming? If it only tracks what I did, it is not this
+      // page's.
       //
       key: 'chrysalis',
       label: 'The Chrysalis',
@@ -276,15 +231,13 @@
       // The Vault — vault.html + vault-data.js. Pinned to the top of this
       // sidebar per an explicit request.
       //
-      // A PARALLEL build, not a replacement. entertainment-dash.html and the
-      // whole Entertainment folder below are untouched and still listed;
-      // nothing was removed from either. The Vault owns its own namespace
-      // ('vault:*') and its own Supabase row (appKey 'vault'), so it never
-      // reads or writes 'enthub:'/'entdash:'/'entread:'/'media:' keys — the
-      // two dashboards cannot affect each other's data.
-      //
-      // Its Podcasts shelf was populated by copying (not moving) the podcast
-      // library out of entertainment-dash.html#podcasts.
+      // Built as a PARALLEL build alongside entertainment.html and
+      // entertainment-dash.html, copying (not moving) their libraries in.
+      // Both of those pages were deleted in the 2026-08-21 tidy-up, so THE
+      // VAULT IS NOW THE ONLY MEDIA LIBRARY IN THE APP. It owns 'vault:*'
+      // and its own Supabase row (appKey 'vault') and never read or wrote
+      // 'enthub:'/'entdash:'/'entread:'/'media:', so nothing it holds was
+      // affected by their deletion.
       key: 'vault',
       label: 'The Vault',
       items: [
@@ -336,39 +289,6 @@
           { hash: 'fitness', label: 'Fitness Studio' },
           { hash: 'selfcare', label: 'Self-Care' },
         ] },
-        { href: 'mainpillar.html', icon: '🎮', label: 'Main Pillar', id: 'topbarMainPillar', children: [
-          { hash: 'today', label: 'Today' },
-          { hash: 'weekly', label: 'Weekly' },
-          { hash: 'monthly', label: 'Monthly' },
-          { hash: 'year', label: 'Year' },
-          { hash: 'goals', label: 'Goals' },
-          { hash: 'favorites', label: 'Favorites' },
-        ] },
-        { href: 'tasks.html', icon: '🗂️', label: 'Tasks', id: 'topbarTasksDb', children: [
-          { hash: 'today', label: 'Today' },
-          { hash: 'all', label: 'All Tasks' },
-        ] },
-        { href: 'tasksnotes.html', icon: '✅', label: 'Tasks & Notes', id: 'topbarTasksNotes', children: [
-          { hash: 'links', label: 'Links' },
-          { hash: 'notes', label: 'Notes' },
-          { hash: 'tasks', label: 'Tasks' },
-        ] },
-      ],
-    },
-    {
-      // New nav folder, right above Entertainment: a Business Dashboard —
-      // a gallery of businesses, each opening into its own front page
-      // hosting a Writing Dashboard (series/manuscripts/a Scrivener-style
-      // Binder), a generatable YouTube Dashboard, and a generatable
-      // Blogging Dashboard. Genuinely new files, businessdash.html +
-      // businessdash-data.js — separate from every other "business" page
-      // in this app (business.html's Content Hub + Writing/YouTube
-      // Dashboard tabs, and businessos.html's own multi-business CEO
-      // command center); nothing there is read or written by this page.
-      key: 'businessdash',
-      label: 'Business Dashboard',
-      items: [
-        { href: 'businessdash.html', icon: '🏢', label: 'Business Dashboard', id: 'topbarBusinessDash' },
       ],
     },
     {
@@ -410,158 +330,12 @@
       ],
     },
     {
-      // New nav folder, right between Business Dashboard and
-      // Entertainment: Fitness Studio — a genuinely new, standalone
-      // top-level page (fitnessstudio.html + fitnessstudio-data.js),
-      // separate from every other fitness surface already in this app
-      // (gym.html's own "Fitness Studio" / STUDIO pill down in "Life &
-      // Wellness", and index.html's own embedded Fitness Studio tab).
-      // Its music slide-out panel reads enthub:playlists directly — see
-      // that page's own header comment — so it's genuinely connected to
-      // the Playlists page below, without opening a second sync
-      // subscription for a collection it never writes to.
-      key: 'fitnessstudiotab',
-      label: 'Fitness Studio',
-      items: [
-        { href: 'fitnessstudio.html', icon: '💪', label: 'Fitness Studio', id: 'topbarFitnessStudioTab' },
-      ],
-    },
-    {
-      // New nav folder, right below Fitness Studio and above Entertainment
-      // (per an explicit placement request): a Business folder hosting the
-      // Ultimate Writing Dashboard — a full Writing Operating System
-      // (writing-dashboard.html + writing-dashboard-data.js). Its own
-      // `wds:` prefix, own `key: 'writingdash'` Supabase row — genuinely
-      // separate from every other "business"/"writing" surface already in
-      // this app (business.html's old Writing Dashboard tab, businessdash
-      // .html's own Series & Manuscripts Binder) — nothing here reads or
-      // writes their data. This page has no hash-routable tabs (its own
-      // Series Library / Series Dashboard / Writing Workspace navigation
-      // is a JS page-stack, not URL hashes), so it has no `children` here
-      // — same as the equally tab-heavy 'fitnessstudiotab'/'businessdash'
-      // single-item groups above, for the same reason.
-      key: 'business',
-      label: 'Business',
-      items: [
-        { href: 'writing-dashboard.html', icon: '🖋️', label: 'Writing Dashboard', id: 'topbarWritingDash' },
-      ],
-    },
-    {
-      // New nav folder, right below Command Center: entertainment-dash
-      // .html — one merged dashboard replacing what used to be five
-      // separate standalone pages (ent-podcasts.html/ent-stories.html/
-      // ent-entertainment.html/ent-playlists.html/ent-favorites.html,
-      // all deleted) plus the short-lived Media/mediaverse.html hub
-      // (deleted outright). Still genuinely separate from
-      // entertainment.html/"Media" down in "Create & Grow" below —
-      // nothing here reads or writes that page's own `media:*` data.
-      // Data layer is still entertainment-hub-data.js for the 8
-      // pre-existing categories (Podcasts/Stories-now-split/
-      // Entertainment/Playlists — kept, not deleted, since
-      // fitnessstudio.html's own music panel still reads
-      // `enthub:playlists` from it) plus a new entertainment-dash-data
-      // .js for the 3 brand-new categories (Reading Corner/Anime/Games)
-      // and the cross-category Discovery Engine/Favorites/Statistics
-      // logic — see both files' own header comments.
-      key: 'entertainment',
-      label: 'Entertainment',
-      items: [
-        { href: 'entertainment-dash.html', icon: '🎬', label: 'Entertainment', id: 'topbarEntDash', children: [
-          { hash: 'home', label: 'Home' },
-          { hash: 'discovery', label: 'Discovery Engine' },
-          { hash: 'favorites', label: 'Favorites' },
-          { hash: 'podcasts', label: 'Podcasts' },
-          { hash: 'horror-creepypasta', label: 'Horror Stories · Creepypastas' },
-          { hash: 'horror-true-stories', label: 'Horror Stories · True Stories' },
-          { hash: 'spicy-watch', label: 'Spicy Stories · YouTube' },
-          { hash: 'stories-immersive', label: 'Immersive Experience' },
-          { hash: 'entertainment', label: 'Entertainment' },
-          { hash: 'playlists', label: 'Playlists' },
-          { hash: 'reading-corner', label: 'Reading Corner' },
-          { hash: 'anime', label: 'Anime' },
-          { hash: 'games', label: 'Games' },
-          { hash: 'statistics', label: 'Statistics' },
-        ] },
-      ],
-    },
-    {
-      // New nav folder, right below Entertainment (per an explicit
-      // placement request): Knowledge Hub v2 — a full replace of the
-      // prior five-stage-funnel/Progressive-Summarization page. It's now
-      // a Learning & Knowledge Operating System: 11 fixed department
-      // workspaces (Psychology/Wealth/AI/Metaphysics/Spiritual/Self-Dev/
-      // Photography/History/Astrology/Writing/Health), each with a
-      // Resource Library, an 8-stage Reading Pipeline, three layered
-      // levels of mind maps, a computed Knowledge Graph, a Permanent
-      // Notes (concept) library, Open Questions, Research, Projects,
-      // cross-department Connections, a Progress dashboard, and a
-      // 17-action AI Assistant — plus one Global Knowledge Graph across
-      // every department. See knowledge-hub-data.js's own header comment
-      // for the full architecture rundown. Every child link below is a
-      // real knowledge-hub.html#<id> deep link, read once on load by
-      // that page's own boot() to open straight to that department (or
-      // the Global Graph) — same one-way deep-link convention this app's
-      // other nested nav children already use.
-      key: 'knowledgehub',
-      label: 'Knowledge Hub',
-      items: [
-        { href: 'knowledge-hub.html', icon: '🧠', label: 'Knowledge Hub', id: 'topbarKnowledgeHub', children: [
-          { hash: 'psychology', label: '🧠 Human Psychology & Neuroscience' },
-          { hash: 'wealth', label: '💰 Wealth & Entrepreneurship' },
-          { hash: 'ai', label: '🤖 Artificial Intelligence' },
-          { hash: 'metaphysics', label: '⚛️ Metaphysics & Quantum Physics' },
-          { hash: 'spiritual', label: '🔮 Spiritual Practices & Esotericism' },
-          { hash: 'selfdev', label: '🌱 Self-Development' },
-          { hash: 'photography', label: '📸 Photography & Videography' },
-          { hash: 'history', label: '🏛 History' },
-          { hash: 'astrology', label: '✨ Astrology & Numerology' },
-          { hash: 'writing', label: '✍️ Persuasive Communication & Writing' },
-          { hash: 'health', label: '🌿 Holistic Health & Alternative Healing' },
-          { hash: 'global', label: '🌐 Global Knowledge Graph' },
-        ] },
-      ],
-    },
-    {
-      // New nav folder, right below Entertainment: Learning Hub's own
-      // topics/resources/questions system. learning.html (the Topics +
-      // Resources gallery) is the entry point; every real Topic gets its
-      // own nav entry right below it too, each expandable into its own
-      // Questions Database / Resources Database — see
-      // buildLearningTopicItems() above for how these are generated.
-      key: 'learningfolder',
-      label: 'Learning',
-      items: buildLearningTopicItems(),
-    },
-    {
       key: 'life',
       label: 'Life & Wellness',
       items: [
         { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition', children: [
           { hash: 'kitchen', label: 'My Kitchen' },
           { hash: 'grocery', label: 'Grocery List' },
-        ] },
-      ],
-    },
-    {
-      key: 'create',
-      label: 'Create & Grow',
-      items: [
-        { href: 'dreamboard.html', icon: '✨', label: 'Dream Board', id: 'topbarDreamBoard', children: [
-          { hash: 'vision-board', label: 'Vision Board' },
-          { hash: 'reflections', label: 'Reflections' },
-          { hash: 'quarterly-goals', label: 'Quarterly Goals' },
-          { hash: 'monthly-breakdown', label: 'Monthly Breakdown' },
-        ] },
-        { href: 'aitech.html', icon: '🤖', label: 'AI & Tech', id: 'topbarAiTech', children: [
-          { hash: 'models', label: 'AI Models' },
-          { hash: 'prompts', label: 'Prompts' },
-        ] },
-        { href: 'entertainment.html', icon: '🎬', label: 'Media', id: 'topbarEntertainment', children: [
-          { hash: 'podcasts', label: 'Podcasts' },
-          { hash: 'stories', label: 'Stories' },
-          { hash: 'entertainment', label: 'Entertainment' },
-          { hash: 'playlists', label: 'Playlists' },
-          { hash: 'favorites', label: 'Favorites' },
         ] },
       ],
     },
@@ -1026,11 +800,7 @@ body.topbar-modal-open {
   // A DETAIL page has no nav entry of its own — it is only ever reached
   // from its parent page, so it highlights the parent's entry instead of
   // leaving the whole sidebar looking inactive.
-  //
-  // learning-topic.html is deliberately NOT listed here: the Learning
-  // folder builds a real nav item per topic (buildLearningTopicItems),
-  // so it already matches on filename+query below and an alias would
-  // break that finer-grained highlight.
+
   const NAV_DETAIL_PARENTS = {
     'athenaeum-subject.html': 'athenaeum.html',
     'athenaeum-curriculum.html': 'athenaeum.html',
@@ -1045,12 +815,11 @@ body.topbar-modal-open {
     if (!path) path = 'index.html'; // bare root URL resolves to index.html on a static host
     if (NAV_DETAIL_PARENTS[path]) path = NAV_DETAIL_PARENTS[path];
     const search = window.location.search || '';
-    // Most pages are identified by filename alone; the Learning folder's
-    // per-topic items are the one case with more than one nav entry
-    // pointing at the same file (learning-topic.html?id=<topicId>), so
-    // an item/node whose own href carries a query string is matched
-    // against filename+query instead of the filename alone — everything
-    // else keeps matching exactly as before.
+    // Pages are identified by filename alone. The filename+query branch
+    // below is kept for the case of two nav entries pointing at one file
+    // with different query strings — the Learning folder's per-topic items
+    // were that case until they were deleted. No current href carries a
+    // query, so every match today is on the filename.
     const pathWithQuery = path + search;
     const hash = (window.location.hash || '').replace(/^#/, '');
 
