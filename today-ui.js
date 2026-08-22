@@ -626,9 +626,14 @@
     opts = opts || {};
     activeTab = (tab === 'selfcare') ? 'selfcare' : 'today';
 
-    document.querySelectorAll('#mnTabs .mn-tab').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.tab === activeTab);
-      b.setAttribute('aria-selected', b.dataset.tab === activeTab ? 'true' : 'false');
+    // [data-tab] only. The other two entries in the row are links to
+    // futureself.html and weeklyreview.html, and marking them
+    // unselected would claim they are tabs of this page.
+    document.querySelectorAll('#mnTabs .mn-tab[data-tab]').forEach(function (b) {
+      var on = b.dataset.tab === activeTab;
+      b.classList.toggle('active', on);
+      if (on) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
     });
     document.querySelectorAll('.mn-tabpanel').forEach(function (p) {
       p.classList.toggle('active', p.dataset.mainpanel === activeTab);
@@ -806,7 +811,9 @@
     var bg = byId('mnSheetBg');
     if (bg) bg.addEventListener('mousedown', function (e) { if (e.target === bg) closeSheet(); });
 
-    document.querySelectorAll('#mnTabs .mn-tab').forEach(function (b) {
+    // Again [data-tab] only — the link entries are handled by the
+    // delegated data-act="go" path, which flushes writes first.
+    document.querySelectorAll('#mnTabs .mn-tab[data-tab]').forEach(function (b) {
       b.addEventListener('click', function () { switchTab(b.dataset.tab); });
     });
     global.addEventListener('hashchange', function () {
