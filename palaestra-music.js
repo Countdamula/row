@@ -40,10 +40,42 @@
 (function (global) {
   'use strict';
 
-  var VAULT_KEY = 'vault:media:playlists';
-  var STATE_KEY = 'pal:musicstate';     // last category + volume; `pal:`, so it syncs with the rest
+  // ------------------------------------------------------------
+  // SHELVES
+  //
+  // This dock used to read one key, `vault:media:playlists`. Main asks
+  // for the whole Entertainment Studio, so the shelf is a parameter
+  // now: init({ shelves, defaultShelf }).
+  //
+  // Both Fitness Studio pages pass defaultShelf:'playlists' and open on
+  // exactly what they always opened on — they simply gain the other
+  // nine if they want them. Nothing about the read is different: this
+  // file still never writes a `vault:` key and never opens a second
+  // sync mount for a collection it does not own.
+  //
+  // The order here is the order of the shelf row, and it is
+  // deliberate: what you are most likely to want playing first.
+  // ------------------------------------------------------------
+  var ALL_SHELVES = [
+    { key: 'playlists',   label: 'Music' },
+    { key: 'podcasts',    label: 'Podcasts' },
+    { key: 'watch',       label: 'Watch' },
+    { key: 'immersive',   label: 'Immersive' },
+    { key: 'creepypasta', label: 'Creepypasta' },
+    { key: 'trueHorror',  label: 'True horror' },
+    { key: 'spicy',       label: 'Spicy' },
+    { key: 'reading',     label: 'Reading' },
+    { key: 'anime',       label: 'Anime' },
+    { key: 'games',       label: 'Games' }
+  ];
+  var keyFor = function (shelf) { return 'vault:media:' + shelf; };
+  var VAULT_PREFIX = 'vault:media:';
+
+  var STATE_KEY = 'pal:musicstate';     // last shelf + category + volume; `pal:`, so it syncs with the rest
   var IS_FILE = global.location.protocol === 'file:';
 
+  var shelves = [ALL_SHELVES[0]];       // replaced at init()
+  var shelf = 'playlists';
   var dock = null;
   var items = [];
   var queue = [];
@@ -64,9 +96,30 @@
   // ------------------------------------------------------------
   // DATA — read Entertainment Studio, never write it.
   // ------------------------------------------------------------
+  function shelfLabel(key) {
+    for (var i = 0; i < ALL_SHELVES.length; i++) if (ALL_SHELVES[i].key === key) return ALL_SHELVES[i].label;
+    return key;
+  }
+  function hasShelf(key) {
+    return shelves.some(function (s) { return s.key === key; });
+  }
+  /** How many records each available shelf holds — the shelf row needs
+      it to grey out the empty ones rather than hide them. */
+  function shelfCounts() {
+    var out = {};
+    shelves.forEach(function (s) {
+      try {
+        var raw = localStorage.getItem(keyFor(s.key));
+        var list = raw == null ? [] : JSON.parse(raw);
+        out[s.key] = Array.isArray(list) ? list.filter(function (x) { return x && x.url; }).length : 0;
+      } catch (e) { out[s.key] = 0; }
+    });
+    return out;
+  }
+
   function load() {
     try {
-      var raw = localStorage.getItem(VAULT_KEY);
+      var raw = localStorage.getItem(keyFor(shelf));
       var list = raw == null ? [] : JSON.parse(raw);
       items = Array.isArray(list) ? list.filter(function (x) { return x && x.url; }) : [];
     } catch (e) { items = []; }
@@ -172,6 +225,7 @@
         '</div>' +
         '<button class="pal-btn pal-btn--icon pal-btn--ghost" id="palMusicClose" aria-label="Close music">✕</button>' +
       '</div>' +
+      '<div class="pal-music__shelves" id="palMusicShelves"></div>' +
       '<div class="pal-music__chips" id="palMusicChips"></div>' +
       '<div class="pal-music__list" id="palMusicList"></div>' +
       '<div class="pal-music__player">' +
@@ -201,6 +255,21 @@
       volume = parseInt(this.value, 10) || 0;
       writeState({ volume: volume });
       if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
+    });
+    $('palMusicShelves').addEventListener('click', function (e) {
+      var chip = e.target.closest('[data-shelf]');
+      if (!chip) return;
+      shelf = chip.getAttribute('data-shelf');
+      // The category filter belongs to the shelf it was chosen on —
+      // "Chill" on Playlists means nothing on Games — so switching
+      // shelves resets it rather than showing an empty list.
+      filter = 'All';
+      writeState({ shelf: shelf, category: filter });
+      load();
+      // The header follows the shelf unless the opener named a scope of
+      // its own ("Music for Bench press").
+      if (!scope) $('palMusicScope').textContent = shelfLabel(shelf);
+      renderShelves(); renderChips(); renderList();
     });
     $('palMusicChips').addEventListener('click', function (e) {
       var chip = e.target.closest('[data-cat]');
@@ -234,6 +303,24 @@
     return dock;
   }
 
+  /** The shelf row. Hidden entirely when only one shelf is available,
+      so the Fitness Studio's dock is exactly what it always was. */
+  function renderShelves() {
+    var host = $('palMusicShelves');
+    if (!host) return;
+    if (shelves.length < 2) { host.hidden = true; host.innerHTML = ''; return; }
+    host.hidden = false;
+    var counts = shelfCounts();
+    host.innerHTML = shelves.map(function (s) {
+      var n = counts[s.key] || 0;
+      return '<button class="pal-chip" data-shelf="' + esc(s.key) + '"' +
+        ' aria-pressed="' + (shelf === s.key ? 'true' : 'false') + '"' +
+        (n ? '' : ' data-empty="true"') +
+        ' title="' + esc(s.label) + (n ? ' — ' + n : ' — nothing here yet') + '">' +
+        esc(s.label) + (n ? ' <span style="opacity:.55">' + n + '</span>' : '') + '</button>';
+    }).join('');
+  }
+
   function renderChips() {
     var cats = ['All'].concat(items.some(function (i) { return i.favorite; }) ? ['★'] : []).concat(categories());
     $('palMusicChips').innerHTML = cats.map(function (c) {
@@ -247,8 +334,10 @@
     var rows = visible();
     if (!items.length) {
       list.innerHTML =
-        '<div class="pal-music__empty">Nothing on the Entertainment Studio\'s Music &amp; Playlists shelf has synced to this device yet.' +
-        '<br><a class="pal-btn pal-btn--sm" style="margin-top:12px" href="vault.html#playlists">Open Entertainment Studio →</a></div>';
+        '<div class="pal-music__empty">Nothing on the Entertainment Studio&rsquo;s ' +
+        esc(shelfLabel(shelf)) + ' shelf has synced to this device yet.' +
+        '<br><a class="pal-btn pal-btn--sm" style="margin-top:12px" href="vault.html#' + esc(shelf) +
+        '">Open Entertainment Studio →</a></div>';
       return;
     }
     if (!rows.length) {
@@ -374,14 +463,19 @@
   function open(opts) {
     opts = opts || {};
     build();
-    load();
     var st = readState();
+
+    // A shelf asked for, or the last one used, or the page's default.
+    if (opts.shelf && hasShelf(opts.shelf)) shelf = opts.shelf;
+    else if (st.shelf && hasShelf(st.shelf)) shelf = st.shelf;
+
+    load();
     volume = typeof st.volume === 'number' ? st.volume : 70;
     $('palMusicVol').value = volume;
 
     scope = opts.scope || '';
     pinnedInScope = opts.trackId || '';
-    $('palMusicScope').textContent = opts.label || 'Music';
+    $('palMusicScope').textContent = opts.label || (shelves.length > 1 ? shelfLabel(shelf) : 'Music');
 
     // A category was asked for, or the last one used, or everything.
     if (opts.category && (opts.category === 'All' || categories().indexOf(opts.category) !== -1)) {
@@ -392,6 +486,7 @@
       filter = 'All';
     }
 
+    renderShelves();
     renderChips();
     renderList();
     dock.classList.add('is-open');
@@ -444,7 +539,25 @@
       'aria-label="Music for ' + esc(opts.label || 'this') + '">♪</button>';
   }
 
-  function init() {
+  /**
+   * init({ shelves, defaultShelf })
+   *
+   * `shelves` is a list of Vault shelf keys. Omit it and the dock is
+   * exactly what it has always been: Playlists only, no shelf row.
+   */
+  function init(cfg) {
+    cfg = cfg || {};
+    if (Array.isArray(cfg.shelves) && cfg.shelves.length) {
+      shelves = cfg.shelves
+        .map(function (k) {
+          for (var i = 0; i < ALL_SHELVES.length; i++) if (ALL_SHELVES[i].key === k) return ALL_SHELVES[i];
+          return null;
+        })
+        .filter(Boolean);
+    }
+    if (!shelves.length) shelves = [ALL_SHELVES[0]];
+    shelf = (cfg.defaultShelf && hasShelf(cfg.defaultShelf)) ? cfg.defaultShelf : shelves[0].key;
+
     build();
     load();
     document.addEventListener('click', function (e) {
@@ -456,20 +569,25 @@
         scope: btn.getAttribute('data-pal-music'),
         trackId: btn.getAttribute('data-pal-track') || '',
         label: btn.getAttribute('data-pal-label') || '',
-        category: btn.getAttribute('data-pal-category') || ''
+        category: btn.getAttribute('data-pal-category') || '',
+        shelf: btn.getAttribute('data-pal-shelf') || ''
       });
     });
-    // Entertainment Studio edited in another tab, or a cloud pull landing.
+    // Entertainment Studio edited in another tab, or a cloud pull
+    // landing. Matches the PREFIX now, not one exact key — an edit on
+    // any shelf can change what this dock should be showing.
     global.addEventListener('storage', function (e) {
-      if (e.key && e.key !== VAULT_KEY) return;
+      if (e.key && e.key.indexOf(VAULT_PREFIX) !== 0) return;
       load();
-      if (isOpen()) { renderChips(); renderList(); }
+      if (isOpen()) { renderShelves(); renderChips(); renderList(); }
     });
   }
 
   global.PalMusic = {
     init: init, open: open, close: close, isOpen: isOpen,
     button: button, reload: load, sourceOf: sourceOf,
-    trackById: byId, count: function () { return items.length; }
+    trackById: byId, count: function () { return items.length; },
+    SHELVES: ALL_SHELVES,
+    shelf: function () { return shelf; }
   };
 })(window);

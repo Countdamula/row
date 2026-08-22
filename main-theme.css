@@ -1,0 +1,2100 @@
+/* =============================================================
+   main-theme.css — the visual system for Main.
+   index.html (Today + Self-Care) · futureself.html · weeklyreview.html
+
+   THE IDEA
+   ─────────────────────────────────────────────────────────────
+   Main is not a productivity dashboard. It is the frontispiece and
+   the daily pages of a private book about a man being made. Every
+   device here comes from that world rather than from dashboard UI:
+   Italiana caps as engraved PLATE TITLES, hairline rules instead of
+   boxes, a silk cartouche carrying a struck medal, and line-engraved
+   ornaments rather than filled icons.
+
+   TEMPERATURE ENCODES TENSE — the one rule to learn
+   ─────────────────────────────────────────────────────────────
+   Warm (copper → gold → amber) means done, present, real, evidenced.
+   Cool (sage) means future, pending, aspired-to, not yet.
+
+   That is why the unfilled recitation boxes are sage and the filled
+   ones gold; why Future Self's "Future Me" column runs cool and
+   "Current Me" runs bone; why an unmet standard is sage.
+
+   And it is why the effort levels are HOT / WARM / COOL rather than
+   green / amber / red. A traffic light makes LOW a failure. LOW is
+   not a failed HIGH — it is the version of the day you can actually
+   keep, and the whole system is worthless if the colour argues with
+   that. Sage is conserving, not lesser. Nothing here may penalise a
+   level. (The same rule palaestra-data.js:202-214 states for the
+   data; this is its visual half.)
+
+   THE PALETTE is taken from a dark-floral oil: near-black browns,
+   umber, burnt copper, warm gold, pale bone, and one cool sage note
+   that keeps the whole thing from reading as another gold dashboard.
+   The values below were re-derived against that reference, not
+   re-pointed from another page's tokens — a palette swap that only
+   redefines :root is a rename, not a retint.
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Italiana&family=Cormorant:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  /* --- the ladder, darkest to lightest ------------------------- */
+  --mn-ink:      #0B0806;   /* deepest — the bottom of the page */
+  --mn-ground:   #120C08;   /* the field everything sits on */
+  --mn-soot:     #171009;   /* a surface just off the field */
+  --mn-umber:    #2A1B10;   /* a raised surface */
+  --mn-copper:   #6B4423;   /* structural warm — borders, engraving */
+  --mn-gold:     #C99A52;   /* the accent */
+  --mn-amber:    #D9A961;   /* the bright accent — focus, chosen, hot */
+  --mn-bone:     #E8DCC4;   /* primary text */
+
+  /* THE COOL NOTE. One hue, one job: the future tense. Spend it
+     sparingly — the moment sage appears twice on a screen for two
+     different reasons it stops meaning anything. */
+  --mn-sage:     #9FB8AC;
+  --mn-sage-2:   #C2D3CB;
+
+  /* --- text ---------------------------------------------------- */
+  --mn-text:     var(--mn-bone);
+  --mn-text-2:   rgba(232,220,196,.66);
+  --mn-text-3:   rgba(232,220,196,.40);
+  --mn-ash:      rgba(232,220,196,.26);
+
+  /* --- surfaces ------------------------------------------------ */
+  /* Three planes, and they are genuinely three: a card is not the
+     page with a border, and a floating thing is not a card with a
+     bigger shadow. Base → raised → floating. */
+  --mn-surface:   rgba(42,27,16,.34);
+  --mn-surface-2: rgba(56,37,22,.46);
+  --mn-float:     rgba(20,14,9,.94);
+
+  --mn-hair:      rgba(201,154,82,.20);
+  --mn-hair-soft: rgba(232,220,196,.10);
+  --mn-hair-cool: rgba(168,184,176,.22);
+
+  /* --- state --------------------------------------------------- */
+  --mn-good: #8FBF9F;
+  --mn-warn: var(--mn-amber);
+  --mn-bad:  #C97A6B;
+
+  /* --- effort temperatures -------------------------------------
+     Three genuinely separable values, NOT aliases of the accent
+     ladder. A first pass pointed hot at --mn-amber and warm at
+     --mn-gold and the two cards were indistinguishable at arm's
+     length, which defeats the whole point of a three-way choice.
+     Hot is pushed lighter and yellower, warm deeper and redder, and
+     cool is the sage. */
+  --mn-hot:  #EFC178;
+  --mn-warm: #BE8138;
+  --mn-cool: #9FB8AC;
+
+  /* --- type ---------------------------------------------------- */
+  /* Three faces, three jobs, no overlap. Italiana never sets a
+     sentence; Cormorant never sets a label; Inter never sets a
+     headline. The moment one does the other's job the hierarchy
+     stops being carried by the type at all. */
+  --mn-plate:   'Italiana', 'Bodoni Moda', Didot, Georgia, serif;
+  --mn-display: 'Cormorant', 'Cormorant Garamond', Georgia, serif;
+  --mn-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* --- space --------------------------------------------------- */
+  /* A real scale, not arbitrary steps. Everything spatial resolves
+     to one of these. */
+  --mn-1: 4px;  --mn-2: 8px;  --mn-3: 12px; --mn-4: 18px;
+  --mn-5: 28px; --mn-6: 44px; --mn-7: 68px; --mn-8: 104px;
+  --mn-gutter: clamp(20px, 4.6vw, 76px);
+  --mn-measure: 1180px;
+
+  --mn-radius:    14px;
+  --mn-radius-sm: 9px;
+  --mn-ease:      cubic-bezier(.2,.8,.2,1);
+  --mn-ease-out:  cubic-bezier(.16,1,.3,1);
+
+  /* --- parallax -------------------------------------------------
+     Two scrub ranges, written by main-hero.js from ONE rAF-throttled
+     passive listener. Both are plain 0 → 1 ramps and every layer is
+     linear against them.
+
+     The brief supplied a React + GSAP ScrollTrigger + Lenis
+     component. What that component actually specifies is four layers
+     at yPercent 70 / 55 / 40 / 10, ease "none", scrub 0, across the
+     trigger's own height — which is a strictly linear ramp, i.e. one
+     clamped division per range. That is computed in the single rAF
+     handler main-hero.js already runs and written here as two custom
+     properties. No library is loaded, and none is needed. Lenis is
+     deliberately not reproduced: its only job is smoothing document
+     scroll, and taking that over would fight topbar.js's fixed
+     launcher and this page's own fixed bars.
+
+       --mn-hero-p   the hero's own height   (hero → ribbon)
+       --mn-join-p   the ribbon's traverse   (ribbon → the page)
+       --mn-hero-h   the hero's height in px, written on measure only
+
+     Transition A multiplies the ratios by --mn-hero-h, so a layer
+     travels that fraction of its trigger. Transition B multiplies
+     them by --mn-join-t instead: its trigger is a whole viewport
+     traverse while its layers are a ~150px ribbon, and a travel
+     scaled to the trigger there would throw the ribbon off screen. */
+  --mn-hero-p: 0;
+  --mn-hero-h: 100vh;
+  --mn-join-p: 0;
+  --mn-join-t: clamp(48px, 8vh, 96px);
+}
+
+/* =============================================================
+   RESET + GROUND
+   ============================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+/* The ground lives on <html>, never on body's children. Palaestra
+   records a real bug here: `body > * { position: relative }`
+   silently overrode `position: fixed` on every element topbar.js
+   injects, dropping its launcher and sidebar into normal flow. A
+   page must not restyle anything it did not render. */
+html.mn-root { background: var(--mn-ground); }
+
+body.mn {
+  margin: 0;
+  position: relative;      /* above the ground; NOT a containing block for fixed children */
+  z-index: 1;
+  background: transparent;
+  color: var(--mn-text);
+  font-family: var(--mn-body);
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.7;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* =============================================================
+   THE GROUND
+   ─────────────────────────────────────────────────────────────
+   The reference is a long-exposure frame: a near-black field, cool
+   motion streaks high up, a long quiet dark middle where the content
+   actually sits, a warm blur across the bottom, one bright horizon
+   line through it. Built in gradients rather than shipped as a
+   photograph — it costs nothing, scales to any viewport, and takes
+   every colour from the tokens above.
+
+   NO GRAIN. The reference's texture is deliberately not reproduced.
+
+   Every streak is a very flat ellipse with a wide stop ramp, never
+   filter: blur(). A blurred fixed full-viewport layer repaints on
+   every scroll frame; a 70%-wide colour ramp is already soft and
+   composites for free.
+
+   Three layers because the parallax needs three depths. Mounted once
+   by main-hero.js, outside every render host, so no repaint can
+   reach it — the same rule as the hero's <video>.
+   ============================================================= */
+.mn-ground {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  isolation: isolate;          /* the screen blends stay inside the ground */
+  contain: layout paint style;
+}
+.mn-ground > div { position: absolute; inset: 0; }
+/* Only the warm layer translates, so only it carries spare material
+   below. Its gradient stops are stated against ITS box, which is
+   130px taller than the viewport — that is why they read low. */
+.mn-ground__warm { bottom: -130px; }
+
+/* The field. Warm-black rather than neutral-black, and held darkest
+   through the middle on purpose — that band is where cards land. */
+.mn-ground__field {
+  background:
+    radial-gradient(126% 60% at 50% 100%, rgba(107,68,35,.22), transparent 62%),
+    radial-gradient(130% 84% at 50% 42%, rgba(11,8,6,0), rgba(4,3,2,.74) 100%),
+    linear-gradient(180deg,
+      #0A0705 0%,
+      var(--mn-ground) 28%,
+      var(--mn-ground) 62%,
+      var(--mn-ink) 100%);
+}
+
+/* The cool band, high in the frame. Four flat streaks at different
+   heights and widths so it reads as motion rather than as a stripe.
+   This is the sage note doing atmospheric work — the one place it is
+   allowed to appear without meaning "future", because here it is
+   weather, not a label. */
+.mn-ground__cool {
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 56% 1.8% at 26% 8%,    rgba(198,210,204,.16), transparent 72%),
+    radial-gradient(ellipse 96% 3.6% at 40% 12%,   rgba(72,96,90,.40),    transparent 74%),
+    radial-gradient(ellipse 70% 2.4% at 66% 16.5%, rgba(88,112,105,.26),  transparent 76%),
+    radial-gradient(ellipse 130% 9% at 50% 20.5%,  rgba(52,74,70,.20),    transparent 80%);
+}
+
+/* The warm wash, low, and the horizon line through it — the single
+   brightest thing on any Main page. Transition B's layer 1, the
+   farthest plane, so it is the one that travels most. */
+.mn-ground__warm {
+  mix-blend-mode: screen;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(201,154,82,.10) 13%,
+      rgba(232,220,196,.24) 48%,
+      rgba(201,154,82,.11) 75%,
+      transparent 100%)
+      0 calc(100% - 130px - 23vh) / 100% 2px no-repeat,
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(201,154,82,.055) 20%,
+      rgba(201,154,82,.085) 50%,
+      transparent 100%)
+      0 calc(100% - 130px - 23vh) / 100% 36px no-repeat,
+    radial-gradient(ellipse 76% 2.4% at 34% 78%,  rgba(217,169,97,.24), transparent 74%),
+    radial-gradient(ellipse 116% 4.8% at 56% 84%, rgba(107,68,35,.40),  transparent 76%),
+    linear-gradient(to top,
+      rgba(107,68,35,.30) 0%,
+      rgba(90,54,27,.13) 14%,
+      transparent 36%);
+  transform: translate3d(0, calc(var(--mn-join-p) * var(--mn-join-t) * .70), 0);
+  will-change: transform;
+}
+
+::selection { background: rgba(201,154,82,.26); color: var(--mn-bone); }
+
+a { color: var(--mn-gold); text-decoration: none; }
+a:hover { color: var(--mn-bone); }
+
+/* Keyboard focus is visible everywhere, and never removed. */
+:focus-visible {
+  outline: 2px solid var(--mn-amber);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* =============================================================
+   TYPE SCALE
+   ─────────────────────────────────────────────────────────────
+   PLATE — Italiana, caps, wide. Section and page titles only. It has
+   one weight and hairline strokes, so it needs size and air; below
+   ~15px the thin strokes disappear and it just looks broken.
+   ============================================================= */
+.mn-plate {
+  font-family: var(--mn-plate);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .26em;
+  line-height: 1.25;
+  color: var(--mn-bone);
+  margin: 0;
+  /* Italiana is all-caps by design and the tracking pushes the block
+     right; pull the first letter back onto the grid. */
+  text-indent: -.13em;
+}
+.mn-plate--xl { font-size: clamp(28px, 4.2vw, 52px); letter-spacing: .3em; }
+.mn-plate--lg { font-size: clamp(21px, 2.3vw, 30px); }
+.mn-plate--md { font-size: clamp(16px, 1.5vw, 20px); letter-spacing: .24em; }
+.mn-plate--sm { font-size: 15px; letter-spacing: .22em; }
+
+/* EDITORIAL — Cormorant Light. Headlines and figures. Weight lives at
+   300-400; at 500+ Cormorant loses the hairlines that are the whole
+   reason to use it. */
+.mn-h1 { font-family: var(--mn-display); font-weight: 300; font-size: clamp(34px, 5vw, 68px); line-height: 1.04; letter-spacing: .004em; margin: 0; color: var(--mn-bone); }
+.mn-h2 { font-family: var(--mn-display); font-weight: 300; font-size: clamp(26px, 3.1vw, 42px); line-height: 1.12; margin: 0; color: var(--mn-bone); }
+.mn-h3 { font-family: var(--mn-display); font-weight: 400; font-size: clamp(19px, 1.9vw, 25px); line-height: 1.24; margin: 0; color: var(--mn-bone); }
+
+/* FIGURE — a number given the editorial treatment. Oldstyle figures
+   are OFF: Cormorant defaults to them and a lowercase 3 sitting below
+   the baseline next to a full-height 1 reads as a rendering fault in
+   a column of numbers. */
+.mn-fig {
+  font-family: var(--mn-display);
+  font-weight: 300;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: 'lnum' 1, 'tnum' 1;
+  line-height: 1;
+  color: var(--mn-bone);
+}
+.mn-fig--xl { font-size: clamp(40px, 5.4vw, 76px); }
+.mn-fig--lg { font-size: clamp(28px, 3.2vw, 44px); }
+.mn-fig--md { font-size: 24px; }
+
+/* LABEL — the utility voice. Inter Light, small, wide, uppercase.
+   Never used for anything that is a sentence. */
+.mn-label {
+  font-family: var(--mn-body);
+  font-weight: 400;
+  font-size: 10.5px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--mn-text-3);
+  margin: 0;
+}
+.mn-label--gold { color: var(--mn-gold); }
+.mn-label--cool { color: var(--mn-sage); }
+
+.mn-lede  { font-size: 16px; line-height: 1.75; color: var(--mn-text-2); margin: 0; max-width: 62ch; }
+.mn-body  { font-size: 15px; line-height: 1.7;  color: var(--mn-text-2); margin: 0; max-width: 68ch; }
+.mn-small { font-size: 13px; line-height: 1.65; color: var(--mn-text-3); margin: 0; }
+
+/* An engraved rule. The structural device of the whole system: a
+   hairline that fades at both ends, the way a ruled line on a printed
+   plate does. */
+.mn-rule {
+  height: 1px; border: 0; margin: 0;
+  background: linear-gradient(90deg, transparent, var(--mn-hair) 12%, var(--mn-hair) 88%, transparent);
+}
+
+/* =============================================================
+   THE HERO
+   ─────────────────────────────────────────────────────────────
+   Built to the motion of the reference recording: an overscaled
+   backdrop that settles then drifts, a glowing ring that scales in
+   then rotates forever, a serif headline that arrives WORD BY WORD
+   out of line masks, a note that follows it, faint column hairlines,
+   and a left rail of dashes.
+
+   Everything animates transform and opacity only. The scroll-out is
+   driven by --mn-hero-p alone, written by main-hero.js from a
+   rAF-throttled passive listener — no layout is ever read inside a
+   scroll handler.
+
+   Full-bleed on every side. There is no card, no border, no radius
+   and no max-width: the hero runs to the glass and only the gutter
+   holds the type off the edge.
+   ============================================================= */
+.mn-hero {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  --mn-hero-obj: 50% 58%;      /* the clip is portrait 9:16; aim the crop */
+}
+.mn-hero--full { min-height: 100svh; }
+.mn-hero--band { min-height: clamp(380px, 46vh, 520px); }
+
+/* --- the backdrop ------------------------------------------------
+   PARALLAX LAYER 1 — the backmost plane, so the one that lags most.
+   It is anchored to the hero's bottom and extended upward by exactly
+   its own travel: a layer that lags by 0.70 × H opens a gap at the
+   top of the frame unless it carries 0.70 × H of spare material.
+
+   THE GRADE IS DOING REAL WORK. The clip is a luminous rose-gold
+   render and the palette is near-black umber. Ungraded it looks like
+   a photograph pasted onto the page rather than the page's own
+   weather. Desaturating and darkening it, then laying a copper
+   multiply over the top, pulls it into the same world as everything
+   below — and lets the ring read as the light source, which is what
+   the reference does. */
+.mn-hero__stage {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.70 * var(--mn-hero-h));
+  z-index: 0;
+  /* Graded, not blacked out. An earlier pass at brightness(.60) with a
+     heavier tint and veil left the palace completely invisible — which
+     is a 7.5 MB file doing nothing. The scrim under the copy is local,
+     so the frame itself can stay open. */
+  /* No sepia(). Stacked after saturate() it collapsed the whole frame
+     into one flat mid-brown with no blacks in it. The hue shift is
+     the copper multiply's job; this only sets exposure and how much
+     of the clip's own colour survives. */
+  filter: brightness(.92) contrast(1.2) saturate(.5);
+  background-color: var(--mn-ground);
+  background-image: var(--mn-hero-poster, none);
+  background-size: cover;
+  background-position: 50% 58%;
+  background-repeat: no-repeat;
+  transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .70), 0)
+             scale(calc(1 + var(--mn-hero-p) * 0.12));
+  transform-origin: 50% 40%;
+  will-change: transform;
+}
+.mn-hero__vid {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: var(--mn-hero-obj);
+  opacity: 0;
+  transition: opacity 1s var(--mn-ease);
+}
+/* Only once it is genuinely playing — a black first frame would
+   otherwise wipe the poster out before there is anything to see. */
+.mn-hero.is-live .mn-hero__vid { opacity: 1; }
+
+/* The copper tint. multiply, not a flat overlay: multiply keeps the
+   picture's own contrast and shifts its hue, where a pale film just
+   greys it out. */
+.mn-hero__tint {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(170deg, rgba(120,74,38,.44), rgba(46,27,14,.58));
+  mix-blend-mode: multiply;
+}
+
+/* The bed under the type. The clip carries its own vignette, so this
+   is a local scrim rather than a blackout. If a frame ever fails
+   contrast behind the headline, tighten THIS — never re-darken the
+   two layers below it. */
+.mn-hero__veil {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    /* THE LOCAL SCRIM — the copy's own dark bed, so the rest of the
+       frame does not have to be darkened to hold it. It is anchored
+       low and left, where the headline actually sits. If a frame of
+       the clip ever fails contrast behind the type, tighten THIS and
+       never the two layers below it. */
+    radial-gradient(72% 52% at 28% 82%, rgba(8,6,4,.90), transparent 74%),
+    linear-gradient(to top,
+      var(--mn-ground) 0%,          /* the hand-off: the hero ends ON the ground */
+      rgba(16,11,7,.80) 13%,
+      rgba(18,12,8,.14) 46%,
+      rgba(18,12,8,.40) 100%),
+    radial-gradient(104% 72% at 54% 36%, transparent 24%, rgba(9,6,4,.86) 100%);
+}
+
+/* Six columns — the reference's own structural device.
+   PARALLAX LAYER 3, with the rail. Same headroom rule as the stage;
+   the pattern is columns, so extending it upward costs nothing. */
+.mn-hero__cols {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  top: calc(-0.40 * var(--mn-hero-h));
+  z-index: 3; pointer-events: none;
+  background: repeating-linear-gradient(to right,
+    transparent 0 calc(100% / 6 - 1px),
+    rgba(232,220,196,.05) calc(100% / 6 - 1px) calc(100% / 6));
+  transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .40), 0);
+  will-change: transform;
+}
+
+/* --- the ring ----------------------------------------------------
+   A conic gradient masked to an annulus: one bright arc riding a dim
+   circle, exactly as in the reference. Two layers — the line, and a
+   blurred copy beneath it for the glow.
+
+   PARALLAX LAYER 2. The translate goes on the WRAPPER, never on the
+   ring itself: the ring spins forever, and CSS applies `transform`
+   inside `rotate`, so a transform on the ring would be carried round
+   by the rotation and travel in a circle instead of downward. */
+.mn-hero__l2 {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .55), 0);
+  will-change: transform;
+  /* THE BLEND LIVES HERE, NOT ON THE RING. This element carries a
+     transform, which creates a stacking context — so `screen` on a
+     CHILD blends only against this element's own empty backdrop and
+     adds nothing. Blending the whole layer is what actually lets the
+     ring and its halo add light to the footage underneath. */
+  mix-blend-mode: screen;
+}
+.mn-hero__ring,
+.mn-hero__ringglow {
+  position: absolute; z-index: 1; pointer-events: none;
+  left: 57%; top: 40%;
+  width: clamp(270px, 33vw, 500px); aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg,
+    rgba(232,220,196,.02)  0deg,
+    rgba(232,220,196,.12)  55deg,
+    rgba(255,241,214,1)   140deg,
+    rgba(255,252,246,1)   176deg,
+    rgba(250,232,200,.90) 214deg,
+    rgba(232,220,196,.10) 292deg,
+    rgba(232,220,196,.02) 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+          mask: radial-gradient(circle, transparent 0 calc(50% - 2.5px), #000 calc(50% - 2.5px) 50%, transparent 50%);
+  opacity: 0;
+}
+/* The halo. A blurred copy of the same annulus, masked wider than the
+   line so the light spills both ways off it. Both this and the line
+   ride the layer's screen blend above. */
+.mn-hero__ringglow {
+  filter: blur(30px) saturate(1.2);
+  -webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 14px), #000 calc(50% - 14px) calc(50% + 2px), transparent calc(50% + 2px));
+          mask: radial-gradient(circle, transparent 0 calc(50% - 14px), #000 calc(50% - 14px) calc(50% + 2px), transparent calc(50% + 2px));
+}
+@keyframes mn-ringspin   { to { rotate: 360deg; } }
+@keyframes mn-ringin     { from { scale: .82; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes mn-ringinglow { from { scale: .82; opacity: 0; } to { scale: 1; opacity: .82; } }
+.mn-hero.is-in .mn-hero__ring {
+  animation: mn-ringin 1.5s var(--mn-ease) .15s both, mn-ringspin 54s linear infinite;
+}
+.mn-hero.is-in .mn-hero__ringglow {
+  animation: mn-ringinglow 1.8s var(--mn-ease) .15s both, mn-ringspin 54s linear infinite;
+}
+
+/* --- the frame ---------------------------------------------------- */
+.mn-hero__in {
+  position: relative; z-index: 4;
+  min-height: inherit;
+  /* The left padding reserves a lane for .mn-hero__rail, which is
+     pinned at 12px and is 44px wide. 68px is the first value that
+     clears it at every width the rail is visible at. */
+  padding: clamp(74px, 9vh, 108px) var(--mn-gutter) clamp(66px, 11vh, 136px)
+           max(var(--mn-gutter), 68px);
+  display: flex; flex-direction: column;
+  justify-content: space-between;      /* the copy sits low, as in the reference */
+  gap: var(--mn-5);
+}
+.mn-hero--band .mn-hero__in { padding-bottom: var(--mn-5); }
+
+/* No wordmark. topbar.js fixes its launcher pill at top-left, above
+   anything this page can draw, and it reads as the wordmark. The date
+   takes the right slot instead. */
+.mn-hero__top {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--mn-4); flex-wrap: wrap;
+  opacity: 0; transform: translateY(-8px);
+}
+.mn-hero.is-in .mn-hero__top {
+  transition: opacity .7s var(--mn-ease), transform .7s var(--mn-ease);
+  opacity: 1; transform: none;
+}
+.mn-hero__date {
+  font-family: var(--mn-body); font-weight: 300;
+  font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--mn-text-2); margin: 0;
+}
+
+/* The left rail — one dash per scene, the current one lit.
+   Pinned to a fixed 12px and given a reserved lane by .mn-hero__in's
+   own left padding below. An earlier version positioned it relative
+   to the gutter, and at some widths its 44px hit area reached past
+   the gutter and sat on top of the eyebrow. */
+.mn-hero__rail {
+  position: absolute; z-index: 4;
+  left: 12px;
+  top: 50%; translate: 0 -50%;
+  display: flex; flex-direction: column; gap: var(--mn-2);
+  opacity: 0;
+  transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .40), 0);
+  will-change: transform;
+}
+.mn-hero.is-in .mn-hero__rail { transition: opacity .8s var(--mn-ease) .3s; opacity: 1; }
+/* The visible dash is 1×10px. The BUTTON is finger-sized around it,
+   or the rail is decoration with a hit area nobody can find. */
+.mn-hero__dash {
+  appearance: none; border: 0; padding: 0; background: transparent;
+  width: 44px; min-height: 44px; cursor: pointer;
+  display: flex; align-items: center;
+}
+.mn-hero__dash::before {
+  content: ''; display: block; height: 1px; width: 10px;
+  background: var(--mn-ash);
+  transition: width .3s var(--mn-ease), background .3s var(--mn-ease);
+}
+.mn-hero__dash:hover::before { width: 17px; background: var(--mn-text-2); }
+.mn-hero__dash[aria-current='true']::before { width: 26px; background: var(--mn-gold); }
+
+/* PARALLAX LAYER 4 — the nearest plane, so it very nearly tracks the
+   scroll and barely appears to move. That is the point of a near
+   plane; the depth is carried by the three behind it. */
+.mn-hero__copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 350px);
+  align-items: end; gap: clamp(20px, 4vw, 76px);
+  transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .10), 0);
+  opacity: calc(1 - var(--mn-hero-p) * 1.35);
+  will-change: transform, opacity;
+}
+.mn-hero__eyebrow {
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 10.5px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--mn-gold);
+  margin: 0 0 clamp(12px, 1.8vh, 22px);
+  opacity: 0; transform: translateY(10px);
+}
+.mn-hero.is-in .mn-hero__eyebrow {
+  transition: opacity .7s var(--mn-ease) .12s, transform .7s var(--mn-ease) .12s;
+  opacity: 1; transform: none;
+}
+
+/* --- the headline: word by word, out of line masks ----------------
+   One mask per line. A word rises out of nothing rather than sliding
+   across the backdrop — that is what makes the reference's reveal
+   read as printing rather than as motion. */
+.mn-hero__head {
+  font-family: var(--mn-display);
+  font-weight: 300;
+  font-size: clamp(42px, 6.4vw, 118px);
+  line-height: 1.0;
+  letter-spacing: .006em;
+  color: var(--mn-bone);
+  margin: 0;
+  text-shadow: 0 1px 14px rgba(0,0,0,.6), 0 2px 42px rgba(14,10,7,.72);
+}
+.mn-hero--band .mn-hero__head { font-size: clamp(36px, 5.4vw, 70px); }
+/* A ring sized for a full screen runs off both ends of a band and
+   reads as a stray arc rather than a circle. */
+.mn-hero--band .mn-hero__ring,
+.mn-hero--band .mn-hero__ringglow { width: clamp(200px, 25vw, 310px); top: 46%; }
+
+.mn-hero__line { display: block; overflow: hidden; padding-bottom: .06em; }
+.mn-hero__w { display: inline-block; transform: translateY(1em); opacity: 0; }
+.mn-hero.is-in .mn-hero__w {
+  transition:
+    transform .62s var(--mn-ease-out) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms),
+    opacity   .62s var(--mn-ease-out) calc(var(--i) * 55ms + var(--l) * 90ms + 220ms);
+  transform: none; opacity: 1;
+}
+
+.mn-hero__note {
+  font-size: 13.5px; line-height: 1.75; color: var(--mn-text-2);
+  text-shadow: 0 1px 12px rgba(0,0,0,.65);
+  margin: 0; max-width: 36ch;
+  opacity: 0; transform: translateY(12px);
+}
+.mn-hero.is-in .mn-hero__note {
+  transition: opacity .8s var(--mn-ease) var(--mn-note-delay, .9s),
+              transform .8s var(--mn-ease) var(--mn-note-delay, .9s);
+  opacity: 1; transform: none;
+}
+
+/* A quiet cue that there is a page under this. It fades as you use it. */
+.mn-hero__scroll {
+  position: absolute; z-index: 4; left: 50%; translate: -50% 0;
+  bottom: clamp(10px, 2vh, 22px);
+  font-family: var(--mn-body); font-weight: 300;
+  font-size: 9.5px; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--mn-ash);
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: calc((1 - var(--mn-hero-p) * 3) * .9);
+  pointer-events: none;
+}
+.mn-hero__scroll::after {
+  content: ''; width: 1px; height: 26px;
+  background: linear-gradient(to bottom, var(--mn-ash), transparent);
+  animation: mn-scrollcue 2.4s var(--mn-ease) infinite;
+}
+@keyframes mn-scrollcue {
+  0%   { transform: scaleY(0); transform-origin: top;    opacity: 0; }
+  40%  { transform: scaleY(1); transform-origin: top;    opacity: 1; }
+  60%  { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+
+/* =============================================================
+   THE RIBBON — a silk cartouche carrying a struck medal
+   ─────────────────────────────────────────────────────────────
+   The reference is a black liquid-silk wave spanning the full width
+   with a chrome-ringed circular badge riding its centre. Rebuilt as
+   SVG rather than shipped as an image: stacked beziers with their
+   own gradients, each drifting at its own rate, so it is the width
+   of any viewport and takes its colour from the tokens.
+
+   It sits directly under the hero with a -1px margin and a
+   transparent background, so the ground runs straight through and
+   hero → ribbon → page reads as one continuous surface rather than
+   three stacked blocks.
+   ============================================================= */
+.mn-ribbon {
+  position: relative;
+  height: clamp(118px, 15.5vw, 176px);
+  margin-top: -1px;
+  background: transparent;
+  overflow: hidden;
+  isolation: isolate;
+}
+.mn-ribbon__svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mn-ribbon__band { will-change: transform; }
+
+/* TRANSITION B, layers 2 and 3. Each band already runs its own
+   endless translateX drift, so the parallax cannot share that
+   transform — it goes on a wrapper <g> and the drift keyframes stay
+   untouched. These lengths are SVG user units of the 180-unit
+   viewBox, not CSS pixels, and they hold the .55 : .40 ratio
+   (46 : 33 = 1.39). */
+.mn-ribbon__depth    { will-change: transform; }
+.mn-ribbon__depth--c { transform: translate(0, calc(var(--mn-join-p) * 46px)); }
+.mn-ribbon__depth--a,
+.mn-ribbon__depth--b { transform: translate(0, calc(var(--mn-join-p) * 33px)); }
+.mn-ribbon__band--a { animation: mn-drift-a 36s ease-in-out infinite alternate; }
+.mn-ribbon__band--b { animation: mn-drift-b 46s ease-in-out infinite alternate; }
+.mn-ribbon__band--c { animation: mn-drift-c 30s ease-in-out infinite alternate; }
+@keyframes mn-drift-a { from { transform: translateX(-1.5%); } to { transform: translateX(1.5%);  } }
+@keyframes mn-drift-b { from { transform: translateX(2%);    } to { transform: translateX(-2%);   } }
+@keyframes mn-drift-c { from { transform: translateX(-1%);   } to { transform: translateX(2.5%);  } }
+
+/* =============================================================
+   THE MEDALLION — the signature element
+   ─────────────────────────────────────────────────────────────
+   The day's one decision, struck as a medal and set in the middle of
+   the ribbon so it cannot be scrolled past. A double ring, the level
+   in Italiana caps, and the date engraved around the circumference
+   on a real SVG text path.
+
+   Its three states are TEMPERATURES, not a quality ladder:
+     HOT  amber   HIGH — the day you spend
+     WARM gold    MID  — the day you hold
+     COOL sage    LOW  — the day you keep
+
+   LOW is cool because it is conserving, not because it is lesser.
+   Do not give it a red, an amber-on-grey, or a smaller ring.
+   ============================================================= */
+.mn-medal {
+  position: absolute; z-index: 2;
+  left: 50%; top: 50%;
+  /* TRANSITION B, layer 4 — the near plane, which barely moves. It
+     rides the `translate` property because `transform` belongs to the
+     hover scale; stacking translate(-50%,-50%) into transform here
+     would jump the medal a full half-width. */
+  translate: -50% calc(-50% + var(--mn-join-p) * var(--mn-join-t) * .10);
+  width: clamp(112px, 13vw, 152px); aspect-ratio: 1;
+  border-radius: 50%;
+  appearance: none; border: 0; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 50% 30%, rgba(58,40,24,.97), rgba(11,8,6,.99) 74%);
+  color: var(--mn-bone);
+  display: grid; place-items: center;
+  box-shadow:
+    0 0 0 1px var(--mn-tone, var(--mn-gold)),
+    0 0 0 7px rgba(14,10,7,.86),
+    0 0 0 8px color-mix(in srgb, var(--mn-tone, var(--mn-gold)) 34%, transparent),
+    0 20px 52px -14px rgba(0,0,0,.92),
+    inset 0 1px 0 rgba(232,220,196,.14);
+  transition: scale .26s var(--mn-ease), box-shadow .26s var(--mn-ease);
+}
+.mn-medal[data-level='high'] { --mn-tone: var(--mn-hot); }
+.mn-medal[data-level='mid']  { --mn-tone: var(--mn-warm); }
+.mn-medal[data-level='low']  { --mn-tone: var(--mn-cool); }
+/* Not yet answered. The ring is dashed rather than absent, so the
+   medal reads as waiting for you rather than as broken. */
+.mn-medal[data-chosen='false'] {
+  --mn-tone: var(--mn-text-3);
+  box-shadow:
+    0 0 0 7px rgba(14,10,7,.86),
+    0 0 0 8px rgba(232,220,196,.16),
+    0 20px 52px -14px rgba(0,0,0,.92);
+}
+.mn-medal:hover  { scale: 1.05; }
+.mn-medal:active { scale: 1.01; }
+
+.mn-medal__face { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mn-medal__lead {
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 8.5px; letter-spacing: .24em; text-transform: uppercase;
+  color: var(--mn-text-3);
+}
+.mn-medal__main {
+  font-family: var(--mn-plate); font-weight: 400;
+  font-size: clamp(17px, 2.1vw, 24px); letter-spacing: .14em;
+  text-transform: uppercase; line-height: 1;
+  color: var(--mn-tone, var(--mn-gold));
+  text-indent: .14em;
+}
+/* The date, engraved over the top of the rim on a real circular
+   textPath — tracking along an arc is the one thing absolute
+   positioning cannot fake at every viewport width. */
+.mn-medal__rim { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.mn-medal__rim text,
+.mn-medal__rimtext {
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 6.6px; letter-spacing: .3em; text-transform: uppercase;
+  fill: var(--mn-text-3);
+}
+.mn-medal:hover .mn-medal__rim text,
+.mn-medal:hover .mn-medal__rimtext { fill: var(--mn-tone, var(--mn-gold)); }
+
+/* =============================================================
+   HERO + RIBBON — PHONE
+   Every parallax ratio is halved here, and the stage/cols headroom
+   with it. 719, not 720: main-hero.js's own media query is
+   (max-width: 719px) and the two must match exactly or a
+   desktop-sized hero renders poster-only at 720.
+   ============================================================= */
+@media (max-width: 719px) {
+  .mn-hero--full { min-height: 88svh; }
+  .mn-hero--band { min-height: 300px; }
+  .mn-hero__in { padding-top: 88px; padding-bottom: var(--mn-5); }
+  .mn-hero__copy { grid-template-columns: 1fr; align-items: start; gap: var(--mn-4); }
+  .mn-hero__note { max-width: none; }
+  .mn-hero__rail { display: none; }
+  .mn-hero__date { display: none; }
+  .mn-hero__ring, .mn-hero__ringglow { width: clamp(215px, 64vw, 330px); top: 37%; }
+  .mn-hero__cols {
+    background: repeating-linear-gradient(to right,
+      transparent 0 calc(100% / 3 - 1px),
+      rgba(232,220,196,.045) calc(100% / 3 - 1px) calc(100% / 3));
+  }
+
+  .mn-hero__stage { top: calc(-0.35 * var(--mn-hero-h)); transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .35), 0) scale(calc(1 + var(--mn-hero-p) * 0.08)); }
+  .mn-hero__l2    { transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .275), 0); }
+  .mn-hero__cols  { top: calc(-0.20 * var(--mn-hero-h)); transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .20), 0); }
+  .mn-hero__copy  { transform: translate3d(0, calc(var(--mn-hero-p) * var(--mn-hero-h) * .05), 0); }
+
+  .mn-ribbon { height: clamp(96px, 26vw, 128px); }
+  .mn-medal  { width: clamp(96px, 30vw, 118px); }
+}
+
+/* =============================================================
+   PAGE SHELL
+   ─────────────────────────────────────────────────────────────
+   The hero is full-bleed; everything after it is measured. One
+   container, one gutter, and sections separated by space and a
+   ruled line rather than by boxes inside boxes.
+   ============================================================= */
+.mn-shell {
+  position: relative; z-index: 1;
+  max-width: var(--mn-measure);
+  margin: 0 auto;
+  padding: 0 var(--mn-gutter) var(--mn-8);
+}
+
+/* The first section after the ribbon is TRANSITION B's layer 4 — the
+   near plane. It barely moves, which is exactly what closes the join:
+   the ground travels most, the ribbon's bands next, and the page
+   itself last, so the three surfaces arrive as one. */
+.mn-shell > .mn-section:first-child {
+  transform: translate3d(0, calc(var(--mn-join-p) * var(--mn-join-t) * .10), 0);
+  will-change: transform;
+}
+
+.mn-section { padding-top: var(--mn-7); }
+.mn-section__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--mn-4); flex-wrap: wrap;
+  margin-bottom: var(--mn-2);
+}
+.mn-section__head + .mn-rule { margin-bottom: var(--mn-5); }
+.mn-section__aside { display: flex; align-items: center; gap: var(--mn-3); flex-wrap: wrap; }
+.mn-section__sub { margin-top: var(--mn-2); }
+
+.mn-stack { display: flex; flex-direction: column; gap: var(--mn-4); }
+.mn-stack--tight { gap: var(--mn-2); }
+.mn-row { display: flex; align-items: center; gap: var(--mn-3); flex-wrap: wrap; }
+.mn-row--between { justify-content: space-between; }
+.mn-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--mn-4); }
+.mn-grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: var(--mn-4); }
+
+/* =============================================================
+   SURFACES — three genuine planes
+   A card is not the page with a border on it, and a floating thing
+   is not a card with a bigger shadow. Base sits on the ground,
+   raised lifts off it, floating leaves it entirely.
+   ============================================================= */
+.mn-card {
+  position: relative;
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius);
+  padding: var(--mn-5);
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+}
+.mn-card--raised {
+  background: var(--mn-surface-2);
+  border-color: var(--mn-hair);
+  box-shadow: 0 18px 44px -26px rgba(0,0,0,.9), inset 0 1px 0 rgba(232,220,196,.06);
+}
+.mn-card--quiet { background: transparent; border-color: var(--mn-hair-soft); }
+.mn-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--mn-3); margin-bottom: var(--mn-4); flex-wrap: wrap; }
+
+/* =============================================================
+   ENGRAVED ORNAMENTS
+   Line-engraving, per the brand reference: hairline strokes on
+   black, never a filled glyph and never an emoji. currentColor
+   throughout, so an ornament takes the temperature of whatever it
+   marks rather than carrying a colour of its own.
+   ============================================================= */
+.mn-icon {
+  width: 1em; height: 1em; flex: none;
+  display: inline-block; vertical-align: -.12em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mn-icon--lg { width: 1.5em; height: 1.5em; stroke-width: .9; }
+
+/* =============================================================
+   CONTROLS
+   Every clickable thing has hover, focus-visible and active. No
+   exceptions, and nothing animates a property that costs layout.
+   ============================================================= */
+.mn-btn {
+  appearance: none;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--mn-text);
+  background: transparent;
+  border: 1px solid var(--mn-hair);
+  border-radius: 999px;
+  padding: 10px var(--mn-4);
+  min-height: 40px;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--mn-2);
+  cursor: pointer;
+  transition: color .22s var(--mn-ease), border-color .22s var(--mn-ease),
+              background-color .22s var(--mn-ease), transform .18s var(--mn-ease);
+}
+.mn-btn:hover { color: var(--mn-bone); border-color: var(--mn-gold); background: rgba(201,154,82,.09); }
+.mn-btn:active { transform: translateY(1px); }
+.mn-btn--primary {
+  color: var(--mn-ink);
+  background: linear-gradient(180deg, var(--mn-amber), var(--mn-gold));
+  border-color: transparent;
+  font-weight: 500;
+}
+.mn-btn--primary:hover { color: var(--mn-ink); background: linear-gradient(180deg, #E7BC77, var(--mn-amber)); }
+.mn-btn--ghost { border-color: transparent; color: var(--mn-text-2); }
+.mn-btn--ghost:hover { border-color: var(--mn-hair); }
+.mn-btn--sm { font-size: 10.5px; padding: 6px var(--mn-3); min-height: 32px; }
+.mn-btn--icon { width: 40px; padding: 0; }
+.mn-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+.mn-chip {
+  appearance: none;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--mn-text-2);
+  background: transparent;
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: 999px;
+  padding: 6px var(--mn-3);
+  min-height: 32px;
+  cursor: pointer;
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.mn-chip:hover { color: var(--mn-bone); border-color: var(--mn-hair); }
+.mn-chip[aria-pressed="true"],
+.mn-chip.is-on { color: var(--mn-ink); background: var(--mn-gold); border-color: var(--mn-gold); }
+
+/* --- fields ------------------------------------------------------
+   16px minimum on phones is enforced in the phone block below, not
+   here — under 16px iOS Safari zooms the viewport on focus and never
+   zooms back out. */
+.mn-field { display: flex; flex-direction: column; gap: var(--mn-2); }
+.mn-field > .mn-label { margin-bottom: 0; }
+
+.mn-input, .mn-textarea, .mn-select {
+  width: 100%;
+  font-family: var(--mn-body); font-weight: 300;
+  font-size: 15px; line-height: 1.6;
+  color: var(--mn-text);
+  /* Without this, a date/time input paints the browser's own light
+     widget chrome — a white clock face and a black spinner — inside an
+     otherwise near-black field. It is the one control whose insides
+     the page cannot reach any other way. */
+  color-scheme: dark;
+  background: rgba(11,8,6,.5);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm);
+  padding: 10px var(--mn-3);
+  transition: border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.mn-textarea { resize: vertical; min-height: 90px; }
+.mn-input:hover, .mn-textarea:hover, .mn-select:hover { border-color: var(--mn-hair); }
+.mn-input:focus, .mn-textarea:focus, .mn-select:focus {
+  outline: none; border-color: var(--mn-gold); background: rgba(11,8,6,.72);
+}
+.mn-input::placeholder, .mn-textarea::placeholder { color: var(--mn-text-3); }
+
+/* An inline-editable line that looks like type until you touch it.
+   The whole page is editable, and a page full of visible input boxes
+   would read as a form rather than as a book. */
+.mn-edit {
+  border: 1px solid transparent;
+  border-radius: var(--mn-radius-sm);
+  padding: 3px 6px; margin: -3px -6px;
+  transition: background-color .2s var(--mn-ease), border-color .2s var(--mn-ease);
+}
+.mn-edit:hover { background: rgba(232,220,196,.045); border-color: var(--mn-hair-soft); }
+.mn-edit:focus { outline: none; background: rgba(11,8,6,.6); border-color: var(--mn-gold); }
+.mn-edit:empty::before { content: attr(data-placeholder); color: var(--mn-text-3); }
+
+/* --- the checkbox -------------------------------------------------
+   Engraved: a hairline square and a drawn check, not a filled box.
+   NEUTRAL when unchecked, gold when done. It is deliberately NOT
+   sage — sage is reserved for things that belong to the future, and
+   an unticked box is merely undone. If every unchecked control ran
+   cool, the one hue that carries meaning would carry none. */
+.mn-check {
+  appearance: none; flex: none;
+  width: 21px; height: 21px;
+  border: 1px solid var(--mn-ash);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: border-color .22s var(--mn-ease), background-color .22s var(--mn-ease);
+}
+.mn-check:hover { border-color: var(--mn-gold); }
+.mn-check::after {
+  content: "";
+  position: absolute; left: 6px; top: 2px;
+  width: 6px; height: 11px;
+  border: solid var(--mn-ink);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(42deg) scale(.4);
+  opacity: 0;
+  transition: opacity .18s var(--mn-ease), transform .22s var(--mn-ease-out);
+}
+.mn-check:checked { background: var(--mn-gold); border-color: var(--mn-gold); }
+.mn-check:checked::after { opacity: 1; transform: rotate(42deg) scale(1); }
+
+/* The hit target around a 21px box has to be finger-sized. */
+.mn-check-row {
+  display: flex; align-items: flex-start; gap: var(--mn-3);
+  min-height: 44px; padding: var(--mn-2) 0;
+}
+.mn-check-row__text { flex: 1; min-width: 0; padding-top: 1px; }
+.mn-check-row.is-done .mn-check-row__text {
+  color: var(--mn-text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--mn-ash);
+}
+
+/* =============================================================
+   THE EFFORT CARD
+   ─────────────────────────────────────────────────────────────
+   Three options, three temperatures, all the same size. The sizing
+   matters as much as the colour: a smaller or dimmer LOW card would
+   say "the lesser option" no matter what the copy underneath it
+   claims, and the whole point is that LOW is the version of the day
+   you can actually keep. Nothing derived may penalise a level.
+   ============================================================= */
+.mn-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: var(--mn-3); }
+
+.mn-level {
+  appearance: none; text-align: left; cursor: pointer;
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius);
+  padding: var(--mn-4);
+  display: flex; flex-direction: column; gap: var(--mn-2);
+  color: var(--mn-text-2);
+  transition: border-color .24s var(--mn-ease), background-color .24s var(--mn-ease), transform .2s var(--mn-ease);
+}
+.mn-level[data-level="high"] { --mn-tone: var(--mn-hot); }
+.mn-level[data-level="mid"]  { --mn-tone: var(--mn-warm); }
+.mn-level[data-level="low"]  { --mn-tone: var(--mn-cool); }
+
+.mn-level:hover { border-color: color-mix(in srgb, var(--mn-tone) 50%, transparent); transform: translateY(-2px); }
+.mn-level[aria-pressed="true"] {
+  border-color: var(--mn-tone);
+  background: color-mix(in srgb, var(--mn-tone) 9%, var(--mn-surface-2));
+  color: var(--mn-text);
+}
+/* Resolved but never actually answered — Pal.getLevel() defaults to
+   HIGH, so without this the card would claim a choice the reader
+   never made. A dashed edge says "this is where we landed", not
+   "this is what you picked". */
+.mn-level[aria-pressed="true"][data-chosen="false"] {
+  border-style: dashed;
+  background: var(--mn-surface);
+}
+
+.mn-level__name {
+  font-family: var(--mn-plate); font-size: 20px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--mn-tone); text-indent: .2em;
+}
+.mn-level__title { font-family: var(--mn-display); font-size: 19px; font-weight: 400; color: var(--mn-text); line-height: 1.2; }
+.mn-level__mins { font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--mn-text-3); }
+.mn-level__blurb { font-size: 13.5px; line-height: 1.65; color: var(--mn-text-2); }
+.mn-level__when { font-size: 12.5px; line-height: 1.55; color: var(--mn-text-3); font-style: italic; }
+
+/* =============================================================
+   ROUTINE STEPS
+   ─────────────────────────────────────────────────────────────
+   The numerals are earned here: a morning routine IS an ordered
+   sequence and the order carries information the reader needs. They
+   are not applied anywhere the content is merely a list.
+   ============================================================= */
+.mn-steps { display: flex; flex-direction: column; }
+
+.mn-step { border-top: 1px solid var(--mn-hair-soft); padding: var(--mn-4) 0; }
+.mn-step:last-child { border-bottom: 1px solid var(--mn-hair-soft); }
+.mn-step__top { display: flex; align-items: flex-start; gap: var(--mn-3); }
+.mn-step__n {
+  font-family: var(--mn-display); font-weight: 300;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+  font-size: 22px; line-height: 1.1; color: var(--mn-text-3);
+  width: 1.6em; flex: none; padding-top: 1px;
+}
+.mn-step__main { flex: 1; min-width: 0; }
+.mn-step__title { font-family: var(--mn-display); font-weight: 400; font-size: 21px; line-height: 1.25; color: var(--mn-text); }
+.mn-step__note { font-size: 13.5px; line-height: 1.65; color: var(--mn-text-2); margin-top: 3px; }
+.mn-step__meta { display: flex; align-items: center; gap: var(--mn-3); flex-wrap: wrap; margin-top: var(--mn-2); }
+/* The clock time the wake-time engine computes for this step. */
+.mn-step__time {
+  font-family: var(--mn-body); font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px; letter-spacing: .16em; color: var(--mn-gold);
+}
+.mn-step__dur { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--mn-text-3); }
+.mn-step.is-done .mn-step__title { color: var(--mn-text-3); }
+.mn-step.is-done .mn-step__n { color: var(--mn-gold); }
+
+.mn-step__body { margin: var(--mn-4) 0 0 calc(1.6em + var(--mn-3)); }
+.mn-step__body[hidden] { display: none; }
+
+/* --- the recitation lock boxes ------------------------------------
+   Thirty days, one box each. THIS is where sage belongs: a box you
+   have not reached yet is literally the future tense. Filled boxes
+   run gold, today's box is ringed, and the days ahead are cool. */
+.mn-lock { display: flex; flex-wrap: wrap; gap: 5px; }
+.mn-lockbox {
+  appearance: none; cursor: pointer;
+  width: 17px; height: 17px; border-radius: 3px; padding: 0;
+  border: 1px solid var(--mn-hair-cool);
+  background: transparent;
+  transition: background-color .2s var(--mn-ease), border-color .2s var(--mn-ease), transform .18s var(--mn-ease);
+}
+.mn-lockbox:hover { transform: scale(1.15); border-color: var(--mn-sage-2); }
+.mn-lockbox[data-state="done"] { background: var(--mn-gold); border-color: var(--mn-gold); }
+.mn-lockbox[data-state="today"] { border-color: var(--mn-amber); box-shadow: 0 0 0 2px rgba(217,169,97,.24); }
+.mn-lockbox[data-state="miss"] { background: rgba(201,122,107,.22); border-color: rgba(201,122,107,.5); }
+
+/* =============================================================
+   SHEETS — the layer-2 detail surface
+   ============================================================= */
+.mn-sheetbg {
+  position: fixed; inset: 0; z-index: 2400;
+  background: rgba(6,4,3,.76);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--mn-4);
+  opacity: 0; pointer-events: none;
+  transition: opacity .26s var(--mn-ease);
+}
+.mn-sheetbg.is-open { opacity: 1; pointer-events: auto; }
+.mn-sheet {
+  width: min(720px, 100%);
+  max-height: min(86vh, 900px);
+  overflow-y: auto;
+  background: var(--mn-float);
+  border: 1px solid var(--mn-hair);
+  border-radius: var(--mn-radius);
+  padding: var(--mn-5);
+  box-shadow: 0 40px 90px -30px rgba(0,0,0,.95);
+  transform: translateY(14px) scale(.985);
+  transition: transform .3s var(--mn-ease-out);
+}
+.mn-sheet--wide { width: min(1020px, 100%); }
+.mn-sheetbg.is-open .mn-sheet { transform: none; }
+.mn-sheet__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mn-4); margin-bottom: var(--mn-4); }
+.mn-sheet__actions { display: flex; justify-content: flex-end; gap: var(--mn-2); margin-top: var(--mn-5); flex-wrap: wrap; }
+
+/* =============================================================
+   MISC
+   ============================================================= */
+.mn-empty {
+  border: 1px dashed var(--mn-hair-soft);
+  border-radius: var(--mn-radius);
+  padding: var(--mn-6) var(--mn-4);
+  text-align: center;
+  color: var(--mn-text-3);
+}
+.mn-toast {
+  position: fixed; left: 50%; bottom: 24px; translate: -50% 0; z-index: 3000;
+  background: var(--mn-float); color: var(--mn-text);
+  border: 1px solid var(--mn-hair);
+  border-radius: 999px; padding: 10px var(--mn-4);
+  font-size: 13px;
+  box-shadow: 0 18px 44px -18px rgba(0,0,0,.9);
+  opacity: 0; pointer-events: none;
+  transition: opacity .24s var(--mn-ease), translate .24s var(--mn-ease);
+}
+.mn-toast.is-on { opacity: 1; translate: -50% -6px; }
+.mn-toast--bad { border-color: rgba(201,122,107,.6); }
+
+.mn-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* =============================================================
+   THE INHERITED SURFACE — Self-Care's `.bs-*` / `.sci-*` classes
+   ─────────────────────────────────────────────────────────────
+   Self-Care is kept exactly as it behaves and is restyled only. Its
+   ~680 lines of renderer emit `.bs-card`, `.bs-tab`, `.bs-tag` and
+   friends by name, and one of its own switchers queries
+   `[data-mainpanel="selfcare"] .bs-panel` directly — so these class
+   names are load-bearing and are RESTYLED IN PLACE rather than
+   renamed. Renaming them would mean editing the renderer, which is
+   the one thing "unchanged behaviour" rules out.
+
+   The alias layer below is why that is cheap: the ported CSS already
+   resolved every value through --bg-card / --text-* / --border /
+   --accent, so re-pointing those at the --mn-* ladder retints the
+   whole set at once. Where a shape (not just a colour) is wrong for
+   the new system — the bold 700 weights, the tight type — the rule
+   is restated underneath.
+   ============================================================= */
+body.mn {
+  --bg-card:       var(--mn-surface);
+  --bg-card-hover: var(--mn-surface-2);
+  --text-primary:   var(--mn-text);
+  --text-secondary: var(--mn-text-2);
+  --text-tertiary:  var(--mn-text-3);
+  --border:        var(--mn-hair-soft);
+  --good: var(--mn-good); --warn: var(--mn-warn); --bad: var(--mn-bad);
+  --accent:        var(--mn-gold);
+  --accent-bright: var(--mn-amber);
+  --accent-tint:   rgba(201,154,82,.13);
+  --accent-text:   var(--mn-ink);
+  --font:        var(--mn-body);
+  --font-serif:  var(--mn-display);
+  --radius-lg: var(--mn-radius);
+  --radius-md: var(--mn-radius-sm);
+  --radius-sm: 7px;
+}
+
+/* --- tabs: Today | Self-Care ---------------------------------------
+   The plate face, because these are the page's two title cards, not
+   navigation chrome. Underline rather than a pill: a pill would be a
+   third button shape on a page that already has two. */
+.mn-tabs {
+  display: flex; align-items: center; gap: var(--mn-5); flex-wrap: wrap;
+  border-bottom: 1px solid var(--mn-hair-soft);
+  margin: 0 0 var(--mn-5);
+}
+.mn-tab {
+  appearance: none; background: none; border: 0;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--mn-3) 2px;
+  font-family: var(--mn-plate); font-size: 15px;
+  letter-spacing: .22em; text-transform: uppercase; text-indent: .22em;
+  color: var(--mn-text-3);
+  cursor: pointer;
+  transition: color .22s var(--mn-ease), border-color .22s var(--mn-ease);
+}
+.mn-tab:hover { color: var(--mn-text-2); }
+.mn-tab.active { color: var(--mn-bone); border-bottom-color: var(--mn-gold); }
+.mn-tabpanel { display: none; }
+.mn-tabpanel.active { display: block; }
+@media (max-width: 560px) {
+  .mn-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; gap: var(--mn-4); }
+  .mn-tab { flex-shrink: 0; }
+}
+
+/* --- Self-Care's own sub-tabs and toolbar --------------------------- */
+.bs-toolbar-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--mn-2); flex-wrap: wrap; padding: 0 0 var(--mn-3); }
+.bs-sync-status { font-size: 10.5px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--mn-text-3); display: flex; align-items: center; gap: 6px; margin-right: auto; }
+.bs-sync-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--mn-text-3); flex-shrink: 0; }
+.bs-sync-status.is-saved .bs-sync-status-dot { background: var(--mn-good); }
+.bs-sync-status.is-saved { color: var(--mn-text-2); }
+.bs-sync-status.is-error, .bs-sync-status.is-offline { color: var(--mn-bad); }
+.bs-sync-status.is-error .bs-sync-status-dot,
+.bs-sync-status.is-offline .bs-sync-status-dot { background: var(--mn-bad); animation: bs-sync-pulse 1.4s ease-in-out infinite; }
+@keyframes bs-sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+.bs-tabs-row {
+  display: flex; align-items: center; gap: var(--mn-4); flex-wrap: wrap;
+  border-bottom: 1px solid var(--mn-hair-soft);
+  margin-bottom: var(--mn-5);
+}
+.bs-tab {
+  background: none; border: 0; border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  padding: 10px 2px;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mn-text-3); cursor: pointer;
+  transition: color .22s var(--mn-ease), border-color .22s var(--mn-ease);
+}
+.bs-tab:hover { color: var(--mn-text-2); }
+.bs-tab.active { color: var(--mn-bone); border-bottom-color: var(--mn-gold); }
+.bs-panel { display: none; }
+.bs-panel.active { display: block; }
+
+.bs-subnav { display: flex; gap: var(--mn-2); flex-wrap: wrap; margin-bottom: var(--mn-4); }
+.bs-subchip {
+  background: transparent; border: 1px solid var(--mn-hair-soft); border-radius: 999px;
+  padding: 6px var(--mn-3); min-height: 32px;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--mn-text-2); cursor: pointer;
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.bs-subchip:hover { color: var(--mn-bone); border-color: var(--mn-hair); }
+.bs-subchip.active { background: var(--mn-gold); color: var(--mn-ink); border-color: var(--mn-gold); }
+.bs-subpanel { display: none; }
+.bs-subpanel.active { display: block; }
+
+/* --- buttons: the same three roles as .mn-btn, under the old names -- */
+.bs-btn-primary, .bs-btn-secondary, .bs-btn-ghost {
+  border-radius: 999px; padding: 9px var(--mn-4); min-height: 38px;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: color .22s var(--mn-ease), border-color .22s var(--mn-ease), background-color .22s var(--mn-ease), transform .18s var(--mn-ease);
+}
+.bs-btn-primary { background: linear-gradient(180deg, var(--mn-amber), var(--mn-gold)); color: var(--mn-ink); font-weight: 500; }
+.bs-btn-primary:hover { background: linear-gradient(180deg, #E7BC77, var(--mn-amber)); }
+.bs-btn-secondary { background: transparent; color: var(--mn-text); border-color: var(--mn-hair); }
+.bs-btn-secondary:hover { border-color: var(--mn-gold); background: rgba(201,154,82,.09); }
+.bs-btn-ghost { background: transparent; color: var(--mn-text-2); border-color: transparent; }
+.bs-btn-ghost:hover { color: var(--mn-bone); border-color: var(--mn-hair); }
+.bs-btn-primary:active, .bs-btn-secondary:active, .bs-btn-ghost:active { transform: translateY(1px); }
+.bs-btn-sm { padding: 5px var(--mn-3); min-height: 30px; font-size: 10.5px; }
+
+/* --- sections ------------------------------------------------------- */
+.bs-section { margin-bottom: var(--mn-6); }
+.bs-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mn-3); flex-wrap: wrap; margin-bottom: var(--mn-1); }
+.bs-section-title { font-family: var(--mn-display); font-weight: 400; font-size: 25px; line-height: 1.24; color: var(--mn-text); }
+.bs-section-sub { font-size: 13px; color: var(--mn-text-2); margin-top: 4px; line-height: 1.65; max-width: 64ch; }
+.bs-section-actions { display: flex; gap: var(--mn-2); flex-wrap: wrap; }
+.bs-callout {
+  background: var(--mn-surface); border: 1px solid var(--mn-hair-soft);
+  border-left: 2px solid var(--mn-gold); border-radius: var(--mn-radius-sm);
+  padding: var(--mn-3) var(--mn-4); font-size: 13px; color: var(--mn-text-2); line-height: 1.65; margin: var(--mn-4) 0;
+}
+.bs-callout strong { color: var(--mn-text); font-weight: 500; }
+.bs-empty { font-size: 13px; color: var(--mn-text-3); font-style: italic; padding: var(--mn-3) 2px; }
+.rt-hint { font-size: 11.5px; color: var(--mn-text-3); line-height: 1.6; margin: var(--mn-2) 0 0; }
+
+/* --- list cards ------------------------------------------------------ */
+.bs-list { display: flex; flex-direction: column; gap: var(--mn-2); margin-top: var(--mn-4); }
+.bs-card {
+  background: var(--mn-surface);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
+  border: 1px solid var(--mn-hair-soft); border-radius: var(--mn-radius-sm);
+  padding: var(--mn-3) var(--mn-4);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: background-color .22s var(--mn-ease), border-color .22s var(--mn-ease);
+}
+.bs-card:hover { background: var(--mn-surface-2); border-color: var(--mn-hair); }
+.bs-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mn-2); }
+.bs-card-title-wrap { display: flex; align-items: center; gap: var(--mn-2); flex-wrap: wrap; min-width: 0; }
+.bs-card-title { font-family: var(--mn-display); font-weight: 400; font-size: 18px; line-height: 1.3; color: var(--mn-text); word-break: break-word; }
+.bs-card-body { font-size: 13px; color: var(--mn-text-2); line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.bs-card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.bs-icon-btn {
+  background: transparent; border: 0; color: var(--mn-text-3);
+  font-size: 13px; line-height: 1; cursor: pointer;
+  min-width: 32px; min-height: 32px; padding: 5px 7px; border-radius: 6px;
+  transition: color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.bs-icon-btn:hover { color: var(--mn-bone); background: rgba(232,220,196,.07); }
+.bs-icon-btn.is-del:hover { color: var(--mn-bad); background: rgba(201,122,107,.12); }
+.bs-icon-btn.is-star { color: var(--mn-text-3); }
+.bs-icon-btn.is-star.is-active { color: var(--mn-amber); }
+
+.bs-tag {
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px;
+  background: transparent; color: var(--mn-text-2); border: 1px solid var(--mn-hair-soft);
+  white-space: nowrap;
+}
+.bs-tag.is-accent { background: var(--accent-tint); color: var(--mn-amber); border-color: var(--mn-hair); }
+.bs-tag.is-good { background: rgba(143,191,159,.13); color: var(--mn-good); border-color: rgba(143,191,159,.3); }
+.bs-tag.is-warn { background: rgba(217,169,97,.13); color: var(--mn-amber); border-color: rgba(217,169,97,.3); }
+.bs-tag.is-bad { background: rgba(201,122,107,.13); color: var(--mn-bad); border-color: rgba(201,122,107,.3); }
+.bs-tag-btn { cursor: pointer; }
+.bs-mva { font-size: 12.5px; color: var(--mn-text-3); font-style: italic; }
+.bs-mva strong { color: var(--mn-text-2); font-style: normal; font-weight: 500; }
+
+.bs-note-card { gap: var(--mn-1); }
+.bs-note-title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--mn-2); }
+.bs-note-title-input {
+  flex: 1; min-width: 0; background: transparent; border: 0;
+  font-family: var(--mn-display); font-weight: 400; font-size: 18px;
+  color: var(--mn-text); padding: 2px 0;
+}
+.bs-note-title-input:focus { outline: none; }
+.bs-note-body-input {
+  width: 100%; background: transparent; border: 0; resize: none; overflow: hidden;
+  font-family: var(--mn-body); font-weight: 300; font-size: 13.5px; line-height: 1.7;
+  color: var(--mn-text-2); padding: 4px 0 0; min-height: 20px;
+}
+.bs-note-body-input:focus { outline: none; }
+.bs-note-body-input::placeholder { color: var(--mn-text-3); }
+
+.bs-quickadd-row { display: flex; gap: var(--mn-2); flex-wrap: wrap; align-items: flex-end; }
+.bs-quickadd-row input {
+  width: 100%; background: rgba(11,8,6,.5); border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm); padding: 9px var(--mn-3);
+  font-family: var(--mn-body); font-weight: 300; font-size: 15px;
+  margin-top: 6px; color: var(--mn-text);
+  transition: border-color .2s var(--mn-ease);
+}
+.bs-quickadd-row input:focus { outline: none; border-color: var(--mn-gold); }
+.bs-quickadd-row input::placeholder { color: var(--mn-text-3); }
+
+/* --- modals (Self-Care's meditation / breathwork / pacer) ------------ */
+.modal-bg {
+  display: none; position: fixed; inset: 0; z-index: 2400;
+  background: rgba(6,4,3,.76);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+  align-items: center; justify-content: center; padding: var(--mn-4);
+}
+.modal-bg.show { display: flex; }
+.modal {
+  background: var(--mn-float);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3); backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid var(--mn-hair); border-radius: var(--mn-radius);
+  padding: var(--mn-5); width: 100%; max-width: 520px; max-height: 86vh; overflow-y: auto;
+  box-shadow: 0 40px 90px -30px rgba(0,0,0,.95);
+}
+.bs-modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--mn-3); margin-bottom: var(--mn-4); }
+.bs-modal-head h3 { font-family: var(--mn-display); font-weight: 400; font-size: 24px; color: var(--mn-text); margin: 0; }
+.bs-modal-close {
+  background: transparent; border: 0; font-size: 17px; color: var(--mn-text-3);
+  cursor: pointer; min-width: 36px; min-height: 36px; border-radius: 6px;
+  transition: color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.bs-modal-close:hover { color: var(--mn-bone); background: rgba(232,220,196,.07); }
+
+.field { margin-bottom: var(--mn-3); }
+.field label {
+  display: block; font-family: var(--mn-body); font-weight: 400;
+  font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mn-text-3); margin-bottom: 6px;
+}
+.field input, .field select, .field textarea {
+  width: 100%; border: 1px solid var(--mn-hair-soft);
+  background: rgba(11,8,6,.5); border-radius: var(--mn-radius-sm);
+  padding: 10px var(--mn-3);
+  font-family: var(--mn-body); font-weight: 300; font-size: 15px; line-height: 1.6;
+  color: var(--mn-text);
+  transition: border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.field select { -webkit-appearance: none; appearance: none; color-scheme: dark; }
+.field textarea { resize: vertical; min-height: 84px; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--mn-gold); background: rgba(11,8,6,.72);
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--mn-text-3); }
+
+/* --- Self-Care's own shapes ----------------------------------------- */
+/* flex-direction is stated explicitly. A tip row is `bs-card
+   sci-check-row`, and .bs-card sets column — so `align-items: center`
+   was centring the text horizontally instead of aligning it to the
+   checkbox. That cascade predates the rebuild; the fix is a restyle,
+   which leaves the renderer untouched. */
+.sci-check-row {
+  display: flex; flex-direction: row; align-items: center;
+  gap: var(--mn-3); min-height: 44px; text-align: left;
+}
+.sci-check-row input[type="checkbox"] {
+  appearance: none; flex: none;
+  width: 21px; height: 21px; border-radius: 4px;
+  border: 1px solid var(--mn-ash); background: transparent;
+  cursor: pointer; position: relative;
+  transition: border-color .22s var(--mn-ease), background-color .22s var(--mn-ease);
+}
+.sci-check-row input[type="checkbox"]:hover { border-color: var(--mn-gold); }
+.sci-check-row input[type="checkbox"]::after {
+  content: ""; position: absolute; left: 6px; top: 2px;
+  width: 6px; height: 11px;
+  border: solid var(--mn-ink); border-width: 0 1.6px 1.6px 0;
+  transform: rotate(42deg) scale(.4); opacity: 0;
+  transition: opacity .18s var(--mn-ease), transform .22s var(--mn-ease-out);
+}
+.sci-check-row input[type="checkbox"]:checked { background: var(--mn-gold); border-color: var(--mn-gold); }
+.sci-check-row input[type="checkbox"]:checked::after { opacity: 1; transform: rotate(42deg) scale(1); }
+.sci-check-row.is-done .sci-check-text { text-decoration: line-through; text-decoration-color: var(--mn-ash); color: var(--mn-text-3); }
+.sci-check-text { flex: 1; font-size: 14.5px; line-height: 1.6; color: var(--mn-text); }
+
+.sci-med-meta, .sci-brw-meta { font-size: 12.5px; color: var(--mn-text-2); margin-top: 2px; }
+.sci-med-thumb { border-radius: var(--mn-radius-sm); border: 1px solid var(--mn-hair-soft); }
+.sci-db-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mn-6); }
+@media (max-width: 760px) { .sci-db-cols { grid-template-columns: 1fr; } }
+
+.sci-pacer-stage { display: flex; flex-direction: column; align-items: center; gap: var(--mn-4); padding: var(--mn-3) 0 var(--mn-1); }
+.sci-pacer-circle {
+  width: 168px; height: 168px; border-radius: 50%;
+  border: 1px solid var(--mn-gold);
+  background: radial-gradient(circle at 50% 40%, rgba(201,154,82,.16), rgba(11,8,6,.6) 72%);
+  box-shadow: 0 0 40px -10px rgba(201,154,82,.4);
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(.7); transition: transform 1s linear;
+}
+.sci-pacer-count { font-family: var(--mn-display); font-weight: 300; font-variant-numeric: lining-nums tabular-nums; font-size: 42px; color: var(--mn-bone); }
+.sci-pacer-phase { font-family: var(--mn-plate); font-size: 16px; color: var(--mn-amber); text-transform: uppercase; letter-spacing: .24em; text-indent: .24em; }
+.sci-pacer-cycle { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--mn-text-3); }
+
+/* =============================================================
+   THE MUSIC DOCK
+   ─────────────────────────────────────────────────────────────
+   palaestra-music.js is shared with the Fitness Studio and its
+   styling lives in palaestra-theme.css, which Main does not load and
+   must not edit. So Main re-declares the same components under a
+   `body.mn` scope. One JS file, two stylesheets, zero risk to
+   Palaestra.
+   ============================================================= */
+body.mn .pal-music {
+  position: fixed; right: 0; top: 0; bottom: 0; z-index: 2450;
+  width: min(400px, 92vw);
+  display: flex; flex-direction: column;
+  /* Opaque, not --mn-float. A full-height dock laid over a video hero
+     needs to be a surface, not a tint — at 94% the headline read
+     straight through it. */
+  background: #0E0A06;
+  border-left: 1px solid var(--mn-hair);
+  box-shadow: -30px 0 70px -30px rgba(0,0,0,.95);
+  transform: translateX(101%);
+  transition: transform .34s var(--mn-ease);
+  overflow: hidden;
+}
+body.mn .pal-music.is-open { transform: none; }
+body.mn .pal-music__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mn-3); padding: var(--mn-5) var(--mn-4) var(--mn-3); border-bottom: 1px solid var(--mn-hair-soft); }
+body.mn .pal-eyebrow { font-family: var(--mn-body); font-weight: 400; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--mn-gold); }
+body.mn .pal-h3 { font-family: var(--mn-display); font-weight: 400; font-size: 22px; color: var(--mn-text); }
+body.mn .pal-music__shelves,
+body.mn .pal-music__chips { display: flex; gap: 6px; flex-wrap: wrap; padding: var(--mn-3) var(--mn-4) 0; }
+body.mn .pal-music__shelves { border-bottom: 1px solid var(--mn-hair-soft); padding-bottom: var(--mn-3); }
+body.mn .pal-music__list { flex: 1; overflow-y: auto; padding: var(--mn-3) var(--mn-4); display: flex; flex-direction: column; gap: 2px; }
+body.mn .pal-music__player { border-top: 1px solid var(--mn-hair-soft); padding: var(--mn-3) var(--mn-4) calc(var(--mn-4) + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--mn-3); }
+body.mn .pal-music__now { display: flex; align-items: center; gap: var(--mn-3); min-width: 0; }
+body.mn .pal-music__stage { display: none; }
+body.mn .pal-music__stage.is-live { display: block; aspect-ratio: 16/9; border-radius: var(--mn-radius-sm); overflow: hidden; border: 1px solid var(--mn-hair-soft); }
+body.mn .pal-music__stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+body.mn .pal-music__controls { display: flex; align-items: center; justify-content: center; gap: var(--mn-4); }
+body.mn .pal-music__ctrl {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  color: var(--mn-text-2); font-size: 15px;
+  min-width: 44px; min-height: 44px; border-radius: 50%;
+  transition: color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+body.mn .pal-music__ctrl:hover { color: var(--mn-bone); background: rgba(232,220,196,.07); }
+body.mn .pal-music__ctrl--play { color: var(--mn-ink); background: var(--mn-gold); font-size: 17px; }
+body.mn .pal-music__ctrl--play:hover { color: var(--mn-ink); background: var(--mn-amber); }
+body.mn .pal-music__vol { width: 100%; accent-color: var(--mn-gold); }
+body.mn .pal-music__empty { color: var(--mn-text-3); font-size: 13px; padding: var(--mn-5) 0; text-align: center; }
+
+body.mn .pal-track {
+  display: flex; align-items: center; gap: var(--mn-3);
+  padding: var(--mn-2); border-radius: var(--mn-radius-sm);
+  cursor: pointer; border: 1px solid transparent; text-align: left;
+  background: transparent; width: 100%; min-height: 52px;
+  transition: background-color .2s var(--mn-ease), border-color .2s var(--mn-ease);
+}
+body.mn .pal-track:hover { background: rgba(232,220,196,.05); border-color: var(--mn-hair-soft); }
+body.mn .pal-track.is-playing { border-color: var(--mn-gold); background: rgba(201,154,82,.1); }
+body.mn .pal-track__cover { width: 42px; height: 42px; flex: none; border-radius: 6px; object-fit: cover; background: var(--mn-umber); display: grid; place-items: center; color: var(--mn-text-3); overflow: hidden; }
+body.mn .pal-track__cover img { width: 100%; height: 100%; object-fit: cover; }
+/* The renderer emits <span>s, so these have to be told to stack —
+   left inline they print the creator straight over the title. */
+body.mn .pal-track__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+body.mn .pal-track__title { display: block; font-size: 13.5px; color: var(--mn-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.mn .pal-track__sub { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--mn-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.mn .pal-track__pin { flex: none; color: var(--mn-text-3); font-size: 15px; padding: 0 4px; }
+body.mn .pal-track__pin[data-pinned="true"] { color: var(--mn-gold); }
+
+/* `hidden` has to win over a component's own display. Several controls
+   in the dock are toggled with the attribute and would otherwise stay
+   on screen — the "Open track" fallback link most visibly. */
+body.mn .pal-music [hidden] { display: none !important; }
+
+body.mn .pal-chip {
+  appearance: none; background: transparent; border: 1px solid var(--mn-hair-soft);
+  border-radius: 999px; padding: 5px var(--mn-3); min-height: 30px;
+  font-family: var(--mn-body); font-weight: 400; font-size: 10.5px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--mn-text-2); cursor: pointer;
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+body.mn .pal-chip:hover { color: var(--mn-bone); border-color: var(--mn-hair); }
+body.mn .pal-chip.is-on,
+body.mn .pal-chip[aria-pressed="true"] { background: var(--mn-gold); color: var(--mn-ink); border-color: var(--mn-gold); }
+/* A shelf with nothing on it is dimmed, not hidden — knowing the shelf
+   exists and is empty is more use than wondering where it went. */
+body.mn .pal-music__shelves .pal-chip[data-empty] { opacity: .42; }
+body.mn .pal-music__shelves .pal-chip[data-empty]:hover { opacity: .7; }
+
+body.mn .pal-btn {
+  appearance: none; background: transparent; border: 1px solid var(--mn-hair);
+  border-radius: 999px; color: var(--mn-text); cursor: pointer;
+  font-family: var(--mn-body); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+  padding: 8px var(--mn-3); min-height: 36px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+body.mn .pal-btn:hover { border-color: var(--mn-gold); background: rgba(201,154,82,.09); }
+body.mn .pal-btn--icon { width: 38px; padding: 0; }
+body.mn .pal-btn--ghost { border-color: transparent; color: var(--mn-text-2); }
+body.mn .pal-btn--sm { font-size: 10.5px; padding: 5px var(--mn-3); min-height: 30px; }
+
+/* The small per-row music button. */
+body.mn .pal-musicbtn {
+  appearance: none; background: transparent; border: 1px solid var(--mn-hair-soft);
+  color: var(--mn-text-3); cursor: pointer;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: inline-grid; place-items: center; font-size: 12px;
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease);
+}
+body.mn .pal-musicbtn:hover { color: var(--mn-gold); border-color: var(--mn-gold); }
+body.mn .pal-musicbtn[data-pinned="true"] { color: var(--mn-gold); border-color: var(--mn-hair); }
+
+/* The floating opener. Bottom-RIGHT: topbar.js owns the top-left
+   corner on every page and the bottom-left is where a phone's
+   back gesture lives. */
+body.mn .pal-fab {
+  position: fixed; z-index: 2300;
+  right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+  width: 52px; height: 52px; border-radius: 50%;
+  appearance: none; cursor: pointer;
+  background: var(--mn-float); color: var(--mn-gold);
+  border: 1px solid var(--mn-hair);
+  display: grid; place-items: center; font-size: 17px;
+  box-shadow: 0 16px 40px -14px rgba(0,0,0,.9);
+  transition: color .2s var(--mn-ease), border-color .2s var(--mn-ease), transform .2s var(--mn-ease);
+}
+body.mn .pal-fab:hover { color: var(--mn-amber); border-color: var(--mn-gold); transform: translateY(-2px); }
+body.mn .pal-fab:active { transform: none; }
+
+
+/* --- the rest of Self-Care's inherited surface ----------------------
+   Ten small classes its markup and renderer emit that the sections
+   above did not already cover. Same treatment: the shapes are the
+   originals, the values come from the --mn-* ladder. */
+.bs-modal-actions { display: flex; justify-content: flex-end; align-items: center; gap: var(--mn-2); margin-top: var(--mn-4); flex-wrap: wrap; }
+.rt-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mn-3); }
+.rt-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--mn-3); }
+
+.sci-med-url-row { display: flex; gap: var(--mn-2); }
+.sci-med-url-row input { flex: 1 1 auto; min-width: 0; }
+.sci-field-hint { font-size: 11.5px; color: var(--mn-text-3); line-height: 1.5; min-height: 1.3em; margin-top: 5px; }
+.sci-med-cover-row { display: flex; gap: var(--mn-3); align-items: flex-start; }
+.sci-med-cover-preview {
+  width: 76px; height: 76px; border-radius: var(--mn-radius-sm); object-fit: cover;
+  background: var(--mn-umber); border: 1px solid var(--mn-hair-soft);
+  flex-shrink: 0; display: none;
+}
+.sci-med-cover-controls { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--mn-2); min-width: 0; }
+.sci-med-cover-controls input { width: 100%; }
+.sci-med-upload-btn { display: inline-flex; align-items: center; justify-content: center; text-align: center; cursor: pointer; }
+.sci-med-thumb { width: 36px; height: 36px; border-radius: 7px; object-fit: cover; border: 1px solid var(--mn-hair-soft); flex-shrink: 0; }
+
+@media (max-width: 560px) {
+  .rt-grid2, .rt-grid3 { grid-template-columns: 1fr; }
+}
+
+/* =============================================================
+   FUTURE SELF
+   ─────────────────────────────────────────────────────────────
+   Layer 1 only. Everything here is what the page shows at rest;
+   the long bodies, full galleries and whole letters open into
+   .mn-sheet and need no styling of their own.
+
+   THE TEMPERATURE RULE DOES ITS REAL WORK HERE. "Now" runs bone,
+   "Then" runs sage; a kept standard runs gold, a refused one runs
+   cool. That is the only thing separating the two columns of
+   Becoming → Being, and it is enough — a percentage or a progress
+   bar there would turn a map into a scoreboard.
+   ============================================================= */
+
+/* --- the quote of the moment ---------------------------------- */
+.fs-quote { margin: 0; text-align: center; padding: var(--mn-5) 0 0; }
+.fs-quote__text {
+  font-family: var(--mn-display); font-weight: 300;
+  font-size: clamp(24px, 3.4vw, 44px); line-height: 1.28;
+  color: var(--mn-bone); margin: 0 auto; max-width: 26ch;
+  quotes: '\201C' '\201D';
+}
+.fs-quote__text::before { content: open-quote; color: var(--mn-copper); }
+.fs-quote__text::after  { content: close-quote; color: var(--mn-copper); }
+.fs-quote figcaption { margin-top: var(--mn-4); }
+
+/* --- current focus -------------------------------------------- */
+.fs-focus { display: flex; flex-direction: column; }
+.fs-focus__row {
+  display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: var(--mn-4); align-items: baseline;
+  padding: var(--mn-4) 0;
+  border-bottom: 1px solid var(--mn-hair-soft);
+}
+.fs-focus__row:first-child { border-top: 1px solid var(--mn-hair-soft); }
+.fs-focus__val { font-family: var(--mn-display); font-size: clamp(19px, 2vw, 26px); line-height: 1.3; color: var(--mn-bone); }
+.fs-focus__val.is-empty { font-family: var(--mn-body); font-size: 14px; color: var(--mn-text-3); font-style: italic; }
+
+/* --- the visual identity board -------------------------------- */
+/* A deliberately uneven collage. A perfectly regular grid of squares
+   is the single most templated thing a vision board can be, so the
+   first tile is large and the rhythm never quite repeats. */
+.fs-collage {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: 150px;
+  gap: var(--mn-2);
+}
+.fs-collage .fs-img:nth-child(1) { grid-column: span 2; grid-row: span 2; }
+.fs-collage .fs-img:nth-child(5) { grid-row: span 2; }
+.fs-collage .fs-img:nth-child(8) { grid-column: span 2; }
+
+.fs-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-auto-rows: 190px;
+  gap: var(--mn-2);
+}
+
+.fs-img {
+  position: relative; margin: 0; overflow: hidden;
+  border-radius: var(--mn-radius-sm);
+  border: 1px solid var(--mn-hair-soft);
+  background: var(--mn-umber);
+}
+.fs-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The images come from everywhere and share no palette. A copper
+   multiply and a slight desaturation is what makes fifty unrelated
+   pictures read as one board. */
+.fs-img::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(11,8,6,.7), rgba(74,44,22,.14) 55%);
+  mix-blend-mode: multiply;
+}
+.fs-img img { filter: saturate(.86) contrast(1.04); transition: transform .5s var(--mn-ease), filter .4s var(--mn-ease); }
+.fs-img:hover img { transform: scale(1.04); filter: saturate(1) contrast(1.06); }
+.fs-img.is-main { border-color: var(--mn-hair); }
+.fs-img__ph { display: grid; place-items: center; height: 100%; color: var(--mn-text-3); }
+.fs-img figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: var(--mn-2);
+  padding: var(--mn-3);
+  font-size: 12px; line-height: 1.45; color: var(--mn-bone);
+}
+.fs-img__acts { display: flex; gap: 2px; opacity: 0; transition: opacity .22s var(--mn-ease); }
+.fs-img:hover .fs-img__acts,
+.fs-img:focus-within .fs-img__acts { opacity: 1; }
+
+.fs-cats { display: flex; flex-wrap: wrap; gap: var(--mn-2); margin-top: var(--mn-5); }
+.fs-cat {
+  appearance: none; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: var(--mn-2);
+  background: transparent; border: 1px solid var(--mn-hair-soft);
+  border-radius: 999px; padding: 9px var(--mn-4); min-height: 40px;
+  transition: border-color .2s var(--mn-ease), background-color .2s var(--mn-ease);
+}
+.fs-cat:hover { border-color: var(--mn-gold); background: rgba(201,154,82,.08); }
+.fs-cat__name { font-family: var(--mn-plate); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--mn-bone); text-indent: .2em; }
+.fs-cat__n { font-family: var(--mn-body); font-size: 11px; color: var(--mn-text-3); font-variant-numeric: tabular-nums; }
+
+/* --- identity statements --------------------------------------- */
+/* No bullets. These are declarations, and a disc in front of each one
+   makes them read as a shopping list. */
+.fs-statements { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: var(--mn-6); }
+.fs-statements li {
+  break-inside: avoid;
+  font-family: var(--mn-display); font-weight: 300;
+  font-size: clamp(19px, 1.9vw, 25px); line-height: 1.42;
+  color: var(--mn-bone);
+  padding: var(--mn-2) 0 var(--mn-2) var(--mn-4);
+  border-left: 1px solid var(--mn-hair);
+  margin-bottom: var(--mn-3);
+}
+@media (max-width: 860px) { .fs-statements { columns: 1; } }
+
+/* --- traits ----------------------------------------------------- */
+.fs-bands { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--mn-5); }
+.fs-trait {
+  appearance: none; cursor: pointer;
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 12.5px; letter-spacing: .1em;
+  padding: 8px var(--mn-3); min-height: 36px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--mn-hair-soft);
+  color: var(--mn-text);
+  transition: border-color .2s var(--mn-ease), background-color .2s var(--mn-ease), color .2s var(--mn-ease);
+}
+.fs-trait:hover { border-color: var(--mn-gold); background: rgba(201,154,82,.09); }
+/* Already strong is warm and filled. Developing is warm and outlined.
+   Future standard is cool — it has not happened yet. */
+.fs-band[data-band="strong"] .fs-trait { background: rgba(201,154,82,.14); border-color: var(--mn-hair); color: var(--mn-bone); }
+.fs-band[data-band="developing"] .fs-trait { border-color: rgba(201,154,82,.34); }
+.fs-band[data-band="standard"] .fs-trait { border-color: var(--mn-hair-cool); color: var(--mn-sage-2); }
+.fs-band[data-band="standard"] .fs-trait:hover { border-color: var(--mn-sage); background: rgba(159,184,172,.08); }
+
+/* --- life areas -------------------------------------------------- */
+.fs-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--mn-4); }
+/* Work is the point of this life, so its card is the wide one rather
+   than one seventh of a generic wheel. */
+.fs-area--lead { grid-column: 1 / -1; }
+.fs-area__img { width: 100%; height: 190px; object-fit: cover; border-radius: var(--mn-radius-sm); margin-bottom: var(--mn-4); filter: saturate(.85) brightness(.9); }
+.fs-area__head { font-family: var(--mn-display); font-weight: 300; font-size: clamp(20px, 2.2vw, 28px); line-height: 1.3; color: var(--mn-bone); margin: 0 0 var(--mn-4); }
+.fs-area--lead .fs-area__head { font-size: clamp(24px, 3vw, 38px); max-width: 22ch; }
+
+.fs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mn-2); }
+.fs-list li {
+  position: relative; padding-left: var(--mn-4);
+  font-size: 14.5px; line-height: 1.65; color: var(--mn-text-2);
+}
+.fs-list li::before {
+  content: ''; position: absolute; left: 0; top: .72em;
+  width: 8px; height: 1px; background: var(--mn-copper);
+}
+.fs-list--warm li::before { background: var(--mn-gold); }
+.fs-list--cool li::before { background: var(--mn-sage); }
+.fs-list--cool li { color: var(--mn-text-3); }
+
+/* --- a normal day ------------------------------------------------- */
+.fs-day { list-style: none; margin: 0; padding: 0; }
+.fs-day__row {
+  display: grid; grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: var(--mn-4); align-items: baseline;
+  padding: var(--mn-4) 0;
+  border-top: 1px solid var(--mn-hair-soft);
+  cursor: pointer;
+  transition: background-color .2s var(--mn-ease);
+}
+.fs-day__row:last-child { border-bottom: 1px solid var(--mn-hair-soft); }
+.fs-day__row:hover { background: rgba(232,220,196,.03); }
+.fs-day__time {
+  font-family: var(--mn-body); font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px; letter-spacing: .16em; color: var(--mn-gold);
+}
+.fs-day__main { display: flex; flex-direction: column; gap: 4px; }
+.fs-day__title { font-family: var(--mn-display); font-weight: 400; font-size: 21px; line-height: 1.3; color: var(--mn-bone); }
+.fs-day__detail { font-size: 13.5px; line-height: 1.65; color: var(--mn-text-2); }
+
+/* --- future memories ----------------------------------------------- */
+.fs-memories { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--mn-4); }
+.fs-memory { cursor: pointer; transition: border-color .24s var(--mn-ease), transform .22s var(--mn-ease); }
+.fs-memory:hover { border-color: var(--mn-hair); transform: translateY(-2px); }
+.fs-memory__img { width: 100%; height: 180px; object-fit: cover; border-radius: var(--mn-radius-sm); margin-bottom: var(--mn-3); filter: saturate(.85) brightness(.92); }
+.fs-memory__body {
+  margin-top: var(--mn-3); font-size: 14.5px; line-height: 1.7; color: var(--mn-text-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* --- becoming → being ------------------------------------------------ */
+.fs-becoming { display: flex; flex-direction: column; }
+.fs-becoming__head,
+.fs-becoming__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, .55fr) minmax(0, 1fr);
+  gap: var(--mn-4); align-items: baseline;
+}
+.fs-becoming__head { padding-bottom: var(--mn-2); }
+.fs-becoming__head span:last-child { text-align: right; }
+.fs-becoming__row { padding: var(--mn-4) 0; border-top: 1px solid var(--mn-hair-soft); }
+.fs-becoming__row:last-child { border-bottom: 1px solid var(--mn-hair-soft); }
+.fs-becoming__label {
+  font-family: var(--mn-plate); font-size: 12px; letter-spacing: .2em;
+  text-transform: uppercase; text-align: center; color: var(--mn-text-3); text-indent: .2em;
+}
+.fs-becoming__cur { font-size: 14.5px; line-height: 1.65; color: var(--mn-text-2); }
+.fs-becoming__fut { font-size: 14.5px; line-height: 1.65; color: var(--mn-sage-2); text-align: right; }
+.fs-becoming .is-empty { color: var(--mn-text-3); }
+@media (max-width: 720px) {
+  .fs-becoming__head { display: none; }
+  .fs-becoming__row { grid-template-columns: 1fr; gap: var(--mn-2); }
+  .fs-becoming__label { text-align: left; order: -1; }
+  .fs-becoming__fut { text-align: left; }
+  .fs-becoming__fut::before { content: '→ '; color: var(--mn-sage); }
+}
+
+/* --- more / less ------------------------------------------------------ */
+.fs-ml { display: flex; flex-direction: column; }
+.fs-ml__head, .fs-ml__row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--mn-5);
+}
+.fs-ml__head { padding-bottom: var(--mn-3); border-bottom: 1px solid var(--mn-hair); }
+.fs-ml__row { padding: var(--mn-3) 0; border-bottom: 1px solid var(--mn-hair-soft); }
+.fs-ml__more { font-family: var(--mn-display); font-size: 20px; line-height: 1.35; color: var(--mn-bone); }
+.fs-ml__less { font-family: var(--mn-display); font-size: 20px; line-height: 1.35; color: var(--mn-text-3); }
+
+/* --- evidence ---------------------------------------------------------- */
+.fs-evidence { list-style: none; margin: 0; padding: 0; }
+.fs-evidence li {
+  display: grid; grid-template-columns: 5.5em minmax(0, 1fr) auto auto;
+  gap: var(--mn-3); align-items: baseline;
+  padding: var(--mn-3) 0;
+  border-bottom: 1px solid var(--mn-hair-soft);
+}
+.fs-evidence__date {
+  font-family: var(--mn-body); font-weight: 400; font-variant-numeric: tabular-nums;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mn-gold);
+}
+.fs-evidence__text { font-size: 14.5px; line-height: 1.6; color: var(--mn-text); }
+.fs-evidence .bs-icon-btn { opacity: 0; transition: opacity .2s var(--mn-ease); }
+.fs-evidence li:hover .bs-icon-btn,
+.fs-evidence li:focus-within .bs-icon-btn { opacity: 1; }
+
+/* --- quotes ------------------------------------------------------------ */
+.fs-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: var(--mn-4); }
+.fs-quotecard {
+  margin: 0; cursor: pointer;
+  border-left: 1px solid var(--mn-hair);
+  padding: var(--mn-3) 0 var(--mn-3) var(--mn-4);
+  transition: border-color .22s var(--mn-ease);
+}
+.fs-quotecard:hover { border-left-color: var(--mn-gold); }
+.fs-quotecard blockquote {
+  margin: 0 0 var(--mn-3);
+  font-family: var(--mn-display); font-weight: 300; font-size: 20px; line-height: 1.45;
+  color: var(--mn-bone);
+}
+
+/* --- notes — the one place allowed to look untidy ---------------------- */
+.fs-notes {
+  margin-top: var(--mn-4);
+  columns: 3; column-gap: var(--mn-3);
+}
+@media (max-width: 980px) { .fs-notes { columns: 2; } }
+@media (max-width: 620px) { .fs-notes { columns: 1; } }
+.fs-note {
+  break-inside: avoid; margin-bottom: var(--mn-3);
+  background: var(--mn-surface); border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm); padding: var(--mn-3) var(--mn-4);
+  position: relative;
+}
+.fs-note.is-pinned { border-color: var(--mn-hair); background: var(--mn-surface-2); }
+.fs-note p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--mn-text); white-space: pre-wrap; }
+.fs-note__acts { display: flex; gap: 2px; margin-top: var(--mn-2); opacity: 0; transition: opacity .2s var(--mn-ease); }
+.fs-note:hover .fs-note__acts, .fs-note:focus-within .fs-note__acts { opacity: 1; }
+
+/* --- letters ------------------------------------------------------------ */
+.fs-letter { cursor: pointer; transition: border-color .22s var(--mn-ease); }
+.fs-letter:hover { border-color: var(--mn-hair); }
+.fs-letter__peek { margin-top: var(--mn-2); font-size: 14.5px; line-height: 1.7; color: var(--mn-text-2); }
+/* A sealed letter is cool and quiet — it belongs to a date that has
+   not arrived. */
+.fs-letter.is-sealed { border-style: dashed; border-color: var(--mn-hair-cool); }
+.fs-letter.is-sealed .mn-h3 { color: var(--mn-sage-2); }
+
+@media (max-width: 719px) {
+  .fs-collage { grid-auto-rows: 120px; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .fs-gallery { grid-auto-rows: 150px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .fs-focus__row { grid-template-columns: 1fr; gap: var(--mn-1); }
+  .fs-ml__head, .fs-ml__row { gap: var(--mn-3); }
+  .fs-ml__more, .fs-ml__less { font-size: 16px; }
+  .fs-evidence li { grid-template-columns: 1fr auto; }
+  .fs-evidence__date { grid-column: 1 / -1; }
+  .fs-day__row { grid-template-columns: 4.5em minmax(0, 1fr); gap: var(--mn-3); }
+  .fs-img__acts, .fs-note__acts, .fs-evidence .bs-icon-btn { opacity: 1; }
+}
+
+/* =============================================================
+   WEEKLY REVIEW — the week strip
+   ─────────────────────────────────────────────────────────────
+   Seven columns, one per day, carrying the effort level, how much of
+   each routine was kept, and whether the frog got started.
+
+   A day with no answer is NOT drawn as a failure. It gets a hairline
+   and a dash, the same as any other day — the strip reports what
+   happened, it does not grade it. The same rule the effort card
+   follows, for the same reason.
+   ============================================================= */
+.wr-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--mn-2);
+}
+.wr-day {
+  display: flex; flex-direction: column; align-items: center; gap: var(--mn-2);
+  padding: var(--mn-3) var(--mn-2);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm);
+  background: var(--mn-surface);
+  border-top-width: 2px;
+  border-top-color: var(--mn-hair-soft);
+}
+.wr-day[data-level="high"] { border-top-color: var(--mn-hot); }
+.wr-day[data-level="mid"]  { border-top-color: var(--mn-warm); }
+.wr-day[data-level="low"]  { border-top-color: var(--mn-cool); }
+
+.wr-day__dow {
+  font-family: var(--mn-body); font-weight: 400;
+  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mn-text-3);
+}
+.wr-day__level {
+  font-family: var(--mn-plate); font-size: 13px; letter-spacing: .14em;
+  text-indent: .14em; color: var(--mn-text-2);
+}
+.wr-day[data-level="high"] .wr-day__level { color: var(--mn-hot); }
+.wr-day[data-level="mid"]  .wr-day__level { color: var(--mn-warm); }
+.wr-day[data-level="low"]  .wr-day__level { color: var(--mn-cool); }
+
+.wr-day__bars { display: flex; gap: 4px; }
+.wr-day__bar {
+  min-width: 22px; padding: 2px 0; text-align: center;
+  font-family: var(--mn-body); font-variant-numeric: tabular-nums;
+  font-size: 11px; color: var(--mn-text-2);
+  border: 1px solid var(--mn-hair-soft); border-radius: 4px;
+}
+.wr-day__frog { font-size: 9px; color: var(--mn-amber); line-height: 1; height: 10px; }
+.wr-day__frog.is-off { color: transparent; }
+
+@media (max-width: 719px) {
+  /* Seven columns on a 320px screen is 40px each, which cannot hold
+     "WED" and two counters. Two rows of four is the honest fallback. */
+  .wr-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .wr-day__bar { min-width: 20px; }
+}
+/* =============================================================
+   PHONE
+   ─────────────────────────────────────────────────────────────
+   719, not 720: main-hero.js's own media query is (max-width: 719px)
+   and the two must match exactly, or at 720 the hero renders
+   poster-only while the stylesheet still lays it out for desktop.
+   ============================================================= */
+@media (max-width: 719px) {
+  .mn-shell { padding-bottom: var(--mn-7); }
+  .mn-section { padding-top: var(--mn-6); }
+  .mn-card { padding: var(--mn-4); }
+  .mn-step__body { margin-left: 0; }
+  .mn-sheet { padding: var(--mn-4); max-height: 92vh; }
+  .mn-sheetbg { padding: var(--mn-2); align-items: flex-end; }
+  .mn-sheet { width: 100%; border-radius: var(--mn-radius) var(--mn-radius) 0 0; }
+
+  /* ANY FIELD UNDER 16px ZOOMS iOS SAFARI IN, AND IT NEVER ZOOMS BACK
+     OUT. Every page of this dashboard has hit this. It applies to
+     input, textarea AND select, and it has to be stated at the phone
+     breakpoint rather than relied on from the desktop rule, because
+     several inherited rules set smaller sizes above. */
+  .mn-input, .mn-textarea, .mn-select,
+  .field input, .field select, .field textarea,
+  .bs-quickadd-row input,
+  .bs-note-title-input, .bs-note-body-input,
+  input[type="text"], input[type="time"], input[type="date"],
+  input[type="number"], input[type="url"], input[type="search"],
+  textarea, select {
+    font-size: 16px;
+  }
+
+  /* Tap targets. A 32px icon button is comfortable with a mouse and
+     a miss with a thumb. */
+  .bs-icon-btn, .mn-btn--sm, .bs-btn-sm, .mn-chip, .bs-subchip { min-height: 40px; }
+  .mn-lockbox { width: 22px; height: 22px; }
+}
+
+/* =============================================================
+   REDUCED MOTION
+   ─────────────────────────────────────────────────────────────
+   Two halves, and both are needed. Zeroing every duration alone
+   would freeze the hero at the START of its entrance — which is
+   opacity: 0 — and leave the page apparently blank. So the END state
+   is asserted explicitly first, and the durations are zeroed after.
+
+   main-hero.js separately refuses to download the video at all under
+   this query. This block is what makes the poster-only page correct.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .mn-hero__w, .mn-hero__eyebrow, .mn-hero__note, .mn-hero__top, .mn-hero__rail {
+    opacity: 1 !important; transform: none !important;
+  }
+  .mn-hero__ring { opacity: .5 !important; animation: none !important; }
+  .mn-hero__ringglow { opacity: .3 !important; animation: none !important; }
+  .mn-hero__scroll { display: none !important; }
+  .mn-hero__stage { top: 0 !important; transform: none !important; }
+  .mn-hero__cols { top: 0 !important; }
+  .mn-hero__cols, .mn-hero__l2, .mn-hero__rail,
+  .mn-ground__warm, .mn-ribbon__depth, .mn-ribbon__band,
+  .mn-shell > .mn-section:first-child {
+    transform: none !important; animation: none !important;
+  }
+  .mn-hero__copy { transform: none !important; opacity: 1 !important; }
+  .mn-medal { translate: -50% -50% !important; }
+  .mn-medal:hover .mn-medal__rim { animation: none !important; }
+  .mn-sheet { transform: none !important; }
+  .mn-level:hover, .mn-btn:hover, .mn-lockbox:hover, body.mn .pal-fab:hover {
+    transform: none !important;
+  }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

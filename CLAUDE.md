@@ -26,7 +26,7 @@ Vercel's static server) — see README.md.
 | File | Page |
 |---|---|
 | `home.html` | **This file was deleted** (see the "Delete Home tab" changelog entry) — this row is stale left over from an earlier pass and is flagged rather than silently removed, since a full re-audit of this table wasn't in scope for the session that noticed. Its former role (topbar's leading pill) now belongs to `index.html`; every page it used to embed still exists as its own standalone page, untouched by its removal. |
-| `index.html` | Main — no longer just the Goals command center this row once described (see the still-accurate flag below on that). It's now five top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below, and the "Breath"/"Sit"/"Page" steps each carry their own small button jumping into the Self-Care tab below — Breath → Breathwork, Sit → Meditations, Page → the Journal), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry), and **Self-Care** (new, native to this page — companion file `mainselfcare-data.js` — a dedicated self-care system inside Main: a Checklist, a Journal with three templates — Brain Dump (Emotional Processing + Daily Reflection combined into one), Gratitude, and Day Planner — each generating a different default set of editable, reorderable, generate-more-on-demand sections, and a Meditations + Breathwork page holding two genuinely separate databases side by side, the latter with a real animated breathing pacer — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
+| `index.html` | Main — **this entire cell describes the five-tab version and is now stale; flagged rather than rewritten, per §6.** Main was rebuilt on 2026-08-22: it is now **Today** (the landing tab) + **Self-Care**, with Future Self and Weekly Review as their own documents (`futureself.html`, `weeklyreview.html`). Morning Ritual, Your System, Subconscious Reprogramming and the embedded Fitness Studio tab were removed from the UI; **their `routine:` / `system:` / `fitness:` data is untouched and still synced — see the changelog entry, which explains why removing those prefixes would delete the data on every device.** The rest of this cell is historical: it's now five top-level tabs sharing one page: **Morning Ritual** (the pre-existing Morning Call Sheet — a Running Order of steps, a Beliefs database with a 30-day recitation lock, Today/Tonight journal entries with an evidence log, a frog-started metric, drag-reorderable sections — unchanged, still this tab's default/landing content; the "Move" step now carries a small 🏋️ button that jumps straight to the Fitness Studio tab below, and the "Breath"/"Sit"/"Page" steps each carry their own small button jumping into the Self-Care tab below — Breath → Breathwork, Sit → Meditations, Page → the Journal), **Your System** (Top 10 Goals with up to 3 star-selected at once, daily/weekly repeatable Actions each with a Minimum Viable Action and a live Mon–Sun tracker, and Three Core Systems — Written/Visual/Mental — merged in wholesale from the now-deleted `system.html`/`system-data.js`, unchanged in behavior), **Subconscious Reprogramming** (Identity Shifting — Anchors/Future Self Vision/Install-Through-Action Challenges, also merged in from `system.html` — plus a Quick Links row that jumps back into the Morning Ritual tab's Mirror step, Today section, Beliefs section, 5-Min Hypnagogic hint, and Evidence Journal field, rather than duplicating them — see the merge changelog entry), and **Fitness Studio** (new, native to this page — companion file `fitness-data.js` — a dedicated fitness system inside Main: Current Week (day chips, locally-computed Pre-Workout Coaching, exercise cards with a done checkbox/sets×reps/equipment+weight/clickable photo-or-video/Log Set/Edit, a Post-Workout Review after marking a day complete), Templates (CRUD, a gym/type label, a color swatch, multi-weekday assignment, an ordered exercise list with sets/rep-range/rest/notes/photo+video URLs/weight/linked equipment), Equipment (CRUD, linkable to exercises — deleting one nulls the reference rather than deleting the exercise), and History & Compare (every logged date, plus a two-session comparison of duration/volume and, when logged for that date on Main Pillar, recovery/strain/HRV) — see the changelog entry), and **Self-Care** (new, native to this page — companion file `mainselfcare-data.js` — a dedicated self-care system inside Main: a Checklist, a Journal with three templates — Brain Dump (Emotional Processing + Daily Reflection combined into one), Gratitude, and Day Planner — each generating a different default set of editable, reorderable, generate-more-on-demand sections, and a Meditations + Breathwork page holding two genuinely separate databases side by side, the latter with a real animated breathing pacer — see the changelog entry). Still this site's root/default document (see §1's "Routing" note). This row's *own* still-open flag from before the System merge: the site prefixes everything under `routine:` (`routine:config`/`log`/`lines`/`beliefs`/`steps`/`sectionLayout`/`hero`/`todayEntries`/`tonightEntries`), not `goals:` — the `goals` Supabase *key* name is legacy-only, unrelated to the actual prefix synced under it (see §4) |
 | `entertainment.html` | Media — unified tracker: Podcasts / Stories / Entertainment / Playlists / Favorites galleries, each now a "mini page" with its own Dream-Board-style hero cover section (rebuilt, then re-themed to match Dream Board — see changelog) |
 | `dreamboard.html` | Dream Board — a drag-and-drop vision-board page: editable tabs (Vision Board / Reflections / Quarterly Goals / Monthly Breakdown), each with its own full-bleed cinematic "hero" cover section, and a 3-column board of reorderable, numbered widgets (checklists, lists, notes, quotes, affirmations, a steps tracker, a photo/video grid, a calendar, feature cards, info cards), an Add Widget menu, and a reset-to-default action (new — see changelog) |
 | `aitech.html` | AI & Tech — same dark cinematic near-black/gold, frosted-glass-card aesthetic as Business Hub/Dream Board, one page (no tabs), one editable hero. Two genuinely separate "databases", never merged: a Notion-like gallery of AI Models (cover/icon, category, status, star rating, description, URL, tags, category + status filter chips, search, drag-reorder) and a Prompts database tied to a model via a nullable `modelId` (filterable by model, favorites toggle, search, copy-to-clipboard, drag-reorder). Deleting a model nulls out the reference on its prompts rather than deleting them (new — see changelog) |
@@ -587,6 +587,139 @@ both as originally phrased assumed a backend this app doesn't have):
   Edge" notes).
 
 ## Changelog
+
+- **Main was rebuilt around Today, Future Self and Weekly Review; four of its
+  five tabs were removed and Self-Care was kept byte-for-byte.** `index.html`
+  went from 4,611 lines with everything inline to ~370 lines plus six new
+  companion files. Nothing was deleted from storage or from the cloud.
+  - **The new shape.** `index.html` is **Today** (the landing tab) +
+    **Self-Care**. `futureself.html` and `weeklyreview.html` are their own
+    documents. **Morning Ritual, Your System, Subconscious Reprogramming and
+    Main's own embedded Fitness Studio tab are gone from the UI.**
+  - **THE PREFIXES OF THE REMOVED TABS ARE STILL COLLECTED, AND MUST STAY THAT
+    WAY.** `system:` and `fitness:` have no screen any more and
+    `system-data.js` / `fitness-data.js` are no longer even loaded — but they
+    are still in the `goals` row's prefix list in `main-sync.js`. Removing them
+    would not "clean up": `collect()` (sync.js:53-61) would stop seeing those
+    keys, the next push would upload a `data` column without them, and
+    `applyRemote` (sync.js:228-233) would call `origRemove()` on every one of
+    them on every other device. What keeps a key synced is the prefix list, not
+    whether its data file is loaded. Orphaned-but-intact, per §4.
+  - **`main-sync.js` is new and owns the whole row→prefix table**, so it cannot
+    diverge between the three documents. `goals` →
+    `routine:/system:/fitness:/mainselfcare:/today:/wr:`, `palaestra` → `pal:`,
+    `futureself` → `fs:`. It sets **`handoff: true` unconditionally** on every
+    mount: `palaestra` now has three documents and `goals` became
+    multi-document for the first time when Weekly Review landed, and handoff
+    only works if every document on a row sets it. It also asserts at mount
+    that no synced prefix swallows `mainbak:` / `syncdirty:` / `palbak:`, and
+    that two mounts in one document never overlap.
+  - **The effort level is shared, not copied.** Today reads and writes
+    `pal:levels` through `Pal.getLevel/hasLevel/setLevel`, so picking LOW on
+    Main changes what the Fitness Studio schedules for the same day and vice
+    versa. `Pal.LEVELS` is **not** redefined — Damian's own day-scale wording
+    lives in `today-data.js`'s `LEVEL_COPY`, a presentation string, so the
+    Fitness Studio's session-scale wording is untouched.
+  - **The effort level replaced the Floor/Hour/Full switcher rather than
+    joining it.** A step's `mins` is keyed by level, so wake time plus today's
+    level gives every step a clock time. Two length knobs free to disagree
+    ("a Full morning at LOW effort") was not a thing that meant anything. A
+    step at 0 minutes for the current level is marked **optional** — still
+    listed, still tickable, still numbered. Nothing derived from a level may
+    penalise it (palaestra-data.js:202-214).
+  - **The Morning Ritual's contents moved screens, not homes.** The Beliefs
+    database, the 30-day recitation lock, the three present-tense Today lines,
+    Tonight's evidence/reflection/gratitude and the Frog metric are all still
+    under `routine:` and are still the same records — `today-data.js` wraps
+    them so the page has one data API. They now live **inside the routine step
+    that uses them**: the five and the three lines are Mirror sub-steps 3 and
+    4, Tonight opens inside "Script tonight", the frog inside "Work on the
+    business". `routine:steps` (the old Running Order) and `routine:lines` are
+    orphaned but kept.
+  - **Self-Care was lifted verbatim** out of the inline script into
+    `selfcare-ui.js` — not one line of the renderer changed, because "keep it
+    intact" has only one safe reading. Three names it used from the old script
+    (`switchMainTab`, `activeMainTab`, `reducedMotion`) are re-provided at the
+    top of that file rather than edited out of the renderer. Its `.bs-*` /
+    `.sci-*` classes are **restyled in place** in `main-theme.css` under the
+    original names, which is what let the renderer survive untouched — one of
+    its own switchers queries `[data-mainpanel="selfcare"] .bs-panel` directly.
+  - **`futureself.html`** is fifteen sections on a two-layer rule: layer 1 is
+    what the page shows at rest (hero, quote of the moment, this season's five
+    things, collage, identity lines, trait chips, seven life cards, a normal
+    day, memories, becoming→being, standards, more/less, evidence, notes,
+    letters); layer 2 opens into a sheet. Its own Supabase row, because the
+    Visual Identity Board is the one collection here that grows without bound
+    and sync.js re-uploads a row's whole `data` on every save — the same
+    reasoning that split `kdpms` out of `kdp`. Images go through
+    `PhotoStore.upload()` so what is stored is a URL, not base64.
+  - **`system:vision`'s eight fields are migrated, once, read-only**, into the
+    sections that actually own them (environment/work/lifestyle bodies,
+    identity statements, the day, and — for "what you were afraid to admit" —
+    the messy notes area). Guarded by `fs:migratedSystemVision`, which also
+    keeps the raw eight verbatim so the original survives later edits.
+    `system:vision` is never written back and never deleted. Same shape as
+    palaestra-data.js's own import from `fitness:`.
+  - **`weeklyreview.html`** pulls the week's effort levels, routine completion,
+    workouts and Future Self evidence into one screen. **The snapshot is live
+    while the review is open and frozen the instant it is finished** —
+    otherwise last month's review rewrites itself as `pal:levels` and
+    `today:log` trim at 730 entries. It **writes back exactly one thing**: one
+    line into `fs:evidence` tagged `source:'weeklyreview'`. Everything else it
+    touches is read-only.
+  - **The music dock now reads all ten Vault shelves.** `palaestra-music.js`
+    was generalized rather than forked — its one shelf-specific line was
+    `VAULT_KEY`. `init({ shelves, defaultShelf })`; the shelf row hides itself
+    when only one shelf is passed, so **both Fitness Studio pages are visually
+    unchanged** and simply pass `defaultShelf:'playlists'`. The `storage`
+    listener now matches the `vault:media:` prefix rather than one exact key.
+    Still read-only against the Vault, still no second sync mount for it.
+  - **`main-theme.css` is the whole visual system** (~2,100 lines) and
+    `main-hero.js` is a **fork** of `palaestra-hero.js`, not a shared module —
+    every layer that reads `--pal-hero-p` lives in `palaestra-theme.css`, so a
+    "shared" hero would be shared JS bolted to two separate stylesheets, and a
+    page loading both would have them fight over the same three custom
+    properties. Fork-and-own is the precedent (`kdp-velvet.js`,
+    `vault-hero.js`). Both headers now cross-reference each other.
+  - **The parallax is the supplied GSAP/ScrollTrigger/Lenis component
+    reproduced arithmetically.** No library was added. Four layers at
+    70/55/40/10 with `ease:"none"` and `scrub:0` is a linear ramp — two clamped
+    divisions, computed in the one rAF handler the file already runs and
+    written as `--mn-hero-p` / `--mn-join-p`. Both sides of the ribbon are
+    covered: hero→ribbon and ribbon→page. Lenis is deliberately not
+    reproduced; it would fight topbar.js's fixed launcher.
+  - **Temperature encodes tense** throughout the new palette: warm
+    (copper→gold→amber) is done/present/real, cool sage is future/pending. It
+    is why the effort levels are HOT/WARM/COOL rather than green/amber/red — a
+    traffic light makes LOW a failure, and LOW is the version of the day you
+    can actually keep.
+  - **New files:** `main-sync.js`, `main-backup.js` (`mainbak:` snapshots,
+    booted before the opening pull), `main-theme.css`, `main-hero.js`,
+    `today-data.js`, `today-ui.js`, `selfcare-ui.js`, `futureself.html` +
+    `futureself-data.js` + `futureself-ui.js`, `weeklyreview.html` +
+    `weeklyreview-data.js` + `weeklyreview-ui.js`,
+    `images_by_admin/main/hero.mp4` (7.5 MB) + `hero-poster.jpg`.
+    **Modified:** `index.html`, `palaestra-music.js`, `topbar.js` (Main's
+    children are now `#today`/`#selfcare`, plus two new `command` entries and
+    `.mn-sheetbg` in `MODAL_SELECTORS`; **no ring change** — a ninth
+    `RING_ITEMS` node would re-angle all eight).
+  - **Old hashes still land somewhere.** `#ritual`, `#system`, `#subconscious`
+    and `#fitness` all resolve to `#today`, in the URL and in the stored
+    `routine:main_tab`.
+  - **Verified** with 41 behaviour checks across the three pages plus the
+    Fitness Studio (the shared level round-trips; the Weekly Review's one
+    write-back lands in Future Self; exactly one `<video>` survives ten tab
+    switches), zero horizontal overflow at 320/360/390/414/768/1024/1280/1440
+    and landscape phone, and a reduced-motion pass on all three pages — under
+    which **the 7.5 MB clip is never downloaded at all** and every animated
+    element renders in its end state.
+  - **Everything `main-*`, `today-*`, `futureself-*`, `weeklyreview-*` is at
+    `?v=1`; `palaestra-*` moved to `?v=4`; `topbar.js` to `?v=2`.** Bump on any
+    further change.
+  - **Still open:** `tasks.html` keeps importing `routine:steps` (now an
+    orphaned Running Order with no UI behind it) alongside `system:` and
+    `fitness:` keys. Nothing breaks — every one of those keys survives — but
+    that importer now offers a list nothing maintains. Left alone this pass.
 
 - **The main navigation is a circle menu now; the sidebar drawer moved one
   click deeper.** Built to a supplied reference photo of a black sci-fi console

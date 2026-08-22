@@ -272,12 +272,18 @@
       key: 'command',
       label: 'Command Center',
       items: [
+        // Main was rebuilt on 2026-08-22. The Morning Ritual, Your
+        // System, Subconscious Reprogramming and embedded Fitness
+        // Studio tabs were removed; Today is the landing page, and
+        // Future Self and Weekly Review became their own documents.
+        // index.html maps every retired hash to #today, so an old
+        // bookmark still lands somewhere.
         { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true, children: [
-          { hash: 'ritual', label: 'Morning Ritual' },
-          { hash: 'system', label: 'Your System' },
-          { hash: 'subconscious', label: 'Subconscious Reprogramming' },
+          { hash: 'today', label: 'Today' },
           { hash: 'selfcare', label: 'Self-Care' },
         ] },
+        { href: 'futureself.html', icon: '🜂', label: 'Future Self' },
+        { href: 'weeklyreview.html', icon: '🝮', label: 'Weekly Review' },
       ],
     },
     {
@@ -1571,7 +1577,11 @@ body.topbar-modal-open {
   // one closes, unlock.
   function startModalLock() {
     const MODAL_SELECTORS = [
-      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.cx-modal-bg', '.cx-comp-bg', '.pm-modal-bg', '.pm-capture-bg', '.ath-modal-bg', '.ath-capture-bg'
+      '.modal-bg', '.po-modal-bg', '.wt-overlay', '.wt-viewer', '.wt-cam', '.project-page-bg', '.goal-page-bg', '.wfd-page-bg', '.lh-article-page-bg', '.bd-page-bg', '.bd-modal-bg', '.bd-comp-bg', '.fs-focus-bg', '.gt-modal-bg', '.kh-page-bg', '.wd-page-bg', '.cx-modal-bg', '.cx-comp-bg', '.pm-modal-bg', '.pm-capture-bg', '.ath-modal-bg', '.ath-capture-bg',
+      // Main's own layer-2 surface (index.html / futureself.html /
+      // weeklyreview.html). Note '.fs-focus-bg' above is an older,
+      // unrelated page's class and does not cover it.
+      '.mn-sheetbg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
