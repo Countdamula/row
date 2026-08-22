@@ -16,21 +16,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#14120F">
-<title>The Palaestra</title>
+<title>Fitness Studio</title>
 
 <!-- MUST be first and never deferred: it replaces window.localStorage
      before any other script reads it. -->
 <script src="local-store-idb.js"></script>
 
 <!--
-  THE PALAESTRA — hub.
+  FITNESS STUDIO — hub. (Built as "The Palaestra"; renamed 2026-08-21.
+  DISPLAY NAME ONLY — every filename, the `pal:` prefix, the appKey
+  'palaestra' and all --pal-*/.pal-* CSS names are unchanged.)
 
-  A new, parallel fitness page. index.html's embedded Fitness Studio
-  tab (`fitness:`) and fitnessstudio.html (`fitstudio:`) are untouched
-  and still in the nav. Everything here is `pal:`-prefixed with its own
-  Supabase row (appKey 'palaestra'); the only contact with those pages
-  is the explicit "Import my programs" button, which reads their
-  template keys and never writes back. See palaestra-data.js's header.
+  index.html's embedded fitness tab (`fitness:`) and fitnessstudio.html
+  (`fitstudio:`) are untouched on disk; the second was deleted in the
+  2026-08-21 tidy-up and the first no longer has a nav link.
+
+  Everything here is `pal:`-prefixed with its own Supabase row (appKey
+  'palaestra'); the only contact with those pages is the explicit
+  "Import my programs" button, which reads their template keys and
+  never writes back. See palaestra-data.js's header.
 
   Routes live in the hash: #/ · #/steps · #/body · #/calendar ·
   #/volume · #/templates · #/exercises · #/history · #/settings.
@@ -42,22 +46,31 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=2">
+<link rel="stylesheet" href="palaestra-theme.css?v=3">
 
 <!-- Not deferred, and before the page's own inline script: the inline
      script in <body> runs during parsing, which is BEFORE any deferred
      script executes, so window.Pal has to already exist by then. Same
      arrangement as chrysalis.html. topbar.js is the one that can wait. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- sync.js was the one shared file with no version on it, so a device
-     holding the old copy would never get the handoff fix. One number for
-     the whole app: everything here is at v2. -->
-<script src="sync.js?v=2"></script>
+<!-- row has no build step, so editing a file never changes its URL and a
+     phone holding yesterday's copy renders new markup against old styles —
+     or calls a new function as undefined — in silence. One number for the
+     whole app: everything here is at v3. Bump it on ANY change to these
+     files or the "it hasn't updated on my phone" report comes straight
+     back. sync.js is versioned for the same reason: it was the one shared
+     file with no version on it, so a device holding the old copy would
+     never get the handoff fix, and now the §SEEN fix on top of it. -->
+<script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=2"></script>
-<script src="palaestra-ui.js?v=2"></script>
-<script src="palaestra-hero.js?v=2"></script>
-<script src="palaestra-music.js?v=2"></script>
+<script src="palaestra-data.js?v=3"></script>
+<!-- Before palaestra-ui.js and before anything renders: its boot() has to
+     snapshot what this device holds BEFORE the opening cloud pull can
+     change it. -->
+<script src="palaestra-backup.js?v=3"></script>
+<script src="palaestra-ui.js?v=3"></script>
+<script src="palaestra-hero.js?v=3"></script>
+<script src="palaestra-music.js?v=3"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -129,10 +142,10 @@
       eyebrow: 'The long arc',
       lines: ['Proof', 'arrives', 'slowly'],
       note: 'A week is noise. A season is a signal. Weigh in often, and read the line, not the point.' },
-    { hash: '/calendar', label: 'Calendar',
+    { hash: '/calendar', label: 'Schedule',
       eyebrow: 'The plan',
-      lines: ['A promise', 'kept on', 'a Tuesday'],
-      note: 'Rest days are part of the plan, not a gap in it. Resting on one keeps the streak; skipping a session breaks it.' },
+      lines: ['Which', 'version', 'today?'],
+      note: 'HIGH, MID or LOW — three real options, not one and two excuses. Rest days are part of the plan too: taking one keeps the streak, skipping a session breaks it.' },
     { hash: '/volume', label: 'Volume',
       eyebrow: 'The work itself',
       lines: ['Load is', 'the whole', 'story'],
@@ -158,7 +171,7 @@
   // View state that belongs to the screen, not to storage: which week
   // the scorecard is showing, which month the calendar is on.
   var scoreWeek = null;
-  var calYear = null, calMonth = null;
+  var schedWeek = 0;
   var exMuscle = 'All';        // the exercise library's muscle filter
   var volWindow = 'week';
 
@@ -187,11 +200,64 @@
   // re-armed when the route genuinely changed.
   var shownRoute = null;
 
+  // ============================================================
+  // §PHONE NAV — four fixed slots and a More sheet.
+  //
+  // Nine destinations were a horizontally-scrolling bottom bar under
+  // 719px. A scrolling nav is a nav with a hidden half: the four routes
+  // past the right edge were unreachable without knowing they were there,
+  // and the scroll gesture competes with the page's own.
+  //
+  // So on a phone the bar carries the four routes actually opened during a
+  // session, plus More, and every slot is visible at 320px without
+  // scrolling anything. The desktop bar is untouched — it wraps, it has
+  // the room, and hiding six destinations behind a menu there would be a
+  // loss.
+  //
+  // PRIMARY is deliberately not "the first four in ROUTES": Today, the
+  // schedule, the routines and the library are what the phone is opened
+  // for. Steps, Body, Volume, History and Settings are read at a desk.
+  // ============================================================
+  var PRIMARY = ['/', '/calendar', '/templates', '/exercises'];
+  function isPrimary(hash) { return PRIMARY.indexOf(hash) !== -1; }
+  function routeLabel(hash) {
+    for (var i = 0; i < ROUTES.length; i++) if (ROUTES[i].hash === hash) return ROUTES[i].label;
+    return 'More';
+  }
+  // The More button has to say where you are when you are inside it —
+  // otherwise the whole bar reads as "nowhere" on five of nine routes.
+  function syncMore(r) {
+    var more = routesEl.querySelector('[data-more]');
+    if (!more) return;
+    var inMore = !isPrimary(r);
+    more.setAttribute('aria-current', inMore ? 'true' : 'false');
+    more.querySelector('.pal-route__txt').textContent = inMore ? routeLabel(r) : 'More';
+  }
+  function sheetMore() {
+    var cur = route();
+    U.openSheet({
+      title: 'Go to',
+      body: '<div class="pal-quickgrid">' + ROUTES.filter(function (r) { return !isPrimary(r.hash); })
+        .map(function (r) {
+          return '<button class="pal-quickbtn" data-sheet-act="go:' + esc(r.hash) + '"' +
+            (r.hash === cur ? ' aria-current="true"' : '') + '>' + esc(r.label) +
+            '<br><span class="pal-sub">' + esc(r.eyebrow) + '</span></button>';
+        }).join('') + '</div>',
+      actions: [{ label: 'Close', act: 'cancel' }],
+      onAction: function (act) {
+        if (act.indexOf('go:') !== 0) return;
+        U.closeSheet();
+        go(act.slice(3));
+      }
+    });
+  }
+
   function render() {
     var r = route();
     Array.prototype.forEach.call(routesEl.children, function (b) {
       b.setAttribute('aria-current', b.getAttribute('data-route') === r ? 'true' : 'false');
     });
+    syncMore(r);
     if (window.PalHero) {
       if (shownRoute !== r) {
         var i = 0;
@@ -351,27 +417,58 @@
       live.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</p>';
   }
 
-  // An exercise card IS a button: the whole face opens its editor,
-  // which is also where its videos live.
-  function exerciseCard(e) {
+  // ============================================================
+  // §EXERCISE ROW — a ruled list, not a wall of cover cards.
+  //
+  // The cover card was one card per exercise: a 16/11 gradient, a giant
+  // ghost watermark and two figures. At fifty exercises that is eight
+  // screens of scrolling to answer "how many sets was the pullover", and
+  // the covers carry no information — they are drawn from the muscle, which
+  // the row already names.
+  //
+  // So the list came back, and everything the card showed comes with it,
+  // plus two things the card had silently dropped: the per-exercise music
+  // pin, and the personal best. Nothing is lost by scanning instead of
+  // browsing.
+  //
+  // The GLOW is what the card was really for — knowing which muscle a row
+  // belongs to without reading it. It is a stacked, colour-tinted box-shadow
+  // keyed to the same per-muscle --cover axis the card used, on a 3px left
+  // edge: the device .pal-planrow introduced, at the density a library
+  // needs. box-shadow, never backdrop-filter — the theme forbids per-row
+  // blur for exactly this count of rows.
+  // ============================================================
+  function exerciseRow(e) {
     var lane = P.laneOf(e.muscle === 'Cardio' ? 'Cardio' : 'Strength');
     var media = U.mediaLabel(e.media);
-    return '<button type="button" class="pal-xcard" data-lane="' + esc(lane) + '"' +
-        ' data-muscle="' + esc(e.muscle) + '"' +
-        ' data-act="edit-exercise" data-id="' + esc(e.id) + '"' +
-        ' aria-label="' + esc(e.name + ', ' + P.setsAndReps(e) + ', ' + P.fmtRest(e.restSec) +
-                            ' rest' + (e.equipment ? ', ' + e.equipment : '') +
-                            (media ? ', ' + media : '')) + '">' +
-      xcover(e.name, lane, U.cardMedia(e.media, 3), '') +
-      '<span class="pal-xcard__body">' +
-        '<span class="pal-xcard__name">' + esc(e.name) + '</span>' +
-        xmeta([e.muscle, e.equipment]) +
-        '<span class="pal-xcard__stats">' +
-          xstat(P.setsAndReps(e), 'sets \u00d7 reps') +
-          xstat(P.fmtRest(e.restSec), 'rest') +
-        '</span>' +
-      '</span>' +
-    '</button>';
+    var best = exBest(e.name);
+    var bits = [e.equipment, media].filter(Boolean);
+    return '<li class="pal-listrow pal-exrow" data-lane="' + esc(lane) + '" data-muscle="' + esc(e.muscle) + '">' +
+      '<div class="pal-listrow__main">' +
+        '<div class="pal-listrow__title">' + esc(e.name) + '</div>' +
+        '<div class="pal-listrow__meta">' +
+          esc(P.setsAndReps(e) || '\u2014') + ' \u00b7 ' + esc(P.fmtRest(e.restSec)) + ' rest' +
+          (bits.length ? ' \u00b7 ' + esc(bits.join(' \u00b7 ')) : '') +
+        '</div>' +
+      '</div>' +
+      (best ? '<div class="pal-exrow__pr" title="Best estimated one-rep max">' +
+        '<span class="pal-exrow__prval">' + esc(P.fmtWeight(best.e1rm)) + '</span>' +
+        '<span class="pal-exrow__prkey">best</span></div>' : '') +
+      '<div class="pal-listrow__actions">' +
+        window.PalMusic.button({ scope: 'exercise:' + e.id, trackId: e.trackId, label: e.name }) +
+        '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-exercise" data-id="' + esc(e.id) + '">Edit</button>' +
+      '</div>' +
+    '</li>';
+  }
+  // personalBests() walks every session ever logged, so it is read ONCE per
+  // render and looked up from a map — not called per row.
+  var prCache = null;
+  function exBest(name) {
+    if (!prCache) {
+      prCache = {};
+      P.personalBests().forEach(function (b) { prCache[b.exercise] = b; });
+    }
+    return prCache[name] || null;
   }
 
   // A workout card is NOT a button — its actions start a session, and
@@ -392,6 +489,7 @@
       '<div class="pal-xcard__body">' +
         (opts.eyebrow ? '<p class="pal-eyebrow">' + esc(opts.eyebrow) + '</p>' : '') +
         '<h3 class="pal-xcard__name">' + esc(t.name) + '</h3>' +
+        schedTag(t) +
         (shown.length
           ? '<ul class="pal-xcard__list">' + shown.map(function (en) {
               return '<li class="pal-xcard__li"><span>' + esc(en.name) + '</span>' +
@@ -404,12 +502,30 @@
           (isCardio ? '' : xstat(P.estimatedDuration(entries) + 'm', 'est.')) +
         '</div>' +
         '<div class="pal-xcard__acts">' +
-          '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="start-template" data-id="' + esc(t.id) + '">\u25b6 Start</button>' +
+          '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="start-template" data-id="' + esc(t.id) + '"' +
+            (opts.level ? ' data-level="' + esc(opts.level) + '"' : '') + '>\u25b6 Start</button>' +
           '<button class="pal-btn pal-btn--sm" data-act="edit-template" data-id="' + esc(t.id) + '">Edit</button>' +
           window.PalMusic.button({ scope: 'template:' + t.id, trackId: t.trackId, label: t.name }) +
         '</div>' +
       '</div>' +
     '</div>';
+  }
+
+  // Where a routine sits in the week — the same two fields the Schedule
+  // page reads. Shown on the card so the two pages cannot describe the
+  // same routine differently.
+  function schedTag(t) {
+    var days = (t.days || []);
+    if (!days.length && !t.level) return '';
+    var dayTxt = days.length
+      ? P.WEEKDAYS.filter(function (w) { return days.indexOf(w.key) !== -1; })
+          .map(function (w) { return w.short; }).join(' · ')
+      : 'Unscheduled';
+    return '<p class="pal-xcard__sched">' +
+      '<span class="pal-xcard__scheddays">' + esc(dayTxt) + '</span>' +
+      (t.level ? '<span class="pal-xcard__schedlvl" data-level="' + esc(t.level) + '">' +
+        esc(P.levelInfo(t.level).label) + '</span>' : '') +
+    '</p>';
   }
 
   function band(title, inner, headExtra) {
@@ -447,8 +563,15 @@
         '<a class="pal-btn pal-btn--primary" href="palaestra-workout.html">Back to the workout →</a>' +
       '</div>';
     } else if (planned && !planned.rest) {
-      card = workoutCard(planned.template, P.entriesFromTemplate(planned.template),
-                         { eyebrow: 'Today', cap: 8 });
+      var lvl = P.getLevel(t);
+      var info = P.levelInfo(lvl);
+      card = '<div class="pal-todaylvl">' +
+          '<div><p class="pal-eyebrow" style="margin:0 0 4px">Which version today?</p>' +
+            '<p class="pal-sub" style="margin:0">' + esc(info.dot + ' ' + info.label + ' \u00b7 ' + info.title + ' \u00b7 ' + info.mins + '. ' + info.when) + '</p></div>' +
+          levelPicker(t, lvl, P.hasLevel(t)) +
+        '</div>' +
+        workoutCard(planned.template, P.entriesFromTemplate(planned.template),
+                    { eyebrow: 'Today', cap: 8, level: lvl });
     } else if (planned && planned.rest) {
       card = '<div class="pal-card" data-lane="rest">' +
         '<p class="pal-eyebrow">Today</p><h3 class="pal-h2">Rest</h3>' +
@@ -739,56 +862,140 @@
   // ============================================================
   // CALENDAR
   // ============================================================
-  function viewCalendar() {
-    var now = new Date();
-    if (calYear == null) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
-    var cal = P.calendarMonth(calYear, calMonth);
-    var sched = P.getSchedule();
-    var templates = P.templatesSorted();
+  // ============================================================
+  // §SCHEDULE VIEW — the Weekly Workout Schedule.
+  //
+  // Replaces the month grid that used to live here. A month of coloured
+  // squares answered "what did I do", which History and the Week Bar already
+  // answer; it never answered "what am I doing on Thursday", which is the
+  // question this page is opened with.
+  //
+  // Nothing on this page is stored. Every row is read back out of the
+  // routines themselves through P.getSchedule() — set a routine's days in
+  // Workouts and it appears here, rename it and it renames here. The only
+  // thing written is the level chosen for a date, in pal:levels.
+  // ============================================================
+  function levelPicker(dateStr, chosen, explicit) {
+    return '<div class="pal-levels" role="group" aria-label="Effort level for ' + esc(P.prettyLong(dateStr)) + '">' +
+      P.LEVELS.map(function (l) {
+        var on = l.key === chosen;
+        return '<button type="button" class="pal-level" data-act="set-level"' +
+          ' data-date="' + esc(dateStr) + '" data-level="' + esc(l.key) + '"' +
+          ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
+          ' data-chosen="' + (on && explicit ? 'true' : 'false') + '"' +
+          ' title="' + esc(l.title + ' · ' + l.mins + '. ' + l.when) + '">' +
+          esc(l.label) + '</button>';
+      }).join('') + '</div>';
+  }
 
-    // One pane holds the whole month: the blur is the pane's, and the 42
-    // cells are alpha over it. See --pal-glass.
-    var grid = '<div class="pal-pane"><div class="pal-cal" style="margin-bottom:6px">' +
-      P.WEEKDAYS.map(function (w) { return '<div class="pal-cal__dow">' + esc(w.short) + '</div>'; }).join('') +
-      '</div><div class="pal-cal">' +
-      cal.cells.map(function (c) {
-        return '<button class="pal-calday" data-lane="' + esc(c.lane) + '" data-status="' + esc(c.status) + '"' +
-          ' data-inmonth="' + c.inMonth + '" data-today="' + c.isToday + '"' +
-          ' data-act="open-day" data-date="' + esc(c.date) + '">' +
-          '<span class="pal-calday__num">' + c.day + '</span>' +
-          (c.lane !== 'none' ? '<span class="pal-calday__bar"></span>' : '') +
-          '<span class="pal-calday__label">' + esc(c.label) + '</span>' +
-        '</button>';
-      }).join('') + '</div></div>';
+  function scheduleRow(dateStr, dayKey, label) {
+    var chosen = P.getLevel(dateStr);
+    var explicit = P.hasLevel(dateStr);
+    var slot = P.getSchedule()[dayKey];
+    var tpl = P.resolveForDay(dayKey, chosen);
+    var isToday = dateStr === P.today();
+    var done = P.sessionsOn(dateStr);
+    // The routine that resolved may not be the level asked for — a day with
+    // only a HIGH routine still starts something on a LOW day. Say so rather
+    // than letting the label and the picker quietly disagree.
+    var exact = tpl && ((tpl.level || '') === chosen || !tpl.level);
+    var lane = done.length ? P.laneOf(done[0].type) : (tpl ? P.laneOf(tpl.type) : 'none');
+    var isRest = tpl && tpl.type === 'Rest';
 
-    var todayKey = P.weekdayKey(P.today());
-    var plan = '<div class="pal-pane" style="margin-top:24px">' +
-      '<div class="pal-card__head"><h3 class="pal-h3">The weekly plan</h3>' +
-      '<span class="pal-sub">what the calendar projects forward</span></div>' +
-      '<ul class="pal-list">' + P.WEEKDAYS.map(function (w) {
-        var slot = sched[w.key];
-        var tpl = slot && slot.templateId ? P.Templates.get(slot.templateId) : null;
-        var label = slot && slot.rest ? 'Rest' : (tpl ? tpl.name : 'Nothing scheduled');
-        var lane = slot && slot.rest ? 'rest' : (tpl ? P.laneOf(tpl.type) : 'none');
-        return '<li class="pal-listrow pal-planrow" data-lane="' + esc(lane) + '"' +
-          ' data-today="' + (w.key === todayKey ? 'true' : 'false') + '">' +
-          '<div class="pal-listrow__meta" style="width:52px;flex:none">' + esc(w.short) + '</div>' +
-          '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(label) + '</div></div>' +
-          '<select class="pal-select" style="max-width:220px" data-sched="' + esc(w.key) + '">' +
-            '<option value="">Nothing scheduled</option>' +
-            '<option value="rest"' + (slot && slot.rest ? ' selected' : '') + '>Rest</option>' +
-            templates.map(function (tp) {
-              return '<option value="' + esc(tp.id) + '"' + (tpl && tpl.id === tp.id ? ' selected' : '') + '>' + esc(tp.name) + '</option>';
+    var body;
+    if (done.length) {
+      body = '<p class="pal-schedrow__name">' + esc(done[0].name) + '</p>' +
+        '<p class="pal-schedrow__meta">Done · ' + P.sessionSetCount(done[0]) + ' sets · ' +
+        P.fmtDuration(done[0].elapsedSec) + '</p>';
+    } else if (isRest) {
+      body = '<p class="pal-schedrow__name">' + esc(tpl.name) + '</p>' +
+        '<p class="pal-schedrow__meta">Rest. Taking it keeps the streak — it does not break it.</p>';
+    } else if (tpl) {
+      var entries = P.entriesFromTemplate(tpl);
+      body = '<p class="pal-schedrow__name">' + esc(tpl.name) + '</p>' +
+        '<p class="pal-schedrow__meta">' + entries.length + ' exercise' + (entries.length === 1 ? '' : 's') +
+          ' · ~' + P.estimatedDuration(entries) + ' min' +
+          (exact ? '' : ' · nothing written for ' + esc(P.levelInfo(chosen).label) + ' yet, so this stands in') +
+        '</p>' +
+        (entries.length
+          ? '<ul class="pal-schedrow__list">' + entries.slice(0, 8).map(function (e) {
+              return '<li><span>' + esc(e.name) + '</span><span class="pal-schedrow__reps">' +
+                e.sets.length + ' \u00d7 ' + esc(e.targetReps || '\u2014') + '</span></li>';
             }).join('') +
-          '</select>' +
-        '</li>';
-      }).join('') + '</ul></div>';
+            (entries.length > 8 ? '<li class="pal-schedrow__more">and ' + (entries.length - 8) + ' more</li>' : '') +
+            '</ul>'
+          : '');
+    } else {
+      body = '<p class="pal-schedrow__name pal-schedrow__name--empty">Nothing scheduled</p>' +
+        '<p class="pal-schedrow__meta">Give a routine this day in Workouts and it appears here.</p>';
+    }
 
-    return band(cal.monthName + ' ' + cal.year, grid + plan,
-      '<div class="pal-row">' + laneKeyHtml() +
-        '<button class="pal-btn pal-btn--sm" data-act="cal-step" data-n="-1" aria-label="Previous month">←</button>' +
-        '<button class="pal-btn pal-btn--sm" data-act="cal-today">Today</button>' +
-        '<button class="pal-btn pal-btn--sm" data-act="cal-step" data-n="1" aria-label="Next month">→</button>' +
+    var actions = '';
+    if (isToday && !done.length && tpl && !isRest) {
+      actions = '<button class="pal-btn pal-btn--primary pal-btn--sm" data-act="start-template" data-id="' +
+        esc(tpl.id) + '" data-level="' + esc(chosen) + '">Start</button>';
+    } else if (tpl) {
+      actions = '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-template" data-id="' +
+        esc(tpl.id) + '">Edit</button>';
+    } else {
+      actions = '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="new-template" data-day="' +
+        esc(dayKey) + '">Add one</button>';
+    }
+
+    // Which levels this day actually has something written for. A dot the
+    // reader can see is worth more than discovering it on the day.
+    var written = P.LEVEL_KEYS.filter(function (k) { return slot[k]; });
+    var coverage = (slot.any || written.length === 3)
+      ? ''
+      : '<p class="pal-schedrow__cover">' +
+          (written.length ? 'Written for ' + written.map(function (k) { return P.levelInfo(k).label; }).join(', ') : 'No routine yet') +
+        '</p>';
+
+    return '<li class="pal-schedrow" data-lane="' + esc(lane) + '" data-today="' + (isToday ? 'true' : 'false') +
+        '" data-done="' + (done.length ? 'true' : 'false') + '">' +
+      '<div class="pal-schedrow__day">' +
+        '<span class="pal-schedrow__dow">' + esc(label) + '</span>' +
+        '<span class="pal-schedrow__date">' + esc(P.prettyDate(dateStr)) + '</span>' +
+        (isToday ? '<span class="pal-schedrow__tag">Today</span>' : '') +
+      '</div>' +
+      '<div class="pal-schedrow__main">' + body + coverage + '</div>' +
+      '<div class="pal-schedrow__side">' + levelPicker(dateStr, chosen, explicit) + actions + '</div>' +
+    '</li>';
+  }
+
+  function viewCalendar() {
+    var start = P.addDays(P.mondayOf(P.today()), schedWeek * 7);
+    var rows = P.WEEKDAYS.map(function (w, i) {
+      return scheduleRow(P.addDays(start, i), w.key, w.short);
+    }).join('');
+
+    // The framing is not decoration. Left unsaid, a three-way picker reads as
+    // "full workout / half a workout / gave up", which is the opposite of
+    // what it is for.
+    var key = '<div class="pal-levelkey">' + P.LEVELS.map(function (l) {
+      return '<div class="pal-levelkey__item" data-level="' + esc(l.key) + '">' +
+        '<span class="pal-levelkey__dot" aria-hidden="true">' + l.dot + '</span>' +
+        '<div><p class="pal-levelkey__head">' + esc(l.label) + ' \u00b7 ' + esc(l.title) +
+          ' <span class="pal-sub">' + esc(l.mins) + '</span></p>' +
+        '<p class="pal-levelkey__body">' + esc(l.blurb) + '</p>' +
+        '<p class="pal-levelkey__when">' + esc(l.when) + '</p></div>' +
+      '</div>';
+    }).join('') +
+    '<p class="pal-levelkey__foot">MID and LOW are not failed HIGH days \u2014 they are the versions of the week that match the resources you actually have. ' +
+      'Nothing here counts a LOW day as a miss, and there is nothing to make up afterwards.</p>' +
+    '</div>';
+
+    var label = schedWeek === 0 ? 'This week'
+      : (schedWeek === 1 ? 'Next week'
+      : (schedWeek === -1 ? 'Last week' : P.prettyDate(start)));
+
+    return band('Weekly schedule',
+      '<ul class="pal-schedlist">' + rows + '</ul>' +
+      '<div class="pal-card" style="margin-top:24px"><h3 class="pal-h3" style="margin-bottom:14px">Choosing a level</h3>' + key + '</div>',
+      '<div class="pal-row">' +
+        '<button class="pal-btn pal-btn--sm" data-act="sched-step" data-n="-1" aria-label="Previous week">\u2190</button>' +
+        '<button class="pal-btn pal-btn--sm" data-act="sched-today">' + esc(label) + '</button>' +
+        '<button class="pal-btn pal-btn--sm" data-act="sched-step" data-n="1" aria-label="Next week">\u2192</button>' +
       '</div>');
   }
 
@@ -891,7 +1098,7 @@
       return band('Workouts',
         U.empty('No routines yet',
           canImport
-            ? 'Import the programs already in your Fitness Studio, or build one from scratch. Importing copies them across and leaves the originals alone.'
+            ? 'Install the HIGH / MID / LOW programs from Settings, import the routines still stored by your retired fitness pages, or build one from scratch.'
             : 'A routine is a named list of exercises you can start with one button.',
           'Build your first workout', 'new-template'),
         head);
@@ -933,11 +1140,26 @@
         }).join('') + '</div>';
 
     var shown = exMuscle === 'All' ? list : list.filter(function (e) { return e.muscle === exMuscle; });
-    var body = chips +
-      '<div class="pal-xgrid" id="palExGrid" style="margin-top:var(--pal-4)">' +
-        shown.map(exerciseCard).join('') +
-      '</div>';
+    prCache = null;
 
+    // Grouped when showing everything, flat when a chip is on — a single
+    // heading repeating the chip you just pressed says nothing.
+    var groups;
+    if (exMuscle === 'All') {
+      groups = P.MUSCLES.filter(function (m) { return present[m]; }).map(function (m) {
+        var rows = shown.filter(function (e) { return e.muscle === m; });
+        return '<div class="pal-card pal-exgroup" data-muscle="' + esc(m) + '" style="margin-bottom:14px">' +
+          '<div class="pal-card__head"><h3 class="pal-h3">' + esc(m) + '</h3>' +
+          '<span class="pal-sub">' + rows.length + '</span></div>' +
+          '<ul class="pal-list">' + rows.map(exerciseRow).join('') + '</ul>' +
+        '</div>';
+      }).join('');
+    } else {
+      groups = '<div class="pal-card pal-exgroup" data-muscle="' + esc(exMuscle) + '">' +
+        '<ul class="pal-list">' + shown.map(exerciseRow).join('') + '</ul></div>';
+    }
+
+    var body = chips + '<div id="palExGrid" style="margin-top:var(--pal-4)">' + groups + '</div>';
     return band('Exercise library', body, head);
   }
 
@@ -971,7 +1193,9 @@
         '<div class="pal-listrow__main">' +
           '<div class="pal-listrow__title">' + esc(x.name) +
           (x.status === 'abandoned' ? ' <span class="pal-sub">(not finished)</span>' : '') + '</div>' +
-          '<div class="pal-listrow__meta">' + P.sessionSetCount(x) + ' sets · ' +
+          '<div class="pal-listrow__meta">' +
+          (x.level ? '<span class="pal-lvltag" data-level="' + esc(x.level) + '">' + esc(P.levelInfo(x.level).label) + '</span> ' : '') +
+          P.sessionSetCount(x) + ' sets · ' +
           P.fmtInt(P.sessionVolume(x)) + ' ' + esc(s.weightUnit) + ' · ' + P.fmtDuration(x.elapsedSec) + '</div>' +
         '</div>' +
         '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="open-session" data-id="' + esc(x.id) + '">Open</button>' +
@@ -1025,12 +1249,138 @@
             '</div>'
           : '<p class="pal-sub">Off. Today\'s card leaves the calorie tile out entirely rather than showing an empty one.</p>') +
       '</div>' +
-      '<div class="pal-card">' +
+      programsCard() +
+      '<div class="pal-card" style="margin-bottom:16px">' +
         '<h3 class="pal-h3" style="margin-bottom:10px">Bringing work across</h3>' +
-        '<p class="pal-sub" style="margin-bottom:14px">Reads the routines in your Fitness Studio pages and copies them here. ' +
+        '<p class="pal-sub" style="margin-bottom:14px">Reads the routines still stored by the retired fitness pages and copies them here. ' +
           'It never changes them, and running it again only adds what is new.</p>' +
         '<button class="pal-btn" data-act="import">↻ Import my programs (' + P.importAvailable() + ' found)</button>' +
-      '</div>');
+      '</div>' +
+      backupCard());
+  }
+
+  // ============================================================
+  // THE SAFETY NET
+  //
+  // Every snapshot listed here lives under `palbak:`, entirely outside the
+  // `pal:` prefix the cloud syncs — so nothing a bad pull, a stale device or
+  // a wrong tap can do to the Supabase row reaches them. See
+  // palaestra-backup.js for why that prefix is the whole design.
+  //
+  // The counts are the point of the list. "17:42" tells you nothing; "6
+  // routines · 51 exercises" is what lets you find the snapshot from before
+  // the thing that went wrong.
+  // ============================================================
+  function snapCounts(entry) {
+    var B = window.PalBackup;
+    return B.COUNTED.map(function (c) {
+      var n = (entry.counts && entry.counts[c.key]) || 0;
+      return n + ' ' + c.label;
+    }).filter(function (t) { return t.indexOf('0 ') !== 0; }).join(' · ') || 'empty';
+  }
+  function snapWhen(ts) {
+    var d = new Date(ts), now = new Date();
+    var hhmm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    var same = d.toDateString() === now.toDateString();
+    return same ? 'Today ' + hhmm : P.prettyDate(P.localISO(d)) + ' ' + hhmm;
+  }
+  var SNAP_REASON = {
+    boot: 'when you opened the page',
+    change: 'after an edit',
+    'before-drop': 'just before records disappeared',
+    'pre-restore': 'before a restore',
+    manual: 'you asked for it'
+  };
+  function backupCard() {
+    var B = window.PalBackup;
+    if (!B) return '';
+    var snaps = B.list();
+    var st = B.stats();
+    var live = B.countsOf(B.readState());
+    var nowLine = B.COUNTED.map(function (c) { return (live[c.key] || 0) + ' ' + c.label; })
+      .filter(function (t) { return t.indexOf('0 ') !== 0; }).join(' · ') || 'nothing yet';
+
+    return '<div class="pal-card">' +
+      '<div class="pal-card__head"><h3 class="pal-h3">Safety net</h3>' +
+        '<span class="pal-sub">' + st.count + ' local snapshot' + (st.count === 1 ? '' : 's') +
+        ' · ' + Math.round(st.bytes / 1024) + ' KB</span></div>' +
+      '<p class="pal-sub" style="margin-bottom:14px">Kept on this device only, outside everything the cloud touches, so a bad sync cannot reach them. ' +
+        'Right now you have <b>' + esc(nowLine) + '</b>.</p>' +
+      '<div class="pal-row" style="margin-bottom:14px">' +
+        '<button class="pal-btn pal-btn--sm" data-act="snap-now">＋ Snapshot now</button>' +
+      '</div>' +
+      (snaps.length
+        ? '<ul class="pal-list">' + snaps.map(function (e) {
+            return '<li class="pal-listrow">' +
+              '<div class="pal-listrow__main">' +
+                '<div class="pal-listrow__title">' + esc(snapWhen(e.at)) + '</div>' +
+                '<div class="pal-listrow__meta">' + esc(snapCounts(e)) + ' · ' +
+                  esc(SNAP_REASON[e.reason] || e.reason) + '</div>' +
+              '</div>' +
+              '<div class="pal-listrow__actions">' +
+                '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="snap-restore" data-id="' + esc(e.id) + '">Restore</button>' +
+                '<button class="pal-btn pal-btn--sm pal-btn--ghost pal-btn--danger" data-act="snap-delete" data-id="' + esc(e.id) + '" aria-label="Delete this snapshot">✕</button>' +
+              '</div>' +
+            '</li>';
+          }).join('') + '</ul>'
+        : '<p class="pal-sub">None yet — one is written every time you open the page.</p>') +
+    '</div>';
+  }
+
+  function sheetRestore(id) {
+    var B = window.PalBackup;
+    var entry = B.list().filter(function (e) { return e.id === id; })[0];
+    var snap = B.get(id);
+    if (!entry || !snap) { U.toast('That snapshot is gone', true); return; }
+    var live = B.countsOf(B.readState());
+
+    // Show the two side by side. A restore is only obviously right when you
+    // can see what it gives back and what it takes away in the same glance.
+    var rows = B.COUNTED.map(function (c) {
+      var was = (entry.counts && entry.counts[c.key]) || 0;
+      var now = live[c.key] || 0;
+      var delta = was - now;
+      return '<li class="pal-listrow">' +
+        '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(c.label) + '</div>' +
+        '<div class="pal-listrow__meta">now ' + now + ' → ' + was + '</div></div>' +
+        '<div class="pal-listrow__meta" style="color:' +
+          (delta > 0 ? 'var(--pal-good)' : (delta < 0 ? 'var(--pal-bad)' : 'inherit')) + '">' +
+          (delta > 0 ? '+' + delta : (delta < 0 ? String(delta) : '=')) + '</div>' +
+      '</li>';
+    }).join('');
+
+    U.openSheet({
+      title: 'Restore ' + snapWhen(entry.at),
+      lede: 'This replaces what is on this device now, and pushes the result to your other devices. ' +
+            'The state you are replacing is snapshotted first, so this is not a one-way door.',
+      body: '<ul class="pal-list">' + rows + '</ul>',
+      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Restore everything', act: 'go', kind: 'primary' }],
+      onAction: function (act) {
+        if (act !== 'go') return;
+        var res = B.restore(id);
+        U.closeSheet();
+        if (!res.ok) { U.toast('Could not read that snapshot', true); return; }
+        refresh();
+        U.toast('Restored ' + res.written + ' record set' + (res.written === 1 ? '' : 's'));
+      }
+    });
+  }
+
+  // The HIGH / MID / LOW programs. Installing is explicit and repeatable
+  // rather than a seed, for the reason palaestra-data.js §PROGRAMS gives:
+  // a routine is a decision. Repeatable matters too — if these ever go
+  // missing again they are one tap away rather than an evening.
+  function programsCard() {
+    var n = P.programsInstalled();
+    var full = P.PROGRAM_ROUTINES.length;
+    return '<div class="pal-card" style="margin-bottom:16px">' +
+      '<div class="pal-card__head"><h3 class="pal-h3">The HIGH / MID / LOW programs</h3>' +
+        '<span class="pal-sub">' + n + ' of ' + full + ' installed</span></div>' +
+      '<p class="pal-sub" style="margin-bottom:14px">Three versions of the same training week, and the exercise library they need. ' +
+        'Additive and safe to run again: a routine you have since edited is left exactly as it is, and only genuinely missing ones are written back.</p>' +
+      '<button class="pal-btn' + (n < full ? ' pal-btn--primary' : '') + '" data-act="install-programs">' +
+        (n ? '↻ Restore anything missing' : '＋ Install the programs') + '</button>' +
+    '</div>';
   }
 
   function wireSettings() {
@@ -1245,19 +1595,59 @@
     });
   }
 
-  function sheetTemplate(id) {
+  function sheetTemplate(id, presetDay) {
     var rec = id ? P.Templates.get(id) : null;
-    var items = rec ? rec.items.slice() : [];
+    var items = rec ? rec.items.map(function (x) { return Object.assign({}, x); }) : [];
     var library = P.exercisesSorted();
+    // "Add one" on an empty schedule row arrives with the day already known.
+    var days = rec ? (rec.days || []).slice() : (presetDay ? [presetDay] : []);
 
+    // §PER-ITEM OVERRIDES.
+    //
+    // templateItemModel has supported sets/reps/rest/unit/note overrides
+    // since the first build and this sheet never wrote a single one — it
+    // pushed a bare { exerciseId }. That was survivable while a routine was
+    // just a list of exercises. It stops being survivable the moment the
+    // same movement appears at 3 × 10–12 on a HIGH day and 2 × 8–12 on a
+    // LOW one, which is the entire point of the three programs.
+    //
+    // A blank field means INHERIT, and says so in its placeholder — the
+    // library record's own number. Only a value typed here overrides.
+    function ovField(i, key, value, ph, label, wide) {
+      return '<label class="pal-tplov__f" style="' + (wide ? 'flex:1 1 120px' : '') + '">' +
+        '<span>' + esc(label) + '</span>' +
+        '<input class="pal-input pal-input--num" type="number" inputmode="numeric" min="0"' +
+          ' data-tpl-ov="' + i + '" data-key="' + esc(key) + '"' +
+          ' value="' + (value == null ? '' : esc(value)) + '"' +
+          ' placeholder="' + esc(ph) + '"></label>';
+    }
     function itemsHtml() {
       if (!items.length) return '<p class="pal-sub">No exercises yet. Add one below.</p>';
       return '<ul class="pal-list">' + items.map(function (it, i) {
         var ex = P.Exercises.get(it.exerciseId);
-        return '<li class="pal-listrow">' +
+        var d = ex || { sets: 3, repMin: 8, repMax: 12, restSec: 90, unit: 'reps' };
+        var unit = it.unit == null ? d.unit : it.unit;
+        return '<li class="pal-listrow pal-tplrow">' +
           '<div class="pal-listrow__meta" style="width:24px;flex:none">' + (i + 1) + '</div>' +
-          '<div class="pal-listrow__main"><div class="pal-listrow__title">' + esc(ex ? ex.name : 'Missing exercise') + '</div>' +
-            '<div class="pal-listrow__meta">' + esc(ex ? ex.muscle : '') + '</div></div>' +
+          '<div class="pal-listrow__main">' +
+            '<div class="pal-listrow__title">' + esc(ex ? ex.name : 'Missing exercise') + '</div>' +
+            '<div class="pal-listrow__meta">' + esc(ex ? ex.muscle : '') +
+              (ex ? ' · library: ' + esc(P.setsAndReps(ex) || '—') + ' · ' + esc(P.fmtRest(ex.restSec)) : '') + '</div>' +
+            '<div class="pal-tplov">' +
+              ovField(i, 'sets', it.sets, String(d.sets), 'Sets') +
+              ovField(i, 'repMin', it.repMin, String(d.repMin), 'From') +
+              ovField(i, 'repMax', it.repMax, String(d.repMax), 'To') +
+              ovField(i, 'restSec', it.restSec, String(d.restSec), 'Rest s') +
+              '<label class="pal-tplov__f"><span>Unit</span>' +
+                '<select class="pal-select" data-tpl-ov="' + i + '" data-key="unit">' +
+                U.selectOptions(P.UNITS, unit) + '</select></label>' +
+              '<label class="pal-tplov__f pal-tplov__f--wide"><span>Note</span>' +
+                '<input class="pal-input" data-tpl-ov="' + i + '" data-key="note" value="' + esc(it.note || '') +
+                '" placeholder="e.g. rest 60–90 sec"></label>' +
+              '<label class="pal-tplov__side"><input type="checkbox" class="pal-check" data-tpl-ov="' + i + '" data-key="perSide"' +
+                ((it.perSide == null ? (ex && ex.perSide) : it.perSide) ? ' checked' : '') + '><span>per leg</span></label>' +
+            '</div>' +
+          '</div>' +
           '<div class="pal-listrow__actions">' +
             '<button type="button" class="pal-btn pal-btn--sm pal-btn--ghost" data-tpl-move="' + i + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
             '<button type="button" class="pal-btn pal-btn--sm pal-btn--ghost" data-tpl-move="' + i + '" data-dir="1" aria-label="Move down"' + (i === items.length - 1 ? ' disabled' : '') + '>↓</button>' +
@@ -1277,7 +1667,29 @@
             '<input class="pal-input" id="fld_name" name="name" value="' + esc(rec ? rec.name : '') + '" placeholder="Pull Day"></div>' +
           '<div class="pal-field"><label class="pal-label" for="fld_type">Type</label>' +
             '<select class="pal-select" id="fld_type" name="type">' +
-            U.selectOptions(P.TYPE_KEYS.filter(function (k) { return k !== 'Rest'; }), rec ? rec.type : 'Pull') + '</select></div>' +
+            U.selectOptions(P.TYPE_KEYS, rec ? rec.type : 'Pull') + '</select></div>' +
+        '</div>' +
+        // §SCHEDULE-ON-THE-ROUTINE, at the point of editing. These two
+        // fields ARE the weekly schedule — there is no second store to keep
+        // in step, so a routine given Monday appears on Monday and a routine
+        // renamed is renamed there too.
+        '<div class="pal-grid pal-grid--2" style="margin-bottom:16px">' +
+          '<div class="pal-field"><span class="pal-label">Days</span>' +
+            '<div class="pal-daypick">' + P.WEEKDAYS.map(function (w) {
+              var on = days.indexOf(w.key) !== -1;
+              return '<label class="pal-daypick__d"><input type="checkbox" data-day="' + esc(w.key) + '"' +
+                (on ? ' checked' : '') + '><span>' + esc(w.short) + '</span></label>';
+            }).join('') + '</div>' +
+            '<p class="pal-sub" style="margin-top:6px">Leave every day off to keep this routine off the schedule.</p></div>' +
+          '<div class="pal-field"><label class="pal-label" for="fld_level">Effort level</label>' +
+            '<select class="pal-select" id="fld_level" name="level">' +
+              '<option value=""' + (rec && !rec.level ? ' selected' : '') + '>Any level</option>' +
+              P.LEVELS.map(function (l) {
+                return '<option value="' + esc(l.key) + '"' + (rec && rec.level === l.key ? ' selected' : '') + '>' +
+                  esc(l.label + ' · ' + l.title) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<p class="pal-sub" style="margin-top:6px">Any level means this one stands in whichever version of the day you pick — what a rest day wants.</p></div>' +
         '</div>' +
         '<div class="pal-field"><span class="pal-label">Exercises</span><div id="palTplItems">' + itemsHtml() + '</div></div>' +
         '<div class="pal-row" style="margin-top:12px">' +
@@ -1301,6 +1713,32 @@
         sheet.querySelector('#palTplNewEx').addEventListener('click', function () {
           U.closeSheet();
           sheetExercise(null);
+        });
+        // One delegated listener for every override field. Blank clears the
+        // override back to inherit rather than writing a zero — a routine
+        // that silently prescribed 0 sets would be worse than no override.
+        sheet.querySelector('#palTplItems').addEventListener('input', function (e) {
+          var f = e.target.closest('[data-tpl-ov]');
+          if (!f) return;
+          var i = parseInt(f.getAttribute('data-tpl-ov'), 10);
+          var key = f.getAttribute('data-key');
+          if (!items[i]) return;
+          if (key === 'perSide') { items[i].perSide = f.checked; return; }
+          if (key === 'note') { items[i].note = f.value; return; }
+          if (key === 'unit') { items[i].unit = f.value || null; return; }
+          items[i][key] = f.value === '' ? null : Math.max(0, parseInt(f.value, 10) || 0);
+        });
+        sheet.querySelector('#palTplItems').addEventListener('change', function (e) {
+          var f = e.target.closest('[data-tpl-ov]');
+          if (f && f.getAttribute('data-key') === 'perSide') items[parseInt(f.getAttribute('data-tpl-ov'), 10)].perSide = f.checked;
+        });
+        sheet.addEventListener('change', function (e) {
+          var d = e.target.closest('[data-day]');
+          if (!d) return;
+          var k = d.getAttribute('data-day');
+          var at = days.indexOf(k);
+          if (d.checked && at === -1) days.push(k);
+          else if (!d.checked && at !== -1) days.splice(at, 1);
         });
         sheet.querySelector('#palTplItems').addEventListener('click', function (e) {
           var mv = e.target.closest('[data-tpl-move]');
@@ -1329,8 +1767,12 @@
         if (act !== 'save') return;
         var name = String(val(sheet, 'name')).trim();
         if (!name) { U.toast('Give it a name'); return; }
-        if (!items.length) { U.toast('Add at least one exercise'); return; }
-        var patch = { name: name, type: val(sheet, 'type'), items: items };
+        var type = val(sheet, 'type');
+        // A rest day is a routine with nothing in it, and refusing to save
+        // one would make the schedule unable to express the most common
+        // instruction in the whole programme.
+        if (!items.length && type !== 'Rest') { U.toast('Add at least one exercise, or set the type to Rest'); return; }
+        var patch = { name: name, type: type, items: items, days: days, level: val(sheet, 'level') };
         if (rec) P.Templates.update(rec.id, patch);
         else P.Templates.add(Object.assign(patch, { order: P.Templates.nextOrder() }));
         U.closeSheet(); refresh(); U.toast('Saved');
@@ -1547,7 +1989,7 @@
     else location.href = url;
   }
 
-  function startTemplate(id) {
+  function startTemplate(id, level) {
     var live = P.getLive();
     if (live && live.sessionId) {
       // Never silently orphan a half-logged workout.
@@ -1555,7 +1997,10 @@
       goLogger();
       return;
     }
-    P.startWorkout({ templateId: id });
+    // The level can be set in advance on the schedule and changed again here;
+    // whichever came last is what the session records.
+    var tpl = P.Templates.get(id);
+    P.startWorkout({ templateId: id, level: level || (tpl ? tpl.level : '') || P.getLevel(P.today()) });
     goLogger();
   }
   function startFree() {
@@ -1632,10 +2077,10 @@
   var ACTIONS = {
     'open-day': function (el) { sheetDay(el.getAttribute('data-date')); },
     'open-session': function (el) { sheetSession(el.getAttribute('data-id')); },
-    'start-template': function (el) { startTemplate(el.getAttribute('data-id')); },
+    'start-template': function (el) { startTemplate(el.getAttribute('data-id'), el.getAttribute('data-level')); },
     'start-free': startFree,
     'go-templates': function () { go('/templates'); },
-    'new-template': function () { sheetTemplate(null); },
+    'new-template': function (el) { sheetTemplate(null, el && el.getAttribute('data-day')); },
     'edit-template': function (el) { sheetTemplate(el.getAttribute('data-id')); },
     'new-exercise': function () { sheetExercise(null); },
     'edit-exercise': function (el) { sheetExercise(el.getAttribute('data-id')); },
@@ -1657,6 +2102,28 @@
     },
     'macros-edit': sheetMacros,
     'import': doImport,
+    'install-programs': function () {
+      var r = P.installPrograms();
+      refresh();
+      if (!r.routines && !r.exercises && !r.exercisesEnriched) { U.toast('Everything is already here'); return; }
+      var bits = [];
+      if (r.routines) bits.push(r.routines + ' routine' + (r.routines === 1 ? '' : 's'));
+      if (r.exercises) bits.push(r.exercises + ' exercise' + (r.exercises === 1 ? '' : 's'));
+      if (r.exercisesEnriched) bits.push(r.exercisesEnriched + ' updated');
+      U.toast('Added ' + bits.join(' and '));
+    },
+    'snap-now': function () {
+      var e = window.PalBackup && window.PalBackup.snapshot('manual', { force: true, pinned: true });
+      refresh();
+      U.toast(e ? 'Snapshot saved on this device' : 'Nothing to snapshot yet');
+    },
+    'snap-restore': function (el) { sheetRestore(el.getAttribute('data-id')); },
+    'snap-delete': function (el) {
+      if (!window.confirm('Delete this snapshot? It is the only copy.')) return;
+      window.PalBackup.remove(el.getAttribute('data-id'));
+      refresh();
+      U.toast('Snapshot deleted');
+    },
     'week-step': function (el) {
       var n = parseInt(el.getAttribute('data-n'), 10) || 0;
       var cur = scoreWeek || P.today();
@@ -1665,16 +2132,18 @@
       scoreWeek = next;
       refresh();
     },
-    'cal-step': function (el) {
-      var n = parseInt(el.getAttribute('data-n'), 10) || 0;
-      var d = new Date(calYear, calMonth + n, 1);
-      calYear = d.getFullYear(); calMonth = d.getMonth();
+    'sched-step': function (el) {
+      schedWeek += parseInt(el.getAttribute('data-n'), 10) || 0;
       refresh();
     },
-    'cal-today': function () {
-      var now = new Date();
-      calYear = now.getFullYear(); calMonth = now.getMonth();
+    'sched-today': function () { schedWeek = 0; refresh(); },
+    'set-level': function (el) {
+      var date = el.getAttribute('data-date');
+      var level = el.getAttribute('data-level');
+      P.setLevel(date, level);
       refresh();
+      var info = P.levelInfo(level);
+      U.toast(info.label + ' \u00b7 ' + info.title + ' \u2014 ' + info.mins);
     },
     'vol-window': function (el) { volWindow = el.getAttribute('data-n'); refresh(); }
   };
@@ -1692,7 +2161,7 @@
     // render can ever re-create the <video> inside it.
     window.PalHero.mount({
       variant: 'full',
-      mark: 'The Palaestra',
+      mark: 'Fitness Studio',
       markHref: 'palaestra.html',
       dateText: P.prettyLong(P.today()),
       routes: ROUTES,
@@ -1701,10 +2170,18 @@
       badge: { lead: 'Start', main: 'Today' }
     });
 
+    // Every route is in the DOM at every width — the phone block hides the
+    // secondary ones rather than the script rebuilding the bar on resize,
+    // so a rotation cannot leave the nav in the wrong shape.
     routesEl.innerHTML = ROUTES.map(function (r) {
-      return '<button class="pal-route" data-route="' + r.hash + '">' + esc(r.label) + '</button>';
-    }).join('');
+      return '<button class="pal-route" data-route="' + esc(r.hash) + '"' +
+        ' data-primary="' + (isPrimary(r.hash) ? 'true' : 'false') + '">' +
+        '<span class="pal-route__txt">' + esc(r.label) + '</span></button>';
+    }).join('') +
+      '<button class="pal-route pal-route--more" data-more="1" aria-haspopup="dialog">' +
+        '<span class="pal-route__txt">More</span></button>';
     routesEl.addEventListener('click', function (e) {
+      if (e.target.closest('[data-more]')) { sheetMore(); return; }
       var b = e.target.closest('[data-route]');
       if (b) go(b.getAttribute('data-route'));
     });
@@ -1718,16 +2195,6 @@
       e.preventDefault();
       fn(el);
     });
-    root.addEventListener('change', function (e) {
-      var sel = e.target.closest('[data-sched]');
-      if (!sel) return;
-      var v = sel.value;
-      P.setScheduleDay(sel.getAttribute('data-sched'),
-        !v ? null : (v === 'rest' ? { rest: true } : { templateId: v }));
-      refresh();
-      U.toast('Plan updated');
-    });
-
     document.getElementById('palFab').addEventListener('click', sheetQuickAdd);
 
     // A track pinned inside the music dock belongs to an exercise or a
@@ -1743,16 +2210,28 @@
 
     window.addEventListener('hashchange', navigate);
 
-    var remoteRef = { applied: false };
+    // The first thing this page does with storage, and deliberately BEFORE
+    // initCloudSync: a snapshot of what this device holds right now, taken
+    // while the cloud has not yet had the chance to change it. Everything it
+    // writes lives under `palbak:`, which sync.js cannot see.
+    if (window.PalBackup) window.PalBackup.boot();
+
+    var remoteRef = { applied: false, pulled: false, onPulled: null };
     if (typeof window.initCloudSync === 'function' && window.supabase) {
       window.initCloudSync({
         appKey: 'palaestra',
         syncedPrefixes: ['pal:'],
-        // The Palaestra is TWO documents on one row. Without this, the logger
+        // Fitness Studio is TWO documents on one row. Without this, the logger
         // boots with no memory of what this page just wrote and its opening
         // pull erases it. See §HANDOFF in sync.js.
         handoff: true,
-        onApplied: function () { remoteRef.applied = true; repaint(); }
+        onApplied: function () { remoteRef.applied = true; repaint(); },
+        // "The cloud has spoken", which is a different question from "the
+        // cloud said something new" — and it is the one the seeder needs.
+        onPulled: function () {
+          remoteRef.pulled = true;
+          if (typeof remoteRef.onPulled === 'function') { var f = remoteRef.onPulled; remoteRef.onPulled = null; f(); }
+        }
       });
     }
     // Never seed before the cloud has had its chance — on a fresh
@@ -1761,11 +2240,26 @@
     // decision made against a local store that has not been filled in yet is a
     // decision made about the wrong data.
     P.seedAfterSyncAttempt(remoteRef, function (seeded) {
-      if (seeded) refresh();
+      // The weekly plan used to live in its own key. Folding it into the
+      // routines has to happen AFTER the cloud has spoken for the same
+      // reason seeding does: run against a store that has not been filled
+      // in yet and it migrates the wrong data, then marks itself done.
+      var moved = P.migrateSchedule();
+      if (seeded || moved) refresh();
       offerOrphanSweep();
     });
 
     P.onChange(repaint);
+    // A save that failed used to say "Saved" anyway: storeSet dispatched
+    // pal:save with ok:false and nothing in the app listened, and the
+    // IndexedDB shim counted a failed transaction as a completed one. Both
+    // are fixed at the source; this is the part the reader can see.
+    window.addEventListener('pal:save', function (e) {
+      if (e && e.detail && e.detail.ok === false) U.toast('Could not save — storage refused the write', true);
+    });
+    window.addEventListener('localstore:writefailed', function () {
+      U.toast('A save did not reach this device\'s storage', true);
+    });
     window.PalMusic.init();
     render();
   }

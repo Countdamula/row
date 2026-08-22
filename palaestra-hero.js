@@ -1,5 +1,5 @@
 // =============================================================
-// palaestra-hero.js — the cinematic layer for The Palaestra.
+// palaestra-hero.js — the cinematic layer for Fitness Studio.
 //
 // Shared by palaestra.html (a full-height hero) and
 // palaestra-workout.html (a shorter band of the same thing, so sets
@@ -256,7 +256,7 @@
         ? '<nav class="pal-hero__rail" id="palHeroRail" aria-label="Section position"></nav>' : '') +
       '<div class="pal-hero__in">' +
         // No wordmark here: topbar.js already fixes a launcher pill reading
-        // "The Palaestra" over this exact corner, and two of them is one too
+        // the wordmark over this exact corner, and two of them is one too
         // many. The date takes the right-hand slot the reference gives its
         // grid icon.
         '<div class="pal-hero__top">' +

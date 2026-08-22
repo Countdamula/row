@@ -15397,3 +15397,205 @@ navigation scroll rule, all three badge states, and nothing in the hero or
 ribbon still animating under reduced motion. No horizontal overflow at
 320/360/390/414/768/1024/1280/1440. A filmstrip at 140ms intervals was compared
 against the extracted reference frames.
+
+---
+
+## Renames, two deletions, and the Fitness Studio overhaul (2026-08-21)
+
+### Renames — display strings only
+
+**The Vault → Entertainment Studio** and **The Palaestra → Fitness Studio**.
+Nothing structural moved: the filenames (`vault.html`, `palaestra*.*`), the
+`vault:` / `pal:` prefixes, the appKeys `vault` / `palaestra`, `window.Vault`,
+`window.Pal`, the `vt-` and `--pal-*`/`.pal-*` CSS namespaces are all
+unchanged, so no stored record and no bookmark moved. 20 user-visible strings
+across `vault.html`, `palaestra.html`, `palaestra-workout.html`,
+`palaestra-music.js` and `topbar.js`.
+
+Two name collisions had to be resolved rather than lived with:
+
+- The Vault already had a shelf tab labelled **Entertainment**, which would
+  have read *Entertainment Studio → Entertainment Studio → Entertainment* in
+  the sidebar. That shelf is now **Watching**. Its hash is still `watch` and
+  its storage key is still `vault:media:watch` — only the label changed.
+- **Fitness Studio** was already a live label: `index.html`'s embedded fitness
+  tab. That tab's nav entry was removed from `topbar.js`. `index.html` and its
+  `fitness:` keys are untouched on disk; the tab simply has no link any more.
+
+### Deletions
+
+**The Chrysalis** — all eight files plus `images_by_admin/chrysalis/` and the
+`topbar.js` nav group. Nothing else referenced it; `index.html` had zero hits.
+The `chr:` keys and the `chrysalis` Supabase row are orphaned but intact, so
+restoring the files restores the app.
+
+**The Codex — the PAGE only.** `codex.html` and its nav group are gone.
+**`codex-data.js` MUST STAY** and so must `promptarium.html:4148`'s
+`initCloudSync({ appKey:'codex', syncedPrefixes:['cdx:'] })`. Promptarium's
+Fiction collection *is* `cdx:prompts`, it routes every write through
+`CodexData`'s own `promptModel()`, and the same row holds
+`cdx:trilogies`/`chapters`/`scenes` — the manuscripts. Unmounting the row and
+then writing one `cdx:` key would push a partial set over them; §CODEX GATE
+exists for exactly that. Four `href="codex.html#/prompts"` links were removed
+and ~30 user-visible strings reworded to "the fiction library" / "the shared
+fiction database". `source: 'codex'` is an internal discriminator and did not
+change. A dead `href="aitech.html"` was found and removed at the same time.
+
+### sync.js — §SEEN, and why the routines vanished
+
+A night of workout routines disappeared on 2026-08-20. **Reproduced 1/1 in a
+control run against the pre-fix file**, and the mechanism was `sync.js`'s
+deletion rule:
+
+```js
+for (const k of listAllKeys()) if (!(k in remote)) origRemove(k);
+```
+
+That cannot tell *the cloud deleted this* from *the cloud has never heard of
+this*, and the two need opposite handling. Write a routine, navigate inside the
+250ms debounce, and the next document's opening pull deletes it — then pushes
+the erasure as truth. `c676a54`'s `handoff` narrowed the window to 90 seconds;
+it did not close it, and nothing repaired an already-poisoned row.
+
+Four changes, all default-on for every app, because the bug is every app's:
+
+1. **§SEEN.** `syncseen:<appKey>` — outside every synced prefix, written with
+   `origSet`, same discipline as `HANDOFF_KEY` — records the keys a genuinely
+   pulled row carried. Absence only means deletion for a key in that record;
+   anything else is a local-only write, so it is marked dirty and PUSHED.
+   Confirmed pushes seed the record too, or device A would resurrect forever a
+   key device B deleted.
+2. **Nothing pushes before the first pull.** `pushNow` sends `collect()` as the
+   row's entire data column, so a push that beat the opening `select` erased
+   every key this device did not hold. Everything raised during init is held
+   and released when the pull resolves, with an 8s backstop so a hung pull
+   cannot wedge the outbox shut. `flushOnUnload` stays silent during init for
+   the same reason.
+3. **`HANDOFF_TTL_MS` 90s → 24h.** An entry dies the moment a push is
+   *confirmed*, so in normal use it lives a few hundred milliseconds. It only
+   reaches the ceiling when a push genuinely never landed — which is precisely
+   the edit that must not be discarded. At 90s an overnight-offline edit came
+   back unprotected.
+4. **`onPulled`**, fired when a row *arrives* — including when it matched or
+   was empty. `onApplied` fires only when it *differed*, so "the row was
+   identical" and "there was no answer" were indistinguishable, and
+   `seedAfterSyncAttempt`'s blind `setTimeout(1200)` was taken far more often
+   than intended. Seeding now waits on the real event, with the timeout kept
+   only for the no-cloud-at-all case.
+
+`local-store-idb.js` was handing `tx.onerror` and `tx.onabort` the same handler
+as `tx.oncomplete`, so a write that never committed was indistinguishable from
+one that did: the Map held the value, `flush()` resolved, the UI said "Saved".
+Failures are now counted, announced on a `localstore:writefailed` event, and
+`flush()` resolves `true`/`false` for drained-vs-timed-out.
+
+### palaestra-backup.js — the floor under all of it
+
+Rolling local snapshots of the whole `pal:` state under **`palbak:`**. Check
+that prefix character by character before touching either string: `sync.js`
+matches `k.indexOf('pal:') === 0` and `palbak:` does not, so the snapshots are
+invisible to sync — never collected, never pushed, never deleted by
+`applyRemote`, never counted against the row's size. A snapshot store inside
+the synced prefix would be destroyed by the exact event it exists to survive.
+
+- One snapshot at boot, **before** `initCloudSync` — the only one that answers
+  "what did this device hold when I opened it".
+- A debounced one after edits, and an **immediate** one of the PREVIOUS state
+  whenever a collection shrinks. A pull that deletes six routines happens in
+  one tick; a 5-second debounce would snapshot the damage.
+- Never writes an empty state over a full one — a store that has not hydrated
+  looks exactly like a new install, and twenty copies of nothing would spend
+  the whole ring buffer.
+- Restore panel in Settings, with per-snapshot record counts and a
+  before/after diff. Restoring snapshots the state it replaces first.
+- Writes go through the PATCHED `setItem` so sync marks them dirty and pushes;
+  a restore that only fixed this device would be undone by the next pull.
+
+### Fitness Studio — the rest of the pass
+
+**The schedule is DERIVED from the routines.** `pal:schedule` is retired.
+`templateModel` gained `days: []` and `level: 'high'|'mid'|'low'|''`, and
+`getSchedule()` is a pure function over `templatesSorted()`. Two stores meant
+two truths — a renamed routine kept its old name on the schedule and a deleted
+one left a slot pointing at nothing. `migrateSchedule()` folds the old key in
+once, additively, behind a synced flag, then removes it.
+
+**HIGH / MID / LOW.** `pal:levels` is ONE key, `{ 'YYYY-MM-DD': 'low' }`,
+trimmed to 730 days like `pal:days`. Default HIGH. `plannedFor()` resolves
+weekday → chosen level → routine, falling back exact → level-less → nearest,
+because refusing to start anything would make picking LOW cost you the workout.
+The level is chosen on the Schedule page *and* on Today's card right up to the
+moment Start is pressed; whichever came last is written onto the session.
+**Nothing derived may penalise a level** — `dayFollowedPlan()` counts any
+chosen level as following the plan, and History tags the session with it so a
+12-minute LOW day does not read as a bad full one.
+
+**19 routines and 34 exercises** ship as `PROGRAM_ROUTINES` /
+`PROGRAM_EXERCISES` in `palaestra-data.js`. This is CONTENT, not a seed:
+`ensureSeeded()` still ships exercises only. `installPrograms()` is explicit,
+additive and idempotent (`importSource: 'program-hml'` + `importSourceId`),
+with its own Settings button, so if these ever go missing they are one tap away.
+Exercises are matched by a NORMALISED name — `exMatchKey()` folds `DB` →
+`dumbbell`, `flyes` → `fly` and a trailing plural — so "Incline DB Press" finds
+the seeded "Incline Dumbbell Press" instead of creating a twin. A matched
+record only ever gains EMPTY fields; equipment is corrected only on a record
+that still looks untouched by the reader.
+
+**Two new model fields**, because not every prescription is reps: `unit`
+(`reps|sec|min|max`) and `perSide`. `3 × 45` for a wall sit was going to mean
+forty-five repetitions to whoever read it next. Rendered through `repRange()`,
+which is still the single place a rep range is formatted.
+
+**Per-item overrides are finally written.** `templateItemModel` has supported
+`sets`/`repMin`/`repMax`/`restSec`/`note` since the first build and
+`sheetTemplate` pushed a bare `{ exerciseId }` — survivable until the same
+movement is 3 × 10–12 on a HIGH day and 2 × 8–12 on a LOW one. The editor now
+has the fields; blank means INHERIT and says so in the placeholder.
+
+**The exercise library is a list again** (`.pal-exrow`), grouped by muscle,
+with the sets × reps, rest, equipment and media the cover card showed plus two
+it had dropped: the per-exercise music pin and the personal best. The glow is a
+stacked, colour-tinted `box-shadow` on a 3px left edge keyed to the per-muscle
+`--cover` axis — the selector list for that axis is now shared by the cards,
+the rows and the group panels rather than duplicated. `personalBests()` walks
+every session ever logged, so it is read ONCE per render into `prCache`, never
+per row.
+
+**Phone nav is four fixed slots plus More.** Nine destinations in a
+horizontally-scrolling bar is a nav with a hidden half. Every route stays in
+the DOM at every width and the phone block hides the secondary ones, so a
+rotation cannot leave the bar in the wrong shape; `grid` with
+`minmax(0, 1fr)` is what actually guarantees five columns fit 320px. The More
+button reports the route you are on, or the bar reads as "nowhere" on five of
+nine routes.
+
+**Traps this pass hit:**
+
+1. **A test that cannot fail proves nothing.** The first race suite passed
+   against the PRE-FIX `sync.js`, because the harness let the keepalive flush
+   succeed — the one thing that did not happen in the real incident. Blocking
+   it made the control fail 1/1 and the fix meaningful.
+2. **`--cover` was scoped to `.pal-xcard[data-muscle]`.** A new surface with
+   the same attribute inherits nothing; the selector list has to grow.
+3. **`estimatedDuration()` returns MINUTES**, not seconds. Passing it to
+   `fmtDuration` silently produced "44s" for a 44-minute session.
+4. **A `range` input has a font-size and it does not matter** — iOS only zooms
+   for text entry. The 16px audit has to exclude range/checkbox/radio or it
+   reports a bug that cannot happen.
+5. **Deleting a range of lines by number after an earlier edit** cost a
+   `.pal-hero__dash` rule. Match on content, not on line numbers.
+
+**Verified: 144 checks across six scratchpad suites** — `race.mjs` (14, with a
+control against the pre-fix file), `seen.mjs` (8: a real remote deletion is
+still honoured, a never-seen local key survives), `datatest.mjs` (30, the data
+layer in plain Node against a Map-backed localStorage), `verify.mjs` (45,
+routes/schedule/list/nav/overflow at eight widths), `flow.mjs` (14, a whole
+workout end to end plus snapshot-and-restore after a simulated wipe), and
+`smoke.mjs` (33, every surviving page + a dangling-href crawl, because sync.js
+is shared). All against a stubbed Supabase held in Node — stubbed, never
+aborted, or `window.supabase` is undefined and the code under test never
+mounts.
+
+**Everything `palaestra-*` plus `sync.js` is now at `?v=3`, on every page that
+loads it.** `row` has no build step, so editing a file never changes its URL.
+Bump it on any further change to these files.

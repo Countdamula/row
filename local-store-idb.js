@@ -154,11 +154,38 @@
     var list = waiters; waiters = [];
     list.forEach(function (fn) { try { fn(); } catch (e) {} });
   }
+  // A FAILED transaction is not a completed one. This used to hand
+  // tx.onerror and tx.onabort the same handler as tx.oncomplete, which made a
+  // write that never committed indistinguishable from one that did: the
+  // in-memory Map still held the new value, flush() resolved happily, the UI
+  // said "Saved", and the record was simply gone on the next load. Quota
+  // pressure and an evicted store both land here. The count still has to drop
+  // either way — a stuck counter would hang every flush() after it — so the
+  // failure is recorded and announced instead.
+  var writeFailures = 0, lastError = null;
+
+  function noteFailure(err) {
+    writeFailures++;
+    lastError = err || new Error('IndexedDB write failed');
+    try {
+      window.dispatchEvent(new CustomEvent('localstore:writefailed', {
+        detail: { error: String(lastError && lastError.message || lastError), failures: writeFailures }
+      }));
+    } catch (e) {}
+  }
   function trackTx(tx) {
     pending++;
     var done = false;
-    var finish = function () { if (done) return; done = true; pending--; settleWaiters(); };
-    tx.oncomplete = finish; tx.onerror = finish; tx.onabort = finish;
+    var settle = function (failed, err) {
+      if (done) return;
+      done = true;
+      pending--;
+      if (failed) noteFailure(err);
+      settleWaiters();
+    };
+    tx.oncomplete = function () { settle(false); };
+    tx.onerror = function (e) { settle(true, tx.error || (e && e.target && e.target.error)); };
+    tx.onabort = function (e) { settle(true, tx.error || (e && e.target && e.target.error)); };
   }
   function persistPut(key, value) {
     if (!idb) { preOpen.push(['put', key, value]); return; }
@@ -166,7 +193,7 @@
       var tx = idb.transaction([KV_STORE], 'readwrite');
       tx.objectStore(KV_STORE).put(value, key);
       trackTx(tx);
-    } catch (e) {}
+    } catch (e) { noteFailure(e); }
   }
   function persistRemove(key) {
     if (!idb) { preOpen.push(['del', key]); return; }
@@ -174,7 +201,7 @@
       var tx = idb.transaction([KV_STORE], 'readwrite');
       tx.objectStore(KV_STORE).delete(key);
       trackTx(tx);
-    } catch (e) {}
+    } catch (e) { noteFailure(e); }
   }
   function drainPreOpen() {
     if (!idb || !preOpen.length) return;
@@ -186,7 +213,7 @@
         if (op[0] === 'put') store.put(op[2], op[1]); else store.delete(op[1]);
       });
       trackTx(tx);
-    } catch (e) {}
+    } catch (e) { noteFailure(e); }
     settleWaiters();
   }
 
@@ -264,12 +291,15 @@
    * move. Call it before anything that ends the document.
    */
   function flush(timeoutMs) {
-    if (pending === 0 && !preOpen.length) return Promise.resolve();
+    // Resolves true when the queue genuinely drained, false when the timeout
+    // backstop fired first. Callers that only want to navigate can keep
+    // ignoring it; callers that want to know whether a save is real cannot.
+    if (pending === 0 && !preOpen.length) return Promise.resolve(true);
     return new Promise(function (resolve) {
       var done = false;
-      var finish = function () { if (done) return; done = true; resolve(); };
-      waiters.push(finish);
-      setTimeout(finish, typeof timeoutMs === 'number' ? timeoutMs : 1500);
+      var finish = function (drained) { if (done) return; done = true; resolve(drained !== false); };
+      waiters.push(function () { finish(true); });
+      setTimeout(function () { finish(false); }, typeof timeoutMs === 'number' ? timeoutMs : 1500);
     });
   }
 
@@ -281,7 +311,14 @@
     navigate: function (url, timeoutMs) {
       flush(timeoutMs).then(function () { location.href = url; });
     },
-    pendingWrites: function () { return pending + preOpen.length; }
+    pendingWrites: function () { return pending + preOpen.length; },
+    /**
+     * How many IndexedDB transactions have failed in this document, and the
+     * last error. A page that reports "Saved" should check this rather than
+     * trusting that setItem returned — see the note on trackTx.
+     */
+    writeFailures: function () { return writeFailures; },
+    lastWriteError: function () { return lastError; }
   };
 
   // -------- Step 3: open IndexedDB, then merge/bulk-copy and resolve ready() --------

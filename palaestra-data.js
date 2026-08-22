@@ -1,16 +1,21 @@
 // =============================================================
-// palaestra-data.js — data layer for THE PALAESTRA
+// palaestra-data.js — data layer for FITNESS STUDIO
 // (palaestra.html + palaestra-workout.html).
 //
-// The palaestra was the Greek training ground attached to the
-// gymnasium — the counterpart to this app's Athenaeum. This is a
-// NEW, PARALLEL fitness page, built alongside the two that already
-// exist, never on top of them:
+// Built as "The Palaestra" — the Greek training ground attached to the
+// gymnasium, the counterpart to this app's Athenaeum — and renamed on
+// 2026-08-21. DISPLAY NAME ONLY: the filenames, the `pal:` prefix, the
+// appKey 'palaestra' and window.Pal are all unchanged, so no stored
+// record and no bookmark moved.
 //
-//   - index.html's embedded Fitness Studio tab  → `fitness:`  prefix
-//   - fitnessstudio.html                        → `fitstudio:` prefix
+// It was built as a PARALLEL page alongside two that already existed:
 //
-// Both stay exactly as they are and stay in the nav. Everything here
+//   - index.html's embedded fitness tab  → `fitness:`  prefix
+//   - fitnessstudio.html                 → `fitstudio:` prefix
+//
+// The second was deleted in the 2026-08-21 tidy-up and the first lost
+// its nav link in the same pass; both are otherwise untouched on disk,
+// and their keys are still readable by importPrograms(). Everything here
 // is `pal:`-prefixed, so one
 //   initCloudSync({ appKey: 'palaestra', syncedPrefixes: ['pal:'] })
 // call per page covers the whole namespace — no per-key wiring. The
@@ -89,7 +94,15 @@
     // Synced deliberately: the offer is answered once, on whichever device
     // sees it first, and the others should not ask again.
     swept:     'pal:orphanSwept',
-    imported:  'pal:importedAt'
+    imported:  'pal:importedAt',
+    // Which effort level was chosen for a given date: { 'YYYY-MM-DD': 'low' }.
+    // ONE key, an object, trimmed on write — same shape and the same reason
+    // as pal:days.
+    levels:    'pal:levels',
+    // One-shot migration flags. Synced deliberately: a migration answered on
+    // one device must not run again on the next.
+    schedMigrated: 'pal:scheduleMigrated',
+    programsAt:    'pal:programsInstalledAt'
   };
 
   // ============================================================
@@ -169,6 +182,7 @@
     { key: 'Rest',      lane: 'rest'     }
   ];
   var TYPE_KEYS = TYPES.map(function (t) { return t.key; });
+  var DAY_KEYS = WEEKDAYS.map(function (w) { return w.key; });
   function laneOf(type) {
     for (var i = 0; i < TYPES.length; i++) if (TYPES[i].key === type) return TYPES[i].lane;
     return 'strength';
@@ -177,8 +191,50 @@
   var MUSCLES = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Legs',
                  'Glutes', 'Core', 'Forearms', 'Calves', 'Cardio', 'Full Body'];
   var EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight',
-                   'Kettlebell', 'Band', 'Bench', 'Treadmill', 'Bike', 'Rower', 'Other'];
-  var REST_PRESETS = [30, 60, 90, 120, 180];
+                   'Kettlebell', 'Band', 'Bench', 'Treadmill', 'Bike', 'Rower',
+                   // Added for the HIGH/MID/LOW programs. `equipment` is a free
+                   // string on the record; this list is only what the picker
+                   // offers, so adding to it cannot invalidate anything stored.
+                   'Rings', 'Pull-up Bar', 'Jump Rope', 'Mat', 'Wall', 'None',
+                   'Other'];
+  var REST_PRESETS = [30, 45, 60, 75, 90, 120, 180];
+
+  // ============================================================
+  // EFFORT LEVELS
+  //
+  // MID and LOW are NOT failed versions of HIGH. They are programmed
+  // options, and the app has to say so everywhere it offers them — a
+  // schedule that greys out the short session, or a streak that breaks on
+  // one, has quietly turned "which version am I capable of today" back into
+  // "am I working out today", which is the question this whole scheme
+  // exists to stop asking.
+  //
+  // Nothing derived may penalise a level. dayFollowedPlan() counts any
+  // chosen level as following the plan; see §STREAKS.
+  // ============================================================
+  var LEVELS = [
+    { key: 'high', label: 'HIGH', title: 'Progress Day',  mins: '55–75 min',
+      blurb: 'The full session. Push progression — add reps or weight where the top of the range is clean.',
+      when: 'Energy, sleep, motivation and time are all good.', dot: '🟢' },
+    { key: 'mid',  label: 'MID',  title: 'Maintenance',   mins: '30–45 min',
+      blurb: 'Keeps the highest-return exercises and cuts accessory volume and conditioning.',
+      when: 'Tired, busy, mediocre sleep — but functional.', dot: '🟡' },
+    { key: 'low',  label: 'LOW',  title: 'Consistency',   mins: '10–20 min',
+      blurb: 'The minimum effective dose: the important movement patterns, some blood moving, then leave.',
+      when: 'Exhausted, stressed, very short on time.', dot: '🔴' }
+  ];
+  var LEVEL_KEYS = LEVELS.map(function (l) { return l.key; });
+  function levelInfo(key) {
+    for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].key === key) return LEVELS[i];
+    return LEVELS[0];
+  }
+
+  // Not every prescription is a number of reps. Jump rope is five minutes,
+  // a wall sit is forty-five seconds, an L-sit is "as long as you can", and
+  // a split squat is ten PER LEG. Storing all of those as repMin/repMax and
+  // hoping the reader remembers which is which is how "3 × 45" ends up
+  // meaning three sets of forty-five repetitions.
+  var UNITS = ['reps', 'sec', 'min', 'max'];
 
   // ============================================================
   // MEDIA
@@ -221,6 +277,8 @@
       repMin: clamp(Math.round(num(d.repMin, 8)), 1, 200),
       repMax: clamp(Math.round(num(d.repMax, 12)), 1, 200),
       restSec: clamp(Math.round(num(d.restSec, 90)), 0, 900),
+      unit: UNITS.indexOf(d.unit) !== -1 ? d.unit : 'reps',
+      perSide: d.perSide === true,
       rpe: clamp(num(d.rpe, 0), 0, 10),
       notes: str(d.notes, 1200),
       media: cleanMedia(d.media),
@@ -244,15 +302,31 @@
       repMin: d.repMin == null ? null : clamp(Math.round(num(d.repMin, 8)), 1, 200),
       repMax: d.repMax == null ? null : clamp(Math.round(num(d.repMax, 12)), 1, 200),
       restSec: d.restSec == null ? null : clamp(Math.round(num(d.restSec, 90)), 0, 900),
+      unit: UNITS.indexOf(d.unit) !== -1 ? d.unit : null,
+      perSide: d.perSide == null ? null : d.perSide === true,
       note: str(d.note, 400)
     };
   }
   function templateModel(d) {
     d = d || {};
+    // §SCHEDULE-ON-THE-ROUTINE. Which weekdays a routine runs on, and at
+    // which effort level, live HERE and nowhere else. The weekly schedule is
+    // derived from these two fields — see getSchedule() — so there is no
+    // second store to drift out of step, and renaming a routine renames it on
+    // the schedule for free.
+    //
+    // `days` is a list, not one day, because a routine can legitimately run
+    // twice a week. `level` empty means "this one applies whichever level is
+    // chosen" — which is what a rest day is.
+    var days = (Array.isArray(d.days) ? d.days : (d.day ? [d.day] : []))
+      .map(function (x) { return str(x, 3); })
+      .filter(function (x, i, a) { return DAY_KEYS.indexOf(x) !== -1 && a.indexOf(x) === i; });
     return {
       id: d.id || uid('ptpl'),
       name: str(d.name, 120),
       type: TYPE_KEYS.indexOf(d.type) !== -1 ? d.type : 'Custom',
+      days: days,
+      level: LEVEL_KEYS.indexOf(d.level) !== -1 ? d.level : '',
       items: (Array.isArray(d.items) ? d.items : []).map(templateItemModel).slice(0, 60),
       notes: str(d.notes, 1200),
       trackId: str(d.trackId, 80),
@@ -302,6 +376,10 @@
       templateId: str(d.templateId, 80),
       name: str(d.name, 120),
       type: TYPE_KEYS.indexOf(d.type) !== -1 ? d.type : 'Custom',
+      // Which version of the day this was. Recorded so History can say "Push,
+      // LOW" rather than leaving a 12-minute session looking like a bad full
+      // one. Empty on everything logged before levels existed.
+      level: LEVEL_KEYS.indexOf(d.level) !== -1 ? d.level : '',
       status: d.status === 'done' ? 'done' : (d.status === 'abandoned' ? 'abandoned' : 'live'),
       entries: (Array.isArray(d.entries) ? d.entries : []).map(entryModel).slice(0, 60),
       startedAt: num(d.startedAt, Date.now()),
@@ -467,38 +545,134 @@
   }
 
   // ============================================================
-  // SCHEDULE — the weekly plan the calendar projects forward.
-  // { mon: {templateId:'…'} | {rest:true} | null, tue: … }
+  // §SCHEDULE — DERIVED, never stored.
+  //
+  // The weekly schedule used to be its own key, pal:schedule, holding
+  // template ids per weekday. Two stores meant two truths: renaming a
+  // routine left the old name on the schedule, deleting one left a slot
+  // pointing at nothing, and the two could be edited on different devices
+  // and merged into nonsense.
+  //
+  // So it is now a pure function over the routines themselves. A routine
+  // carries `days` and `level` (see templateModel §SCHEDULE-ON-THE-ROUTINE)
+  // and the schedule is simply those fields read back the other way round.
+  // Set a routine's days in Workouts and it appears here; rename it and it
+  // renames here; delete it and its slot is empty rather than broken.
+  //
+  // Shape: { mon: { high: tpl|null, mid: …, low: …, any: tpl|null }, … }
+  // where `any` is a routine with no level, which stands in at every level.
   // ============================================================
-  var DAY_KEYS = WEEKDAYS.map(function (w) { return w.key; });
   function getSchedule() {
-    var raw = storeGet(KEYS.schedule) || {};
     var out = {};
-    WEEKDAYS.forEach(function (w) {
-      var v = raw[w.key];
-      if (!v) { out[w.key] = null; return; }
-      if (v.rest === true || v.templateId === 'rest') { out[w.key] = { rest: true }; return; }
-      out[w.key] = { templateId: str(v.templateId, 80) };
+    WEEKDAYS.forEach(function (w) { out[w.key] = { high: null, mid: null, low: null, any: null }; });
+    templatesSorted().forEach(function (t) {
+      (t.days || []).forEach(function (dk) {
+        var slot = out[dk];
+        if (!slot) return;
+        var bucket = t.level || 'any';
+        // First one wins, and templatesSorted is ordered, so which routine
+        // wins a contested slot is stable rather than whichever was saved last.
+        if (!slot[bucket]) slot[bucket] = t;
+      });
     });
     return out;
   }
-  function setScheduleDay(dayKey, value) {
-    var sched = getSchedule();
-    if (DAY_KEYS.indexOf(dayKey) === -1) return sched;
-    sched[dayKey] = value || null;
-    storeSet(KEYS.schedule, sched);
-    return sched;
-  }
-  // What the plan says for one date: a template, an explicit rest day,
-  // or nothing scheduled at all. Those are three different states and
-  // the calendar colours them differently.
-  function plannedFor(dateStr) {
-    var slot = getSchedule()[weekdayKey(dateStr)];
+
+  /**
+   * The routine for one weekday at one level, with a deliberate fallback.
+   *
+   * A day with only a HIGH routine written should still start something when
+   * LOW is chosen — refusing to would make picking LOW cost you the workout,
+   * which is exactly the pressure this scheme removes. Order: the exact
+   * level, then the level-less routine, then the nearest others.
+   */
+  function resolveForDay(dayKey, level) {
+    var slot = getSchedule()[dayKey];
     if (!slot) return null;
-    if (slot.rest) return { rest: true, type: 'Rest', name: 'Rest', templateId: '' };
-    var tpl = Templates.get(slot.templateId);
+    var order = [level, 'any'].concat(LEVEL_KEYS.filter(function (k) { return k !== level; }));
+    for (var i = 0; i < order.length; i++) {
+      if (slot[order[i]]) return slot[order[i]];
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------
+  // THE CHOSEN LEVEL, per date.
+  // ------------------------------------------------------------
+  function allLevels() {
+    var raw = storeGet(KEYS.levels);
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  }
+  /** The level chosen for a date, defaulting to HIGH when nothing was said. */
+  function getLevel(dateStr) {
+    var v = allLevels()[dateStr];
+    return LEVEL_KEYS.indexOf(v) !== -1 ? v : 'high';
+  }
+  /** Whether a level was actually chosen, as against defaulted. */
+  function hasLevel(dateStr) { return LEVEL_KEYS.indexOf(allLevels()[dateStr]) !== -1; }
+  function setLevel(dateStr, level) {
+    var all = allLevels();
+    if (LEVEL_KEYS.indexOf(level) === -1) delete all[dateStr];
+    else all[dateStr] = level;
+    // Trimmed like pal:days, and for the same reason: one key holding every
+    // date forever eventually becomes the largest thing in the row.
+    var keys = Object.keys(all).sort();
+    while (keys.length > 730) delete all[keys.shift()];
+    storeSet(KEYS.levels, all);
+    return level;
+  }
+
+  // What the plan says for one date: a routine, an explicit rest day, or
+  // nothing scheduled at all. Three different states, coloured differently.
+  function plannedFor(dateStr) {
+    var level = getLevel(dateStr);
+    var tpl = resolveForDay(weekdayKey(dateStr), level);
     if (!tpl) return null;
-    return { rest: false, type: tpl.type, name: tpl.name, templateId: tpl.id, template: tpl };
+    if (tpl.type === 'Rest') {
+      return { rest: true, type: 'Rest', name: tpl.name || 'Rest', templateId: tpl.id, template: tpl, level: level };
+    }
+    return { rest: false, type: tpl.type, name: tpl.name, templateId: tpl.id, template: tpl, level: level };
+  }
+
+  /**
+   * Fold the retired pal:schedule key into the routines, once.
+   *
+   * Additive and idempotent: a day already named by a routine is left alone,
+   * and the flag is inside the synced prefix so the second device does not
+   * repeat it. The old key is removed afterwards rather than left behind,
+   * because a store nothing reads is a store that will eventually be trusted
+   * by mistake.
+   */
+  function migrateSchedule() {
+    if (storeGet(KEYS.schedMigrated)) return false;
+    var raw = storeGet(KEYS.schedule);
+    if (!raw || typeof raw !== 'object') { storeSet(KEYS.schedMigrated, true); return false; }
+    var restDays = [];
+    var touched = 0;
+    DAY_KEYS.forEach(function (dk) {
+      var v = raw[dk];
+      if (!v) return;
+      if (v.rest === true || v.templateId === 'rest') { restDays.push(dk); return; }
+      var tpl = Templates.get(str(v.templateId, 80));
+      if (!tpl) return;
+      if ((tpl.days || []).indexOf(dk) !== -1) return;
+      Templates.update(tpl.id, { days: (tpl.days || []).concat([dk]) });
+      touched++;
+    });
+    if (restDays.length) {
+      var existing = Templates.list().filter(function (t) { return t.type === 'Rest'; })[0];
+      if (existing) {
+        Templates.update(existing.id, {
+          days: (existing.days || []).concat(restDays.filter(function (d) { return (existing.days || []).indexOf(d) === -1; }))
+        });
+      } else {
+        Templates.add({ name: 'Rest', type: 'Rest', days: restDays, level: '', order: 900 });
+      }
+      touched++;
+    }
+    storeSet(KEYS.schedMigrated, true);
+    try { localStorage.removeItem(KEYS.schedule); } catch (e) {}
+    return touched > 0;
   }
 
   // ============================================================
@@ -610,6 +784,11 @@
       var repMin = item.repMin == null ? (ex ? ex.repMin : 8) : item.repMin;
       var repMax = item.repMax == null ? (ex ? ex.repMax : 12) : item.repMax;
       var rest = item.restSec == null ? (ex ? ex.restSec : 90) : item.restSec;
+      // A per-item null means "inherit"; only an explicit value overrides. The
+      // unit and the per-side flag follow the same rule as the numbers, or a
+      // routine could show "3 × 45" for a wall sit measured in seconds.
+      var unit = item.unit == null ? (ex ? ex.unit : 'reps') : item.unit;
+      var perSide = item.perSide == null ? (ex ? ex.perSide : false) : item.perSide;
       var blank = [];
       for (var i = 0; i < sets; i++) blank.push(setModel({}));
       return entryModel({
@@ -618,7 +797,7 @@
         muscle: ex ? ex.muscle : 'Full Body',
         equipment: ex ? ex.equipment : '',
         restSec: rest,
-        targetReps: repMin === repMax ? String(repMin) : (repMin + '–' + repMax),
+        targetReps: repRange({ repMin: repMin, repMax: repMax, unit: unit, perSide: perSide }),
         sets: blank,
         notes: item.note || (ex ? ex.notes : ''),
         media: ex ? ex.media : [],
@@ -684,6 +863,10 @@
       templateId: tpl ? tpl.id : '',
       name: opts.name || (tpl ? tpl.name : 'Freestyle workout'),
       type: opts.type || (tpl ? tpl.type : 'Custom'),
+      // Whatever was chosen at the moment Start was pressed — which may not be
+      // what the schedule was showing an hour ago. The last choice wins, and
+      // this is where it is recorded.
+      level: opts.level || (tpl ? tpl.level : '') || '',
       status: 'live',
       entries: tpl ? entriesFromTemplate(tpl) : [],
       startedAt: Date.now(),
@@ -1000,33 +1183,6 @@
     if (planned) return { status: past ? 'missed' : 'planned', sessions: [], planned: planned };
     return { status: past ? 'open' : 'future', sessions: [], planned: null };
   }
-  // Six Monday-first rows covering the month, padded from the
-  // surrounding months so the grid is always 7 × 6 and never reflows.
-  function calendarMonth(year, monthIdx) {
-    var first = new Date(year, monthIdx, 1);
-    var lead = (first.getDay() + 6) % 7;
-    var startDate = localISO(new Date(year, monthIdx, 1 - lead));
-    var cells = [];
-    for (var i = 0; i < 42; i++) {
-      var d = addDays(startDate, i);
-      var parsed = parseISO(d);
-      var info = dayStatus(d);
-      cells.push({
-        date: d,
-        day: parsed.getDate(),
-        inMonth: parsed.getMonth() === monthIdx,
-        isToday: d === today(),
-        status: info.status,
-        lane: info.status === 'done' ? laneOf(info.sessions[0].type)
-            : (info.planned ? laneOf(info.planned.type) : 'none'),
-        label: info.status === 'done' ? info.sessions[0].name : (info.planned ? info.planned.name : ''),
-        sessions: info.sessions,
-        planned: info.planned
-      });
-    }
-    return { year: year, month: monthIdx, monthName: MONTHS[monthIdx], cells: cells };
-  }
-
   // The seven cells of the Week Bar: type, status, and the day's volume
   // as a fraction of the best day in that week.
   function weekBar(weekStartISO) {
@@ -1215,6 +1371,347 @@
     ['Treadmill Walk', 'Cardio', 'Treadmill', 1, 1, 1, 0],
     ['Stationary Bike', 'Cardio', 'Bike', 1, 1, 1, 0]
   ];
+  // ============================================================
+  // §PROGRAMS — the HIGH / MID / LOW system.
+  //
+  // Three versions of the same training week. HIGH is the full session,
+  // MID keeps the highest-return lifts and drops accessory volume and
+  // conditioning, LOW is the minimum effective dose. They are three
+  // programmed options, not one program and two apologies for it, and
+  // nothing in this file is allowed to treat them otherwise.
+  //
+  // This is CONTENT, not a seed. ensureSeeded() still ships exercises only —
+  // "a routine is a decision, and the app does not get to make it for you" —
+  // and installing these is an explicit, repeatable, additive act with its
+  // own button in Settings. It dedupes on importSource + importSourceId, so
+  // running it a second time adds only what is missing. That matters: if
+  // these ever disappear again they are one tap away rather than an evening.
+  // ============================================================
+
+  // Every exercise the three programs call for, with its form cues.
+  // [name, muscle, equipment, sets, repMin, repMax, restSec, unit, perSide, cues]
+  //
+  // MUSCLES is a fixed twelve — it drives the --cover colour table and the
+  // filter chips — so side and rear delts resolve to Shoulders, hip flexors
+  // and the deep core to Core. The precise group is in the cues where it
+  // matters.
+  var PROGRAM_EXERCISES = [
+    ['Incline DB Press', 'Chest', 'Dumbbell', 3, 10, 12, 90, 'reps', false,
+      'Upper chest, triceps, front delts. Shoulder blades back and down; slight arch; lower the dumbbells under control; press up and slightly inward.'],
+    ['Seated Arnold Press', 'Shoulders', 'Dumbbell', 3, 10, 12, 90, 'reps', false,
+      'Brace the core; rotate smoothly; do not overarch the lower back; finish with the dumbbells overhead.'],
+    ['Lateral Raises', 'Shoulders', 'Dumbbell', 4, 15, 20, 45, 'reps', false,
+      'Side delts. Soft elbows; lead with the elbows; stop near shoulder height; no swinging.'],
+    ['Ring Push-ups', 'Chest', 'Rings', 3, 10, 12, 60, 'reps', false,
+      'Keep the rings stable; body straight; elbows roughly 30–45°; chest between the rings.'],
+    ['DB Skull Crushers', 'Triceps', 'Dumbbell', 3, 10, 12, 60, 'reps', false,
+      'Keep the upper arms fixed; bend only at the elbows; lower beside the forehead.'],
+    ['Goblet Squats', 'Legs', 'Dumbbell', 3, 10, 12, 90, 'reps', false,
+      'Quads and glutes. Dumbbell tight to the chest; brace; knees track the toes; full comfortable depth.'],
+    ['Standing Calf Raises', 'Calves', 'Dumbbell', 3, 15, 20, 45, 'reps', false,
+      'Full stretch at the bottom; drive onto the toes; pause a second at the top; do not bounce.'],
+    ['Jump Rope', 'Cardio', 'Jump Rope', 3, 5, 5, 60, 'min', false,
+      'Stay light on the feet; small jumps; elbows close; turn the rope from the wrists.'],
+    ['Wide-Grip Pull-ups', 'Back', 'Pull-up Bar', 4, 6, 10, 120, 'reps', false,
+      'Lats, upper back, biceps. Start from a controlled hang; pull the chest upward; shoulders away from the ears; no kicking.'],
+    ['DB Pullover', 'Back', 'Dumbbell', 3, 10, 12, 75, 'reps', false,
+      'Lats, chest, serratus. Ribs down; slight elbow bend; stretch behind the head; pull using the lats.'],
+    ['Rear Delt Flyes', 'Shoulders', 'Dumbbell', 3, 12, 15, 45, 'reps', false,
+      'Rear delts and upper back. Hinge forward; soft elbows; spread the dumbbells apart; do not shrug.'],
+    ['Hammer Curls', 'Biceps', 'Dumbbell', 3, 10, 12, 60, 'reps', false,
+      'Biceps, brachialis, forearms. Neutral grip; elbows stay near the torso; no swinging.'],
+    ['Reverse Curls', 'Forearms', 'Dumbbell', 3, 12, 15, 60, 'reps', false,
+      'Palms down; wrists neutral; elbows fixed.'],
+    ['Romanian Deadlifts', 'Legs', 'Dumbbell', 3, 10, 12, 120, 'reps', false,
+      'Hamstrings, glutes, back. Soft knees; push the hips backward; back neutral; feel the hamstring stretch.'],
+    ['Hanging Leg Raises', 'Core', 'Pull-up Bar', 3, 10, 12, 60, 'reps', false,
+      'Abs and hip flexors. Brace before raising; curl the pelvis upward; minimise swinging.'],
+    ['Incline Treadmill Walk', 'Cardio', 'Treadmill', 2, 20, 20, 300, 'min', false,
+      'Comfortable sustainable pace; upright posture; do not hang on the rails.'],
+    ['Walking Lunges', 'Legs', 'Bodyweight', 2, 15, 15, 60, 'reps', true,
+      'Long controlled steps; front knee follows the toes; keep the intensity easy.'],
+    ['Stomach Vacuums', 'Core', 'None', 5, 30, 30, 30, 'sec', false,
+      'Deep core. Fully exhale; draw the abdomen inward; keep breathing controlled where you can.'],
+    ['Yoga', 'Full Body', 'Mat', 2, 10, 15, 0, 'min', false,
+      'Mobility and recovery. Slow breathing; controlled stretches; do not force range of motion.'],
+    ['Seated DB Press', 'Shoulders', 'Dumbbell', 4, 8, 10, 120, 'reps', false,
+      'Brace the core; forearms vertical; press overhead without excessive back arch.'],
+    ['Front Raises', 'Shoulders', 'Dumbbell', 3, 10, 12, 45, 'reps', false,
+      'Front delts. Raise under control to shoulder height; keep the ribs down.'],
+    ['Ring Dips', 'Chest', 'Rings', 3, 10, 12, 90, 'reps', false,
+      'Chest, triceps, shoulders. Stabilise the rings; controlled descent; shoulders stay packed.'],
+    ['Bulgarian Split Squats', 'Legs', 'Dumbbell', 3, 10, 10, 90, 'reps', true,
+      'Quads and glutes. Front foot planted; lower vertically; knee tracks the toes; drive through the whole foot.'],
+    ['Chin-ups', 'Back', 'Pull-up Bar', 4, 6, 10, 120, 'reps', false,
+      'Lats, biceps, upper back. Controlled hang; pull the chest toward the bar; avoid swinging.'],
+    ['DB Row', 'Back', 'Dumbbell', 3, 8, 10, 90, 'reps', false,
+      'Lats and upper back. Brace the torso; pull toward the hip; do not twist or jerk.'],
+    ['Incline DB Curls', 'Biceps', 'Dumbbell', 3, 10, 12, 60, 'reps', false,
+      'Let the arms hang; keep the shoulders back; curl without moving the upper arm.'],
+    ['Leg/Nordic Curls', 'Legs', 'Other', 3, 8, 12, 90, 'reps', false,
+      'Hamstrings. Keep the hips controlled; squeeze the hamstrings; emphasise a slow eccentric.'],
+    ['Glute Bridges', 'Glutes', 'Dumbbell', 3, 10, 15, 75, 'reps', false,
+      'Glutes and hamstrings. Posterior pelvic tilt; drive the hips upward; squeeze the glutes instead of arching the back.'],
+    ['Hanging Knee Tucks', 'Core', 'Pull-up Bar', 3, 12, 15, 60, 'reps', false,
+      'Curl the pelvis toward the ribs; minimise swinging.'],
+    ['Lateral Raise Triset', 'Shoulders', 'Dumbbell', 3, 0, 0, 60, 'reps', false,
+      'Three lateral-raise variations back to back, no rest between them. Keep the tension on the delts; chase control and burn rather than load.'],
+    ['Seated Calf Raises', 'Calves', 'Dumbbell', 4, 15, 20, 45, 'reps', false,
+      'Full stretch; pause at the top; controlled lowering.'],
+    ['Wall Sit', 'Legs', 'Wall', 3, 45, 60, 60, 'sec', false,
+      'Quads. Back flat against the wall; knees at roughly 90°; feet planted.'],
+    ['Hanging L-Sit', 'Core', 'Pull-up Bar', 3, 0, 0, 60, 'max', false,
+      'Core and hip flexors. Brace hard; depress the shoulders; minimise swinging. Hold as long as the position stays clean.'],
+    ['Pull-ups', 'Back', 'Pull-up Bar', 2, 5, 10, 90, 'reps', false,
+      'Full controlled reps from a hang; do not kick.']
+  ];
+
+  // [exerciseName, sets, repMin, repMax, restSec, unit, perSide, note]
+  // A null in a numeric slot means "inherit from the library record".
+  var PROGRAM_ROUTINES = [
+    // ---------------- HIGH — Progress Day ----------------
+    { day: 'mon', level: 'high', type: 'Push', name: 'Monday Push — HIGH',
+      notes: 'Chest + Shoulders + Quads. The full session, ~55–75 minutes. When you reach the top of the rep range with clean form on every working set, add resistance.',
+      items: [
+        ['Incline DB Press', 3, 10, 12, 90], ['Seated Arnold Press', 3, 10, 12, 90],
+        ['Lateral Raises', 4, 15, 20, 45], ['Ring Push-ups', 3, 10, 12, 60],
+        ['DB Skull Crushers', 3, 10, 12, 60], ['Goblet Squats', 3, 10, 12, 90],
+        ['Standing Calf Raises', 3, 15, 20, 45],
+        ['Jump Rope', 3, 5, 5, 60, 'min']
+      ] },
+    { day: 'tue', level: 'high', type: 'Pull', name: 'Tuesday Pull — HIGH',
+      notes: 'Back + Biceps + Forearms + Hamstrings.',
+      items: [
+        ['Wide-Grip Pull-ups', 4, 6, 10, 120], ['DB Pullover', 3, 10, 12, 75],
+        ['Rear Delt Flyes', 3, 12, 15, 45], ['Hammer Curls', 3, 10, 12, 60],
+        ['Reverse Curls', 3, 12, 15, 60], ['Romanian Deadlifts', 3, 10, 12, 120],
+        ['Hanging Leg Raises', 3, 10, 12, 60]
+      ] },
+    { day: 'wed', level: 'high', type: 'Mobility', name: 'Wednesday Recovery — HIGH',
+      notes: 'Active recovery. Easy on purpose — this is not a session to push.',
+      items: [
+        ['Incline Treadmill Walk', 2, 20, 20, 300, 'min', false, 'Rest 2–5 min between blocks.'],
+        ['Walking Lunges', 2, 15, 15, 60, 'reps', true, 'Keep the intensity easy.'],
+        ['Stomach Vacuums', 5, 30, 30, 30, 'sec'],
+        ['Yoga', 2, 10, 15, 0, 'min']
+      ] },
+    { day: 'thu', level: 'high', type: 'Push', name: 'Thursday Push — HIGH',
+      notes: 'Shoulder priority + unilateral legs.',
+      items: [
+        ['Seated DB Press', 4, 8, 10, 120], ['Lateral Raises', 4, 15, 20, 45],
+        ['Front Raises', 3, 10, 12, 45], ['Ring Dips', 3, 10, 12, 90],
+        ['Bulgarian Split Squats', 3, 10, 10, 90, 'reps', true],
+        ['Jump Rope', 3, 8, 8, 90, 'min', false, 'Rest 60–90 sec.']
+      ] },
+    { day: 'fri', level: 'high', type: 'Pull', name: 'Friday Pull — HIGH',
+      notes: 'Lats + Arms + Core + Posterior chain.',
+      items: [
+        ['Chin-ups', 4, 6, 10, 120], ['DB Row', 3, 8, 10, 90],
+        ['Incline DB Curls', 3, 10, 12, 60], ['Hammer Curls', 3, 8, 10, 60],
+        ['Leg/Nordic Curls', 3, 8, 12, 90], ['Glute Bridges', 3, 10, 15, 75],
+        ['Hanging Knee Tucks', 3, 12, 15, 60]
+      ] },
+    { day: 'sat', level: 'high', type: 'Full Body', name: 'Saturday Shoulders & Core — HIGH',
+      notes: 'Shoulders + Core + Calves, finishing on the rope.',
+      items: [
+        ['Lateral Raise Triset', 3, 0, 0, 60, 'reps', false, '3 rounds, 3 movements per round.'],
+        ['Rear Delt Flyes', 4, 12, 15, 45], ['Seated Calf Raises', 4, 15, 20, 45],
+        ['Wall Sit', 3, 45, 60, 60, 'sec'], ['Stomach Vacuums', 5, 30, 30, 30, 'sec'],
+        ['Hanging L-Sit', 3, 0, 0, 60, 'max'],
+        ['Jump Rope', 3, 10, 10, 90, 'min', false, 'Rest 60–90 sec.']
+      ] },
+
+    // ---------------- MID — Maintenance ----------------
+    { day: 'mon', level: 'mid', type: 'Push', name: 'Monday Push — MID',
+      notes: 'Main compound → important secondary movement → one or two accessories → done. Skips ring push-ups, skull crushers and the rope.',
+      items: [
+        ['Incline DB Press', 3, 8, 12, 90], ['Seated Arnold Press', 2, 10, 12, 75],
+        ['Lateral Raises', 2, 12, 15, 45], ['Goblet Squats', 3, 10, 12, 90],
+        ['Standing Calf Raises', 2, 15, 20, 45]
+      ] },
+    { day: 'tue', level: 'mid', type: 'Pull', name: 'Tuesday Pull — MID',
+      notes: 'Back + Biceps + Hamstrings. Skips rear delt flyes and reverse curls.',
+      items: [
+        ['Wide-Grip Pull-ups', 3, 6, 10, 120], ['DB Pullover', 2, 10, 12, 60],
+        ['Hammer Curls', 2, 10, 12, 60], ['Romanian Deadlifts', 3, 8, 12, 120],
+        ['Hanging Leg Raises', 2, 8, 12, 60]
+      ] },
+    { day: 'wed', level: 'mid', type: 'Mobility', name: 'Wednesday Recovery — MID',
+      notes: 'Active recovery, trimmed.',
+      items: [
+        ['Incline Treadmill Walk', 1, 20, 30, 0, 'min'],
+        ['Stomach Vacuums', 3, 30, 30, 30, 'sec'],
+        ['Yoga', 1, 10, 15, 0, 'min']
+      ] },
+    { day: 'thu', level: 'mid', type: 'Push', name: 'Thursday Push — MID',
+      notes: 'Shoulder priority + legs. Skips front raises and the rope.',
+      items: [
+        ['Seated DB Press', 3, 8, 10, 120], ['Lateral Raises', 3, 12, 20, 45],
+        ['Ring Dips', 2, 8, 12, 90],
+        ['Bulgarian Split Squats', 2, 8, 10, 90, 'reps', true]
+      ] },
+    { day: 'fri', level: 'mid', type: 'Pull', name: 'Friday Pull — MID',
+      notes: 'Back + Arms + Posterior chain.',
+      items: [
+        ['Chin-ups', 3, 6, 10, 120], ['DB Row', 3, 8, 10, 90],
+        ['Incline DB Curls', 2, 10, 12, 60], ['Leg/Nordic Curls', 2, 8, 12, 90],
+        ['Glute Bridges', 2, 10, 15, 60]
+      ] },
+    { day: 'sat', level: 'mid', type: 'Full Body', name: 'Saturday Shoulders & Core — MID',
+      notes: 'Shoulders + Core + Calves.',
+      items: [
+        ['Lateral Raise Triset', 2, 0, 0, 60, 'reps', false, '2 rounds, 3 movements per round.'],
+        ['Rear Delt Flyes', 2, 12, 15, 45], ['Seated Calf Raises', 3, 15, 20, 45],
+        ['Wall Sit', 2, 30, 60, 60, 'sec'], ['Hanging L-Sit', 2, 0, 0, 60, 'max']
+      ] },
+
+    // ---------------- LOW — Consistency ----------------
+    { day: 'mon', level: 'low', type: 'Push', name: 'Monday Push — LOW',
+      notes: 'Chest, shoulders, triceps, quads and glutes in roughly 10–15 minutes. Show up, hit the highest-value movements, leave.',
+      items: [
+        ['Incline DB Press', 2, 8, 12, 90, 'reps', false, 'Rest 60–90 sec.'],
+        ['Goblet Squats', 2, 10, 12, 90, 'reps', false, 'Rest 60–90 sec.'],
+        ['Lateral Raises', 2, 12, 15, 45]
+      ] },
+    { day: 'tue', level: 'low', type: 'Pull', name: 'Tuesday Pull — LOW',
+      notes: 'Back, biceps, hamstrings. Three movements and you are done.',
+      items: [
+        ['Pull-ups', 2, 5, 10, 90], ['Romanian Deadlifts', 2, 8, 12, 90],
+        ['Hammer Curls', 2, 8, 12, 60, 'reps', false, 'Rest 45–60 sec.']
+      ] },
+    { day: 'wed', level: 'low', type: 'Mobility', name: 'Wednesday Recovery — LOW',
+      notes: 'If you are truly wrecked, just do the walk. That still counts as completing this one.',
+      items: [
+        ['Incline Treadmill Walk', 1, 15, 20, 0, 'min', false, 'Comfortable pace — do not turn this into hard cardio.'],
+        ['Stomach Vacuums', 2, 30, 30, 30, 'sec']
+      ] },
+    { day: 'thu', level: 'low', type: 'Push', name: 'Thursday Push — LOW',
+      notes: 'Shoulders and legs.',
+      items: [
+        ['Seated DB Press', 2, 8, 10, 90],
+        ['Bulgarian Split Squats', 2, 8, 10, 90, 'reps', true],
+        ['Lateral Raises', 2, 12, 15, 45]
+      ] },
+    { day: 'fri', level: 'low', type: 'Pull', name: 'Friday Pull — LOW',
+      notes: 'Back, biceps, posterior chain.',
+      items: [
+        ['Chin-ups', 2, 5, 10, 90],
+        ['DB Row', 2, 8, 10, 90, 'reps', false, 'Rest 60–90 sec.'],
+        ['Glute Bridges', 2, 10, 15, 60]
+      ] },
+    { day: 'sat', level: 'low', type: 'Full Body', name: 'Saturday Shoulders & Core — LOW',
+      notes: 'Shoulders, rear delts, calves, core.',
+      items: [
+        ['Lateral Raises', 2, 12, 15, 45], ['Rear Delt Flyes', 2, 12, 15, 45],
+        ['Seated Calf Raises', 2, 15, 20, 45], ['Hanging L-Sit', 2, 0, 0, 60, 'max']
+      ] },
+
+    // ---------------- SUNDAY ----------------
+    // No level: a rest day is a rest day whichever version of the week you
+    // are running, and getSchedule()'s 'any' bucket is exactly that case.
+    { day: 'sun', level: '', type: 'Rest', name: 'Sunday — Rest',
+      notes: 'No structured training. You do not have to make up a missed HIGH or MID workout.',
+      items: [] }
+  ];
+
+  // Matching a program exercise to one already in the library. Normalised
+  // rather than exact, because "Incline DB Press" and "Incline Dumbbell
+  // Press" are the same movement and a library holding both is a library
+  // whose history is split down the middle.
+  function exMatchKey(name) {
+    return String(name || '').toLowerCase()
+      .replace(/\bdb\b/g, 'dumbbell')
+      .replace(/flyes/g, 'fly')
+      .replace(/[^a-z]/g, '')
+      .replace(/s$/, '');
+  }
+  function findExerciseByName(name) {
+    var want = exMatchKey(name);
+    return Exercises.list().filter(function (e) { return exMatchKey(e.name) === want; })[0] || null;
+  }
+  // A record still carrying only what ensureSeeded() gave it. Filling in the
+  // cues and the unit on one of these is an improvement; doing it to a record
+  // the reader has edited would be an overwrite, so it is never done.
+  function looksUntouched(e) {
+    return !e.notes && !(e.media || []).length && !e.trackId && !e.importSource;
+  }
+
+  /**
+   * Install (or repair) the HIGH / MID / LOW programs.
+   *
+   * Additive and idempotent. Exercises are matched by normalised name and
+   * only ever gain empty fields. Routines are keyed by importSourceId, so a
+   * routine you have since customised is left exactly as it is and only
+   * genuinely missing ones are written.
+   *
+   * @returns {{exercises:number, exercisesEnriched:number, routines:number}}
+   */
+  function installPrograms() {
+    var res = { exercises: 0, exercisesEnriched: 0, routines: 0 };
+    var byName = {};
+
+    PROGRAM_EXERCISES.forEach(function (row, i) {
+      var name = row[0];
+      var found = findExerciseByName(name);
+      if (found) {
+        var patch = {};
+        if (!found.notes && row[9]) patch.notes = row[9];
+        if (found.unit === 'reps' && row[7] !== 'reps') patch.unit = row[7];
+        if (!found.perSide && row[8]) patch.perSide = true;
+        // Equipment only on a record nothing has touched: a seeded "Standing
+        // Calf Raise / Machine" becoming "Dumbbell" is right, the reader's own
+        // choice being rewritten is not.
+        if (looksUntouched(found) && row[2] && found.equipment !== row[2]) patch.equipment = row[2];
+        if (Object.keys(patch).length) { Exercises.update(found.id, patch); res.exercisesEnriched++; }
+        byName[name] = Exercises.get(found.id);
+        return;
+      }
+      byName[name] = Exercises.add({
+        name: name, muscle: row[1], equipment: row[2],
+        sets: row[3], repMin: row[4], repMax: row[5], restSec: row[6],
+        unit: row[7], perSide: row[8], notes: row[9],
+        order: 1000 + i,
+        importSource: 'program-hml', importSourceId: 'ex:' + exMatchKey(name)
+      });
+      res.exercises++;
+    });
+
+    var have = {};
+    Templates.list().forEach(function (t) {
+      if (t.importSource === 'program-hml' && t.importSourceId) have[t.importSourceId] = true;
+    });
+
+    PROGRAM_ROUTINES.forEach(function (r, i) {
+      var sourceId = r.day + ':' + (r.level || 'any');
+      if (have[sourceId]) return;
+      Templates.add({
+        name: r.name, type: r.type, days: [r.day], level: r.level, notes: r.notes,
+        order: i,
+        importSource: 'program-hml', importSourceId: sourceId,
+        items: r.items.map(function (it) {
+          var ex = byName[it[0]] || findExerciseByName(it[0]);
+          return {
+            exerciseId: ex ? ex.id : '',
+            sets: it[1] == null ? null : it[1],
+            repMin: it[2] == null ? null : it[2],
+            repMax: it[3] == null ? null : it[3],
+            restSec: it[4] == null ? null : it[4],
+            unit: it[5] == null ? null : it[5],
+            perSide: it[6] == null ? null : it[6],
+            note: it[7] || ''
+          };
+        })
+      });
+      res.routines++;
+    });
+
+    if (res.routines || res.exercises) storeSet(KEYS.programsAt, Date.now());
+    return res;
+  }
+  function programsInstalled() {
+    return Templates.list().filter(function (t) { return t.importSource === 'program-hml'; }).length;
+  }
+
   function isEmptyEverywhere() {
     return !Exercises.list().length && !Templates.list().length &&
            !Sessions.list().length && !Body.list().length;
@@ -1231,13 +1728,32 @@
     storeSet(KEYS.seeded, true);
     return true;
   }
+  // Seeding decides "is this device genuinely empty?", and getting that
+  // wrong on a slow connection is expensive: the seed's own writes are
+  // pushed, sync.js replaces the row's whole data column, and an entire
+  // account collapses to twenty-one starter exercises.
+  //
+  // It used to wait a flat 1200ms and then guess. Worse, the flag it checked
+  // — remoteRef.applied — is set from onApplied, which fires only when the
+  // incoming row DIFFERED. A row that matched, or a row that was legitimately
+  // empty, looked identical to no answer at all, so the guess was taken far
+  // more often than intended.
+  //
+  // sync.js now reports arrival separately (onPulled), so the wait is for a
+  // real event. The timeout survives only as a backstop for the case where
+  // there is no cloud at all — no supabase client, no network, sync.js never
+  // mounted — because a first-run device offline forever still has to seed.
   function seedAfterSyncAttempt(remoteRef, onDone) {
+    var fired = false;
     var run = function () {
+      if (fired) return;
+      fired = true;
       var seeded = ensureSeeded();
       if (typeof onDone === 'function') onDone(seeded);
     };
-    if (remoteRef && remoteRef.applied) { run(); return; }
-    setTimeout(run, 1200);
+    if (remoteRef && (remoteRef.pulled || remoteRef.applied)) { run(); return; }
+    if (remoteRef) remoteRef.onPulled = run;
+    setTimeout(run, 8000);
   }
 
   // ============================================================
@@ -1338,12 +1854,18 @@
   // dash in one of them ends up a hyphen. It lives here now.
   //   { repMin: 5, repMax: 8 }  -> '5–8'
   //   { repMin: 5, repMax: 5 }  -> '5'
+  var UNIT_SUFFIX = { reps: '', sec: ' sec', min: ' min', max: '' };
   function repRange(o) {
     if (!o) return '';
+    var unit = UNITS.indexOf(o.unit) !== -1 ? o.unit : 'reps';
+    if (unit === 'max') return 'Max';
     var lo = Math.round(num(o.repMin, 0)), hi = Math.round(num(o.repMax, 0));
     if (!lo && !hi) return '';
-    if (!hi || lo === hi) return String(lo || hi);
-    return lo + '\u2013' + hi;
+    var span = (!hi || lo === hi) ? String(lo || hi) : (lo + '\u2013' + hi);
+    // '/leg' rather than '/side': every per-side movement in the programs
+    // shipped with this app is a single-leg one. If an arm one is ever added
+    // this becomes a label on the record rather than a constant here.
+    return span + UNIT_SUFFIX[unit] + (o.perSide ? '/leg' : '');
   }
 
   // '4 × 5–8'. The multiplication sign is U+00D7, not the letter x.
@@ -1390,6 +1912,7 @@
     // constants
     TYPES: TYPES, TYPE_KEYS: TYPE_KEYS, laneOf: laneOf,
     MUSCLES: MUSCLES, EQUIPMENT: EQUIPMENT, WEEKDAYS: WEEKDAYS, DAY_KEYS: DAY_KEYS,
+    LEVELS: LEVELS, LEVEL_KEYS: LEVEL_KEYS, levelInfo: levelInfo, UNITS: UNITS,
     MONTHS: MONTHS, REST_PRESETS: REST_PRESETS, MEASURE_FIELDS: MEASURE_FIELDS,
     // dates
     localISO: localISO, today: today, addDays: addDays, mondayOf: mondayOf,
@@ -1402,7 +1925,10 @@
     sessionsSorted: sessionsSorted, bodySorted: bodySorted,
     // settings + schedule
     getSettings: getSettings, saveSettings: saveSettings,
-    getSchedule: getSchedule, setScheduleDay: setScheduleDay, plannedFor: plannedFor,
+    getSchedule: getSchedule, resolveForDay: resolveForDay, plannedFor: plannedFor,
+    migrateSchedule: migrateSchedule,
+    // levels
+    getLevel: getLevel, hasLevel: hasLevel, setLevel: setLevel, allLevels: allLevels,
     // days
     allDays: allDays, getDay: getDay, patchDay: patchDay, addToDay: addToDay,
     daysRange: daysRange, DAY_FIELDS: DAY_FIELDS,
@@ -1418,9 +1944,11 @@
     volumeByMuscle: volumeByMuscle, volumeComparison: volumeComparison,
     stepStats: stepStats, latestWeight: latestWeight, weightOn: weightOn,
     bodyProgress: bodyProgress, streaks: streaks, scorecard: scorecard,
-    dayStatus: dayStatus, calendarMonth: calendarMonth, weekBar: weekBar,
+    dayStatus: dayStatus, weekBar: weekBar,
     // import + seed
     importPrograms: importPrograms, importAvailable: importAvailable,
+    installPrograms: installPrograms, programsInstalled: programsInstalled,
+    PROGRAM_ROUTINES: PROGRAM_ROUTINES,
     ensureSeeded: ensureSeeded, seedAfterSyncAttempt: seedAfterSyncAttempt,
     orphanLiveSessions: orphanLiveSessions, sweepOrphanLiveSessions: sweepOrphanLiveSessions,
     orphanSweepDone: orphanSweepDone, setOrphanSweepDone: setOrphanSweepDone,

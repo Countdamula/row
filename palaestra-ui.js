@@ -1,5 +1,5 @@
 // =============================================================
-// palaestra-ui.js — shared UI primitives for The Palaestra.
+// palaestra-ui.js — shared UI primitives for Fitness Studio.
 //
 // Both palaestra.html and palaestra-workout.html need the same three
 // things, so they live here once instead of twice:
@@ -34,18 +34,26 @@
   // TOAST
   // ------------------------------------------------------------
   var toastEl = null, toastTimer = null;
-  function toast(msg) {
+  /**
+   * toast(msg)        a transient confirmation
+   * toast(msg, true)  a FAILURE. Held twice as long, tinted, and announced
+   *                   assertively — a save that did not happen is not a
+   *                   status update, and 2.6 seconds is not long enough to
+   *                   read something you need to act on.
+   */
+  function toast(msg, bad) {
     if (!toastEl) {
       toastEl = document.createElement('div');
       toastEl.className = 'pal-toast';
-      toastEl.setAttribute('role', 'status');
-      toastEl.setAttribute('aria-live', 'polite');
       document.body.appendChild(toastEl);
     }
+    toastEl.setAttribute('role', bad ? 'alert' : 'status');
+    toastEl.setAttribute('aria-live', bad ? 'assertive' : 'polite');
+    toastEl.classList.toggle('pal-toast--bad', !!bad);
     toastEl.textContent = msg;
     toastEl.classList.add('is-on');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); }, 2600);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); }, bad ? 6000 : 2600);
   }
 
   // ------------------------------------------------------------

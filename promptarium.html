@@ -1358,7 +1358,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
      re-serialises in full on every single save. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js"></script>
+<script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
 <script src="codex-data.js"></script>
 <script src="promptarium-data.js"></script>
@@ -1542,14 +1542,14 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
   }
   /* Why the gate is shut, in words, for the Fiction page banner. */
   function gateReason() {
-    if (!gate.mounted) return 'Cloud sync did not start on this page, so the Codex cannot be reached. Fiction prompts are read-only.';
-    if (!gate.applied && !gate.graceOver) return 'Still loading the Codex…';
-    if (navigator.onLine === false) return 'You are offline. Fiction prompts are read-only until the connection returns, so a partial write cannot overwrite the Codex.';
-    if (cdxKeyCount() === 0 && !gate.unlocked) return 'No Codex data has arrived on this device yet. Fiction prompts stay read-only until it loads — an empty Codex and a failed load look identical from here, and guessing wrong would overwrite your manuscripts.';
+    if (!gate.mounted) return 'Cloud sync did not start on this page, so the fiction library cannot be reached. Fiction prompts are read-only.';
+    if (!gate.applied && !gate.graceOver) return 'Still loading the fiction library…';
+    if (navigator.onLine === false) return 'You are offline. Fiction prompts are read-only until the connection returns, so a partial write cannot overwrite the fiction library.';
+    if (cdxKeyCount() === 0 && !gate.unlocked) return 'None of the fiction library has arrived on this device yet. Fiction prompts stay read-only until it loads — an empty library and a failed load look identical from here, and guessing wrong would overwrite your manuscripts.';
     return '';
   }
   function codexWrite(fn) {
-    if (!codexWritable()) { toast('The Codex has not finished loading', true); return false; }
+    if (!codexWritable()) { toast('The fiction library has not finished loading', true); return false; }
     try { fn(); } catch (e) {
       try { console.error('[Promptarium] codex write failed', e); } catch (e2) {}
       toast('That fiction edit did not save', true);
@@ -2767,7 +2767,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
 
     return '<article class="pm-prompt' + (open ? ' is-open' : '') + (p.editable ? '' : ' is-locked') + '" data-uid="' + esc(p.uid) + '">' +
       '<div class="pm-prompt-head" role="button" tabindex="0" aria-expanded="' + (open ? 'true' : 'false') + '">' +
-        (p.src === 'prm' ? '<span class="pm-prompt-grip" title="Drag to reorder">⣿</span>' : '<span class="pm-prompt-grip" style="opacity:.25" title="Fiction order is owned by The Codex">⣿</span>') +
+        (p.src === 'prm' ? '<span class="pm-prompt-grip" title="Drag to reorder">⣿</span>' : '<span class="pm-prompt-grip" style="opacity:.25" title="Fiction order is owned by the shared fiction library">⣿</span>') +
         '<span class="pm-prompt-ico" aria-hidden="true">' + esc(p.icon || '✦') + '</span>' +
         '<span class="pm-prompt-name">' +
           '<span class="pm-prompt-title">' + esc(p.title) + '</span>' +
@@ -2846,11 +2846,11 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
       // Adding here writes into The Codex, so the button follows the gate.
       return '<div class="pm-empty"><div class="pm-empty-glyph">❦</div><p>' +
         (codexWritable()
-          ? 'The Codex has no prompts saved yet. Anything you add here appears in The Codex too — it is the same database.'
-          : 'Nothing to show until The Codex loads. Adding a fiction prompt writes into The Codex\'s own database, so it stays disabled until the connection is confirmed.') +
+          ? 'The fiction library has no prompts saved yet. Anything you add here is written straight into it.'
+          : 'Nothing to show until the fiction library loads. Adding a fiction prompt writes into that shared database, so it stays disabled until the connection is confirmed.') +
         '</p>' + (codexWritable()
           ? '<button type="button" class="pm-btn pm-btn-primary" data-newprompt="1">Add a fiction prompt</button>'
-          : '<a class="pm-btn" href="codex.html#/prompts">Open The Codex →</a>') + '</div>';
+          : '') + '</div>';
     }
     return '<div class="pm-empty"><div class="pm-empty-glyph">✦</div><p>' +
       (ctx.mode === 'inbox'
@@ -2917,7 +2917,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
       e.stopPropagation();
       var p = pvGet(this.dataset.pinuid);
       if (!p) return;
-      if (p.src === 'cdx' && !p.editable) { toast('The Codex has not finished loading', true); return; }
+      if (p.src === 'cdx' && !p.editable) { toast('The fiction library has not finished loading', true); return; }
       pvPatch(p.uid, { pinned: !p.pinned });
       repaintDb();
     });
@@ -3079,13 +3079,13 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
     var d = D();
     var v = uid ? pvGet(uid) : null;
     var isNew = !v;
-    if (v && !v.editable) { toast('The Codex has not finished loading', true); return; }
+    if (v && !v.editable) { toast('The fiction library has not finished loading', true); return; }
 
     /* Adding from the Fiction page creates the prompt in THE CODEX's store,
        not here — that is what a shared collection means. It is gated like
        every other cdx: write. */
     var intoFiction = isNew && ctx && ctx.mode === 'collection' && ctx.collection === 'fiction';
-    if (intoFiction && !codexWritable()) { toast('The Codex has not finished loading', true); return; }
+    if (intoFiction && !codexWritable()) { toast('The fiction library has not finished loading', true); return; }
 
     var defaultCollection = intoFiction ? 'fiction'
       : (ctx && ctx.mode === 'collection' && ctx.collection !== 'fiction') ? ctx.collection : 'inbox';
@@ -3122,8 +3122,8 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
           ? '<div class="pm-field"><span class="pm-field-label">Collection</span>' +
             '<input type="hidden" data-f="collection" value="' + esc(p.collection) + '">' +
             '<p class="pm-field-hint">' + esc((d.collectionById(p.collection) || {}).label || 'Unsorted') +
-            (intoFiction ? ' — this will be saved into The Codex\'s own prompt database, where both pages share it.'
-                         : (v && v.src === 'cdx' ? ' — this prompt lives in The Codex, and both pages share it.' : '')) + '</p></div>'
+            (intoFiction ? ' — this will be saved into the shared fiction database.'
+                         : (v && v.src === 'cdx' ? ' — this prompt lives in the shared fiction database.' : '')) + '</p></div>'
           : fieldSelect('Collection', 'collection', p.collection, colOpts)) +
         '<div class="pm-field-row">' + fieldSelect('Status', 'status', p.status, d.PRM_STATUSES) +
           fieldSelect('Creator', 'creator', p.creator, d.PRM_CREATORS) + '</div>' +
@@ -3156,7 +3156,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
           var made = null;
           if (!codexWrite(function () { made = C().Prompts.add(rec); })) return false;
           if (made) { d.setFictionMeta(made.id, meta); pmUi.openId = 'cdx:' + made.id; }
-          toast('Saved to The Codex');
+          toast('Saved to the fiction library');
         } else if (isNew) {
           f.order = d.nextOrder(d.Prompts.list());
           var np = d.Prompts.add(f);
@@ -3169,7 +3169,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
           // Fiction: pvPatch splits the sidecar fields out for us.
           delete f.collection; delete f.variables;
           if (!pvPatch(v.uid, f)) return false;
-          toast('Saved to The Codex');
+          toast('Saved to the fiction library');
         }
       },
       onDelete: isNew ? null : function () {
@@ -3210,10 +3210,10 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
         eyebrow: isShared ? 'Shared collection' : 'Collection',
         title: col.label,
         sub: col.blurb,
-        left: { ico: col.icon, title: plural(scope.length, 'prompt'), text: isShared ? 'live from The Codex' : 'in this collection' },
+        left: { ico: col.icon, title: plural(scope.length, 'prompt'), text: isShared ? 'live from the fiction library' : 'in this collection' },
         right: { ico: '★', title: scope.filter(function (p) { return p.pinned || p.rating >= 4; }).length + ' favourites', text: 'rated 4★ or pinned' },
         cta: (isShared
-              ? '<a class="pm-btn" href="codex.html#/prompts">Open in The Codex →</a>'
+              ? '<button type="button" class="pm-btn pm-btn-primary" data-addprompt="1">＋ Add a fiction prompt</button>'
               : '<button type="button" class="pm-btn pm-btn-primary" data-addprompt="1">＋ Add a prompt</button>') +
              '<button type="button" class="pm-btn" data-jumpnotes="1">Notes ↓</button>' +
              '<button type="button" class="pm-btn" data-capture="1">Quick capture</button>'
@@ -3225,8 +3225,8 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
             ? '<b>Read-only.</b> ' + esc(reason) +
               '<span class="pm-spacer"></span>' +
               (cdxKeyCount() === 0 && gate.mounted && (gate.applied || gate.graceOver)
-                ? '<button type="button" class="pm-btn pm-btn-sm" data-unlockcodex="1">My Codex really is empty — enable writing</button>' : '')
-            : '<b>Live.</b> These are The Codex\'s own prompts — the same records, not a copy. Editing one here edits it there.') +
+                ? '<button type="button" class="pm-btn pm-btn-sm" data-unlockcodex="1">The fiction library really is empty — enable writing</button>' : '')
+            : '<b>Live.</b> These come straight from the shared fiction database — the same records, not a copy.') +
         '</div>';
       }
     } else if (ctx.mode === 'pinned') {
@@ -3251,7 +3251,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
       var avg = rated.length ? (rated.reduce(function (s, p) { return s + p.rating; }, 0) / rated.length) : 0;
       head = headHTML({
         eyebrow: 'Every prompt, one place', title: 'Prompt Library',
-        sub: 'Search across every collection at once, including the fiction prompts shared live with The Codex.',
+        sub: 'Search across every collection at once, including the fiction prompts held in the shared fiction database.',
         left: { ico: '🔍', title: plural(all.length, 'prompt'), text: 'across ' + d.collectionList().length + ' collections' },
         right: { ico: '★', title: avg ? avg.toFixed(1) + ' average' : 'Nothing rated', text: rated.length ? 'across ' + rated.length + ' rated' : 'stars feed Favorites' },
         cta: '<button type="button" class="pm-btn pm-btn-primary" data-addprompt="1">＋ Add a prompt</button>' +
@@ -3272,7 +3272,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
     on(host, '[data-addprompt]', 'click', function () { openPromptModal(null, ctxForRoute()); });
     on(host, '[data-capture]', 'click', function () { openCapture(); });
     on(host, '[data-unlockcodex]', 'click', function () {
-      if (!window.confirm('Only do this if your Codex genuinely has no data yet.\n\nIf the Codex simply has not loaded, enabling writing could overwrite it. Continue?')) return;
+      if (!window.confirm('Only do this if the fiction library genuinely has no data yet.\n\nIf it simply has not loaded, enabling writing could overwrite it — manuscripts included. Continue?')) return;
       gate.unlocked = true; toast('Fiction writing enabled for this session'); refreshCurrentView();
     });
     on(host, '[data-bulkfile]', 'click', function () { openBulkFile(); });
@@ -3519,7 +3519,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
           '<div class="pm-section-head pm-center" style="display:block">' +
             '<span class="pm-eyebrow">Collections</span>' +
             '<h2 class="pm-h2">One page per tool</h2>' +
-            '<p class="pm-note-line">Each collection is a model, a piece of software, or a kind of work that outlives whichever model you asked. Fiction is shared live with The Codex — the same records, both pages.</p>' +
+            '<p class="pm-note-line">Each collection is a model, a piece of software, or a kind of work that outlives whichever model you asked. Fiction is held in its own shared database, so those records outlive this page.</p>' +
           '</div>' +
           '<div class="pm-tiles">' + tiles + '</div>' +
         '</section>' +
@@ -3604,7 +3604,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
       '<div class="pm-step-body">' +
         (s.promptRef && !ref
           ? '<div class="pm-banner" style="margin-top:var(--sp-4)"><b>Linked prompt not found.</b> ' +
-            'Showing this step\'s own text instead. The link is kept — if it points into The Codex it may just not have loaded yet.</div>'
+            'Showing this step\'s own text instead. The link is kept — if it points into the fiction library it may just not have loaded yet.</div>'
           : '') +
         (ref ? '<p class="pm-note-line" style="margin-top:var(--sp-3)">Linked to <b>' + esc(ref.title) + '</b> — editing that prompt updates this step.</p>' : '') +
         '<div class="pm-code">' + highlightVars(text || 'This step has no prompt yet.') +
@@ -3936,23 +3936,22 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
     host.innerHTML =
       headHTML({
         eyebrow: 'Housekeeping', title: 'Settings',
-        sub: 'Sync status, the shared-Codex connection, and a way out of here with your data.',
+        sub: 'Sync status, the shared fiction connection, and a way out of here with your data.',
         ticker: false
       }) +
       '<div class="pm-shell">' +
 
-        '<section class="pm-section"><span class="pm-eyebrow">The Codex connection</span>' +
+        '<section class="pm-section"><span class="pm-eyebrow">Shared fiction library</span>' +
         '<h2 class="pm-h2">Fiction is shared, not copied</h2>' +
-        '<p class="pm-note-line" style="margin-bottom:var(--sp-3)">This page mounts The Codex\'s own cloud row, so the Fiction collection is the same records <code>codex.html</code> shows. Your ratings, purpose tags, creator and status for those prompts are stored separately here, because The Codex\'s own prompt model would strip fields it does not know.</p>' +
+        '<p class="pm-note-line" style="margin-bottom:var(--sp-3)">The Fiction collection lives in a second cloud row of its own (<code>cdx:</code>), separate from everything else on this page and shared with the manuscript records stored alongside it. Your ratings, purpose tags, creator and status for those prompts are kept separately here, because that row\'s own prompt model would strip fields it does not know.</p>' +
         '<div class="pm-card">' +
           '<p style="margin:0 0 var(--sp-3)"><b style="color:' + (reason ? 'var(--pm-amber-hi)' : 'var(--pm-good)') + '">' +
             (reason ? 'Read-only' : 'Live — writing enabled') + '</b><br>' +
-            '<span style="font-size:12.5px;color:var(--pm-text-mute)">' + esc(reason || 'The Codex has loaded and fiction prompts are editable from here.') + '</span></p>' +
+            '<span style="font-size:12.5px;color:var(--pm-text-mute)">' + esc(reason || 'The fiction library has loaded and its prompts are editable from here.') + '</span></p>' +
           '<div class="pm-chip-row">' +
-            '<span class="pm-pill">' + cdxKeyCount() + ' codex keys local</span>' +
+            '<span class="pm-pill">' + cdxKeyCount() + ' fiction keys local</span>' +
             '<span class="pm-pill">' + cdxPromptList().length + ' fiction prompts</span>' +
             '<span class="pm-pill">' + Object.keys(d.fictionMetaAll()).length + ' sidecar records</span>' +
-            '<a class="pm-btn pm-btn-sm" href="codex.html#/prompts">Open The Codex →</a>' +
           '</div>' +
         '</div></section>' +
 
@@ -3966,17 +3965,14 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
             (st.showFictionInLibrary ? 'Hide' : 'Show') + ' fiction prompts in the main library</button>' +
         '</div>' +
         (orphans.length && reason
-          ? '<p class="pm-field-hint">Orphan cleanup stays disabled while the Codex is read-only — a prompt missing right now may just mean it has not loaded on this device, and its rating is worth keeping until we know.</p>'
+          ? '<p class="pm-field-hint">Orphan cleanup stays disabled while the fiction library is read-only — a prompt missing right now may just mean it has not loaded on this device, and its rating is worth keeping until we know.</p>'
           : '') +
         '</div></section>' +
 
         '<section class="pm-section"><span class="pm-eyebrow">Elsewhere</span>' +
         '<h2 class="pm-h2">Related pages</h2>' +
-        '<div class="pm-card"><p class="pm-note-line" style="margin-top:0">These are separate builds with their own data. Nothing here reads or writes theirs.</p>' +
-        '<div class="pm-chip-row">' +
-          '<a class="pm-btn pm-btn-sm" href="aitech.html">AI &amp; Tech — its own prompt list →</a>' +
-          '<a class="pm-btn pm-btn-sm" href="codex.html#/prompts">The Codex — fiction prompts →</a>' +
-        '</div></div></section>' +
+        '<div class="pm-card"><p class="pm-note-line" style="margin-top:0">Every other dashboard is a separate build with its own data. Nothing here reads or writes theirs, and nothing there reads this.</p>' +
+        '</div></section>' +
       '</div>';
 
     on(host, '[data-export]', 'click', function () {
@@ -3996,7 +3992,7 @@ a.pm-row:hover{transform:translateX(3px); border-color:rgba(var(--pm-accent-rgb)
       var live = cdxPromptList().map(function (p) { return p.id; });
       var now = d.orphanFictionMetaIds(live);
       if (!now.length) { toast('Nothing to clean up'); return; }
-      if (!window.confirm('Remove metadata for ' + plural(now.length, 'prompt') + ' that no longer exists in The Codex?')) return;
+      if (!window.confirm('Remove metadata for ' + plural(now.length, 'prompt') + ' that no longer exists in the fiction library?')) return;
       now.forEach(function (id) { d.dropFictionMeta(id); });
       toast('Cleaned up'); refreshCurrentView();
     });

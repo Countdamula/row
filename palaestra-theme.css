@@ -3,6 +3,11 @@
    Shared by palaestra.html and palaestra-workout.html.
 
    DIRECTION
+   Renamed to FITNESS STUDIO on 2026-08-21 — display name only. Every
+   --pal-* token and .pal-* class below is unchanged, and so is this
+   file's name; the palette's reasoning is unchanged too and is the
+   reason it is still recorded here.
+
    The palaestra was a sand-floored training yard: dusted ground,
    bronze fittings, terracotta, oiled skin, verdigris on old fixtures.
    So the ground here is a WARM near-black (olive-tinged, never blue),
@@ -735,7 +740,13 @@ a:hover { color: var(--pal-sand); }
   min-height: 44px;
 }
 .pal-route:hover { color: var(--pal-sand-2); }
+.pal-route:focus-visible { outline: 2px solid var(--pal-bronze); outline-offset: -3px; }
+.pal-route:active { color: var(--pal-sand); }
 .pal-route[aria-current='true'] { color: var(--pal-sand); border-bottom-color: var(--pal-bronze); }
+/* The More slot exists only where the bar cannot hold nine destinations.
+   Above 719px the bar wraps and every route is already one tap away, so a
+   menu there would hide five of them for no gain. */
+.pal-route--more { display: none; }
 
 @media (max-width: 900px) {
   .pal-routebar__in { padding-left: 200px; }
@@ -846,8 +857,42 @@ a:hover { color: var(--pal-sand); }
     padding-bottom: env(safe-area-inset-bottom, 0px);
     min-height: 56px;
   }
-  .pal-routes { overflow-x: auto; flex-wrap: nowrap; }
-  .pal-route { flex: none; padding: 8px 12px; min-height: 48px; }
+  /* FIVE SLOTS, NOT NINE, AND NOTHING SCROLLS.
+     A horizontally-scrolling nav is a nav with a hidden half — the four
+     routes past the right edge were unreachable unless you already knew
+     they were there. The secondary ones move into the More sheet
+     (sheetMore in palaestra.html); they stay in the DOM at every width so
+     a rotation cannot leave the bar in the wrong shape.
+
+     grid, not flex: five equal columns divide 320px evenly and cannot
+     overflow, where flex items sized by their own text cannot promise
+     that. min-width:0 on the cell and the label is what actually lets a
+     long word shrink — a grid item defaults to min-width:auto and refuses
+     to go below its content, which is how a row ends up 924px wide on a
+     412px screen. */
+  .pal-routes {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    overflow-x: visible;
+    flex-wrap: nowrap;
+    width: 100%;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .pal-route[data-primary='false'] { display: none; }
+  .pal-route--more { display: flex; }
+  .pal-route {
+    display: flex; align-items: center; justify-content: center;
+    flex: none; min-width: 0;
+    padding: 8px 4px; min-height: 48px;
+    font-size: 10px; letter-spacing: .08em;
+    border-bottom-width: 2px;
+  }
+  .pal-route__txt {
+    display: block; min-width: 0; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   /* and everything that lived at the bottom moves up over it.
      body.pal is not decoration: .pal-fab and .pal-shell are both declared
      further down this file, so a bare class selector here would lose on
@@ -906,7 +951,7 @@ a:hover { color: var(--pal-sand); }
   .pal-ribbon__depth { transform: none !important; }
   .pal-badge2 { translate: -50% -50% !important; }
   .pal-hero__copy { transform: none !important; opacity: 1 !important; }
-  .pal-calday:hover, .pal-xcard:hover { transform: none !important; }
+  .pal-xcard:hover, .pal-exrow:hover, .pal-exrow:focus-within { transform: none !important; }
 }
 
 /* =============================================================
@@ -1118,19 +1163,50 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
    deep golds, nothing outside it. --lane still drives the badge, the
    border and the hover glow, so the lane system is intact; this only
    decides what light the cover is lit by. */
-.pal-xcard { --cover: var(--lane, var(--pal-bronze)); }
-.pal-xcard[data-muscle='Chest']     { --cover: #C8823C; }
-.pal-xcard[data-muscle='Back']      { --cover: #5E8F90; }
-.pal-xcard[data-muscle='Shoulders'] { --cover: #D8A05A; }
-.pal-xcard[data-muscle='Biceps']    { --cover: #A8703C; }
-.pal-xcard[data-muscle='Triceps']   { --cover: #8E6B45; }
-.pal-xcard[data-muscle='Legs']      { --cover: #6E8F6A; }
-.pal-xcard[data-muscle='Glutes']    { --cover: #B4663F; }
-.pal-xcard[data-muscle='Core']      { --cover: #9A8352; }
-.pal-xcard[data-muscle='Forearms']  { --cover: #7A6A52; }
-.pal-xcard[data-muscle='Calves']    { --cover: #66806F; }
-.pal-xcard[data-muscle='Cardio']    { --cover: #B44A33; }
-.pal-xcard[data-muscle='Full Body'] { --cover: #A9906A; }
+/* THE --cover AXIS — one hue per muscle, not one per lane.
+   --lane has four values and eleven of the twelve muscles resolve to the
+   same one, so a lane-coloured library was twenty identical bronze
+   surfaces. This is the axis every surface that has to be told apart BY
+   MUSCLE reads: the workout/exercise cover cards, and now the library's
+   list rows and their group panels. Adding a surface here means adding it
+   to this selector list, not inventing a second table. */
+.pal-xcard, .pal-exrow, .pal-exgroup { --cover: var(--lane, var(--pal-bronze)); }
+.pal-xcard[data-muscle='Chest'],
+.pal-exrow[data-muscle='Chest'],
+.pal-exgroup[data-muscle='Chest'] { --cover: #C8823C; }
+.pal-xcard[data-muscle='Back'],
+.pal-exrow[data-muscle='Back'],
+.pal-exgroup[data-muscle='Back'] { --cover: #5E8F90; }
+.pal-xcard[data-muscle='Shoulders'],
+.pal-exrow[data-muscle='Shoulders'],
+.pal-exgroup[data-muscle='Shoulders'] { --cover: #D8A05A; }
+.pal-xcard[data-muscle='Biceps'],
+.pal-exrow[data-muscle='Biceps'],
+.pal-exgroup[data-muscle='Biceps'] { --cover: #A8703C; }
+.pal-xcard[data-muscle='Triceps'],
+.pal-exrow[data-muscle='Triceps'],
+.pal-exgroup[data-muscle='Triceps'] { --cover: #8E6B45; }
+.pal-xcard[data-muscle='Legs'],
+.pal-exrow[data-muscle='Legs'],
+.pal-exgroup[data-muscle='Legs'] { --cover: #6E8F6A; }
+.pal-xcard[data-muscle='Glutes'],
+.pal-exrow[data-muscle='Glutes'],
+.pal-exgroup[data-muscle='Glutes'] { --cover: #B4663F; }
+.pal-xcard[data-muscle='Core'],
+.pal-exrow[data-muscle='Core'],
+.pal-exgroup[data-muscle='Core'] { --cover: #9A8352; }
+.pal-xcard[data-muscle='Forearms'],
+.pal-exrow[data-muscle='Forearms'],
+.pal-exgroup[data-muscle='Forearms'] { --cover: #7A6A52; }
+.pal-xcard[data-muscle='Calves'],
+.pal-exrow[data-muscle='Calves'],
+.pal-exgroup[data-muscle='Calves'] { --cover: #66806F; }
+.pal-xcard[data-muscle='Cardio'],
+.pal-exrow[data-muscle='Cardio'],
+.pal-exgroup[data-muscle='Cardio'] { --cover: #B44A33; }
+.pal-xcard[data-muscle='Full Body'],
+.pal-exrow[data-muscle='Full Body'],
+.pal-exgroup[data-muscle='Full Body'] { --cover: #A9906A; }
 
 .pal-xcard__cover {
   position: relative;
@@ -1482,25 +1558,168 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
 }
 .pal-listrow__actions { display: flex; gap: 4px; flex: none; }
 
-/* THE WEEKLY PLAN. Its rows have carried data-lane since the first
-   build and nothing has ever consumed it. A scheduled day now lights its
-   own left edge; a day with nothing on it stays a plain ruled row, which
-   is the whole point — the glow is the schedule, drawn. */
-.pal-planrow { position: relative; padding-left: var(--pal-3); }
-.pal-planrow::before {
-  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
-  border-radius: 2px;
-  background: var(--lane, var(--pal-ash));
-  opacity: 0;
-  transition: opacity .2s var(--pal-ease);
+/* =============================================================
+   §ROUTINE EDITOR — the day picker and the per-item overrides.
+
+   Both of these are new because the schedule moved onto the routine and
+   the three programs need the same movement prescribed differently on a
+   HIGH day and a LOW one. The fields are small on purpose — they are
+   adjustments to a number the library already holds, not the number
+   itself — but never below 16px on a phone, which is the line at which
+   iOS Safari zooms the page in and does not zoom back out.
+   ============================================================= */
+/* The level, wherever a session or a routine is listed. One object, three
+   hues, and it is never used to mark something as lesser — a LOW day that
+   happened is a day that happened. */
+/* The level chooser above Today's card. Deliberately ABOVE it, not inside:
+   it changes which routine the card is showing, so it cannot read as one of
+   the card's own controls. */
+.pal-todaylvl {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--pal-4); flex-wrap: wrap;
+  padding: var(--pal-3) var(--pal-4);
+  margin-bottom: 12px;
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius-lg);
+  background: var(--pal-stone-2);
 }
-.pal-planrow[data-lane]:not([data-lane='none'])::before {
-  opacity: 1;
-  box-shadow: 0 0 10px 0 rgba(var(--lane-rgb, 200,130,60), .6),
-              0 0 24px -4px rgba(var(--lane-rgb, 200,130,60), .34);
+.pal-todaylvl .pal-levels { min-width: 210px; flex: 0 1 260px; }
+
+.pal-lvltag, .pal-xcard__schedlvl {
+  display: inline-flex; align-items: center;
+  font-family: var(--pal-mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 2px;
+  color: var(--lv, var(--pal-bronze));
+  border: 1px solid color-mix(in srgb, var(--lv, var(--pal-bronze)) 42%, transparent);
+  background: color-mix(in srgb, var(--lv, var(--pal-bronze)) 12%, transparent);
 }
-.pal-planrow[data-lane='rest']::before { opacity: .5; box-shadow: none; }
-.pal-planrow[data-today='true'] .pal-listrow__meta { color: var(--pal-bronze-2); }
+[data-level='high'] { --lv: var(--pal-good); }
+[data-level='mid']  { --lv: var(--pal-warn); }
+[data-level='low']  { --lv: var(--pal-bad); }
+.pal-xcard__sched {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: -4px 0 10px;
+}
+.pal-xcard__scheddays {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+
+.pal-daypick { display: flex; flex-wrap: wrap; gap: 4px; }
+.pal-daypick__d {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--pal-hair-2); border-radius: var(--pal-radius);
+  padding: 7px 9px; cursor: pointer;
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--pal-ash);
+  transition: color .18s var(--pal-ease), border-color .18s var(--pal-ease),
+              background .18s var(--pal-ease);
+}
+.pal-daypick__d:hover { color: var(--pal-sand-2); border-color: var(--pal-hair); }
+.pal-daypick__d:has(input:checked) {
+  color: var(--pal-sand);
+  border-color: color-mix(in srgb, var(--pal-bronze) 52%, transparent);
+  background: color-mix(in srgb, var(--pal-bronze) 12%, transparent);
+}
+.pal-daypick__d:focus-within { outline: 2px solid var(--pal-bronze); outline-offset: 2px; }
+
+.pal-tplrow { align-items: flex-start; }
+.pal-tplov {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+  margin-top: 10px;
+}
+.pal-tplov__f { display: flex; flex-direction: column; gap: 3px; width: 74px; }
+.pal-tplov__f--wide { flex: 1 1 160px; width: auto; }
+.pal-tplov__f > span {
+  font-family: var(--pal-mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-tplov__f .pal-input, .pal-tplov__f .pal-select { padding: 7px 8px; font-size: 13px; }
+.pal-tplov__side {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--pal-ash);
+  padding-bottom: 8px; cursor: pointer;
+}
+
+/* =============================================================
+   §EXERCISE ROW — the library as a ruled list, lit by muscle.
+
+   The cover card that used to hold these is still in this file and still
+   used, by the WORKOUT cards. It is the wrong object for a fifty-entry
+   library: a 16/11 gradient per exercise is eight screens of scrolling,
+   and the cover carries no fact the row does not already state.
+
+   What replaces it has to be scannable AND still tell you, without
+   reading, which muscle a row belongs to. That is what the glow is for,
+   and it encodes something true rather than being applied uniformly:
+   the hue is the exercise's own --cover, the same per-muscle axis the
+   cards use, so twelve muscles are twelve colours down the left edge.
+
+   Rules this obeys, all of them house rules learned on this page:
+     - box-shadow, never backdrop-filter. Fifty blurred rows is the most
+       expensive thing this page could ask a phone for; the theme forbids
+       per-cell blur and this is a cell.
+     - layered and colour-tinted at low opacity, never a flat drop shadow.
+     - transform and opacity only, with the page's own spring easing.
+     - the lift is a :hover/:focus-visible/:active affordance, and it is
+       killed under (pointer: coarse) where it fires on tap and sticks.
+   ============================================================= */
+.pal-exrow {
+  position: relative;
+  padding-left: var(--pal-4);
+  border-radius: 0 var(--pal-radius) var(--pal-radius) 0;
+  transition: background .2s var(--pal-ease), transform .2s var(--pal-ease),
+              box-shadow .2s var(--pal-ease);
+}
+.pal-exrow::before {
+  content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+  border-radius: 0 3px 3px 0;
+  /* --cover is set per muscle further up this file; --lane is the four-way
+     fallback for anything that has not been given one. */
+  background: var(--cover, var(--lane, var(--pal-bronze)));
+  box-shadow:
+    0 0 6px 0 color-mix(in srgb, var(--cover, var(--pal-bronze)) 62%, transparent),
+    0 0 18px -2px color-mix(in srgb, var(--cover, var(--pal-bronze)) 40%, transparent);
+  transition: box-shadow .2s var(--pal-ease), opacity .2s var(--pal-ease);
+}
+.pal-exrow:hover,
+.pal-exrow:focus-within {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--cover, var(--pal-bronze)) 9%, transparent),
+    transparent 46%);
+  transform: translateX(2px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cover, var(--pal-bronze)) 14%, transparent);
+}
+.pal-exrow:hover::before,
+.pal-exrow:focus-within::before {
+  box-shadow:
+    0 0 9px 0 color-mix(in srgb, var(--cover, var(--pal-bronze)) 80%, transparent),
+    0 0 26px -1px color-mix(in srgb, var(--cover, var(--pal-bronze)) 55%, transparent);
+}
+.pal-exrow:active { transform: translateX(1px); }
+.pal-exrow .pal-btn:focus-visible { outline: 2px solid var(--pal-bronze); outline-offset: 2px; }
+
+/* The personal best. Present only where one exists — an empty column of
+   dashes down a library would be fifty statements of nothing. */
+.pal-exrow__pr {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end;
+  gap: 1px; margin-right: 4px;
+}
+.pal-exrow__prval {
+  font-family: var(--pal-mono); font-size: 13px;
+  color: var(--pal-bronze-2);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.pal-exrow__prkey {
+  font-family: var(--pal-mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+
+/* A group panel carries its muscle's colour on the heading rule, so the
+   twelve panels are not twelve identical boxes. */
+.pal-exgroup .pal-card__head { border-bottom: 1px solid var(--pal-hair-2); padding-bottom: 10px; }
+.pal-exgroup .pal-h3 { color: var(--cover, var(--pal-sand)); }
 
 .pal-badge {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1557,90 +1776,165 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
   background: linear-gradient(90deg, transparent, rgba(234,223,201,.34), transparent);
 }
 
-/* Seven columns across 2560px turns a month into hairlines. */
-.pal-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-.pal-cal__dow {
-  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--pal-ash);
-  text-align: center; padding-bottom: 6px;
+/* =============================================================
+   §WEEKLY SCHEDULE
+   Replaces the month grid. A month of squares answered "what did I do",
+   which History already answers; this answers "what am I doing on
+   Thursday, and at which effort".
+
+   Seven rows, not seven columns: each one has to carry a routine name, an
+   exercise list and a three-way control, and a column 1/7th of the page
+   wide cannot hold any of them.
+   ============================================================= */
+.pal-schedlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+.pal-schedrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) minmax(200px, auto);
+  gap: var(--pal-4);
+  align-items: start;
+  padding: var(--pal-4) var(--pal-4) var(--pal-4) calc(var(--pal-4) + 4px);
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius-lg);
+  background: var(--pal-stone-2);
+  transition: border-color .2s var(--pal-ease), box-shadow .2s var(--pal-ease);
 }
-/* A cell is alpha over the pane, so the ground and the pane's blur read
-   through it. No filter of its own — see --pal-glass. */
-.pal-calday {
-  appearance: none; border: 1px solid var(--pal-hair-2);
-  background: rgba(12,10,8,.34);
+/* The left edge IS the schedule, drawn — same device as .pal-planrow, which
+   this row grew out of. A day with nothing on it stays unlit, so the page
+   reads at a glance rather than needing to be read. */
+.pal-schedrow::before {
+  content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--lane, var(--pal-ash));
+  opacity: 0;
+  transition: opacity .2s var(--pal-ease);
+}
+.pal-schedrow[data-lane]:not([data-lane='none'])::before {
+  opacity: 1;
+  box-shadow: 0 0 10px 0 rgba(var(--lane-rgb, 200,130,60), .55),
+              0 0 26px -4px rgba(var(--lane-rgb, 200,130,60), .3);
+}
+.pal-schedrow[data-lane='rest']::before { opacity: .45; box-shadow: none; }
+.pal-schedrow[data-today='true'] {
+  border-color: color-mix(in srgb, var(--pal-bronze) 42%, var(--pal-hair-2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pal-bronze) 16%, transparent),
+              0 14px 40px -22px rgba(var(--lane-rgb, 200,130,60), .5);
+}
+.pal-schedrow[data-done='true'] { background: color-mix(in srgb, var(--pal-patina) 6%, var(--pal-stone-2)); }
+
+.pal-schedrow__day { display: flex; flex-direction: column; gap: 3px; }
+.pal-schedrow__dow {
+  font-family: var(--pal-display); font-size: 22px; font-weight: 400;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--pal-sand);
+  font-variant-numeric: lining-nums;
+}
+.pal-schedrow__date {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .1em;
+  color: var(--pal-ash); text-transform: uppercase;
+}
+.pal-schedrow__tag {
+  align-self: flex-start; margin-top: 2px;
+  font-family: var(--pal-mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-bronze-2);
+  border: 1px solid color-mix(in srgb, var(--pal-bronze) 42%, transparent);
+  border-radius: 2px; padding: 2px 6px;
+}
+
+.pal-schedrow__main { min-width: 0; }
+.pal-schedrow__name { font-size: 17px; font-weight: 500; color: var(--pal-sand); margin: 0 0 4px; }
+.pal-schedrow__name--empty { color: var(--pal-ash); font-weight: 400; }
+.pal-schedrow__meta {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .05em;
+  color: var(--pal-ash); margin: 0;
+}
+.pal-schedrow__cover {
+  font-family: var(--pal-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--pal-ash-2, var(--pal-ash));
+  margin: 8px 0 0; opacity: .8;
+}
+.pal-schedrow__list {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: grid; gap: 2px;
+  font-size: 13px; color: var(--pal-sand-2);
+}
+.pal-schedrow__list li {
+  display: flex; justify-content: space-between; gap: var(--pal-3);
+  padding: 3px 0;
+  border-top: 1px solid color-mix(in srgb, var(--pal-hair-2) 60%, transparent);
+}
+.pal-schedrow__list li:first-child { border-top: 0; }
+.pal-schedrow__reps {
+  flex: none; font-family: var(--pal-mono); font-size: 11px;
+  letter-spacing: .05em; color: var(--pal-ash);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.pal-schedrow__more { color: var(--pal-ash); font-size: 12px; }
+
+.pal-schedrow__side {
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+  justify-self: end; min-width: 200px;
+}
+
+/* THE LEVEL PICKER.
+   A segmented control, not a <select>: the three options have to be
+   readable without being opened, because the point of the scheme is that
+   choosing is a one-second decision. */
+.pal-levels {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--pal-hair-2);
   border-radius: var(--pal-radius);
-  min-height: clamp(58px, 9vw, 88px);
-  padding: 7px 8px; cursor: pointer; text-align: left;
-  display: flex; flex-direction: column; gap: 4px;
+  overflow: hidden;
+  background: rgba(12,10,8,.3);
+}
+.pal-level {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--pal-ash);
+  padding: 9px 6px; min-height: 38px;
+  border-left: 1px solid var(--pal-hair-2);
+  transition: color .18s var(--pal-ease), background .18s var(--pal-ease),
+              box-shadow .18s var(--pal-ease);
+}
+.pal-level:first-child { border-left: 0; }
+.pal-level:hover { color: var(--pal-sand); background: rgba(234,223,201,.05); }
+.pal-level:focus-visible { outline: 2px solid var(--pal-bronze); outline-offset: -2px; }
+.pal-level:active { background: rgba(234,223,201,.09); }
+/* Each level owns a hue, and the selected one is lit from inside rather
+   than merely filled — the same stacked-shadow device the rest of the page
+   uses, at the size of a chip. */
+.pal-level[data-l='high'], .pal-level:nth-child(1) { --lv: var(--pal-patina, #5E9079); }
+.pal-level:nth-child(2) { --lv: var(--pal-warn); }
+.pal-level:nth-child(3) { --lv: var(--pal-bad); }
+.pal-level[aria-pressed='true'] {
   color: var(--pal-sand);
-  transition: border-color .18s var(--pal-ease), background .18s var(--pal-ease),
-              box-shadow .18s var(--pal-ease), transform .18s var(--pal-ease);
+  background: color-mix(in srgb, var(--lv) 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lv) 46%, transparent),
+              inset 0 0 18px -6px color-mix(in srgb, var(--lv) 70%, transparent);
 }
-.pal-calday:hover {
-  border-color: color-mix(in srgb, var(--lane, var(--pal-bronze)) 44%, transparent);
-  background: rgba(30,26,20,.5);
-  transform: translateY(-2px);
-  box-shadow: var(--pal-glow);
+/* Chosen deliberately, as against defaulted to. Worth distinguishing: a
+   HIGH that was never picked is not a promise. */
+.pal-level[data-chosen='true']::after {
+  content: ''; display: block; height: 2px; margin: 5px auto -2px; width: 14px;
+  border-radius: 2px; background: var(--lv);
 }
-/* GLOW SAYS SOMETHING. Only today and the days that carry work are lit —
-   done brightest, planned dimmer, an empty day not at all. A calendar
-   where every cell glows is a calendar that tells you nothing. */
-.pal-calday[data-status='done'] {
-  background: rgba(34,28,20,.46);
-  border-color: color-mix(in srgb, var(--lane) 34%, transparent);
-  box-shadow: var(--pal-glow);
+
+/* THE KEY. Framing, not decoration: without it a three-way control reads as
+   "full / half / gave up". */
+.pal-levelkey { display: grid; gap: var(--pal-4); }
+.pal-levelkey__item { display: flex; gap: var(--pal-3); align-items: flex-start; }
+.pal-levelkey__dot { font-size: 15px; line-height: 1.5; flex: none; }
+.pal-levelkey__head {
+  margin: 0 0 3px; font-family: var(--pal-mono); font-size: 11px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--pal-sand);
 }
-.pal-calday[data-status='planned'],
-.pal-calday[data-status='rest'] {
-  box-shadow:
-    0 0 12px -3px rgba(var(--lane-rgb, 200,130,60), .22),
-    0 0 30px -12px rgba(var(--lane-rgb, 200,130,60), .14);
-}
-.pal-calday[data-status='missed'] {
-  border-color: color-mix(in srgb, var(--pal-bad) 28%, transparent);
-}
-.pal-calday[data-inmonth='false'] { opacity: .3; }
-.pal-calday__num {
-  font-family: var(--pal-mono); font-size: 11px; color: var(--pal-ash);
-  font-variant-numeric: tabular-nums;
-}
-/* Today is the one cell that is lit whatever is on it. */
-.pal-calday[data-today='true'] {
-  border-color: var(--pal-bronze);
-  background: rgba(38,31,21,.5);
-  box-shadow:
-    0 0 0 1px rgba(200,130,60,.28),
-    0 0 16px -2px rgba(200,130,60,.5),
-    0 0 40px -8px rgba(200,130,60,.3),
-    0 0 86px -26px rgba(200,130,60,.2);
-}
-.pal-calday[data-today='true'] .pal-calday__num { color: var(--pal-bronze-2); }
-/* The bar is the brightest thing in a cell, so the bloom belongs on it
-   rather than on the cell — the same reasoning as kdp's progress fill. */
-.pal-calday__bar {
-  height: 3px; border-radius: 2px; background: var(--lane);
-  box-shadow: 0 0 10px -1px rgba(var(--lane-rgb, 200,130,60), .7),
-              0 0 22px -6px rgba(var(--lane-rgb, 200,130,60), .45);
-}
-.pal-calday[data-status='planned'] .pal-calday__bar,
-.pal-calday[data-status='missed'] .pal-calday__bar { box-shadow: none; }
-/* Planned but not done: a dotted trace of the work, not the work. At
-   3px an inset outline reads as solid, so this has to be a pattern. */
-.pal-calday[data-status='planned'] .pal-calday__bar {
-  background: repeating-linear-gradient(90deg, var(--lane) 0 3px, transparent 3px 7px);
-  opacity: .6;
-}
-.pal-calday[data-status='planned'] .pal-calday__label,
-.pal-calday[data-status='future'] .pal-calday__label { color: var(--pal-ash); }
-.pal-calday[data-status='missed'] .pal-calday__bar {
-  background: repeating-linear-gradient(-45deg, var(--lane) 0 3px, transparent 3px 6px);
-  opacity: .7;
-}
-.pal-calday[data-status='rest'] .pal-calday__bar { background: var(--pal-rest); opacity: .5; }
-.pal-calday__label {
-  font-size: 11px; color: var(--pal-sand-2); line-height: 1.25;
-  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+.pal-levelkey__head .pal-sub { text-transform: none; letter-spacing: .04em; }
+.pal-levelkey__body { margin: 0; font-size: 14px; color: var(--pal-sand-2); line-height: 1.55; }
+.pal-levelkey__when { margin: 3px 0 0; font-size: 13px; color: var(--pal-ash); font-style: italic; }
+.pal-levelkey__foot {
+  margin: 0; padding-top: var(--pal-3);
+  border-top: 1px solid var(--pal-hair-2);
+  font-size: 13.5px; color: var(--pal-sand-2); line-height: 1.6;
 }
 
 /* =============================================================
@@ -2031,6 +2325,18 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
   transition: opacity .2s var(--pal-ease), transform .2s var(--pal-ease);
 }
 .pal-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* A FAILED save. Deliberately not the same object as a confirmation: the
+   border carries the bad hue, the glow is tinted rather than neutral, and
+   the type is a shade brighter than the panel it sits on. It also stays up
+   six seconds instead of 2.6 — see PalUI.toast. */
+.pal-toast--bad {
+  border-color: color-mix(in srgb, var(--pal-bad) 55%, var(--pal-hair));
+  color: var(--pal-sand);
+  box-shadow:
+    var(--pal-float),
+    0 0 0 1px color-mix(in srgb, var(--pal-bad) 24%, transparent),
+    0 8px 30px -8px color-mix(in srgb, var(--pal-bad) 42%, transparent);
+}
 
 /* =============================================================
    PHONE
@@ -2044,9 +2350,9 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
   .pal-weekcell__sets { display: none; }
   .pal-weekcell__label { font-size: 9px; letter-spacing: .08em; }
 
-  /* CALENDAR ON A PHONE.
+  /* THE SCHEDULE ON A PHONE.
      These live in THIS block, not the hero one further up, for the same
-     reason .pal-fab's overrides do: .pal-pane and .pal-calday are both
+     reason .pal-fab's overrides do: .pal-pane and .pal-schedrow are both
      declared after that block, and at equal specificity source order
      wins — the rules were being silently discarded.
 
@@ -2058,20 +2364,37 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
-  /* Seven glass cells at 390px is unreadable before it is pretty. */
-  .pal-cal { gap: 2px; }
-  .pal-calday { min-height: 54px; padding: 5px; gap: 2px; }
-  .pal-calday__label { display: none; }
-  /* The bloom radii are sized for a 1200px pane; at 390px they merge
-     into one wash. */
-  .pal-calday[data-today='true'],
-  .pal-calday[data-status='done'] {
-    box-shadow: 0 0 0 1px rgba(var(--lane-rgb, 200,130,60), .32),
-                0 0 12px -3px rgba(var(--lane-rgb, 200,130,60), .42);
+  /* Three columns become one stack: the day heading, then the routine,
+     then the picker at full width where a thumb can reach it. */
+  .pal-schedrow {
+    grid-template-columns: 1fr;
+    gap: var(--pal-3);
+    padding: var(--pal-3) var(--pal-3) var(--pal-3) calc(var(--pal-3) + 4px);
   }
-  .pal-calday[data-status='planned'],
-  .pal-calday[data-status='rest'] { box-shadow: none; }
-  .pal-calday:hover { transform: none; box-shadow: none; }
+  .pal-schedrow__day { flex-direction: row; align-items: baseline; gap: 8px; }
+  .pal-schedrow__dow { font-size: 18px; }
+  .pal-schedrow__side { justify-self: stretch; min-width: 0; }
+  .pal-schedrow__list { font-size: 12.5px; }
+  /* The bloom radii are sized for a 1200px row; at 390px they merge into
+     one wash. */
+  .pal-schedrow[data-lane]:not([data-lane='none'])::before {
+    box-shadow: 0 0 8px 0 rgba(var(--lane-rgb, 200,130,60), .5);
+  }
+  .pal-schedrow[data-today='true'] { box-shadow: 0 0 0 1px color-mix(in srgb, var(--pal-bronze) 18%, transparent); }
+
+  /* THE 16px FLOOR. Any form control under 16px makes iOS Safari zoom the
+     whole page in on focus and never zoom back out — the single most common
+     phone bug in this whole dashboard. Raise the FIELD, not the design: the
+     labels above them stay small. This block is the LATE one on purpose;
+     .pal-tplov and .pal-levels are declared further down the file and an
+     equal-specificity rule placed above them would be discarded. */
+  .pal-tplov__f .pal-input,
+  .pal-tplov__f .pal-select { font-size: 16px; padding: 9px 10px; }
+  .pal-tplov__f { width: 84px; }
+  .pal-daypick__d { padding: 10px 11px; font-size: 12px; }
+  .pal-levels { grid-template-columns: repeat(3, 1fr); }
+  .pal-level { font-size: 12px; padding: 11px 6px; }
+
 
   /* THE COVER CARD ON A PHONE.
      A 16/11 cover on a 358px card is 246px of gradient before any words,
@@ -2130,12 +2453,17 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    ============================================================= */
 @media (hover: none) and (pointer: coarse) {
   .pal-btn--sm, .pal-chip, .pal-musicbtn, .pal-quickbtn { min-height: 44px; min-width: 44px; }
+  /* Target size belongs to the POINTER, not to a width: a 768px iPad is
+     not a small window. Both axes — several controls have passed on height
+     and failed on width before. */
+  .pal-route, .pal-level { min-height: 48px; }
+  .pal-level { min-width: 44px; }
   .pal-hero__dash { min-height: 44px; }
   .pal-track__pin { width: 44px; height: 44px; }
   .pal-music__ctrl { min-width: 44px; min-height: 44px; }
   /* A hover lift on a touch screen fires on tap and sticks until you
      touch something else, which reads as a stuck card. */
-  .pal-xcard:hover, .pal-calday:hover { transform: none; }
+  .pal-xcard:hover, .pal-exrow:hover { transform: none; }
 }
 
 @media print {

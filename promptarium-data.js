@@ -3,16 +3,16 @@
    a prompt operating system: organize, reuse, improve and store prompts
    across every AI model.
 
-   RELATIONSHIP TO aitech.html: a PARALLEL build, not a replacement.
-   aitech.html keeps its own 'aitech:*' namespace and its own Supabase row
-   and stays fully listed in the nav. Promptarium never reads or writes an
-   'aitech:' key; the two pages cannot affect each other's data.
+   aitech.html was a PARALLEL build; it was deleted in the 2026-08-21
+   tidy-up, so this is now the only prompt library in the app. It never
+   read or wrote an 'aitech:' key, so nothing it holds was affected.
 
-   RELATIONSHIP TO The Codex (codex.html / codex-data.js): SHARED, on
-   purpose. Promptarium's "Fiction" collection is not a copy of the
-   Codex's AI Prompt Database — it IS that database. promptarium.html
-   mounts a SECOND initCloudSync for appKey 'codex' / prefix 'cdx:', so a
-   fiction prompt edited in either page is the same record.
+   RELATIONSHIP TO THE 'cdx:' ROW (codex-data.js): SHARED, on purpose.
+   Promptarium's "Fiction" collection is not a copy — it IS the fiction
+   prompt database. promptarium.html mounts a SECOND initCloudSync for
+   appKey 'codex' / prefix 'cdx:'. codex.html was deleted on 2026-08-21;
+   codex-data.js and that second mount MUST STAY, because the same row
+   also holds cdx:trilogies/chapters/scenes — the manuscripts.
 
    Two hard rules follow from that, and both are enforced here:
 
@@ -329,7 +329,7 @@
        day, and filing it under whichever model happened to answer loses it.
        Slotted at 5.6 for exactly the reason Perplexity is at 5.5 — see above. */
     { id: 'aicoding',   label: 'AI Coding & Website Design', icon: '🖥️', accent: '#E79FE8', blurb: 'Scaffolds, components, refactors, and the design pass that follows.', source: 'prm', builtin: true, order: 5.6 },
-    { id: 'fiction',    label: 'Fiction',           icon: '❦', accent: '#E6C77D', blurb: 'Shared live with The Codex — the same records, both pages.',    source: 'codex', builtin: true, order: 6 }
+    { id: 'fiction',    label: 'Fiction',           icon: '❦', accent: '#E6C77D', blurb: 'Held in its own shared database, alongside the manuscripts.', source: 'codex', builtin: true, order: 6 }
   ];
 
   /* Category is the broad TYPE of a prompt — what shape it is, not what

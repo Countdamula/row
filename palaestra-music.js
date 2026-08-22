@@ -3,11 +3,11 @@
 //
 // Reads THE VAULT's own Music & Playlists shelf, `vault:media:
 // playlists`, straight out of localStorage. Read-only: this file
-// never writes a `vault:` key and never calls The Vault's sync, so
+// never writes a `vault:` key and never calls Entertainment Studio's sync, so
 // no second Supabase Realtime subscription is opened for a
 // collection this page does not own. It reflects whatever has
 // already synced to this device, plus a live `storage` listener so
-// an edit made in The Vault in another tab shows up here without a
+// an edit made in Entertainment Studio in another tab shows up here without a
 // reload. Same precedent as fitnessstudio.html's own music panel
 // (which points at the older `enthub:playlists`), and as
 // tasks-data.js's importers.
@@ -62,7 +62,7 @@
   function $(id) { return document.getElementById(id); }
 
   // ------------------------------------------------------------
-  // DATA — read The Vault, never write it.
+  // DATA — read Entertainment Studio, never write it.
   // ------------------------------------------------------------
   function load() {
     try {
@@ -75,7 +75,7 @@
     });
   }
   // The chips are the categories actually present on the records, not
-  // a hard-coded list — so a category added in The Vault appears here.
+  // a hard-coded list — so a category added in Entertainment Studio appears here.
   function categories() {
     var seen = {}, out = [];
     items.forEach(function (it) {
@@ -167,7 +167,7 @@
     dock.innerHTML =
       '<div class="pal-music__head">' +
         '<div>' +
-          '<div class="pal-eyebrow" style="margin:0">From The Vault</div>' +
+          '<div class="pal-eyebrow" style="margin:0">From the Studio</div>' +
           '<div class="pal-h3" id="palMusicScope">Music</div>' +
         '</div>' +
         '<button class="pal-btn pal-btn--icon pal-btn--ghost" id="palMusicClose" aria-label="Close music">✕</button>' +
@@ -247,8 +247,8 @@
     var rows = visible();
     if (!items.length) {
       list.innerHTML =
-        '<div class="pal-music__empty">Nothing on The Vault\'s Music &amp; Playlists shelf has synced to this device yet.' +
-        '<br><a class="pal-btn pal-btn--sm" style="margin-top:12px" href="vault.html#playlists">Open The Vault →</a></div>';
+        '<div class="pal-music__empty">Nothing on the Entertainment Studio\'s Music &amp; Playlists shelf has synced to this device yet.' +
+        '<br><a class="pal-btn pal-btn--sm" style="margin-top:12px" href="vault.html#playlists">Open Entertainment Studio →</a></div>';
       return;
     }
     if (!rows.length) {
@@ -459,7 +459,7 @@
         category: btn.getAttribute('data-pal-category') || ''
       });
     });
-    // The Vault edited in another tab, or a cloud pull landing.
+    // Entertainment Studio edited in another tab, or a cloud pull landing.
     global.addEventListener('storage', function (e) {
       if (e.key && e.key !== VAULT_KEY) return;
       load();

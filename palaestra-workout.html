@@ -16,7 +16,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#14120F">
-<title>Workout · The Palaestra</title>
+<title>Workout · Fitness Studio</title>
 
 <!-- MUST be first and never deferred. -->
 <script src="local-store-idb.js"></script>
@@ -41,18 +41,27 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=2">
+<link rel="stylesheet" href="palaestra-theme.css?v=3">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- sync.js was the one shared file with no version on it, so a device
-     holding the old copy would never get the handoff fix. One number for
-     the whole app: everything here is at v2. -->
-<script src="sync.js?v=2"></script>
+<!-- row has no build step, so editing a file never changes its URL and a
+     phone holding yesterday's copy renders new markup against old styles —
+     or calls a new function as undefined — in silence. One number for the
+     whole app: everything here is at v3. Bump it on ANY change to these
+     files or the "it hasn't updated on my phone" report comes straight
+     back. sync.js is versioned for the same reason: it was the one shared
+     file with no version on it, so a device holding the old copy would
+     never get the handoff fix, and now the §SEEN fix on top of it. -->
+<script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=2"></script>
-<script src="palaestra-ui.js?v=2"></script>
-<script src="palaestra-hero.js?v=2"></script>
-<script src="palaestra-music.js?v=2"></script>
+<script src="palaestra-data.js?v=3"></script>
+<!-- Before palaestra-ui.js and before anything renders: its boot() has to
+     snapshot what this device holds BEFORE the opening cloud pull can
+     change it. -->
+<script src="palaestra-backup.js?v=3"></script>
+<script src="palaestra-ui.js?v=3"></script>
+<script src="palaestra-hero.js?v=3"></script>
+<script src="palaestra-music.js?v=3"></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -275,8 +284,8 @@
       key = 'empty';
       scene = { eyebrow: 'Nothing open',
                 lines: ['One set', 'at a', 'time'],
-                note: 'Start a workout from The Palaestra and it opens here, exercise by exercise.' };
-      badge = { lead: 'Go to', main: 'The Palaestra',
+                note: 'Start a workout from Fitness Studio and it opens here, exercise by exercise.' };
+      badge = { lead: 'Go to', main: 'Fitness Studio',
                 onClick: function () { location.href = 'palaestra.html'; } };
     } else if (readOnly) {
       key = 'ro:' + session.id;
@@ -285,7 +294,7 @@
                 note: P.sessionSetCount(session) + ' sets · ' +
                       P.fmtInt(P.sessionVolume(session)) + ' ' + P.getSettings().weightUnit +
                       ' · ' + P.fmtDuration(session.elapsedSec) + '. Read-only.' };
-      badge = { lead: 'Back to', main: 'The Palaestra',
+      badge = { lead: 'Back to', main: 'Fitness Studio',
                 onClick: function () { location.href = 'palaestra.html'; } };
     } else {
       key = 'live:' + session.id;
@@ -376,8 +385,8 @@
   function render() {
     if (!session) {
       logEl.innerHTML = U.empty('Nothing in progress',
-        'Start a workout from The Palaestra and it opens here.',
-        'Go to The Palaestra', 'go-hub');
+        'Start a workout from Fitness Studio and it opens here.',
+        'Go to Fitness Studio', 'go-hub');
       renderHead();
       if (window.PalHero && window.PalHero.measure) window.PalHero.measure();
       return;
@@ -848,6 +857,11 @@
       U.toast(d.trackId ? 'Track pinned' : 'Track unpinned');
     });
 
+    // Before initCloudSync, exactly as on the hub: capture what this device
+    // holds while the cloud still cannot have touched it. See
+    // palaestra-backup.js.
+    if (window.PalBackup) window.PalBackup.boot();
+
     if (typeof window.initCloudSync === 'function' && window.supabase) {
       window.initCloudSync({
         appKey: 'palaestra',
@@ -858,6 +872,11 @@
         onApplied: onRemoteApplied
       });
     }
+    // A set logged mid-workout that storage quietly refused is the worst
+    // possible thing to find out about later. Say so at the time.
+    window.addEventListener('pal:save', function (e) {
+      if (e && e.detail && e.detail.ok === false) U.toast('Could not save that set — storage refused the write', true);
+    });
     window.PalMusic.init();
 
     // A phone locking and coming back is the normal case here, not the

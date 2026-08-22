@@ -13,6 +13,12 @@
     const syncedKeys = (config && config.syncedKeys) || [];
     const syncedPrefixes = (config && config.syncedPrefixes) || [];
     const onApplied = config && config.onApplied;
+    // onApplied fires only when applyRemote actually CHANGED something, which
+    // means "the row differed", not "the row arrived". Anything gated on the
+    // cloud having had its say — a seeder deciding whether this device is
+    // genuinely empty, for instance — needs the second question, not the
+    // first, or a byte-identical row looks exactly like no row at all.
+    const onPulled = config && config.onPulled;
     // OPT-IN, and off unless a page asks for it — every existing caller keeps
     // exactly the behaviour it has today. See §HANDOFF below.
     const wantHandoff = !!(config && config.handoff);
@@ -76,7 +82,20 @@
     // from another device.
     // ---------------------------------------------------------------
     const HANDOFF_KEY = 'syncdirty:' + appKey;
-    const HANDOFF_TTL_MS = 90000;
+    // 24 hours, not the 90 seconds this shipped with. An entry is deleted the
+    // moment a push is CONFIRMED, so in normal use it lives for a few hundred
+    // milliseconds and this number is never reached. It is reached only when a
+    // push genuinely never succeeded — a dead bar of signal, a 5xx, a tab
+    // closed mid-flight — and that is precisely the edit that must not be
+    // thrown away. At 90s an overnight-offline edit came back unprotected and
+    // was overwritten by the morning's first pull.
+    //
+    // The cost is the one the original number was buying: while an entry
+    // stands, a real update to that key from another device cannot land. That
+    // is the right trade — a stale key is visible and fixable, a deleted one
+    // is neither — but it is why the expiry exists at all rather than being
+    // infinite.
+    const HANDOFF_TTL_MS = 24 * 60 * 60 * 1000;
     // If a page ever synced a prefix that swallowed the bookkeeping key, the
     // record would be pushed to the cloud and deleted by applyRemote. Refuse
     // rather than corrupt: better no handoff than a poisoned one.
@@ -131,6 +150,56 @@
       return n;
     }
 
+    // ---------------------------------------------------------------
+    // §SEEN — telling "the cloud deleted this" apart from "the cloud has
+    // never heard of this".
+    //
+    // applyRemote used to remove every local key missing from the incoming
+    // row. That rule cannot tell those two cases apart, and they need
+    // opposite handling: the first is a deletion to honour, the second is an
+    // unpushed local write to PROTECT. Getting it wrong is the exact shape of
+    // the bug that lost a night of workout routines — written locally, the
+    // 250ms debounce killed by a navigation, deleted by the next pull, and
+    // then the deletion pushed back as truth.
+    //
+    // So: remember which keys a genuinely-pulled row carried. A key in that
+    // record that later goes missing was really deleted somewhere. A key that
+    // has NEVER appeared in one is local-only — mark it dirty and push it.
+    //
+    // Confirmed pushes count too. Without that, device A pushes K, device B
+    // deletes it, A pulls, and A — never having pulled a row containing K —
+    // would call its own key local-only and resurrect it forever.
+    //
+    // Like HANDOFF_KEY this is local bookkeeping, never cloud state, so it
+    // lives outside every synced prefix and is written with origSet.
+    // ---------------------------------------------------------------
+    const SEEN_KEY = 'syncseen:' + appKey;
+    const seenOk = !matches(SEEN_KEY);
+    let seen = null;
+
+    function readSeen() {
+      if (!seenOk) return new Set();
+      if (seen) return seen;
+      try {
+        const raw = localStorage.getItem(SEEN_KEY);
+        const a = raw ? JSON.parse(raw) : null;
+        seen = new Set(Array.isArray(a) ? a : []);
+      } catch (e) { seen = new Set(); }
+      return seen;
+    }
+    function writeSeen(set) {
+      if (!seenOk) return;
+      seen = set;
+      try { origSet(SEEN_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+    }
+    function seenAdd(keys) {
+      if (!seenOk || !keys.length) return;
+      const set = readSeen();
+      let changed = false;
+      keys.forEach((k) => { if (!set.has(k)) { set.add(k); changed = true; } });
+      if (changed) writeSeen(set);
+    }
+
     localStorage.setItem = function (k, v) {
       origSet(k, v);
       try { if (!suppressSync && matches(k)) { markDirty(k); schedulePush(); } } catch (e) {}
@@ -143,6 +212,7 @@
       if (!remote || typeof remote !== 'object') return false;
       suppressSync = true;
       let changed = false;
+      const localOnly = [];
       try {
         for (const k of Object.keys(remote)) {
           if (!matches(k)) continue;
@@ -151,11 +221,25 @@
           const local = localStorage.getItem(k);
           if (local !== incoming) { try { origSet(k, incoming); changed = true; } catch (e) {} }
         }
+        // §SEEN: absence is only evidence of a deletion for a key the cloud
+        // is KNOWN to have carried. Everything else is a local write the row
+        // has not caught up with yet, and it gets pushed, not destroyed.
+        const known = readSeen();
         for (const k of listAllKeys()) {
           if (localDirtyKeys.has(k)) continue;
-          if (!(k in remote)) { try { origRemove(k); changed = true; } catch (e) {} }
+          if (k in remote) continue;
+          if (seenOk && !known.has(k)) { localOnly.push(k); continue; }
+          try { origRemove(k); changed = true; } catch (e) {}
         }
       } finally { suppressSync = false; }
+      // A pulled row is the authority on what the cloud holds, so it replaces
+      // the record wholesale — a key it does not carry is no longer there,
+      // whether it was deleted or has never arrived.
+      writeSeen(new Set(Object.keys(remote).filter(matches)));
+      if (localOnly.length) {
+        localOnly.forEach(markDirty);
+        schedulePush();
+      }
       if (changed && typeof onApplied === 'function') { try { onApplied(); } catch (e) {} }
       return changed;
     }
@@ -172,7 +256,7 @@
       const state = collect();
       const pushedKeys = Object.keys(state);
       const json = JSON.stringify(state);
-      if (json === lastSyncedJson) { clearDirty(pushedKeys); return; }
+      if (json === lastSyncedJson) { clearDirty(pushedKeys); seenAdd(pushedKeys); return; }
       pushing = true;
       let ok = false;
       try {
@@ -184,6 +268,9 @@
           ok = true;
           lastSyncedJson = json;
           clearDirty(pushedKeys);
+          // The row demonstrably holds these now, so their later absence is a
+          // real deletion rather than a write that never landed. See §SEEN.
+          seenAdd(pushedKeys);
         }
       } catch (e) {} finally { pushing = false; }
       if (ok) { retryStep = 0; clearTimeout(retryTimer); retryTimer = null; return; }
@@ -192,7 +279,23 @@
       clearTimeout(retryTimer);
       retryTimer = setTimeout(pushNow, RETRY_MS[Math.min(retryStep++, RETRY_MS.length - 1)]);
     }
-    function schedulePush() { clearTimeout(pushTimer); pushTimer = setTimeout(pushNow, 250); }
+    // No push may replace the row before this document has READ it. pushNow
+    // sends collect() as the row's entire data column, so a push that beats
+    // the opening select erases every key this device does not happen to hold
+    // — which is how a seeder running on a slow connection could wipe a full
+    // account down to its starter data. Everything raised before the pull
+    // resolves is held here and released the moment it does.
+    let initialPullDone = false, pushHeld = false;
+    function schedulePush() {
+      if (!initialPullDone) { pushHeld = true; return; }
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(pushNow, 250);
+    }
+    function releaseInitialPush() {
+      if (initialPullDone) return;
+      initialPullDone = true;
+      if (pushHeld) { pushHeld = false; schedulePush(); }
+    }
 
     // Dedupe for the flush path only. flushOnUnload deliberately does NOT set
     // lastSyncedJson: a keepalive request's outcome is unobservable, so
@@ -205,6 +308,11 @@
     const FLUSH_DEDUPE_MS = 4000;
 
     function flushOnUnload() {
+      // Before the opening pull, this device does not yet know what the row
+      // holds, and this request REPLACES the row. Staying quiet is safe: the
+      // handoff record has already persisted every dirty key, so the next
+      // document adopts them, pulls, and pushes a state that includes both.
+      if (!initialPullDone) return;
       const state = collect();
       const json = JSON.stringify(state);
       if (json === lastSyncedJson) return;
@@ -232,9 +340,13 @@
         const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
         if (error || !data || !data.data) return;
         const incoming = JSON.stringify(data.data);
-        if (incoming === lastSyncedJson) return;
+        if (incoming === lastSyncedJson) {
+          if (typeof onPulled === 'function') { try { onPulled({ ok: true, empty: false }); } catch (e) {} }
+          return;
+        }
         lastSyncedJson = incoming;
         applyRemote(data.data);
+        if (typeof onPulled === 'function') { try { onPulled({ ok: true, empty: false }); } catch (e) {} }
       } catch (e) {}
     }
 
@@ -242,18 +354,33 @@
       supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       // Synchronous, and before the select below — the whole point is that the
       // incoming row cannot overwrite a key the previous document wrote and
-      // did not get to confirm. Push straight away too: the local copy is the
-      // newer truth, and a confirmed push is what clears the flags again.
-      if (adoptHandoff() > 0) schedulePush();
+      // did not get to confirm. The push it earns is DEFERRED until after the
+      // select (see schedulePush): the local copy is the newer truth for those
+      // keys, but it is not the truth for the whole row.
+      if (adoptHandoff() > 0) pushHeld = true;
+      // A pull that never resolves must not hold the outbox shut forever. Two
+      // network states look identical from here — hung and merely slow — so
+      // release on a timer as well, and let §SEEN protect what goes out.
+      const backstop = setTimeout(releaseInitialPush, 8000);
+      let pulled = { ok: false, empty: true };
       try {
         const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
-        if (!error && data && data.data && Object.keys(data.data).length > 0) {
-          lastSyncedJson = JSON.stringify(data.data);
-          applyRemote(data.data);
-        } else if (Object.keys(collect()).length > 0) {
-          schedulePush();
+        if (!error) {
+          const row = data && data.data ? data.data : null;
+          pulled = { ok: true, empty: !row || Object.keys(row).length === 0 };
+          if (!pulled.empty) {
+            lastSyncedJson = JSON.stringify(row);
+            applyRemote(row);
+          } else if (Object.keys(collect()).length > 0) {
+            pushHeld = true;
+          }
         }
       } catch (e) {}
+      clearTimeout(backstop);
+      releaseInitialPush();
+      // Fires whether the row differed, matched, or was empty — the question
+      // this answers is "has the cloud spoken?", not "did anything change?".
+      if (typeof onPulled === 'function') { try { onPulled(pulled); } catch (e) {} }
       supa.channel('app_state_' + appKey)
         .on('postgres_changes', {
           event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey,

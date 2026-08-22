@@ -43,10 +43,14 @@
       //
       // Owns 'prm:*' and its own Supabase row (appKey 'promptarium'). It ALSO
       // mounts a SECOND initCloudSync for appKey 'codex' / prefix 'cdx:', so
-      // its Fiction collection is THE SAME LIVE DATABASE as The Codex's AI
-      // Prompt Database (cdx:prompts + cdx:promptNotes) — edit a fiction
-      // prompt in either page and both see it. The two prefixes must stay
-      // disjoint or the two sync mounts would push each other in a loop.
+      // its Fiction collection reads and writes the shared fiction database
+      // (cdx:prompts + cdx:promptNotes). codex.html was deleted on
+      // 2026-08-21 but codex-data.js and this second mount MUST STAY: the
+      // same 'cdx:' row also holds cdx:trilogies/chapters/scenes — the
+      // manuscripts — and sync.js replaces a row's whole data column, so an
+      // unmounted row plus one local write would push a partial set over
+      // them. The two prefixes must stay disjoint or the two sync mounts
+      // would push each other in a loop.
       //
       // Promptarium's own fields (rating, purpose tags, creator, source,
       // status) are NOT written into cdx: records: codex-data.js's
@@ -70,7 +74,7 @@
           { hash: '/c/notebooklm', label: 'Gemini NotebookLM' },
           { hash: '/c/suno', label: 'Suno AI' },
           { hash: '/c/n8n', label: 'n8n' },
-          { hash: '/c/fiction', label: 'Fiction — shared with The Codex' },
+          { hash: '/c/fiction', label: 'Fiction — the shared fiction database' },
           { hash: '/flows', label: 'Prompt Chains & Workflows' },
           { hash: '/tags', label: 'Purpose Tags' },
         ] },
@@ -179,69 +183,26 @@
       ],
     },
     {
-      // The Chrysalis — chrysalis.html + chrysalis-stages.html +
-      // chrysalis-data.js + chrysalis-theme.css. Placed directly beneath
-      // The Athenaeum: both are permanent-record systems.
-      //
-      // About deliberately becoming a different person, on one rule:
-      //   A TRAIT is permanent. A VERSION is temporary.
-      //   A PRACTICE installs a trait. EVIDENCE belongs to the trait,
-      //   so it outlives the version that chased it.
-      //
-      // Owns 'chr:*' and its own Supabase row (appKey 'chrysalis'). Both
-      // were unused before this build. Exactly ONE initCloudSync mount
-      // per page; it never reads or writes another page's prefix.
-      //
-      // A PARALLEL build, not a replacement, and the boundary matters
-      // because three existing pages sit near it:
-      //   - index.html#subconscious keeps its own Identity Shifting data
-      //     (anchors + the single Future Self Vision snapshot). The
-      //     Chrysalis never reads, writes or migrates it — cross-link
-      //     only. Note that tab shares a dataset with Top Goals and
-      //     Your System, so it could not be cleanly retired anyway.
-      //   - dreamboard.html owned free-form boards of OUTCOMES and things.
-      //     The Chrysalis's images are of the PERSON.
-      //   - mainpillar.html owned gamified daily doing. Practices here
-      //     carry no streaks and no score, deliberately: a system that
-      //     scores you daily becomes an accusation on a bad week.
-      // Both of those pages were deleted in the 2026-08-21 tidy-up; the
-      // boundary is kept here because it is why this page is shaped as it
-      // is, not because those pages still exist.
-      //
-      // Test for anything new: does it describe, evidence, or install
-      // who I am becoming? If it only tracks what I did, it is not this
-      // page's.
-      //
-      key: 'chrysalis',
-      label: 'The Chrysalis',
-      items: [
-        { href: 'chrysalis.html', icon: '☾', label: 'The Chrysalis', id: 'topbarChrysalis', children: [
-          { hash: '/', label: 'Today' },
-          { hash: '/versions', label: 'Versions' },
-          { hash: '/traits', label: 'Traits' },
-          { hash: '/practices', label: 'Practices' },
-          { hash: '/review', label: 'The Week' },
-          { hash: '/evidence', label: 'The Log' },
-          { hash: '/graduate', label: 'Graduate' },
-        ] },
-        { href: 'chrysalis-stages.html', icon: '✎', label: 'The Litany', id: 'topbarChrysalisLitany' },
-      ],
-    },
-    {
-      // The Vault — vault.html + vault-data.js. Pinned to the top of this
-      // sidebar per an explicit request.
+      // Entertainment Studio — vault.html + vault-data.js. Pinned to the
+      // top of this sidebar per an explicit request. Renamed from 'The
+      // Vault' on 2026-08-21: DISPLAY LABEL ONLY. The filename, the
+      // 'vault:*' prefix, the appKey 'vault' and every vt- CSS class are
+      // unchanged, so no stored record and no bookmark moved.
       //
       // Built as a PARALLEL build alongside entertainment.html and
       // entertainment-dash.html, copying (not moving) their libraries in.
-      // Both of those pages were deleted in the 2026-08-21 tidy-up, so THE
-      // VAULT IS NOW THE ONLY MEDIA LIBRARY IN THE APP. It owns 'vault:*'
-      // and its own Supabase row (appKey 'vault') and never read or wrote
+      // Both of those pages were deleted in the 2026-08-21 tidy-up, so this
+      // IS NOW THE ONLY MEDIA LIBRARY IN THE APP. It never read or wrote
       // 'enthub:'/'entdash:'/'entread:'/'media:', so nothing it holds was
       // affected by their deletion.
+      //
+      // The 'watch' tab reads 'Watching', not 'Entertainment' — inside a
+      // folder now called Entertainment Studio that label said nothing.
+      // The hash is still 'watch'; only the label changed.
       key: 'vault',
-      label: 'The Vault',
+      label: 'Entertainment Studio',
       items: [
-        { href: 'vault.html', icon: '✦', label: 'The Vault', id: 'topbarVault', children: [
+        { href: 'vault.html', icon: '✦', label: 'Entertainment Studio', id: 'topbarVault', children: [
           { hash: 'home', label: 'Home' },
           { hash: 'discover', label: 'Discovery Engine' },
           { hash: 'favorites', label: 'Favorites' },
@@ -253,31 +214,12 @@
           // hashes still resolve, via vault.html's own TAB_ALIAS.
           { hash: 'horror', label: 'Horror Stories' },
           { hash: 'spicy', label: 'Spicy · Immersive' },
-          { hash: 'watch', label: 'Entertainment' },
+          { hash: 'watch', label: 'Watching' },
           { hash: 'playlists', label: 'Music & Playlists' },
           { hash: 'reading', label: 'Reading Corner' },
           { hash: 'anime', label: 'Anime' },
           { hash: 'games', label: 'Games' },
           { hash: 'stats', label: 'Statistics' },
-        ] },
-      ],
-    },
-    {
-      // The Codex — codex.html + codex-data.js. Placed directly beneath
-      // The Vault per an explicit request.
-      //
-      // A PARALLEL build, not a replacement. The Writing Dashboard in the
-      // Business folder below is untouched and still listed. The Codex
-      // owns its own namespace ('cdx:*') and its own Supabase row (appKey
-      // 'codex'), so it never reads or writes a 'wds:' key — the two
-      // writing pages cannot affect each other's data.
-      key: 'codex',
-      label: 'The Codex',
-      items: [
-        { href: 'codex.html', icon: '❦', label: 'The Codex', id: 'topbarCodex', children: [
-          { hash: '/', label: 'Trilogy Shelf' },
-          { hash: '/prompts', label: 'AI Prompt Database' },
-          { hash: '/stats', label: 'Writing Statistics' },
         ] },
       ],
     },
@@ -289,44 +231,47 @@
           { hash: 'ritual', label: 'Morning Ritual' },
           { hash: 'system', label: 'Your System' },
           { hash: 'subconscious', label: 'Subconscious Reprogramming' },
-          { hash: 'fitness', label: 'Fitness Studio' },
           { hash: 'selfcare', label: 'Self-Care' },
         ] },
       ],
     },
     {
-      // New nav folder, directly above Fitness Studio: THE PALAESTRA —
-      // palaestra.html (hub) + palaestra-workout.html (the live logger)
-      // + palaestra-data.js / palaestra-theme.css / palaestra-music.js.
+      // Fitness Studio — palaestra.html (hub) + palaestra-workout.html
+      // (the live logger) + palaestra-data.js / palaestra-theme.css /
+      // palaestra-ui.js / palaestra-hero.js / palaestra-music.js /
+      // palaestra-backup.js.
       //
-      // A PARALLEL build, not a replacement, exactly like The Vault vs
-      // Entertainment and The Codex vs the Writing Dashboard. The
-      // Fitness Studio folder below is untouched and still listed, and
-      // index.html's own embedded Fitness Studio tab is untouched too.
-      // The Palaestra owns its own namespace ('pal:*') and its own
-      // Supabase row (appKey 'palaestra'), so it never reads or writes
-      // a 'fitstudio:' or 'fitness:' key — the one exception is its
-      // explicit, button-triggered "Import my programs", which READS
-      // those two pages' template keys and never writes back.
+      // Renamed from 'The Palaestra' on 2026-08-21: DISPLAY LABEL ONLY.
+      // Every filename, the 'pal:*' prefix, the appKey 'palaestra',
+      // window.Pal/PalHero and all 900-odd --pal-*/.pal-* CSS names are
+      // unchanged. index.html's OWN embedded fitness tab was dropped from
+      // this nav in the same pass so the sidebar has one Fitness Studio
+      // and not two — index.html and its 'fitness:' keys are untouched,
+      // the tab simply has no link here any more.
       //
-      // What it adds over the older pages: body measurements, a steps
-      // tracker with a year heatmap, training-volume analytics, a
-      // weekly scorecard, per-exercise photos and videos, a floating
-      // Quick Add, and a music dock that reads THE VAULT's
-      // 'vault:media:playlists' (the current library) rather than the
-      // older 'enthub:playlists' — read-only, no second sync
-      // subscription, same precedent as the Fitness Studio's own panel.
+      // It owns its own namespace ('pal:*') and its own Supabase row
+      // (appKey 'palaestra'), so it never reads or writes a 'fitstudio:'
+      // or 'fitness:' key — the one exception is its explicit,
+      // button-triggered "Import my programs", which READS those two
+      // retired pages' template keys and never writes back.
+      //
+      // Body measurements, a steps tracker with a year heatmap,
+      // training-volume analytics, a weekly scorecard, per-exercise photos
+      // and videos, a floating Quick Add, a HIGH/MID/LOW weekly schedule,
+      // and a music dock that reads Entertainment Studio's
+      // 'vault:media:playlists' — read-only, no second sync subscription.
       key: 'palaestra',
-      label: 'The Palaestra',
+      label: 'Fitness Studio',
       items: [
-        { href: 'palaestra.html', icon: '⟠', label: 'The Palaestra', id: 'topbarPalaestra', children: [
+        { href: 'palaestra.html', icon: '⟠', label: 'Fitness Studio', id: 'topbarPalaestra', children: [
           { hash: '/', label: 'Today' },
           { hash: '/steps', label: 'Steps' },
           { hash: '/body', label: 'Body Progress' },
-          { hash: '/calendar', label: 'Calendar' },
+          { hash: '/calendar', label: 'Weekly Schedule' },
           { hash: '/volume', label: 'Training Volume' },
           { hash: '/templates', label: 'Workouts' },
           { hash: '/exercises', label: 'Exercise Library' },
+          { hash: '/settings', label: 'Settings & safety net' },
           { hash: '/history', label: 'History' },
         ] },
         { href: 'palaestra-workout.html', icon: '⏱', label: 'Workout Logger', id: 'topbarPalaestraWorkout' },
