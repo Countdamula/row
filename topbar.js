@@ -14,6 +14,51 @@
   const TOPBAR_SUPABASE_URL = 'https://jomlmvslzsmmzgjnqvbm.supabase.co';
   const TOPBAR_SUPABASE_KEY = 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N';
 
+  // -------- Ring data --------
+  // The PRIMARY navigation: eight nodes on a circle, opened by the
+  // launcher pill. Seven of them are the hub pages that survive the
+  // 2026-08-21 tidy-up; the eighth, ALL PAGES, reopens the full sidebar
+  // drawer built from NAV_GROUPS below rather than navigating anywhere.
+  //
+  // WHY THE DRAWER STAYED. NAV_GROUPS carries every page's internal tabs
+  // — around forty hash routes — plus the search box. Deleting it to make
+  // the nav minimal would have made those routes unreachable from the nav
+  // entirely. Demoting it one click keeps the common case (get me to a
+  // hub) down to two clicks and the rare case (get me to one specific tab
+  // of one page) down to three.
+  //
+  // Ordered clockwise from twelve so the work pages run down the right,
+  // ALL PAGES anchors six o'clock, and the life pages run back up the
+  // left. Changing the order changes the geometry for free — positions
+  // are computed from the index, never hard-coded.
+  const RING_R     = 176;   // node centre distance, px
+  const CLOSE_STAG = 70;    // ms per index when closing (opening is 20ms, in CSS)
+
+  // lucide geometry, inlined as path data. This file self-injects into
+  // eighteen pages and can add no <link> or <script>, so an icon set has
+  // to be literal path strings or it cannot exist at all.
+  const RING_ICONS = {
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+    flask: '<path d="M10 2v7.5a2 2 0 0 1-.2.9L4.7 20.6a1 1 0 0 0 .9 1.4h12.8a1 1 0 0 0 .9-1.4l-5.1-10.2a2 2 0 0 1-.2-.9V2"/><path d="M8.5 2h7"/><path d="M7.2 16h9.6"/>',
+    book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+    feather: '<path d="M12.7 19a2 2 0 0 0 1.4-.6l6.2-6.2a6 6 0 0 0-8.5-8.5L5.6 9.9a2 2 0 0 0-.6 1.4V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/>',
+    grid: '<rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/>',
+    film: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M17 3v18"/><path d="M3 12h18"/><path d="M3 7.5h4"/><path d="M3 16.5h4"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+    dumbbell: '<path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3 9.5v5"/><path d="M21 9.5v5"/><path d="M6.5 12h11"/>',
+    utensils: '<path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 2v20"/><path d="M18 2a4 4 0 0 0-3 3.9V13a1 1 0 0 0 1 1h3"/><path d="M19 2v20"/>'
+  };
+
+  const RING_ITEMS = [
+    { href: 'index.html',        label: 'Main',                 icon: 'target' },
+    { href: 'promptarium.html',  label: 'Promptarium',          icon: 'flask' },
+    { href: 'athenaeum.html',    label: 'The Athenaeum',        icon: 'book' },
+    { href: 'kdp.html',          label: 'The Velvet Grimoire',  icon: 'feather' },
+    { href: '',                  label: 'All Pages',            icon: 'grid', drawer: true },
+    { href: 'vault.html',        label: 'Entertainment Studio', icon: 'film' },
+    { href: 'palaestra.html',    label: 'Fitness Studio',       icon: 'dumbbell' },
+    { href: 'nutrition.html',    label: 'Nutrition',            icon: 'utensils' }
+  ];
+
   // -------- Nav data --------
   // Every real page in the dashboard, grouped the way a real sidebar app
   // groups its sections (see the reference screenshot this redesign was
@@ -590,7 +635,351 @@ body.topbar-modal-open {
     overscroll-behavior: contain;
   }
 }
+
+
+/* =============================================================
+   THE CIRCLE MENU
+   -------------------------------------------------------------
+   The primary navigation. The launcher pill opens this instead of
+   the sidebar drawer; the drawer is still here, one click deeper,
+   behind the ring's ALL PAGES node.
+
+   Built to a reference photo of a black sci-fi console bar: a
+   chamfered near-black shell, a hot rim-light on its top and bottom
+   edges that is brightest mid-span and gone by the ends, hairline
+   outline icons, and uppercase letter-spaced monospace micro-labels.
+
+   The photo's accent is ember orange. This uses THIS APP'S OWN GOLD
+   instead (#d9b878 / #f0dcae — already the launcher's and the
+   sidebar's accent), so the DO NOT MODIFY rule 2 "no new hard-coded
+   colors" constraint needs no exception: only the rim-light
+   TREATMENT is new, and it is built out of tokens this file already
+   used. Every accent value reads --nav-accent*, so a page can retint
+   the whole ring in one declaration — kdp-velvet.css already does
+   exactly that to .tb-launcher-mark under html.vg-on.
+   ============================================================= */
+:root {
+  --nav-accent: #d9b878;
+  --nav-accent-hi: #f0dcae;
+  --nav-accent-rgb: 217, 184, 120;
+  --nav-ink: #FAFAFA;
+  --nav-dim: rgba(255, 255, 255, 0.6);
+  --nav-faint: rgba(255, 255, 255, 0.3);
+  --nav-hair: rgba(255, 255, 255, 0.09);
+  --nav-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* The stage is nested INSIDE #tbScrim on purpose: kdp-velvet.css
+   already hides .tb-scrim in distraction-free compose mode, so the
+   ring inherits that with no edit to that file. */
+.tb-scrim.tb-ring-on {
+  z-index: 2650; background: rgba(0, 0, 0, 0.84);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+.tb-ring-stage {
+  position: absolute; inset: 0;
+  display: none; place-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+.tb-scrim.tb-ring-on .tb-ring-stage { display: grid; }
+
+/* ---- console frame ---- */
+/* The reference photo is a chamfered black console whose TOP AND
+   BOTTOM EDGES carry the hot rim-light, hottest at the centre of the
+   span and gone by the ends. That glow belongs to the frame, not to
+   the ring: giving it to both made two lights compete and neither
+   read. So the frame glows and the circle inside it stays quiet. */
+.tb-ring-frame { position: relative; width: 680px; height: 545px; display: grid; place-items: center; }
+.tb-ring-shell {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  overflow: visible; pointer-events: none;
+}
+.tb-ring-shell polygon {
+  fill: rgba(5, 5, 6, 0.95);
+  stroke: rgba(255, 255, 255, 0.08); stroke-width: 1;
+}
+/* the bright chamfer cuts, drawn on the polygon's own corner
+   coordinates so they lie exactly along the bevel instead of being
+   four CSS bars rotated into roughly the right place */
+.tb-ring-shell line { stroke: var(--nav-accent-hi); stroke-width: 1.5; opacity: 0.9; }
+
+/* The photo's rim-light: a tight hot hairline on the top and bottom
+   edges, brightest at the centre of the span, with a shallow bloom.
+   Kept narrow on purpose — a wide soft smear reads as haze, not as a
+   lit edge. */
+.tb-ring-edge {
+  position: absolute; left: 15%; right: 15%; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(var(--nav-accent-rgb), 0) 0%,
+    rgba(var(--nav-accent-rgb), 0.85) 22%,
+    var(--nav-accent-hi) 50%,
+    rgba(var(--nav-accent-rgb), 0.85) 78%,
+    rgba(var(--nav-accent-rgb), 0) 100%);
+  box-shadow: 0 0 8px rgba(var(--nav-accent-rgb), 0.85), 0 0 20px rgba(var(--nav-accent-rgb), 0.4);
+}
+.tb-ring-edge.top { top: 0; }
+.tb-ring-edge.bottom { bottom: 0; }
+.tb-ring-edge::after {
+  content: ""; position: absolute; left: 5%; right: 5%; top: -3px; height: 7px;
+  background: inherit; filter: blur(5px); opacity: 0.95;
+}
+
+/* ---- brand block, the photo's left-hand name plate ---- */
+.tb-ring-plate { position: absolute; top: 4px; left: 46px; pointer-events: none; }
+.tb-ring-plate-name {
+  font-family: var(--nav-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--nav-ink);
+}
+.tb-ring-plate-role {
+  margin-top: 5px; font-family: var(--nav-mono); font-size: 9px; line-height: 1.6;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--nav-faint);
+}
+.tb-ring-plate-rule { margin-top: 9px; width: 26px; height: 1px; background: rgba(var(--nav-accent-rgb), 0.5); }
+
+/* ---- the ring ---- */
+.tb-ring { position: relative; width: 0; height: 0; }
+
+/* The guide circle is deliberately quiet — a hairline that tells the
+   eye the eight nodes belong to one orbit, and nothing more. The
+   light in this design lives on the frame's edges. */
+.tb-ring-hair {
+  position: absolute; left: 50%; top: 50%;
+  width: 352px; height: 352px; margin: -176px 0 0 -176px;
+  border-radius: 50%; border: 1px dashed rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+/* the photo's tick dots between nav cells, here between nodes */
+.tb-ring-tick {
+  position: absolute; left: 50%; top: 50%;
+  width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%;
+  background: rgba(var(--nav-accent-rgb), 0.75);
+  transform: translate(var(--tx), var(--ty));
+  opacity: 0; transition: opacity 0.3s linear 0.25s; pointer-events: none;
+}
+.tb-ring-stage.open .tb-ring-tick { opacity: 1; }
+
+/* ---- nodes ---- */
+/* A node is a zero-size anchor point; the disc and the label hang off
+   it, so a label can sit outside the ring without changing what gets
+   translated. */
+/* The node is a REAL 52px box centred on its orbit point, not a zero-size
+   anchor with the disc hanging off it. A 0x0 link still receives mouse
+   clicks through its absolutely-positioned children, which is why the
+   first build looked fine — but it has no clickable point of its own, so
+   assistive tech and any automation that targets the element rather than
+   a pixel cannot reach it. The label is the only thing that hangs off
+   the box now, and it is not the hit target. */
+.tb-ring-node {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  text-decoration: none; opacity: 0; transform: translate(0, 0);
+  transition: transform 0.52s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.18s linear;
+  transition-delay: calc(var(--i) * 20ms);
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-ring-stage.open .tb-ring-node { transform: translate(var(--tx), var(--ty)); opacity: 1; }
+.tb-ring-stage.closing .tb-ring-node { transition-delay: calc(var(--i) * 70ms); }
+/* screenshot / deep-link path: land already open, with no entrance */
+.tb-ring-stage.instant .tb-ring-node,
+.tb-ring-stage.instant .tb-ring-tick { transition: none !important; }
+
+.tb-ring-disc {
+  position: absolute; inset: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, #1b1b1f 0%, #0d0d10 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16); color: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 10px 24px rgba(0, 0, 0, 0.55);
+  transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 0.14s ease, color 0.14s ease, box-shadow 0.2s ease;
+}
+.tb-ring-disc svg { width: 21px; height: 21px; display: block; }
+
+.tb-ring-label {
+  position: absolute;
+  font-family: var(--nav-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.68); line-height: 1.5;
+  transition: color 0.14s ease, text-shadow 0.2s ease;
+}
+/* offsets are from the 52px node box: 16px clear above/below, 8px clear
+   to either side */
+.tb-ring-node[data-side="top"]    .tb-ring-label { left: 50%; margin-left: -80px; width: 160px; text-align: center; bottom: calc(100% + 16px); }
+.tb-ring-node[data-side="bottom"] .tb-ring-label { left: 50%; margin-left: -80px; width: 160px; text-align: center; top: calc(100% + 16px); }
+.tb-ring-node[data-side="right"]  .tb-ring-label { left: calc(100% + 8px);  width: 96px; text-align: left;  top: 50%; transform: translateY(-50%); }
+.tb-ring-node[data-side="left"]   .tb-ring-label { right: calc(100% + 8px); width: 96px; text-align: right; top: 50%; transform: translateY(-50%); }
+
+/* hover / focus — grey to gold, the photo's active-cell treatment */
+.tb-ring-node:hover .tb-ring-disc,
+.tb-ring-node:focus-visible .tb-ring-disc {
+  transform: scale(1.1);
+  border-color: rgba(var(--nav-accent-rgb), 0.6);
+  color: var(--nav-accent-hi);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+              0 0 22px rgba(var(--nav-accent-rgb), 0.28),
+              0 10px 24px rgba(0, 0, 0, 0.55);
+}
+.tb-ring-node:hover .tb-ring-label,
+.tb-ring-node:focus-visible .tb-ring-label { color: var(--nav-accent-hi); }
+.tb-ring-node:focus { outline: none; }
+.tb-ring-node:focus-visible .tb-ring-disc { outline: 2px solid var(--nav-accent-hi); outline-offset: 3px; }
+.tb-ring-node:active .tb-ring-disc { transform: scale(0.95); }
+
+/* current page */
+.tb-ring-node.active .tb-ring-disc {
+  border-color: rgba(var(--nav-accent-rgb), 0.85);
+  color: var(--nav-accent-hi);
+  background: linear-gradient(160deg, rgba(var(--nav-accent-rgb), 0.16) 0%, #0a0a0b 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+              0 0 26px rgba(var(--nav-accent-rgb), 0.34),
+              0 10px 24px rgba(0, 0, 0, 0.55);
+}
+.tb-ring-node.active .tb-ring-label {
+  color: var(--nav-accent-hi); text-shadow: 0 0 14px rgba(var(--nav-accent-rgb), 0.45);
+}
+
+/* ALL PAGES is a door, not a destination — it stays quieter */
+.tb-ring-node.drawer .tb-ring-disc { border-style: dashed; border-color: rgba(255, 255, 255, 0.14); }
+.tb-ring-node.drawer .tb-ring-label { color: var(--nav-faint); }
+.tb-ring-node.drawer:hover .tb-ring-disc { border-style: solid; }
+
+/* ---- centre trigger ---- */
+.tb-ring-trigger {
+  position: absolute; left: 50%; top: 50%;
+  width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  border-radius: 50%; border: none; cursor: pointer; padding: 0;
+  display: grid; place-items: center;
+  background: linear-gradient(155deg, var(--nav-accent) 0%, var(--nav-accent-hi) 100%);
+  color: #23180a;
+  box-shadow: 0 0 0 5px rgba(10, 10, 11, 0.9), 0 0 14px rgba(var(--nav-accent-rgb), 0.22), 0 12px 30px rgba(0, 0, 0, 0.6);
+  transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.14s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-ring-trigger:hover { filter: brightness(1.12); transform: scale(1.06); }
+.tb-ring-trigger:focus-visible { outline: 2px solid var(--nav-accent-hi); outline-offset: 4px; }
+.tb-ring-trigger:active { transform: scale(0.94); }
+.tb-ring-trigger svg { width: 19px; height: 19px; display: block; }
+
+/* ---- phone: the ring becomes the console bar it came from ---- */
+@media (max-width: 780px), (max-height: 620px) {
+  .tb-ring-frame { width: min(340px, 92vw); height: auto; padding: 66px 0 22px; }
+  .tb-ring-plate { left: 2px; top: 10px; }
+  .tb-ring-shell, .tb-ring-edge, .tb-ring-hair, .tb-ring-tick { display: none; }
+  .tb-scrim.tb-ring-on { background: rgba(0, 0, 0, 0.93); }
+  .tb-ring-node.drawer .tb-ring-disc { border-width: 0; }
+  .tb-ring { width: 100%; height: auto; display: flex; flex-direction: column; gap: 6px; }
+  .tb-ring-node {
+    position: relative; left: auto; top: auto; margin: 0; width: 100%; height: 56px;
+    display: flex; align-items: center; gap: 14px; padding: 0 14px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #131315 0%, #0a0a0b 100%);
+    border: 1px solid var(--nav-hair);
+    transform: none !important; opacity: 1;
+    transition: border-color 0.14s ease;
+  }
+  .tb-ring-disc {
+    position: relative; inset: auto; width: 34px; height: 34px;
+    flex: 0 0 34px; background: none; border: 0 none; box-shadow: none;
+  }
+  .tb-ring-node[data-side] .tb-ring-label {
+    position: relative; left: auto; right: auto; top: auto; bottom: auto;
+    width: auto; margin-left: 0; text-align: left; transform: none;
+  }
+  .tb-ring-node:hover .tb-ring-disc, .tb-ring-node:focus-visible .tb-ring-disc { transform: none; }
+  .tb-ring-node.active { border-color: rgba(var(--nav-accent-rgb), 0.7); }
+  .tb-ring-node.active .tb-ring-disc { background: none; box-shadow: none; }
+  .tb-ring-trigger { position: relative; left: auto; top: auto; margin: 18px auto 0; }
+}
+
+/* ---- reduced motion: it arrives, it does not perform ---- */
+@media (prefers-reduced-motion: reduce) {
+  .tb-ring-node {
+    transition: opacity 0.14s linear; transition-delay: 0ms !important;
+    transform: translate(var(--tx), var(--ty));
+  }
+  .tb-ring-stage.open .tb-ring-node { transform: translate(var(--tx), var(--ty)); }
+  .tb-ring-tick { transition-delay: 0ms; }
+  .tb-ring-disc, .tb-ring-trigger { transition: border-color 0.14s ease, color 0.14s ease; }
+  .tb-ring-node:hover .tb-ring-disc, .tb-ring-trigger:hover { transform: none; }
+}
 `;
+
+  // -------- HTML: the ring --------
+  function pointOnCircle(i, n, r) {
+    const theta = (2 * Math.PI * i) / n - Math.PI / 2;
+    return {
+      x: Math.round(r * Math.cos(theta) * 10) / 10,
+      y: Math.round(r * Math.sin(theta) * 10) / 10
+    };
+  }
+
+  // Which way a label hangs off its node. Twelve and six get a centred
+  // label above/below; everything else gets one on the outward side, so
+  // no two labels can ever occupy the same horizontal band. This is the
+  // whole reason all eight labels can stay visible at once — the source
+  // component only ever showed one, on hover.
+  function ringSideFor(i, n) {
+    if (i === 0) return 'top';
+    if (i === n / 2) return 'bottom';
+    return i < n / 2 ? 'right' : 'left';
+  }
+
+  function ringIconSvg(name) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + RING_ICONS[name] + '</svg>';
+  }
+
+  function buildRingHtml() {
+    const n = RING_ITEMS.length;
+    const nodes = RING_ITEMS.map((item, i) => {
+      const p = pointOnCircle(i, n, RING_R);
+      return '<a class="tb-ring-node' + (item.drawer ? ' drawer' : '') + '"' +
+             ' href="' + (item.href || '#') + '"' +
+             (item.drawer ? ' data-ring-drawer="1"' : '') +
+             ' data-side="' + ringSideFor(i, n) + '"' +
+             ' style="--tx:' + p.x + 'px; --ty:' + p.y + 'px; --i:' + i + ';">' +
+               '<span class="tb-ring-disc">' + ringIconSvg(item.icon) + '</span>' +
+               '<span class="tb-ring-label">' + item.label + '</span>' +
+             '</a>';
+    }).join('');
+
+    // Tick dots sit halfway between each pair of nodes, on the orbit —
+    // the reference photo's separators between nav cells.
+    let ticks = '';
+    for (let t = 0; t < n; t++) {
+      const tp = pointOnCircle(t + 0.5, n, RING_R);
+      ticks += '<i class="tb-ring-tick" style="--tx:' + tp.x + 'px; --ty:' + tp.y + 'px;"></i>';
+    }
+
+    return '' +
+    '<div class="tb-ring-stage" id="tbRingStage" role="dialog" aria-modal="true" aria-label="Main navigation">' +
+      '<div class="tb-ring-frame">' +
+        // The console shell: one chamfered octagon, 18px cut at each
+        // corner, drawn as a polygon so the bevel is a real edge rather
+        // than four brackets floating near the corners.
+        '<svg class="tb-ring-shell" viewBox="0 0 680 545" preserveAspectRatio="none" aria-hidden="true">' +
+          '<polygon vector-effect="non-scaling-stroke" points="18,0 662,0 680,18 680,527 662,545 18,545 0,527 0,18"/>' +
+          '<line vector-effect="non-scaling-stroke" x1="18" y1="0" x2="0" y2="18"/>' +
+          '<line vector-effect="non-scaling-stroke" x1="662" y1="0" x2="680" y2="18"/>' +
+          '<line vector-effect="non-scaling-stroke" x1="680" y1="527" x2="662" y2="545"/>' +
+          '<line vector-effect="non-scaling-stroke" x1="18" y1="545" x2="0" y2="527"/>' +
+        '</svg>' +
+        '<i class="tb-ring-edge top"></i><i class="tb-ring-edge bottom"></i>' +
+        '<div class="tb-ring-plate">' +
+          '<div class="tb-ring-plate-name">Damian</div>' +
+          '<div class="tb-ring-plate-role">Personal dashboard</div>' +
+          '<div class="tb-ring-plate-rule"></div>' +
+        '</div>' +
+        '<div class="tb-ring" id="tbRing">' +
+          '<i class="tb-ring-hair"></i>' +
+          ticks + nodes +
+        '</div>' +
+        '<button type="button" class="tb-ring-trigger" id="tbRingTrigger" aria-label="Close navigation">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+          '<path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+  }
 
   // -------- HTML --------
   function buildItemHtml(item) {
@@ -642,7 +1031,7 @@ body.topbar-modal-open {
   </span>
   <span class="tb-launcher-chevron">▾</span>
 </button>
-<div class="tb-scrim" id="tbScrim"></div>
+<div class="tb-scrim" id="tbScrim">${buildRingHtml()}</div>
 <aside class="tb-sidebar" id="tbSidebar" role="navigation" aria-label="Quick navigation">
   <div class="tb-brand">
     <span class="tb-brand-mark">✦</span>
@@ -804,6 +1193,15 @@ body.topbar-modal-open {
       }
     }
 
+    // The ring reuses the SAME resolved `path` — including the detail-page
+    // aliasing above — rather than repeating that logic, so a detail page
+    // lights its parent hub on the ring exactly as it does in the drawer.
+    // ALL PAGES has no href and can never match.
+    document.querySelectorAll('.tb-ring-node').forEach((node) => {
+      const href = node.getAttribute('href') || '';
+      node.classList.toggle('active', href !== '#' && href === path);
+    });
+
     applyCollapsedState();
     applyExpandedState();
   }
@@ -834,14 +1232,157 @@ body.topbar-modal-open {
     return !!(sidebar && sidebar.classList.contains('open'));
   }
 
+  // -------- Ring open/close --------
+  // The ring shares the drawer's scrim (it is nested inside it), so the
+  // two can never both be showing and the scrim only has to be managed
+  // in one place.
+  let ringBusy = false;
+
+  function reduceMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function isRingOpen() {
+    const scrim = document.getElementById('tbScrim');
+    return !!(scrim && scrim.classList.contains('tb-ring-on'));
+  }
+
+  function openRing(instant) {
+    const scrim = document.getElementById('tbScrim');
+    const stage = document.getElementById('tbRingStage');
+    if (!scrim || !stage || ringBusy) return;
+    scrim.classList.add('show', 'tb-ring-on');
+    document.body.classList.add('tb-drawer-open');
+    stage.classList.remove('closing');
+    if (instant) { stage.classList.add('instant', 'open'); return; }
+    stage.classList.remove('instant');
+    // Two frames: the browser needs to have laid the nodes out at the
+    // centre before the .open transform lands, or there is no start value
+    // to animate from and they simply appear in place.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { stage.classList.add('open'); });
+    });
+    const trigger = document.getElementById('tbRingTrigger');
+    if (trigger) trigger.focus();
+  }
+
+  // Ports the supplied React component's close sequence without React:
+  // the nodes retract on a slower stagger (CSS, via .closing) while the
+  // trigger shakes and pulses out through a scale ladder and the whole
+  // ring counter-rotates behind a 1px blur (Web Animations API, so the
+  // timing stays exact). Under reduced motion none of it runs.
+  function closeRing() {
+    const scrim = document.getElementById('tbScrim');
+    const stage = document.getElementById('tbRingStage');
+    const ring = document.getElementById('tbRing');
+    const trigger = document.getElementById('tbRingTrigger');
+    if (!scrim || !stage || ringBusy) return;
+
+    function finish() {
+      ringBusy = false;
+      scrim.classList.remove('show', 'tb-ring-on');
+      stage.classList.remove('closing', 'open', 'instant');
+      document.body.classList.remove('tb-drawer-open');
+      const launcher = document.getElementById('tbLauncher');
+      if (launcher) launcher.focus();
+    }
+
+    ringBusy = true;
+    stage.classList.add('closing');
+    stage.classList.remove('open');
+
+    if (reduceMotion() || !stage.animate) { setTimeout(finish, 160); return; }
+
+    const n = RING_ITEMS.length;
+    const total = CLOSE_STAG * (n + 2);
+
+    if (trigger) {
+      trigger.animate(
+        [{ transform: 'translateX(0)' }, { transform: 'translateX(2px)' },
+         { transform: 'translateX(-2px)' }, { transform: 'translateX(0)' }],
+        { duration: CLOSE_STAG, iterations: Math.round(total / CLOSE_STAG), easing: 'linear' }
+      );
+      const frames = [];
+      for (let s = 0; s < n; s++) {
+        frames.push({
+          scale: String(Math.min(1 + s * 0.15, 1.5)),
+          opacity: String(Math.max(1 - s * 0.11, 0.42))
+        });
+      }
+      frames.push({ scale: '1', opacity: '1' });
+      trigger.animate(frames, { duration: total, easing: 'linear' }).onfinish = finish;
+    }
+
+    if (ring) {
+      ring.animate(
+        [{ transform: 'rotate(0deg)', filter: 'blur(0px)' },
+         { transform: 'rotate(-360deg)', filter: 'blur(1px)' }],
+        { duration: total, easing: 'linear' }
+      );
+    }
+
+    if (!trigger) setTimeout(finish, total);
+  }
+
+  // ALL PAGES hands off to the drawer. The scrim stays up through the
+  // swap so the page underneath never flashes back into view.
+  function ringToDrawer() {
+    const stage = document.getElementById('tbRingStage');
+    const scrim = document.getElementById('tbScrim');
+    if (stage) stage.classList.remove('open', 'instant');
+    if (scrim) scrim.classList.remove('tb-ring-on');
+    openDrawer();
+  }
+
+  function wireRing() {
+    const trigger = document.getElementById('tbRingTrigger');
+    if (trigger) trigger.addEventListener('click', closeRing);
+
+    const drawerNode = document.querySelector('[data-ring-drawer]');
+    if (drawerNode) drawerNode.addEventListener('click', (e) => {
+      e.preventDefault();
+      // MUST stop here. This click bubbles to the scrim, and by the time
+      // the scrim's handler runs, ringToDrawer() has already cleared
+      // tb-ring-on — so that handler would read "ring not open" and take
+      // its closeDrawer() branch, shutting the drawer in the same tick it
+      // was opened. Letting it bubble left the page with no menu at all.
+      e.stopPropagation();
+      ringToDrawer();
+    });
+
+    // The ring claims aria-modal, so it has to actually hold focus.
+    const stage = document.getElementById('tbRingStage');
+    if (stage) stage.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusable = stage.querySelectorAll('a[href], button');
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+  }
+
   function wireDrawer() {
     const launcher = document.getElementById('tbLauncher');
     const closeBtn = document.getElementById('tbCloseBtn');
     const scrim = document.getElementById('tbScrim');
-    if (launcher) launcher.addEventListener('click', () => { isDrawerOpen() ? closeDrawer() : openDrawer(); });
+    // The launcher is the ring's trigger now. The drawer is reached from
+    // the ring's ALL PAGES node, never from here.
+    if (launcher) launcher.addEventListener('click', () => { isRingOpen() ? closeRing() : openRing(false); });
     if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
-    if (scrim) scrim.addEventListener('click', closeDrawer);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isDrawerOpen()) closeDrawer(); });
+    // One scrim, two layers on it: whichever is showing is what a click
+    // on the bare scrim dismisses. The ring's own nodes sit above it, so
+    // the target check keeps a click on a node from closing the menu.
+    if (scrim) scrim.addEventListener('click', (e) => {
+      if (isRingOpen()) { if (e.target === scrim) closeRing(); return; }
+      closeDrawer();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (isRingOpen()) { closeRing(); return; }
+      if (isDrawerOpen()) closeDrawer();
+    });
 
     document.querySelectorAll('.tb-group-head').forEach((headEl) => {
       headEl.addEventListener('click', () => toggleGroup(headEl.getAttribute('data-group-toggle')));
@@ -1059,6 +1600,7 @@ body.topbar-modal-open {
   function boot() {
     injectStyleAndHTML();
     wireDrawer();
+    wireRing();
     highlightActivePill();
     render();
     lockGestures();

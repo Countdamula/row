@@ -499,6 +499,15 @@ between this app and either data loss or a wide-open write target:
    - `topbar.js`'s injected markup/CSS (`.topbar`, `.topbar-pill`, etc.) is
      shared at runtime across every page — don't fork it per-page; edit it
      once in `topbar.js` if the nav itself needs to change.
+   - **The launcher pill's position and size are load-bearing.** It stays at
+     `top:14px/left:14px` at roughly 145–195px × 46px, under the
+     `.tb-launcher`/`.tb-launcher-mark`/`.tb-launcher-page` class names.
+     `palaestra-theme.css` (216px routebar inset, and the pill IS that page's
+     wordmark), `kdp-theme.css` (`--kd-nav-lead:246px`), `promptarium.html` and
+     three `athenaeum-*` pages all reserve space around it, and
+     `kdp-velvet.css` retints it under `html.vg-on` and hides it under
+     `html.vg-composing`. Change what it opens freely; re-check those files
+     before changing where it sits or how big it is.
 
 ## Writing Dashboard
 
@@ -578,6 +587,72 @@ both as originally phrased assumed a backend this app doesn't have):
   Edge" notes).
 
 ## Changelog
+
+- **The main navigation is a circle menu now; the sidebar drawer moved one
+  click deeper.** Built to a supplied reference photo of a black sci-fi console
+  bar, over the behaviour of a supplied React `CircleMenu` component. All of it
+  lives in `topbar.js`. **No `.html` file changed**, because all eighteen
+  already load `topbar.js` and it self-injects.
+  - **Eight nodes on a 176px orbit**, positions computed from the index by
+    `pointOnCircle()` — reorder `RING_ITEMS` and the geometry follows. Seven are
+    the hub pages that survive the 2026-08-21 tidy-up; the eighth, **ALL PAGES,
+    opens the old drawer**. `NAV_GROUPS`, the nesting, the search box and both
+    localStorage keys (`topbar:navCollapsed`, `topbar:navExpanded`) are
+    untouched — deleting the drawer to make the nav "minimal" would have made
+    ~40 hash routes unreachable from the nav entirely.
+  - **The launcher pill's footprint is frozen, deliberately.** Same
+    `top:14px/left:14px`, same size (145–194px wide × 46px across the pages),
+    same `.tb-launcher`/`-mark`/`-page` class names. Five pages hand-tune their
+    layout around it — `palaestra-theme.css` pads the routebar `216px` and
+    treats the pill AS the page wordmark, `kdp-theme.css` sets
+    `--kd-nav-lead:246px`, and Promptarium and three Athenaeum pages clear it
+    explicitly — and `kdp-velvet.css` retints those three selectors under
+    `html.vg-on`. The pill only changed what it *opens*. **Do not resize or
+    move it** without re-checking those five files.
+  - **The ring stage is nested INSIDE `#tbScrim`.** Not decoration:
+    `kdp-velvet.css` already hides `.tb-scrim` under `html.vg-composing`, so
+    distraction-free compose mode hides the ring for free, with no edit to that
+    file. One scrim also means the ring and the drawer can never both be up.
+  - **Gold, not the photo's ember orange** — `#d9b878`/`#f0dcae`, the accent
+    this file's launcher and sidebar already used. That is why this needed **no
+    exception to DO NOT MODIFY rule 2**: only the rim-light *treatment* is new,
+    and it is built from existing tokens. Every accent value reads
+    `--nav-accent` / `--nav-accent-hi` / `--nav-accent-rgb`, so a page can
+    retint the whole ring in one declaration, the way `html.vg-on` already
+    retints `.tb-launcher-mark`. The `--nav-*` namespace was verified unused
+    across every `.html` and `.css` in the repo before it was claimed.
+  - **The light is on the frame, not the circle.** First build put a hot conic
+    rim on the orbit AND on the console; the two competed and neither read. The
+    photo's glow is on the console's top and bottom edges — brightest mid-span,
+    gone by the ends — so that is where it went, and the orbit dropped to a
+    dashed hairline.
+  - **Nodes are real 52px boxes, not zero-size anchors.** The first build hung
+    the disc and label off a `0×0` `<a>`. Mouse clicks still worked, through the
+    absolutely-positioned children, which is exactly why it looked correct — but
+    a zero-size link has no clickable point of its own and cannot be reached by
+    assistive tech or by anything targeting the element rather than a pixel.
+    Only the label hangs off the box now, and the label is not the hit target.
+  - **ALL PAGES must `stopPropagation()`.** Its click bubbles to the scrim, and
+    by then `ringToDrawer()` has cleared `tb-ring-on` — so the scrim handler
+    read "ring not open" and took its `closeDrawer()` branch, shutting the
+    drawer in the same tick it opened and leaving the page with **no menu at
+    all**. Caught only because the test asserted `sidebarOpen`, not just that
+    the ring had closed.
+  - **The close sequence is the React component's, ported to WAAPI**: nodes
+    retract on a 70ms/index stagger (CSS, via `.closing`) while the trigger
+    shakes and pulses through a scale ladder and the ring counter-rotates behind
+    a 1px blur. `prefers-reduced-motion` skips all of it. Opening is pure CSS —
+    a 20ms/index stagger on a `cubic-bezier(.34,1.56,.64,1)` overshoot.
+  - **Under 780px (or 620px tall) the ring becomes a stacked HUD column** —
+    same surface, glow and type, 56px rows. Eight labelled nodes cannot fit a
+    phone as a circle, and all eight labels stay visible by request.
+  - **`highlightActivePill()` marks the ring too**, reusing its already-resolved
+    `path` and `NAV_DETAIL_PARENTS` aliasing rather than repeating it, so
+    `athenaeum-subject.html` lights The Athenaeum on the ring exactly as it does
+    in the drawer.
+  - Design was built and screenshot-matched against the reference in
+    `Desktop/WEBSITE BUILDING/nav-circle-mockup.html` before any of it landed
+    here; that file is the design artifact, `topbar.js` is the shipping copy.
 
 - **The Velvet Grimoire: one top bar, one aesthetic, real Blank Sheets, and a
   phone you can work on.** Six asks in one pass, plus one pre-existing bug the
