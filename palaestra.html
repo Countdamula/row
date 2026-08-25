@@ -54,7 +54,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=4">
+<link rel="stylesheet" href="palaestra-theme.css?v=5">
 
 <!-- Not deferred, and before the page's own inline script: the inline
      script in <body> runs during parsing, which is BEFORE any deferred
@@ -71,7 +71,7 @@
      never get the handoff fix, and now the §SEEN fix on top of it. -->
 <script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=4"></script>
+<script src="palaestra-data.js?v=5"></script>
 <!-- Before palaestra-ui.js and before anything renders: its boot() has to
      snapshot what this device holds BEFORE the opening cloud pull can
      change it. -->
@@ -397,6 +397,38 @@
 
   // A workout card is NOT a button — its actions start a session, and
   // that is not something a stray tap on a card should be able to do.
+  // ============================================================
+  // §LISTING A ROUTINE'S EXERCISES
+  //
+  // One builder for both places a routine's contents are listed — the
+  // Today card and the schedule row — so a superset can never read as a
+  // pair on one and a flat list on the other.
+  //
+  // A block gets a rule above it naming the rest that follows the PAIR.
+  // Without that line the two exercises are just two exercises, and the
+  // whole point of the week is that they are not done that way.
+  // ============================================================
+  function entryListHtml(entries, cap, liClass, repClass) {
+    var shown = entries.slice(0, cap);
+    var n = 0;
+    return P.blocksOf(shown).map(function (g) {
+      var pair = g.entries.length > 1;
+      if (pair) n++;
+      return (pair
+        ? '<li class="pal-blockline' + (liClass ? ' ' + liClass : '') + '">' +
+          '<span>Block ' + n + '</span>' +
+          '<span>' + P.blockRest(g.entries) + 's after the pair</span></li>'
+        : '') +
+        g.entries.map(function (e) {
+          return '<li' + (liClass ? ' class="' + liClass + '"' : '') +
+            (pair ? ' data-paired="true"' : '') + '>' +
+            '<span>' + esc(e.name) + '</span>' +
+            '<span' + (repClass ? ' class="' + repClass + '"' : '') + '>' +
+            esc(e.sets.length + ' \u00d7 ' + (e.targetReps || '\u2014')) + '</span></li>';
+        }).join('');
+    }).join('');
+  }
+
   function workoutCard(t, entries, opts) {
     opts = opts || {};
     var lane = P.laneOf(t.type);
@@ -415,10 +447,7 @@
         '<h3 class="pal-xcard__name">' + esc(t.name) + '</h3>' +
         schedTag(t) +
         (shown.length
-          ? '<ul class="pal-xcard__list">' + shown.map(function (en) {
-              return '<li class="pal-xcard__li"><span>' + esc(en.name) + '</span>' +
-                     '<span>' + esc(en.sets.length + ' \u00d7 ' + en.targetReps) + '</span></li>';
-            }).join('') + '</ul>' +
+          ? '<ul class="pal-xcard__list">' + entryListHtml(entries, cap, 'pal-xcard__li', '') + '</ul>' +
             (more ? '<p class="pal-sub">and ' + more + ' more</p>' : '')
           : '<p class="pal-sub">No exercises in this routine yet.</p>') +
         '<div class="pal-xcard__stats">' +
@@ -611,10 +640,7 @@
         // above, and printing them a second time here made the two halves
         // of one screen say the same thing at the same length.
         (entries.length && !isToday
-          ? '<ul class="pal-schedrow__list">' + entries.slice(0, 8).map(function (e) {
-              return '<li><span>' + esc(e.name) + '</span><span class="pal-schedrow__reps">' +
-                e.sets.length + ' \u00d7 ' + esc(e.targetReps || '\u2014') + '</span></li>';
-            }).join('') +
+          ? '<ul class="pal-schedrow__list">' + entryListHtml(entries, 8, '', 'pal-schedrow__reps') +
             (entries.length > 8 ? '<li class="pal-schedrow__more">and ' + (entries.length - 8) + ' more</li>' : '') +
             '</ul>'
           : '');
@@ -846,6 +872,7 @@
     return band('Safety net',
       backupCard() +
       programsCard() +
+      resetCard() +
       '<div class="pal-card" style="margin-bottom:16px">' +
         '<h3 class="pal-h3" style="margin-bottom:10px">Bringing work across</h3>' +
         '<p class="pal-sub" style="margin-bottom:14px">Reads the routines still stored by the retired fitness pages and copies them here. ' +
@@ -997,13 +1024,27 @@
     '</div>';
   }
 
+  // The manual version of §PROGRAM RESET. The one-shot runs itself once,
+  // on whichever device reaches it first; this is for the day the week has
+  // been edited into a mess and the fastest way back is the program as
+  // written. Destructive, so it is the only danger-styled button on the page
+  // and it asks first.
+  function resetCard() {
+    return '<div class="pal-card" style="margin-bottom:16px">' +
+      '<h3 class="pal-h3" style="margin-bottom:10px">Start the week over</h3>' +
+      '<p class="pal-sub" style="margin-bottom:14px">Removes <b>every</b> routine and writes the superset program back exactly as designed \u2014 ' +
+        'three blocks a day at HIGH, two at MID, one at LOW. A snapshot is taken first, so whatever you are replacing stays in the list above. ' +
+        'Logged workouts and the exercise library are not touched.</p>' +
+      '<button class="pal-btn pal-btn--danger" data-act="reset-programs">\u21bb Replace every routine</button>' +
+    '</div>';
+  }
+
   function wireSettings() {
     root.querySelectorAll('[data-set]').forEach(function (el) {
       var key = el.getAttribute('data-set');
       el.addEventListener('change', function () {
-        var val = el.type === 'checkbox' ? el.checked : (el.type === 'number' ? parseFloat(el.value) : el.value);
+        var val = el.type === 'number' ? parseFloat(el.value) : el.value;
         P.saveSettings((function () { var o = {}; o[key] = val; return o; })());
-        if (key === 'trackMacros') refresh();
         U.toast('Saved');
       });
     });
@@ -1122,6 +1163,10 @@
               ovField(i, 'repMin', it.repMin, String(d.repMin), 'From') +
               ovField(i, 'repMax', it.repMax, String(d.repMax), 'To') +
               ovField(i, 'restSec', it.restSec, String(d.restSec), 'Rest s') +
+              // Same number, consecutive rows = one superset. Blank means the
+              // exercise stands alone, which is why 0 is drawn as a dash
+              // rather than a zero.
+              ovField(i, 'block', it.block || null, '\u2014', 'Block') +
               '<label class="pal-tplov__f"><span>Unit</span>' +
                 '<select class="pal-select" data-tpl-ov="' + i + '" data-key="unit">' +
                 U.selectOptions(P.UNITS, unit) + '</select></label>' +
@@ -1471,6 +1516,12 @@
     // refresh() renders in place; only navigate() ever moves the page.
     'ex-filter': function (el) { exMuscle = el.getAttribute('data-muscle') || 'All'; refresh(); },
     'import': doImport,
+    'reset-programs': function () {
+      if (!window.confirm('Remove every routine and write the program back as designed?\n\nA snapshot is taken first, so this is not a one-way door.')) return;
+      var r = P.replacePrograms();
+      refresh();
+      U.toast('Replaced ' + r.removed + ' routine' + (r.removed === 1 ? '' : 's') + ' with ' + r.routines);
+    },
     'install-programs': function () {
       var r = P.installPrograms();
       refresh();
@@ -1601,7 +1652,15 @@
       // reason seeding does: run against a store that has not been filled
       // in yet and it migrates the wrong data, then marks itself done.
       var moved = P.migrateSchedule();
-      if (seeded || moved) refresh();
+      // The training week was REPLACED, not edited — see §PROGRAM RESET in
+      // palaestra-data.js. Same placement and the same reason as the
+      // migration above: never run against a store the cloud has not filled
+      // in yet, or it replaces the wrong data and then marks itself done.
+      var reset = P.resetProgramsOnce();
+      if (seeded || moved || reset) refresh();
+      if (reset && reset.removed) {
+        U.toast('New training week installed \u2014 the old routines are in the safety net');
+      }
       offerOrphanSweep();
     });
 

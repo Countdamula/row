@@ -102,6 +102,8 @@
     // One-shot migration flags. Synced deliberately: a migration answered on
     // one device must not run again on the next.
     schedMigrated: 'pal:scheduleMigrated',
+    // The training week itself was replaced, not edited — see §PROGRAM RESET.
+    programReset: 'pal:programReset',
     programsAt:    'pal:programsInstalledAt'
   };
 
@@ -293,6 +295,14 @@
   // per-routine overrides, so editing "Dumbbell Row" once fixes it in
   // every routine that uses it — but Pull day can still call for 4 sets
   // where Upper day calls for 3.
+  // §BLOCKS. `block` groups consecutive items into a superset: same number,
+  // same block. 0 means the item stands alone.
+  //
+  // The number is the ORDER of the block within the routine, not an id, so
+  // "Block 2" is the second thing you do and the routine reads the way the
+  // reference table is written. Items are stored in order and a block is
+  // always contiguous — a block interrupted by an unrelated exercise is not a
+  // superset, it is a mistake, and nothing here tries to reassemble one.
   function templateItemModel(d) {
     d = d || {};
     return {
@@ -304,6 +314,7 @@
       restSec: d.restSec == null ? null : clamp(Math.round(num(d.restSec, 90)), 0, 900),
       unit: UNITS.indexOf(d.unit) !== -1 ? d.unit : null,
       perSide: d.perSide == null ? null : d.perSide === true,
+      block: clamp(Math.round(num(d.block, 0)), 0, 20),
       note: str(d.note, 400)
     };
   }
@@ -360,6 +371,9 @@
       muscle: MUSCLES.indexOf(d.muscle) !== -1 ? d.muscle : 'Full Body',
       equipment: str(d.equipment, 60),
       restSec: clamp(Math.round(num(d.restSec, 90)), 0, 900),
+      // Copied, not looked up: a session logged today still reads as a
+      // superset after the routine behind it is re-paired tomorrow.
+      block: clamp(Math.round(num(d.block, 0)), 0, 20),
       targetReps: str(d.targetReps, 24),
       sets: (Array.isArray(d.sets) ? d.sets : []).map(setModel).slice(0, 30),
       notes: str(d.notes, 1200),
@@ -797,6 +811,7 @@
         muscle: ex ? ex.muscle : 'Full Body',
         equipment: ex ? ex.equipment : '',
         restSec: rest,
+        block: item.block || 0,
         targetReps: repRange({ repMin: repMin, repMax: repMax, unit: unit, perSide: perSide }),
         sets: blank,
         notes: item.note || (ex ? ex.notes : ''),
@@ -927,13 +942,66 @@
   }
   function estimatedDuration(entriesOrTemplate) {
     var entries = Array.isArray(entriesOrTemplate) ? entriesOrTemplate : entriesFromTemplate(entriesOrTemplate);
-    // ~40 working seconds a set, plus that exercise's own rest. Rough
-    // by design and labelled "est." wherever it is shown.
-    var sec = entries.reduce(function (sum, e) {
-      var n = (e.sets || []).length || 1;
-      return sum + n * (40 + (e.restSec || 90));
-    }, 0);
-    return Math.round(sec / 60);
+    // ~40 working seconds a set, plus rest. Rough by design and labelled
+    // "est." wherever it is shown.
+    //
+    // Rest is charged ONCE PER ROUND OF A BLOCK, not once per exercise:
+    // that is the entire point of pairing, and charging it twice made a
+    // 30-minute session estimate at 44. A block's rest is the LAST
+    // exercise's, because that is the one the rest actually follows.
+    // How long ONE set of a thing takes. Forty seconds is a fair guess for a
+    // set of reps and nonsense for a 15-minute treadmill walk — which is why
+    // Wednesday used to estimate at five minutes for a twenty-six minute
+    // session. targetReps is written by repRange() below, so its shape is
+    // known: "15 min", "45–60 sec", "10–12", "Max".
+    function setSec(e) {
+      var m = /^(\d+)(?:–(\d+))?\s*(min|sec)\b/.exec(e.targetReps || '');
+      if (!m) return 40;
+      var n = m[2] ? (parseInt(m[1], 10) + parseInt(m[2], 10)) / 2 : parseInt(m[1], 10);
+      return m[3] === 'min' ? n * 60 : n;
+    }
+    var work = 0, rest = 0, i = 0;
+    while (i < entries.length) {
+      var e = entries[i];
+      var b = e.block || 0;
+      if (!b) {
+        var n = (e.sets || []).length || 1;
+        work += n * setSec(e);
+        rest += n * (e.restSec == null ? 90 : e.restSec);
+        i++;
+        continue;
+      }
+      var group = [];
+      while (i < entries.length && (entries[i].block || 0) === b) { group.push(entries[i]); i++; }
+      var rounds = group.reduce(function (m, g) { return Math.max(m, (g.sets || []).length || 1); }, 1);
+      group.forEach(function (g) { work += ((g.sets || []).length || 1) * setSec(g); });
+      var last = group[group.length - 1];
+      rest += rounds * (last.restSec == null ? 90 : last.restSec);
+    }
+    return Math.round((work + rest) / 60);
+  }
+
+  // The entries of one routine or session, split into the blocks they were
+  // written as. Shared by the hub's two lists and the logger, so a superset
+  // can never be drawn as a pair in one place and a flat list in another.
+  // A run of items with block 0 comes back as single-entry groups.
+  function blocksOf(entries) {
+    var out = [], i = 0;
+    entries = entries || [];
+    while (i < entries.length) {
+      var b = entries[i].block || 0;
+      if (!b) { out.push({ block: 0, entries: [entries[i]] }); i++; continue; }
+      var group = [];
+      while (i < entries.length && (entries[i].block || 0) === b) { group.push(entries[i]); i++; }
+      out.push({ block: b, entries: group });
+    }
+    return out;
+  }
+  // The rest a block actually takes: the last exercise's, because that is
+  // the one it follows.
+  function blockRest(group) {
+    var last = group[group.length - 1];
+    return last ? (last.restSec == null ? 90 : last.restSec) : 90;
   }
 
   // --- personal records ------------------------------------------------
@@ -1466,152 +1534,156 @@
       'Full controlled reps from a hang; do not kick.']
   ];
 
+  // ============================================================
+  // §THE TRAINING WEEK — three tiers of one superset program.
+  //
+  // Replaced wholesale 2026-08-25. The week before this one was eight
+  // straight exercises a day with a rest after each; this one is three
+  // BLOCKS a day, each a pair done back to back with a single 75-second
+  // rest after the pair. Same working sets, roughly half the dead time:
+  // ~30 min at HIGH, ~20 at MID, ~10 at LOW.
+  //
+  // A pair is always upper + lower, or a big compound + a small isolation,
+  // so the two exercises never compete for the same muscle and pairing
+  // costs nothing on either lift.
+  //
+  // Weekly direct sets this lands on: shoulders ~15–18, back ~12,
+  // hamstrings/glutes ~9–12, chest and quads ~6–9, calves ~6. Ten weekly
+  // sets per muscle is the threshold for maximising growth; 12–20 is the
+  // optimum band. Every group here clears the "real growth" floor.
+  //
   // [exerciseName, sets, repMin, repMax, restSec, unit, perSide, note]
   // A null in a numeric slot means "inherit from the library record".
+  // `blocks` nests those rows: one inner array per block, and a block of
+  // one is simply an exercise that is not paired with anything.
+  // ============================================================
+  var WARMUP_HIGH = '3 min general movement first \u2014 light cardio, arm circles, bodyweight squats. Not a warm-up set per exercise. ';
+  var WARMUP_MID = '2 min general movement first. ';
+  var BLOCK_RULE = 'Each block is a pair: set A, straight into set B, then rest 75 sec. The rest goes AFTER the pair, never between the two \u2014 that is the whole time saving. Repeat for every set, then move to the next block.';
+
   var PROGRAM_ROUTINES = [
-    // ---------------- HIGH — Progress Day ----------------
-    { day: 'mon', level: 'high', type: 'Push', name: 'Monday Push — HIGH',
-      notes: 'Chest + Shoulders + Quads. The full session, ~55–75 minutes. When you reach the top of the rep range with clean form on every working set, add resistance.',
-      items: [
-        ['Incline DB Press', 3, 10, 12, 90], ['Seated Arnold Press', 3, 10, 12, 90],
-        ['Lateral Raises', 4, 15, 20, 45], ['Ring Push-ups', 3, 10, 12, 60],
-        ['DB Skull Crushers', 3, 10, 12, 60], ['Goblet Squats', 3, 10, 12, 90],
-        ['Standing Calf Raises', 3, 15, 20, 45],
-        ['Jump Rope', 3, 5, 5, 60, 'min']
+    // ---------------- HIGH \u00b7 Progress Day \u00b7 ~30 min ----------------
+    { day: 'mon', level: 'high', type: 'Push', name: 'Monday Push \u2014 HIGH',
+      notes: WARMUP_HIGH + BLOCK_RULE + ' Chest, shoulders and quads. Three blocks, ~24 min of lifting, ~30 min door to door.',
+      blocks: [
+        [['Incline DB Press', 3, 10, 12, 75], ['Goblet Squats', 3, 10, 12, 75]],
+        [['Seated Arnold Press', 3, 10, 12, 75], ['Standing Calf Raises', 3, 15, 20, 75]],
+        [['Lateral Raises', 3, 15, 20, 75], ['Ring Push-ups', 3, 10, 12, 75]]
       ] },
-    { day: 'tue', level: 'high', type: 'Pull', name: 'Tuesday Pull — HIGH',
-      notes: 'Back + Biceps + Forearms + Hamstrings.',
-      items: [
-        ['Wide-Grip Pull-ups', 4, 6, 10, 120], ['DB Pullover', 3, 10, 12, 75],
-        ['Rear Delt Flyes', 3, 12, 15, 45], ['Hammer Curls', 3, 10, 12, 60],
-        ['Reverse Curls', 3, 12, 15, 60], ['Romanian Deadlifts', 3, 10, 12, 120],
-        ['Hanging Leg Raises', 3, 10, 12, 60]
+    { day: 'tue', level: 'high', type: 'Pull', name: 'Tuesday Pull \u2014 HIGH',
+      notes: WARMUP_HIGH + BLOCK_RULE + ' Back, biceps and posterior chain. Pull-ups first while you are freshest.',
+      blocks: [
+        [['Wide-Grip Pull-ups', 3, 6, 10, 75], ['Romanian Deadlifts', 3, 10, 12, 75]],
+        [['DB Pullover', 3, 10, 12, 75], ['Hanging Leg Raises', 3, 10, 12, 75]],
+        [['Hammer Curls', 3, 10, 12, 75], ['Rear Delt Flyes', 3, 12, 15, 75]]
       ] },
-    { day: 'wed', level: 'high', type: 'Mobility', name: 'Wednesday Recovery — HIGH',
-      notes: 'Active recovery. Easy on purpose — this is not a session to push.',
-      items: [
-        ['Incline Treadmill Walk', 2, 20, 20, 300, 'min', false, 'Rest 2–5 min between blocks.'],
-        ['Walking Lunges', 2, 15, 15, 60, 'reps', true, 'Keep the intensity easy.'],
-        ['Stomach Vacuums', 5, 30, 30, 30, 'sec'],
-        ['Yoga', 2, 10, 15, 0, 'min']
+    { day: 'wed', level: 'high', type: 'Mobility', name: 'Wednesday Recovery \u2014 HIGH',
+      notes: 'Active recovery, and the one day that is deliberately NOT dense \u2014 nothing here is paired and nothing is meant to be hard. Take as long as you like between pieces.',
+      blocks: [
+        [['Incline Treadmill Walk', 1, 15, 15, 120, 'min', false, 'Easy incline, conversational pace.']],
+        [['Stomach Vacuums', 1, 3, 3, 60, 'min', false, 'Broken up however you like across the three minutes.']],
+        [['Yoga', 1, 8, 10, 0, 'min', false, 'A short flow, three or four poses. Hold what feels tight.']]
       ] },
-    { day: 'thu', level: 'high', type: 'Push', name: 'Thursday Push — HIGH',
-      notes: 'Shoulder priority + unilateral legs.',
-      items: [
-        ['Seated DB Press', 4, 8, 10, 120], ['Lateral Raises', 4, 15, 20, 45],
-        ['Front Raises', 3, 10, 12, 45], ['Ring Dips', 3, 10, 12, 90],
-        ['Bulgarian Split Squats', 3, 10, 10, 90, 'reps', true],
-        ['Jump Rope', 3, 8, 8, 90, 'min', false, 'Rest 60–90 sec.']
+    { day: 'thu', level: 'high', type: 'Push', name: 'Thursday Push \u2014 HIGH',
+      notes: WARMUP_HIGH + BLOCK_RULE + ' Shoulder priority and unilateral legs. The rope at the end is a finisher, not a block \u2014 it is not paired with anything.',
+      blocks: [
+        [['Seated DB Press', 3, 8, 10, 75], ['Bulgarian Split Squats', 3, 10, 10, 75, 'reps', true]],
+        [['Ring Dips', 3, 10, 12, 75], ['Lateral Raises', 3, 15, 20, 75]],
+        [['Jump Rope', 1, 2, 3, 0, 'min', false, 'Finisher. Straight through, then done.']]
       ] },
-    { day: 'fri', level: 'high', type: 'Pull', name: 'Friday Pull — HIGH',
-      notes: 'Lats + Arms + Core + Posterior chain.',
-      items: [
-        ['Chin-ups', 4, 6, 10, 120], ['DB Row', 3, 8, 10, 90],
-        ['Incline DB Curls', 3, 10, 12, 60], ['Hammer Curls', 3, 8, 10, 60],
-        ['Leg/Nordic Curls', 3, 8, 12, 90], ['Glute Bridges', 3, 10, 15, 75],
-        ['Hanging Knee Tucks', 3, 12, 15, 60]
+    { day: 'fri', level: 'high', type: 'Pull', name: 'Friday Pull \u2014 HIGH',
+      notes: WARMUP_HIGH + BLOCK_RULE + ' Lats, arms and posterior chain. Chin-ups first, for the same reason pull-ups go first on Tuesday.',
+      blocks: [
+        [['Chin-ups', 3, 6, 10, 75], ['Leg/Nordic Curls', 3, 8, 12, 75]],
+        [['DB Row', 3, 8, 10, 75], ['Glute Bridges', 3, 10, 15, 75]],
+        [['Incline DB Curls', 3, 10, 12, 75], ['Hanging Knee Tucks', 3, 12, 15, 75]]
       ] },
-    { day: 'sat', level: 'high', type: 'Full Body', name: 'Saturday Shoulders & Core — HIGH',
-      notes: 'Shoulders + Core + Calves, finishing on the rope.',
-      items: [
-        ['Lateral Raise Triset', 3, 0, 0, 60, 'reps', false, '3 rounds, 3 movements per round.'],
-        ['Rear Delt Flyes', 4, 12, 15, 45], ['Seated Calf Raises', 4, 15, 20, 45],
-        ['Wall Sit', 3, 45, 60, 60, 'sec'], ['Stomach Vacuums', 5, 30, 30, 30, 'sec'],
-        ['Hanging L-Sit', 3, 0, 0, 60, 'max'],
-        ['Jump Rope', 3, 10, 10, 90, 'min', false, 'Rest 60–90 sec.']
+    { day: 'sat', level: 'high', type: 'Full Body', name: 'Saturday Shoulders \u2014 HIGH',
+      notes: WARMUP_HIGH + BLOCK_RULE + ' Shoulders, core and calves \u2014 the accessories that carry the week. Block 1 can genuinely be done at the same time: hold the wall sit and fly with the dumbbells while you are down there.',
+      blocks: [
+        [['Wall Sit', 3, 45, 60, 75, 'sec'], ['Rear Delt Flyes', 3, 12, 15, 75, 'reps', false, 'Can be done during the wall sit rather than after it.']],
+        [['Lateral Raise Triset', 3, 12, 15, 75, 'reps', false, 'Front, lateral, rear \u2014 12\u201315 each, no rest between the three.'], ['Seated Calf Raises', 3, 15, 20, 75]],
+        [['Hanging L-Sit', 3, null, null, 75, 'max'], ['Stomach Vacuums', 3, 30, 30, 75, 'sec']]
       ] },
 
-    // ---------------- MID — Maintenance ----------------
-    { day: 'mon', level: 'mid', type: 'Push', name: 'Monday Push — MID',
-      notes: 'Main compound → important secondary movement → one or two accessories → done. Skips ring push-ups, skull crushers and the rope.',
-      items: [
-        ['Incline DB Press', 3, 8, 12, 90], ['Seated Arnold Press', 2, 10, 12, 75],
-        ['Lateral Raises', 2, 12, 15, 45], ['Goblet Squats', 3, 10, 12, 90],
-        ['Standing Calf Raises', 2, 15, 20, 45]
+    // ---------------- MID \u00b7 Maintenance \u00b7 ~20 min ----------------
+    { day: 'mon', level: 'mid', type: 'Push', name: 'Monday Push \u2014 MID',
+      notes: WARMUP_MID + BLOCK_RULE + ' Two blocks instead of three, ~20 min. This is not half a workout \u2014 it is the version of Monday that fits the day you actually have.',
+      blocks: [
+        [['Incline DB Press', 3, 10, 12, 75], ['Goblet Squats', 3, 10, 12, 75]],
+        [['Lateral Raises', 3, 15, 20, 75], ['Ring Push-ups', 3, 10, 12, 75]]
       ] },
-    { day: 'tue', level: 'mid', type: 'Pull', name: 'Tuesday Pull — MID',
-      notes: 'Back + Biceps + Hamstrings. Skips rear delt flyes and reverse curls.',
-      items: [
-        ['Wide-Grip Pull-ups', 3, 6, 10, 120], ['DB Pullover', 2, 10, 12, 60],
-        ['Hammer Curls', 2, 10, 12, 60], ['Romanian Deadlifts', 3, 8, 12, 120],
-        ['Hanging Leg Raises', 2, 8, 12, 60]
+    { day: 'tue', level: 'mid', type: 'Pull', name: 'Tuesday Pull \u2014 MID',
+      notes: WARMUP_MID + BLOCK_RULE + ' The two blocks that carry the most back volume. Arms come out first because the pulling already works them.',
+      blocks: [
+        [['Wide-Grip Pull-ups', 3, 6, 10, 75], ['Romanian Deadlifts', 3, 10, 12, 75]],
+        [['DB Pullover', 3, 10, 12, 75], ['Hanging Leg Raises', 3, 10, 12, 75]]
       ] },
-    { day: 'wed', level: 'mid', type: 'Mobility', name: 'Wednesday Recovery — MID',
-      notes: 'Active recovery, trimmed.',
-      items: [
-        ['Incline Treadmill Walk', 1, 20, 30, 0, 'min'],
-        ['Stomach Vacuums', 3, 30, 30, 30, 'sec'],
-        ['Yoga', 1, 10, 15, 0, 'min']
+    { day: 'wed', level: 'mid', type: 'Mobility', name: 'Wednesday Recovery \u2014 MID',
+      notes: 'Active recovery. Not paired, not dense, not meant to be hard.',
+      blocks: [
+        [['Incline Treadmill Walk', 1, 12, 12, 120, 'min', false, 'Easy incline, conversational pace.']],
+        [['Stomach Vacuums', 1, 3, 3, 60, 'min']],
+        [['Yoga', 1, 5, 8, 0, 'min', false, 'A few stretches for whatever time is left.']]
       ] },
-    { day: 'thu', level: 'mid', type: 'Push', name: 'Thursday Push — MID',
-      notes: 'Shoulder priority + legs. Skips front raises and the rope.',
-      items: [
-        ['Seated DB Press', 3, 8, 10, 120], ['Lateral Raises', 3, 12, 20, 45],
-        ['Ring Dips', 2, 8, 12, 90],
-        ['Bulgarian Split Squats', 2, 8, 10, 90, 'reps', true]
+    { day: 'thu', level: 'mid', type: 'Push', name: 'Thursday Push \u2014 MID',
+      notes: WARMUP_MID + BLOCK_RULE + ' Shoulders and unilateral legs, without the rope finisher.',
+      blocks: [
+        [['Seated DB Press', 3, 8, 10, 75], ['Bulgarian Split Squats', 3, 10, 10, 75, 'reps', true]],
+        [['Ring Dips', 3, 10, 12, 75], ['Lateral Raises', 3, 15, 20, 75]]
       ] },
-    { day: 'fri', level: 'mid', type: 'Pull', name: 'Friday Pull — MID',
-      notes: 'Back + Arms + Posterior chain.',
-      items: [
-        ['Chin-ups', 3, 6, 10, 120], ['DB Row', 3, 8, 10, 90],
-        ['Incline DB Curls', 2, 10, 12, 60], ['Leg/Nordic Curls', 2, 8, 12, 90],
-        ['Glute Bridges', 2, 10, 15, 60]
+    { day: 'fri', level: 'mid', type: 'Pull', name: 'Friday Pull \u2014 MID',
+      notes: WARMUP_MID + BLOCK_RULE + ' Lats and posterior chain. Direct arm work comes out first \u2014 the rows and chin-ups already cover it.',
+      blocks: [
+        [['Chin-ups', 3, 6, 10, 75], ['Leg/Nordic Curls', 3, 8, 12, 75]],
+        [['DB Row', 3, 8, 10, 75], ['Glute Bridges', 3, 10, 15, 75]]
       ] },
-    { day: 'sat', level: 'mid', type: 'Full Body', name: 'Saturday Shoulders & Core — MID',
-      notes: 'Shoulders + Core + Calves.',
-      items: [
-        ['Lateral Raise Triset', 2, 0, 0, 60, 'reps', false, '2 rounds, 3 movements per round.'],
-        ['Rear Delt Flyes', 2, 12, 15, 45], ['Seated Calf Raises', 3, 15, 20, 45],
-        ['Wall Sit', 2, 30, 60, 60, 'sec'], ['Hanging L-Sit', 2, 0, 0, 60, 'max']
+    { day: 'sat', level: 'mid', type: 'Full Body', name: 'Saturday Shoulders \u2014 MID',
+      notes: WARMUP_MID + BLOCK_RULE + ' Shoulders and calves. Block 1 can be done simultaneously \u2014 fly while you hold the wall sit.',
+      blocks: [
+        [['Wall Sit', 3, 45, 60, 75, 'sec'], ['Rear Delt Flyes', 3, 12, 15, 75, 'reps', false, 'Can be done during the wall sit rather than after it.']],
+        [['Lateral Raise Triset', 3, 12, 15, 75, 'reps', false, 'Front, lateral, rear \u2014 12\u201315 each, no rest between the three.'], ['Seated Calf Raises', 3, 15, 20, 75]]
       ] },
 
-    // ---------------- LOW — Consistency ----------------
-    { day: 'mon', level: 'low', type: 'Push', name: 'Monday Push — LOW',
-      notes: 'Chest, shoulders, triceps, quads and glutes in roughly 10–15 minutes. Show up, hit the highest-value movements, leave.',
-      items: [
-        ['Incline DB Press', 2, 8, 12, 90, 'reps', false, 'Rest 60–90 sec.'],
-        ['Goblet Squats', 2, 10, 12, 90, 'reps', false, 'Rest 60–90 sec.'],
-        ['Lateral Raises', 2, 12, 15, 45]
+    // ---------------- LOW \u00b7 Consistency \u00b7 ~10 min ----------------
+    // The floor, and the only number that matters here is that it is not
+    // zero. One block. Two sets is a finished LOW day; three if it is there.
+    { day: 'mon', level: 'low', type: 'Push', name: 'Monday Push \u2014 LOW',
+      notes: 'One block, ~10 min. Set A, straight into set B, rest 75 sec, repeat. Two sets finishes this \u2014 do the third only if it is there. Zero is the only real failure state.',
+      blocks: [
+        [['Incline DB Press', 3, 10, 12, 75], ['Goblet Squats', 3, 10, 12, 75]]
       ] },
-    { day: 'tue', level: 'low', type: 'Pull', name: 'Tuesday Pull — LOW',
-      notes: 'Back, biceps, hamstrings. Three movements and you are done.',
-      items: [
-        ['Pull-ups', 2, 5, 10, 90], ['Romanian Deadlifts', 2, 8, 12, 90],
-        ['Hammer Curls', 2, 8, 12, 60, 'reps', false, 'Rest 45–60 sec.']
+    { day: 'tue', level: 'low', type: 'Pull', name: 'Tuesday Pull \u2014 LOW',
+      notes: 'One block, ~10 min. Set A, straight into set B, rest 75 sec, repeat. Two sets finishes this; three if it is there.',
+      blocks: [
+        [['Wide-Grip Pull-ups', 3, 6, 10, 75], ['Romanian Deadlifts', 3, 10, 12, 75]]
       ] },
-    { day: 'wed', level: 'low', type: 'Mobility', name: 'Wednesday Recovery — LOW',
-      notes: 'If you are truly wrecked, just do the walk. That still counts as completing this one.',
-      items: [
-        ['Incline Treadmill Walk', 1, 15, 20, 0, 'min', false, 'Comfortable pace — do not turn this into hard cardio.'],
-        ['Stomach Vacuums', 2, 30, 30, 30, 'sec']
+    { day: 'wed', level: 'low', type: 'Mobility', name: 'Wednesday Recovery \u2014 LOW',
+      notes: 'The walk on its own still counts. Ten minutes, easy, and the day is done.',
+      blocks: [
+        [['Incline Treadmill Walk', 1, 10, 10, 0, 'min']]
       ] },
-    { day: 'thu', level: 'low', type: 'Push', name: 'Thursday Push — LOW',
-      notes: 'Shoulders and legs.',
-      items: [
-        ['Seated DB Press', 2, 8, 10, 90],
-        ['Bulgarian Split Squats', 2, 8, 10, 90, 'reps', true],
-        ['Lateral Raises', 2, 12, 15, 45]
+    { day: 'thu', level: 'low', type: 'Push', name: 'Thursday Push \u2014 LOW',
+      notes: 'One block, ~10 min. Set A, straight into set B, rest 75 sec, repeat. Two sets finishes this; three if it is there.',
+      blocks: [
+        [['Seated DB Press', 3, 8, 10, 75], ['Bulgarian Split Squats', 3, 10, 10, 75, 'reps', true]]
       ] },
-    { day: 'fri', level: 'low', type: 'Pull', name: 'Friday Pull — LOW',
-      notes: 'Back, biceps, posterior chain.',
-      items: [
-        ['Chin-ups', 2, 5, 10, 90],
-        ['DB Row', 2, 8, 10, 90, 'reps', false, 'Rest 60–90 sec.'],
-        ['Glute Bridges', 2, 10, 15, 60]
+    { day: 'fri', level: 'low', type: 'Pull', name: 'Friday Pull \u2014 LOW',
+      notes: 'One block, ~10 min. Set A, straight into set B, rest 75 sec, repeat. Two sets finishes this; three if it is there.',
+      blocks: [
+        [['Chin-ups', 3, 6, 10, 75], ['Leg/Nordic Curls', 3, 8, 12, 75]]
       ] },
-    { day: 'sat', level: 'low', type: 'Full Body', name: 'Saturday Shoulders & Core — LOW',
-      notes: 'Shoulders, rear delts, calves, core.',
-      items: [
-        ['Lateral Raises', 2, 12, 15, 45], ['Rear Delt Flyes', 2, 12, 15, 45],
-        ['Seated Calf Raises', 2, 15, 20, 45], ['Hanging L-Sit', 2, 0, 0, 60, 'max']
+    { day: 'sat', level: 'low', type: 'Full Body', name: 'Saturday Shoulders \u2014 LOW',
+      notes: 'One block, ~10 min, and both halves can be done at once \u2014 hold the wall sit and fly with the dumbbells while you are down there.',
+      blocks: [
+        [['Wall Sit', 3, 45, 60, 75, 'sec'], ['Rear Delt Flyes', 3, 12, 15, 75, 'reps', false, 'Can be done during the wall sit rather than after it.']]
       ] },
 
-    // ---------------- SUNDAY ----------------
-    // No level: a rest day is a rest day whichever version of the week you
-    // are running, and getSchedule()'s 'any' bucket is exactly that case.
-    { day: 'sun', level: '', type: 'Rest', name: 'Sunday — Rest',
-      notes: 'No structured training. You do not have to make up a missed HIGH or MID workout.',
-      items: [] }
+    // ---------------- Every level ----------------
+    // level '' stands in whichever tier is chosen, which is what a rest day is.
+    { day: 'sun', level: '', type: 'Rest', name: 'Sunday \u2014 Rest',
+      notes: 'Nothing required. Taking this keeps the streak \u2014 it does not break it.',
+      blocks: [] }
   ];
 
   // Matching a program exercise to one already in the library. Normalised
@@ -1684,13 +1756,14 @@
     PROGRAM_ROUTINES.forEach(function (r, i) {
       var sourceId = r.day + ':' + (r.level || 'any');
       if (have[sourceId]) return;
-      Templates.add({
-        name: r.name, type: r.type, days: [r.day], level: r.level, notes: r.notes,
-        order: i,
-        importSource: 'program-hml', importSourceId: sourceId,
-        items: r.items.map(function (it) {
+      // `blocks` is nested for readability; `items` is flat because that is
+      // what a routine is. The block NUMBER is the block's position, so the
+      // stored order and the written order are the same thing.
+      var items = [];
+      (r.blocks || []).forEach(function (group, b) {
+        group.forEach(function (it) {
           var ex = byName[it[0]] || findExerciseByName(it[0]);
-          return {
+          items.push({
             exerciseId: ex ? ex.id : '',
             sets: it[1] == null ? null : it[1],
             repMin: it[2] == null ? null : it[2],
@@ -1698,9 +1771,19 @@
             restSec: it[4] == null ? null : it[4],
             unit: it[5] == null ? null : it[5],
             perSide: it[6] == null ? null : it[6],
+            // A block of one is not a superset, so it is left unblocked —
+            // otherwise Wednesday's three separate pieces would draw as
+            // three one-exercise pairs.
+            block: group.length > 1 ? b + 1 : 0,
             note: it[7] || ''
-          };
-        })
+          });
+        });
+      });
+      Templates.add({
+        name: r.name, type: r.type, days: [r.day], level: r.level, notes: r.notes,
+        order: i,
+        importSource: 'program-hml', importSourceId: sourceId,
+        items: items
       });
       res.routines++;
     });
@@ -1710,6 +1793,53 @@
   }
   function programsInstalled() {
     return Templates.list().filter(function (t) { return t.importSource === 'program-hml'; }).length;
+  }
+
+  // ============================================================
+  // §PROGRAM RESET
+  //
+  // installPrograms() is additive on purpose: a routine you have since
+  // edited is yours, and it never overwrites one. That is exactly wrong for
+  // a week that has been REPLACED. The superset program is not a correction
+  // of the eight-exercises-a-day week that came before it, it is a
+  // different week, and leaving the old routines beside the new ones would
+  // put two Monday Pushes on one schedule row.
+  //
+  // So this removes every routine and writes the program fresh. It is
+  // destructive by design, which is why:
+  //
+  //   - it snapshots first, through PalBackup, under `palbak:` where no
+  //     sync can reach it — the old week stays one Restore away at #/data;
+  //   - the "done" marker is SYNCED (pal:), so the device that runs it
+  //     pushes both the new routines and the marker, and every other device
+  //     pulls them and skips;
+  //   - it never runs before the cloud's first word, for the same reason
+  //     seeding and migrateSchedule() do not: a decision made against a
+  //     store that has not been filled in yet is a decision about the wrong
+  //     data.
+  //
+  // Sessions, the exercise library, levels and days are untouched. Only
+  // Templates are replaced.
+  // ============================================================
+  var PROGRAM_RESET_ID = 'supersets-2026-08-25';
+  function programResetDone() { return storeGet(KEYS.programReset) === PROGRAM_RESET_ID; }
+  function replacePrograms() {
+    if (window.PalBackup && window.PalBackup.snapshot) {
+      window.PalBackup.snapshot('before-drop', { force: true, pinned: true });
+    }
+    var removed = 0;
+    Templates.list().forEach(function (t) { Templates.remove(t.id); removed++; });
+    var r = installPrograms();
+    storeSet(KEYS.programReset, PROGRAM_RESET_ID);
+    return { removed: removed, routines: r.routines, exercises: r.exercises };
+  }
+  // Called once, after the cloud has spoken. Returns null when there was
+  // nothing to do, so a caller can tell "ran" from "already done".
+  function resetProgramsOnce() {
+    if (programResetDone()) return null;
+    // A device that has never held a routine has nothing to replace — mark
+    // it done and let the ordinary seed/install path fill it in.
+    return replacePrograms();
   }
 
   function isEmptyEverywhere() {
@@ -1948,6 +2078,11 @@
     // import + seed
     importPrograms: importPrograms, importAvailable: importAvailable,
     installPrograms: installPrograms, programsInstalled: programsInstalled,
+    replacePrograms: replacePrograms,
+    resetProgramsOnce: resetProgramsOnce,
+    programResetDone: programResetDone,
+    blocksOf: blocksOf,
+    blockRest: blockRest,
     PROGRAM_ROUTINES: PROGRAM_ROUTINES,
     ensureSeeded: ensureSeeded, seedAfterSyncAttempt: seedAfterSyncAttempt,
     orphanLiveSessions: orphanLiveSessions, sweepOrphanLiveSessions: sweepOrphanLiveSessions,

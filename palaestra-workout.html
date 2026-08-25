@@ -41,7 +41,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=4">
+<link rel="stylesheet" href="palaestra-theme.css?v=5">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- row has no build step, so editing a file never changes its URL and a
@@ -54,7 +54,7 @@
      never get the handoff fix, and now the §SEEN fix on top of it. -->
 <script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=4"></script>
+<script src="palaestra-data.js?v=5"></script>
 <!-- Before palaestra-ui.js and before anything renders: its boot() has to
      snapshot what this device holds BEFORE the opening cloud pull can
      change it. -->
@@ -71,7 +71,7 @@
    spreads them; capping the track is what keeps them readable. */
 #palLog { display: grid; gap: var(--pal-3); align-content: start;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 640px)); }
-#palLog > .pal-ex { margin-bottom: 0; }
+#palLog > .pal-ex, #palLog > .pal-block { margin-bottom: 0; }
 /* The hero band above carries the workout's name and type, so this is
    now only the controls — and it stays compact and sticky, because
    between sets you need Finish and the clock, not a headline. */
@@ -393,7 +393,7 @@
     }
     renderHead();
     logEl.innerHTML =
-      session.entries.map(entryHtml).join('') +
+      blocksHtml(session.entries) +
       (readOnly ? '' :
         '<div class="pal-row" style="margin:18px 0 24px">' +
           '<button class="pal-btn" data-act="add-exercise">＋ Add an exercise</button>' +
@@ -405,15 +405,51 @@
     if (window.PalHero && window.PalHero.measure) window.PalHero.measure();
   }
 
-  function entryHtml(e, i) {
+  // ============================================================
+  // §BLOCKS ON THE LOGGER
+  //
+  // A superset is drawn as ONE thing with two exercises inside it,
+  // because that is what it is: set 1 of A, set 1 of B, and only then a
+  // rest. Two independent cards is precisely the drawing that made the
+  // logger start a timer between them.
+  //
+  // The rest lives on the BLOCK, not on either exercise — so it is stated
+  // once, in the header, and the "Rest 75s" button appears only on the
+  // exercise the rest actually follows.
+  // ============================================================
+  function blocksHtml(entries) {
+    var n = 0;
+    return P.blocksOf(entries).map(function (g) {
+      if (g.entries.length < 2) return entryHtml(g.entries[0], null, 0);
+      n++;
+      return '<section class="pal-block">' +
+        '<header class="pal-block__head">' +
+          '<span class="pal-block__n">Block ' + n + '</span>' +
+          '<span class="pal-block__rule">no rest between these \u00b7 ' +
+            P.blockRest(g.entries) + 's after the pair</span>' +
+        '</header>' +
+        g.entries.map(function (e, i) { return entryHtml(e, g, i); }).join('') +
+      '</section>';
+    }).join('');
+  }
+
+  function entryHtml(e, group, at) {
     var doneSets = e.sets.filter(function (s) { return s.done; }).length;
     var prev = readOnly ? null : lastTime(e.name, session.id);
-    return '<article class="pal-ex" data-entry="' + esc(e.id) + '" data-done="' + (e.done ? 'true' : 'false') + '">' +
+    var last = !group || at === group.entries.length - 1;
+    var rest = group ? P.blockRest(group.entries) : e.restSec;
+    return (group && at > 0 ? '<p class="pal-block__into" aria-hidden="true">straight into</p>' : '') +
+      '<article class="pal-ex" data-entry="' + esc(e.id) + '" data-done="' + (e.done ? 'true' : 'false') + '"' +
+        (group ? ' data-paired="true"' : '') + '>' +
       '<div class="pal-ex__head">' +
         '<div class="pal-ex__title">' +
           '<div class="pal-ex__name">' + esc(e.name) + '</div>' +
+          // Inside a block the rest belongs to the pair, so it is not
+          // repeated here — saying "75s rest" under both halves reads as
+          // two rests.
           '<div class="pal-ex__meta">' + esc(e.muscle) + (e.equipment ? ' · ' + esc(e.equipment) : '') +
-          ' · ' + doneSets + '/' + e.sets.length + ' sets · ' + e.restSec + 's rest</div>' +
+          ' · ' + doneSets + '/' + e.sets.length + ' sets' +
+          (group ? '' : ' · ' + e.restSec + 's rest') + '</div>' +
         '</div>' +
         window.PalMusic.button({ scope: 'entry:' + e.id, trackId: e.trackId, label: e.name }) +
         (readOnly ? '' :
@@ -430,7 +466,8 @@
         (readOnly ? '' :
           '<div class="pal-row" style="margin-top:10px">' +
             '<button class="pal-btn pal-btn--sm" data-act="add-set" data-entry="' + esc(e.id) + '">＋ Set</button>' +
-            '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="rest-now" data-entry="' + esc(e.id) + '">Rest ' + e.restSec + 's</button>' +
+            (last ? '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="rest-now" data-entry="' +
+              esc(e.id) + '">Rest ' + rest + 's</button>' : '') +
             '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="entry-notes" data-entry="' + esc(e.id) + '">Notes &amp; media</button>' +
             '<button class="pal-btn pal-btn--sm pal-btn--danger" data-act="drop-entry" data-entry="' + esc(e.id) + '">Remove</button>' +
           '</div>') +
@@ -511,7 +548,8 @@
     var doneSets = e.sets.filter(function (s) { return s.done; }).length;
     if (meta) {
       meta.textContent = e.muscle + (e.equipment ? ' · ' + e.equipment : '') +
-        ' · ' + doneSets + '/' + e.sets.length + ' sets · ' + e.restSec + 's rest';
+        ' · ' + doneSets + '/' + e.sets.length + ' sets' +
+        (blockOf(e) ? '' : ' · ' + e.restSec + 's rest');
     }
     card.setAttribute('data-done', e.done ? 'true' : 'false');
   }
@@ -550,7 +588,7 @@
       // Completing the last set finishes the exercise on its own.
       if (e.sets.every(function (s) { return s.done; })) e.done = true;
       saveEntries();
-      startRest(e.restSec);
+      afterSet(e, e.sets.indexOf(st));
     } else {
       st.done = false;
       st.at = null;
@@ -562,6 +600,49 @@
     var entryBtn = logEl.querySelector('[data-act="entry-done"][data-entry="' + e.id + '"]');
     if (entryBtn) entryBtn.setAttribute('aria-pressed', e.done ? 'true' : 'false');
     refreshEntryMeta(e.id);
+  }
+
+  // ============================================================
+  // §WHEN A SET IS DONE, INSIDE A BLOCK
+  //
+  // Outside a block, finishing a set starts that exercise's rest. Inside
+  // one it must not: the next thing is the OTHER exercise's set of the
+  // same round, and the rest only begins once that round is finished.
+  //
+  // This is not cosmetic. A 75-second timer between A and B is the app
+  // telling you to do the opposite of what the routine says, and the
+  // routine's entire time saving is that the rest happens once.
+  //
+  // "The round is finished" is deliberately loose — it is finished when no
+  // OTHER exercise in the block still owes that round a set. So ticking B
+  // before A still rests at the right moment, and an added set on one half
+  // of a pair does not strand the timer.
+  // ============================================================
+  function blockOf(e) {
+    if (!e || !e.block) return null;
+    var g = session.entries.filter(function (x) { return (x.block || 0) === e.block; });
+    return g.length > 1 ? g : null;
+  }
+  function afterSet(e, round) {
+    var group = blockOf(e);
+    if (!group) { startRest(e.restSec); return; }
+    var next = null;
+    for (var i = 0; i < group.length && !next; i++) {
+      if (group[i].id === e.id) continue;
+      var st = group[i].sets[round];
+      if (st && !st.done) next = group[i];
+    }
+    if (!next) { startRest(P.blockRest(group)); return; }
+    // Scrolled to, never focused: focusing a number field mid-set opens
+    // the phone keyboard over the thing it just scrolled to.
+    U.toast('Straight into ' + next.name + ' — no rest yet');
+    var el = logEl.querySelector('[data-entry="' + next.id + '"]');
+    if (!el) return;
+    el.classList.add('is-next');
+    setTimeout(function () { el.classList.remove('is-next'); }, 1600);
+    var top = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0) - 90;
+    try { window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); }
+    catch (x) { window.scrollTo(0, Math.max(0, top)); }
   }
 
   function sheetEntryNotes(entryId) {
@@ -789,7 +870,8 @@
     'entry-notes': function (btn) { sheetEntryNotes(btn.getAttribute('data-entry')); },
     'rest-now': function (btn) {
       var e = findEntry(btn.getAttribute('data-entry'));
-      startRest(e ? e.restSec : 90);
+      var g = blockOf(e);
+      startRest(g ? P.blockRest(g) : (e ? e.restSec : 90));
     },
     'add-exercise': sheetAddExercise
   };
