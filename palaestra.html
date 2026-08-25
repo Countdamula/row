@@ -36,8 +36,16 @@
   "Import my programs" button, which reads their template keys and
   never writes back. See palaestra-data.js's header.
 
-  Routes live in the hash: #/ · #/steps · #/body · #/calendar ·
-  #/volume · #/templates · #/exercises · #/history · #/settings.
+  Routes live in the hash: #/ (the weekly schedule, and the landing
+  page) · #/templates · #/exercises · #/history, plus #/data — the
+  safety net, deliberately off the nav.
+
+  Today, Steps, Body, Volume and Settings were removed 2026-08-25. The
+  page is for training, and most of what they held was measurement.
+  Their records — pal:days, pal:body, pal:photos, pal:goals — are still
+  in storage and still synced; nothing reads them any more, which is a
+  different thing from deleting them.
+
   The live workout logger is its own page, palaestra-workout.html —
   it is the one screen used mid-set on a phone and it should not share
   a document that repaints on every cloud pull.
@@ -46,7 +54,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="palaestra-theme.css?v=3">
+<link rel="stylesheet" href="palaestra-theme.css?v=4">
 
 <!-- Not deferred, and before the page's own inline script: the inline
      script in <body> runs during parsing, which is BEFORE any deferred
@@ -75,32 +83,40 @@
 
 <style>
 /* Page-specific only — everything structural is in palaestra-theme.css. */
-.pal-today {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  gap: var(--pal-4);
-}
-@media (max-width: 900px) { .pal-today { grid-template-columns: 1fr; } }
 
-.pal-today__main { display: flex; flex-direction: column; gap: var(--pal-4); }
-.pal-today__side { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--pal-3); align-content: start; }
-
-.pal-score {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: var(--pal-4);
-  align-items: end;
+/* The week's count, above the seven rows. ONE figure: it is what the
+   streak band was actually for, and the rest of that band scored things
+   (steps, bodyweight) this page no longer tracks. */
+.pal-weekline {
+  display: flex; align-items: center; gap: var(--pal-3);
+  flex-wrap: wrap; margin: 0 0 var(--pal-4);
 }
-.pal-score__overall {
-  display: flex; flex-direction: column; gap: 6px;
-  padding-left: var(--pal-4);
-  border-left: 1px solid var(--pal-hair);
+.pal-weekline__txt {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--pal-ash);
 }
-@media (max-width: 719px) { .pal-score__overall { border-left: 0; padding-left: 0; } }
 
-.pal-bodybar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--pal-4); }
-.pal-spark { display: block; width: 100%; height: 34px; overflow: visible; }
+/* The Today card keeps roughly the column it had when the day's numbers
+   sat beside it. Full-bleed it runs its exercise list to 1200px and stops
+   being a list — and .pal-xcard__cover's 264px ceiling was measured for
+   this width, not for the whole page. */
+.pal-todaypanel { max-width: 760px; }
+
+/* The way back to the safety net..pal-schedfoot {
+  margin-top: var(--pal-6); padding-top: var(--pal-4);
+  border-top: 1px solid var(--pal-hair);
+}
+.pal-schedfoot a {
+  font-family: var(--pal-mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--pal-ash); text-decoration: none;
+  transition: color .2s var(--pal-ease);
+}
+.pal-schedfoot a:hover { color: var(--pal-sand-2); }
+.pal-schedfoot a:focus-visible {
+  outline: 2px solid var(--pal-bronze); outline-offset: 3px; border-radius: 2px;
+}
 </style>
+
 </head>
 
 <body class="pal">
@@ -130,26 +146,10 @@
   // three different headlines over one continuous world, and this is
   // how that reads here: the backdrop never changes, the words do.
   var ROUTES = [
-    { hash: '/', label: 'Today',
-      eyebrow: 'Today',
-      lines: ['Strength is', 'a habit,', 'not a mood'],
-      note: 'Whatever the plan says, the only version of it that counts is the one you actually did. Start there.' },
-    { hash: '/steps', label: 'Steps',
-      eyebrow: 'Ground covered',
-      lines: ['Every mile', 'was walked', 'one step'],
-      note: 'The least dramatic thing you do all day is the one that compounds hardest. Ten thousand of them.' },
-    { hash: '/body', label: 'Body',
-      eyebrow: 'The long arc',
-      lines: ['Proof', 'arrives', 'slowly'],
-      note: 'A week is noise. A season is a signal. Weigh in often, and read the line, not the point.' },
-    { hash: '/calendar', label: 'Schedule',
+    { hash: '/', label: 'Schedule',
       eyebrow: 'The plan',
       lines: ['Which', 'version', 'today?'],
       note: 'HIGH, MID or LOW — three real options, not one and two excuses. Rest days are part of the plan too: taking one keeps the streak, skipping a session breaks it.' },
-    { hash: '/volume', label: 'Volume',
-      eyebrow: 'The work itself',
-      lines: ['Load is', 'the whole', 'story'],
-      note: 'Sets per muscle, this week against last. More honest than how hard it felt at the time.' },
     { hash: '/templates', label: 'Workouts',
       eyebrow: 'Routines',
       lines: ['Decide once,', 'lift many', 'times'],
@@ -161,24 +161,33 @@
     { hash: '/history', label: 'History',
       eyebrow: 'Everything so far',
       lines: ['You have', 'already', 'done this'],
-      note: 'Every session you finished is still here, and so is every weight you have beaten.' },
-    { hash: '/settings', label: 'Settings',
-      eyebrow: 'Your terms',
-      lines: ['Your rules,', 'your', 'numbers'],
-      note: 'Goals, units and what gets tracked at all. Nothing here is scored against anybody else.' }
+      note: 'Every session you finished is still here, and so is every weight you have beaten.' }
   ];
 
-  // View state that belongs to the screen, not to storage: which week
-  // the scorecard is showing, which month the calendar is on.
-  var scoreWeek = null;
+  // #/data is a route but NOT a destination, so it is not in ROUTES: the
+  // tab bar and the hero rail are both built straight off that array, and
+  // the safety net belongs in neither. It is reached from one line at the
+  // foot of the schedule — which is where you look for it, after
+  // something has already gone wrong.
+  var DATA_SCENE = {
+    hash: '/data', label: 'Safety net',
+    eyebrow: 'Kept safe',
+    lines: ['Nothing', 'here is', 'lost'],
+    note: 'Snapshots of every routine and every session, held on this device outside everything the cloud can reach. Taken whether or not you ever open this page.'
+  };
+
+  // View state that belongs to the screen, not to storage: which week the
+  // schedule is showing, and the library's muscle filter.
   var schedWeek = 0;
-  var exMuscle = 'All';        // the exercise library's muscle filter
-  var volWindow = 'week';
+  var exMuscle = 'All';
 
   function esc(s) { return P.escapeHtml(s); }
   function route() {
     var h = location.hash.replace(/^#/, '');
     if (!h) return '/';
+    if (h === DATA_SCENE.hash) return h;
+    // Anything else falls through to the schedule rather than an empty
+    // page — which is what a bookmarked #/steps or #/settings now is.
     return ROUTES.some(function (r) { return r.hash === h; }) ? h : '/';
   }
   function go(hash) { location.hash = '#' + hash; }
@@ -201,68 +210,29 @@
   var shownRoute = null;
 
   // ============================================================
-  // §PHONE NAV — four fixed slots and a More sheet.
+  // §PHONE NAV — four destinations, four slots, no overflow menu.
   //
-  // Nine destinations were a horizontally-scrolling bottom bar under
-  // 719px. A scrolling nav is a nav with a hidden half: the four routes
-  // past the right edge were unreachable without knowing they were there,
-  // and the scroll gesture competes with the page's own.
+  // There were nine, in a horizontally-scrolling bottom bar under 719px,
+  // with five of them past the right edge: a nav with a hidden half. Four
+  // fit 320px without scrolling anything, so More is gone and every route
+  // is reachable at every width.
   //
-  // So on a phone the bar carries the four routes actually opened during a
-  // session, plus More, and every slot is visible at 320px without
-  // scrolling anything. The desktop bar is untouched — it wraps, it has
-  // the room, and hiding six destinations behind a menu there would be a
-  // loss.
-  //
-  // PRIMARY is deliberately not "the first four in ROUTES": Today, the
-  // schedule, the routines and the library are what the phone is opened
-  // for. Steps, Body, Volume, History and Settings are read at a desk.
+  // Every route is in the DOM at every width and CSS does the laying out
+  // — a script rebuilding the bar on resize can leave it wrong after a
+  // rotation.
   // ============================================================
-  var PRIMARY = ['/', '/calendar', '/templates', '/exercises'];
-  function isPrimary(hash) { return PRIMARY.indexOf(hash) !== -1; }
-  function routeLabel(hash) {
-    for (var i = 0; i < ROUTES.length; i++) if (ROUTES[i].hash === hash) return ROUTES[i].label;
-    return 'More';
-  }
-  // The More button has to say where you are when you are inside it —
-  // otherwise the whole bar reads as "nowhere" on five of nine routes.
-  function syncMore(r) {
-    var more = routesEl.querySelector('[data-more]');
-    if (!more) return;
-    var inMore = !isPrimary(r);
-    more.setAttribute('aria-current', inMore ? 'true' : 'false');
-    more.querySelector('.pal-route__txt').textContent = inMore ? routeLabel(r) : 'More';
-  }
-  function sheetMore() {
-    var cur = route();
-    U.openSheet({
-      title: 'Go to',
-      body: '<div class="pal-quickgrid">' + ROUTES.filter(function (r) { return !isPrimary(r.hash); })
-        .map(function (r) {
-          return '<button class="pal-quickbtn" data-sheet-act="go:' + esc(r.hash) + '"' +
-            (r.hash === cur ? ' aria-current="true"' : '') + '>' + esc(r.label) +
-            '<br><span class="pal-sub">' + esc(r.eyebrow) + '</span></button>';
-        }).join('') + '</div>',
-      actions: [{ label: 'Close', act: 'cancel' }],
-      onAction: function (act) {
-        if (act.indexOf('go:') !== 0) return;
-        U.closeSheet();
-        go(act.slice(3));
-      }
-    });
-  }
 
   function render() {
     var r = route();
     Array.prototype.forEach.call(routesEl.children, function (b) {
       b.setAttribute('aria-current', b.getAttribute('data-route') === r ? 'true' : 'false');
     });
-    syncMore(r);
     if (window.PalHero) {
       if (shownRoute !== r) {
-        var i = 0;
-        for (var k = 0; k < ROUTES.length; k++) if (ROUTES[k].hash === r) i = k;
-        var meta = ROUTES[i];
+        // index -1 on #/data: the rail marks nothing current, because the
+        // rail does not contain it.
+        var meta = DATA_SCENE, i = -1;
+        for (var k = 0; k < ROUTES.length; k++) if (ROUTES[k].hash === r) { i = k; meta = ROUTES[k]; }
         window.PalHero.setScene({
           eyebrow: meta.eyebrow, lines: meta.lines, note: meta.note, index: i
         });
@@ -271,15 +241,11 @@
       updateBadge();
     }
     var view =
-      r === '/steps'     ? viewSteps()
-    : r === '/body'      ? viewBody()
-    : r === '/calendar'  ? viewCalendar()
-    : r === '/volume'    ? viewVolume()
-    : r === '/templates' ? viewTemplates()
+      r === '/templates' ? viewTemplates()
     : r === '/exercises' ? viewExercises()
     : r === '/history'   ? viewHistory()
-    : r === '/settings'  ? viewSettings()
-    :                      viewToday();
+    : r === '/data'      ? viewData()
+    :                      viewSchedule();
     root.innerHTML = view;
     afterRender(r);
   }
@@ -332,8 +298,7 @@
 
   // Anything that needs a real element after innerHTML lands.
   function afterRender(r) {
-    if (r === '/settings') wireSettings();
-    if (r === '/') wireTodayNotes();
+    if (r === '/data') wireSettings();
     // A route changes the page's height, and so where the ribbon sits
     // in it — which is what the second parallax transition is measured
     // against. Re-measuring here is measuring, not animating: it does
@@ -344,41 +309,6 @@
   // ============================================================
   // SHARED FRAGMENTS
   // ============================================================
-  // The Week Bar. One device carrying three true things: fill height is
-  // the day's training volume against the week's best day, hue is the
-  // lane, and an outline-only column is scheduled-but-not-done. The rule
-  // underneath is that day's steps against goal — without it a week of
-  // walking and no lifting draws as seven empty boxes, which is not what
-  // that week was.
-  function weekBarHtml(weekStart) {
-    var goal = P.getSettings().stepGoal;
-    var wb = P.weekBar(weekStart);
-    return '<div class="pal-week" role="group" aria-label="This week">' + wb.cells.map(function (c) {
-      var title = c.name || (c.status === 'rest' ? 'Rest' : '');
-      var stepPct = goal ? Math.min(1, c.steps / goal) : 0;
-      var read = c.short + ' — ' + (title || 'nothing scheduled') +
-                 (c.sets ? ', ' + c.sets + ' sets' : '') +
-                 (c.steps ? ', ' + P.fmtInt(c.steps) + ' steps' : '');
-      return '<button class="pal-weekcell" data-lane="' + esc(c.lane) + '" data-status="' + esc(c.status) + '"' +
-             ' data-today="' + (c.isToday ? 'true' : 'false') + '" data-act="open-day" data-date="' + esc(c.date) + '"' +
-             ' aria-label="' + esc(read) + '">' +
-               '<span class="pal-weekcell__col">' +
-                 '<span class="pal-weekcell__fill" style="--fill:' + c.fill + '"></span>' +
-               '</span>' +
-               '<span class="pal-weekcell__steps"><span style="--steps:' + stepPct + '"></span></span>' +
-               '<span class="pal-weekcell__label"><span>' + esc(c.short) + '</span>' +
-                 (c.sets ? '<span class="pal-weekcell__sets">' + c.sets + '</span>' : '') + '</span>' +
-               '<span class="pal-weekcell__name">' + esc(title) + '</span>' +
-             '</button>';
-    }).join('') + '</div>';
-  }
-  function laneKeyHtml() {
-    var keys = [['strength', 'Strength'], ['cardio', 'Cardio'], ['mobility', 'Mobility'], ['rest', 'Rest']];
-    return '<div class="pal-lanekey">' + keys.map(function (k) {
-      return '<span class="pal-lanekey__item" data-lane="' + k[0] + '"><span class="pal-lanekey__dot"></span>' + k[1] + '</span>';
-    }).join('') + '<span class="pal-lanekey__item"><span class="pal-lanekey__dot" style="background:transparent;box-shadow:inset 0 0 0 1px var(--pal-ash)"></span>Planned</span>' +
-    '</div>';
-  }
   // The duration estimate is sets × (work + rest). Meaningful for lifting,
   // meaningless for a treadmill walk where the whole session is one "set" —
   // it read "2 min est." for a 45-minute Zone 2. A cardio card shows no
@@ -409,12 +339,6 @@
       '<span class="pal-xcard__val">' + esc(val) + '</span>' +
       '<span class="pal-xcard__key">' + esc(key) + '</span>' +
     '</span>';
-  }
-  function xmeta(bits) {
-    var live = bits.filter(function (b) { return b; });
-    if (!live.length) return '';
-    return '<p class="pal-xcard__meta">' +
-      live.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</p>';
   }
 
   // ============================================================
@@ -535,19 +459,40 @@
   }
 
   // ============================================================
-  // TODAY
+  // §SCHEDULE VIEW — the Weekly Workout Schedule, and the landing page.
+  //
+  // It answers the question the page is opened with: what am I doing
+  // today, at which effort, and can I start it from here. Today gets a
+  // panel of its own above the seven rows; the other six days are rows.
+  //
+  // Nothing on this page is stored. Every row is read back out of the
+  // routines themselves through P.getSchedule() — set a routine's days in
+  // Workouts and it appears here, rename it and it renames here. The only
+  // thing written is the level chosen for a date, in pal:levels.
   // ============================================================
-  function viewToday() {
+
+  // ============================================================
+  // §THE TODAY PANEL
+  //
+  // What the Today page was for, on the page you now land on. Only the
+  // half that starts a workout made the move: the steps, water,
+  // bodyweight and macro tiles beside it are gone with the screens that
+  // read them, and so are the streak band and the weekly scorecard —
+  // half of what they scored no longer exists.
+  //
+  // What is left is one figure (the week's count) and one card. Every
+  // shape in it already existed: workoutCard() brings its own Start, Edit
+  // and music button, so this panel and the same routine's card in
+  // Workouts can never drift apart.
+  // ============================================================
+  function todayPanel() {
     var t = P.today();
     var s = P.getSettings();
     var live = P.getLive();
     var liveSes = live ? P.Sessions.get(live.sessionId) : null;
     var planned = P.plannedFor(t);
     var doneToday = P.sessionsOn(t);
-    var day = P.getDay(t);
-    var bp = P.bodyProgress();
 
-    // --- the workout card -------------------------------------------
     var card;
     if (liveSes) {
       var remaining = liveSes.entries.filter(function (e) { return !e.done; }).length;
@@ -584,7 +529,7 @@
     } else {
       card = '<div class="pal-card">' +
         '<p class="pal-eyebrow">Today</p><h3 class="pal-h2">Nothing scheduled</h3>' +
-        '<p class="pal-lede" style="margin:12px 0 18px">Set a weekly plan and this card fills itself in every morning.</p>' +
+        '<p class="pal-lede" style="margin:12px 0 18px">Give a routine some days in Workouts and this card fills itself in every morning.</p>' +
         '<div class="pal-row">' +
           '<button class="pal-btn pal-btn--primary" data-act="start-free">▶ Start a workout</button>' +
           '<button class="pal-btn" data-act="go-templates">Build the week</button>' +
@@ -604,277 +549,21 @@
         }).join('') + '</ul></div>';
     }
 
-    // --- the day's numbers ------------------------------------------
-    var stepPct = s.stepGoal ? day.steps / s.stepGoal : 0;
-    var waterPct = s.waterGoalMl ? day.water / s.waterGoalMl : 0;
-    // The goal lives on the note line, never inside the figure: a unit
-    // long enough to wrap ("of 3,000 ml") breaks the number's baseline
-    // and the tile stops reading as one thing.
-    var side =
-      '<div class="pal-tile">' +
-        '<div class="pal-tile__label">Steps</div>' +
-        U.fig(P.fmtInt(day.steps), 'steps', 'md') +
-        U.meter(stepPct) +
-        '<div class="pal-tile__note">of ' + P.fmtInt(s.stepGoal) + ' · ' + Math.round(stepPct * 100) + '%</div>' +
-        '<div class="pal-row" style="margin-top:4px">' +
-          '<button class="pal-btn pal-btn--sm" data-act="steps-set">Set</button>' +
-          '<button class="pal-btn pal-btn--sm" data-act="steps-add" data-n="1000">+1k</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="pal-tile">' +
-        '<div class="pal-tile__label">Water</div>' +
-        U.fig(P.fmtInt(day.water), 'ml', 'md') +
-        U.meter(waterPct) +
-        '<div class="pal-tile__note">of ' + P.fmtInt(s.waterGoalMl) + ' ml</div>' +
-        '<div class="pal-row" style="margin-top:4px">' +
-          '<button class="pal-btn pal-btn--sm" data-act="water-add" data-n="250">+250</button>' +
-          '<button class="pal-btn pal-btn--sm" data-act="water-add" data-n="500">+500</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="pal-tile">' +
-        '<div class="pal-tile__label">Bodyweight</div>' +
-        U.fig(bp.current ? P.fmtWeight(bp.current) : '—', s.weightUnit, 'md') +
-        '<div class="pal-tile__note">' + (bp.asOf ? 'as of ' + esc(P.prettyDate(bp.asOf)) : 'not logged yet') + '</div>' +
-        '<button class="pal-btn pal-btn--sm" data-act="weigh-in" style="margin-top:4px">Weigh in</button>' +
-      '</div>' +
-      (s.trackMacros
-        ? '<div class="pal-tile">' +
-            '<div class="pal-tile__label">Calories</div>' +
-            U.fig(P.fmtInt(day.kcal), 'kcal', 'md') +
-            U.meter(s.kcalGoal ? day.kcal / s.kcalGoal : 0) +
-            '<div class="pal-tile__note">' + (s.kcalGoal ? 'of ' + P.fmtInt(s.kcalGoal) + ' · ' : '') +
-              'P ' + P.fmtInt(day.protein) + ' · C ' + P.fmtInt(day.carbs) + ' · F ' + P.fmtInt(day.fat) + '</div>' +
-            '<button class="pal-btn pal-btn--sm" data-act="macros-edit" style="margin-top:4px">Log food</button>' +
-          '</div>'
-        : '');
-
-    // --- streaks ------------------------------------------------------
+    // The one number the streak band was for. A workout streak tops out at
+    // 2 for anyone training four days a week, so the honest weekly figure
+    // is the one worth keeping.
     var st = P.streaks();
-    var streakBand = band('Consistency',
-      '<div class="pal-card">' +
-        '<div class="pal-row" style="gap:12px;align-items:baseline;margin-bottom:6px">' +
-          '<span style="font-size:26px">🔥</span>' +
-          U.fig(st.weekDone + ' / ' + st.weekGoal, 'workouts this week', 'lg') +
-        '</div>' +
-        U.pips(st.weekDone, st.weekGoal) +
-        '<div class="pal-grid pal-grid--4" style="margin-top:22px">' +
-          U.tile('Workout streak', U.fig(st.workout, 'days', 'sm'), 'days you did what the plan said') +
-          U.tile('Step streak', U.fig(st.steps, 'days', 'sm'), P.fmtInt(s.stepGoal) + '+ a day') +
-          U.tile('Cardio streak', U.fig(st.cardio, 'weeks', 'sm'), s.weeklyCardioGoal + ' sessions a week') +
-          U.tile('This month', U.fig(st.monthDone, 'workouts', 'sm'), '') +
-          U.tile('PR streak', U.fig(st.pr, 'weeks', 'sm'), 'weeks with a new best') +
-        '</div>' +
-      '</div>');
+    var count = '<div class="pal-weekline">' + U.pips(st.weekDone, st.weekGoal) +
+      '<span class="pal-weekline__txt">' + st.weekDone + ' of ' + st.weekGoal + ' this week</span></div>';
 
-    // --- scorecard ----------------------------------------------------
-    var sc = P.scorecard(scoreWeek || t);
-    var scoreBand = band('Weekly scorecard',
-      '<div class="pal-card">' + scorecardHtml(sc) + '</div>',
-      '<div class="pal-row">' +
-        '<button class="pal-btn pal-btn--sm" data-act="week-step" data-n="-1" aria-label="Previous week">←</button>' +
-        '<span class="pal-mono" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pal-ash)">' +
-          esc(P.prettyDate(sc.weekStart)) + ' – ' + esc(P.prettyDate(sc.weekEnd)) + '</span>' +
-        '<button class="pal-btn pal-btn--sm" data-act="week-step" data-n="1" aria-label="Next week"' +
-          (sc.isCurrent ? ' disabled' : '') + '>→</button>' +
-      '</div>');
-
-    // --- notes --------------------------------------------------------
-    var todayNote = P.Notes.list().filter(function (n) { return n.date === t; })[0];
-    var notesBand = band('Training note',
-      '<div class="pal-card">' +
-        '<textarea class="pal-textarea" id="palTodayNote" placeholder="How did it feel? What is worth remembering about today?">' +
-        esc(todayNote ? todayNote.body : '') + '</textarea>' +
-      '</div>');
-
-    return '' +
-      '<section class="pal-band" style="border-top:0">' +
-        '<div class="pal-band__head">' +
-          '<h2 class="pal-h2">This week</h2>' + laneKeyHtml() +
-        '</div>' +
-        weekBarHtml(t) +
-      '</section>' +
-      '<section class="pal-band">' +
-        '<div class="pal-today">' +
-          '<div class="pal-today__main">' + card + '</div>' +
-          '<div class="pal-today__side">' + side + '</div>' +
-        '</div>' +
-      '</section>' +
-      streakBand + scoreBand + notesBand;
-  }
-
-  function scorecardHtml(sc) {
-    var s = P.getSettings();
-    var wDelta = sc.weight.delta;
-    var deltaClass = wDelta === 0 ? 'flat'
-      : ((s.goalWeight && s.goalWeight < s.startWeight) ? (wDelta < 0 ? 'up' : 'down') : (wDelta > 0 ? 'up' : 'down'));
-    return '<div class="pal-score">' +
-      U.tile('Training', U.fig(sc.training.done + ' / ' + sc.training.goal, 'workouts', 'sm'), '') +
-      U.tile('Steps', U.fig(P.fmtInt(sc.steps.total), 'of ' + P.fmtInt(sc.steps.goal), 'sm'), '') +
-      U.tile('Cardio', U.fig(sc.cardio.done + ' / ' + sc.cardio.goal, 'sessions', 'sm'), '') +
-      U.tile('Bodyweight',
-        '<span class="pal-fig pal-fig--sm">' +
-          (sc.weight.from ? esc(P.fmtWeight(sc.weight.from)) + ' → ' + esc(P.fmtWeight(sc.weight.to)) : '—') +
-          '<span class="pal-fig__unit">' + esc(sc.weight.unit) + '</span></span>',
-        wDelta ? (wDelta > 0 ? '+' : '') + P.fmtWeight(wDelta) : 'no change') +
-      U.tile('Strength PRs', U.fig(sc.prs, sc.prs === 1 ? 'best' : 'bests', 'sm'), '') +
-      '<div class="pal-score__overall">' +
-        '<div class="pal-tile__label">Overall</div>' +
-        U.fig(sc.overall + '%', '', 'lg') +
-        U.meter(sc.overall / 100) +
+    return '<section class="pal-band" style="border-top:0">' +
+      '<div class="pal-band__head">' +
+        '<h2 class="pal-h2">Today</h2>' + count +
       '</div>' +
-    '</div>' +
-    '<p class="pal-sub pal-delta--' + deltaClass + '" style="margin-top:14px;color:var(--pal-ash)">' +
-    'Training, steps and cardio against their goals, averaged. ' +
-    'PRs and bodyweight are reported, not scored — a week without a PR is not a failed week.</p>';
+      '<div class="pal-todaypanel">' + card + '</div>' +
+    '</section>';
   }
 
-  function wireTodayNotes() {
-    var el = document.getElementById('palTodayNote');
-    if (!el) return;
-    var t = P.today();
-    P.autosave(el, function (val) {
-      var existing = P.Notes.list().filter(function (n) { return n.date === t; })[0];
-      // A day with no words gets no record — otherwise paging back
-      // through a year writes a year of blank rows.
-      if (!String(val).trim()) { if (existing) P.Notes.remove(existing.id); return; }
-      if (existing) P.Notes.update(existing.id, { body: val });
-      else P.Notes.add({ date: t, body: val });
-    }, 400);
-  }
-
-  // ============================================================
-  // STEPS
-  // ============================================================
-  function viewSteps() {
-    var s = P.getSettings();
-    var st = P.stepStats();
-    var pct = s.stepGoal ? st.today / s.stepGoal : 0;
-
-    return band('Steps',
-      '<div class="pal-card" style="margin-bottom:16px">' +
-        U.fig(P.fmtInt(st.today), 'of ' + P.fmtInt(st.goal), 'xl') +
-        '<div style="margin:18px 0 10px">' + U.meter(pct) + '</div>' +
-        '<p class="pal-sub">' + Math.round(pct * 100) + '% of today\'s goal</p>' +
-        '<div class="pal-row" style="margin-top:16px">' +
-          '<button class="pal-btn pal-btn--primary" data-act="steps-set">Set today\'s count</button>' +
-          '<button class="pal-btn" data-act="steps-add" data-n="1000">+1,000</button>' +
-          '<button class="pal-btn" data-act="steps-add" data-n="2500">+2,500</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="pal-grid pal-grid--4" style="margin-bottom:24px">' +
-        U.tile('7-day average', U.fig(P.fmtInt(st.avg7), 'a day', 'sm'), '') +
-        U.tile('30-day average', U.fig(P.fmtInt(st.avg30), 'a day', 'sm'), '') +
-        U.tile('Highest day', U.fig(P.fmtInt(st.best.steps), '', 'sm'), st.best.steps ? P.prettyDate(st.best.date) : 'nothing logged yet') +
-        U.tile('Current streak', U.fig(st.streak, 'days', 'sm'), 'at or above goal') +
-      '</div>' +
-      '<div class="pal-card">' +
-        '<div class="pal-card__head"><h3 class="pal-h3">The last year</h3>' +
-          '<span class="pal-sub">darker = more</span></div>' +
-        heatmapHtml(st) +
-      '</div>',
-      '<button class="pal-btn pal-btn--sm" data-act="steps-history">Edit another day</button>');
-  }
-
-  function heatmapHtml(st) {
-    var s = P.getSettings();
-    var rows = st.rows;
-    // Pad the front so every column is a full Monday-first week.
-    var lead = (P.parseISO(rows[0].date).getDay() + 6) % 7;
-    var cells = [];
-    for (var i = 0; i < lead; i++) cells.push(null);
-    cells = cells.concat(rows);
-
-    var weeks = [], w = [];
-    cells.forEach(function (c) {
-      w.push(c);
-      if (w.length === 7) { weeks.push(w); w = []; }
-    });
-    if (w.length) { while (w.length < 7) w.push(null); weeks.push(w); }
-
-    return '<div class="pal-heat">' + weeks.map(function (wk) {
-      return '<div class="pal-heat__week">' + wk.map(function (c) {
-        if (!c) return '<span class="pal-heat__cell" style="visibility:hidden"></span>';
-        var ratio = s.stepGoal ? c.steps / s.stepGoal : 0;
-        var level = c.steps === 0 ? 0 : ratio >= 1 ? 4 : ratio >= .7 ? 3 : ratio >= .4 ? 2 : 1;
-        return '<span class="pal-heat__cell" data-level="' + level + '" title="' +
-               esc(P.prettyDate(c.date) + ' — ' + P.fmtInt(c.steps) + ' steps') + '"></span>';
-      }).join('') + '</div>';
-    }).join('') + '</div>';
-  }
-
-  // ============================================================
-  // BODY
-  // ============================================================
-  function viewBody() {
-    var s = P.getSettings();
-    var bp = P.bodyProgress();
-    var log = P.bodySorted().slice().reverse();
-
-    var head = '<div class="pal-card" style="margin-bottom:16px">' +
-      '<div class="pal-bodybar">' +
-        U.tile('Current', U.fig(bp.current ? P.fmtWeight(bp.current) : '—', s.weightUnit, 'lg'), bp.asOf ? P.prettyDate(bp.asOf) : '') +
-        U.tile('Starting', U.fig(bp.start ? P.fmtWeight(bp.start) : '—', s.weightUnit, 'lg'), '') +
-        U.tile('Goal', U.fig(bp.goal ? P.fmtWeight(bp.goal) : '—', s.weightUnit, 'lg'), '') +
-        U.tile('Progress', U.fig(P.fmtWeight(bp.moved) + ' / ' + P.fmtWeight(bp.target), s.weightUnit + ' ' + bp.direction, 'lg'), '') +
-      '</div>' +
-      '<div style="margin-top:20px">' + U.meter(bp.pct / 100) + '</div>' +
-      '<p class="pal-sub" style="margin-top:8px">' + bp.pct + '% of the way there' +
-        (bp.goal ? '' : ' — set a goal weight in Settings to fill this in') + '</p>' +
-    '</div>';
-
-    var measures = '';
-    if (log.length) {
-      measures = '<div class="pal-card" style="margin-bottom:16px"><div class="pal-card__head">' +
-        '<h3 class="pal-h3">Measurements</h3><span class="pal-sub">latest first</span></div>' +
-        '<div class="pal-tablewrap"><table class="pal-table"><thead><tr><th>Date</th>' +
-        P.MEASURE_FIELDS.map(function (f) { return '<th>' + esc(f.label) + '</th>'; }).join('') +
-        '<th></th></tr></thead><tbody>' +
-        log.map(function (b) {
-          return '<tr>' +
-            '<td>' + esc(P.prettyDate(b.date)) + '</td>' +
-            P.MEASURE_FIELDS.map(function (f) {
-              return '<td class="pal-num">' + (b[f.key] ? P.fmtWeight(b[f.key]) : '·') + '</td>';
-            }).join('') +
-            '<td class="pal-num"><button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-body" data-id="' + esc(b.id) + '">Edit</button></td>' +
-          '</tr>';
-        }).join('') +
-        '</tbody></table></div></div>';
-    } else {
-      measures = U.empty('No measurements yet',
-        'One weigh-in is enough to start the bar moving.', 'Log measurements', 'log-body');
-    }
-
-    var photos = P.bodySorted().filter(function (b) { return b.photos.length; }).reverse();
-    var photoBlock = photos.length
-      ? '<div class="pal-card"><div class="pal-card__head"><h3 class="pal-h3">Progress photos</h3></div>' +
-        photos.map(function (b) {
-          return '<div style="margin-bottom:18px">' +
-            '<div class="pal-listrow__meta" style="margin-bottom:8px">' + esc(P.prettyLong(b.date)) +
-            (b.weight ? ' · ' + P.fmtWeight(b.weight) + ' ' + esc(s.weightUnit) : '') + '</div>' +
-            U.mediaStrip(b.photos) + '</div>';
-        }).join('') + '</div>'
-      : '';
-
-    return band('Body progress', head + measures + photoBlock,
-      '<button class="pal-btn pal-btn--sm pal-btn--primary" data-act="log-body">＋ Log measurements</button>');
-  }
-
-  // ============================================================
-  // CALENDAR
-  // ============================================================
-  // ============================================================
-  // §SCHEDULE VIEW — the Weekly Workout Schedule.
-  //
-  // Replaces the month grid that used to live here. A month of coloured
-  // squares answered "what did I do", which History and the Week Bar already
-  // answer; it never answered "what am I doing on Thursday", which is the
-  // question this page is opened with.
-  //
-  // Nothing on this page is stored. Every row is read back out of the
-  // routines themselves through P.getSchedule() — set a routine's days in
-  // Workouts and it appears here, rename it and it renames here. The only
-  // thing written is the level chosen for a date, in pal:levels.
-  // ============================================================
   function levelPicker(dateStr, chosen, explicit) {
     return '<div class="pal-levels" role="group" aria-label="Effort level for ' + esc(P.prettyLong(dateStr)) + '">' +
       P.LEVELS.map(function (l) {
@@ -915,9 +604,13 @@
       body = '<p class="pal-schedrow__name">' + esc(tpl.name) + '</p>' +
         '<p class="pal-schedrow__meta">' + entries.length + ' exercise' + (entries.length === 1 ? '' : 's') +
           ' · ~' + P.estimatedDuration(entries) + ' min' +
+          (isToday ? ' · listed in full above' : '') +
           (exact ? '' : ' · nothing written for ' + esc(P.levelInfo(chosen).label) + ' yet, so this stands in') +
         '</p>' +
-        (entries.length
+        // Today's panel already prints this routine's exercises directly
+        // above, and printing them a second time here made the two halves
+        // of one screen say the same thing at the same length.
+        (entries.length && !isToday
           ? '<ul class="pal-schedrow__list">' + entries.slice(0, 8).map(function (e) {
               return '<li><span>' + esc(e.name) + '</span><span class="pal-schedrow__reps">' +
                 e.sets.length + ' \u00d7 ' + esc(e.targetReps || '\u2014') + '</span></li>';
@@ -930,17 +623,28 @@
         '<p class="pal-schedrow__meta">Give a routine this day in Workouts and it appears here.</p>';
     }
 
-    var actions = '';
-    if (isToday && !done.length && tpl && !isRest) {
-      actions = '<button class="pal-btn pal-btn--primary pal-btn--sm" data-act="start-template" data-id="' +
-        esc(tpl.id) + '" data-level="' + esc(chosen) + '">Start</button>';
-    } else if (tpl) {
-      actions = '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-template" data-id="' +
-        esc(tpl.id) + '">Edit</button>';
-    } else {
-      actions = '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="new-template" data-day="' +
-        esc(dayKey) + '">Add one</button>';
+    // Start is offered on ANY day that has a routine and nothing logged,
+    // not only today's row. P.startWorkout() always dates the session
+    // P.today(), which is the honest behaviour: starting Thursday's
+    // routine on a Tuesday records a workout done on Tuesday. Today's
+    // button is the primary one and the other six are quiet, so the page
+    // still says plainly which day it is.
+    var acts = [];
+    if (tpl && !isRest && !done.length) {
+      acts.push('<button class="pal-btn pal-btn--sm' + (isToday ? ' pal-btn--primary' : '') +
+        '" data-act="start-template" data-id="' + esc(tpl.id) + '" data-level="' + esc(chosen) + '">' +
+        (isToday ? '▶ Start' : 'Start') + '</button>');
     }
+    if (done.length) {
+      acts.push('<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="open-session" data-id="' +
+        esc(done[0].id) + '">Open</button>');
+    }
+    acts.push(tpl
+      ? '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="edit-template" data-id="' +
+        esc(tpl.id) + '">Edit</button>'
+      : '<button class="pal-btn pal-btn--sm pal-btn--ghost" data-act="new-template" data-day="' +
+        esc(dayKey) + '">Add one</button>');
+    var actions = '<div class="pal-row">' + acts.join('') + '</div>';
 
     // Which levels this day actually has something written for. A dot the
     // reader can see is worth more than discovering it on the day.
@@ -963,7 +667,7 @@
     '</li>';
   }
 
-  function viewCalendar() {
+  function viewSchedule() {
     var start = P.addDays(P.mondayOf(P.today()), schedWeek * 7);
     var rows = P.WEEKDAYS.map(function (w, i) {
       return scheduleRow(P.addDays(start, i), w.key, w.short);
@@ -989,98 +693,22 @@
       : (schedWeek === 1 ? 'Next week'
       : (schedWeek === -1 ? 'Last week' : P.prettyDate(start)));
 
-    return band('Weekly schedule',
+    // The only way to #/data, and it says how many snapshots are behind it
+    // — an assurance is worth nothing if you cannot see it is true.
+    var st = window.PalBackup ? window.PalBackup.stats() : null;
+    var foot = '<div class="pal-schedfoot"><a href="#/data">Safety net' +
+      (st ? ' \u00b7 ' + st.count + ' snapshot' + (st.count === 1 ? '' : 's') : '') +
+      '</a></div>';
+
+    return todayPanel() + band('The week',
       '<ul class="pal-schedlist">' + rows + '</ul>' +
-      '<div class="pal-card" style="margin-top:24px"><h3 class="pal-h3" style="margin-bottom:14px">Choosing a level</h3>' + key + '</div>',
+      '<div class="pal-card" style="margin-top:24px"><h3 class="pal-h3" style="margin-bottom:14px">Choosing a level</h3>' + key + '</div>' +
+      foot,
       '<div class="pal-row">' +
         '<button class="pal-btn pal-btn--sm" data-act="sched-step" data-n="-1" aria-label="Previous week">\u2190</button>' +
         '<button class="pal-btn pal-btn--sm" data-act="sched-today">' + esc(label) + '</button>' +
         '<button class="pal-btn pal-btn--sm" data-act="sched-step" data-n="1" aria-label="Next week">\u2192</button>' +
       '</div>');
-  }
-
-  // ============================================================
-  // VOLUME
-  // ============================================================
-  function viewVolume() {
-    var s = P.getSettings();
-    var wkStart = P.mondayOf(P.today());
-    var rows, headLabel, cmpLabel;
-    if (volWindow === 'month') {
-      var from = P.addDays(P.today(), -27), mid = P.addDays(P.today(), -55);
-      var a = P.volumeByMuscle(from, P.today());
-      var b = P.volumeByMuscle(mid, P.addDays(from, -1));
-      rows = P.MUSCLES.map(function (m) {
-        return { muscle: m, thisWeek: a[m].sets, lastWeek: b[m].sets, thisVolume: a[m].volume, lastVolume: b[m].volume };
-      }).filter(function (r) { return r.thisWeek || r.lastWeek; });
-      headLabel = 'Last 28 days'; cmpLabel = 'Previous 28';
-    } else {
-      rows = P.volumeComparison(wkStart);
-      headLabel = 'This week'; cmpLabel = 'Last week';
-    }
-
-    if (!rows.length) {
-      return band('Training volume',
-        U.empty('Nothing logged yet',
-          'Volume is counted from completed sets, so it fills in as you log workouts.',
-          'Start a workout', 'start-free'),
-        windowToggle());
-    }
-
-    var peak = Math.max.apply(null, rows.map(function (r) { return Math.max(r.thisWeek, r.lastWeek); }).concat([1]));
-    var totalThis = rows.reduce(function (a, r) { return a + r.thisWeek; }, 0);
-    var totalLast = rows.reduce(function (a, r) { return a + r.lastWeek; }, 0);
-
-    var table = '<div class="pal-card"><div class="pal-tablewrap"><table class="pal-table">' +
-      '<thead><tr><th>Muscle</th><th>' + esc(headLabel) + '</th><th>' + esc(cmpLabel) + '</th><th>Change</th><th>Load</th></tr></thead><tbody>' +
-      rows.map(function (r) {
-        var d = r.thisWeek - r.lastWeek;
-        var cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
-        return '<tr>' +
-          '<td>' + esc(r.muscle) + '</td>' +
-          '<td class="pal-num">' + r.thisWeek + ' sets</td>' +
-          '<td class="pal-num">' + r.lastWeek + '</td>' +
-          '<td class="pal-num pal-delta--' + cls + '">' + (d > 0 ? '+' : '') + d + '</td>' +
-          '<td class="pal-num">' + P.fmtInt(r.thisVolume) + ' ' + esc(s.weightUnit) + '</td>' +
-        '</tr>';
-      }).join('') +
-      '<tr><td><strong>All</strong></td><td class="pal-num"><strong>' + totalThis + ' sets</strong></td>' +
-      '<td class="pal-num">' + totalLast + '</td>' +
-      '<td class="pal-num pal-delta--' + (totalThis - totalLast > 0 ? 'up' : totalThis - totalLast < 0 ? 'down' : 'flat') + '">' +
-      (totalThis - totalLast > 0 ? '+' : '') + (totalThis - totalLast) + '</td><td></td></tr>' +
-      '</tbody></table></div>' +
-      (volWindow === 'week'
-        // Comparing a Thursday against a finished week always reads as a
-        // drop. Say so, rather than letting the red numbers imply a
-        // problem that is really just the calendar.
-        ? '<p class="pal-sub" style="margin-top:12px">This week is still open — it is being compared with a finished one, ' +
-          'so the change column runs negative until the week catches up.</p>'
-        : '') +
-      '</div>';
-
-    var bars = '<div class="pal-card" style="margin-top:16px">' +
-      '<div class="pal-card__head"><h3 class="pal-h3">Sets by muscle</h3>' +
-      '<span class="pal-sub">bar = ' + esc(headLabel.toLowerCase()) + ', line = ' + esc(cmpLabel.toLowerCase()) + '</span></div>' +
-      rows.map(function (r) {
-        return '<div style="margin-bottom:14px">' +
-          '<div class="pal-row" style="justify-content:space-between;margin-bottom:5px">' +
-            '<span style="font-size:13px">' + esc(r.muscle) + '</span>' +
-            '<span class="pal-mono" style="font-size:11px;color:var(--pal-ash)">' + r.thisWeek + ' vs ' + r.lastWeek + '</span>' +
-          '</div>' +
-          '<div style="position:relative">' + U.meter(r.thisWeek / peak) +
-            '<span style="position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--pal-sand-2);left:' +
-            (Math.min(1, r.lastWeek / peak) * 100) + '%"></span>' +
-          '</div>' +
-        '</div>';
-      }).join('') + '</div>';
-
-    return band('Training volume', table + bars, windowToggle());
-  }
-  function windowToggle() {
-    return '<div class="pal-row">' +
-      '<button class="pal-chip" data-act="vol-window" data-n="week" aria-pressed="' + (volWindow === 'week') + '">Week</button>' +
-      '<button class="pal-chip" data-act="vol-window" data-n="month" aria-pressed="' + (volWindow === 'month') + '">28 days</button>' +
-    '</div>';
   }
 
   // ============================================================
@@ -1206,49 +834,17 @@
   }
 
   // ============================================================
-  // SETTINGS
+  // DATA — the safety net, and the two settings still worth setting
+  //
+  // Not in the nav, and not called Settings: nobody opens this page to
+  // browse it. It is opened because something went missing, which is why
+  // the snapshots are the first thing on it and the preferences are the
+  // last.
   // ============================================================
-  function viewSettings() {
+  function viewData() {
     var s = P.getSettings();
-    function f(key, label, value, type, extra) {
-      return '<div class="pal-field"><label class="pal-label" for="set_' + key + '">' + esc(label) + '</label>' +
-        '<input class="pal-input pal-input--num" id="set_' + key + '" data-set="' + key + '" type="' + (type || 'number') +
-        '" value="' + esc(value) + '"' + (extra || '') + '></div>';
-    }
-    return band('Settings',
-      '<div class="pal-card" style="margin-bottom:16px">' +
-        '<h3 class="pal-h3" style="margin-bottom:14px">Goals</h3>' +
-        '<div class="pal-grid pal-grid--3">' +
-          f('stepGoal', 'Daily steps', s.stepGoal) +
-          f('waterGoalMl', 'Daily water (ml)', s.waterGoalMl) +
-          f('weeklyWorkoutGoal', 'Workouts a week', s.weeklyWorkoutGoal) +
-          f('weeklyCardioGoal', 'Cardio sessions a week', s.weeklyCardioGoal) +
-          f('startWeight', 'Starting weight', s.startWeight) +
-          f('goalWeight', 'Goal weight', s.goalWeight) +
-        '</div>' +
-      '</div>' +
-      '<div class="pal-card" style="margin-bottom:16px">' +
-        '<h3 class="pal-h3" style="margin-bottom:14px">Units</h3>' +
-        '<div class="pal-grid pal-grid--3">' +
-          '<div class="pal-field"><label class="pal-label" for="set_weightUnit">Weight</label>' +
-            '<select class="pal-select" id="set_weightUnit" data-set="weightUnit">' +
-            U.selectOptions(['lb', 'kg'], s.weightUnit) + '</select></div>' +
-          '<div class="pal-field"><label class="pal-label" for="set_lengthUnit">Measurements</label>' +
-            '<select class="pal-select" id="set_lengthUnit" data-set="lengthUnit">' +
-            U.selectOptions(['in', 'cm'], s.lengthUnit) + '</select></div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="pal-card" style="margin-bottom:16px">' +
-        '<div class="pal-card__head"><h3 class="pal-h3">Calories and macros</h3>' +
-          '<label class="pal-row" style="gap:8px;cursor:pointer"><input class="pal-check" type="checkbox" data-set="trackMacros"' +
-          (s.trackMacros ? ' checked' : '') + '><span class="pal-sub">Track them</span></label></div>' +
-        (s.trackMacros
-          ? '<div class="pal-grid pal-grid--4">' +
-              f('kcalGoal', 'Calories', s.kcalGoal) + f('proteinGoal', 'Protein (g)', s.proteinGoal) +
-              f('carbGoal', 'Carbs (g)', s.carbGoal) + f('fatGoal', 'Fat (g)', s.fatGoal) +
-            '</div>'
-          : '<p class="pal-sub">Off. Today\'s card leaves the calorie tile out entirely rather than showing an empty one.</p>') +
-      '</div>' +
+    return band('Safety net',
+      backupCard() +
       programsCard() +
       '<div class="pal-card" style="margin-bottom:16px">' +
         '<h3 class="pal-h3" style="margin-bottom:10px">Bringing work across</h3>' +
@@ -1256,7 +852,25 @@
           'It never changes them, and running it again only adds what is new.</p>' +
         '<button class="pal-btn" data-act="import">↻ Import my programs (' + P.importAvailable() + ' found)</button>' +
       '</div>' +
-      backupCard());
+      prefsCard(s));
+  }
+
+  // The two settings anything still reads. Step, water, weight and macro
+  // goals, the measurement unit and the macro switch went with the screens
+  // that showed them; P.getSettings() still defaults every one of them, so
+  // no surviving code gets undefined.
+  function prefsCard(s) {
+    return '<div class="pal-card">' +
+      '<h3 class="pal-h3" style="margin-bottom:14px">Preferences</h3>' +
+      '<div class="pal-grid pal-grid--2">' +
+        '<div class="pal-field"><label class="pal-label" for="set_weeklyWorkoutGoal">Workouts a week</label>' +
+          '<input class="pal-input pal-input--num" id="set_weeklyWorkoutGoal" data-set="weeklyWorkoutGoal" type="number" value="' + esc(s.weeklyWorkoutGoal) + '"></div>' +
+        '<div class="pal-field"><label class="pal-label" for="set_weightUnit">Weight unit</label>' +
+          '<select class="pal-select" id="set_weightUnit" data-set="weightUnit">' +
+          U.selectOptions(['lb', 'kg'], s.weightUnit) + '</select></div>' +
+      '</div>' +
+      '<p class="pal-sub" style="margin-top:12px">The first sets the count above the week. The second is the unit History and the logger print weights in.</p>' +
+    '</div>';
   }
 
   // ============================================================
@@ -1300,7 +914,7 @@
     var nowLine = B.COUNTED.map(function (c) { return (live[c.key] || 0) + ' ' + c.label; })
       .filter(function (t) { return t.indexOf('0 ') !== 0; }).join(' · ') || 'nothing yet';
 
-    return '<div class="pal-card">' +
+    return '<div class="pal-card" style="margin-bottom:16px">' +
       '<div class="pal-card__head"><h3 class="pal-h3">Safety net</h3>' +
         '<span class="pal-sub">' + st.count + ' local snapshot' + (st.count === 1 ? '' : 's') +
         ' · ' + Math.round(st.bytes / 1024) + ' KB</span></div>' +
@@ -1408,136 +1022,6 @@
     var el = sheet.querySelector('[name="' + name + '"]');
     if (!el) return '';
     return el.type === 'checkbox' ? el.checked : el.value;
-  }
-
-  function sheetSteps() {
-    var t = P.today();
-    U.openSheet({
-      title: 'Steps today',
-      body: numField('steps', 'Steps', P.getDay(t).steps || ''),
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        P.patchDay(t, { steps: Math.max(0, parseInt(val(sheet, 'steps'), 10) || 0) });
-        U.closeSheet(); refresh(); U.toast('Steps saved');
-      }
-    });
-  }
-
-  function sheetStepsHistory() {
-    var rows = P.daysRange(P.addDays(P.today(), -13), P.today()).reverse();
-    U.openSheet({
-      title: 'Recent days',
-      lede: 'Fill in a day you forgot. Blank leaves it at zero.',
-      body: '<div class="pal-grid pal-grid--2">' + rows.map(function (r) {
-        return '<div class="pal-field"><label class="pal-label" for="fld_' + r.date + '">' + esc(P.prettyLong(r.date)) + '</label>' +
-          '<input class="pal-input pal-input--num" id="fld_' + r.date + '" name="' + r.date + '" type="number" inputmode="numeric" value="' +
-          (r.steps || '') + '"></div>';
-      }).join('') + '</div>',
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save all', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        rows.forEach(function (r) {
-          var v = parseInt(val(sheet, r.date), 10);
-          P.patchDay(r.date, { steps: isFinite(v) && v > 0 ? v : 0 });
-        });
-        U.closeSheet(); refresh(); U.toast('Days saved');
-      }
-    });
-  }
-
-  function sheetWater() {
-    U.openSheet({
-      title: 'Water today',
-      body: numField('water', 'Millilitres', P.getDay(P.today()).water || ''),
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        P.patchDay(P.today(), { water: Math.max(0, parseInt(val(sheet, 'water'), 10) || 0) });
-        U.closeSheet(); refresh();
-      }
-    });
-  }
-
-  function sheetMacros() {
-    var d = P.getDay(P.today());
-    U.openSheet({
-      title: 'Food today',
-      body: '<div class="pal-grid pal-grid--2">' +
-        numField('kcal', 'Calories', d.kcal || '') + numField('protein', 'Protein', d.protein || '', 'g') +
-        numField('carbs', 'Carbs', d.carbs || '', 'g') + numField('fat', 'Fat', d.fat || '', 'g') + '</div>',
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        P.patchDay(P.today(), {
-          kcal: parseFloat(val(sheet, 'kcal')) || 0, protein: parseFloat(val(sheet, 'protein')) || 0,
-          carbs: parseFloat(val(sheet, 'carbs')) || 0, fat: parseFloat(val(sheet, 'fat')) || 0
-        });
-        U.closeSheet(); refresh(); U.toast('Saved');
-      }
-    });
-  }
-
-  function sheetWeighIn() {
-    var s = P.getSettings();
-    U.openSheet({
-      title: 'Weigh in',
-      body: numField('weight', 'Weight', '', s.weightUnit),
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        var w = parseFloat(val(sheet, 'weight'));
-        if (!(w > 0)) { U.toast('Enter a weight'); return; }
-        var t = P.today();
-        var existing = P.Body.list().filter(function (b) { return b.date === t; })[0];
-        if (existing) P.Body.update(existing.id, { weight: w });
-        else P.Body.add({ date: t, weight: w });
-        P.patchDay(t, { weight: w });
-        U.closeSheet(); refresh(); U.toast('Logged');
-      }
-    });
-  }
-
-  function sheetBody(id) {
-    var s = P.getSettings();
-    var rec = id ? P.Body.get(id) : null;
-    var media = rec ? rec.photos.slice() : [];
-    U.openSheet({
-      title: rec ? 'Edit measurements' : 'Log measurements',
-      body:
-        '<div class="pal-field" style="margin-bottom:14px"><label class="pal-label" for="fld_date">Date</label>' +
-          '<input class="pal-input" id="fld_date" name="date" type="date" value="' + esc(rec ? rec.date : P.today()) + '"></div>' +
-        '<div class="pal-grid pal-grid--3">' +
-          numField('weight', 'Weight', rec ? rec.weight : '', s.weightUnit) +
-          numField('waist', 'Waist', rec ? rec.waist : '', s.lengthUnit) +
-          numField('chest', 'Chest', rec ? rec.chest : '', s.lengthUnit) +
-          numField('arms', 'Arms', rec ? rec.arms : '', s.lengthUnit) +
-          numField('thighs', 'Thighs', rec ? rec.thighs : '', s.lengthUnit) +
-          numField('hips', 'Hips', rec ? rec.hips : '', s.lengthUnit) +
-          numField('bodyFat', 'Body fat', rec ? rec.bodyFat : '', '%') +
-        '</div>' +
-        '<div class="pal-field" style="margin-top:14px"><label class="pal-label" for="fld_note">Note</label>' +
-          '<textarea class="pal-textarea" id="fld_note" name="note" rows="2">' + esc(rec ? rec.note : '') + '</textarea></div>' +
-        '<div class="pal-field" style="margin-top:14px"><span class="pal-label">Progress photos</span>' +
-          '<div id="palBodyMedia"></div></div>',
-      actions: (rec ? [{ label: 'Delete', act: 'del', kind: 'danger' }] : [])
-        .concat([{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }]),
-      onMount: function (sheet) {
-        U.mountMedia(sheet.querySelector('#palBodyMedia'), media, function (next) { media = next; });
-      },
-      onAction: function (act, sheet) {
-        if (act === 'del') {
-          P.Body.remove(rec.id); U.closeSheet(); refresh(); U.toast('Removed');
-          return;
-        }
-        if (act !== 'save') return;
-        var patch = { date: val(sheet, 'date') || P.today(), note: val(sheet, 'note'), photos: media };
-        P.MEASURE_FIELDS.forEach(function (f) { patch[f.key] = parseFloat(val(sheet, f.key)) || 0; });
-        if (rec) P.Body.update(rec.id, patch); else P.Body.add(patch);
-        if (patch.weight > 0) P.patchDay(patch.date, { weight: patch.weight });
-        U.closeSheet(); refresh(); U.toast('Saved');
-      }
-    });
   }
 
   function sheetExercise(id) {
@@ -1780,55 +1264,6 @@
     });
   }
 
-  function sheetDay(date) {
-    var info = P.dayStatus(date);
-    var s = P.getSettings();
-    var day = P.getDay(date);
-    var body = '';
-
-    if (info.sessions.length) {
-      body += info.sessions.map(function (x) {
-        return '<div class="pal-card" style="margin-bottom:12px" data-lane="' + esc(P.laneOf(x.type)) + '">' +
-          '<div class="pal-card__head"><h3 class="pal-h3">' + esc(x.name) + '</h3>' +
-          '<span class="pal-badge">' + esc(x.type) + '</span></div>' +
-          '<p class="pal-sub">' + P.sessionSetCount(x) + ' sets · ' + P.fmtInt(P.sessionVolume(x)) + ' ' +
-          esc(s.weightUnit) + ' · ' + P.fmtDuration(x.elapsedSec) + '</p>' +
-          '<button class="pal-btn pal-btn--sm" style="margin-top:10px" data-sheet-act="open:' + esc(x.id) + '">Open the log</button>' +
-        '</div>';
-      }).join('');
-    } else if (info.planned && !info.planned.rest) {
-      body += '<div class="pal-card" data-lane="' + esc(P.laneOf(info.planned.type)) + '">' +
-        '<p class="pal-eyebrow">' + (info.status === 'missed' ? 'Planned, not done' : 'Planned') + '</p>' +
-        '<h3 class="pal-h2">' + esc(info.planned.name) + '</h3>' +
-        (info.status === 'missed'
-          ? '<p class="pal-sub" style="margin-top:8px">You can still log it — pick the date when you finish.</p>'
-          : '') +
-        '<button class="pal-btn pal-btn--primary" style="margin-top:14px" data-sheet-act="start:' + esc(info.planned.templateId) + '">▶ Start it</button>' +
-      '</div>';
-    } else if (info.planned && info.planned.rest) {
-      body += '<div class="pal-card" data-lane="rest"><h3 class="pal-h2">Rest</h3>' +
-        '<p class="pal-sub" style="margin-top:8px">Scheduled recovery.</p></div>';
-    } else {
-      body += '<p class="pal-sub">Nothing scheduled and nothing logged.</p>';
-    }
-
-    body += '<div class="pal-grid pal-grid--3" style="margin-top:16px">' +
-      U.tile('Steps', U.fig(P.fmtInt(day.steps), '', 'sm'), '') +
-      U.tile('Water', U.fig(P.fmtInt(day.water), 'ml', 'sm'), '') +
-      U.tile('Weight', U.fig(day.weight ? P.fmtWeight(day.weight) : '—', s.weightUnit, 'sm'), '') +
-    '</div>';
-
-    U.openSheet({
-      title: P.prettyLong(date),
-      body: body,
-      actions: [{ label: 'Close', act: 'cancel' }],
-      onAction: function (act) {
-        if (act.indexOf('open:') === 0) { U.closeSheet(); sheetSession(act.slice(5)); return; }
-        if (act.indexOf('start:') === 0) { U.closeSheet(); startTemplate(act.slice(6)); }
-      }
-    });
-  }
-
   function sheetSession(id) {
     var x = P.Sessions.get(id);
     if (!x) return;
@@ -1867,50 +1302,6 @@
     });
   }
 
-  function sheetGoal() {
-    U.openSheet({
-      title: 'New goal',
-      body:
-        '<div class="pal-field" style="margin-bottom:12px"><label class="pal-label" for="fld_title">Goal</label>' +
-          '<input class="pal-input" id="fld_title" name="title" placeholder="Deadlift 315 for 5"></div>' +
-        '<div class="pal-grid pal-grid--2">' +
-          '<div class="pal-field"><label class="pal-label" for="fld_target">Target</label>' +
-            '<input class="pal-input" id="fld_target" name="target" placeholder="315 × 5"></div>' +
-          '<div class="pal-field"><label class="pal-label" for="fld_due">By</label>' +
-            '<input class="pal-input" id="fld_due" name="due" type="date"></div>' +
-        '</div>' +
-        '<div class="pal-field" style="margin-top:12px"><label class="pal-label" for="fld_detail">Why</label>' +
-          '<textarea class="pal-textarea" id="fld_detail" name="detail" rows="3"></textarea></div>',
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        var title = String(val(sheet, 'title')).trim();
-        if (!title) { U.toast('Name the goal'); return; }
-        P.Goals.add({ title: title, target: val(sheet, 'target'), due: val(sheet, 'due'), detail: val(sheet, 'detail') });
-        U.closeSheet(); U.toast('Goal saved');
-      }
-    });
-  }
-
-  function sheetNote() {
-    U.openSheet({
-      title: 'Note',
-      body: '<div class="pal-field"><label class="pal-label" for="fld_body">Today</label>' +
-        '<textarea class="pal-textarea" id="fld_body" name="body" rows="5"></textarea></div>',
-      actions: [{ label: 'Cancel', act: 'cancel' }, { label: 'Save', act: 'save', kind: 'primary' }],
-      onAction: function (act, sheet) {
-        if (act !== 'save') return;
-        var b = String(val(sheet, 'body')).trim();
-        if (!b) { U.closeSheet(); return; }
-        var t = P.today();
-        var existing = P.Notes.list().filter(function (n) { return n.date === t; })[0];
-        if (existing) P.Notes.update(existing.id, { body: existing.body ? existing.body + '\n\n' + b : b });
-        else P.Notes.add({ date: t, body: b });
-        U.closeSheet(); refresh(); U.toast('Noted');
-      }
-    });
-  }
-
   function sheetCardio() {
     U.openSheet({
       title: 'Log cardio',
@@ -1939,12 +1330,11 @@
     });
   }
 
+  // Three ways in, all of them a workout. Weight, measurements, steps and
+  // photos left with the screens that read them back — an entry that only
+  // ever writes is a place for numbers to go and be forgotten.
   function sheetQuickAdd() {
-    var opts = [
-      ['Log a workout', 'q-workout'], ['Log weight', 'q-weight'], ['Log measurements', 'q-body'],
-      ['Log cardio', 'q-cardio'], ['Log steps', 'q-steps'], ['Add a progress photo', 'q-photo'],
-      ['Add an exercise', 'q-exercise'], ['Add a goal', 'q-goal'], ['Add a note', 'q-note']
-    ];
+    var opts = [['Log a workout', 'q-workout'], ['Log cardio', 'q-cardio'], ['Add an exercise', 'q-exercise']];
     U.openSheet({
       title: 'Quick add',
       body: '<div class="pal-quickgrid">' + opts.map(function (o) {
@@ -1954,14 +1344,8 @@
       onAction: function (act) {
         U.closeSheet();
         if (act === 'q-workout') startFree();
-        if (act === 'q-weight') sheetWeighIn();
-        if (act === 'q-body') sheetBody(null);
         if (act === 'q-cardio') sheetCardio();
-        if (act === 'q-steps') sheetSteps();
-        if (act === 'q-photo') sheetBody(null);
         if (act === 'q-exercise') sheetExercise(null);
-        if (act === 'q-goal') sheetGoal();
-        if (act === 'q-note') sheetNote();
       }
     });
   }
@@ -2075,7 +1459,6 @@
   }
 
   var ACTIONS = {
-    'open-day': function (el) { sheetDay(el.getAttribute('data-date')); },
     'open-session': function (el) { sheetSession(el.getAttribute('data-id')); },
     'start-template': function (el) { startTemplate(el.getAttribute('data-id'), el.getAttribute('data-level')); },
     'start-free': startFree,
@@ -2087,20 +1470,6 @@
     // Filtering is a re-render, not a navigation: it must not scroll.
     // refresh() renders in place; only navigate() ever moves the page.
     'ex-filter': function (el) { exMuscle = el.getAttribute('data-muscle') || 'All'; refresh(); },
-    'log-body': function () { sheetBody(null); },
-    'edit-body': function (el) { sheetBody(el.getAttribute('data-id')); },
-    'weigh-in': sheetWeighIn,
-    'steps-set': sheetSteps,
-    'steps-history': sheetStepsHistory,
-    'steps-add': function (el) {
-      P.addToDay(P.today(), 'steps', parseInt(el.getAttribute('data-n'), 10) || 0);
-      refresh();
-    },
-    'water-add': function (el) {
-      P.addToDay(P.today(), 'water', parseInt(el.getAttribute('data-n'), 10) || 0);
-      refresh();
-    },
-    'macros-edit': sheetMacros,
     'import': doImport,
     'install-programs': function () {
       var r = P.installPrograms();
@@ -2124,14 +1493,6 @@
       refresh();
       U.toast('Snapshot deleted');
     },
-    'week-step': function (el) {
-      var n = parseInt(el.getAttribute('data-n'), 10) || 0;
-      var cur = scoreWeek || P.today();
-      var next = P.addDays(P.mondayOf(cur), n * 7);
-      if (P.daysBetween(P.today(), next) > 0) return;    // never page into the future
-      scoreWeek = next;
-      refresh();
-    },
     'sched-step': function (el) {
       schedWeek += parseInt(el.getAttribute('data-n'), 10) || 0;
       refresh();
@@ -2144,8 +1505,7 @@
       refresh();
       var info = P.levelInfo(level);
       U.toast(info.label + ' \u00b7 ' + info.title + ' \u2014 ' + info.mins);
-    },
-    'vol-window': function (el) { volWindow = el.getAttribute('data-n'); refresh(); }
+    }
   };
 
   // ============================================================
@@ -2174,14 +1534,10 @@
     // secondary ones rather than the script rebuilding the bar on resize,
     // so a rotation cannot leave the nav in the wrong shape.
     routesEl.innerHTML = ROUTES.map(function (r) {
-      return '<button class="pal-route" data-route="' + esc(r.hash) + '"' +
-        ' data-primary="' + (isPrimary(r.hash) ? 'true' : 'false') + '">' +
+      return '<button class="pal-route" data-route="' + esc(r.hash) + '">' +
         '<span class="pal-route__txt">' + esc(r.label) + '</span></button>';
-    }).join('') +
-      '<button class="pal-route pal-route--more" data-more="1" aria-haspopup="dialog">' +
-        '<span class="pal-route__txt">More</span></button>';
+    }).join('');
     routesEl.addEventListener('click', function (e) {
-      if (e.target.closest('[data-more]')) { sheetMore(); return; }
       var b = e.target.closest('[data-route]');
       if (b) go(b.getAttribute('data-route'));
     });
