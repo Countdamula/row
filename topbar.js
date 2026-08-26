@@ -54,14 +54,14 @@
 
   const RING_ITEMS = [
     { href: 'index.html',        label: 'Main',                 icon: 'target' },
-    { href: 'promptarium.html',  label: 'Promptarium',          icon: 'flask' },
+    { href: 'promptarium.html',  label: 'Prompt Studio',        icon: 'flask' },
     { href: 'athenaeum.html',    label: 'The Athenaeum',        icon: 'book' },
     { href: 'kdp.html',          label: 'The Velvet Grimoire',  icon: 'feather' },
     { href: '',                  label: 'All Pages',            icon: 'grid', drawer: true },
     { href: 'vault.html',        label: 'Entertainment Studio', icon: 'film' },
     { href: 'palaestra.html',    label: 'Fitness Studio',       icon: 'dumbbell' },
     { href: 'asclepion.html',    label: 'Self-Care Studio',     icon: 'basin' },
-    { href: 'nutrition.html',    label: 'Nutrition',            icon: 'utensils' }
+    { href: 'larder.html',       label: 'The Larder',           icon: 'utensils' }
   ];
 
   // -------- Nav data --------
@@ -82,19 +82,29 @@
   // indented, independently-collapsible sub-list under its parent, exactly
   // like a Notion sidebar shows a page's sub-pages. A child's `hash` is the
   // literal URL fragment that page reads on load to land on that tab
-  // (`<href>#<hash>`), e.g. `nutrition.html#grocery`. Leaf pages with no
+  // (`<href>#<hash>`), e.g. `larder.html#/grocery`. Leaf pages with no
   // internal tabs at all simply have no `children` and render as a plain,
   // non-expandable row.
 
   const NAV_GROUPS = [
     {
-      // Promptarium — promptarium.html + promptarium-data.js. Pinned to the
-      // very top of this sidebar per an explicit request.
+      // Prompt Studio — promptarium.html + promptarium-data.js +
+      // promptarium-backup.js. Pinned to the very top of this sidebar per
+      // an explicit request. The FILE is still promptarium.html (bookmarks,
+      // phone shortcuts, every href here); only the name shown changed.
       //
-      // Owns 'prm:*' and its own Supabase row (appKey 'promptarium'). It ALSO
-      // mounts a SECOND initCloudSync for appKey 'codex' / prefix 'cdx:', so
-      // its Fiction collection reads and writes the shared fiction database
-      // (cdx:prompts + cdx:promptNotes). codex.html was deleted on
+      // REBUILT 2026-08-25. It used to file prompts by AI model, with one
+      // hash route per model. It now files them by PURPOSE and carries two
+      // libraries on one page — Prompts and Tools & Websites — so the whole
+      // page is three routes rather than thirteen. The old model-based
+      // library was deleted rather than migrated, at Damian's request;
+      // promptarium-backup.js snapshotted it first, under the 'prmbak:'
+      // prefix, and Settings can put it back.
+      //
+      // Owns 'prm:*' and its own Supabase row (appKey 'promptarium'). It
+      // ALSO mounts a SECOND initCloudSync for appKey 'codex' / prefix
+      // 'cdx:', so its fiction prompts read and write the shared fiction
+      // database (cdx:prompts + cdx:promptNotes). codex.html was deleted on
       // 2026-08-21 but codex-data.js and this second mount MUST STAY: the
       // same 'cdx:' row also holds cdx:trilogies/chapters/scenes — the
       // manuscripts — and sync.js replaces a row's whole data column, so an
@@ -102,31 +112,17 @@
       // them. The two prefixes must stay disjoint or the two sync mounts
       // would push each other in a loop.
       //
-      // Promptarium's own fields (rating, purpose tags, creator, source,
-      // status) are NOT written into cdx: records: codex-data.js's
+      // Prompt Studio's own extra field on a fiction prompt (its purpose
+      // category) is NOT written into the cdx: record: codex-data.js's
       // promptModel() is a whitelist re-run on every edit and would strip
-      // them. They live in a sidecar, prm:fictionMeta, keyed by prompt id.
-      //
-      // It used to cross-link to aitech.html's own prompts DB. That page was
-      // deleted in the 2026-08-21 tidy-up, so this is now the only prompt
-      // library in the app.
+      // it. It lives in a sidecar, prm:fictionMeta, keyed by prompt id.
       key: 'promptarium',
-      label: 'Promptarium',
+      label: 'Prompt Studio',
       items: [
-        { href: 'promptarium.html', icon: '⚗️', label: 'Promptarium', id: 'topbarPromptarium', children: [
-          { hash: '/', label: 'Overview' },
-          { hash: '/library', label: 'Prompt Library' },
-          { hash: '/pinned', label: 'Favorites & Pinned' },
-          { hash: '/inbox', label: 'Quick Capture Inbox' },
-          { hash: '/c/chatgpt', label: 'ChatGPT' },
-          { hash: '/c/claude', label: 'Claude' },
-          { hash: '/c/gemini', label: 'Gemini' },
-          { hash: '/c/notebooklm', label: 'Gemini NotebookLM' },
-          { hash: '/c/suno', label: 'Suno AI' },
-          { hash: '/c/n8n', label: 'n8n' },
-          { hash: '/c/fiction', label: 'Fiction — the shared fiction database' },
-          { hash: '/flows', label: 'Prompt Chains & Workflows' },
-          { hash: '/tags', label: 'Purpose Tags' },
+        { href: 'promptarium.html', icon: '⚗️', label: 'Prompt Studio', id: 'topbarPromptarium', children: [
+          { hash: '/', label: 'Prompts' },
+          { hash: '/tools', label: 'Tools & Websites' },
+          { hash: '/settings', label: 'Settings & snapshots' },
         ] },
       ],
     },
@@ -382,9 +378,14 @@
       key: 'life',
       label: 'Life & Wellness',
       items: [
-        { href: 'nutrition.html', icon: '🍽️', label: 'Nutrition', id: 'topbarNutrition', children: [
-          { hash: 'kitchen', label: 'My Kitchen' },
-          { hash: 'grocery', label: 'Grocery List' },
+        { href: 'larder.html', icon: '🍽️', label: 'The Larder', id: 'topbarLarder', children: [
+          { hash: '/', label: 'Today' },
+          { hash: '/meals', label: 'Meals' },
+          { hash: '/foods', label: 'Foods' },
+          { hash: '/recipes', label: 'Recipes' },
+          { hash: '/plan', label: 'Meal Plan' },
+          { hash: '/grocery', label: 'Grocery List' },
+          { hash: '/progress', label: 'Progress' },
         ] },
       ],
     },
@@ -1658,7 +1659,9 @@ body.topbar-modal-open {
       // unrelated page's class and does not cover it.
       '.mn-sheetbg',
       // The Asclepion's sheet, on all three of its documents.
-      '.asc-sheetbg'
+      '.asc-sheetbg',
+      // The Larder's sheet.
+      '.lar-sheetbg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
