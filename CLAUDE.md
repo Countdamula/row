@@ -15807,3 +15807,198 @@ mounts.
 **Everything `palaestra-*` plus `sync.js` is now at `?v=3`, on every page that
 loads it.** `row` has no build step, so editing a file never changes its URL.
 Bump it on any further change to these files.
+
+## The Asclepion — a Self-Care Studio (2026-08-25)
+
+Self-care was one tab inside `index.html`, rendered by `selfcare-ui.js`
+off `mainselfcare-data.js`: a tips list, a checklist, a three-template
+journal, a small meditations library, and a breathwork library with a
+four-phase pacer. It is now its own three-document app with its own
+place in the circle menu.
+
+**New files.** `asclepion.html` (the hub and seven category routes) +
+`asclepion-session.html` (the practice runner) + `asclepion-journal.html`
+(the journals), over `asclepion-data.js` (machinery), `asclepion-seed.js`
+(~90KB of content, nothing else), `asclepion-sync.js` (the prefix table),
+`asclepion-ui.js` (shared helpers) and `asclepion-theme.css`.
+
+**TWO Supabase rows, split by weight.** `asclepion` -> `asc:` is the
+library: five breathing techniques, twelve tapping scripts, five journal
+definitions, five meditation shelves, twenty-one movement practices,
+twenty-two energy practices, fourteen decks and 156 affirmation lines,
+four routines. Seeded it measures **101KB**. `asclepionlog` -> `asclog:`
+is what you write: entries, tapping sessions with their 0-10 readings,
+and the in-flight routine — **0.5KB** on a fresh device. `pushNow()`
+uploads a row's whole `data` column on every debounced save, so on one
+row every journal keystroke batch would re-upload the entire library.
+Same split, same reason, as `kdpms:` out of `kdp:`. Both rows mount on
+all three documents with `handoff:true`, via `AscSync.mount()`.
+
+**The appKey `selfcare` is deliberately NOT reused** — it is the orphaned
+row from the long-deleted `selfcare.html`, and a first push would
+overwrite it. `asc:` and `asclog:` are three characters apart, which is
+the `pal:`/`palbak:` near-miss shape, so `assertDisjoint` checks them
+character by character at every mount.
+
+**Main lost its Self-Care tab, and NOTHING was migrated.** The nav row on
+`index.html` / `futureself.html` / `weeklyreview.html` is three across
+now. `mainselfcare-data.js` and `selfcare-ui.js` are still on disk and
+simply no longer loaded — the `system-data.js` precedent — and
+**`mainselfcare:` is still in `main-sync.js`'s goals row and must stay
+there forever**: what keeps a key synced is the prefix list, not the data
+file, and dropping the prefix would delete that data on every device at
+the next push. Its comment now reads RETIRED UI, LIVE DATA, like
+`system:` and `fitness:`.
+
+**The breath model had to change before anything could be built on it.**
+The old shape was `{inhaleSec, holdSec, exhaleSec, hold2Sec, cycles}`,
+and it cannot express three of the five techniques asked for: the
+physiological sigh needs TWO CONSECUTIVE INHALES and Vortex Breath is
+five descending rounds (13/8/5/3/2) with different timings in each. The
+new model is **rounds of phases** — `rounds:[{label, cycles, phases:[{kind,
+seconds, route, force, note}]}]` — with `seconds: 0` meaning self-paced.
+The pacer flattens rounds x cycles x phases into one list and is
+**timestamp-based**: elapsed is always `now - phaseStart`, never a
+decremented counter, because a locked phone stops firing intervals.
+
+**Favourites is a boolean on the record**, swept across every collection
+by `Asc.favourites()` — the Vault's `kind:'view'` pattern. There is no
+favourites index, so there is no second list to keep in step with
+deletions.
+
+**Nothing in `asclepion-seed.js` carries an id.** It refers to records by
+name in a `seedRef` field and `seedNow()` resolves those once the models
+have minted ids — decks before affirmations, everything before routines.
+A step that resolves to nothing stays open and sends you to its category
+to choose, which is correct for "tap on whatever is loudest".
+
+**Yoga and meditation ship described but UNLINKED**, on purpose. A seeded
+library of invented URLs is a library that breaks the first time you
+trust it, so "no link yet" is a real state with an Add link control.
+
+**topbar.js: the ring went to nine, and All Pages stayed at six.**
+Positions are computed as `theta = 2*PI*i/n - PI/2`, so something lands at
+the bottom only when `n` is even. `ringPhase(n)` returns half a step for
+odd `n`; index 4 of 9 then sits exactly at six o'clock with four nodes
+down each side. `ringSideFor` computes from index-plus-phase rather than
+from the index. The new `basin` icon is the page's own signature. Also
+added: the `asclepion` NAV_GROUPS group, and `.asc-sheetbg` in
+MODAL_SELECTORS. `topbar.js` went to `?v=3` on all 23 pages, which also
+settled the existing v=1/v=2 drift.
+
+**Look.** Its own `--asc-*` system: a blue-green night with no gold
+anywhere, two faces used nowhere else in the dashboard (Spectral for
+display, Work Sans for body, no mono — mono reads clinical), and one warm
+value, `--asc-lamp`, with exactly one job: **this mattered to you**
+(favourites only). The seven categories run an even 28-degree hue sweep
+in the order they were asked for, so the grid reads as one gradient.
+Transitions are roughly twice their neighbours' length. The signature is
+**the basin** — a shallow ellipse that fills to its rim on the inhale and
+drains on the exhale, small on the hub as the way in and full size as the
+pacer. The ground is drawn in CSS and breathes on an 11s cycle, killed
+under `prefers-reduced-motion`.
+
+Verified with Puppeteer against a local server, Supabase blocked
+throughout: 47 data-layer checks, 30 flow checks, 18 journal checks, and
+14 pages x 6 widths with no horizontal overflow, no console errors, no
+sub-16px fields and no sub-36px tap targets in any Asclepion page.
+
+## The Asclepion — the night garden (2026-08-25, second pass)
+
+The Studio shipped cool and blue-green. It is now one photograph's world.
+
+**The photograph.** `images_by_admin/asclepion/hero.jpg` — a night garden: a
+swan on black water, a stone pavilion, one lit lantern, pale roses in the
+foreground. It is 736x1104, so a full-bleed hero on a wide monitor scales it
+about 2x and crops most of its height; the veil and the grain are what turn
+that into atmosphere rather than a low-resolution image. `--asc-photo` holds
+the path in one place, so a larger file is a one-line swap.
+
+**TUNED, NOT SAMPLED — the thing to understand before touching the palette.**
+Sampled straight off that image the roses are `#8A6253`, the canopy `#2F2E22`,
+the lantern `#BC926A`, the stone `#5C4C3E`. Those are correct inside a dark,
+low-contrast photograph and they are mud on a flat surface. The first pass
+proved it the hard way: cards built as `rgba(201,139,146,.13)` over a `#0B1410`
+ground composite to **`#232321` — a neutral grey**. Hue survives being
+darkened; it does not survive being diluted into near-black. So `--asc-surface`
+is an opaque `#3D262E`, not an alpha, and the cards read as roses.
+
+Where each colour goes, and it is the whole system: **forest green is the
+ground, rose is the cards, gold is the shine on them, silver is the sheen on
+the ground.** Gold and silver are spent as shine only — an inner top edge
+(`--asc-shine`), a wide faint radial — never as a fill.
+
+**The seven tints now run through the photograph** — canopy, stone, lantern,
+roses (`#6FA98A` → `#C98B9F`) — instead of around a hue wheel, and they are
+accents only: mark, count, heading, bloom. Every card is rose.
+
+**FULL-BLEED.** `--asc-measure` is gone; no wrapper carries a page-level
+max-width. Three devices replace it, all proven on `promptarium.html`: a fluid
+root size (`clamp(15px, .22vw + 13px, 18px)`) so glyphs grow with the window
+and characters-per-line stays constant; measures in `ch` on the text blocks
+themselves, never on a wrapper; and `--asc-gutter` as the only inset, with
+`margin: 0 calc(-1 * var(--asc-gutter))` for anything that bleeds back out.
+
+**`asclepion-hero.js`** — `AscHero`, modelled on `vault-hero.js` and obeying
+the same ONE INVARIANT: mounted once at boot, outside the render host, because
+all three documents rebuild `innerHTML` on every cloud repaint. No `<video>`
+here, so no `stageAllowed()` apparatus. One rAF-throttled passive listener
+writes `--asc-hero-p` / `--asc-hero-h`; every plane is CSS `calc()` at .70/.40/
+.10, halved on a phone. The headline reveals word by word out of per-line
+`overflow:hidden` masks via `--i`/`--l`; the card and chips follow on a delay
+computed in JS from the real word count. `setScene` is guarded on `key`, so a
+repaint cannot restart the entrance. Full variant on the hub, `band` on the
+journals. **The session runner deliberately has no hero** — a 58vh band over
+the pacer would push the thing you came to do below the fold on the one screen
+whose job is to have nothing else on it; it takes the photo as its ground
+instead.
+
+**THE NAV PILL MUST NEVER REACH THE LAUNCHER.** `topbar.js` pins its launcher
+at the top left of every page, ending near x=183. A centred bar of width W has
+its left edge at `(100vw - W)/2`, so the pill is capped at
+`calc(100vw - 392px)`. At 1440 the cap is 1048px and the bar is ~930px, so it
+sits centred and untouched; below ~1330 the cap bites and the bar scrolls
+inside itself. Under 719px it stacks *below* the launcher instead. This was
+caught by a dedicated overlap test — **overlap is not overflow, so the
+responsive audit cannot see it.**
+
+**Composition mode** — `AscUI.openCompose/closeCompose/isComposing`, copied in
+structure from `kdp-velvet.js:346-482`, whose ordering is load-bearing. It does
+NOT own a saver: the journal hands it the one the page already uses, so there
+is a single write path to `Asc.saveEntry`. State is a class on `<html>`
+(`asc-composing`), which is what hides topbar's launcher at z-index 2600. The
+journals are sectioned, so it renders a stack of labelled fields in one
+`min(72ch,100%)` column rather than a single textarea. Exit order verbatim:
+flush, clear flag, unlock scroll, hide, onClose, restore scroll, restore focus.
+
+**A REAL BUG THIS PASS FOUND.** `#/new/<journalId>` means "build me a blank
+entry", and `render()` did exactly that every time it ran — so after the first
+autosave, any re-render (a cloud repaint, closing composition mode, a rotation)
+handed you a fresh blank page while everything you had written sat in storage
+under an id the screen no longer pointed at. It looked exactly like losing your
+work. `flush()` now moves the address to `#/e/<id>` on first save, with
+`history.replaceState` so it is a correction rather than a navigation.
+
+**The example diary entry** — `AscSeed.exampleEntry`, a `<details>` collapsed at
+the top of every entry and carried inside composition mode. Its open state is
+remembered in `asc:uiState` via the new `Asc.uiState(k[,v])`.
+
+**Unstick is gone**, replaced by the **High Impact Action system**. It was a
+method invented to fill a title that arrived without one; this is the real
+thing. A journal with `system: 'hia'` renders a working method above its
+entries: the goal, at most three actions, thirty squares, and never-skip-twice.
+The cap of three is enforced at the data layer, not just the view — "aim for no
+more than 3" IS the method, and four actions is a to-do list again.
+`asc:hia` holds the goal and actions (library row, changed rarely);
+`asclog:hiamarks` holds one mark per day (log row, written daily). The warning
+and the joined double-miss are **derived, never stored** — a stored flag goes
+stale at midnight. Marking a day missed opens a review pre-sectioned with the
+article's own two questions, dated to the day it is about via
+`#/new/<journalId>/<date>`. Both diagrams ship in `images_by_admin/asclepion/`
+and are anchored to § markers in the article text by the journal's `figures`.
+
+All `asclepion-*` assets went to `?v=2`. Verified with Puppeteer, Supabase
+blocked: the four existing suites plus 30 new checks for the HIA system,
+composition mode and the example entry, a dedicated nav/launcher overlap test
+at six widths, and 14 pages x 6 widths with no horizontal overflow, no console
+errors and no new sub-16px fields.

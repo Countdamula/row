@@ -19,7 +19,7 @@
 <script src="main-sync.js?v=1" defer></script>
 <script src="main-backup.js?v=1" defer></script>
 <script src="photo-store.js" defer></script>
-<script src="topbar.js?v=2" defer></script>
+<script src="topbar.js?v=3" defer></script>
 
 <!-- palaestra-data.js is loaded for ONE thing: pal:levels, the effort
      level shared with the Fitness Studio. Today reads and writes it
@@ -27,11 +27,15 @@
      copy of that answer. Pal.LEVELS is NOT redefined here. -->
 <script src="palaestra-data.js?v=5" defer></script>
 
-<script src="mainselfcare-data.js?v=2" defer></script>
+<!-- mainselfcare-data.js and selfcare-ui.js were dropped here on
+     2026-08-25 when Self-Care became its own page. Both files are
+     still in the repo and their `mainselfcare:` keys are still synced
+     under the goals row — what keeps a key synced is the prefix list
+     in main-sync.js, not whether its data file is loaded. Same
+     treatment system-data.js and fitness-data.js already have. -->
 <script src="today-data.js?v=1" defer></script>
 <script src="main-hero.js?v=1" defer></script>
 <script src="today-ui.js?v=1" defer></script>
-<script src="selfcare-ui.js?v=1" defer></script>
 <script src="palaestra-music.js?v=4" defer></script>
 
 <link rel="stylesheet" href="main-theme.css?v=1">
@@ -41,17 +45,27 @@
 <main>
   <div class="mn-shell">
 
-    <!-- MAIN'S NAV. The same four entries in the same order on all
+    <!-- MAIN'S NAV. The same three entries in the same order on all
          three Main documents, so this row never moves under you.
-         Two of them are tabs of THIS page (data-tab); two are other
+         One is a tab of THIS page (data-tab); two are other
          documents (data-act="go", which flushes pending writes before
          navigating — see today-ui.js's go()). It is a nav, not a
-         tablist: a real tablist cannot contain links to other pages. -->
+         tablist: a real tablist cannot contain links to other pages.
+
+         SELF-CARE LEFT THIS ROW on 2026-08-25 and became its own
+         page, The Asclepion (asclepion.html + asclepion-session.html
+         + asclepion-journal.html), reached from the circle menu.
+
+         Its data was NOT migrated. `mainselfcare:` is orphaned but
+         intact and MUST STAY in main-sync.js's goals row — dropping a
+         prefix deletes its keys on every device at the next push.
+         mainselfcare-data.js and selfcare-ui.js are still on disk,
+         simply no longer loaded, the same treatment system-data.js
+         and fitness-data.js already had. -->
     <div id="mnTabsAnchor"></div>
     <nav class="mn-tabs mn-join-near" id="mnTabs" aria-label="Main">
       <button type="button" class="mn-tab active" data-tab="today" aria-current="page">Today</button>
       <button type="button" class="mn-tab" data-act="go" data-href="futureself.html">Future Self</button>
-      <button type="button" class="mn-tab" data-tab="selfcare">Self-Care</button>
       <button type="button" class="mn-tab" data-act="go" data-href="weeklyreview.html">Weekly Review</button>
     </nav>
 
@@ -107,165 +121,9 @@
       </section>
 
     </div>
-  <div class="mn-tabpanel" data-mainpanel="selfcare">
-    <div class="bs-toolbar-row">
-      <span class="bs-sync-status" id="sciSyncStatus"></span>
-      <button type="button" class="bs-btn-ghost" id="sciResetBtn">Reset to Default</button>
-    </div>
-    <p class="rt-hint" style="margin:-4px 0 14px;">Tips, a checklist, three journal templates, and two separate libraries — meditations and breathwork, with a breathing pacer.</p>
-
-    <div class="bs-tabs-row" id="sciTabsRow">
-      <button type="button" class="bs-tab" data-scitab="checklist">Checklist</button>
-      <button type="button" class="bs-tab" data-scitab="journal">Journal</button>
-      <button type="button" class="bs-tab" data-scitab="meditation">Meditations &amp; Breathwork</button>
-    </div>
-
-    <!-- TAB: CHECKLIST -->
-    <div class="bs-panel" data-scipanel="checklist">
-      <div class="bs-section-head">
-        <div>
-          <div class="bs-section-title" style="font-size:18px;">Self-Care Tips</div>
-          <div class="bs-section-sub">Reminders worth keeping in view — not a checklist, just things to remember.</div>
-        </div>
-      </div>
-      <div class="bs-quickadd-row"><input type="text" id="sciTipsAddInput" placeholder="Add a tip, press Enter…"></div>
-      <div class="bs-list" id="sciTipsList" style="margin-top:14px;"></div>
-
-      <div class="bs-section-head" style="margin-top:28px;">
-        <div>
-          <div class="bs-section-title">Self-Care Checklist</div>
-          <div class="bs-section-sub">Small, repeatable things worth doing for yourself.</div>
-        </div>
-      </div>
-      <div class="bs-quickadd-row"><input type="text" id="sciChecklistAddInput" placeholder="Add an item, press Enter…"></div>
-      <div class="bs-list" id="sciChecklistList" style="margin-top:14px;"></div>
-    </div>
-
-    <!-- TAB: JOURNAL -->
-    <div class="bs-panel" data-scipanel="journal" id="sciJournalPanel">
-      <div class="bs-section-head">
-        <div>
-          <div class="bs-section-title">Journal</div>
-          <div class="bs-section-sub">Three templates: Brain Dump (Emotional Processing and Daily Reflection combined), Gratitude, and Day Planner.</div>
-        </div>
-      </div>
-      <div class="bs-section-actions" style="margin:10px 0 4px;">
-        <button type="button" class="bs-btn-primary bs-btn-sm" id="sciNewBraindumpBtn">+ Brain Dump</button>
-        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciNewGratitudeBtn">+ Gratitude</button>
-        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciNewDayplannerBtn">+ Day Planner</button>
-      </div>
-      <div class="bs-list" id="sciJournalList" style="margin-top:14px;"></div>
-    </div>
-
-    <!-- TAB: MEDITATIONS & BREATHWORK -->
-    <div class="bs-panel" data-scipanel="meditation">
-      <div class="sci-db-cols">
-        <div class="bs-section" id="sciMeditationSection">
-          <div class="bs-section-head">
-            <div>
-              <div class="bs-section-title" style="font-size:18px;">Meditations</div>
-              <div class="bs-section-sub">Today&rsquo;s effort level decides which of these you sit with.</div>
-            </div>
-            <div class="bs-section-actions"><button type="button" class="bs-btn-primary bs-btn-sm" id="sciAddMeditationBtn">+ Add</button></div>
-          </div>
-          <div class="bs-list" id="sciMeditationList" style="margin-top:12px;"></div>
-        </div>
-        <div class="bs-section" id="sciBreathworkSection">
-          <div class="bs-section-head">
-            <div>
-              <div class="bs-section-title" style="font-size:18px;">Breathwork</div>
-              <div class="bs-section-sub">Patterns to settle with. Four phases, a real pacer.</div>
-            </div>
-            <div class="bs-section-actions"><button type="button" class="bs-btn-primary bs-btn-sm" id="sciAddBreathworkBtn">+ Add</button></div>
-          </div>
-          <div class="bs-list" id="sciBreathworkList" style="margin-top:12px;"></div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /mn-tabpanel[selfcare] -->
 
   </div><!-- /mn-shell -->
 </main>
-
-<!-- Self-Care's own modals — meditation editor, breathwork editor, and
-     the breathing pacer. Moved verbatim from the old inline markup; the
-     .modal-bg / .modal / .field chrome is restyled in main-theme.css
-     under those same class names. -->
-<div class="modal-bg" id="sciMeditationModalBg">
-  <div class="modal">
-    <div class="bs-modal-head"><h3 id="sciMeditationModalTitle">Add Meditation</h3><button type="button" class="bs-modal-close" id="sciMeditationModalCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="field"><label>Title</label><input type="text" id="sciMeditationTitleInput" placeholder="e.g. Body Scan — 10 min"></div>
-    <div class="field">
-      <label>Link</label>
-      <div class="sci-med-url-row">
-        <input type="text" id="sciMeditationUrlInput" placeholder="Paste a YouTube or Spotify link">
-        <button type="button" class="bs-btn-secondary bs-btn-sm" id="sciMeditationFetchBtn">Fetch</button>
-      </div>
-      <div class="sci-field-hint" id="sciMeditationUrlHint"></div>
-    </div>
-    <div class="field">
-      <label>Cover</label>
-      <div class="sci-med-cover-row">
-        <img id="sciMeditationCoverPreview" class="sci-med-cover-preview" alt="">
-        <div class="sci-med-cover-controls">
-          <input type="text" id="sciMeditationCoverUrlInput" placeholder="Paste image URL">
-          <label class="bs-btn-secondary bs-btn-sm sci-med-upload-btn">
-            Upload cover
-            <input type="file" id="sciMeditationCoverFile" accept="image/*" hidden>
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="field"><label>Type</label><select id="sciMeditationTypeInput"></select></div>
-    <div class="field"><label>Duration (minutes)</label><input type="number" min="0" id="sciMeditationDurationInput"></div>
-    <div class="field"><label>Description</label><textarea id="sciMeditationDescInput"></textarea></div>
-    <div class="field field-inline"><input type="checkbox" id="sciMeditationFavoriteInput"><label style="margin:0;">Favorite</label></div>
-    <div class="bs-modal-actions">
-      <button type="button" class="bs-btn-ghost" id="sciMeditationModalCancel">Cancel</button>
-      <button type="button" class="bs-btn-primary" id="sciMeditationModalSave">Save</button>
-    </div>
-    <span class="delete-link" id="sciMeditationModalDelete" style="display:none;">Delete this meditation</span>
-  </div>
-</div>
-
-<div class="modal-bg" id="sciBreathworkModalBg">
-  <div class="modal">
-    <div class="bs-modal-head"><h3 id="sciBreathworkModalTitle">Add Breathwork Technique</h3><button type="button" class="bs-modal-close" id="sciBreathworkModalCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="field"><label>Name</label><input type="text" id="sciBreathworkNameInput" placeholder="e.g. Box Breathing"></div>
-    <div class="field"><label>Best for</label><select id="sciBreathworkGoalInput"></select></div>
-    <div class="rt-grid3">
-      <div class="field"><label>Inhale (sec)</label><input type="number" min="0" id="sciBreathworkInhaleInput" value="4"></div>
-      <div class="field"><label>Hold (sec)</label><input type="number" min="0" id="sciBreathworkHoldInput" value="4"></div>
-      <div class="field"><label>Exhale (sec)</label><input type="number" min="0" id="sciBreathworkExhaleInput" value="4"></div>
-    </div>
-    <div class="rt-grid2">
-      <div class="field"><label>Hold after exhale (sec)</label><input type="number" min="0" id="sciBreathworkHold2Input" value="4"></div>
-      <div class="field"><label>Cycles</label><input type="number" min="1" id="sciBreathworkCyclesInput" value="6"></div>
-    </div>
-    <div class="field"><label>Description</label><textarea id="sciBreathworkDescInput"></textarea></div>
-    <div class="field field-inline"><input type="checkbox" id="sciBreathworkFavoriteInput"><label style="margin:0;">Favorite</label></div>
-    <div class="bs-modal-actions">
-      <button type="button" class="bs-btn-ghost" id="sciBreathworkModalCancel">Cancel</button>
-      <button type="button" class="bs-btn-primary" id="sciBreathworkModalSave">Save</button>
-    </div>
-    <span class="delete-link" id="sciBreathworkModalDelete" style="display:none;">Delete this technique</span>
-  </div>
-</div>
-
-<div class="modal-bg" id="sciPacerModalBg">
-  <div class="modal">
-    <div class="bs-modal-head"><h3 id="sciPacerModalTitle">Breathe</h3><button type="button" class="bs-modal-close" id="sciPacerModalCloseBtn" aria-label="Close">&times;</button></div>
-    <div class="sci-pacer-stage">
-      <div class="sci-pacer-circle" id="sciPacerCircle"><div class="sci-pacer-count" id="sciPacerCount">—</div></div>
-      <div class="sci-pacer-phase" id="sciPacerPhase">Ready</div>
-      <div class="sci-pacer-cycle" id="sciPacerCycle"></div>
-    </div>
-    <div class="bs-modal-actions" style="justify-content:center;">
-      <button type="button" class="bs-btn-secondary" id="sciPacerStartBtn">▶ Start</button>
-      <button type="button" class="bs-btn-ghost" id="sciPacerStopBtn">Stop</button>
-    </div>
-  </div>
-</div>
 
 <!-- The music dock's opener. It reads every shelf of the Entertainment
      Studio (vault:media:*) read-only — it never writes a vault key and
@@ -274,8 +132,9 @@
         data-pal-music="" data-pal-music-toggle data-pal-label=""
         aria-controls="palMusic" aria-expanded="false" aria-label="Music">&#9834;</button>
 
-<!-- Today's layer-2 surface. Self-Care keeps its own .modal-bg chrome
-     below, unchanged. -->
+<!-- Today's layer-2 surface. The .modal-bg chrome that used to sit
+     below this belonged to Self-Care's three editors and went with it
+     on 2026-08-25. -->
 <div class="mn-sheetbg" id="mnSheetBg" role="dialog" aria-modal="true" aria-label="Editor">
   <div class="mn-sheet" id="mnSheet"></div>
 </div>
@@ -306,13 +165,12 @@ document.addEventListener('DOMContentLoaded', function () {
       window.MainHero.mount({
         variant: 'full',
         dateText: new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-        scenes: [{ key: 'today', label: 'Today' }, { key: 'selfcare', label: 'Self-Care' }],
+        scenes: [{ key: 'today', label: 'Today' }],
         medal: { lead: 'Today', main: '—' }
       });
     }
 
     if (window.TodayUI) { try { window.TodayUI.boot(); } catch (err) { bootError('Today', err); } }
-    if (typeof safeBootSelfCareMain === 'function') safeBootSelfCareMain();
 
     if (window.PalMusic) {
       window.PalMusic.init({
@@ -332,7 +190,6 @@ document.addEventListener('DOMContentLoaded', function () {
           // A repaint at a moment nobody chose. It must not scroll, and
           // it must not replay the hero — setScene is guarded by key.
           if (window.TodayUI) window.TodayUI.renderAll();
-          if (typeof renderAllSelfCarePanels === 'function' && window.MainSelfCareData) renderAllSelfCarePanels();
         },
         onPulled: function (row, allPulled) {
           // Seeding waits for the cloud to have had its say. A seeder

@@ -28,11 +28,15 @@
 // =============================================================
 // THE PREFIXES THAT LOOK DEAD AND ARE NOT
 //
-// `system:` and `fitness:` no longer have any screen. Your System,
-// Subconscious Reprogramming and Main's own embedded Fitness Studio
-// were removed on 2026-08-22; system-data.js and fitness-data.js
-// are no longer even loaded. It is therefore extremely tempting to
-// delete those two strings from the goals row below.
+// `system:`, `fitness:` and `mainselfcare:` no longer have any
+// screen. Your System, Subconscious Reprogramming and Main's own
+// embedded Fitness Studio were removed on 2026-08-22; Self-Care
+// followed on 2026-08-25 when it became its own page, The Asclepion
+// (asclepion.html, its own two rows, its own `asc:`/`asclog:`
+// prefixes, and NO migration — it starts clean). system-data.js,
+// fitness-data.js, mainselfcare-data.js and selfcare-ui.js are no
+// longer even loaded. It is therefore extremely tempting to delete
+// those three strings from the goals row below.
 //
 // Doing that would delete the data, on every device you own, the
 // first time this page pushed. The keys still exist in storage.
@@ -75,7 +79,7 @@
       'routine:',      // Beliefs, the 30-day lock, Today/Tonight, the Frog log
       'system:',       // RETIRED UI, LIVE DATA — read the header before touching
       'fitness:',      // RETIRED UI, LIVE DATA — read the header before touching
-      'mainselfcare:', // Self-Care: checklist, tips, journal, meditations, breathwork
+      'mainselfcare:', // RETIRED UI, LIVE DATA — read the header before touching
       'today:',        // Today: routines, per-day log, the timing engine
       'wr:'            // Weekly Review
     ],

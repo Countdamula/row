@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en" class="asc-root">
+<head>
+<script src="local-store-idb.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0C1416">
+<meta name="robots" content="noindex, nofollow">
+<title>The Asclepion — Practice</title>
+
+<!-- =============================================================
+     THE PRACTICE RUNNER.
+     asclepion.html is where you choose; this is where you do.
+
+     Its own document, for the same reason palaestra-workout.html
+     is: this is a surface you should not be able to scroll away
+     from, and a page you open with your eyes half closed. Rebuilt
+     as a route of the hub it would inherit a routebar, a hero and
+     nine other things competing for the same attention.
+
+     Routes:
+       #/breath/<id>   the pacer
+       #/eft/<id>      the tapping session, six steps
+       #/routine       the routine runner, reading asclog:live
+
+     Both rows are mounted here, exactly as on the hub — see
+     asclepion-sync.js. handoff:true on both is what stops a
+     session started here from being erased by the hub's next
+     pull.
+     ============================================================= -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="asclepion-theme.css?v=2">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js?v=3"></script>
+<script src="asclepion-seed.js?v=2"></script>
+<script src="asclepion-data.js?v=2"></script>
+<script src="asclepion-sync.js?v=2"></script>
+<script src="asclepion-ui.js?v=2"></script>
+<script src="asclepion-hero.js?v=2"></script>
+<script src="topbar.js?v=3" defer></script>
+</head>
+<body class="asc asc--session">
+
+<div class="asc-sessionbar">
+  <button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" id="ascLeave">Leave</button>
+  <span class="asc-label" id="ascSessionLabel"></span>
+  <span class="asc-sessionbar__sp"></span>
+</div>
+
+<main class="asc-stage" id="ascStage" tabindex="-1"></main>
+
+<div class="asc-sheetbg" id="ascSheetBg" role="dialog" aria-modal="true" aria-label="Detail">
+  <div class="asc-sheet" id="ascSheet"></div>
+</div>
+<div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var U = window.AscUI;
+  var A = null;
+  var stage = document.getElementById('ascStage');
+  var esc = U.esc, escLines = U.escLines;
+
+  // ==========================================================
+  // ROUTE
+  // ==========================================================
+  function route() {
+    var h = String(location.hash || '').replace(/^#/, '');
+    var m = h.match(/^\/(breath|eft)\/(.+)$/);
+    if (m) return { kind: m[1], id: m[2] };
+    if (h === '/routine') return { kind: 'routine', id: '' };
+    return { kind: 'none', id: '' };
+  }
+
+  // ==========================================================
+  // §PACER — the signature.
+  //
+  // TIMESTAMP-BASED, NOT A COUNTER.
+  //
+  // The elapsed time in a phase is always (now - phaseStart). It
+  // is never a number decremented by an interval, because a
+  // backgrounded tab or a locked phone stops firing intervals and
+  // a decrementing counter is then wrong by exactly however long
+  // the screen was off. You would come back to a pacer telling
+  // you to keep holding a breath you finished two minutes ago.
+  //
+  // The tick only PAINTS. Every question about where we are in
+  // the technique is answered by arithmetic on the clock.
+  // ==========================================================
+  var pacer = null;
+  var pacerTimer = null;
+
+  function flatten(b) {
+    // rounds -> cycles -> phases, expanded into one flat list, so
+    // the tick never has to reason about three nested counters.
+    // Vortex Breath is five rounds of one cycle; 4-7-8 is one
+    // round of four. Flattened, they are the same object.
+    var out = [];
+    b.rounds.forEach(function (r, ri) {
+      for (var c = 0; c < r.cycles; c++) {
+        r.phases.forEach(function (p, pi) {
+          out.push({
+            kind: p.kind, seconds: p.seconds, route: p.route, force: p.force, note: p.note,
+            roundIdx: ri, roundLabel: r.label, cycle: c + 1, cycles: r.cycles,
+            first: ri === 0 && c === 0 && pi === 0
+          });
+        });
+      }
+    });
+    return out;
+  }
+
+  function startPacer(b) {
+    pacer = {
+      breath: b,
+      steps: flatten(b),
+      i: -1,
+      startedAt: Date.now(),
+      phaseStart: 0,
+      state: 'ready',      // ready | running | waiting | done
+      logged: false
+    };
+    renderPacer();
+  }
+
+  // One verb for the one button, whatever state it is in: begin,
+  // advance a self-paced phase, skip a timed one, or start over.
+  // An earlier pass left `running` out of this list, which shipped
+  // a button labelled Skip that did not skip.
+  function pacerGo() {
+    if (!pacer) return;
+    if (pacer.state === 'done') { startPacer(pacer.breath); pacerAdvance(); return; }
+    pacerAdvance();
+  }
+
+  function pacerAdvance() {
+    pacer.i += 1;
+    if (pacer.i >= pacer.steps.length) { pacerFinish(); return; }
+    var step = pacer.steps[pacer.i];
+    pacer.phaseStart = Date.now();
+    // seconds === 0 means SELF-PACED. The pacer holds here until
+    // you tap, which is how "fill your lungs" is run without
+    // inventing a duration for it.
+    pacer.state = step.seconds > 0 ? 'running' : 'waiting';
+    paintPhase();
+    startTick();
+  }
+
+  function pacerFinish() {
+    pacer.state = 'done';
+    stopTick();
+    if (!pacer.logged) {
+      pacer.logged = true;
+      A.logSession({
+        kind: 'breath', refId: pacer.breath.id, title: pacer.breath.name,
+        startedAt: pacer.startedAt, endedAt: Date.now()
+      });
+    }
+    renderPacer();
+  }
+
+  function startTick() {
+    stopTick();
+    if (pacer.state !== 'running') return;
+    pacerTimer = setInterval(tick, 100);
+    tick();
+  }
+  function stopTick() { clearInterval(pacerTimer); pacerTimer = null; }
+
+  function tick() {
+    if (!pacer || pacer.state !== 'running') { stopTick(); return; }
+    var step = pacer.steps[pacer.i];
+    var elapsed = (Date.now() - pacer.phaseStart) / 1000;
+    var left = Math.max(0, Math.ceil(step.seconds - elapsed));
+    var el = document.getElementById('ascCount');
+    if (el) el.textContent = left;
+    if (elapsed >= step.seconds) pacerAdvance();
+  }
+
+  var PHASE_WORD = { inhale: 'In', hold: 'Hold', exhale: 'Out', holdOut: 'Hold' };
+  // Where the water sits at the END of each phase. The basin fills
+  // on the way in and drains on the way out; a hold keeps whatever
+  // level it inherited, which is what makes a hold read as a hold
+  // rather than as a pause in an animation.
+  var PHASE_LEVEL = { inhale: 1, exhale: .3, hold: null, holdOut: null };
+
+  function paintPhase() {
+    var step = pacer.steps[pacer.i];
+    var word = document.getElementById('ascPhase');
+    var count = document.getElementById('ascCount');
+    var note = document.getElementById('ascPhaseNote');
+    var meta = document.getElementById('ascPacerMeta');
+    var fill = document.getElementById('ascFill');
+    if (!word) return;
+
+    word.textContent = PHASE_WORD[step.kind] || step.kind;
+    count.textContent = step.seconds > 0 ? step.seconds : '·';
+    var routeWord = step.route === 'nose' ? 'through the nose'
+                  : step.route === 'mouth' ? 'through the mouth' : '';
+    note.textContent = step.note || (routeWord ? routeWord : '');
+
+    var label = step.roundLabel ? step.roundLabel : '';
+    var cyc = step.cycles > 1 ? ('Round ' + step.cycle + ' of ' + step.cycles) : '';
+    meta.textContent = [label, cyc].filter(Boolean).join(' · ');
+
+    if (fill) {
+      var lvl = PHASE_LEVEL[step.kind];
+      if (lvl !== null && lvl !== undefined) {
+        // The transition duration IS the phase duration, so the
+        // water arrives exactly as the count reaches zero. That is
+        // the whole instrument: you can breathe to the water and
+        // never look at the number.
+        fill.style.transitionDuration = (step.seconds > 0 ? step.seconds : 3) + 's';
+        fill.style.setProperty('--lvl', lvl);
+      }
+    }
+    document.body.classList.toggle('is-inhaling', step.kind === 'inhale');
+    syncGoLabel();
+  }
+
+  function renderPacer() {
+    var b = pacer.breath;
+    var secs = A.breathSeconds(b);
+    var live = A.getLive();
+    var out = '<div class="asc-stage__in" data-tint="breath">';
+
+    if (pacer.state === 'done') {
+      out += '<div class="asc-done">' +
+        '<p class="asc-label asc-label--tint">Done</p>' +
+        '<h1 class="asc-plate">' + esc(b.name) + '</h1>' +
+        '<p class="asc-lede">' + esc(b.cues[b.cues.length - 1] || '') + '</p>' +
+        '<div class="asc-done__acts">' +
+          '<button type="button" class="asc-btn asc-btn--primary" data-act="again">Again</button>' +
+          (live ? '<button type="button" class="asc-btn" data-act="back-to-routine">Back to the routine</button>'
+                : '<a class="asc-btn" href="asclepion.html#/breath">Back to Breath</a>') +
+        '</div></div>';
+      return void (stage.innerHTML = out + '</div>');
+    }
+
+    out += '<p class="asc-label asc-label--tint">' + esc(b.name) + '</p>' +
+      '<div class="asc-pacer">' +
+        '<div class="asc-basin asc-basin--lg">' +
+          '<span class="asc-basin__fill" id="ascFill" style="--lvl:.3"></span>' +
+          '<span class="asc-basin__glint"></span>' +
+        '</div>' +
+        '<p class="asc-pacer__count" id="ascCount">' + (pacer.state === 'ready' ? '' : '') + '</p>' +
+        '<p class="asc-pacer__phase" id="ascPhase">' + (pacer.state === 'ready' ? 'Ready' : '') + '</p>' +
+        '<p class="asc-pacer__note" id="ascPhaseNote">' + (pacer.state === 'ready' ? esc(b.summary) : '') + '</p>' +
+        '<p class="asc-pacer__meta" id="ascPacerMeta">' + esc(U.clock(secs)) + '</p>' +
+      '</div>' +
+      '<div class="asc-pacer__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="go" id="ascGoBtn">' +
+          (pacer.state === 'ready' ? 'Begin' : 'Next') + '</button>' +
+        '<button type="button" class="asc-btn asc-btn--ghost" data-act="stop">Stop</button>' +
+      '</div>';
+
+    // The cues stay up for the whole run, not just the ready
+    // state. They are the instructions — "tongue on the ridge",
+    // "let the exhale be longer than feels necessary" — and the
+    // moment you need them is while you are doing it, not in the
+    // three seconds before you press Begin.
+    if (b.cues.length) {
+      out += '<ul class="asc-cues asc-cues--stage">' +
+        b.cues.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>';
+    }
+    stage.innerHTML = out + '</div>';
+    // The tap target for advancing a self-paced phase is the whole
+    // basin, not just the button — you should not have to aim at
+    // anything with your eyes shut.
+    var basin = stage.querySelector('.asc-basin');
+    if (basin) basin.addEventListener('click', function () { if (pacer.state === 'waiting') pacerAdvance(); });
+    if (pacer.state !== 'ready') paintPhase();
+  }
+
+  // Only the button label changes between running and waiting, so
+  // it is set directly rather than by rebuilding the stage — a
+  // rebuild mid-phase would restart the water's transition.
+  function syncGoLabel() {
+    var btn = document.getElementById('ascGoBtn');
+    if (!btn || !pacer) return;
+    btn.textContent = pacer.state === 'waiting' ? 'Next' : (pacer.state === 'ready' ? 'Begin' : 'Skip');
+  }
+
+  // ==========================================================
+  // §EFT — six steps, in the order they were asked for.
+  // ==========================================================
+  var eft = null;
+  var EFT_STEPS = ['before', 'setup', 'points', 'round1', 'round2', 'reframe', 'after'];
+  var EFT_TITLES = {
+    before: 'How bad is it?', setup: 'Setup', points: 'The points',
+    round1: 'Round one', round2: 'Round two', reframe: 'Reframe', after: 'How do you feel now?'
+  };
+
+  function startEft(topic) {
+    eft = { topic: topic, step: 0, before: null, after: null, note: '', startedAt: Date.now(), saved: false };
+    renderEft();
+  }
+
+  function renderEft() {
+    var t = eft.topic;
+    var key = EFT_STEPS[eft.step];
+    var out = '<div class="asc-stage__in asc-stage__in--wide" data-tint="eft">';
+
+    out += '<div class="asc-rail">' + EFT_STEPS.map(function (s, i) {
+      return '<span class="asc-rail__seg' + (i < eft.step ? ' is-past' : (i === eft.step ? ' is-on' : '')) + '"></span>';
+    }).join('') + '</div>';
+
+    out += '<p class="asc-label asc-label--tint">' + esc(t.name) + ' · ' + esc(EFT_TITLES[key]) + '</p>';
+
+    if (key === 'before' || key === 'after') {
+      var val = key === 'before' ? (eft.before == null ? 5 : eft.before) : (eft.after == null ? (eft.before == null ? 5 : eft.before) : eft.after);
+      out += '<h1 class="asc-plate">' + esc(EFT_TITLES[key]) + '</h1>' +
+        '<p class="asc-lede">' + (key === 'before'
+          ? 'Zero is nothing at all. Ten is the worst it gets. Guess — the number only has to be honest, not right.'
+          : 'Same scale. Be honest if it barely moved; a second pass on a truthful six does more than a first pass on a pretend three.') + '</p>' +
+        '<div class="asc-scale">' +
+          '<output class="asc-scale__out" id="ascScaleOut">' + val + '</output>' +
+          '<input type="range" class="asc-range" id="ascScale" min="0" max="10" step="1" value="' + val + '" ' +
+            'aria-label="Intensity from zero to ten">' +
+          '<div class="asc-scale__ends"><span>Nothing</span><span>The worst it gets</span></div>' +
+        '</div>';
+      if (key === 'after' && eft.before != null) {
+        out += '<p class="asc-scale__delta" id="ascDelta"></p>';
+      }
+      out += '<div class="asc-pacer__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="eft-next">' +
+          (key === 'before' ? 'Start tapping' : 'Save and finish') + '</button>' +
+        (key === 'before' ? '' : '<button type="button" class="asc-btn" data-act="eft-again">Another round</button>') +
+        '</div>';
+    } else if (key === 'setup') {
+      out += '<h1 class="asc-plate">Setup</h1>' +
+        '<p class="asc-lede">Tap the side of your hand — the fleshy edge below the little finger — and say each of these out loud. All three.</p>' +
+        '<ol class="asc-say">' + t.setup.map(function (s) {
+          return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>' +
+        eftNav();
+    } else if (key === 'points') {
+      out += '<h1 class="asc-plate">The points</h1>' +
+        '<p class="asc-lede">Seven taps each, in this order, top to bottom and then the crown. You do not have to be precise.</p>' +
+        '<ol class="asc-points asc-points--compact">' +
+          A.EftPoints.list().filter(function (p) { return p.n > 0; }).map(function (p) {
+            return '<li><span class="asc-points__n">' + p.n + '</span>' +
+              '<div><p class="asc-points__name">' + esc(p.name) + '</p>' +
+              '<p class="asc-points__where">' + esc(p.where) + '</p></div></li>';
+          }).join('') +
+        '</ol>' + eftNav();
+    } else {
+      var lines = t[key] || [];
+      var lead = key === 'round1'
+        ? 'Say each line out loud as you tap that point. This round is meant to be unflattering — it has to start where you actually are or there is nothing to move.'
+        : key === 'round2'
+        ? 'Same points, same order. This is the first move away from it.'
+        : 'Last round. Say these even if you do not believe them yet.';
+      out += '<h1 class="asc-plate">' + esc(EFT_TITLES[key]) + '</h1>' +
+        '<p class="asc-lede">' + esc(lead) + '</p>' +
+        '<ol class="asc-tap">' + lines.map(function (l) {
+          var p = pointByKey(l.point);
+          return '<li><span class="asc-tap__pt">' + esc(p ? p.name : l.point) + '</span>' +
+            '<span class="asc-tap__say">' + esc(l.phrase) + '</span></li>';
+        }).join('') + '</ol>' + eftNav();
+    }
+    stage.innerHTML = out + '</div>';
+
+    var scale = document.getElementById('ascScale');
+    if (scale) {
+      scale.addEventListener('input', function () {
+        document.getElementById('ascScaleOut').textContent = scale.value;
+        if (key === 'before') eft.before = Number(scale.value); else eft.after = Number(scale.value);
+        paintDelta();
+      });
+      if (key === 'before' && eft.before == null) eft.before = Number(scale.value);
+      if (key === 'after' && eft.after == null) eft.after = Number(scale.value);
+      paintDelta();
+    }
+  }
+  function eftNav() {
+    return '<div class="asc-pacer__acts">' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-act="eft-next">Next</button>' +
+      (eft.step > 0 ? '<button type="button" class="asc-btn asc-btn--ghost" data-act="eft-back">Back</button>' : '') +
+      '</div>';
+  }
+  function paintDelta() {
+    var el = document.getElementById('ascDelta');
+    if (!el || eft.before == null || eft.after == null) return;
+    var d = eft.before - eft.after;
+    el.textContent = d > 0 ? ('Down ' + d + ' from ' + eft.before + '.')
+      : d === 0 ? 'No change yet. That is information, not failure.'
+      : 'Up ' + Math.abs(d) + '. Sometimes a round surfaces what was underneath — that counts as it working.';
+  }
+  function pointByKey(k) {
+    var all = A.EftPoints.list();
+    for (var i = 0; i < all.length; i++) if (all[i].key === k) return all[i];
+    return null;
+  }
+
+  function eftNext() {
+    if (eft.step < EFT_STEPS.length - 1) { eft.step += 1; renderEft(); window.scrollTo({ top: 0, behavior: 'auto' }); return; }
+    saveEft();
+  }
+  function saveEft() {
+    if (!eft.saved) {
+      eft.saved = true;
+      A.logSession({
+        kind: 'eft', refId: eft.topic.id, title: eft.topic.name,
+        before: eft.before, after: eft.after,
+        startedAt: eft.startedAt, endedAt: Date.now()
+      });
+    }
+    var live = A.getLive();
+    stage.innerHTML = '<div class="asc-stage__in" data-tint="eft"><div class="asc-done">' +
+      '<p class="asc-label asc-label--tint">Saved</p>' +
+      '<h1 class="asc-plate">' + esc(eft.topic.name) + '</h1>' +
+      '<p class="asc-lede">' + esc(eft.topic.closing) + '</p>' +
+      '<div class="asc-done__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="eft-again">Another round</button>' +
+        (live ? '<button type="button" class="asc-btn" data-act="back-to-routine">Back to the routine</button>'
+              : '<a class="asc-btn" href="asclepion.html#/eft">Back to Tapping</a>') +
+      '</div></div></div>';
+  }
+
+  // ==========================================================
+  // §ROUTINE RUNNER
+  //
+  // Reads asclog:live, which is written before you leave the hub
+  // and survives every hop between these three documents. That is
+  // the whole reason it lives on the log row with handoff:true —
+  // a routine that forgets where it was the moment it sends you
+  // to the journal is a routine nobody finishes.
+  // ==========================================================
+  function renderRoutine() {
+    var live = A.getLive();
+    if (!live) {
+      stage.innerHTML = '<div class="asc-stage__in"><div class="asc-done">' +
+        '<h1 class="asc-plate">No routine running</h1>' +
+        '<p class="asc-lede">Pick one and it will keep your place, even across the journal.</p>' +
+        '<div class="asc-done__acts"><a class="asc-btn asc-btn--primary" href="asclepion.html#/routines">Choose a routine</a></div>' +
+        '</div></div>';
+      return;
+    }
+    var r = A.Routines.get(live.routineId);
+    var done = live.done || [];
+    var allDone = r.steps.every(function (s) { return done.indexOf(s.id) !== -1; });
+
+    if (allDone) {
+      stage.innerHTML = '<div class="asc-stage__in" data-tint="' + esc(r.tint) + '"><div class="asc-done">' +
+        '<p class="asc-label asc-label--tint">Finished</p>' +
+        '<h1 class="asc-plate">' + esc(r.name) + '</h1>' +
+        '<p class="asc-lede">All of it. That is the whole routine.</p>' +
+        '<div class="asc-done__acts">' +
+          '<button type="button" class="asc-btn asc-btn--primary" data-act="finish-routine">Done</button>' +
+        '</div></div></div>';
+      return;
+    }
+
+    var doneCount = r.steps.filter(function (s) { return done.indexOf(s.id) !== -1; }).length;
+    var out = '<div class="asc-stage__in asc-stage__in--wide" data-tint="' + esc(r.tint) + '">' +
+      '<p class="asc-label asc-label--tint">' + doneCount + ' of ' + r.steps.length + ' done</p>' +
+      '<h1 class="asc-plate">' + esc(r.name) + '</h1>' +
+      '<p class="asc-lede">' + esc(r.forWhen) + '</p>' +
+      '<ol class="asc-run">';
+    r.steps.forEach(function (s, i) {
+      var isDone = done.indexOf(s.id) !== -1;
+      var isNow = i === live.stepIndex;
+      out += '<li class="asc-run__step' + (isDone ? ' is-done' : '') + (isNow ? ' is-now' : '') + '">' +
+        '<button type="button" class="asc-run__tick" data-act="toggle-step" data-id="' + esc(s.id) +
+          '" aria-pressed="' + (isDone ? 'true' : 'false') +
+          '" aria-label="' + (isDone ? 'Undo ' : 'Mark done: ') + esc(s.label) + '"></button>' +
+        '<div class="asc-run__body">' +
+          '<p class="asc-run__title">' + esc(s.label) + '</p>' +
+          (s.minutes ? '<p class="asc-run__meta">' + esc(U.mins(s.minutes)) + '</p>' : '') +
+          (s.note ? '<p class="asc-run__note">' + esc(s.note) + '</p>' : '') +
+        '</div>' +
+        (isDone ? '' : '<div class="asc-run__tail">' + stepAction(s, i) + '</div>') +
+        '</li>';
+    });
+    out += '</ol>' +
+      '<div class="asc-pacer__acts">' +
+        '<button type="button" class="asc-btn asc-btn--ghost" data-act="abandon">End the routine</button>' +
+      '</div>';
+    stage.innerHTML = out + '</div>';
+  }
+
+  function stepAction(s, i) {
+    var label = 'Open';
+    switch (s.kind) {
+      case 'breath': label = 'Breathe'; break;
+      case 'eft': label = 'Tap'; break;
+      case 'journal': label = 'Write'; break;
+      case 'meditation': label = 'Play'; break;
+      case 'yoga': label = 'Move'; break;
+      case 'energy': label = 'Steps'; break;
+      case 'free': return '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="toggle-step" data-id="' + esc(s.id) + '">Done</button>';
+      case 'affirmation': label = 'Read'; break;
+    }
+    return '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="do-step" data-i="' + i + '">' + label + '</button>';
+  }
+
+  function doStep(i) {
+    var live = A.getLive();
+    if (!live) return;
+    var r = A.Routines.get(live.routineId);
+    var s = r.steps[i];
+    if (!s) return;
+    A.setLive({ stepIndex: i });
+    // A step that RESOLVED to something opens that thing. Only a
+    // step that resolved to nothing — "tap on whatever is loudest"
+    // — sends you to its category to choose. Sending you to a
+    // category you already named a practice in would make the
+    // routine ask you a question it had already answered.
+    switch (s.kind) {
+      case 'breath':
+        if (s.refId) { location.hash = '/breath/' + s.refId; return; }
+        U.go('asclepion.html#/breath'); return;
+      case 'eft':
+        if (s.refId) { location.hash = '/eft/' + s.refId; return; }
+        U.go('asclepion.html#/eft'); return;
+      case 'journal':
+        U.go('asclepion-journal.html' + (s.refId ? '#/j/' + s.refId : '')); return;
+      case 'energy':
+        if (s.refId && A.Energy.get(s.refId)) { showEnergy(s.refId, s.id); return; }
+        U.go('asclepion.html#/energy'); return;
+      case 'meditation':
+        if (openPractice(A.Media[s.shelf], s.refId, s.id)) return;
+        U.go('asclepion.html#/meditation'); return;
+      case 'yoga':
+        if (openPractice(A.Yoga, s.refId, s.id)) return;
+        U.go('asclepion.html#/yoga'); return;
+      case 'affirmation': U.go('asclepion.html#/affirmations'); return;
+    }
+  }
+
+  // Energy practices have their steps right here, so a routine
+  // never has to hand you off to the library to read four lines.
+  function showEnergy(energyId, stepId) {
+    var e = A.Energy.get(energyId);
+    if (!e) return;
+    U.openSheet(
+      '<div class="asc-sheet__head">' +
+        '<h2 class="asc-plate asc-plate--sm">' + esc(e.title) + '</h2>' +
+        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" data-act="sheet-close">Close</button>' +
+      '</div>' +
+      '<p class="asc-body">' + esc(e.summary) + '</p>' +
+      '<ol class="asc-steps">' + e.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>' +
+      (stepId ? '<div class="asc-panel__foot"><button type="button" class="asc-btn asc-btn--primary" ' +
+        'data-act="done-step" data-id="' + esc(stepId) + '" data-autofocus>Done</button></div>' : ''),
+      { tint: 'energy' });
+  }
+
+  // A linked practice opens in a new tab and ticks itself off; an
+  // unlinked one says so rather than opening a dead nothing.
+  function openPractice(coll, refId, stepId) {
+    if (!coll || !refId) return false;
+    var rec = coll.get(refId);
+    if (!rec) return false;
+    U.openSheet(
+      '<div class="asc-sheet__head">' +
+        '<h2 class="asc-plate asc-plate--sm">' + esc(rec.title) + '</h2>' +
+        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" data-act="sheet-close">Close</button>' +
+      '</div>' +
+      (rec.description ? '<p class="asc-body">' + esc(rec.description) + '</p>' : '') +
+      '<div class="asc-panel__foot">' +
+        (rec.url
+          ? '<a class="asc-btn asc-btn--primary" href="' + esc(rec.url) + '" target="_blank" rel="noopener noreferrer" data-autofocus>Open</a>'
+          : '<span class="asc-small">No link on this one yet — add one from the library and it will open straight from here.</span>') +
+        (stepId ? '<button type="button" class="asc-btn" data-act="done-step" data-id="' + esc(stepId) + '">Done</button>' : '') +
+      '</div>', { tint: 'medit' });
+    return true;
+  }
+
+  function toggleStep(id) {
+    var live = A.getLive();
+    if (!live) return;
+    var r = A.Routines.get(live.routineId);
+    var done = live.done.slice();
+    var at = done.indexOf(id);
+    if (at === -1) done.push(id); else done.splice(at, 1);
+    // The cursor moves to the first thing still undone, so coming
+    // back from the journal lands you on what is actually next
+    // rather than on where you happened to be.
+    var next = r.steps.findIndex(function (s) { return done.indexOf(s.id) === -1; });
+    A.setLive({ done: done, stepIndex: next === -1 ? live.stepIndex : next });
+    renderRoutine();
+  }
+
+  // ==========================================================
+  // ACTIONS
+  // ==========================================================
+  var ACTIONS = {
+    go: function () { pacerGo(); syncGoLabel(); },
+    stop: function () { stopTick(); leave(); },
+    again: function () { startPacer(pacer.breath); },
+    'eft-next': eftNext,
+    'eft-back': function () { if (eft.step > 0) { eft.step -= 1; renderEft(); } },
+    'eft-again': function () { startEft(eft.topic); },
+    'back-to-routine': function () {
+      // Finishing a step from inside a routine ticks it off on the
+      // way back, so you never arrive at the routine and have to
+      // tell it what you just did.
+      var live = A.getLive();
+      if (live) {
+        var r = A.Routines.get(live.routineId);
+        var s = r && r.steps[live.stepIndex];
+        if (s && live.done.indexOf(s.id) === -1) { toggleStep(s.id); }
+      }
+      location.hash = '/routine';
+    },
+    'toggle-step': function (el) { toggleStep(el.getAttribute('data-id')); },
+    'done-step': function (el) { U.closeSheet(); toggleStep(el.getAttribute('data-id')); },
+    'do-step': function (el) { doStep(Number(el.getAttribute('data-i'))); },
+    abandon: function () { A.clearLive(); U.go('asclepion.html#/routines'); },
+    'finish-routine': function () {
+      var live = A.getLive();
+      if (live) {
+        var r = A.Routines.get(live.routineId);
+        if (r) A.logSession({ kind: 'routine', refId: r.id, title: r.name, startedAt: live.startedAt, endedAt: Date.now() });
+      }
+      A.clearLive();
+      U.go('asclepion.html');
+    },
+    'sheet-close': function () { U.closeSheet(); }
+  };
+
+  function leave() {
+    var live = A.getLive();
+    U.go(live ? 'asclepion-session.html#/routine' : 'asclepion.html');
+  }
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+  function render() {
+    var r = route();
+    var label = document.getElementById('ascSessionLabel');
+    stopTick();
+    document.body.classList.remove('is-inhaling');
+
+    if (r.kind === 'breath') {
+      var b = A.Breath.get(r.id);
+      if (!b) { notFound('That technique is no longer here.', 'asclepion.html#/breath'); return; }
+      if (label) label.textContent = 'Breath';
+      startPacer(b);
+    } else if (r.kind === 'eft') {
+      var t = A.Eft.get(r.id);
+      if (!t) { notFound('That session is no longer here.', 'asclepion.html#/eft'); return; }
+      if (label) label.textContent = 'Tapping';
+      startEft(t);
+    } else if (r.kind === 'routine') {
+      if (label) label.textContent = 'Routine';
+      renderRoutine();
+    } else {
+      notFound('Nothing to practise here.', 'asclepion.html');
+    }
+  }
+
+  // A record can be deleted on another device while this document
+  // holds a link to it. That is a normal outcome, not an error, so
+  // it gets a way forward rather than a blank stage.
+  function notFound(message, href) {
+    stage.innerHTML = '<div class="asc-stage__in"><div class="asc-done">' +
+      '<h1 class="asc-plate">' + esc(message) + '</h1>' +
+      '<div class="asc-done__acts"><a class="asc-btn asc-btn--primary" href="' + esc(href) + '">Go back</a></div>' +
+      '</div></div>';
+  }
+
+  // ==========================================================
+  // BOOT
+  // ==========================================================
+  document.addEventListener('DOMContentLoaded', function () {
+    var ready = (window.LocalStoreIDB && window.LocalStoreIDB.ready)
+      ? window.LocalStoreIDB.ready() : Promise.resolve();
+
+    ready.then(function () {
+      A = window.Asc;
+      if (!A) { bootError('The Asclepion', new Error('asclepion-data.js did not load')); return; }
+
+      U.bindSheet();
+      U.delegate(stage, ACTIONS);
+      // The sheet is a sibling of the stage, not a child of it, so
+      // it needs its own delegation or every control inside it is
+      // inert.
+      U.delegate(document.getElementById('ascSheetBg'), ACTIONS);
+      document.getElementById('ascLeave').addEventListener('click', function () { stopTick(); leave(); });
+
+      // Space and Enter advance the pacer without hunting for the
+      // button — this is a screen you use with your eyes closed.
+      document.addEventListener('keydown', function (e) {
+        if (U.sheetOpen()) return;
+        if (route().kind !== 'breath' || !pacer) return;
+        if (e.key === ' ' || e.key === 'Enter') {
+          if (document.activeElement && /BUTTON|A|INPUT/.test(document.activeElement.tagName)) return;
+          e.preventDefault();
+          pacerGo();
+          syncGoLabel();
+        }
+      });
+
+      window.addEventListener('hashchange', render);
+      render();
+
+      // A phone that locks mid-phase comes back with the interval
+      // dead. The clock is authoritative, so one tick on return
+      // resyncs everything — including advancing straight past any
+      // phases that elapsed while the screen was off.
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible') return;
+        if (pacer && pacer.state === 'running') { startTick(); }
+      });
+
+      if (window.AscSync) {
+        var state = window.AscSync.mountAndSeed({});
+        A.seedAfterSyncAttempt(state.ref, function (seeded) { if (seeded) render(); });
+      } else {
+        A.seedAfterSyncAttempt(null, function (seeded) { if (seeded) render(); });
+      }
+    }).catch(function (err) { bootError('The Asclepion', err); });
+  });
+
+  function bootError(what, err) {
+    try {
+      var bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:3200;background:#2A1114;color:#F3D9D9;' +
+        'padding:14px 16px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;';
+      bar.textContent = what + ' failed to load: ' + (err && err.message ? err.message : err);
+      document.body.appendChild(bar);
+    } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>

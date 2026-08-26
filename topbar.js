@@ -45,7 +45,11 @@
     grid: '<rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/>',
     film: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M17 3v18"/><path d="M3 12h18"/><path d="M3 7.5h4"/><path d="M3 16.5h4"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
     dumbbell: '<path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3 9.5v5"/><path d="M21 9.5v5"/><path d="M6.5 12h11"/>',
-    utensils: '<path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 2v20"/><path d="M18 2a4 4 0 0 0-3 3.9V13a1 1 0 0 0 1 1h3"/><path d="M19 2v20"/>'
+    utensils: '<path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 2v20"/><path d="M18 2a4 4 0 0 0-3 3.9V13a1 1 0 0 0 1 1h3"/><path d="M19 2v20"/>',
+    // The Asclepion's own device: the basin, with the breath
+    // rising off it. Deliberately its signature rather than a
+    // generic heart or leaf.
+    basin: '<ellipse cx="12" cy="14.5" rx="9" ry="4.5"/><path d="M8.4 10.4a4.6 4.6 0 0 1 7.2 0"/><path d="M10.4 6.8a2.6 2.6 0 0 1 3.2 0"/>'
   };
 
   const RING_ITEMS = [
@@ -56,6 +60,7 @@
     { href: '',                  label: 'All Pages',            icon: 'grid', drawer: true },
     { href: 'vault.html',        label: 'Entertainment Studio', icon: 'film' },
     { href: 'palaestra.html',    label: 'Fitness Studio',       icon: 'dumbbell' },
+    { href: 'asclepion.html',    label: 'Self-Care Studio',     icon: 'basin' },
     { href: 'nutrition.html',    label: 'Nutrition',            icon: 'utensils' }
   ];
 
@@ -326,6 +331,51 @@
           { hash: '/history', label: 'History' },
         ] },
         { href: 'palaestra-workout.html', icon: '⏱', label: 'Workout Logger', id: 'topbarPalaestraWorkout' },
+      ],
+    },
+    {
+      // The Asclepion — asclepion.html (the hub) + asclepion-session.html
+      // (the practice runner) + asclepion-journal.html (the journals),
+      // over asclepion-data.js / asclepion-seed.js / asclepion-sync.js /
+      // asclepion-ui.js / asclepion-theme.css.
+      //
+      // Built 2026-08-25 and it REPLACED Main's Self-Care tab. That tab's
+      // data was NOT migrated: 'mainselfcare:' is orphaned but intact,
+      // still listed in main-sync.js's goals row, and must stay there
+      // forever — dropping a prefix deletes its keys on every device at
+      // the next push.
+      //
+      // TWO Supabase rows, split by weight, which is why there are two
+      // appKeys here and not one:
+      //   asclepion    -> 'asc:'     the library. ~100KB, read-mostly.
+      //   asclepionlog -> 'asclog:'  entries, tapping sessions, the live
+      //                              routine. Small, written constantly.
+      // On one row every journal keystroke batch would re-upload the whole
+      // seeded library. Same reasoning as kdpms: out of kdp:.
+      //
+      // Seven categories — breath, journals, tapping, meditation,
+      // movement, energy, affirmations — plus favourites swept across all
+      // of them, four routines, and a daily affirmation. The appKey
+      // 'selfcare' is deliberately NOT reused: it is the orphaned row from
+      // the long-deleted selfcare.html, and a first push would overwrite
+      // it.
+      key: 'asclepion',
+      label: 'Self-Care Studio',
+      items: [
+        { href: 'asclepion.html', icon: '◡', label: 'Self-Care Studio', id: 'topbarAsclepion', children: [
+          { hash: '/', label: 'Home' },
+          { hash: '/breath', label: 'Breath & Regulation' },
+          { hash: '/journal', label: 'Journals' },
+          { hash: '/eft', label: 'EFT Tapping' },
+          { hash: '/meditation', label: 'Meditation & Hypnosis' },
+          { hash: '/yoga', label: 'Yoga & Movement' },
+          { hash: '/energy', label: 'Energy Practices' },
+          { hash: '/affirmations', label: 'Affirmations' },
+          { hash: '/routines', label: 'Routines' },
+          { hash: '/kept', label: 'Kept — favourites' },
+        ] },
+        { href: 'asclepion-journal.html', icon: '☾', label: 'Journals', id: 'topbarAsclepionJournal' },
+        { href: 'asclepion-session.html', icon: '◦', label: 'Practice', id: 'topbarAsclepionSession' },
       ],
     },
     {
@@ -910,6 +960,20 @@ body.topbar-modal-open {
 `;
 
   // -------- HTML: the ring --------
+  //
+  // ALL PAGES ANCHORS SIX O'CLOCK. That only happens on its own
+  // when some index lands exactly at n/2, which needs an EVEN n —
+  // and the ring went to nine when the Self-Care Studio was added.
+  //
+  // The fix is half a step of phase. With an odd n, rotating the
+  // whole ring by 0.5/n puts index (n-1)/2 exactly at the bottom
+  // and leaves four nodes down each side, still symmetric about
+  // the vertical axis. Nothing sits at twelve any more, which is
+  // the trade: a node at the bottom is load-bearing (it is the
+  // drawer, and it is where the thumb is), a node at the top is
+  // not.
+  function ringPhase(n) { return n % 2 ? 0.5 : 0; }
+
   function pointOnCircle(i, n, r) {
     const theta = (2 * Math.PI * i) / n - Math.PI / 2;
     return {
@@ -921,12 +985,17 @@ body.topbar-modal-open {
   // Which way a label hangs off its node. Twelve and six get a centred
   // label above/below; everything else gets one on the outward side, so
   // no two labels can ever occupy the same horizontal band. This is the
-  // whole reason all eight labels can stay visible at once — the source
+  // whole reason all the labels can stay visible at once — the source
   // component only ever showed one, on hover.
+  //
+  // Computed from the node's real angular position (index plus phase)
+  // rather than from the index, or an odd-n ring would put the bottom
+  // node's label out to one side while the node itself sat at six.
   function ringSideFor(i, n) {
-    if (i === 0) return 'top';
-    if (i === n / 2) return 'bottom';
-    return i < n / 2 ? 'right' : 'left';
+    const f = ((i + ringPhase(n)) / n) % 1;   // 0 = twelve, .5 = six
+    if (Math.abs(f) < 1e-6) return 'top';
+    if (Math.abs(f - 0.5) < 1e-6) return 'bottom';
+    return f < 0.5 ? 'right' : 'left';
   }
 
   function ringIconSvg(name) {
@@ -936,8 +1005,9 @@ body.topbar-modal-open {
 
   function buildRingHtml() {
     const n = RING_ITEMS.length;
+    const ph = ringPhase(n);
     const nodes = RING_ITEMS.map((item, i) => {
-      const p = pointOnCircle(i, n, RING_R);
+      const p = pointOnCircle(i + ph, n, RING_R);
       return '<a class="tb-ring-node' + (item.drawer ? ' drawer' : '') + '"' +
              ' href="' + (item.href || '#') + '"' +
              (item.drawer ? ' data-ring-drawer="1"' : '') +
@@ -952,7 +1022,9 @@ body.topbar-modal-open {
     // the reference photo's separators between nav cells.
     let ticks = '';
     for (let t = 0; t < n; t++) {
-      const tp = pointOnCircle(t + 0.5, n, RING_R);
+      // Halfway between node t and node t+1, so the phase applies
+      // here too or the separators drift off the gaps.
+      const tp = pointOnCircle(t + 0.5 + ph, n, RING_R);
       ticks += '<i class="tb-ring-tick" style="--tx:' + tp.x + 'px; --ty:' + tp.y + 'px;"></i>';
     }
 
@@ -1151,6 +1223,9 @@ body.topbar-modal-open {
     // nav item of its own and must NOT be aliased here, or it would
     // highlight The Athenaeum instead of itself.
     'athenaeum-resource.html': 'athenaeum-resources.html'
+    // The Asclepion's two sub-documents are NOT aliased here: both are
+    // real nav items of their own, so aliasing them would highlight the
+    // hub while you were standing in the journal.
   };
 
   function highlightActivePill() {
@@ -1581,7 +1656,9 @@ body.topbar-modal-open {
       // Main's own layer-2 surface (index.html / futureself.html /
       // weeklyreview.html). Note '.fs-focus-bg' above is an older,
       // unrelated page's class and does not cover it.
-      '.mn-sheetbg'
+      '.mn-sheetbg',
+      // The Asclepion's sheet, on all three of its documents.
+      '.asc-sheetbg'
     ];
     function anyOpen() {
       for (const sel of MODAL_SELECTORS) {
