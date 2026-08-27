@@ -1,0 +1,122 @@
+# =============================================================
+# Nightly off-device backup of the dashboard's Supabase rows.
+#
+# This is the layer that survives losing every device. Everything
+# else — snapshots, the Trash, the cloud row itself — lives
+# somewhere a bad write can reach.
+#
+# WHERE THE PAYLOADS GO, AND WHY IT IS NOT `main`
+#
+# The repo is private; the SITE IS NOT. Vercel serves this repo's
+# root as static files, so a journal committed to `main` under
+# backups/ would be readable by anyone who guessed the URL. The
+# dated payloads therefore go to the orphan `backups` branch,
+# which Vercel never builds and which shares no history with main.
+#
+# Only backup-status.json — dates, counts, byte sizes, no content
+# — is committed to main, so the Recovery Center can show a real
+# "last backed up" date instead of a promise.
+#
+# NOTE: GitHub silently disables `schedule` on a repo with no
+# activity for 60 days. If this stops running, that is the first
+# thing to check.
+# =============================================================
+
+name: Nightly backup
+
+on:
+  schedule:
+    # 04:17 UTC. Deliberately not on the hour: scheduled jobs queued
+    # at :00 are the most delayed slot GitHub has.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+# One at a time. Two runs pushing the same branch is how a backup
+# job starts losing backups.
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          path: main
+
+      - name: Check out the backups branch
+        uses: actions/checkout@v4
+        with:
+          ref: backups
+          path: store
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # SUPABASE_KEY falls back to the publishable key the site already
+      # ships in sync.js. Setting a repo secret of the same name — a
+      # read-only service key, say — overrides it without editing this file.
+      - name: Read every row
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://jomlmvslzsmmzgjnqvbm.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'sb_publishable_BrZrVgVxLA_idNX19sGhwg_mo7Ta41N' }}
+          OUT_DIR: store
+          STATUS_PATH: main/backup-status.json
+        run: node main/scripts/backup.mjs
+
+      # The commit happens BEFORE the anomaly check on purpose. If a row
+      # shrank, that shrunken row is still the truth and still worth
+      # keeping; failing first would throw away the copy AND the evidence.
+      - name: Commit the payloads
+        working-directory: store
+        run: |
+          git config user.name  "backup"
+          git config user.email "backup@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing changed today"
+          else
+            git commit -m "Backup $(date -u +%Y-%m-%d)"
+            git push origin backups
+          fi
+
+      - name: Commit the status file
+        working-directory: main
+        run: |
+          git config user.name  "backup"
+          git config user.email "backup@users.noreply.github.com"
+          git add backup-status.json
+          if git diff --cached --quiet; then
+            echo "status unchanged"
+          else
+            git commit -m "Backup status $(date -u +%Y-%m-%d)"
+            # Damian pushes to main by hand; rebase rather than fight him for it.
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push origin main && exit 0
+              sleep 5
+            done
+            echo "could not push the status file after 3 tries"
+            exit 1
+          fi
+
+      # Now fail loudly, with the backup already safely committed. A run
+      # that goes red here means something got materially smaller, or an
+      # app's row disappeared entirely, since the last copy.
+      - name: Anomaly check
+        working-directory: store
+        run: |
+          M="$(date -u +%Y-%m-%d)/manifest.json"
+          test -f "$M" || { echo "no manifest written"; exit 1; }
+          COUNT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$M','utf8')).anomalies.length)")
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::$COUNT anomaly/anomalies in tonight's backup — the copy was kept, read the manifest"
+            node -e "for (const a of JSON.parse(require('fs').readFileSync('$M','utf8')).anomalies) console.log(JSON.stringify(a))"
+            exit 1
+          fi
+          echo "no anomalies"

@@ -162,6 +162,16 @@ body{
 .rc-item.is-found{animation:rc-found 2.6s ease-out forwards;border-radius:8px;
   box-shadow:0 0 0 6px rgba(227,178,95,.06)}
 @media (prefers-reduced-motion:reduce){.rc-item.is-found{animation:none;background:rgba(227,178,95,.1)}}
+/* "This device is right." Bordered like the loss block because it is the
+   same kind of moment — something is wrong and you are choosing what
+   wins — but in the neutral ink, because nothing has gone wrong yet. */
+.rc-push{display:flex;align-items:center;justify-content:space-between;gap:var(--rc-s3);
+  padding:11px 0;border-bottom:1px solid var(--rc-line)}
+.rc-push:last-child{border-bottom:0}
+.rc-push-main{min-width:0}
+.rc-push-title{margin:0;font-size:14.5px}
+.rc-push-sub{margin:2px 0 0;font-family:var(--rc-mono);font-size:11.5px;color:var(--rc-faint)}
+@media (max-width:719px){.rc-push{flex-wrap:wrap}.rc-push .rc-btn{flex:1 0 auto}}
 .rc-empty{color:var(--rc-faint);font-size:14px;margin:0;padding:var(--rc-s3) 0}
 
 .rc-item{display:flex;align-items:flex-start;gap:var(--rc-s3);padding:11px 0;
@@ -261,6 +271,17 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   </section>
 
   <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Send this device's copy up</h2></div>
+    <p class="rc-note">Each app keeps one row in the cloud, and the last device to write it wins.
+      If a row was emptied or overwritten by something else, this marks everything this device
+      holds as unsent — so the next time you open that app it <strong>uploads instead of
+      downloading</strong>, and the cloud stops being able to delete it.
+      <br><br>Use it when <em>this</em> device has the good copy. Anything a
+      <em>different</em> device wrote and never synced could be lost.</p>
+    <div id="rcPush"></div>
+  </section>
+
+  <section class="rc-sec">
     <div class="rc-sec-head"><h2 class="rc-h2">Export</h2></div>
     <p class="rc-note">JSON is the format that restores. <strong>Markdown is the one that still
       opens in ten years with no dashboard at all.</strong></p>
@@ -276,7 +297,7 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
       overwrites — <strong>nothing is deleted</strong>, so a file that is missing something
       cannot take it away from you. Restored records are then pushed to the cloud.</p>
     <div class="rc-row">
-      <label class="rc-file"><span class="rc-btn" id="rcImportLabel">Choose a JSON export…</span>
+      <label class="rc-file"><span class="rc-btn" id="rcImportLabel">Choose a JSON file…</span>
         <input type="file" id="rcImport" accept="application/json,.json"></label>
     </div>
   </section>
@@ -341,9 +362,18 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   // them, and the push that follows carries the repair up. The timestamp
   // is fresh because the record expires after 24 hours.
   // =================================================================
+  /**
+   * @returns {number} how many DISTINCT KEYS were marked — not how many
+   * marks were written. Main and The Palaestra both mount the 'palaestra'
+   * row (Main carries 'pal:' read-write, The Palaestra owns it), so one
+   * key legitimately gets written into that row's handoff record twice.
+   * Counting the writes told the reader "2 collections marked" for a
+   * single collection, which is the kind of small lie that makes someone
+   * stop believing the honest numbers next to it.
+   */
   function markHandoff(keys) {
     if (!keys || !keys.length) return 0;
-    var marked = 0, now = Date.now();
+    var seen = {}, now = Date.now();
     R.APPS.forEach(function (app) {
       Object.keys(app.rows).forEach(function (rowKey) {
         var prefixes = app.rows[rowKey];
@@ -354,11 +384,11 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
         var hk = 'syncdirty:' + rowKey, o = {};
         try { o = JSON.parse(localStorage.getItem(hk) || '{}') || {}; } catch (e) { o = {}; }
         if (typeof o !== 'object' || Array.isArray(o)) o = {};
-        mine.forEach(function (k) { o[k] = now; marked++; });
+        mine.forEach(function (k) { o[k] = now; seen[k] = true; });
         try { localStorage.setItem(hk, JSON.stringify(o)); } catch (e) {}
       });
     });
-    return marked;
+    return Object.keys(seen).length;
   }
 
   /** Every store, built read-only: create() never snapshots, only boot() does. */
@@ -431,8 +461,7 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
       { n: 5, name: 'Trash',
         fact: tr.count ? plural(tr.count, 'record') + ' · kept 30 days' : 'empty',
         state: tr.count ? 'live' : 'off' },
-      { n: 6, name: 'Off this device',
-        fact: 'nightly backup not set up yet', state: 'off' },
+      { n: 6, name: 'Off this device', fact: backupFact(), state: backupState() },
       { n: 7, name: 'Export', fact: 'JSON · Markdown', state: 'live' }
     ];
 
@@ -454,6 +483,60 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
     $('rcTrashCount').textContent = tr.count || '';
     $('rcDraftCount').textContent = dfs.length || '';
     $('rcDirtyCount').textContent = dr.length || '';
+  }
+
+  // =================================================================
+  // LAYER 6 — the nightly copy, which is the one layer this page cannot
+  // see for itself.
+  //
+  // Everything else on this ledger is read straight out of storage. The
+  // off-device backup happens on a GitHub runner at 04:17 UTC and writes
+  // its payloads to a branch this site is never served from — so the only
+  // thing it leaves where the page can reach it is backup-status.json:
+  // dates, counts and byte sizes, and no content, ever.
+  //
+  // Absent or unreadable is reported as unknown rather than as failure.
+  // A page that cries "no backup" because a fetch failed teaches you to
+  // ignore the line that matters.
+  // =================================================================
+  var backup = { state: 'loading', data: null };
+
+  function backupFact() {
+    if (backup.state === 'loading') return 'checking…';
+    if (backup.state === 'none') return 'nightly · not run yet';
+    if (backup.state === 'error') return 'nightly · could not check';
+    var d = backup.data;
+    var age = daysSince(d.lastBackup);
+    var when = age === 0 ? 'today' : (age === 1 ? 'yesterday' : age + ' days ago');
+    return 'nightly · ' + when + ' · ' + plural(d.apps, 'app') +
+           (d.healthy === false ? ' · check the run' : '');
+  }
+
+  function backupState() {
+    if (backup.state === 'loading' || backup.state === 'error') return 'off';
+    if (backup.state === 'none') return 'off';
+    var age = daysSince(backup.data.lastBackup);
+    if (backup.data.healthy === false) return 'warn';
+    // Two days, not one: a run can be late, and a single missed night is
+    // not yet a broken backup. Three days without one is.
+    return age <= 2 ? 'live' : 'warn';
+  }
+
+  function daysSince(dateStr) {
+    var t = Date.parse(String(dateStr) + 'T00:00:00Z');
+    if (isNaN(t)) return 9999;
+    return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+  }
+
+  function loadBackupStatus() {
+    if (!window.fetch) { backup = { state: 'error', data: null }; return; }
+    fetch('backup-status.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        backup = (j && j.lastBackup) ? { state: 'ok', data: j } : { state: 'none', data: null };
+        ledger();
+      })
+      .catch(function () { backup = { state: 'error', data: null }; ledger(); });
   }
 
   // =================================================================
@@ -523,6 +606,42 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   }
 
   // =================================================================
+  // SEND THIS DEVICE'S COPY UP
+  //
+  // The whole mechanism is the handoff record, exactly as the snapshot
+  // restore above uses it: write the key names into syncdirty:<row> with a
+  // fresh timestamp and the app adopts them as dirty before its opening
+  // pull. A dirty key is skipped by applyRemote's deletion pass AND queued
+  // for the next push, which is precisely "this device is right".
+  //
+  // Note what this does NOT touch: syncseen. It does not need to. Dirtiness
+  // outranks the seen-record in both loops, so leaving that bookkeeping
+  // alone keeps one mechanism doing one job.
+  // =================================================================
+  function renderPush() {
+    var host = $('rcPush'), html = '', any = false;
+    R.APPS.forEach(function (app) {
+      var keys = X ? X.keysFor(app.id) : [];
+      if (!keys.length) return;
+      any = true;
+      var records = 0;
+      keys.forEach(function (k) {
+        var v = null;
+        try { v = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) {}
+        if (Array.isArray(v)) records += v.length;
+        else if (v && typeof v === 'object') records += Object.keys(v).length;
+      });
+      html += '<div class="rc-push"><div class="rc-push-main">' +
+        '<p class="rc-push-title">' + esc(app.label) + '</p>' +
+        '<p class="rc-push-sub">' + keys.length + ' collections · ' + records + ' records here · ' +
+          esc(Object.keys(app.rows).join(', ')) + '</p>' +
+        '</div><button type="button" class="rc-btn" data-cloudpush="' + esc(app.id) + '">Send up</button></div>';
+    });
+    host.innerHTML = any ? html :
+      '<p class="rc-empty">This device is not holding data for any app yet.</p>';
+  }
+
+  // =================================================================
   // TRASH
   // =================================================================
   function renderTrash() {
@@ -564,7 +683,7 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
     }).join('');
   }
 
-  function renderAll() { renderLosses(); ledger(); renderSnaps(); renderTrash(); renderDrafts(); renderDirty(); }
+  function renderAll() { renderLosses(); ledger(); renderSnaps(); renderTrash(); renderDrafts(); renderDirty(); renderPush(); }
 
   /**
    * Open one snapshot and show the reader which row it is. The banner's
@@ -587,7 +706,7 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   // ACTIONS
   // =================================================================
   document.addEventListener('click', function (ev) {
-    var el = ev.target.closest ? ev.target.closest('[data-toggle],[data-restore],[data-dropsnap],[data-untrash],[data-purge],[data-dropdraft],[data-putback],[data-seesnap],[data-keepshrink]') : null;
+    var el = ev.target.closest ? ev.target.closest('[data-toggle],[data-restore],[data-dropsnap],[data-untrash],[data-purge],[data-dropdraft],[data-putback],[data-seesnap],[data-keepshrink],[data-cloudpush]') : null;
     if (!el) return;
 
     var v;
@@ -623,6 +742,24 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
       renderAll();
       say('Put back ' + plural(back.written, 'collection') + '. ' +
         (m ? 'Open ' + R.app(note.appId).label + ' and it will sync.' : 'Saved on this device.'));
+      return;
+    }
+
+    if ((v = el.getAttribute('data-cloudpush'))) {
+      var papp = R.app(v);
+      var pkeys = X ? X.keysFor(v) : [];
+      if (!pkeys.length) { say('There is nothing here to send.'); return; }
+      if (!window.confirm(
+        'Send this device\'s ' + papp.label + ' data to the cloud?\n\n' +
+        plural(pkeys.length, 'collection') + ' will be marked as unsent, so opening ' +
+        papp.label + ' uploads them instead of downloading over them.\n\n' +
+        'If another device holds newer ' + papp.label + ' work that has not synced, ' +
+        'this could overwrite it.')) return;
+      var n = markHandoff(pkeys);
+      renderAll();
+      say(n
+        ? plural(n, 'collection') + ' marked. Open ' + papp.label + ' and it will upload.'
+        : 'Nothing was marked — none of those keys belongs to a synced row.');
       return;
     }
 
@@ -689,6 +826,44 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   });
 
   // ---- restore from a file ----
+  // -----------------------------------------------------------------
+  // TWO FILE SHAPES, one importer.
+  //
+  //   an export from this page   { apps: { palaestra: { keys: {…} } } }
+  //   a nightly backup row       { "pal:templates": [...], … }
+  //
+  // The nightly job writes one file per Supabase row, and a Supabase row's
+  // data column IS the flat key map — that is the format sync.js pushes and
+  // applyRemote consumes. Only accepting the wrapped shape would have meant
+  // the off-device backup, the one layer that survives losing every device,
+  // could not be restored through the interface that exists to restore
+  // things. Both come out the same on the far side of this function.
+  //
+  // A flat map still has to look like storage: at least one key the
+  // registry claims, or it is somebody else's JSON and gets refused.
+  // -----------------------------------------------------------------
+  function readAnyShape(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+
+    if (data.apps && typeof data.apps === 'object') {
+      var keys = {};
+      Object.keys(data.apps).forEach(function (id) {
+        var k = data.apps[id] && data.apps[id].keys;
+        if (k && typeof k === 'object') Object.keys(k).forEach(function (n) { keys[n] = k[n]; });
+      });
+      return { keys: keys, what: 'export' };
+    }
+
+    var names = Object.keys(data);
+    var claimed = names.filter(function (n) {
+      return n.indexOf(':') !== -1 && R.appForKey(n);
+    });
+    if (!claimed.length) return null;
+    var out = {};
+    claimed.forEach(function (n) { out[n] = data[n]; });
+    return { keys: out, what: 'backup' };
+  }
+
   $('rcImport').addEventListener('change', function () {
     var file = this.files && this.files[0];
     this.value = '';
@@ -697,25 +872,22 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
     fr.onload = function () {
       var data;
       try { data = JSON.parse(String(fr.result)); } catch (e) { say('That file is not JSON this page understands.'); return; }
-      if (!data || !data.apps) { say('That JSON is not a dashboard export.'); return; }
-      var names = Object.keys(data.apps), total = 0;
-      names.forEach(function (id) { total += Object.keys(data.apps[id].keys || {}).length; });
-      if (!total) { say('That export is empty.'); return; }
-      if (!window.confirm('Write ' + plural(total, 'collection') + ' from ' + plural(names.length, 'app') +
+      var found = readAnyShape(data);
+      if (!found) { say('That JSON is neither a dashboard export nor a nightly backup.'); return; }
+      var keys = found.keys, total = Object.keys(keys).length;
+      if (!total) { say('That file is empty.'); return; }
+      if (!window.confirm('Write ' + plural(total, 'collection') + ' from this ' + found.what +
         ' back into this device?\n\nNothing is deleted — records only get added or overwritten.')) return;
 
       var written = [];
-      names.forEach(function (id) {
-        var keys = data.apps[id].keys || {};
-        Object.keys(keys).forEach(function (k) {
-          // Never write a key no app claims: a hand-edited file must not be
-          // able to plant something the sync layer would then upload.
-          if (!R.appForKey(k)) return;
-          try {
-            localStorage.setItem(k, typeof keys[k] === 'string' ? keys[k] : JSON.stringify(keys[k]));
-            written.push(k);
-          } catch (e) {}
-        });
+      Object.keys(keys).forEach(function (k) {
+        // Never write a key no app claims: a hand-edited file must not be
+        // able to plant something the sync layer would then upload.
+        if (!R.appForKey(k)) return;
+        try {
+          localStorage.setItem(k, typeof keys[k] === 'string' ? keys[k] : JSON.stringify(keys[k]));
+          written.push(k);
+        } catch (e) {}
       });
       markHandoff(written);
       renderAll();
@@ -747,6 +919,7 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
 
   function boot() {
     renderAll();
+    loadBackupStatus();
     // #snap=<appId>:<snapshotId> — the banner's "See what was here".
     var h = (location.hash || '').replace(/^#/, '');
     if (h.indexOf('snap=') === 0) {
