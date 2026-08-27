@@ -159,6 +159,12 @@
     '.ss-out button:hover{background:#F2EFEA;color:#121110;border-color:#F2EFEA}',
     '.ss-out button:focus-visible{outline:2px solid #F2EFEA;outline-offset:2px}',
     '@media (pointer:coarse){.ss-out button{min-height:44px;padding:0 14px}}',
+    '.ss-link{display:inline-flex;align-items:center;min-height:30px;',
+      'color:rgba(242,239,234,.72);text-decoration:none;font-size:12.5px;font-weight:500;',
+      'border-bottom:1px solid rgba(255,255,255,.22);transition:color .18s ease,border-color .18s ease}',
+    '.ss-link:hover{color:#F2EFEA;border-color:#F2EFEA}',
+    '.ss-link:focus-visible{outline:2px solid #F2EFEA;outline-offset:3px}',
+    '@media (pointer:coarse){.ss-link{min-height:44px}}',
     '@media (prefers-reduced-motion:reduce){.ss-dot{animation:none!important}',
       '.ss-chip{transition:none}}',
     '@media (pointer:coarse){.ss-chip{padding:10px 14px 10px 12px}}'
@@ -305,7 +311,12 @@
     }
     h += '<div class="ss-out-row"><span class="ss-out-label">Export everything</span>' +
          '<button type="button" data-x="alljson">JSON</button>' +
-         '<button type="button" data-x="allmd">Markdown</button></div></div>';
+         '<button type="button" data-x="allmd">Markdown</button></div>' +
+         // The way in to snapshots, trash, drafts and restore. This panel is
+         // the only piece of UI on all 24 documents, so it is also the only
+         // place a link to the recovery page reaches every one of them.
+         '<div class="ss-out-row" style="margin-top:9px">' +
+         '<a class="ss-link" href="recovery.html">Snapshots, trash and restore →</a></div></div>';
     return h;
   }
 

@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="local-store-idb.js"></script>
+<script src="data-registry.js?v=1"></script>
+<script src="snapshots.js?v=1"></script>
+<script src="athenaeum-drafts.js?v=1"></script>
+<script src="data-export.js?v=1"></script>
+<script src="save-state.js?v=1"></script>
+<script src="trash.js?v=1"></script>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0C0C0B">
+<title>Data &amp; Recovery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="topbar.js?v=4" defer></script>
+
+<!--
+  =============================================================
+  recovery.html — the maintenance hatch.
+
+  THE ONE DANGEROUS THING ABOUT THIS PAGE, stated first because
+  everything else follows from it:
+
+  THIS PAGE MOUNTS NO SYNC ROWS, AND MUST NOT.
+
+  It can see every app's data at once. initCloudSync uploads
+  collect() as a row's ENTIRE data column, so a mount here with a
+  prefix list that was even slightly wrong would replace a row with
+  whatever this page happened to be holding. There is no version of
+  that mistake that is recoverable, so the mount simply does not
+  exist — note the absence of sync.js in the <head> above.
+
+  But a restore written with sync unmounted goes through the plain
+  shim setter, so nothing marks it dirty, and the next app you open
+  pulls the cloud's OLDER copy straight back over the repair. You
+  would watch the fix undo itself.
+
+  So every write on this page ends by naming the keys it touched in
+  that row's `syncdirty:<row>` record — see markHandoff(). The next
+  document adopts them as dirty BEFORE its first pull, applyRemote
+  refuses to touch a dirty key, and the push that follows carries
+  the repair up. That is sync.js §HANDOFF used exactly as designed,
+  and it is why phase 1 turning `handoff: true` on everywhere was a
+  prerequisite for this page rather than a tidy-up.
+  =============================================================
+-->
+
+<style>
+/* ---------------------------------------------------------------
+   A deliberately PLAIN page.
+
+   Every other document here is a room you inhabit — a cinematic
+   hero, a serif display face, a photographic ground. This one is
+   the panel behind the hatch, and the contrast is the point: you
+   arrive here because something went wrong, and the last thing that
+   should meet you is atmosphere.
+
+   FACTS ARE MONOSPACED. Every count, timestamp, byte size and
+   storage key is IBM Plex Mono; every sentence addressed to a
+   reader is Inter. You can tell at a glance what the system is
+   reporting and what it is telling you, without reading either.
+
+   The green is the one colour choice worth defending: gold, pink,
+   crimson and iris are all spoken for by an app, so a muted
+   verdigris is the only "this is working" signal that cannot be
+   mistaken for a page's own accent.
+   --------------------------------------------------------------- */
+:root{
+  --rc-ground:#0C0C0B;
+  --rc-panel:#141514;
+  --rc-panel-2:#1A1B1A;
+  --rc-line:rgba(233,238,234,.11);
+  --rc-line-soft:rgba(233,238,234,.06);
+  --rc-ink:#E9EEEA;
+  --rc-mute:rgba(233,238,234,.52);
+  --rc-faint:rgba(233,238,234,.34);
+  --rc-live:#7FA893;
+  --rc-warn:#E3B25F;
+  --rc-bad:#E58177;
+  --rc-s1:6px; --rc-s2:10px; --rc-s3:16px; --rc-s4:24px; --rc-s5:40px; --rc-s6:64px;
+  --rc-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --rc-sans:"Inter",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --rc-serif:"Newsreader",Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--rc-ground); color:var(--rc-ink);
+  font-family:var(--rc-sans); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  padding:calc(var(--rc-s6) + 18px) var(--rc-s3) var(--rc-s6);
+}
+.rc-wrap{max-width:820px;margin:0 auto}
+
+/* ---- masthead ---- */
+.rc-eyebrow{font-family:var(--rc-mono);font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--rc-faint);margin:0 0 var(--rc-s2)}
+.rc-title{font-family:var(--rc-serif);font-weight:300;font-size:clamp(34px,7vw,52px);
+  line-height:1.04;letter-spacing:-.015em;margin:0 0 var(--rc-s2)}
+.rc-lede{color:var(--rc-mute);margin:0 0 var(--rc-s5);max-width:52ch}
+
+/* ---- THE LEDGER — the signature element ----
+   Numbered because these genuinely are a sequence: something has to
+   get past layer 1 before layer 2 matters. Numbering that does not
+   encode an order is decoration; this one encodes the whole design. */
+.rc-ledger{border-top:1px solid var(--rc-line);margin:0 0 var(--rc-s5)}
+.rc-layer{display:grid;grid-template-columns:auto 1.6rem 1fr auto;align-items:baseline;
+  gap:var(--rc-s3);padding:13px 0;border-bottom:1px solid var(--rc-line-soft)}
+.rc-dot{width:6px;height:6px;border-radius:50%;background:var(--rc-live);
+  align-self:center;flex:none}
+.rc-dot.is-off{background:var(--rc-faint)}
+.rc-dot.is-warn{background:var(--rc-warn)}
+.rc-dot.is-bad{background:var(--rc-bad)}
+.rc-num{font-family:var(--rc-mono);font-size:11px;color:var(--rc-faint)}
+.rc-layer-name{font-weight:500}
+.rc-layer-fact{font-family:var(--rc-mono);font-size:12.5px;color:var(--rc-mute);
+  text-align:right;white-space:nowrap}
+@media (max-width:560px){
+  .rc-layer{grid-template-columns:auto 1.4rem 1fr;gap:var(--rc-s2)}
+  .rc-layer-fact{grid-column:3;text-align:left;white-space:normal;margin-top:2px}
+}
+
+/* ---- sections ---- */
+.rc-sec{margin:0 0 var(--rc-s5)}
+.rc-sec-head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:var(--rc-s3);border-bottom:1px solid var(--rc-line);padding-bottom:var(--rc-s2);
+  margin-bottom:var(--rc-s3)}
+.rc-h2{font-family:var(--rc-serif);font-weight:400;font-size:22px;margin:0;letter-spacing:-.01em}
+.rc-count{font-family:var(--rc-mono);font-size:12px;color:var(--rc-faint)}
+.rc-empty{color:var(--rc-faint);font-size:14px;margin:0;padding:var(--rc-s3) 0}
+
+.rc-item{display:flex;align-items:flex-start;gap:var(--rc-s3);padding:11px 0;
+  border-bottom:1px solid var(--rc-line-soft)}
+.rc-item-main{flex:1;min-width:0}
+.rc-item-title{margin:0;font-size:14.5px;overflow:hidden;text-overflow:ellipsis}
+.rc-item-sub{margin:2px 0 0;font-family:var(--rc-mono);font-size:11.5px;color:var(--rc-faint)}
+.rc-item-acts{display:flex;gap:var(--rc-s1);flex:none}
+
+/* ---- controls ---- */
+.rc-btn{min-height:34px;padding:0 13px;border-radius:8px;cursor:pointer;
+  background:transparent;color:var(--rc-ink);border:1px solid var(--rc-line);
+  font-family:var(--rc-sans);font-size:13px;font-weight:500;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease}
+.rc-btn:hover{background:var(--rc-ink);color:var(--rc-ground);border-color:var(--rc-ink)}
+.rc-btn:focus-visible{outline:2px solid var(--rc-live);outline-offset:2px}
+.rc-btn:active{transform:translateY(1px)}
+.rc-btn.is-danger:hover{background:var(--rc-bad);border-color:var(--rc-bad);color:#180E0D}
+.rc-btn.is-go{border-color:rgba(127,168,147,.5);color:var(--rc-live)}
+.rc-btn.is-go:hover{background:var(--rc-live);color:#0B1310;border-color:var(--rc-live)}
+.rc-row{display:flex;gap:var(--rc-s2);flex-wrap:wrap;align-items:center}
+label.rc-file{display:inline-flex}
+label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.rc-input{min-height:34px;padding:0 11px;border-radius:8px;background:var(--rc-panel-2);
+  border:1px solid var(--rc-line);color:var(--rc-ink);font-family:var(--rc-sans);
+  /* 16px is not a style choice: anything smaller and iOS Safari zooms the
+     page in on focus and never zooms back out. */
+  font-size:16px;flex:1;min-width:180px}
+.rc-input:focus-visible{outline:2px solid var(--rc-live);outline-offset:1px}
+@media (pointer:coarse){.rc-btn{min-height:44px;padding:0 16px}}
+
+.rc-app{margin-bottom:var(--rc-s3);border:1px solid var(--rc-line);border-radius:10px;
+  background:var(--rc-panel);overflow:hidden}
+.rc-app-head{display:flex;align-items:center;justify-content:space-between;gap:var(--rc-s2);
+  padding:11px var(--rc-s3);cursor:pointer;background:none;border:0;width:100%;
+  color:var(--rc-ink);font-family:var(--rc-sans);font-size:14.5px;font-weight:500;text-align:left}
+.rc-app-head:hover{background:var(--rc-panel-2)}
+.rc-app-head:focus-visible{outline:2px solid var(--rc-live);outline-offset:-2px}
+.rc-app-meta{font-family:var(--rc-mono);font-size:11.5px;color:var(--rc-faint);font-weight:400}
+.rc-app-body{padding:0 var(--rc-s3) var(--rc-s2);display:none}
+.rc-app.is-open .rc-app-body{display:block}
+.rc-caret{display:inline-block;transition:transform .18s ease;color:var(--rc-faint)}
+.rc-app.is-open .rc-caret{transform:rotate(90deg)}
+
+.rc-note{background:var(--rc-panel);border:1px solid var(--rc-line);border-radius:10px;
+  padding:var(--rc-s3);color:var(--rc-mute);font-size:13.5px;margin:0 0 var(--rc-s3)}
+.rc-note strong{color:var(--rc-ink);font-weight:500}
+
+.rc-say{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
+  background:var(--rc-panel);border:1px solid var(--rc-line);border-radius:10px;
+  padding:11px 16px;font-size:14px;color:var(--rc-ink);opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;z-index:99999;max-width:calc(100vw - 32px)}
+.rc-say.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Motion: one quiet entrance for the ledger, nothing else. */
+@keyframes rc-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.rc-layer{animation:rc-in .5s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i) * 45ms)}
+@media (prefers-reduced-motion:reduce){
+  .rc-layer{animation:none}
+  .rc-btn,.rc-caret,.rc-say{transition:none}
+}
+</style>
+</head>
+<body>
+<div class="rc-wrap">
+  <p class="rc-eyebrow">Personal dashboard</p>
+  <h1 class="rc-title">Data &amp; Recovery</h1>
+  <p class="rc-lede" id="rcLede">Reading what is on this device…</p>
+
+  <div class="rc-ledger" id="rcLedger"></div>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Snapshots</h2><span class="rc-count" id="rcSnapCount"></span></div>
+    <p class="rc-note">A snapshot is a copy of one app's data as it stood at a moment.
+      Restoring replaces what is on the page now — and takes a snapshot of that first,
+      because <strong>an undo needs its own undo</strong>.</p>
+    <div id="rcSnaps"></div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Trash</h2><span class="rc-count" id="rcTrashCount"></span></div>
+    <div id="rcTrash"></div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Unsaved drafts</h2><span class="rc-count" id="rcDraftCount"></span></div>
+    <p class="rc-note">Text typed into a form but never saved. Open the page it belongs to and
+      it comes back on its own; this is only here so you can see it exists.</p>
+    <div id="rcDrafts"></div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Waiting to sync</h2><span class="rc-count" id="rcDirtyCount"></span></div>
+    <div id="rcDirty"></div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Export</h2></div>
+    <p class="rc-note">JSON is the format that restores. <strong>Markdown is the one that still
+      opens in ten years with no dashboard at all.</strong></p>
+    <div class="rc-row">
+      <button type="button" class="rc-btn is-go" id="rcExpJson">Everything as JSON</button>
+      <button type="button" class="rc-btn" id="rcExpMd">Everything as Markdown</button>
+    </div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Restore from a file</h2></div>
+    <p class="rc-note">Reads a JSON export and writes those records back. It only adds and
+      overwrites — <strong>nothing is deleted</strong>, so a file that is missing something
+      cannot take it away from you. Restored records are then pushed to the cloud.</p>
+    <div class="rc-row">
+      <label class="rc-file"><span class="rc-btn" id="rcImportLabel">Choose a JSON export…</span>
+        <input type="file" id="rcImport" accept="application/json,.json"></label>
+    </div>
+  </section>
+
+  <section class="rc-sec">
+    <div class="rc-sec-head"><h2 class="rc-h2">Make a restore point</h2></div>
+    <p class="rc-note">Before a big change, name a snapshot so you can find it later.
+      Named snapshots are never pruned by age.</p>
+    <div class="rc-row">
+      <input class="rc-input" id="rcSnapName" placeholder="Before the redesign" maxlength="60">
+      <select class="rc-input" id="rcSnapApp" style="flex:0 0 auto;min-width:auto"></select>
+      <button type="button" class="rc-btn is-go" id="rcSnapMake">Create</button>
+    </div>
+  </section>
+</div>
+
+<div class="rc-say" id="rcSay" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var R = window.DataRegistry, S = window.Snapshots, T = window.Trash, X = window.DataExport;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  var sayTimer = null;
+  function say(msg) {
+    var el = $('rcSay');
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(function () { el.classList.remove('on'); }, 3600);
+  }
+  function ago(t) {
+    if (!t) return 'never';
+    var s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (s < 60) return s + 's ago';
+    var m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+    var d = Math.floor(h / 24); if (d < 30) return d + 'd ago';
+    return Math.floor(d / 30) + 'mo ago';
+  }
+  function kb(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+
+  // =================================================================
+  // §HANDOFF — the whole reason a restore on this page survives.
+  //
+  // Read the warning in the <head>. This page mounts no sync rows, so a
+  // write here is invisible to sync.js: nothing marks the key dirty, and
+  // the next document's opening pull hands the cloud's older copy straight
+  // back over the repair.
+  //
+  // Naming the keys in `syncdirty:<row>` makes the next document adopt
+  // them as dirty BEFORE its first pull. applyRemote then refuses to touch
+  // them, and the push that follows carries the repair up. The timestamp
+  // is fresh because the record expires after 24 hours.
+  // =================================================================
+  function markHandoff(keys) {
+    if (!keys || !keys.length) return 0;
+    var marked = 0, now = Date.now();
+    R.APPS.forEach(function (app) {
+      Object.keys(app.rows).forEach(function (rowKey) {
+        var prefixes = app.rows[rowKey];
+        var mine = keys.filter(function (k) {
+          return prefixes.some(function (p) { return k.indexOf(p) === 0; });
+        });
+        if (!mine.length) return;
+        var hk = 'syncdirty:' + rowKey, o = {};
+        try { o = JSON.parse(localStorage.getItem(hk) || '{}') || {}; } catch (e) { o = {}; }
+        if (typeof o !== 'object' || Array.isArray(o)) o = {};
+        mine.forEach(function (k) { o[k] = now; marked++; });
+        try { localStorage.setItem(hk, JSON.stringify(o)); } catch (e) {}
+      });
+    });
+    return marked;
+  }
+
+  /** Every store, built read-only: create() never snapshots, only boot() does. */
+  var stores = {};
+  R.APPS.forEach(function (app) {
+    try { stores[app.id] = S.forApp(app.id); } catch (e) { /* refuses on a bad prefix */ }
+  });
+
+  function storeTotals() {
+    var count = 0, bytes = 0, newest = 0;
+    Object.keys(stores).forEach(function (id) {
+      var t = stores[id].stats();
+      count += t.count; bytes += t.bytes;
+      if (t.newest > newest) newest = t.newest;
+    });
+    return { count: count, bytes: bytes, newest: newest };
+  }
+
+  function dirtyRows() {
+    var out = [];
+    R.APPS.forEach(function (app) {
+      Object.keys(app.rows).forEach(function (rowKey) {
+        var raw = null;
+        try { raw = localStorage.getItem('syncdirty:' + rowKey); } catch (e) {}
+        if (!raw) return;
+        var o = null;
+        try { o = JSON.parse(raw); } catch (e) { return; }
+        if (!o || typeof o !== 'object') return;
+        var keys = Object.keys(o);
+        if (!keys.length) return;
+        out.push({ app: app.label, row: rowKey, keys: keys, at: Math.max.apply(null, keys.map(function (k) { return o[k] || 0; })) });
+      });
+    });
+    return out;
+  }
+
+  function drafts() {
+    if (!window.AthDraft) return [];
+    return (AthDraft.keys() || []).map(function (k) {
+      return { scope: k, when: AthDraft.age(k) };
+    });
+  }
+
+  // =================================================================
+  // THE LEDGER
+  // =================================================================
+  function ledger() {
+    var idb = window.LocalStoreIDB;
+    var backend = idb && idb.backend ? idb.backend() : 'unknown';
+    var pending = idb && idb.pendingWrites ? idb.pendingWrites() : 0;
+    var failures = idb && idb.writeFailures ? idb.writeFailures() : 0;
+    var st = storeTotals();
+    var tr = T ? T.stats() : { count: 0 };
+    var dr = dirtyRows();
+    var dfs = drafts();
+
+    var rows = [
+      { n: 1, name: 'Undo', fact: 'offered as you delete', state: 'live' },
+      { n: 2, name: 'Saved on this device',
+        fact: (backend === 'indexeddb' ? 'IndexedDB' : backend) +
+              (pending ? ' · ' + pending + ' in flight' : '') +
+              (failures ? ' · ' + failures + ' failed' : ''),
+        state: failures ? 'bad' : (backend === 'memory-only' ? 'warn' : 'live') },
+      { n: 3, name: 'Synced to the cloud',
+        fact: dr.length ? plural(dr.length, 'row') + ' waiting' : 'nothing waiting',
+        state: dr.length ? 'warn' : 'live' },
+      { n: 4, name: 'Snapshots',
+        fact: st.count ? st.count + ' · newest ' + ago(st.newest) + ' · ' + kb(st.bytes) : 'none yet',
+        state: st.count ? 'live' : 'off' },
+      { n: 5, name: 'Trash',
+        fact: tr.count ? plural(tr.count, 'record') + ' · kept 30 days' : 'empty',
+        state: tr.count ? 'live' : 'off' },
+      { n: 6, name: 'Off this device',
+        fact: 'nightly backup not set up yet', state: 'off' },
+      { n: 7, name: 'Export', fact: 'JSON · Markdown', state: 'live' }
+    ];
+
+    $('rcLedger').innerHTML = rows.map(function (r, i) {
+      var cls = r.state === 'live' ? '' : (r.state === 'off' ? ' is-off' : (r.state === 'warn' ? ' is-warn' : ' is-bad'));
+      return '<div class="rc-layer" style="--i:' + i + '">' +
+        '<span class="rc-dot' + cls + '"></span>' +
+        '<span class="rc-num">' + r.n + '</span>' +
+        '<span class="rc-layer-name">' + esc(r.name) + '</span>' +
+        '<span class="rc-layer-fact">' + esc(r.fact) + '</span></div>';
+    }).join('');
+
+    var trouble = failures || dr.length;
+    $('rcLede').textContent = trouble
+      ? 'Some changes have not left this device yet. Everything is still here — this is what is waiting.'
+      : 'Everything is where you left it. This page is for the day it is not.';
+
+    $('rcSnapCount').textContent = st.count ? st.count + ' · ' + kb(st.bytes) : '';
+    $('rcTrashCount').textContent = tr.count || '';
+    $('rcDraftCount').textContent = dfs.length || '';
+    $('rcDirtyCount').textContent = dr.length || '';
+  }
+
+  // =================================================================
+  // SNAPSHOTS
+  // =================================================================
+  var openApps = {};
+  function renderSnaps() {
+    var host = $('rcSnaps'), html = '', any = false;
+    R.APPS.forEach(function (app) {
+      var store = stores[app.id];
+      if (!store) return;
+      var list = store.list();
+      if (!list.length) return;
+      any = true;
+      var open = !!openApps[app.id];
+      html += '<div class="rc-app' + (open ? ' is-open' : '') + '" data-app="' + esc(app.id) + '">' +
+        '<button type="button" class="rc-app-head" data-toggle="' + esc(app.id) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+          '<span><span class="rc-caret">›</span> ' + esc(app.label) + '</span>' +
+          '<span class="rc-app-meta">' + list.length + ' · newest ' + ago(list[0].at) + '</span>' +
+        '</button><div class="rc-app-body">' +
+        list.map(function (e) {
+          var counts = Object.keys(e.counts || {}).map(function (k) {
+            var c = (app.counted || []).filter(function (x) { return x.key === k; })[0];
+            return e.counts[k] ? e.counts[k] + ' ' + (c ? c.label : k) : null;
+          }).filter(Boolean).slice(0, 4).join(', ');
+          return '<div class="rc-item"><div class="rc-item-main">' +
+            '<p class="rc-item-title">' + esc(e.label || counts || 'snapshot') + '</p>' +
+            '<p class="rc-item-sub">' + esc(ago(e.at)) + ' · ' + esc(e.reason) +
+              (e.pinned ? ' · kept' : '') + (e.label && counts ? ' · ' + esc(counts) : '') + '</p>' +
+            '</div><div class="rc-item-acts">' +
+            '<button type="button" class="rc-btn is-go" data-restore="' + esc(app.id) + '|' + esc(e.id) + '">Restore</button>' +
+            '<button type="button" class="rc-btn is-danger" data-dropsnap="' + esc(app.id) + '|' + esc(e.id) + '">Delete</button>' +
+            '</div></div>';
+        }).join('') + '</div></div>';
+    });
+    host.innerHTML = any ? html :
+      '<p class="rc-empty">No snapshots on this device yet. They appear as you use each app.</p>';
+  }
+
+  // =================================================================
+  // TRASH
+  // =================================================================
+  function renderTrash() {
+    var host = $('rcTrash');
+    var list = T ? T.list() : [];
+    if (!list.length) { host.innerHTML = '<p class="rc-empty">Nothing deleted in the last 30 days.</p>'; return; }
+    host.innerHTML = list.slice(0, 60).map(function (e) {
+      var app = e.appId ? R.app(e.appId) : null;
+      return '<div class="rc-item"><div class="rc-item-main">' +
+        '<p class="rc-item-title">' + esc(e.title || 'Untitled ' + (e.label || 'record')) + '</p>' +
+        '<p class="rc-item-sub">' + esc(ago(e.at)) + ' · ' + esc((app ? app.label + ' · ' : '') + (e.label || e.key)) +
+          (e.source === 'remote' ? ' · from another device' : '') + '</p>' +
+        '</div><div class="rc-item-acts">' +
+        '<button type="button" class="rc-btn is-go" data-untrash="' + esc(e.id) + '">Put back</button>' +
+        '<button type="button" class="rc-btn is-danger" data-purge="' + esc(e.id) + '">Delete</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function renderDrafts() {
+    var host = $('rcDrafts'), list = drafts();
+    if (!list.length) { host.innerHTML = '<p class="rc-empty">Nothing half-typed.</p>'; return; }
+    host.innerHTML = list.map(function (d) {
+      return '<div class="rc-item"><div class="rc-item-main">' +
+        '<p class="rc-item-title">' + esc(d.scope.split(':').slice(0, 3).join(' · ')) + '</p>' +
+        '<p class="rc-item-sub">' + esc(d.when || 'recently') + '</p></div>' +
+        '<div class="rc-item-acts"><button type="button" class="rc-btn is-danger" data-dropdraft="' +
+        esc(d.scope) + '">Discard</button></div></div>';
+    }).join('');
+  }
+
+  function renderDirty() {
+    var host = $('rcDirty'), list = dirtyRows();
+    if (!list.length) { host.innerHTML = '<p class="rc-empty">Everything on this device has reached the cloud.</p>'; return; }
+    host.innerHTML = list.map(function (d) {
+      return '<div class="rc-item"><div class="rc-item-main">' +
+        '<p class="rc-item-title">' + esc(d.app) + ' — ' + plural(d.keys.length, 'change') + ' waiting</p>' +
+        '<p class="rc-item-sub">row ' + esc(d.row) + ' · since ' + esc(ago(d.at)) + '</p></div></div>';
+    }).join('');
+  }
+
+  function renderAll() { ledger(); renderSnaps(); renderTrash(); renderDrafts(); renderDirty(); }
+
+  // =================================================================
+  // ACTIONS
+  // =================================================================
+  document.addEventListener('click', function (ev) {
+    var el = ev.target.closest ? ev.target.closest('[data-toggle],[data-restore],[data-dropsnap],[data-untrash],[data-purge],[data-dropdraft]') : null;
+    if (!el) return;
+
+    var v;
+    if ((v = el.getAttribute('data-toggle'))) {
+      openApps[v] = !openApps[v];
+      renderSnaps();
+      return;
+    }
+
+    if ((v = el.getAttribute('data-restore'))) {
+      var parts = v.split('|'), store = stores[parts[0]];
+      if (!store) return;
+      var snap = store.get(parts[1]);
+      var n = snap ? Object.keys(snap.keys).length : 0;
+      if (!window.confirm('Restore ' + plural(n, 'collection') + ' into ' + R.app(parts[0]).label +
+        '?\n\nWhat is there now is snapshotted first, so this is reversible.')) return;
+      var res = store.restore(parts[1]);
+      if (!res.ok) { say('That snapshot could not be read.'); return; }
+      var marked = markHandoff(res.keys);
+      renderAll();
+      say('Restored ' + plural(res.written, 'collection') + '. ' +
+        (marked ? 'Open ' + R.app(parts[0]).label + ' and it will sync.' : 'Saved on this device.'));
+      return;
+    }
+
+    if ((v = el.getAttribute('data-dropsnap'))) {
+      var p2 = v.split('|');
+      if (!window.confirm('Delete this snapshot? The data it holds is not deleted — only this copy of it.')) return;
+      stores[p2[0]].remove(p2[1]);
+      renderAll(); say('Snapshot deleted.');
+      return;
+    }
+
+    if ((v = el.getAttribute('data-untrash'))) {
+      var item = T.get(v);
+      var res2 = T.restore(v);
+      if (!res2.ok) { say('That record could not be put back.'); return; }
+      if (item) markHandoff([item.key]);
+      renderAll();
+      say(res2.already ? 'That one was already back.' : 'Put back.');
+      return;
+    }
+
+    if ((v = el.getAttribute('data-purge'))) {
+      if (!window.confirm('Delete this permanently? This is the copy — there is no other.')) return;
+      T.purge(v); renderAll(); say('Deleted for good.');
+      return;
+    }
+
+    if ((v = el.getAttribute('data-dropdraft'))) {
+      if (!window.confirm('Discard this unsaved text?')) return;
+      AthDraft.clear(v); renderAll(); say('Draft discarded.');
+      return;
+    }
+  });
+
+  $('rcExpJson').addEventListener('click', function () {
+    var r = X.json();
+    say(r.ok ? 'Saved ' + plural(r.keys, 'collection') + ' as JSON.' : 'The browser blocked that download.');
+  });
+  $('rcExpMd').addEventListener('click', function () {
+    var r = X.markdownAll();
+    say(r.ok ? 'Saved ' + plural(r.apps, 'app') + ' as Markdown.' : (r.empty ? 'Nothing to write yet.' : 'The browser blocked that download.'));
+  });
+
+  // ---- restore from a file ----
+  $('rcImport').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      var data;
+      try { data = JSON.parse(String(fr.result)); } catch (e) { say('That file is not JSON this page understands.'); return; }
+      if (!data || !data.apps) { say('That JSON is not a dashboard export.'); return; }
+      var names = Object.keys(data.apps), total = 0;
+      names.forEach(function (id) { total += Object.keys(data.apps[id].keys || {}).length; });
+      if (!total) { say('That export is empty.'); return; }
+      if (!window.confirm('Write ' + plural(total, 'collection') + ' from ' + plural(names.length, 'app') +
+        ' back into this device?\n\nNothing is deleted — records only get added or overwritten.')) return;
+
+      var written = [];
+      names.forEach(function (id) {
+        var keys = data.apps[id].keys || {};
+        Object.keys(keys).forEach(function (k) {
+          // Never write a key no app claims: a hand-edited file must not be
+          // able to plant something the sync layer would then upload.
+          if (!R.appForKey(k)) return;
+          try {
+            localStorage.setItem(k, typeof keys[k] === 'string' ? keys[k] : JSON.stringify(keys[k]));
+            written.push(k);
+          } catch (e) {}
+        });
+      });
+      markHandoff(written);
+      renderAll();
+      say('Restored ' + plural(written.length, 'collection') + '. Open each app and it will sync.');
+    };
+    fr.readAsText(file);
+  });
+
+  // ---- named restore point ----
+  (function fillApps() {
+    var sel = $('rcSnapApp');
+    sel.innerHTML = R.APPS.map(function (a) {
+      return '<option value="' + esc(a.id) + '">' + esc(a.label) + '</option>';
+    }).join('');
+  })();
+
+  $('rcSnapMake').addEventListener('click', function () {
+    var id = $('rcSnapApp').value;
+    var name = ($('rcSnapName').value || '').trim();
+    var store = stores[id];
+    if (!store) { say('That app has no snapshot store.'); return; }
+    var e = store.snapshot('manual', { force: true, pinned: true, label: name || 'Restore point' });
+    if (!e) { say('There is nothing in ' + R.app(id).label + ' to snapshot yet.'); return; }
+    $('rcSnapName').value = '';
+    openApps[id] = true;
+    renderAll();
+    say('Restore point made for ' + R.app(id).label + '.');
+  });
+
+  function boot() { renderAll(); }
+  if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
+    window.LocalStoreIDB.ready().then(boot, boot);
+  } else {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  }
+})();
+</script>
+</body>
+</html>
