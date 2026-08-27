@@ -50,6 +50,7 @@
     'prmbak:',     // promptarium-backup.js (predates)
     'ascbak:',     // reserved by asclepion-sync.js's MUST_STAY_LOCAL
     'athdraft:',   // athenaeum-drafts.js — per-keystroke form drafts
+    'shrink:',     // shrink-banner.js — the unanswered "something vanished" notice
     'syncdirty:',  // sync.js §HANDOFF
     'syncseen:',   // sync.js §SEEN
     'recent:'      // topbar.js's CONTINUE recorder

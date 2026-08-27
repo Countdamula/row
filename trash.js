@@ -448,6 +448,10 @@
    * (a cloud pull, record it and stay quiet).
    */
   function sweep(source) {
+    // §BASELINE. Before hydration there is no picture to diff against, and
+    // sweeping anyway would quietly ADOPT the post-delete state as the
+    // baseline — after which the delete can never be noticed at all.
+    if (!baselined) return;
     var next = snapshotNow();
     var gone = [];
 
@@ -531,6 +535,28 @@
    * @param {object} [opts] { prefixes:[…] } to override; otherwise every
    *                        prefix the snapshot stores on this page cover.
    */
+  /**
+   * Capture the starting picture for everything now being watched, once
+   * IndexedDB has actually loaded. Re-entrant: each new store calls it, and
+   * only keys with no picture yet are filled in, so an existing baseline is
+   * never overwritten by a later store's arrival.
+   */
+  var baselined = false, baselineQueued = false;
+  function baseline() {
+    var take = function () {
+      prune();
+      var fresh = snapshotNow();
+      Object.keys(fresh).forEach(function (k) { if (!prev[k]) prev[k] = fresh[k]; });
+      baselined = true;
+    };
+    if (baselined) { take(); return; }
+    if (baselineQueued) return;
+    baselineQueued = true;
+    if (global.LocalStoreIDB && global.LocalStoreIDB.ready) {
+      global.LocalStoreIDB.ready().then(take, take);
+    } else { take(); }
+  }
+
   function boot(opts) {
     if (global.DataRegistry && global.DataRegistry.assertLocalOnly) {
       global.DataRegistry.assertLocalOnly(PREFIX, 'trash.js');
@@ -551,11 +577,18 @@
     // would see every existing record as "missing from prev" — which is
     // harmless (records are only compared when they were there BEFORE),
     // but the trash would start with an empty picture of a full store.
-    if (added) {
-      prune();
-      var fresh = snapshotNow();
-      Object.keys(fresh).forEach(function (k) { if (!prev[k]) prev[k] = fresh[k]; });
-    }
+    //
+    // AFTER HYDRATION, NOT BEFORE. This runs off `snapshots:store`, fired
+    // from a plain top-level script, and local-store-idb.js answers null to
+    // every read until ready() resolves. Taking the baseline there recorded
+    // an EMPTY store — and an empty baseline means the opening cloud pull
+    // deletes records that, as far as the diff can tell, were never there.
+    // Measured on a pull that removed five routines: recorded on two runs
+    // out of three, silently missed on the third. The snapshot layer still
+    // caught it every time, so nothing was ever lost — but the Trash is
+    // supposed to be able to answer "what went", and intermittently it
+    // could not.
+    if (added) baseline();
 
     if (booted) return;
     booted = true;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-shrink-inline>
 <head>
 <script src="local-store-idb.js"></script>
 <script src="data-registry.js?v=1"></script>
@@ -8,6 +8,7 @@
 <script src="data-export.js?v=1"></script>
 <script src="save-state.js?v=1"></script>
 <script src="trash.js?v=1"></script>
+<script src="shrink-banner.js?v=1"></script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -131,6 +132,36 @@ body{
   margin-bottom:var(--rc-s3)}
 .rc-h2{font-family:var(--rc-serif);font-weight:400;font-size:22px;margin:0;letter-spacing:-.01em}
 .rc-count{font-family:var(--rc-mono);font-size:12px;color:var(--rc-faint)}
+/* A LOSS, not a listing. The only block on this page with a hue: everything
+   else here is a neutral inventory, and this is the one thing that is
+   actively wrong. It sits above the ledger because a reader who arrived
+   because something vanished should not have to scroll past seven healthy
+   layers to reach it. */
+.rc-loss{border:1px solid rgba(227,178,95,.34);border-left:2px solid var(--rc-warn);
+  border-radius:10px;background:rgba(227,178,95,.05);padding:14px 16px;margin-bottom:12px}
+#rcLosses:not(:empty){margin-bottom:var(--rc-s4)}
+.rc-loss-eyebrow{margin:0 0 5px;font-family:var(--rc-mono);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--rc-warn)}
+.rc-loss-text{margin:0;font-size:15px;line-height:1.5}
+.rc-loss-acts{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;align-items:center}
+/* Three answers, three weights. The page's default is-go is verdigris —
+   the colour of everything healthy here — which inside an amber block
+   read as the QUIETEST of the three and inverted the hierarchy. Inside
+   this block the accent is the warning colour, and declining is a link. */
+.rc-loss .rc-btn.is-go{background:var(--rc-warn);border-color:var(--rc-warn);color:#1A1509}
+.rc-loss .rc-btn.is-go:hover{background:#EFC684;border-color:#EFC684;color:#1A1509}
+.rc-loss .rc-keep{margin-left:auto;background:none;border:0;cursor:pointer;font:inherit;
+  font-size:13px;color:var(--rc-faint);text-decoration:underline;text-underline-offset:3px;
+  min-height:36px;padding:0 2px;transition:color .18s ease}
+.rc-loss .rc-keep:hover{color:var(--rc-ink)}
+.rc-loss .rc-keep:focus-visible{outline:2px solid var(--rc-warn);outline-offset:2px}
+@media (pointer:coarse),(max-width:719px){.rc-loss .rc-keep{min-height:44px;margin-left:0;flex:1 0 100%}}
+/* Where the banner's deep link lands. It fades rather than staying lit:
+   the point is to say WHICH ROW, not to leave a mark on the page. */
+@keyframes rc-found{from{background:rgba(227,178,95,.18)}to{background:transparent}}
+.rc-item.is-found{animation:rc-found 2.6s ease-out forwards;border-radius:8px;
+  box-shadow:0 0 0 6px rgba(227,178,95,.06)}
+@media (prefers-reduced-motion:reduce){.rc-item.is-found{animation:none;background:rgba(227,178,95,.1)}}
 .rc-empty{color:var(--rc-faint);font-size:14px;margin:0;padding:var(--rc-s3) 0}
 
 .rc-item{display:flex;align-items:flex-start;gap:var(--rc-s3);padding:11px 0;
@@ -199,6 +230,8 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   <p class="rc-eyebrow">Personal dashboard</p>
   <h1 class="rc-title">Data &amp; Recovery</h1>
   <p class="rc-lede" id="rcLede">Reading what is on this device…</p>
+
+  <div id="rcLosses"></div>
 
   <div class="rc-ledger" id="rcLedger"></div>
 
@@ -424,6 +457,35 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
   }
 
   // =================================================================
+  // WHAT VANISHED
+  //
+  // shrink-banner.js writes an unanswered notice for every collection that
+  // got SMALLER because of something this reader did not do. On other pages
+  // it floats; here it is the first thing on the page, because this is
+  // where someone arrives after noticing that something is gone.
+  // =================================================================
+  function renderLosses() {
+    var host = $('rcLosses');
+    var SB = window.ShrinkBanner;
+    var open = SB ? SB.open() : [];
+    if (!open.length) { host.innerHTML = ''; return; }
+    host.innerHTML = open.map(function (n) {
+      var canPut = !!(n.snapshotId && n.appId && stores[n.appId] && stores[n.appId].get(n.snapshotId));
+      return '<div class="rc-loss">' +
+        '<p class="rc-loss-eyebrow">Something vanished</p>' +
+        '<p class="rc-loss-text">' + esc(SB.sentence(n)) + '</p>' +
+        '<div class="rc-loss-acts">' +
+          (canPut
+            ? '<button type="button" class="rc-btn is-go" data-putback="' + esc(n.store) + '">Put it back</button>' +
+              '<button type="button" class="rc-btn" data-seesnap="' +
+                 esc(n.appId) + '|' + esc(n.snapshotId) + '">See what was here</button>'
+            : '<span class="rc-item-sub">The snapshot it pointed at is no longer on this device.</span>') +
+          '<button type="button" class="rc-keep" data-keepshrink="' + esc(n.store) + '">Keep the change</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  // =================================================================
   // SNAPSHOTS
   // =================================================================
   var openApps = {};
@@ -502,16 +564,68 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
     }).join('');
   }
 
-  function renderAll() { ledger(); renderSnaps(); renderTrash(); renderDrafts(); renderDirty(); }
+  function renderAll() { renderLosses(); ledger(); renderSnaps(); renderTrash(); renderDrafts(); renderDirty(); }
+
+  /**
+   * Open one snapshot and show the reader which row it is. The banner's
+   * "See what was here" link lands here via #snap=<appId>:<snapshotId>.
+   */
+  function reveal(appId, snapId) {
+    if (!stores[appId]) return false;
+    openApps[appId] = true;
+    renderSnaps();
+    var row = document.querySelector('[data-restore="' + appId + '|' + snapId + '"]');
+    if (!row) return false;
+    var item = row.closest('.rc-item');
+    if (!item) return false;
+    item.classList.add('is-found');
+    try { item.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { item.scrollIntoView(); }
+    return true;
+  }
 
   // =================================================================
   // ACTIONS
   // =================================================================
   document.addEventListener('click', function (ev) {
-    var el = ev.target.closest ? ev.target.closest('[data-toggle],[data-restore],[data-dropsnap],[data-untrash],[data-purge],[data-dropdraft]') : null;
+    var el = ev.target.closest ? ev.target.closest('[data-toggle],[data-restore],[data-dropsnap],[data-untrash],[data-purge],[data-dropdraft],[data-putback],[data-seesnap],[data-keepshrink]') : null;
     if (!el) return;
 
     var v;
+
+    // ---- what vanished --------------------------------------------
+    if ((v = el.getAttribute('data-keepshrink'))) {
+      window.ShrinkBanner.answer(v);
+      renderLosses();
+      say('Left as it is.');
+      return;
+    }
+
+    if ((v = el.getAttribute('data-seesnap'))) {
+      var sp = v.split('|');
+      if (!reveal(sp[0], sp[1])) say('That snapshot is no longer on this device.');
+      return;
+    }
+
+    if ((v = el.getAttribute('data-putback'))) {
+      var note = window.ShrinkBanner.open().filter(function (x) { return x.store === v; })[0];
+      if (!note) { renderLosses(); return; }
+      var st = stores[note.appId];
+      if (!st) { say('That app is not loaded here.'); return; }
+      // SCOPED: only the collections that shrank. A full rollback would also
+      // throw away whatever else the same pull legitimately brought.
+      var only = (note.shrank || []).map(function (x) { return x.key; });
+      var back = st.restore(note.snapshotId, only);
+      if (!back || !back.ok) { say('That snapshot could not be read.'); return; }
+      // The same handoff step every restore on this page takes: without it
+      // the app's own opening pull would quietly undo the repair.
+      var m = markHandoff(back.keys);
+      window.ShrinkBanner.answer(v);
+      renderAll();
+      say('Put back ' + plural(back.written, 'collection') + '. ' +
+        (m ? 'Open ' + R.app(note.appId).label + ' and it will sync.' : 'Saved on this device.'));
+      return;
+    }
+
     if ((v = el.getAttribute('data-toggle'))) {
       openApps[v] = !openApps[v];
       renderSnaps();
@@ -631,7 +745,18 @@ label.rc-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-eve
     say('Restore point made for ' + R.app(id).label + '.');
   });
 
-  function boot() { renderAll(); }
+  function boot() {
+    renderAll();
+    // #snap=<appId>:<snapshotId> — the banner's "See what was here".
+    var h = (location.hash || '').replace(/^#/, '');
+    if (h.indexOf('snap=') === 0) {
+      var raw = decodeURIComponent(h.slice(5)).split(':');
+      // A snapshot id can itself contain a colon, so split off the app only.
+      if (raw.length >= 2 && !reveal(raw[0], raw.slice(1).join(':'))) {
+        say('That snapshot has already been cleared away.');
+      }
+    }
+  }
   if (window.LocalStoreIDB && window.LocalStoreIDB.ready) {
     window.LocalStoreIDB.ready().then(boot, boot);
   } else {

@@ -80,6 +80,11 @@
     cfg = cfg || {};
     var NAME       = cfg.name || cfg.prefix || 'snapshots';
     var PREFIX     = cfg.prefix;
+    var APP_ID     = cfg.appId || null;
+    // NAME is the legacy global ('PalBackup'); LABEL is what a person
+    // calls the app ('The Palaestra'). Everything shown to a reader uses
+    // LABEL. See the shrink event below.
+    var LABEL      = cfg.label || cfg.name || cfg.prefix;
     var WATCHED    = (cfg.watch || []).slice();
     var EVENTS     = (cfg.events || []).slice();
     var COUNTED    = (cfg.counted || []).slice();
@@ -341,7 +346,15 @@
       timer = setTimeout(function () { timer = null; snapshot('change'); }, DEBOUNCE_MS);
     }
 
-    function onAnyChange() {
+    /**
+     * @param {string} source 'local' (this reader, this tab), 'remote' (a cloud
+     *        pull) or 'tab' (another tab on this device). It changes nothing
+     *        about what is SNAPSHOTTED — a shrink is worth keeping whoever
+     *        caused it — but it decides who is told. Your own delete gets
+     *        trash.js's Undo toast; a shrink you did not perform gets the
+     *        banner, because nothing else on the page would ever mention it.
+     */
+    function onAnyChange(source) {
       var state = readState();
       var counts = countsOf(state);
       if (lastCounts && lastState) {
@@ -353,10 +366,17 @@
         if (shrank.length) {
           // The PREVIOUS state, not the current one. The current one is the damage.
           var entry = snapshot('before-drop', { state: lastState, force: true, pinned: true });
-          lastDrop = { at: Date.now(), snapshotId: entry ? entry.id : null, shrank: shrank };
+          lastDrop = {
+            at: Date.now(), snapshotId: entry ? entry.id : null,
+            shrank: shrank, source: source || 'local', appId: APP_ID
+          };
           try {
             global.dispatchEvent(new CustomEvent('snapshots:shrank', {
-              detail: { store: PREFIX, name: NAME, snapshotId: lastDrop.snapshotId, shrank: shrank }
+              detail: {
+                store: PREFIX, name: LABEL, appId: APP_ID,
+                snapshotId: lastDrop.snapshotId, shrank: shrank,
+                source: lastDrop.source, at: lastDrop.at
+              }
             }));
           } catch (e) {}
         }
@@ -372,13 +392,16 @@
       watching = true;
       lastState = readState();
       lastCounts = countsOf(lastState);
-      EVENTS.forEach(function (ev) { global.addEventListener(ev, onAnyChange); });
+      // The app's own save events. Whatever they report, this reader did it.
+      EVENTS.forEach(function (ev) {
+        global.addEventListener(ev, function () { onAnyChange('local'); });
+      });
 
       // ANOTHER TAB. The shim re-broadcasts writes over a BroadcastChannel
       // and synthesises a storage event from them — but only in the OTHER
       // documents, never the one that posted.
       global.addEventListener('storage', function (e) {
-        if (!e.key || watched(e.key)) onAnyChange();
+        if (!e.key || watched(e.key)) onAnyChange('tab');
       });
 
       // THIS TAB'S CLOUD PULL. The four modules this engine replaces all
@@ -391,9 +414,9 @@
       // out loud.
       global.addEventListener('sync:applied', function (e) {
         var d = e && e.detail;
-        if (!d) { onAnyChange(); return; }
+        if (!d) { onAnyChange('remote'); return; }
         var keys = (d.written || []).concat(d.removed || []);
-        if (!keys.length || keys.some(watched)) onAnyChange();
+        if (!keys.length || keys.some(watched)) onAnyChange('remote');
       });
     }
 
@@ -457,7 +480,8 @@
     var s = a.snapshots;
     var cfg = {
       name: s.global || a.label || id,
-      prefix: s.prefix, watch: s.watch, events: s.events, counted: a.counted
+      prefix: s.prefix, watch: s.watch, events: s.events, counted: a.counted,
+      appId: id, label: a.label || id
     };
     if (overrides) Object.keys(overrides).forEach(function (k) { cfg[k] = overrides[k]; });
     var store = create(cfg);
