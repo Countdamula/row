@@ -5,6 +5,11 @@
      with an IndexedDB-backed shim, and anything that reads storage before it
      installs would see the old, frozen native copy. See local-store-idb.js. -->
 <script src="local-store-idb.js"></script>
+<!-- The snapshot layer. Not deferred: the registry must exist before any
+     boot() asks Snapshots.forApp() for a store, and the engine asserts the
+     store prefix against the registry before it will build one. -->
+<script src="data-registry.js?v=1"></script>
+<script src="snapshots.js?v=1"></script>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -2092,6 +2097,14 @@ omni.addEventListener('paste', () => setTimeout(() => {
        overlays the real IndexedDB contents asynchronously, and IndexedDB
        wins. Rendering before it resolves shows stale data, then flickers. */
 function boot(){
+// Snapshot BEFORE anything else this session does, and pinned: this is
+// the copy that answers "what did this device hold when I opened it",
+// which is the only question worth asking after a bad sync. boot() also
+// installs the shrink watch, so a pull that deletes a collection leaves
+// a pinned copy of the state as it was a moment earlier.
+// Lives under the registry's prefix for 'vault', outside every synced
+// prefix — see snapshots.js.
+if (window.Snapshots) { try { window.Snapshots.forApp('vault').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
   /* tabKey() resolves the retired shelf hashes too, so #creepypasta,
      #trueHorror and #immersive still land somewhere real. */
   const fromHash = tabKey(location.hash.slice(1));

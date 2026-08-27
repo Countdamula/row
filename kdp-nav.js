@@ -1086,6 +1086,14 @@
   // ---------------------------------------------------------------------------
   function initPage(cfg) {
     D().seedLibraryIfNeeded();
+    // Snapshot BEFORE anything else this session does, and pinned: this is
+    // the copy that answers "what did this device hold when I opened it",
+    // which is the only question worth asking after a bad sync. boot() also
+    // installs the shrink watch, so a pull that deletes a collection leaves
+    // a pinned copy of the state as it was a moment earlier.
+    // Lives under the registry's prefix for 'kdp', outside every synced
+    // prefix — see snapshots.js.
+    if (window.Snapshots) { try { window.Snapshots.forApp('kdp').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
 
     // Two mounts, split by weight — the metadata row stays instant while the
     // manuscript row is only pushed when prose actually changes.

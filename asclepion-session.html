@@ -2,6 +2,11 @@
 <html lang="en" class="asc-root">
 <head>
 <script src="local-store-idb.js"></script>
+<!-- The snapshot layer. Not deferred: the registry must exist before any
+     boot() asks Snapshots.forApp() for a store, and the engine asserts the
+     store prefix against the registry before it will build one. -->
+<script src="data-registry.js?v=1"></script>
+<script src="snapshots.js?v=1"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -679,6 +684,14 @@
     ready.then(function () {
       A = window.Asc;
       if (!A) { bootError('The Asclepion', new Error('asclepion-data.js did not load')); return; }
+      // Snapshot BEFORE anything else this session does, and pinned: this is
+      // the copy that answers "what did this device hold when I opened it",
+      // which is the only question worth asking after a bad sync. boot() also
+      // installs the shrink watch, so a pull that deletes a collection leaves
+      // a pinned copy of the state as it was a moment earlier.
+      // Lives under the registry's prefix for 'asclepion', outside every synced
+      // prefix — see snapshots.js.
+      if (window.Snapshots) { try { window.Snapshots.forApp('asclepion').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
 
       U.bindSheet();
       U.delegate(stage, ACTIONS);

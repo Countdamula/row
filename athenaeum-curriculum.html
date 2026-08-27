@@ -7,6 +7,11 @@
 
 <!-- MUST be first and MUST NOT be deferred. See athenaeum.html. -->
 <script src="local-store-idb.js"></script>
+<!-- The snapshot layer. Not deferred: the registry must exist before any
+     boot() asks Snapshots.forApp() for a store, and the engine asserts the
+     store prefix against the registry before it will build one. -->
+<script src="data-registry.js?v=1"></script>
+<script src="snapshots.js?v=1"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -961,6 +966,14 @@ a{color:inherit; text-decoration:none}
   function boot() {
     var d = D();
     if (!d) { console.error('[Athenaeum] athenaeum-data.js did not load'); return; }
+    // Snapshot BEFORE anything else this session does, and pinned: this is
+    // the copy that answers "what did this device hold when I opened it",
+    // which is the only question worth asking after a bad sync. boot() also
+    // installs the shrink watch, so a pull that deletes a collection leaves
+    // a pinned copy of the state as it was a moment earlier.
+    // Lives under the registry's prefix for 'athenaeum', outside every synced
+    // prefix — see snapshots.js.
+    if (window.Snapshots) { try { window.Snapshots.forApp('athenaeum').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
     try { S.id = new URLSearchParams(location.search).get('id') || ''; } catch (e) { S.id = ''; }
     render({ top: true });
     d.maybeSeedAfterSyncAttempt(remoteRef, function () { refreshCurrentView(); });
