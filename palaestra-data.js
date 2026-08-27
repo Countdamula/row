@@ -447,11 +447,14 @@
       createdAt: num(d.createdAt, Date.now())
     };
   }
+  // waterGoalMl, trackMacros, kcalGoal, proteinGoal, carbGoal and
+  // fatGoal retired 2026-08-26 with the day fields they described.
+  // The Larder owns those targets now, under lar:targets — asking
+  // the same question in two places gets two answers.
   var SETTINGS_DEFAULTS = {
     name: '', weightUnit: 'lb', lengthUnit: 'in',
-    stepGoal: 10000, waterGoalMl: 3000,
+    stepGoal: 10000,
     weeklyWorkoutGoal: 4, weeklyCardioGoal: 2,
-    trackMacros: false, kcalGoal: 0, proteinGoal: 0, carbGoal: 0, fatGoal: 0,
     startWeight: 0, goalWeight: 0
   };
   function settingsModel(d) {
@@ -461,14 +464,8 @@
       weightUnit: d.weightUnit === 'kg' ? 'kg' : 'lb',
       lengthUnit: d.lengthUnit === 'cm' ? 'cm' : 'in',
       stepGoal: clamp(Math.round(num(d.stepGoal, 10000)), 100, 200000),
-      waterGoalMl: clamp(Math.round(num(d.waterGoalMl, 3000)), 100, 20000),
       weeklyWorkoutGoal: clamp(Math.round(num(d.weeklyWorkoutGoal, 4)), 1, 14),
       weeklyCardioGoal: clamp(Math.round(num(d.weeklyCardioGoal, 2)), 0, 14),
-      trackMacros: d.trackMacros === true,
-      kcalGoal: clamp(Math.round(num(d.kcalGoal, 0)), 0, 20000),
-      proteinGoal: clamp(Math.round(num(d.proteinGoal, 0)), 0, 2000),
-      carbGoal: clamp(Math.round(num(d.carbGoal, 0)), 0, 2000),
-      fatGoal: clamp(Math.round(num(d.fatGoal, 0)), 0, 2000),
       startWeight: Math.round(num(d.startWeight, 0) * 10) / 10,
       goalWeight: Math.round(num(d.goalWeight, 0) * 10) / 10
     };
@@ -698,7 +695,27 @@
   // of localStorage. Trimmed to the most recent 730 days on write so
   // the synced blob cannot grow without bound.
   // ============================================================
-  var DAY_FIELDS = ['steps', 'water', 'kcal', 'protein', 'carbs', 'fat', 'weight', 'cardioMin'];
+  // RETIRED 2026-08-26: water, kcal, protein, carbs and fat moved
+  // to The Larder, which is now the sole owner of what you ate and
+  // drank. They had had no UI here since the settings screens were
+  // removed on 2026-08-25, and two apps holding the same answer is
+  // how the two answers start to differ.
+  //
+  // The history was NOT thrown away. larder-data.js's
+  // migratePalDays() copies every one of these dates into
+  // larlog:days — water as water, the macros as a `legacy` block —
+  // before this list was shortened, and it is guarded by
+  // lar:migratedPalDays so it runs once per device and merges
+  // rather than overwrites.
+  //
+  // dayModel() rebuilds a record from THIS list on every write, so
+  // a device still running the old copy of this file will re-add
+  // the five fields as zeros until it reloads. That is harmless —
+  // the migration merges and never overwrites a value The Larder
+  // already holds — but it is why the ?v= on this file must be
+  // bumped in ALL FOUR documents that load it: index.html,
+  // palaestra.html, palaestra-workout.html and weeklyreview.html.
+  var DAY_FIELDS = ['steps', 'weight', 'cardioMin'];
   var DAY_CAP = 730;
 
   function allDays() {

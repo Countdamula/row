@@ -61,7 +61,7 @@
     { href: 'vault.html',        label: 'Entertainment Studio', icon: 'film' },
     { href: 'palaestra.html',    label: 'Fitness Studio',       icon: 'dumbbell' },
     { href: 'asclepion.html',    label: 'Self-Care Studio',     icon: 'basin' },
-    { href: 'larder.html',       label: 'The Larder',           icon: 'utensils' }
+    { href: 'larder.html',       label: 'Nutrition Studio',     icon: 'utensils' }
   ];
 
   // -------- Nav data --------
@@ -279,10 +279,15 @@
         // Future Self and Weekly Review became their own documents.
         // index.html maps every retired hash to #today, so an old
         // bookmark still lands somewhere.
-        { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true, children: [
-          { hash: 'today', label: 'Today' },
-          { hash: 'selfcare', label: 'Self-Care' },
-        ] },
+        //
+        // REBUILT AGAIN ON 2026-08-26. Main is a hub now — Quick
+        // Launch, Today, Daily Routine, Continue, Explore — and it no
+        // longer has internal tabs, so it has no children here. The
+        // routine's own editor, the Beliefs database and the record
+        // moved to routine.html, which shares its data and its
+        // renderers with Main rather than copying them.
+        { href: 'index.html', icon: '🎯', label: 'Main', id: 'topbarGoals', withCount: true },
+        { href: 'routine.html', icon: '◔', label: 'Daily Routine', id: 'topbarRoutine' },
         { href: 'futureself.html', icon: '🜂', label: 'Future Self' },
         { href: 'weeklyreview.html', icon: '🝮', label: 'Weekly Review' },
       ],
@@ -378,7 +383,7 @@
       key: 'life',
       label: 'Life & Wellness',
       items: [
-        { href: 'larder.html', icon: '🍽️', label: 'The Larder', id: 'topbarLarder', children: [
+        { href: 'larder.html', icon: '🍽️', label: 'Nutrition Studio', id: 'topbarLarder', children: [
           { hash: '/', label: 'Today' },
           { hash: '/meals', label: 'Meals' },
           { hash: '/foods', label: 'Foods' },
@@ -1686,6 +1691,159 @@ body.topbar-modal-open {
     sync();
   }
 
+  // ============================================================
+  // THE CONTINUE RECORDER
+  //
+  // Main's CONTINUE section answers "what was I actually working on".
+  // The recorder lives HERE because topbar.js is already loaded by
+  // every page in the dashboard, so one file covers all of them; it
+  // exports nothing, like the rest of this file.
+  //
+  // WHAT COUNTS AS WORK. Opening a page and leaving again is not a
+  // session. A visit is recorded only once something under that app's
+  // OWN storage prefix has changed while the page was open, measured
+  // by a cheap fingerprint — the number of matching keys plus the
+  // summed length of their names and values. That is not a hash and
+  // does not pretend to be: it catches the edits that matter (a set
+  // added, a meal logged, a chapter typed into) and it costs one pass
+  // over the key list, twice.
+  //
+  // WHY A TIMER AND NOT pagehide. Writes issued at unload are not
+  // durable here. localStorage is IndexedDB underneath and commits
+  // asynchronously, so a write started as the document goes away is
+  // routinely lost — the same trap local-store-idb.js exists to
+  // manage. Promoting on a 20-second visible-only tick means the
+  // entry is committed long before you leave. The pagehide check is a
+  // bonus, not the mechanism.
+  //
+  // `recent:log` IS LOCAL-ONLY. It matches no synced prefix and
+  // main-sync.js's MUST_STAY_LOCAL asserts that at every mount. It has
+  // to be: this file writes it on twenty pages that never mount the
+  // goals row, and a page writing a key that belongs to a row it has
+  // not pulled is exactly how a sync reconciliation eats data.
+  // ============================================================
+  const RECENT_KEY = 'recent:log';
+  const RECENT_MAX = 12;
+  const RECENT_TICK = 20 * 1000;
+
+  // Each page and the prefix that means "something happened here".
+  // A page missing from this table is simply never recorded, which is
+  // the right default for a stub or a redirect.
+  const TRACK_PREFIX = {
+    'routine.html': 'today:',
+    'futureself.html': 'fs:',
+    'weeklyreview.html': 'wr:',
+    'palaestra.html': 'pal:',
+    'palaestra-workout.html': 'pal:',
+    'asclepion.html': 'asc',            // asc: and asclog: both
+    'asclepion-session.html': 'asc',
+    'asclepion-journal.html': 'asc',
+    'larder.html': 'lar',               // lar: and larlog: both
+    'vault.html': 'vault:',
+    'promptarium.html': 'prm:',
+    'athenaeum.html': 'ath:',
+    'athenaeum-subject.html': 'ath:',
+    'athenaeum-curriculum.html': 'ath:',
+    'athenaeum-resources.html': 'ath:',
+    'athenaeum-resource.html': 'ath:',
+    'kdp.html': 'kdp',
+    'kdp-foundations.html': 'kdp',
+    'kdp-draft.html': 'kdp',
+    'kdp-continuity.html': 'kdp',
+    'kdp-publish.html': 'kdp',
+    'businessos.html': 'bos:',
+  };
+
+  let recentVisit = null;
+  let recentBaseline = 0;
+  let recentTimer = 0;
+  let recentDone = false;
+
+  function currentFile() {
+    const p = location.pathname.split('/').pop();
+    return (p || 'index.html').toLowerCase();
+  }
+
+  /** Count + summed key and value lengths for one prefix. */
+  function fingerprint(prefix) {
+    let n = 0;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf(prefix) !== 0) continue;
+        const v = localStorage.getItem(k);
+        n += k.length + (v ? v.length : 0) + 1;
+      }
+    } catch (e) { return -1; }
+    return n;
+  }
+
+  function readRecent() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+      return Array.isArray(raw) ? raw : [];
+    } catch (e) { return []; }
+  }
+
+  /** Promote this visit. Idempotent — it runs at most once per page. */
+  function promoteRecent() {
+    if (recentDone || !recentVisit) return;
+    recentDone = true;
+    stopRecentTimer();
+
+    const entry = {
+      href: recentVisit.href,
+      hash: String(location.hash || '').replace(/^#/, ''),
+      title: recentVisit.title,
+      at: Date.now(),
+    };
+    // One row per page. A newer visit replaces the older one rather
+    // than filling the list with the same page five times.
+    const list = readRecent().filter((r) => r && r.href !== entry.href);
+    list.unshift(entry);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX)));
+    } catch (e) { /* quota or a private window — the list is a nicety */ }
+  }
+
+  function checkRecent() {
+    if (recentDone || !recentVisit) return;
+    const now = fingerprint(recentVisit.prefix);
+    if (now < 0 || now === recentBaseline) return;
+    promoteRecent();
+  }
+
+  function stopRecentTimer() {
+    if (recentTimer) { clearInterval(recentTimer); recentTimer = 0; }
+  }
+
+  function startRecorder() {
+    const file = currentFile();
+    const prefix = TRACK_PREFIX[file];
+    if (!prefix) return;                       // Main itself, and every stub
+
+    // The page's own name, from the drawer, so CONTINUE reads the way
+    // the rest of the dashboard does rather than showing a filename.
+    let title = file;
+    NAV_GROUPS.forEach((g) => g.items.forEach((it) => {
+      if (it.href && it.href.toLowerCase() === file) title = it.label;
+    }));
+
+    recentVisit = { href: file, prefix, title };
+    recentBaseline = fingerprint(prefix);
+    if (recentBaseline < 0) return;            // no readable store; nothing to compare
+
+    recentTimer = setInterval(() => {
+      if (!document.hidden) checkRecent();
+    }, RECENT_TICK);
+
+    // Best effort on the way out, and a real one on the way to the
+    // background — a phone backgrounding a tab is the common case, and
+    // that one still has time to commit.
+    document.addEventListener('visibilitychange', () => { if (document.hidden) checkRecent(); });
+    window.addEventListener('pagehide', checkRecent);
+  }
+
   // -------- Boot --------
   function boot() {
     injectStyleAndHTML();
@@ -1710,6 +1868,10 @@ body.topbar-modal-open {
 
     // Periodic refresh so the count stays current after midnight rollover etc.
     setInterval(render, 30 * 1000);
+
+    // Main's CONTINUE list. Reads this page's own prefix and writes at
+    // most one row, and only if something changed. See its header.
+    try { startRecorder(); } catch (e) { /* never break the nav over a nicety */ }
   }
 
   if (document.readyState === 'loading') {

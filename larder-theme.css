@@ -1,0 +1,1924 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Work+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* =============================================================
+   larder-theme.css — every style for every document of The
+   Larder.
+
+   THE ROOM
+
+   A larder is a cold stone room off the kitchen: shelves, brass
+   weights, jars with graded labels, a slate with the week
+   chalked on it. That is where these choices come from, and it
+   is why the page is dark rather than the clean white every
+   nutrition app defaults to — you are not in a laboratory, you
+   are in the room where the food is kept.
+
+   The near-black and gold are not this page's invention: they
+   are the app's own thread (CLAUDE.md section 3 — "this app's
+   real common accent is gold, not blue"), and the page this
+   replaces already had them right.
+
+   THE ONE MEMORABLE THING is the measure bar's target notch.
+   Every other bar in every other tracker fills to 100% and then
+   stops, so eating 2,300 calories and eating 3,400 look
+   identical. Here the track runs past the target, the notch
+   marks where the target sits, and an overrun is drawn as an
+   overrun. It is the difference between an instrument and a
+   decoration, and everything else on the page stays quiet so
+   that it reads.
+
+   NAMING. Everything is --lar-* and .lar-*. The page this
+   replaces used bare --bg / --accent and three competing class
+   prefixes (.nt-, .nutr-, .ent-), which is how a stylesheet
+   stops being editable.
+   ============================================================= */
+
+/* -------------------------------------------------------------
+   TOKENS
+   ------------------------------------------------------------- */
+.lar-root {
+  /* Ground and surfaces. Three planes, not one: the room, the
+     shelf, and the thing on the shelf. Every card sitting at the
+     same z-plane is the flattest possible way to draw depth. */
+  --lar-ground:    #0a0908;
+  --lar-deep:      #050403;
+  --lar-surface:   rgba(255, 255, 255, .045);
+  --lar-surface-2: rgba(255, 255, 255, .075);
+  --lar-paper:     #14120f;
+
+  /* Chalk on slate. */
+  --lar-text:   #f2ede1;
+  --lar-text-2: rgba(242, 237, 225, .66);
+  --lar-text-3: rgba(242, 237, 225, .40);
+
+  --lar-line:   rgba(201, 168, 118, .20);
+  --lar-line-2: rgba(242, 237, 225, .10);
+
+  /* Brass. Spent as SHINE — an inset top-edge highlight, the way
+     light catches the lip of a shelf — and never as a fill. A
+     gold-filled button on a dark page reads as a warning. */
+  --lar-gold:        #c9a876;
+  --lar-gold-bright: #e8cf9f;
+  --lar-gold-dim:    rgba(201, 168, 118, .38);
+  --lar-shine: inset 0 1px 0 rgba(201, 168, 118, .22);
+
+  /* The preserves on the shelf. Eight jars, graded warm to cool
+     and back, one per route. A tint is never a fill either: it
+     touches the mark, the section rule, the count line and the
+     hover bloom, so the shelf reads as one shelf with different
+     jars on it rather than eight differently-painted pages. */
+  --lar-t-honey:  #d8a13f;  --lar-t-honey-rgb:  216, 161, 63;
+  --lar-t-ember:  #c9603c;  --lar-t-ember-rgb:  201, 96, 60;
+  --lar-t-olive:  #8a9a4b;  --lar-t-olive-rgb:  138, 154, 75;
+  --lar-t-copper: #b8743c;  --lar-t-copper-rgb: 184, 116, 60;
+  --lar-t-slate:  #6b8299;  --lar-t-slate-rgb:  107, 130, 153;
+  --lar-t-sage:   #7d9a76;  --lar-t-sage-rgb:   125, 154, 118;
+  --lar-t-wheat:  #cbb072;  --lar-t-wheat-rgb:  203, 176, 114;
+  --lar-t-rose:   #b9647a;  --lar-t-rose-rgb:   185, 100, 122;
+
+  --lar-tint:     var(--lar-t-honey);
+  --lar-tint-rgb: var(--lar-t-honey-rgb);
+
+  /* Measure states. Under target is quiet, on target is the
+     tint, over target is the one genuinely alarming colour on
+     the page — used nowhere else, so it means something. */
+  --lar-under: rgba(242, 237, 225, .28);
+  --lar-over:  #d1553f;
+
+  /* Type. A display serif with real italics, a UI sans, and a
+     mono for every numeral — because this page is mostly
+     numerals and a column of them has to line up. */
+  --lar-display: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --lar-ui: 'Work Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --lar-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Spacing. A scale, not a grab-bag: every gap on the page is
+     one of these six. */
+  --lar-s1: 6px;
+  --lar-s2: 12px;
+  --lar-s3: 18px;
+  --lar-s4: 28px;
+  --lar-s5: 44px;
+  --lar-s6: 72px;
+
+  --lar-r1: 8px;
+  --lar-r2: 14px;
+  --lar-r3: 22px;
+
+  --lar-shell: 1180px;
+
+  /* Layered and colour-tinted, never a flat drop shadow. */
+  --lar-lift:
+    0 1px 2px rgba(0, 0, 0, .40),
+    0 8px 24px rgba(0, 0, 0, .30),
+    0 2px 10px rgba(10, 6, 2, .28);
+
+  --lar-ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* Anything carrying data-tint re-points the tint for its whole
+   subtree. One line in the renderer, eight results. */
+[data-tint="honey"]  { --lar-tint: var(--lar-t-honey);  --lar-tint-rgb: var(--lar-t-honey-rgb); }
+[data-tint="ember"]  { --lar-tint: var(--lar-t-ember);  --lar-tint-rgb: var(--lar-t-ember-rgb); }
+[data-tint="olive"]  { --lar-tint: var(--lar-t-olive);  --lar-tint-rgb: var(--lar-t-olive-rgb); }
+[data-tint="copper"] { --lar-tint: var(--lar-t-copper); --lar-tint-rgb: var(--lar-t-copper-rgb); }
+[data-tint="slate"]  { --lar-tint: var(--lar-t-slate);  --lar-tint-rgb: var(--lar-t-slate-rgb); }
+[data-tint="sage"]   { --lar-tint: var(--lar-t-sage);   --lar-tint-rgb: var(--lar-t-sage-rgb); }
+[data-tint="wheat"]  { --lar-tint: var(--lar-t-wheat);  --lar-tint-rgb: var(--lar-t-wheat-rgb); }
+[data-tint="rose"]   { --lar-tint: var(--lar-t-rose);   --lar-tint-rgb: var(--lar-t-rose-rgb); }
+
+/* -------------------------------------------------------------
+   GROUND
+   ------------------------------------------------------------- */
+* { box-sizing: border-box; }
+
+html.lar-root {
+  background: var(--lar-deep);
+  -webkit-text-size-adjust: 100%;
+}
+
+body.lar {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(201, 168, 118, .07), transparent 60%),
+    radial-gradient(90% 60% at 10% 100%, rgba(184, 116, 60, .05), transparent 65%),
+    var(--lar-ground);
+  color: var(--lar-text);
+  font-family: var(--lar-ui);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  /* A long food name in a flex child must not be allowed to
+     widen the page. The overflow guard is on the children too,
+     further down — this is only the last resort. */
+  overflow-x: hidden;
+}
+
+body.lar-locked { overflow: hidden; }
+
+/* Every numeral on this page. Tabular figures so a column lines
+   up and a changing value does not shove its neighbours sideways
+   on every water tap. */
+.lar-num {
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  letter-spacing: -.01em;
+}
+
+::selection { background: rgba(201, 168, 118, .28); color: var(--lar-text); }
+
+/* -------------------------------------------------------------
+   FOCUS
+
+   Visible, always, and the same shape everywhere. A page you use
+   one-handed in a kitchen is a page you also use from a
+   keyboard at a desk.
+   ------------------------------------------------------------- */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--lar-gold-bright);
+  outline-offset: 2px;
+  border-radius: var(--lar-r1);
+}
+:where(a, button, input, textarea, select, [tabindex]):focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* -------------------------------------------------------------
+   SHELL
+   ------------------------------------------------------------- */
+.lar-shell {
+  max-width: var(--lar-shell);
+  margin: 0 auto;
+  padding: var(--lar-s4) var(--lar-s3) var(--lar-s6);
+  outline: none;
+}
+
+/* -------------------------------------------------------------
+   NAV — the route strip.
+
+   Static markup, rebuilt on every render because it is nine
+   anchors and the current route cannot then drift out of step
+   with what is drawn below it.
+   ------------------------------------------------------------- */
+/* THE LEFT INSET IS NOT DECORATION. topbar.js fixes its launcher
+   pill at top:14px / left:14px, about 190px wide, at z-index 2600
+   — above anything this page can draw. A strip starting at the
+   gutter sits underneath it and its first route becomes
+   unclickable. So on desktop the routes begin clear of it.
+
+   On a phone that inset would eat half the screen, so there the
+   strip moves to the BOTTOM of the viewport instead: out of the
+   launcher's way entirely, and in reach of a thumb — which is
+   where this page is used anyway, one-handed, in a kitchen. Same
+   answer the Palaestra reached, for the same reason. */
+/* A floating translucent pill, centred at the top over the hero,
+   as the reference has it.
+
+   IT MUST NEVER REACH THE LAUNCHER. topbar.js pins its launcher
+   at top:14px / left:14px, ~190px wide, at z-index 2600 — above
+   anything this page can draw. A centred bar of width W has its
+   left edge at (100vw - W)/2, so keeping that clear of ~196px
+   means capping W at 100vw - 392px. Below that the pill scrolls
+   inside itself rather than sliding under the launcher. Same
+   arithmetic as the Asclepion's nav, for the same reason. */
+.lar-nav {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  translate: -50% 0;
+  z-index: 40;
+  max-width: min(var(--lar-shell), calc(100vw - 392px));
+  padding: 5px;
+  border: 1px solid rgba(242, 237, 225, .16);
+  border-radius: 999px;
+  background: rgba(10, 9, 8, .52);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: var(--lar-shine), 0 12px 40px rgba(0, 0, 0, .40);
+}
+.lar-nav__in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* topbar.js hides every scrollbar under 768px, so a horizontal
+     scroller has no affordance at all on a phone. The fade IS the
+     affordance. */
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
+}
+.lar-nav__in::-webkit-scrollbar { display: none; }
+
+/* Written for an anchor AND a button — the "..." at the end of
+   the strip is a button, and a button without an explicit
+   background gets the browser's own, which is a white slab. */
+.lar-route {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lar-text-3);
+  font-family: var(--lar-ui);
+  font-size: .82rem;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .18s var(--lar-ease), background-color .18s var(--lar-ease);
+}
+.lar-route:hover { color: var(--lar-text-2); background: var(--lar-surface); }
+.lar-route.is-on { color: var(--lar-tint); background: rgba(var(--lar-tint-rgb), .10); }
+
+/* The wordmark divides the strip and doubles as the way home. */
+.lar-nav__mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lar-s1);
+  min-height: 38px;
+  margin: 0 var(--lar-s1);
+  padding: 0 var(--lar-s2);
+  color: var(--lar-gold);
+  font-family: var(--lar-display);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: .02em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.lar-nav__mark:hover { color: var(--lar-gold-bright); }
+
+/* -------------------------------------------------------------
+   TYPE ROLES
+
+   Three, and they do not overlap. An eyebrow is mono and
+   uppercase because it is a label on a jar. A section title is
+   the display serif because it is the name of the thing. Body
+   is the sans because you have to read it.
+   ------------------------------------------------------------- */
+.lar-eyebrow {
+  margin: 0 0 var(--lar-s1);
+  font-family: var(--lar-mono);
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--lar-tint);
+}
+
+.lar-h1 {
+  margin: 0;
+  font-family: var(--lar-display);
+  font-size: clamp(2rem, 5.5vw, 3.1rem);
+  font-weight: 300;
+  line-height: 1.06;
+  letter-spacing: -.02em;
+  color: var(--lar-text);
+}
+.lar-h2 {
+  margin: 0;
+  font-family: var(--lar-display);
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  color: var(--lar-text);
+}
+.lar-h3 {
+  margin: 0;
+  font-family: var(--lar-ui);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--lar-text);
+}
+.lar-p {
+  margin: 0;
+  color: var(--lar-text-2);
+  line-height: 1.7;
+}
+.lar-quiet { color: var(--lar-text-3); }
+
+/* -------------------------------------------------------------
+   SECTION
+   ------------------------------------------------------------- */
+.lar-section { margin-top: var(--lar-s5); }
+.lar-section:first-child { margin-top: 0; }
+
+.lar-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lar-s3);
+  margin-bottom: var(--lar-s3);
+  padding-bottom: var(--lar-s2);
+  border-bottom: 1px solid var(--lar-line);
+}
+/* Long words in a flex child do not get to widen the page. */
+.lar-section__head > * { min-width: 0; }
+
+.lar-section__count {
+  flex: 0 0 auto;
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: .78rem;
+  color: var(--lar-tint);
+  letter-spacing: .06em;
+}
+
+/* -------------------------------------------------------------
+   MARKS
+   ------------------------------------------------------------- */
+.lar-mark {
+  width: 1.1em;
+  height: 1.1em;
+  flex: 0 0 auto;
+  vertical-align: -.16em;
+  color: var(--lar-tint);
+}
+.lar-heart { width: 1.05em; height: 1.05em; color: var(--lar-text-3); }
+.lar-heart.is-on { color: var(--lar-t-rose); }
+
+/* -------------------------------------------------------------
+   CARD
+   ------------------------------------------------------------- */
+.lar-card {
+  position: relative;
+  min-width: 0;
+  padding: var(--lar-s3);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  transition: border-color .2s var(--lar-ease), background-color .2s var(--lar-ease),
+              transform .2s var(--lar-ease);
+}
+.lar-card--lift { box-shadow: var(--lar-shine), var(--lar-lift); }
+
+a.lar-card, button.lar-card { display: block; text-align: left; text-decoration: none; color: inherit; cursor: pointer; }
+a.lar-card:hover, button.lar-card:hover {
+  border-color: rgba(var(--lar-tint-rgb), .34);
+  background: var(--lar-surface-2);
+  transform: translateY(-2px);
+}
+a.lar-card:active, button.lar-card:active { transform: translateY(0); }
+
+/* -------------------------------------------------------------
+   BUTTONS
+   ------------------------------------------------------------- */
+.lar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lar-s1);
+  min-height: 44px;
+  padding: 0 var(--lar-s3);
+  border: 1px solid var(--lar-line);
+  border-radius: var(--lar-r1);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  color: var(--lar-text);
+  font-family: var(--lar-ui);
+  font-size: .92rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .18s var(--lar-ease), border-color .18s var(--lar-ease),
+              color .18s var(--lar-ease), transform .12s var(--lar-ease);
+}
+.lar-btn:hover { background: var(--lar-surface-2); border-color: var(--lar-gold-dim); }
+.lar-btn:active { transform: scale(.985); }
+.lar-btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* The one prominent action. Gold as a hairline and a glow, not
+   as a fill — see the tokens. */
+.lar-btn--go {
+  border-color: rgba(201, 168, 118, .55);
+  background: linear-gradient(to bottom, rgba(201, 168, 118, .18), rgba(201, 168, 118, .08));
+  color: var(--lar-gold-bright);
+}
+.lar-btn--go:hover {
+  border-color: var(--lar-gold-bright);
+  background: linear-gradient(to bottom, rgba(201, 168, 118, .26), rgba(201, 168, 118, .12));
+}
+
+/* 38 rather than 36: at exactly the floor, sub-pixel layout
+   rounds it under. Matches the Asclepion desktop small button. */
+.lar-btn--sm { min-height: 38px; padding: 0 var(--lar-s2); font-size: .84rem; }
+.lar-btn--wide { width: 100%; }
+.lar-btn--ghost { background: transparent; border-color: var(--lar-line-2); color: var(--lar-text-2); }
+.lar-btn--ghost:hover { color: var(--lar-text); }
+
+/* -------------------------------------------------------------
+   CHIPS — filters, categories, tags.
+   ------------------------------------------------------------- */
+.lar-chips { display: flex; flex-wrap: wrap; gap: var(--lar-s1); }
+.lar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* 38, not 36. The floor is 36 (CLAUDE.md's Asclepion audit)
+     and sitting exactly on it rounds under at some widths. */
+  min-height: 38px;
+  padding: 0 var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lar-text-3);
+  font-family: var(--lar-ui);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .16s var(--lar-ease), border-color .16s var(--lar-ease),
+              background-color .16s var(--lar-ease);
+}
+.lar-chip:hover { color: var(--lar-text-2); border-color: var(--lar-gold-dim); }
+.lar-chip.is-on {
+  color: var(--lar-tint);
+  border-color: rgba(var(--lar-tint-rgb), .5);
+  background: rgba(var(--lar-tint-rgb), .12);
+}
+
+/* -------------------------------------------------------------
+   THE MEASURE BAR — the signature.
+
+   A track that runs PAST the target, a fill, and a notch where
+   100% sits. Eating 2,300 and eating 3,400 must not look the
+   same, which is what every bar that stops at full does.
+
+   The track is scaled so the target notch sits at 78% of the
+   width, leaving room to overrun by a quarter before the fill
+   clips. --p is the percentage of target, set inline.
+   ------------------------------------------------------------- */
+.lar-measure { display: grid; gap: 5px; min-width: 0; }
+
+.lar-measure__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lar-s2);
+  min-width: 0;
+}
+.lar-measure__label {
+  font-size: .84rem;
+  color: var(--lar-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lar-measure__val {
+  flex: 0 0 auto;
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: .84rem;
+  color: var(--lar-text);
+}
+.lar-measure__val em {
+  font-style: normal;
+  color: var(--lar-text-3);
+}
+
+.lar-measure__track {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  overflow: hidden;
+}
+.lar-measure__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--lar-under);
+  /* 78% of the track is the target. */
+  width: calc(min(var(--p, 0), 128) * 0.78%);
+  transition: width .5s var(--lar-ease), background-color .3s var(--lar-ease);
+}
+.lar-measure.is-on   .lar-measure__fill { background: var(--lar-tint); }
+.lar-measure.is-over .lar-measure__fill { background: var(--lar-over); }
+
+/* The notch. Drawn on top of the fill, so it stays visible when
+   the bar runs past it — that is the entire point. */
+.lar-measure__track::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 78%;
+  width: 2px;
+  background: var(--lar-gold);
+  opacity: .75;
+}
+
+/* -------------------------------------------------------------
+   SHEET — the one layer-2 surface.
+   ------------------------------------------------------------- */
+.lar-sheetbg {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(3, 2, 1, .72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.lar-sheetbg.is-on { display: flex; }
+
+.lar-sheet {
+  width: 100%;
+  max-width: 620px;
+  max-height: 88svh;
+  overflow-y: auto;
+  padding: var(--lar-s4) var(--lar-s3);
+  padding-bottom: max(var(--lar-s4), env(safe-area-inset-bottom));
+  border: 1px solid var(--lar-line);
+  border-bottom: 0;
+  border-radius: var(--lar-r3) var(--lar-r3) 0 0;
+  background: var(--lar-paper);
+  box-shadow: var(--lar-shine), 0 -20px 60px rgba(0, 0, 0, .6);
+  animation: lar-sheet-in .28s var(--lar-ease) both;
+}
+@keyframes lar-sheet-in {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.lar-sheet__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lar-s3);
+  margin-bottom: var(--lar-s3);
+}
+.lar-sheet__head > * { min-width: 0; }
+
+.lar-sheet__close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lar-line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lar-text-3);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.lar-sheet__close:hover { color: var(--lar-text); border-color: var(--lar-gold-dim); }
+
+@media (min-width: 720px) {
+  .lar-sheetbg { align-items: center; padding: var(--lar-s4); }
+  .lar-sheet {
+    border-bottom: 1px solid var(--lar-line);
+    border-radius: var(--lar-r3);
+    max-height: 84svh;
+  }
+}
+
+/* -------------------------------------------------------------
+   TOAST
+   ------------------------------------------------------------- */
+.lar-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(var(--lar-s4), env(safe-area-inset-bottom));
+  z-index: 3200;
+  transform: translate(-50%, 8px);
+  padding: var(--lar-s2) var(--lar-s3);
+  border: 1px solid var(--lar-line);
+  border-radius: 999px;
+  background: var(--lar-paper);
+  box-shadow: var(--lar-shine), var(--lar-lift);
+  color: var(--lar-text);
+  font-size: .88rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s var(--lar-ease), transform .22s var(--lar-ease);
+}
+.lar-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* -------------------------------------------------------------
+   FIELDS
+   ------------------------------------------------------------- */
+/* 16px, UNCONDITIONALLY.
+   iOS Safari zooms in on any focused field under 16px and never
+   zooms back out. The usual fix is a phone-width media query,
+   but there is no reason for a field to be 15.2px on a desktop
+   either — and a touch laptop or an iPad in landscape is wider
+   than any phone breakpoint while still having a touch keyboard.
+   Setting it once here means the rule cannot be missed by a
+   field that lands outside whichever query was supposed to catch
+   it. The media query further down stays as a backstop. */
+.lar-input, .lar-select, .lar-textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r1);
+  background: rgba(0, 0, 0, .28);
+  color: var(--lar-text);
+  font-family: var(--lar-ui);
+  font-size: 16px;
+}
+.lar-textarea { min-height: 96px; resize: vertical; line-height: 1.6; }
+.lar-input:focus, .lar-select:focus, .lar-textarea:focus { border-color: var(--lar-gold-dim); }
+.lar-input::placeholder, .lar-textarea::placeholder { color: var(--lar-text-3); }
+
+.lar-label {
+  display: block;
+  margin-bottom: 5px;
+  font-family: var(--lar-mono);
+  font-size: .68rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--lar-text-3);
+}
+
+/* -------------------------------------------------------------
+   EMPTY STATE
+
+   An empty screen is an invitation to act, not a shrug.
+   ------------------------------------------------------------- */
+.lar-empty {
+  padding: var(--lar-s5) var(--lar-s3);
+  border: 1px dashed var(--lar-line);
+  border-radius: var(--lar-r2);
+  text-align: center;
+  color: var(--lar-text-3);
+}
+.lar-empty .lar-h3 { margin-bottom: var(--lar-s1); color: var(--lar-text-2); }
+
+/* -------------------------------------------------------------
+   SECTION INTRO — see larder-ui.js section INTRO.
+
+   The host carries `is-intro` and a NEGATIVE --t, so a cloud
+   repaint resumes the entrance mid-flight instead of replaying
+   it from zero. Each child carries its own --d stagger, and both
+   resolve against the same clock.
+   ------------------------------------------------------------- */
+.lar-rvl { opacity: 1; transform: none; }
+.is-intro .lar-rvl {
+  opacity: 0;
+  animation: lar-rise .62s var(--lar-ease) forwards;
+  animation-delay: calc(var(--d, 0ms) + var(--t, 0ms));
+}
+@keyframes lar-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* -------------------------------------------------------------
+   REDUCED MOTION
+
+   Assert the end state FIRST, then zero the durations. Zeroing
+   alone freezes every entrance at opacity:0 and leaves the page
+   blank — which is how "respects reduced motion" ships as "is
+   unusable with reduced motion".
+   ------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .lar-rvl, .is-intro .lar-rvl { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .lar-sheet { animation: none !important; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* -------------------------------------------------------------
+   PHONE — 719px, matching LarUI.isPhone() exactly. At 720 the
+   two disagree and the page lays out one way while the script
+   behaves the other.
+
+   Food gets logged standing in a kitchen, one-handed, so this is
+   the real target and not an afterthought.
+   ------------------------------------------------------------- */
+@media (max-width: 719px) {
+  .lar-shell { padding: var(--lar-s3) var(--lar-s2) var(--lar-s6); }
+  .lar-section { margin-top: var(--lar-s4); }
+
+  .lar-btn { min-height: 46px; }
+  .lar-btn--sm { min-height: 42px; }
+  .lar-route { min-height: 42px; }
+  .lar-chip { min-height: 38px; }
+}
+
+/* iOS Safari zooms in on any focused field under 16px and never
+   zooms back out. Under BOTH conditions, because a phone in
+   landscape is wider than 719px and still has a touch keyboard.
+   This is the one bug every page of this dashboard has had. */
+@media (max-width: 719px), (pointer: coarse) {
+  .lar-input, .lar-select, .lar-textarea { font-size: 16px; }
+}
+
+/* -------------------------------------------------------------
+   HERO — mounted once, outside the render host. See
+   larder-hero.js THE ONE INVARIANT.
+
+   A full-bleed photograph with the headline over it, built to a
+   supplied reference: a centred pill nav at the top, a large
+   light headline arriving from the left line by line, and a
+   glass card on the right. Here the card is live — today's three
+   numbers and the way to add to them.
+
+   TWO VARIANTS. `--full` is 100vh and appears on Today only.
+   `--band` is short and appears everywhere else, because a full
+   screen in front of the grocery list, in a shop, is a tax.
+   ------------------------------------------------------------- */
+.lar-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--lar-line);
+  isolation: isolate;
+}
+
+.lar-hero--full {
+  min-height: 100svh;
+  padding: 120px var(--lar-s3) var(--lar-s5);
+}
+.lar-hero--band {
+  min-height: 44svh;
+  padding: 120px var(--lar-s3) var(--lar-s4);
+}
+
+/* The photograph is portrait and the frame is landscape, so
+   `cover` shows a middle band — which is the tunnel mouth and
+   its light, the strongest part of the frame. The band variant
+   sits slightly lower so it keeps the glow rather than a strip
+   of black canopy. */
+/* The photograph is already a night scene, so it is lifted rather
+   than darkened — laid under the scrim as shot it collapses into
+   near-black mush and stops being a picture of anything. A static
+   filter costs one composite, not a repaint, because nothing here
+   animates. */
+.lar-hero__img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 46%;
+  filter: brightness(1.55) contrast(1.06) saturate(1.05);
+}
+.lar-hero--band .lar-hero__img { object-position: 50% 52%; }
+
+/* Two jobs, one element: darken the left so the headline has a
+   ground to sit on, and seat the whole plate in the page so it
+   does not read as a photograph that merely stops. Gradients
+   over the image, never a filter on it — a filter would cost a
+   repaint of the whole picture. */
+.lar-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(5, 4, 3, .82) 0%, rgba(5, 4, 3, .46) 32%, rgba(5, 4, 3, .04) 58%, rgba(5, 4, 3, .22) 100%),
+    linear-gradient(to bottom, rgba(5, 4, 3, .58) 0%, transparent 24%, transparent 64%, rgba(5, 4, 3, .74) 100%);
+}
+
+.lar-hero__in {
+  position: relative;
+  width: 100%;
+  max-width: var(--lar-shell);
+  margin: 0 auto;
+}
+
+.lar-hero__eyebrow { margin-bottom: var(--lar-s2); }
+
+/* THE HEADLINE.
+
+   Light weight and very large, the way the reference has it —
+   the size does the work, so the weight does not have to. Each
+   line is its own element carrying --l, and the second is
+   indented so three left-aligned lines read as a stanza rather
+   than a paragraph that happened to break. */
+.lar-hero__title {
+  margin: 0;
+  display: grid;
+  justify-items: start;
+  font-family: var(--lar-ui);
+  font-weight: 200;
+  font-size: clamp(2.6rem, 7vw, 5.4rem);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+  color: var(--lar-text);
+  text-wrap: balance;
+}
+.lar-hero__line { display: block; }
+.lar-hero__line:nth-child(2) { padding-left: 1.6em; }
+.lar-hero--band .lar-hero__title { font-size: clamp(2rem, 5vw, 3.6rem); }
+.lar-hero--band .lar-hero__line:nth-child(2) { padding-left: 1.2em; }
+
+/* THE CARD — the reference's glass panel, made live. */
+.lar-hero__card {
+  position: absolute;
+  right: max(var(--lar-s3), calc((100% - var(--lar-shell)) / 2));
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  gap: var(--lar-s3);
+  width: min(380px, 42vw);
+  padding: var(--lar-s3);
+  border: 1px solid rgba(242, 237, 225, .18);
+  border-radius: var(--lar-r3);
+  background: rgba(10, 9, 8, .40);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  box-shadow: var(--lar-shine), 0 20px 60px rgba(0, 0, 0, .45);
+}
+.lar-hero__card[hidden] { display: none; }
+
+/* The reference puts a photo tile here. This page is an
+   instrument, so it gets a number plate instead — the one fact
+   you can read without arithmetic. */
+.lar-hero__plate {
+  flex: 0 0 auto;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0;
+  width: 84px;
+  padding: var(--lar-s2) 0;
+  border: 1px solid rgba(var(--lar-tint-rgb), .30);
+  border-radius: var(--lar-r2);
+  background: rgba(var(--lar-tint-rgb), .10);
+}
+.lar-hero__plate-n { font-size: 2rem; line-height: 1; color: var(--lar-tint); }
+.lar-hero__plate-d { font-size: .72rem; color: var(--lar-text-3); margin-top: 2px; }
+.lar-hero__plate-l {
+  margin-top: 5px;
+  font-family: var(--lar-mono);
+  font-size: .6rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--lar-text-3);
+}
+
+.lar-hero__facts { flex: 1 1 auto; min-width: 0; display: grid; align-content: center; gap: 3px; }
+.lar-hero__fact {
+  margin: 0;
+  font-size: .92rem;
+  color: var(--lar-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lar-hero__fact span { color: var(--lar-text-3); font-size: .8rem; }
+
+/* The reference sets its link in italic serif. Newsreader has
+   real italics, so it is the genuine article rather than a
+   slanted roman. */
+.lar-hero__go {
+  justify-self: start;
+  margin-top: var(--lar-s2);
+  padding: 4px 0;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--lar-gold-bright);
+  font-family: var(--lar-display);
+  font-style: italic;
+  font-size: 1.02rem;
+  cursor: pointer;
+}
+.lar-hero__go:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* THE ARRIVAL.
+
+   Runs once per route change and holds — it is not a loop. The
+   headline comes in from the left, ghosted, line by line; the
+   eyebrow leads and the card lands last. Re-armed in
+   larder-hero.js on a route change ONLY, never on a repaint. */
+.lar-hero__eyebrow,
+.lar-hero__line,
+.lar-hero__card { will-change: transform, opacity; }
+
+.lar-hero.is-arriving .lar-hero__eyebrow {
+  animation: lar-hero-rise .7s var(--lar-ease) both;
+}
+.lar-hero.is-arriving .lar-hero__line {
+  animation: lar-hero-slide .95s var(--lar-ease) both;
+  animation-delay: calc(120ms + var(--l) * 110ms);
+}
+.lar-hero.is-arriving .lar-hero__card {
+  animation: lar-hero-rise .8s var(--lar-ease) both;
+  animation-delay: 620ms;
+}
+
+@keyframes lar-hero-slide {
+  from { opacity: 0; transform: translateX(-90px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes lar-hero-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* -------------------------------------------------------------
+   TODAY — the overview card
+   ------------------------------------------------------------- */
+.lar-today { display: grid; gap: var(--lar-s3); }
+
+.lar-today__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lar-s3);
+}
+.lar-today__head > * { min-width: 0; }
+.lar-today__head .lar-h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); }
+
+.lar-today__measures {
+  display: grid;
+  gap: var(--lar-s3);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.lar-today__meals-count {
+  padding-top: var(--lar-s2);
+  border-top: 1px solid var(--lar-line-2);
+  font-size: .84rem;
+  color: var(--lar-text-2);
+}
+.lar-today__meals-count .lar-num { color: var(--lar-text); margin-left: var(--lar-s1); }
+
+.lar-today__actions { display: flex; flex-wrap: wrap; gap: var(--lar-s2); }
+.lar-today__actions .lar-btn { flex: 1 1 auto; min-width: 0; }
+
+/* -------------------------------------------------------------
+   SLOTS — the four meal rows.
+
+   These EXPAND IN PLACE. Tapping breakfast must not navigate:
+   the whole point of the screen is that logging is faster than
+   deciding to log, and a route change is a decision.
+   ------------------------------------------------------------- */
+.lar-slots { display: grid; gap: var(--lar-s2); }
+
+.lar-slot {
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  overflow: hidden;
+  transition: border-color .2s var(--lar-ease);
+}
+.lar-slot.is-open { border-color: rgba(var(--lar-tint-rgb), .34); }
+
+.lar-slot__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 62px;
+  padding: var(--lar-s2) var(--lar-s3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lar-slot__head:hover { background: var(--lar-surface-2); }
+
+.lar-slot__tick {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lar-line);
+  border-radius: 999px;
+  color: var(--lar-tint);
+}
+.lar-slot__tick.is-on {
+  border-color: rgba(var(--lar-tint-rgb), .6);
+  background: rgba(var(--lar-tint-rgb), .14);
+}
+.lar-slot__tick .lar-mark { width: .78em; height: .78em; }
+
+.lar-slot__body { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.lar-slot__name { font-size: .96rem; font-weight: 500; }
+.lar-slot__what {
+  font-size: .82rem;
+  color: var(--lar-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lar-slot__macros {
+  flex: 0 0 auto;
+  font-size: .8rem;
+  color: var(--lar-text-2);
+  text-align: right;
+}
+
+.lar-slot__open {
+  padding: 0 var(--lar-s3) var(--lar-s3);
+  border-top: 1px solid var(--lar-line-2);
+}
+
+.lar-entries { list-style: none; margin: 0 0 var(--lar-s2); padding: var(--lar-s2) 0 0; }
+.lar-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--lar-line-2);
+}
+.lar-entry:last-child { border-bottom: 0; }
+.lar-entry__name { flex: 1 1 auto; min-width: 0; font-size: .9rem; }
+.lar-entry__macros { flex: 0 0 auto; font-size: .78rem; color: var(--lar-text-3); }
+.lar-entry__rm {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lar-text-3);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.lar-entry__rm:hover { color: var(--lar-over); border-color: rgba(209, 85, 63, .4); }
+
+/* -------------------------------------------------------------
+   QUICK ADD
+   ------------------------------------------------------------- */
+.lar-quick {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.lar-quick__item {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-height: 62px;
+  padding: var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r1);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  color: var(--lar-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s var(--lar-ease), background-color .18s var(--lar-ease),
+              transform .18s var(--lar-ease);
+}
+.lar-quick__item:hover {
+  border-color: rgba(var(--lar-tint-rgb), .4);
+  background: var(--lar-surface-2);
+  transform: translateY(-2px);
+}
+.lar-quick__item:active { transform: translateY(0); }
+/* A saved meal is a different kind of thing from a food, and the
+   left edge is enough to say so without a second colour. */
+.lar-quick__item--meal { border-left: 2px solid rgba(var(--lar-tint-rgb), .55); }
+.lar-quick__name {
+  font-size: .9rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lar-quick__sub { font-size: .74rem; color: var(--lar-text-3); }
+
+.lar-more-link { margin-top: var(--lar-s2); display: flex; justify-content: flex-end; }
+.lar-more-link a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 var(--lar-s1);
+  color: var(--lar-tint);
+  font-size: .84rem;
+  text-decoration: none;
+}
+.lar-more-link a:hover { text-decoration: underline; }
+
+/* -------------------------------------------------------------
+   WATER
+   ------------------------------------------------------------- */
+.lar-water { display: flex; flex-wrap: wrap; gap: var(--lar-s2); }
+.lar-water__btn {
+  flex: 1 1 96px;
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------
+   UPCOMING
+   ------------------------------------------------------------- */
+.lar-upcoming {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  overflow: hidden;
+}
+.lar-upcoming__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lar-s3);
+  padding: var(--lar-s2) var(--lar-s3);
+  border-bottom: 1px solid var(--lar-line-2);
+}
+.lar-upcoming__row:last-child { border-bottom: 0; }
+.lar-upcoming__when {
+  flex: 0 0 92px;
+  font-family: var(--lar-mono);
+  font-size: .74rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--lar-tint);
+}
+.lar-upcoming__what { flex: 1 1 auto; min-width: 0; font-size: .9rem; color: var(--lar-text-2); }
+
+/* -------------------------------------------------------------
+   SCORE
+   ------------------------------------------------------------- */
+.lar-score {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--lar-s1);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+.lar-score__row {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  font-size: .9rem;
+  color: var(--lar-text-3);
+}
+.lar-score__row.is-on { color: var(--lar-text); }
+.lar-score__dot {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lar-line);
+  border-radius: 999px;
+  color: var(--lar-tint);
+}
+.lar-score__row.is-on .lar-score__dot {
+  border-color: rgba(var(--lar-tint-rgb), .6);
+  background: rgba(var(--lar-tint-rgb), .14);
+}
+.lar-score__dot .lar-mark { width: .72em; height: .72em; }
+.lar-score__note { margin-top: var(--lar-s3); font-size: .84rem; }
+
+/* -------------------------------------------------------------
+   SUPPLEMENTS
+   ------------------------------------------------------------- */
+.lar-supps {
+  display: grid;
+  gap: var(--lar-s3);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.lar-supps__group { display: grid; gap: var(--lar-s1); align-content: start; }
+.lar-supp {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 40px;
+  padding: 0 var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r1);
+  background: transparent;
+  color: var(--lar-text-2);
+  font: inherit;
+  font-size: .88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.lar-supp.is-on { color: var(--lar-text); border-color: rgba(var(--lar-tint-rgb), .45); }
+.lar-supp__dot {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lar-line);
+  border-radius: 5px;
+  color: var(--lar-tint);
+}
+.lar-supp__dot .lar-mark { width: .7em; height: .7em; }
+
+/* -------------------------------------------------------------
+   MORE GRID
+   ------------------------------------------------------------- */
+.lar-more {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.lar-more__item {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 56px;
+  padding: var(--lar-s2) var(--lar-s3);
+  font-size: .9rem;
+}
+
+/* -------------------------------------------------------------
+   STEPPER — the [-] 6 oz [+] control.
+
+   The two most-tapped controls on the page are this and the
+   water row, and both are used one-handed. They get the most
+   room, not the least.
+   ------------------------------------------------------------- */
+.lar-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lar-s3);
+  margin: var(--lar-s3) 0 var(--lar-s2);
+}
+.lar-stepper__btn {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--lar-line);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  color: var(--lar-text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .16s var(--lar-ease), border-color .16s var(--lar-ease),
+              transform .12s var(--lar-ease);
+}
+.lar-stepper__btn:hover { background: var(--lar-surface-2); border-color: var(--lar-gold-dim); }
+.lar-stepper__btn:active { transform: scale(.94); }
+.lar-stepper__amount {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 1.7rem;
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.lar-stepper__amount .lar-quiet { font-size: 1rem; }
+.lar-stepper__macros {
+  text-align: center;
+  font-size: .9rem;
+  color: var(--lar-tint);
+  margin-bottom: var(--lar-s3);
+}
+.lar-slotpick { display: flex; flex-wrap: wrap; gap: var(--lar-s1); }
+
+/* -------------------------------------------------------------
+   MODES
+   ------------------------------------------------------------- */
+.lar-modes { display: grid; gap: var(--lar-s2); margin-top: var(--lar-s3); }
+.lar-mode { display: grid; gap: 3px; cursor: pointer; }
+.lar-mode.is-on {
+  border-color: rgba(var(--lar-tint-rgb), .5);
+  background: rgba(var(--lar-tint-rgb), .10);
+}
+.lar-mode__name { font-size: 1rem; font-weight: 500; }
+.lar-mode__blurb { font-size: .84rem; color: var(--lar-text-3); }
+
+/* -------------------------------------------------------------
+   PHONE additions
+   ------------------------------------------------------------- */
+@media (max-width: 719px) {
+  /* NOT the reference's pill here, deliberately. On a phone a
+     centred top pill would collide with topbar.js's launcher and
+     sit at the far end of the screen from a thumb — and this is
+     the page you use one-handed, standing in a kitchen. So the
+     strip spans the bottom instead: clear of the launcher, and
+     under the hand that is already holding the phone.
+
+     Every pill property set above is undone, not adjusted — a
+     half-reverted rounded floating bar pinned to the bottom edge
+     is worse than either shape. */
+  .lar-nav {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    translate: none;
+    max-width: none;
+    padding: var(--lar-s1) var(--lar-s2);
+    padding-bottom: max(var(--lar-s1), env(safe-area-inset-bottom));
+    border: 0;
+    border-top: 1px solid var(--lar-line);
+    border-radius: 0;
+    background: linear-gradient(to top, rgba(5, 4, 3, .97), rgba(5, 4, 3, .90));
+    box-shadow: none;
+  }
+  .lar-nav__mark { display: none; }   /* the launcher is the wordmark here */
+  /* So the last section is not sitting under the bar. */
+  body.lar { padding-bottom: 62px; }
+  .lar-toast { bottom: calc(62px + max(var(--lar-s2), env(safe-area-inset-bottom))); }
+
+  /* The launcher owns the top-left corner on a phone too, and
+     the hero is what sits under it. */
+  .lar-hero--full { min-height: 100svh; padding: 104px var(--lar-s2) var(--lar-s5); }
+  .lar-hero--band { min-height: 38svh; padding: 104px var(--lar-s2) var(--lar-s4); }
+  /* No room for the card beside a headline at 390px, and today's
+     numbers are the first thing under the hero anyway. */
+  .lar-hero__card { display: none; }
+  .lar-hero__line:nth-child(2) { padding-left: .9em; }
+  .lar-today__measures { grid-template-columns: 1fr; gap: var(--lar-s2); }
+  .lar-today__actions .lar-btn { flex: 1 1 100%; }
+  .lar-quick { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .lar-more { grid-template-columns: 1fr 1fr; }
+  .lar-slot__macros { display: none; }
+  .lar-upcoming__when { flex-basis: 74px; }
+  .lar-stepper__btn { width: 64px; height: 64px; }
+  .lar-water__btn { flex: 1 1 calc(50% - var(--lar-s2)); }
+}
+
+/* -------------------------------------------------------------
+   CARD GRIDS — meals, recipes, notes
+   ------------------------------------------------------------- */
+.lar-cards {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.lar-meal { display: grid; gap: var(--lar-s2); align-content: start; }
+.lar-meal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lar-s2);
+}
+.lar-meal__head > * { min-width: 0; }
+.lar-meal__macros { margin: 0; font-size: .82rem; color: var(--lar-tint); }
+.lar-meal__parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: .84rem;
+  color: var(--lar-text-3);
+}
+.lar-meal__acts { display: flex; flex-wrap: wrap; gap: var(--lar-s1); }
+
+.lar-fav {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.lar-fav:hover { border-color: var(--lar-line); }
+
+.lar-recipe { display: grid; gap: 5px; align-content: start; }
+.lar-recipe__meta { margin: 0; font-size: .78rem; color: var(--lar-tint); }
+
+.lar-note { display: grid; gap: var(--lar-s2); }
+.lar-note__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lar-s2);
+  font-size: .78rem;
+}
+
+/* -------------------------------------------------------------
+   TOOLBAR — a field and a button on one line
+   ------------------------------------------------------------- */
+.lar-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lar-s2);
+  margin-bottom: var(--lar-s3);
+}
+.lar-toolbar .lar-input { flex: 1 1 200px; min-width: 0; }
+.lar-toolbar .lar-btn { flex: 0 0 auto; }
+.lar-input--qty { flex: 0 0 88px !important; }
+.lar-select--store { flex: 0 0 150px; }
+
+/* -------------------------------------------------------------
+   FOODS — a dense list, because it is a reference table
+   ------------------------------------------------------------- */
+.lar-foods {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  overflow: hidden;
+}
+.lar-food {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s1);
+  padding: 0 var(--lar-s2) 0 0;
+  border-bottom: 1px solid var(--lar-line-2);
+}
+.lar-food:last-child { border-bottom: 0; }
+.lar-food:hover { background: var(--lar-surface-2); }
+.lar-food__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  min-height: 56px;
+  padding: var(--lar-s1) var(--lar-s3);
+  align-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lar-food__name {
+  font-size: .92rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lar-food__sub { font-size: .76rem; color: var(--lar-text-3); }
+.lar-food__edit {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r1);
+  background: transparent;
+  color: var(--lar-text-3);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+}
+.lar-food__edit:hover { color: var(--lar-text); border-color: var(--lar-gold-dim); }
+
+/* -------------------------------------------------------------
+   RECIPE DETAIL
+   ------------------------------------------------------------- */
+.lar-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--lar-tint);
+  font-size: .84rem;
+  text-decoration: none;
+}
+.lar-back:hover { text-decoration: underline; }
+
+.lar-facts {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin-top: var(--lar-s3);
+  padding: var(--lar-s3);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+}
+.lar-fact { display: grid; gap: 2px; min-width: 0; }
+.lar-fact__k {
+  font-family: var(--lar-mono);
+  font-size: .66rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--lar-text-3);
+}
+.lar-fact__v { font-size: 1.05rem; color: var(--lar-text); }
+
+.lar-split {
+  display: grid;
+  gap: var(--lar-s4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  margin-top: var(--lar-s4);
+}
+.lar-split > * { min-width: 0; }
+
+.lar-ings { list-style: none; margin: var(--lar-s2) 0 0; padding: 0; display: grid; gap: 6px; }
+.lar-ings li {
+  display: flex;
+  gap: var(--lar-s2);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--lar-line-2);
+  font-size: .9rem;
+}
+.lar-ings__amt { flex: 0 0 78px; color: var(--lar-tint); font-size: .84rem; }
+
+/* Numbered because a method genuinely IS a sequence — the order
+   carries information the cook needs. Numbering a list that is
+   not a sequence is decoration. */
+.lar-steps {
+  margin: var(--lar-s2) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: var(--lar-s2);
+}
+.lar-steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--lar-s2);
+  color: var(--lar-text-2);
+  line-height: 1.7;
+}
+.lar-steps li::before {
+  content: counter(step);
+  font-family: var(--lar-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: .78rem;
+  color: var(--lar-tint);
+  padding-top: 3px;
+}
+
+/* -------------------------------------------------------------
+   PLAN
+   ------------------------------------------------------------- */
+.lar-week {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.lar-day {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+}
+.lar-day.is-today { border-color: rgba(var(--lar-tint-rgb), .4); }
+.lar-day__slot {
+  display: grid;
+  gap: 1px;
+  min-height: 46px;
+  padding: 5px var(--lar-s1);
+  border: 0;
+  border-radius: var(--lar-r1);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lar-day__slot:hover { background: var(--lar-surface-2); }
+.lar-day__slotname {
+  font-family: var(--lar-mono);
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--lar-text-3);
+}
+.lar-day__what {
+  font-size: .88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------
+   SHELVES AND LISTS — grocery, supplements, snapshots
+   ------------------------------------------------------------- */
+.lar-shelf { margin-bottom: var(--lar-s3); }
+.lar-list {
+  list-style: none;
+  margin: var(--lar-s1) 0 0;
+  padding: 0;
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  overflow: hidden;
+}
+.lar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 50px;
+  padding: var(--lar-s1) var(--lar-s2);
+  border-bottom: 1px solid var(--lar-line-2);
+}
+.lar-item:last-child { border-bottom: 0; }
+.lar-item__name { flex: 1 1 auto; min-width: 0; font-size: .92rem; }
+.lar-item.is-done .lar-item__name { color: var(--lar-text-3); text-decoration: line-through; }
+.lar-item__tick {
+  flex: 0 0 auto;
+  /* Ticked one-handed while walking round a shop, so it gets
+     a real target rather than the smallest box the glyph fits. */
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--lar-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--lar-tint);
+  cursor: pointer;
+}
+.lar-item.is-done .lar-item__tick {
+  border-color: rgba(var(--lar-tint-rgb), .55);
+  background: rgba(var(--lar-tint-rgb), .14);
+}
+.lar-item__tick .lar-mark { width: .8em; height: .8em; }
+.lar-item__rm {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lar-text-3);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.lar-item__rm:hover { color: var(--lar-over); border-color: rgba(209, 85, 63, .4); }
+
+/* -------------------------------------------------------------
+   PROGRESS CHART
+
+   Plain columns. The migrated Palaestra days are hatched rather
+   than solid, because they carry a total with no meals behind it
+   and drawing them identically would claim a record that does
+   not exist.
+   ------------------------------------------------------------- */
+.lar-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 180px;
+  padding: var(--lar-s2);
+  border: 1px solid var(--lar-line-2);
+  border-radius: var(--lar-r2);
+  background: var(--lar-surface);
+  box-shadow: var(--lar-shine);
+  overflow-x: auto;
+}
+.lar-chart__col { flex: 1 1 0; min-width: 6px; height: 100%; display: flex; align-items: flex-end; }
+.lar-chart__bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--lar-tint);
+  opacity: .8;
+}
+.lar-chart__bar.is-legacy {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(var(--lar-tint-rgb), .55) 0 3px,
+    transparent 3px 6px);
+  border: 1px solid rgba(var(--lar-tint-rgb), .4);
+  border-bottom: 0;
+}
+.lar-chart__key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lar-s3);
+  margin-top: var(--lar-s2);
+  font-size: .76rem;
+  color: var(--lar-text-3);
+}
+.lar-chart__key span { display: inline-flex; align-items: center; gap: 6px; }
+.lar-chart__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--lar-tint);
+  opacity: .8;
+}
+.lar-chart__swatch.is-legacy {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(var(--lar-tint-rgb), .55) 0 3px,
+    transparent 3px 6px);
+  border: 1px solid rgba(var(--lar-tint-rgb), .4);
+}
+.lar-chart__swatch.is-target { background: var(--lar-gold); }
+
+/* -------------------------------------------------------------
+   FORMS
+   ------------------------------------------------------------- */
+.lar-form {
+  display: grid;
+  gap: var(--lar-s2);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.lar-field { display: grid; gap: 0; min-width: 0; margin-bottom: var(--lar-s2); }
+.lar-grid2 { display: grid; gap: var(--lar-s2); grid-template-columns: 1fr 1fr; }
+.lar-check {
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 44px;
+  font-size: .9rem;
+  color: var(--lar-text-2);
+  cursor: pointer;
+}
+.lar-check input { width: 18px; height: 18px; accent-color: var(--lar-gold); }
+
+/* -------------------------------------------------------------
+   PHONE
+   ------------------------------------------------------------- */
+@media (max-width: 719px) {
+  .lar-cards { grid-template-columns: 1fr; }
+  .lar-split { grid-template-columns: 1fr; gap: var(--lar-s3); }
+  .lar-week { grid-template-columns: 1fr; }
+  .lar-grid2 { grid-template-columns: 1fr; }
+  .lar-form { grid-template-columns: 1fr 1fr; }
+  /* The item name gets its own line; quantity, store and Add
+     share the next one. Four stacked full-width rows to add a
+     tin of tomatoes is most of a phone screen spent on a form. */
+  .lar-toolbar .lar-input { flex: 1 1 100%; }
+  .lar-input--qty { flex: 0 0 76px !important; }
+  .lar-select--store { flex: 1 1 auto; min-width: 0; }
+  .lar-toolbar .lar-btn { flex: 0 0 auto; }
+  .lar-chart { height: 140px; }
+  .lar-food__main { min-height: 58px; }
+
+  /* Ticking things off is done one-handed, walking, holding a
+     basket. These get more than the 36px floor, not exactly it. */
+  .lar-item { min-height: 56px; }
+  .lar-item__tick { width: 40px; height: 40px; }
+  .lar-item__rm { width: 40px; height: 40px; }
+}
+
+/* -------------------------------------------------------------
+   GROCERY
+
+   Ticking hides an item rather than deleting it, so the banner
+   below is load-bearing: a list that empties as you tick looks
+   exactly like a list that is throwing things away, and the
+   sentence is the only thing that says otherwise.
+   ------------------------------------------------------------- */
+.lar-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--lar-s2);
+  margin-bottom: var(--lar-s3);
+  padding: var(--lar-s2) var(--lar-s3);
+  border: 1px solid rgba(var(--lar-tint-rgb), .32);
+  border-radius: var(--lar-r2);
+  background: rgba(var(--lar-tint-rgb), .10);
+  box-shadow: var(--lar-shine);
+  font-size: .88rem;
+  color: var(--lar-text-2);
+}
+.lar-banner > span { min-width: 0; }
+.lar-banner .lar-num { color: var(--lar-tint); }
+
+/* A collapsible aisle. A real shop list is read one aisle at a
+   time, so a heading folds and the rest of the shop goes quiet. */
+.lar-shelf__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--lar-s2);
+  min-height: 42px;
+  padding: 0 var(--lar-s1);
+  border: 0;
+  background: transparent;
+  color: var(--lar-text-2);
+  font-family: var(--lar-mono);
+  font-size: .68rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.lar-shelf__head:hover { color: var(--lar-text); }
+
+.lar-shelf__caret {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 12px;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--lar-tint);
+  transition: transform .18s var(--lar-ease);
+}
+.lar-shelf__caret.is-open { transform: rotate(90deg); }
+
+.lar-shelf__dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.lar-shelf__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lar-shelf__count {
+  flex: 0 0 auto;
+  font-size: .72rem;
+  letter-spacing: 0;
+  color: var(--lar-text-3);
+}
+
+/* An empty tick box, because nothing ticked is ever on screen —
+   it leaves the list the moment you tick it. */
+.lar-item__tick:hover {
+  border-color: rgba(var(--lar-tint-rgb), .6);
+  background: rgba(var(--lar-tint-rgb), .10);
+}
+
+/* Where an auto-added item came from, and snapshot timestamps. */
+.lar-item__from {
+  display: block;
+  font-size: .72rem;
+  color: var(--lar-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

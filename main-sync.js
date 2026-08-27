@@ -99,7 +99,14 @@
   // and `syncdirty:` is sync.js's own handoff bookkeeping; either one
   // riding inside a synced prefix would be destroyed by precisely the
   // event it exists to survive.
-  var MUST_STAY_LOCAL = ['mainbak:', 'syncdirty:', 'palbak:'];
+  // `recent:` joined this list on 2026-08-26 with Main's CONTINUE
+  // section. It is written by topbar.js on EVERY page, including the
+  // twenty that do not mount the goals row, so it must not sit inside
+  // a synced prefix: a page that writes a key belonging to a row it
+  // has not pulled is the exact shape of the bug that eats data here.
+  // It is also the honest scope for the question — "what was I last
+  // working on" means on this device, not on the tablet.
+  var MUST_STAY_LOCAL = ['mainbak:', 'syncdirty:', 'palbak:', 'recent:'];
 
   function rowPrefixes(name) {
     var list = ROWS[name];

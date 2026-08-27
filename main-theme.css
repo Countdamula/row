@@ -2109,3 +2109,681 @@ body.mn .pal-fab:active { transform: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* =============================================================
+   THE HUB — Main's six bands, added 2026-08-26.
+
+   Main stopped being the routine and became the place you arrive.
+   Everything below is furniture from the same book the rest of this
+   file is set in: a running head, engraved plates, a ruled call sheet
+   with leader dots, and an index at the back. There is not one card
+   with a drop shadow in it, because nothing in that world has one.
+
+   THE ONE NEW DEVICE is the leaf. The routine's three parts are
+   pages: the one the clock is in lies open, and the other two are
+   shut and show their edge. It encodes the time of day in the shape
+   of the section rather than in a colour or a label, and it is the
+   only place on this page allowed to be clever.
+
+   Temperature still encodes tense, everywhere. Gold and amber are
+   done, present, real. Sage is pending, future, not yet. A pip that
+   has not been struck is sage; a level that was not chosen is cool.
+   ============================================================= */
+
+/* --- shared atoms -------------------------------------------- */
+.mn-num { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.mn-mid { color: var(--mn-text-3); padding: 0 .15em; }
+
+/* Line-engraved, and it has to be READABLE engraving. A first pass
+   drew these in --mn-copper, which is a structural colour meant for
+   borders: at 26px on a dark surface the ornament all but vanished and
+   every plate read as a name with a smudge over it. Gold held back to
+   55% keeps the copper warmth, stays quieter than the title, and is
+   actually there. */
+.mn-ico {
+  width: 26px; height: 26px; flex: none; display: block;
+  color: var(--mn-gold);
+  opacity: .55;
+  transition: opacity .35s var(--mn-ease), color .35s var(--mn-ease);
+}
+
+.mn-rule--tight { margin: var(--mn-3) 0 var(--mn-4); }
+
+.mn-empty--inline { padding: var(--mn-4) 0; max-width: 62ch; }
+
+/* A leader: the dotted run between a label and its folio, straight
+   out of a table of contents. It is a border rather than a repeating
+   character so it cannot be selected, read aloud, or copied. */
+.mn-call__leader,
+.mn-line__leader,
+.mn-resume__leader {
+  flex: 1 1 auto;
+  min-width: var(--mn-4);
+  align-self: end;
+  margin-bottom: .42em;
+  /* Not --mn-hair-soft. At .10 a 1px DOTTED rule is individual pixels
+     at 10% opacity, which is nothing at all — a solid hairline gets
+     away with that alpha and a dotted one does not. */
+  border-bottom: 1px dotted rgba(232, 220, 196, .19);
+}
+
+/* =============================================================
+   THE RUNNING HEAD
+   Title left, hour right, one hairline under it. The full date is on
+   the ribbon immediately above; this does not repeat it.
+   ============================================================= */
+.mn-head {
+  /* POSITIONED, AND ABOVE THE SECTIONS. .mn-join-near puts a
+     transform on this element, which makes it a stacking context on a
+     STATICALLY positioned box — and a static stacking context paints
+     in normal flow, underneath every positioned element later in the
+     document. Every .mn-plate-card is position:relative, so without
+     this the search results panel rendered behind the Quick Launch
+     plates no matter what z-index it carried: its z-index was trapped
+     inside this element's own context. 40 sits above the page and
+     well below the sheet (2400), the toast and the launcher. */
+  position: relative;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--mn-4);
+  padding: var(--mn-5) 0 var(--mn-4);
+  border-bottom: 1px solid var(--mn-hair);
+}
+.mn-head__id { display: flex; align-items: baseline; gap: var(--mn-4); min-width: 0; }
+.mn-head__id .mn-plate { margin: 0; }
+.mn-head__greet {
+  margin: 0;
+  font-family: var(--mn-display);
+  font-size: clamp(15px, 1.5vw, 18px);
+  font-style: italic;
+  color: var(--mn-text-2);
+  white-space: nowrap;
+}
+
+/* The search field is a ruled blank, not a box: one hairline you
+   write on, which inks to gold when it has your attention. */
+.mn-head__search { position: relative; display: flex; align-items: center; gap: var(--mn-2); min-width: 0; }
+.mn-head__glass { display: flex; color: var(--mn-text-3); transition: color .3s var(--mn-ease); }
+.mn-head__glass svg { width: 17px; height: 17px; }
+.mn-head__field {
+  flex: 1 1 auto; min-width: 0;
+  appearance: none; -webkit-appearance: none;
+  background: transparent;
+  border: 0; border-bottom: 1px solid var(--mn-hair-soft);
+  border-radius: 0;
+  padding: 9px 2px;
+  color: var(--mn-text);
+  font-family: var(--mn-body);
+  /* 16px FLOOR. Below it iOS Safari zooms the page in on focus and
+     never zooms back out. Every field on this dashboard has it. */
+  font-size: 16px;
+  line-height: 1.3;
+  transition: border-color .3s var(--mn-ease);
+}
+.mn-head__field::placeholder { color: var(--mn-text-3); }
+.mn-head__field::-webkit-search-cancel-button { -webkit-appearance: none; }
+.mn-head__field:focus { outline: none; border-bottom-color: var(--mn-amber); }
+.mn-head__search:focus-within .mn-head__glass { color: var(--mn-gold); }
+.mn-head__key {
+  font-family: var(--mn-body); font-size: 11px; line-height: 1;
+  color: var(--mn-text-3);
+  border: 1px solid var(--mn-hair-soft); border-radius: 4px;
+  padding: 4px 6px;
+  transition: opacity .25s var(--mn-ease);
+}
+.mn-head__search:focus-within .mn-head__key { opacity: 0; }
+
+.mn-head__cog {
+  flex: none;
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  background: transparent;
+  border: 1px solid var(--mn-hair-soft); border-radius: 50%;
+  color: var(--mn-text-2);
+  cursor: pointer;
+  transition: color .3s var(--mn-ease), border-color .3s var(--mn-ease), transform .3s var(--mn-ease);
+}
+.mn-head__cog svg { width: 19px; height: 19px; }
+.mn-head__cog:hover { color: var(--mn-gold); border-color: var(--mn-hair); transform: rotate(35deg); }
+.mn-head__cog:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+.mn-head__cog:active { transform: rotate(35deg) scale(.94); }
+
+/* --- the results panel --------------------------------------- */
+.mn-hits {
+  position: absolute; z-index: 60;
+  top: calc(100% + 8px); left: 0; right: 0;
+  max-height: min(58vh, 460px); overflow-y: auto;
+  /* OPAQUE, not --mn-float. That token is rgba(20,14,9,.94), and
+     6% of near-white body text showing through is plainly legible on
+     a ground this dark — the panel read as a pane of smoked glass
+     with the Quick Launch plates ghosting behind every result. A
+     dropdown covering live content has to actually cover it. */
+  background: #16100A;
+  border: 1px solid var(--mn-hair);
+  border-radius: var(--mn-radius-sm);
+  box-shadow: 0 18px 48px rgba(0,0,0,.55);
+  padding: var(--mn-2);
+}
+.mn-hit {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 26px minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--mn-3);
+  padding: 10px var(--mn-3);
+  background: transparent; border: 0; border-radius: var(--mn-radius-sm);
+  text-align: left; cursor: pointer;
+  transition: background-color .2s var(--mn-ease);
+}
+.mn-hit__ico { display: flex; }
+.mn-hit__ico .mn-ico { width: 20px; height: 20px; }
+.mn-hit__title { font-family: var(--mn-display); font-size: 18px; color: var(--mn-text); }
+.mn-hit__sub {
+  font-family: var(--mn-body); font-size: 12px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--mn-text-3);
+  justify-self: end; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.mn-hit.is-on, .mn-hit:hover { background: var(--mn-surface-2); }
+.mn-hit.is-on .mn-ico, .mn-hit:hover .mn-ico { opacity: 1; }
+.mn-hit:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: -2px; }
+.mn-hit__none { padding: var(--mn-3); color: var(--mn-text-3); font-size: 14px; margin: 0; }
+
+/* =============================================================
+   QUICK LAUNCH — the plates.
+   A double-rule frame with an engraved ornament, the way a plate is
+   mounted in a book. The inner rule is a pseudo-element rather than a
+   second border, so the two lines can move independently on hover.
+   ============================================================= */
+.mn-plates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mn-3);
+}
+.mn-plate-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: var(--mn-2);
+  min-height: 148px;
+  padding: var(--mn-4);
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm);
+  text-align: left; cursor: pointer;
+  transition: transform .4s var(--mn-ease-out), border-color .4s var(--mn-ease), background-color .4s var(--mn-ease);
+}
+.mn-plate-card::before {
+  content: ''; position: absolute; inset: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  pointer-events: none;
+  transition: border-color .4s var(--mn-ease);
+}
+.mn-plate-card__ico { display: flex; margin-bottom: var(--mn-1); }
+.mn-plate-card__name {
+  font-family: var(--mn-plate);
+  font-size: 25px; line-height: 1.05; letter-spacing: .01em;
+  color: var(--mn-text);
+}
+.mn-plate-card__sub {
+  font-family: var(--mn-body);
+  font-size: 12.5px; line-height: 1.55;
+  color: var(--mn-text-3);
+}
+.mn-plate-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--mn-hair);
+  background: var(--mn-surface-2);
+}
+.mn-plate-card:hover::before { border-color: var(--mn-hair-soft); }
+.mn-plate-card:hover .mn-ico { opacity: 1; }
+.mn-plate-card:hover .mn-plate-card__sub { color: var(--mn-text-2); }
+.mn-plate-card:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+.mn-plate-card:active { transform: translateY(-1px); }
+
+/* =============================================================
+   TODAY — the call sheet.
+   ============================================================= */
+.mn-calls { display: flex; flex-direction: column; }
+.mn-call {
+  display: flex; align-items: baseline; gap: var(--mn-3);
+  padding: 15px 0;
+  border-bottom: 1px solid var(--mn-hair-soft);
+}
+.mn-call:last-child { border-bottom: 0; }
+.mn-call__label {
+  flex: none; min-width: 8.5em;
+  font-family: var(--mn-body); font-size: 12px;
+  letter-spacing: .13em; text-transform: uppercase;
+  color: var(--mn-text-2);
+}
+.mn-call__status {
+  font-family: var(--mn-display); font-size: 19px; line-height: 1.3;
+  color: var(--mn-text);
+}
+.mn-call__status.is-quiet { color: var(--mn-text-3); font-style: italic; }
+.mn-call__status b { font-weight: 500; color: var(--mn-gold); }
+.mn-call.is-done .mn-call__status b { color: var(--mn-amber); }
+.mn-call__go {
+  flex: none;
+  background: transparent; border: 0; padding: 0;
+  font-family: var(--mn-body); font-size: 12px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--mn-text-2); cursor: pointer;
+  transition: color .3s var(--mn-ease);
+}
+.mn-call__go:hover { color: var(--mn-amber); }
+.mn-call__go:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+
+/* =============================================================
+   DAILY ROUTINE — the effort pills and the meter.
+   ============================================================= */
+.mn-effort { display: flex; flex-wrap: wrap; gap: var(--mn-2); }
+.mn-pill {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px var(--mn-4);
+  background: transparent;
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: 999px;
+  text-align: left; cursor: pointer;
+  transition: border-color .35s var(--mn-ease), background-color .35s var(--mn-ease);
+}
+.mn-pill__name {
+  font-family: var(--mn-body); font-size: 12px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--mn-text-2);
+  transition: color .35s var(--mn-ease);
+}
+.mn-pill__title {
+  font-family: var(--mn-display); font-size: 15px; font-style: italic;
+  color: var(--mn-text-3);
+}
+.mn-pill:hover { border-color: var(--mn-hair); background: var(--mn-surface); }
+.mn-pill:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+
+/* The three temperatures. HOT / WARM / COOL, never a traffic light —
+   Low is not a failed High, it is the version of the day you can keep,
+   and a red pill would argue with the only rule that matters here. */
+.mn-pill[data-level-key="high"][aria-pressed="true"] { border-color: var(--mn-hot); background: rgba(239,193,120,.09); }
+.mn-pill[data-level-key="high"][aria-pressed="true"] .mn-pill__name { color: var(--mn-hot); }
+.mn-pill[data-level-key="mid"][aria-pressed="true"]  { border-color: var(--mn-warm); background: rgba(190,129,56,.11); }
+.mn-pill[data-level-key="mid"][aria-pressed="true"]  .mn-pill__name { color: var(--mn-warm); }
+.mn-pill[data-level-key="low"][aria-pressed="true"]  { border-color: var(--mn-cool); background: rgba(159,184,172,.09); }
+.mn-pill[data-level-key="low"][aria-pressed="true"]  .mn-pill__name { color: var(--mn-cool); }
+/* Chosen, as against merely defaulted to. */
+.mn-pill[data-chosen="true"] .mn-pill__title { color: var(--mn-text-2); font-style: normal; }
+
+.mn-meter {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: var(--mn-2) var(--mn-4);
+  margin-top: var(--mn-4);
+  padding-top: var(--mn-3);
+  border-top: 1px solid var(--mn-hair-soft);
+}
+.mn-meter__pips { display: flex; gap: 6px; }
+/* Struck and unstruck, the same pair the recitation boxes already
+   mean on this page: gold is done, sage is still to come. */
+.mn-pip {
+  width: 10px; height: 10px; border-radius: 50%;
+  /* The same sage the recitation boxes use, opened up from
+     --mn-hair-cool's .22 because this mark is half a lockbox's size
+     and at 10px that alpha is not a circle, it is a rumour. */
+  border: 1px solid rgba(159,184,172,.44);
+  background: transparent;
+  transition: background-color .45s var(--mn-ease), border-color .45s var(--mn-ease);
+}
+.mn-pip.is-on { background: var(--mn-gold); border-color: var(--mn-gold); }
+.mn-meter__pct {
+  font-family: var(--mn-plate); font-size: 22px; line-height: 1;
+  color: var(--mn-gold);
+  font-variant-numeric: tabular-nums;
+}
+.mn-meter__counts { display: flex; flex-wrap: wrap; gap: var(--mn-4); margin-left: auto; }
+.mn-count {
+  font-family: var(--mn-body); font-size: 11.5px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--mn-text-3);
+}
+.mn-count b { font-weight: 500; color: var(--mn-text-2); font-variant-numeric: tabular-nums; }
+.mn-count.is-now { color: var(--mn-text-2); }
+.mn-count.is-now b { color: var(--mn-gold); }
+
+/* =============================================================
+   THE LEAVES — the routine's three parts as pages of a book.
+   The one the clock is in lies open. The other two show their edge:
+   a hairline under the tab, which is what a closed leaf looks like
+   from the side.
+   ============================================================= */
+/* The gap has to leave room for the closed leaf edges below each
+   tab, or the next section sits on top of them. */
+.mn-leaves { margin-top: var(--mn-5); display: flex; flex-direction: column; gap: var(--mn-5); }
+
+.mn-leaf { position: relative; }
+.mn-leaf__tab {
+  position: relative; z-index: 1;
+  width: 100%;
+  display: flex; align-items: center; gap: var(--mn-3);
+  padding: 13px var(--mn-4);
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-hair-soft);
+  border-radius: var(--mn-radius-sm);
+  cursor: pointer;
+  transition: background-color .35s var(--mn-ease), border-color .35s var(--mn-ease);
+}
+.mn-leaf__tab:hover { background: var(--mn-surface-2); border-color: var(--mn-hair); }
+.mn-leaf__tab:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+
+/* The edge of a shut leaf. TWO hairlines below the tab, each inset
+   further than the last, which is what a couple of pages look like
+   from the side. One line alone read as a stray border; the second
+   is what makes it a stack. The tab sits at z-index 1 and covers
+   where they start. */
+.mn-leaf::after,
+.mn-leaf::before {
+  content: ''; position: absolute; z-index: 0;
+  top: calc(100% - var(--mn-radius-sm));
+  border-bottom: 1px solid var(--mn-hair-soft);
+  border-left: 1px solid var(--mn-hair-soft);
+  border-right: 1px solid var(--mn-hair-soft);
+  border-radius: 0 0 var(--mn-radius-sm) var(--mn-radius-sm);
+  transition: opacity .35s var(--mn-ease);
+  pointer-events: none;
+}
+.mn-leaf::after  { left: 7px;  right: 7px;  height: calc(var(--mn-radius-sm) + 5px);  opacity: .85; }
+.mn-leaf::before { left: 15px; right: 15px; height: calc(var(--mn-radius-sm) + 10px); opacity: .45; }
+.mn-leaf.is-open::after, .mn-leaf.is-open::before { opacity: 0; }
+
+.mn-leaf__mark {
+  width: 7px; height: 7px; flex: none; border-radius: 50%;
+  border: 1px solid var(--mn-hair-cool);
+  transition: background-color .35s var(--mn-ease), border-color .35s var(--mn-ease);
+}
+.mn-leaf.is-now .mn-leaf__mark { background: var(--mn-amber); border-color: var(--mn-amber); }
+/* A shut leaf is QUIET, not disabled. --mn-text-3 is 40% bone, which
+   at Italiana's hairline strokes stopped being a heading and started
+   looking like something you were not allowed to press. */
+.mn-leaf__name {
+  font-family: var(--mn-plate); font-size: 24px; line-height: 1;
+  letter-spacing: .02em; color: var(--mn-text-2);
+  transition: color .35s var(--mn-ease);
+}
+.mn-leaf.is-now .mn-leaf__name, .mn-leaf.is-open .mn-leaf__name { color: var(--mn-text); }
+.mn-leaf__now {
+  display: none;
+  font-family: var(--mn-body); font-size: 10.5px;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--mn-amber);
+}
+.mn-leaf.is-now .mn-leaf__now { display: inline; }
+.mn-leaf__rule { flex: 1 1 auto; min-width: var(--mn-4); border-bottom: 1px solid var(--mn-hair-soft); }
+.mn-leaf__count {
+  flex: none;
+  font-family: var(--mn-body); font-size: 12.5px;
+  color: var(--mn-text-3); font-variant-numeric: tabular-nums;
+}
+.mn-leaf.is-open .mn-leaf__count, .mn-leaf.is-now .mn-leaf__count { color: var(--mn-text-2); }
+
+.mn-leaf__body {
+  padding: var(--mn-4) var(--mn-4) var(--mn-2);
+  border: 1px solid var(--mn-hair-soft);
+  border-top: 0;
+  border-radius: 0 0 var(--mn-radius-sm) var(--mn-radius-sm);
+  margin: -1px var(--mn-1) 0;
+}
+
+/* =============================================================
+   THE COMPACT STEP — one ruled line.
+   ============================================================= */
+.mn-lines { display: flex; flex-direction: column; }
+.mn-line { border-bottom: 1px solid var(--mn-hair-soft); }
+.mn-line:last-child { border-bottom: 0; }
+.mn-line__top { display: flex; align-items: baseline; gap: var(--mn-3); padding: 11px 0; }
+.mn-line__top .mn-check { align-self: center; }
+.mn-line__title {
+  background: transparent; border: 0; padding: 0;
+  font-family: var(--mn-display); font-size: 19px; line-height: 1.35;
+  color: var(--mn-text); text-align: left; cursor: pointer;
+  transition: color .3s var(--mn-ease);
+}
+.mn-line__title:hover { color: var(--mn-gold); }
+.mn-line__title:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+.mn-line__title--plain { cursor: default; }
+.mn-line.is-done .mn-line__title { color: var(--mn-text-3); text-decoration: line-through; text-decoration-color: var(--mn-copper); }
+.mn-line__go {
+  flex: none;
+  background: transparent; border: 0; padding: 0;
+  font-family: var(--mn-body); font-size: 11.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--mn-text-3); cursor: pointer; white-space: nowrap;
+  transition: color .3s var(--mn-ease);
+}
+.mn-line__go:hover { color: var(--mn-amber); }
+.mn-line__go:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+.mn-line__time {
+  flex: none; min-width: 4.2em; text-align: right;
+  font-family: var(--mn-body); font-size: 12.5px;
+  color: var(--mn-text-3); font-variant-numeric: tabular-nums;
+}
+/* Optional is a note, not a demotion. Same weight as a time, because
+   at Low the routine is shorter and not lesser. */
+.mn-line__opt {
+  flex: none; min-width: 4.2em; text-align: right;
+  font-family: var(--mn-body); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--mn-sage);
+}
+.mn-line__body { padding: 0 0 var(--mn-4) calc(var(--mn-4) + var(--mn-2)); }
+
+/* =============================================================
+   THE GHOSTS — an empty Day phase's suggestions.
+   Drawn as unset type: dashed marks, muted, obviously not yet real.
+   Nothing here is written until it is tapped.
+   ============================================================= */
+.mn-ghosts { padding: var(--mn-2) 0; }
+.mn-ghosts__lede { max-width: 64ch; margin: 0 0 var(--mn-4); }
+.mn-ghost {
+  display: flex; align-items: flex-start; gap: var(--mn-3);
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--mn-hair-soft);
+}
+.mn-ghost:last-of-type { border-bottom: 0; }
+.mn-ghost__mark {
+  width: 15px; height: 15px; flex: none; margin-top: 4px;
+  border: 1px dashed var(--mn-hair-cool); border-radius: 4px;
+}
+.mn-ghost__main { flex: 1 1 auto; min-width: 0; }
+.mn-ghost__title { font-family: var(--mn-display); font-size: 18px; color: var(--mn-text-2); }
+.mn-ghost__note { font-family: var(--mn-body); font-size: 13px; line-height: 1.6; color: var(--mn-text-3); margin-top: 2px; }
+
+/* =============================================================
+   CONTINUE — bookmark slips.
+   ============================================================= */
+.mn-resumes { display: flex; flex-direction: column; }
+.mn-resume {
+  width: 100%;
+  display: flex; align-items: baseline; gap: var(--mn-3);
+  padding: 14px 0;
+  background: transparent; border: 0;
+  border-bottom: 1px solid var(--mn-hair-soft);
+  text-align: left; cursor: pointer;
+}
+.mn-resume:last-child { border-bottom: 0; }
+.mn-resume__ribbon {
+  width: 3px; height: 19px; flex: none; align-self: center;
+  background: var(--mn-copper); border-radius: 2px;
+  transition: background-color .3s var(--mn-ease), height .3s var(--mn-ease);
+}
+.mn-resume__name { font-family: var(--mn-display); font-size: 19px; color: var(--mn-text); transition: color .3s var(--mn-ease); }
+.mn-resume__sub {
+  font-family: var(--mn-body); font-size: 11.5px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--mn-text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mn-resume__at {
+  flex: none;
+  font-family: var(--mn-body); font-size: 12px; color: var(--mn-text-3);
+}
+.mn-resume:hover .mn-resume__ribbon { background: var(--mn-amber); height: 23px; }
+.mn-resume:hover .mn-resume__name { color: var(--mn-gold); }
+.mn-resume:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 3px; }
+
+/* =============================================================
+   EXPLORE — the index at the back of the book. Links and rules.
+   ============================================================= */
+.mn-indexes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mn-5) var(--mn-4);
+}
+.mn-index .mn-plate { margin: 0; }
+.mn-index__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mn-index__link {
+  width: 100%;
+  padding: 7px 0;
+  background: transparent; border: 0;
+  font-family: var(--mn-display); font-size: 17px; line-height: 1.4;
+  color: var(--mn-text-2); text-align: left; cursor: pointer;
+  transition: color .25s var(--mn-ease), padding-left .25s var(--mn-ease);
+}
+.mn-index__link:hover { color: var(--mn-gold); padding-left: 6px; }
+.mn-index__link:focus-visible { outline: 2px solid var(--mn-amber); outline-offset: 2px; }
+
+/* =============================================================
+   THE QUICK LAUNCH PICKER — in the settings sheet.
+   ============================================================= */
+.mn-picker {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--mn-hair-soft); border-radius: var(--mn-radius-sm);
+  overflow: hidden;
+}
+.mn-picker__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto) minmax(0, 1fr);
+  align-items: center; gap: var(--mn-3);
+  padding: 11px var(--mn-3);
+  border-bottom: 1px solid var(--mn-hair-soft);
+  cursor: pointer;
+  transition: background-color .25s var(--mn-ease);
+}
+.mn-picker__row:last-child { border-bottom: 0; }
+.mn-picker__row:hover { background: var(--mn-surface); }
+.mn-picker__row.is-on { background: var(--mn-surface-2); }
+.mn-picker__name { font-family: var(--mn-display); font-size: 17px; color: var(--mn-text); }
+.mn-picker__sub {
+  font-family: var(--mn-body); font-size: 12px; color: var(--mn-text-3);
+  justify-self: end; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* =============================================================
+   NARROW
+   The plates go to three across, then two, then one; the index
+   follows; and the call sheet stops trying to be a table and becomes
+   stacked lines. The running head wraps into two rows with the search
+   full width, which is the only arrangement where a 16px field still
+   fits at 360.
+   ============================================================= */
+@media (max-width: 980px) {
+  .mn-plates { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mn-indexes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 719px) {
+  .mn-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--mn-3);
+    padding-top: var(--mn-4);
+  }
+  .mn-head__id { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .mn-head__greet { white-space: normal; }
+  .mn-head__search { grid-column: 1 / -1; grid-row: 2; }
+  .mn-head__key { display: none; }
+
+  .mn-plates { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mn-2); }
+  .mn-plate-card { min-height: 0; padding: var(--mn-3); gap: 6px; }
+  .mn-plate-card__name { font-size: 21px; }
+  .mn-plate-card__sub { font-size: 12px; }
+
+  .mn-call { flex-wrap: wrap; gap: 2px var(--mn-3); }
+  .mn-call__label { min-width: 0; width: 100%; }
+  .mn-call__status { font-size: 17px; }
+  .mn-call__leader { display: none; }
+  .mn-call__go { margin-left: auto; }
+
+  .mn-meter__counts { margin-left: 0; width: 100%; gap: var(--mn-3); }
+  .mn-leaf__tab { padding: 12px var(--mn-3); }
+  .mn-leaf__name { font-size: 21px; }
+  .mn-leaf__body { padding: var(--mn-3) var(--mn-3) 0; }
+  .mn-line__body { padding-left: var(--mn-4); }
+  /* The step's destination wraps to its own line rather than being
+     hidden. A checklist that doubles as navigation cannot drop the
+     navigation half on a phone. */
+  .mn-line__top { flex-wrap: wrap; row-gap: 2px; }
+  .mn-line__top .mn-check { order: 1; }
+  .mn-line__title { order: 2; flex: 1 1 auto; }
+  .mn-line__leader { display: none; }
+  .mn-line__time, .mn-line__opt { order: 3; }
+  .mn-line__go { order: 4; flex: 1 1 100%; text-align: right; padding-bottom: 2px; }
+
+  .mn-resume { flex-wrap: wrap; gap: 2px var(--mn-3); }
+  .mn-resume__leader { display: none; }
+  .mn-resume__at { margin-left: auto; }
+
+  .mn-indexes { grid-template-columns: 1fr; gap: var(--mn-4); }
+  .mn-picker__row { grid-template-columns: auto minmax(0, 1fr); }
+  .mn-picker__sub { display: none; }
+
+  /* Coarse-pointer targets. The tick, the fold and the cog are the
+     three things touched most on this page. */
+  .mn-head__cog { width: 46px; height: 46px; }
+  .mn-line__top { padding: 13px 0; }
+}
+@media (max-width: 460px) {
+  /* The plates stay TWO across all the way down. One across turns
+     eight destinations into eight screens of scrolling, which is the
+     opposite of a quick launch. */
+  .mn-effort { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mn-pill { padding: 10px var(--mn-2); align-items: center; text-align: center; border-radius: var(--mn-radius-sm); }
+  .mn-pill__title { display: none; }
+}
+
+/* =============================================================
+   THE 16px FLOOR, BY POINTER RATHER THAN BY WIDTH
+
+   The phone block above is keyed on (max-width: 719px), which a phone
+   in LANDSCAPE does not match — an iPhone on its side is 844 wide, so
+   it took the desktop rule and every field went back to 15px, and iOS
+   Safari zooms in on any field under 16 and never zooms back out.
+
+   Width answers how much room there is. It does not answer whether
+   this is a finger, and the zoom is a property of the input method.
+   So the floor is stated a second time against the pointer, and holds
+   in both orientations. It only ever RAISES a size, so it cannot make
+   anything smaller than the width rule above already allows.
+   ============================================================= */
+@media (pointer: coarse) {
+  .mn-input, .mn-textarea, .mn-select,
+  .mn-head__field,
+  .field input, .field select, .field textarea,
+  input[type="text"], input[type="search"], input[type="number"],
+  input[type="time"], input[type="date"], input[type="url"],
+  input[type="email"], textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* =============================================================
+   REDUCED MOTION
+   The file's global block above already flattens every duration. What
+   is left is the handful of transforms this section introduces, which
+   would otherwise still jump between two positions instantly.
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .mn-plate-card:hover,
+  .mn-plate-card:active,
+  .mn-head__cog:hover,
+  .mn-head__cog:active { transform: none !important; }
+  .mn-index__link:hover { padding-left: 0 !important; }
+  .mn-resume:hover .mn-resume__ribbon { height: 19px !important; }
+}

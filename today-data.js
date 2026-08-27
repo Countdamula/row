@@ -66,7 +66,21 @@
   };
 
   var LEVEL_KEYS = ['high', 'mid', 'low'];
-  var PHASES = ['morning', 'evening'];
+
+  // THREE PHASES SINCE 2026-08-26. `day` was added between the two
+  // that already existed, because the hours between the morning and
+  // the wind-down were the ones with nothing written down for them.
+  //
+  // Adding a phase is safe in a way removing one would not be:
+  // stepModel() coerces any unrecognised phase to 'morning', so every
+  // record written before today keeps exactly the phase it had, and
+  // nothing needs migrating. `day` simply starts empty.
+  var PHASES = ['morning', 'day', 'evening'];
+
+  // Which clock time each phase runs forward from. See scheduleFor().
+  var PHASE_ANCHOR = { morning: 'wake', day: 'dayStart', evening: 'windDown' };
+  var PHASE_LABEL = { morning: 'Morning', day: 'Day', evening: 'Evening' };
+  var PHASE_START_LABEL = { morning: 'Wake', day: 'Day starts', evening: 'Wind down' };
 
   // ------------------------------------------------------------
   // STORE
@@ -380,6 +394,10 @@
     s = s || {};
     return {
       wake: /^\d{2}:\d{2}$/.test(s.wake) ? s.wake : '06:30',
+      // The day phase's own anchor. A record written before 2026-08-26
+      // has no dayStart and falls through to noon, which is what the
+      // phase means for anyone who has not moved it.
+      dayStart: /^\d{2}:\d{2}$/.test(s.dayStart) ? s.dayStart : '12:00',
       windDown: /^\d{2}:\d{2}$/.test(s.windDown) ? s.windDown : '21:30'
     };
   }
@@ -405,7 +423,7 @@
    */
   function scheduleFor(phase, level) {
     var sch = getSchedule();
-    var t = toMins(phase === 'evening' ? sch.windDown : sch.wake);
+    var t = toMins(sch[PHASE_ANCHOR[phase] || 'wake']);
     return routinesFor(phase).map(function (s) {
       var m = s.mins[level] || 0;
       var row = { step: s, startMins: t, start: fmtTime(t), mins: m, optional: m === 0 };
@@ -416,6 +434,107 @@
   function phaseTotal(phase, level) {
     return routinesFor(phase).reduce(function (a, s) { return a + (s.mins[level] || 0); }, 0);
   }
+
+  /** The anchor time a phase counts forward from, as 'HH:MM'. */
+  function phaseStart(phase) {
+    var sch = getSchedule();
+    return sch[PHASE_ANCHOR[phase] || 'wake'];
+  }
+  /** Write a phase's anchor without the caller knowing its field name. */
+  function savePhaseStart(phase, hhmm) {
+    var patch = {};
+    patch[PHASE_ANCHOR[phase] || 'wake'] = hhmm;
+    return saveSchedule(patch);
+  }
+
+  /**
+   * Which phase the clock is in right now.
+   *
+   * Deliberately NOT "which phase has unfinished steps" — this answers
+   * what time it is, so the page can open the part of the routine you
+   * are actually in and fold the other two away. Before the day starts
+   * you are in the morning; after the wind-down begins you are in the
+   * evening; the small hours read as evening, because at 01:00 the
+   * thing you have not finished is last night's wind-down, not
+   * tomorrow's mirror.
+   */
+  function currentPhase(now) {
+    now = now || new Date();
+    var mins = now.getHours() * 60 + now.getMinutes();
+    var sch = getSchedule();
+    var dayAt = toMins(sch.dayStart);
+    var eveAt = toMins(sch.windDown);
+    if (mins >= eveAt) return 'evening';
+    if (mins >= dayAt) return 'day';
+    // Between midnight and the wake time the evening is still running.
+    if (mins < toMins(sch.wake)) return 'evening';
+    return 'morning';
+  }
+
+  /**
+   * done / total across all three phases at a date's own level, plus a
+   * whole percentage.
+   *
+   * It counts the SAME pool phaseProgress() counts — the steps that
+   * are required at this level — so a Low day is measured against a
+   * Low day. A meter that counted every step at every level would make
+   * Low permanently unfinishable, and nothing derived from a level may
+   * penalise it.
+   */
+  function overallProgress(date, level) {
+    var done = 0, total = 0;
+    PHASES.forEach(function (p) {
+      var r = phaseProgress(date, p, level);
+      done += r.done; total += r.total;
+    });
+    return { done: done, total: total, pct: total ? Math.round((done / total) * 100) : 0 };
+  }
+
+  /**
+   * SUGGESTIONS, NOT A SEED.
+   *
+   * These are never written by seedIfEmpty() and never written by
+   * anything on load. `day` arrived after this device was already
+   * seeded, so seedIfEmpty() will never run again here and an empty
+   * Day phase would otherwise be a blank space with no way in. The UI
+   * offers these as ghost rows; a step exists only once it is tapped.
+   *
+   * "Main priority" is deliberately not among them — the morning's
+   * "Work on the business" already IS the frog, and a second row
+   * claiming the same hours would make both of them a lie.
+   */
+  var DAY_SUGGESTIONS = [
+    {
+      phase: 'day', title: 'Walk',
+      note: 'Outside, without the phone in your hand. It counts as movement even on a Low day.',
+      mins: { high: 30, mid: 20, low: 10 },
+      linkHref: 'palaestra.html#/steps', linkLabel: 'Steps'
+    },
+    {
+      phase: 'day', title: 'Log what you ate',
+      note: 'While you can still remember it. Two minutes now beats guessing at midnight.',
+      mins: { high: 5, mid: 5, low: 3 },
+      linkHref: 'larder.html', linkLabel: 'The Larder'
+    },
+    {
+      phase: 'day', title: 'Learning',
+      note: 'One lesson, one paper, one chapter. Optional on a Low day by design.',
+      mins: { high: 45, mid: 25, low: 0 },
+      linkHref: 'athenaeum.html', linkLabel: 'The Athenaeum'
+    },
+    {
+      phase: 'day', title: 'Self-care break',
+      note: 'Breath, tapping, or ten minutes lying on the floor. Before you need it.',
+      mins: { high: 15, mid: 10, low: 5 },
+      linkHref: 'asclepion.html', linkLabel: 'The Asclepion'
+    },
+    {
+      phase: 'day', title: 'Write',
+      note: 'The manuscript, not the notes about the manuscript.',
+      mins: { high: 60, mid: 30, low: 0 },
+      linkHref: 'kdp.html', linkLabel: 'The Velvet Grimoire'
+    }
+  ];
 
   // ------------------------------------------------------------
   // HERO + SETTINGS
@@ -441,7 +560,12 @@
     var s = storeGet(KEYS.settings, {}) || {};
     return {
       activeTab: s.activeTab === 'selfcare' ? 'selfcare' : 'today',
-      musicShelf: str(s.musicShelf) || 'playlists'
+      musicShelf: str(s.musicShelf) || 'playlists',
+      // Which eight destinations Quick Launch shows, by main-nav.js id.
+      // An empty array means "the default eight" — storing the default
+      // would freeze it, so a later change to that list would never
+      // reach a device that had simply never opened the picker.
+      quickLaunch: Array.isArray(s.quickLaunch) ? s.quickLaunch.map(str) : []
     };
   }
   function saveSettings(patch) {
@@ -685,6 +809,8 @@
   global.TodayData = {
     KEYS: KEYS, ROUTINE_KEYS: R,
     LEVEL_KEYS: LEVEL_KEYS, LEVEL_COPY: LEVEL_COPY, PHASES: PHASES,
+    PHASE_LABEL: PHASE_LABEL, PHASE_START_LABEL: PHASE_START_LABEL,
+    DAY_SUGGESTIONS: DAY_SUGGESTIONS,
     BELIEF_STATUSES: BELIEF_STATUSES,
 
     todayISO: todayISO, daysBetween: daysBetween, uid: uid, fmtTime: fmtTime,
@@ -694,9 +820,11 @@
 
     dayLog: dayLog, allLog: allLog, toggleStep: toggleStep, toggleSub: toggleSub,
     setPrompt: setPrompt, phaseProgress: phaseProgress,
+    overallProgress: overallProgress, currentPhase: currentPhase,
 
     getSchedule: getSchedule, saveSchedule: saveSchedule,
     scheduleFor: scheduleFor, phaseTotal: phaseTotal,
+    phaseStart: phaseStart, savePhaseStart: savePhaseStart,
 
     getHero: getHero, saveHero: saveHero,
     getSettings: getSettings, saveSettings: saveSettings,

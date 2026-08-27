@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en" class="lar-root">
+<head>
+<!-- FIRST, AND NEVER DEFERRED. local-store-idb.js replaces
+     window.localStorage wholesale before any other script runs, so
+     every data file below keeps using plain localStorage unchanged.
+     Every boot path is then gated on LocalStoreIDB.ready(). -->
+<script src="local-store-idb.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0a0908">
+<meta name="robots" content="noindex, nofollow">
+<title>The Larder</title>
+
+<!-- =============================================================
+     THE LARDER — the nutrition page.
+
+     Replaced nutrition.html on 2026-08-26. Same Supabase row key
+     ('nutrition'), new name, new everything else. nutrition.html
+     is now a redirect stub so old bookmarks still land.
+
+     Owns TWO rows, split by weight — see larder-sync.js:
+       nutrition   -> lar:, nutrition:   the library. read-mostly.
+       larderlog   -> larlog:            what you ate. constant.
+     It also mounts a THIRD row, `palaestra`, read-write, through
+     MainSync, for exactly one key: pal:levels. See the boot block.
+
+     Routes:
+       #/           Today — the log, and the only screen that matters
+       #/meals      the saved-meal library
+       #/foods      the food table
+       #/recipes    recipes (a recipe has instructions; a meal does not)
+       #/plan       the week
+       #/grocery    the shopping list
+       #/progress   trends
+       #/kept       favourites, swept across every collection
+     Off-nav, reachable from the ... link and handled in the switch
+     but deliberately absent from ROUTES:
+       #/targets  #/supplements  #/notes  #/data
+     ============================================================= -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="larder-theme.css?v=2">
+
+<!-- Not deferred, and in dependency order: the inline boot script
+     at the bottom of <body> runs during parsing, before any
+     deferred script would have executed. topbar.js is the one
+     exception because nothing here calls into it. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js?v=3"></script>
+<script src="photo-store.js"></script>
+<!-- palaestra-data.js is loaded for ONE thing: pal:levels, the
+     effort level shared with the Fitness Studio and Main. The
+     Larder reads and writes it through Pal.getLevel / hasLevel /
+     setLevel so there is exactly one copy of that answer.
+     Pal.LEVELS is NOT redefined here. main-sync.js comes with it
+     because that file is where the `pal:` prefix is declared, and
+     declaring it a second time here is the exact duplication
+     larder-sync.js's header exists to prevent. -->
+<script src="palaestra-data.js?v=6"></script>
+<script src="main-sync.js?v=2"></script>
+<script src="larder-seed.js?v=1"></script>
+<script src="larder-backup.js?v=1"></script>
+<script src="larder-data.js?v=2"></script>
+<script src="larder-sync.js?v=1"></script>
+<script src="larder-ui.js?v=1"></script>
+<script src="larder-hero.js?v=2"></script>
+<script src="topbar.js?v=4" defer></script>
+</head>
+<body class="lar">
+
+<!-- THE HERO IS NOT HERE.
+     LarHero.mount() injects it at boot, immediately before
+     #larRoot. Everything inside #larRoot is destroyed and rebuilt
+     on every render, and this page repaints more than any other in
+     the dashboard — every water tap, every logged food, every
+     phone in another room. A hero written into that host would
+     replay its entrance every single time.
+
+     The nav strip below is static markup because it never needs to
+     exist before the router does. -->
+<nav class="lar-nav" id="larRoutes" aria-label="The Larder"></nav>
+
+<main class="lar-shell" id="larRoot" tabindex="-1"></main>
+
+<div class="lar-sheetbg" id="larSheetBg" role="dialog" aria-modal="true" aria-label="Detail">
+  <div class="lar-sheet" id="larSheet"></div>
+</div>
+<div class="lar-toast" id="larToast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var U = window.LarUI;
+  var L = null;                  // window.Lar, once the DOM is ready
+  var P = null;                  // window.Pal, for pal:levels only
+  var root = document.getElementById('larRoot');
+  var esc = U.esc, escLines = U.escLines, mark = U.mark, heart = U.heart;
+
+  // ==========================================================
+  // ROUTES
+  //
+  // The nav strip and every fall-through are built off this one
+  // array, so a route cannot exist in the nav and not in the
+  // renderer, or the other way round.
+  //
+  // The tints run a warm-to-cool-and-back sweep in nav order, so
+  // the strip reads as one shelf of jars rather than eight
+  // unrelated pages.
+  // ==========================================================
+  var ROUTES = [
+    { hash: '/',         label: 'Today',    tint: 'honey',  icon: 'scale' },
+    { hash: '/meals',    label: 'Meals',    tint: 'ember',  icon: 'jar' },
+    { hash: '/foods',    label: 'Foods',    tint: 'olive',  icon: 'shelf' },
+    { hash: '/recipes',  label: 'Recipes',  tint: 'copper', icon: 'book' },
+    { hash: '/plan',     label: 'Plan',     tint: 'slate',  icon: 'calendar' },
+    { hash: '/grocery',  label: 'Grocery',  tint: 'sage',   icon: 'basket' },
+    { hash: '/progress', label: 'Progress', tint: 'wheat',  icon: 'chart' },
+    { hash: '/kept',     label: 'Kept',     tint: 'rose',   icon: 'heart' }
+  ];
+
+  // Handled by the renderer, reachable by link, deliberately not
+  // in the strip. The brief asked for these to hide under a "...",
+  // and this codebase has no overflow-menu widget — inventing one
+  // for a single page is the wrong trade, so they are off-nav
+  // routes reached from one link, exactly as the Palaestra does
+  // with #/data.
+  var MORE = [
+    { hash: '/targets',     label: 'Nutrition goals', tint: 'honey' },
+    { hash: '/supplements', label: 'Supplements',     tint: 'sage' },
+    { hash: '/notes',       label: 'Notes',           tint: 'wheat' },
+    { hash: '/data',        label: 'Backup and data', tint: 'slate' }
+  ];
+
+  function routeFor(hash) {
+    var i;
+    for (i = 0; i < ROUTES.length; i++) if (ROUTES[i].hash === hash) return ROUTES[i];
+    for (i = 0; i < MORE.length; i++) if (MORE[i].hash === hash) return MORE[i];
+    return null;
+  }
+  function current() {
+    var h = (location.hash || '#/').slice(1);
+    // Sub-routes: #/recipes/abc renders the recipes route.
+    var base = '/' + h.split('/')[1];
+    return routeFor(h) || routeFor(base) || ROUTES[0];
+  }
+  function currentParam() {
+    var parts = (location.hash || '#/').slice(1).split('/');
+    return parts.length > 2 ? parts.slice(2).join('/') : '';
+  }
+  function go(hash) { location.hash = hash; }
+
+  // ==========================================================
+  // PAGE STATE
+  //
+  // Sub-state a route owns. Reset on navigation AWAY from that
+  // route, in navigate(), so coming back to a screen does not
+  // find last week's filter still applied.
+  // ==========================================================
+  var openSlot = '';        // which meal row on Today is expanded
+  var mealCat = '';         // Meals category filter
+  var foodQuery = '';       // Foods search
+  var recipeTag = '';       // Recipes filter
+  var suggestTag = '';      // "What should I eat?" filter
+  // Which grocery store headings are folded shut. In memory only,
+  // deliberately not persisted: opening the page fresh should show
+  // the whole list, not whatever you folded away three weeks ago.
+  var collapsedStores = {};
+  var shownRoute = null;
+
+  // ==========================================================
+  // THE MODE — pal:levels, not a second answer.
+  //
+  // HIGH/MID/LOW is already shared by Main and the Fitness
+  // Studio. Detailed/Simple/Minimum is the same answer wearing
+  // this page's vocabulary, so a day you have already told the
+  // dashboard is a LOW day does not ask you again here.
+  //
+  // Pal.getLevel() DEFAULTS to 'high' when nothing was chosen,
+  // so The Larder opens in Detailed. hasLevel() is what
+  // distinguishes chosen from defaulted.
+  // ==========================================================
+  var MODES = {
+    high: { key: 'high', label: 'Detailed', blurb: 'Everything: calories, all four macros, water and meals.' },
+    mid:  { key: 'mid',  label: 'Simple',   blurb: 'Calories, protein and water. Nothing else counted.' },
+    low:  { key: 'low',  label: 'Minimum',  blurb: 'Protein, water, real meals, something that grew.' }
+  };
+  function levelKey(date) {
+    if (!P || typeof P.getLevel !== 'function') return 'high';
+    return P.getLevel(date) || 'high';
+  }
+  function mode(date) { return MODES[levelKey(date)] || MODES.high; }
+
+  // ==========================================================
+  // THE ADHERENCE SCORE
+  //
+  // What counts depends on the mode, and NOTHING DERIVED MAY
+  // PENALISE A LEVEL — the rule stated in palaestra-data.js. A
+  // Minimum day that hits all four reads 4 / 4, not 4 / 8.
+  // Scoring a quiet day out of the demanding day's total is how
+  // a flexible system quietly turns back into a rigid one.
+  // ==========================================================
+  function scoreFor(date) {
+    var t = L.totalsFor(date);
+    var g = L.getTargets();
+    var day = L.getDay(date);
+    var m = levelKey(date);
+    var rows = [];
+
+    function within(value, target, lo, hi) {
+      if (!target) return false;
+      var p = value / target;
+      return p >= (lo == null ? 0.85 : lo) && p <= (hi == null ? 1.15 : hi);
+    }
+    function atLeast(value, target, frac) {
+      return !!target && value >= target * (frac == null ? 0.9 : frac);
+    }
+
+    if (m === 'low') {
+      rows.push({ label: 'Protein', on: atLeast(t.protein, g.protein, 0.7) });
+      rows.push({ label: 'Water', on: atLeast(day.water, g.waterMl, 0.7) });
+      rows.push({ label: 'Real meals', on: L.slotsFilled(date) >= 2 });
+      rows.push({ label: 'Something that grew',
+                  on: (L.groupCount(date, 'veg') + L.groupCount(date, 'fruit')) >= 1 });
+    } else if (m === 'mid') {
+      rows.push({ label: 'Calories', on: within(t.kcal, g.kcal) });
+      rows.push({ label: 'Protein', on: atLeast(t.protein, g.protein) });
+      rows.push({ label: 'Water', on: atLeast(day.water, g.waterMl) });
+    } else {
+      rows.push({ label: 'Calories', on: within(t.kcal, g.kcal) });
+      rows.push({ label: 'Protein', on: atLeast(t.protein, g.protein) });
+      rows.push({ label: 'Carbs', on: within(t.carbs, g.carbs, 0.75, 1.25) });
+      rows.push({ label: 'Fat', on: within(t.fat, g.fat, 0.75, 1.25) });
+      rows.push({ label: 'Fibre', on: atLeast(t.fibre, g.fibre, 0.8) });
+      rows.push({ label: 'Water', on: atLeast(day.water, g.waterMl) });
+      rows.push({ label: 'Vegetables', on: L.groupCount(date, 'veg') >= g.vegTarget });
+      rows.push({ label: 'Fruit', on: L.groupCount(date, 'fruit') >= g.fruitTarget });
+    }
+    var done = rows.filter(function (r) { return r.on; }).length;
+    return { rows: rows, done: done, total: rows.length };
+  }
+
+  // ==========================================================
+  // SMALL BUILDERS
+  // ==========================================================
+
+  /** The signature component. `value` and `target` in the same unit. */
+  function measure(label, value, target, unitSuffix) {
+    var p = U.pct(value, target);
+    var cls = 'lar-measure';
+    if (p > 115) cls += ' is-over';
+    else if (p >= 85) cls += ' is-on';
+    return '<div class="' + cls + '" style="--p:' + p + '">' +
+      '<div class="lar-measure__top">' +
+        '<span class="lar-measure__label">' + esc(label) + '</span>' +
+        '<span class="lar-measure__val">' + U.num(value) +
+          ' <em>/ ' + U.num(target) + (unitSuffix ? ' ' + esc(unitSuffix) : '') + '</em></span>' +
+      '</div>' +
+      '<div class="lar-measure__track"></div>' +
+    '</div>';
+  }
+
+  /** "420 cal · 31g protein" — the one-line summary used everywhere. */
+  function macroLine(t) {
+    var bits = [U.num(t.kcal) + ' cal'];
+    if (t.protein) bits.push(U.grams(t.protein) + ' protein');
+    return bits.join(' &middot; ');
+  }
+
+  function emptyState(title, line, actionHtml) {
+    return '<div class="lar-empty">' +
+      '<div class="lar-h3">' + esc(title) + '</div>' +
+      '<p class="lar-p lar-quiet">' + esc(line) + '</p>' +
+      (actionHtml ? '<div style="margin-top:var(--lar-s3)">' + actionHtml + '</div>' : '') +
+    '</div>';
+  }
+
+  function sectionHead(title, countHtml) {
+    return '<div class="lar-section__head">' +
+      '<h2 class="lar-h2">' + esc(title) + '</h2>' +
+      (countHtml ? '<span class="lar-section__count">' + countHtml + '</span>' : '') +
+    '</div>';
+  }
+
+  // ==========================================================
+  // VIEWS
+  // ==========================================================
+
+  function viewToday() {
+    var date = L.today();
+    var t = L.totalsFor(date);
+    var g = L.getTargets();
+    var day = L.getDay(date);
+    var m = mode(date);
+    var i = 0;
+    var out = '';
+
+    // ---- the compact overview -------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += '<div class="lar-card lar-card--lift lar-today">';
+    // The eyebrow carries the actual date and the heading carries
+    // the word, rather than both saying "Today" at each other.
+    out += '<div class="lar-today__head">' +
+      '<div><p class="lar-eyebrow">' + esc(longDate(date)) + '</p>' +
+      '<h1 class="lar-h1">' + esc(U.dateLabel(date)) + '</h1></div>' +
+      '<button class="lar-chip is-on" data-act="mode-open" title="Tracking depth">' +
+        esc(m.label) + '</button>' +
+    '</div>';
+
+    out += '<div class="lar-today__measures">';
+    out += measure('Calories', t.kcal, g.kcal);
+    out += measure('Protein', t.protein, g.protein, 'g');
+    // Water is stored in ml and shown in the unit you asked for.
+    out += measure('Water', U.mlToUnit(day.water, g.waterUnit),
+                   U.mlToUnit(g.waterMl, g.waterUnit), g.waterUnit);
+    if (m.key === 'high') {
+      out += measure('Carbs', t.carbs, g.carbs, 'g');
+      out += measure('Fat', t.fat, g.fat, 'g');
+      out += measure('Fibre', t.fibre, g.fibre, 'g');
+    }
+    out += '</div>';
+
+    out += '<div class="lar-today__meals-count">Meals <span class="lar-num">' +
+      L.slotsFilled(date) + ' / 4</span></div>';
+
+    out += '<div class="lar-today__actions">' +
+      '<button class="lar-btn lar-btn--go" data-act="log-open">' + mark('plus') + ' Log food</button>' +
+      '<button class="lar-btn" data-act="water-open">' + mark('drop') + ' Add water</button>' +
+      '<a class="lar-btn lar-btn--ghost" href="#/meals">Saved meals</a>' +
+    '</div>';
+    out += '</div></section>';
+
+    // ---- the four slots -------------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('Meals', L.slotsFilled(date) + ' of 4');
+    out += '<div class="lar-slots">';
+    L.SLOTS.forEach(function (slot) {
+      var entries = L.slotEntries(date, slot);
+      var st = L.slotTotals(date, slot);
+      var isOpen = openSlot === slot;
+      var names = entries.map(function (e) { return e.label; }).join(', ');
+
+      out += '<div class="lar-slot' + (isOpen ? ' is-open' : '') + '">';
+      out += '<button class="lar-slot__head" data-act="slot-toggle" data-slot="' + slot + '" ' +
+             'aria-expanded="' + (isOpen ? 'true' : 'false') + '">' +
+        '<span class="lar-slot__tick' + (entries.length ? ' is-on' : '') + '">' +
+          (entries.length ? mark('check') : '') + '</span>' +
+        '<span class="lar-slot__body">' +
+          '<span class="lar-slot__name">' + esc(L.SLOT_LABELS[slot]) + '</span>' +
+          '<span class="lar-slot__what">' +
+            (entries.length ? esc(names) : 'Not logged') + '</span>' +
+        '</span>' +
+        '<span class="lar-slot__macros lar-num">' +
+          (entries.length ? macroLine(st) : '') + '</span>' +
+      '</button>';
+
+      if (isOpen) {
+        out += '<div class="lar-slot__open">';
+        if (entries.length) {
+          out += '<ul class="lar-entries">';
+          entries.forEach(function (e) {
+            out += '<li class="lar-entry">' +
+              '<span class="lar-entry__name">' + esc(e.label) +
+                (e.amount ? ' <span class="lar-quiet lar-num">' + U.dec(e.amount) + ' ' +
+                  esc(U.unitLabel(e.unit, e.amount)) + '</span>' : '') +
+              '</span>' +
+              '<span class="lar-entry__macros lar-num">' + macroLine(e) + '</span>' +
+              '<button class="lar-entry__rm" data-act="entry-remove" data-id="' + esc(e.id) + '" ' +
+                'aria-label="Remove ' + esc(e.label) + '">&times;</button>' +
+            '</li>';
+          });
+          out += '</ul>';
+        }
+        out += '<button class="lar-btn lar-btn--sm" data-act="log-open" data-slot="' + slot + '">' +
+          mark('plus') + ' Add food</button>';
+        out += '</div>';
+      }
+      out += '</div>';
+    });
+    out += '</div></section>';
+
+    // ---- quick add ------------------------------------------
+    var quick = L.Foods.list().filter(function (f) { return f.isQuick || f.isFavorite; }).slice(0, 8);
+    var favMeals = L.Meals.list().filter(function (x) { return x.isFavorite; }).slice(0, 4);
+    if (quick.length || favMeals.length) {
+      out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+      out += sectionHead('Quick add', '');
+      out += '<div class="lar-quick">';
+      favMeals.forEach(function (x) {
+        var mt = L.mealTotals(x);
+        out += '<button class="lar-quick__item lar-quick__item--meal" data-act="meal-log" data-id="' + esc(x.id) + '">' +
+          '<span class="lar-quick__name">' + esc(x.name) + '</span>' +
+          '<span class="lar-quick__sub lar-num">' + macroLine(mt) + '</span>' +
+        '</button>';
+      });
+      quick.forEach(function (f) {
+        var ft = L.foodAt(f, f.defaultAmount);
+        out += '<button class="lar-quick__item" data-act="food-open" data-id="' + esc(f.id) + '">' +
+          '<span class="lar-quick__name">' + esc(f.name) + '</span>' +
+          '<span class="lar-quick__sub lar-num">' + U.dec(f.defaultAmount) + ' ' + esc(U.unitLabel(f.unit, f.defaultAmount)) +
+            ' &middot; ' + U.num(ft.kcal) + ' cal</span>' +
+        '</button>';
+      });
+      out += '</div>';
+      out += '<div class="lar-more-link"><a href="#/kept">View favourites &rarr;</a></div>';
+      out += '</section>';
+    }
+
+    // ---- water ----------------------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('Water', U.water(day.water, g.waterUnit) + ' / ' + U.water(g.waterMl, g.waterUnit));
+    out += '<div class="lar-water">';
+    g.waterSteps.forEach(function (step) {
+      out += '<button class="lar-btn lar-water__btn" data-act="water-add" data-amount="' + step + '">+' +
+        step + ' ' + esc(g.waterUnit) + '</button>';
+    });
+    out += '<button class="lar-btn lar-btn--ghost lar-water__btn" data-act="water-open">Other</button>';
+    out += '</div></section>';
+
+    // ---- upcoming -------------------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('Upcoming', '');
+    out += '<div class="lar-upcoming">' + planStrip(date) + planStrip(U.addDays(date, 1)) + '</div>';
+    out += '<div class="lar-more-link"><a href="#/plan">View meal plan &rarr;</a></div>';
+    out += '</section>';
+
+    // ---- what should I eat ----------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('What should I eat?', '');
+    out += '<div class="lar-chips">';
+    ['high-protein', 'low-calorie', 'quick', 'cheap', 'no-cook', 'post-workout', 'sweet', 'savory'].forEach(function (tag) {
+      out += '<button class="lar-chip' + (suggestTag === tag ? ' is-on' : '') + '" ' +
+        'data-act="suggest" data-tag="' + tag + '">' + esc(tagLabel(tag)) + '</button>';
+    });
+    out += '</div>';
+    if (suggestTag) out += suggestions(suggestTag);
+    out += '</section>';
+
+    // ---- the score ------------------------------------------
+    // These are day-END checks. Read at three in the afternoon a
+    // bare "0 / 8" says you have failed, when what it means is
+    // "not yet" — so the count says `met` and the note says the
+    // rest settles as the day fills in. Guessing at pace instead
+    // would mean inventing a model of when you eat, and being
+    // wrong about it every time the day is unusual.
+    var sc = scoreFor(date);
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('Nutrition', sc.done + ' / ' + sc.total + ' met');
+    out += '<div class="lar-card"><ul class="lar-score">';
+    sc.rows.forEach(function (r) {
+      out += '<li class="lar-score__row' + (r.on ? ' is-on' : '') + '">' +
+        '<span class="lar-score__dot">' + (r.on ? mark('check') : '') + '</span>' +
+        esc(r.label) + '</li>';
+    });
+    out += '</ul>';
+    out += '<p class="lar-p lar-quiet lar-score__note">' + esc(m.blurb) +
+      (sc.done < sc.total ? ' The rest settle as the day fills in.' : '') + '</p>';
+    out += '</div></section>';
+
+    // ---- supplements ----------------------------------------
+    var supps = L.Supplements.list();
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('Supplements', supps.length ?
+      Object.keys(day.supps).length + ' / ' + supps.length : '');
+    if (!supps.length) {
+      out += emptyState('Nothing tracked yet',
+        'Add what you actually take, and it appears here as three quiet checkboxes.',
+        '<a class="lar-btn lar-btn--sm" href="#/supplements">Set up supplements</a>');
+    } else {
+      out += '<div class="lar-card"><div class="lar-supps">';
+      L.SUPPLEMENT_SLOTS.forEach(function (slot) {
+        var rows = supps.filter(function (s) { return s.slot === slot; });
+        if (!rows.length) return;
+        out += '<div class="lar-supps__group"><p class="lar-eyebrow">' + esc(slotLabel(slot)) + '</p>';
+        rows.forEach(function (s) {
+          out += '<button class="lar-supp' + (day.supps[s.id] ? ' is-on' : '') + '" ' +
+            'data-act="supp-toggle" data-id="' + esc(s.id) + '">' +
+            '<span class="lar-supp__dot">' + (day.supps[s.id] ? mark('check') : '') + '</span>' +
+            esc(s.name) + (s.dose ? ' <span class="lar-quiet">' + esc(s.dose) + '</span>' : '') +
+          '</button>';
+        });
+        out += '</div>';
+      });
+      out += '</div></div>';
+    }
+    out += '</section>';
+
+    // ---- a note ---------------------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += '<button class="lar-btn lar-btn--ghost lar-btn--wide" data-act="note-open">' +
+      mark('plus') + ' Quick note</button>';
+    out += '</section>';
+
+    // ---- more -----------------------------------------------
+    out += '<section class="lar-section lar-rvl"' + U.stagger(i++) + '>';
+    out += sectionHead('More', '');
+    out += '<div class="lar-more">';
+    ROUTES.slice(1).concat(MORE).forEach(function (r) {
+      out += '<a class="lar-card lar-more__item" href="#' + r.hash + '" data-tint="' + r.tint + '">' +
+        (r.icon ? mark(r.icon) : mark('dots')) + '<span>' + esc(r.label) + '</span></a>';
+    });
+    out += '</div></section>';
+
+    return out;
+  }
+
+  /** "Wednesday 26 August" — the eyebrow above Today's heading. */
+  function longDate(iso) {
+    var d = new Date(iso + 'T00:00:00');
+    var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+    return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+  }
+
+  function slotLabel(slot) {
+    return slot === 'with-food' ? 'With food' : slot.charAt(0).toUpperCase() + slot.slice(1);
+  }
+  function tagLabel(tag) {
+    return tag.split('-').map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+  }
+
+  /** One day of the plan, as a line. Used by Today's Upcoming. */
+  function planStrip(date) {
+    var plan = L._store.get(L.KEYS.plan) || {};
+    var row = plan[date] || {};
+    var bits = [];
+    ['breakfast', 'lunch', 'dinner'].forEach(function (slot) {
+      if (row[slot] && row[slot].label) bits.push(row[slot].label);
+    });
+    return '<div class="lar-upcoming__row">' +
+      '<span class="lar-upcoming__when">' + esc(U.dateLabel(date)) + '</span>' +
+      '<span class="lar-upcoming__what">' +
+        (bits.length ? esc(bits.join(' · ')) : '<span class="lar-quiet">Nothing planned</span>') +
+      '</span></div>';
+  }
+
+  /** "What should I eat?" — a short answer, not a screen. */
+  function suggestions(tag) {
+    var meals = L.Meals.list().filter(function (x) { return x.tags.indexOf(tag) !== -1; });
+    var foods = L.Foods.list().filter(function (f) { return f.tags.indexOf(tag) !== -1; });
+    var rows = meals.slice(0, 4).map(function (x) {
+      return { id: x.id, kind: 'meal', name: x.name, sub: macroLine(L.mealTotals(x)) };
+    }).concat(foods.slice(0, 6).map(function (f) {
+      return { id: f.id, kind: 'food', name: f.name,
+               sub: U.dec(f.defaultAmount) + ' ' + f.unit + ' · ' + U.num(L.foodAt(f, f.defaultAmount).kcal) + ' cal' };
+    }));
+    if (!rows.length) {
+      return emptyState('Nothing tagged ' + tagLabel(tag).toLowerCase() + ' yet',
+        'Tag a saved meal or a food and it turns up here.');
+    }
+    var out = '<div class="lar-quick" style="margin-top:var(--lar-s3)">';
+    rows.forEach(function (r) {
+      out += '<button class="lar-quick__item' + (r.kind === 'meal' ? ' lar-quick__item--meal' : '') + '" ' +
+        'data-act="' + (r.kind === 'meal' ? 'meal-log' : 'food-open') + '" data-id="' + esc(r.id) + '">' +
+        '<span class="lar-quick__name">' + esc(r.name) + '</span>' +
+        '<span class="lar-quick__sub lar-num">' + esc(r.sub) + '</span></button>';
+    });
+    return out + '</div>';
+  }
+
+  // ==========================================================
+  // MEALS — the saved-meal library.
+  //
+  // A meal is a named composite you LOG. It has no instructions;
+  // that is what makes it different from a recipe, and why the
+  // two are separate screens rather than one list with a mode
+  // switch.
+  // ==========================================================
+  function viewMeals() {
+    var all = L.Meals.list();
+    var cats = [''].concat(L.MEAL_CATEGORIES).concat(['favourite']);
+    var rows = all.filter(function (x) {
+      if (!mealCat) return true;
+      if (mealCat === 'favourite') return x.isFavorite;
+      return x.category === mealCat;
+    });
+    // Favourites first, then by name — the ones you log most are
+    // the ones you should not have to scroll for.
+    rows.sort(function (a, b) {
+      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Saved meals', all.length + ' saved');
+    out += '<div class="lar-chips" style="margin-bottom:var(--lar-s3)">';
+    cats.forEach(function (c) {
+      out += '<button class="lar-chip' + (mealCat === c ? ' is-on' : '') + '" ' +
+        'data-act="meal-cat" data-cat="' + esc(c) + '">' +
+        esc(c === '' ? 'All' : c === 'favourite' ? 'Favourites' : tagLabel(c)) + '</button>';
+    });
+    out += '</div>';
+    out += '<button class="lar-btn lar-btn--go" data-act="meal-new" ' +
+      'style="margin-bottom:var(--lar-s3)">' + mark('plus') + ' New meal</button>';
+
+    if (!rows.length) {
+      out += emptyState(all.length ? 'Nothing in this category' : 'No saved meals yet',
+        all.length ? 'Try another category, or save a new meal.'
+          : 'Save the things you eat often and logging them becomes one tap instead of five.',
+        '<button class="lar-btn lar-btn--sm" data-act="meal-new">Save a meal</button>');
+    } else {
+      out += '<div class="lar-cards">';
+      rows.forEach(function (x, n) {
+        var t = L.mealTotals(x);
+        out += '<article class="lar-card lar-meal lar-rvl"' + U.stagger(n, 50) + '>' +
+          '<div class="lar-meal__head">' +
+            '<h3 class="lar-h3">' + esc(x.name) + '</h3>' +
+            '<button class="lar-fav" data-act="fav" data-kind="meal" data-id="' + esc(x.id) + '" ' +
+              'aria-label="' + (x.isFavorite ? 'Remove from favourites' : 'Add to favourites') + '" ' +
+              'aria-pressed="' + (x.isFavorite ? 'true' : 'false') + '">' + heart(x.isFavorite) + '</button>' +
+          '</div>' +
+          '<p class="lar-meal__macros lar-num">' + macroLine(t) + '</p>' +
+          (x.components.length
+            ? '<ul class="lar-meal__parts">' + x.components.map(function (c) {
+                return '<li>' + esc(c.name) + '</li>'; }).join('') + '</ul>'
+            : '') +
+          (x.note ? '<p class="lar-p lar-quiet">' + escLines(x.note) + '</p>' : '') +
+          '<div class="lar-meal__acts">' +
+            '<button class="lar-btn lar-btn--sm lar-btn--go" data-act="meal-log" data-id="' + esc(x.id) + '">Add to today</button>' +
+            '<button class="lar-btn lar-btn--sm" data-act="meal-to-grocery" data-id="' + esc(x.id) + '">Ingredients to list</button>' +
+            '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="meal-del" data-id="' + esc(x.id) + '">Delete</button>' +
+          '</div>' +
+        '</article>';
+      });
+      out += '</div>';
+    }
+    return out + '</section>';
+  }
+
+  // ==========================================================
+  // FOODS — the shelf. Everything loggable by weight or piece.
+  // ==========================================================
+  function viewFoods() {
+    var all = L.Foods.list();
+    var q = foodQuery.trim().toLowerCase();
+    var rows = q ? all.filter(function (f) {
+      return f.name.toLowerCase().indexOf(q) !== -1 || f.brand.toLowerCase().indexOf(q) !== -1;
+    }) : all;
+    rows = rows.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Foods', all.length + ' on the shelf');
+    out += '<div class="lar-toolbar">' +
+      '<input class="lar-input" type="search" id="larFoodSearch" placeholder="Search foods" ' +
+        'value="' + esc(foodQuery) + '" data-act="noop">' +
+      '<button class="lar-btn lar-btn--go" data-act="food-new">' + mark('plus') + ' New food</button>' +
+    '</div>';
+
+    if (!rows.length) {
+      out += emptyState(q ? 'Nothing matches that' : 'The shelf is empty',
+        q ? 'Try a shorter search, or add it as a new food.' : 'Add the things you eat and they become one tap.',
+        '<button class="lar-btn lar-btn--sm" data-act="food-new">Add a food</button>');
+    } else {
+      out += '<div class="lar-foods">';
+      rows.forEach(function (f) {
+        var t = L.foodAt(f, f.defaultAmount);
+        out += '<div class="lar-food">' +
+          '<button class="lar-food__main" data-act="food-open" data-id="' + esc(f.id) + '">' +
+            '<span class="lar-food__name">' + esc(f.name) +
+              (f.brand ? ' <span class="lar-quiet">' + esc(f.brand) + '</span>' : '') + '</span>' +
+            '<span class="lar-food__sub lar-num">' + U.dec(f.defaultAmount) + ' ' +
+              esc(U.unitLabel(f.unit, f.defaultAmount)) + ' &middot; ' + macroLine(t) + '</span>' +
+          '</button>' +
+          '<button class="lar-fav" data-act="fav" data-kind="food" data-id="' + esc(f.id) + '" ' +
+            'aria-label="Favourite" aria-pressed="' + (f.isFavorite ? 'true' : 'false') + '">' +
+            heart(f.isFavorite) + '</button>' +
+          '<button class="lar-food__edit" data-act="food-edit" data-id="' + esc(f.id) + '" ' +
+            'aria-label="Edit ' + esc(f.name) + '">Edit</button>' +
+        '</div>';
+      });
+      out += '</div>';
+    }
+    return out + '</section>';
+  }
+
+  // ==========================================================
+  // RECIPES — things you COOK. A recipe has instructions.
+  // ==========================================================
+  function viewRecipes() {
+    var id = currentParam();
+    if (id) return viewRecipe(id);
+
+    var all = L.Recipes.list();
+    var tags = ['', 'breakfast', 'lunch', 'dinner', 'snack', 'high-protein', 'quick'];
+    var rows = recipeTag
+      ? all.filter(function (r) { return r.tags.indexOf(recipeTag) !== -1; })
+      : all;
+    rows = rows.slice().sort(function (a, b) {
+      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+      return a.title.localeCompare(b.title);
+    });
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Recipes', all.length + ' ' + U.plural(all.length, 'recipe'));
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:56ch">' +
+      'A meal is something you log. A recipe is something you make — it carries the ' +
+      'method, the timings and what one serving is worth.</p>';
+    out += '<div class="lar-chips" style="margin-bottom:var(--lar-s3)">';
+    tags.forEach(function (t) {
+      out += '<button class="lar-chip' + (recipeTag === t ? ' is-on' : '') + '" ' +
+        'data-act="recipe-tag" data-tag="' + esc(t) + '">' +
+        esc(t === '' ? 'All' : tagLabel(t)) + '</button>';
+    });
+    out += '</div>';
+    out += '<button class="lar-btn lar-btn--go" data-act="recipe-new" ' +
+      'style="margin-bottom:var(--lar-s3)">' + mark('plus') + ' New recipe</button>';
+
+    if (!rows.length) {
+      out += emptyState(all.length ? 'Nothing tagged that' : 'No recipes yet',
+        all.length ? 'Try another filter.' : 'Anything you cook more than once is worth writing down.',
+        '<button class="lar-btn lar-btn--sm" data-act="recipe-new">Write one</button>');
+    } else {
+      out += '<div class="lar-cards">';
+      rows.forEach(function (r, n) {
+        var mins = r.prepTimeMin + r.cookTimeMin;
+        out += '<a class="lar-card lar-recipe lar-rvl" href="#/recipes/' + esc(r.id) + '"' +
+          U.stagger(n, 50) + '>' +
+          '<h3 class="lar-h3">' + esc(r.title) + '</h3>' +
+          '<p class="lar-recipe__meta lar-num">' +
+            (mins ? mins + ' min' : 'No timings') +
+            ' &middot; ' + r.servings + ' ' + U.plural(r.servings, 'serving') +
+            (r.kcal ? ' &middot; ' + U.num(r.kcal) + ' cal each' : '') + '</p>' +
+          (r.description ? '<p class="lar-p lar-quiet">' + esc(r.description) + '</p>' : '') +
+        '</a>';
+      });
+      out += '</div>';
+    }
+    return out + '</section>';
+  }
+
+  function viewRecipe(id) {
+    var r = L.Recipes.get(id);
+    if (!r) {
+      return '<section class="lar-section lar-rvl">' +
+        emptyState('That recipe is gone', 'It may have been deleted on another device.',
+          '<a class="lar-btn lar-btn--sm" href="#/recipes">Back to recipes</a>') + '</section>';
+    }
+    var ings = L.RecipeIngredients.list()
+      .filter(function (x) { return x.recipeId === r.id; })
+      .sort(function (a, b) { return a.order - b.order; });
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += '<a class="lar-back" href="#/recipes">&larr; Recipes</a>';
+    out += '<h1 class="lar-h1" style="margin:var(--lar-s2) 0 var(--lar-s3)">' + esc(r.title) + '</h1>';
+    if (r.description) out += '<p class="lar-p" style="max-width:60ch">' + esc(r.description) + '</p>';
+
+    out += '<div class="lar-facts">' +
+      fact('Prep', r.prepTimeMin ? r.prepTimeMin + ' min' : '—') +
+      fact('Cook', r.cookTimeMin ? r.cookTimeMin + ' min' : '—') +
+      fact('Servings', String(r.servings)) +
+      fact('Per serving', r.kcal ? U.num(r.kcal) + ' cal' : '—') +
+      fact('Protein', r.protein ? U.grams(r.protein) : '—') +
+    '</div>';
+
+    out += '<div class="lar-meal__acts" style="margin:var(--lar-s3) 0">' +
+      '<button class="lar-btn lar-btn--go lar-btn--sm" data-act="recipe-log" data-id="' + esc(r.id) + '">Log a serving</button>' +
+      '<button class="lar-btn lar-btn--sm" data-act="recipe-plan" data-id="' + esc(r.id) + '">Add to meal plan</button>' +
+      '<button class="lar-btn lar-btn--sm" data-act="recipe-to-grocery" data-id="' + esc(r.id) + '">Ingredients to list</button>' +
+      '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="recipe-edit" data-id="' + esc(r.id) + '">Edit</button>' +
+    '</div>';
+
+    out += '<div class="lar-split">';
+    out += '<div><h2 class="lar-h2">Ingredients</h2>';
+    if (!ings.length) out += '<p class="lar-p lar-quiet">None listed.</p>';
+    else {
+      out += '<ul class="lar-ings">';
+      ings.forEach(function (x) {
+        out += '<li><span class="lar-num lar-ings__amt">' +
+          esc(String(x.amount)) + (x.unit ? ' ' + esc(x.unit) : '') + '</span>' + esc(x.name) + '</li>';
+      });
+      out += '</ul>';
+    }
+    out += '</div>';
+
+    out += '<div><h2 class="lar-h2">Method</h2>';
+    if (!r.steps.length) out += '<p class="lar-p lar-quiet">No steps written yet.</p>';
+    else {
+      // Numbered because a method genuinely IS a sequence — the
+      // order carries information the cook needs.
+      out += '<ol class="lar-steps">';
+      r.steps.forEach(function (s) { out += '<li>' + escLines(s.text) + '</li>'; });
+      out += '</ol>';
+    }
+    out += '</div></div>';
+
+    if (r.notes) out += '<h2 class="lar-h2" style="margin-top:var(--lar-s4)">Notes</h2>' +
+      '<p class="lar-p">' + escLines(r.notes) + '</p>';
+    return out + '</section>';
+  }
+
+  function fact(label, value) {
+    return '<div class="lar-fact"><span class="lar-fact__k">' + esc(label) + '</span>' +
+      '<span class="lar-fact__v lar-num">' + esc(value) + '</span></div>';
+  }
+
+  // ==========================================================
+  // PLAN — the week. Kept separate from today's logging on
+  // purpose: deciding what to eat and recording what you ate are
+  // different jobs and mixing them makes both worse.
+  // ==========================================================
+  function viewPlan() {
+    var plan = L._store.get(L.KEYS.plan) || {};
+    var start = U.todayISO();
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Meal plan', 'Next 7 days');
+    out += '<div class="lar-week">';
+    for (var n = 0; n < 7; n++) {
+      var date = U.addDays(start, n);
+      var row = plan[date] || {};
+      out += '<div class="lar-day' + (n === 0 ? ' is-today' : '') + '">' +
+        '<p class="lar-eyebrow">' + esc(U.dateLabel(date)) + '</p>';
+      ['breakfast', 'lunch', 'dinner'].forEach(function (slot) {
+        var v = row[slot];
+        out += '<button class="lar-day__slot" data-act="plan-set" ' +
+          'data-date="' + date + '" data-slot="' + slot + '">' +
+          '<span class="lar-day__slotname">' + esc(L.SLOT_LABELS[slot]) + '</span>' +
+          '<span class="lar-day__what' + (v && v.label ? '' : ' lar-quiet') + '">' +
+            esc(v && v.label ? v.label : 'Add') + '</span>' +
+        '</button>';
+      });
+      out += '</div>';
+    }
+    out += '</div></section>';
+    return out;
+  }
+
+  // ==========================================================
+  // GROCERY — carried over from the old page, grouped by store.
+  // ==========================================================
+  // ==========================================================
+  // GROCERY
+  //
+  // A PERMANENT STAPLE LIST with a per-trip tick state. Ticking
+  // hides an item; it never deletes it. Reset un-ticks everything
+  // and the whole list comes back for the next shop. See
+  // larder-data.js section GROCERY for why, and for what this
+  // replaces.
+  //
+  // The banner is not decoration. A list that empties as you tick
+  // looks exactly like a list that is deleting things, and the
+  // only difference a reader can see is the sentence that says
+  // where the ticked ones went.
+  // ==========================================================
+  function viewGrocery() {
+    var all = L.GroceryItems.list();
+    var groups = L.groceryByStore();
+    var left = L.groceryRemaining().length;
+    var ticked = L.groceryCheckedCount();
+    var stores = L.Stores.list().slice().sort(function (a, b) { return a.order - b.order; });
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Grocery list', left + ' ' + U.plural(left, 'item') + ' to buy');
+
+    out += '<form class="lar-toolbar" id="larGroceryForm" onsubmit="return false">' +
+      '<input class="lar-input" id="larGroName" placeholder="Add an item" autocomplete="off">' +
+      '<input class="lar-input lar-num lar-input--qty" id="larGroQty" type="number" ' +
+        'inputmode="decimal" min="0" step="1" value="1" aria-label="Quantity">' +
+      '<select class="lar-select lar-select--store" id="larGroStore" aria-label="Store">' +
+        '<option value="">No store</option>' +
+        stores.map(function (s) {
+          return '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>';
+        }).join('') +
+      '</select>' +
+      '<button class="lar-btn lar-btn--go" type="button" data-act="grocery-add">Add</button>' +
+    '</form>';
+
+    if (ticked) {
+      out += '<div class="lar-banner">' +
+        '<span><span class="lar-num">' + ticked + '</span> ' +
+          esc(U.plural(ticked, 'item')) + ' ticked off — they are kept, not deleted.</span>' +
+        '<button class="lar-btn lar-btn--sm lar-btn--go" data-act="grocery-reset">Reset list</button>' +
+      '</div>';
+    }
+
+    if (!all.length) {
+      out += emptyState('Nothing on the list yet',
+        'Add something above, or send a meal’s ingredients here from Meals or Recipes.');
+      return out + '</section>';
+    }
+    if (!groups.length) {
+      out += emptyState('All ticked off',
+        'Everything is bought. Reset the list to bring it all back for the next shop.',
+        '<button class="lar-btn lar-btn--sm lar-btn--go" data-act="grocery-reset">Reset list</button>');
+      return out + '</section>';
+    }
+
+    // One aisle at a time. Headings collapse so a long list in a
+    // shop shows the store you are standing in and nothing else;
+    // the state is in memory only, so opening the page fresh
+    // always shows everything.
+    groups.forEach(function (g) {
+      var key = g.id || 'anywhere';
+      var open = !collapsedStores[key];
+      out += '<div class="lar-shelf">' +
+        '<button class="lar-shelf__head" data-act="shelf-toggle" data-store="' + esc(key) + '" ' +
+          'aria-expanded="' + (open ? 'true' : 'false') + '">' +
+          '<span class="lar-shelf__caret' + (open ? ' is-open' : '') + '" aria-hidden="true">&rsaquo;</span>' +
+          (g.color ? '<span class="lar-shelf__dot" style="background:' + esc(g.color) + '"></span>' : '') +
+          '<span class="lar-shelf__name">' + esc(g.name) + '</span>' +
+          '<span class="lar-shelf__count lar-num">' + g.rows.length + '</span>' +
+        '</button>';
+      if (open) {
+        out += '<ul class="lar-list">';
+        g.rows.forEach(function (x) {
+          out += '<li class="lar-item">' +
+            '<button class="lar-item__tick" data-act="grocery-toggle" data-id="' + esc(x.id) + '" ' +
+              'aria-pressed="false" aria-label="Tick off ' + esc(x.name) + '"></button>' +
+            '<span class="lar-item__name">' + esc(x.name) +
+              (x.quantity && x.quantity !== 1 ? ' <span class="lar-quiet lar-num">' +
+                U.dec(x.quantity) + (x.unit ? ' ' + esc(x.unit) : '') + '</span>' : '') +
+              (x.fromMealId || x.fromRecipeId ? '<span class="lar-item__from">' +
+                esc(groceryOrigin(x)) + '</span>' : '') +
+            '</span>' +
+            '<button class="lar-item__rm" data-act="grocery-del" data-id="' + esc(x.id) + '" ' +
+              'aria-label="Delete ' + esc(x.name) + ' from the list">&times;</button>' +
+          '</li>';
+        });
+        out += '</ul>';
+      }
+      out += '</div>';
+    });
+
+    out += '<div class="lar-meal__acts" style="margin-top:var(--lar-s3)">' +
+      (ticked ? '<button class="lar-btn lar-btn--sm lar-btn--go" data-act="grocery-reset">Reset list</button>' : '') +
+      '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="store-new">Add a store</button>' +
+      '<a class="lar-btn lar-btn--sm lar-btn--ghost" href="#/data">Backup and restore</a>' +
+    '</div>';
+    return out + '</section>';
+  }
+
+  /** "from Chicken Rice Bowl" — where an auto-added item came from. */
+  function groceryOrigin(x) {
+    var m = x.fromMealId && L.Meals.get(x.fromMealId);
+    if (m) return 'from ' + m.name;
+    var r = x.fromRecipeId && L.Recipes.get(x.fromRecipeId);
+    if (r) return 'from ' + r.title;
+    return '';
+  }
+
+  // ==========================================================
+  // PROGRESS — trends, not verdicts.
+  //
+  // The migrated pal:days history has no entries behind it, only
+  // totals, so those days are drawn differently. Pretending they
+  // are the same as a logged day would be a lie in the picture.
+  // ==========================================================
+  function viewProgress() {
+    var g = L.getTargets();
+    var days = [];
+    var t = U.todayISO();
+    for (var n = 29; n >= 0; n--) {
+      var date = U.addDays(t, -n);
+      days.push({ date: date, totals: L.totalsFor(date), day: L.getDay(date) });
+    }
+    var logged = days.filter(function (d) { return d.totals.kcal > 0; });
+    var avg = function (pick) {
+      if (!logged.length) return 0;
+      return Math.round(logged.reduce(function (s, d) { return s + pick(d); }, 0) / logged.length);
+    };
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Last 30 days', logged.length + ' ' + U.plural(logged.length, 'day') + ' with a record');
+
+    if (!logged.length) {
+      out += emptyState('Nothing to show yet',
+        'Log a few days and the shape of them turns up here.');
+      return out + '</section>';
+    }
+
+    out += '<div class="lar-today__measures lar-card" style="margin-bottom:var(--lar-s3)">' +
+      measure('Average calories', avg(function (d) { return d.totals.kcal; }), g.kcal) +
+      measure('Average protein', avg(function (d) { return d.totals.protein; }), g.protein, 'g') +
+      measure('Average water', U.mlToUnit(avg(function (d) { return d.day.water; }), g.waterUnit),
+              U.mlToUnit(g.waterMl, g.waterUnit), g.waterUnit) +
+    '</div>';
+
+    // A plain column chart. Height is the day's calories against
+    // target; a legacy day is hatched rather than solid.
+    var max = Math.max(g.kcal, days.reduce(function (m, d) { return Math.max(m, d.totals.kcal); }, 0)) || 1;
+    out += '<div class="lar-chart" role="img" aria-label="Calories over the last thirty days">';
+    days.forEach(function (d) {
+      var h = Math.round(d.totals.kcal / max * 100);
+      var isLegacy = !!d.day.legacy && !L.logFor(d.date).length;
+      out += '<div class="lar-chart__col" title="' + esc(U.dateLabel(d.date)) + ': ' +
+        U.num(d.totals.kcal) + ' cal">' +
+        '<div class="lar-chart__bar' + (isLegacy ? ' is-legacy' : '') + '" style="height:' + h + '%"></div>' +
+      '</div>';
+    });
+    out += '</div>';
+    out += '<div class="lar-chart__key">' +
+      '<span><i class="lar-chart__swatch"></i>Logged here</span>' +
+      '<span><i class="lar-chart__swatch is-legacy"></i>Recorded in the Palaestra</span>' +
+      '<span><i class="lar-chart__swatch is-target"></i>Target ' + U.num(g.kcal) + '</span>' +
+    '</div>';
+    return out + '</section>';
+  }
+
+  // ==========================================================
+  // KEPT — favourites, swept across every collection.
+  // ==========================================================
+  function viewKept() {
+    var meals = L.Meals.list().filter(function (x) { return x.isFavorite; });
+    var foods = L.Foods.list().filter(function (x) { return x.isFavorite; });
+    var recipes = L.Recipes.list().filter(function (x) { return x.isFavorite; });
+    var total = meals.length + foods.length + recipes.length;
+
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Kept', total + ' kept');
+    if (!total) {
+      out += emptyState('Nothing kept yet',
+        'Mark a meal, a food or a recipe and it collects here, one tap from being logged.');
+      return out + '</section>';
+    }
+    if (meals.length || foods.length) {
+      out += '<div class="lar-quick" style="margin-bottom:var(--lar-s4)">';
+      meals.forEach(function (x) {
+        out += '<button class="lar-quick__item lar-quick__item--meal" data-act="meal-log" data-id="' + esc(x.id) + '">' +
+          '<span class="lar-quick__name">' + esc(x.name) + '</span>' +
+          '<span class="lar-quick__sub lar-num">' + macroLine(L.mealTotals(x)) + '</span></button>';
+      });
+      foods.forEach(function (f) {
+        out += '<button class="lar-quick__item" data-act="food-open" data-id="' + esc(f.id) + '">' +
+          '<span class="lar-quick__name">' + esc(f.name) + '</span>' +
+          '<span class="lar-quick__sub lar-num">' + U.dec(f.defaultAmount) + ' ' +
+            esc(U.unitLabel(f.unit, f.defaultAmount)) + '</span></button>';
+      });
+      out += '</div>';
+    }
+    if (recipes.length) {
+      out += '<h2 class="lar-h2" style="margin-bottom:var(--lar-s2)">Recipes</h2><div class="lar-cards">';
+      recipes.forEach(function (r) {
+        out += '<a class="lar-card lar-recipe" href="#/recipes/' + esc(r.id) + '">' +
+          '<h3 class="lar-h3">' + esc(r.title) + '</h3>' +
+          '<p class="lar-recipe__meta lar-num">' + r.servings + ' ' + U.plural(r.servings, 'serving') +
+            (r.kcal ? ' &middot; ' + U.num(r.kcal) + ' cal each' : '') + '</p></a>';
+      });
+      out += '</div>';
+    }
+    return out + '</section>';
+  }
+
+  // ==========================================================
+  // OFF-NAV
+  // ==========================================================
+  function viewTargets() {
+    var g = L.getTargets();
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Nutrition goals', '');
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:56ch">' +
+      'Change these whenever they stop fitting. Nothing here is a contract.</p>';
+    out += '<form class="lar-card lar-form" id="larTargets">';
+    [['kcal', 'Calories', ''], ['protein', 'Protein', 'g'], ['carbs', 'Carbs', 'g'],
+     ['fat', 'Fat', 'g'], ['fibre', 'Fibre', 'g']].forEach(function (f) {
+      out += '<div class="lar-field"><label class="lar-label" for="larT_' + f[0] + '">' +
+        esc(f[1]) + (f[2] ? ' (' + f[2] + ')' : '') + '</label>' +
+        '<input class="lar-input lar-num" id="larT_' + f[0] + '" type="number" inputmode="numeric" ' +
+        'min="0" value="' + g[f[0]] + '"></div>';
+    });
+    out += '<div class="lar-field"><label class="lar-label" for="larT_water">Water (' +
+      esc(g.waterUnit) + ')</label>' +
+      '<input class="lar-input lar-num" id="larT_water" type="number" inputmode="numeric" min="0" ' +
+      'value="' + Math.round(U.mlToUnit(g.waterMl, g.waterUnit)) + '"></div>';
+    out += '<div class="lar-field"><label class="lar-label" for="larT_unit">Water unit</label>' +
+      '<select class="lar-select" id="larT_unit">' +
+        '<option value="oz"' + (g.waterUnit === 'oz' ? ' selected' : '') + '>Fluid ounces</option>' +
+        '<option value="ml"' + (g.waterUnit === 'ml' ? ' selected' : '') + '>Millilitres</option>' +
+      '</select></div>';
+    out += '<div class="lar-field"><label class="lar-label" for="larT_steps">Water buttons</label>' +
+      '<input class="lar-input lar-num" id="larT_steps" value="' + g.waterSteps.join(', ') + '"></div>';
+    out += '<div class="lar-field"><label class="lar-label" for="larT_veg">Vegetables a day</label>' +
+      '<input class="lar-input lar-num" id="larT_veg" type="number" min="0" value="' + g.vegTarget + '"></div>';
+    out += '<div class="lar-field"><label class="lar-label" for="larT_fruit">Fruit a day</label>' +
+      '<input class="lar-input lar-num" id="larT_fruit" type="number" min="0" value="' + g.fruitTarget + '"></div>';
+    out += '</form>';
+    out += '<button class="lar-btn lar-btn--go" data-act="targets-save" ' +
+      'style="margin-top:var(--lar-s3)">Save goals</button>';
+    return out + '</section>';
+  }
+
+  function viewSupplements() {
+    var rows = L.Supplements.list();
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Supplements', rows.length + ' tracked');
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:56ch">' +
+      'A plain log, not a system. Three slots, ticked on Today or not.</p>';
+    out += '<button class="lar-btn lar-btn--go" data-act="supp-new" ' +
+      'style="margin-bottom:var(--lar-s3)">' + mark('plus') + ' Add a supplement</button>';
+    if (!rows.length) {
+      out += emptyState('Nothing tracked', 'Add what you actually take and it appears on Today.');
+      return out + '</section>';
+    }
+    L.SUPPLEMENT_SLOTS.forEach(function (slot) {
+      var inSlot = rows.filter(function (s) { return s.slot === slot; });
+      if (!inSlot.length) return;
+      out += '<div class="lar-shelf"><p class="lar-eyebrow">' + esc(slotLabel(slot)) + '</p><ul class="lar-list">';
+      inSlot.forEach(function (s) {
+        out += '<li class="lar-item">' +
+          '<span class="lar-item__name">' + esc(s.name) +
+            (s.dose ? ' <span class="lar-quiet">' + esc(s.dose) + '</span>' : '') + '</span>' +
+          '<button class="lar-item__rm" data-act="supp-del" data-id="' + esc(s.id) + '" ' +
+            'aria-label="Remove ' + esc(s.name) + '">&times;</button></li>';
+      });
+      out += '</ul></div>';
+    });
+    return out + '</section>';
+  }
+
+  function viewNotes() {
+    var rows = L.Notes.list().slice().sort(function (a, b) {
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Notes', rows.length + ' ' + U.plural(rows.length, 'note'));
+    out += '<button class="lar-btn lar-btn--go" data-act="note-open" ' +
+      'style="margin-bottom:var(--lar-s3)">' + mark('plus') + ' New note</button>';
+    if (!rows.length) {
+      out += emptyState('No notes', 'Meal ideas, foods that worked, things to try.');
+      return out + '</section>';
+    }
+    out += '<div class="lar-cards">';
+    rows.forEach(function (n) {
+      out += '<article class="lar-card lar-note">' +
+        '<p class="lar-p">' + escLines(n.text) + '</p>' +
+        '<div class="lar-note__foot"><span class="lar-quiet lar-num">' + esc(U.dateLabel(n.createdAt)) + '</span>' +
+        '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="note-del" data-id="' + esc(n.id) + '">Delete</button>' +
+        '</div></article>';
+    });
+    return out + '</div></section>';
+  }
+
+  function viewData() {
+    var snaps = window.LarBackup ? window.LarBackup.list() : [];
+    var st = window.LarBackup ? window.LarBackup.stats() : { count: 0, bytes: 0 };
+    var out = '<section class="lar-section lar-rvl">';
+    out += sectionHead('Backup and data', st.count + ' ' + U.plural(st.count, 'snapshot'));
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:60ch">' +
+      'Snapshots are local to this device and live outside the sync, so a bad push ' +
+      'cannot reach them. Restoring is always your decision — nothing here happens on its own.</p>';
+    out += '<div class="lar-meal__acts" style="margin-bottom:var(--lar-s4)">' +
+      '<button class="lar-btn lar-btn--go lar-btn--sm" data-act="data-download">Download a backup file</button>' +
+      '<button class="lar-btn lar-btn--sm" data-act="data-snapshot">Take a snapshot now</button>' +
+    '</div>';
+    // ---- the grocery list, on its own -------------------------
+    //
+    // A whole-app rollback is the wrong tool for "I lost my
+    // shopping list": it would take the food log back with it.
+    // This restores the grocery keys ONLY, merges by name rather
+    // than replacing, and reads snapshots taken before the
+    // 2026-08-26 migration as well as after — those hold the
+    // items under `nutrition:groceryItems`, and the migration
+    // that would have moved them across is already stamped done.
+    var groc = L.groceryInSnapshots();
+    out += '<h2 class="lar-h2" style="margin-bottom:var(--lar-s2)">Grocery list</h2>';
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:60ch">' +
+      'Every snapshot that still holds a shopping list, newest first. Restoring adds ' +
+      'back anything missing and leaves everything else alone, so it is safe to run twice.</p>';
+    if (!groc.length) {
+      out += emptyState('No grocery lists in any snapshot',
+        'Snapshots that held one would be listed here.');
+    } else {
+      out += '<ul class="lar-list" style="margin-bottom:var(--lar-s4)">';
+      groc.slice(0, 12).forEach(function (s) {
+        out += '<li class="lar-item">' +
+          '<span class="lar-item__name"><span class="lar-num">' + s.items + '</span> ' +
+            esc(U.plural(s.items, 'item')) +
+            '<span class="lar-quiet"> &middot; ' + esc(s.reason) +
+              (s.fromOldKey ? ' &middot; pre-migration' : '') + '</span>' +
+            '<span class="lar-item__from lar-num">' +
+              esc(new Date(s.at).toLocaleString()) + '</span></span>' +
+          '<button class="lar-btn lar-btn--sm lar-btn--go" data-act="grocery-restore" ' +
+            'data-id="' + esc(s.id) + '">Restore these</button></li>';
+      });
+      out += '</ul>';
+    }
+
+    // ---- ticked items, deleted for good -----------------------
+    var ticked = L.groceryCheckedCount();
+    if (ticked) {
+      out += '<div class="lar-meal__acts" style="margin-bottom:var(--lar-s4)">' +
+        '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="grocery-purge">' +
+          'Delete the ' + ticked + ' ticked ' + esc(U.plural(ticked, 'item')) + ' for good</button>' +
+      '</div>';
+    }
+
+    // ---- whole-app snapshots ----------------------------------
+    out += '<h2 class="lar-h2" style="margin-bottom:var(--lar-s2)">Everything</h2>';
+    if (!snaps.length) {
+      out += emptyState('No snapshots yet', 'One is taken every time you open the page.');
+      return out + '</section>';
+    }
+    out += '<p class="lar-p lar-quiet" style="margin-bottom:var(--lar-s3);max-width:60ch">' +
+      'A full rollback replaces foods, meals, recipes and the food log as well. ' +
+      'The state it replaces is itself snapshotted first.</p>';
+    out += '<ul class="lar-list">';
+    snaps.slice(0, 12).forEach(function (s) {
+      var when = new Date(s.at);
+      out += '<li class="lar-item">' +
+        '<span class="lar-item__name">' + esc(s.reason) +
+          (s.pinned ? '<span class="lar-quiet"> &middot; kept</span>' : '') +
+          '<span class="lar-item__from lar-num">' + esc(when.toLocaleString()) + '</span></span>' +
+        '<button class="lar-btn lar-btn--sm lar-btn--ghost" data-act="data-restore" ' +
+          'data-id="' + esc(s.id) + '">Restore all</button></li>';
+    });
+    return out + '</ul></section>';
+  }
+
+  // ==========================================================
+  // RENDER / REFRESH / REPAINT / NAVIGATE
+  //
+  // Four entry points and they are NOT interchangeable.
+  //
+  //   navigate()  hashchange only. May scroll, may replay intro.
+  //   refresh()   this page's own actions. Renders, never scrolls.
+  //   repaint()   the cloud. Renders only if safeToRepaint().
+  //
+  // A RE-RENDER MUST NEVER SCROLL. This page repaints more than
+  // any other in the dashboard — every water tap, every logged
+  // food, every phone in another room — so the rule that was
+  // learned elsewhere matters more here than anywhere.
+  // ==========================================================
+  function render() {
+    var r = current();
+    var intro = U.introAttrs();
+    root.className = 'lar-shell' + intro.cls;
+    root.setAttribute('data-tint', r.tint);
+
+    var body;
+    switch (r.hash) {
+      case '/meals':       body = viewMeals(); break;
+      case '/foods':       body = viewFoods(); break;
+      case '/recipes':     body = viewRecipes(); break;
+      case '/plan':        body = viewPlan(); break;
+      case '/grocery':     body = viewGrocery(); break;
+      case '/progress':    body = viewProgress(); break;
+      case '/kept':        body = viewKept(); break;
+      case '/targets':     body = viewTargets(); break;
+      case '/supplements': body = viewSupplements(); break;
+      case '/notes':       body = viewNotes(); break;
+      case '/data':        body = viewData(); break;
+      default:             body = viewToday();
+    }
+    root.innerHTML = body;
+
+    if (intro.style) root.setAttribute('style', intro.style.replace(/^ style="|"$/g, ''));
+    else root.removeAttribute('style');
+
+    renderRoutes(r);
+    bindFoodSearch();
+    if (window.LarHero) window.LarHero.render(r);
+  }
+
+  function refresh() { render(); }
+
+  function repaint() {
+    if (!U.safeToRepaint()) return;
+    render();
+  }
+
+  function navigate() {
+    var r = current();
+    var changed = r.hash !== shownRoute;
+    if (changed) {
+      U.introArrive();
+      shownRoute = r.hash;
+      // Every route resets the sub-state it owns. Coming back to
+      // a screen should not find last week's filter applied.
+      if (r.hash !== '/') { openSlot = ''; suggestTag = ''; }
+      if (r.hash !== '/meals') mealCat = '';
+      if (r.hash !== '/foods') foodQuery = '';
+      if (r.hash !== '/recipes') recipeTag = '';
+    }
+    render();
+
+    // Navigation goes to the TOP, and nowhere else.
+    //
+    // This used to scroll past the hero on every inner route,
+    // from when the hero was full-height everywhere and standing
+    // in front of the content. The inner routes carry a short
+    // band now, which is the thing that tells you which screen
+    // you are on — scrolling past it on arrival threw that away
+    // and jumped the page on every single navigation.
+    //
+    // Only on a real route change, and never on a repaint: a
+    // re-render must not scroll. That rule is why this is here
+    // and not in render().
+    if (changed && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: U.reducedMotion() ? 'auto' : 'smooth' });
+    }
+  }
+
+  function renderRoutes(r) {
+    var nav = document.getElementById('larRoutes');
+    if (!nav) return;
+    var half = Math.ceil(ROUTES.length / 2);
+    function link(x) {
+      return '<a class="lar-route' + (x.hash === r.hash ? ' is-on' : '') + '" href="#' + x.hash + '"' +
+        (x.hash === r.hash ? ' aria-current="page"' : '') + '>' + esc(x.label) + '</a>';
+    }
+    nav.innerHTML = '<div class="lar-nav__in">' +
+      ROUTES.slice(0, half).map(link).join('') +
+      '<a class="lar-nav__mark" href="#/">' + mark('jar') + 'The Larder</a>' +
+      ROUTES.slice(half).map(link).join('') +
+      '<button class="lar-route" data-act="more-open" aria-label="More screens">&hellip;</button>' +
+    '</div>';
+  }
+
+  // ==========================================================
+  // ACTIONS — one map, dispatched by the delegated listener.
+  // ==========================================================
+  var ACTIONS = {};
+
+  ACTIONS['more-open'] = function () {
+    var html = '<div class="lar-sheet__head"><h2 class="lar-h2">More</h2>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<div class="lar-more">';
+    MORE.forEach(function (x) {
+      html += '<a class="lar-card lar-more__item" href="#' + x.hash + '" data-act="sheet-go" ' +
+        'data-hash="' + esc(x.hash) + '" data-tint="' + x.tint + '">' + mark('dots') +
+        '<span>' + esc(x.label) + '</span></a>';
+    });
+    html += '</div>';
+    U.openSheet(html);
+  };
+  ACTIONS['sheet-go'] = function (el) {
+    U.closeSheet();
+    go(el.getAttribute('data-hash'));
+  };
+  ACTIONS['sheet-close'] = function () { U.closeSheet(); };
+
+  ACTIONS['slot-toggle'] = function (el) {
+    var slot = el.getAttribute('data-slot');
+    openSlot = (openSlot === slot) ? '' : slot;
+    refresh();
+  };
+
+  ACTIONS['entry-remove'] = function (el) {
+    L.removeEntry(L.today(), el.getAttribute('data-id'));
+    U.toast('Removed');
+    refresh();
+  };
+
+  ACTIONS['water-add'] = function (el) {
+    var g = L.getTargets();
+    var amount = Number(el.getAttribute('data-amount')) || 0;
+    L.addWaterMl(L.today(), U.unitToMl(amount, g.waterUnit));
+    refresh();
+  };
+
+  ACTIONS['supp-toggle'] = function (el) {
+    L.toggleSupplement(L.today(), el.getAttribute('data-id'));
+    refresh();
+  };
+
+  ACTIONS['suggest'] = function (el) {
+    var tag = el.getAttribute('data-tag');
+    suggestTag = (suggestTag === tag) ? '' : tag;
+    refresh();
+  };
+
+  ACTIONS['meal-log'] = function (el) {
+    var meal = L.Meals.get(el.getAttribute('data-id'));
+    if (!meal) return;
+    var t = L.mealTotals(meal);
+    L.addEntry(L.today(), {
+      slot: el.getAttribute('data-slot') || guessSlot(),
+      kind: 'meal', refId: meal.id, label: meal.name,
+      amount: 1, unit: 'serving', servings: 1,
+      kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat, fibre: t.fibre,
+      group: 'other'
+    });
+    U.toast('Logged ' + meal.name);
+    refresh();
+  };
+
+  /** Which slot an untargeted log belongs to, by the clock. */
+  function guessSlot() {
+    var h = new Date().getHours();
+    if (h < 11) return 'breakfast';
+    if (h < 15) return 'lunch';
+    if (h < 21) return 'dinner';
+    return 'snacks';
+  }
+
+  // ---- the amount stepper --------------------------------
+  // The sheet updates its own numbers in place rather than
+  // re-rendering, because re-opening the sheet on every tap of
+  // [+] would throw away focus and replay its entrance.
+  var stepState = null;
+
+  ACTIONS['food-open'] = function (el) {
+    var food = L.Foods.get(el.getAttribute('data-id'));
+    if (!food) return;
+    stepState = { food: food, amount: food.defaultAmount, slot: el.getAttribute('data-slot') || guessSlot() };
+    U.openSheet(stepperHtml());
+  };
+
+  function stepperHtml() {
+    var f = stepState.food;
+    var t = L.foodAt(f, stepState.amount);
+    return '<div class="lar-sheet__head">' +
+        '<div><p class="lar-eyebrow">Add food</p><h2 class="lar-h2">' + esc(f.name) + '</h2></div>' +
+        '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button>' +
+      '</div>' +
+      '<div class="lar-stepper">' +
+        '<button class="lar-stepper__btn" data-act="step" data-dir="-1" aria-label="Less">&minus;</button>' +
+        '<div class="lar-stepper__amount">' +
+          '<span class="lar-num" id="larStepAmount">' + U.dec(stepState.amount) + '</span> ' +
+          '<span class="lar-quiet" id="larStepUnit">' +
+            esc(U.unitLabel(f.unit, stepState.amount)) + '</span>' +
+        '</div>' +
+        '<button class="lar-stepper__btn" data-act="step" data-dir="1" aria-label="More">+</button>' +
+      '</div>' +
+      '<div class="lar-stepper__macros lar-num" id="larStepMacros">' + macroLine(t) + '</div>' +
+      '<div class="lar-slotpick" role="group" aria-label="Which meal">' +
+        L.SLOTS.map(function (s) {
+          return '<button class="lar-chip' + (stepState.slot === s ? ' is-on' : '') + '" ' +
+            'data-act="step-slot" data-slot="' + s + '">' + esc(L.SLOT_LABELS[s]) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="step-add" style="margin-top:var(--lar-s3)">Add</button>';
+  }
+
+  ACTIONS['step'] = function (el) {
+    if (!stepState) return;
+    var f = stepState.food;
+    var dir = Number(el.getAttribute('data-dir')) || 0;
+    stepState.amount = Math.max(f.step, Math.round((stepState.amount + dir * f.step) * 100) / 100);
+    var a = document.getElementById('larStepAmount');
+    var u = document.getElementById('larStepUnit');
+    var m = document.getElementById('larStepMacros');
+    if (a) a.textContent = U.dec(stepState.amount);
+    if (u) u.textContent = U.unitLabel(f.unit, stepState.amount);
+    if (m) m.innerHTML = macroLine(L.foodAt(f, stepState.amount));
+  };
+  ACTIONS['step-slot'] = function (el) {
+    if (!stepState) return;
+    stepState.slot = el.getAttribute('data-slot');
+    U.sheetEl().innerHTML = stepperHtml();
+  };
+  ACTIONS['step-add'] = function () {
+    if (!stepState) return;
+    var f = stepState.food;
+    var t = L.foodAt(f, stepState.amount);
+    L.addEntry(L.today(), {
+      slot: stepState.slot, kind: 'food', refId: f.id, label: f.name,
+      amount: stepState.amount, unit: f.unit, servings: 1,
+      kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat, fibre: t.fibre,
+      group: f.group
+    });
+    U.closeSheet();
+    U.toast('Logged ' + f.name);
+    stepState = null;
+    refresh();
+  };
+
+  // ---- log food: the picker ------------------------------
+  ACTIONS['log-open'] = function (el) {
+    var slot = el.getAttribute('data-slot') || guessSlot();
+    var meals = L.Meals.list();
+    var foods = L.Foods.list();
+    var html = '<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">' + esc(L.SLOT_LABELS[slot]) + '</p>' +
+      '<h2 class="lar-h2">Log food</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>';
+    if (meals.length) {
+      html += '<p class="lar-label">Saved meals</p><div class="lar-quick">';
+      meals.slice(0, 8).forEach(function (x) {
+        html += '<button class="lar-quick__item lar-quick__item--meal" data-act="meal-log" ' +
+          'data-id="' + esc(x.id) + '" data-slot="' + slot + '">' +
+          '<span class="lar-quick__name">' + esc(x.name) + '</span>' +
+          '<span class="lar-quick__sub lar-num">' + macroLine(L.mealTotals(x)) + '</span></button>';
+      });
+      html += '</div>';
+    }
+    html += '<p class="lar-label" style="margin-top:var(--lar-s3)">Foods</p><div class="lar-quick">';
+    foods.slice(0, 40).forEach(function (f) {
+      html += '<button class="lar-quick__item" data-act="food-open" ' +
+        'data-id="' + esc(f.id) + '" data-slot="' + slot + '">' +
+        '<span class="lar-quick__name">' + esc(f.name) + '</span>' +
+        '<span class="lar-quick__sub lar-num">' + U.dec(f.defaultAmount) + ' ' + esc(f.unit) + '</span></button>';
+    });
+    html += '</div>';
+    U.openSheet(html);
+  };
+
+  // ---- water, custom -------------------------------------
+  ACTIONS['water-open'] = function () {
+    var g = L.getTargets();
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Water</p><h2 class="lar-h2">Add an amount</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<label class="lar-label" for="larWaterAmt">Amount in ' + esc(g.waterUnit) + '</label>' +
+      '<input class="lar-input lar-num" id="larWaterAmt" type="number" inputmode="decimal" ' +
+        'min="1" step="1" value="' + g.waterSteps[0] + '" data-autofocus>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="water-save" ' +
+        'style="margin-top:var(--lar-s3)">Add water</button>');
+  };
+  ACTIONS['water-save'] = function () {
+    var g = L.getTargets();
+    var el = document.getElementById('larWaterAmt');
+    var amount = Number(el && el.value) || 0;
+    if (amount > 0) L.addWaterMl(L.today(), U.unitToMl(amount, g.waterUnit));
+    U.closeSheet();
+    refresh();
+  };
+
+  // ---- the mode ------------------------------------------
+  ACTIONS['mode-open'] = function () {
+    var date = L.today();
+    var cur = levelKey(date);
+    var chosen = P && P.hasLevel ? P.hasLevel(date) : false;
+    var html = '<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Today</p><h2 class="lar-h2">How much to track</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<p class="lar-p lar-quiet">This is the same answer as the effort level in the Fitness ' +
+      'Studio and on Main, so a day you have already called a low day stays one here.</p>' +
+      '<div class="lar-modes">';
+    ['high', 'mid', 'low'].forEach(function (k) {
+      var m = MODES[k];
+      html += '<button class="lar-card lar-mode' + (cur === k && chosen ? ' is-on' : '') + '" ' +
+        'data-act="mode-set" data-level="' + k + '">' +
+        '<span class="lar-mode__name">' + esc(m.label) + '</span>' +
+        '<span class="lar-mode__blurb">' + esc(m.blurb) + '</span></button>';
+    });
+    html += '</div>';
+    U.openSheet(html);
+  };
+  ACTIONS['mode-set'] = function (el) {
+    if (P && P.setLevel) P.setLevel(L.today(), el.getAttribute('data-level'));
+    U.closeSheet();
+    U.toast('Tracking ' + MODES[el.getAttribute('data-level')].label.toLowerCase());
+    refresh();
+  };
+
+  // ---- a note --------------------------------------------
+  ACTIONS['note-open'] = function () {
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Note</p><h2 class="lar-h2">Jot it down</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<label class="lar-label" for="larNoteText">A meal idea, a food that worked, a reminder</label>' +
+      '<textarea class="lar-textarea" id="larNoteText" data-autofocus></textarea>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="note-save" ' +
+        'style="margin-top:var(--lar-s3)">Save note</button>');
+  };
+  ACTIONS['note-save'] = function () {
+    var el = document.getElementById('larNoteText');
+    var text = (el && el.value || '').trim();
+    if (text) { L.Notes.add({ text: text }); U.toast('Noted'); }
+    U.closeSheet();
+    refresh();
+  };
+
+  // ---- filters -------------------------------------------
+  ACTIONS['meal-cat'] = function (el) {
+    mealCat = el.getAttribute('data-cat') || '';
+    refresh();
+  };
+  ACTIONS['recipe-tag'] = function (el) {
+    recipeTag = el.getAttribute('data-tag') || '';
+    refresh();
+  };
+
+  // ---- favourites, one action for every collection --------
+  var FAV_COLLECTION = { meal: 'Meals', food: 'Foods', recipe: 'Recipes' };
+  ACTIONS['fav'] = function (el) {
+    var kind = el.getAttribute('data-kind');
+    var coll = L[FAV_COLLECTION[kind]];
+    if (!coll) return;
+    var rec = coll.get(el.getAttribute('data-id'));
+    if (!rec) return;
+    coll.update(rec.id, { isFavorite: !rec.isFavorite });
+    refresh();
+  };
+
+  // ---- meals ----------------------------------------------
+  ACTIONS['meal-new'] = function () { openMealSheet(null); };
+
+  function openMealSheet(meal) {
+    var m = meal || { id: '', name: '', category: 'lunch', note: '', components: [], tags: [] };
+    var lines = m.components.map(function (c) {
+      return [c.name, c.amount || '', c.unit || '', c.kcal || '', c.protein || ''].join(' | ');
+    }).join('\n');
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">' + (meal ? 'Edit meal' : 'New meal') + '</p>' +
+      '<h2 class="lar-h2">' + esc(m.name || 'Save a meal') + '</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<input type="hidden" id="larMealId" value="' + esc(m.id) + '">' +
+      '<div class="lar-field"><label class="lar-label" for="larMealName">Name</label>' +
+        '<input class="lar-input" id="larMealName" value="' + esc(m.name) + '" data-autofocus></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larMealCat">Category</label>' +
+        '<select class="lar-select" id="larMealCat">' +
+        L.MEAL_CATEGORIES.map(function (c) {
+          return '<option value="' + c + '"' + (m.category === c ? ' selected' : '') + '>' +
+            esc(tagLabel(c)) + '</option>';
+        }).join('') + '</select></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larMealParts">What is in it</label>' +
+        '<textarea class="lar-textarea" id="larMealParts" ' +
+          'placeholder="One per line:  Chicken breast | 170 | g | 281 | 53">' + esc(lines) + '</textarea>' +
+        '<p class="lar-p lar-quiet" style="font-size:.8rem;margin-top:6px">' +
+          'name | amount | unit | calories | protein. Everything after the name is optional.</p></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larMealTags">Tags</label>' +
+        '<input class="lar-input" id="larMealTags" value="' + esc(m.tags.join(', ')) + '" ' +
+          'placeholder="high-protein, quick"></div>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="meal-save">Save meal</button>');
+  }
+
+  ACTIONS['meal-save'] = function () {
+    var id = (document.getElementById('larMealId') || {}).value || '';
+    var name = ((document.getElementById('larMealName') || {}).value || '').trim();
+    if (!name) { U.toast('Give it a name'); return; }
+    var raw = (document.getElementById('larMealParts') || {}).value || '';
+    var components = raw.split('\n').map(function (line) {
+      var bits = line.split('|').map(function (s) { return s.trim(); });
+      if (!bits[0]) return null;
+      return { name: bits[0], amount: Number(bits[1]) || 0, unit: bits[2] || 'g',
+               kcal: Number(bits[3]) || 0, protein: Number(bits[4]) || 0 };
+    }).filter(Boolean);
+    var patch = {
+      name: name,
+      category: (document.getElementById('larMealCat') || {}).value || 'lunch',
+      components: components,
+      tags: ((document.getElementById('larMealTags') || {}).value || '')
+        .split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean)
+    };
+    if (id) L.Meals.update(id, patch); else L.Meals.add(patch);
+    U.closeSheet();
+    U.toast('Saved');
+    refresh();
+  };
+
+  ACTIONS['meal-del'] = function (el) {
+    var m = L.Meals.get(el.getAttribute('data-id'));
+    if (!m) return;
+    L.Meals.remove(m.id);
+    U.toast('Deleted ' + m.name);
+    refresh();
+  };
+
+  /** A meal's components become grocery items, name-matched so it does not duplicate. */
+  ACTIONS['meal-to-grocery'] = function (el) {
+    var m = L.Meals.get(el.getAttribute('data-id'));
+    if (!m) return;
+    var added = addNamesToGrocery(m.components.map(function (c) {
+      return { name: c.name, quantity: c.amount, unit: c.unit };
+    }), { fromMealId: m.id });
+    U.toast(added ? added + ' added to the list' : 'Already on the list');
+    refresh();
+  };
+  ACTIONS['recipe-to-grocery'] = function (el) {
+    var r = L.Recipes.get(el.getAttribute('data-id'));
+    if (!r) return;
+    var ings = L.RecipeIngredients.list().filter(function (x) { return x.recipeId === r.id; });
+    var added = addNamesToGrocery(ings.map(function (x) {
+      return { name: x.name, quantity: Number(x.amount) || 1, unit: x.unit, foodId: x.foodId };
+    }), { fromRecipeId: r.id });
+    U.toast(added ? added + ' added to the list' : 'Already on the list');
+  };
+
+  /**
+   * Shared by both. Matches on name, case-insensitively, against
+   * items still on the list — adding "Rice" twice because it was
+   * in two meals is how a grocery list stops being trusted.
+   */
+  function addNamesToGrocery(rows, meta) {
+    var have = {};
+    L.GroceryItems.list().forEach(function (x) {
+      if (!x.checked) have[x.name.trim().toLowerCase()] = true;
+    });
+    var n = 0;
+    rows.forEach(function (r) {
+      var key = (r.name || '').trim().toLowerCase();
+      if (!key || have[key]) return;
+      have[key] = true;
+      L.GroceryItems.add(Object.assign({
+        name: r.name, quantity: r.quantity || 1, unit: r.unit || ''
+      }, meta || {}));
+      n++;
+    });
+    return n;
+  }
+
+  // ---- foods -----------------------------------------------
+  ACTIONS['food-new'] = function () { openFoodSheet(null); };
+  ACTIONS['food-edit'] = function (el) { openFoodSheet(L.Foods.get(el.getAttribute('data-id'))); };
+
+  function openFoodSheet(food) {
+    var f = food || L.Models.food({ name: '' });
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">' + (food ? 'Edit food' : 'New food') + '</p>' +
+      '<h2 class="lar-h2">' + esc(f.name || 'Add a food') + '</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<input type="hidden" id="larFoodId" value="' + esc(food ? f.id : '') + '">' +
+      '<div class="lar-field"><label class="lar-label" for="larF_name">Name</label>' +
+        '<input class="lar-input" id="larF_name" value="' + esc(f.name) + '" data-autofocus></div>' +
+      '<div class="lar-grid2">' +
+        '<div class="lar-field"><label class="lar-label" for="larF_per">Macros per</label>' +
+          '<input class="lar-input lar-num" id="larF_per" type="number" inputmode="decimal" ' +
+            'min="0.01" step="any" value="' + f.per + '"></div>' +
+        '<div class="lar-field"><label class="lar-label" for="larF_unit">Unit</label>' +
+          '<select class="lar-select" id="larF_unit">' +
+          L.UNITS.map(function (u) {
+            return '<option value="' + u + '"' + (f.unit === u ? ' selected' : '') + '>' + u + '</option>';
+          }).join('') + '</select></div>' +
+      '</div>' +
+      '<div class="lar-grid2">' +
+        numField('larF_kcal', 'Calories', f.kcal) + numField('larF_protein', 'Protein g', f.protein) +
+        numField('larF_carbs', 'Carbs g', f.carbs) + numField('larF_fat', 'Fat g', f.fat) +
+        numField('larF_fibre', 'Fibre g', f.fibre) + numField('larF_default', 'Usual amount', f.defaultAmount) +
+        numField('larF_step', 'Step by', f.step) +
+      '</div>' +
+      '<div class="lar-field"><label class="lar-label" for="larF_group">Food group</label>' +
+        '<select class="lar-select" id="larF_group">' +
+        L.FOOD_GROUPS.map(function (g) {
+          return '<option value="' + g + '"' + (f.group === g ? ' selected' : '') + '>' +
+            esc(tagLabel(g)) + '</option>';
+        }).join('') + '</select></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larF_tags">Tags</label>' +
+        '<input class="lar-input" id="larF_tags" value="' + esc(f.tags.join(', ')) + '"></div>' +
+      '<label class="lar-check"><input type="checkbox" id="larF_quick"' +
+        (f.isQuick ? ' checked' : '') + '> Show in Quick add</label>' +
+      '<div class="lar-meal__acts" style="margin-top:var(--lar-s3)">' +
+        '<button class="lar-btn lar-btn--go" data-act="food-save">Save food</button>' +
+        (food ? '<button class="lar-btn lar-btn--ghost" data-act="food-del" data-id="' +
+          esc(f.id) + '">Delete</button>' : '') +
+      '</div>');
+  }
+  function numField(id, label, value) {
+    return '<div class="lar-field"><label class="lar-label" for="' + id + '">' + esc(label) + '</label>' +
+      '<input class="lar-input lar-num" id="' + id + '" type="number" inputmode="decimal" ' +
+      'min="0" step="any" value="' + value + '"></div>';
+  }
+  function numVal(id) { var el = document.getElementById(id); return Number(el && el.value) || 0; }
+
+  ACTIONS['food-save'] = function () {
+    var id = (document.getElementById('larFoodId') || {}).value || '';
+    var name = ((document.getElementById('larF_name') || {}).value || '').trim();
+    if (!name) { U.toast('Give it a name'); return; }
+    var patch = {
+      name: name,
+      per: numVal('larF_per') || 100,
+      unit: (document.getElementById('larF_unit') || {}).value || 'g',
+      kcal: numVal('larF_kcal'), protein: numVal('larF_protein'), carbs: numVal('larF_carbs'),
+      fat: numVal('larF_fat'), fibre: numVal('larF_fibre'),
+      defaultAmount: numVal('larF_default') || 100,
+      step: numVal('larF_step') || 10,
+      group: (document.getElementById('larF_group') || {}).value || 'other',
+      tags: ((document.getElementById('larF_tags') || {}).value || '')
+        .split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean),
+      isQuick: !!(document.getElementById('larF_quick') || {}).checked
+    };
+    if (id) L.Foods.update(id, patch); else L.Foods.add(patch);
+    U.closeSheet();
+    U.toast('Saved');
+    refresh();
+  };
+  ACTIONS['food-del'] = function (el) {
+    var f = L.Foods.get(el.getAttribute('data-id'));
+    if (!f) return;
+    // Meals and log entries carry their own copy of the name and
+    // the macros, so this cannot gut either of them.
+    L.Foods.remove(f.id);
+    U.closeSheet();
+    U.toast('Deleted ' + f.name);
+    refresh();
+  };
+
+  // ---- recipes ---------------------------------------------
+  ACTIONS['recipe-new'] = function () { openRecipeSheet(null); };
+  ACTIONS['recipe-edit'] = function (el) { openRecipeSheet(L.Recipes.get(el.getAttribute('data-id'))); };
+
+  function openRecipeSheet(recipe) {
+    var r = recipe || L.Models.recipe({ title: '' });
+    var ings = recipe
+      ? L.RecipeIngredients.list().filter(function (x) { return x.recipeId === r.id; })
+          .sort(function (a, b) { return a.order - b.order; })
+      : [];
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">' + (recipe ? 'Edit recipe' : 'New recipe') + '</p>' +
+      '<h2 class="lar-h2">' + esc(r.title || 'Write a recipe') + '</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<input type="hidden" id="larRecId" value="' + esc(recipe ? r.id : '') + '">' +
+      '<div class="lar-field"><label class="lar-label" for="larR_title">Title</label>' +
+        '<input class="lar-input" id="larR_title" value="' + esc(r.title) + '" data-autofocus></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larR_desc">Description</label>' +
+        '<input class="lar-input" id="larR_desc" value="' + esc(r.description) + '"></div>' +
+      '<div class="lar-grid2">' +
+        numField('larR_prep', 'Prep min', r.prepTimeMin) + numField('larR_cook', 'Cook min', r.cookTimeMin) +
+        numField('larR_serv', 'Servings', r.servings) + numField('larR_kcal', 'Cal per serving', r.kcal) +
+        numField('larR_prot', 'Protein per serving', r.protein) +
+      '</div>' +
+      '<div class="lar-field"><label class="lar-label" for="larR_ings">Ingredients</label>' +
+        '<textarea class="lar-textarea" id="larR_ings" placeholder="One per line:  500 g Chicken breast">' +
+        esc(ings.map(function (x) {
+          return [x.amount, x.unit, x.name].filter(Boolean).join(' ');
+        }).join('\n')) + '</textarea></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larR_steps">Method</label>' +
+        '<textarea class="lar-textarea" id="larR_steps" placeholder="One step per line">' +
+        esc(r.steps.map(function (s) { return s.text; }).join('\n')) + '</textarea></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larR_tags">Tags</label>' +
+        '<input class="lar-input" id="larR_tags" value="' + esc(r.tags.join(', ')) + '"></div>' +
+      '<div class="lar-meal__acts" style="margin-top:var(--lar-s3)">' +
+        '<button class="lar-btn lar-btn--go" data-act="recipe-save">Save recipe</button>' +
+        (recipe ? '<button class="lar-btn lar-btn--ghost" data-act="recipe-del" data-id="' +
+          esc(r.id) + '">Delete</button>' : '') +
+      '</div>');
+  }
+
+  ACTIONS['recipe-save'] = function () {
+    var id = (document.getElementById('larRecId') || {}).value || '';
+    var title = ((document.getElementById('larR_title') || {}).value || '').trim();
+    if (!title) { U.toast('Give it a title'); return; }
+    var patch = {
+      title: title,
+      description: (document.getElementById('larR_desc') || {}).value || '',
+      prepTimeMin: numVal('larR_prep'), cookTimeMin: numVal('larR_cook'),
+      servings: numVal('larR_serv') || 1,
+      kcal: numVal('larR_kcal'), protein: numVal('larR_prot'),
+      steps: ((document.getElementById('larR_steps') || {}).value || '')
+        .split('\n').map(function (s) { return s.trim(); }).filter(Boolean),
+      tags: ((document.getElementById('larR_tags') || {}).value || '')
+        .split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean)
+    };
+    var rec = id ? L.Recipes.update(id, patch) : L.Recipes.add(patch);
+    if (!rec) { U.closeSheet(); return; }
+
+    // Ingredients are replaced wholesale: the textarea IS the list,
+    // and trying to diff free text against records invents edits
+    // nobody made.
+    L.RecipeIngredients.list().forEach(function (x) {
+      if (x.recipeId === rec.id) L.RecipeIngredients.remove(x.id);
+    });
+    ((document.getElementById('larR_ings') || {}).value || '')
+      .split('\n').map(function (s) { return s.trim(); }).filter(Boolean)
+      .forEach(function (line, n) {
+        // "500 g Chicken breast" -> amount, unit, name.
+        var m = line.match(/^([\d./]+)\s*([a-zA-Z]+)?\s+(.*)$/);
+        L.RecipeIngredients.add(m
+          ? { recipeId: rec.id, amount: m[1], unit: m[2] || '', name: m[3], order: n }
+          : { recipeId: rec.id, name: line, order: n });
+      });
+
+    U.closeSheet();
+    U.toast('Saved');
+    if (!id) go('/recipes/' + rec.id); else refresh();
+  };
+
+  ACTIONS['recipe-del'] = function (el) {
+    var r = L.Recipes.get(el.getAttribute('data-id'));
+    if (!r) return;
+    L.Recipes.remove(r.id);   // takes its ingredients with it
+    U.closeSheet();
+    U.toast('Deleted ' + r.title);
+    go('/recipes');
+  };
+
+  ACTIONS['recipe-log'] = function (el) {
+    var r = L.Recipes.get(el.getAttribute('data-id'));
+    if (!r) return;
+    L.addEntry(L.today(), {
+      slot: guessSlot(), kind: 'recipe', refId: r.id, label: r.title,
+      amount: 1, unit: 'serving', servings: 1,
+      kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat, fibre: r.fibre,
+      group: 'other'
+    });
+    U.toast('Logged a serving');
+    refresh();
+  };
+
+  ACTIONS['recipe-plan'] = function (el) {
+    var r = L.Recipes.get(el.getAttribute('data-id'));
+    if (!r) return;
+    planPick = { kind: 'recipe', id: r.id, label: r.title };
+    openPlanDatePicker();
+  };
+
+  // ---- the plan --------------------------------------------
+  var planPick = null;
+
+  function openPlanDatePicker() {
+    var html = '<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Meal plan</p><h2 class="lar-h2">Which day?</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<div class="lar-chips">';
+    for (var n = 0; n < 7; n++) {
+      var d = U.addDays(U.todayISO(), n);
+      html += '<button class="lar-chip" data-act="plan-pick-day" data-date="' + d + '">' +
+        esc(U.dateLabel(d)) + '</button>';
+    }
+    html += '</div><p class="lar-label" style="margin-top:var(--lar-s3)">Then the meal</p>' +
+      '<div class="lar-chips">' +
+      L.SLOTS.slice(0, 3).map(function (s) {
+        return '<button class="lar-chip" data-act="plan-pick-slot" data-slot="' + s + '">' +
+          esc(L.SLOT_LABELS[s]) + '</button>';
+      }).join('') + '</div>';
+    U.openSheet(html);
+  }
+  ACTIONS['plan-pick-day'] = function (el) {
+    if (!planPick) return;
+    planPick.date = el.getAttribute('data-date');
+    el.parentNode.querySelectorAll('.lar-chip').forEach(function (c) { c.classList.remove('is-on'); });
+    el.classList.add('is-on');
+  };
+  ACTIONS['plan-pick-slot'] = function (el) {
+    if (!planPick || !planPick.date) { U.toast('Pick a day first'); return; }
+    setPlan(planPick.date, el.getAttribute('data-slot'), planPick);
+    U.closeSheet();
+    U.toast('Added to the plan');
+    planPick = null;
+    refresh();
+  };
+
+  function setPlan(date, slot, value) {
+    var plan = L._store.get(L.KEYS.plan) || {};
+    if (!plan[date]) plan[date] = {};
+    if (value) plan[date][slot] = { kind: value.kind, id: value.id, label: value.label };
+    else delete plan[date][slot];
+    if (!Object.keys(plan[date]).length) delete plan[date];
+    // Trimmed the way every dated store here is, so the key cannot
+    // grow forever.
+    var keys = Object.keys(plan).sort();
+    if (keys.length > 240) keys.slice(0, keys.length - 240).forEach(function (k) { delete plan[k]; });
+    L._store.set(L.KEYS.plan, plan);
+  }
+
+  /** Tapping a slot on the Plan screen: choose a meal, a recipe, or type one. */
+  ACTIONS['plan-set'] = function (el) {
+    var date = el.getAttribute('data-date');
+    var slot = el.getAttribute('data-slot');
+    var meals = L.Meals.list(), recipes = L.Recipes.list();
+    var html = '<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">' + esc(U.dateLabel(date)) + ' &middot; ' +
+        esc(L.SLOT_LABELS[slot]) + '</p><h2 class="lar-h2">What are you having?</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<input type="hidden" id="larPlanDate" value="' + esc(date) + '">' +
+      '<input type="hidden" id="larPlanSlot" value="' + esc(slot) + '">' +
+      '<div class="lar-field"><label class="lar-label" for="larPlanFree">Type it</label>' +
+      '<div class="lar-toolbar"><input class="lar-input" id="larPlanFree" placeholder="Tacos" data-autofocus>' +
+      '<button class="lar-btn lar-btn--go" data-act="plan-free">Set</button></div></div>';
+    if (meals.length) {
+      html += '<p class="lar-label">Saved meals</p><div class="lar-chips">' +
+        meals.map(function (m) {
+          return '<button class="lar-chip" data-act="plan-put" data-kind="meal" ' +
+            'data-id="' + esc(m.id) + '" data-label="' + esc(m.name) + '">' + esc(m.name) + '</button>';
+        }).join('') + '</div>';
+    }
+    if (recipes.length) {
+      html += '<p class="lar-label" style="margin-top:var(--lar-s3)">Recipes</p><div class="lar-chips">' +
+        recipes.map(function (r) {
+          return '<button class="lar-chip" data-act="plan-put" data-kind="recipe" ' +
+            'data-id="' + esc(r.id) + '" data-label="' + esc(r.title) + '">' + esc(r.title) + '</button>';
+        }).join('') + '</div>';
+    }
+    html += '<button class="lar-btn lar-btn--ghost lar-btn--wide" data-act="plan-clear" ' +
+      'style="margin-top:var(--lar-s3)">Clear this meal</button>';
+    U.openSheet(html);
+  };
+  function planTarget() {
+    return {
+      date: (document.getElementById('larPlanDate') || {}).value,
+      slot: (document.getElementById('larPlanSlot') || {}).value
+    };
+  }
+  ACTIONS['plan-put'] = function (el) {
+    var t = planTarget();
+    setPlan(t.date, t.slot, {
+      kind: el.getAttribute('data-kind'),
+      id: el.getAttribute('data-id'),
+      label: el.getAttribute('data-label')
+    });
+    U.closeSheet(); refresh();
+  };
+  ACTIONS['plan-free'] = function () {
+    var t = planTarget();
+    var v = ((document.getElementById('larPlanFree') || {}).value || '').trim();
+    if (!v) return;
+    setPlan(t.date, t.slot, { kind: 'free', id: '', label: v });
+    U.closeSheet(); refresh();
+  };
+  ACTIONS['plan-clear'] = function () {
+    var t = planTarget();
+    setPlan(t.date, t.slot, null);
+    U.closeSheet(); refresh();
+  };
+
+  // ---- grocery ---------------------------------------------
+  ACTIONS['grocery-add'] = function () {
+    var name = ((document.getElementById('larGroName') || {}).value || '').trim();
+    if (!name) return;
+    L.GroceryItems.add({
+      name: name,
+      quantity: Number((document.getElementById('larGroQty') || {}).value) || 1,
+      storeId: (document.getElementById('larGroStore') || {}).value || null
+    });
+    refresh();
+    var el = document.getElementById('larGroName');
+    if (el) el.focus();
+  };
+  ACTIONS['grocery-toggle'] = function (el) {
+    var x = L.GroceryItems.get(el.getAttribute('data-id'));
+    if (!x) return;
+    // Ticking HIDES. It does not delete. The item stays in
+    // storage with checked:true until the next reset.
+    L.GroceryItems.update(x.id, { checked: true });
+    refresh();
+  };
+
+  ACTIONS['grocery-reset'] = function () {
+    var n = L.resetGroceryList();
+    U.toast(n ? n + ' ' + U.plural(n, 'item') + ' back on the list' : 'Nothing was ticked');
+    refresh();
+  };
+
+  // The only path that removes a grocery item, and it names the
+  // item it is about to remove. There is deliberately no bulk
+  // delete in this toolbar — that is what took the list out.
+  ACTIONS['grocery-del'] = function (el) {
+    var x = L.GroceryItems.get(el.getAttribute('data-id'));
+    if (!x) return;
+    if (!confirm('Delete "' + x.name + '" from the list for good?\n\n' +
+                 'To just tick it off for this shop, use the checkbox instead.')) return;
+    L.GroceryItems.remove(x.id);
+    U.toast('Deleted ' + x.name);
+    refresh();
+  };
+
+  ACTIONS['shelf-toggle'] = function (el) {
+    var key = el.getAttribute('data-store');
+    if (collapsedStores[key]) delete collapsedStores[key];
+    else collapsedStores[key] = true;
+    refresh();
+  };
+  ACTIONS['store-new'] = function () {
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Grocery</p><h2 class="lar-h2">Add a store</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larStoreName">Name</label>' +
+      '<input class="lar-input" id="larStoreName" data-autofocus></div>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="store-save">Add store</button>');
+  };
+  ACTIONS['store-save'] = function () {
+    var name = ((document.getElementById('larStoreName') || {}).value || '').trim();
+    if (name) L.Stores.add({ name: name });
+    U.closeSheet(); refresh();
+  };
+
+  // ---- supplements -----------------------------------------
+  ACTIONS['supp-new'] = function () {
+    U.openSheet('<div class="lar-sheet__head">' +
+      '<div><p class="lar-eyebrow">Supplements</p><h2 class="lar-h2">Add one</h2></div>' +
+      '<button class="lar-sheet__close" data-act="sheet-close" aria-label="Close">&times;</button></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larSuppName">Name</label>' +
+      '<input class="lar-input" id="larSuppName" data-autofocus></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larSuppDose">Dose</label>' +
+      '<input class="lar-input" id="larSuppDose" placeholder="2 capsules"></div>' +
+      '<div class="lar-field"><label class="lar-label" for="larSuppSlot">When</label>' +
+      '<select class="lar-select" id="larSuppSlot">' +
+      L.SUPPLEMENT_SLOTS.map(function (s) {
+        return '<option value="' + s + '">' + esc(slotLabel(s)) + '</option>';
+      }).join('') + '</select></div>' +
+      '<button class="lar-btn lar-btn--go lar-btn--wide" data-act="supp-save">Add</button>');
+  };
+  ACTIONS['supp-save'] = function () {
+    var name = ((document.getElementById('larSuppName') || {}).value || '').trim();
+    if (!name) { U.toast('Give it a name'); return; }
+    L.Supplements.add({
+      name: name,
+      dose: (document.getElementById('larSuppDose') || {}).value || '',
+      slot: (document.getElementById('larSuppSlot') || {}).value || 'morning'
+    });
+    U.closeSheet(); refresh();
+  };
+  ACTIONS['supp-del'] = function (el) {
+    L.Supplements.remove(el.getAttribute('data-id'));
+    refresh();
+  };
+
+  // ---- notes -----------------------------------------------
+  ACTIONS['note-del'] = function (el) {
+    L.Notes.remove(el.getAttribute('data-id'));
+    refresh();
+  };
+
+  // ---- targets ---------------------------------------------
+  ACTIONS['targets-save'] = function () {
+    var unit = (document.getElementById('larT_unit') || {}).value || 'oz';
+    L.setTargets({
+      kcal: numVal('larT_kcal'), protein: numVal('larT_protein'), carbs: numVal('larT_carbs'),
+      fat: numVal('larT_fat'), fibre: numVal('larT_fibre'),
+      waterUnit: unit,
+      waterMl: U.unitToMl(numVal('larT_water'), unit),
+      waterSteps: ((document.getElementById('larT_steps') || {}).value || '')
+        .split(',').map(function (s) { return Number(s.trim()); }).filter(function (n) { return n > 0; }),
+      vegTarget: numVal('larT_veg'), fruitTarget: numVal('larT_fruit')
+    });
+    U.toast('Goals saved');
+    refresh();
+  };
+
+  // ---- data ------------------------------------------------
+  ACTIONS['data-download'] = function () {
+    if (window.LarSync) { window.LarSync.download(); U.toast('Backup downloaded'); }
+  };
+  ACTIONS['data-snapshot'] = function () {
+    if (window.LarBackup) {
+      window.LarBackup.snapshot('manual', { force: true, pinned: true });
+      U.toast('Snapshot taken');
+      refresh();
+    }
+  };
+  ACTIONS['data-restore'] = function (el) {
+    if (!window.LarBackup) return;
+    if (!confirm('Roll everything back to this snapshot?\n\n' +
+                 'Foods, meals, recipes and the food log are replaced too. ' +
+                 'The current state is snapshotted first, so this is reversible.')) return;
+    var r = window.LarBackup.restore(el.getAttribute('data-id'));
+    U.toast(r.ok ? 'Restored ' + r.written + ' keys' : 'That snapshot is gone');
+    refresh();
+  };
+
+  ACTIONS['grocery-restore'] = function (el) {
+    if (!window.LarBackup) return;
+    var snap = window.LarBackup.get(el.getAttribute('data-id'));
+    if (!snap) { U.toast('That snapshot is gone'); return; }
+    var r = L.restoreGroceryFrom(snap);
+    if (!r.items && !r.stores) U.toast('Everything in it is already on your list');
+    else U.toast(r.items + ' ' + U.plural(r.items, 'item') + ' back on the list');
+    refresh();
+  };
+
+  ACTIONS['grocery-purge'] = function () {
+    var n = L.groceryCheckedCount();
+    if (!n) return;
+    if (!confirm('Delete ' + n + ' ticked ' + U.plural(n, 'item') + ' for good?\n\n' +
+                 'This cannot be undone from here. To put them back on the list ' +
+                 'instead, use Reset list.')) return;
+    L.deleteCheckedGrocery();
+    U.toast(n + ' deleted');
+    refresh();
+  };
+
+  ACTIONS['noop'] = function () {};
+
+  // The food search is a field, not a button, so it cannot go
+  // through the click delegate. One listener, re-bound each
+  // render because the field is destroyed with the view.
+  function bindFoodSearch() {
+    var el = document.getElementById('larFoodSearch');
+    if (!el) return;
+    el.addEventListener('input', function () {
+      foodQuery = el.value;
+      var at = el.selectionStart;
+      refresh();
+      // refresh() rebuilt the field, so put the caret back.
+      var next = document.getElementById('larFoodSearch');
+      if (next) { next.focus(); try { next.setSelectionRange(at, at); } catch (e) {} }
+    });
+  }
+
+  // ==========================================================
+  // BOOT
+  // ==========================================================
+  function bootError(what, err) {
+    var bar = document.createElement('div');
+    bar.setAttribute('style',
+      'position:fixed;left:0;right:0;top:0;z-index:3200;padding:10px 14px;' +
+      'background:#5a1410;color:#ffd9d4;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;');
+    bar.textContent = what + ' failed to start: ' + (err && err.message ? err.message : String(err));
+    document.body.appendChild(bar);
+    if (window.console) console.error(what, err);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var ready = (window.LocalStoreIDB && window.LocalStoreIDB.ready)
+      ? window.LocalStoreIDB.ready() : Promise.resolve();
+
+    ready.then(function () {
+      L = window.Lar;
+      P = window.Pal || null;
+      if (!L) { bootError('The Larder', new Error('larder-data.js did not load')); return; }
+
+      // The local snapshot floor, taken BEFORE the opening pull so
+      // it records what this device held when it was opened.
+      if (window.LarBackup) window.LarBackup.boot();
+
+      U.bindSheet();
+      U.delegate(root, ACTIONS);
+      U.delegate(document.getElementById('larSheetBg'), ACTIONS);
+      U.delegate(document.getElementById('larRoutes'), ACTIONS);
+
+      // The hero lives OUTSIDE #larRoot, so the root's delegated
+      // listener cannot see its card. It gets its own, on the same
+      // ACTIONS map — one dispatch table, three hosts.
+      if (window.LarHero) {
+        window.LarHero.mount({ before: root });
+        U.delegate(window.LarHero.el(), ACTIONS);
+      }
+
+      U.introArrive();
+      shownRoute = current().hash;
+      render();
+
+      window.addEventListener('hashchange', navigate);
+      L.onChange(function () { repaint(); });
+
+      // The palaestra row, for pal:levels and nothing else. Mounted
+      // through MainSync because main-sync.js is where the `pal:`
+      // prefix is declared — see the head comment.
+      if (window.MainSync) {
+        window.MainSync.mount(['palaestra'], { onApplied: function () { repaint(); } });
+      }
+
+      // The Larder's own two rows, then the migrations and the
+      // seed, both gated on the cloud having had its say.
+      if (window.LarSync) {
+        var state = window.LarSync.mountAndSeed({ onApplied: function () { repaint(); } });
+        L.seedAfterSyncAttempt(state.ref, function (changed) { if (changed) refresh(); });
+      } else {
+        L.seedAfterSyncAttempt(null, function (changed) { if (changed) refresh(); });
+      }
+    }).catch(function (err) { bootError('The Larder', err); });
+  });
+})();
+</script>
+</body>
+</html>

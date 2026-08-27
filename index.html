@@ -12,20 +12,66 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#120C08">
-<title>Main — Today</title>
+<title>Main</title>
+
+<!--
+  MAIN BECAME A HUB ON 2026-08-26.
+
+  It used to be the Daily Routine wearing the home page's URL: four
+  bands, all of them the routine or its record, and no way to see that
+  the rest of the dashboard existed. It is now six:
+
+    the running head   title, greeting, search, settings
+    QUICK LAUNCH       eight plates
+    TODAY              what is already true, and where to act
+    DAILY ROUTINE      today's checklist, folded to the hour
+    CONTINUE           what you last actually worked on
+    EXPLORE            the index
+
+  WHAT MOVED, AND WHERE
+
+    the full step editor       -> routine.html
+    the Beliefs database       -> routine.html
+    the 30-day lock + record   -> routine.html
+    the frog                   -> routine.html, and inside its own step
+
+  Nothing was deleted and no key changed prefix. routine.html mounts
+  the same two rows this page does and shares routine-ui.js with it,
+  so a step ticked in either place is the same step.
+
+  THE THREE-ENTRY NAV ROW IS GONE from this page. Main is the place
+  you arrive; Future Self and Weekly Review are in Quick Launch and in
+  EXPLORE -> Systems. The other three Main documents keep the row, now
+  with four entries, so you can still move between them directly.
+-->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js?v=3" defer></script>
-<script src="main-sync.js?v=1" defer></script>
+<script src="main-sync.js?v=2" defer></script>
 <script src="main-backup.js?v=1" defer></script>
 <script src="photo-store.js" defer></script>
-<script src="topbar.js?v=3" defer></script>
+<script src="topbar.js?v=4" defer></script>
 
-<!-- palaestra-data.js is loaded for ONE thing: pal:levels, the effort
-     level shared with the Fitness Studio. Today reads and writes it
+<!-- palaestra-data.js is loaded for TWO things now: pal:levels, the
+     effort level shared with the Fitness Studio, and Pal.dayStatus()
+     for the Workout row in TODAY. Today reads and writes the level
      through Pal.getLevel / hasLevel / setLevel so there is exactly one
      copy of that answer. Pal.LEVELS is NOT redefined here. -->
-<script src="palaestra-data.js?v=5" defer></script>
+<script src="palaestra-data.js?v=6" defer></script>
+
+<!-- larder-data.js is loaded READ-ONLY, for the Nutrition row in
+     TODAY. It is inert at load — it defines window.Lar and nothing
+     else; its seed and both of its migrations are explicit calls, and
+     this page makes none of them.
+
+     Main does NOT mount the Larder's Supabase rows ('nutrition' and
+     'larderlog'). That is deliberate: sync.js replaces a row's entire
+     data column on push, so a page that reads a row it has not pulled
+     must never be in a position to push it. The consequence is that
+     the Nutrition row shows what this device last pulled while The
+     Larder itself was open, and says "Nothing logged yet" rather than
+     "0 kcal" when it has nothing — see today-ui.js's nutritionRow(). -->
+<script src="larder-data.js?v=1" defer></script>
 
 <!-- mainselfcare-data.js and selfcare-ui.js were dropped here on
      2026-08-25 when Self-Care became its own page. Both files are
@@ -33,94 +79,120 @@
      under the goals row — what keeps a key synced is the prefix list
      in main-sync.js, not whether its data file is loaded. Same
      treatment system-data.js and fitness-data.js already have. -->
-<script src="today-data.js?v=1" defer></script>
+<script src="today-data.js?v=2" defer></script>
+<script src="main-nav.js?v=1" defer></script>
 <script src="main-hero.js?v=1" defer></script>
-<script src="today-ui.js?v=1" defer></script>
+<script src="routine-ui.js?v=1" defer></script>
+<script src="today-ui.js?v=2" defer></script>
 <script src="palaestra-music.js?v=4" defer></script>
 
-<link rel="stylesheet" href="main-theme.css?v=1">
+<link rel="stylesheet" href="main-theme.css?v=2">
 </head>
 <body class="mn">
 
 <main>
   <div class="mn-shell">
 
-    <!-- MAIN'S NAV. The same three entries in the same order on all
-         three Main documents, so this row never moves under you.
-         One is a tab of THIS page (data-tab); two are other
-         documents (data-act="go", which flushes pending writes before
-         navigating — see today-ui.js's go()). It is a nav, not a
-         tablist: a real tablist cannot contain links to other pages.
+    <!-- ==================== THE RUNNING HEAD ====================
+         A book's running head, not a toolbar. Title left, hour right,
+         one hairline under it. The full date is on the hero ribbon
+         directly above this; printing it twice would be the page not
+         trusting itself. -->
+    <header class="mn-head mn-join-near" id="mnHead">
+      <div class="mn-head__id">
+        <h1 class="mn-plate mn-plate--lg">Main</h1>
+        <p class="mn-head__greet"><span id="mnGreet">Hello</span> <span class="mn-mid">·</span> <span class="mn-num" id="mnClock">—</span></p>
+      </div>
 
-         SELF-CARE LEFT THIS ROW on 2026-08-25 and became its own
-         page, The Asclepion (asclepion.html + asclepion-session.html
-         + asclepion-journal.html), reached from the circle menu.
+      <div class="mn-head__search">
+        <label class="mn-sr" for="mnSearch">Search the dashboard</label>
+        <span class="mn-head__glass" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
+          </svg>
+        </span>
+        <!-- 16px minimum, set in main-theme.css. Anything smaller and
+             iOS Safari zooms the page in on focus and never zooms back
+             out — every field on this dashboard has that floor. -->
+        <input type="search" id="mnSearch" class="mn-head__field" autocomplete="off"
+               role="combobox" aria-expanded="false" aria-controls="mnSearchOut"
+               placeholder="Find a page or a section">
+        <kbd class="mn-head__key" aria-hidden="true">/</kbd>
+        <div class="mn-hits" id="mnSearchOut" role="listbox" aria-label="Results" hidden></div>
+      </div>
 
-         Its data was NOT migrated. `mainselfcare:` is orphaned but
-         intact and MUST STAY in main-sync.js's goals row — dropping a
-         prefix deletes its keys on every device at the next push.
-         mainselfcare-data.js and selfcare-ui.js are still on disk,
-         simply no longer loaded, the same treatment system-data.js
-         and fitness-data.js already had. -->
-    <div id="mnTabsAnchor"></div>
-    <nav class="mn-tabs mn-join-near" id="mnTabs" aria-label="Main">
-      <button type="button" class="mn-tab active" data-tab="today" aria-current="page">Today</button>
-      <button type="button" class="mn-tab" data-act="go" data-href="futureself.html">Future Self</button>
-      <button type="button" class="mn-tab" data-act="go" data-href="weeklyreview.html">Weekly Review</button>
-    </nav>
+      <button type="button" class="mn-head__cog" data-act="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+        </svg>
+      </button>
+    </header>
 
-    <!-- ==================== TODAY ==================== -->
-    <div class="mn-tabpanel active" data-mainpanel="today">
+    <!-- ==================== QUICK LAUNCH ==================== -->
+    <section class="mn-section">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Quick launch</h2>
+        <div class="mn-section__aside"><span class="mn-label">Eight, and no more</span></div>
+      </div>
+      <hr class="mn-rule">
+      <div class="mn-plates" id="mnQuick"></div>
+    </section>
 
-      <!-- BAND A — the one decision -->
-      <section class="mn-section" id="mnEffortSection">
-        <div class="mn-section__head">
-          <h2 class="mn-plate mn-plate--lg">Today&rsquo;s effort</h2>
-          <div class="mn-section__aside"><span class="mn-label" id="mnDate"></span></div>
+    <!-- ==================== TODAY ====================
+         A call sheet. Only two of these rows carry a live number; the
+         rest are ways in. A row that cannot know something says so
+         rather than printing a zero that reads like a fact. -->
+    <section class="mn-section">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Today</h2>
+        <div class="mn-section__aside">
+          <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="weeklyreview.html">Weekly review</button>
         </div>
-        <hr class="mn-rule">
-        <div class="mn-levels" id="mnEffort"></div>
-        <p class="mn-small" id="mnEffortHint" style="margin-top:16px"></p>
-      </section>
+      </div>
+      <hr class="mn-rule">
+      <div class="mn-calls" id="mnToday"></div>
+    </section>
 
-      <!-- BAND B — the morning -->
-      <section class="mn-section">
-        <div class="mn-section__head">
-          <h2 class="mn-plate mn-plate--lg">Morning</h2>
-          <div class="mn-section__aside" id="mnMorningMeta"></div>
+    <!-- ==================== DAILY ROUTINE ====================
+         Three leaves. The one the clock is in lies open; the other two
+         are shut and show only their name and their count. At eight in
+         the morning the wind-down is not information, and at ten at
+         night the mirror exercise is a reproach. -->
+    <section class="mn-section" id="mnRoutineSection">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Daily routine</h2>
+        <div class="mn-section__aside">
+          <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="routine.html">Manage <span aria-hidden="true">&rarr;</span></button>
         </div>
-        <hr class="mn-rule">
-        <div class="mn-card mn-card--raised" id="mnMorning"></div>
-      </section>
+      </div>
+      <hr class="mn-rule">
+      <div id="mnRoutineHead"></div>
+      <div class="mn-leaves" id="mnLeaves"></div>
+      <p class="mn-small" style="margin-top:18px">
+        The inbox, the lab notebook and the journal are written in Obsidian and sorted in bulk on Sunday.
+        They are listed here so the evening is complete, not so it is done here.
+      </p>
+    </section>
 
-      <!-- BAND C — the evening -->
-      <section class="mn-section">
-        <div class="mn-section__head">
-          <h2 class="mn-plate mn-plate--lg">Evening</h2>
-          <div class="mn-section__aside" id="mnEveningMeta"></div>
-        </div>
-        <hr class="mn-rule">
-        <div class="mn-card mn-card--raised" id="mnEvening"></div>
-        <p class="mn-small" style="margin-top:14px">
-          The inbox, the lab notebook and the journal are written in Obsidian and sorted in bulk on Sunday.
-          They are listed here so the evening is complete, not so it is done here.
-        </p>
-      </section>
+    <!-- ==================== CONTINUE ==================== -->
+    <section class="mn-section">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Continue</h2>
+        <div class="mn-section__aside"><span class="mn-label">This device only</span></div>
+      </div>
+      <hr class="mn-rule">
+      <div class="mn-resumes" id="mnContinue"></div>
+    </section>
 
-      <!-- BAND D — the record -->
-      <section class="mn-section">
-        <div class="mn-section__head">
-          <h2 class="mn-plate mn-plate--lg">The record</h2>
-          <div class="mn-section__aside">
-            <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="weeklyreview.html">Weekly review</button>
-            <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="futureself.html">Future self</button>
-          </div>
-        </div>
-        <hr class="mn-rule">
-        <div id="mnRecord"></div>
-      </section>
-
-    </div>
+    <!-- ==================== EXPLORE ==================== -->
+    <section class="mn-section">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Explore</h2>
+      </div>
+      <hr class="mn-rule">
+      <div class="mn-indexes" id="mnExplore"></div>
+    </section>
 
   </div><!-- /mn-shell -->
 </main>
@@ -132,9 +204,9 @@
         data-pal-music="" data-pal-music-toggle data-pal-label=""
         aria-controls="palMusic" aria-expanded="false" aria-label="Music">&#9834;</button>
 
-<!-- Today's layer-2 surface. The .modal-bg chrome that used to sit
-     below this belonged to Self-Care's three editors and went with it
-     on 2026-08-25. -->
+<!-- Layer 2. Settings live here, and so does routine-ui.js's step
+     editor — both documents carry this markup so the editor works
+     from either. -->
 <div class="mn-sheetbg" id="mnSheetBg" role="dialog" aria-modal="true" aria-label="Editor">
   <div class="mn-sheet" id="mnSheet"></div>
 </div>
@@ -150,27 +222,19 @@ document.addEventListener('DOMContentLoaded', function () {
     // in the sync path can reach it — main-sync.js asserts that at mount.
     if (window.MainBackup) { try { window.MainBackup.boot(); } catch (e) {} }
 
-    // The date in the section head. Everything else is rendered by
-    // today-ui.js.
-    try {
-      var dt = new Date();
-      var el = document.getElementById('mnDate');
-      if (el) el.textContent = dt.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-    } catch (e) {}
-
     // THE HERO MOUNTS ONCE, before anything renders and outside every
     // render host. A <video> created by a renderer would be re-created
-    // on every repaint and re-download 7.5 MB each time.
+    // on every repaint and re-download 7.5 MB each time. Its copy is
+    // set once by today-ui.js — see SCENE there.
     if (window.MainHero) {
       window.MainHero.mount({
         variant: 'full',
         dateText: new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-        scenes: [{ key: 'today', label: 'Today' }],
         medal: { lead: 'Today', main: '—' }
       });
     }
 
-    if (window.TodayUI) { try { window.TodayUI.boot(); } catch (err) { bootError('Today', err); } }
+    if (window.TodayUI) { try { window.TodayUI.boot(); } catch (err) { bootError('Main', err); } }
 
     if (window.PalMusic) {
       window.PalMusic.init({
@@ -181,9 +245,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ---- sync ------------------------------------------------------
-    // Two rows. main-sync.js owns which prefixes belong to which, and
-    // sets handoff:true on both — read its header before changing
-    // anything about this.
+    // TWO rows, and only two. main-sync.js owns which prefixes belong
+    // to which, and sets handoff:true on both — read its header before
+    // changing anything about this.
+    //
+    // The Larder's rows are NOT mounted even though larder-data.js is
+    // loaded above. See the comment on that script tag.
     if (window.MainSync) {
       window.MainSync.mount(['goals', 'palaestra'], {
         onApplied: function () {

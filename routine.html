@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" class="mn-root">
+<head>
+<!-- FIRST, AND NEVER DEFERRED. local-store-idb.js replaces
+     window.localStorage wholesale before any other script runs; every
+     data file below keeps using plain localStorage unchanged. Every
+     boot path is then gated on LocalStoreIDB.ready(). -->
+<script src="local-store-idb.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#120C08">
+<title>Daily Routine</title>
+
+<!--
+  THE DAILY ROUTINE PAGE. New on 2026-08-26.
+
+  When Main became a hub it kept today's checklist and gave up
+  everything deep about it. All of that is here:
+
+    the full step editor, all three phases
+    the wake / day-start / wind-down times
+    Today's effort, with the whole of each level's argument
+    the record — day of 30, run last 30, frog started, the strip
+    the Beliefs database and its 30-day recitation lock
+
+  NO DATA MOVED. Not one key changed prefix and not one row changed
+  membership. This page mounts the SAME two rows index.html mounts and
+  loads the SAME routine-ui.js, so a step ticked here is the step
+  ticked there. It is a second view of one set of records, not a
+  second copy of them.
+
+  WHY handoff MATTERS HERE. You will edit a step on this page and then
+  walk straight back to Main. sync.js's dirty set lives in the page and
+  dies with it, so without the handoff record the next document's push
+  would go up without the edit and the reconciliation would then delete
+  it everywhere. MainSync passes handoff:true on every row it mounts —
+  see main-sync.js. Do not mount a row here any other way.
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js?v=3" defer></script>
+<script src="main-sync.js?v=2" defer></script>
+<script src="main-backup.js?v=1" defer></script>
+<script src="topbar.js?v=4" defer></script>
+
+<!-- Loaded for pal:levels, the effort level shared with the Fitness
+     Studio. Pal is its only writer; this page goes through
+     TodayData.setLevel, which delegates to it. Pal.LEVELS is NOT
+     redefined here. -->
+<script src="palaestra-data.js?v=6" defer></script>
+
+<script src="today-data.js?v=2" defer></script>
+<script src="main-hero.js?v=1" defer></script>
+<script src="routine-ui.js?v=1" defer></script>
+
+<link rel="stylesheet" href="main-theme.css?v=2">
+</head>
+<body class="mn">
+
+<main>
+  <div class="mn-shell">
+
+    <!-- MAIN'S NAV. Four entries now, in the same order on all three
+         documents that carry it, so the row never moves under you.
+         Every one of them is another document, reached through
+         data-act="go", which flushes pending writes before navigating.
+         index.html itself no longer carries this row — it is the hub,
+         and everything here is in its Quick Launch and its index. -->
+    <nav class="mn-tabs mn-join-near" id="mnTabs" aria-label="Main">
+      <button type="button" class="mn-tab" data-act="go" data-href="index.html">Main</button>
+      <button type="button" class="mn-tab active" aria-current="page">Daily Routine</button>
+      <button type="button" class="mn-tab" data-act="go" data-href="futureself.html">Future Self</button>
+      <button type="button" class="mn-tab" data-act="go" data-href="weeklyreview.html">Weekly Review</button>
+    </nav>
+
+    <!-- BAND A — the one decision, in full.
+         Main shows this as three pills. Here it gets the whole
+         argument for each level, because this is where you come to
+         think about it rather than to answer it. -->
+    <section class="mn-section" id="mnEffortSection">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">Today&rsquo;s effort</h2>
+        <div class="mn-section__aside"><span class="mn-label" id="mnDate"></span></div>
+      </div>
+      <hr class="mn-rule">
+      <div class="mn-levels" id="mnEffort"></div>
+      <p class="mn-small" id="mnEffortHint" style="margin-top:16px"></p>
+    </section>
+
+    <!-- BANDS B, C, D — the three parts of the day, editable.
+         Built by JS so the phase list stays a property of
+         today-data.js's PHASES rather than of this markup. -->
+    <div id="mnPhases"></div>
+
+    <!-- BAND E — the record -->
+    <section class="mn-section">
+      <div class="mn-section__head">
+        <h2 class="mn-plate mn-plate--lg">The record</h2>
+        <div class="mn-section__aside">
+          <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="weeklyreview.html">Weekly review</button>
+          <button type="button" class="mn-btn mn-btn--sm" data-act="go" data-href="futureself.html">Future self</button>
+        </div>
+      </div>
+      <hr class="mn-rule">
+      <div id="mnRecord"></div>
+    </section>
+
+  </div><!-- /mn-shell -->
+</main>
+
+<!-- Layer 2 — routine-ui.js's step and belief editors open here. -->
+<div class="mn-sheetbg" id="mnSheetBg" role="dialog" aria-modal="true" aria-label="Editor">
+  <div class="mn-sheet" id="mnSheet"></div>
+</div>
+
+<div class="mn-toast" id="mnToast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var T = null, R = null;
+  var saveTimers = {};
+
+  function byId(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function d() { return T.todayISO(); }
+
+  function debounce(key, fn, ms) {
+    clearTimeout(saveTimers[key]);
+    saveTimers[key] = setTimeout(fn, ms == null ? 400 : ms);
+  }
+  function flushSaves() {
+    Object.keys(saveTimers).forEach(function (k) { clearTimeout(saveTimers[k]); });
+    saveTimers = {};
+  }
+  /** Leave without losing a write that has not committed. */
+  function go(href) {
+    flushSaves();
+    if (window.LocalStoreIDB && window.LocalStoreIDB.navigate) window.LocalStoreIDB.navigate(href);
+    else window.location.href = href;
+  }
+  function toast(msg, bad) {
+    var t = byId('mnToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className = 'mn-toast is-on' + (bad ? ' mn-toast--bad' : '');
+    clearTimeout(t._t);
+    t._t = setTimeout(function () { t.className = 'mn-toast' + (bad ? ' mn-toast--bad' : ''); }, bad ? 5000 : 2400);
+  }
+  function prettyDate(iso) {
+    var p = String(iso).split('-');
+    var dt = new Date(+p[0], +p[1] - 1, +p[2]);
+    return dt.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  // ---- BAND A ------------------------------------------------------
+  function renderEffort() {
+    var host = byId('mnEffort');
+    if (!host) return;
+    var date = d();
+    var level = T.getLevel(date);
+    var chosen = T.hasLevel(date);
+
+    host.innerHTML = T.LEVEL_KEYS.map(function (k) {
+      var c = T.LEVEL_COPY[k];
+      var on = k === level;
+      return '<button type="button" class="mn-level" data-act="set-level" data-level="' + k + '"' +
+        ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
+        ' data-chosen="' + (on && chosen ? 'true' : 'false') + '">' +
+        '<span class="mn-level__name">' + esc(c.name) + '</span>' +
+        '<span class="mn-level__title">' + esc(c.title) + '</span>' +
+        '<span class="mn-level__mins">' + esc(c.mins) + '</span>' +
+        '<span class="mn-level__blurb">' + esc(c.blurb) + '</span>' +
+        '<span class="mn-level__when">' + esc(c.when) + '</span>' +
+        '</button>';
+    }).join('');
+
+    var hint = byId('mnEffortHint');
+    if (hint) {
+      hint.textContent = chosen
+        ? 'This sets today’s workout in the Fitness Studio and today’s meditations in the Asclepion.'
+        : 'Not answered yet — everything below is showing the High version until you pick one.';
+      hint.className = 'mn-small' + (chosen ? '' : ' mn-label--cool');
+    }
+    renderMedal();
+  }
+
+  function renderMedal() {
+    if (!window.MainHero || !window.MainHero.setMedal) return;
+    var date = d();
+    var level = T.getLevel(date);
+    var chosen = T.hasLevel(date);
+    var c = T.LEVEL_COPY[level];
+    window.MainHero.setMedal({
+      lead: chosen ? 'Today' : 'Pick one',
+      main: c.name, level: level, chosen: chosen, rim: prettyDate(date),
+      label: chosen
+        ? 'Today’s effort level is ' + c.name + '. Change it.'
+        : 'Choose today’s effort level. Currently showing ' + c.name + '.',
+      onClick: function () {
+        var el = byId('mnEffortSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  }
+
+  // ---- BANDS B / C / D ---------------------------------------------
+  // The section shells are built once, from PHASES, so adding a fourth
+  // part of the day would never need an edit to this file.
+  function buildPhases() {
+    var host = byId('mnPhases');
+    if (!host) return;
+    host.innerHTML = T.PHASES.map(function (p) {
+      return '<section class="mn-section">' +
+        '<div class="mn-section__head">' +
+          '<h2 class="mn-plate mn-plate--lg">' + esc(T.PHASE_LABEL[p]) + '</h2>' +
+          '<div class="mn-section__aside" id="mnMeta_' + p + '"></div>' +
+        '</div>' +
+        '<hr class="mn-rule">' +
+        '<div class="mn-card mn-card--raised" id="mnBand_' + p + '"></div>' +
+      '</section>';
+    }).join('');
+  }
+
+  function renderPhase(phase) {
+    var host = byId('mnBand_' + phase);
+    if (host) host.innerHTML = R.phaseHtml(phase, { compact: false, editable: true });
+    var meta = byId('mnMeta_' + phase);
+    if (meta) meta.innerHTML = R.phaseMetaHtml(phase);
+  }
+
+  // ---- BAND E ------------------------------------------------------
+  function renderRecord() {
+    var host = byId('mnRecord');
+    if (host) host.innerHTML = R.recordHtml();
+  }
+
+  // ---- render + wire -----------------------------------------------
+  function renderAll() {
+    renderEffort();
+    T.PHASES.forEach(renderPhase);
+    renderRecord();
+    if (window.MainHero) window.MainHero.measure();
+  }
+
+  /** What routine-ui.js asks for when it has changed something. */
+  function rerender(what) {
+    if (what === 'record') { renderRecord(); return; }
+    if (what === 'progress') { T.PHASES.forEach(function (p) {
+      var meta = byId('mnMeta_' + p); if (meta) meta.innerHTML = R.phaseMetaHtml(p);
+    }); return; }
+    if (what.indexOf('phase:') === 0) renderPhase(what.slice(6));
+  }
+
+  function onClick(e) {
+    var el = e.target.closest('[data-act]');
+    if (el) {
+      var act = el.getAttribute('data-act');
+      if (act === 'go') { e.preventDefault(); go(el.getAttribute('data-href')); return; }
+      if (act === 'set-level') {
+        var lvl = el.getAttribute('data-level');
+        T.setLevel(d(), lvl);
+        renderEffort();
+        T.PHASES.forEach(renderPhase);
+        toast(T.LEVEL_COPY[lvl].name + ' · ' + T.LEVEL_COPY[lvl].title);
+        return;
+      }
+    }
+    R.onClick(e);
+  }
+
+  function boot() {
+    T = window.TodayData;
+    R = window.RoutineUI;
+    if (!T || !R) throw new Error('TodayData or RoutineUI did not load');
+
+    R.configure({ toast: toast, go: go, debounce: debounce, rerender: rerender });
+
+    var el = byId('mnDate');
+    if (el) el.textContent = prettyDate(d());
+
+    buildPhases();
+
+    document.addEventListener('click', onClick);
+    document.addEventListener('input', function (e) { R.onInput(e); });
+    document.addEventListener('change', function (e) { R.onChange(e); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') R.closeSheet(); });
+
+    var bg = byId('mnSheetBg');
+    if (bg) bg.addEventListener('mousedown', function (e) { if (e.target === bg) R.closeSheet(); });
+
+    window.addEventListener('pagehide', flushSaves);
+
+    renderAll();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    LocalStoreIDB.ready().then(function () {
+
+      if (window.MainBackup) { try { window.MainBackup.boot(); } catch (e) {} }
+
+      // The reduced hero. Same file, same ribbon, same medallion — a
+      // band rather than a full screen, because this is a working page
+      // and a full-height frontispiece on every visit would be in the
+      // way. It still mounts ONCE and outside every render host.
+      if (window.MainHero) {
+        window.MainHero.mount({
+          variant: 'band',
+          dateText: new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+          medal: { lead: 'Today', main: '—' }
+        });
+        window.MainHero.setScene({
+          key: 'routine',
+          eyebrow: 'The daily routine',
+          lines: ['The shape', 'of the day'],
+          note: 'Three parts, one effort level, and the beliefs you are reciting until they stop being an argument.'
+        });
+      }
+
+      try { boot(); } catch (err) { bootError('Daily Routine', err); }
+
+      // ---- sync ----------------------------------------------------
+      // The same two rows Main mounts, mounted the same way. `palaestra`
+      // is mounted BY PREFIX (['pal:']) and never as
+      // syncedKeys:['pal:levels'] — a keyed mount would push a one-key
+      // blob over the whole Fitness Studio.
+      if (window.MainSync) {
+        window.MainSync.mount(['goals', 'palaestra'], {
+          onApplied: function () {
+            // Triggered by another device at a moment nobody chose. It
+            // must not scroll and it must not replay the hero.
+            renderAll();
+          },
+          onPulled: function (row, allPulled) {
+            if (!allPulled) return;
+            try {
+              if (window.TodayData && window.TodayData.seedIfEmpty()) renderAll();
+            } catch (e) {}
+          }
+        });
+      }
+
+      setTimeout(function () {
+        try {
+          if (window.TodayData && window.TodayData.isEmpty() && !window.TodayData.seeded()) {
+            if (window.TodayData.seedIfEmpty()) renderAll();
+          }
+        } catch (e) {}
+      }, 5000);
+    });
+  });
+
+  // A silent top-level throw would otherwise leave this page as static
+  // chrome with no interactivity and no visible clue why.
+  function bootError(what, err) {
+    try {
+      var bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:3200;background:#3a0d0d;color:#ffdada;padding:14px 16px;font:13px/1.5 monospace;white-space:pre-wrap;';
+      bar.textContent = what + ' failed to load: ' + (err && err.message ? err.message : err);
+      document.body.appendChild(bar);
+    } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
