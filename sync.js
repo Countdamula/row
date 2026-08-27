@@ -119,7 +119,9 @@
       } catch (e) {}
     }
     function markDirty(k) {
+      const wasClean = !localDirtyKeys.size;
       localDirtyKeys.add(k);
+      if (wasClean) announce('sync:state', { state: 'dirty' });
       if (!handoff) return;
       const o = readHandoff() || {};
       o[k] = Date.now();
@@ -208,18 +210,42 @@
       origRemove(k);
       try { if (!suppressSync && matches(k)) { markDirty(k); schedulePush(); } } catch (e) {}
     };
+    // ---------------------------------------------------------------
+    // §ANNOUNCE — purely additive. Nothing below changes a decision this
+    // module makes; it only makes what it already did observable.
+    //
+    // It exists because applyRemote() was INVISIBLE to the rest of the page.
+    // It writes with origSet, which is the IndexedDB shim's setItem, and the
+    // shim announces a write over a BroadcastChannel — which by specification
+    // is never delivered to the posting context. So a same-tab cloud pull
+    // fired no app save event and no storage event, and the snapshot layer's
+    // shrink detection could not see it. Measured: a pull deleting five of
+    // six routines left NO before-drop snapshot. All four of the old backup
+    // modules carried a comment asserting the opposite.
+    // ---------------------------------------------------------------
+    function announce(name, detail) {
+      try {
+        detail = detail || {};
+        detail.appKey = appKey;
+        window.dispatchEvent(new CustomEvent(name, { detail: detail }));
+      } catch (e) {}
+    }
+
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
       suppressSync = true;
       let changed = false;
       const localOnly = [];
+      const written = [], removed = [];
       try {
         for (const k of Object.keys(remote)) {
           if (!matches(k)) continue;
           if (localDirtyKeys.has(k)) continue;
           const incoming = JSON.stringify(remote[k]);
           const local = localStorage.getItem(k);
-          if (local !== incoming) { try { origSet(k, incoming); changed = true; } catch (e) {} }
+          if (local !== incoming) {
+            try { origSet(k, incoming); changed = true; written.push(k); } catch (e) {}
+          }
         }
         // §SEEN: absence is only evidence of a deletion for a key the cloud
         // is KNOWN to have carried. Everything else is a local write the row
@@ -229,7 +255,7 @@
           if (localDirtyKeys.has(k)) continue;
           if (k in remote) continue;
           if (seenOk && !known.has(k)) { localOnly.push(k); continue; }
-          try { origRemove(k); changed = true; } catch (e) {}
+          try { origRemove(k); changed = true; removed.push(k); } catch (e) {}
         }
       } finally { suppressSync = false; }
       // A pulled row is the authority on what the cloud holds, so it replaces
@@ -240,6 +266,11 @@
         localOnly.forEach(markDirty);
         schedulePush();
       }
+      // §ANNOUNCE. Fired before onApplied so a listener that repaints cannot
+      // race a listener that snapshots. `removed` is the important half: it
+      // is the only signal anywhere that the cloud just deleted something
+      // this device was holding.
+      if (changed) announce('sync:applied', { written: written, removed: removed });
       if (changed && typeof onApplied === 'function') { try { onApplied(); } catch (e) {} }
       return changed;
     }
@@ -256,8 +287,13 @@
       const state = collect();
       const pushedKeys = Object.keys(state);
       const json = JSON.stringify(state);
-      if (json === lastSyncedJson) { clearDirty(pushedKeys); seenAdd(pushedKeys); return; }
+      if (json === lastSyncedJson) {
+        clearDirty(pushedKeys); seenAdd(pushedKeys);
+        announce('sync:state', { state: 'saved', at: Date.now() });
+        return;
+      }
       pushing = true;
+      announce('sync:state', { state: 'saving' });
       let ok = false;
       try {
         const { error } = await supa.from('app_state').upsert(
@@ -273,7 +309,17 @@
           seenAdd(pushedKeys);
         }
       } catch (e) {} finally { pushing = false; }
-      if (ok) { retryStep = 0; clearTimeout(retryTimer); retryTimer = null; return; }
+      if (ok) {
+        retryStep = 0; clearTimeout(retryTimer); retryTimer = null;
+        announce('sync:state', { state: 'saved', at: Date.now() });
+        return;
+      }
+      // Offline and "the server said no" are different things to a reader:
+      // one is expected and self-healing, the other is worth showing.
+      announce('sync:state', {
+        state: (typeof navigator !== 'undefined' && navigator.onLine === false) ? 'offline' : 'error',
+        retryIn: RETRY_MS[Math.min(retryStep, RETRY_MS.length - 1)]
+      });
       // Offline, rate-limited, or a transient 5xx. Keep the keys dirty (so an
       // incoming remote can't overwrite them) and come back for them.
       clearTimeout(retryTimer);
@@ -380,6 +426,7 @@
       releaseInitialPush();
       // Fires whether the row differed, matched, or was empty — the question
       // this answers is "has the cloud spoken?", not "did anything change?".
+      announce('sync:state', { state: 'pulled', at: Date.now(), ok: pulled.ok, empty: pulled.empty });
       if (typeof onPulled === 'function') { try { onPulled(pulled); } catch (e) {} }
       supa.channel('app_state_' + appKey)
         .on('postgres_changes', {

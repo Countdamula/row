@@ -373,11 +373,27 @@
       lastState = readState();
       lastCounts = countsOf(lastState);
       EVENTS.forEach(function (ev) { global.addEventListener(ev, onAnyChange); });
-      // Another tab — and, because the IndexedDB shim re-fires it, sync.js's
-      // applyRemote, which writes with the unpatched setter and would
-      // otherwise be completely silent here.
+
+      // ANOTHER TAB. The shim re-broadcasts writes over a BroadcastChannel
+      // and synthesises a storage event from them — but only in the OTHER
+      // documents, never the one that posted.
       global.addEventListener('storage', function (e) {
         if (!e.key || watched(e.key)) onAnyChange();
+      });
+
+      // THIS TAB'S CLOUD PULL. The four modules this engine replaces all
+      // claimed the storage listener above covered applyRemote. It does not:
+      // applyRemote writes with the shim's setItem, and a BroadcastChannel
+      // is never delivered to the posting context, so a same-tab pull fired
+      // nothing at all here. Measured before the fix — a pull deleting five
+      // of six routines left NO before-drop snapshot, which is the exact
+      // event this store exists to survive. sync.js §ANNOUNCE now says so
+      // out loud.
+      global.addEventListener('sync:applied', function (e) {
+        var d = e && e.detail;
+        if (!d) { onAnyChange(); return; }
+        var keys = (d.written || []).concat(d.removed || []);
+        if (!keys.length || keys.some(watched)) onAnyChange();
       });
     }
 
@@ -413,6 +429,13 @@
       clearShrink: function () { lastDrop = null; }
     };
     STORES.push(store);
+    // Announce it so trash.js can attach to the same prefixes without every
+    // page having to wire the two together in the right order.
+    try {
+      global.dispatchEvent(new CustomEvent('snapshots:store', {
+        detail: { prefix: PREFIX, watch: WATCHED.slice(), appId: cfg.appId || null }
+      }));
+    } catch (e) {}
     return store;
   }
 
