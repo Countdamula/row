@@ -360,8 +360,22 @@
     return true;
   }
 
+  /** The app this document belongs to, from the `pages` lists above. */
+  function appForPage(file) {
+    var f = file;
+    if (!f) {
+      try { f = location.pathname.split('/').pop() || 'index.html'; } catch (e) { return null; }
+    }
+    if (!f) f = 'index.html';
+    for (var i = 0; i < APPS.length; i++) {
+      if ((APPS[i].pages || []).indexOf(f) !== -1) return APPS[i];
+    }
+    return null;
+  }
+
   global.DataRegistry = {
     APPS: APPS,
+    appForPage: appForPage,
     LOCAL_ONLY: LOCAL_ONLY,
     app: app,
     prefixesOf: prefixesOf,

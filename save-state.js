@@ -148,6 +148,17 @@
     '.ss-row dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}',
     '.ss-note{margin:9px 0 0;padding-top:9px;border-top:1px solid rgba(255,255,255,.1);',
       'color:rgba(242,239,234,.6);font-size:12px}',
+    '.ss-out{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)}',
+    '.ss-out-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}',
+    '.ss-out-label{font-size:10px;letter-spacing:.13em;text-transform:uppercase;',
+      'color:rgba(242,239,234,.45);font-weight:600;flex:1 0 100%}',
+    '.ss-out button{min-height:30px;padding:0 11px;border-radius:7px;cursor:pointer;',
+      'background:transparent;color:#F2EFEA;border:1px solid rgba(255,255,255,.26);',
+      'font:inherit;font-size:12px;font-weight:600;',
+      'transition:background-color .18s ease,color .18s ease,border-color .18s ease}',
+    '.ss-out button:hover{background:#F2EFEA;color:#121110;border-color:#F2EFEA}',
+    '.ss-out button:focus-visible{outline:2px solid #F2EFEA;outline-offset:2px}',
+    '@media (pointer:coarse){.ss-out button{min-height:44px;padding:0 14px}}',
     '@media (prefers-reduced-motion:reduce){.ss-dot{animation:none!important}',
       '.ss-chip{transition:none}}',
     '@media (pointer:coarse){.ss-chip{padding:10px 14px 10px 12px}}'
@@ -260,7 +271,63 @@
         row('In Trash', f.trashCount ? String(f.trashCount) : 'empty') +
         (f.drafts ? row('Unsaved drafts', String(f.drafts)) : '') +
       '</dl>' +
-      (note ? '<p class="ss-note">' + esc(note) + '</p>' : '');
+      (note ? '<p class="ss-note">' + esc(note) + '</p>' : '') +
+      exportHtml();
+    wireExport();
+  }
+
+  // -----------------------------------------------------------------
+  // EXPORT
+  //
+  // Lives here because this panel is the one piece of UI on all 24 pages.
+  // Six apps had no way out at all and a seventh (AscSync.download) had a
+  // function reachable only from a console — building a ⋯ menu into each
+  // of two dozen documents is how it stayed that way.
+  //
+  // JSON is the restore format; Markdown is the one that still opens in
+  // ten years with no dashboard at all.
+  // -----------------------------------------------------------------
+  function pageApp() {
+    try {
+      var R = global.DataRegistry;
+      return R && R.appForPage ? R.appForPage() : null;
+    } catch (e) { return null; }
+  }
+
+  function exportHtml() {
+    if (!global.DataExport || !global.DataRegistry) return '';
+    var app = pageApp();
+    var h = '<div class="ss-out">';
+    if (app) {
+      h += '<div class="ss-out-row"><span class="ss-out-label">Export ' + esc(app.label) + '</span>' +
+           '<button type="button" data-x="json">JSON</button>' +
+           '<button type="button" data-x="md">Markdown</button></div>';
+    }
+    h += '<div class="ss-out-row"><span class="ss-out-label">Export everything</span>' +
+         '<button type="button" data-x="alljson">JSON</button>' +
+         '<button type="button" data-x="allmd">Markdown</button></div></div>';
+    return h;
+  }
+
+  function wireExport() {
+    if (!panelEl) return;
+    var app = pageApp();
+    panelEl.querySelectorAll('.ss-out button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var what = b.getAttribute('data-x'), res = null;
+        try {
+          if (what === 'json' && app) res = global.DataExport.json([app.id]);
+          else if (what === 'md' && app) res = global.DataExport.markdown(app.id);
+          else if (what === 'alljson') res = global.DataExport.json();
+          else if (what === 'allmd') res = global.DataExport.markdownAll();
+        } catch (e) { res = { ok: false }; }
+        // Say what happened. A download that silently did not start is the
+        // one outcome an export must never have.
+        var was = b.textContent;
+        b.textContent = res && res.ok ? 'Saved' : (res && res.empty ? 'Nothing yet' : 'Blocked');
+        setTimeout(function () { b.textContent = was; }, 1800);
+      });
+    });
   }
 
   function row(k, v) {
