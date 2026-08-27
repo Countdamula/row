@@ -23,8 +23,28 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function byId(id) { return document.getElementById(id); }
-  function debounce(k, fn, ms) { clearTimeout(saveTimers[k]); saveTimers[k] = setTimeout(fn, ms == null ? 600 : ms); }
-  function flushSaves() { Object.keys(saveTimers).forEach(function (k) { clearTimeout(saveTimers[k]); }); saveTimers = {}; }
+  // Each entry is { t, fn }, not a bare timer id, because flushSaves() has to be
+  // able to RUN a pending write rather than only cancel it.
+  function debounce(k, fn, ms) {
+    if (saveTimers[k]) clearTimeout(saveTimers[k].t);
+    saveTimers[k] = {
+      fn: fn,
+      t: setTimeout(function () { delete saveTimers[k]; fn(); }, ms == null ? 600 : ms)
+    };
+  }
+  // Run the pending writes. This used to clearTimeout() them and stop there,
+  // which SILENTLY DROPPED every edit made in the last 600ms before the call —
+  // and the two callers are go() and pagehide, i.e. exactly the moment you stop
+  // typing and click away. Same shape as palaestra-data.js's autosave flush
+  // sweep and kdp-nav.js's saver.flush(), both of which always ran the callback.
+  function flushSaves() {
+    var pending = saveTimers;
+    saveTimers = {};
+    Object.keys(pending).forEach(function (k) {
+      clearTimeout(pending[k].t);
+      try { pending[k].fn(); } catch (e) {}
+    });
+  }
   function go(href) {
     flushSaves();
     if (global.LocalStoreIDB && global.LocalStoreIDB.navigate) global.LocalStoreIDB.navigate(href);

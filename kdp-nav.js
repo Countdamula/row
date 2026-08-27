@@ -201,6 +201,7 @@
   // MODAL — one element, reused by every dialog on every page
   // ---------------------------------------------------------------------------
   var modalState = null;
+  var modalDraft = null;
   var modalWired = false;
   function modalOpen() { return !!modalState; }
 
@@ -227,6 +228,18 @@
     var body = $('kdpModalBody');
     if (opts.onMount) runSafely(function () { opts.onMount(body); }, 'modal mount');
 
+    // Everything in this dialog lives only in the DOM until Save is pressed, so
+    // a refresh here used to take the whole form with it — including a chapter
+    // of prose. The fields have carried data-f for exactly this since they were
+    // written; the binding was simply never made. Bound AFTER onMount, because
+    // the fingerprint has to be taken of the form's OPENING values: "Edit
+    // chapter" is the same title for every chapter, and without the hash they
+    // would all share one draft.
+    modalDraft = window.AthDraft ? AthDraft.bind(
+      'modal:kdp:' + (opts.title || '') + ':' + AthDraft.fingerprint(body), body,
+      { onRestore: function (when) { toast('Put back what you had typed ' + when); } }
+    ) : null;
+
     var first = body.querySelector('input,textarea,select');
     if (first) setTimeout(function () { first.focus(); }, 40);
 
@@ -243,7 +256,7 @@
   function wireModal(bg) {
     if (modalWired) return;
     modalWired = true;
-    on(bg, '[data-modal-x]', 'click', closeModal);
+    on(bg, '[data-modal-x]', 'click', function () { closeModal(true); });
     on(bg, '[data-modal-save]', 'click', function () {
       var st = modalState;
       if (!st) return;
@@ -251,7 +264,7 @@
       if (st.onSave) ok = runSafely(function () { return st.onSave($('kdpModalBody')); }, 'modal save');
       // closeModal() clears modalState, so the callback is taken first
       var after = st.after;
-      if (ok !== false) { closeModal(); if (after) after(); }
+      if (ok !== false) { closeModal(true); if (after) after(); }
     });
     on(bg, '[data-modal-del]', 'click', function () {
       var st = modalState;
@@ -259,12 +272,23 @@
       if (st.deleteConfirm && !window.confirm(st.deleteConfirm)) return;
       runSafely(function () { st.onDelete($('kdpModalBody')); }, 'modal delete');
       var after = st.after;
-      closeModal();
+      closeModal(true);
       if (after) after();
     });
-    bg.addEventListener('click', function (e) { if (e.target === bg) closeModal(); });
+    bg.addEventListener('click', function (e) { if (e.target === bg) closeModal(true); });
   }
-  function closeModal() {
+  /* Cancel, Escape, the ✕ and the backdrop are a DECISION to throw the form
+     away, so the draft goes with it — and so is a successful save, where the
+     work is now a real record. A refresh is not a decision, and its draft has
+     to survive, which is why only the explicit paths pass true.
+
+     The draft is settled BEFORE the innerHTML is cleared: .save() reads the
+     field values back out of the live DOM, and a wiped dialog reads as an
+     empty form. (The Athenaeum's copy of this only toggles a class, so the
+     ordering is invisible there and is not invisible here.) */
+  function closeModal(discard) {
+    if (modalDraft) { if (discard) modalDraft.clear(); else modalDraft.save(); }
+    modalDraft = null;
     var bg = $('kdpModalBg');
     if (!bg) return;
     bg.classList.remove('is-open');
@@ -272,7 +296,7 @@
     modalState = null;
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modalState) closeModal();
+    if (e.key === 'Escape' && modalState) closeModal(true);
   });
 
   // --- form fields, marked with data-f so AthDraft can protect them ---------
@@ -1066,12 +1090,17 @@
     // Two mounts, split by weight — the metadata row stays instant while the
     // manuscript row is only pushed when prose actually changes.
     if (window.initCloudSync) {
+      // handoff: five documents (kdp, foundations, draft, continuity, publish)
+      // share these two rows, so a write made on one and navigated away from
+      // before its 250ms push confirmed would otherwise be deleted by the next
+      // document's opening pull — and the deletion pushed back as truth. The
+      // manuscript row is the one that would hurt. See sync.js §HANDOFF.
       window.initCloudSync({
-        appKey: 'kdp', syncedPrefixes: ['kdp:'],
+        appKey: 'kdp', syncedPrefixes: ['kdp:'], handoff: true,
         onApplied: function () { if (cfg.onSync) cfg.onSync(); }
       });
       window.initCloudSync({
-        appKey: 'kdpms', syncedPrefixes: ['kdpms:'],
+        appKey: 'kdpms', syncedPrefixes: ['kdpms:'], handoff: true,
         onApplied: function () { if (cfg.onSyncManuscript) cfg.onSyncManuscript(); }
       });
     }

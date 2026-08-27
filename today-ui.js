@@ -75,13 +75,27 @@
 
   /** Debounced write. 400ms — long enough not to thrash IndexedDB on
       every keystroke, short enough that a quick tab-away still lands. */
-  function debounce(key, fn, ms) {
-    clearTimeout(saveTimers[key]);
-    saveTimers[key] = setTimeout(fn, ms == null ? 400 : ms);
+  // Each entry is { t, fn }, not a bare timer id, because flushSaves() has to be
+  // able to RUN a pending write rather than only cancel it.
+  function debounce(k, fn, ms) {
+    if (saveTimers[k]) clearTimeout(saveTimers[k].t);
+    saveTimers[k] = {
+      fn: fn,
+      t: setTimeout(function () { delete saveTimers[k]; fn(); }, ms == null ? 400 : ms)
+    };
   }
+  // Run the pending writes. This used to clearTimeout() them and stop there,
+  // which SILENTLY DROPPED every edit made in the last 400ms before the call —
+  // and the two callers are go() and pagehide, i.e. exactly the moment you stop
+  // typing and click away. Same shape as palaestra-data.js's autosave flush
+  // sweep and kdp-nav.js's saver.flush(), both of which always ran the callback.
   function flushSaves() {
-    Object.keys(saveTimers).forEach(function (k) { clearTimeout(saveTimers[k]); });
+    var pending = saveTimers;
     saveTimers = {};
+    Object.keys(pending).forEach(function (k) {
+      clearTimeout(pending[k].t);
+      try { pending[k].fn(); } catch (e) {}
+    });
   }
 
   /** Leave the page without losing a write that has not committed. */
