@@ -10,6 +10,10 @@
      store prefix against the registry before it will build one. -->
 <script src="data-registry.js?v=1"></script>
 <script src="snapshots.js?v=1"></script>
+<!-- Per-keystroke form drafts, written to the REAL localStorage so a
+     refresh cannot take an unsaved form with it. -->
+<script src="athenaeum-drafts.js?v=1"></script>
+<script src="save-state.js?v=1"></script>
 <script src="trash.js?v=1"></script>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -1724,7 +1728,7 @@ addEventListener('hashchange', () => {
 addEventListener('keydown', e => {
   /* Escape closes the sheet from anywhere, including from inside a field —
      it is the one key that has to work while typing. */
-  if(e.key === 'Escape' && cmp.open) return closeComposer();
+  if(e.key === 'Escape' && cmp.open) return closeComposer(true);
   /* TEXTAREA and SELECT were missing here, so typing a "3" into the notes
      box would have jumped the page to another shelf. */
   if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
@@ -1939,10 +1943,47 @@ function openComposer(opts){
   // field each case actually wants first.
   setTimeout(() => { (item ? cmp.title : cmp.url).focus(); }, 90);
   if(!item && opts.url) autofill(opts.url);
+  bindComposerDraft(item);
 }
 
-function closeComposer(){
+/* ── unsaved-form protection ──────────────────────────────
+   Everything typed here lived only in the DOM until Save was pressed:
+   the input listener at the bottom of this file only repaints the
+   preview. A refresh, or a phone discarding a backgrounded tab, took the
+   whole entry with it. AthDraft writes every keystroke to the REAL
+   localStorage through a hidden iframe — local-store-idb.js's writes are
+   not durable at unload — under `athdraft:`, which sync.js cannot see.
+
+   Scoped by the record being edited rather than by a fingerprint of the
+   form: this composer is reopened on the same item over and over, and the
+   id is the stabler key. A new entry shares one draft across every
+   attempt at it, which is the behaviour you want when you get halfway
+   through adding something and get interrupted. */
+let cmpDraft = null;
+function bindComposerDraft(item){
+  cmpDraft = null;
+  if(!window.AthDraft) return;
+  const form = document.getElementById('cmpForm');
+  if(!form) return;
+  form.querySelectorAll('input,textarea,select').forEach(el => {
+    if(el.id && el.id.indexOf('cmp') === 0) el.setAttribute('data-f', el.id.slice(3));
+  });
+  const scope = 'composer:vault:' + (item ? cmp.editing.shelf + ':' + item.id : 'new');
+  cmpDraft = AthDraft.bind(scope, form, {
+    onRestore(when){
+      AthDraft.banner(form, when, () => { if(cmpDraft) cmpDraft.clear(); cmpDraft = null; });
+      paintPreview();
+    }
+  });
+}
+
+/* `discard` true means a DECISION to be done with this entry — the ✕,
+   Escape, the scrim, a real save, a delete. A refresh is not a decision,
+   and its draft has to survive. */
+function closeComposer(discard){
   if(!cmp.open) return;
+  if(cmpDraft){ if(discard) cmpDraft.clear(); else cmpDraft.save(); }
+  cmpDraft = null;
   cmp.open = false;
   cmp.el.classList.remove('on'); cmp.scrim.classList.remove('on');
   setTimeout(() => { cmp.el.hidden = true; cmp.scrim.hidden = true; }, 320);
@@ -2007,7 +2048,7 @@ function saveComposer(keepOpen){
     fillShelfSelect(keptShelf); cmp.cat.value = keptCat; fillCatList();
     cmp.url.focus();
   } else {
-    closeComposer();
+    closeComposer(true);   // saved for real: the draft has done its job
   }
   paintHero(shelfOf(active));
   render();
@@ -2020,7 +2061,7 @@ function deleteComposer(){
   if(!confirm('Delete “' + (it ? it.title : 'this item') + '” from ' +
       shelfOf(cmp.editing.shelf).label + '?\n\nThis cannot be undone.')) return;
   Vault.remove(cmp.editing.shelf, cmp.editing.id);
-  closeComposer();
+  closeComposer(true);
   note('Deleted');
   paintHero(shelfOf(active));
   render();
@@ -2054,7 +2095,7 @@ cmp.queue.onclick = () => { cmp.queue.classList.toggle('on'); paintToggles(); };
 document.getElementById('cmpSave').onclick  = () => saveComposer(false);
 document.getElementById('cmpAgain').onclick = () => saveComposer(true);
 cmp.del.onclick = deleteComposer;
-document.getElementById('cmpX').onclick = closeComposer;
+document.getElementById('cmpX').onclick = () => closeComposer(true);
 cmp.scrim.onclick = closeComposer;
 /* Enter saves from any single-line field; the notes box keeps its newlines. */
 cmp.form.addEventListener('keydown', e => {

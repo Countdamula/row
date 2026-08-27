@@ -7,6 +7,10 @@
      store prefix against the registry before it will build one. -->
 <script src="data-registry.js?v=1"></script>
 <script src="snapshots.js?v=1"></script>
+<!-- Per-keystroke form drafts, written to the REAL localStorage so a
+     refresh cannot take an unsaved form with it. -->
+<script src="athenaeum-drafts.js?v=1"></script>
+<script src="save-state.js?v=1"></script>
 <script src="trash.js?v=1"></script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -634,6 +638,7 @@ function openFormModal(opts) {
     } else { rows.push(buildFieldHtml(f, opts.values)); i++; }
   }
   $('bosFormModalBody').innerHTML = rows.join('');
+  bindFormDraft($('bosFormModalBody'), 'bosField_', 'bos', opts.title);
   Array.prototype.forEach.call(document.querySelectorAll('#bosFormModalBody .bos-swatch'), function (btn) {
     btn.addEventListener('click', function () {
       var fieldId = btn.getAttribute('data-color-field');
@@ -656,22 +661,61 @@ function openFormModal(opts) {
       else out[f.key] = el.value;
     });
     if (opts.validate) { var err = opts.validate(out); if (err) { alert(err); return; } }
-    closeFormModal();
+    closeFormModal(true);          // saved for real: the draft has done its job
     opts.onSubmit(out);
   };
   $('bosFormModalDeleteBtn').onclick = function () {
     if (!opts.onDelete) return;
     if (!confirm(opts.deleteConfirm || 'Delete this?')) return;
-    closeFormModal();
+    closeFormModal(true);
     opts.onDelete();
   };
   $('bosFormModalBg').classList.add('show');
   setTimeout(function () { var first = $('bosFormModalBody').querySelector('input,textarea,select'); if (first) first.focus(); }, 30);
 }
-function closeFormModal() { $('bosFormModalBg').classList.remove('show'); }
-$('bosFormModalCloseBtn').addEventListener('click', closeFormModal);
-$('bosFormModalCancelBtn').addEventListener('click', closeFormModal);
-$('bosFormModalBg').addEventListener('click', function (e) { if (e.target === $('bosFormModalBg')) closeFormModal(); });
+// ---------------------------------------------------------------------
+// FORM DRAFTS
+//
+// Everything typed into this dialog lived only in the DOM until Save was
+// pressed, so a refresh — or a phone discarding a backgrounded tab — took
+// the whole form with it. AthDraft writes every keystroke to the REAL
+// localStorage (via a hidden iframe, because local-store-idb.js's writes
+// are not durable at unload) under `athdraft:`, which sync.js cannot see.
+//
+// The fields already carry id="bosField_<key>"; data-f is derived from
+// that here rather than by editing buildFieldHtml. The fingerprint of the
+// OPENING values keeps two records that share a title apart.
+// ---------------------------------------------------------------------
+var formDraft = null;
+function bindFormDraft(body, idPrefix, ns, title) {
+  formDraft = null;
+  if (!window.AthDraft || !body) return;
+  var fields = body.querySelectorAll('[id^="' + idPrefix + '"]');
+  if (!fields.length) return;
+  Array.prototype.forEach.call(fields, function (el) {
+    el.setAttribute('data-f', el.id.slice(idPrefix.length));
+  });
+  formDraft = AthDraft.bind(
+    'modal:' + ns + ':' + (title || '') + ':' + AthDraft.fingerprint(body), body,
+    { onRestore: function (when) {
+        AthDraft.banner(body, when, function () {
+          if (formDraft) formDraft.clear();
+          formDraft = null;
+        });
+      } }
+  );
+}
+/* Cancel, Escape, the ✕, the backdrop and a successful save are all
+   DECISIONS to be done with the form, so the draft goes with them. A
+   refresh is not a decision, and its draft has to survive. */
+function closeFormModal(discard) {
+  if (formDraft) { if (discard) formDraft.clear(); else formDraft.save(); }
+  formDraft = null;
+  $('bosFormModalBg').classList.remove('show');
+}
+$('bosFormModalCloseBtn').addEventListener('click', function () { closeFormModal(true); });
+$('bosFormModalCancelBtn').addEventListener('click', function () { closeFormModal(true); });
+$('bosFormModalBg').addEventListener('click', function (e) { if (e.target === $('bosFormModalBg')) closeFormModal(true); });
 // =====================================================================
 // SIDEBAR NAV + GLOBAL SECTION ROUTING
 // =====================================================================

@@ -7,6 +7,10 @@
      store prefix against the registry before it will build one. -->
 <script src="data-registry.js?v=1"></script>
 <script src="snapshots.js?v=1"></script>
+<!-- Per-keystroke form drafts, written to the REAL localStorage so a
+     refresh cannot take an unsaved form with it. -->
+<script src="athenaeum-drafts.js?v=1"></script>
+<script src="save-state.js?v=1"></script>
 <script src="trash.js?v=1"></script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -902,6 +906,7 @@ function openFormModal(opts) {
     }
   }
   $('lhdFormModalBody').innerHTML = rows.join('');
+  bindFormDraft($('lhdFormModalBody'), 'lhdField_', 'lhd', opts.title);
   Array.prototype.forEach.call(document.querySelectorAll('#lhdFormModalBody .lhd-swatch'), function (btn) {
     btn.addEventListener('click', function () {
       var fieldId = btn.getAttribute('data-color-field');
@@ -926,21 +931,62 @@ function openFormModal(opts) {
       var err = opts.validate(out);
       if (err) { alert(err); return; }
     }
-    closeFormModal();
+    closeFormModal(true);          // saved for real: the draft has done its job
     opts.onSubmit(out);
   };
   $('lhdFormModalDeleteBtn').onclick = function () {
     if (!opts.onDelete) return;
     if (!confirm(opts.deleteConfirm || 'Delete this?')) return;
-    closeFormModal();
+    closeFormModal(true);
     opts.onDelete();
   };
   $('lhdFormModalBg').classList.add('show');
 }
-function closeFormModal() { $('lhdFormModalBg').classList.remove('show'); }
-$('lhdFormModalCloseBtn').addEventListener('click', closeFormModal);
-$('lhdFormModalCancelBtn').addEventListener('click', closeFormModal);
-$('lhdFormModalBg').addEventListener('click', function (e) { if (e.target === $('lhdFormModalBg')) closeFormModal(); });
+// ---------------------------------------------------------------------
+// FORM DRAFTS
+//
+// Everything typed into this dialog lived only in the DOM until Save was
+// pressed, so a refresh — or a phone deciding to discard a backgrounded
+// tab — took the whole form with it, including the long-form master-note
+// body. AthDraft writes every keystroke to the REAL localStorage (via a
+// hidden iframe, because local-store-idb.js's writes are not durable at
+// unload) under `athdraft:`, a prefix sync.js cannot see.
+//
+// The fields already carry id="lhdField_<key>"; data-f is derived from
+// that here rather than by editing buildFieldHtml, so no field type has to
+// change. The fingerprint of the OPENING values keeps two records that
+// share a title apart — "Edit topic" is the same string for every topic.
+// ---------------------------------------------------------------------
+var formDraft = null;
+function bindFormDraft(body, idPrefix, ns, title) {
+  formDraft = null;
+  if (!window.AthDraft || !body) return;
+  var fields = body.querySelectorAll('[id^="' + idPrefix + '"]');
+  if (!fields.length) return;          // a repurposed, non-field layout
+  Array.prototype.forEach.call(fields, function (el) {
+    el.setAttribute('data-f', el.id.slice(idPrefix.length));
+  });
+  formDraft = AthDraft.bind(
+    'modal:' + ns + ':' + (title || '') + ':' + AthDraft.fingerprint(body), body,
+    { onRestore: function (when) {
+        AthDraft.banner(body, when, function () {
+          if (formDraft) formDraft.clear();
+          formDraft = null;
+        });
+      } }
+  );
+}
+/* Cancel, Escape, the ✕, the backdrop and a successful save are all
+   DECISIONS to be done with the form, so the draft goes with them. A
+   refresh is not a decision, and its draft has to survive. */
+function closeFormModal(discard) {
+  if (formDraft) { if (discard) formDraft.clear(); else formDraft.save(); }
+  formDraft = null;
+  $('lhdFormModalBg').classList.remove('show');
+}
+$('lhdFormModalCloseBtn').addEventListener('click', function () { closeFormModal(true); });
+$('lhdFormModalCancelBtn').addEventListener('click', function () { closeFormModal(true); });
+$('lhdFormModalBg').addEventListener('click', function (e) { if (e.target === $('lhdFormModalBg')) closeFormModal(true); });
 
 // =====================================================================
 // TOPIC add/edit + delete
@@ -1513,7 +1559,7 @@ function closeFrameworkDetail() {
   fwDetailId = null;
   $('lhdFormModal').classList.remove('lhd-modal-wide');
   $('lhdFormModalActions').style.display = 'flex';
-  closeFormModal();
+  closeFormModal(true);
 }
 function renderFrameworkDetailBody() {
   var f = D.Frameworks.get(fwDetailId);

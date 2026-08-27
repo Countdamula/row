@@ -291,8 +291,51 @@
 
   try { sweepExpired(); } catch (e) {}
 
+  /* A visible, dismissible notice that something was put back.
+     athenaeum-resource-editor.js has the original of this; it is here so
+     the generic form modals on Business OS, the Learning Dashboard and The
+     Vault get the same affordance without each inventing one.
+
+     STYLED FROM currentColor ON PURPOSE. It is injected into whatever
+     dialog is open, and those run from near-black to — on the Learning
+     Dashboard, which has its own light/dark toggle — white. A strip that
+     picked its own surface colour would be unreadable on one of them.
+     Inheriting the text colour and using a mid-grey hairline is legible on
+     both, and needs no per-page CSS. */
+  function banner(root, whenText, onDiscard) {
+    if (!root) return null;
+    var el = document.createElement('div');
+    el.setAttribute('data-athdraft-banner', '');
+    el.style.cssText = [
+      'display:flex', 'align-items:center', 'gap:10px', 'margin:0 0 14px',
+      'padding:9px 11px', 'border:1px solid rgba(128,128,128,.45)',
+      'border-radius:8px', 'background:rgba(128,128,128,.10)',
+      'font-size:13px', 'line-height:1.4', 'color:inherit'
+    ].join(';');
+    var msg = document.createElement('span');
+    msg.style.cssText = 'flex:1;min-width:0';
+    msg.textContent = 'Unsaved changes from ' + (whenText || 'earlier') + ' were put back.';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Discard';
+    btn.style.cssText = [
+      'flex:none', 'min-height:32px', 'padding:0 12px', 'cursor:pointer',
+      'border:1px solid rgba(128,128,128,.5)', 'border-radius:6px',
+      'background:transparent', 'color:inherit', 'font:inherit',
+      'font-size:12px', 'font-weight:600'
+    ].join(';');
+    btn.addEventListener('click', function () {
+      try { if (onDiscard) onDiscard(); } catch (e) {}
+      try { el.remove(); } catch (e) {}
+    });
+    el.appendChild(msg);
+    el.appendChild(btn);
+    root.insertBefore(el, root.firstChild);
+    return el;
+  }
+
   window.AthDraft = {
-    bind: bind, put: put, get: get, clear: clear, age: age,
+    bind: bind, put: put, get: get, clear: clear, age: age, banner: banner,
     fieldsOf: fieldsOf, applyFields: applyFields, fingerprint: fingerprint,
     keys: function () { return allKeys().map(function (k) { return k.slice(PREFIX.length); }); },
     // Exposed so a page can tell the reader whether it has the synchronous

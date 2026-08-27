@@ -311,6 +311,15 @@
         styled = true;
       } catch (e) { return null; }
     }
+    // save-state.js owns the shared bottom-left rail. Drawing into the same
+    // container is what guarantees the status chip and these toasts can never
+    // sit on top of each other — the chip takes `order:99` so it stays at the
+    // bottom and toasts stack above it. Falls back to its own container so
+    // trash.js still works on a page without save-state.js.
+    if (global.SaveState && global.SaveState.rail) {
+      var shared = global.SaveState.rail();
+      if (shared) { wrap = shared; return wrap; }
+    }
     if (!wrap || !wrap.isConnected) {
       wrap = document.createElement('div');
       wrap.className = 'trsh-wrap';
