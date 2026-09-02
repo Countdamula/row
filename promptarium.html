@@ -40,7 +40,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="asclepion-theme.css?v=6">
-<link rel="stylesheet" href="promptarium-theme.css?v=1">
+<link rel="stylesheet" href="promptarium-theme.css?v=2">
 <link rel="preload" as="image" href="images_by_admin/promptarium/hero-hall.webp">
 </head>
 <body class="asc">
@@ -247,12 +247,13 @@
   // `shut` is the list of folded category groups, keyed by tab so the
   // two libraries fold independently.
   // ============================================================
+  var TABS = ['prompts', 'tools', 'kept'];
   var ui = { tab: 'prompts', q: '', cat: 'all', favOnly: false,
              group: 'category', pop: null, shut: [] };
 
   function loadUi() {
     var s = D().getUiState();
-    if (s.tab === 'tools' || s.tab === 'prompts') ui.tab = s.tab;
+    if (TABS.indexOf(s.tab) !== -1) ui.tab = s.tab;
     if (typeof s.cat === 'string') ui.cat = s.cat;
     if (s.group && GROUPINGS[s.group]) ui.group = s.group;
     if (Array.isArray(s.shut)) ui.shut = s.shut.slice();
@@ -261,6 +262,35 @@
   function saveUi() {
     D().setUiState({ tab: ui.tab, cat: ui.cat, favOnly: ui.favOnly,
                      group: ui.group, shut: ui.shut });
+  }
+
+  /* WHICH PROMPTS ARE OPEN IN THE LIST, and deliberately NOT in `ui` —
+     so it is never written to prm:uiState. An expanded prompt is about
+     this minute, the same reason the search term is not kept.
+
+     It is a variable rather than just a class on the DOM because a cloud
+     pull calls render() at a moment nobody chose, and a prompt you are
+     halfway through reading has to survive that repaint. */
+  var openPeek = [];
+  function isPeeking(uid) { return openPeek.indexOf(uid) !== -1; }
+  /* A uid carries a colon (`prm:pp_x`). Legal in an id, awkward in every
+     selector that might later be pointed at one, so it is spent here. */
+  function peekId(uid) { return 'pmPeek-' + String(uid).replace(/[^A-Za-z0-9_-]/g, '-'); }
+
+  /* FLIPPED IN PLACE, not repainted. Every row carries an entrance
+     stagger, so re-rendering the list to open one prompt would make the
+     whole library flicker through its reveal again. The repaint is the
+     fallback for the case where the row has gone. */
+  function togglePeek(uid) {
+    var i = openPeek.indexOf(uid), open = i === -1;
+    if (open) openPeek.push(uid); else openPeek.splice(i, 1);
+    var panel = document.getElementById(peekId(uid));
+    var btn = document.querySelector('[data-peek="' + uid + '"]');
+    if (!panel || !btn) { renderCurrentList(); return; }
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label',
+      (open ? 'Hide' : 'Show') + ' the text of ' + (btn.getAttribute('data-peek-name') || 'this prompt'));
   }
 
   // ============================================================
@@ -570,6 +600,34 @@
       U().mark('heart') + '</button>';
   }
 
+  /* THE CHEVRON THAT OPENS A PROMPT UNDER ITS OWN ROW. It borrows
+     .asc-linkout from the row's other icon button, because that class
+     already resets the browser's chrome — a bare <button> in this table
+     renders as a white slab.
+     aria-controls ties the disclosure to the thing it discloses, so a
+     screen reader hears them as one control and not two siblings. */
+  function peekBtn(uid, open, pid, name) {
+    return '<button type="button" class="asc-linkout pm-peek__t" data-peek="' + esc(uid) + '"' +
+      ' data-peek-name="' + esc(name) + '"' +
+      ' aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + esc(pid) + '"' +
+      ' aria-label="' + esc((open ? 'Hide' : 'Show') + ' the text of ' + name) + '">&#9662;</button>';
+  }
+
+  /* A SIBLING of the row, never a child. .asc-row is itself a six-column
+     grid, and a different, named-area one on a phone, so a panel inside
+     it would have to be placed in BOTH — and would sit inside the row's
+     own hover surface while it was at it.
+     The text is typeset with .pm-prompt-text, the same class the prompt's
+     own page uses, so a prompt reads identically wherever you open it. */
+  function peekPanel(p, open, pid) {
+    return '<div class="pm-peek" id="' + esc(pid) + '"' + (open ? '' : ' hidden') + ' role="row"' +
+      ' style="--asc-tint:' + hueOf('prompt', p.category) + '">' +
+      '<div class="pm-prompt-text pm-peek__body" role="cell" tabindex="0">' +
+        markVars(p.text || 'This prompt has no text yet.') +
+      '</div>' +
+    '</div>';
+  }
+
   function sectionHead(label, note) {
     return '<div class="pm-sec__head">' +
       '<h2 class="asc-label">' + esc(label) + '</h2>' +
@@ -589,7 +647,13 @@
     tool:   { grouped:  ['Tool', 'Opened', 'Site', 'Last opened'],
               flat:     ['Tool', 'Category', 'Site', 'Last opened'] }
   };
-  function grouped() { return GROUPINGS[ui.group].group; }
+  /* The Kept tab never groups: its two libraries ARE its sections, and
+     category grouping across both would stack headings that mean
+     different things — the two vocabularies share ids, so one "writing"
+     heading would be two different groups. colsRow() reads this as well
+     as tableHTML(), which is why it is answered here and not in the
+     view: a flat list under grouped headings names the wrong columns. */
+  function grouped() { return ui.tab !== 'kept' && GROUPINGS[ui.group].group; }
 
   function colsRow(kind) {
     return '<div class="asc-cols" role="row">' +
@@ -611,6 +675,7 @@
      rely on. */
   function promptRow(p, i) {
     var last = p.lastUsedAt ? D().fmtAgo(p.lastUsedAt) : '';
+    var open = isPeeking(p.uid), pid = peekId(p.uid);
     return '<div class="asc-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
       ' role="row" style="--asc-tint:' + hueOf('prompt', p.category) + '">' +
       '<button type="button" class="asc-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
@@ -631,11 +696,13 @@
       '</div>' +
       '<span class="asc-row__do" role="cell">' +
         '<button type="button" class="asc-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
+        peekBtn(p.uid, open, pid, p.title) +
         '<button type="button" class="asc-linkout" data-menu="' + esc(p.uid) + '"' +
           ' aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
       '</span>' +
       '<span class="asc-row__heart" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
-    '</div>';
+    '</div>' +
+    peekPanel(p, open, pid);
   }
 
   function toolRow(t, i) {
@@ -801,9 +868,17 @@
   /* The page's primary navigation. It used to live in the hero; the hero
      in this room carries nothing but the display line, so it moves to the
      head of the sticky bar, where every other control already is. */
+  function hashForTab(tab) {
+    return tab === 'tools' ? '#/tools' : tab === 'kept' ? '#/kept' : '#/';
+  }
   function tabsHTML() {
     return '<div class="pm-tabs" role="tablist" aria-label="Library">' +
       tabHTML('prompts', 'Prompts') + tabHTML('tools', 'Tools') +
+      /* A PLACE, not a filter. "Kept only" still lives in Filter, where
+         it narrows one library; this is the other half of the same
+         answer — the things worth coming back to, from both libraries,
+         without first having to decide which one they were in. */
+      tabHTML('kept', 'Kept') +
     '</div>';
   }
   function tabHTML(id, label) {
@@ -826,25 +901,43 @@
 
   function filterCount() { return (ui.cat !== 'all' ? 1 : 0) + (ui.favOnly ? 1 : 0); }
 
+  /* WHAT THE SORT BUTTON SHOULD SAY IT IS DOING. sortRecords() already
+     falls through to byName for anything that is not "used" or
+     "recent", so a Kept list carrying ui.group === 'category' is in
+     fact in name order — and a button reading "Sort by category" over
+     it would be describing a grouping that is not on the page. */
+  function sortKey() {
+    return (ui.tab === 'kept' && GROUPINGS[ui.group].group) ? 'az' : ui.group;
+  }
+
   var barMode = null;
   function buildBarControls(mode) {
     var isTools = mode === 'tools';
+    var isKept = mode === 'kept';
     $('pmBar').innerHTML =
       tabsHTML() +
       '<div class="asc-search">' +
         '<input type="search" id="pmQ" placeholder="Search" autocomplete="off" spellcheck="false"' +
-          ' aria-label="' + (isTools ? 'Search tools' : 'Search prompts') + '"' +
+          ' aria-label="' + (isKept ? 'Search what you have kept' : isTools ? 'Search tools' : 'Search prompts') + '"' +
           ' value="' + esc(ui.q) + '">' +
       '</div>' +
       '<button type="button" class="asc-btn" data-pop="group" aria-expanded="false">' +
-        'Sort by ' + esc(GROUPINGS[ui.group].label) +
+        'Sort by ' + esc(GROUPINGS[sortKey()].label) +
         '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>' +
-      '<button type="button" class="asc-btn" data-pop="filter" aria-expanded="false">' +
-        'Filter' + (filterCount() ? ' &middot; ' + filterCount() : '') +
-        '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>' +
+      /* THE KEPT TAB CARRIES NEITHER. Filter offers one library's
+         categories and a "Kept only" toggle, and this view is already
+         both libraries and already kept only — the panel would be
+         asking a question the tab has answered. And there is nothing to
+         add TO a list of things you kept: you keep them from the
+         library, with the heart. */
+      (isKept ? '' :
+        '<button type="button" class="asc-btn" data-pop="filter" aria-expanded="false">' +
+          'Filter' + (filterCount() ? ' &middot; ' + filterCount() : '') +
+          '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>') +
       '<span class="asc-bar__spacer"></span>' +
-      '<button type="button" class="asc-btn asc-btn--primary" data-new="' + mode + '">' +
-        (isTools ? 'Add tool' : 'New prompt') + '</button>';
+      (isKept ? '' :
+        '<button type="button" class="asc-btn asc-btn--primary" data-new="' + mode + '">' +
+          (isTools ? 'Add tool' : 'New prompt') + '</button>');
     barMode = mode;
   }
 
@@ -855,8 +948,11 @@
     if (!ui.pop) return '';
     var out = '<div class="asc-pop" id="pmPop">';
     if (ui.pop === 'group') {
-      out += Object.keys(GROUPINGS).map(function (k) {
-        return opt(k === ui.group, cap(GROUPINGS[k].label), 'data-setgroup="' + k + '"');
+      out += Object.keys(GROUPINGS).filter(function (k) {
+        // "category" is a grouping, and the Kept tab does not group.
+        return !(ui.tab === 'kept' && GROUPINGS[k].group);
+      }).map(function (k) {
+        return opt(k === sortKey(), cap(GROUPINGS[k].label), 'data-setgroup="' + k + '"');
       }).join('');
     } else {
       var kind = ui.tab === 'tools' ? 'tool' : 'prompt';
@@ -1053,6 +1149,65 @@
     html += '<div class="asc-table" role="table" aria-label="Tools">' +
       tableHTML('tool', all) + '</div>';
 
+    host.innerHTML = html;
+  }
+
+  /* WHAT YOU KEPT, from both libraries at once.
+
+     It does its own filtering rather than going through
+     isFiltering()/filteredPrompts(): those two carry ui.cat, which
+     belongs to whichever library you were last in and would quietly
+     hide half of this page. The only controls this view honours are the
+     search field and the sort.
+
+     Ungrouped on purpose. Category grouping across two libraries would
+     stack headings that mean different things — a "planning" prompt and
+     a "planning" tool are not one group — so the two libraries ARE the
+     sections, and Sort by orders inside them. */
+  function viewKept() {
+    var host = $('pmView');
+    var q = ui.q.trim().toLowerCase();
+    var prompts = pvAll().filter(function (p) { return p.favorite && matchPrompt(p, q); });
+    var tools = D().Tools.list().filter(function (t) { return t.favorite && matchTool(t, q); });
+
+    if (!prompts.length && !tools.length) {
+      host.innerHTML = q
+        ? emptyState('Nothing kept matches that.',
+            'Nothing you have kept matches "' + ui.q.trim() + '". Clear the search to see the whole shelf.',
+            '<button type="button" class="asc-btn asc-btn--primary" data-clearq="1">Clear the search</button>')
+        : emptyState('Nothing kept yet.',
+            'Tap the heart at the end of any prompt or tool and it lands here. This is the shelf for the ones you come back to, from both libraries at once.',
+            '<button type="button" class="asc-btn asc-btn--primary" data-go="#/">Go to the prompts</button>');
+      return;
+    }
+
+    var html = '';
+    /* An empty half is left out rather than printed as a heading over
+       nothing: a section that says "no tools" is still a section. */
+    if (prompts.length) {
+      html += '<section class="pm-sec">' +
+        // No 'Kept' note: the lit tab three lines above already says it,
+        // and a label that repeats its own heading is doing nothing.
+        sectionHead(plural(prompts.length, 'prompt')) +
+        '<div class="asc-table" role="table" aria-label="Prompts you have kept">' +
+          colsRow('prompt') +
+          '<div class="asc-group__body">' +
+            sortRecords(prompts).map(function (p, i) { return promptRow(p, i); }).join('') +
+          '</div>' +
+        '</div>' +
+      '</section>';
+    }
+    if (tools.length) {
+      html += '<section class="pm-sec">' +
+        sectionHead(plural(tools.length, 'tool')) +
+        '<div class="asc-table" role="table" aria-label="Tools you have kept">' +
+          colsRow('tool') +
+          '<div class="asc-group__body">' +
+            sortRecords(tools).map(function (t, i) { return toolRow(t, i); }).join('') +
+          '</div>' +
+        '</div>' +
+      '</section>';
+    }
     host.innerHTML = html;
   }
 
@@ -1348,7 +1503,8 @@
     // Tools tab lit rather than lying about where you are. A collection is
     // the only route that cannot be read off the hash — its own kind says
     // which half of the page it belongs to.
-    if (p[0] === 'tools' || p[0] === 't') ui.tab = 'tools';
+    if (p[0] === 'kept') ui.tab = 'kept';
+    else if (p[0] === 'tools' || p[0] === 't') ui.tab = 'tools';
     else if (p[0] === 'c' && p[1]) {
       var col = D().Collections.get(decodeURIComponent(p[1]));
       if (col) ui.tab = col.kind === 'tool' ? 'tools' : 'prompts';
@@ -1364,6 +1520,7 @@
 
     if (!p.length)                     { renderBar('prompts'); runSafely(viewPromptsHome, 'prompts home'); }
     else if (p[0] === 'tools')           { renderBar('tools');   runSafely(viewToolsHome, 'tools home'); }
+    else if (p[0] === 'kept')            { renderBar('kept');    runSafely(viewKept, 'kept'); }
     else if (p[0] === 'p' && p[1])       { renderBar(null); runSafely(function () { viewPrompt(decodeURIComponent(p[1])); }, 'prompt'); }
     else if (p[0] === 't' && p[1])       { renderBar(null); runSafely(function () { viewTool(decodeURIComponent(p[1])); }, 'tool'); }
     else if (p[0] === 'c' && p[1])       { renderBar(null); runSafely(function () { viewCollection(decodeURIComponent(p[1])); }, 'collection'); }
@@ -1792,7 +1949,7 @@
       onSave: function () {
         if (!pvRemove(uid)) return false;
         toast('Deleted');
-        go(ui.tab === 'tools' ? '#/tools' : '#/');
+        go(hashForTab(ui.tab));
         return true;
       }
     });
@@ -1828,7 +1985,7 @@
       // library now. Carrying them over would show an empty page.
       ui.q = ''; ui.cat = 'all';
       saveUi();
-      go(tab === 'tools' ? '#/tools' : '#/');
+      go(hashForTab(tab));
     });
 
     /* THE TWO DROP PANELS. Opening one closes the other, and a second
@@ -1848,6 +2005,13 @@
     });
     on(app, '[data-ffav]', 'click', function () { ui.favOnly = !ui.favOnly; saveUi(); render(); });
     on(app, '[data-fclear]', 'click', clearFilters);
+    /* Only the search. clearFilters() would also clear ui.favOnly, and
+       the Kept tab is the one view that does not own that flag. */
+    on(app, '[data-clearq]', 'click', function () {
+      ui.q = '';
+      var q = $('pmQ'); if (q) q.value = '';
+      render();
+    });
     /* Anywhere else closes it. Bound on the document rather than the app,
        because "anywhere" includes the hero. */
     document.addEventListener('click', function (e) {
@@ -1875,7 +2039,7 @@
     });
     on(app, '[data-back]', 'click', function () {
       if (history.length > 1) history.back();
-      else go(ui.tab === 'tools' ? '#/tools' : '#/');
+      else go(hashForTab(ui.tab));
     });
     on(app, '[data-tool]', 'click', function () { go('#/t/' + this.dataset.tool); });
 
@@ -1884,6 +2048,7 @@
     });
     on(app, '[data-newcol]', 'click', function () { openCollectionEditor(null, this.dataset.newcol); });
     on(app, '[data-copy]', 'click', function (e) { e.stopPropagation(); doCopy(this.dataset.copy, this); });
+    on(app, '[data-peek]', 'click', function (e) { e.stopPropagation(); togglePeek(this.dataset.peek); });
     on(app, '[data-fav]', 'click', function (e) { e.stopPropagation(); toggleFav(this.dataset.fav); });
     on(app, '[data-menu]', 'click', function (e) { e.stopPropagation(); openPromptMenu(this.dataset.menu); });
     on(app, '[data-toolmenu]', 'click', function (e) { e.stopPropagation(); openToolMenu(this.dataset.toolmenu); });
@@ -1972,7 +2137,9 @@
      rebuild the bar's controls in some cases, and the caret lives in
      there. */
   function renderCurrentList() {
-    if (ui.tab === 'tools') viewToolsHome(); else viewPromptsHome();
+    if (ui.tab === 'kept') viewKept();
+    else if (ui.tab === 'tools') viewToolsHome();
+    else viewPromptsHome();
   }
 
   function confirmDeleteCollection(id) {
