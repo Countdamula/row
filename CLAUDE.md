@@ -16153,3 +16153,138 @@ request interception before and emptied a live row. 30 data checks, 34
 interaction checks, 19 guided-view checks, 25 wipe checks plus the control, 9
 viewports for overflow/overlap/field size/tap targets, contrast sampled off
 rendered pixels at desktop and phone width, and all 25 pages booted.
+
+## The Asclepion — the library, and a writable database (2026-09-02)
+
+### The hero is a photograph of a room now
+
+`images_by_admin/asclepion/hero-library.webp` — a candlelit baroque library —
+replaces the poster art. Built by `scripts/make-hero-library.mjs`, which
+reproduces it from the source JPG; the source is never written to, and the
+poster assets are left in place rather than deleted.
+
+**736x1308, and that aspect ratio is the whole story of the CSS.** It is taller
+than a phone and far taller than a desktop window, so a cover fill spends
+almost all of itself on the vertical crop:
+
+    1920x1080   scales 2.61x, shows 32% of the height
+    1440x900    scales 1.96x, shows 43%
+     390x844    scales 0.65x, shows ALL of it, 13% off each side
+
+The phone gets the whole room; the desktop gets a band. `object-position: 50%
+30%` picks which band — the arched window and the gallery, losing the floor.
+
+**It is only 736px wide**, so at 1920 the browser enlarges it 2.6x. It is soft,
+and near-black gradients enlarged that far band. Neither is fixable by
+encoding. A grain layer rides on `.asc-hero::after` and dissolves both — it has
+to live there rather than on `body`, because the hero is `isolation: isolate`
+and the page's own fixed grain cannot reach inside it.
+
+**The ring moved onto the window.** It has now moved twice and both moves were
+the same lesson: a circle drawn over a picture has to be ABOUT something in the
+picture, or it reads as a stray artifact. Behind a head it was a halo; floating
+over a wall it was a smudge; ringing the one light source in the room it is
+light.
+
+### The palette is measured off that photograph
+
+Not chosen. `scratchpad/palette.mjs` samples the luminance histogram and
+averages the colour INSIDE each band — an overall average of a picture that is
+four-fifths shadow tells you nothing but the shadow:
+
+    darkest 10%  #050302      65-85%       #1f1610   lit panelling
+    25-45%       #0a0705      85-97%       #41362d   gilding
+    45-65%       #110b07      candle       #996f4b / peak #d38f50
+    brightest 2% #c1bcb5      window       #bfc0c1   the one cold thing
+
+So the ground is darker and browner than the vault's own palette was, the
+highlights are cooler — this room's marble is stone, not cream — and the gold
+is amber rather than rose, because it is a flame and not a brand colour. Every
+ratio was re-measured against the new, darker ground: marble 13.3:1, text-2
+6.6:1, gold 6.7:1, candlelight 9.5:1.
+
+### Two faces, from the two brand references
+
+**Bodoni Moda** for display, matching `banner & title_text.jpg` — a
+high-contrast Didone, hairline thins against heavy stems. Its 6..96 optical-size
+axis is the reason it is this and not Playfair: opsz keeps the hairlines fine
+at 8rem and still visible at 1rem. The same reference picked the same face for
+The Athenaeum's heroes.
+
+**Inter** for everything else, from `Normal text typography.jpg`, whose small
+labels are a light wide-tracked grotesque. This also puts the page back on the
+house rule it was breaking — it had been two serifs doing one job each.
+
+Linked from a `<link>` in the head rather than `@import`-ed from the
+stylesheet: an `@import` cannot start downloading until the stylesheet has
+itself arrived and parsed, which puts the two requests in series behind the
+largest text on the page.
+
+### The database is writable — every kind, not just Mine
+
+It could only ever write `asc:custom`. Everything else was read-only, which
+made the seeded library a fixture rather than a starting point, and a
+self-care library you cannot prune is one you stop opening.
+
+**Add offers all six kinds**, with real editors for the two that are not prose:
+
+- **Breath** gets a rounds-and-phases editor — add and remove rounds, add and
+  remove phases, cycles per round, seconds per phase, with the technique's
+  total length recomputed as you type. A technique with no phases is refused:
+  one the pacer cannot run is worse than none.
+- **Tapping** gets a per-point line editor across all three rounds, its point
+  dropdown built from `asc:eftpoints`.
+- Meditation, Movement, Energy and Mine share the prose form, each with its own
+  category/shelf select.
+
+**The form is rendered from a DRAFT OBJECT, not from a `<form>`.** Two of the
+six kinds need rows that appear and disappear while you are looking at them, so
+every field declares where it lives with `data-path` and one delegated listener
+writes it there. Adding a field to a form is now adding a line of markup and
+nothing else. That listener must NOT repaint — repainting on a keystroke
+destroys the input being typed into, which is exactly the bug the search box
+had. Only the row buttons repaint, because only they change the form's shape.
+
+The draft is deliberately not the record: nothing reaches storage until Save,
+so Back really does mean back.
+
+**Delete works on everything, and the net under it is trash.js** — which
+watches every collection named in `data-registry.js` by DIFFING and keeps a
+copy of anything that vanishes. So a delete here is recoverable from the
+Recovery Center without this page containing a single line about it. Verified,
+not assumed: the suite reads `trash:item:*` back after deleting a seeded record.
+
+**The seeder cannot undo a deletion.** `isSeeded()` is a stored stamp, not
+"does the library look empty" — an emptied library is a decision. Also verified.
+
+Changing an existing record's KIND is deliberately not offered: it would mean
+deleting from one collection and adding to another under a new id, which orphans
+its sessions.
+
+### Back
+
+Every panel that takes over the screen — the detail sheet, the editors, the
+pacer, the tapping session, the guided view — now carries a visible Back
+control in its top-left. All five could already be dismissed four ways (Esc,
+the backdrop, Cancel, the browser's own back) and every one of those was
+invisible.
+
+### Two testing traps worth keeping
+
+- **A stale probe selector reports a confident wrong number.**
+  `look.mjs` sampled `.asc-row__name span` for the row-title contrast. The row
+  gained a description and a wrapper, so that selector became the 15px group
+  ICON — and the suite reported the anti-aliased edge of an icon as 4.6:1 and
+  5.1:1 for two releases. The real figure is 13.3:1. A probe that still finds
+  AN element is the dangerous kind of broken.
+- **A control that cannot find its guard must refuse, not pass.** git checks
+  this tree out with CRLF and `wipe.mjs`'s mutation regex anchored on a bare
+  `\\n`, so it matched nothing. It refused to run and said so, which is the only
+  correct behaviour.
+
+`asclepion-theme.css?v=6`, `asclepion-data.js?v=5`. Verified with Puppeteer,
+Supabase blocked at the request handler and at fetch/XHR/sendBeacon/WebSocket:
+30 data checks, 34 interaction checks, 19 guided-view checks, 30 add/edit/delete
+checks, 14 editor checks at phone widths, 25 wipe checks plus the mutation
+control, 9 viewports, contrast sampled off rendered pixels, and all 25 pages
+booted.

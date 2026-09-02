@@ -67,8 +67,20 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="asclepion-theme.css?v=4">
-<link rel="preload" as="image" href="images_by_admin/asclepion/hero-figure.webp">
+<!-- BODONI MODA carries the display voice, matching the brand's own
+     banner/title wordmark: a high-contrast Didone, hairline thins
+     against heavy stems, wide-tracked. The 6..96 optical-size axis is
+     the point of choosing it — opsz is what keeps the hairlines fine
+     at 8rem and still visible at 1rem.
+     INTER does everything else, from the normal-text reference, whose
+     labels are a light wide-tracked grotesque.
+     Linked here rather than @import-ed from the stylesheet: an
+     @import cannot begin downloading until the stylesheet has itself
+     arrived and parsed, which puts the two requests in series behind
+     the largest text on the page. -->
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="asclepion-theme.css?v=6">
+<link rel="preload" as="image" href="images_by_admin/asclepion/hero-library.webp">
 
 <!-- Not deferred, and in dependency order: the inline boot script
      at the bottom of <body> runs during parsing, before any
@@ -78,7 +90,7 @@
 <script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
 <script src="asclepion-seed.js?v=3"></script>
-<script src="asclepion-data.js?v=4"></script>
+<script src="asclepion-data.js?v=5"></script>
 <script src="asclepion-sync.js?v=3"></script>
 <script src="asclepion-ui.js?v=3"></script>
 <script src="asclepion-retire.js?v=1"></script>
@@ -94,8 +106,8 @@
      re-created at all, and paints from the first byte instead of
      waiting for a script. The file is gone. -->
 <header class="asc-hero">
-  <img class="asc-hero__fig" src="images_by_admin/asclepion/hero-figure.webp"
-       alt="" width="736" height="1041" fetchpriority="high" decoding="async">
+  <img class="asc-hero__fig" src="images_by_admin/asclepion/hero-library.webp"
+       alt="" width="736" height="1308" fetchpriority="high" decoding="async">
   <div class="asc-hero__ring" aria-hidden="true"></div>
   <p class="asc-hero__mark">The Asclepion</p>
 
@@ -126,7 +138,7 @@
        dashboard and covered it. It belongs under the ring anyway: what you
        are doing is content, not chrome. -->
   <div class="asc-run__top">
-    <button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="run-close">Close · Esc</button>
+    <button type="button" class="asc-back" data-act="run-close"><span aria-hidden="true">&#8592;</span> Back</button>
   </div>
   <!-- Outside the body, because the body is rebuilt on every phase. -->
   <p class="asc-label asc-run__where" id="ascRunWhere"></p>
@@ -619,6 +631,14 @@
     var g = groupMeta(a.group);
     var r = a.rec;
     var out = '<div data-tint="' + esc(g.tint) + '">' +
+      // BACK, and it is a real control rather than a hint about Esc.
+      // The sheet could already be dismissed four ways — Esc, the
+      // backdrop, Cancel, the browser's own back — and every one of
+      // them is invisible.
+      '<div class="asc-sheet__back">' +
+        '<button type="button" class="asc-back" data-act="sheet-close">' +
+          '<span aria-hidden="true">&#8592;</span> Back</button>' +
+      '</div>' +
       '<div class="asc-sheet__top">' +
         '<div>' +
           '<p class="asc-label asc-label--tint">' + esc(g.label) + '</p>' +
@@ -664,12 +684,14 @@
       '<button type="button" class="asc-btn asc-btn--quiet" data-act="did">Mark it done</button>' +
     '</div>';
 
-    if (kind === 'custom') {
-      out += '<div class="asc-sheet__acts asc-sheet__acts--minor">' +
-        '<button type="button" class="asc-btn asc-btn--sm" data-act="edit">Edit</button>' +
-        '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="delete">Delete</button>' +
-      '</div>';
-    }
+    // EVERY KIND, not just Mine. The seeded library was read-only
+    // until now, which made it a fixture rather than a starting
+    // point — and a self-care library you cannot prune is one you
+    // stop opening.
+    out += '<div class="asc-sheet__acts asc-sheet__acts--minor">' +
+      '<button type="button" class="asc-btn asc-btn--sm" data-act="edit">Edit</button>' +
+      '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="delete">Delete</button>' +
+    '</div>';
 
     U.openSheet(out + '</div>');
   }
@@ -744,69 +766,480 @@
   }
 
   // ==========================================================
-  // ADDING AND EDITING — the Mine group
+  // §ADDING, EDITING AND DELETING — every kind, not just Mine
+  //
+  // This was a single form that could only write `asc:custom`.
+  // Everything else in the library was read-only, which made the
+  // seeded content a fixture rather than a starting point.
+  //
+  // WHY IT IS A DRAFT OBJECT AND NOT A <form>
+  // Four of the six kinds are flat prose and a plain form would do.
+  // The other two are not: a breathing technique is rounds of timed
+  // phases and a tapping script is lines against tapping points, and
+  // both need rows that can be added and removed while you are
+  // looking at them. So the form is rendered FROM a draft object and
+  // every field writes back into it by path — one input listener and
+  // one setter, rather than a bespoke handler per control.
+  //
+  // The draft is deliberately NOT the record. Nothing is written to
+  // storage until Save, so Back really does mean back.
   // ==========================================================
-  function openForm(rec) {
-    var c = rec || { id: '', title: '', summary: '', steps: [], forWhen: '', minutes: 0, url: '' };
-    U.openSheet('<div data-tint="mine">' +
-      '<div class="asc-sheet__top"><div>' +
-        '<p class="asc-label asc-label--tint">Mine</p>' +
-        '<h2 class="asc-plate asc-plate--lg">' + (c.id ? 'Edit' : 'A new activity') + '</h2>' +
-      '</div></div>' +
-      '<form id="ascForm" novalidate>' +
-        '<label class="asc-field"><span class="asc-label">Name</span>' +
-          '<input class="asc-input" name="title" required maxlength="160" data-autofocus' +
-            ' value="' + esc(c.title) + '" placeholder="Sit on the step outside"></label>' +
-        '<div class="asc-fields2">' +
-          '<label class="asc-field"><span class="asc-label">For when</span>' +
-            '<input class="asc-input" name="forWhen" maxlength="60"' +
-              ' value="' + esc(c.forWhen) + '" placeholder="Stuck" list="ascWhenList"></label>' +
-          '<label class="asc-field"><span class="asc-label">Minutes</span>' +
-            '<input class="asc-input" name="minutes" type="number" inputmode="numeric" min="0" max="240"' +
-              ' value="' + (c.minutes || '') + '" placeholder="5"></label>' +
-        '</div>' +
-        '<datalist id="ascWhenList">' + whenValues().map(function (v) {
-          return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>' +
-        '<label class="asc-field"><span class="asc-label">What it is</span>' +
-          '<textarea class="asc-textarea" name="summary" maxlength="600"' +
-            ' placeholder="One or two lines, for the version of you who has forgotten why this helps.">' +
-            esc(c.summary) + '</textarea></label>' +
-        '<label class="asc-field"><span class="asc-label">Steps, one per line</span>' +
-          '<textarea class="asc-textarea" name="steps" maxlength="4000"' +
-            ' placeholder="Optional.">' + esc(c.steps.join('\n')) + '</textarea></label>' +
-        '<label class="asc-field"><span class="asc-label">Link</span>' +
-          '<input class="asc-input" name="url" type="url" maxlength="900"' +
-            ' value="' + esc(c.url) + '" placeholder="Optional."></label>' +
-        '<div class="asc-sheet__acts">' +
-          '<button type="submit" class="asc-btn asc-btn--primary">' + (c.id ? 'Save' : 'Add it') + '</button>' +
-          '<button type="button" class="asc-btn asc-btn--quiet" data-act="sheet-close">Cancel</button>' +
-        '</div>' +
-      '</form></div>');
 
-    var form = document.getElementById('ascForm');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var d = new FormData(form);
-      var title = String(d.get('title') || '').trim();
-      if (!title) {
-        U.toast('It needs a name.');
-        form.querySelector('[name="title"]').focus();
-        return;
-      }
-      var fields = {
-        title: title,
-        forWhen: String(d.get('forWhen') || '').trim(),
-        minutes: Number(d.get('minutes')) || 0,
-        summary: String(d.get('summary') || '').trim(),
-        steps: String(d.get('steps') || '').split('\n')
-          .map(function (s) { return s.trim(); }).filter(Boolean),
-        url: String(d.get('url') || '').trim()
+  // Where each kind lives, and what its name field is called. Two
+  // of the six say `name` and four say `title`; that difference is
+  // in the models and is not worth a migration, so it is declared
+  // once here and never repeated.
+  var KINDS = {
+    breath:     { group: 'breath', label: 'Breath',     nameKey: 'name'  },
+    eft:        { group: 'eft',    label: 'Tapping',    nameKey: 'name'  },
+    meditation: { group: 'medit',  label: 'Meditation', nameKey: 'title' },
+    yoga:       { group: 'yoga',   label: 'Movement',   nameKey: 'title' },
+    energy:     { group: 'energy', label: 'Energy',     nameKey: 'title' },
+    custom:     { group: 'mine',   label: 'Mine',       nameKey: 'title' }
+  };
+  var KIND_ORDER = ['breath', 'eft', 'meditation', 'yoga', 'energy', 'custom'];
+
+  // The collection a kind writes to. Meditation is five collections
+  // wearing one name — the shelf picks which.
+  function collFor(kind, shelf) {
+    if (kind === 'breath')     return A.Breath;
+    if (kind === 'eft')        return A.Eft;
+    if (kind === 'yoga')       return A.Yoga;
+    if (kind === 'energy')     return A.Energy;
+    if (kind === 'custom')     return A.Custom;
+    if (kind === 'meditation') return A.mediaShelf(shelf || 'meditation');
+    return null;
+  }
+
+  var editing = null;   // { kind, id, shelf, draft }
+
+  // ---------- the draft ----------
+  function blankDraft(kind) {
+    if (kind === 'breath') {
+      return { name: '', goal: 'Calm', summary: '', why: '', cues: '',
+        rounds: [{ label: '', cycles: 4, phases: [
+          { kind: 'inhale', seconds: 4 }, { kind: 'exhale', seconds: 6 }] }] };
+    }
+    if (kind === 'eft') {
+      return { name: '', blurb: '', setup: '', closing: '',
+        round1: [{ point: '', phrase: '' }], round2: [], reframe: [] };
+    }
+    if (kind === 'meditation') {
+      return { shelf: 'meditation', title: '', teacher: '', url: '',
+        description: '', minutes: 0, forWhen: '' };
+    }
+    if (kind === 'yoga') {
+      return { title: '', category: 'mobility', feelings: '', minutes: 0,
+        url: '', description: '' };
+    }
+    if (kind === 'energy') {
+      return { title: '', group: 'grounding', summary: '', steps: '', minutes: 0 };
+    }
+    return { title: '', forWhen: '', minutes: 0, summary: '', steps: '', url: '' };
+  }
+
+  // A record, opened for editing. Lists become newline text because
+  // that is how they are edited; they go back to lists on save.
+  function draftOf(kind, rec) {
+    var d = blankDraft(kind);
+    if (kind === 'breath') {
+      return { name: rec.name, goal: rec.goal, summary: rec.summary, why: rec.why,
+        cues: (rec.cues || []).join('\n'),
+        rounds: (rec.rounds || []).map(function (r) {
+          return { label: r.label, cycles: r.cycles,
+            phases: (r.phases || []).map(function (p) {
+              return { kind: p.kind, seconds: p.seconds, route: p.route || '', note: p.note || '' };
+            }) };
+        }) };
+    }
+    if (kind === 'eft') {
+      var lines = function (a) {
+        return (a || []).map(function (l) { return { point: l.point, phrase: l.phrase }; });
       };
-      if (c.id) { A.Custom.update(c.id, fields); U.toast('Saved.'); }
-      else { A.Custom.add(fields); U.toast('Added to Mine.'); }
-      U.closeSheet();
-      render();
-    });
+      return { name: rec.name, blurb: rec.blurb, setup: (rec.setup || []).join('\n'),
+        closing: rec.closing, round1: lines(rec.round1), round2: lines(rec.round2),
+        reframe: lines(rec.reframe) };
+    }
+    if (kind === 'meditation') {
+      return { shelf: rec._shelf || 'meditation', title: rec.title, teacher: rec.teacher,
+        url: rec.url, description: rec.description, minutes: rec.minutes, forWhen: rec.forWhen };
+    }
+    if (kind === 'yoga') {
+      return { title: rec.title, category: rec.category, feelings: (rec.feelings || []).join(', '),
+        minutes: rec.minutes, url: rec.url, description: rec.description };
+    }
+    if (kind === 'energy') {
+      return { title: rec.title, group: rec.group, summary: rec.summary,
+        steps: (rec.steps || []).join('\n'), minutes: rec.minutes };
+    }
+    return { title: rec.title, forWhen: rec.forWhen, minutes: rec.minutes,
+      summary: rec.summary, steps: (rec.steps || []).join('\n'), url: rec.url };
+  }
+
+  // ---------- writing a field back by path ----------
+  // "rounds.0.phases.2.seconds" -> editing.draft.rounds[0].phases[2]
+  function setPath(obj, path, value) {
+    var parts = path.split('.'), o = obj;
+    for (var i = 0; i < parts.length - 1; i++) {
+      o = o[parts[i]];
+      if (!o) return;
+    }
+    o[parts[parts.length - 1]] = value;
+  }
+  function getPath(obj, path) {
+    var parts = path.split('.'), o = obj;
+    for (var i = 0; i < parts.length; i++) {
+      if (o == null) return '';
+      o = o[parts[i]];
+    }
+    return o == null ? '' : o;
+  }
+
+  // ---------- small field builders ----------
+  function fText(label, path, opts) {
+    opts = opts || {};
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<input class="asc-input" data-path="' + esc(path) + '"' +
+        (opts.type ? ' type="' + opts.type + '"' : '') +
+        (opts.num ? ' inputmode="numeric" min="0" max="600"' : '') +
+        (opts.list ? ' list="' + opts.list + '"' : '') +
+        (opts.autofocus ? ' data-autofocus' : '') +
+        ' maxlength="' + (opts.max || 200) + '"' +
+        ' value="' + esc(String(getPath(editing.draft, path))) + '"' +
+        ' placeholder="' + esc(opts.hint || '') + '"></label>';
+  }
+  function fArea(label, path, hint, rows) {
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<textarea class="asc-textarea" data-path="' + esc(path) + '" rows="' + (rows || 3) + '"' +
+        ' maxlength="4000" placeholder="' + esc(hint || '') + '">' +
+        esc(String(getPath(editing.draft, path))) + '</textarea></label>';
+  }
+  function fSelect(label, path, options) {
+    var v = String(getPath(editing.draft, path));
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<select class="asc-input asc-select" data-path="' + esc(path) + '">' +
+        options.map(function (o) {
+          var val = typeof o === 'string' ? o : o.value;
+          var txt = typeof o === 'string' ? o : o.label;
+          return '<option value="' + esc(val) + '"' + (val === v ? ' selected' : '') + '>' +
+            esc(txt) + '</option>';
+        }).join('') +
+      '</select></label>';
+  }
+
+  // ---------- the form ----------
+  function openForm(kind, id, shelf) {
+    kind = KINDS[kind] ? kind : 'custom';
+    var rec = null;
+    if (id) {
+      var c = collFor(kind, shelf);
+      rec = c && c.get ? c.get(id) : null;
+      if (rec && kind === 'meditation') rec._shelf = shelf;
+    }
+    editing = {
+      kind: kind, id: rec ? id : '', shelf: shelf || '',
+      draft: rec ? draftOf(kind, rec) : blankDraft(kind)
+    };
+    paintForm();
+  }
+
+  function paintForm() {
+    var k = KINDS[editing.kind], d = editing.draft;
+    var out = '<div data-tint="' + esc(k.group) + '">' +
+      '<div class="asc-sheet__back">' +
+        '<button type="button" class="asc-back" data-act="sheet-close">' +
+          '<span aria-hidden="true">&#8592;</span> Back</button>' +
+      '</div>' +
+      '<div class="asc-sheet__top"><div>' +
+        '<p class="asc-label asc-label--tint">' + esc(k.label) + '</p>' +
+        '<h2 class="asc-plate asc-plate--lg">' +
+          (editing.id ? 'Edit' : 'Something new') + '</h2>' +
+      '</div></div>';
+
+    // The type picker, on a NEW record only. Changing the kind of an
+    // existing one would mean deleting it from one collection and
+    // adding it to another under a new id, which loses its sessions.
+    if (!editing.id) {
+      out += '<div class="asc-kindrow">' + KIND_ORDER.map(function (kk) {
+        return '<button type="button" class="asc-kind' + (kk === editing.kind ? ' is-on' : '') +
+          '" data-act="f-kind" data-kind="' + kk + '" data-tint="' + KINDS[kk].group + '"' +
+          ' aria-pressed="' + (kk === editing.kind ? 'true' : 'false') + '">' +
+          esc(KINDS[kk].label) + '</button>';
+      }).join('') + '</div>';
+    }
+
+    out += '<div class="asc-form">' + formFields() + '</div>';
+
+    out += '<div class="asc-sheet__acts">' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-act="f-save">' +
+        (editing.id ? 'Save' : 'Add it') + '</button>' +
+      '<button type="button" class="asc-btn asc-btn--quiet" data-act="sheet-close">Cancel</button>' +
+    '</div>';
+
+    if (editing.id) {
+      out += '<div class="asc-sheet__acts asc-sheet__acts--minor">' +
+        '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="f-delete">' +
+          'Delete this</button></div>';
+    }
+
+    U.openSheet(out + '</div>');
+  }
+
+  function whenList() {
+    return '<datalist id="ascWhenList">' + whenValues().map(function (v) {
+      return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>';
+  }
+
+  function formFields() {
+    var kind = editing.kind, d = editing.draft;
+
+    if (kind === 'breath') {
+      return fText('Name', 'name', { max: 90, autofocus: true, hint: 'Coherent Breathing' }) +
+        '<div class="asc-fields2">' +
+          fSelect('For when', 'goal', A.BREATH_GOALS) +
+          '<div class="asc-field asc-field--read"><span class="asc-label">How long it runs</span>' +
+            '<p class="asc-readout">' + esc(U.clock(draftSeconds())) + '</p></div>' +
+        '</div>' +
+        fArea('What it is', 'summary', 'One or two lines.', 2) +
+        fArea('Cues, one per line', 'cues', 'Optional. Shown while it runs.', 2) +
+        fArea('Why it works', 'why', 'Optional.', 2) +
+        roundsEditor();
+    }
+
+    if (kind === 'eft') {
+      return fText('Name', 'name', { max: 80, autofocus: true, hint: 'Anxiety' }) +
+        fArea('What it is for', 'blurb', 'One or two lines.', 2) +
+        fArea('The setup, one line per repetition', 'setup',
+          'Even though I feel this, I deeply and completely accept myself.', 3) +
+        linesEditor('round1', 'First round') +
+        linesEditor('round2', 'Second round') +
+        linesEditor('reframe', 'The reframe') +
+        fArea('Closing', 'closing', 'What to say at the end.', 2);
+    }
+
+    if (kind === 'meditation') {
+      return fText('Title', 'title', { autofocus: true, hint: 'Ten minutes, nothing to do' }) +
+        '<div class="asc-fields2">' +
+          fSelect('Shelf', 'shelf', A.MEDIA_SHELVES.map(function (sh) {
+            return { value: sh, label: A.SHELF_LABELS[sh] || sh }; })) +
+          fText('Minutes', 'minutes', { type: 'number', num: true, hint: '10' }) +
+        '</div>' +
+        '<div class="asc-fields2">' +
+          fText('Teacher', 'teacher', { max: 120, hint: 'Optional.' }) +
+          fText('For when', 'forWhen', { max: 200, list: 'ascWhenList', hint: 'Wound up' }) +
+        '</div>' + whenList() +
+        fText('Link', 'url', { type: 'url', max: 900, hint: 'Paste the video or track.' }) +
+        fArea('What it is', 'description', 'What it actually asks of you.', 3);
+    }
+
+    if (kind === 'yoga') {
+      return fText('Title', 'title', { autofocus: true, hint: 'Twenty minutes of hips' }) +
+        '<div class="asc-fields2">' +
+          fSelect('Kind', 'category', A.YOGA_CATEGORIES.map(function (c) {
+            return { value: c, label: A.YOGA_LABELS[c] || c }; })) +
+          fText('Minutes', 'minutes', { type: 'number', num: true, hint: '20' }) +
+        '</div>' +
+        fText('For when, comma separated', 'feelings', { max: 200, hint: 'Stiff, restless' }) +
+        fText('Link', 'url', { type: 'url', max: 900, hint: 'Paste the video.' }) +
+        fArea('What it is', 'description', 'What it actually asks of you.', 3);
+    }
+
+    if (kind === 'energy') {
+      return fText('Title', 'title', { max: 160, autofocus: true, hint: 'Rooting' }) +
+        '<div class="asc-fields2">' +
+          fSelect('Kind', 'group', A.ENERGY_GROUPS.map(function (g) {
+            return { value: g, label: A.ENERGY_LABELS[g] || g }; })) +
+          fText('Minutes', 'minutes', { type: 'number', num: true, hint: '5' }) +
+        '</div>' +
+        fArea('What it is', 'summary', 'One or two lines.', 2) +
+        fArea('Steps, one per line', 'steps', 'Each line becomes one screen when you run it.', 5);
+    }
+
+    // Mine
+    return fText('Name', 'title', { autofocus: true, hint: 'Sit on the step outside' }) +
+      '<div class="asc-fields2">' +
+        fText('For when', 'forWhen', { max: 60, list: 'ascWhenList', hint: 'Stuck' }) +
+        fText('Minutes', 'minutes', { type: 'number', num: true, hint: '5' }) +
+      '</div>' + whenList() +
+      fArea('What it is', 'summary',
+        'One or two lines, for the version of you who has forgotten why this helps.', 2) +
+      fArea('Steps, one per line', 'steps',
+        'Optional. Each line becomes one screen when you run it.', 4) +
+      fText('Link', 'url', { type: 'url', max: 900, hint: 'Optional.' });
+  }
+
+  // How long the draft would take, so the number moves while you
+  // edit it rather than after you save. Same arithmetic
+  // breathSeconds() does, over the draft instead of a record.
+  function draftSeconds() {
+    return (editing.draft.rounds || []).reduce(function (total, r) {
+      var per = (r.phases || []).reduce(function (x, p) {
+        return x + (Number(p.seconds) || 4); }, 0);
+      return total + per * (Number(r.cycles) || 1);
+    }, 0);
+  }
+
+  var PHASE_LABEL = { inhale: 'In', hold: 'Hold', exhale: 'Out', holdOut: 'Hold out' };
+
+  function roundsEditor() {
+    var rounds = editing.draft.rounds || [];
+    return '<div class="asc-editor"><p class="asc-label">The pattern</p>' +
+      rounds.map(function (r, ri) {
+        return '<div class="asc-round">' +
+          '<div class="asc-round__head">' +
+            '<input class="asc-input asc-input--sm" data-path="rounds.' + ri + '.label"' +
+              ' maxlength="60" value="' + esc(r.label || '') + '" placeholder="Round ' + (ri + 1) + '">' +
+            '<label class="asc-inline"><span class="asc-label">x</span>' +
+              '<input class="asc-input asc-input--n" type="number" inputmode="numeric" min="1" max="60"' +
+                ' data-path="rounds.' + ri + '.cycles" value="' + (r.cycles || 1) + '"></label>' +
+            (rounds.length > 1
+              ? '<button type="button" class="asc-x" data-act="f-round-del" data-i="' + ri + '"' +
+                ' aria-label="Remove this round">&#215;</button>' : '') +
+          '</div>' +
+          '<div class="asc-phases">' + (r.phases || []).map(function (p, pi) {
+            return '<div class="asc-phase">' +
+              '<select class="asc-input asc-select asc-input--sm" data-path="rounds.' + ri + '.phases.' + pi + '.kind">' +
+                A.PHASE_KINDS.map(function (pk) {
+                  return '<option value="' + pk + '"' + (pk === p.kind ? ' selected' : '') + '>' +
+                    esc(PHASE_LABEL[pk]) + '</option>'; }).join('') +
+              '</select>' +
+              '<label class="asc-inline">' +
+                '<input class="asc-input asc-input--n" type="number" inputmode="numeric" min="0" max="90"' +
+                  ' data-path="rounds.' + ri + '.phases.' + pi + '.seconds" value="' + (p.seconds || 0) + '">' +
+                '<span class="asc-label">s</span></label>' +
+              (r.phases.length > 1
+                ? '<button type="button" class="asc-x" data-act="f-phase-del" data-i="' + ri +
+                  '" data-j="' + pi + '" aria-label="Remove this phase">&#215;</button>' : '') +
+            '</div>';
+          }).join('') +
+          '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="f-phase-add"' +
+            ' data-i="' + ri + '">Add a phase</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      '<button type="button" class="asc-btn asc-btn--sm" data-act="f-round-add">Add a round</button>' +
+      '<p class="asc-small">A phase of 0 seconds is self-paced — it waits for a tap.</p>' +
+      '</div>';
+  }
+
+  function linesEditor(path, label) {
+    var lines = editing.draft[path] || [];
+    var points = A.EftPoints.list();
+    return '<div class="asc-editor"><p class="asc-label">' + esc(label) + '</p>' +
+      (lines.length ? lines.map(function (l, i) {
+        return '<div class="asc-tapline">' +
+          '<select class="asc-input asc-select asc-input--sm" data-path="' + path + '.' + i + '.point">' +
+            '<option value="">point</option>' +
+            points.map(function (pt) {
+              return '<option value="' + esc(pt.key) + '"' + (pt.key === l.point ? ' selected' : '') + '>' +
+                esc(pt.name) + '</option>'; }).join('') +
+          '</select>' +
+          '<input class="asc-input asc-input--sm" data-path="' + path + '.' + i + '.phrase"' +
+            ' maxlength="400" value="' + esc(l.phrase || '') + '" placeholder="What you say there">' +
+          '<button type="button" class="asc-x" data-act="f-line-del" data-path="' + path + '"' +
+            ' data-i="' + i + '" aria-label="Remove this line">&#215;</button>' +
+        '</div>';
+      }).join('') : '<p class="asc-small">Nothing here yet.</p>') +
+      '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="f-line-add"' +
+        ' data-path="' + path + '">Add a line</button>' +
+      '</div>';
+  }
+
+  // ---------- saving ----------
+  function splitLines(v) {
+    return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+
+  function formSave() {
+    var kind = editing.kind, d = editing.draft, k = KINDS[kind];
+    var name = String(d[k.nameKey] || '').trim();
+    if (!name) {
+      U.toast('It needs a name.');
+      var el = U.sheetEl() && U.sheetEl().querySelector('[data-path="' + k.nameKey + '"]');
+      if (el) el.focus();
+      return;
+    }
+
+    var fields;
+    if (kind === 'breath') {
+      fields = { name: name, goal: d.goal, summary: d.summary, why: d.why,
+        cues: splitLines(d.cues),
+        rounds: (d.rounds || []).map(function (r) {
+          return { label: String(r.label || '').trim(), cycles: Number(r.cycles) || 1,
+            phases: (r.phases || []).map(function (p) {
+              return { kind: p.kind, seconds: Number(p.seconds) || 0,
+                route: p.route || '', note: p.note || '' }; }) };
+        }) };
+      // A technique the pacer cannot run is worse than no technique.
+      var hasPhase = fields.rounds.some(function (r) { return r.phases.length; });
+      if (!hasPhase) { U.toast('It needs at least one phase to run.'); return; }
+    } else if (kind === 'eft') {
+      var lines = function (a) {
+        return (a || []).filter(function (l) { return String(l.phrase || '').trim(); })
+          .map(function (l) { return { point: l.point, phrase: String(l.phrase).trim() }; });
+      };
+      fields = { name: name, blurb: d.blurb, setup: splitLines(d.setup),
+        round1: lines(d.round1), round2: lines(d.round2), reframe: lines(d.reframe),
+        closing: d.closing };
+    } else if (kind === 'meditation') {
+      fields = { title: name, teacher: d.teacher, url: String(d.url || '').trim(),
+        description: d.description, minutes: Number(d.minutes) || 0, forWhen: d.forWhen };
+    } else if (kind === 'yoga') {
+      fields = { title: name, category: d.category, minutes: Number(d.minutes) || 0,
+        url: String(d.url || '').trim(), description: d.description,
+        feelings: String(d.feelings || '').split(',')
+          .map(function (x) { return x.trim(); }).filter(Boolean) };
+    } else if (kind === 'energy') {
+      fields = { title: name, group: d.group, summary: d.summary,
+        steps: splitLines(d.steps), minutes: Number(d.minutes) || 0 };
+    } else {
+      fields = { title: name, forWhen: d.forWhen, minutes: Number(d.minutes) || 0,
+        summary: d.summary, steps: splitLines(d.steps), url: String(d.url || '').trim() };
+    }
+
+    // The shelf is part of the ADDRESS for a meditation, not a field
+    // on it — moving one between shelves means moving the record
+    // between two collections.
+    var shelf = kind === 'meditation' ? (d.shelf || 'meditation') : '';
+    var coll = collFor(kind, shelf);
+    if (!coll) { U.toast('That kind has nowhere to go.'); return; }
+
+    if (editing.id) {
+      if (kind === 'meditation' && shelf !== editing.shelf) {
+        var from = collFor('meditation', editing.shelf);
+        var was = from && from.get(editing.id);
+        if (was) { from.remove(editing.id); coll.add(fields); }
+        else coll.update(editing.id, fields);
+      } else {
+        coll.update(editing.id, fields);
+      }
+      U.toast('Saved.');
+    } else {
+      coll.add(fields);
+      U.toast('Added to ' + KINDS[kind].label + '.');
+    }
+    editing = null;
+    U.closeSheet();
+    render();
+  }
+
+  // ---------- deleting, from any kind ----------
+  // The confirm() is a speed bump, not the safety net. The net is
+  // trash.js, which watches every collection named in
+  // data-registry.js and keeps a copy of anything that vanishes from
+  // one — so a delete here is recoverable from the Recovery Center
+  // without this page knowing anything about it.
+  function removeActivity(kind, id, shelf, title) {
+    var coll = collFor(kind, shelf);
+    if (!coll || !coll.get(id)) { U.toast('That is no longer here.'); return; }
+    if (!window.confirm('Delete "' + title + '"?\n\nIt goes to the Trash in the Recovery Center, ' +
+      'and it will disappear from your other devices too.')) return;
+    coll.remove(id);
+    editing = null;
+    sheetOf = null;
+    U.closeSheet();
+    U.toast('Deleted. It is in the Trash.');
+    render();
   }
 
   // ==========================================================
@@ -1317,19 +1750,61 @@
       render();
     },
     reroll: function () { A.menu(3, true); render(); },
-    add: function () { openForm(null); },
+    // Add opens on Mine, but with all six kinds offered — the type
+    // picker is the first thing in the form.
+    add: function (el) { openForm(el.getAttribute('data-kind') || 'custom'); },
     edit: function () {
-      if (sheetOf) openForm(A.Custom.get(sheetOf.id));
+      if (sheetOf) openForm(sheetOf.kind, sheetOf.id, sheetOf.shelf);
     },
     'delete': function () {
       if (!sheetOf) return;
-      var c = A.Custom.get(sheetOf.id);
-      if (!c) return;
-      if (!window.confirm('Delete "' + c.title + '"? This cannot be undone from here.')) return;
-      A.Custom.remove(c.id);
-      U.closeSheet();
-      U.toast('Deleted.');
-      render();
+      var a = findRow(sheetOf.kind, sheetOf.id);
+      if (!a) { U.toast('That is no longer here.'); return; }
+      removeActivity(sheetOf.kind, sheetOf.id, sheetOf.shelf, a.title);
+    },
+
+    // ---- inside the form ----
+    'f-kind': function (el) {
+      // Switching type on a NEW record only, and the draft starts
+      // over: the six shapes share almost no fields, and silently
+      // carrying a title into a form that calls it something else is
+      // how a save writes the wrong key.
+      openForm(el.getAttribute('data-kind'));
+    },
+    'f-save': function () { formSave(); },
+    'f-delete': function () {
+      if (!editing || !editing.id) return;
+      var k = KINDS[editing.kind];
+      removeActivity(editing.kind, editing.id, editing.shelf,
+        String(editing.draft[k.nameKey] || 'this'));
+    },
+    'f-round-add': function () {
+      editing.draft.rounds.push({ label: '', cycles: 1,
+        phases: [{ kind: 'inhale', seconds: 4 }, { kind: 'exhale', seconds: 6 }] });
+      paintForm();
+    },
+    'f-round-del': function (el) {
+      editing.draft.rounds.splice(Number(el.getAttribute('data-i')), 1);
+      paintForm();
+    },
+    'f-phase-add': function (el) {
+      editing.draft.rounds[Number(el.getAttribute('data-i'))].phases
+        .push({ kind: 'hold', seconds: 4 });
+      paintForm();
+    },
+    'f-phase-del': function (el) {
+      editing.draft.rounds[Number(el.getAttribute('data-i'))].phases
+        .splice(Number(el.getAttribute('data-j')), 1);
+      paintForm();
+    },
+    'f-line-add': function (el) {
+      var p = el.getAttribute('data-path');
+      editing.draft[p].push({ point: '', phrase: '' });
+      paintForm();
+    },
+    'f-line-del': function (el) {
+      editing.draft[el.getAttribute('data-path')].splice(Number(el.getAttribute('data-i')), 1);
+      paintForm();
     },
     'sheet-close': function () { U.closeSheet(); },
     did: function () { logDone(); },
@@ -1446,6 +1921,33 @@
     state.q = e.target.value;
     render('table');
   });
+
+  // EVERY FIELD IN EVERY EDITOR, through one listener.
+  //
+  // The alternative is a handler per control, and the breath editor
+  // alone has four controls per phase across an unbounded number of
+  // phases. Each field declares where it lives with data-path and
+  // this writes it there — so adding a field to a form is adding a
+  // line of markup, and nothing else.
+  //
+  // IT DOES NOT REPAINT. Repainting on a keystroke would destroy the
+  // input being typed into, which is the exact bug the search box
+  // had. Only the row buttons repaint, because only they change the
+  // shape of the form.
+  function onFormInput(e) {
+    var el = e.target;
+    if (!el || !el.getAttribute) return;
+    var path = el.getAttribute('data-path');
+    if (!path || !editing) return;
+    setPath(editing.draft, path, el.value);
+    // The one derived readout on any form: a breathing technique's
+    // length, which has to move as the phases do or it is a lie.
+    var read = U.sheetEl() && U.sheetEl().querySelector('.asc-readout');
+    if (read && editing.kind === 'breath') read.textContent = U.clock(draftSeconds());
+  }
+  var sheetBgEl = document.getElementById('ascSheetBg');
+  sheetBgEl.addEventListener('input', onFormInput);
+  sheetBgEl.addEventListener('change', onFormInput);
 
   // A click anywhere else shuts the drop panel. Capture, so it
   // fires before the delegated handler re-opens it.
