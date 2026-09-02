@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="asc-root">
 <head>
 <!-- local-store-idb.js MUST be first and MUST NOT be deferred: it swaps
      localStorage for an IndexedDB-backed shim before anything reads it. -->
@@ -9,853 +9,99 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="theme-color" content="#07090C">
+<meta name="theme-color" content="#0E0B09">
+<meta name="robots" content="noindex, nofollow">
 <title>Prompt Studio</title>
 
+<!-- =====================================================================
+     THE SAME ROOM AS THE ASCLEPION.
+
+     This page wears the Self-Care Studio's skin, and it wears it by
+     SHARING the stylesheet rather than copying it. asclepion-theme.css
+     is linked here and its .asc-* classes are used verbatim, so the two
+     studios cannot drift apart the way two copies of a stylesheet always
+     do. Everything in promptarium-theme.css is something The Asclepion
+     has no equivalent for: this page's own hero photograph, the tab
+     switch, the launch tiles, the chain chips.
+
+     The palette needed no adjustment to move here. Both heroes are
+     736x1308 frames of the same dark baroque room, and the new one's
+     measured luminance bands (#070405 / #1c140f / #453429 / #bbc4bf)
+     land within a hair of the tokens sampled off the old one.
+
+     Bodoni Moda for the names of things, Inter for everything else. The
+     6..96 optical-size axis is the whole reason it is Bodoni: opsz keeps
+     the hairlines fine at 8rem and still visible at 1rem. LINKED, never
+     @import-ed - an @import cannot start downloading until the
+     stylesheet has arrived and parsed, which puts the two requests in
+     series behind the largest text on the page.
+     ===================================================================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Italiana is the WORDMARK face only. It has one weight and no italic
-     by design, which is exactly why it stays out of the interface, where
-     Instrument Serif and Inter carry everything below the band. -->
-<link href="https://fonts.googleapis.com/css2?family=Italiana&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-<style>
-/* =====================================================================
-   §TOKENS — "Instrument Panel": electric cyan on graphite. Carried over
-   unchanged from the previous build, because the palette was never the
-   problem; the page around it was.
-
-   Amber is reserved STRICTLY for the favourite star. Nothing else on
-   this page may use it — that is what makes "I reach for this one
-   constantly" readable at a glance in a list of forty.
-   ===================================================================== */
-:root{
-  --pm-ground:#07090C; --pm-bg:#0B0E12; --pm-deep:#05070A;
-  --pm-surface:rgba(255,255,255,.030); --pm-surface-2:rgba(255,255,255,.052);
-  --pm-surface-3:rgba(255,255,255,.075);
-  --pm-accent:#4FD6E8; --pm-accent-hi:#9BEAF5; --pm-accent-lo:#2C8E9C; --pm-accent-rgb:79,214,232;
-  --pm-amber:#F2B441; --pm-amber-hi:#FFD98A; --pm-amber-rgb:242,180,65;
-  --pm-text:#E8EEF2; --pm-text-dim:rgba(232,238,242,.72); --pm-text-mute:rgba(232,238,242,.46);
-  --pm-text-faint:rgba(232,238,242,.28);
-  --pm-hair:rgba(79,214,232,.22); --pm-hair-soft:rgba(255,255,255,.075);
-  --pm-good:#6EE7B7; --pm-warn:#FBBF24; --pm-bad:#FF8A8A;
-
-  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:18px; --sp-5:26px; --sp-6:38px; --sp-7:56px; --sp-8:84px;
-  --pm-r-sm:9px; --pm-r:14px; --pm-r-lg:22px; --pm-pill:999px;
-
-  --pm-display:"Instrument Serif", Georgia, "Times New Roman", serif;
-  --pm-hero:"Italiana", "Instrument Serif", Didot, Georgia, serif;
-  --pm-ui:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --pm-mono:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --pm-spring:cubic-bezier(.34,1.32,.64,1); --pm-ease:cubic-bezier(.32,.72,0,1);
-  --pm-shadow:0 1px 0 rgba(220,240,245,.05) inset, 0 20px 44px -22px rgba(2,4,8,.95), 0 3px 12px -6px rgba(var(--pm-accent-rgb),.18);
-  --pm-shadow-lift:0 1px 0 rgba(220,240,245,.09) inset, 0 34px 60px -26px rgba(2,4,8,.98), 0 6px 22px -8px rgba(var(--pm-accent-rgb),.26);
-
-  /* §FIELD — the photographic ground. Two tokens rather than inline,
-     because EXACTLY two elements paint it (#pmField, which is the page,
-     and #pmStageFade, which is what the band closes into) and the seam
-     between them is only invisible while the two declarations are
-     byte-identical. */
-  --pm-field-img:url("images_by_admin/promptarium/field.jpg");
-  --pm-field-grade:
-    radial-gradient(ellipse 132% 104% at 50% 18%, rgba(5,7,10,0) 18%, rgba(5,7,10,.58) 64%, rgba(4,6,9,.92) 100%),
-    radial-gradient(ellipse 900px 560px at 8% -6%, rgba(var(--pm-accent-rgb),.15) 0%, transparent 62%),
-    radial-gradient(ellipse 760px 520px at 104% 18%, rgba(var(--pm-accent-rgb),.09) 0%, transparent 58%),
-    linear-gradient(180deg,
-      rgba(10,14,19,.60) 0%, rgba(9,12,17,.78) 30%,
-      rgba(7,9,13,.90) 62%, rgba(5,7,10,.95) 100%);
-
-  /* The page is full-bleed. This gutter is the only horizontal inset. */
-  --pm-gutter:clamp(var(--sp-4), 3.2vw, var(--sp-7));
-  /* Every card, row and chip reads its category through this. Set inline
-     per element; the fallback keeps an un-categorised surface neutral
-     rather than accidentally cyan. */
-  --hue:#8A94A6;
-  color-scheme:dark;
-}
-
-/* =====================================================================
-   §GROUND
-   ===================================================================== */
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--pm-ground); color:var(--pm-text);
-  font-family:var(--pm-ui); font-size:16px; line-height:1.6;
-  -webkit-font-smoothing:antialiased; min-height:100vh; overflow-x:hidden;
-}
-body::before{
-  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
-  background:
-    radial-gradient(ellipse 900px 560px at 8% -6%, rgba(var(--pm-accent-rgb),.16) 0%, transparent 62%),
-    radial-gradient(ellipse 760px 520px at 104% 18%, rgba(var(--pm-accent-rgb),.09) 0%, transparent 58%),
-    linear-gradient(168deg, #0A0E13 0%, var(--pm-ground) 62%, var(--pm-deep) 100%);
-}
-#pmGrain{
-  position:fixed; inset:0; z-index:70; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-/* =====================================================================
-   §FIELD — the photographic ground, under every view on the page.
-
-   THREE elements share ONE declaration:
-     #pmField      fixed to the viewport, behind the whole document
-     #pmStageBed   inside the hero's #pmStage, under the footage
-     #pmStageFade  inside the hero's #pmStage, revealed by scroll
-
-   #pmStage is bounded to the header's height, so as the hero scrolls away
-   #pmStageFade closes over the footage — and whatever it closes into has to
-   be pixel-for-pixel what the rest of the page is already showing, or a hard
-   horizontal seam parks itself at the bottom of the hero band for the whole
-   scroll.
-
-   background-attachment:fixed is what makes that true. It moves the
-   background POSITIONING AREA off each element's own box and onto the
-   viewport, so a full-viewport plate and a hero-height plate resolve
-   `cover`, the vignette's centre and the vertical fall to the identical
-   pixels. Neither element scrolls (both sit inside position:fixed boxes), so
-   the usual cost of fixed attachment is not charged here.
-   ===================================================================== */
-#pmField,#pmStageBed,#pmStageFade{
-  background-image:var(--pm-field-grade), var(--pm-field-img);
-  background-attachment:fixed;
-  background-position:center;
-  background-size:cover;
-  background-repeat:no-repeat;
-}
-#pmField{position:fixed; inset:0; z-index:0; pointer-events:none}
-
-/* =====================================================================
-   §STAGE — the hero video and its grading layers.
-
-   z-index:0, NOT -1. body::before ends in an opaque linear-gradient, and a
-   negative z-index would put the footage behind it — invisible. At
-   z-index:0, as the first body child, this paints above both body
-   pseudo-elements and below .pm-head (z-auto) and the content (z-2).
-   .pm-head has no background of its own, only a border, so the footage
-   reads THROUGH it, and its isolation:isolate keeps the header's own
-   z-indexes from being weighed against the stage. #pmGrain at z-70 then
-   blends footage and interface together for free.
-
-   Bounded to the HERO's height, not the viewport: this is the hero's
-   background and the rest of the page keeps the graphite ground. Fixed
-   rather than absolute so the video element itself never moves in the
-   layout (it must not be re-laid-out or re-decoded), which also gives the
-   curtain behaviour — the hero scrolls away over a pinned plate while
-   #pmStageFade closes over it. --pm-par-px is the live header height,
-   written by measurePar() after every head render.
-   ===================================================================== */
-#pmStage{
-  position:fixed; top:0; left:0; right:0; height:var(--pm-par-px, 60vh);
-  z-index:0; pointer-events:none; overflow:hidden;
-  display:none; opacity:0; transition:opacity .7s var(--pm-ease);
-}
-html.pm-video-on #pmStage{display:block}
-/* Faded in only once a frame has actually decoded, so the untouched
-   body::before ground covers the gap and there is never a black flash. */
-html.pm-video-live #pmStage{opacity:1}
-/* #pmStage is a stacking context (position:fixed + z-index:0), so the bed is
-   what the video above it blends AGAINST; without it, screen would blend
-   against nothing and simply paint the footage as-is. */
-#pmStageBed{position:absolute; inset:0}
-#pmStageVid{
-  position:absolute; inset:0; width:100%; height:100%;
-  object-fit:cover; will-change:translate, scale;
-  /* The footage is blue light on near-black. Screened onto the bed it stops
-     being a video in a box and becomes light MOVING ACROSS the photograph:
-     the plate's column of light reads through every dark frame and the
-     streaks add over it. It is also what makes the hero and the rest of the
-     page obviously the same room. */
-  mix-blend-mode:screen; opacity:.68;
-}
-/* The grading the FOOTAGE reads through. The same layers as the field's, at
-   lower alpha and without the photograph — the video is the picture here, so
-   the plate underneath only needs to lend it the page's colour. */
-#pmStageVeil{
-  position:absolute; inset:0;
-  background:
-    /* Centre scrim: the word-mark sits in this band, and screening bright
-       footage onto the plate is exactly the operation that would make the
-       footage's own bright frames illegible behind it. The streaks live in
-       the corners and are untouched. */
-    radial-gradient(ellipse 62% 34% at 50% 50%, rgba(6,8,12,.62) 0%, rgba(6,8,12,.30) 54%, transparent 80%),
-    radial-gradient(ellipse 900px 560px at 8% -6%, rgba(var(--pm-accent-rgb),.16) 0%, transparent 62%),
-    radial-gradient(ellipse 760px 520px at 104% 18%, rgba(var(--pm-accent-rgb),.09) 0%, transparent 58%),
-    radial-gradient(ellipse 800px 500px at 50% 108%, rgba(var(--pm-amber-rgb),.05) 0%, transparent 60%),
-    linear-gradient(168deg, rgba(10,14,19,.76) 0%, rgba(7,9,12,.70) 62%, rgba(5,7,10,.90) 100%);
-}
-/* The FIELD itself, revealed by scroll — see §FIELD. At --p:1 the hero band
-   IS the page's own photographic ground, so there is no seam to find. */
-#pmStageFade{position:absolute; inset:0; opacity:var(--p, 0)}
-
-/* =====================================================================
-   §SHELL
-   ===================================================================== */
-/* The gutter moved off #pmApp and onto .pm-wrap: the hero is full-bleed and
-   carries its own padding, and its ticker bleeds back out through it. */
-#pmApp{position:relative; z-index:2; padding:0 0 clamp(80px,12vh,140px)}
-/* The cap is on the CONTENT, so the gutter has to be added to it — the
-   hero's own grid caps at 1180 INSIDE the header's gutter, and a plain
-   max-width:1180 here would start the cards 46px right of the word-mark. */
-.pm-wrap{max-width:calc(1180px + var(--pm-gutter) * 2); margin:0 auto; padding:0 var(--pm-gutter)}
-
-/* ---- the band: wordmark, one line, the tab switch ---- */
-/* The top padding has a floor because topbar.js owns the literal top-left
-   corner: its launcher is fixed at ~10px and would sit on the eyebrow. */
-/* =====================================================================
-   §HEAD — a tall, left-aligned editorial hero: a hairline display serif
-   word-mark set in tracked capitals over the footage, a metadata column
-   pinned to the right edge, and a ticker of the categories along the
-   bottom.
-
-   The header is a FLEX COLUMN and at least ~82vh tall, so the word-mark
-   sits low in the frame with the video reading above and around it.
-   Everything above the ticker is bottom-anchored; the ticker is the last
-   child, so it lands on the fold.
-
-   Detail views get .is-compact instead — a prompt you are trying to read
-   should not be below a full screen of atmosphere.
-   ===================================================================== */
-.pm-head{
-  position:relative; overflow:hidden; isolation:isolate;
-  display:flex; flex-direction:column;
-  /* A floor, not a fixed height: a long title or a wrapped CTA row still
-     grows the header, and --pm-par-px (and therefore #pmStage) follows. */
-  min-height:clamp(600px, 82vh, 960px);
-  padding:var(--sp-7) var(--pm-gutter) 0;
-  border-bottom:1px solid var(--pm-hair-soft);
-  margin-bottom:var(--sp-6);
-}
-.pm-head.is-compact{
-  min-height:0; padding-top:clamp(var(--sp-6),8vh,96px); padding-bottom:var(--sp-5);
-  margin-bottom:var(--sp-5);
-}
-.pm-head-grid{
-  position:relative; z-index:2;
-  /* Capped and centred so the word-mark starts on the same vertical as the
-     cards below it. The ticker deliberately does NOT inherit this — it is a
-     rail, and a rail that stops short of the window edge reads as a mistake. */
-  width:100%; max-width:1180px; margin:0 auto;
-  /* Flex rather than grid: the two metadata blocks have to sit together as a
-     short stack beside the word-mark, and a grid would distribute the (much
-     taller) word-mark's height across their two rows and prise them apart.
-     flex:1 + align-items:flex-end drop everything to the bottom of the tall
-     header, so the type sits low in the frame. */
-  flex:1 1 auto;
-  display:flex; align-items:flex-end; justify-content:space-between;
-  gap:clamp(var(--sp-5), 4vw, var(--sp-8));
-  padding-bottom:var(--sp-6);
-}
-.pm-head.is-compact .pm-head-grid{padding-bottom:0; align-items:flex-end}
-.pm-head-center{flex:1 1 auto; text-align:left; min-width:0}
-.pm-head-side{flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:var(--sp-4)}
-.pm-head-eyebrow{
-  display:inline-flex; align-items:center; gap:12px;
-  font-family:var(--pm-hero); font-weight:400;
-  font-size:clamp(11px, .18vw + 9.5px, 14px); letter-spacing:.42em; text-transform:uppercase;
-  color:var(--pm-accent-hi); margin-bottom:var(--sp-4);
-}
-/* Trailing rule only. Flanking rules read as centred; with the block
-   left-aligned a leading hairline floats away from the page edge. */
-.pm-head-eyebrow::after{content:''; width:clamp(28px,4vw,64px); height:1px; background:var(--pm-accent); opacity:.6}
-.pm-head-title{
-  position:relative; display:block;
-  font-family:var(--pm-hero); font-weight:400;
-  /* Tracked OUT, not in. A hairline display serif in capitals needs air
-     between the stems or the thins knit together. */
-  font-size:clamp(46px,9vw,160px); line-height:.98; letter-spacing:.055em;
-  text-transform:uppercase; text-indent:.055em;   /* balances the trailing track */
-  color:var(--pm-text); margin:0; text-wrap:balance;
-  /* The sheen: light raking across the letterforms. Stated in the EXISTING
-     palette — text, accent-hi, text — so it adds no colour the page did not
-     already have. The solid `color` above stays as the fallback for anything
-     that cannot paint a gradient into text. */
-  background:linear-gradient(96deg,
-    var(--pm-text) 0%, var(--pm-text) 26%,
-    var(--pm-accent-hi) 47%, var(--pm-accent) 55%,
-    var(--pm-text) 74%, var(--pm-text) 100%);
-  -webkit-background-clip:text; background-clip:text;
-  -webkit-text-fill-color:transparent;
-  filter:drop-shadow(0 0 34px rgba(var(--pm-accent-rgb),.20));
-}
-.pm-head.is-compact .pm-head-title{font-size:clamp(34px,5vw,68px)}
-.pm-head.is-compact .pm-head-eyebrow{margin-bottom:var(--sp-3)}
-.pm-head-sub{
-  font-family:var(--pm-hero); font-weight:400;
-  color:var(--pm-text-dim);
-  /* Italiana's strokes are hairlines, and light-on-dark thins need the size
-     to hold. */
-  font-size:clamp(17px, .75vw + 12px, 27px);
-  letter-spacing:.012em; line-height:1.55;
-  /* ch, not px — the unit scales with the (fluid) font-size, so this is a
-     measure rather than a page cap. */
-  max-width:52ch;
-  margin:var(--sp-4) 0 0; text-wrap:pretty;
-}
-.pm-head.is-compact .pm-head-sub{font-size:clamp(15px,.4vw+13px,19px); margin-top:var(--sp-3)}
-.pm-head-cta{margin:var(--sp-5) 0 0; display:flex; gap:var(--sp-2); justify-content:flex-start; flex-wrap:wrap; align-items:center}
-.pm-head-meta{
-  display:flex; gap:var(--sp-3); align-items:flex-start;
-  justify-content:flex-end; text-align:right;
-  font-size:11.5px; color:var(--pm-text-mute); line-height:1.5;
-}
-.pm-head-meta-ico{
-  width:34px; height:34px; flex:none; border-radius:50%;
-  border:1px solid var(--pm-hair); background:var(--pm-surface);
-  display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--pm-accent-hi);
-}
-.pm-head-meta b{display:block; color:var(--pm-text); font-size:12.5px; font-weight:700}
-.pm-head-ticker{
-  /* Bleeds back out through the header's gutter. */
-  position:relative; z-index:2; flex:none; margin:0 calc(-1 * var(--pm-gutter));
-  background:var(--pm-deep); border-top:1px solid var(--pm-hair-soft);
-  overflow:hidden; padding:11px 0; display:flex;
-  /* Capped in px as well as % — a 6% fade is 154px at 2560 and reads as a
-     smear rather than an edge. */
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 min(6%,90px),#000 calc(100% - min(6%,90px)),transparent);
-  mask-image:linear-gradient(90deg,transparent,#000 min(6%,90px),#000 calc(100% - min(6%,90px)),transparent);
-}
-.pm-ticker-track{
-  display:flex; gap:0; flex:none; align-items:center; white-space:nowrap;
-  animation:pm-ticker 38s linear infinite;
-}
-.pm-head-ticker:hover .pm-ticker-track, .pm-head-ticker:focus-within .pm-ticker-track{animation-play-state:paused}
-@keyframes pm-ticker{from{transform:translateX(0)} to{transform:translateX(-50%)}}
-.pm-ticker-item{
-  appearance:none; border:0; background:transparent; cursor:pointer;
-  display:inline-flex; align-items:center; gap:14px; padding:0 22px;
-  font-family:var(--pm-hero); font-size:19px; letter-spacing:.16em; text-transform:uppercase;
-  color:var(--pm-text-dim); text-decoration:none;
-  transition:color .16s var(--pm-ease);
-}
-.pm-ticker-item:hover{color:var(--pm-accent-hi)}
-.pm-ticker-item:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:2px; border-radius:4px}
-.pm-ticker-item::after{content:'✦'; font-family:var(--pm-ui); font-size:11px; color:var(--pm-accent); opacity:.7}
-.pm-ticker-item .pm-ticker-n{font-family:var(--pm-ui); font-size:11px; color:var(--pm-text-faint); font-weight:700}
-
-@media (max-width:860px){
-  /* Narrow enough that the eyebrow would otherwise run underneath
-     topbar.js's launcher pill AND the back button beneath it, both fixed at
-     top-left above everything. */
-  .pm-head{padding-top:118px}
-  .pm-head.is-compact{padding-top:96px}
-  .pm-head-side{display:none}
-}
-@media (max-width:720px){
-  /* 82vh of hero is a whole phone screen before a single prompt appears.
-     Still tall enough to read as a hero, short enough to scroll past. */
-  .pm-head{min-height:clamp(440px, 66vh, 660px)}
-  .pm-head.is-compact{min-height:0}
-}
-@media (max-width:560px){
-  /* 0.42em of tracking overruns the line long before the title does. */
-  .pm-head-eyebrow{font-size:10px; letter-spacing:.26em; gap:8px}
-  .pm-head-eyebrow::after{width:18px}
-  .pm-head-title{letter-spacing:.03em; text-indent:.03em}
-}
-
-/* The tab switch is the only two-state control on the page, so it gets to
-   look like a physical one: a track with a lit segment. */
-.pm-tabs{display:inline-flex; padding:4px; gap:2px; background:rgba(6,9,13,.72); border:1px solid var(--pm-hair-soft); border-radius:var(--pm-pill); backdrop-filter:blur(14px)}
-.pm-tab{
-  appearance:none; border:0; background:transparent; color:var(--pm-text-mute);
-  font:inherit; font-size:14px; font-weight:600; letter-spacing:.02em;
-  padding:10px 22px; min-height:44px; border-radius:var(--pm-pill); cursor:pointer;
-  transition:color .2s var(--pm-ease), background-color .2s var(--pm-ease);
-}
-.pm-tab:hover{color:var(--pm-text-dim)}
-.pm-tab.is-on{color:#04171B; background:var(--pm-accent)}
-.pm-tab:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:3px}
-
-/* ---- the bar: search, favourites toggle, new ---- */
-#pmBar{padding-bottom:var(--sp-4)}
-#pmBar[hidden]{display:none}
-.pm-controls{display:flex; gap:var(--sp-3); align-items:center; flex-wrap:wrap}
-.pm-search{position:relative; flex:1 1 260px; min-width:0}
-.pm-search input{
-  width:100%; appearance:none; background:rgba(8,11,16,.78); color:var(--pm-text);
-  border:1px solid var(--pm-hair-soft); border-radius:var(--pm-pill);
-  /* 16px floor: anything smaller makes iOS Safari zoom in on focus and
-     never zoom back out. Applies to every field on this page. */
-  font:inherit; font-size:16px; padding:13px 18px 13px 44px; min-height:48px;
-  transition:border-color .2s var(--pm-ease), box-shadow .2s var(--pm-ease);
-}
-.pm-search input::placeholder{color:var(--pm-text-faint)}
-.pm-search input:focus{outline:none; border-color:rgba(var(--pm-accent-rgb),.55); box-shadow:0 0 0 3px rgba(var(--pm-accent-rgb),.14)}
-.pm-search-icon{position:absolute; left:17px; top:50%; transform:translateY(-50%); color:var(--pm-text-faint); pointer-events:none; display:flex}
-.pm-search-clear{
-  position:absolute; right:6px; top:50%; transform:translateY(-50%);
-  appearance:none; border:0; background:transparent; color:var(--pm-text-mute);
-  width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:18px; line-height:1;
-}
-.pm-search-clear:hover{color:var(--pm-text)}
-.pm-search-clear:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:2px}
-
-.pm-btn{
-  appearance:none; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  padding:12px 20px; min-height:48px; border-radius:var(--pm-pill);
-  background:var(--pm-surface-2); color:var(--pm-text); border:1px solid var(--pm-hair-soft);
-  transition:background-color .2s var(--pm-ease), border-color .2s var(--pm-ease), transform .16s var(--pm-spring), color .2s var(--pm-ease);
-}
-.pm-btn:hover{background:var(--pm-surface-3); border-color:var(--pm-hair)}
-.pm-btn:active{transform:scale(.97)}
-.pm-btn:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:3px}
-.pm-btn-primary{background:var(--pm-accent); color:#04171B; border-color:transparent; font-weight:700}
-.pm-btn-primary:hover{background:var(--pm-accent-hi)}
-.pm-btn-ghost{background:transparent}
-.pm-btn-danger{color:var(--pm-bad); border-color:rgba(255,138,138,.28)}
-.pm-btn-danger:hover{background:rgba(255,138,138,.10); border-color:rgba(255,138,138,.5)}
-.pm-btn-sm{padding:8px 14px; min-height:38px; font-size:13px}
-
-/* The favourites toggle is a filter, not a star — it borrows amber only
-   while it is ON, which is the one moment amber is telling the truth. */
-.pm-favtoggle{width:48px; padding:0; font-size:16px; color:var(--pm-text-mute)}
-/* The amber tint, without the icon-only geometry. Used by any LABELLED
-   favourite control. */
-.pm-favtoggle.is-on, .pm-btn-fav.is-on{background:rgba(var(--pm-amber-rgb),.14); border-color:rgba(var(--pm-amber-rgb),.42); color:var(--pm-amber)}
-
-/* ---- category pills ---- */
-.pm-pills{display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-top:var(--sp-3)}
-.pm-pill{
-  appearance:none; font:inherit; font-size:13px; font-weight:500; cursor:pointer;
-  display:inline-flex; align-items:center; gap:7px;
-  padding:8px 15px; min-height:38px; border-radius:var(--pm-pill);
-  background:transparent; color:var(--pm-text-mute); border:1px solid var(--pm-hair-soft);
-  transition:color .18s var(--pm-ease), border-color .18s var(--pm-ease), background-color .18s var(--pm-ease);
-}
-.pm-pill:hover{color:var(--pm-text-dim); border-color:var(--pm-hair)}
-.pm-pill:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:2px}
-.pm-pill::before{content:''; width:7px; height:7px; border-radius:50%; background:var(--hue); opacity:.75; flex:none}
-.pm-pill[data-cat="all"]::before{display:none}
-.pm-pill.is-on{color:var(--pm-text); border-color:var(--hue); background:color-mix(in srgb, var(--hue) 12%, transparent)}
-.pm-pill[data-cat="all"].is-on{border-color:var(--pm-accent); background:rgba(var(--pm-accent-rgb),.13)}
-.pm-pill-count{font-size:11px; color:var(--pm-text-faint); font-variant-numeric:tabular-nums}
-
-/* =====================================================================
-   §SECTIONS
-   ===================================================================== */
-.pm-sec{margin-top:clamp(var(--sp-5), 4.5vh, var(--sp-7))}
-.pm-sec:first-child{margin-top:var(--sp-2)}
-.pm-sec-head{display:flex; align-items:baseline; gap:var(--sp-3); margin-bottom:var(--sp-4)}
-.pm-sec-label{
-  font-size:11px; font-weight:600; letter-spacing:.30em; text-transform:uppercase;
-  color:var(--pm-text-mute); margin:0;
-}
-.pm-sec-label .pm-star-glyph{color:var(--pm-amber); letter-spacing:0; margin-right:6px}
-.pm-sec-rule{flex:1; height:1px; background:linear-gradient(90deg, var(--pm-hair-soft), transparent)}
-.pm-sec-note{font-size:12px; color:var(--pm-text-faint)}
-
-/* =====================================================================
-   §CARDS — the prompt card. Title, category, three controls. The prompt
-   body is never on a listing page; that is the whole design.
-   ===================================================================== */
-.pm-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(258px, 1fr)); gap:var(--sp-3)}
-.pm-card{
-  position:relative; display:flex; flex-direction:column;
-  background:linear-gradient(180deg, var(--pm-surface-2), var(--pm-surface));
-  border:1px solid var(--pm-hair-soft); border-radius:var(--pm-r);
-  overflow:hidden; box-shadow:var(--pm-shadow);
-  transition:transform .22s var(--pm-spring), border-color .22s var(--pm-ease), box-shadow .22s var(--pm-ease);
-}
-/* The signature device: the category is a lit edge, not a coloured word.
-   One hairline reads at a glance across a grid of thirty, and it is the
-   same device on tool rows and chain chips. */
-.pm-card::before{
-  content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
-  background:var(--hue); opacity:.62;
-  transition:opacity .22s var(--pm-ease), box-shadow .22s var(--pm-ease);
-}
-.pm-card:hover{transform:translateY(-2px); border-color:var(--pm-hair); box-shadow:var(--pm-shadow-lift)}
-.pm-card:hover::before{opacity:1; box-shadow:0 0 14px -1px var(--hue)}
-.pm-card:focus-within{border-color:var(--pm-hair)}
-.pm-card-body{padding:var(--sp-4) var(--sp-4) var(--sp-3) calc(var(--sp-4) - 2px); cursor:pointer; flex:1; text-align:left; min-width:0}
-.pm-card-body:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:-3px; border-radius:var(--pm-r-sm)}
-.pm-card-title{
-  font-family:var(--pm-display); font-size:19px; line-height:1.25; font-weight:400;
-  letter-spacing:-.005em; margin:0 0 7px; color:var(--pm-text);
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-}
-.pm-card-meta{margin:0; font-size:12px; color:var(--pm-text-mute); display:flex; align-items:center; gap:7px; flex-wrap:wrap}
-.pm-card-meta .pm-dot{width:6px; height:6px; border-radius:50%; background:var(--hue); flex:none}
-.pm-card-meta .pm-sep{opacity:.4}
-.pm-card-acts{
-  display:flex; align-items:center; gap:var(--sp-1);
-  padding:0 var(--sp-3) var(--sp-3) calc(var(--sp-4) - 2px);
-}
-.pm-card-acts .pm-spacer{flex:1}
-
-.pm-icobtn{
-  appearance:none; border:0; background:transparent; color:var(--pm-text-mute);
-  width:38px; height:38px; border-radius:var(--pm-r-sm); cursor:pointer;
-  display:inline-flex; align-items:center; justify-content:center; font-size:15px; line-height:1;
-  transition:color .18s var(--pm-ease), background-color .18s var(--pm-ease), transform .16s var(--pm-spring);
-}
-.pm-icobtn:hover{color:var(--pm-text); background:var(--pm-surface-2)}
-.pm-icobtn:active{transform:scale(.9)}
-.pm-icobtn:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:2px}
-.pm-star{font-size:16px}
-.pm-star.is-on{color:var(--pm-amber)}
-.pm-star.is-on:hover{color:var(--pm-amber-hi)}
-.pm-copy{
-  font-size:12px; font-weight:600; letter-spacing:.02em; width:auto; padding:0 14px;
-  border:1px solid var(--pm-hair-soft); color:var(--pm-text-dim);
-}
-.pm-copy:hover{border-color:var(--pm-hair); color:var(--pm-text)}
-.pm-copy.is-done{color:var(--pm-good); border-color:rgba(110,231,183,.4)}
-
-/* the fiction mark — a badge, not a category. It says where the record
-   lives, which matters only because that library can be read-only. */
-.pm-fic{font-size:12px; color:var(--pm-amber); opacity:.85}
-.pm-ro{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--pm-text-faint); border:1px solid var(--pm-hair-soft); border-radius:var(--pm-pill); padding:2px 8px}
-
-/* =====================================================================
-   §ROWS — Recent, and the tool list. A row is cheaper than a card and
-   Recent is a reminder, not a browse surface.
-   ===================================================================== */
-.pm-rows{display:flex; flex-direction:column; gap:2px}
-.pm-row{
-  display:flex; align-items:center; gap:var(--sp-3); min-width:0;
-  border-radius:var(--pm-r-sm); border:1px solid transparent;
-  transition:background-color .18s var(--pm-ease), border-color .18s var(--pm-ease);
-}
-.pm-row:hover{background:var(--pm-surface); border-color:var(--pm-hair-soft)}
-.pm-row-main{
-  flex:1; min-width:0; display:flex; align-items:center; gap:var(--sp-3);
-  padding:11px var(--sp-3); min-height:48px; cursor:pointer; text-align:left; color:inherit; text-decoration:none;
-}
-.pm-row-main:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:-2px; border-radius:var(--pm-r-sm)}
-.pm-row-dot{width:6px; height:6px; border-radius:50%; background:var(--hue); flex:none}
-.pm-row-name{
-  flex:1 1 auto; min-width:6ch;
-  font-size:15px; color:var(--pm-text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.pm-row:hover .pm-row-name{color:var(--pm-text)}
-.pm-row-cat{
-  flex:0 1 auto; min-width:0; max-width:40%;
-  font-size:12px; color:var(--pm-text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-/* Under this width the row cannot hold a name, a host, "Open" and two
-   controls. The host is the one that is only ever confirmation. */
-@media (max-width:519px){ .pm-row-cat{display:none} }
-.pm-row-open{
-  font-size:12px; font-weight:600; color:var(--pm-text-faint); flex:none;
-  transition:color .18s var(--pm-ease), transform .18s var(--pm-ease);
-}
-.pm-row:hover .pm-row-open, .pm-row-main:focus-visible .pm-row-open{color:var(--pm-accent); transform:translateX(2px)}
-.pm-row-acts{display:flex; gap:2px; padding-right:6px; flex:none}
-
-/* =====================================================================
-   §QUICK LAUNCH — the loudest thing on the Tools tab, deliberately. It
-   is the reason the page exists: four to eight things you open every day,
-   one click from the top of the screen.
-   ===================================================================== */
-.pm-quicks{display:grid; grid-template-columns:repeat(auto-fill, minmax(132px,1fr)); gap:var(--sp-3)}
-.pm-quick{
-  position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
-  padding:var(--sp-5) var(--sp-3); min-height:118px; text-decoration:none; color:var(--pm-text);
-  background:linear-gradient(180deg, var(--pm-surface-2), rgba(255,255,255,.014));
-  border:1px solid var(--pm-hair-soft); border-radius:var(--pm-r); overflow:hidden;
-  box-shadow:var(--pm-shadow);
-  transition:transform .24s var(--pm-spring), border-color .24s var(--pm-ease), box-shadow .24s var(--pm-ease);
-}
-/* the instrument light: a filament across the top edge, lit on hover */
-.pm-quick::before{
-  content:''; position:absolute; top:0; left:14%; right:14%; height:2px;
-  background:linear-gradient(90deg, transparent, var(--hue), transparent);
-  opacity:.5; transition:opacity .24s var(--pm-ease), left .3s var(--pm-ease), right .3s var(--pm-ease);
-}
-.pm-quick:hover{transform:translateY(-3px); border-color:var(--pm-hair); box-shadow:var(--pm-shadow-lift)}
-.pm-quick:hover::before{opacity:1; left:0; right:0}
-.pm-quick:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:3px}
-.pm-quick-glyph{
-  font-size:26px; line-height:1; color:var(--hue);
-  filter:drop-shadow(0 0 12px color-mix(in srgb, var(--hue) 45%, transparent));
-}
-.pm-quick-name{font-size:13px; font-weight:600; letter-spacing:.01em; text-align:center}
-.pm-quick-host{font-size:11px; color:var(--pm-text-faint)}
-
-/* =====================================================================
-   §CHAIN — a collection is a sequence, so it is drawn as one. The arrows
-   are the content's real shape, not decoration; that is the only reason
-   they are allowed.
-   ===================================================================== */
-.pm-collections{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:var(--sp-3)}
-.pm-col-card{
-  display:block; text-align:left; width:100%; cursor:pointer; color:inherit; text-decoration:none;
-  padding:var(--sp-4); border:1px solid var(--pm-hair-soft); border-radius:var(--pm-r);
-  background:var(--pm-surface); box-shadow:var(--pm-shadow);
-  transition:transform .22s var(--pm-spring), border-color .22s var(--pm-ease), box-shadow .22s var(--pm-ease);
-}
-.pm-col-card:hover{transform:translateY(-2px); border-color:var(--pm-hair); box-shadow:var(--pm-shadow-lift)}
-.pm-col-card:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:3px}
-.pm-col-title{font-family:var(--pm-display); font-size:19px; font-weight:400; margin:0 0 var(--sp-3); color:var(--pm-text)}
-.pm-chain{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
-.pm-chain-chip{
-  font-size:12px; padding:4px 11px; border-radius:var(--pm-pill);
-  background:color-mix(in srgb, var(--hue) 12%, transparent);
-  border:1px solid color-mix(in srgb, var(--hue) 34%, transparent);
-  color:var(--pm-text-dim); white-space:nowrap; max-width:16ch; overflow:hidden; text-overflow:ellipsis;
-}
-.pm-chain-arrow{font-size:12px; color:var(--pm-text-faint)}
-.pm-chain-more{font-size:12px; color:var(--pm-text-faint)}
-.pm-col-empty{font-size:13px; color:var(--pm-text-faint); font-style:italic}
-
-/* =====================================================================
-   §DETAIL
-   ===================================================================== */
-.pm-detail{max-width:820px; padding-top:var(--sp-2)}
-.pm-detail-title{
-  font-family:var(--pm-display); font-size:clamp(30px,4.6vw,46px); line-height:1.1;
-  font-weight:400; letter-spacing:-.012em; margin:0 0 var(--sp-3);
-}
-.pm-detail-meta{display:flex; align-items:center; gap:9px; flex-wrap:wrap; font-size:13px; color:var(--pm-text-mute); margin:0 0 var(--sp-5)}
-.pm-detail-meta .pm-dot{width:7px; height:7px; border-radius:50%; background:var(--hue); flex:none}
-.pm-prompt-text{
-  font-family:var(--pm-mono); font-size:14px; line-height:1.72; white-space:pre-wrap; word-break:break-word;
-  background:rgba(5,7,11,.62); border:1px solid var(--pm-hair-soft); border-left:2px solid var(--hue);
-  border-radius:var(--pm-r-sm); padding:var(--sp-4); margin:0 0 var(--sp-4); color:var(--pm-text-dim);
-  max-height:56vh; overflow:auto;
-}
-.pm-prompt-text mark{background:rgba(var(--pm-accent-rgb),.18); color:var(--pm-accent-hi); border-radius:3px; padding:1px 3px}
-.pm-detail-acts{display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-6)}
-.pm-block{margin-bottom:var(--sp-6)}
-.pm-block-label{font-size:11px; font-weight:600; letter-spacing:.30em; text-transform:uppercase; color:var(--pm-text-mute); margin:0 0 var(--sp-3)}
-.pm-vars{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:var(--sp-3); margin-bottom:var(--sp-3)}
-.pm-empty-line{font-size:14px; color:var(--pm-text-faint); margin:0}
-
-/* =====================================================================
-   §FIELDS
-   ===================================================================== */
-.pm-field{display:block; margin-bottom:var(--sp-4)}
-.pm-field-label{display:block; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--pm-text-mute); margin-bottom:7px}
-.pm-field-hint{display:block; font-size:12px; color:var(--pm-text-faint); margin-top:6px; letter-spacing:0; text-transform:none; font-weight:400}
-.pm-input, .pm-textarea, .pm-select{
-  width:100%; appearance:none; font:inherit; font-size:16px; color:var(--pm-text);
-  background:rgba(8,11,16,.78); border:1px solid var(--pm-hair-soft); border-radius:var(--pm-r-sm);
-  padding:12px 14px; min-height:48px;
-  transition:border-color .2s var(--pm-ease), box-shadow .2s var(--pm-ease);
-}
-/* 16px, like every other field here. Monospace at 16px sets a little wider
-   than the display block below it; that is the correct trade against a
-   viewport that never zooms back out. */
-.pm-textarea{min-height:180px; resize:vertical; font-family:var(--pm-mono); font-size:16px; line-height:1.6}
-.pm-select{
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23788'%3E%3Cpath d='M1 1l5 5 5-5' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;
-}
-.pm-input:focus, .pm-textarea:focus, .pm-select:focus{outline:none; border-color:rgba(var(--pm-accent-rgb),.55); box-shadow:0 0 0 3px rgba(var(--pm-accent-rgb),.14)}
-.pm-input::placeholder, .pm-textarea::placeholder{color:var(--pm-text-faint)}
-.pm-check{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--pm-text-dim); cursor:pointer; min-height:44px}
-.pm-check input{width:19px; height:19px; accent-color:var(--pm-accent); cursor:pointer; flex:none}
-.pm-fieldrow{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3)}
-
-/* =====================================================================
-   §MODAL
-   ===================================================================== */
-.pm-modal-bg{
-  position:fixed; inset:0; z-index:80; display:none; align-items:flex-start; justify-content:center;
-  padding:clamp(var(--sp-3),5vh,var(--sp-7)) var(--sp-3); overflow:auto;
-  background:rgba(3,5,8,.78); backdrop-filter:blur(6px);
-}
-.pm-modal-bg.is-open{display:flex}
-.pm-modal{
-  width:min(660px,100%); background:linear-gradient(180deg,#0E1319,#0A0D12);
-  border:1px solid var(--pm-hair-soft); border-radius:var(--pm-r-lg);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.95); padding:var(--sp-5);
-  animation:pmRise .28s var(--pm-spring) both;
-}
-@keyframes pmRise{from{opacity:0; transform:translateY(12px)}to{opacity:1; transform:none}}
-.pm-modal-title{font-family:var(--pm-display); font-size:25px; font-weight:400; margin:0 0 var(--sp-4)}
-.pm-modal-acts{display:flex; gap:var(--sp-2); justify-content:flex-end; margin-top:var(--sp-5); flex-wrap:wrap}
-.pm-modal-acts .pm-spacer{flex:1}
-
-/* the ⋯ sheet — a small menu, positioned by the page not the pointer */
-.pm-menu{display:flex; flex-direction:column; gap:2px; margin:calc(var(--sp-3) * -1) calc(var(--sp-3) * -1) 0}
-.pm-menu button{
-  appearance:none; border:0; background:transparent; color:var(--pm-text-dim); font:inherit; font-size:15px;
-  text-align:left; padding:13px var(--sp-3); min-height:48px; border-radius:var(--pm-r-sm); cursor:pointer;
-  transition:background-color .16s var(--pm-ease), color .16s var(--pm-ease);
-}
-.pm-menu button:hover{background:var(--pm-surface-2); color:var(--pm-text)}
-.pm-menu button:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:-2px}
-.pm-menu button.is-danger{color:var(--pm-bad)}
-
-/* =====================================================================
-   §CHROME — back, toast, health, undo
-   ===================================================================== */
-.pm-back{
-  /* Clear of topbar.js's launcher, which is fixed over this corner on every
-     page and runs to roughly x=175. This offset is measured against that,
-     not against the gutter. */
-  position:fixed; top:14px; left:196px; z-index:60;
-  appearance:none; display:inline-flex; align-items:center; gap:6px;
-  font:inherit; font-size:13px; font-weight:600; cursor:pointer; min-height:40px; padding:0 15px;
-  background:rgba(8,11,16,.86); color:var(--pm-text-dim);
-  border:1px solid var(--pm-hair-soft); border-radius:var(--pm-pill); backdrop-filter:blur(14px);
-  transition:color .18s var(--pm-ease), border-color .18s var(--pm-ease), transform .16s var(--pm-spring);
-}
-.pm-back:hover{color:var(--pm-text); border-color:var(--pm-hair)}
-.pm-back:active{transform:scale(.96)}
-.pm-back:focus-visible{outline:2px solid var(--pm-accent-hi); outline-offset:3px}
-.pm-back[hidden]{display:none}
-
-#pmToast{
-  position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px); z-index:95;
-  background:rgba(10,14,19,.96); color:var(--pm-text); border:1px solid var(--pm-hair);
-  border-radius:var(--pm-pill); padding:11px 22px; font-size:14px; font-weight:500;
-  box-shadow:0 20px 44px -20px rgba(0,0,0,.9); pointer-events:none;
-  opacity:0; transition:opacity .24s var(--pm-ease), transform .24s var(--pm-spring);
-}
-#pmToast.is-on{opacity:1; transform:translate(-50%,0)}
-#pmToast.is-bad{border-color:rgba(255,138,138,.55); color:#FFD9D9}
-
-.pm-notice{
-  position:relative; z-index:3; margin:0 0 var(--sp-3);
-  display:flex; align-items:center; gap:var(--sp-3); flex-wrap:wrap;
-  padding:13px var(--sp-4); border-radius:var(--pm-r-sm); font-size:14px; line-height:1.5;
-}
-.pm-notice .pm-spacer{flex:1}
-/* These sit at the very top of the document flow, where topbar.js's fixed
-   launcher is painted over them. The offset clears it; the adjacent rule
-   means a SECOND notice does not clear it twice. */
-#pmHealth, #pmUndo{margin:58px var(--pm-gutter) 0}
-#pmHealth:not([hidden]) + #pmUndo{margin-top:var(--sp-3)}
-#pmHealth{background:rgba(255,138,138,.10); border:1px solid rgba(255,138,138,.42); color:#FFDCDC}
-#pmHealth[hidden]{display:none}
-#pmUndo{background:rgba(var(--pm-amber-rgb),.09); border:1px solid rgba(var(--pm-amber-rgb),.34); color:var(--pm-amber-hi)}
-#pmUndo[hidden]{display:none}
-/* A notice has already pushed the page down past the launcher, so the hero
-   does not need its own clearance on top of it. */
-body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
-
-/* =====================================================================
-   §EMPTY — an empty screen is an invitation to act, not an apology.
-   ===================================================================== */
-.pm-empty{
-  padding:clamp(var(--sp-6),9vh,var(--sp-8)) var(--sp-4); text-align:center;
-  border:1px dashed var(--pm-hair-soft); border-radius:var(--pm-r-lg); background:rgba(255,255,255,.012);
-}
-.pm-empty-title{font-family:var(--pm-display); font-size:26px; font-weight:400; margin:0 0 var(--sp-2)}
-.pm-empty-body{font-size:15px; color:var(--pm-text-mute); margin:0 auto var(--sp-5); max-width:46ch}
-.pm-empty-acts{display:flex; gap:var(--sp-2); justify-content:center; flex-wrap:wrap}
-
-/* =====================================================================
-   §RESPONSIVE
-   ===================================================================== */
-@media (max-width:719px){
-  .pm-tabs{width:100%}
-  .pm-tab{flex:1}
-  .pm-grid{grid-template-columns:1fr}
-  .pm-collections{grid-template-columns:1fr}
-  .pm-quicks{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
-  .pm-quick{min-height:104px; padding:var(--sp-4) var(--sp-2)}
-  .pm-fieldrow{grid-template-columns:1fr}
-  .pm-back{left:auto; right:var(--pm-gutter); top:10px}
-  .pm-detail-acts .pm-btn{flex:1}
-}
-/* Below this the controls cannot share one line without the search box
-   becoming a slot. Two deliberate rows beat three wrapped ones. */
-@media (max-width:519px){
-  .pm-controls{display:grid; grid-template-columns:auto 1fr; gap:var(--sp-2)}
-  .pm-search{grid-column:1 / -1}
-  .pm-favtoggle{grid-column:1}
-}
-/* Pointer type, not width: a 1024px touch tablet needs the big targets a
-   1024px trackpad laptop does not. */
-@media (pointer:coarse){
-  .pm-icobtn{width:44px; height:44px}
-  .pm-pill, .pm-btn-sm{min-height:44px}
-  /* The ticker items are real filter buttons, not decoration. */
-  .pm-ticker-item{min-height:44px}
-  .pm-row-acts{padding-right:2px}
-}
-
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
-  #pmStage{display:none !important}
-}
-
-/* ---------------------------------------------------------------------
-   §PARALLAX — four rates, all driven by ONE custom property (--p, the
-   header's own scroll progress, written by a single rAF-throttled scroll
-   handler). Expressed with `translate` rather than `transform` so these
-   layers stay composable with any transform an element brings with it.
-
-   Rate 2 is defined and unused: it belonged to an accent orb that was
-   removed, and the numbering still maps 1:1 onto the four rates.
-
-   Guarded TWICE: the JS only adds .pm-par when motion is allowed, and this
-   media query — because the reduced-motion block above kills animations and
-   transitions but has no effect whatsoever on a custom-property-driven
-   translate.
-   --------------------------------------------------------------------- */
-@media (prefers-reduced-motion: no-preference){
-  html.pm-par #pmStageVid{
-    translate:0 calc(var(--pm-par-px, 640px) * var(--p, 0) * -0.70);
-    scale:calc(1.12 + var(--p, 0) * .05);   /* >1 so the travel never exposes an edge */
-  }
-  html.pm-par .pm-par-2{ translate:0 calc(var(--pm-par-px, 640px) * var(--p, 0) * -0.55) }
-  html.pm-par .pm-par-3{ translate:0 calc(var(--pm-par-px, 640px) * var(--p, 0) * -0.40) }
-  html.pm-par .pm-par-4{
-    translate:0 calc(var(--pm-par-px, 640px) * var(--p, 0) * -0.10);
-    opacity:calc(1 - var(--p, 0) * .85);
-  }
-  html.pm-par .pm-par-2,html.pm-par .pm-par-3,html.pm-par .pm-par-4{ will-change:translate, opacity }
-}
-@media print{.pm-head-ticker,#pmGrain,#pmStage,#pmField,.pm-back{display:none !important}}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="asclepion-theme.css?v=6">
+<link rel="stylesheet" href="promptarium-theme.css?v=1">
+<link rel="preload" as="image" href="images_by_admin/promptarium/hero-hall.webp">
 </head>
-<body>
+<body class="asc">
 
-<!-- §FIELD — the photographic ground under every view. Static markup,
-     never touched by a renderer, and FIRST: it and #pmStage are both at
-     z-index 0, so painting order is tree order and the band has to come
-     second or the field would cover the footage. -->
-<div id="pmField" aria-hidden="true"></div>
+<!-- =====================================================================
+     §HERO - static markup, and that is not a style preference.
 
-<!-- §STAGE — see the note in §GROUND. Static for the same reason: every
-     renderer paints innerHTML, and a <video> inside one would restart
-     several times a minute. -->
-<div id="pmStage" aria-hidden="true">
-  <div id="pmStageBed"></div>
-  <video id="pmStageVid" muted loop playsinline preload="none"
-         disablepictureinpicture disableremoteplayback></video>
-  <div id="pmStageVeil"></div>
-  <div id="pmStageFade"></div>
-</div>
+     Every view on this page is a string dumped into innerHTML. A hero
+     built by a renderer would be destroyed and rebuilt on every cloud
+     pull, taking its entrance animation with it. Written straight into
+     the document it is outside the render host by construction, cannot
+     be re-created at all, and paints from the first byte.
 
-<div id="pmGrain" aria-hidden="true"></div>
+     The wordmark sits top-RIGHT because topbar.js's launcher owns the
+     literal top-left corner of every page in this dashboard.
+     ===================================================================== -->
+<header class="asc-hero" id="pmHero">
+  <img class="asc-hero__fig" src="images_by_admin/promptarium/hero-hall.webp"
+       alt="" width="736" height="1308" fetchpriority="high" decoding="async">
+  <div class="asc-hero__ring" aria-hidden="true"></div>
+  <p class="asc-hero__mark">Prompt Studio</p>
 
-<!-- Static, because the band it belongs to is rebuilt on tab changes, and
-     topbar.js owns the literal top-left corner. -->
-<button class="pm-back" id="pmBack" type="button" hidden>
-  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
-       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M15 18l-6-6 6-6"/>
-  </svg>
-  Back
-</button>
+  <div class="asc-hero__in">
+    <h1 class="asc-hero__head">
+      <span><b style="--d:120ms">The words you</b></span>
+      <span><b style="--d:240ms">keep coming</b></span>
+      <span><b style="--d:360ms"><em>back to.</em></b></span>
+    </h1>
+    <p class="asc-hero__note">
+      <strong>Prompts and tools, filed by what you are trying to do &mdash; not by which model you are about to open.</strong>
+      Search, or just look.
+    </p>
+  </div>
+</header>
 
-<!-- §STORAGE HEALTH and §UNDO — static markup outside #pmApp, so no view
+<!-- §STORAGE HEALTH and §UNDO - static markup outside #pmApp, so no view
      repaint can take them away while the condition they report is still
      true. -->
 <div class="pm-notice" id="pmHealth" role="alert" hidden></div>
 <div class="pm-notice" id="pmUndo" role="status" hidden></div>
 
-<main id="pmApp">
-  <!-- OUTSIDE .pm-wrap on purpose: the hero is full-bleed, carries its own
-       gutter, and its ticker bleeds back out through it. -->
-  <header id="pmHead"></header>
-  <div class="pm-wrap">
-    <div id="pmBar"></div>
-    <section id="pmView" aria-live="polite"></section>
-  </div>
+<!-- The bar is a direct child of the shell, not wrapped in a div of its
+     own height: position:sticky is constrained by the parent's box, and
+     a toolbar inside a wrapper exactly as tall as itself cannot move and
+     quietly stops sticking.
+
+     #pmPopHost carries no CSS on purpose. .asc-pop is position:absolute
+     with no offsets, so it resolves to its STATIC position - right under
+     the bar, where the host sits in flow - while being out of flow, so
+     opening a filter panel never pushes the table down. -->
+<main id="pmApp" class="asc-shell">
+  <div class="asc-bar" id="pmBar"></div>
+  <div id="pmPopHost"></div>
+  <section id="pmView" aria-live="polite"></section>
 </main>
 
-<div class="pm-modal-bg" id="pmModalBg"><div class="pm-modal" id="pmModal" role="dialog" aria-modal="true"></div></div>
-<div id="pmToast" role="status" aria-live="polite"></div>
+<!-- The sheet and the toast carry The Asclepion's own ids, because
+     asclepion-ui.js addresses them by id - #ascSheetBg / #ascSheet /
+     #ascToast. Reusing the module means reusing its DOM contract. -->
+<div class="asc-sheetbg" id="ascSheetBg"><div class="asc-sheet" id="ascSheet" role="dialog" aria-modal="true"></div></div>
+<div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
 
 <!-- Loaded here, and NOT deferred. The inline script below registers
      cloud sync at parse time, and a deferred script would not have run
@@ -884,6 +130,12 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 <script src="trash.js?v=1"></script>
 <script src="shrink-banner.js?v=1"></script>
 <script src="promptarium-backup.js?v=1"></script>
+<!-- The Asclepion's generic machinery, shared rather than copied: escaping,
+     the drawn marks, the resumable entrance clock, the sheet, the toast.
+     Its own header says it best - "Nothing in here knows about the data
+     layer." The only page-specific thing it exports is the six self-care
+     glyphs, which this page never asks for. -->
+<script src="asclepion-ui.js?v=3"></script>
 <script src="promptarium-data.js?v=2"></script>
 <script src="topbar.js?v=5" defer></script>
 </body>
@@ -934,7 +186,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 
   var toastTimer = null;
   function toast(msg, bad) {
-    var el = $('pmToast');
+    var el = $("ascToast");
     el.textContent = msg;
     el.classList.toggle('is-bad', !!bad);
     el.classList.add('is-on');
@@ -987,19 +239,29 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
   // ============================================================
   // §STATE
   //
-  // Four values decide what a library shows. `q` is deliberately NOT
-  // persisted: a search term is about this minute, and restoring one on
-  // the next visit would make the page look empty for no reason.
+  // What a library shows. `q` and `pop` are deliberately NOT persisted:
+  // a search term is about this minute, and restoring one on the next
+  // visit would make the page look empty for no reason; an open drop
+  // panel is about this click.
+  //
+  // `shut` is the list of folded category groups, keyed by tab so the
+  // two libraries fold independently.
   // ============================================================
-  var ui = { tab: 'prompts', q: '', cat: 'all', favOnly: false };
+  var ui = { tab: 'prompts', q: '', cat: 'all', favOnly: false,
+             group: 'category', pop: null, shut: [] };
 
   function loadUi() {
     var s = D().getUiState();
     if (s.tab === 'tools' || s.tab === 'prompts') ui.tab = s.tab;
     if (typeof s.cat === 'string') ui.cat = s.cat;
+    if (s.group && GROUPINGS[s.group]) ui.group = s.group;
+    if (Array.isArray(s.shut)) ui.shut = s.shut.slice();
     ui.favOnly = !!s.favOnly;
   }
-  function saveUi() { D().setUiState({ tab: ui.tab, cat: ui.cat, favOnly: ui.favOnly }); }
+  function saveUi() {
+    D().setUiState({ tab: ui.tab, cat: ui.cat, favOnly: ui.favOnly,
+                     group: ui.group, shut: ui.shut });
+  }
 
   // ============================================================
   // §CODEX GATE
@@ -1233,104 +495,257 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
   }
 
   // ============================================================
-  // §PIECES — the small HTML builders. Every listing surface on the page
-  // is made of these four, which is what keeps a prompt looking like a
-  // prompt whether you meet it on the home page, inside a search, or as
-  // step three of a workflow.
+  // §PIECES — the small HTML builders.
+  //
+  // There used to be four surfaces here: a card, a row, a tile and a
+  // collection card. There is one table now, and the same row draws a
+  // prompt and a tool, which is what keeps a record looking like itself
+  // whether you meet it on the home page, inside a search, or as step
+  // three of a workflow.
+  //
+  // Nothing here draws a border. Separation is value and space — see the
+  // note at the top of asclepion-theme.css.
   // ============================================================
+  function U() { return window.AscUI; }
   function hueOf(kind, id) { return D().catById(kind, id).hue; }
   function catLabel(kind, id) { return D().catById(kind, id).label; }
 
-  function sectionHead(label, note, starred) {
-    return '<div class="pm-sec-head">' +
-      '<h2 class="pm-sec-label">' + (starred ? '<span class="pm-star-glyph">&#9733;</span>' : '') + esc(label) + '</h2>' +
-      '<span class="pm-sec-rule"></span>' +
-      (note ? '<span class="pm-sec-note">' + esc(note) + '</span>' : '') +
+  /* THE MARKS. One drawn vocabulary — circles, arcs and lines at 1.1
+     stroke — in the same register as The Asclepion's six, and deliberately
+     NOT emoji: emoji in this room would undo the whole typographic
+     argument, and they render as tofu in headless Chrome besides.
+
+     Keyed by category id. Both libraries share the ids they have in
+     common, so "writing" is the same nib on a prompt and on a tool. */
+  var PM_MARKS = {
+    /* a nib, and the stroke it has just made */
+    writing:      '<path d="M4.4 19.6l1-3.4L15 6.6a1.8 1.8 0 0 1 2.5 2.5L7.8 18.6z"/><path d="M13.4 8.2l2.4 2.4"/>',
+    /* a ring, and a second one turning inside it */
+    thinking:     '<circle cx="12" cy="12" r="8.4"/><path d="M8.2 14.8a4.8 4.8 0 0 1 7.6-5.8"/>',
+    /* a circle, and the line of sight leaving it */
+    research:     '<circle cx="10.4" cy="10.4" r="6.2"/><path d="M15 15l5 5"/>',
+    /* ripples rising from a still point — The Asclepion's own breath */
+    selfcare:     '<circle cx="12" cy="16.4" r="2"/><path d="M6.6 12.6a7.6 7.6 0 0 1 10.8 0"/><path d="M3.4 8.8a12.1 12.1 0 0 1 17.2 0"/>',
+    /* three rules, the last one short: a plan is never finished */
+    planning:     '<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h9"/>',
+    /* a line, struck */
+    editing:      '<path d="M4.4 12h15.2"/><path d="M9 7.8l6 8.4"/>',
+    /* two arcs opening from one spine */
+    learning:     '<path d="M12 6.8v11.8"/><path d="M12 6.8C10 5.4 7.2 5 4.6 5.4v11.8c2.6-.4 5.4 0 7.4 1.4"/><path d="M12 6.8c2-1.4 4.8-1.8 7.4-1.4v11.8c-2.6-.4-5.4 0-7.4 1.4"/>',
+    /* a ring with one point on its orbit */
+    ai:           '<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="3.6" r="1.3" fill="currentColor" stroke="none"/>',
+    /* the mark you make when a thing is done */
+    productivity: '<path d="M4.8 12.6l4.6 4.6L19.2 7.4"/>',
+    /* a ring, playing */
+    media:        '<circle cx="12" cy="12" r="8.4"/><path d="M10.2 8.6L16 12l-5.8 3.4z"/>',
+    /* two rings, and what they make where they meet */
+    design:       '<circle cx="9.4" cy="9.6" r="5.4"/><circle cx="14.6" cy="14.4" r="5.4"/>',
+    /* a waveform */
+    audio:        '<path d="M3.6 12h1.8M8.2 7.8v8.4M12 4.8v14.4M15.8 8.8v6.4M19.8 10.8v2.4"/>',
+    /* a camera, turned */
+    video:        '<path d="M4.2 7.6h10v8.8h-10z"/><path d="M14.2 12l5.6-3v6z"/>',
+    /* a crosshair */
+    utilities:    '<path d="M12 3.6v16.8M3.6 12h16.8"/><circle cx="12" cy="12" r="2.6"/>',
+    /* the null case: a ring, and nothing said about it */
+    other:        '<circle cx="12" cy="12" r="7.6"/>'
+  };
+  function pmMark(cat) {
+    var d = PM_MARKS[cat] || PM_MARKS.other;
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  }
+
+  /* The favourite. The Asclepion's own heart glyph, on The Asclepion's own
+     class, but carrying THIS page's data-fav attribute so the delegated
+     handler already in §WIRING keeps working unchanged.
+
+     The old page reserved amber strictly for this control, so that "I
+     reach for this one constantly" read instantly against otherwise cool
+     chrome. In a gold room there is no such contrast to spend, and the
+     heart takes candlelight like everything else that is on. */
+  function heartBtn(id, on, name) {
+    return '<button type="button" class="asc-heart' + (on ? ' is-on' : '') + '"' +
+      ' data-fav="' + esc(id) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
+      ' aria-label="' + esc((on ? 'Remove ' : 'Keep ') + name) + '">' +
+      U().mark('heart') + '</button>';
+  }
+
+  function sectionHead(label, note) {
+    return '<div class="pm-sec__head">' +
+      '<h2 class="asc-label">' + esc(label) + '</h2>' +
+      (note ? '<span class="asc-small pm-sec__note">' + esc(note) + '</span>' : '') +
     '</div>';
   }
 
-  /* The card. Title, category, three controls — and never the prompt
-     body. Reading a prompt is a decision you make after you have found
-     it, and putting the text on the card is what made the last page a
-     wall. */
-  function promptCard(p) {
-    var meta = catLabel('prompt', p.category) +
-      (p.compat ? ' <span class="pm-sep">&middot;</span> ' + esc(D().compatLabel(p.compat)) : '');
-    return '<article class="pm-card" style="--hue:' + hueOf('prompt', p.category) + '">' +
-      '<div class="pm-card-body" role="button" tabindex="0" data-open="' + esc(p.uid) + '">' +
-        '<h3 class="pm-card-title">' + esc(p.title) + '</h3>' +
-        '<p class="pm-card-meta"><span class="pm-dot"></span>' + meta +
-          (p.fiction ? ' <span class="pm-fic" title="Lives in the fiction library">&#10086;</span>' : '') +
-        '</p>' +
-      '</div>' +
-      '<div class="pm-card-acts">' +
-        '<button type="button" class="pm-icobtn pm-copy" data-copy="' + esc(p.uid) + '">Copy</button>' +
-        '<span class="pm-spacer"></span>' +
-        starBtn(p.uid, p.favorite, p.title) +
-        '<button type="button" class="pm-icobtn" data-menu="' + esc(p.uid) + '" aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
-      '</div>' +
-    '</article>';
-  }
-  function starBtn(uid, on, name) {
-    return '<button type="button" class="pm-icobtn pm-star' + (on ? ' is-on' : '') + '" data-fav="' + esc(uid) + '"' +
-      ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
-      ' aria-label="' + (on ? 'Remove ' : 'Add ') + esc(name) + (on ? ' from' : ' to') + ' favorites">' +
-      (on ? '&#9733;' : '&#9734;') + '</button>';
-  }
+  // --- the table ------------------------------------------------
+  //
+  // TWO COLUMN SETS, because a column that repeats the heading above it
+  // is a column doing nothing. Grouped by category, every group already
+  // says its own name, so the second column spends itself on the count
+  // instead; ungrouped there is no heading, so it carries the category.
+  var COLS = {
+    prompt: { grouped:  ['Prompt', 'Copied', 'Model', 'Last used'],
+              flat:     ['Prompt', 'Category', 'Model', 'Last used'] },
+    tool:   { grouped:  ['Tool', 'Opened', 'Site', 'Last opened'],
+              flat:     ['Tool', 'Category', 'Site', 'Last opened'] }
+  };
+  function grouped() { return GROUPINGS[ui.group].group; }
 
-  /* Recent is a reminder, not a browse surface, so it gets rows. */
-  function promptRow(p, withCopy) {
-    return '<div class="pm-row" style="--hue:' + hueOf('prompt', p.category) + '">' +
-      '<div class="pm-row-main" role="button" tabindex="0" data-open="' + esc(p.uid) + '">' +
-        '<span class="pm-row-dot"></span>' +
-        '<span class="pm-row-name">' + esc(p.title) + '</span>' +
-        '<span class="pm-row-cat">' + esc(catLabel('prompt', p.category)) + '</span>' +
-        '<span class="pm-spacer" style="flex:1"></span>' +
-        '<span class="pm-row-open">Open</span>' +
-      '</div>' +
-      (withCopy
-        ? '<div class="pm-row-acts"><button type="button" class="pm-icobtn pm-copy" data-copy="' + esc(p.uid) + '">Copy</button></div>'
-        : '') +
+  function colsRow(kind) {
+    return '<div class="asc-cols" role="row">' +
+      COLS[kind === 'tool' ? 'tool' : 'prompt'][grouped() ? 'grouped' : 'flat'].map(function (c) {
+        return '<span class="asc-label" role="columnheader">' + esc(c) + '</span>';
+      }).join('') +
+      '<span class="asc-label" role="columnheader"><span class="asc-sr">Actions</span></span>' +
+      '<span class="asc-label" role="columnheader"><span class="asc-sr">Kept</span></span>' +
     '</div>';
   }
 
-  /* A tool row is a launcher. The name is the link, so the whole thing is
-     one keyboard stop and one tap target, and the controls sit outside it
-     — a <button> inside an <a> is not a thing. */
-  function toolRow(t) {
+  /* One row builder per library, and the same five parts in both: a name
+     with a description under it, three facts, the verb, and the heart. So
+     they share one grid and one set of rules.
+
+     THE NAME IS A BUTTON (or, for a tool, a link), and the verb and the
+     heart are its SIBLINGS, never inside it: a button inside a button is
+     not valid HTML and the browser's repair of it is not something to
+     rely on. */
+  function promptRow(p, i) {
+    var last = p.lastUsedAt ? D().fmtAgo(p.lastUsedAt) : '';
+    return '<div class="asc-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' role="row" style="--asc-tint:' + hueOf('prompt', p.category) + '">' +
+      '<button type="button" class="asc-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
+        '<span class="asc-row__mark" aria-hidden="true">' + pmMark(p.category) + '</span>' +
+        '<span class="asc-row__text">' +
+          '<span class="asc-row__title">' + esc(p.title) + '</span>' +
+          (noteFor(p) ? '<span class="asc-row__desc">' + esc(noteFor(p)) + '</span>' : '') +
+        '</span>' +
+      '</button>' +
+      '<div class="asc-row__meta">' +
+        '<span class="asc-cell asc-cell--num" role="cell">' +
+          (grouped() ? esc(p.useCount ? U().plural(p.useCount, 'time') : '') 
+                     : esc(catLabel('prompt', p.category))) +
+          (p.fiction ? ' &#10086;' : '') + '</span>' +
+        '<span class="asc-cell asc-cell--quiet" role="cell">' + esc(D().compatLabel(p.compat)) + '</span>' +
+        '<span class="asc-cell ' + (last ? 'asc-cell--quiet' : 'asc-cell--never') + '" role="cell">' +
+          esc(last) + '</span>' +
+      '</div>' +
+      '<span class="asc-row__do" role="cell">' +
+        '<button type="button" class="asc-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
+        '<button type="button" class="asc-linkout" data-menu="' + esc(p.uid) + '"' +
+          ' aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
+      '</span>' +
+      '<span class="asc-row__heart" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
+    '</div>';
+  }
+
+  function toolRow(t, i) {
     var host = D().hostOf(t.url);
-    return '<div class="pm-row" style="--hue:' + hueOf('tool', t.category) + '">' +
-      '<a class="pm-row-main" href="' + esc(t.url || '#') + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
-        '<span class="pm-row-dot"></span>' +
-        '<span class="pm-row-name">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
-        '<span class="pm-row-cat">' + esc(host || catLabel('tool', t.category)) + '</span>' +
-        '<span class="pm-spacer" style="flex:1"></span>' +
-        '<span class="pm-row-open">Open &#8599;</span>' +
+    var last = t.lastOpenedAt ? D().fmtAgo(t.lastOpenedAt) : '';
+    return '<div class="asc-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' role="row" style="--asc-tint:' + hueOf('tool', t.category) + '">' +
+      '<a class="asc-row__name" role="cell" href="' + esc(t.url || '#') + '" target="_blank"' +
+        ' rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
+        '<span class="asc-row__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
+        '<span class="asc-row__text">' +
+          '<span class="asc-row__title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
+          (t.useFor ? '<span class="asc-row__desc">' + esc(t.useFor) + '</span>' : '') +
+        '</span>' +
       '</a>' +
-      '<div class="pm-row-acts">' +
-        starBtn(t.id, t.favorite, t.name) +
-        '<button type="button" class="pm-icobtn" data-toolmenu="' + esc(t.id) + '" aria-label="More actions for ' + esc(t.name) + '">&#8943;</button>' +
+      '<div class="asc-row__meta">' +
+        '<span class="asc-cell asc-cell--num" role="cell">' +
+          (grouped() ? esc(t.useCount ? U().plural(t.useCount, 'time') : '')
+                     : esc(catLabel('tool', t.category))) + '</span>' +
+        '<span class="asc-cell asc-cell--quiet" role="cell">' + esc(host) + '</span>' +
+        '<span class="asc-cell ' + (last ? 'asc-cell--quiet' : 'asc-cell--never') + '" role="cell">' +
+          esc(last) + '</span>' +
       '</div>' +
+      '<span class="asc-row__do" role="cell">' +
+        '<button type="button" class="asc-start" data-tool="' + esc(t.id) + '">Details</button>' +
+        '<button type="button" class="asc-linkout" data-toolmenu="' + esc(t.id) + '"' +
+          ' aria-label="More actions for ' + esc(t.name) + '">&#8943;</button>' +
+      '</span>' +
+      '<span class="asc-row__heart" role="cell">' + heartBtn(t.id, t.favorite, t.name) + '</span>' +
     '</div>';
   }
 
+  /* The table. Grouped by category, or one flat run in a chosen order —
+     "most used", "recently updated" and "name" are the three sections
+     this page used to stack above the list, which is all those sections
+     ever were. */
+  function tableHTML(kind, records) {
+    var draw = kind === 'tool' ? toolRow : promptRow;
+    var out = colsRow(kind);
+    var n = 0;
+
+    if (!grouped()) {
+      out += '<div class="asc-group__body">' +
+        sortRecords(records).map(function (r) { return draw(r, n++); }).join('') + '</div>';
+      return out;
+    }
+
+    groupByCategory(kind, records).forEach(function (b) {
+      var shut = ui.shut.indexOf(ui.tab + ':' + b.key) !== -1;
+      out += '<section class="asc-group' + (shut ? ' is-shut' : '') +
+        '" style="--asc-tint:' + b.hue + '">' +
+        '<button type="button" class="asc-group__head" data-fold="' + esc(b.key) + '"' +
+          ' aria-expanded="' + (shut ? 'false' : 'true') + '">' +
+          '<span class="asc-group__name">' + esc(b.label) + '</span>' +
+          '<span class="asc-group__count">' + esc(U().spell(b.rows.length)) + '</span>' +
+          '<span class="asc-group__fold" aria-hidden="true">&#9662;</span>' +
+        '</button>' +
+        '<div class="asc-group__rule" aria-hidden="true"></div>' +
+        '<div class="asc-group__body">' +
+          b.rows.map(function (r) { return draw(r, n++); }).join('') +
+        '</div>' +
+      '</section>';
+    });
+    return out;
+  }
+
+  function byName(a, b) {
+    return String(a.title || a.name || '').localeCompare(String(b.title || b.name || ''));
+  }
+  function sortRecords(list) {
+    var out = list.slice();
+    if (ui.group === 'used')   return out.sort(byUse);
+    if (ui.group === 'recent') return out.sort(byRecent);
+    return out.sort(byName);
+  }
+
+  /* Category order comes from the vocabulary, not from the data, so the
+     groups do not reshuffle as records are added. A category with nothing
+     in it is not drawn at all. */
+  function groupByCategory(kind, records) {
+    var buckets = {};
+    records.forEach(function (r) { (buckets[r.category] = buckets[r.category] || []).push(r); });
+    return D().catList(kind).filter(function (c) { return buckets[c.id] && buckets[c.id].length; })
+      .map(function (c) {
+        return { key: c.id, label: c.label, hue: c.hue, rows: buckets[c.id].sort(byName) };
+      });
+  }
+
+  /* Quick Launch is the loudest thing on the tools page on purpose: four
+     to eight tiles, one click, no scrolling. Everything below it is for
+     the other days. */
   function quickTile(t) {
-    return '<a class="pm-quick" style="--hue:' + hueOf('tool', t.category) + '" href="' + esc(t.url || '#') + '"' +
-      ' target="_blank" rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
-      '<span class="pm-quick-glyph">' + esc(t.icon || '◆') + '</span>' +
-      '<span class="pm-quick-name">' + esc(t.name) + '</span>' +
+    return '<a class="pm-quick" style="--asc-tint:' + hueOf('tool', t.category) + '"' +
+      ' href="' + esc(t.url || '#') + '" target="_blank" rel="noopener noreferrer"' +
+      ' data-launch="' + esc(t.id) + '">' +
+      '<span class="pm-quick__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
+      '<span class="pm-quick__name">' + esc(t.name) + '</span>' +
     '</a>';
   }
 
   /* A collection IS a sequence, so it is drawn as one. The arrows are the
-     content's real shape — that is the only reason they are allowed. */
+     content's real shape — that is the only reason they are allowed on a
+     page that otherwise draws no lines at all. */
   function chainHtml(col) {
     var names = memberNames(col);
-    if (!names.length) return '<p class="pm-col-empty">No steps yet</p>';
+    if (!names.length) return '<p class="asc-small">No steps yet</p>';
     var shown = names.slice(0, 5);
-    var html = shown.map(function (n) { return '<span class="pm-chain-chip">' + esc(n) + '</span>'; })
-      .join('<span class="pm-chain-arrow">&rarr;</span>');
-    if (names.length > shown.length) html += '<span class="pm-chain-more">+' + (names.length - shown.length) + '</span>';
+    var html = shown.map(function (n) { return '<span class="pm-chain__step">' + esc(n) + '</span>'; })
+      .join('<span class="pm-chain__arrow" aria-hidden="true">&rarr;</span>');
+    if (names.length > shown.length) html += '<span class="pm-chain__more">+' + (names.length - shown.length) + '</span>';
     return '<div class="pm-chain">' + html + '</div>';
   }
   function memberNames(col) {
@@ -1345,164 +760,134 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     return col.itemIds.map(function (uid) { return all[uid] || null; });
   }
   function collectionCard(col) {
-    var hue = col.kind === 'tool' ? '#4FD6E8' : '#7FB3FF';
-    return '<div class="pm-col-card" role="button" tabindex="0" data-collection="' + esc(col.id) + '" style="--hue:' + hue + '">' +
-      '<h3 class="pm-col-title">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h3>' +
+    return '<div class="pm-col" role="button" tabindex="0" data-collection="' + esc(col.id) + '"' +
+      ' style="--asc-tint:' + (col.kind === 'tool' ? '#c99a63' : '#d6d2cb') + '">' +
+      '<h3 class="asc-plate asc-plate--sm">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h3>' +
       chainHtml(col) +
     '</div>';
   }
 
+  /* A bold lead sentence, a recovery sentence, and one thing to press. */
   function emptyState(title, body, acts) {
-    return '<div class="pm-empty">' +
-      '<h2 class="pm-empty-title">' + esc(title) + '</h2>' +
-      '<p class="pm-empty-body">' + esc(body) + '</p>' +
-      (acts ? '<div class="pm-empty-acts">' + acts + '</div>' : '') +
+    return '<div class="asc-empty"><strong>' + esc(title) + '</strong>' + esc(body) +
+      (acts ? '<div class="asc-sheet__acts">' + acts + '</div>' : '') +
     '</div>';
   }
-
   // ============================================================
-  // §HEAD and §BAR
+  // §HERO and §BAR
   //
-  // Both live OUTSIDE the view host, and that is load-bearing: the search
-  // field is in the bar, and a renderer that replaced it on every
-  // keystroke would take the caret with it. The bar's controls are built
-  // once per mode; only the pills repaint.
+  // The hero is static markup in the document and is never rendered.
+  // All that survives of the old head controller is the one class that
+  // shrinks it on a detail route.
+  //
+  // Gone with the re-skin: the video stage, the four parallax rates, the
+  // meta column and the marquee ticker. The Asclepion has none of them,
+  // and the ticker in particular said exactly what the filter panel a
+  // hundred pixels below it already said.
+  //
+  // The bar lives OUTSIDE the view host, and that is load-bearing: the
+  // search field is in the bar, and a renderer that replaced it on every
+  // keystroke would take the caret with it. Its controls are built once
+  // per mode; only their state repaints.
   // ============================================================
-  /* Both blocks stack in the header's right-hand column, so both read
-     text-then-icon. Returns '' rather than a placeholder, which in a flex
-     row would open a gap. */
-  function metaHTML(m) {
-    if (!m) return '';
-    return '<div class="pm-head-meta">' +
-      '<div><b>' + esc(m.title) + '</b>' + esc(m.text) + '</div>' +
-      '<span class="pm-head-meta-ico" aria-hidden="true">' + esc(m.ico) + '</span>' +
-    '</div>';
+
+  /* A prompt you are trying to READ should not sit under a screenful of
+     atmosphere, so a detail route wears the same photograph as a band. */
+  function renderHero(compact) {
+    var h = $('pmHero');
+    if (h) h.classList.toggle('asc-hero--compact', !!compact);
   }
 
-  /* The ticker runs the COLLECTIONS, as it always did — the model
-     collections it used to list were the old page's workflows, and the new
-     page's collections are the same idea. It deliberately does NOT list the
-     categories: the pill row sits about a hundred pixels below it with the
-     same words and the same counts, and two controls that say the same thing
-     is one too many.
-
-     Doubled, because the -50% keyframe only loops seamlessly if the track
-     holds exactly two copies of the same run. */
-  function tickerHTML() {
-    var kind = ui.tab === 'tools' ? 'tool' : 'prompt';
-    var cols = D().collectionsOfKind(kind);
-    if (!cols.length) return '';
-    var items = cols.map(function (c) {
-      return '<button type="button" class="pm-ticker-item" data-collection="' + esc(c.id) + '">' +
-        (c.icon ? esc(c.icon) + ' ' : '') + esc(c.title) +
-        ' <span class="pm-ticker-n">' + c.itemIds.length + '</span></button>';
-    }).join('');
-    /* The -50% keyframe loops seamlessly only if each HALF of the track is
-       at least as wide as the container — otherwise the join is on screen and
-       the rail reads as a stutter rather than a loop. With two collections
-       the run is a few hundred pixels, so it is repeated until it covers the
-       viewport BEFORE being doubled. The estimate is deliberately crude and
-       deliberately generous: too many repetitions cost a few DOM nodes, too
-       few cost the illusion. */
-    var est = cols.reduce(function (w, c) { return w + String(c.title).length * 13 + 100; }, 0);
-    var reps = Math.max(1, Math.ceil((window.innerWidth || 1440) / Math.max(1, est)));
-    var half = new Array(reps + 1).join(items) || items;
-    return '<div class="pm-head-ticker" aria-label="' + (kind === 'tool' ? 'Stacks' : 'Collections') + '">' +
-      '<div class="pm-ticker-track">' + half + half + '</div></div>';
-  }
-
-  /* Layer classes map onto the four parallax rates:
-       1 (.70) the footage, on #pmStageVid
-       2 (.55) unoccupied — see the §PARALLAX comment
-       3 (.40) eyebrow, title and the tab switch — the word-mark
-       4 (.10) subtitle and the meta column — nearly pinned, fading out
-
-     The tab switch rides rate 3 rather than 4 deliberately: rate 4 fades to
-     0.15 opacity by the fold, and this is the page's primary navigation. It
-     may move; it may not become invisible while still clickable. */
-  function headHTML(o) {
-    return '<header class="pm-head' + (o.compact ? ' is-compact' : '') + '">' +
-      '<div class="pm-head-grid">' +
-        '<div class="pm-head-center">' +
-          '<span class="pm-head-eyebrow pm-par-3">' + esc(o.eyebrow) + '</span>' +
-          '<h1 class="pm-head-title pm-par-3">' + esc(o.title) + '</h1>' +
-          (o.sub ? '<p class="pm-head-sub pm-par-4">' + esc(o.sub) + '</p>' : '') +
-          '<div class="pm-head-cta pm-par-3">' + tabsHTML() + '</div>' +
-        '</div>' +
-        (o.left || o.right
-          ? '<div class="pm-head-side pm-par-4">' + metaHTML(o.left) + metaHTML(o.right) + '</div>'
-          : '') +
-      '</div>' +
-      (o.ticker === false ? '' : tickerHTML()) +
-    '</header>';
-  }
+  /* The page's primary navigation. It used to live in the hero; the hero
+     in this room carries nothing but the display line, so it moves to the
+     head of the sticky bar, where every other control already is. */
   function tabsHTML() {
     return '<div class="pm-tabs" role="tablist" aria-label="Library">' +
-      '<button type="button" class="pm-tab' + (ui.tab === 'prompts' ? ' is-on' : '') + '" role="tab" aria-selected="' + (ui.tab === 'prompts') + '" data-tab="prompts">Prompts</button>' +
-      '<button type="button" class="pm-tab' + (ui.tab === 'tools' ? ' is-on' : '') + '" role="tab" aria-selected="' + (ui.tab === 'tools') + '" data-tab="tools">Tools</button>' +
+      tabHTML('prompts', 'Prompts') + tabHTML('tools', 'Tools') +
     '</div>';
   }
-
-  function buildHead(compact) {
-    var d = D();
-    if (ui.tab === 'tools') {
-      var tools = d.Tools.list(), stacks = d.collectionsOfKind('tool');
-      return headHTML({
-        compact: compact, eyebrow: 'Prompt Studio', title: 'Tools',
-        sub: 'Everything you open, one click from here. Quick Launch first, the rest a search away.',
-        left:  { ico: '◉', title: plural(tools.length, 'tool'), text: tools.filter(function (t) { return t.quick; }).length + ' in quick launch' },
-        right: { ico: '◈', title: plural(stacks.length, 'stack'), text: 'grouped by workflow' },
-        ticker: !compact
-      });
-    }
-    var all = pvAll(), cols = d.collectionsOfKind('prompt');
-    return headHTML({
-      compact: compact, eyebrow: 'Prompt Studio', title: 'Prompts',
-      sub: 'Filed by what you are trying to do, not by which model you are about to open. Find it, copy it, go.',
-      left:  { ico: '✦', title: plural(all.length, 'prompt'), text: all.filter(function (p) { return p.favorite; }).length + ' starred' },
-      right: { ico: '◈', title: plural(cols.length, 'collection'), text: 'ordered workflows' },
-      ticker: !compact
-    });
+  function tabHTML(id, label) {
+    var on = ui.tab === id;
+    return '<button type="button" class="pm-tab' + (on ? ' is-on' : '') + '" role="tab"' +
+      ' aria-selected="' + on + '" data-tab="' + id + '">' + label + '</button>';
   }
 
-  /* Memoised on its own output. render() runs on every filter click, and a
-     rebuilt header would restart the ticker's 38s animation from zero each
-     time — a visible jolt for no change in content. Rebuilding only when the
-     HTML actually differs also keeps measurePar() off the hot path. */
-  var lastHead = null;
-  function renderHead(compact) {
-    var html = buildHead(compact);
-    if (html === lastHead) return;
-    lastHead = html;
-    $('pmHead').innerHTML = html;
-    measurePar();
-  }
+  /* Four ways to shape one table, and three of them ARE the sections this
+     page used to stack above it. Frequently used, Recent and All were one
+     list in three orders; a sort control says that honestly and costs a
+     quarter of the scrolling. "Category" is the browse order, and the only
+     one that groups. */
+  var GROUPINGS = {
+    category: { label: 'category',          group: true },
+    used:     { label: 'most used',         group: false },
+    recent:   { label: 'recently updated',  group: false },
+    az:       { label: 'name',              group: false }
+  };
+
+  function filterCount() { return (ui.cat !== 'all' ? 1 : 0) + (ui.favOnly ? 1 : 0); }
 
   var barMode = null;
   function buildBarControls(mode) {
     var isTools = mode === 'tools';
     $('pmBar').innerHTML =
-      '<div class="pm-controls">' +
-        '<div class="pm-search">' +
-          '<span class="pm-search-icon">' +
-            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>' +
-          '</span>' +
-          '<input id="pmQ" type="search" autocomplete="off" spellcheck="false" placeholder="' +
-            (isTools ? 'Search tools...' : 'Search prompts...') + '" aria-label="' +
-            (isTools ? 'Search tools' : 'Search prompts') + '">' +
-          '<button type="button" class="pm-search-clear" id="pmQClear" aria-label="Clear search" hidden>&times;</button>' +
-        '</div>' +
-        '<button type="button" class="pm-btn pm-favtoggle" id="pmFav" aria-pressed="false" aria-label="Show favorites only">&#9733;</button>' +
-        '<button type="button" class="pm-btn pm-btn-primary" data-new="' + mode + '">+ ' + (isTools ? 'Add' : 'New') + '</button>' +
+      tabsHTML() +
+      '<div class="asc-search">' +
+        '<input type="search" id="pmQ" placeholder="Search" autocomplete="off" spellcheck="false"' +
+          ' aria-label="' + (isTools ? 'Search tools' : 'Search prompts') + '"' +
+          ' value="' + esc(ui.q) + '">' +
       '</div>' +
-      '<div class="pm-pills" id="pmPills" role="group" aria-label="Categories"></div>';
+      '<button type="button" class="asc-btn" data-pop="group" aria-expanded="false">' +
+        'Sort by ' + esc(GROUPINGS[ui.group].label) +
+        '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>' +
+      '<button type="button" class="asc-btn" data-pop="filter" aria-expanded="false">' +
+        'Filter' + (filterCount() ? ' &middot; ' + filterCount() : '') +
+        '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>' +
+      '<span class="asc-bar__spacer"></span>' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-new="' + mode + '">' +
+        (isTools ? 'Add tool' : 'New prompt') + '</button>';
     barMode = mode;
   }
-  function renderPills(mode) {
-    var kind = mode === 'tools' ? 'tool' : 'prompt';
-    // Counts describe what clicking a pill WOULD give, so they honour the
-    // search term and the favourites toggle but not the current pill.
-    var pool, q = ui.q.trim().toLowerCase();
+
+  /* The two drop panels. Rebuilt from state every time rather than toggled,
+     because the filter panel's contents depend on which library is open and
+     on what the OTHER filters have already narrowed it to. */
+  function popPanel() {
+    if (!ui.pop) return '';
+    var out = '<div class="asc-pop" id="pmPop">';
+    if (ui.pop === 'group') {
+      out += Object.keys(GROUPINGS).map(function (k) {
+        return opt(k === ui.group, cap(GROUPINGS[k].label), 'data-setgroup="' + k + '"');
+      }).join('');
+    } else {
+      var kind = ui.tab === 'tools' ? 'tool' : 'prompt';
+      var counts = catCounts(kind);
+      out += '<div class="asc-pop__group"><p class="asc-label asc-pop__head">Category</p>' +
+        opt(ui.cat === 'all', 'All', 'data-fcat="all"',
+            Object.keys(counts).reduce(function (n, k) { return n + counts[k]; }, 0)) +
+        D().catList(kind).filter(function (c) { return counts[c.id] || ui.cat === c.id; })
+          .map(function (c) {
+            return opt(ui.cat === c.id, c.label, 'data-fcat="' + esc(c.id) + '"', counts[c.id] || 0);
+          }).join('') +
+      '</div>';
+      out += '<div class="asc-pop__group">' +
+        opt(ui.favOnly, 'Kept only', 'data-ffav="1"') +
+        (filterCount() ? opt(false, 'Clear all filters', 'data-fclear="1"') : '') +
+      '</div>';
+    }
+    return out + '</div>';
+  }
+  function opt(on, label, extra, count) {
+    return '<button type="button" class="asc-opt' + (on ? ' is-on' : '') + '" ' + extra +
+      ' aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      '<span class="asc-opt__tick" aria-hidden="true">&#10003;</span>' + esc(label) +
+      (count == null ? '' : '<span class="pm-opt__n">' + count + '</span>') + '</button>';
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* Counts describe what choosing a category WOULD give, so they honour the
+     search term and the Kept toggle but not the category already chosen. */
+  function catCounts(kind) {
+    var q = ui.q.trim().toLowerCase(), pool;
     if (kind === 'tool') {
       pool = D().Tools.list().filter(function (t) { return (!ui.favOnly || t.favorite) && matchTool(t, q); });
     } else {
@@ -1510,36 +895,48 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     }
     var counts = {};
     pool.forEach(function (r) { counts[r.category] = (counts[r.category] || 0) + 1; });
+    return counts;
+  }
 
-    var html = pill('all', 'All', '#4FD6E8', pool.length);
-    D().catList(kind).forEach(function (c) {
-      // A category with nothing in it and nothing selected is noise.
-      if (!counts[c.id] && ui.cat !== c.id) return;
-      html += pill(c.id, c.label, c.hue, counts[c.id] || 0);
+  /* A PANEL OPENS UNDER ITS OWN BUTTON. The Asclepion can leave .asc-pop
+     at its static position because its bar starts at the gutter and so
+     does the panel; this bar carries a tab switch and a search field
+     first, so the Filter button sits most of a screen to the right and a
+     panel at the gutter would be pointing at nothing.
+
+     The host still has no `position`, so the panel resolves vertically to
+     where the host sits in flow — directly under the bar — and only the
+     horizontal offset has to be measured. It is clamped so a panel opened
+     by a button near the right edge does not run off it. */
+  function renderPop() {
+    var host = $('pmPopHost');
+    if (host) host.innerHTML = popPanel();
+    var bar = $('pmBar');
+    if (!bar) return;
+    bar.querySelectorAll('[data-pop]').forEach(function (b) {
+      var on = b.dataset.pop === ui.pop;
+      b.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (!on) return;
+      var pop = $('pmPop');
+      if (!pop) return;
+      var x = b.getBoundingClientRect().left - host.getBoundingClientRect().left;
+      var room = document.documentElement.clientWidth - b.getBoundingClientRect().left - 16;
+      if (room < pop.offsetWidth) x -= (pop.offsetWidth - room);
+      pop.style.left = Math.max(0, Math.round(x)) + 'px';
     });
-    $('pmPills').innerHTML = html;
   }
-  function pill(id, label, hue, count) {
-    return '<button type="button" class="pm-pill' + (ui.cat === id ? ' is-on' : '') + '" data-cat="' + esc(id) + '"' +
-      ' style="--hue:' + hue + '" aria-pressed="' + (ui.cat === id) + '">' + esc(label) +
-      '<span class="pm-pill-count">' + count + '</span></button>';
-  }
-  function syncBarState() {
-    var fav = $('pmFav');
-    if (fav) {
-      fav.classList.toggle('is-on', ui.favOnly);
-      fav.setAttribute('aria-pressed', ui.favOnly ? 'true' : 'false');
-    }
-    var clear = $('pmQClear');
-    if (clear) clear.hidden = !ui.q;
-  }
+  function closePop() { if (ui.pop) { ui.pop = null; renderPop(); } }
+
   function renderBar(mode) {
     var bar = $('pmBar');
-    if (!mode) { bar.hidden = true; return; }
+    // barMode is cleared with the bar so a hidden toolbar never keeps a
+    // stale aria-selected on the tab switch behind it.
+    if (!mode) { bar.hidden = true; barMode = null; closePop(); return; }
     bar.hidden = false;
-    if (barMode !== mode) buildBarControls(mode);
-    renderPills(mode);
-    syncBarState();
+    // Rebuilt on a mode change, and on a state change that the button
+    // labels show. Never on a keystroke: the caret is in there.
+    buildBarControls(mode);
+    renderPop();
   }
 
   // ============================================================
@@ -1551,60 +948,47 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 
     if (!all.length) {
       host.innerHTML = emptyState(
-        'No prompts yet',
+        'No prompts yet.',
         'Add the ones you already paste from somewhere else. A prompt needs a name, the text, and one word for what it is for.',
-        '<button type="button" class="pm-btn pm-btn-primary" data-new="prompts">+ New prompt</button>');
+        '<button type="button" class="asc-btn asc-btn--primary" data-new="prompts">New prompt</button>');
       return;
     }
 
-    // The collapse rule: a query is not browsing.
+    // The collapse rule: a query is not browsing. The moment a search term
+    // or a filter is active the page is one result list, with no sections
+    // above it and no groups inside it.
     if (isFiltering()) {
-      var hits = filteredPrompts().sort(byUse);
+      var hits = filteredPrompts();
       host.innerHTML = hits.length
         ? sectionHead(plural(hits.length, 'prompt'), describeFilter()) +
-          '<div class="pm-grid">' + hits.map(promptCard).join('') + '</div>'
-        : emptyState('Nothing matches', 'No prompt matches ' + describeFilter() + '. Try fewer words, or clear the filters.',
-            '<button type="button" class="pm-btn" data-clearfilters="1">Clear filters</button>');
+          '<div class="asc-table" role="table" aria-label="Prompts">' +
+            colsRow('prompt') +
+            '<div class="asc-group__body">' +
+              sortRecords(hits).map(function (p, i) { return promptRow(p, i); }).join('') +
+            '</div>' +
+          '</div>'
+        : emptyState('Nothing matches that.',
+            'No prompt matches ' + describeFilter() + '. Try fewer words, or clear the filter and start from the whole library.',
+            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>');
       return;
-    }
-
-    var html = '';
-
-    /* Favourites first, because they are the answer nine times out of
-       ten. Before anything is starred, the same slot shows what you have
-       actually been copying — the page is useful on day two, not only
-       once you have curated it. */
-    var faves = all.filter(function (p) { return p.favorite; }).sort(byUse);
-    var fallback = !faves.length;
-    var top = fallback ? all.filter(function (p) { return p.useCount > 0; }).sort(byUse).slice(0, 6) : faves;
-    if (top.length) {
-      html += '<section class="pm-sec">' +
-        sectionHead(fallback ? 'Most used' : 'Frequently used',
-                    fallback ? 'Star one to pin it here' : '', !fallback) +
-        '<div class="pm-grid">' + top.map(promptCard).join('') + '</div>' +
-      '</section>';
-    }
-
-    var recent = all.slice().sort(byRecent).slice(0, 6);
-    if (recent.length) {
-      html += '<section class="pm-sec">' + sectionHead('Recent') +
-        '<div class="pm-rows">' + recent.map(function (p) { return promptRow(p, false); }).join('') + '</div></section>';
     }
 
     var cols = D().collectionsOfKind('prompt');
-    html += '<section class="pm-sec">' +
+    var html = '<section class="pm-sec">' +
       sectionHead('Collections', cols.length ? 'A workflow, in order' : '') +
       (cols.length
-        ? '<div class="pm-collections">' + cols.map(collectionCard).join('') +
-          '</div><div class="pm-empty-acts" style="justify-content:flex-start;margin-top:var(--sp-3)">' +
-          '<button type="button" class="pm-btn pm-btn-sm pm-btn-ghost" data-newcol="prompt">+ New collection</button></div>'
-        : '<p class="pm-empty-line">Group prompts that run in order &mdash; draft, critique, rewrite &mdash; and open them one after another. ' +
-          '<button type="button" class="pm-btn pm-btn-sm pm-btn-ghost" data-newcol="prompt">+ New collection</button></p>') +
+        ? '<div class="pm-cols">' + cols.map(collectionCard).join('') + '</div>' +
+          '<div class="pm-sec__acts">' +
+            '<button type="button" class="asc-btn asc-btn--sm" data-newcol="prompt">New collection</button></div>'
+        : '<p class="asc-body">Group prompts that run in order &mdash; draft, critique, rewrite &mdash; and open them one after another. ' +
+          '<button type="button" class="asc-btn asc-btn--sm" data-newcol="prompt">New collection</button></p>') +
     '</section>';
 
-    var rest = all.slice().sort(function (a, b) { return String(a.title).localeCompare(String(b.title)); });
-    html += '<section class="pm-sec">' + sectionHead('All prompts', plural(rest.length, 'prompt')) +
-      '<div class="pm-grid">' + rest.map(promptCard).join('') + '</div></section>';
+    /* And then the library itself. Frequently used, Recent and All used to
+       be three stacked sections here; they were one list in three orders,
+       and they are the Sort control in the bar now. */
+    html += '<div class="asc-table" role="table" aria-label="Prompts">' +
+      tableHTML('prompt', all) + '</div>';
 
     host.innerHTML = html;
   }
@@ -1613,7 +997,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var bits = [];
     if (ui.q.trim()) bits.push('"' + ui.q.trim() + '"');
     if (ui.cat !== 'all') bits.push(catLabel(ui.tab === 'tools' ? 'tool' : 'prompt', ui.cat));
-    if (ui.favOnly) bits.push('favorites');
+    if (ui.favOnly) bits.push('kept only');
     return bits.join(' + ');
   }
 
@@ -1624,61 +1008,50 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 
     if (!all.length) {
       host.innerHTML = emptyState(
-        'No tools yet',
+        'No tools yet.',
         'Add the sites you open every day. Or start from the ones already in your rotation and edit from there.',
-        '<button type="button" class="pm-btn pm-btn-primary" data-new="tools">+ Add a tool</button>' +
-        '<button type="button" class="pm-btn" data-starter="1">Add my usual tools</button>');
+        '<button type="button" class="asc-btn asc-btn--primary" data-new="tools">Add a tool</button>' +
+        '<button type="button" class="asc-btn" data-starter="1">Add my usual tools</button>');
       return;
     }
 
     if (isFiltering()) {
-      var hits = filteredTools().sort(byUse);
+      var hits = filteredTools();
       host.innerHTML = hits.length
         ? sectionHead(plural(hits.length, 'tool'), describeFilter()) +
-          '<div class="pm-rows">' + hits.map(toolRow).join('') + '</div>'
-        : emptyState('Nothing matches', 'No tool matches ' + describeFilter() + '. Try fewer words, or clear the filters.',
-            '<button type="button" class="pm-btn" data-clearfilters="1">Clear filters</button>');
+          '<div class="asc-table" role="table" aria-label="Tools">' +
+            colsRow('tool') +
+            '<div class="asc-group__body">' +
+              sortRecords(hits).map(function (t, i) { return toolRow(t, i); }).join('') +
+            '</div>' +
+          '</div>'
+        : emptyState('Nothing matches that.',
+            'No tool matches ' + describeFilter() + '. Try fewer words, or clear the filter and start from the whole library.',
+            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>');
       return;
     }
 
     var html = '';
 
-    /* Quick Launch is the loudest thing on the page on purpose: four to
-       eight tiles, one click, no scrolling. Everything below it is for
-       the other days. */
     var quick = all.filter(function (t) { return t.quick && t.url; }).sort(d.byOrder).slice(0, 8);
     if (quick.length) {
       html += '<section class="pm-sec">' + sectionHead('Quick launch') +
         '<div class="pm-quicks">' + quick.map(quickTile).join('') + '</div></section>';
     }
 
-    var faves = all.filter(function (t) { return t.favorite; }).sort(byUse);
-    if (faves.length) {
-      html += '<section class="pm-sec">' + sectionHead('Favorites', '', true) +
-        '<div class="pm-rows">' + faves.map(toolRow).join('') + '</div></section>';
-    }
-
-    var recent = all.filter(function (t) { return t.lastOpenedAt; })
-      .sort(function (a, b) { return String(b.lastOpenedAt).localeCompare(String(a.lastOpenedAt)); }).slice(0, 5);
-    if (recent.length) {
-      html += '<section class="pm-sec">' + sectionHead('Recently opened') +
-        '<div class="pm-rows">' + recent.map(toolRow).join('') + '</div></section>';
-    }
-
     var stacks = d.collectionsOfKind('tool');
     html += '<section class="pm-sec">' +
       sectionHead('Stacks', stacks.length ? 'The tools one workflow needs' : '') +
       (stacks.length
-        ? '<div class="pm-collections">' + stacks.map(collectionCard).join('') +
-          '</div><div class="pm-empty-acts" style="justify-content:flex-start;margin-top:var(--sp-3)">' +
-          '<button type="button" class="pm-btn pm-btn-sm pm-btn-ghost" data-newcol="tool">+ New stack</button></div>'
-        : '<p class="pm-empty-line">Group the tools one job needs &mdash; Obsidian, Claude, Docs &mdash; so you open the set rather than hunting each one. ' +
-          '<button type="button" class="pm-btn pm-btn-sm pm-btn-ghost" data-newcol="tool">+ New stack</button></p>') +
+        ? '<div class="pm-cols">' + stacks.map(collectionCard).join('') + '</div>' +
+          '<div class="pm-sec__acts">' +
+            '<button type="button" class="asc-btn asc-btn--sm" data-newcol="tool">New stack</button></div>'
+        : '<p class="asc-body">Group the tools one job needs &mdash; Obsidian, Claude, Docs &mdash; so you open the set rather than hunting each one. ' +
+          '<button type="button" class="asc-btn asc-btn--sm" data-newcol="tool">New stack</button></p>') +
     '</section>';
 
-    var rest = all.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
-    html += '<section class="pm-sec">' + sectionHead('All tools', plural(rest.length, 'tool')) +
-      '<div class="pm-rows">' + rest.map(toolRow).join('') + '</div></section>';
+    html += '<div class="asc-table" role="table" aria-label="Tools">' +
+      tableHTML('tool', all) + '</div>';
 
     host.innerHTML = html;
   }
@@ -1700,16 +1073,16 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     if (!p) {
       host.innerHTML = emptyState('That prompt is gone',
         'It was deleted, or it lives in the fiction library and has not loaded on this device yet.',
-        '<button type="button" class="pm-btn" data-go="#/">Back to prompts</button>');
+        '<button type="button" class="asc-btn" data-go="#/">Back to prompts</button>');
       return;
     }
     var hue = hueOf('prompt', p.category);
     var vars = D().detectVariables(p.text);
     var reason = p.fiction && !p.editable ? gateReason() : '';
 
-    var html = '<div class="pm-detail" style="--hue:' + hue + '">' +
-      '<h1 class="pm-detail-title">' + esc(p.title) + '</h1>' +
-      '<p class="pm-detail-meta"><span class="pm-dot"></span>' +
+    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + hue + '">' +
+      '<h1 class="asc-plate asc-plate--lg">' + esc(p.title) + '</h1>' +
+      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' +
         esc(catLabel('prompt', p.category)) +
         (p.compat ? ' <span class="pm-sep">&middot;</span> ' + esc(D().compatLabel(p.compat)) : '') +
         (p.useCount ? ' <span class="pm-sep">&middot;</span> copied ' + p.useCount + (p.useCount === 1 ? ' time' : ' times') : '') +
@@ -1717,50 +1090,54 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
         (reason ? ' <span class="pm-ro">Read-only</span>' : '') +
       '</p>';
 
-    if (reason) html += '<div class="pm-notice" style="background:rgba(242,180,65,.08);border:1px solid rgba(242,180,65,.3);color:var(--pm-amber-hi)">' + esc(reason) + '</div>';
+    if (reason) html += '<p class="pm-locked">' + esc(reason) + '</p>';
 
     html += '<div class="pm-prompt-text">' + markVars(p.text || 'This prompt has no text yet.') + '</div>' +
-      '<div class="pm-detail-acts">' +
-        '<button type="button" class="pm-btn pm-btn-primary" data-copy="' + esc(p.uid) + '">Copy prompt</button>' +
+      '<div class="asc-sheet__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-copy="' + esc(p.uid) + '">Copy prompt</button>' +
         starBtnWide(p.uid, p.favorite) +
-        (p.editable ? '<button type="button" class="pm-btn" data-edit="' + esc(p.uid) + '">Edit</button>' : '') +
+        (p.editable ? '<button type="button" class="asc-btn" data-edit="' + esc(p.uid) + '">Edit</button>' : '') +
       '</div>';
 
     if (vars.length) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">Variables</h2>' +
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">Variables</h2>' +
         '<div class="pm-vars">' + vars.map(function (v) {
-          return '<label class="pm-field" style="margin:0">' +
-            '<span class="pm-field-label">' + esc(v) + '</span>' +
-            '<input class="pm-input" type="text" data-var="' + esc(v) + '" placeholder="' + esc(v.toLowerCase()) + '">' +
+          return '<label class="asc-field" style="margin:0">' +
+            '<span class="asc-label">' + esc(v) + '</span>' +
+            '<input class="asc-input" type="text" data-var="' + esc(v) + '" placeholder="' + esc(v.toLowerCase()) + '">' +
           '</label>';
         }).join('') + '</div>' +
-        '<button type="button" class="pm-btn" id="pmCopyFilled">Copy with these filled in</button></div>';
+        '<button type="button" class="asc-btn" id="pmCopyFilled">Copy with these filled in</button></div>';
     }
 
-    html += '<div class="pm-block"><h2 class="pm-block-label">Notes</h2>' +
-      '<textarea class="pm-textarea" id="pmNotes" style="min-height:110px;font-family:var(--pm-ui);font-size:16px"' +
+    html += '<div class="asc-sheet__block"><h2 class="asc-label">Notes</h2>' +
+      '<textarea class="asc-textarea" id="pmNotes" style="min-height:110px;font-family:var(--asc-body);font-size:16px"' +
         (p.editable ? '' : ' readonly') +
         ' placeholder="What this is for, what it gets wrong, what to change next time.">' + esc(noteFor(p)) + '</textarea>' +
-      '<span class="pm-field-hint">Saved when you click away.</span></div>';
+      '<span class="asc-small">Saved when you click away.</span></div>';
 
     var inCols = D().collectionsHolding('prompt', p.uid);
     if (inCols.length) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">In collections</h2><div class="pm-rows">' +
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">In collections</h2><div class="pm-list">' +
         inCols.map(function (c) {
-          return '<div class="pm-row" style="--hue:#7FB3FF"><div class="pm-row-main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
-            '<span class="pm-row-dot"></span><span class="pm-row-name">' + esc(c.title) + '</span>' +
-            '<span class="pm-spacer" style="flex:1"></span><span class="pm-row-open">Open</span></div></div>';
+          return '<div class="pm-list__row" style="--asc-tint:#d6d2cb"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
+            '<span class="pm-list__dot"></span><span class="pm-list__name">' + esc(c.title) + '</span>' +
+            '<span class="pm-spacer" style="flex:1"></span><span class="pm-list__open">Open</span></div></div>';
         }).join('') + '</div></div>';
     }
 
     if (p.editable) {
-      html += '<div class="pm-detail-acts"><button type="button" class="pm-btn pm-btn-danger pm-btn-sm" data-delete="' + esc(p.uid) + '">Delete this prompt</button></div>';
+      html += '<div class="asc-sheet__acts"><button type="button" class="asc-btn asc-btn--danger asc-btn--sm" data-delete="' + esc(p.uid) + '">Delete this prompt</button></div>';
     }
     host.innerHTML = html + '</div>';
   }
+  /* The same heart as the table's, with its name beside it. Labelled
+     because a detail view has room for the word and no row of siblings to
+     stay narrow for. */
   function starBtnWide(uid, on) {
-    return '<button type="button" class="pm-btn pm-btn-fav' + (on ? ' is-on' : '') + '" data-fav="' + esc(uid) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
-      (on ? '&#9733; Favorite' : '&#9734; Favorite') + '</button>';
+    return '<button type="button" class="asc-btn pm-heart-wide' + (on ? ' is-on' : '') + '"' +
+      ' data-fav="' + esc(uid) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      U().mark('heart') + (on ? 'Kept' : 'Keep') + '</button>';
   }
 
   function viewTool(id) {
@@ -1769,52 +1146,52 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var t = d.Tools.get(id);
     if (!t) {
       host.innerHTML = emptyState('That tool is gone', 'It was deleted from the library.',
-        '<button type="button" class="pm-btn" data-go="#/tools">Back to tools</button>');
+        '<button type="button" class="asc-btn" data-go="#/tools">Back to tools</button>');
       return;
     }
     var hue = hueOf('tool', t.category);
     var host2 = d.hostOf(t.url);
 
-    var html = '<div class="pm-detail" style="--hue:' + hue + '">' +
-      '<h1 class="pm-detail-title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</h1>' +
-      '<p class="pm-detail-meta"><span class="pm-dot"></span>' + esc(catLabel('tool', t.category)) +
+    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + hue + '">' +
+      '<h1 class="asc-plate asc-plate--lg">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</h1>' +
+      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' + esc(catLabel('tool', t.category)) +
         (host2 ? ' <span class="pm-sep">&middot;</span> ' + esc(host2) : '') +
         (t.useCount ? ' <span class="pm-sep">&middot;</span> opened ' + t.useCount + (t.useCount === 1 ? ' time' : ' times') : '') +
       '</p>' +
-      '<div class="pm-detail-acts">' +
-        (t.url ? '<a class="pm-btn pm-btn-primary" href="' + esc(t.url) + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(t.id) + '">Open &#8599;</a>' : '') +
+      '<div class="asc-sheet__acts">' +
+        (t.url ? '<a class="asc-btn asc-btn--primary" href="' + esc(t.url) + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(t.id) + '">Open &#8599;</a>' : '') +
         starBtnWide(t.id, t.favorite) +
-        '<button type="button" class="pm-btn" data-edittool="' + esc(t.id) + '">Edit</button>' +
+        '<button type="button" class="asc-btn" data-edittool="' + esc(t.id) + '">Edit</button>' +
       '</div>';
 
     if (t.useFor) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">What you use it for</h2><p style="margin:0;color:var(--pm-text-dim)">' + esc(t.useFor) + '</p></div>';
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">What you use it for</h2><p style="margin:0;color:var(--asc-text-2)">' + esc(t.useFor) + '</p></div>';
     }
     if (t.accountNote) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">Account</h2><p style="margin:0;color:var(--pm-text-dim)">' + esc(t.accountNote) + '</p></div>';
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">Account</h2><p style="margin:0;color:var(--asc-text-2)">' + esc(t.accountNote) + '</p></div>';
     }
 
     /* The join between the two halves of this page: the tool tells you
        which prompts you actually run against it. */
-    html += '<div class="pm-block"><h2 class="pm-block-label">Related prompts</h2>';
+    html += '<div class="asc-sheet__block"><h2 class="asc-label">Related prompts</h2>';
     var linked = t.relatedPrompts.map(pvGet).filter(Boolean);
     html += linked.length
-      ? '<div class="pm-rows">' + linked.map(function (p) { return promptRow(p, true); }).join('') + '</div>'
-      : '<p class="pm-empty-line">Nothing linked yet. Link the prompts you run against ' + esc(t.name) + ' so they are one click away when you open it.</p>';
-    html += '<div class="pm-empty-acts" style="justify-content:flex-start;margin-top:var(--sp-3)">' +
-      '<button type="button" class="pm-btn pm-btn-sm" data-linkprompts="' + esc(t.id) + '">Link prompts</button></div></div>';
+      ? '<div class="asc-table" role="table">' + linked.map(function (p, i) { return promptRow(p, i); }).join('') + '</div>'
+      : '<p class="asc-body">Nothing linked yet. Link the prompts you run against ' + esc(t.name) + ' so they are one click away when you open it.</p>';
+    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+      '<button type="button" class="asc-btn asc-btn--sm" data-linkprompts="' + esc(t.id) + '">Link prompts</button></div></div>';
 
     var inStacks = d.collectionsHolding('tool', t.id);
     if (inStacks.length) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">In stacks</h2><div class="pm-rows">' +
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">In stacks</h2><div class="pm-list">' +
         inStacks.map(function (c) {
-          return '<div class="pm-row" style="--hue:#4FD6E8"><div class="pm-row-main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
-            '<span class="pm-row-dot"></span><span class="pm-row-name">' + esc(c.title) + '</span>' +
-            '<span class="pm-spacer" style="flex:1"></span><span class="pm-row-open">Open</span></div></div>';
+          return '<div class="pm-list__row" style="--asc-tint:#c99a63"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
+            '<span class="pm-list__dot"></span><span class="pm-list__name">' + esc(c.title) + '</span>' +
+            '<span class="pm-spacer" style="flex:1"></span><span class="pm-list__open">Open</span></div></div>';
         }).join('') + '</div></div>';
     }
 
-    html += '<div class="pm-detail-acts"><button type="button" class="pm-btn pm-btn-danger pm-btn-sm" data-deletetool="' + esc(t.id) + '">Delete this tool</button></div>';
+    html += '<div class="asc-sheet__acts"><button type="button" class="asc-btn asc-btn--danger asc-btn--sm" data-deletetool="' + esc(t.id) + '">Delete this tool</button></div>';
     host.innerHTML = html + '</div>';
   }
 
@@ -1824,54 +1201,54 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var col = d.Collections.get(id);
     if (!col) {
       host.innerHTML = emptyState('That collection is gone', 'It was deleted.',
-        '<button type="button" class="pm-btn" data-go="#/">Back</button>');
+        '<button type="button" class="asc-btn" data-go="#/">Back</button>');
       return;
     }
     var isTool = col.kind === 'tool';
     var members = memberRecords(col);
 
-    var html = '<div class="pm-detail" style="--hue:' + (isTool ? '#4FD6E8' : '#7FB3FF') + '">' +
-      '<h1 class="pm-detail-title">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h1>' +
-      '<p class="pm-detail-meta"><span class="pm-dot"></span>' + (isTool ? 'Tool stack' : 'Prompt collection') +
+    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + (isTool ? "#c99a63" : "#d6d2cb") + '">' +
+      '<h1 class="asc-plate asc-plate--lg">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h1>' +
+      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' + (isTool ? 'Tool stack' : 'Prompt collection') +
         ' <span class="pm-sep">&middot;</span> ' + plural(col.itemIds.length, isTool ? 'tool' : 'prompt') + '</p>' +
-      (col.summary ? '<p style="color:var(--pm-text-dim);margin:0 0 var(--sp-5);max-width:60ch">' + esc(col.summary) + '</p>' : '');
+      (col.summary ? '<p style="color:var(--asc-text-2);margin:0 0 var(--asc-5);max-width:60ch">' + esc(col.summary) + '</p>' : '');
 
     if (!members.length) {
-      html += '<p class="pm-empty-line">No steps yet. Add the ' + (isTool ? 'tools' : 'prompts') + ' this workflow runs, in the order you run them.</p>';
+      html += '<p class="asc-body">No steps yet. Add the ' + (isTool ? 'tools' : 'prompts') + ' this workflow runs, in the order you run them.</p>';
     } else {
-      html += '<div class="pm-block"><h2 class="pm-block-label">In order</h2><div class="pm-rows" id="pmSteps">';
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">In order</h2><div class="pm-list" id="pmSteps">';
       members.forEach(function (m, i) {
         var itemId = col.itemIds[i];
         if (!m) {
-          html += '<div class="pm-row" data-step="' + esc(itemId) + '"><div class="pm-row-main" style="cursor:default">' +
-            '<span class="pm-row-cat">' + (i + 1) + '</span>' +
-            '<span class="pm-row-name" style="color:var(--pm-text-faint)">Missing &mdash; deleted, or the fiction library has not loaded</span>' +
-            '</div><div class="pm-row-acts"><button type="button" class="pm-icobtn" data-unstep="' + esc(itemId) + '" aria-label="Remove step">&times;</button></div></div>';
+          html += '<div class="pm-list__row" data-step="' + esc(itemId) + '"><div class="pm-list__main" style="cursor:default">' +
+            '<span class="pm-list__n">' + (i + 1) + '</span>' +
+            '<span class="pm-list__name" style="color:var(--asc-text-3)">Missing &mdash; deleted, or the fiction library has not loaded</span>' +
+            '</div><div class="pm-list__acts"><button type="button" class="asc-btn asc-btn--sm" data-unstep="' + esc(itemId) + '" aria-label="Remove step">&times;</button></div></div>';
           return;
         }
         var hue = isTool ? hueOf('tool', m.category) : hueOf('prompt', m.category);
-        html += '<div class="pm-row" style="--hue:' + hue + '" data-step="' + esc(itemId) + '">' +
+        html += '<div class="pm-list__row" style="--asc-tint:' + hue + '" data-step="' + esc(itemId) + '">' +
           (isTool
-            ? '<a class="pm-row-main" href="' + esc(m.url || '#') + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(m.id) + '">'
-            : '<div class="pm-row-main" role="button" tabindex="0" data-open="' + esc(m.uid) + '">') +
-            '<span class="pm-row-cat" style="min-width:1.4em">' + (i + 1) + '</span>' +
-            '<span class="pm-row-dot"></span>' +
-            '<span class="pm-row-name">' + esc(m.title || m.name) + '</span>' +
+            ? '<a class="pm-list__main" href="' + esc(m.url || '#') + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(m.id) + '">'
+            : '<div class="pm-list__main" role="button" tabindex="0" data-open="' + esc(m.uid) + '">') +
+            '<span class="pm-list__n" style="min-width:1.4em">' + (i + 1) + '</span>' +
+            '<span class="pm-list__dot"></span>' +
+            '<span class="pm-list__name">' + esc(m.title || m.name) + '</span>' +
             '<span class="pm-spacer" style="flex:1"></span>' +
-            '<span class="pm-row-open">' + (isTool ? 'Open &#8599;' : 'Open') + '</span>' +
+            '<span class="pm-list__open">' + (isTool ? 'Open &#8599;' : 'Open') + '</span>' +
           (isTool ? '</a>' : '</div>') +
-          '<div class="pm-row-acts">' +
-            (isTool ? '' : '<button type="button" class="pm-icobtn pm-copy" data-copy="' + esc(m.uid) + '">Copy</button>') +
-            '<button type="button" class="pm-icobtn" data-unstep="' + esc(itemId) + '" aria-label="Remove step">&times;</button>' +
+          '<div class="pm-list__acts">' +
+            (isTool ? '' : '<button type="button" class="asc-btn asc-btn--sm pm-copy" data-copy="' + esc(m.uid) + '">Copy</button>') +
+            '<button type="button" class="asc-btn asc-btn--sm" data-unstep="' + esc(itemId) + '" aria-label="Remove step">&times;</button>' +
           '</div></div>';
       });
-      html += '</div><span class="pm-field-hint">Drag a step to reorder it.</span></div>';
+      html += '</div><span class="asc-small">Drag a step to reorder it.</span></div>';
     }
 
-    html += '<div class="pm-detail-acts">' +
-      '<button type="button" class="pm-btn pm-btn-primary" data-addstep="' + esc(col.id) + '">Add ' + (isTool ? 'tools' : 'prompts') + '</button>' +
-      '<button type="button" class="pm-btn" data-editcol="' + esc(col.id) + '">Edit</button>' +
-      '<button type="button" class="pm-btn pm-btn-danger" data-deletecol="' + esc(col.id) + '">Delete</button>' +
+    html += '<div class="asc-sheet__acts">' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-addstep="' + esc(col.id) + '">Add ' + (isTool ? 'tools' : 'prompts') + '</button>' +
+      '<button type="button" class="asc-btn" data-editcol="' + esc(col.id) + '">Edit</button>' +
+      '<button type="button" class="asc-btn asc-btn--danger" data-deletecol="' + esc(col.id) + '">Delete</button>' +
     '</div>';
 
     host.innerHTML = html + '</div>';
@@ -1882,7 +1259,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var el = $('pmSteps');
     if (!el || typeof window.Sortable === 'undefined') return;
     window.Sortable.create(el, {
-      animation: 150, handle: '.pm-row-cat', draggable: '.pm-row',
+      animation: 150, handle: '.pm-list__n', draggable: '.pm-list__row',
       onEnd: function () {
         var ids = Array.prototype.map.call(el.querySelectorAll('[data-step]'), function (n) { return n.dataset.step; });
         D().Collections.update(colId, { itemIds: ids });
@@ -1899,54 +1276,54 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
   function viewSettings() {
     var d = D(), b = B();
     var reason = gateReason();
-    var html = '<div class="pm-detail">' +
-      '<h1 class="pm-detail-title">Settings</h1>' +
+    var html = backLine() + '<div class="pm-detail">' +
+      '<h1 class="asc-plate asc-plate--lg">Settings</h1>' +
 
-      '<div class="pm-block"><h2 class="pm-block-label">Fiction library</h2>' +
-      '<p style="margin:0 0 var(--sp-3);color:var(--pm-text-dim);max-width:62ch">' +
+      '<div class="asc-sheet__block"><h2 class="asc-label">Fiction library</h2>' +
+      '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
         'Fiction prompts live in the same cloud record as your manuscripts, so this page reads and writes them ' +
         'directly rather than keeping a copy. They only become editable once that record has arrived on this device.' +
       '</p>' +
-      '<p style="margin:0 0 var(--sp-3);color:' + (reason ? 'var(--pm-warn)' : 'var(--pm-good)') + '">' +
+      '<p style="margin:0 0 var(--asc-3);max-width:62ch;color:' + (reason ? 'var(--asc-gold)' : 'var(--asc-good)') + '">' +
         (reason ? esc(reason) : 'Loaded and editable. ' + plural(cdxKeyCount(), 'record') + ' present.') + '</p>' +
       '<label class="pm-check"><input type="checkbox" id="pmShowFiction"' + (d.getSettings().showFiction ? ' checked' : '') + '>' +
         'Show fiction prompts in the library</label>' +
       (reason && gate.mounted && !gate.unlocked
-        ? '<button type="button" class="pm-btn pm-btn-sm" id="pmUnlock" style="margin-top:var(--sp-2)">My fiction library really is empty &mdash; let me write to it</button>'
+        ? '<button type="button" class="asc-btn asc-btn--sm" id="pmUnlock" style="margin-top:var(--asc-2)">My fiction library really is empty &mdash; let me write to it</button>'
         : '') +
       '</div>';
 
     var undo = b && b.pendingUndo();
     if (undo) {
-      html += '<div class="pm-block"><h2 class="pm-block-label">The rebuild</h2>' +
-        '<p style="margin:0 0 var(--sp-3);color:var(--pm-text-dim);max-width:62ch">' +
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">The rebuild</h2>' +
+        '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
         'The old model-based prompt library was removed when this page was rebuilt. A snapshot was taken first.</p>' +
-        '<button type="button" class="pm-btn" data-restore="' + esc(undo.snapId) + '">Restore the old library</button></div>';
+        '<button type="button" class="asc-btn" data-restore="' + esc(undo.snapId) + '">Restore the old library</button></div>';
     }
 
-    html += '<div class="pm-block"><h2 class="pm-block-label">Local snapshots</h2>' +
-      '<p style="margin:0 0 var(--sp-3);color:var(--pm-text-dim);max-width:62ch">' +
+    html += '<div class="asc-sheet__block"><h2 class="asc-label">Local snapshots</h2>' +
+      '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
       'Copies of this page\'s data kept on this device only. They are never synced and never sent anywhere, ' +
       'which is exactly why they survive a bad sync.</p>';
     var snaps = b ? b.list() : [];
     html += snaps.length
-      ? '<div class="pm-rows">' + snaps.map(function (s) {
-          return '<div class="pm-row" style="--hue:#8A94A6"><div class="pm-row-main" style="cursor:default">' +
-            '<span class="pm-row-dot"></span>' +
-            '<span class="pm-row-name">' + esc(d.fmtDate(s.at)) + ', ' + esc(new Date(s.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })) + '</span>' +
-            '<span class="pm-row-cat">' + esc(s.counts.length ? s.counts.join(', ') : 'empty') + '</span>' +
-            '</div><div class="pm-row-acts">' +
-            '<button type="button" class="pm-btn pm-btn-sm" data-restore="' + esc(s.id) + '">Restore</button></div></div>';
+      ? '<div class="pm-list">' + snaps.map(function (s) {
+          return '<div class="pm-list__row" style="--asc-tint:#938b7c"><div class="pm-list__main" style="cursor:default">' +
+            '<span class="pm-list__dot"></span>' +
+            '<span class="pm-list__name">' + esc(d.fmtDate(s.at)) + ', ' + esc(new Date(s.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })) + '</span>' +
+            '<span class="pm-list__n">' + esc(s.counts.length ? s.counts.join(', ') : 'empty') + '</span>' +
+            '</div><div class="pm-list__acts">' +
+            '<button type="button" class="asc-btn asc-btn--sm" data-restore="' + esc(s.id) + '">Restore</button></div></div>';
         }).join('') + '</div>'
-      : '<p class="pm-empty-line">No snapshots yet. One is taken every time you edit something.</p>';
-    html += '<div class="pm-empty-acts" style="justify-content:flex-start;margin-top:var(--sp-3)">' +
-      '<button type="button" class="pm-btn pm-btn-sm" id="pmSnapNow">Take a snapshot now</button></div></div>';
+      : '<p class="asc-body">No snapshots yet. One is taken every time you edit something.</p>';
+    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+      '<button type="button" class="asc-btn asc-btn--sm" id="pmSnapNow">Take a snapshot now</button></div></div>';
 
-    html += '<div class="pm-block"><h2 class="pm-block-label">Library</h2><p class="pm-empty-line">' +
+    html += '<div class="asc-sheet__block"><h2 class="asc-label">Library</h2><p class="asc-body">' +
       plural(d.Prompts.list().length, 'prompt') + ' &middot; ' + plural(d.Tools.list().length, 'tool') +
       ' &middot; ' + plural(d.Collections.list().length, 'collection') + '</p>' +
-      '<div class="pm-empty-acts" style="justify-content:flex-start;margin-top:var(--sp-3)">' +
-      '<button type="button" class="pm-btn pm-btn-sm" data-starter="1">Add my usual tools</button></div></div>';
+      '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+      '<button type="button" class="asc-btn asc-btn--sm" data-starter="1">Add my usual tools</button></div></div>';
 
     $('pmView').innerHTML = html + '</div>';
   }
@@ -1961,24 +1338,31 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 
   function render() {
     var p = parts();
-    var back = $('pmBack');
-    var isDetail = p.length > 0 && p[0] !== 'tools';
+    /* Named routes only. "Anything that is not the two homes" used to be
+       the test, which gave an unrecognised hash the compact hero of a
+       detail view AND the full toolbar of a home — a page that looked
+       like neither of the two things it might be. */
+    var isDetail = ['p', 't', 'c', 'settings'].indexOf(p[0]) !== -1;
 
     // The tab follows the route, so a deep link into a tool lands with the
     // Tools tab lit rather than lying about where you are. A collection is
     // the only route that cannot be read off the hash — its own kind says
     // which half of the page it belongs to.
     if (p[0] === 'tools' || p[0] === 't') ui.tab = 'tools';
-    else if (!p.length || p[0] === 'p') ui.tab = 'prompts';
     else if (p[0] === 'c' && p[1]) {
       var col = D().Collections.get(decodeURIComponent(p[1]));
       if (col) ui.tab = col.kind === 'tool' ? 'tools' : 'prompts';
     }
+    // Settings belongs to neither half, so it leaves the tab alone. Every
+    // other route — including an unrecognised one, which falls through to
+    // the prompts home — is the prompts side, and saying so here is what
+    // stops the switch reading "Tools" over a page of prompts.
+    else if (p[0] !== 'settings') ui.tab = 'prompts';
 
-    renderHead(isDetail);
-    back.hidden = !isDetail;
+    renderHero(isDetail);
+    closePop();
 
-    if (!p.length)                       { renderBar('prompts'); runSafely(viewPromptsHome, 'prompts home'); }
+    if (!p.length)                     { renderBar('prompts'); runSafely(viewPromptsHome, 'prompts home'); }
     else if (p[0] === 'tools')           { renderBar('tools');   runSafely(viewToolsHome, 'tools home'); }
     else if (p[0] === 'p' && p[1])       { renderBar(null); runSafely(function () { viewPrompt(decodeURIComponent(p[1])); }, 'prompt'); }
     else if (p[0] === 't' && p[1])       { renderBar(null); runSafely(function () { viewTool(decodeURIComponent(p[1])); }, 'tool'); }
@@ -2005,44 +1389,61 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
   // ============================================================
   // §MODAL and §FIELDS
   // ============================================================
+  /* It is The Asclepion's sheet now - the one layer-2 surface, sliding in
+     from the right on a desktop and up from the bottom on a phone. The
+     ELEMENTS are the ones asclepion-ui.js addresses by id, so the shared
+     stylesheet and this page's own openModal() are both talking about the
+     same box.
+
+     lastFocus is why this is not simply AscUI.openSheet: the editors below
+     need a save handler and a mount hook, and a sheet that loses your
+     place in the list behind it is a sheet you stop opening. */
   var modalSave = null;
+  var lastFocus = null;
   function openModal(cfg) {
-    var bg = $('pmModalBg'), box = $('pmModal');
+    var bg = $('ascSheetBg'), box = $('ascSheet');
+    lastFocus = document.activeElement;
     box.innerHTML =
-      (cfg.title ? '<h2 class="pm-modal-title">' + esc(cfg.title) + '</h2>' : '') +
+      (cfg.title ? '<h2 class="asc-plate pm-sheet__title">' + esc(cfg.title) + '</h2>' : '') +
       cfg.body +
       (cfg.hideActions ? '' :
-        '<div class="pm-modal-acts">' +
+        '<div class="asc-sheet__acts">' +
           (cfg.extra || '') +
           '<span class="pm-spacer"></span>' +
-          '<button type="button" class="pm-btn pm-btn-ghost" data-modalclose="1">Cancel</button>' +
-          '<button type="button" class="pm-btn pm-btn-primary" id="pmModalSave">' + esc(cfg.saveLabel || 'Save') + '</button>' +
+          '<button type="button" class="asc-btn asc-btn--quiet" data-modalclose="1">Cancel</button>' +
+          '<button type="button" class="asc-btn asc-btn--primary" id="pmModalSave">' + esc(cfg.saveLabel || 'Save') + '</button>' +
         '</div>');
     modalSave = cfg.onSave || null;
-    bg.classList.add('is-open');
+    bg.classList.add('is-on');
+    document.body.classList.add('asc-locked');
     if (cfg.onMount) cfg.onMount(box);
     var first = box.querySelector('input,textarea,select,button');
-    if (first) first.focus();
+    if (first) { try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); } }
   }
   function closeModal() {
-    $('pmModalBg').classList.remove('is-open');
-    $('pmModal').innerHTML = '';
+    $('ascSheetBg').classList.remove('is-on');
+    $('ascSheet').innerHTML = '';
+    document.body.classList.remove('asc-locked');
     modalSave = null;
+    if (lastFocus && document.contains(lastFocus)) {
+      try { lastFocus.focus({ preventScroll: true }); } catch (e) {}
+    }
+    lastFocus = null;
   }
 
   function fieldText(label, name, value, ph, hint) {
-    return '<label class="pm-field"><span class="pm-field-label">' + esc(label) + '</span>' +
-      '<input class="pm-input" type="text" data-f="' + name + '" value="' + esc(value || '') + '" placeholder="' + esc(ph || '') + '">' +
-      (hint ? '<span class="pm-field-hint">' + esc(hint) + '</span>' : '') + '</label>';
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<input class="asc-input" type="text" data-f="' + name + '" value="' + esc(value || '') + '" placeholder="' + esc(ph || '') + '">' +
+      (hint ? '<span class="asc-small">' + esc(hint) + '</span>' : '') + '</label>';
   }
   function fieldArea(label, name, value, ph, hint) {
-    return '<label class="pm-field"><span class="pm-field-label">' + esc(label) + '</span>' +
-      '<textarea class="pm-textarea" data-f="' + name + '" placeholder="' + esc(ph || '') + '">' + esc(value || '') + '</textarea>' +
-      (hint ? '<span class="pm-field-hint">' + esc(hint) + '</span>' : '') + '</label>';
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<textarea class="asc-textarea" data-f="' + name + '" placeholder="' + esc(ph || '') + '">' + esc(value || '') + '</textarea>' +
+      (hint ? '<span class="asc-small">' + esc(hint) + '</span>' : '') + '</label>';
   }
   function fieldSelect(label, name, value, options) {
-    return '<label class="pm-field"><span class="pm-field-label">' + esc(label) + '</span>' +
-      '<select class="pm-select" data-f="' + name + '">' +
+    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+      '<select class="asc-select" data-f="' + name + '">' +
         options.map(function (o) {
           return '<option value="' + esc(o.id) + '"' + (o.id === value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
         }).join('') +
@@ -2077,12 +1478,12 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
         fieldText('Name', 'title', p ? p.title : '', 'Scene improvement') +
         fieldArea('Prompt', 'text', p ? p.text : '', 'Paste the prompt. Wrap anything you swap out each time in double braces, like {{SCENE}}.',
           'Double-braced words become fillable fields when you open the prompt.') +
-        '<div class="pm-fieldrow">' +
+        '<div class="asc-fields2">' +
           fieldSelect('For', 'category', p ? p.category : 'writing', d.PROMPT_CATEGORIES) +
           fieldSelect('Works with', 'compat', p ? p.compat : '', d.COMPAT) +
         '</div>' +
         fieldText('Tags', 'tags', p ? p.tags.join(', ') : '', 'scene, revision', 'Comma separated. Optional.') +
-        fieldCheck('Favorite', 'favorite', p ? p.favorite : false),
+        fieldCheck('Kept', 'favorite', p ? p.favorite : false),
       onSave: function (root) {
         var f = readFields(root);
         if (!String(f.title).trim() && !String(f.text).trim()) { toast('Give it a name or some text', true); return false; }
@@ -2115,7 +1516,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       title: t ? 'Edit tool' : 'Add a tool',
       saveLabel: t ? 'Save changes' : 'Add tool',
       body:
-        '<div class="pm-fieldrow">' +
+        '<div class="asc-fields2">' +
           fieldText('Name', 'name', t ? t.name : '', 'Claude') +
           fieldText('Icon', 'icon', t ? t.icon : '', '◈', 'One character or emoji. Optional.') +
         '</div>' +
@@ -2125,7 +1526,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
         fieldText('Tags', 'tags', t ? t.tags.join(', ') : '', 'daily, writing', 'Comma separated. Optional.') +
         fieldText('Account note', 'accountNote', t ? t.accountNote : '', 'Signed in with the Gmail account',
           'Which account you use. Never put a password here: this syncs to the cloud.') +
-        fieldCheck('Favorite', 'favorite', t ? t.favorite : false) +
+        fieldCheck('Kept', 'favorite', t ? t.favorite : false) +
         fieldCheck('Show in Quick Launch', 'quick', t ? t.quick : false),
       onSave: function (root) {
         var f = readFields(root);
@@ -2154,7 +1555,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       title: col ? 'Edit collection' : (k === 'tool' ? 'New stack' : 'New collection'),
       saveLabel: col ? 'Save changes' : 'Create',
       body:
-        '<div class="pm-fieldrow">' +
+        '<div class="asc-fields2">' +
           fieldText('Name', 'title', col ? col.title : '', k === 'tool' ? 'Writing stack' : 'Novel chapter workflow') +
           fieldText('Icon', 'icon', col ? col.icon : '', '', 'Optional.') +
         '</div>' +
@@ -2180,15 +1581,15 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var rows = cfg.items.map(function (it) {
       return '<label class="pm-check" style="padding:0 6px"><input type="checkbox" value="' + esc(it.id) + '"' +
         (cfg.selected.indexOf(it.id) >= 0 ? ' checked' : '') + '>' +
-        '<span>' + esc(it.label) + (it.note ? ' <span style="color:var(--pm-text-faint);font-size:12px">' + esc(it.note) + '</span>' : '') + '</span></label>';
+        '<span>' + esc(it.label) + (it.note ? ' <span style="color:var(--asc-text-3);font-size:12px">' + esc(it.note) + '</span>' : '') + '</span></label>';
     }).join('');
     openModal({
       title: cfg.title,
       saveLabel: 'Save',
       body: cfg.items.length
         ? '<div id="pmPick" style="max-height:52vh;overflow:auto;margin:0 -6px">' + rows + '</div>' +
-          '<span class="pm-field-hint">New picks go on the end. Reorder them on the collection itself.</span>'
-        : '<p class="pm-empty-line">' + esc(cfg.emptyMsg || 'Nothing to pick from yet.') + '</p>',
+          '<span class="asc-small">New picks go on the end. Reorder them on the collection itself.</span>'
+        : '<p class="asc-body">' + esc(cfg.emptyMsg || 'Nothing to pick from yet.') + '</p>',
       onSave: function (root) {
         var picked = Array.prototype.map.call(root.querySelectorAll('#pmPick input:checked'), function (n) { return n.value; });
         // Keep the existing order, drop what was unticked, append what is new.
@@ -2271,7 +1672,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     var items = [
       { act: 'open', label: 'Open' },
       { act: 'copy', label: 'Copy prompt' },
-      { act: 'fav', label: p.favorite ? 'Remove from favorites' : 'Add to favorites' },
+      { act: 'fav', label: p.favorite ? 'Stop keeping it' : 'Keep it' },
       { act: 'collect', label: 'Add to a collection' }
     ];
     if (p.editable) {
@@ -2306,7 +1707,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       body: menuHtml([
         { act: 'open', label: 'Open the tool' },
         { act: 'detail', label: 'Show details' },
-        { act: 'fav', label: t.favorite ? 'Remove from favorites' : 'Add to favorites' },
+        { act: 'fav', label: t.favorite ? 'Stop keeping it' : 'Keep it' },
         { act: 'quick', label: t.quick ? 'Remove from Quick Launch' : 'Add to Quick Launch' },
         { act: 'edit', label: 'Edit' },
         { act: 'delete', label: 'Delete', danger: true }
@@ -2383,7 +1784,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     openModal({
       title: 'Delete ' + p.title + '?',
       saveLabel: 'Delete it',
-      body: '<p class="pm-empty-line">' +
+      body: '<p class="asc-body">' +
         (p.fiction
           ? 'This prompt lives in the fiction library, so deleting it here deletes it there too.'
           : 'This removes the prompt and takes it out of any collection that uses it.') +
@@ -2402,13 +1803,13 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     openModal({
       title: 'Delete ' + t.name + '?',
       saveLabel: 'Delete it',
-      body: '<p class="pm-empty-line">This removes the tool and takes it out of any stack that uses it. ' +
+      body: '<p class="asc-body">This removes the tool and takes it out of any stack that uses it. ' +
         'A snapshot is kept on this device, so you can put it back from Settings.</p>',
       onSave: function () { d.removeTool(id); toast('Deleted'); go('#/tools'); return true; }
     });
   }
   function clearFilters() {
-    ui.q = ''; ui.cat = 'all'; ui.favOnly = false;
+    ui.q = ""; ui.cat = "all"; ui.favOnly = false; ui.pop = null;
     var q = $('pmQ'); if (q) q.value = '';
     saveUi(); render();
   }
@@ -2429,13 +1830,54 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       saveUi();
       go(tab === 'tools' ? '#/tools' : '#/');
     });
-    on(app, '[data-cat]', 'click', function () {
-      ui.cat = this.dataset.cat; saveUi(); render();
+
+    /* THE TWO DROP PANELS. Opening one closes the other, and a second
+       click on the same button closes it — the aria-expanded state the
+       button already carries is the state, so there is nothing else to
+       keep in sync. */
+    on(app, '[data-pop]', 'click', function (e) {
+      e.stopPropagation();
+      ui.pop = (ui.pop === this.dataset.pop) ? null : this.dataset.pop;
+      renderPop();
     });
-    on(app, '#pmFav', 'click', function () { ui.favOnly = !ui.favOnly; saveUi(); render(); });
-    on(app, '#pmQ', 'input', function () { ui.q = this.value; syncBarState(); renderPills(barMode); runSafely(renderCurrentList, 'search'); });
-    on(app, '#pmQClear', 'click', function () { ui.q = ''; var q = $('pmQ'); if (q) { q.value = ''; q.focus(); } syncBarState(); renderPills(barMode); render(); });
-    on(app, '#pmQ', 'keydown', function (e) { if (e.key === 'Escape') { ui.q = ''; this.value = ''; syncBarState(); render(); } });
+    on(app, '[data-setgroup]', 'click', function () {
+      ui.group = this.dataset.setgroup; ui.pop = null; saveUi(); render();
+    });
+    on(app, '[data-fcat]', 'click', function () {
+      ui.cat = this.dataset.fcat; saveUi(); render();
+    });
+    on(app, '[data-ffav]', 'click', function () { ui.favOnly = !ui.favOnly; saveUi(); render(); });
+    on(app, '[data-fclear]', 'click', clearFilters);
+    /* Anywhere else closes it. Bound on the document rather than the app,
+       because "anywhere" includes the hero. */
+    document.addEventListener('click', function (e) {
+      if (!ui.pop) return;
+      if (e.target.closest && (e.target.closest('.asc-pop') || e.target.closest('[data-pop]'))) return;
+      closePop();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && ui.pop) { e.preventDefault(); closePop(); }
+    });
+
+    /* Typing repaints the results only. render() rebuilds the bar, and
+       the caret lives in there. */
+    on(app, '#pmQ', 'input', function () { ui.q = this.value; runSafely(renderCurrentList, 'search'); });
+    on(app, '#pmQ', 'keydown', function (e) {
+      if (e.key === 'Escape') { ui.q = ''; this.value = ''; render(); }
+    });
+
+    on(app, '[data-fold]', 'click', function () {
+      var key = ui.tab + ':' + this.dataset.fold;
+      var i = ui.shut.indexOf(key);
+      if (i === -1) ui.shut.push(key); else ui.shut.splice(i, 1);
+      saveUi();
+      renderCurrentList();
+    });
+    on(app, '[data-back]', 'click', function () {
+      if (history.length > 1) history.back();
+      else go(ui.tab === 'tools' ? '#/tools' : '#/');
+    });
+    on(app, '[data-tool]', 'click', function () { go('#/t/' + this.dataset.tool); });
 
     on(app, '[data-new]', 'click', function () {
       if (this.dataset['new'] === 'tools') openToolEditor(null); else openPromptEditor(null);
@@ -2501,24 +1943,29 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     });
 
     // modal
-    var box = $('pmModal');
+    var box = $("ascSheet");
     on(box, '[data-modalclose]', 'click', closeModal);
     on(box, '#pmModalSave', 'click', function () {
       if (!modalSave) { closeModal(); return; }
-      var res = modalSave($('pmModal'));
+      var res = modalSave($("ascSheet"));
       if (res === false) return;                 // the handler said the input was not usable
       closeModal();
       refreshCurrentView();
     });
-    $('pmModalBg').addEventListener('click', function (e) { if (e.target === this) closeModal(); });
+    $("ascSheetBg").addEventListener('click', function (e) { if (e.target === this) closeModal(); });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && $('pmModalBg').classList.contains('is-open')) closeModal();
+      if (e.key === 'Escape' && $("ascSheetBg").classList.contains("is-on")) closeModal();
     });
 
-    $('pmBack').addEventListener('click', function () {
-      if (history.length > 1) history.back();
-      else go(ui.tab === 'tools' ? '#/tools' : '#/');
-    });
+  }
+
+  /* The way back, in the top-left of anything that has taken over the
+     screen — which is where a back control has lived since the first
+     phone. It is rendered by the detail views rather than pinned over the
+     page, because topbar.js's launcher already owns that corner. */
+  function backLine() {
+    return '<button type="button" class="asc-back" data-back="1">' +
+      U().mark('back') + 'Back</button>';
   }
 
   /* Typing repaints only the results, not the whole route: render() would
@@ -2534,7 +1981,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     openModal({
       title: 'Delete ' + col.title + '?',
       saveLabel: 'Delete it',
-      body: '<p class="pm-empty-line">The collection goes; the ' + (col.kind === 'tool' ? 'tools' : 'prompts') +
+      body: '<p class="asc-body">The collection goes; the ' + (col.kind === 'tool' ? 'tools' : 'prompts') +
         ' in it stay in the library.</p>',
       onSave: function () { d.Collections.remove(id); toast('Deleted'); go(col.kind === 'tool' ? '#/tools' : '#/'); return true; }
     });
@@ -2548,7 +1995,7 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
     openModal({
       title: 'Restore this snapshot?',
       saveLabel: 'Restore it',
-      body: '<p class="pm-empty-line">This replaces what is on the page now with ' +
+      body: '<p class="asc-body">This replaces what is on the page now with ' +
         esc(counts.length ? counts.join(', ') : 'an empty library') + ' from ' + esc(D().fmtAgo(snap.at)) + '. ' +
         'The current state is snapshotted first, so this is reversible too.</p>',
       onSave: function () {
@@ -2560,88 +2007,6 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       }
     });
   }
-
-  // ============================================================
-  // §STAGE — the hero video controller.
-  //
-  // The element itself is static markup (see the comment on #pmStage);
-  // this only decides whether it gets a src at all, and keeps it playing.
-  // Never fetched on a phone or under reduced motion: it is atmosphere,
-  // and atmosphere is not worth a megabyte on a cellular connection.
-  // ============================================================
-  var STAGE_SRC = 'images_by_admin/promptarium/hero.mp4';
-  var mqNarrow = window.matchMedia('(max-width:720px)');
-  var mqMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  function stageAllowed() { return !mqNarrow.matches && !mqMotion.matches; }
-
-  function mountStage() {
-    var v = $('pmStageVid'), root = document.documentElement;
-    if (!v) return;
-    if (!stageAllowed()) {
-      // Not "hidden" — actively DETACHED, so a phone never spends the
-      // bandwidth. The hero falls back to the photographic plate, which is
-      // the same picture without the moving light.
-      root.classList.remove('pm-video-on', 'pm-video-live');
-      if (v.getAttribute('src')) { try { v.pause(); } catch (e) {} v.removeAttribute('src'); v.load(); }
-      return;
-    }
-    root.classList.add('pm-video-on');
-    if (!v.getAttribute('src')) {
-      v.addEventListener('playing', function () { root.classList.add('pm-video-live'); });
-      v.addEventListener('error', function () { root.classList.remove('pm-video-on', 'pm-video-live'); });
-      v.preload = 'auto';
-      v.src = STAGE_SRC;
-    }
-    v.play().catch(function () {});
-  }
-  function resumeStage() {
-    var v = $('pmStageVid');
-    if (v && v.getAttribute('src') && v.paused) v.play().catch(function () {});
-  }
-  if (mqNarrow.addEventListener) {
-    mqNarrow.addEventListener('change', mountStage);
-    mqMotion.addEventListener('change', mountStage);
-  }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) resumeStage(); });
-  // Autoplay policy: some browsers refuse until the document has been
-  // interacted with once. Cheap, self-removing insurance.
-  document.addEventListener('pointerdown', function once() {
-    document.removeEventListener('pointerdown', once);
-    resumeStage();
-  });
-
-  // ============================================================
-  // §PARALLAX — the house technique: ONE rAF-throttled scroll handler that
-  // writes a single number, and every visual expressed in CSS off it.
-  //
-  // --p goes on documentElement rather than on .pm-head because layer 1 is
-  // the video, which lives outside #pmApp and so cannot inherit from the
-  // header. --pm-par-px is the header's live height, which is also what
-  // bounds #pmStage.
-  // ============================================================
-  var parPx = 1;
-  function measurePar() {
-    var head = document.querySelector('.pm-head');
-    parPx = head ? Math.max(1, head.offsetHeight) : Math.round(window.innerHeight * 0.6);
-    var root = document.documentElement;
-    root.style.setProperty('--pm-par-px', parPx + 'px');
-    root.classList.toggle('pm-par', !!head && !mqMotion.matches);
-    onParScroll();
-  }
-  var parQueued = false;
-  function onParScroll() {
-    if (parQueued) return;
-    parQueued = true;
-    requestAnimationFrame(function () {
-      parQueued = false;
-      if (mqMotion.matches) { document.documentElement.style.setProperty('--p', '0'); return; }
-      var p = Math.min(1, Math.max(0, (window.scrollY || 0) / parPx));
-      document.documentElement.style.setProperty('--p', p.toFixed(4));
-    });
-  }
-  window.addEventListener('scroll', onParScroll, { passive: true });
-  window.addEventListener('resize', measurePar);
-  if (mqMotion.addEventListener) mqMotion.addEventListener('change', measurePar);
 
   // ============================================================
   // §STORAGE HEALTH — the two states where nothing above can help.
@@ -2712,8 +2077,8 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
       '<span>The old model-based prompt library was removed when this page was rebuilt' +
       (counts.length ? ' (' + esc(counts.join(', ')) + ')' : '') + '. A copy is kept on this device.</span>' +
       '<span class="pm-spacer"></span>' +
-      '<button type="button" class="pm-btn pm-btn-sm" data-restore="' + esc(w.snapId) + '">Restore it</button>' +
-      '<button type="button" class="pm-btn pm-btn-sm pm-btn-ghost" id="pmUndoDismiss">Dismiss</button>';
+      '<button type="button" class="asc-btn asc-btn--sm" data-restore="' + esc(w.snapId) + '">Restore it</button>' +
+      '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" id="pmUndoDismiss">Dismiss</button>';
   }
 
   // ============================================================
@@ -2762,7 +2127,6 @@ body.pm-has-notice .pm-head{padding-top:var(--sp-5)}
 
     loadUi();
     wire();
-    mountStage();
     checkStorageBackend();
 
     /* The snapshot store starts BEFORE cloud sync. The opening pull can

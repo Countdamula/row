@@ -26,7 +26,12 @@ const require = createRequire('C:/Users/Damian/Desktop/WEBSITE BUILDING/package.
 const puppeteer = require('puppeteer');
 
 const SRC = process.argv[2] || 'C:/Users/Damian/Downloads/891ff84ca68abc20be50742ac14220aa.jpg';
-const OUT = path.join('C:/Users/Damian/row/images_by_admin/asclepion', 'hero-library.webp');
+// argv[3] is an optional destination. Omitted, this is exactly the
+// Asclepion's own encoder and writes exactly where it always did;
+// given, the same pipeline serves another page's hero without a
+// second copy of this file drifting away from it.
+const OUT = process.argv[3] ||
+  path.join('C:/Users/Damian/row/images_by_admin/asclepion', 'hero-library.webp');
 
 if (!fs.existsSync(SRC)) {
   console.error('source not found: ' + SRC);

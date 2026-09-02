@@ -197,33 +197,47 @@
   // eight-item row you never have to think about is the point.
   //
   // Each carries a hue, which is this page's one structural device: a
-  // category reads as a coloured hairline and dot on every card, row and
-  // chip. Amber is deliberately absent from both lists — it is reserved
-  // STRICTLY for the favourite star, so "I use this one constantly" reads
-  // instantly against otherwise cool chrome.
+  // category reads as a drawn mark, a group heading and a hairline rule
+  // on every row it owns.
+  //
+  // RETINTED 2026-09-02, when the page took The Asclepion's skin. These
+  // are not chosen colours: they are the things actually in the two
+  // photographs the two studios share — marble, daylight through a
+  // window, window stone, a sconce flame, gilding, a candle, old copper,
+  // cool stone, deep bronze — sampled the same way The Asclepion's own
+  // six tints were, and ordered so that no two adjacent categories in
+  // either list land on neighbouring values.
+  //
+  // The old rule that amber was reserved STRICTLY for the favourite star
+  // died with the cyan. It existed so that "I reach for this one
+  // constantly" read instantly against otherwise cool chrome; in a room
+  // lit by candles there is no such contrast to spend, and the heart
+  // takes candlelight like everything else that is on.
+  //
+  // Every value clears 3:1 on --asc-ground (#0a0705).
   // ============================================================
   var PROMPT_CATEGORIES = [
-    { id: 'writing',   label: 'Writing',   hue: '#7FB3FF' },
-    { id: 'thinking',  label: 'Thinking',  hue: '#C79BFF' },
-    { id: 'research',  label: 'Research',  hue: '#6FE3B8' },
-    { id: 'selfcare',  label: 'Self-Care', hue: '#FF9EC4' },
-    { id: 'planning',  label: 'Planning',  hue: '#8FE0E8' },
-    { id: 'editing',   label: 'Editing',   hue: '#E79FE8' },
-    { id: 'learning',  label: 'Learning',  hue: '#B6E06A' },
-    { id: 'other',     label: 'Other',     hue: '#8A94A6' }
+    { id: 'writing',   label: 'Writing',   hue: '#d6d2cb' },   /* marble          */
+    { id: 'thinking',  label: 'Thinking',  hue: '#bbc4bf' },   /* the window      */
+    { id: 'research',  label: 'Research',  hue: '#a8b0ad' },   /* window stone    */
+    { id: 'selfcare',  label: 'Self-Care', hue: '#e0a765' },   /* the sconce      */
+    { id: 'planning',  label: 'Planning',  hue: '#c99a63' },   /* gilding         */
+    { id: 'editing',   label: 'Editing',   hue: '#c08a55' },   /* the candle      */
+    { id: 'learning',  label: 'Learning',  hue: '#a9764c' },   /* old copper      */
+    { id: 'other',     label: 'Other',     hue: '#938b7c' }    /* cool stone      */
   ];
 
   var TOOL_CATEGORIES = [
-    { id: 'ai',           label: 'AI',           hue: '#4FD6E8' },
-    { id: 'writing',      label: 'Writing',      hue: '#7FB3FF' },
-    { id: 'research',     label: 'Research',     hue: '#6FE3B8' },
-    { id: 'productivity', label: 'Productivity', hue: '#8FE0E8' },
-    { id: 'media',        label: 'Media',        hue: '#FF9EC4' },
-    { id: 'design',       label: 'Design',       hue: '#E79FE8' },
-    { id: 'audio',        label: 'Audio',        hue: '#C79BFF' },
-    { id: 'video',        label: 'Video',        hue: '#FFA9A0' },
-    { id: 'utilities',    label: 'Utilities',    hue: '#B6E06A' },
-    { id: 'other',        label: 'Other',        hue: '#8A94A6' }
+    { id: 'ai',           label: 'AI',           hue: '#e0a765' },  /* the sconce   */
+    { id: 'writing',      label: 'Writing',      hue: '#d6d2cb' },  /* marble       */
+    { id: 'research',     label: 'Research',     hue: '#a8b0ad' },  /* window stone */
+    { id: 'productivity', label: 'Productivity', hue: '#c99a63' },  /* gilding      */
+    { id: 'media',        label: 'Media',        hue: '#c08a55' },  /* the candle   */
+    { id: 'design',       label: 'Design',       hue: '#bbc4bf' },  /* the window   */
+    { id: 'audio',        label: 'Audio',        hue: '#a9764c' },  /* old copper   */
+    { id: 'video',        label: 'Video',        hue: '#8f6a48' },  /* deep bronze  */
+    { id: 'utilities',    label: 'Utilities',    hue: '#938b7c' },  /* cool stone   */
+    { id: 'other',        label: 'Other',        hue: '#6b6259' }   /* the ground   */
   ];
 
   /* The tiny compatibility field. Not a filing system — a note on the
