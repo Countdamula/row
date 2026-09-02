@@ -16002,3 +16002,154 @@ blocked: the four existing suites plus 30 new checks for the HIA system,
 composition mode and the example entry, a dedicated nav/launcher overlap test
 at six widths, and 14 pages x 6 widths with no horizontal overflow, no console
 errors and no new sub-16px fields.
+
+## The Asclepion — one page, one table (2026-09-01)
+
+**Three documents and ten hash routes became one document and no routes.**
+`asclepion-session.html`, `asclepion-journal.html` and `asclepion-hero.js` are
+**deleted**. Getting to a practice used to take three taps through two page
+loads; it is now a hero, a menu band and a single table.
+
+**Never re-add `children` to topbar.js's Asclepion entry.** There are no hash
+routes on this page at all, so an entry in that menu pointing at one is a link
+to a blank screen.
+
+### What was removed, and what that did NOT mean
+
+Journals, Affirmations, Routines and the Kept view are gone, **records and
+all** — asked for explicitly, with no export first.
+
+`asclepion-retire.js` deletes seven named keys — `asc:journals`, `asc:decks`,
+`asc:affirmations`, `asc:today`, `asc:routines`, `asclog:entries`,
+`asclog:live` — **once**, from `onPulled` with a 4s grace fallback, after a
+pinned `before-retire` snapshot, and **refuses to run without one**, leaving
+the schema unstamped so it retries rather than silently doing nothing. A
+fresh-install branch stamps and deletes nothing where none of the keys is
+present. A 30-day "Put the records back" line sits on the page.
+
+**BOTH SYNC PREFIXES STAYED.** `asc:` and `asclog:` are still in
+`asclepion-sync.js` and `data-registry.js`. Retiring a *collection* means
+deleting its keys. Retiring a *prefix* means deleting everything under it, on
+every device, at the next push — including the five collections still here.
+`data-registry.js`'s `counted:` was rewritten to the live keys; leaving
+`asc:journals` in it would have made recovery.html report a permanent fault.
+
+The suite is 25 checks plus a **mutation control**: with the no-snapshot guard
+broken, three assertions go red. A suite that passes against a broken guard
+proves nothing.
+
+### The one table
+
+`Asc.activities()` is the ONE read the page makes. It flattens six collections
+— Breath, Tapping, Meditation, Movement, Energy and the new **Mine**
+(`asc:custom`) — into a uniform row, and reads `asclog:sessions` **once** into
+a map, because a `lastSessionFor()` per row is O(rows x sessions) on every
+keystroke in the search box.
+
+Columns: Name · For when · Length · Last done · Start session · ♥. Group by
+Type / For when / Length / Last done; filter by kind, feeling, length and ♥;
+all of it held in `asc:uiState`.
+
+Two things that are easy to get wrong here:
+
+- **Breath is measured in seconds.** All five techniques run 33–76s, so
+  rounding to minutes printed "1 min" five times and told you nothing. Rows
+  carry `seconds` and print m:ss under 150s.
+- **A keystroke rebuilds the TABLE, not the page.** `render()` writes into
+  persistent hosts; `render('table')` is what a letter costs. The first
+  version replaced the render host wholesale, which destroyed the search
+  input — the focusout from that destruction cleared the re-focus flag, so
+  only the first letter of any search ever landed.
+
+### The practices are modes, not places
+
+The pacer and the tapping session are **full-screen overlays** on one page.
+Both push a history entry (`#practice`) so Back closes them.
+
+**Every kind can be started, and Start session means one thing.** Breath opens
+the pacer, tapping opens its six steps, and meditation, movement, energy and
+Mine open the **guided view** — the description, the steps walked one at a
+time, the link where the record has one, and a Finish that writes through the
+same `logSession()`. Before this, those four kinds offered "Mark it done",
+which is a receipt rather than a practice. One dispatcher, `startActivity()`,
+is reached from a table row, a menu pick and the sheet; every caller carries
+the practice in its own data attributes, because `sheetOf` only exists while
+the sheet is open.
+
+**Nothing in the seeded library carries a url** — all 84 records ship
+described-but-not-linked on purpose, since an invented URL is a dead link. The
+link affordance (a `↗` in the row, an "Open it" in the guided view) appears the
+moment a record has one.
+
+### The look: INÉORA, and a full-screen hero
+
+The night-garden palette is gone. `asclepion-theme.css` quotes the Obsidian
+vault's own snippets — ground `#0e0b09`, marble `#d8cec0`, rose-gold `#c9926a`,
+candlelight `#e8b877`, Cormorant Garamond + Lora — so the dashboard and the
+vault read as one thing. The six group tints are the vault's own heading ramp.
+
+**Surfaces are OPAQUE ramp values, not alphas.** Hue survives being darkened;
+it does not survive being diluted into near-black. A translucent warm tint over
+this ground composites to neutral grey, and it looks plausibly warm until the
+numbers are read off the rendered pixels.
+
+**The hero is the full screen, and the artwork is cropped to fill it.**
+`100svh`, `object-fit: cover`, `object-position: 50% 10%` — biased to the top
+because centring a 736x1041 portrait in a landscape frame takes the head off
+first. The edge masks that used to stop it reading as a pasted rectangle are
+deleted: a cover fill has no edges to hide. It is static markup, not injected
+by a script, so it is outside the render host by construction and a cloud
+repaint cannot replay its entrance.
+
+**There is no measure.** Everything below the hero was centred in 56rem for one
+release; the gutter, `clamp(20px, 5vw, 88px)`, is now the only inset on the
+page. What the measure was protecting is real — a row across 1744px can strand
+a name from its length — so it is handled where it belongs: `--asc-read` caps
+the **text** in ch, the meta columns stay adjacent instead of spreading, and
+the row's hover lights the whole line.
+
+Three traps this pass hit, all worth keeping:
+
+- **A pseudo-element is generated as its host's FIRST child.** At equal
+  z-index the hero image painted over both veils and the bottom fade did
+  nothing at all. The figure sits at `z-index: -3`, the veils at -2 and -1.
+- **`font-size: 1rem` is not a 16px floor.** The root here is
+  `clamp(15px, .34vw + 14px, 17px)`, so `1rem` measured **15.2px at 360px
+  wide** — under the line where iOS Safari zooms in and never zooms back out.
+  Every control is `max(16px, 1rem)`.
+- **The scrim has to be where the words are.** A 102deg wash covers a
+  bottom-LEFT display line on a wide screen and has faded out by the time it
+  reaches a bottom-CENTRE one at 390px, where the line lands on a lit white
+  shirt. The phone block rotates it vertical.
+
+### The hero artwork
+
+`images_by_admin/asclepion/hero-figure.webp`, reproduced byte-identically from
+its source by `scripts/clean-hero-figure.mjs`. Five pieces of typography were
+removed from the poster in headless Chrome's `<canvas>` — no image library is
+installed — and `hero.jpg` was never overwritten.
+
+Three kinds of lettering needed three different methods: lettering on open
+ground falls outside the figure silhouette on its own; lettering *behind* the
+figure merges into it under any region-growing method and needs a brightness
+core in the band where the figure is only hair and face; lettering *on* the
+figure (a belt watermark) needs local Jacobi relaxation, because a flat refill
+loses the leather's shading and reads as a sticker. A flood fill from the
+border cannot find this figure at all — the coat's grey panels sit at luma 73
+and the lettering at luma 70.
+
+### Elsewhere
+
+`topbar.js` (one Asclepion entry, no children; sub-doc entries removed from
+`NAV_DETAIL_PARENTS` and `TRACK_PREFIX`), `data-registry.js`, `today-ui.js`
+(the Evening journal card pointed at a page that no longer exists),
+`save-state.js`. `topbar.js?v=4` -> `?v=5` in all 25 `row/*.html`;
+`asclepion-*` assets to `?v=3`, then `asclepion-theme.css` and
+`asclepion-data.js` to `?v=4` for the second pass.
+
+Verified with Puppeteer, **Supabase blocked at the request handler and at
+fetch/XHR/sendBeacon/WebSocket** — a keepalive flush at unload has escaped
+request interception before and emptied a live row. 30 data checks, 34
+interaction checks, 19 guided-view checks, 25 wipe checks plus the control, 9
+viewports for overflow/overlap/field size/tap targets, contrast sampled off
+rendered pixels at desktop and phone width, and all 25 pages booted.

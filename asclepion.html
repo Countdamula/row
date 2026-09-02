@@ -9,7 +9,7 @@
 <!-- The snapshot layer. Not deferred: the registry must exist before any
      boot() asks Snapshots.forApp() for a store, and the engine asserts the
      store prefix against the registry before it will build one. -->
-<script src="data-registry.js?v=1"></script>
+<script src="data-registry.js?v=2"></script>
 <script src="snapshots.js?v=1"></script>
 <script src="data-export.js?v=1"></script>
 <script src="save-state.js?v=1"></script>
@@ -20,43 +20,55 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="theme-color" content="#0C1416">
+<meta name="theme-color" content="#0E0B09">
 <meta name="robots" content="noindex, nofollow">
 <title>The Asclepion</title>
 
 <!-- =============================================================
      THE ASCLEPION — Self-Care Studio
-     asclepion.html (this hub) + asclepion-session.html (the
-     practice runner) + asclepion-journal.html (the journals).
 
-     Owns TWO Supabase rows, split by weight:
-       asclepion     -> asc:      the library. read-mostly, ~100KB.
-       asclepionlog  -> asclog:   what you write. small, constant.
-     The prefix table is asclepion-sync.js and nowhere else — read
-     its header before changing anything about sync.
+     ONE DOCUMENT. It was three until 2026-09-01 — a hub of seven
+     category cards, a session runner and a journal — behind ten
+     hash routes. Getting to a practice took three taps through
+     two page loads.
 
-     Routes (all on this document except the journal):
-       #/              the hub
-       #/breath        five techniques
-       #/eft           twelve tapping scripts + the point guide
-       #/meditation    five shelves
-       #/yoga          the feel router, then the library
-       #/energy        five groups
-       #/affirmations  the decks
-       #/routines      the four routines
-       #/kept          favourites, swept across every collection
-     #/journal hands off to asclepion-journal.html.
+     It is now a hero and one table: every practice in the studio
+     in a single list, grouped by kind, filterable by how long you
+     have and how you feel. The breath pacer and the tapping
+     session fold in as full-screen OVERLAYS, because a practice
+     is a mode the page enters and was never really a place you
+     navigate to.
 
-     REPLACED Main's Self-Care tab on 2026-08-25. That tab's data
-     (mainselfcare:) was NOT migrated and is NOT read here — it is
-     orphaned but intact, and `mainselfcare:` must stay in
-     main-sync.js's goals row forever. Dropping the prefix would
-     delete it on every device at the next push.
+     WHAT WAS REMOVED, AND WHAT SURVIVED IT
+     ─────────────────────────────────────────────────────────
+     Journals, affirmations, routines and the Kept view were
+     removed, records and all. asclepion-retire.js deletes those
+     keys once, having first taken a snapshot.
+
+     BOTH SYNC PREFIXES STAY. `asc:` and `asclog:` are still
+     listed in asclepion-sync.js and in data-registry.js. Retiring
+     a COLLECTION means deleting its keys. Retiring a PREFIX means
+     deleting everything under it, on every device, at the next
+     push — including the five collections that are still here.
+
+     `mainselfcare:` is a different orphan again: Main's old
+     Self-Care tab, never migrated, still listed in main-sync.js's
+     goals row, and it must stay there forever for the same
+     reason.
+
+     TWO ROWS, STILL
+     ─────────────────────────────────────────────────────────
+       asclepion     -> asc:      the library. Seeded, ~150KB.
+       asclepionlog  -> asclog:   the session log. Small, constant.
+     The split is about WRITE FREQUENCY, not about how many
+     documents there are. One row would re-upload the whole
+     library every time a practice ended.
      ============================================================= -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="asclepion-theme.css?v=2">
+<link rel="stylesheet" href="asclepion-theme.css?v=4">
+<link rel="preload" as="image" href="images_by_admin/asclepion/hero-figure.webp">
 
 <!-- Not deferred, and in dependency order: the inline boot script
      at the bottom of <body> runs during parsing, before any
@@ -65,32 +77,62 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="asclepion-seed.js?v=2"></script>
-<script src="asclepion-data.js?v=2"></script>
-<script src="asclepion-sync.js?v=2"></script>
-<script src="asclepion-ui.js?v=2"></script>
-<script src="asclepion-hero.js?v=2"></script>
-<script src="topbar.js?v=4" defer></script>
+<script src="asclepion-seed.js?v=3"></script>
+<script src="asclepion-data.js?v=4"></script>
+<script src="asclepion-sync.js?v=3"></script>
+<script src="asclepion-ui.js?v=3"></script>
+<script src="asclepion-retire.js?v=1"></script>
+<script src="topbar.js?v=5" defer></script>
 </head>
 <body class="asc">
 
-<!-- THE HERO IS NOT HERE.
-     AscHero.mount() injects it at boot, immediately before
-     #ascRoot — see asclepion-hero.js's ONE INVARIANT. Everything
-     inside #ascRoot is destroyed and rebuilt on every render, so a
-     hero written into that host would replay its entrance every
-     time a phone in another room saved something.
+<!-- THE HERO IS STATIC MARKUP, AND THAT IS THE POINT.
+     asclepion-hero.js used to inject it at boot, outside the
+     render host, so that a cloud pull rebuilding #ascRoot could
+     not replay its entrance. Written straight into the document
+     it is outside the render host by construction, cannot be
+     re-created at all, and paints from the first byte instead of
+     waiting for a script. The file is gone. -->
+<header class="asc-hero">
+  <img class="asc-hero__fig" src="images_by_admin/asclepion/hero-figure.webp"
+       alt="" width="736" height="1041" fetchpriority="high" decoding="async">
+  <div class="asc-hero__ring" aria-hidden="true"></div>
+  <p class="asc-hero__mark">The Asclepion</p>
 
-     The nav pill below is static because it never re-renders: its
-     only changing state is which route is current, and that is one
-     class. -->
-<nav class="asc-nav" id="ascRoutes" aria-label="The Asclepion"></nav>
+  <div class="asc-hero__in">
+    <h1 class="asc-hero__head">
+      <span><b style="--d:120ms">Something</b></span>
+      <span><b style="--d:240ms">you can</b></span>
+      <span><b style="--d:360ms"><em>do now.</em></b></span>
+    </h1>
+    <p class="asc-hero__note">
+      <strong>Breath, tapping, meditation, movement, energy — and whatever you add yourself.</strong>
+      Filter by how long you have or how you feel. Nothing here keeps score.
+    </p>
+  </div>
+</header>
 
 <main class="asc-shell" id="ascRoot" tabindex="-1"></main>
 
 <div class="asc-sheetbg" id="ascSheetBg" role="dialog" aria-modal="true" aria-label="Detail">
   <div class="asc-sheet" id="ascSheet"></div>
 </div>
+
+<!-- The practice overlay. One host for both runners; which one is
+     inside it is decided at open time. -->
+<div class="asc-run" id="ascRun" role="dialog" aria-modal="true" aria-label="Practice">
+  <!-- Close only. The practice's name used to sit at the other end of this
+       bar, where topbar.js's launcher is fixed on every page in the
+       dashboard and covered it. It belongs under the ring anyway: what you
+       are doing is content, not chrome. -->
+  <div class="asc-run__top">
+    <button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="run-close">Close · Esc</button>
+  </div>
+  <!-- Outside the body, because the body is rebuilt on every phase. -->
+  <p class="asc-label asc-run__where" id="ascRunWhere"></p>
+  <div class="asc-run__body" id="ascRunBody"></div>
+</div>
+
 <div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
 
 <script>
@@ -98,944 +140,1393 @@
   'use strict';
 
   var U = window.AscUI;
-  var A = null;                 // window.Asc, once the DOM is ready
+  var A = null;                 // window.Asc, once the store is ready
   var root = document.getElementById('ascRoot');
   var esc = U.esc, escLines = U.escLines, mark = U.mark, heart = U.heart;
 
   // ==========================================================
-  // ROUTES
+  // THE COLUMNS
   //
-  // The tab bar and every fall-through are built off this one
-  // array, so a route cannot exist in the nav and not in the
-  // renderer, or the other way round.
+  // Name, then what state it is for, then how long, then when you
+  // last did it, then whether it is kept. Five, and the last one
+  // has no heading because a heart needs no label.
+  //
+  // "Last done" is a DATE, never a streak and never a count.
+  // A page you open on a bad day must not be able to tell you how
+  // many days you have missed.
   // ==========================================================
-  var ROUTES = [
-    { hash: '/',             label: 'Home',        tint: 'breath' },
-    { hash: '/breath',       label: 'Breath',      tint: 'breath' },
-    { hash: '/journal',      label: 'Journals',    tint: 'journal' },
-    { hash: '/eft',          label: 'Tapping',     tint: 'eft' },
-    { hash: '/meditation',   label: 'Meditation',  tint: 'medit' },
-    { hash: '/yoga',         label: 'Movement',    tint: 'yoga' },
-    { hash: '/energy',       label: 'Energy',      tint: 'energy' },
-    { hash: '/affirmations', label: 'Affirmations', tint: 'affirm' },
-    { hash: '/routines',     label: 'Routines',    tint: 'breath' },
-    { hash: '/kept',         label: 'Kept',        tint: 'breath' }
+  // The fifth head is deliberately blank: a column of buttons
+  // labelled "Start" under a heading reading "Start" says it twice.
+  var COLS = ['Name', 'For when', 'Length', 'Last done', ''];
+
+  // How the table can be grouped. `of` returns the bucket key and
+  // its label together, so a grouping is one function rather than
+  // a switch in three places.
+  var GROUPINGS = {
+    type: {
+      label: 'Type',
+      of: function (a) {
+        var g = groupMeta(a.group);
+        return { key: a.group, label: g.label, tint: g.tint };
+      },
+      order: function () { return A.GROUPS.map(function (g) { return g.key; }); }
+    },
+    forWhen: {
+      label: 'For when',
+      of: function (a) {
+        var v = a.forWhen || 'Unfiled';
+        return { key: v.toLowerCase(), label: v, tint: groupMeta(a.group).tint };
+      }
+    },
+    length: {
+      label: 'Length',
+      of: function (a) {
+        if (!a.minutes) return { key: '0', label: 'No fixed length', tint: 'breath' };
+        if (a.minutes <= 5) return { key: '1', label: 'Five minutes or less', tint: 'breath' };
+        if (a.minutes <= 15) return { key: '2', label: 'Under a quarter of an hour', tint: 'medit' };
+        if (a.minutes <= 30) return { key: '3', label: 'Half an hour', tint: 'yoga' };
+        return { key: '4', label: 'Longer', tint: 'mine' };
+      },
+      order: function () { return ['1', '2', '3', '4', '0']; }
+    },
+    lastDone: {
+      label: 'Last done',
+      of: function (a) {
+        if (!a.lastDoneISO) return { key: 'z', label: 'Not yet', tint: 'breath' };
+        var d = daysAgo(a.lastDoneISO);
+        if (d <= 0) return { key: 'a', label: 'Today', tint: 'medit' };
+        if (d <= 7) return { key: 'b', label: 'This week', tint: 'yoga' };
+        if (d <= 31) return { key: 'c', label: 'This month', tint: 'energy' };
+        return { key: 'd', label: 'A while ago', tint: 'mine' };
+      },
+      order: function () { return ['a', 'b', 'c', 'd', 'z']; }
+    }
+  };
+
+  var LENGTHS = [
+    { key: 5,  label: 'Five minutes or less' },
+    { key: 15, label: 'A quarter of an hour' },
+    { key: 30, label: 'Half an hour' }
   ];
 
-  // The seven, in the order they were asked for. The tints run an
-  // even 28-degree sweep through that order, so the grid reads as
-  // one gradient. `note` is what the card says under its title;
-  // `count` is resolved at render.
-  var CATEGORIES = [
-    { key: 'breath',  hash: '/breath',       tint: 'breath',  mark: 'breath',
-      title: 'Breath & Regulation', note: 'The fastest thing here. Two of these you already trust.' },
-    { key: 'journal', hash: '/journal',      tint: 'journal', mark: 'journal',
-      title: 'Journals',            note: 'Five, because they have five different jobs.' },
-    { key: 'eft',     hash: '/eft',          tint: 'eft',     mark: 'eft',
-      title: 'EFT Tapping',         note: 'A full script and a before-and-after reading.' },
-    { key: 'medit',   hash: '/meditation',   tint: 'medit',   mark: 'medit',
-      title: 'Meditation & Hypnosis', note: 'Five shelves, browsed by the state you are in.' },
-    { key: 'yoga',    hash: '/yoga',         tint: 'yoga',    mark: 'yoga',
-      title: 'Yoga & Movement',     note: 'Sorted by how you feel, not by what it is called.' },
-    { key: 'energy',  hash: '/energy',       tint: 'energy',  mark: 'energy',
-      title: 'Energy Practices',    note: 'Grounding, cleansing, protection, energy work, shifting.' },
-    { key: 'affirm',  hash: '/affirmations', tint: 'affirm',  mark: 'affirm',
-      title: 'Affirmations',        note: 'Decks of twelve, not one list of two hundred.' }
-  ];
-
-  function routeFor(hash) {
-    for (var i = 0; i < ROUTES.length; i++) if (ROUTES[i].hash === hash) return ROUTES[i];
-    return ROUTES[0];   // a stale bookmark still lands somewhere
+  function groupMeta(key) {
+    var all = A.GROUPS;
+    for (var i = 0; i < all.length; i++) if (all[i].key === key) return all[i];
+    return { key: key, label: key, tint: 'breath' };
   }
-  function current() {
-    var h = String(location.hash || '').replace(/^#/, '');
-    return routeFor(h || '/');
-  }
-  function go(hash) { location.hash = hash; }
 
   // ==========================================================
-  // SHARED FRAGMENTS
+  // STATE
+  //
+  // Everything except the search box is remembered, because
+  // everything except the search box is a preference. A search
+  // term you left behind yesterday is not a preference, it is a
+  // page that looks broken when you open it.
   // ==========================================================
-  function sectionHead(title, aside, lede) {
-    return '<div class="asc-section__head">' +
-      '<div><h2 class="asc-plate asc-plate--sm">' + esc(title) + '</h2>' +
-      (lede ? '<p class="asc-small" style="margin-top:6px">' + esc(lede) + '</p>' : '') +
-      '</div>' +
-      (aside ? '<div class="asc-section__aside">' + aside + '</div>' : '') +
-      '</div><hr class="asc-rule">';
+  var state = {
+    q: '',
+    groupBy: 'type',
+    fGroups: [],
+    fWhen: [],
+    fMax: 0,
+    fFav: false,
+    shut: [],
+    pop: ''            // which drop panel is open: '' | 'group' | 'filter'
+  };
+
+  function loadState() {
+    var s = A.uiState('table');
+    if (!s || typeof s !== 'object') return;
+    if (GROUPINGS[s.groupBy]) state.groupBy = s.groupBy;
+    state.fGroups = Array.isArray(s.fGroups) ? s.fGroups : [];
+    state.fWhen = Array.isArray(s.fWhen) ? s.fWhen : [];
+    state.fMax = Number(s.fMax) || 0;
+    state.fFav = s.fFav === true;
+    state.shut = Array.isArray(s.shut) ? s.shut : [];
   }
-  function empty(text) {
-    return '<p class="asc-empty">' + esc(text) + '</p>';
+  function saveState() {
+    A.uiState('table', {
+      groupBy: state.groupBy, fGroups: state.fGroups, fWhen: state.fWhen,
+      fMax: state.fMax, fFav: state.fFav, shut: state.shut
+    });
   }
-  // A row: the workhorse. One line of type, a meta line, and a
-  // trailing control cluster.
-  function row(o) {
-    return '<div class="asc-row' + (o.tint ? '' : '') + '"' + (o.tint ? ' data-tint="' + esc(o.tint) + '"' : '') + '>' +
-      '<div class="asc-row__body">' +
-        '<p class="asc-row__title">' + esc(o.title) + '</p>' +
-        (o.meta ? '<p class="asc-row__meta">' + o.meta + '</p>' : '') +
-        (o.note ? '<p class="asc-row__note">' + esc(o.note) + '</p>' : '') +
+  function filterCount() {
+    return state.fGroups.length + state.fWhen.length + (state.fMax ? 1 : 0) + (state.fFav ? 1 : 0);
+  }
+  function toggleIn(list, v) {
+    var i = list.indexOf(v);
+    if (i === -1) list.push(v); else list.splice(i, 1);
+    return list;
+  }
+
+  // ==========================================================
+  // FORMATTERS
+  // ==========================================================
+  function daysAgo(iso) {
+    if (!iso) return Infinity;
+    var p = iso.split('-');
+    var then = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    var now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.round((now - then) / 86400000);
+  }
+  function lastDoneWord(iso) {
+    if (!iso) return '';
+    var d = daysAgo(iso);
+    if (d <= 0) return 'Today';
+    if (d === 1) return 'Yesterday';
+    if (d < 7) return d + ' days ago';
+    if (d < 14) return 'Last week';
+    if (d < 62) return Math.round(d / 7) + ' weeks ago';
+    return U.dateLabel(iso);
+  }
+  // Minutes, unless the thing is genuinely shorter than a couple
+  // of minutes — then m:ss, because five breathing techniques all
+  // reading "1 min" is a column that has stopped saying anything.
+  function lengthWord(a) {
+    if (a.seconds && a.seconds < 150) return U.clock(a.seconds);
+    return a.minutes ? U.mins(a.minutes) : '';
+  }
+
+  // ==========================================================
+  // THE FILTER
+  // ==========================================================
+  function visible() {
+    var q = state.q.trim().toLowerCase();
+    return A.activities().filter(function (a) {
+      if (state.fFav && !a.favorite) return false;
+      if (state.fGroups.length && state.fGroups.indexOf(a.group) === -1) return false;
+      if (state.fWhen.length && state.fWhen.indexOf((a.forWhen || '').toLowerCase()) === -1) return false;
+      // "under n minutes" must not hide the things with no stated
+      // length — a breathing technique with no duration is the
+      // most likely answer to "I have five minutes", not the least.
+      if (state.fMax && a.minutes && a.minutes > state.fMax) return false;
+      if (q) {
+        // The description is in the haystack because it is on the
+        // page. A word you can see in a row and cannot search for
+        // reads as a broken search box.
+        var hay = (a.title + ' ' + a.forWhen + ' ' + a.summary + ' ' +
+          groupMeta(a.group).label).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function grouped(rows) {
+    var g = GROUPINGS[state.groupBy];
+    var buckets = {}, order = [];
+    rows.forEach(function (a) {
+      var b = g.of(a);
+      if (!buckets[b.key]) { buckets[b.key] = { key: b.key, label: b.label, tint: b.tint, rows: [] }; order.push(b.key); }
+      buckets[b.key].rows.push(a);
+    });
+    // A grouping may declare a fixed order; the rest sort by size,
+    // largest first, so the page never opens on a bucket of one.
+    var want = g.order ? g.order() : null;
+    if (want) {
+      order = want.filter(function (k) { return buckets[k]; })
+        .concat(order.filter(function (k) { return want.indexOf(k) === -1; }));
+    } else {
+      order.sort(function (x, y) { return buckets[y].rows.length - buckets[x].rows.length; });
+    }
+    return order.map(function (k) { return buckets[k]; });
+  }
+
+  function whenValues() {
+    var seen = {}, out = [];
+    A.activities().forEach(function (a) {
+      var v = a.forWhen;
+      if (!v || seen[v.toLowerCase()]) return;
+      seen[v.toLowerCase()] = true;
+      out.push(v);
+    });
+    return out.sort();
+  }
+
+  // ==========================================================
+  // VIEW
+  // ==========================================================
+  // ==========================================================
+  // THE HOSTS
+  //
+  // Five elements, written once, and every render fills them in
+  // place. The page used to be one innerHTML over #ascRoot, which
+  // destroyed the search box on every keystroke — the caret went
+  // with it and only the first letter of a query ever landed.
+  //
+  // The hosts are also the real elements, not wrappers around
+  // them: `position: sticky` is constrained by the parent's box,
+  // so a toolbar wrapped in a div exactly its own height cannot
+  // move and quietly stops sticking.
+  // ==========================================================
+  function shell() {
+    return '<div class="asc-recall" id="ascRecall" hidden></div>' +
+      '<section class="asc-menu" id="ascMenu"></section>' +
+      '<div class="asc-bar" id="ascBar"></div>' +
+      '<div id="ascPopHost"></div>' +
+      '<div class="asc-table" id="ascTable" role="table" aria-label="Self-care activities"></div>';
+  }
+  function byId(id) { return document.getElementById(id); }
+
+  // A quiet line, not an alert. It says what was removed, offers
+  // the records back for thirty days, and can be waved away. See
+  // asclepion-retire.js for why the offer exists at all.
+  function recallBand() {
+    if (!window.AscRetire || !AscRetire.recallable()) return '';
+    var s = AscRetire.stamp();
+    return '<p class="asc-small">Journals, affirmations and routines were removed on ' +
+        esc(U.dateLabel(A.localISO(new Date(s.at)))) +
+        '. A copy of the records is kept for thirty days.</p>' +
+      '<span class="asc-recall__acts">' +
+        '<button type="button" class="asc-btn asc-btn--sm" data-act="recall">Put the records back</button>' +
+        '<button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="recall-no">Dismiss</button>' +
+      '</span>';
+  }
+
+  function menuBand() {
+    var picks = A.menu(3);
+    if (!picks.length) return '';
+    return '<div class="asc-menu__head">' +
+        '<h2 class="asc-label">Right now</h2>' +
+        '<button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="reroll">Something else</button>' +
       '</div>' +
-      (o.tail ? '<div class="asc-row__tail">' + o.tail + '</div>' : '') +
+      '<div class="asc-menu__list">' +
+        picks.map(function (a, i) {
+          var g = groupMeta(a.group);
+          // A DIV wrapping two buttons, not one button. This used
+          // to be a single <button data-act="open">, and a Start
+          // button inside it would have been a button inside a
+          // button — the same rule the row's heart obeys.
+          return '<div class="asc-menu__item ' + U.rvlClass() + '"' + U.rvlStyle(i) +
+            ' data-tint="' + esc(g.tint) + '">' +
+            '<button type="button" class="asc-menu__open" data-act="open"' +
+              ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '"' +
+              ' data-shelf="' + esc(a.shelf) + '">' +
+              '<span class="asc-menu__name">' + esc(a.title) + '</span>' +
+              '<span class="asc-menu__meta"><i>' + esc(g.label) + '</i>' +
+                (lengthWord(a) ? ' · ' + esc(lengthWord(a)) : '') +
+                (a.forWhen ? ' · ' + esc(a.forWhen) : '') + '</span>' +
+              (a.summary ? '<span class="asc-menu__desc">' + esc(a.summary) + '</span>' : '') +
+            '</button>' +
+            '<button type="button" class="asc-btn asc-btn--sm asc-menu__go" data-act="start"' +
+              ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '"' +
+              ' data-shelf="' + esc(a.shelf) + '">Start session</button>' +
+          '</div>';
+        }).join('') +
       '</div>';
   }
-  // The breathing pattern, as readable chips: 4 · 7 · 8
-  function patternChips(b) {
-    return b.rounds.map(function (r) {
-      var seq = r.phases.map(function (p) { return p.seconds || '~'; }).join(' · ');
-      return '<span class="asc-chip" title="' + esc(r.phases.map(phaseWord).join(', ')) + '">' +
-        (r.label ? esc(r.label) : seq) + (r.cycles > 1 ? ' <i>x' + r.cycles + '</i>' : '') + '</span>';
-    }).join('');
+
+  function bar() {
+    var n = filterCount();
+    return '<div class="asc-search">' +
+        '<input type="search" id="ascQ" placeholder="Search" aria-label="Search activities"' +
+          ' value="' + esc(state.q) + '" autocomplete="off" spellcheck="false">' +
+      '</div>' +
+      '<button type="button" class="asc-btn" data-act="pop" data-pop="group"' +
+        ' aria-expanded="' + (state.pop === 'group' ? 'true' : 'false') + '">' +
+        'Group by ' + esc(GROUPINGS[state.groupBy].label) +
+        '<span class="asc-btn__caret" aria-hidden="true">▾</span></button>' +
+      '<button type="button" class="asc-btn" data-act="pop" data-pop="filter"' +
+        ' aria-expanded="' + (state.pop === 'filter' ? 'true' : 'false') + '">' +
+        'Filter' + (n ? ' · ' + n : '') +
+        '<span class="asc-btn__caret" aria-hidden="true">▾</span></button>' +
+      '<span class="asc-bar__spacer"></span>' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-act="add">Add activity</button>';
   }
-  function phaseWord(p) {
-    var w = { inhale: 'in', hold: 'hold', exhale: 'out', holdOut: 'hold out' }[p.kind] || p.kind;
-    return w + ' ' + (p.seconds || 'by feel');
-  }
 
-  // ==========================================================
-  // VIEWS
-  // ==========================================================
-
-  function viewHome() {
-    var c = A.counts();
-    var i = 0;
-    var out = '';
-
-    // --- Today's word ---------------------------------------
-    var aff = A.todaysAffirmation();
-    out += '<section class="asc-section asc-section--first asc-rvl"' + U.stagger(i++) + ' data-tint="affirm">' +
-      sectionHead("Today's word", '<button type="button" class="asc-btn asc-btn--sm" data-act="new-affirmation">New word</button>');
-    if (aff) {
-      var deck = A.Decks.get(aff.deckId);
-      out += '<div class="asc-word">' +
-        '<p class="asc-word__text">' + esc(aff.text) + '</p>' +
-        '<div class="asc-word__foot">' +
-          '<span class="asc-label asc-label--tint">' + esc(deck ? deck.name : '') + '</span>' +
-          heart('affirmation', aff.id, aff.favorite, '', 'this word') +
-        '</div></div>';
+  function popPanel() {
+    if (!state.pop) return '';
+    var out = '<div class="asc-pop" id="ascPop">';
+    if (state.pop === 'group') {
+      out += Object.keys(GROUPINGS).map(function (k) {
+        return opt(k === state.groupBy, GROUPINGS[k].label, 'set-group', 'data-group="' + k + '"');
+      }).join('');
     } else {
-      out += empty('No affirmations yet.');
+      out += '<div class="asc-pop__group"><p class="asc-label asc-pop__head">Type</p>' +
+        A.GROUPS.map(function (g) {
+          return opt(state.fGroups.indexOf(g.key) !== -1, g.label, 'f-group', 'data-group="' + g.key + '"');
+        }).join('') + '</div>';
+      out += '<div class="asc-pop__group"><p class="asc-label asc-pop__head">Length</p>' +
+        LENGTHS.map(function (l) {
+          return opt(state.fMax === l.key, l.label, 'f-max', 'data-max="' + l.key + '"');
+        }).join('') + '</div>';
+      out += '<div class="asc-pop__group"><p class="asc-label asc-pop__head">For when</p>' +
+        whenValues().map(function (v) {
+          return opt(state.fWhen.indexOf(v.toLowerCase()) !== -1, v, 'f-when', 'data-when="' + esc(v) + '"');
+        }).join('') + '</div>';
+      out += '<div class="asc-pop__group">' +
+        opt(state.fFav, 'Kept only', 'f-fav', '') +
+        (filterCount() ? opt(false, 'Clear all filters', 'f-clear', '') : '') + '</div>';
     }
-    out += '</section>';
-
-    // --- the seven ------------------------------------------
-    out += '<section class="asc-section asc-rvl"' + U.stagger(i++) + '>' +
-      sectionHead('Seven ways in', '', 'Every one of them is a place to start. None of them is the right one.') +
-      '<div class="asc-grid">';
-    CATEGORIES.forEach(function (cat, n) {
-      var count = categoryCount(cat.key, c);
-      out += '<a class="asc-card' + (n === 0 ? ' asc-card--wide' : '') + '" href="#' + cat.hash + '" data-tint="' + cat.tint + '">' +
-        '<span class="asc-card__mark">' + mark(cat.mark) + '</span>' +
-        '<h3 class="asc-card__title">' + esc(cat.title) + '</h3>' +
-        '<p class="asc-card__note">' + esc(cat.note) + '</p>' +
-        '<span class="asc-card__count">' + esc(count) + '</span>' +
-        '</a>';
-    });
-    out += '</div></section>';
-
-    // --- routines -------------------------------------------
-    var routines = A.Routines.list();
-    out += '<section class="asc-section asc-rvl"' + U.stagger(i++) + '>' +
-      sectionHead('Routines', '<a class="asc-btn asc-btn--sm" href="#/routines">All routines</a>',
-                  'When you do not want to choose, choose one of these.') +
-      '<div class="asc-tiles">';
-    routines.slice(0, 4).forEach(function (r) {
-      out += routineTile(r);
-    });
-    out += '</div></section>';
-
-    // --- kept -----------------------------------------------
-    var favs = A.favourites();
-    out += '<section class="asc-section asc-rvl"' + U.stagger(i++) + '>' +
-      sectionHead('Kept', favs.length ? '<a class="asc-btn asc-btn--sm" href="#/kept">All ' + favs.length + '</a>' : '',
-                  'The things that worked. Over time this becomes more useful than the library.');
-    out += favs.length ? keptList(favs.slice(0, 6))
-                       : empty('Nothing kept yet. The heart on anything puts it here.');
-    out += '</section>';
-
-    return out;
+    return out + '</div>';
+  }
+  function opt(on, label, act, extra) {
+    return '<button type="button" class="asc-opt' + (on ? ' is-on' : '') + '" data-act="' + act + '" ' +
+      (extra || '') + ' aria-pressed="' + (on ? 'true' : 'false') + '">' +
+      '<span class="asc-opt__tick" aria-hidden="true">✓</span>' + esc(label) + '</button>';
   }
 
-  function categoryCount(key, c) {
-    switch (key) {
-      case 'breath':  return U.spell(c.breath) + ' ways to breathe';
-      // Not spell(0) here — "no written" is a sentence fragment, and
-      // the empty state of a journal deserves better than a count.
-      case 'journal': return U.spell(c.journal) + ' journals · ' +
-        (c.entries ? c.entries + ' written' : 'nothing written yet');
-      case 'eft':     return U.spell(c.eft) + ' sessions';
-      case 'medit':   return c.medit + ' practices';
-      case 'yoga':    return c.yoga + ' practices';
-      case 'energy':  return c.energy + ' practices';
-      case 'affirm':  return c.affirm + ' lines · ' + U.spell(c.decks) + ' decks';
-    }
-    return '';
-  }
+  function table() {
+    var rows = visible();
+    if (!rows.length) return emptyTable();
 
-  function routineTile(r) {
-    var total = r.steps.reduce(function (n, s) { return n + (s.minutes || 0); }, 0);
-    return '<div class="asc-tile" data-tint="' + esc(r.tint) + '">' +
-      '<h3 class="asc-tile__title">' + esc(r.name) + '</h3>' +
-      '<p class="asc-tile__note">' + esc(r.forWhen) + '</p>' +
-      '<ol class="asc-tile__steps">' +
-        r.steps.map(function (s) { return '<li>' + esc(s.label) + '</li>'; }).join('') +
-      '</ol>' +
-      '<div class="asc-tile__foot">' +
-        '<span class="asc-label asc-label--tint">' + esc(U.mins(total)) + '</span>' +
-        '<div class="asc-section__aside">' +
-          heart('routine', r.id, r.favorite, '', esc(r.name)) +
-          '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="run-routine" data-id="' + esc(r.id) + '">Begin</button>' +
-        '</div>' +
-      '</div></div>';
-  }
-
-  function keptList(favs) {
-    return '<div class="asc-rows">' + favs.map(function (f) {
-      return row({
-        tint: f.tint,
-        title: f.title,
-        meta: '<span class="asc-label asc-label--tint">' + esc(f.label) + '</span>',
-        tail: heart(f.kind, f.id, true, f.shelf || '', esc(f.title)) +
-              '<button type="button" class="asc-btn asc-btn--sm" data-act="open-fav" data-kind="' + esc(f.kind) + '" data-id="' + esc(f.id) + '" data-shelf="' + esc(f.shelf || '') + '">Open</button>'
-      });
-    }).join('') + '</div>';
-  }
-
-  // --- BREATH -----------------------------------------------
-  function viewBreath() {
-    var list = A.Breath.list();
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('Breath & Regulation', '',
-        'Start at the top. The first two are the ones that work on you.');
-    if (!list.length) return out + empty('No techniques yet.') + '</section>';
-    out += '<div class="asc-stack">';
-    list.forEach(function (b, n) {
-      var secs = A.breathSeconds(b);
-      out += '<article class="asc-panel asc-rvl"' + U.stagger(n) + ' data-tint="breath">' +
-        '<div class="asc-panel__head">' +
-          '<div><h3 class="asc-panel__title">' + esc(b.name) + '</h3>' +
-          '<p class="asc-panel__sub">' + esc(b.summary) + '</p></div>' +
-          '<div class="asc-section__aside">' + heart('breath', b.id, b.favorite, '', esc(b.name)) + '</div>' +
-        '</div>' +
-        '<div class="asc-chips">' + patternChips(b) +
-          '<span class="asc-chip asc-chip--quiet">' + esc(U.clock(secs)) + '</span>' +
-          '<span class="asc-chip asc-chip--quiet">' + esc(b.goal) + '</span>' +
-        '</div>' +
-        (b.cues.length ? '<ul class="asc-cues">' + b.cues.map(function (q) {
-          return '<li>' + esc(q) + '</li>'; }).join('') + '</ul>' : '') +
-        '<p class="asc-panel__why">' + escLines(b.why) + '</p>' +
-        '<div class="asc-panel__foot">' +
-          '<button type="button" class="asc-btn asc-btn--primary" data-act="run-breath" data-id="' + esc(b.id) + '">Begin</button>' +
-        '</div>' +
-      '</article>';
-    });
-    return out + '</div></section>';
-  }
-
-  // --- JOURNALS ---------------------------------------------
-  function viewJournal() {
-    var list = A.Journals.list();
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('Journals', '<button type="button" class="asc-btn asc-btn--sm" data-act="open-journal" data-id="">All entries</button>',
-        'Five journals, five different jobs. Writing happens on its own page.') +
-      '<div class="asc-stack">';
-    list.forEach(function (j, n) {
-      var count = A.entriesFor(j.id).length;
-      out += '<article class="asc-panel asc-rvl"' + U.stagger(n) + ' data-tint="journal">' +
-        '<div class="asc-panel__head">' +
-          '<div><h3 class="asc-panel__title"><span class="asc-glyph">' + esc(j.glyph) + '</span> ' + esc(j.name) + '</h3>' +
-          '<p class="asc-panel__sub">' + esc(j.purpose) + '</p></div>' +
-          '<div class="asc-section__aside">' + heart('journal', j.id, j.favorite, '', esc(j.name)) + '</div>' +
-        '</div>' +
-        '<p class="asc-panel__why">' + escLines(j.about) + '</p>' +
-        '<div class="asc-panel__foot">' +
-          '<span class="asc-label">' + (count ? U.plural(count, 'entry', 'entries') : 'Nothing written yet') + '</span>' +
-          '<button type="button" class="asc-btn asc-btn--primary" data-act="open-journal" data-id="' + esc(j.id) + '">Write</button>' +
-        '</div>' +
-      '</article>';
-    });
-    return out + '</div></section>';
-  }
-
-  // --- EFT --------------------------------------------------
-  function viewEft() {
-    var topics = A.Eft.list();
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('EFT Tapping', '<button type="button" class="asc-btn asc-btn--sm" data-act="point-guide">Where to tap</button>',
-        'Pick what is loudest. Every session reads you before and after.') +
-      '<div class="asc-grid asc-grid--3">';
-    topics.forEach(function (t, n) {
-      out += '<button type="button" class="asc-card asc-card--sm asc-rvl"' + U.stagger(n, 45) +
-        ' data-tint="eft" data-act="run-eft" data-id="' + esc(t.id) + '">' +
-        '<h3 class="asc-card__title">' + esc(t.name) + '</h3>' +
-        '<p class="asc-card__note">' + esc(t.blurb) + '</p>' +
-        '<span class="asc-card__count">' + (t.favorite ? 'Kept · ' : '') + esc(eftCount(t)) + '</span>' +
-        '</button>';
-    });
-    out += '</div></section>';
-
-    out += '<section class="asc-section" data-tint="eft">' +
-      sectionHead('The points', '', 'Nine of them. The first is the setup point; the other eight are the round.') +
-      '<div class="asc-guide">' + pointFigure() + '<ol class="asc-points">' +
-        A.EftPoints.list().map(function (p) {
-          return '<li><span class="asc-points__n">' + (p.n === 0 ? '·' : p.n) + '</span>' +
-            '<div><p class="asc-points__name">' + esc(p.name) + '</p>' +
-            '<p class="asc-points__where">' + esc(p.where) + '</p>' +
-            '<p class="asc-points__cue">' + esc(p.cue) + '</p></div></li>';
+    var out = '<div class="asc-cols" role="row">' +
+        COLS.map(function (c) {
+          return '<span class="asc-label" role="columnheader">' + esc(c) + '</span>';
         }).join('') +
-      '</ol></div></section>';
+        '<span class="asc-label" role="columnheader"><span class="asc-sr">Kept</span></span>' +
+      '</div>';
+
+    var n = 0;
+    grouped(rows).forEach(function (b) {
+      var shut = state.shut.indexOf(state.groupBy + ':' + b.key) !== -1;
+      out += '<section class="asc-group' + (shut ? ' is-shut' : '') + '" data-tint="' + esc(b.tint) + '">' +
+        '<button type="button" class="asc-group__head" data-act="fold" data-key="' + esc(b.key) + '"' +
+          ' aria-expanded="' + (shut ? 'false' : 'true') + '">' +
+          '<span class="asc-group__name">' + esc(b.label) + '</span>' +
+          '<span class="asc-group__count">' + esc(U.spell(b.rows.length)) + '</span>' +
+          '<span class="asc-group__fold" aria-hidden="true">▾</span>' +
+        '</button>' +
+        '<div class="asc-group__rule" aria-hidden="true"></div>' +
+        '<div class="asc-group__body">' +
+          b.rows.map(function (a) { return row(a, n++); }).join('') +
+        '</div>' +
+      '</section>';
+    });
     return out;
   }
 
-  // What a tapping card says under its blurb.
+  // The three buttons a row can carry, as one cell. Start is
+  // always present and always means the same thing — see
+  // startActivity() — and the arrow only appears where the record
+  // actually has somewhere to go.
   //
-  // Every one of these used to say "Three rounds", which is true of
-  // all twelve and therefore tells you nothing about which one to
-  // pick. The last reading does: it is the only thing on the card
-  // that answers "did this work on me last time", and that is the
-  // actual question you are asking at the moment you are looking.
-  function eftCount(t) {
-    var last = A.lastSessionFor('eft', t.id);
-    if (!last || last.before == null || last.after == null) return 'Not tried yet';
-    return 'Last time ' + last.before + ' to ' + last.after;
+  // ALL THREE ARE SIBLINGS OF THE NAME BUTTON, never inside it. A
+  // button inside a button is not valid HTML and the browser's
+  // repair of it is not something to rely on.
+  function actions(a) {
+    return '<span class="asc-row__do" role="cell">' +
+      '<button type="button" class="asc-start" data-act="start"' +
+        ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '" data-shelf="' + esc(a.shelf) + '">' +
+        'Start session</button>' +
+      (a.url
+        ? '<a class="asc-linkout" href="' + esc(a.url) + '" target="_blank"' +
+          ' rel="noopener noreferrer" data-act="row-open"' +
+          ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '" data-shelf="' + esc(a.shelf) + '"' +
+          ' title="Open the link" aria-label="Open ' + esc(a.title) + ' in a new tab">↗</a>'
+        : '') +
+    '</span>';
   }
 
-  // The guide is DRAWN, not photographed. A tapping chart that is
-  // a stock image is a chart that disappears when the host does,
-  // and this one has to work on the day you cannot remember where
-  // the collarbone point is.
-  function pointFigure() {
-    var pts = [
-      { k: 'th', n: 8, x: 100, y: 16 },
-      { k: 'eb', n: 1, x: 79,  y: 44 },
-      { k: 'se', n: 2, x: 59,  y: 52 },
-      { k: 'ue', n: 3, x: 79,  y: 67 },
-      { k: 'un', n: 4, x: 100, y: 88 },
-      { k: 'ch', n: 5, x: 100, y: 107 },
-      { k: 'cb', n: 6, x: 77,  y: 150 },
-      { k: 'ua', n: 7, x: 45,  y: 192 }
-    ];
-    return '<svg class="asc-figure" viewBox="0 0 200 250" role="img" ' +
-      'aria-label="A figure showing the eight tapping points, from the top of the head down to under the arm.">' +
-      '<g fill="none" stroke="currentColor" stroke-width="1.1" opacity=".42">' +
-        '<ellipse cx="100" cy="64" rx="42" ry="50"/>' +
-        '<path d="M86 110v14M114 110v14"/>' +
-        '<path d="M38 178c0-36 26-52 48-54h28c22 2 48 18 48 54v66H38z"/>' +
-      '</g>' +
-      pts.map(function (p) {
-        return '<g class="asc-figure__pt"><circle cx="' + p.x + '" cy="' + p.y + '" r="9"/>' +
-          '<text x="' + p.x + '" y="' + (p.y + 3.6) + '" text-anchor="middle">' + p.n + '</text></g>';
-      }).join('') +
-      '</svg>';
-  }
-
-  // --- MEDITATION -------------------------------------------
-  function viewMeditation() {
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('Meditation & Hypnosis', '',
-        'Five shelves. Browsed by the state you are in, not by what the technique is called.') +
-      '</section>';
-    A.MEDIA_SHELVES.forEach(function (shelf) {
-      var items = A.Media[shelf].list();
-      out += '<section class="asc-section" data-tint="medit">' +
-        sectionHead(A.SHELF_LABELS[shelf], '') +
-        (items.length ? '<div class="asc-rows">' + items.map(function (m, n) {
-          return mediaRow(m, shelf, n);
-        }).join('') + '</div>' : empty('Nothing on this shelf yet.')) +
-        '</section>';
-    });
-    return out;
-  }
-  function mediaRow(m, shelf, n) {
-    return '<div class="asc-row asc-rvl"' + U.stagger(n, 40) + ' data-tint="medit">' +
-      '<div class="asc-row__body">' +
-        '<p class="asc-row__title">' + esc(m.title) + '</p>' +
-        '<p class="asc-row__meta">' +
-          (m.minutes ? '<span class="asc-chip asc-chip--quiet">' + esc(U.mins(m.minutes)) + '</span>' : '') +
-          (m.forWhen ? '<span class="asc-label">' + esc(m.forWhen) + '</span>' : '') +
-        '</p>' +
-        (m.description ? '<p class="asc-row__note">' + esc(m.description) + '</p>' : '') +
+  function row(a, i) {
+    var g = groupMeta(a.group);
+    var last = lastDoneWord(a.lastDoneISO);
+    // The name is a BUTTON, not a div with a click handler: it has
+    // to be reachable by keyboard and it has to announce itself.
+    return '<div class="asc-row ' + U.rvlClass() + '"' + U.rvlStyle(i) +
+      ' role="row" data-tint="' + esc(g.tint) + '">' +
+      '<button type="button" class="asc-row__name" role="cell" data-act="open"' +
+        ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '" data-shelf="' + esc(a.shelf) + '">' +
+        '<span class="asc-row__mark" aria-hidden="true">' + mark(g.tint === 'mine' ? 'mine' : a.group) + '</span>' +
+        '<span class="asc-row__text">' +
+          '<span class="asc-row__title">' + esc(a.title) + '</span>' +
+          // The description, clamped to two lines in CSS rather
+          // than truncated here: a string cut at n characters cuts
+          // at a different place in every font size, and this root
+          // size is fluid.
+          (a.summary ? '<span class="asc-row__desc">' + esc(a.summary) + '</span>' : '') +
+        '</span>' +
+      '</button>' +
+      '<div class="asc-row__meta">' +
+        '<span class="asc-cell" role="cell">' + esc(a.forWhen) + '</span>' +
+        '<span class="asc-cell asc-cell--num" role="cell">' + esc(lengthWord(a)) + '</span>' +
+        '<span class="asc-cell ' + (last ? 'asc-cell--quiet' : 'asc-cell--never') + '" role="cell">' +
+          esc(last) + '</span>' +
       '</div>' +
-      '<div class="asc-row__tail">' +
-        heart('meditation', m.id, m.favorite, shelf, esc(m.title)) +
-        linkFor(m, shelf, 'meditation', 'Play') +
-      '</div></div>';
+      actions(a) +
+      '<span class="asc-row__heart" role="cell">' +
+        heart(a.kind, a.id, a.favorite, a.shelf, a.title) + '</span>' +
+    '</div>';
   }
-  // Yoga and meditation records ship described but unlinked. That
-  // is a real state with its own control, not a gap: a seeded
-  // library of invented URLs breaks the first time you trust it.
-  function linkFor(rec, shelf, kind, verb) {
-    if (rec.url) {
-      return '<a class="asc-btn asc-btn--primary asc-btn--sm" href="' + esc(rec.url) +
-        '" target="_blank" rel="noopener noreferrer" data-act="opened" data-kind="' + esc(kind) +
-        '" data-id="' + esc(rec.id) + '" data-shelf="' + esc(shelf || '') + '">' + esc(verb) + '</a>';
+
+  function emptyTable() {
+    if (filterCount() || state.q) {
+      return '<div class="asc-empty"><strong>Nothing matches that.</strong>' +
+        'Widen the filter, or clear it and start from the whole list.' +
+        '<div class="asc-sheet__acts">' +
+          '<button type="button" class="asc-btn asc-btn--primary" data-act="f-clear">Clear the filter</button>' +
+        '</div></div>';
     }
-    return '<button type="button" class="asc-btn asc-btn--sm" data-act="set-link" data-kind="' + esc(kind) +
-      '" data-id="' + esc(rec.id) + '" data-shelf="' + esc(shelf || '') + '">Add link</button>';
-  }
-
-  // --- YOGA -------------------------------------------------
-  var feelFilter = '';
-  function viewYoga() {
-    var feelings = (window.AscSeed && window.AscSeed.feelings) || [];
-    var all = A.Yoga.list();
-    var out = '<section class="asc-section asc-section--first" data-tint="yoga">' +
-      sectionHead('I feel...', feelFilter ? '<button type="button" class="asc-btn asc-btn--sm" data-act="clear-feel">Show everything</button>' : '',
-        'The front door, because on the day you need this you know how you feel and not what a yin practice is.') +
-      '<div class="asc-feels">';
-    feelings.forEach(function (f, n) {
-      out += '<button type="button" class="asc-feel' + (feelFilter === f.key ? ' is-on' : '') +
-        ' asc-rvl"' + U.stagger(n, 50) + ' data-act="feel" data-key="' + esc(f.key) + '">' +
-        '<span class="asc-feel__label">' + esc(f.label) + '</span>' +
-        '<span class="asc-feel__to">' + esc(f.lead) + '</span></button>';
-    });
-    out += '</div></section>';
-
-    if (feelFilter) {
-      var picked = all.filter(function (y) { return y.feelings.indexOf(feelFilter) !== -1; });
-      var feel = feelings.filter(function (f) { return f.key === feelFilter; })[0];
-      out += '<section class="asc-section" data-tint="yoga">' +
-        sectionHead(feel ? feel.lead : 'Practices', '', 'For when you feel ' + esc((feel ? feel.label : '').toLowerCase()) + '.') +
-        // Inside the feel view the rows come from several
-        // categories, so each one says which it is.
-        (picked.length ? '<div class="asc-rows">' + picked.map(function (y, n) { return yogaRow(y, n, true); }).join('') + '</div>'
-                       : empty('Nothing tagged for this yet.')) +
-        '</section>';
-      return out;
-    }
-
-    A.YOGA_CATEGORIES.forEach(function (cat) {
-      var items = all.filter(function (y) { return y.category === cat; });
-      if (!items.length) return;
-      out += '<section class="asc-section" data-tint="yoga">' +
-        sectionHead(catLabel(cat), '') +
-        '<div class="asc-rows">' + items.map(function (y, n) { return yogaRow(y, n); }).join('') + '</div>' +
-        '</section>';
-    });
-    return out;
-  }
-  var CAT_LABELS = {
-    morning: 'Morning', evening: 'Evening', mobility: 'Mobility', stretching: 'Stretching',
-    yin: 'Yin', restorative: 'Restorative', somatic: 'Somatic movement'
-  };
-  function catLabel(c) { return CAT_LABELS[c] || c; }
-  // showCat is off inside a category section — repeating "MORNING"
-  // on every row of the Morning section is noise, and the label is
-  // only information where the rows are mixed.
-  function yogaRow(y, n, showCat) {
-    return '<div class="asc-row asc-rvl"' + U.stagger(n, 40) + ' data-tint="yoga">' +
-      '<div class="asc-row__body">' +
-        '<p class="asc-row__title">' + esc(y.title) + '</p>' +
-        '<p class="asc-row__meta">' +
-          (y.minutes ? '<span class="asc-chip asc-chip--quiet">' + esc(U.mins(y.minutes)) + '</span>' : '') +
-          (showCat ? '<span class="asc-label">' + esc(catLabel(y.category)) + '</span>' : '') +
-        '</p>' +
-        (y.description ? '<p class="asc-row__note">' + esc(y.description) + '</p>' : '') +
-      '</div>' +
-      '<div class="asc-row__tail">' +
-        heart('yoga', y.id, y.favorite, '', esc(y.title)) +
-        linkFor(y, '', 'yoga', 'Open') +
-      '</div></div>';
-  }
-
-  // --- ENERGY -----------------------------------------------
-  var GROUP_LABELS = {
-    grounding: 'Grounding', cleansing: 'Cleansing', protection: 'Protection',
-    energywork: 'Energy work', stateshift: 'State shifting'
-  };
-  function viewEnergy() {
-    var all = A.Energy.list();
-    var out = '<section class="asc-section asc-section--first" data-tint="energy">' +
-      sectionHead('Energy Practices', '',
-        'Every one has real steps. "Do a grounding visualisation" is the name of an instruction, not an instruction.') +
-      '</section>';
-    A.ENERGY_GROUPS.forEach(function (g) {
-      var items = all.filter(function (e) { return e.group === g; });
-      if (!items.length) return;
-      out += '<section class="asc-section" data-tint="energy">' +
-        sectionHead(GROUP_LABELS[g] || g, '') +
-        '<div class="asc-rows">' + items.map(function (e, n) {
-          return '<div class="asc-row asc-rvl"' + U.stagger(n, 40) + ' data-tint="energy">' +
-            '<div class="asc-row__body">' +
-              '<p class="asc-row__title">' + esc(e.title) + '</p>' +
-              '<p class="asc-row__meta">' +
-                (e.minutes ? '<span class="asc-chip asc-chip--quiet">' + esc(U.mins(e.minutes)) + '</span>' : '') +
-                '<span class="asc-label">' + U.plural(e.steps.length, 'step') + '</span>' +
-              '</p>' +
-              '<p class="asc-row__note">' + esc(e.summary) + '</p>' +
-            '</div>' +
-            '<div class="asc-row__tail">' +
-              heart('energy', e.id, e.favorite, '', esc(e.title)) +
-              '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="open-energy" data-id="' + esc(e.id) + '">Steps</button>' +
-            '</div></div>';
-        }).join('') + '</div></section>';
-    });
-    return out;
-  }
-
-  // --- AFFIRMATIONS -----------------------------------------
-  var openDeck = '';
-  function viewAffirmations() {
-    var decks = A.Decks.list();
-    var all = A.Affirmations.list();
-    var out = '';
-
-    var aff = A.todaysAffirmation();
-    out += '<section class="asc-section asc-section--first" data-tint="affirm">' +
-      sectionHead("Today's word", '<button type="button" class="asc-btn asc-btn--sm" data-act="new-affirmation">New word</button>');
-    if (aff) {
-      var d = A.Decks.get(aff.deckId);
-      out += '<div class="asc-word"><p class="asc-word__text">' + esc(aff.text) + '</p>' +
-        '<div class="asc-word__foot"><span class="asc-label asc-label--tint">' + esc(d ? d.name : '') + '</span>' +
-        heart('affirmation', aff.id, aff.favorite, '', 'this word') + '</div></div>';
-    } else { out += empty('No affirmations yet.'); }
-    out += '</section>';
-
-    if (openDeck) {
-      var deck = A.Decks.get(openDeck);
-      if (deck) {
-        var lines = all.filter(function (a) { return a.deckId === deck.id; });
-        out += '<section class="asc-section" data-tint="affirm">' +
-          sectionHead(deck.name, '<button type="button" class="asc-btn asc-btn--sm" data-act="close-deck">All decks</button>', deck.blurb) +
-          '<div class="asc-lines">' +
-            lines.map(function (a, n) {
-              return '<div class="asc-line asc-rvl"' + U.stagger(n, 30) + '>' +
-                '<p>' + esc(a.text) + '</p>' +
-                heart('affirmation', a.id, a.favorite, '', 'this line') + '</div>';
-            }).join('') +
-          '</div>' +
-          '<div class="asc-panel__foot" style="margin-top:var(--asc-4)">' +
-            '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="add-affirmation" data-id="' + esc(deck.id) + '">Write your own</button>' +
-          '</div>' +
-          '</section>';
-        return out;
-      }
-    }
-
-    out += '<section class="asc-section" data-tint="affirm">' +
-      sectionHead('Decks', '', 'Twelve lines about one thing beats two hundred about everything.') +
-      '<div class="asc-grid asc-grid--3">';
-    decks.forEach(function (d, n) {
-      var count = all.filter(function (a) { return a.deckId === d.id; }).length;
-      out += '<button type="button" class="asc-card asc-card--sm asc-rvl"' + U.stagger(n, 40) +
-        ' data-tint="affirm" data-act="open-deck" data-id="' + esc(d.id) + '">' +
-        '<h3 class="asc-card__title">' + esc(d.name) + '</h3>' +
-        '<p class="asc-card__note">' + esc(d.blurb) + '</p>' +
-        '<span class="asc-card__count">' + (count ? count + ' lines' : 'Empty') + '</span>' +
-        '</button>';
-    });
-    return out + '</div></section>';
-  }
-
-  // --- ROUTINES ---------------------------------------------
-  function viewRoutines() {
-    var list = A.Routines.list();
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('Routines', '', 'Named after states, not times of day. What you need to know is not what o’clock it is.') +
-      '<div class="asc-tiles asc-tiles--wide">';
-    list.forEach(function (r, n) {
-      out += '<div class="asc-rvl"' + U.stagger(n) + '>' + routineTile(r) + '</div>';
-    });
-    return out + '</div></section>';
-  }
-
-  // --- KEPT -------------------------------------------------
-  function viewKept() {
-    var favs = A.favourites();
-    var out = '<section class="asc-section asc-section--first">' +
-      sectionHead('Kept', '', 'Swept across every collection. Nothing is stored twice.');
-    if (!favs.length) return out + empty('Nothing kept yet. The heart on anything puts it here.') + '</section>';
-    out += '</section>';
-    var byLabel = {};
-    favs.forEach(function (f) { (byLabel[f.label] = byLabel[f.label] || []).push(f); });
-    Object.keys(byLabel).forEach(function (label) {
-      out += '<section class="asc-section">' + sectionHead(label, '') + keptList(byLabel[label]) + '</section>';
-    });
-    return out;
+    return '<div class="asc-empty"><strong>The library has not arrived yet.</strong>' +
+      'Give it a moment. If it stays empty, the cloud has not answered and this device has nothing stored.</div>';
   }
 
   // ==========================================================
   // RENDER
   //
-  // Three entry points, deliberately separate:
-  //   render()  build the DOM for the current route
-  //   refresh() THE READER acted — always render
-  //   repaint() SOMEONE ELSE acted (a cloud pull, another tab) —
-  //             render only if it will not steal their place
-  //
-  // A re-render must NEVER scroll. Scroll belongs to navigation
-  // and to nothing else.
+  // THE SCROLL POSITION IS NOT TOUCHED HERE. Scrolling to the top
+  // belongs to navigation, and this page has no navigation — every
+  // render is either a filter change or a cloud pull, and both of
+  // those happen while you are reading something further down.
   // ==========================================================
-  var shownRoute = null;
-
-  function render() {
-    var r = current();
-    var intro = U.introAttrs();
-    root.className = 'asc-shell' + intro.cls;
-    root.setAttribute('data-tint', r.tint);
-    var body;
-    switch (r.hash) {
-      case '/breath':       body = viewBreath(); break;
-      case '/journal':      body = viewJournal(); break;
-      case '/eft':          body = viewEft(); break;
-      case '/meditation':   body = viewMeditation(); break;
-      case '/yoga':         body = viewYoga(); break;
-      case '/energy':       body = viewEnergy(); break;
-      case '/affirmations': body = viewAffirmations(); break;
-      case '/routines':     body = viewRoutines(); break;
-      case '/kept':         body = viewKept(); break;
-      default:              body = viewHome();
+  //   render()          everything
+  //   render('table')   just the rows — what a keystroke costs
+  function render(what) {
+    if (!byId('ascTable')) root.innerHTML = shell();
+    if (what !== 'table') {
+      var rec = byId('ascRecall'), html = recallBand();
+      rec.innerHTML = html;
+      rec.hidden = !html;
+      byId('ascMenu').innerHTML = menuBand();
+      byId('ascBar').innerHTML = bar();
+      byId('ascPopHost').innerHTML = popPanel();
     }
-    // The intro style has to land on the host, not on each child,
-    // so every --d inside resolves against one shared clock.
-    root.innerHTML = body;
-    if (intro.style) root.setAttribute('style', intro.style.replace(/^ style="|"$/g, ''));
-    else root.removeAttribute('style');
-    renderRoutes(r);
-    renderHero(r);
+    byId('ascTable').innerHTML = table();
+    positionPop();
   }
 
-  function refresh() { render(); }
-
-  function repaint() {
-    if (!U.safeToRepaint()) return;
-    render();
+  // The drop panel is absolutely positioned in the page rather
+  // than inside the sticky bar: a sticky ancestor with a
+  // backdrop-filter creates a containing block, and a panel
+  // inside one gets clipped by the bar's own height.
+  function positionPop() {
+    var pop = byId('ascPop');
+    if (!pop) return;
+    var btn = root.querySelector('[data-act="pop"][data-pop="' + state.pop + '"]');
+    if (!btn) return;
+    var r = btn.getBoundingClientRect();
+    var rootR = root.getBoundingClientRect();
+    pop.style.top = (r.bottom - rootR.top + 6) + 'px';
+    pop.style.left = Math.max(0, Math.min(r.left - rootR.left, root.clientWidth - pop.offsetWidth)) + 'px';
   }
 
-  // The pill nav: routes either side of a wordmark, as the
-  // reference sets it. Rebuilt on every render, which is cheap —
-  // it is ten anchors — and means the current route can never
-  // drift out of step with what is on screen.
-  function renderRoutes(r) {
-    var nav = document.getElementById('ascRoutes');
-    if (!nav) return;
-    var half = Math.ceil(ROUTES.length / 2);
-    function link(x) {
-      return '<a class="asc-route' + (x.hash === r.hash ? ' is-on' : '') + '" href="#' + x.hash + '"' +
-        (x.hash === r.hash ? ' aria-current="page"' : '') + '>' + esc(x.label) + '</a>';
-    }
-    nav.innerHTML = '<div class="asc-nav__in">' +
-      ROUTES.slice(0, half).map(link).join('') +
-      '<a class="asc-nav__mark" href="#/">' + mark('breath') + 'Asclepion</a>' +
-      ROUTES.slice(half).map(link).join('') +
+  // ==========================================================
+  // THE SHEET — one practice, read before it is run.
+  // ==========================================================
+  var sheetOf = null;           // {kind, id, shelf} currently shown
+
+  function findRow(kind, id) {
+    var all = A.activities();
+    for (var i = 0; i < all.length; i++) if (all[i].kind === kind && all[i].id === id) return all[i];
+    return null;
+  }
+
+  function openDetail(kind, id, shelf) {
+    var a = findRow(kind, id);
+    if (!a) { U.toast('That is no longer here.'); render(); return; }
+    sheetOf = { kind: kind, id: id, shelf: shelf || '' };
+    var g = groupMeta(a.group);
+    var r = a.rec;
+    var out = '<div data-tint="' + esc(g.tint) + '">' +
+      '<div class="asc-sheet__top">' +
+        '<div>' +
+          '<p class="asc-label asc-label--tint">' + esc(g.label) + '</p>' +
+          '<h2 class="asc-plate asc-plate--lg">' + esc(a.title) + '</h2>' +
+        '</div>' +
+        heart(a.kind, a.id, a.favorite, a.shelf, a.title) +
       '</div>';
+
+    var chips = [];
+    if (a.forWhen) chips.push(a.forWhen);
+    if (lengthWord(a)) chips.push(lengthWord(a));
+    if (a.lastDoneISO) chips.push('Last done ' + lastDoneWord(a.lastDoneISO).toLowerCase());
+    if (a.timesDone > 1) chips.push(U.plural(a.timesDone, 'time'));
+    if (chips.length) {
+      out += '<div class="asc-chips">' + chips.map(function (c) {
+        return '<span class="asc-chip">' + esc(c) + '</span>';
+      }).join('') + '</div>';
+    }
+
+    if (kind === 'breath')      out += detailBreath(r);
+    else if (kind === 'eft')    out += detailEft(r);
+    else if (kind === 'energy') out += detailEnergy(r);
+    else if (kind === 'custom') out += detailCustom(r);
+    else                        out += detailMedia(r);
+
+    // THE ACTIONS ARE BUILT HERE, not inside the five detail
+    // functions, and that is the whole point: the primary button
+    // now reads "Start session" on every kind and goes through
+    // startActivity(), the same call the table rows make. Each
+    // detail function used to own its own ending — "Begin",
+    // "Start the session", "Mark it done", "Open it" — which is
+    // four names for one intention.
+    out += '<div class="asc-sheet__acts">' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-act="start"' +
+        ' data-kind="' + esc(a.kind) + '" data-id="' + esc(a.id) + '"' +
+        ' data-shelf="' + esc(a.shelf) + '">Start session</button>' +
+      (a.url
+        ? '<a class="asc-btn" href="' + esc(a.url) + '" target="_blank"' +
+          ' rel="noopener noreferrer" data-act="did-open">Open the link ↗</a>'
+        : '') +
+      // Still here, and still quiet. It is what you press for the
+      // practice you did away from the screen.
+      '<button type="button" class="asc-btn asc-btn--quiet" data-act="did">Mark it done</button>' +
+    '</div>';
+
+    if (kind === 'custom') {
+      out += '<div class="asc-sheet__acts asc-sheet__acts--minor">' +
+        '<button type="button" class="asc-btn asc-btn--sm" data-act="edit">Edit</button>' +
+        '<button type="button" class="asc-btn asc-btn--sm asc-btn--quiet" data-act="delete">Delete</button>' +
+      '</div>';
+    }
+
+    U.openSheet(out + '</div>');
+  }
+
+  function detailBreath(b) {
+    var out = '';
+    if (b.summary) out += '<p class="asc-lede asc-sheet__block">' + escLines(b.summary) + '</p>';
+    if (b.cues.length) {
+      out += '<div class="asc-sheet__block"><p class="asc-label">How it goes</p>' +
+        '<ul class="asc-cues">' + b.cues.map(function (c) {
+          return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></div>';
+    }
+    out += '<div class="asc-sheet__block"><p class="asc-label">The pattern</p><div class="asc-lines">' +
+      b.rounds.map(function (rd) {
+        return '<div class="asc-line">' +
+          '<span class="asc-label">' + esc(rd.label || (rd.cycles + '×')) + '</span>' +
+          '<p>' + esc(rd.phases.map(function (p) {
+            var w = { inhale: 'in', hold: 'hold', exhale: 'out', holdOut: 'hold' }[p.kind] || p.kind;
+            return w + ' ' + (p.seconds ? p.seconds + 's' : 'as long as you like');
+          }).join(' · ')) + (rd.cycles > 1 ? ' — ' + rd.cycles + ' times' : '') + '</p>' +
+        '</div>';
+      }).join('') + '</div></div>';
+    if (b.why) out += '<div class="asc-sheet__block"><p class="asc-label">Why it works</p>' +
+      '<p class="asc-body">' + escLines(b.why) + '</p></div>';
+    return out;
+  }
+
+  function detailEft(t) {
+    var out = '';
+    if (t.blurb) out += '<p class="asc-lede asc-sheet__block">' + escLines(t.blurb) + '</p>';
+    if (t.setup.length) {
+      out += '<div class="asc-sheet__block"><p class="asc-label">The setup, said out loud</p>' +
+        '<ul class="asc-cues">' + t.setup.map(function (s) {
+          return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>';
+    }
+    return out;
+  }
+
+  function detailEnergy(e) {
+    var out = '';
+    if (e.summary) out += '<p class="asc-lede asc-sheet__block">' + escLines(e.summary) + '</p>';
+    if (e.steps.length) {
+      out += '<div class="asc-sheet__block"><p class="asc-label">What to do</p>' +
+        '<ol class="asc-steps">' + e.steps.map(function (s) {
+          return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></div>';
+    }
+    return out;
+  }
+
+  function detailCustom(c) {
+    var out = '';
+    if (c.summary) out += '<p class="asc-lede asc-sheet__block">' + escLines(c.summary) + '</p>';
+    if (c.steps.length) {
+      out += '<div class="asc-sheet__block"><p class="asc-label">What to do</p>' +
+        '<ol class="asc-steps">' + c.steps.map(function (s) {
+          return '<li>' + esc(s) + '</li>'; }).join('') + '</ol></div>';
+    }
+    return out;
+  }
+
+  function detailMedia(m) {
+    var out = '';
+    if (m.description) out += '<p class="asc-lede asc-sheet__block">' + escLines(m.description) + '</p>';
+    if (m.teacher) out += '<div class="asc-chips"><span class="asc-chip">' + esc(m.teacher) + '</span></div>';
+    if (!m.url) {
+      // Seeded on purpose without a link. An invented URL is a
+      // dead link, and a dead link is worse than a described one.
+      out += '<p class="asc-small asc-sheet__block">Described, not linked — ' +
+        'find the one you like and paste it in.</p>';
+    }
+    return out;
   }
 
   // ==========================================================
-  // THE HERO
-  //
-  // setScene is guarded on `key` inside AscHero, so calling this
-  // on every render costs nothing and a cloud repaint cannot
-  // restart the entrance. Only the CARD is refreshed every time,
-  // because what it says changes with the data.
+  // ADDING AND EDITING — the Mine group
   // ==========================================================
-  var SCENES = {
-    '/':             { eyebrow: 'The Asclepion', lines: ['How are you,', 'actually?'],
-                       note: 'Seven ways in — *breath, journals, tapping, meditation, movement, energy, affirmations.* Nothing here needs you to be better than you are today.' },
-    '/breath':       { eyebrow: 'Breath & Regulation', lines: ['Five ways', 'to breathe'],
-                       note: 'The fastest thing in the building. *Two of these you already trust* — start at the top and stop when it works.' },
-    '/journal':      { eyebrow: 'Journals', lines: ['Five books,', 'five jobs'],
-                       note: 'Resistance, wonder, evidence, the shape of a day, and *the one that finally stops the procrastinating.*' },
-    '/eft':          { eyebrow: 'EFT Tapping', lines: ['Tap on', 'what is loudest'],
-                       note: 'Twelve full scripts. Every session *reads you before and after,* so you find out whether it actually moved.' },
-    '/meditation':   { eyebrow: 'Meditation & Hypnosis', lines: ['Five shelves,', 'one question'],
-                       note: 'Not what the technique is called — *what state you are in.* Browse by that and the choosing stops being work.' },
-    '/yoga':         { eyebrow: 'Yoga & Movement', lines: ['Start with', 'how you feel'],
-                       note: 'Stiff, anxious, tired, restless, wired, sore, disconnected. *You know which one you are* — the library can do the rest.' },
-    '/energy':       { eyebrow: 'Energy Practices', lines: ['Ground,', 'clear, shield'],
-                       note: 'Twenty-two practices, and every one has *real steps.* "Do a grounding visualisation" is the name of an instruction, not an instruction.' },
-    '/affirmations': { eyebrow: 'Affirmations', lines: ['Twelve lines', 'about one thing'],
-                       note: 'Decks, not a list of two hundred. *One deck is yours to write* — and anything you put in it turns up in Today\'s Word like the rest.' },
-    '/routines':     { eyebrow: 'Routines', lines: ['When you', 'cannot choose'],
-                       note: 'Four of them, named after states rather than times of day. *Start one and it keeps your place,* even across the journal.' },
-    '/kept':         { eyebrow: 'Kept', lines: ['The things', 'that worked'],
-                       note: 'Swept across every collection. *Over time this becomes more useful than the library* — it is the only shelf built out of evidence.' }
-  };
+  function openForm(rec) {
+    var c = rec || { id: '', title: '', summary: '', steps: [], forWhen: '', minutes: 0, url: '' };
+    U.openSheet('<div data-tint="mine">' +
+      '<div class="asc-sheet__top"><div>' +
+        '<p class="asc-label asc-label--tint">Mine</p>' +
+        '<h2 class="asc-plate asc-plate--lg">' + (c.id ? 'Edit' : 'A new activity') + '</h2>' +
+      '</div></div>' +
+      '<form id="ascForm" novalidate>' +
+        '<label class="asc-field"><span class="asc-label">Name</span>' +
+          '<input class="asc-input" name="title" required maxlength="160" data-autofocus' +
+            ' value="' + esc(c.title) + '" placeholder="Sit on the step outside"></label>' +
+        '<div class="asc-fields2">' +
+          '<label class="asc-field"><span class="asc-label">For when</span>' +
+            '<input class="asc-input" name="forWhen" maxlength="60"' +
+              ' value="' + esc(c.forWhen) + '" placeholder="Stuck" list="ascWhenList"></label>' +
+          '<label class="asc-field"><span class="asc-label">Minutes</span>' +
+            '<input class="asc-input" name="minutes" type="number" inputmode="numeric" min="0" max="240"' +
+              ' value="' + (c.minutes || '') + '" placeholder="5"></label>' +
+        '</div>' +
+        '<datalist id="ascWhenList">' + whenValues().map(function (v) {
+          return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>' +
+        '<label class="asc-field"><span class="asc-label">What it is</span>' +
+          '<textarea class="asc-textarea" name="summary" maxlength="600"' +
+            ' placeholder="One or two lines, for the version of you who has forgotten why this helps.">' +
+            esc(c.summary) + '</textarea></label>' +
+        '<label class="asc-field"><span class="asc-label">Steps, one per line</span>' +
+          '<textarea class="asc-textarea" name="steps" maxlength="4000"' +
+            ' placeholder="Optional.">' + esc(c.steps.join('\n')) + '</textarea></label>' +
+        '<label class="asc-field"><span class="asc-label">Link</span>' +
+          '<input class="asc-input" name="url" type="url" maxlength="900"' +
+            ' value="' + esc(c.url) + '" placeholder="Optional."></label>' +
+        '<div class="asc-sheet__acts">' +
+          '<button type="submit" class="asc-btn asc-btn--primary">' + (c.id ? 'Save' : 'Add it') + '</button>' +
+          '<button type="button" class="asc-btn asc-btn--quiet" data-act="sheet-close">Cancel</button>' +
+        '</div>' +
+      '</form></div>');
 
-  function renderHero(r) {
-    if (!window.AscHero) return;
-    var s = SCENES[r.hash] || SCENES['/'];
-    window.AscHero.setScene({ key: r.hash, eyebrow: s.eyebrow, lines: s.lines, note: s.note, tint: r.tint });
-    if (r.hash !== '/') return;
-    window.AscHero.setCard(heroCard());
-    // Guarded inside setChips, so this is free on every render but
-    // still catches the moment the routines finish seeding.
-    window.AscHero.setChips(A.Routines.list().slice(0, 4).map(function (rt) {
-      return { label: rt.name, onClick: function () {
-        A.startRoutine(rt.id);
-        U.go('asclepion-session.html#/routine');
-      } };
-    }));
-  }
-
-  // THE CARD'S JOB, in priority order:
-  //   1. a half-finished routine — the most useful thing on the
-  //      page, and the thing you are most likely to have lost
-  //   2. otherwise the one tap this whole page exists for
-  //
-  // The two-minute breath is the front door when nothing is
-  // running: it is the fastest thing here, and this page's job is
-  // to be faster than deciding.
-  function heroCard() {
-    var live = A.getLive();
-    if (live) {
-      var r = A.Routines.get(live.routineId);
-      if (r) {
-        return {
-          mark: mark('breath'),
-          eyebrow: 'Still running',
-          title: r.name,
-          note: 'Step ' + (live.stepIndex + 1) + ' of ' + r.steps.length,
-          action: 'Pick it up',
-          onClick: function () { U.go('asclepion-session.html#/routine'); }
-        };
+    var form = document.getElementById('ascForm');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var d = new FormData(form);
+      var title = String(d.get('title') || '').trim();
+      if (!title) {
+        U.toast('It needs a name.');
+        form.querySelector('[name="title"]').focus();
+        return;
       }
-    }
-    return {
-      mark: mark('breath'),
-      eyebrow: 'Right now',
-      title: 'Breathe for two minutes',
-      note: 'The physiological sigh. Two or three rounds and it is done.',
-      action: 'Begin',
-      onClick: quickBreathe
-    };
-  }
-
-  function quickBreathe() {
-    var b = A.Breath.list().filter(function (x) { return /physiological sigh/i.test(x.name); })[0]
-         || A.Breath.list()[0];
-    if (b) U.go('asclepion-session.html#/breath/' + b.id);
-  }
-
-  function navigate() {
-    var r = current();
-    if (r.hash !== shownRoute) {
-      U.introArrive();
-      shownRoute = r.hash;
-      // Reset the sub-state a route owns, so arriving at Movement
-      // never shows you yesterday's filter.
-      if (r.hash !== '/yoga') feelFilter = '';
-      if (r.hash !== '/affirmations') openDeck = '';
-    }
-    render();
-    if (window.AscHero) window.AscHero.measure();
-    // Scroll belongs HERE and nowhere else. And only if the reader
-    // is already past the hero — jumping someone back up to a hero
-    // they had scrolled away from is its own kind of rude.
-    var heroEl = window.AscHero && window.AscHero.el();
-    var top = heroEl ? heroEl.offsetHeight - 70 : 0;
-    if (r.hash !== '/' && window.scrollY < top) window.scrollTo({ top: top, behavior: U.reducedMotion() ? 'auto' : 'smooth' });
-  }
-
-  // ==========================================================
-  // ACTIONS — one delegated listener, dispatched through a map.
-  // ==========================================================
-  var ACTIONS = {
-    fav: function (el) {
-      A.toggleFavourite(el.getAttribute('data-fav-kind'), el.getAttribute('data-fav-id'), el.getAttribute('data-fav-shelf'));
-      refresh();
-    },
-    'new-affirmation': function () { A.newAffirmation(); refresh(); },
-    'open-deck': function (el) { openDeck = el.getAttribute('data-id'); U.introArrive(); refresh(); },
-    'close-deck': function () { openDeck = ''; U.introArrive(); refresh(); },
-    'add-affirmation': function (el) { promptAffirmation(el.getAttribute('data-id')); },
-    feel: function (el) {
-      var k = el.getAttribute('data-key');
-      feelFilter = (feelFilter === k) ? '' : k;
-      U.introArrive();
-      refresh();
-    },
-    'clear-feel': function () { feelFilter = ''; U.introArrive(); refresh(); },
-    'open-energy': function (el) { showEnergy(el.getAttribute('data-id')); },
-    'point-guide': function () { go('/eft'); },
-    'run-breath': function (el) { U.go('asclepion-session.html#/breath/' + el.getAttribute('data-id')); },
-    'run-eft': function (el) { U.go('asclepion-session.html#/eft/' + el.getAttribute('data-id')); },
-    'run-routine': function (el) {
-      A.startRoutine(el.getAttribute('data-id'));
-      U.go('asclepion-session.html#/routine');
-    },
-    resume: function () { U.go('asclepion-session.html#/routine'); },
-    // The hero card calls quickBreathe() directly; this stays for
-    // anything in the page body that wants the same front door.
-    'quick-breathe': quickBreathe,
-    'open-journal': function (el) {
-      var id = el.getAttribute('data-id');
-      U.go('asclepion-journal.html' + (id ? '#/j/' + id : ''));
-    },
-    'set-link': function (el) { promptLink(el); },
-    opened: function (el) {
-      // Follows the link AND records the open, so the shelf can
-      // eventually sort by what you actually return to.
-      var kind = el.getAttribute('data-kind'), id = el.getAttribute('data-id'), shelf = el.getAttribute('data-shelf');
-      var coll = kind === 'yoga' ? A.Yoga : A.Media[shelf];
-      if (coll) {
-        var rec = coll.get(id);
-        if (rec) coll.update(id, { openCount: (rec.openCount || 0) + 1, lastOpenedAt: Date.now() });
-      }
-      window.open(el.getAttribute('href'), '_blank', 'noopener');
-    },
-    'open-fav': function (el) {
-      var kind = el.getAttribute('data-kind');
-      var map = { breath: '/breath', eft: '/eft', journal: '/journal', yoga: '/yoga',
-                  energy: '/energy', affirmation: '/affirmations', routine: '/routines',
-                  meditation: '/meditation' };
-      go(map[kind] || '/');
-    },
-    'sheet-close': function () { U.closeSheet(); }
-  };
-
-  function showEnergy(id) {
-    var e = A.Energy.get(id);
-    if (!e) return;
-    U.openSheet(
-      '<div class="asc-sheet__head">' +
-        '<div><p class="asc-label asc-label--tint">' + esc(GROUP_LABELS[e.group] || e.group) + '</p>' +
-        '<h2 class="asc-plate asc-plate--sm">' + esc(e.title) + '</h2></div>' +
-        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" data-act="sheet-close" data-autofocus>Close</button>' +
-      '</div>' +
-      '<p class="asc-body">' + esc(e.summary) + '</p>' +
-      '<ol class="asc-steps">' + e.steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>' +
-      '<div class="asc-panel__foot">' +
-        '<span class="asc-label">' + esc(U.mins(e.minutes)) + '</span>' +
-        heart('energy', e.id, e.favorite, '', esc(e.title)) +
-      '</div>', { tint: 'energy' });
-  }
-
-  function promptLink(el) {
-    var kind = el.getAttribute('data-kind'), id = el.getAttribute('data-id'), shelf = el.getAttribute('data-shelf');
-    var coll = kind === 'yoga' ? A.Yoga : A.Media[shelf];
-    if (!coll) return;
-    var rec = coll.get(id);
-    if (!rec) return;
-    U.openSheet(
-      '<div class="asc-sheet__head">' +
-        '<h2 class="asc-plate asc-plate--sm">' + esc(rec.title) + '</h2>' +
-        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" data-act="sheet-close">Close</button>' +
-      '</div>' +
-      '<p class="asc-small">This practice ships without a link on purpose — an invented one would be a dead link on the day you needed it. Paste your own.</p>' +
-      '<label class="asc-field"><span class="asc-label">Link</span>' +
-      '<input type="url" class="asc-input" id="ascLinkInput" placeholder="https://..." value="' + esc(rec.url) + '" data-autofocus></label>' +
-      '<div class="asc-panel__foot"><button type="button" class="asc-btn asc-btn--primary" id="ascLinkSave">Save link</button></div>',
-      { tint: kind === 'yoga' ? 'yoga' : 'medit' });
-    var save = document.getElementById('ascLinkSave');
-    var input = document.getElementById('ascLinkInput');
-    function commit() {
-      coll.update(id, { url: input.value.trim() });
+      var fields = {
+        title: title,
+        forWhen: String(d.get('forWhen') || '').trim(),
+        minutes: Number(d.get('minutes')) || 0,
+        summary: String(d.get('summary') || '').trim(),
+        steps: String(d.get('steps') || '').split('\n')
+          .map(function (s) { return s.trim(); }).filter(Boolean),
+        url: String(d.get('url') || '').trim()
+      };
+      if (c.id) { A.Custom.update(c.id, fields); U.toast('Saved.'); }
+      else { A.Custom.add(fields); U.toast('Added to Mine.'); }
       U.closeSheet();
-      U.toast(input.value.trim() ? 'Link saved.' : 'Link cleared.');
-      refresh();
-    }
-    if (save) save.addEventListener('click', commit);
-    if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); });
-  }
-
-  function promptAffirmation(deckId) {
-    var deck = A.Decks.get(deckId);
-    if (!deck) return;
-    U.openSheet(
-      '<div class="asc-sheet__head">' +
-        '<h2 class="asc-plate asc-plate--sm">Write your own</h2>' +
-        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" data-act="sheet-close">Close</button>' +
-      '</div>' +
-      '<p class="asc-small">Into ' + esc(deck.name) + '. Present tense, and in words you would actually use.</p>' +
-      '<label class="asc-field"><span class="asc-label">The line</span>' +
-      '<textarea class="asc-textarea" id="ascAffInput" rows="3" data-autofocus></textarea></label>' +
-      '<div class="asc-panel__foot"><button type="button" class="asc-btn asc-btn--primary" id="ascAffSave">Add to deck</button></div>',
-      { tint: 'affirm' });
-    var save = document.getElementById('ascAffSave');
-    if (save) save.addEventListener('click', function () {
-      var v = (document.getElementById('ascAffInput').value || '').trim();
-      if (!v) { U.closeSheet(); return; }
-      A.Affirmations.add({ deckId: deck.id, text: v });
-      U.closeSheet();
-      U.toast('Added to ' + deck.name + '.');
-      refresh();
+      render();
     });
   }
 
   // ==========================================================
-  // BOOT
+  // §THE PACER
+  //
+  // Lifted from asclepion-session.html, which is gone. The
+  // instrument changed: a basin filling and draining became the
+  // RING, the same device the hero uses, so the page has one idea
+  // about what breathing looks like instead of two.
+  //
+  // TIMESTAMP-BASED, NOT A COUNTER. Elapsed time in a phase is
+  // always (now - phaseStart), never a number decremented by an
+  // interval: a backgrounded tab or a locked phone stops firing
+  // intervals, and a decrementing counter is then wrong by exactly
+  // however long the screen was off. You would come back to a
+  // pacer telling you to keep holding a breath you finished two
+  // minutes ago.
+  //
+  // The tick only PAINTS. Every question about where we are is
+  // answered by arithmetic on the clock.
   // ==========================================================
-  document.addEventListener('DOMContentLoaded', function () {
-    var ready = (window.LocalStoreIDB && window.LocalStoreIDB.ready)
-      ? window.LocalStoreIDB.ready()
-      : Promise.resolve();
+  var runEl = document.getElementById('ascRun');
+  var runBody = document.getElementById('ascRunBody');
+  var runWhere = document.getElementById('ascRunWhere');
+  var runOpen = false, runPushed = false;
 
-    ready.then(function () {
-      A = window.Asc;
-      if (!A) { bootError('The Asclepion', new Error('asclepion-data.js did not load')); return; }
-      // Snapshot BEFORE anything else this session does, and pinned: this is
-      // the copy that answers "what did this device hold when I opened it",
-      // which is the only question worth asking after a bad sync. boot() also
-      // installs the shrink watch, so a pull that deletes a collection leaves
-      // a pinned copy of the state as it was a moment earlier.
-      // Lives under the registry's prefix for 'asclepion', outside every synced
-      // prefix — see snapshots.js.
-      if (window.Snapshots) { try { window.Snapshots.forApp('asclepion').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
+  var pacer = null, pacerTimer = null;
 
-      U.bindSheet();
-      U.delegate(root, ACTIONS);
-      // The sheet is a sibling of #ascRoot, not a child of it, so
-      // it needs its own delegation or the heart inside an energy
-      // practice is inert.
-      U.delegate(document.getElementById('ascSheetBg'), ACTIONS);
+  var PHASE_WORD  = { inhale: 'In', hold: 'Hold', exhale: 'Out', holdOut: 'Hold' };
+  // Where the ring sits at the END of each phase. It opens on the
+  // way in and closes on the way out; a hold keeps whatever size
+  // it inherited, which is what makes a hold read as a hold rather
+  // than as a pause in an animation.
+  var PHASE_SCALE = { inhale: 1, exhale: .5, hold: null, holdOut: null };
 
-      // THE HERO MOUNTS ONCE, HERE, before the first render and
-      // outside the render host. See asclepion-hero.js's ONE
-      // INVARIANT — a hero built by the renderer would replay its
-      // whole entrance on every cloud pull.
-      //
-      // The chips are set by renderHero(), not here: on a fresh
-      // device the routines do not exist yet at mount.
-      if (window.AscHero) {
-        window.AscHero.mount({
-          before: root,
-          variant: 'full'
+  function flatten(b) {
+    // rounds -> cycles -> phases, expanded into one flat list, so
+    // the tick never has to reason about three nested counters.
+    // Vortex Breath is five rounds of one cycle; 4-7-8 is one round
+    // of four. Flattened, they are the same object.
+    var out = [];
+    b.rounds.forEach(function (rd, ri) {
+      for (var c = 0; c < rd.cycles; c++) {
+        rd.phases.forEach(function (p) {
+          out.push({
+            kind: p.kind, seconds: p.seconds, route: p.route, note: p.note,
+            roundLabel: rd.label, cycle: c + 1, cycles: rd.cycles
+          });
         });
       }
+    });
+    return out;
+  }
 
-      U.introArrive();
-      shownRoute = current().hash;
-      render();
+  function startPacer(b) {
+    pacer = {
+      breath: b, steps: flatten(b), i: -1,
+      startedAt: Date.now(), phaseStart: 0,
+      state: 'ready', logged: false
+    };
+    openRun(b.name, 'breath');
+    paintPacer();
+  }
 
-      window.addEventListener('hashchange', navigate);
+  function paintPacer() {
+    var b = pacer.breath;
+    if (pacer.state === 'done') {
+      runBody.innerHTML =
+        '<p class="asc-label asc-label--tint">Done</p>' +
+        '<h2 class="asc-plate asc-plate--lg">' + esc(b.name) + '</h2>' +
+        '<p class="asc-run__note">' + esc(b.cues[b.cues.length - 1] || '') + '</p>' +
+        '<div class="asc-run__acts">' +
+          '<button type="button" class="asc-btn asc-btn--primary" data-act="pacer-again">Again</button>' +
+          '<button type="button" class="asc-btn" data-act="run-close">Done</button>' +
+        '</div>';
+      return;
+    }
+    runBody.innerHTML =
+      '<div class="asc-pace">' +
+        '<span class="asc-pace__ring" id="ascRing" style="--s:.5;--o:.6;--ms:600ms"></span>' +
+        '<span class="asc-pace__in">' +
+          '<span class="asc-pace__kind" id="ascPhase">' + (pacer.state === 'ready' ? 'Ready' : '') + '</span>' +
+          '<span class="asc-clock" id="ascCount">' + (pacer.state === 'ready' ? '·' : '') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<p class="asc-run__note" id="ascPhaseNote">' + esc(pacer.state === 'ready' ? b.summary : '') + '</p>' +
+      '<p class="asc-label" id="ascPacerMeta">' + esc(U.clock(A.breathSeconds(b))) + '</p>' +
+      '<div class="asc-run__acts">' +
+        // Primary while it is waiting for you, quiet once it is
+        // running. The one button says Skip mid-technique, and Skip
+        // should never be the brightest thing on a screen you are
+        // trying to breathe with.
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="pacer-go" id="ascGoBtn">' +
+          (pacer.state === 'ready' ? 'Begin' : 'Next') + '</button>' +
+      '</div>';
+    // The whole ring is a tap target, not just the button — you
+    // should not have to aim at anything with your eyes shut.
+    var pace = runBody.querySelector('.asc-pace');
+    if (pace) pace.addEventListener('click', function () {
+      if (pacer && pacer.state === 'waiting') pacerAdvance();
+    });
+    if (pacer.state !== 'ready') paintPhase();
+  }
 
-      // Another tab, or this one coming back from the background.
-      A.onChange(function () { repaint(); });
+  // One verb for the one button, whatever state it is in: begin,
+  // advance a self-paced phase, skip a timed one, or start over.
+  function pacerGo() {
+    if (!pacer) return;
+    if (pacer.state === 'done') { startPacer(pacer.breath); }
+    pacerAdvance();
+  }
 
-      // ---- sync -------------------------------------------
-      // Both rows, always. asclepion-sync.js owns which prefixes
-      // belong to which and sets handoff:true on both — read its
-      // header before changing anything here.
-      if (window.AscSync) {
-        var state = window.AscSync.mountAndSeed({
-          onApplied: function () {
-            // A repaint at a moment nobody chose. It must not
-            // scroll and it must not interrupt typing.
-            repaint();
-          }
-        });
-        // Seeding waits for BOTH rows to have spoken. A seeder that
-        // runs first concludes the device is empty and writes the
-        // defaults over real data still on its way in.
-        A.seedAfterSyncAttempt(state.ref, function (seeded) { if (seeded) refresh(); });
-      } else {
-        A.seedAfterSyncAttempt(null, function (seeded) { if (seeded) refresh(); });
+  function pacerAdvance() {
+    pacer.i += 1;
+    if (pacer.i >= pacer.steps.length) { pacerFinish(); return; }
+    var step = pacer.steps[pacer.i];
+    pacer.phaseStart = Date.now();
+    // seconds === 0 means SELF-PACED. The pacer holds here until
+    // you tap, which is how "fill your lungs" is run without
+    // inventing a duration for it.
+    pacer.state = step.seconds > 0 ? 'running' : 'waiting';
+    paintPhase();
+    startTick();
+  }
+
+  function pacerFinish() {
+    pacer.state = 'done';
+    stopTick();
+    if (!pacer.logged) {
+      pacer.logged = true;
+      A.logSession({
+        kind: 'breath', refId: pacer.breath.id, title: pacer.breath.name,
+        startedAt: pacer.startedAt, endedAt: Date.now()
+      });
+    }
+    paintPacer();
+  }
+
+  function startTick() {
+    stopTick();
+    if (pacer.state !== 'running') return;
+    pacerTimer = setInterval(tick, 100);
+    tick();
+  }
+  function stopTick() { clearInterval(pacerTimer); pacerTimer = null; }
+
+  function tick() {
+    if (!pacer || pacer.state !== 'running') { stopTick(); return; }
+    var step = pacer.steps[pacer.i];
+    var elapsed = (Date.now() - pacer.phaseStart) / 1000;
+    var left = Math.max(0, Math.ceil(step.seconds - elapsed));
+    var el = document.getElementById('ascCount');
+    if (el) el.textContent = left;
+    if (elapsed >= step.seconds) pacerAdvance();
+  }
+
+  function paintPhase() {
+    var step = pacer.steps[pacer.i];
+    var word = document.getElementById('ascPhase');
+    if (!word) return;
+    var count = document.getElementById('ascCount');
+    var note = document.getElementById('ascPhaseNote');
+    var meta = document.getElementById('ascPacerMeta');
+    var ring = document.getElementById('ascRing');
+
+    word.textContent = PHASE_WORD[step.kind] || step.kind;
+    count.textContent = step.seconds > 0 ? step.seconds : '·';
+    var routeWord = step.route === 'nose' ? 'through the nose'
+                  : step.route === 'mouth' ? 'through the mouth' : '';
+    note.textContent = step.note || routeWord;
+    meta.textContent = [step.roundLabel || '',
+      step.cycles > 1 ? 'Round ' + step.cycle + ' of ' + step.cycles : ''].filter(Boolean).join(' · ');
+
+    if (ring) {
+      var s = PHASE_SCALE[step.kind];
+      if (s !== null && s !== undefined) {
+        // The transition duration IS the phase duration, so the
+        // ring arrives exactly as the count reaches zero. That is
+        // the whole instrument: you can breathe to the ring and
+        // never look at the number.
+        ring.style.setProperty('--ms', (step.seconds > 0 ? step.seconds : 3) + 's');
+        ring.style.setProperty('--s', s);
+        ring.style.setProperty('--o', s === 1 ? '.95' : '.5');
       }
-    }).catch(function (err) { bootError('The Asclepion', err); });
+    }
+    syncGoLabel();
+  }
+
+  // Only the button label changes between running and waiting, so
+  // it is set directly rather than by repainting — a repaint
+  // mid-phase would restart the ring's transition.
+  function syncGoLabel() {
+    var btn = byId('ascGoBtn');
+    if (!btn || !pacer) return;
+    var running = pacer.state === 'running';
+    btn.textContent = pacer.state === 'waiting' ? 'Next'
+      : (pacer.state === 'ready' ? 'Begin' : 'Skip');
+    btn.classList.toggle('asc-btn--primary', !running);
+    btn.classList.toggle('asc-btn--quiet', running);
+  }
+
+  // ==========================================================
+  // §THE TAPPING SESSION — six steps.
+  //
+  // before · setup · round 1 · round 2 · reframe · after
+  //
+  // Round 1 is deliberately unflattering. Tapping while telling
+  // yourself something you do not believe is the most common way
+  // people get nothing out of this — the round has to start where
+  // you actually are or there is nothing to move.
+  // ==========================================================
+  var EFT_STEPS = ['before', 'setup', 'round1', 'round2', 'reframe', 'after'];
+  var EFT_TITLES = {
+    before: 'Before', setup: 'Setup', round1: 'Round one',
+    round2: 'Round two', reframe: 'The reframe', after: 'After'
+  };
+  var eft = null;
+
+  function startEft(t) {
+    eft = { topic: t, step: 0, before: null, after: null, startedAt: Date.now(), saved: false };
+    openRun(t.name, 'eft');
+    paintEft();
+  }
+
+  function pointByKey(k) {
+    var all = A.EftPoints.list();
+    for (var i = 0; i < all.length; i++) if (all[i].key === k) return all[i];
+    return null;
+  }
+
+  function paintEft() {
+    var t = eft.topic, key = EFT_STEPS[eft.step];
+    var out = '<p class="asc-label asc-label--tint">' +
+      esc(EFT_TITLES[key]) + ' · ' + (eft.step + 1) + ' of ' + EFT_STEPS.length + '</p>';
+
+    if (key === 'before' || key === 'after') {
+      var val = key === 'before' ? eft.before : eft.after;
+      out += '<h2 class="asc-plate asc-plate--lg">How strong is it?</h2>' +
+        '<p class="asc-run__note">' + (key === 'before'
+          ? 'Zero is nothing at all. Ten is the worst it gets. Guess — the number only has to be honest, not right.'
+          : 'Same scale. Be honest if it barely moved; a second pass on a truthful six does more than a first pass on a pretend three.') +
+        '</p>' +
+        '<div class="asc-scale">' + [0,1,2,3,4,5,6,7,8,9,10].map(function (n) {
+          return '<button type="button" class="' + (val === n ? 'is-on' : '') + '"' +
+            ' data-act="eft-score" data-n="' + n + '" aria-pressed="' + (val === n ? 'true' : 'false') + '">' +
+            n + '</button>';
+        }).join('') + '</div>';
+      if (key === 'after' && eft.before != null && eft.after != null) {
+        var d = eft.before - eft.after;
+        out += '<p class="asc-run__note">' + esc(
+          d > 0 ? 'Down ' + d + ' from ' + eft.before + '.'
+          : d === 0 ? 'No change yet. That is information, not failure.'
+          : 'Up ' + Math.abs(d) + '. Sometimes a round surfaces what was underneath — that counts as it working.'
+        ) + '</p>';
+      }
+    } else if (key === 'setup') {
+      out += '<h2 class="asc-plate asc-plate--lg">Setup</h2>' +
+        '<p class="asc-run__note">Tap the side of your hand — the fleshy edge below the little finger — and say each of these out loud. All three.</p>' +
+        '<div class="asc-run__note">' + t.setup.map(function (s) {
+          return '<p class="asc-tapline">' + esc(s) + '</p>'; }).join('') + '</div>';
+    } else {
+      var lines = t[key] || [];
+      out += '<p class="asc-run__note">' + esc(key === 'round1'
+        ? 'Say each line out loud as you tap that point. This one is meant to be unflattering.'
+        : key === 'round2'
+        ? 'Same points, same order. This is the first move away from it.'
+        : 'Last round. Say these even if you do not believe them yet.') + '</p>' +
+        '<div class="asc-dots" aria-hidden="true">' + lines.map(function (l, i) {
+          return '<i class="' + (i === (eft.line || 0) ? 'is-on' : '') + '"></i>';
+        }).join('') + '</div>';
+      var cur = lines[eft.line || 0];
+      if (cur) {
+        var p = pointByKey(cur.point);
+        out += '<p class="asc-tappoint">' + esc(p ? p.name : cur.point) + '</p>' +
+          '<p class="asc-tapline">' + esc(cur.phrase) + '</p>' +
+          (p && p.where ? '<p class="asc-small">' + esc(p.where) + '</p>' : '');
+      }
+    }
+
+    out += '<div class="asc-run__acts">' +
+      '<button type="button" class="asc-btn asc-btn--primary" data-act="eft-next">' +
+        (key === 'after' ? 'Save and finish' : 'Next') + '</button>' +
+      (eft.step > 0 || eft.line ? '<button type="button" class="asc-btn" data-act="eft-back">Back</button>' : '') +
+      '</div>';
+    runBody.innerHTML = out;
+  }
+
+  function eftNext() {
+    var key = EFT_STEPS[eft.step];
+    var lines = eft.topic[key];
+    // The three tapping rounds are walked ONE LINE AT A TIME. The
+    // old runner showed all eight at once, which meant reading a
+    // list while tapping instead of saying one thing.
+    if (Array.isArray(lines) && lines.length && (eft.line || 0) < lines.length - 1) {
+      eft.line = (eft.line || 0) + 1;
+      paintEft();
+      return;
+    }
+    if (eft.step < EFT_STEPS.length - 1) {
+      eft.step += 1;
+      eft.line = 0;
+      paintEft();
+      return;
+    }
+    saveEft();
+  }
+  function eftBack() {
+    if (eft.line) { eft.line -= 1; paintEft(); return; }
+    if (eft.step > 0) {
+      eft.step -= 1;
+      var k = EFT_STEPS[eft.step], l = eft.topic[k];
+      eft.line = Array.isArray(l) && l.length ? l.length - 1 : 0;
+      paintEft();
+    }
+  }
+  function saveEft() {
+    if (!eft.saved) {
+      eft.saved = true;
+      A.logSession({
+        kind: 'eft', refId: eft.topic.id, title: eft.topic.name,
+        before: eft.before, after: eft.after,
+        startedAt: eft.startedAt, endedAt: Date.now()
+      });
+    }
+    runBody.innerHTML =
+      '<p class="asc-label asc-label--tint">Saved</p>' +
+      '<h2 class="asc-plate asc-plate--lg">' + esc(eft.topic.name) + '</h2>' +
+      '<p class="asc-run__note">' + escLines(eft.topic.closing) + '</p>' +
+      '<div class="asc-run__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="eft-again">Another round</button>' +
+        '<button type="button" class="asc-btn" data-act="run-close">Done</button>' +
+      '</div>';
+  }
+
+  // ==========================================================
+  // §THE GUIDED VIEW
+  //
+  // The third mode of the same overlay, and the reason "Start
+  // session" can sit on every row in the table meaning one thing.
+  //
+  // Breath has the pacer and tapping has its six steps; meditation,
+  // movement, energy and Mine had nothing — the sheet offered them
+  // "Mark it done", which is a receipt, not a practice. This is
+  // what they get instead: the description, the steps walked one
+  // at a time where the record has them, the link where it has
+  // one, and a finish that logs the session through the same
+  // logSession() the other two runners end with.
+  //
+  // It holds no timer and no state worth recovering, so unlike the
+  // pacer it can be rebuilt from scratch on every paint.
+  // ==========================================================
+  var guide = null;
+
+  function startGuided(a) {
+    guide = {
+      a: a,
+      steps: arrOf(a.rec && a.rec.steps),
+      i: -1,                       // -1 is the opening card
+      startedAt: Date.now(),
+      done: false, logged: false
+    };
+    openRun(a.title, groupMeta(a.group).tint);
+    paintGuided();
+  }
+
+  function arrOf(v) { return Object.prototype.toString.call(v) === '[object Array]' ? v : []; }
+
+  function paintGuided() {
+    var a = guide.a, g = groupMeta(a.group);
+    var total = guide.steps.length;
+    var out = '';
+
+    if (guide.done) {
+      out = '<p class="asc-label asc-label--tint">Done</p>' +
+        '<h2 class="asc-plate asc-plate--lg">' + esc(a.title) + '</h2>' +
+        '<p class="asc-run__note">Logged. It will show as done in the table.</p>' +
+        '<div class="asc-run__acts">' +
+          '<button type="button" class="asc-btn asc-btn--primary" data-act="guide-again">Again</button>' +
+          '<button type="button" class="asc-btn" data-act="run-close">Close</button>' +
+        '</div>';
+      runBody.innerHTML = out;
+      return;
+    }
+
+    if (guide.i < 0) {
+      // The opening card. Everything known about the practice,
+      // then the one action that starts it.
+      out += '<p class="asc-label asc-label--tint">' + esc(g.label) +
+        (a.forWhen ? ' · ' + esc(a.forWhen) : '') +
+        (lengthWord(a) ? ' · ' + esc(lengthWord(a)) : '') + '</p>' +
+        '<h2 class="asc-plate asc-plate--lg">' + esc(a.title) + '</h2>';
+      if (a.summary) out += '<p class="asc-run__note">' + escLines(a.summary) + '</p>';
+      if (total) {
+        out += '<p class="asc-small asc-guide__count">' +
+          U.plural(total, 'step') + ', one at a time.</p>';
+      }
+      out += '<div class="asc-run__acts">';
+      if (a.url) {
+        // The link opens in a new tab and the overlay STAYS UP:
+        // the practice is the video, and coming back to a closed
+        // overlay to log it is the friction this whole change is
+        // about removing.
+        out += '<a class="asc-btn asc-btn--primary" href="' + esc(a.url) + '" target="_blank"' +
+          ' rel="noopener noreferrer">' + (a.kind === 'meditation' ? 'Open it' : 'Open the video') + ' ↗</a>';
+      }
+      if (total) {
+        out += '<button type="button" class="asc-btn' + (a.url ? '' : ' asc-btn--primary') +
+          '" data-act="guide-next">Begin</button>';
+      }
+      out += '<button type="button" class="asc-btn' + (a.url || total ? ' asc-btn--quiet' : ' asc-btn--primary') +
+        '" data-act="guide-done">I did this</button>' +
+      '</div>';
+      runBody.innerHTML = out;
+      return;
+    }
+
+    // One step. Numbered against the total, because "how much of
+    // this is left" is the question a numbered list answers and a
+    // wall of steps does not.
+    var last = guide.i >= total - 1;
+    // Just the count. The practice's name is already in the bar at
+    // the top of the overlay, and repeating it over every step made
+    // the one line that changes look like the one that does not.
+    out += '<p class="asc-label asc-label--tint">Step ' +
+      (guide.i + 1) + ' of ' + total + '</p>' +
+      '<p class="asc-guide__step">' + esc(guide.steps[guide.i]) + '</p>' +
+      '<div class="asc-run__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-act="' +
+          (last ? 'guide-done">Finish' : 'guide-next">Next') + '</button>' +
+        '<button type="button" class="asc-btn" data-act="guide-back">Back</button>' +
+      '</div>';
+    runBody.innerHTML = out;
+  }
+
+  function guideNext() { guide.i += 1; paintGuided(); }
+  function guideBack() { guide.i -= 1; paintGuided(); }
+
+  function guideDone() {
+    // Guarded, not because the button can be double-tapped — it is
+    // replaced by the done card — but because "Again" reuses the
+    // same state object and a second finish must log a second
+    // session, not overwrite the first.
+    if (!guide.logged) {
+      guide.logged = true;
+      A.logSession({
+        kind: guide.a.kind, refId: guide.a.id, title: guide.a.title,
+        startedAt: guide.startedAt, endedAt: Date.now()
+      });
+    }
+    guide.done = true;
+    paintGuided();
+  }
+
+  // ==========================================================
+  // THE OVERLAY, AND THE BACK BUTTON
+  //
+  // Opening a practice pushes a history entry, so Back closes the
+  // overlay instead of leaving the studio. Closing by the button
+  // goes back, which lands in the same popstate handler — one
+  // close path, not two that can disagree.
+  // ==========================================================
+  function openRun(where, tint) {
+    runWhere.textContent = where || '';
+    runEl.setAttribute('data-tint', tint || 'breath');
+    runEl.classList.add('is-on');
+    document.documentElement.classList.add('asc-locked');
+    runOpen = true;
+    if (!runPushed) { try { history.pushState({ asc: 'run' }, '', '#practice'); runPushed = true; } catch (e) {} }
+  }
+
+  function closeRun(fromPop) {
+    if (!runOpen) return;
+    stopTick();
+    pacer = null;
+    eft = null;
+    guide = null;
+    runOpen = false;
+    runEl.classList.remove('is-on');
+    runBody.innerHTML = '';
+    document.documentElement.classList.remove('asc-locked');
+    if (runPushed && !fromPop) { runPushed = false; try { history.back(); } catch (e) {} }
+    else { runPushed = false; }
+    // The log changed while the overlay was up: Last done is stale.
+    render();
+  }
+
+  window.addEventListener('popstate', function () {
+    if (runOpen) closeRun(true);
+    else if (U.sheetOpen()) U.closeSheet();
   });
 
-  // A silent top-level throw would otherwise leave this page as
-  // static chrome with no interactivity and no visible clue why.
-  function bootError(what, err) {
-    try {
-      var bar = document.createElement('div');
-      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:3200;background:#2A1114;color:#F3D9D9;' +
-        'padding:14px 16px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;';
-      bar.textContent = what + ' failed to load: ' + (err && err.message ? err.message : err);
-      document.body.appendChild(bar);
-    } catch (e) {}
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (runOpen) { e.preventDefault(); closeRun(false); }
+  });
+
+  // ==========================================================
+  // ACTIONS
+  // ==========================================================
+  var ACTIONS = {
+    open: function (el) {
+      openDetail(el.getAttribute('data-kind'), el.getAttribute('data-id'), el.getAttribute('data-shelf'));
+    },
+    fav: function (el) {
+      A.toggleFavourite(el.getAttribute('data-fav-kind'), el.getAttribute('data-fav-id'),
+        el.getAttribute('data-fav-shelf'));
+      if (U.sheetOpen() && sheetOf) openDetail(sheetOf.kind, sheetOf.id, sheetOf.shelf);
+      render();
+    },
+    reroll: function () { A.menu(3, true); render(); },
+    add: function () { openForm(null); },
+    edit: function () {
+      if (sheetOf) openForm(A.Custom.get(sheetOf.id));
+    },
+    'delete': function () {
+      if (!sheetOf) return;
+      var c = A.Custom.get(sheetOf.id);
+      if (!c) return;
+      if (!window.confirm('Delete "' + c.title + '"? This cannot be undone from here.')) return;
+      A.Custom.remove(c.id);
+      U.closeSheet();
+      U.toast('Deleted.');
+      render();
+    },
+    'sheet-close': function () { U.closeSheet(); },
+    did: function () { logDone(); },
+    'did-open': function () { logDone(); },     // the link opens on its own
+    fold: function (el) {
+      var k = state.groupBy + ':' + el.getAttribute('data-key');
+      toggleIn(state.shut, k);
+      saveState();
+      render();
+    },
+    pop: function (el) {
+      var which = el.getAttribute('data-pop');
+      state.pop = state.pop === which ? '' : which;
+      render();
+    },
+    'set-group': function (el) {
+      state.groupBy = el.getAttribute('data-group');
+      state.pop = '';
+      saveState();
+      render();
+    },
+    'f-group': function (el) { toggleIn(state.fGroups, el.getAttribute('data-group')); saveState(); render(); },
+    'f-when':  function (el) { toggleIn(state.fWhen, el.getAttribute('data-when').toLowerCase()); saveState(); render(); },
+    'f-max':   function (el) {
+      var v = Number(el.getAttribute('data-max'));
+      state.fMax = state.fMax === v ? 0 : v;
+      saveState(); render();
+    },
+    'f-fav':   function () { state.fFav = !state.fFav; saveState(); render(); },
+    recall: function () {
+      var ok = window.AscRetire && AscRetire.restore(snapStore);
+      U.toast(ok
+        ? 'The records are back in storage. Export them from Recovery — they have no page here any more.'
+        : 'That copy is no longer available.');
+      render();
+    },
+    'recall-no': function () { if (window.AscRetire) AscRetire.dismiss(); render(); },
+    'f-clear': function () {
+      state.fGroups = []; state.fWhen = []; state.fMax = 0; state.fFav = false; state.q = '';
+      saveState(); render();
+    },
+    // ONE start path, reached from a table row, from a menu pick
+    // and from the sheet. Every one of them carries the practice
+    // in its own data attributes rather than reading sheetOf,
+    // which only exists while the sheet is open.
+    start: function (el) {
+      startActivity(el.getAttribute('data-kind'), el.getAttribute('data-id'),
+        el.getAttribute('data-shelf'));
+    },
+    // A link in a table row: the browser opens it, we only log it.
+    'row-open': function (el) {
+      var a = findRow(el.getAttribute('data-kind'), el.getAttribute('data-id'));
+      if (a) A.logSession({ kind: a.kind, refId: a.id, title: a.title });
+      render();
+    },
+    'guide-next': function () { guideNext(); },
+    'guide-back': function () { guideBack(); },
+    'guide-done': function () { guideDone(); },
+    'guide-again': function () { startGuided(guide.a); },
+    'run-close': function () { closeRun(false); },
+    'pacer-go': function () { pacerGo(); },
+    'pacer-again': function () { startPacer(pacer.breath); },
+    'eft-next': function () { eftNext(); },
+    'eft-back': function () { eftBack(); },
+    'eft-again': function () { startEft(eft.topic); },
+    'eft-score': function (el) {
+      var n = Number(el.getAttribute('data-n'));
+      if (EFT_STEPS[eft.step] === 'before') eft.before = n; else eft.after = n;
+      paintEft();
+    }
+  };
+
+  // Which practice a kind IS. Breath and tapping have instruments
+  // of their own; the other four share the guided view.
+  function startActivity(kind, id, shelf) {
+    var a = findRow(kind, id);
+    if (!a) { U.toast('That is no longer here.'); render(); return; }
+    if (U.sheetOpen()) U.closeSheet();
+    if (kind === 'breath') {
+      var b = A.Breath.get(id);
+      if (b) startPacer(b);
+      return;
+    }
+    if (kind === 'eft') {
+      var t = A.Eft.get(id);
+      if (t) startEft(t);
+      return;
+    }
+    startGuided(a);
   }
+
+  function logDone() {
+    if (!sheetOf) return;
+    var a = findRow(sheetOf.kind, sheetOf.id);
+    if (!a) return;
+    A.logSession({ kind: a.kind, refId: a.id, title: a.title });
+    U.toast('Logged.');
+    openDetail(sheetOf.kind, sheetOf.id, sheetOf.shelf);
+    render();
+  }
+
+  // One delegated listener per host. The sheet and the overlay are
+  // outside #ascRoot, so they each need their own.
+  U.delegate(root, ACTIONS);
+  U.delegate(document.getElementById('ascSheetBg'), ACTIONS);
+  U.delegate(runEl, ACTIONS);
+
+  // The search box survives its own keystrokes: only the table is
+  // rebuilt, so the input element — and the caret in it — is never
+  // touched. The first attempt re-rendered the whole page and lost
+  // focus on every letter; only the first one ever landed.
+  root.addEventListener('input', function (e) {
+    if (!e.target || e.target.id !== 'ascQ') return;
+    state.q = e.target.value;
+    render('table');
+  });
+
+  // A click anywhere else shuts the drop panel. Capture, so it
+  // fires before the delegated handler re-opens it.
+  document.addEventListener('click', function (e) {
+    if (!state.pop) return;
+    if (e.target.closest && (e.target.closest('.asc-pop') || e.target.closest('[data-act="pop"]'))) return;
+    state.pop = '';
+    render();
+  });
+  window.addEventListener('resize', positionPop);
+
+  // ==========================================================
+  // BOOT
+  //
+  // Order is load-bearing:
+  //   1. the IDB shim resolves            — before it does, EVERY
+  //      read comes back empty and a seeder would conclude the
+  //      device is blank and write defaults over real data.
+  //   2. sync mounts and the cloud answers
+  //   3. the retirement runs, from onPulled
+  //   4. the seeder runs, from the same gate
+  // ==========================================================
+  var snapStore = null;
+
+  function boot() {
+    A = window.Asc;
+    if (!A) { root.innerHTML = '<div class="asc-empty"><strong>The studio did not load.</strong>' +
+      'asclepion-data.js is missing or threw.</div>'; return; }
+
+    loadState();
+    U.bindSheet();
+    U.introArrive();
+    render();
+
+    // Snapshot BEFORE anything else this session does, and pinned:
+    // this is the copy that answers "what did this device hold when
+    // I opened it", which is the only question worth asking after a
+    // bad sync. boot() also installs the shrink watch, so a pull
+    // that empties a collection leaves a pinned copy of the state
+    // as it was a moment earlier. Under `bak:asc:`, outside every
+    // synced prefix — see snapshots.js.
+    try {
+      snapStore = window.Snapshots ? window.Snapshots.forApp('asclepion') : null;
+      if (snapStore) snapStore.boot();
+    } catch (e) {
+      snapStore = null;
+      try { console.error('[snapshots]', e); } catch (e2) {}
+    }
+
+    var mounted = window.AscSync.mountAndSeed({
+      onApplied: function () {
+        // A pull must not rebuild the page under a reader. It gets
+        // its turn as soon as nothing is open.
+        if (U.safeToRepaint() && !runOpen) render();
+      }
+    });
+
+    // ONE GATE, TWO JOBS, IN THIS ORDER. Both the retirement and
+    // the seeder wait on mountAndSeed's ref, which fires once both
+    // rows have spoken — but the ref holds ONE onPulled slot, so
+    // the second caller would overwrite the first. The retirement
+    // takes the slot and hands over when it is finished.
+    var startSeed = function () {
+      A.seedAfterSyncAttempt(mounted.ref, function (did) { if (did) render(); });
+    };
+    if (window.AscRetire) {
+      AscRetire.arm({ ref: mounted.ref, store: snapStore, then: function (what) {
+        if (what === 'wiped') render();
+        startSeed();
+      } });
+    } else {
+      startSeed();
+    }
+
+    A.onChange(function () {
+      if (U.safeToRepaint() && !runOpen) render();
+    });
+  }
+
+  if (window.LocalStoreIDB && window.LocalStoreIDB.ready) window.LocalStoreIDB.ready().then(boot);
+  else boot();
 })();
 </script>
 </body>

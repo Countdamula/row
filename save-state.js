@@ -3,9 +3,10 @@
 //
 // WHY THIS EXISTS
 // The dashboard autosaves nearly everywhere and said so almost
-// nowhere: one page out of twenty-four had a live indicator
-// (asclepion-journal.html), and everything else either flashed a
-// transient toast or stayed silent. Silence is fine right up until
+// nowhere: one page out of twenty-four had a live indicator — The
+// Asclepion's journal, a document since deleted — and everything
+// else either flashed a transient toast or stayed silent. Silence
+// is fine right up until
 // the moment the answer is no — an offline phone, a failed push, a
 // full storage quota — and then silence is the worst possible
 // answer, because you carry on typing into something that is not

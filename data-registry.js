@@ -131,18 +131,29 @@
     {
       id: 'asclepion',
       label: 'The Asclepion',
-      pages: ['asclepion.html', 'asclepion-session.html', 'asclepion-journal.html'],
+      // One document since 2026-09-01. asclepion-session.html and
+      // asclepion-journal.html were deleted when the studio became one
+      // table; the pacer and the tapping session are overlays now.
+      pages: ['asclepion.html'],
+      // BOTH PREFIXES STAY, and always will. Journals, affirmations and
+      // routines were retired with their records (asclepion-retire.js),
+      // but a prefix is a delete list for a whole row: dropping one here
+      // would take the five collections that are still live with it.
       rows: { asclepion: ['asc:'], asclepionlog: ['asclog:'] },
       snapshots: {
         prefix: 'bak:asc:', global: 'AscBackup',
         watch: ['asc:', 'asclog:'], events: ['asc:save', 'asclog:save']
       },
+      // The retired keys are NOT counted. recovery.html reports a missing
+      // counted key as a fault, and a key that was deliberately deleted
+      // would report one forever.
       counted: [
-        { key: 'asc:journals',     label: 'journals' },
-        { key: 'asclog:entries',   label: 'journal entries' },
-        { key: 'asc:routines',     label: 'routines' },
-        { key: 'asc:affirmations', label: 'affirmations' },
-        { key: 'asclog:sessions',  label: 'sessions' }
+        { key: 'asc:breath',      label: 'breathing techniques' },
+        { key: 'asc:eft',         label: 'tapping scripts' },
+        { key: 'asc:yoga',        label: 'movement' },
+        { key: 'asc:energy',      label: 'energy practices' },
+        { key: 'asc:custom',      label: 'your own activities' },
+        { key: 'asclog:sessions', label: 'sessions' }
       ]
     },
     {

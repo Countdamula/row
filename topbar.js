@@ -335,10 +335,17 @@
       ],
     },
     {
-      // The Asclepion — asclepion.html (the hub) + asclepion-session.html
-      // (the practice runner) + asclepion-journal.html (the journals),
-      // over asclepion-data.js / asclepion-seed.js / asclepion-sync.js /
-      // asclepion-ui.js / asclepion-theme.css.
+      // The Asclepion — asclepion.html, over asclepion-data.js /
+      // asclepion-seed.js / asclepion-sync.js / asclepion-ui.js /
+      // asclepion-retire.js / asclepion-theme.css.
+      //
+      // ONE DOCUMENT AND NO HASH ROUTES since 2026-09-01. It was three
+      // documents behind ten routes — a hub of category cards,
+      // asclepion-session.html and asclepion-journal.html. Both of those
+      // files are deleted; the breath pacer and the tapping session are
+      // overlays on the one page now, and there are no sub-pages left to
+      // list here. Do not re-add `children`: a hash in this menu that the
+      // page does not answer is a link to a blank screen.
       //
       // Built 2026-08-25 and it REPLACED Main's Self-Care tab. That tab's
       // data was NOT migrated: 'mainselfcare:' is orphaned but intact,
@@ -348,35 +355,22 @@
       //
       // TWO Supabase rows, split by weight, which is why there are two
       // appKeys here and not one:
-      //   asclepion    -> 'asc:'     the library. ~100KB, read-mostly.
-      //   asclepionlog -> 'asclog:'  entries, tapping sessions, the live
-      //                              routine. Small, written constantly.
-      // On one row every journal keystroke batch would re-upload the whole
-      // seeded library. Same reasoning as kdpms: out of kdp:.
+      //   asclepion    -> 'asc:'     the library. ~150KB, read-mostly.
+      //   asclepionlog -> 'asclog:'  the session log. Small, constant.
+      // The split is about write frequency, not about how many documents
+      // there are, so it survived the collapse to one page. Same reasoning
+      // as kdpms: out of kdp:.
       //
-      // Seven categories — breath, journals, tapping, meditation,
-      // movement, energy, affirmations — plus favourites swept across all
-      // of them, four routines, and a daily affirmation. The appKey
-      // 'selfcare' is deliberately NOT reused: it is the orphaned row from
-      // the long-deleted selfcare.html, and a first push would overwrite
-      // it.
+      // Journals, affirmations and routines were removed on 2026-09-01,
+      // records and all — see asclepion-retire.js. THE PREFIXES STAYED.
+      //
+      // The appKey 'selfcare' is deliberately NOT reused: it is the
+      // orphaned row from the long-deleted selfcare.html, and a first push
+      // would overwrite it.
       key: 'asclepion',
       label: 'Self-Care Studio',
       items: [
-        { href: 'asclepion.html', icon: '◡', label: 'Self-Care Studio', id: 'topbarAsclepion', children: [
-          { hash: '/', label: 'Home' },
-          { hash: '/breath', label: 'Breath & Regulation' },
-          { hash: '/journal', label: 'Journals' },
-          { hash: '/eft', label: 'EFT Tapping' },
-          { hash: '/meditation', label: 'Meditation & Hypnosis' },
-          { hash: '/yoga', label: 'Yoga & Movement' },
-          { hash: '/energy', label: 'Energy Practices' },
-          { hash: '/affirmations', label: 'Affirmations' },
-          { hash: '/routines', label: 'Routines' },
-          { hash: '/kept', label: 'Kept — favourites' },
-        ] },
-        { href: 'asclepion-journal.html', icon: '☾', label: 'Journals', id: 'topbarAsclepionJournal' },
-        { href: 'asclepion-session.html', icon: '◦', label: 'Practice', id: 'topbarAsclepionSession' },
+        { href: 'asclepion.html', icon: '◡', label: 'Self-Care Studio', id: 'topbarAsclepion' },
       ],
     },
     {
@@ -1229,9 +1223,8 @@ body.topbar-modal-open {
     // nav item of its own and must NOT be aliased here, or it would
     // highlight The Athenaeum instead of itself.
     'athenaeum-resource.html': 'athenaeum-resources.html'
-    // The Asclepion's two sub-documents are NOT aliased here: both are
-    // real nav items of their own, so aliasing them would highlight the
-    // hub while you were standing in the journal.
+    // The Asclepion needs no entry here at all any more: it is one
+    // document, so there is no detail page to point back at a parent.
   };
 
   function highlightActivePill() {
@@ -1736,8 +1729,6 @@ body.topbar-modal-open {
     'palaestra.html': 'pal:',
     'palaestra-workout.html': 'pal:',
     'asclepion.html': 'asc',            // asc: and asclog: both
-    'asclepion-session.html': 'asc',
-    'asclepion-journal.html': 'asc',
     'larder.html': 'lar',               // lar: and larlog: both
     'vault.html': 'vault:',
     'promptarium.html': 'prm:',

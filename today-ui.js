@@ -252,9 +252,12 @@
     var rows = [
       workoutRow(),
       nutritionRow(),
-      { label: 'Self-care', status: 'Breath, journal, meditation', quiet: true, href: 'asclepion.html#/routines', action: 'Open' },
-      { label: 'Writing', status: 'The Velvet Grimoire', quiet: true, href: 'kdp.html', action: 'Open' },
-      { label: 'Evening journal', status: 'Written in the Asclepion', quiet: true, href: 'asclepion-journal.html', action: 'Open' }
+      // The Asclepion is one document with no hash routes since
+      // 2026-09-01, and its journals were retired with it. The row that
+      // pointed at asclepion-journal.html went with them — that file no
+      // longer exists.
+      { label: 'Self-care', status: 'Breath, tapping, meditation, movement', quiet: true, href: 'asclepion.html', action: 'Open' },
+      { label: 'Writing', status: 'The Velvet Grimoire', quiet: true, href: 'kdp.html', action: 'Open' }
     ];
     host.innerHTML = rows.map(rowHtml).join('');
   }

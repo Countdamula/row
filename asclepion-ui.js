@@ -1,11 +1,20 @@
 // =============================================================
-// asclepion-ui.js — the pieces all three Asclepion documents
-// need, so they live here once instead of three times.
+// asclepion-ui.js — the shared pieces of The Asclepion.
 //
 //   window.AscUI
 //
 // Nothing in here knows about the data layer. It builds strings
 // and moves DOM; asclepion-data.js decides what is true.
+//
+// It existed because there were three documents. There is one
+// now, and it stays a separate file for the older reason: this is
+// generic machinery — escaping, marks, a sheet, a toast — and
+// asclepion.html is the studio. Mixing the two makes both harder
+// to read.
+//
+// Composition mode went with the journals on 2026-09-01. It was a
+// distraction-free writing surface, and there is nothing left on
+// this page long enough to write.
 // =============================================================
 
 (function (global) {
@@ -33,10 +42,10 @@
   function attr(s) { return esc(s); }
 
   // ------------------------------------------------------------
-  // THE SEVEN MARKS
+  // THE SIX MARKS
   //
   // One drawn vocabulary — circles, arcs and lines — varied the
-  // way votive markers vary, so the seven read as a set rather
+  // way votive markers vary, so the six read as a set rather
   // than as a toolbar. Deliberately NOT emoji: emoji in this room
   // would undo the whole typographic argument, and every AI
   // dashboard on earth already has them.
@@ -46,8 +55,6 @@
   var MARKS = {
     // ripples rising from a still point
     breath: '<circle cx="12" cy="16.4" r="2"/><path d="M6.6 12.6a7.6 7.6 0 0 1 10.8 0"/><path d="M3.4 8.8a12.1 12.1 0 0 1 17.2 0"/>',
-    // a page with a spine, and one line written on it
-    journal: '<circle cx="12" cy="12" r="8.4"/><path d="M12 3.6v16.8"/><path d="M12.9 8.4h4.4"/>',
     // the midline, with points on it and beside it
     eft: '<path d="M12 2.8v18.4"/><circle cx="12" cy="6" r="1.25"/><circle cx="12" cy="10.5" r="1.25"/><circle cx="12" cy="15" r="1.25"/><circle cx="7.2" cy="12.8" r="1.25"/><circle cx="16.8" cy="12.8" r="1.25"/>',
     // a ring with the light turned inward
@@ -56,8 +63,10 @@
     yoga: '<circle cx="12" cy="12" r="8.4"/><path d="M7 15.2c2.6-4.6 7.4-4.6 10 0"/><circle cx="12" cy="8.6" r="1.3"/>',
     // radiance
     energy: '<circle cx="12" cy="12" r="3.4"/><path d="M12 1.9v3.4M12 18.7v3.4M1.9 12h3.4M18.7 12h3.4M4.8 4.8l2.4 2.4M16.8 16.8l2.4 2.4M19.2 4.8l-2.4 2.4M7.2 16.8l-2.4 2.4"/>',
-    // spoken, and travelling
-    affirm: '<circle cx="9.2" cy="12" r="6.2"/><path d="M17.2 8.6a6 6 0 0 1 0 6.8"/><path d="M20.3 6.3a10 10 0 0 1 0 11.4"/>',
+    // a mark made by hand: a stroke crossing the ring, not
+    // concentric with it. The only one of the six that is not
+    // symmetrical, because it is the only group you write.
+    mine: '<circle cx="12" cy="12" r="8.4"/><path d="M7.6 15.6 16.4 8"/>',
     // kept
     heart: '<path d="M12 20.4S3.6 15.2 3.6 9.4A4.6 4.6 0 0 1 12 6.8a4.6 4.6 0 0 1 8.4 2.6c0 5.8-8.4 11-8.4 11z"/>',
     // the way back
@@ -112,15 +121,34 @@
   function introArrive() { introAt = Date.now(); }
   function introReset() { introAt = -1; }
   function introAttrs() {
-    if (introAt < 0) return { cls: '', style: '' };
+    if (introAt < 0) return { cls: '', style: '', t: 0 };
     var elapsed = Date.now() - introAt;
-    if (elapsed >= INTRO_RUN) return { cls: '', style: '' };
-    return { cls: ' is-intro', style: ' style="--t:' + (-Math.round(elapsed)) + 'ms"' };
+    if (elapsed >= INTRO_RUN) return { cls: '', style: '', t: 0 };
+    // A NEGATIVE delay, not a smaller one. A cloud pull re-creates
+    // the whole list; without this the entrance restarts from zero
+    // every time a phone in another room saves something. Feeding
+    // the animation the time it has already run resumes it mid-way
+    // instead.
+    var t = -Math.round(elapsed);
+    return { cls: ' is-intro', style: ' style="--t:' + t + 'ms"', t: t };
   }
   // The per-element stagger. Returns the style attribute for the
   // nth revealed thing.
   function stagger(i, step) {
     return ' style="--d:' + Math.round(i * (step || 80)) + 'ms"';
+  }
+
+  // The reveal, split into a class part and a style part.
+  //
+  // These used to be one call each and the caller pasted both into
+  // the same tag — which quietly emits TWO style attributes, and
+  // the browser keeps only the first. Split by what they produce
+  // instead of by what they mean, so a row can carry its position
+  // in the stagger AND the intro's resume offset in one attribute.
+  function rvlClass() { return 'asc-rvl' + introAttrs().cls; }
+  function rvlStyle(i) {
+    var t = introAttrs().t;
+    return ' style="--i:' + Math.round(i || 0) + (t ? ';--t:' + t + 'ms' : '') + '"';
   }
 
   // ------------------------------------------------------------
@@ -291,170 +319,16 @@
     return true;
   }
 
-  // ------------------------------------------------------------
-  // §COMPOSITION MODE
-  //
-  // A distraction-free writing surface over the night garden.
-  //
-  // THE RULE THAT MATTERS: it does NOT own a saver. The caller
-  // passes the autosave the journal already uses, so there is
-  // exactly one write path to Asc.saveEntry and no way for the two
-  // surfaces to disagree about what you wrote — or, worse, for one
-  // to overwrite the other on close.
-  //
-  // The state is a class on <html>, not on the overlay. That is
-  // what removes topbar.js's launcher, which is fixed at z-index
-  // 2600 — well above this layer — and would otherwise sit on the
-  // first line of your text.
-  //
-  // Config:
-  //   { sections:[{label, body, lines:[]}], where, saver,
-  //     onInput(sections), onClose(sections), example }
-  // ------------------------------------------------------------
-  var composeEl = null, composeCfg = null, composeOpen = false;
-  var composeReturn = null, composeScrollY = 0;
-
-  function buildCompose() {
-    if (composeEl) return composeEl;
-    composeEl = document.createElement('div');
-    composeEl.className = 'asc-compose';
-    composeEl.id = 'ascCompose';
-    composeEl.setAttribute('role', 'dialog');
-    composeEl.setAttribute('aria-modal', 'true');
-    composeEl.setAttribute('aria-label', 'Composition mode');
-    composeEl.hidden = true;
-    composeEl.innerHTML =
-      '<div class="asc-compose__stage" aria-hidden="true"></div>' +
-      '<div class="asc-compose__veil" aria-hidden="true"></div>' +
-      '<div class="asc-compose__bar">' +
-        '<p class="asc-compose__where" id="ascComposeWhere"></p>' +
-        '<p class="asc-compose__count" id="ascComposeCount"></p>' +
-        '<button type="button" class="asc-btn asc-btn--ghost asc-btn--sm" id="ascComposeExit">Done · Esc</button>' +
-      '</div>' +
-      '<div class="asc-compose__page"><div class="asc-compose__col" id="ascComposeCol"></div></div>';
-    document.body.appendChild(composeEl);
-    composeEl.querySelector('#ascComposeExit').addEventListener('click', closeCompose);
-    return composeEl;
-  }
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && composeOpen) { e.preventDefault(); closeCompose(); }
-  });
-
-  function composeAutosize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.max(el.scrollHeight, 64) + 'px';
-  }
-
-  function composeWords() {
-    if (!composeCfg) return 0;
-    var text = composeCfg.sections.map(function (s) {
-      return [s.body].concat(s.lines || []).filter(Boolean).join(' ');
-    }).join(' ').trim();
-    return text ? text.split(/\s+/).length : 0;
-  }
-
-  function paintCount() {
-    var el = document.getElementById('ascComposeCount');
-    if (!el) return;
-    var n = composeWords();
-    el.textContent = n === 1 ? '1 word' : n + ' words';
-  }
-
-  function openCompose(cfg) {
-    buildCompose();
-    composeCfg = cfg || { sections: [] };
-    composeReturn = document.activeElement;
-    composeScrollY = global.scrollY || 0;
-
-    document.getElementById('ascComposeWhere').textContent = composeCfg.where || '';
-
-    var col = document.getElementById('ascComposeCol');
-    // The journals are SECTIONED, so composition mode is a stack
-    // of labelled fields rather than the single textarea the
-    // precedent uses. Same measure, same behaviour per field.
-    col.innerHTML =
-      (composeCfg.example ? composeCfg.example : '') +
-      composeCfg.sections.map(function (s, i) {
-        if (s.lines && s.lines.length) {
-          return '<div class="asc-compose__sec">' +
-            '<span class="asc-compose__label">' + esc(s.label) + '</span>' +
-            s.lines.map(function (line, n) {
-              return '<div class="asc-compose__line"><span class="asc-compose__n">' + (n + 1) + '</span>' +
-                '<textarea class="asc-compose__ed" rows="1" data-sec="' + i + '" data-line="' + n + '">' +
-                esc(line) + '</textarea></div>';
-            }).join('') +
-          '</div>';
-        }
-        return '<div class="asc-compose__sec">' +
-          '<span class="asc-compose__label">' + esc(s.label) + '</span>' +
-          '<textarea class="asc-compose__ed" rows="3" data-sec="' + i + '">' + esc(s.body || '') + '</textarea>' +
-        '</div>';
-      }).join('');
-
-    Array.prototype.forEach.call(col.querySelectorAll('.asc-compose__ed'), function (el) {
-      composeAutosize(el);
-      el.addEventListener('input', function () {
-        var si = Number(el.getAttribute('data-sec'));
-        var li = el.getAttribute('data-line');
-        if (li === null) composeCfg.sections[si].body = el.value;
-        else composeCfg.sections[si].lines[Number(li)] = el.value;
-        composeAutosize(el);
-        paintCount();
-        if (composeCfg.onInput) composeCfg.onInput(composeCfg.sections);
-      });
-      // Leaving a field commits it. The debounce is still running
-      // underneath; this just makes the common case immediate.
-      el.addEventListener('blur', function () {
-        if (composeCfg && composeCfg.saver) composeCfg.saver();
-      });
-    });
-
-    paintCount();
-    composeEl.hidden = false;
-    composeOpen = true;
-    document.documentElement.classList.add('asc-composing');
-
-    // After the fade has started, so the caret lands without a jump.
-    requestAnimationFrame(function () {
-      var first = col.querySelector('.asc-compose__ed');
-      if (first) { try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); } }
-    });
-  }
-
-  // The exit ORDER is load-bearing and is the precedent's, verbatim:
-  // flush first so leaving can never lose a keystroke, then clear
-  // the flag, unlock the scroll, hide, hand the text back, and only
-  // then restore where the reader was and what they were on.
-  function closeCompose() {
-    if (!composeOpen) return;
-    if (composeCfg && composeCfg.saver) composeCfg.saver();
-    composeOpen = false;
-    document.documentElement.classList.remove('asc-composing');
-    if (composeEl) composeEl.hidden = true;
-    var sections = composeCfg ? composeCfg.sections : null;
-    var onClose = composeCfg ? composeCfg.onClose : null;
-    composeCfg = null;
-    if (onClose) onClose(sections);
-    global.scrollTo(0, composeScrollY);
-    if (composeReturn && document.contains(composeReturn) && composeReturn.focus) {
-      try { composeReturn.focus({ preventScroll: true }); } catch (e) {}
-    }
-    composeReturn = null;
-  }
-
-  function isComposing() { return composeOpen; }
-
   global.AscUI = {
     esc: esc, escLines: escLines, attr: attr,
     MARKS: MARKS, mark: mark, heart: heart,
-    introArrive: introArrive, introReset: introReset, introAttrs: introAttrs, stagger: stagger,
+    introArrive: introArrive, introReset: introReset, introAttrs: introAttrs,
+    stagger: stagger, rvlClass: rvlClass, rvlStyle: rvlStyle,
     toast: toast,
     openSheet: openSheet, closeSheet: closeSheet, sheetOpen: sheetOpen, sheetEl: sheetEl, bindSheet: bindSheet,
     go: go,
     plural: plural, spell: spell, mins: mins, clock: clock, dateLabel: dateLabel, linkOrAdd: linkOrAdd,
     delegate: delegate,
-    isPhone: isPhone, reducedMotion: reducedMotion, safeToRepaint: safeToRepaint,
-    openCompose: openCompose, closeCompose: closeCompose, isComposing: isComposing
+    isPhone: isPhone, reducedMotion: reducedMotion, safeToRepaint: safeToRepaint
   };
 })(window);

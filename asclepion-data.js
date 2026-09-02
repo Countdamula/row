@@ -3,10 +3,10 @@
 //
 //   window.Asc
 //
-// Loaded by asclepion.html, asclepion-session.html and
-// asclepion-journal.html. Machinery only: every word of actual
-// content lives in asclepion-seed.js (window.AscSeed), which must
-// be loaded BEFORE this file.
+// Loaded by asclepion.html, which since 2026-09-01 is the whole
+// studio: one document, one table, no routes. Machinery only —
+// every word of actual content lives in asclepion-seed.js
+// (window.AscSeed), which must be loaded BEFORE this file.
 //
 // =============================================================
 // TWO ROWS, SPLIT BY WEIGHT
@@ -16,12 +16,24 @@
 //
 // sync.js's pushNow() uploads a row's ENTIRE data column on every
 // debounced save. The seeded library is ~200KB; on one row, every
-// journal keystroke batch would re-upload all of it. Same split,
-// same reason, as kdpms: out of kdp:.
+// session logged would re-upload all of it. Same split, same
+// reason, as kdpms: out of kdp:.
 //
-// The prefix table itself is asclepion-sync.js, not this file —
-// three documents must never be able to drift into three
-// different prefix lists.
+// Both rows survived the collapse to one page even though there
+// is only one document now. The split is about WRITE FREQUENCY,
+// not about how many documents there are, and the log is still
+// written every time a practice ends.
+//
+// The prefix table itself is asclepion-sync.js, not this file.
+// =============================================================
+// WHAT WAS RETIRED, AND WHAT THAT DID NOT MEAN
+//
+// Journals, affirmations, routines and the Kept view were removed
+// on 2026-09-01, records and all. Their KEYS are deleted, once,
+// by asclepion-retire.js. Their PREFIXES stay: `asc:` and
+// `asclog:` are still both listed in asclepion-sync.js, because
+// removing a prefix deletes everything under it on every device
+// at the next push.
 // =============================================================
 // THE MODEL IS A WHITELIST
 //
@@ -97,27 +109,33 @@
     breath:       'asc:breath',
     eft:          'asc:eft',
     eftPoints:    'asc:eftpoints',
-    journals:     'asc:journals',
     yoga:         'asc:yoga',
     energy:       'asc:energy',
-    decks:        'asc:decks',
-    affirmations: 'asc:affirmations',
-    routines:     'asc:routines',
-    todayPick:    'asc:today',
+    // Activities written by hand. The "Mine" group.
+    custom:       'asc:custom',
     uiState:      'asc:uiState',
     settings:     'asc:settings',
     seededAt:     'asc:seededAt',
     // The goal and the three actions: set once, changed rarely.
     hia:          'asc:hia',
     // --- asclog: what you write --------------------------------
-    entries:      'asclog:entries',
     sessions:     'asclog:sessions',
-    live:         'asclog:live',
     // One mark per day. On the LOG row, not the library row,
     // because it is written every single day and the library is
     // 100KB that would be re-uploaded with it.
     hiaMarks:     'asclog:hiamarks'
   };
+
+  // RETIRED 2026-09-01, when the Asclepion became one page. These
+  // keys are deleted once, by asclepion-retire.js, and are read by
+  // nothing here.
+  //
+  // THE PREFIXES `asc:` AND `asclog:` STAY. Retiring a collection
+  // means deleting its keys; retiring a PREFIX from
+  // asclepion-sync.js would delete everything under it, on every
+  // device, at the next push. The list of keys is held in
+  // asclepion-retire.js and nowhere else, so there is exactly one
+  // place that can name something for deletion.
   function mediaKey(shelf) { return 'asc:media:' + shelf; }
 
   // ------------------------------------------------------------
@@ -285,69 +303,24 @@
     };
   }
 
-  // --- JOURNALS -----------------------------------------------
-  // A journal is a DEFINITION (its purpose and its sections); an
-  // entry is one filling-in of one definition. Keeping them apart
-  // is what lets the 3/3/3 journal have three fixed triples and
-  // the Muse have none, without either one being a special case.
-  function journalSectionModel(s) {
-    s = s || {};
+  // --- MINE ---------------------------------------------------
+  // An activity written by hand, in the same shape the table
+  // reads every other kind in: a name, what it is for, how long it
+  // takes, and optionally what to actually do. `steps` is the same
+  // field energyModel uses, so one renderer covers both.
+  function customModel(c) {
+    c = c || {};
     return {
-      id:     str(s.id, 60) || uid('jsec'),
-      label:  str(s.label, 160),
-      prompt: str(s.prompt, 600),
-      lines:  clamp(Math.round(num(s.lines, 0)), 0, 12),  // 0 = one open field; n = n numbered lines
-      order:  Math.round(num(s.order, 0))
-    };
-  }
-  function journalModel(j) {
-    j = j || {};
-    return {
-      id:       str(j.id, 60) || uid('jnl'),
-      key:      str(j.key, 40),
-      name:     str(j.name, 80),
-      glyph:    str(j.glyph, 8),
-      purpose:  str(j.purpose, 600),
-      // A journal may carry a WORKING SYSTEM above its entries.
-      // Only 'hia' exists so far — the High Impact Action method,
-      // which is a goal, three actions and a tracker rather than
-      // just a set of prompts. Anything unrecognised renders as an
-      // ordinary journal, so a future value can never blank a page.
-      system:   oneOf(j.system, ['', 'hia'], ''),
-      about:    str(j.about, 9000),
-      // Diagrams belonging to `about`, each anchored to a § marker
-      // inside it. Optional, and empty for every ordinary journal.
-      figures:  arr(j.figures).slice(0, 8).map(function (f) {
-        f = f || {};
-        return { after: str(f.after, 8), src: str(f.src, 300), caption: str(f.caption, 400) };
-      }),
-      sections: arr(j.sections).slice(0, 20).map(journalSectionModel),
-      favorite: j.favorite === true,
-      order:    Math.round(num(j.order, 0)),
-      builtin:  j.builtin === true
-    };
-  }
-  function entrySectionModel(s) {
-    s = s || {};
-    return {
-      id:    str(s.id, 60) || uid('esec'),
-      label: str(s.label, 160),
-      body:  str(s.body, 20000),
-      lines: arr(s.lines).slice(0, 12).map(function (l) { return str(l, 600); }),
-      order: Math.round(num(s.order, 0))
-    };
-  }
-  function entryModel(e) {
-    e = e || {};
-    return {
-      id:        str(e.id, 60) || uid('ent'),
-      journalId: str(e.journalId, 60),
-      date:      isISO(str(e.date)) ? str(e.date) : today(),
-      title:     str(e.title, 200),
-      sections:  arr(e.sections).slice(0, 24).map(entrySectionModel),
-      favorite:  e.favorite === true,
-      createdAt: Math.round(num(e.createdAt, Date.now())),
-      updatedAt: Math.round(num(e.updatedAt, Date.now()))
+      id:       str(c.id, 60) || uid('own'),
+      title:    str(c.title, 160),
+      summary:  str(c.summary, 600),
+      steps:    strList(c.steps, 700, 16),
+      forWhen:  str(c.forWhen, 60),
+      minutes:  clamp(Math.round(num(c.minutes, 0)), 0, 240),
+      url:      str(c.url, 900),
+      favorite: c.favorite === true,
+      order:    Math.round(num(c.order, 0)),
+      createdAt: Math.round(num(c.createdAt, Date.now()))
     };
   }
 
@@ -413,74 +386,17 @@
     };
   }
 
-  // --- AFFIRMATIONS -------------------------------------------
-  // Decks and lines are separate collections joined by deckId, so
-  // "My Deck" is just a deck with isPersonal:true rather than a
-  // second mechanism bolted on beside the built-in ones.
-  function deckModel(d) {
-    d = d || {};
-    return {
-      id:         str(d.id, 60) || uid('dck'),
-      key:        str(d.key, 40),
-      name:       str(d.name, 80),
-      blurb:      str(d.blurb, 400),
-      isPersonal: d.isPersonal === true,
-      favorite:   d.favorite === true,
-      order:      Math.round(num(d.order, 0)),
-      builtin:    d.builtin === true
-    };
-  }
-  function affirmationModel(a) {
-    a = a || {};
-    return {
-      id:        str(a.id, 60) || uid('aff'),
-      deckId:    str(a.deckId, 60),
-      text:      str(a.text, 400),
-      favorite:  a.favorite === true,
-      order:     Math.round(num(a.order, 0)),
-      builtin:   a.builtin === true,
-      createdAt: Math.round(num(a.createdAt, Date.now()))
-    };
-  }
-
-  // --- ROUTINES -----------------------------------------------
-  // A step's `kind` names which collection `refId` points into.
-  // 'free' is a step with no reference at all — "drink water",
-  // "go for a five minute walk" — which is why the Bad Day
-  // Protocol can be a real routine rather than a note.
-  var STEP_KINDS = ['breath', 'eft', 'meditation', 'yoga', 'energy', 'journal', 'affirmation', 'free'];
-  function routineStepModel(s) {
-    s = s || {};
-    return {
-      id:      str(s.id, 60) || uid('stp'),
-      kind:    oneOf(s.kind, STEP_KINDS, 'free'),
-      refId:   str(s.refId, 60),
-      shelf:   str(s.shelf, 30),      // meditation steps only
-      label:   str(s.label, 200),
-      minutes: clamp(Math.round(num(s.minutes, 0)), 0, 180),
-      note:    str(s.note, 600)
-    };
-  }
-  function routineModel(r) {
-    r = r || {};
-    return {
-      id:       str(r.id, 60) || uid('rtn'),
-      name:     str(r.name, 100),
-      forWhen:  str(r.forWhen, 400),
-      tint:     oneOf(r.tint, ['breath', 'journal', 'eft', 'medit', 'yoga', 'energy', 'affirm'], 'breath'),
-      steps:    arr(r.steps).slice(0, 24).map(routineStepModel),
-      favorite: r.favorite === true,
-      order:    Math.round(num(r.order, 0)),
-      builtin:  r.builtin === true
-    };
-  }
-
   // --- SESSIONS (the log) -------------------------------------
   // One shape for every kind of practice, because the only
   // questions ever asked of it are "what did I do" and "did it
   // help". before/after are the 0-10 intensity readings; they stay
   // null for practices that do not ask.
-  var SESSION_KINDS = ['breath', 'eft', 'meditation', 'yoga', 'energy', 'routine'];
+  //
+  // 'routine' stays in the list although routines are gone: it is
+  // what the sessions already logged against them say they are,
+  // and dropping it would make oneOf() rewrite every one of those
+  // records as a breathing session the next time it was touched.
+  var SESSION_KINDS = ['breath', 'eft', 'meditation', 'yoga', 'energy', 'custom', 'routine'];
   function sessionModel(s) {
     s = s || {};
     return {
@@ -503,13 +419,9 @@
   var Breath       = makeCollection(KEYS.breath, breathModel, 'brt');
   var Eft          = makeCollection(KEYS.eft, eftTopicModel, 'eft');
   var EftPoints    = makeCollection(KEYS.eftPoints, eftPointModel, 'pt');
-  var Journals     = makeCollection(KEYS.journals, journalModel, 'jnl');
   var Yoga         = makeCollection(KEYS.yoga, yogaModel, 'yog');
   var Energy       = makeCollection(KEYS.energy, energyModel, 'eng');
-  var Decks        = makeCollection(KEYS.decks, deckModel, 'dck');
-  var Affirmations = makeCollection(KEYS.affirmations, affirmationModel, 'aff');
-  var Routines     = makeCollection(KEYS.routines, routineModel, 'rtn');
-  var Entries      = makeCollection(KEYS.entries, entryModel, 'ent');
+  var Custom       = makeCollection(KEYS.custom, customModel, 'own');
   var Sessions     = makeCollection(KEYS.sessions, sessionModel, 'ses');
 
   // One collection per media shelf, so a shelf is part of the KEY
@@ -536,13 +448,11 @@
   // kept in step with every deletion, and it never is.
   // ============================================================
   var FAV_SOURCES = [
-    { kind: 'breath',     tint: 'breath', label: 'Breath',        coll: function () { return Breath.list(); },  title: function (r) { return r.name; } },
-    { kind: 'eft',        tint: 'eft',    label: 'Tapping',       coll: function () { return Eft.list(); },     title: function (r) { return r.name; } },
-    { kind: 'journal',    tint: 'journal', label: 'Journal',      coll: function () { return Journals.list(); }, title: function (r) { return r.name; } },
-    { kind: 'yoga',       tint: 'yoga',   label: 'Movement',      coll: function () { return Yoga.list(); },    title: function (r) { return r.title; } },
-    { kind: 'energy',     tint: 'energy', label: 'Energy',        coll: function () { return Energy.list(); },  title: function (r) { return r.title; } },
-    { kind: 'affirmation', tint: 'affirm', label: 'Affirmation',  coll: function () { return Affirmations.list(); }, title: function (r) { return r.text; } },
-    { kind: 'routine',    tint: 'breath', label: 'Routine',       coll: function () { return Routines.list(); }, title: function (r) { return r.name; } }
+    { kind: 'breath', tint: 'breath', label: 'Breath',    coll: function () { return Breath.list(); }, title: function (r) { return r.name; } },
+    { kind: 'eft',    tint: 'eft',    label: 'Tapping',   coll: function () { return Eft.list(); },    title: function (r) { return r.name; } },
+    { kind: 'yoga',   tint: 'yoga',   label: 'Movement',  coll: function () { return Yoga.list(); },   title: function (r) { return r.title; } },
+    { kind: 'energy', tint: 'energy', label: 'Energy',    coll: function () { return Energy.list(); }, title: function (r) { return r.title; } },
+    { kind: 'custom', tint: 'mine',   label: 'Mine',      coll: function () { return Custom.list(); }, title: function (r) { return r.title; } }
   ];
 
   function favourites() {
@@ -568,15 +478,12 @@
   // one that forgets to repaint.
   function toggleFavourite(kind, id, shelf) {
     switch (kind) {
-      case 'breath':      return Breath.toggleFav(id);
-      case 'eft':         return Eft.toggleFav(id);
-      case 'journal':     return Journals.toggleFav(id);
-      case 'yoga':        return Yoga.toggleFav(id);
-      case 'energy':      return Energy.toggleFav(id);
-      case 'affirmation': return Affirmations.toggleFav(id);
-      case 'routine':     return Routines.toggleFav(id);
-      case 'meditation':  return Media[shelf] ? Media[shelf].toggleFav(id) : null;
-      case 'entry':       return Entries.toggleFav(id);
+      case 'breath':     return Breath.toggleFav(id);
+      case 'eft':        return Eft.toggleFav(id);
+      case 'yoga':       return Yoga.toggleFav(id);
+      case 'energy':     return Energy.toggleFav(id);
+      case 'custom':     return Custom.toggleFav(id);
+      case 'meditation': return Media[shelf] ? Media[shelf].toggleFav(id) : null;
       default: return null;
     }
   }
@@ -588,87 +495,6 @@
     breathmed:     'Breath meditation',
     walking:       'Walking meditation'
   };
-
-  // ============================================================
-  // TODAY'S AFFIRMATION
-  //
-  // The pick is STABLE THROUGH THE DAY — it is stored against a
-  // date, not re-rolled on every render, because a line that
-  // changes each time you glance at the page is a line you never
-  // actually read. "New affirmation" re-rolls it deliberately,
-  // and `seen` keeps the next few draws from repeating.
-  // ============================================================
-  function readTodayPick() {
-    var o = storeGet(KEYS.todayPick);
-    if (!o || typeof o !== 'object') return { date: '', affirmationId: '', seen: [] };
-    return {
-      date: isISO(str(o.date)) ? str(o.date) : '',
-      affirmationId: str(o.affirmationId, 60),
-      seen: arr(o.seen).slice(-40).map(function (s) { return str(s, 60); })
-    };
-  }
-  function pool() {
-    var all = Affirmations.list();
-    // A personal deck, once it has anything in it, is what you
-    // actually want to hear — but not to the exclusion of
-    // everything else, so it is weighted, not exclusive.
-    return all.length ? all : [];
-  }
-  function rollAffirmation(force) {
-    var pick = readTodayPick();
-    var all = pool();
-    if (!all.length) return null;
-    if (!force && pick.date === today() && pick.affirmationId) {
-      var held = Affirmations.get(pick.affirmationId);
-      if (held) return held;
-    }
-    var seen = pick.seen || [];
-    var fresh = all.filter(function (a) { return seen.indexOf(a.id) === -1; });
-    var from = fresh.length ? fresh : all;
-    var chosen = from[Math.floor(Math.random() * from.length)];
-    storeSet(KEYS.todayPick, {
-      date: today(),
-      affirmationId: chosen.id,
-      seen: seen.concat([chosen.id]).slice(-40)
-    });
-    return chosen;
-  }
-  function todaysAffirmation() { return rollAffirmation(false); }
-  function newAffirmation() { return rollAffirmation(true); }
-
-  // ============================================================
-  // THE LIVE ROUTINE
-  //
-  // Same shape and the same reason as pal:live: a routine can send
-  // you to another document (a journal step opens
-  // asclepion-journal.html) and it has to still be running when
-  // you come back. It lives on the LOG row, not the library row —
-  // it is written constantly and it is not part of the library.
-  // ============================================================
-  function getLive() {
-    var o = storeGet(KEYS.live);
-    if (!o || typeof o !== 'object' || !o.routineId) return null;
-    var r = Routines.get(str(o.routineId, 60));
-    if (!r) { clearLive(); return null; }   // the routine was deleted under it
-    return {
-      routineId: r.id,
-      stepIndex: clamp(Math.round(num(o.stepIndex, 0)), 0, Math.max(0, r.steps.length - 1)),
-      done: arr(o.done).map(function (s) { return str(s, 60); }),
-      startedAt: Math.round(num(o.startedAt, Date.now()))
-    };
-  }
-  function setLive(patch) {
-    var cur = getLive() || { routineId: '', stepIndex: 0, done: [], startedAt: Date.now() };
-    storeSet(KEYS.live, Object.assign(cur, patch || {}));
-    return getLive();
-  }
-  function startRoutine(routineId) {
-    var r = Routines.get(routineId);
-    if (!r) return null;
-    storeSet(KEYS.live, { routineId: r.id, stepIndex: 0, done: [], startedAt: Date.now() });
-    return getLive();
-  }
-  function clearLive() { try { localStorage.removeItem(KEYS.live); } catch (e) {} }
 
   // ============================================================
   // SESSIONS — the log, kept to a horizon.
@@ -705,6 +531,170 @@
       if (!best || (s.startedAt || 0) > (best.startedAt || 0)) best = s;
     });
     return best;
+  }
+
+  // ============================================================
+  // ACTIVITIES — the one read the page makes.
+  //
+  // Six collections with six different shapes, flattened into one
+  // row shape so the table has a single thing to render, sort and
+  // group. The mapping is here rather than in the view because a
+  // "for when" that means `goal` on a breathing technique and
+  // `feelings[0]` on a yoga video is a data question, not a
+  // markup one.
+  //
+  // THE SESSION LOG IS READ ONCE, INTO A MAP. Asking
+  // lastSessionFor() per row would be O(rows x sessions) — around
+  // sixty rows against a log capped at 1200 — on every keystroke
+  // in the search box. One pass, then a lookup.
+  // ============================================================
+  var GROUPS = [
+    { key: 'breath', label: 'Breath',     tint: 'breath' },
+    { key: 'eft',    label: 'Tapping',    tint: 'eft' },
+    { key: 'medit',  label: 'Meditation', tint: 'medit' },
+    { key: 'yoga',   label: 'Movement',   tint: 'yoga' },
+    { key: 'energy', label: 'Energy',     tint: 'energy' },
+    { key: 'mine',   label: 'Mine',       tint: 'mine' }
+  ];
+
+  var ENERGY_LABELS = {
+    grounding: 'Grounding', cleansing: 'Cleansing', protection: 'Protection',
+    energywork: 'Energy work', stateshift: 'Shifting state'
+  };
+  var YOGA_LABELS = {
+    morning: 'Morning', evening: 'Evening', mobility: 'Mobility',
+    stretching: 'Stretching', yin: 'Yin', restorative: 'Restorative', somatic: 'Somatic'
+  };
+
+  function sessionIndex() {
+    var by = {};
+    Sessions.list().forEach(function (s) {
+      if (!s.refId) return;
+      var k = s.kind + ':' + s.refId;
+      var e = by[k] || (by[k] = { last: null, count: 0 });
+      e.count++;
+      if (!e.last || (s.startedAt || 0) > (e.last.startedAt || 0)) e.last = s;
+    });
+    return by;
+  }
+
+  /**
+   * Every practice in the studio, as one uniform list.
+   * @returns {Array<{id,kind,group,shelf,title,forWhen,minutes,url,
+   *                  favorite,lastDoneISO,timesDone,rec}>}
+   */
+  function activities() {
+    var idx = sessionIndex(), out = [];
+    function push(kind, group, rec, title, forWhen, minutes, extra) {
+      var e = idx[kind + ':' + rec.id];
+      out.push(Object.assign({
+        id: rec.id, kind: kind, group: group, shelf: '',
+        title: title, forWhen: forWhen || '',
+        minutes: Math.round(minutes || 0),
+        // Seconds, where a practice is genuinely that short. Every
+        // breathing technique here runs 33 to 76 seconds, so
+        // rounding them all to minutes printed "1 min" five times
+        // and told you nothing. 0 means "minutes are the unit".
+        seconds: 0,
+        // THE DESCRIPTION, under whichever name its own collection
+        // gave it. Six collections spell this field four different
+        // ways — summary, blurb, description — and the table needs
+        // one name for it, so the mapping happens here, once,
+        // rather than at every call site that wants to show it.
+        summary: '',
+        url: rec.url || '',
+        favorite: rec.favorite === true,
+        lastDoneISO: e && e.last ? e.last.date : '',
+        timesDone: e ? e.count : 0,
+        rec: rec
+      }, extra || {}));
+    }
+
+    Breath.list().forEach(function (b) {
+      var s = breathSeconds(b);
+      push('breath', 'breath', b, b.name, b.goal, Math.round(s / 60),
+        { seconds: s, summary: b.summary });
+    });
+    Eft.list().forEach(function (t) {
+      // DERIVED, and deliberately rough. A tapping script has no
+      // stored duration because it is self-paced, but a whole
+      // column of blanks reads as missing data rather than as
+      // "it takes as long as it takes". Roughly twenty seconds a
+      // line, floored at five minutes.
+      //
+      // `forWhen` is left EMPTY on purpose. Every one of these is
+      // for relief, so filling the column with twelve identical
+      // words would be noise — and the name of the script already
+      // says which feeling it is for.
+      var lines = t.setup.length + t.round1.length + t.round2.length + t.reframe.length;
+      push('eft', 'eft', t, t.name, '', Math.max(5, Math.round(lines / 3)),
+        { summary: t.blurb });
+    });
+    mediaAll().forEach(function (m) {
+      push('meditation', 'medit', m, m.title,
+        m.forWhen || SHELF_LABELS[m._shelf] || '', m.minutes,
+        { shelf: m._shelf, summary: m.description });
+    });
+    Yoga.list().forEach(function (y) {
+      push('yoga', 'yoga', y, y.title,
+        y.feelings[0] || YOGA_LABELS[y.category] || '', y.minutes,
+        { summary: y.description });
+    });
+    Energy.list().forEach(function (e) {
+      push('energy', 'energy', e, e.title, ENERGY_LABELS[e.group] || '', e.minutes,
+        { summary: e.summary });
+    });
+    Custom.list().forEach(function (c) {
+      push('custom', 'mine', c, c.title, c.forWhen, c.minutes,
+        { summary: c.summary });
+    });
+    return out;
+  }
+
+  // ============================================================
+  // THE MENU
+  //
+  // A few things you could do right now, rather than a library to
+  // browse. Stable through the day for the same reason the old
+  // daily affirmation was: a suggestion that changes every time
+  // you glance at it is a suggestion you never take. "Something
+  // else" re-rolls deliberately.
+  //
+  // Short things first, and never something already done today —
+  // the whole point is the first tap, and a twenty-minute video
+  // is not the first tap.
+  // ============================================================
+  function menu(n, force) {
+    n = clamp(Math.round(num(n, 3)), 1, 6);
+    var held = uiState('menu');
+    var all = activities();
+    if (!all.length) return [];
+
+    if (!force && held && held.date === today() && arr(held.ids).length) {
+      var byId = {};
+      all.forEach(function (a) { byId[a.kind + ':' + a.id] = a; });
+      var kept = held.ids.map(function (k) { return byId[k]; }).filter(Boolean);
+      if (kept.length === held.ids.length) return kept;
+      // something in the held pick was deleted: fall through and re-roll
+    }
+
+    var todayISO = today();
+    var pool = all.filter(function (a) { return a.lastDoneISO !== todayISO; });
+    if (pool.length < n) pool = all.slice();
+    // Short first, then unfamiliar, then anything. Shuffled inside
+    // each band so the same three do not come up every morning.
+    var bands = [[], [], []];
+    pool.forEach(function (a) {
+      bands[a.minutes && a.minutes <= 6 ? 0 : (a.minutes && a.minutes <= 15 ? 1 : 2)].push(a);
+    });
+    bands.forEach(function (b) {
+      for (var i = b.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1)), t = b[i]; b[i] = b[j]; b[j] = t;
+      }
+    });
+    var picked = bands[0].concat(bands[1], bands[2]).slice(0, n);
+    uiState('menu', { date: todayISO, ids: picked.map(function (a) { return a.kind + ':' + a.id; }) });
+    return picked;
   }
 
   // ============================================================
@@ -862,61 +852,18 @@
   }
 
   // ============================================================
-  // ENTRIES
-  // ============================================================
-  function entriesFor(journalId) {
-    return Entries.list()
-      .filter(function (e) { return !journalId || e.journalId === journalId; })
-      .sort(function (a, b) {
-        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-        return (b.createdAt || 0) - (a.createdAt || 0);
-      });
-  }
-  // A blank entry built from its journal's own section definitions,
-  // so the template is the journal rather than a second copy of it
-  // living in the entry code.
-  function blankEntry(journalId) {
-    var j = Journals.get(journalId);
-    if (!j) return null;
-    return {
-      journalId: j.id,
-      date: today(),
-      title: '',
-      sections: j.sections.map(function (s, i) {
-        return {
-          id: uid('esec'),
-          label: s.label,
-          body: '',
-          lines: s.lines ? new Array(s.lines).fill('') : [],
-          order: i
-        };
-      })
-    };
-  }
-  function saveEntry(entry) {
-    if (entry && entry.id && Entries.get(entry.id)) {
-      return Entries.update(entry.id, Object.assign({}, entry, { updatedAt: Date.now() }));
-    }
-    return Entries.add(Object.assign({}, entry, { createdAt: Date.now(), updatedAt: Date.now() }));
-  }
-
-  // ============================================================
-  // COUNTS — what the seven cards actually show.
+  // COUNTS — what each group heading shows.
   // Derived on every read. A stored count is a count that is
   // wrong the first time you delete something.
   // ============================================================
   function counts() {
     return {
-      breath:  Breath.list().length,
-      journal: Journals.list().length,
-      entries: Entries.list().length,
-      eft:     Eft.list().length,
-      medit:   mediaAll().length,
-      yoga:    Yoga.list().length,
-      energy:  Energy.list().length,
-      affirm:  Affirmations.list().length,
-      decks:   Decks.list().length,
-      routines: Routines.list().length,
+      breath: Breath.list().length,
+      eft:    Eft.list().length,
+      medit:  mediaAll().length,
+      yoga:   Yoga.list().length,
+      energy: Energy.list().length,
+      mine:   Custom.list().length,
       favourites: favouriteCount()
     };
   }
@@ -938,18 +885,14 @@
   // ============================================================
   function isSeeded() { return !!storeGet(KEYS.seededAt); }
 
-  // Order matters below, and it is not alphabetical. Decks are
-  // seeded before affirmations because an affirmation needs a
-  // deckId, and every other collection is seeded before routines
-  // because a routine step needs something to point at.
+  // Nothing in asclepion-seed.js carries an id: the models mint
+  // them here. That is what lets the content file stay a content
+  // file — no id has to be invented by hand while writing prose,
+  // and seeding a fresh device cannot collide with anything.
   //
-  // NOTHING IN asclepion-seed.js CARRIES AN ID. It refers to
-  // records by name, in a `seedRef` field, and the two resolvers
-  // below turn those into real ids once the models have minted
-  // them. That is what lets the content file stay a content file
-  // — no id has to be invented by hand or kept unique while
-  // writing prose, and re-seeding a fresh device cannot collide
-  // with anything.
+  // The `seedRef` resolver that used to run after this went with
+  // the routines: it existed to turn names written in prose into
+  // real ids for routine steps, and nothing else ever used it.
   function seedNow() {
     var S = global.AscSeed;
     if (!S) return false;
@@ -958,7 +901,6 @@
     if (!Breath.list().length)    Breath.replaceAll(stamp(S.breath));
     if (!EftPoints.list().length) EftPoints.replaceAll(stamp(S.eftPoints));
     if (!Eft.list().length)       Eft.replaceAll(stamp(S.eft));
-    if (!Journals.list().length)  Journals.replaceAll(stamp(S.journals));
     if (!Yoga.list().length)      Yoga.replaceAll(stamp(S.yoga));
     if (!Energy.list().length)    Energy.replaceAll(stamp(S.energy));
     MEDIA_SHELVES.forEach(function (shelf) {
@@ -966,24 +908,9 @@
       if (!Media[shelf].list().length && rows.length) Media[shelf].replaceAll(stamp(rows));
     });
 
-    // Decks, then the lines that belong to them.
-    if (!Decks.list().length) Decks.replaceAll(stamp(S.decks));
-    if (!Affirmations.list().length) {
-      var byKey = {};
-      Decks.list().forEach(function (d) { if (d.key) byKey[d.key] = d.id; });
-      var lines = [], n = 0;
-      Object.keys(S.affirmations || {}).forEach(function (deckKey) {
-        var deckId = byKey[deckKey];
-        if (!deckId) return;   // a deck key with no deck is a typo, not a record
-        arr(S.affirmations[deckKey]).forEach(function (text) {
-          lines.push({ deckId: deckId, text: text, order: n++, builtin: true });
-        });
-      });
-      if (lines.length) Affirmations.replaceAll(lines);
-    }
-
-    // Routines last — every kind of step they can point at now exists.
-    if (!Routines.list().length) Routines.replaceAll(resolveRoutines(S.routines));
+    // `asc:custom` is deliberately NOT seeded. The Mine group is
+    // yours; shipping it with examples would mean deleting three
+    // things before writing one.
 
     storeSet(KEYS.seededAt, Date.now());
     return true;
@@ -992,51 +919,6 @@
   function stamp(rows) {
     return arr(rows).map(function (r, i) {
       return Object.assign({ order: i, builtin: true }, r);
-    });
-  }
-
-  // Look a seeded record up by the name it was written under.
-  // Case-insensitive and trimmed, because these are matched
-  // against prose typed in another file.
-  function findByName(rows, name, field) {
-    var want = String(name || '').trim().toLowerCase();
-    if (!want) return '';
-    for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i][field] || '').trim().toLowerCase() === want) return rows[i].id;
-    }
-    return '';
-  }
-
-  function resolveRoutines(rows) {
-    var breath = Breath.list(), eft = Eft.list(), journals = Journals.list(),
-        yoga = Yoga.list(), energy = Energy.list();
-    return arr(rows).map(function (r, i) {
-      return Object.assign({}, r, {
-        order: i,
-        builtin: true,
-        steps: arr(r.steps).map(function (s) {
-          var refId = str(s.refId, 60);
-          if (!refId && s.seedRef) {
-            switch (s.kind) {
-              case 'breath':     refId = findByName(breath, s.seedRef, 'name'); break;
-              case 'eft':        refId = findByName(eft, s.seedRef, 'name'); break;
-              case 'journal':    refId = findByName(journals, s.seedRef, 'name'); break;
-              case 'yoga':       refId = findByName(yoga, s.seedRef, 'title'); break;
-              case 'energy':     refId = findByName(energy, s.seedRef, 'title'); break;
-              case 'meditation':
-                var shelf = Media[s.shelf];
-                refId = shelf ? findByName(shelf.list(), s.seedRef, 'title') : '';
-                break;
-            }
-          }
-          // A step that resolves to nothing is not dropped — it
-          // becomes a step that opens its category and lets you
-          // choose. That is correct for "tap on whatever is
-          // loudest", and it is also the right failure mode for a
-          // seedRef that no longer matches anything.
-          return Object.assign({}, s, { refId: refId });
-        })
-      });
     });
   }
 
@@ -1083,25 +965,23 @@
   // ============================================================
   global.Asc = {
     KEYS: KEYS,
+    GROUPS: GROUPS,
     MEDIA_SHELVES: MEDIA_SHELVES,
     SHELF_LABELS: SHELF_LABELS,
     PHASE_KINDS: PHASE_KINDS,
     BREATH_GOALS: BREATH_GOALS,
     YOGA_CATEGORIES: YOGA_CATEGORIES,
+    YOGA_LABELS: YOGA_LABELS,
     ENERGY_GROUPS: ENERGY_GROUPS,
-    STEP_KINDS: STEP_KINDS,
+    ENERGY_LABELS: ENERGY_LABELS,
     SESSION_KINDS: SESSION_KINDS,
 
     Breath: Breath,
     Eft: Eft,
     EftPoints: EftPoints,
-    Journals: Journals,
     Yoga: Yoga,
     Energy: Energy,
-    Decks: Decks,
-    Affirmations: Affirmations,
-    Routines: Routines,
-    Entries: Entries,
+    Custom: Custom,
     Sessions: Sessions,
     Media: Media,
     mediaShelf: mediaShelf,
@@ -1113,22 +993,13 @@
     favouriteCount: favouriteCount,
     toggleFavourite: toggleFavourite,
 
-    todaysAffirmation: todaysAffirmation,
-    newAffirmation: newAffirmation,
-
-    getLive: getLive,
-    setLive: setLive,
-    startRoutine: startRoutine,
-    clearLive: clearLive,
+    activities: activities,
+    menu: menu,
 
     logSession: logSession,
     sessionsOn: sessionsOn,
     recentSessions: recentSessions,
     lastSessionFor: lastSessionFor,
-
-    entriesFor: entriesFor,
-    blankEntry: blankEntry,
-    saveEntry: saveEntry,
 
     uiState: uiState,
     HIA_SYMBOLS: HIA_SYMBOLS,
