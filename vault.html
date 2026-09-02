@@ -1,1817 +1,1035 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="asc-root">
 <head>
-<!-- MUST be first and MUST NOT be deferred — it replaces window.localStorage
-     with an IndexedDB-backed shim, and anything that reads storage before it
-     installs would see the old, frozen native copy. See local-store-idb.js. -->
+<!-- FIRST, AND NEVER DEFERRED. local-store-idb.js replaces
+     window.localStorage wholesale before any other script runs, so
+     vault-data.js keeps using plain localStorage unchanged. Every
+     boot path is then gated on LocalStoreIDB.ready(). -->
 <script src="local-store-idb.js"></script>
 <!-- The snapshot layer. Not deferred: the registry must exist before any
      boot() asks Snapshots.forApp() for a store, and the engine asserts the
      store prefix against the registry before it will build one. -->
-<script src="data-registry.js?v=1"></script>
+<script src="data-registry.js?v=2"></script>
 <script src="snapshots.js?v=1"></script>
 <!-- Per-keystroke form drafts, written to the REAL localStorage so a
-     refresh cannot take an unsaved form with it. -->
+     refresh cannot take an unsaved entry with it. -->
 <script src="athenaeum-drafts.js?v=1"></script>
 <script src="data-export.js?v=1"></script>
 <script src="save-state.js?v=1"></script>
 <script src="trash.js?v=1"></script>
 <script src="shrink-banner.js?v=1"></script>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="theme-color" content="#0A0705">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entertainment Studio — Personal Dashboard</title>
+<meta name="theme-color" content="#0E0B09">
+<meta name="robots" content="noindex, nofollow">
+<title>Entertainment Studio</title>
+
+<!-- =============================================================
+     THE ENTERTAINMENT STUDIO
+
+     ONE DOCUMENT, ONE LIBRARY. It was twelve hash routes until
+     2026-09-02 — Home, Discover, Favorites, Stats and eight
+     shelves, each with its own renderer, each a page load away
+     from the others. Seeing the horror and the music together was
+     not possible; seeing either one meant leaving where you were.
+
+     It is now a hero, a ledger, a favourites strip and one
+     gallery. Podcasts, Horror, Spicy, Watching and Music are a
+     FILTER across that gallery rather than five destinations, and
+     Category / Shelf / Nothing is a GROUPING of it — so every
+     genre is still its own block of the page, and getting to one
+     costs a tap and no navigation.
+
+     NOTHING WAS MERGED IN STORAGE.
+     ─────────────────────────────────────────────────────────
+     All ten `vault:media:*` keys still exist and still hold
+     exactly what they held. `vault-data.js` is untouched. A tab
+     was never a shelf: Horror reads creepypasta + trueHorror and
+     Spicy reads spicy + immersive, and they always did. The
+     composer can still file to any of the ten by name, and the
+     retired hashes (#creepypasta, #trueHorror, #immersive, and
+     the four old view routes) still resolve.
+
+     IT WEARS THE ASCLEPION'S SKIN, BY SHARING THE STYLESHEET
+     ─────────────────────────────────────────────────────────
+     asclepion-theme.css is linked first and vault-theme.css
+     second; the ground, the grain, the hero geometry, the type
+     roles, the toolbar, the sheet and the toast are all the host
+     sheet's, unchanged. Two studios sharing one stylesheet cannot
+     drift apart. What went with the old skin: Tailwind from a
+     CDN, four typefaces, a 5.2MB video hero, an SVG ribbon
+     divider, a three-plane parallax ground and a rotating border
+     beam on every tile. vault-hero.js and vault-hero.css are no
+     longer referenced by anything.
+
+     ONE ROW, STILL
+     ─────────────────────────────────────────────────────────
+       vault -> vault:    the library. Seeded, ~330KB of records.
+     ============================================================= -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62,900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..600&family=Martian+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- The Asclepion's two faces, byte-for-byte. BODONI MODA carries
+     the display voice — a Didone whose 6..96 optical-size axis is
+     the reason it was chosen, keeping hairlines fine at 8rem and
+     still visible at 1rem. INTER does everything else. Linked
+     here rather than @import-ed from the stylesheet: an @import
+     cannot begin downloading until the stylesheet has itself
+     arrived and parsed. -->
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="asclepion-theme.css?v=6">
+<link rel="stylesheet" href="vault-theme.css?v=1">
+<link rel="preload" as="image" href="images_by_admin/vault/hero-hall.webp">
 
-<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js?v=3" defer></script>
-<script src="topbar.js?v=5" defer></script>
+<script src="sync.js?v=3"></script>
+<!-- 330KB of seeded records. Deferred so it cannot block the hero,
+     which is this page's largest paint; boot() waits for
+     DOMContentLoaded anyway. -->
 <script src="vault-data.js" defer></script>
-<!-- The ground, the hero and the ribbon. Must load before this page's own
-     boot() so VaultHero.mount() can run before the first render(). -->
-<script src="vault-hero.js" defer></script>
-<link rel="stylesheet" href="vault-hero.css">
-<script>
-tailwind.config = { theme:{ extend:{
-  colors:{ s0:'#0A0705', s1:'#17100A', s2:'#221709', s3:'#24332F',
-    gilt:'#B8853F', giltHi:'#D9AC6A', ink:'#E8D6B0', inkDim:'#A8916B', inkFaint:'#6E5A3E' }
-}}}
-</script>
-
-<style>
-/* The palette itself lives in vault-hero.css, sampled from the dark-floral
-   reference: gilt on near-black with one cold ash note. These are the names
-   the rest of this file already uses, re-pointed at it — so the page has one
-   source of colour, not two. */
-:root{
-  --s0:var(--vt-void); --s1:var(--vt-deep); --s2:var(--vt-raise); --s3:var(--vt-shade);
-  --card:var(--vt-deep);
-  --gilt:var(--vt-gilt); --gilt-hi:var(--vt-lit); --gilt-deep:#8A6027;
-  --chrome:var(--vt-ash); --chrome-dim:#5E7671;
-  --ink:var(--vt-ink); --ink-dim:var(--vt-ink-dim); --ink-faint:var(--vt-ink-faint);
-  --hair:var(--vt-hair);
-  --hair-soft:var(--vt-hair-soft);
-  --shelf:var(--gilt);
-  --spring:cubic-bezier(.34,1.4,.64,1);
-  --chrome-h:82px;   /* two-row chrome at rest */
-}
-
-*{ -webkit-tap-highlight-color:transparent }
-html{ scroll-behavior:smooth }
-
-/* Transparent on purpose: .vt-ground is a fixed three-plane background
-   mounted by vault-hero.js, and a background here would cover it.
-   The old full-page SVG grain is deliberately gone — the background
-   reference has a texture, and it was explicitly not wanted. */
-body{
-  margin:0; min-height:100vh; color:var(--ink);
-  font-family:'Instrument Sans',system-ui,sans-serif; font-size:14px; line-height:1.7;
-  background:transparent;
-}
-
-.mono{ font-family:'Martian Mono',monospace; font-weight:400; font-size:10px;
-  letter-spacing:.13em; text-transform:uppercase }
-::selection{ background:rgba(184,133,63,.28); color:var(--gilt-hi) }
-:where(a,button,input,[tabindex]):focus-visible{
-  outline:1px solid var(--gilt); outline-offset:3px; border-radius:3px }
-
-/* ══ CHROME ROW ══ fixed; condenses on scroll ══════════ */
-/* Two rows at rest, one row when stuck. 14 tabs at a readable size plus the
-   paste box will not fit on one line at 1440 — measured, not assumed. */
-.chrome{
-  position:fixed; top:0; left:0; right:0; z-index:50;
-  display:grid; align-items:center;
-  grid-template-columns:auto 1fr auto;
-  grid-template-areas:"mark gap right" "tabs tabs tabs";
-  gap:4px 18px; padding:12px 40px 8px;
-  transition:padding .35s ease, background-color .35s ease, border-color .35s ease;
-  border-bottom:1px solid transparent;
-}
-.chrome.stuck{
-  grid-template-areas:"mark tabs right";
-  padding:7px 40px;
-  background:rgba(8,6,4,.88); backdrop-filter:blur(20px) saturate(130%);
-  border-bottom-color:var(--hair-soft);
-}
-.mark{ grid-area:mark } .tabstrip{ grid-area:tabs } .chrome-right{ grid-area:right }
-/* clears topbar.js's fixed launcher; the tab strip keeps its full width */
-.mark{ margin-left:186px }
-/* At rest the tab strip is on its own row, which starts under the
-   launcher; stuck, it shares the mark's row and the mark clears it. */
-.chrome:not(.stuck) .tabstrip{ padding-left:186px }
-.chrome.stuck .omni{ width:150px }
-.mark{ flex:0 0 auto; display:flex; align-items:center; gap:8px;
-  font-family:'Archivo'; font-variation-settings:'wdth' 62; font-weight:900;
-  font-size:14px; letter-spacing:.14em; text-transform:uppercase;
-  background:linear-gradient(135deg,#D9AC6A 0%,#B8853F 42%,#7A5320 66%,#E3C88E 100%);
-  -webkit-background-clip:text; background-clip:text; color:transparent }
-
-.tabstrip{ display:flex; gap:1px; overflow-x:auto; scrollbar-width:none; flex:1 1 auto; min-width:0 }
-.tabstrip::-webkit-scrollbar{ display:none }
-.tab{ position:relative; flex:0 0 auto; display:flex; align-items:center; gap:6px;
-  padding:6px 10px; color:rgba(232,214,176,.52);
-  font-family:'Martian Mono',monospace; font-size:10px; letter-spacing:.11em;
-  text-transform:uppercase; white-space:nowrap; background:none; border:0; cursor:pointer;
-  transition:color .28s ease }
-.tab svg{ width:13px; height:13px; opacity:.55; transition:opacity .28s ease, transform .45s var(--spring) }
-.tab:hover{ color:rgba(232,214,176,.85) } .tab:hover svg{ opacity:.9 }
-.tab.on{ color:var(--gilt-hi) }
-.tab.on svg{ opacity:1; color:var(--shelf); transform:scale(1.1) }
-
-.chrome-right{ flex:0 0 auto; display:flex; align-items:center; gap:8px }
-.omni{ width:220px; background:rgba(34,23,9,.4); border:1px solid var(--hair);
-  color:var(--ink); border-radius:99px; padding:6px 14px 6px 32px; font-size:12px;
-  transition:width .35s var(--spring), border-color .25s ease, background-color .25s ease }
-.omni::placeholder{ color:var(--ink-faint) }
-.omni:focus{ outline:none; width:280px; border-color:rgba(184,133,63,.45); background:rgba(34,23,9,.7) }
-.iconbtn{ color:var(--ink-dim); border:1px solid var(--hair-soft); background:rgba(34,23,9,.3);
-  border-radius:99px; display:grid; place-items:center;
-  transition:color .2s ease, transform .3s var(--spring), border-color .2s ease }
-.iconbtn:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:translateY(-1px) }
-/* scroll gauge lives on the stuck bar */
-.gauge{ position:absolute; left:0; bottom:-1px; height:1px; width:100%;
-  transform:scaleX(0); transform-origin:left; opacity:0;
-  background:linear-gradient(to right,var(--gilt-deep),var(--gilt-hi));
-  transition:opacity .3s ease }
-.chrome.stuck .gauge{ opacity:.8 }
-
-/* ══ SHEET ═════════════════════════════════════════════ */
-/* The old hero was position:fixed with the sheet sliding up over it as a
-   curtain. That is gone: the hero is a normal 100svh block in flow, the
-   ribbon follows it, and the sheet follows that — which is what lets the
-   four parallax planes travel against the scroll instead of against a
-   pinned element. See vault-hero.css.
-   Transparent, so the ground runs from the top of the hero to the foot of
-   the page without a seam anywhere. */
-.sheet{ position:relative; z-index:4; background:transparent }
-
-/* ══ SECTIONS / ROWS ═══════════════════════════════════ */
-main{ position:relative; z-index:4 }
-.sechead{ display:flex; align-items:baseline; gap:14px; margin-bottom:14px }
-.sechead .lbl{ color:var(--ink-dim); font-family:'Martian Mono',monospace; font-size:10px;
-  letter-spacing:.17em; text-transform:uppercase; white-space:nowrap }
-.sechead .num{ color:var(--gilt-deep); font-family:'Martian Mono',monospace;
-  font-size:9px; letter-spacing:.08em }
-.sechead .rule{ flex:1; height:1px; background:linear-gradient(to right,var(--hair),transparent) }
-.sechead .more{ color:var(--ink-faint); font-family:'Martian Mono',monospace; font-size:9.5px;
-  letter-spacing:.12em; text-transform:uppercase; background:none; border:0; cursor:pointer;
-  white-space:nowrap; transition:color .2s ease }
-.sechead .more:hover{ color:var(--gilt) }
-
-/* A category is laid out as a GRID, not a scroller. Every card in a genre
-   has to be visible without dragging sideways, which was the whole
-   complaint about the old rows — so the nudge arrows, the edge fade and
-   the scroll-snap that served them are gone with them. */
-.grid-cards{
-  display:grid; gap:20px 16px;
-  grid-template-columns:repeat(auto-fill, minmax(212px, 1fr));
-  /* stretch, not start: without it a card carrying a description is
-     taller than one without, and the buttons in a row stop lining up.
-     .c-play's margin-top:auto is what puts the extra space above the
-     button rather than below it. */
-  align-items:stretch;
-}
-@media (max-width:560px){
-  .grid-cards{ grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px 12px }
-}
-.catblock{ position:relative; margin-bottom:54px; padding-top:32px }
-.catblock::before{ content:''; position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(to right, var(--hair) 0%, rgba(184,133,63,.06) 48%, transparent 80%) }
-.catblock .sechead{ margin-bottom:20px }
-.catblock .sechead .lbl{
-  font-family:'Bodoni Moda',serif; font-style:italic; font-weight:600;
-  font-size:22px; letter-spacing:0; text-transform:none; color:var(--vt-cream) }
-.catblock .sechead .num{ font-size:9.5px; color:var(--gilt) }
-@media (max-width:720px){
-  .catblock{ margin-bottom:38px; padding-top:24px }
-  .catblock .sechead .lbl{ font-size:18px }
-}
-
-.grid-cards.has-open .card:not(.open){ opacity:.5 }
-.grid-cards.has-open .card:not(.open):hover{ opacity:.85 }
-
-/* ══ CARD ══════════════════════════════════════════════
-   Built to the reference: a portrait card, art on top, then a solid panel
-   carrying the title, who made it, a two-line description, and one
-   full-width outlined button.
-
-   The button says what the shelf's verb is — Listen, Watch, Read, Play —
-   so the same control never changes meaning between shelves. The star,
-   the score, the Tonight toggle and the details toggle all survive from
-   the old overlay card; the two toggles move onto the art so the button
-   can run the full width of the panel, as it does in the reference. */
-.card{
-  position:relative; display:flex; flex-direction:column;
-  width:100%; text-align:left; cursor:pointer;
-  border-radius:16px; overflow:hidden;
-  border:1px solid var(--hair-soft); background:var(--card);
-  box-shadow:
-    0 1px 2px rgba(6,4,2,.7),
-    0 14px 34px -16px rgba(74,46,23,.55);
-  transition:transform .42s var(--spring), border-color .3s ease,
-             box-shadow .3s ease, opacity .3s ease;
-}
-.card:hover{ transform:translateY(-5px); border-color:var(--hair);
-  box-shadow:0 2px 4px rgba(6,4,2,.75), 0 22px 48px -18px rgba(184,133,63,.5),
-             0 0 0 1px rgba(184,133,63,.1) }
-.card:active{ transform:translateY(-2px) scale(.995) }
-.card:focus-visible{ outline:1px solid var(--gilt); outline-offset:3px }
-
-/* 5:4 rather than 16:9: most covers here are YouTube thumbnails, and a
-   taller frame gives the blurred-fill trick below more room to work. */
-.art{ position:relative; width:100%; aspect-ratio:5/4; overflow:hidden;
-  background:var(--s0); flex:none }
-/* Two copies of the same image: one blurred and cropped to fill the frame,
-   one contained on top of it. Nothing is ever cut off, and a 16:9 thumbnail
-   in a 5:4 box gets a bed instead of two black bars. */
-.art .bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-  filter:blur(26px) saturate(.8) brightness(.5); transform:scale(1.25) }
-.art .fg{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
-  transition:transform .55s var(--spring) }
-.card:hover .art .fg{ transform:scale(1.045) }
-/* the house colour treatment: a multiply tint, then a foot gradient */
-.art::before{ content:''; position:absolute; inset:0; z-index:1;
-  background:var(--vt-umber); opacity:.2; mix-blend-mode:multiply; pointer-events:none }
-.art::after{ content:''; position:absolute; inset:0; z-index:2; pointer-events:none;
-  background:linear-gradient(to top, rgba(10,7,5,.72) 0%, rgba(10,7,5,.12) 34%, transparent 62%) }
-
-.c-star{ position:absolute; left:10px; top:10px; z-index:5;
-  width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
-  font-size:14px; line-height:1; color:rgba(232,214,176,.5);
-  background:rgba(10,7,5,.5); backdrop-filter:blur(6px);
-  border:1px solid rgba(232,214,176,.12); cursor:pointer;
-  transition:color .22s ease, transform .3s var(--spring), background-color .22s ease }
-.card:hover .c-star{ background:rgba(10,7,5,.68); color:rgba(232,214,176,.78) }
-.c-star:hover{ transform:scale(1.14); color:var(--gilt-hi) }
-.c-star:focus-visible{ outline:1px solid var(--gilt); outline-offset:2px }
-.c-star.on{ color:var(--vt-lit); text-shadow:0 0 10px rgba(217,172,106,.7);
-  background:rgba(10,7,5,.68) }
-
-.c-score{ position:absolute; right:10px; top:10px; z-index:5;
-  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.06em;
-  padding:5px 8px; border-radius:99px; color:var(--vt-cream);
-  background:rgba(10,7,5,.6); backdrop-filter:blur(6px);
-  border:1px solid rgba(232,214,176,.13) }
-
-/* The two secondary actions ride the art, bottom-right, so the panel's
-   button can run edge to edge the way the reference's does. */
-.c-acts{ position:absolute; right:10px; bottom:10px; z-index:5;
-  display:flex; align-items:center; gap:7px; opacity:0;
-  transition:opacity .25s ease }
-.card:hover .c-acts, .card:focus-within .c-acts{ opacity:1 }
-@media (hover:none), (max-width:720px){ .c-acts{ opacity:1 } }
-.c-mini{ width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
-  color:var(--vt-cream); background:rgba(10,7,5,.62); backdrop-filter:blur(6px);
-  border:1px solid rgba(232,214,176,.16); cursor:pointer;
-  transition:transform .3s var(--spring), background-color .22s ease, color .22s ease }
-.c-mini:hover{ transform:scale(1.1); background:rgba(23,16,10,.9); color:#fff }
-.c-mini:focus-visible{ outline:1px solid var(--gilt); outline-offset:2px }
-.c-mini.on{ background:var(--gilt); border-color:var(--gilt-hi); color:#1A1005 }
-
-/* --- the panel --------------------------------------------------- */
-.c-foot{ position:relative; z-index:4; display:flex; flex-direction:column;
-  gap:5px; padding:13px 14px 14px; background:var(--card); flex:1 1 auto }
-.c-title{ font-family:'Bodoni Moda',serif; font-style:italic; font-weight:600;
-  font-size:15px; line-height:1.22; color:var(--vt-cream);
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-  overflow:hidden }
-.c-meta{ font-family:'Martian Mono',monospace; font-size:8.5px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--ink-faint);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-.c-desc{ font-size:11.5px; line-height:1.55; color:var(--ink-dim);
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-  overflow:hidden }
-/* margin-top:auto is what makes every button in a row line up even when
-   the titles above them wrap to different heights. */
-.c-play{ margin-top:auto; padding:11px 14px;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  min-height:38px; border-radius:99px; cursor:pointer;
-  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.16em;
-  text-transform:uppercase; color:var(--vt-cream);
-  border:1px solid rgba(232,214,176,.26); background:transparent;
-  transition:background-color .24s ease, color .24s ease, border-color .24s ease,
-             transform .3s var(--spring) }
-.c-play:hover{ background:var(--gilt); border-color:var(--gilt-hi); color:#1A1005 }
-.c-play:active{ transform:scale(.985) }
-.c-play:focus-visible{ outline:1px solid var(--gilt); outline-offset:3px }
-
-/* ══ INLINE DETAIL ═════════════════════════════════════ */
-.detail{ margin:2px 0 22px; border-radius:14px; overflow:hidden;
-  background:linear-gradient(155deg,rgba(36,51,47,.55),rgba(23,16,10,.66));
-  border:1px solid var(--hair); box-shadow:0 20px 50px -22px rgba(6,4,2,.9);
-  animation:unfurl .42s var(--spring) both }
-@keyframes unfurl{ from{ opacity:0; transform:translateY(-8px) } to{ opacity:1; transform:none } }
-.d-tabs{ display:flex; align-items:center; gap:2px; padding:12px 16px 0;
-  border-bottom:1px solid var(--hair-soft) }
-.d-tab{ position:relative; padding:8px 12px 11px; background:none; border:0; cursor:pointer;
-  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--ink-faint); transition:color .22s ease }
-.d-tab:hover{ color:var(--ink-dim) }
-.d-tab.on{ color:var(--gilt-hi) }
-.d-tab.on::after{ content:''; position:absolute; left:12px; right:12px; bottom:-1px; height:2px;
-  border-radius:2px; background:linear-gradient(to right,var(--gilt-hi),var(--gilt)) }
-.d-close{ margin-left:auto; width:26px; height:26px; border-radius:50%; display:grid;
-  place-items:center; background:none; border:1px solid var(--hair-soft);
-  color:var(--ink-faint); cursor:pointer; font-size:12px;
-  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
-.d-close:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:rotate(90deg) }
-.d-body{ display:grid; grid-template-columns:1fr 240px; gap:32px; padding:20px 16px }
-@media (max-width:720px){ .d-body{ grid-template-columns:1fr; gap:20px } }
-.d-lbl{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.17em;
-  text-transform:uppercase; color:var(--ink-faint); margin-bottom:9px }
-.d-text{ color:var(--ink-dim); font-size:13px; line-height:1.75; max-width:62ch }
-.d-acts{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap }
-.d-btn{ padding:6px 13px; border-radius:99px; cursor:pointer;
-  background:rgba(34,23,9,.55); border:1px solid var(--hair); color:var(--ink-dim);
-  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.12em;
-  text-transform:uppercase; transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
-.d-btn:hover{ color:var(--gilt-hi); border-color:rgba(184,133,63,.4); transform:translateY(-1px) }
-.tagwrap{ display:flex; flex-wrap:wrap; gap:7px }
-.tagpill{ padding:4px 11px; border-radius:99px; cursor:pointer;
-  border:1px solid rgba(184,133,63,.32); color:var(--gilt);
-  background:rgba(184,133,63,.07);
-  font-family:'Martian Mono',monospace; font-size:8.5px; letter-spacing:.11em;
-  text-transform:uppercase; transition:background-color .2s ease, color .2s ease }
-.tagpill:hover{ background:rgba(184,133,63,.18); color:var(--gilt-hi) }
-
-/* ══ TILES ═════════════════════════════════════════════ */
-/* no overflow:hidden — the beam's cast light has to spill past the edge to read
-   as light. ::before clips itself with border-radius:inherit instead. */
-.tile{ position:relative; display:flex; flex-direction:column; gap:9px;
-  padding:15px 14px 13px; border-radius:10px; cursor:pointer; text-align:left;
-  background:rgba(23,16,10,.55); border:1px solid var(--hair-soft);
-  transition:transform .38s var(--spring), border-color .28s ease }
-.tile::before{ content:''; position:absolute; inset:0; pointer-events:none;
-  border-radius:inherit;
-  background:radial-gradient(120% 90% at 0% 0%,var(--tint),transparent 62%);
-  opacity:.2; transition:opacity .3s ease }
-.tile:hover{ transform:translateY(-3px); border-color:var(--hair) }
-.tile:hover::before{ opacity:.34 }
-.tile > *{ position:relative; z-index:1 }
-.tile svg{ width:17px; height:17px; opacity:.62; transition:opacity .28s ease, transform .45s var(--spring) }
-.tile:hover svg{ opacity:1; transform:scale(1.1) }
-.tile .tn{ font-family:'Bodoni Moda',serif; font-size:14.5px; color:var(--ink); line-height:1.25 }
-.tile .tc{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em; color:var(--ink-faint) }
-
-.chip{ flex:0 0 auto; padding:5px 12px; border-radius:99px; cursor:pointer;
-  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--ink-dim);
-  background:rgba(34,23,9,.5); border:1px solid var(--hair); white-space:nowrap;
-  transition:color .22s ease, border-color .22s ease, transform .3s var(--spring) }
-.chip:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:translateY(-1px) }
-.stub{ padding:70px 0; text-align:center }
-
-/* ══ DISCOVERY ═════════════════════════════════════════ */
-.disc-controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:26px }
-.disc-select{ appearance:none; cursor:pointer;
-  background:rgba(34,23,9,.45) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' fill='none' stroke='%23A89490' stroke-width='1.4'%3E%3Cpath d='M1 1l3.5 3.5L8 1'/%3E%3C/svg%3E") no-repeat right 13px center;
-  border:1px solid var(--hair); color:var(--ink); border-radius:99px;
-  padding:8px 34px 8px 15px; font-family:'Martian Mono',monospace; font-size:10px;
-  letter-spacing:.09em; text-transform:uppercase;
-  transition:border-color .22s ease, background-color .22s ease }
-.disc-select:hover{ border-color:rgba(184,133,63,.4) }
-.disc-select:focus-visible{ outline:2px solid var(--gilt); outline-offset:2px }
-.disc-select option{ background:#17100A; color:var(--ink); text-transform:none }
-.disc-roll{ cursor:pointer; border:0; border-radius:99px; padding:9px 22px;
-  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 55%,var(--gilt-deep));
-  color:#2A1710; font-family:'Martian Mono',monospace; font-size:10px;
-  letter-spacing:.13em; text-transform:uppercase;
-  box-shadow:0 1px 2px rgba(6,4,2,.6), 0 8px 22px -10px rgba(184,133,63,.7);
-  transition:transform .32s var(--spring), box-shadow .28s ease }
-.disc-roll:hover{ transform:translateY(-2px);
-  box-shadow:0 1px 2px rgba(6,4,2,.6), 0 14px 30px -10px rgba(184,133,63,.9) }
-.disc-roll:active{ transform:translateY(0) }
-.disc-roll:focus-visible{ outline:2px solid var(--gilt-hi); outline-offset:3px }
-.disc-stage{ display:flex; flex-direction:column; align-items:flex-start; gap:14px }
-.disc-card{ animation:discIn .5s var(--spring) both }
-@keyframes discIn{ from{ opacity:0; transform:translateY(14px) scale(.985) } to{ opacity:1; transform:none } }
-.disc-meta{ font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.13em;
-  text-transform:uppercase; color:var(--ink-faint) }
-.disc-empty{ color:var(--ink-dim); font-size:13px; padding:34px 0 }
-.disc-again{ cursor:pointer; background:none; border:1px solid var(--hair);
-  border-radius:99px; padding:7px 17px; color:var(--ink-dim);
-  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
-  text-transform:uppercase; transition:color .22s ease, border-color .22s ease, transform .3s var(--spring) }
-.disc-again:hover{ color:var(--gilt-hi); border-color:rgba(184,133,63,.42); transform:translateY(-1px) }
-.disc-again:focus-visible{ outline:2px solid var(--gilt); outline-offset:2px }
-@media (prefers-reduced-motion:reduce){ .disc-card{ animation:none } }
-
-/* ══ BORDER BEAM ═══════════════════════════════════════ */
-/* Two comets orbit the border on a rotating conic gradient. The ring is that
-   gradient cut down to a hairline by a two-layer CSS *alpha* mask
-   (mask-composite:exclude) — SVG luminance masks silently no-op in Chromium.
-   Only --beam-a changes per frame, so nothing inside the element repaints. */
-.beamed{ position:relative; isolation:isolate;
-  --beam-1:var(--gilt); --beam-2:var(--gilt-deep); --beam-w:1.5px; --beam-a:0deg }
-.beam-ring,.beam-glow{
-  position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
-  /* The toe of each comet is a 4% mix of its own colour, never `transparent` —
-     transparent is rgba(0,0,0,0) and a conic ramp through it dips visibly grey. */
-  background:conic-gradient(from var(--beam-a),
-    transparent 0deg,
-    color-mix(in srgb, var(--beam-1) 4%, transparent) 18deg,
-    color-mix(in srgb, var(--beam-1) 55%, transparent) 46deg,
-    var(--beam-1) 56deg,
-    color-mix(in srgb, var(--beam-1) 22%, #FFF6E6) 60deg,
-    transparent 63deg,
-    transparent 198deg,
-    color-mix(in srgb, var(--beam-2) 4%, transparent) 216deg,
-    color-mix(in srgb, var(--beam-2) 50%, transparent) 244deg,
-    var(--beam-2) 254deg,
-    color-mix(in srgb, var(--beam-2) 26%, #FFF6E6) 258deg,
-    transparent 261deg,
-    transparent 360deg);
-}
-/* Safari didn't ship color-mix() until 16.2. On anything older the whole
-   `background` above is invalid and the ring renders as NOTHING — no comet,
-   no glow, on a phone that otherwise looks fine. This fallback trades the
-   soft toe for hard stops so the effect still runs there. */
-@supports not (background: color-mix(in srgb, red 50%, transparent)){
-  .beam-ring,.beam-glow{
-    background:conic-gradient(from var(--beam-a),
-      transparent 0deg, transparent 30deg,
-      var(--beam-1) 56deg, #FFF6E6 60deg, transparent 64deg,
-      transparent 198deg,
-      var(--beam-2) 254deg, #FFF6E6 258deg, transparent 262deg,
-      transparent 360deg);
-  }
-}
-.beam-ring{ z-index:3; padding:var(--beam-w);
-  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  -webkit-mask-composite:xor;
-  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-  mask-composite:exclude }
-/* the glow is cast light, not a wash — blur wide enough to bloom off the edge,
-   tight enough that the comet's tail doesn't smear across the tile face */
-.beam-glow{ z-index:0; filter:blur(10px); opacity:.26 }
-.chip.beamed{ --beam-w:1px }
-.chip.beamed .beam-glow{ filter:blur(8px); opacity:.26 }
-/* the ring sits exactly over the 1px border, so the hairline stays as the
-   resting edge — without it a tile has no shape wherever the comet isn't */
-@media (forced-colors:active){
-  .beam-ring,.beam-glow{ display:none }
-  .tile.beamed,.chip.beamed{ border-color:CanvasText }
-}
-
-/* ══ COMPOSER ══════════════════════════════════════════
-   The add/edit surface. Everything on this page was readable before and
-   writable nowhere — the paste bar in the chrome had no handler at all, so
-   the empty state's "paste a link in the bar above" was advice you could not
-   take. This is that missing half.
-
-   It is a sheet, not a centred modal: on a phone a centred dialog with nine
-   fields fights the keyboard for the same 300px. Here it rises from the
-   bottom, scrolls internally, and keeps its actions pinned in view. */
-.cmp-scrim{ position:fixed; inset:0; z-index:80; background:rgba(6,4,2,.72);
-  backdrop-filter:blur(3px); opacity:0; pointer-events:none;
-  transition:opacity .3s ease }
-.cmp-scrim.on{ opacity:1; pointer-events:auto }
-
-.cmp{ position:fixed; z-index:81; left:50%; bottom:0; width:min(680px,100%);
-  max-height:min(88vh,860px); display:flex; flex-direction:column;
-  border-radius:18px 18px 0 0; overflow:hidden;
-  background:linear-gradient(168deg,#241708 0%,#150E07 42%,#0D0905 100%);
-  border:1px solid var(--hair); border-bottom:0;
-  box-shadow:0 -2px 0 rgba(184,133,63,.08), 0 -30px 80px -30px rgba(6,4,2,.95);
-  transform:translate(-50%,100%);
-  transition:transform .42s var(--spring) }
-.cmp.on{ transform:translate(-50%,0) }
-
-.cmp-head{ flex:0 0 auto; display:flex; align-items:center; gap:12px;
-  padding:16px 20px 13px; border-bottom:1px solid var(--hair-soft) }
-.cmp-head h2{ margin:0; font-family:'Bodoni Moda',serif; font-style:italic;
-  font-weight:500; font-size:20px; letter-spacing:-.01em; color:var(--ink) }
-.cmp-x{ margin-left:auto; width:32px; height:32px; border-radius:50%; display:grid;
-  place-items:center; background:none; border:1px solid var(--hair-soft);
-  color:var(--ink-faint); cursor:pointer; font-size:14px; line-height:1;
-  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
-.cmp-x:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:rotate(90deg) }
-
-.cmp-body{ flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain;
-  padding:18px 20px 22px; display:grid; gap:14px;
-  grid-template-columns:1fr 1fr }
-.cmp-body::-webkit-scrollbar{ width:6px }
-.cmp-body::-webkit-scrollbar-thumb{ background:rgba(184,133,63,.18); border-radius:99px }
-.cmp-f{ display:flex; flex-direction:column; gap:6px; min-width:0 }
-.cmp-f.wide{ grid-column:1 / -1 }
-.cmp-f label{ font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.15em;
-  text-transform:uppercase; color:var(--ink-faint) }
-/* 16px is not a style choice — anything smaller makes iOS Safari zoom the
-   whole page in on focus, and it does not zoom back out. */
-.cmp-f input,.cmp-f select,.cmp-f textarea{
-  width:100%; font-size:16px; font-family:'Instrument Sans',system-ui,sans-serif;
-  color:var(--ink); background:rgba(34,23,9,.42); border:1px solid var(--hair);
-  border-radius:9px; padding:10px 12px; line-height:1.45;
-  transition:border-color .2s ease, background-color .2s ease }
-.cmp-f textarea{ resize:vertical; min-height:78px }
-.cmp-f input::placeholder,.cmp-f textarea::placeholder{ color:var(--ink-faint) }
-.cmp-f input:focus,.cmp-f select:focus,.cmp-f textarea:focus{
-  outline:none; border-color:rgba(184,133,63,.5); background:rgba(34,23,9,.68) }
-.cmp-f select{ appearance:none; cursor:pointer;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' fill='none' stroke='%23A89490' stroke-width='1.4'%3E%3Cpath d='M1 1l3.5 3.5L8 1'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right 13px center; padding-right:34px }
-.cmp-f select option{ background:#17100A; color:var(--ink) }
-.cmp-hint{ font-size:11px; line-height:1.5; color:var(--ink-faint) }
-.cmp-hint a,.cmp-hint button{ color:var(--gilt); background:none; border:0; padding:0;
-  cursor:pointer; text-decoration:underline; font:inherit }
-
-/* rating as five real buttons — a number input for a 0-5 scale is a worse
-   version of the thing it replaces */
-.cmp-stars{ display:flex; gap:4px; align-items:center }
-.cmp-star{ width:34px; height:34px; border-radius:8px; display:grid; place-items:center;
-  background:rgba(34,23,9,.42); border:1px solid var(--hair); cursor:pointer;
-  color:var(--ink-faint); font-size:15px; line-height:1;
-  transition:color .18s ease, border-color .18s ease, transform .3s var(--spring) }
-.cmp-star:hover{ transform:translateY(-2px); color:var(--gilt) }
-.cmp-star.on{ color:var(--gilt-hi); border-color:rgba(217,172,106,.34);
-  text-shadow:0 0 10px rgba(217,172,106,.5) }
-.cmp-clearstars{ margin-left:6px; background:none; border:0; cursor:pointer;
-  font-family:'Martian Mono',monospace; font-size:9px; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--ink-faint); transition:color .2s ease }
-.cmp-clearstars:hover{ color:var(--gilt) }
-
-/* live cover preview: pasting a broken image URL should be obvious here,
-   not after saving */
-.cmp-prev{ grid-column:1 / -1; display:flex; gap:13px; align-items:center;
-  padding:11px; border-radius:11px; background:rgba(10,7,5,.5);
-  border:1px solid var(--hair-soft) }
-.cmp-prev img{ width:112px; height:63px; object-fit:cover; border-radius:7px;
-  background:#160409; flex:0 0 auto }
-.cmp-prev .cmp-prevmeta{ min-width:0; font-size:12px; color:var(--ink-dim); line-height:1.5 }
-.cmp-prev b{ display:block; color:var(--ink); font-family:'Bodoni Moda',serif;
-  font-style:italic; font-size:15px; font-weight:600; margin-bottom:2px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-
-.cmp-toggles{ grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:8px }
-.cmp-tog{ display:inline-flex; align-items:center; gap:7px; cursor:pointer;
-  padding:8px 14px; border-radius:99px; background:rgba(34,23,9,.4);
-  border:1px solid var(--hair); color:var(--ink-dim);
-  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
-  text-transform:uppercase;
-  transition:color .2s ease, border-color .2s ease, background-color .2s ease }
-.cmp-tog:hover{ color:var(--ink) }
-.cmp-tog.on{ color:#1A1005; border-color:var(--gilt-hi);
-  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 60%,var(--gilt-deep)) }
-
-.cmp-foot{ flex:0 0 auto; display:flex; align-items:center; gap:9px; flex-wrap:wrap;
-  padding:14px 20px; border-top:1px solid var(--hair-soft);
-  background:rgba(8,6,4,.5);
-  /* clears the iPhone home indicator */
-  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px)) }
-.cmp-save{ cursor:pointer; border:0; border-radius:99px; padding:11px 24px;
-  background:linear-gradient(135deg,var(--gilt-hi),var(--gilt) 55%,var(--gilt-deep));
-  color:#2A1710; font-family:'Martian Mono',monospace; font-size:10px;
-  letter-spacing:.13em; text-transform:uppercase; font-weight:600;
-  box-shadow:0 1px 2px rgba(6,4,2,.6), 0 8px 22px -10px rgba(184,133,63,.7);
-  transition:transform .3s var(--spring), box-shadow .28s ease }
-.cmp-save:hover{ transform:translateY(-2px);
-  box-shadow:0 1px 2px rgba(6,4,2,.6), 0 14px 30px -10px rgba(184,133,63,.9) }
-.cmp-save:active{ transform:translateY(0) }
-.cmp-ghost{ cursor:pointer; background:none; border:1px solid var(--hair);
-  border-radius:99px; padding:10px 17px; color:var(--ink-dim);
-  font-family:'Martian Mono',monospace; font-size:9.5px; letter-spacing:.12em;
-  text-transform:uppercase;
-  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
-.cmp-ghost:hover{ color:var(--gilt-hi); border-color:rgba(184,133,63,.42); transform:translateY(-1px) }
-.cmp-del{ margin-left:auto; color:#C77 }
-.cmp-del:hover{ color:#E88; border-color:rgba(224,136,136,.45) }
-.cmp-msg{ grid-column:1 / -1; font-size:12px; line-height:1.55; padding:9px 12px;
-  border-radius:9px; display:none }
-.cmp-msg.on{ display:block }
-.cmp-msg.warn{ color:#F0C9A8; background:rgba(184,133,63,.11);
-  border:1px solid rgba(184,133,63,.3) }
-.cmp-msg.bad{ color:#F2B4B4; background:rgba(224,136,136,.1);
-  border:1px solid rgba(224,136,136,.3) }
-
-/* the always-there add button — the chrome's paste bar is desktop-only, and
-   an add path that disappears on the device you use in bed is not an add path */
-.addfab{ position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom,0px));
-  z-index:60; width:54px; height:54px; border-radius:50%; display:grid; place-items:center;
-  cursor:pointer; border:1px solid rgba(217,172,106,.34);
-  background:linear-gradient(140deg,var(--gilt-hi),var(--gilt) 52%,var(--gilt-deep));
-  color:#2A1710;
-  box-shadow:0 2px 5px rgba(6,4,2,.6), 0 14px 34px -12px rgba(184,133,63,.75);
-  transition:transform .34s var(--spring), box-shadow .28s ease }
-.addfab:hover{ transform:scale(1.07) translateY(-2px);
-  box-shadow:0 2px 5px rgba(6,4,2,.6), 0 20px 44px -12px rgba(184,133,63,.95) }
-.addfab:active{ transform:scale(1.01) }
-
-/* the small "+" that sits in a section head, so a category can be added to
-   from the row it belongs to rather than from a global form */
-.sechead .addhere{ flex:0 0 auto; display:grid; place-items:center;
-  width:24px; height:24px; border-radius:50%; cursor:pointer;
-  background:rgba(34,23,9,.4); border:1px solid var(--hair-soft);
-  color:var(--ink-faint); font-size:14px; line-height:1;
-  transition:color .2s ease, border-color .2s ease, transform .3s var(--spring) }
-.sechead .addhere:hover{ color:var(--gilt-hi); border-color:var(--hair); transform:scale(1.12) }
-
-.emptyadd{ margin-top:18px }
-
-@media (max-width:720px){
-  /* Nearly full height, because the keyboard takes the rest — but stopping
-     76px down, which is where topbar.js's fixed launcher pill ends. That
-     pill sits above everything on every page in the dashboard and cannot be
-     moved, so the sheet clears it rather than sliding under it. */
-  .cmp{ width:100%; max-height:calc(100vh - 76px); border-radius:16px 16px 0 0 }
-  .cmp-body{ grid-template-columns:1fr; padding:16px 16px 20px }
-  .cmp-foot{ padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px)) }
-  .cmp-save,.cmp-ghost{ flex:1 1 auto; text-align:center }
-  .cmp-del{ flex:0 0 100%; margin-left:0; order:9 }
-}
-@media (prefers-reduced-motion:reduce){
-  .cmp{ transition:none } .cmp-scrim{ transition:none }
-}
-
-/* ══ PHONE ═════════════════════════════════════════════ */
-/* topbar.js's launcher is a fixed 144x46 pill at (14,14) and cannot move —
-   every page in the dashboard shares it. At 390px it covers the wordmark
-   outright and clips the first two tabs. So on phones the mark is dropped
-   (the launcher itself already reads "Entertainment Studio") and the tab strip gets its
-   own row below the launcher's bottom edge. */
-@media (max-width:720px){
-  :root{ --chrome-h:104px }
-  .mark{ display:none }
-  .chrome{
-    grid-template-columns:1fr auto;
-    grid-template-areas:"gap right" "tabs tabs";
-    padding:14px 14px 10px; gap:26px 10px }
-  .chrome.stuck{ grid-template-areas:"gap right" "tabs tabs"; padding:12px 14px 8px }
-  .tabstrip{ gap:2px }
-  .tab{ padding:7px 9px }
-  /* The hero is shorter here, so its bright midground reaches the tab row.
-     A scrim keeps the tabs legible over any backdrop; the stuck bar brings
-     its own background, so it drops out there rather than doubling up. */
-  .chrome::before{ content:''; position:absolute; inset:0; z-index:-1;
-    pointer-events:none;
-    background:linear-gradient(to bottom, rgba(8,6,4,.88) 0%,
-      rgba(8,6,4,.7) 52%, rgba(8,6,4,.3) 82%, transparent 100%) }
-  .chrome.stuck::before{ opacity:0 }
-
-  /* The hero's phone sizing belongs to vault-hero.css, which owns the
-     hero now — including the shorter 88svh and the halved parallax
-     travel, so no plane overshoots its own headroom on a short screen. */
-
-  /* The card grid drops to minmax(150px,1fr) on its own, which is two to a
-     row at 390px. Only the page gutter is set here. */
-  main#body{ padding-left:16px; padding-right:16px; padding-top:34px }
-  /* A button that is the card's primary action needs a real tap target. */
-  .c-play{ min-height:44px }
-
-  .disc-controls{ gap:8px }
-  .disc-select,.disc-roll{ flex:1 1 auto; min-width:0 }
-
-  /* Tap targets. Measured at 390px, these were 24x24 (the row "+"), 38x14
-     (the section "more" link) and 26px tall (the category chips) — small
-     enough that hitting the one you meant is luck, and they sit next to each
-     other, which is the arrangement that actually produces mis-taps. Only
-     the hit area grows; nothing here changes at desktop widths. */
-  .sechead{ gap:10px }
-  .sechead .addhere{ width:34px; height:34px; font-size:17px }
-  .sechead .more{ padding:9px 4px }
-  .chip{ padding:9px 14px }
-  .iconbtn{ min-width:36px; min-height:36px }
-  .c-mini{ width:36px; height:36px }
-  .c-star{ width:36px; height:36px }
-  .d-btn{ padding:9px 15px }
-  .d-tab{ padding:11px 12px 13px }
-  /* The discovery selects and the search box: under 16px iOS zooms the page
-     in on focus and does not zoom back out. */
-  .disc-select{ font-size:16px }
-  .omni{ font-size:16px }
-}
-
-@media (prefers-reduced-motion:reduce){
-  /* NB this must not reach the hero: vault-hero.css has its own, more
-     careful reduced-motion block, which stops every parallax plane while
-     keeping the picture fully composed. Blanket-killing transitions here
-     would also kill the word reveal's end state, so the hero is excluded
-     from the sweep below. */
-  *:not([class*="vt-"]),
-  *:not([class*="vt-"])::before,
-  *:not([class*="vt-"])::after{
-    animation-duration:.01ms!important; transition-duration:.01ms!important }
-  html{ scroll-behavior:auto }
-  /* The beams keep orbiting under reduced motion, only far slower (see BEAM.slow)
-     — so no --beam-a override here. What DOES get dropped is the glow bloom,
-     which is the loudest part of the effect. */
-  .beam-glow{ opacity:.14 }
-}
-</style>
+<!-- Generic machinery: escaping, the sheet, the toast, the reveal
+     clock. It knows nothing about any data layer, which is why a
+     second studio can use it. -->
+<script src="asclepion-ui.js?v=3"></script>
+<script src="topbar.js?v=6" defer></script>
 </head>
+<body class="asc">
 
-<body>
+<!-- THE HERO IS STATIC MARKUP, AND THAT IS THE POINT.
+     The old one was injected at boot by vault-hero.js so a cloud
+     pull rebuilding the page could not replay its entrance.
+     Written straight into the document it is outside the render
+     host by construction, cannot be re-created at all, and paints
+     from the first byte instead of waiting for a script. -->
+<header class="asc-hero">
+  <img class="asc-hero__fig" src="images_by_admin/vault/hero-hall.webp"
+       alt="" width="736" height="1308" fetchpriority="high" decoding="async">
+  <div class="asc-hero__ring" aria-hidden="true"></div>
+  <p class="asc-hero__mark">Entertainment Studio</p>
 
+  <div class="asc-hero__in">
+    <h1 class="asc-hero__head">
+      <span><b style="--d:120ms">Everything</b></span>
+      <span><b style="--d:240ms">you keep</b></span>
+      <span><b style="--d:360ms"><em>coming back to.</em></b></span>
+    </h1>
+    <p class="asc-hero__note">
+      <strong>Podcasts, horror, spicy, watching, music — one library, not five pages.</strong>
+      Filter it by shelf, group it by genre, or read the whole room at once.
+    </p>
+  </div>
+</header>
+
+<!-- The sigils. One per shelf: the card falls back to its shelf's
+     mark when an item has no cover, and each filter carries its
+     own. Drawn once here and referenced by <use>. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<g id="sg-home"><path d="M2.6 14V7.1L8 2.4l5.4 4.7V14H9.7v-4.2H6.3V14Z"/></g>
-<g id="sg-discover"><rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2"/><circle cx="5.9" cy="5.9" r=".85" fill="currentColor" stroke="none"/><circle cx="10.1" cy="10.1" r=".85" fill="currentColor" stroke="none"/><circle cx="10.1" cy="5.9" r=".85" fill="currentColor" stroke="none"/></g>
-<g id="sg-star"><path d="M8 1.9 9.8 6l4.4.45-3.3 3 .94 4.35L8 11.55 4.16 13.8l.94-4.35-3.3-3L6.2 6Z"/></g>
 <g id="sg-wave"><path d="M1.8 8v0M4.4 5.6v4.8M7 2.9v10.2M9.6 4.9v6.2M12.2 6.6v2.8M14.6 8v0"/></g>
-<g id="sg-web"><path d="M8 1.6v12.8M2.5 4.8l11 6.4M13.5 4.8l-11 6.4"/><path d="M8 5.1 10.5 6.55v2.9L8 10.9 5.5 9.45v-2.9Z"/></g>
 <g id="sg-eye"><path d="M1.4 8S4 3.7 8 3.7 14.6 8 14.6 8 12 12.3 8 12.3 1.4 8 1.4 8Z"/><circle cx="8" cy="8" r="1.9"/></g>
 <g id="sg-flame"><path d="M8 1.7c2.1 3.1 4.1 4.2 4.1 7.1a4.1 4.1 0 0 1-8.2 0c0-1.65.92-2.5 1.64-3.3.5.72 1.02 1.24 1.44 1.24.6 0 1.02-1.44 1.02-5.04Z"/></g>
-<g id="sg-waves"><circle cx="8" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M5.4 5.4a3.7 3.7 0 0 0 0 5.2M10.6 5.4a3.7 3.7 0 0 1 0 5.2M3.1 3.1a7 7 0 0 0 0 9.8M12.9 3.1a7 7 0 0 1 0 9.8"/></g>
 <g id="sg-play"><circle cx="8" cy="8" r="6.3"/><path d="M6.5 5.4 10.7 8l-4.2 2.6Z"/></g>
 <g id="sg-moon"><path d="M10.6 2.3a6.1 6.1 0 1 0 0 11.4 6.9 6.9 0 0 1 0-11.4Z"/><circle cx="12.6" cy="4.4" r=".7" fill="currentColor" stroke="none"/></g>
 <g id="sg-book"><path d="M8 4.3S6.1 2.9 2.2 3.3v9C6.1 11.9 8 13.3 8 13.3s1.9-1.4 5.8-1v-9C9.9 2.9 8 4.3 8 4.3Z"/><path d="M8 4.3v9"/></g>
 <g id="sg-spark"><path d="M6 1.6 7.15 5.05 10.6 6.2 7.15 7.35 6 10.8 4.85 7.35 1.4 6.2l3.45-1.15Z"/><path d="M11.6 8.6l.66 1.94 1.94.66-1.94.66-.66 1.94-.66-1.94-1.94-.66 1.94-.66Z"/></g>
 <g id="sg-pad"><path d="M5.7 2.6h4.6v3.1h3.1v4.6h-3.1v3.1H5.7v-3.1H2.6V5.7h3.1Z"/></g>
-<g id="sg-bars"><path d="M3 13.4V9.2M6.65 13.4V4.9M10.35 13.4V7.1M14 13.4V2.9"/></g>
+<g id="sg-all"><rect x="2.4" y="2.4" width="4.7" height="4.7" rx="1"/><rect x="8.9" y="2.4" width="4.7" height="4.7" rx="1"/><rect x="2.4" y="8.9" width="4.7" height="4.7" rx="1"/><rect x="8.9" y="8.9" width="4.7" height="4.7" rx="1"/></g>
 </defs></svg>
 
-<!-- ONE chrome row -->
-<div class="chrome" id="chrome">
-  <span class="mark">
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#B8853F" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><use href="#sg-spark"/></svg>
-    Studio
-  </span>
-  <nav class="tabstrip" id="tabstrip" aria-label="Shelves"></nav>
-  <div class="chrome-right">
-    <span class="relative hidden md:block">
-      <input class="omni" placeholder="Paste a link…" aria-label="Paste a link to add anything">
-      <svg class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6E5A3E" stroke-width="1.2" stroke-linecap="round">
-        <path d="M6.6 9.4 9.4 6.6M6.9 4.4 8.2 3.1a2.9 2.9 0 0 1 4.1 4.1L11 8.5M9.1 11.6 7.8 12.9a2.9 2.9 0 0 1-4.1-4.1L5 7.5"/></svg>
-    </span>
-    <button class="iconbtn mono px-2.5 py-[6px]" aria-label="Search everything">⌘K</button>
-    <button class="iconbtn w-[29px] h-[29px]" aria-label="Settings">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v1.8M8 12.7v1.8M14.5 8h-1.8M3.3 8H1.5M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3M12.6 12.6l-1.3-1.3M4.7 4.7 3.4 3.4"/></svg>
-    </button>
-  </div>
-  <span class="gauge" id="gauge"></span>
+<main class="asc-shell" id="vtRoot" tabindex="-1">
+  <section class="vt-ledger" id="vtLedger"></section>
+  <section class="vt-strip" id="vtStrip"></section>
+
+  <section class="vt-lib">
+    <!-- The toolbar is built ONCE and repainted only when the data
+         changes. Rebuilding it on every keystroke would destroy the
+         search field the keystroke came from. -->
+    <div class="asc-bar" id="vtBar"></div>
+    <div class="vt-libhead">
+      <h2 class="asc-plate">The library</h2>
+      <span class="vt-count" id="vtTally"></span>
+    </div>
+    <div id="vtGroups"></div>
+    <div class="vt-libfoot" id="vtLibFoot"></div>
+  </section>
+</main>
+
+<!-- The host module's own ids. Reusing the module means reusing
+     its DOM contract. -->
+<div class="asc-sheetbg" id="ascSheetBg" role="dialog" aria-modal="true" aria-label="Detail">
+  <div class="asc-sheet" id="ascSheet"></div>
 </div>
+<div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
 
-<!-- The hero and the ribbon are injected HERE, before .sheet, by
-     VaultHero.mount() at boot — once, outside #body, because render()
-     does body.innerHTML = '' on every repaint and a <video> inside that
-     would be re-downloaded several times a minute. -->
-
-<div class="sheet" id="sheet">
-  <main id="body" class="px-10 pb-24 pt-14"></main>
-</div>
-
-<!-- The add/edit sheet. One form serves both — an item you are correcting and
-     an item you are creating want exactly the same fields. -->
-<div class="cmp-scrim" id="cmpScrim" hidden></div>
-<section class="cmp" id="cmp" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" hidden>
-  <div class="cmp-head">
-    <h2 id="cmpTitle">Add to the Studio</h2>
-    <button class="cmp-x" id="cmpX" aria-label="Close">✕</button>
+<!-- ══ THE COMPOSER ══════════════════════════════════════════
+     One form serves add and edit, because correcting an item and
+     creating one want the same nine fields and two forms would
+     drift. Its own sheet rather than the host's: it opens FROM
+     the detail sheet, carries a keystroke draft and traps Tab,
+     and two surfaces sharing one host element would fight over
+     all three. -->
+<div class="vt-cmpbg" id="cmpScrim" hidden></div>
+<section class="vt-cmp" id="cmp" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" hidden>
+  <div class="vt-cmp__top">
+    <h2 class="asc-plate asc-plate--sm" id="cmpTitle">Add to the Studio</h2>
+    <button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" id="cmpX"
+      style="margin-left:auto">Close</button>
   </div>
 
-  <form class="cmp-body" id="cmpForm">
-    <div class="cmp-msg" id="cmpMsg" role="status"></div>
+  <form class="vt-cmp__body" id="cmpForm">
+    <div class="vt-msg" id="cmpMsg" role="status"></div>
 
-    <div class="cmp-f wide">
-      <label for="cmpUrl">Link</label>
-      <input id="cmpUrl" type="url" inputmode="url" autocomplete="off"
+    <div class="vt-f vt-f--wide">
+      <label class="asc-label" for="cmpUrl">Link</label>
+      <input class="asc-input" id="cmpUrl" type="url" inputmode="url" autocomplete="off"
         spellcheck="false" placeholder="https://…">
-      <p class="cmp-hint" id="cmpUrlHint">Paste a link and the title, channel and cover fill themselves in where they can be read.</p>
+      <p class="vt-hint">Paste a link and the title, channel and cover fill themselves in where they can be read.</p>
     </div>
 
-    <div class="cmp-f wide">
-      <label for="cmpTitleIn">Title</label>
-      <input id="cmpTitleIn" type="text" autocomplete="off" placeholder="What is it called?">
+    <div class="vt-f vt-f--wide">
+      <label class="asc-label" for="cmpTitleIn">Title</label>
+      <input class="asc-input" id="cmpTitleIn" type="text" autocomplete="off" placeholder="What is it called?">
     </div>
 
-    <div class="cmp-f">
-      <label for="cmpShelf">Shelf</label>
-      <select id="cmpShelf"></select>
+    <div class="vt-f">
+      <label class="asc-label" for="cmpShelf">Shelf</label>
+      <select class="asc-select" id="cmpShelf"></select>
     </div>
 
-    <div class="cmp-f">
-      <label for="cmpCat">Category</label>
-      <input id="cmpCat" type="text" autocomplete="off" list="cmpCatList"
+    <div class="vt-f">
+      <label class="asc-label" for="cmpCat">Category</label>
+      <input class="asc-input" id="cmpCat" type="text" autocomplete="off" list="cmpCatList"
         placeholder="Type or pick one">
       <datalist id="cmpCatList"></datalist>
     </div>
 
-    <div class="cmp-f">
-      <label for="cmpCreator">Creator</label>
-      <input id="cmpCreator" type="text" autocomplete="off" placeholder="Channel, author, artist">
+    <div class="vt-f">
+      <label class="asc-label" for="cmpCreator">Creator</label>
+      <input class="asc-input" id="cmpCreator" type="text" autocomplete="off" placeholder="Channel, author, artist">
     </div>
 
-    <div class="cmp-f">
-      <label for="cmpLen">Length</label>
-      <input id="cmpLen" type="text" autocomplete="off" placeholder="42 min · 6 eps · 310 pp">
+    <div class="vt-f">
+      <label class="asc-label" for="cmpLen">Length</label>
+      <input class="asc-input" id="cmpLen" type="text" autocomplete="off" placeholder="42 min · 6 eps · 310 pp">
     </div>
 
-    <div class="cmp-f wide">
-      <label for="cmpCover">Cover image</label>
-      <input id="cmpCover" type="url" inputmode="url" autocomplete="off"
+    <div class="vt-f vt-f--wide">
+      <label class="asc-label" for="cmpCover">Cover image</label>
+      <input class="asc-input" id="cmpCover" type="url" inputmode="url" autocomplete="off"
         spellcheck="false" placeholder="https://… (optional)">
     </div>
 
-    <div class="cmp-prev" id="cmpPrev" hidden>
+    <div class="vt-prev" id="cmpPrev" hidden>
       <img id="cmpPrevImg" alt="">
-      <span class="cmp-prevmeta"><b id="cmpPrevTitle"></b><span id="cmpPrevSub"></span></span>
+      <span class="vt-prev__meta"><b id="cmpPrevTitle"></b><span id="cmpPrevSub"></span></span>
     </div>
 
-    <div class="cmp-f wide">
-      <label>Rating</label>
-      <div class="cmp-stars" id="cmpStars">
-        <button type="button" class="cmp-star" data-n="1" aria-label="1 star">★</button>
-        <button type="button" class="cmp-star" data-n="2" aria-label="2 stars">★</button>
-        <button type="button" class="cmp-star" data-n="3" aria-label="3 stars">★</button>
-        <button type="button" class="cmp-star" data-n="4" aria-label="4 stars">★</button>
-        <button type="button" class="cmp-star" data-n="5" aria-label="5 stars">★</button>
-        <button type="button" class="cmp-clearstars" id="cmpStarsClear">Clear</button>
+    <div class="vt-f vt-f--wide">
+      <span class="asc-label">Rating</span>
+      <div class="vt-stars" id="cmpStars">
+        <button type="button" class="vt-star" data-n="1" aria-label="1 star">★</button>
+        <button type="button" class="vt-star" data-n="2" aria-label="2 stars">★</button>
+        <button type="button" class="vt-star" data-n="3" aria-label="3 stars">★</button>
+        <button type="button" class="vt-star" data-n="4" aria-label="4 stars">★</button>
+        <button type="button" class="vt-star" data-n="5" aria-label="5 stars">★</button>
+        <button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" id="cmpStarsClear">Clear</button>
       </div>
     </div>
 
-    <div class="cmp-f wide">
-      <label for="cmpDesc">Notes</label>
-      <textarea id="cmpDesc" placeholder="Why is this here? What is it for?"></textarea>
+    <div class="vt-f vt-f--wide">
+      <label class="asc-label" for="cmpDesc">Notes</label>
+      <textarea class="asc-textarea" id="cmpDesc" placeholder="Why is this here? What is it for?"></textarea>
     </div>
 
-    <div class="cmp-toggles">
-      <button type="button" class="cmp-tog" id="cmpFav">☆ Favourite</button>
-      <button type="button" class="cmp-tog" id="cmpQueue">＋ Tonight</button>
+    <div class="vt-togs">
+      <button type="button" class="asc-btn asc-btn--sm" id="cmpFav">☆ Favourite</button>
+      <button type="button" class="asc-btn asc-btn--sm" id="cmpQueue">＋ Tonight</button>
     </div>
   </form>
 
-  <div class="cmp-foot">
-    <button class="cmp-save" id="cmpSave" type="button">Save</button>
-    <button class="cmp-ghost" id="cmpAgain" type="button">Save &amp; add another</button>
-    <button class="cmp-ghost cmp-del" id="cmpDel" type="button" hidden>Delete</button>
+  <div class="vt-cmp__foot">
+    <button class="asc-btn asc-btn--primary" id="cmpSave" type="button">Save</button>
+    <button class="asc-btn asc-btn--quiet" id="cmpAgain" type="button">Save &amp; add another</button>
+    <button class="asc-btn asc-btn--danger asc-btn--sm vt-del" id="cmpDel" type="button" hidden>Delete</button>
   </div>
 </section>
 
-<button class="addfab" id="addFab" aria-label="Add something to the Entertainment Studio">
-  <svg width="21" height="21" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+<button class="vt-fab" id="addFab" aria-label="Add something to the Entertainment Studio">
+  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor"
     stroke-width="1.8" stroke-linecap="round"><path d="M8 3.4v9.2M3.4 8h9.2"/></svg>
 </button>
 
 <script>
-/* ── shelves ─────────────────────────────────────────────
-   A TAB is not the same thing as a shelf. `reads` is the list of real
-   storage shelves a tab shows, and it is usually one — but Horror shows
-   creepypasta + trueHorror, and Spicy shows spicy + immersive, because
-   those pairs are one subject each and were never worth two tabs.
+/* ══ §SHELVES ═══════════════════════════════════════════════
+   A TAB is not the same thing as a shelf. `reads` is the list of
+   real storage shelves a name shows, and it is usually one — but
+   Horror shows creepypasta + trueHorror and Spicy shows spicy +
+   immersive, because each of those pairs is one subject and was
+   never worth two names.
 
-   NOTHING WAS MERGED IN STORAGE. All four keys still exist, still hold
-   exactly what they held, and the composer can still file to any of them
-   by name. Only the tab strip changed.
+   These eight are now FILTERS over one gallery rather than eight
+   routes. The four old view routes (Home, Discover, Favorites,
+   Stats) are gone as places: what each of them did lives on this
+   page — the counts and the queue in the ledger, the starred in
+   the strip, the random pick behind one button.
 
-   `kind:'view'` marks the four tabs that read ACROSS the shelves rather
-   than being a place items live — Home, Discover, Favorites, Stats.
-
-   `lines` is the hero headline, split where it should break; the reveal
-   prints it word by word, one mask per line. */
+   The tints are measured against The Asclepion's own six: low
+   chroma, spent small — a 13px sigil, a group's hairline. Never a
+   surface. */
 const SHELVES = [
-  { key:'home', label:'Home', sigil:'sg-home', tint:'#D9AC6A', verb:'Open', kind:'view',
-    lines:['Everything','worth keeping'],
-    note:'Ten shelves in one place. Paste a link into the bar above and it files itself.' },
-  { key:'discover', label:'Discover', sigil:'sg-discover', tint:'#7E9A93', verb:'Open', kind:'view',
-    lines:['Let the shelf','decide'],
-    note:'Pick a shelf, set a floor for the rating, and roll. Nothing repeats until the pool runs dry.' },
-  { key:'favorites', label:'Favorites', sigil:'sg-star', tint:'#E8D6B0', verb:'Open', kind:'view',
-    lines:['The ones','you starred'],
-    note:'Everything you starred, grouped by the shelf it came from.' },
-  { key:'podcasts', label:'Podcasts', sigil:'sg-wave', tint:'#C2B79A', verb:'Listen',
-    reads:['podcasts'],
-    lines:['Voices for','the long drive'],
-    note:'Series and one-offs worth the whole runtime — learning, photography, true crime, business, writing.' },
-  { key:'horror', label:'Horror', sigil:'sg-eye', tint:'#A8794E', verb:'Watch',
-    reads:['creepypasta','trueHorror'],
-    lines:['Stories told','after dark'],
-    note:'Creepypasta and the true-story compilations, together on one shelf.' },
-  { key:'spicy', label:'Spicy', sigil:'sg-flame', tint:'#A65E5A', verb:'Listen',
-    reads:['spicy','immersive'],
-    lines:['Kept behind','the curtain'],
-    note:'The spicy shelf and the immersive audio, together on one shelf.' },
-  { key:'watch', label:'Watching', sigil:'sg-play', tint:'#B8853F', verb:'Watch',
-    reads:['watch'],
-    lines:['Whatever the','night asks for'],
-    note:'Gaming, scary videos, vlogs, and the rest of the evening.' },
-  { key:'playlists', label:'Music', sigil:'sg-moon', tint:'#9481A8', verb:'Play',
-    reads:['playlists'],
-    lines:['Sound you','return to'],
-    note:'Playlists by genre — chill, fantasy, dark, electronic, binaural.' },
-  { key:'reading', label:'Reading', sigil:'sg-book', tint:'#A08A6B', verb:'Read',
-    reads:['reading'],
-    lines:['Pages waiting','their turn'],
-    note:'Books, series, and everything still to be read.' },
-  { key:'anime', label:'Anime', sigil:'sg-spark', tint:'#A96A86', verb:'Watch',
-    reads:['anime'],
-    lines:['Worlds drawn','by hand'],
-    note:'Watched, watching, and planned.' },
-  { key:'games', label:'Games', sigil:'sg-pad', tint:'#6E8B84', verb:'Play',
-    reads:['games'],
-    lines:['Worlds that','wait for you'],
-    note:'Played, playing, and the backlog you keep meaning to clear.' },
-  { key:'stats', label:'Stats', sigil:'sg-bars', tint:'#7E9A93', verb:'Open', kind:'view',
-    lines:['What the','shelves know'],
-    note:'What the collection adds up to, read across every shelf.' }
+  { key:'podcasts',  label:'Podcasts', sigil:'sg-wave',  tint:'#c3c6c6', verb:'Listen', reads:['podcasts'] },
+  { key:'horror',    label:'Horror',   sigil:'sg-eye',   tint:'#a9764c', verb:'Watch',  reads:['creepypasta','trueHorror'] },
+  { key:'spicy',     label:'Spicy',    sigil:'sg-flame', tint:'#b8796a', verb:'Listen', reads:['spicy','immersive'] },
+  { key:'watch',     label:'Watching', sigil:'sg-play',  tint:'#e0a765', verb:'Watch',  reads:['watch'] },
+  { key:'playlists', label:'Music',    sigil:'sg-moon',  tint:'#c99a63', verb:'Play',   reads:['playlists'] },
+  { key:'reading',   label:'Reading',  sigil:'sg-book',  tint:'#d6d2cb', verb:'Read',   reads:['reading'] },
+  { key:'anime',     label:'Anime',    sigil:'sg-spark', tint:'#a98b9a', verb:'Watch',  reads:['anime'] },
+  { key:'games',     label:'Games',    sigil:'sg-pad',   tint:'#8fa39b', verb:'Play',   reads:['games'] }
 ];
 
-/* The two tabs that used to be four. Old links, old bookmarks and the
-   nav's own #hashes keep working. */
-const TAB_ALIAS = { creepypasta:'horror', trueHorror:'horror', immersive:'spicy' };
+/* Every hash this page has ever answered to. The three on the left
+   are storage shelves that stopped being tabs when Horror and
+   Spicy merged; the four below them are the view routes this
+   rebuild removed. A bookmark to any of them lands somewhere real
+   rather than on an empty page. */
+const TAB_ALIAS = {
+  creepypasta:'horror', trueHorror:'horror', immersive:'spicy',
+  home:'all', discover:'all', stats:'all', favorites:'all'
+};
 
-/* Takes a tab key OR a storage-shelf key: the merged tabs mean cards are
-    routinely handed 'creepypasta' or 'immersive', which are shelves and no
-    longer tabs. Without the alias every such card fell back to SHELVES[0]
-    and showed Home's verb. */
-const shelfOf = k => SHELVES.find(s => s.key === (TAB_ALIAS[k] || k)) || SHELVES[0];
-/* The real storage shelves behind a tab. A view reads none of its own. */
-const readsOf = t => (typeof t === 'string' ? shelfOf(t) : t).reads || [];
-/* Resolve anything that might be a tab key OR a retired shelf key. */
-const tabKey = k => TAB_ALIAS[k] || k;
-
-/* ── fake data ─────────────────────────────────────────── */
-const yt   = id => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
-const sq   = id => `https://picsum.photos/id/${id}/600/600`;
-const wide = id => `https://picsum.photos/id/${id}/1200/600`;
-const book = isbn => `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
-
-let _id = 0;
-const it = o => Object.assign({ id:'i'+(++_id), rating:0, fav:false, queued:false, tags:[], desc:'' }, o);
-
-/* ── data ─────────────────────────────────────────────────
-   Everything reads from vault-data.js at RENDER time, never at parse
-   time: the IndexedDB shim hydrates asynchronously, so an array captured
-   when this script first runs would be the pre-hydration snapshot. */
-
-/* Row order per shelf, so categories land in a sequence Damian chose rather
-   than alphabetically. Podcasts follows the old page; playlist genres follow
-   the order he listed them in the original brief. Anything not named here
-   sorts alphabetically after the named ones. */
-const CAT_ORDER = [
-  'Learning','Photography / Videography','True Crime','Business','Writing',
-  /* Horror: creepypasta's own category first, then the true-story
-     compilations — the order the two shelves read in. */
-  'Creepypasta','Compilations',
-  'Chill','Binaural Beats','Dark / Gothic / Horror / Romance','EDM / Electronic','Fantasy',
-  /* Entertainment: the three groups from the live page first, then the two
-     that exist only on items recovered from the older entertainment.html. */
-  'Gaming','Scary Videos','Vlog-Like','Favorite Videos','Other',
-  'Immersive Experience','ASMR',
-];
-
-/* Vault record → the shape card() already expects. Adapting here rather
-   than changing card() keeps the mockup and this page from drifting. */
-const toCard = v => ({
-  id:v.id, _shelf:v._shelf, url:v.url, title:v.title, creator:v.creator,
-  cover:v.cover, len:v.lengthText, rating:Number(v.rating) || 0,
-  fav:v.favorite === true, queued:v.queued === true,
-  tags:v.category ? [v.category] : [], desc:v.description || '',
-  lastOpenedAt:v.lastOpenedAt || null, createdAt:v.createdAt || 0
-});
-const rawAll = () => Vault.SHELVES.flatMap(s => Vault.list(s).map(v => ({ ...v, _shelf:s })));
-/* One storage shelf's records as cards. byCategory() walks the shelves a
-   tab reads and does this itself; this stays for anything that wants a
-   single named shelf. */
-const shelfItems = shelf => Vault.list(shelf).map(v => toCard({ ...v, _shelf:shelf }));
-
-/* Every category across every shelf a tab reads, in CAT_ORDER first and
-   alphabetically after that. Each group remembers the shelf it came from,
-   so the row's "+" files back to the right place on a merged tab.
-   If one category name appears on BOTH of a tab's shelves, the first
-   shelf to use it owns the "+" — the items themselves stay wherever they
-   are, and nothing is moved. */
-function byCategory(tab){
-  const out = {};
-  readsOf(tab).forEach(sh => {
-    Vault.list(sh).forEach(v => {
-      const c = v.category || 'Uncategorised';
-      (out[c] ||= { shelf:sh, items:[] }).items.push(toCard({ ...v, _shelf:sh }));
-    });
-  });
-  const rank = k => { const i = CAT_ORDER.indexOf(k); return i < 0 ? 99 : i; };
-  return Object.fromEntries(Object.keys(out)
-    .sort((a,b) => rank(a) - rank(b) || a.localeCompare(b))
-    .map(k => [k, out[k]]));
-}
-
-const CONTINUE = () => rawAll().filter(v => v.lastOpenedAt)
-  .sort((a,b) => (b.lastOpenedAt||0) - (a.lastOpenedAt||0)).slice(0,8).map(toCard);
-const TONIGHT  = () => rawAll().filter(v => v.queued).map(toCard);
-const RECENT   = () => rawAll().sort((a,b) => (b.createdAt||0) - (a.createdAt||0)).slice(0,8).map(toCard);
-const COUNTS   = () => Vault.counts();
-
-/* Three at random, reshuffled on every Reroll. */
-function vaultPicks(k = 3){
-  const all = rawAll();
-  for(let i = all.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [all[i],all[j]] = [all[j],all[i]]; }
-  return all.slice(0,k).map(toCard);
-}
-
-/* ── helpers ───────────────────────────────────────────── */
-const el = (t,c,h) => { const n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; };
-const sig = (id,sz=16,sw=1.15) => `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><use href="#${id}"/></svg>`;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-/* ── border beam ────────────────────────────────────────
-   Ported from the Motiq BorderBeamPanel. Two comets orbit the border; the
-   angular VELOCITY is what's sprung (k=30, d=11) toward 240°/s on hover and
-   back to 42°/s on leave, so a comet winds up and coasts rather than snapping
-   between speeds.
-
-   One rAF loop drives every beam on the page. The React original runs a loop
-   per component, which is fine for one panel and wrong for the eighteen this
-   page puts on screen at once. The loop stops entirely when nothing is live. */
-/* `slow` is what runs under prefers-reduced-motion. The beam used to park
-   dead still there, which is why the effect looked broken on phones — iOS
-   Reduce Motion is on for a great many people, and it is exactly the kind of
-   setting you enable once for the app-open zoom and then forget.
-   12deg/s is a 30-second lap: a hairline of light drifting round a border,
-   small-area and non-parallax, which is not the kind of motion the
-   preference exists to suppress. The hover wind-up is still dropped there —
-   that IS a sudden change, and it's the part worth removing. */
-const BEAM = { idle:42, hover:240, k:30, d:11, slow:12 };
-const beams = new Set();
-const beamReduce = matchMedia('(prefers-reduced-motion: reduce)');
-/* park the loop for anything scrolled off screen — an orbiting comet nobody
-   can see is pure battery */
-const beamIO = new IntersectionObserver(es => {
-  es.forEach(e => { if(e.target._beam) e.target._beam.seen = e.isIntersecting });
-  beamPump();
-}, { threshold:.05 });
-
-function paintBeam(b){ b.el.style.setProperty('--beam-a', ((b.a%360+360)%360).toFixed(2)+'deg'); }
-
-function beam(node, opts={}){
-  node.classList.add('beamed');
-  if(opts.tint) node.style.setProperty('--beam-2', opts.tint);
-  const glow = el('span','beam-glow'), ring = el('span','beam-ring');
-  glow.setAttribute('aria-hidden','true'); ring.setAttribute('aria-hidden','true');
-  node.prepend(ring); node.prepend(glow);
-
-  /* phase off the index, never Math.random — two runs of the same screenshot
-     have to match or the comparison rounds are meaningless */
-  const rest = beamReduce.matches ? BEAM.slow : BEAM.idle;
-  const b = { el:node, a:((opts.seed||1)*137.508)%360, sp:rest, spv:0,
-              target:rest, seen:true };
-  node._beam = b;
-  paintBeam(b);
-
-  /* No hover wind-up under reduced motion — the orbit continues, but nothing
-     accelerates. Touch has no hover anyway, so phones lose nothing here. */
-  if(!beamReduce.matches){
-    const surge = () => { b.target = BEAM.hover }, settle = () => { b.target = BEAM.idle };
-    node.addEventListener('pointerenter', surge);
-    node.addEventListener('pointerleave', settle);
-    node.addEventListener('focus', surge); node.addEventListener('blur', settle);
-  }
-
-  beams.add(b); beamIO.observe(node); beamPump();
-  return node;
-}
-
-/* every render() rebuilds the DOM, so the old beams are detached nodes — drop
-   them or the Set grows without bound */
-function clearBeams(){ beamIO.disconnect(); beams.clear(); }
-
-let beamRaf = 0, beamLast = 0, tabLive = true;
-function beamFrame(now){
-  const dt = Math.min(.05, (now - (beamLast || now))/1000);
-  beamLast = now; beamRaf = 0;
-  beams.forEach(b => {
-    if(!b.seen) return;
-    b.spv += (BEAM.k*(b.target - b.sp) - BEAM.d*b.spv) * dt;
-    b.sp  += b.spv * dt;
-    b.a   += b.sp * dt;
-    paintBeam(b);
-  });
-  beamPump();
-}
-function beamPump(){
-  /* beamReduce is deliberately NOT a gate here any more — the loop runs
-     either way, just slower. Offscreen and hidden-tab still park it. */
-  const live = tabLive && [...beams].some(b => b.seen);
-  if(live && !beamRaf) beamRaf = requestAnimationFrame(beamFrame);
-  if(!live && beamRaf){ cancelAnimationFrame(beamRaf); beamRaf = 0; beamLast = 0 }
-}
-document.addEventListener('visibilitychange', () => {
-  tabLive = document.visibilityState !== 'hidden'; beamLast = 0; beamPump();
-});
-/* Toggling the OS setting mid-session retargets every live beam rather than
-   waiting for the next render. */
-beamReduce.addEventListener('change', () => {
-  const rest = beamReduce.matches ? BEAM.slow : BEAM.idle;
-  beams.forEach(b => { b.target = rest; if(beamReduce.matches) b.sp = Math.min(b.sp, rest); });
-  beamPump();
-});
-
-/* ── card ──────────────────────────────────────────────── */
-/* A span with role="button" does not fire click on Enter the way a real
-   button does, so every one of them is bound through here. */
-function act(node, fn){
-  node.onclick = fn;
-  node.onkeydown = e => {
-    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fn(e); }
-  };
-}
-
-/* Built to the reference: art on top, then a panel with the title, who
-   made it, two lines of description, and one full-width outlined button
-   carrying the shelf's verb. Everything the old overlay card could do it
-   still does — star, score, Tonight, details — the two toggles just moved
-   onto the art so the button can run the panel's full width. */
-function card(d, opts={}){
-  const shelf = shelfOf(opts.shelf || 'home');
-  const c = el('button','card');
-  c.type = 'button';
-  const art = d.cover
-    ? `<img class="bg" src="${d.cover}" alt="" aria-hidden="true" loading="lazy">
-       <img class="fg" src="${d.cover}" alt="" loading="lazy">`
-    : `<span class="absolute inset-0 grid place-items-center" style="color:${shelf.tint};opacity:.26">${sig(shelf.sigil,52)}</span>`;
-
-  const meta = [d.creator, d.len].filter(Boolean).map(esc).join(' · ');
-
-  c.innerHTML = `
-    <span class="art">
-      ${art}
-      <span class="c-star ${d.fav?'on':''}" role="button" tabindex="0"
-        aria-label="${d.fav?'Remove from favourites':'Add to favourites'}">${d.fav?'★':'☆'}</span>
-      ${d.rating ? `<span class="c-score">${d.rating.toFixed(1)}</span>` : ''}
-      <span class="c-acts">
-        <span class="c-mini c-add ${d.queued?'on':''}" role="button" tabindex="0"
-          aria-label="${d.queued?'Take out of Tonight':'Add to Tonight'}">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="${d.queued?'M3.6 8.4 6.5 11.3 12.4 5.2':'M8 3.6v8.8M3.6 8h8.8'}"/></svg>
-        </span>
-        <span class="c-mini c-info" role="button" tabindex="0" aria-label="Details">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-            <circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><circle cx="8" cy="4.9" r=".75" fill="currentColor" stroke="none"/></svg>
-        </span>
-      </span>
-    </span>
-    <span class="c-foot">
-      <span class="c-title">${esc(d.title)}</span>
-      ${meta ? `<span class="c-meta">${meta}</span>` : ''}
-      ${d.desc ? `<span class="c-desc">${esc(d.desc)}</span>` : ''}
-      <span class="c-play" role="button" tabindex="0">
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.6 13 8l-9 5.4Z"/></svg>
-        ${shelf.verb}
-      </span>
-    </span>`;
-
-  /* Every toggle writes through Vault.update() immediately. sync.js has
-     patched localStorage.setItem, so the write also schedules the debounced
-     Supabase push — no explicit save call needed anywhere. */
-  const persist = patch => { if(d._shelf && d.id) Vault.update(d._shelf, d.id, patch); };
-
-  const star = c.querySelector('.c-star');
-  act(star, e => { e.stopPropagation(); d.fav = !d.fav;
-    star.classList.toggle('on', d.fav); star.textContent = d.fav ? '★' : '☆';
-    star.setAttribute('aria-label', d.fav ? 'Remove from favourites' : 'Add to favourites');
-    persist({ favorite:d.fav }); });
-
-  const add = c.querySelector('.c-add');
-  act(add, e => { e.stopPropagation(); d.queued = !d.queued;
-    add.classList.toggle('on', d.queued);
-    add.setAttribute('aria-label', d.queued ? 'Take out of Tonight' : 'Add to Tonight');
-    add.querySelector('path').setAttribute('d', d.queued ? 'M3.6 8.4 6.5 11.3 12.4 5.2' : 'M8 3.6v8.8M3.6 8h8.8');
-    persist({ queued:d.queued }); });
-
-  const open = e => {
-    e.stopPropagation();
-    if(!d.url){ flash(c, 'No link on this item'); return; }
-    /* stamped before navigating — this is what fills the Continue row */
-    if(d._shelf && d.id) Vault.touch(d._shelf, d.id);
-    window.open(d.url, '_blank', 'noopener');
-  };
-  act(c.querySelector('.c-play'), open);
-  c.onclick = open;
-  act(c.querySelector('.c-info'), e => { e.stopPropagation(); toggleDetail(c, d, shelf); });
-  return c;
-}
-
-function flash(cardEl, msg){
-  const t = el('span','', msg);
-  Object.assign(t.style, { position:'absolute', inset:'auto 0 0 0', zIndex:9,
-    background:'rgba(184,133,63,.94)', color:'#1A1005', padding:'8px 14px',
-    fontFamily:"'Martian Mono',monospace", fontSize:'9px', letterSpacing:'.11em',
-    textTransform:'uppercase' });
-  cardEl.appendChild(t); setTimeout(() => t.remove(), 1100);
-}
-
-/* ── inline detail ─────────────────────────────────────── */
-const D_TABS = { reading:['Details','Quotes','Journal'], anime:['Details','Resources','Notes','Tables'],
-  games:['Details','Resources','Notes','Tables'], _:['Details','Notes','Related'] };
-
-function closeDetail(){
-  document.querySelectorAll('.detail').forEach(p => p.remove());
-  document.querySelectorAll('.card.open').forEach(c => c.classList.remove('open'));
-  document.querySelectorAll('.grid-cards.has-open').forEach(r => r.classList.remove('has-open'));
-}
-function toggleDetail(cardEl, d, shelf){
-  const wasOpen = cardEl.classList.contains('open');
-  closeDetail(); if(wasOpen) return;
-  const grid = cardEl.closest('.grid-cards');
-  if(grid) grid.classList.add('has-open');
-  cardEl.classList.add('open');
-  const tabs = D_TABS[shelf.key] || D_TABS._;
-  const panel = el('div','detail');
-  panel.innerHTML = `
-    <div class="d-tabs">
-      ${tabs.map((t,i)=>`<button class="d-tab ${i===0?'on':''}">${t}</button>`).join('')}
-      <button class="d-close" aria-label="Close">✕</button>
-    </div>
-    <div class="d-body">
-      <div>
-        <div class="d-lbl">Info</div>
-        <p class="d-text">${esc(d.desc || 'No description yet — paste the link again to re-run auto-fill.')}</p>
-        <div class="d-acts">
-          <button class="d-btn" data-act="edit">Edit</button>
-          <button class="d-btn" data-act="open">Open full →</button>
-          <button class="d-btn" data-act="queue">${d.queued ? 'In Tonight' : 'Add to Tonight'}</button>
-          <button class="d-btn" data-act="del" style="color:#C77">Delete</button>
-        </div>
-      </div>
-      <div>
-        <div class="d-lbl">Tags</div>
-        <div class="tagwrap">
-          ${(d.tags.length?d.tags:['Untagged']).map(t=>`<button class="tagpill">${esc(t)}</button>`).join('')}
-          <button class="tagpill" style="border-style:dashed">+ Tag</button>
-        </div>
-      </div>
-    </div>`;
-  panel.querySelectorAll('.d-tab').forEach(t => t.onclick = () => {
-    panel.querySelectorAll('.d-tab').forEach(x => x.classList.remove('on')); t.classList.add('on'); });
-  panel.querySelector('.d-close').onclick = closeDetail;
-
-  /* These four were markup only until now — the panel looked like an editor
-     and was a label. `d._shelf` is the shelf the record actually lives on,
-     which is not `shelf` here: Home, Favorites and Discover all render cards
-     from shelves other than the one being viewed. */
-  const rec = () => d._shelf ? Vault.list(d._shelf).find(x => x.id === d.id) : null;
-  panel.querySelector('[data-act="edit"]').onclick = () => {
-    const r = rec();
-    if(!r) return note('That item is no longer on the shelf', true);
-    closeDetail();
-    openComposer({ shelf:d._shelf, item:r });
-  };
-  panel.querySelector('[data-act="open"]').onclick = () => {
-    if(!d.url) return note('No link on this item', true);
-    if(d._shelf && d.id) Vault.touch(d._shelf, d.id);
-    window.open(d.url, '_blank', 'noopener');
-  };
-  const qb = panel.querySelector('[data-act="queue"]');
-  qb.onclick = () => {
-    d.queued = !d.queued;
-    if(d._shelf && d.id) Vault.update(d._shelf, d.id, { queued:d.queued });
-    qb.textContent = d.queued ? 'In Tonight' : 'Add to Tonight';
-    const mini = cardEl.querySelector('.c-add');
-    if(mini){
-      mini.classList.toggle('on', d.queued);
-      mini.querySelector('path').setAttribute('d',
-        d.queued ? 'M3.6 8.4 6.5 11.3 12.4 5.2' : 'M8 3.6v8.8M3.6 8h8.8');
-    }
-  };
-  panel.querySelector('[data-act="del"]').onclick = () => {
-    const r = rec();
-    if(!r) return note('That item is no longer on the shelf', true);
-    if(!confirm('Delete “' + (r.title || 'this item') + '”?\n\nThis cannot be undone.')) return;
-    Vault.remove(d._shelf, r.id);
-    closeDetail(); note('Deleted');
-    paintHero(shelfOf(active)); render();
-  };
-
-  /* Inside the grid, spanning every column, so it opens directly beneath
-     the row the card is in rather than below the whole section. */
-  if(grid){
-    panel.style.gridColumn = '1 / -1';
-    const kids = [...grid.children];
-    const per = Math.max(1, Math.round(grid.offsetWidth /
-      (cardEl.offsetWidth + parseFloat(getComputedStyle(grid).columnGap || 0) || 1)));
-    const idx = kids.indexOf(cardEl);
-    const after = kids[Math.min(kids.length - 1, (Math.floor(idx / per) + 1) * per - 1)];
-    after.insertAdjacentElement('afterend', panel);
-  } else {
-    cardEl.insertAdjacentElement('afterend', panel);
-  }
-}
-
-/* ── rows ──────────────────────────────────────────────── */
-/* `add` is {shelf, category}: a "+" that files straight into THIS row. The
-   global add button exists too, but picking the shelf and retyping the
-   category for something you are looking at is friction with no purpose. */
-function sechead(label, count, more, add){
-  const h = el('div','sechead');
-  h.innerHTML = `<span class="lbl">${label}</span>` +
-    (count!=null?`<span class="num">${String(count).padStart(2,'0')}</span>`:'') +
-    `<span class="rule"></span>` + (more?`<button class="more">${more} →</button>`:'');
-  if(add){
-    const b = el('button','addhere','+');
-    b.setAttribute('aria-label', 'Add to ' + (add.category || shelfOf(add.shelf).label));
-    b.title = 'Add to ' + (add.category || shelfOf(add.shelf).label);
-    b.onclick = () => openComposer({ shelf:add.shelf, category:add.category });
-    h.appendChild(b);
-  }
-  return h;
-}
-/* A wrapping grid, not a scroller: every card in a genre visible at once,
-   which is the point. The nudge arrows and the edge fade went with the
-   horizontal scroll they existed to drive. */
-function mediaGrid(items, opts={}){
-  const g = el('div','grid-cards');
-  items.forEach(d => g.appendChild(card(d, opts)));
-  return g;
-}
-function section(label, count, more, items, opts){
-  opts = opts || {};
-  const s = el('section','mb-12');
-  s.appendChild(sechead(label, count, more, opts.addTo)); s.appendChild(mediaGrid(items, opts));
-  return s;
-}
-
-/* ── the live readouts ───────────────────────────────────
-   Four numbers per tab, computed from what is actually on the shelves
-   rather than from anything stored. Returns null when a tab has nothing
-   to count, and the hero then shows no readouts at all — an empty shelf
-   should not claim four zeroes. */
-function liveStats(key){
-  const c = Vault.counts();
-  if(key === 'home'){
-    const total = Object.values(c).reduce((a,b) => a+b, 0);
-    return [[String(total), 'items'], [String(Object.values(c).filter(Boolean).length), 'shelves'],
-            [String(rawAll().filter(v => v.favorite).length), 'starred'],
-            [String(rawAll().filter(v => v.queued).length), 'tonight']];
-  }
-  if(key === 'favorites'){
-    const favs = rawAll().filter(v => v.favorite);
-    if(!favs.length) return null;
-    return [[String(favs.length), 'starred'],
-            [String(new Set(favs.map(v => v._shelf)).size), 'shelves'],
-            [String(favs.filter(v => (v.rating || 0) >= 5).length), 'five star'],
-            [String(favs.filter(v => v.queued).length), 'tonight']];
-  }
-  if(key === 'discover'){
-    const pool = rawAll();
-    if(!pool.length) return null;
-    return [[String(pool.length), 'in pool'],
-            [String(Object.values(c).filter(Boolean).length), 'shelves'],
-            [String(pool.filter(v => !v.lastOpenedAt).length), 'untouched'],
-            [String(pool.filter(v => (v.rating || 0) >= 4).length), 'four plus']];
-  }
-  if(key === 'stats'){
-    const pool = rawAll();
-    if(!pool.length) return null;
-    const rated = pool.filter(v => (v.rating || 0) > 0);
-    const avg = rated.length
-      ? (rated.reduce((a,v) => a + Number(v.rating || 0), 0) / rated.length).toFixed(1) : '—';
-    return [[String(pool.length), 'tracked'],
-            [String(Object.values(c).filter(Boolean).length), 'shelves'],
-            [String(avg), 'avg rating'],
-            [String(pool.reduce((a,v) => a + (v.openCount || 0), 0)), 'opens']];
-  }
-  /* A tab can read more than one shelf — Horror reads two, Spicy reads
-     two — so the readouts count across all of them. */
-  const reads = readsOf(key);
-  if(!reads.length) return null;
-  const items = reads.flatMap(sh => Vault.list(sh));
-  if(!items.length) return null;
-  return [[String(items.length), 'items'],
-          [String(new Set(items.map(i => i.category).filter(Boolean)).size), 'categories'],
-          [String(items.filter(i => i.favorite).length), 'starred'],
-          [String(items.filter(i => i.queued).length), 'tonight']];
-}
-
-/* ── hero ────────────────────────────────────────────────
-   The hero itself is vault-hero.js's: the clip, the ring, the columns,
-   the rail, the ribbon and both parallax transitions all live there and
-   are mounted once at boot. This page's only job is to tell it what the
-   current tab is called and what the live numbers are.
-
-   A shelf is a place items live; a view reads across the shelves. That
-   is a real distinction here, so the eyebrow carries it. */
-function paintHero(s){
-  if(!global_VaultHero()) return;
-  const stats = liveStats(s.key) || [];
-  window.VaultHero.setScene({
-    key: s.key,
-    eyebrow: (s.kind === 'view' ? 'View — ' : 'Shelf — ') + s.label,
-    lines: s.lines,
-    note: s.note,
-    readouts: stats,
-  });
-}
-/* vault-hero.js is deferred, so on a very slow load boot() could in
-   principle run first. Cheap to guard, and it keeps the page usable
-   even if the file 404s. */
-function global_VaultHero(){ return !!window.VaultHero; }
-
-/* ── tabs ──────────────────────────────────────────────── */
-let active = 'home';
-const strip = document.getElementById('tabstrip');
-SHELVES.forEach(s => {
-  const b = el('button','tab', sig(s.sigil,12)+`<span>${s.label}</span>`);
-  b.dataset.key = s.key; b.onclick = () => go(s.key); strip.appendChild(b);
-});
-
-function go(key){
-  key = tabKey(key);
-  active = key;
-  try { history.replaceState(null,'','#'+key) } catch(e){}
-  const s = shelfOf(key);
-  document.documentElement.style.setProperty('--shelf', s.tint);
-  strip.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.key===key));
-  strip.querySelector('.tab.on')?.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
-  paintHero(s);
-  render();
-  /* Navigation scrolls to the top; a REPAINT never does. onApplied and the
-     seeder both call render() without coming through here, which is what
-     keeps a cloud pull from throwing you back up the page mid-read. */
-  scrollTo({ top:0, behavior:'smooth' });
-}
-
-/* ── tab content ───────────────────────────────────────── */
-const body = document.getElementById('body');
-
-function renderHome(){
-  /* Shelves leads. It's the only block on Home that reaches every collection,
-     so it belongs directly under the hero — Continue and Tonight are subsets
-     of it and read better as follow-ups. */
-  const shelves = el('section','mb-12');
-  const counts = COUNTS();
-  /* One tile per TAB that holds something — so Horror is one tile
-     counting both its shelves, not two. */
-  const countOf = s => readsOf(s).reduce((n, sh) => n + (counts[sh] || 0), 0);
-  const live = SHELVES.filter(s => countOf(s) > 0);
-  shelves.appendChild(sechead('Shelves', live.length, null, { shelf: Vault.SHELVES[0] }));
-  const grid = el('div','grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5');
-  live.forEach((s,i) => {
-    const t = el('button','tile', `<span style="color:${s.tint}">${sig(s.sigil,17)}</span>
-      <span class="tn">${s.label}</span><span class="tc">${countOf(s)} items</span>`);
-    t.style.setProperty('--tint', s.tint); t.onclick = () => go(s.key);
-    /* second comet carries the shelf's own hue, so the tile is colour-coded by
-       the light running round it as well as by its sigil */
-    beam(t, { tint:s.tint, seed:i+1 });
-    grid.appendChild(t);
-  });
-  shelves.appendChild(grid); body.appendChild(shelves);
-
-  const cont = CONTINUE(), tonight = TONIGHT(), recent = RECENT();
-  if(cont.length)    body.appendChild(section('Continue', cont.length, 'History', cont, { shelf:'watch' }));
-
-
-  if(tonight.length){
-    const sec = section('Tonight', tonight.length, 'Clear', tonight, { shelf:'spicy' });
-    /* Clear was a label. Emptying the queue is the one thing you want from
-       this row that is not opening something in it. */
-    sec.querySelector('.more').onclick = () => {
-      if(!confirm('Take all ' + tonight.length + ' out of Tonight?')) return;
-      tonight.forEach(d => { if(d._shelf) Vault.update(d._shelf, d.id, { queued:false }); });
-      paintHero(shelfOf(active)); render();
-    };
-    body.appendChild(sec);
-  }
-
-  if(recent.length)  body.appendChild(section('Recently added', recent.length, 'All', recent, { shelf:'horror' }));
-
-  const picks = vaultPicks(3);
-  if(picks.length){
-    const sec = section('From the shelves', null, 'Reroll', picks, { shelf:'discover' });
-    sec.querySelector('.more').onclick = () => {
-      const fresh = vaultPicks(3);
-      sec.querySelector('.grid-cards').replaceWith(mediaGrid(fresh, { shelf:'discover' }));
-    };
-    body.appendChild(sec);
-  }
-}
-
-/* One gallery renderer for every link shelf — the old dashboard had a
-   separate hand-written block per page, which is why its shelves drifted
-   apart. Categories become stacked rows, not a filter. */
-function renderGallery(tab){
-  const groups = byCategory(tab);
-  const cats = Object.keys(groups);
-  if(!cats.length) return renderEmpty(tab);
-
-  /* The jump chips stay exactly as they were — same pills, same orbiting
-     border, same jump-to-section. They are how you get around a long
-     shelf, and nothing about the grid below changed that. */
-  const chips = el('div','flex gap-2 overflow-x-auto pb-2 mb-10');
-  chips.style.scrollbarWidth = 'none';
-  const tint = shelfOf(active).tint;
-  cats.forEach((c,i) => {
-    const b = el('button','chip', `${c} · ${groups[c].items.length}`);
-    b.onclick = () => document.getElementById('cat-'+i)?.scrollIntoView({ behavior:'smooth', block:'start' });
-    beam(b, { tint, seed:i+1 });
-    chips.appendChild(b);
-  });
-  body.appendChild(chips);
-
-  cats.forEach((c,i) => {
-    const g = groups[c];
-    const sec = section(c, g.items.length, null, g.items,
-      { shelf:g.shelf, addTo:{ shelf:g.shelf, category: c === 'Uncategorised' ? '' : c } });
-    sec.classList.add('catblock');
-    sec.id = 'cat-'+i; sec.style.scrollMarginTop = '90px'; body.appendChild(sec);
-  });
-
-  /* Starting a new category has to be possible from the page itself.
-     Without this the only way to create one is to guess that the
-     composer's Category box accepts text it has never seen. A merged tab
-     offers one button per shelf, because "new category" has to know
-     which shelf it is starting on. */
-  const foot = el('div','mt-2 mb-14 flex flex-wrap gap-2');
-  readsOf(tab).forEach(sh => {
-    const label = readsOf(tab).length > 1
-      ? '+ New category in ' + SHELF_NAME[sh]
-      : '+ New category on this shelf';
-    const nb = el('button','cmp-ghost', label);
-    nb.onclick = () => openComposer({ shelf:sh, category:'' });
-    foot.appendChild(nb);
-  });
-  body.appendChild(foot);
-}
-
-/* The storage shelves' own names, for the places a merged tab has to say
-   which of its two shelves it means. */
+/* The storage shelves' own names, for the places a merged filter
+   has to say which of its two shelves it means. */
 const SHELF_NAME = {
   podcasts:'Podcasts', creepypasta:'Creepypasta', trueHorror:'True Stories',
   spicy:'Spicy', immersive:'Immersive', watch:'Watching',
   playlists:'Music', reading:'Reading', anime:'Anime', games:'Games'
 };
 
-function renderEmpty(tab){
-  const s = typeof tab === 'string' ? shelfOf(tab) : tab;
-  const first = readsOf(s)[0];
-  const d = el('div','stub');
-  d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
-    <p class="mono mt-5" style="color:var(--ink-faint)">Nothing here yet</p>
-    <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
-      Paste a link, or fill the form in by hand — a title is enough to start with.</p>`;
-  const b = el('button','cmp-save emptyadd','Add the first item');
-  b.onclick = () => openComposer({ shelf:first });
-  d.appendChild(b);
-  body.appendChild(d);
+/* Takes a tab key OR a storage-shelf key: cards are routinely
+   handed 'creepypasta' or 'immersive', which are shelves and not
+   filters. Without the alias every such card fell back to the
+   first entry and showed the wrong verb. */
+const tabKey = k => TAB_ALIAS[k] || k;
+const shelfOf = k => SHELVES.find(s => s.key === tabKey(k)) || SHELVES[0];
+const readsOf = t => (typeof t === 'string' ? shelfOf(t) : t).reads || [];
+
+/* Category order, so genres land in the sequence Damian chose
+   rather than alphabetically. Anything not named here ranks last
+   and sorts alphabetically among its own kind. */
+const CAT_ORDER = [
+  'Learning','Photography / Videography','True Crime','Business','Writing',
+  'Creepypasta','Compilations',
+  'Chill','Binaural Beats','Dark / Gothic / Horror / Romance','EDM / Electronic','Fantasy',
+  'Gaming','Scary Videos','Vlog-Like','Favorite Videos','Other',
+  'Immersive Experience','ASMR'
+];
+const catRank = k => { const i = CAT_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+
+/* ══ §HELPERS ══════════════════════════════════════════════ */
+const U = () => window.AscUI;
+const esc = s => U().esc(s);
+const $ = id => document.getElementById(id);
+const sig = (id, sz) => '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 16 16" fill="none" ' +
+  'stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" ' +
+  'aria-hidden="true"><use href="#' + id + '"/></svg>';
+
+/* Vault record → the shape the card renders from. Adapting here
+   rather than reaching into the record everywhere keeps the card
+   readable and the storage shape free to change. */
+function toCard(v, shelf, tabk){
+  return {
+    id: v.id, shelf: shelf, tab: tabk,
+    url: v.url || '', title: v.title || 'Untitled', creator: v.creator || '',
+    cover: v.cover || '', len: v.lengthText || '',
+    rating: Number(v.rating) || 0,
+    fav: v.favorite === true, queued: v.queued === true,
+    cat: v.category || 'Uncategorised', desc: v.description || '',
+    opened: v.lastOpenedAt || 0, opens: v.openCount || 0, made: v.createdAt || 0
+  };
+}
+/* Which filter owns a storage shelf. Built once, because it is
+   asked for on every one of four hundred cards. */
+const TAB_OF_SHELF = {};
+SHELVES.forEach(t => t.reads.forEach(sh => { TAB_OF_SHELF[sh] = t.key; }));
+
+/* Everything, as cards. Reads at CALL time, never at parse time:
+   the IndexedDB shim hydrates asynchronously, so an array captured
+   when this script first runs would be the pre-hydration snapshot. */
+function allCards(){
+  const out = [];
+  Vault.SHELVES.forEach(sh => {
+    const t = TAB_OF_SHELF[sh] || SHELVES[0].key;
+    Vault.list(sh).forEach(v => out.push(toCard(v, sh, t)));
+  });
+  return out;
+}
+/* The live record behind a card, or null if it has since gone. */
+const recordOf = (shelf, id) => (Vault.list(shelf) || []).find(x => x.id === id) || null;
+
+/* ══ §VIEW STATE ═══════════════════════════════════════════
+   Session-only, and deliberately not persisted: everything under
+   `vault:` is pushed to Supabase, and which filter a laptop was
+   last left on is not something a phone should be told about.
+   The one part worth keeping across a reload is the filter, and
+   that lives in the hash, where it also makes a link. */
+const view = { filter:'all', group:'category', sort:'shelf', q:'', favOnly:false };
+const shut = new Set();     /* group keys the reader has folded */
+
+/* ══ §THE POOL ═════════════════════════════════════════════ */
+function pool(){
+  const tabs = view.filter === 'all' ? SHELVES : [shelfOf(view.filter)];
+  let out = [];
+  tabs.forEach(t => t.reads.forEach(sh => {
+    Vault.list(sh).forEach(v => out.push(toCard(v, sh, t.key)));
+  }));
+  if(view.favOnly) out = out.filter(d => d.fav);
+  const q = view.q.trim().toLowerCase();
+  if(q) out = out.filter(d =>
+    (d.title + ' ' + d.creator + ' ' + d.cat + ' ' + d.desc).toLowerCase().indexOf(q) >= 0);
+  return out;
 }
 
-/* ── Discovery Engine ──────────────────────────────────────
-   Matches the old page's behaviour: pick a shelf (or all), set a minimum
-   rating, roll one random item, roll again. State survives tab switches
-   within the session, exactly as discoveryState did there. */
-const discovery = { shelf:'all', minRating:0, pick:null, recent:[] };
-
-function renderDiscover(){
-  const wrap = el('section','mb-12');
-  wrap.appendChild(sechead('Discovery Engine', null));
-
-  const controls = el('div','disc-controls');
-
-  const shelfSel = el('select','disc-select');
-  shelfSel.innerHTML = '<option value="all">All shelves</option>' +
-    Vault.SHELVES.filter(s => Vault.list(s).length)
-      .map(s => `<option value="${s}">${esc(SHELF_NAME[s] || s)} · ${Vault.list(s).length}</option>`).join('');
-  shelfSel.value = discovery.shelf;
-  shelfSel.onchange = () => { discovery.shelf = shelfSel.value; };
-
-  const rateSel = el('select','disc-select');
-  rateSel.innerHTML = [0,1,2,3,4,5].map(n =>
-    `<option value="${n}">${n === 0 ? 'Any rating' : n + '+ stars'}</option>`).join('');
-  rateSel.value = discovery.minRating;
-  rateSel.onchange = () => { discovery.minRating = Number(rateSel.value); };
-
-  const roll = el('button','disc-roll','Discover');
-  roll.onclick = () => { rollDiscovery(); paintPick(); };
-
-  controls.append(shelfSel, rateSel, roll);
-  wrap.appendChild(controls);
-
-  const stage = el('div','disc-stage'); stage.id = 'discStage';
-  wrap.appendChild(stage);
-  body.appendChild(wrap);
-  paintPick();
+/* Sorting happens INSIDE a group, never across them: the groups
+   are the page's structure and reordering them would move the
+   headings about. 'shelf' means the order the records are stored
+   in, which is the order Damian put them in. */
+function sortItems(list){
+  const s = view.sort;
+  if(s === 'new')    return list.slice().sort((a,b) => b.made - a.made);
+  if(s === 'az')     return list.slice().sort((a,b) => a.title.localeCompare(b.title));
+  if(s === 'rating') return list.slice().sort((a,b) => b.rating - a.rating || a.title.localeCompare(b.title));
+  if(s === 'opened') return list.slice().sort((a,b) => b.opened - a.opened);
+  return list;
 }
 
-function discoveryPool(){
-  const shelves = discovery.shelf === 'all' ? Vault.SHELVES : [discovery.shelf];
-  return shelves.flatMap(s => Vault.list(s).map(v => ({ ...v, _shelf:s })))
-    .filter(v => (Number(v.rating) || 0) >= discovery.minRating);
+/* One group per category, per shelf, or one group holding
+   everything. A group remembers a shelf so its "+" files back to
+   the right place — on a merged filter the first shelf to use a
+   category name owns it, and the items themselves never move. */
+function groupsOf(items){
+  if(view.group === 'none'){
+    return [{ key:'all', name:'Everything', items: items,
+              shelf: readsOf(view.filter === 'all' ? SHELVES[0] : view.filter)[0],
+              tint: view.filter === 'all' ? null : shelfOf(view.filter).tint }];
+  }
+  const map = new Map();
+  if(view.group === 'shelf'){
+    items.forEach(d => {
+      const t = shelfOf(d.tab);
+      if(!map.has(t.key)) map.set(t.key, { key:t.key, name:t.label, items:[], shelf:t.reads[0], tint:t.tint });
+      map.get(t.key).items.push(d);
+    });
+    const order = SHELVES.map(s => s.key);
+    return [...map.values()].sort((a,b) => order.indexOf(a.key) - order.indexOf(b.key));
+  }
+  items.forEach(d => {
+    if(!map.has(d.cat)) map.set(d.cat, { key:d.cat, name:d.cat, items:[], shelf:d.shelf, tint:shelfOf(d.tab).tint });
+    map.get(d.cat).items.push(d);
+  });
+  return [...map.values()].sort((a,b) => catRank(a.key) - catRank(b.key) || a.key.localeCompare(b.key));
 }
 
-function rollDiscovery(){
-  const pool = discoveryPool();
-  if(!pool.length){ discovery.pick = null; return; }
-  /* Don't hand back the item you just rejected. The old engine used a bare
-     Math.random(), so pressing Try Another could return the same card and
-     read as a broken button. Only excludes the last few, so a small pool
-     still works. */
-  const avoid = new Set(discovery.recent.slice(-Math.min(5, pool.length - 1)));
-  const fresh = pool.filter(v => !avoid.has(v.id));
-  const from = fresh.length ? fresh : pool;
-  const hit = from[Math.floor(Math.random() * from.length)];
-  discovery.pick = hit;
-  discovery.recent.push(hit.id);
-  if(discovery.recent.length > 20) discovery.recent.shift();
+/* ══ §THE CARD ═════════════════════════════════════════════
+   Unchanged in shape from the Studio's own card: art on top, then
+   a panel with the title, who made it, two lines of description,
+   and one full-width outlined button carrying the shelf's verb.
+   The star, the score, the Tonight toggle and the details toggle
+   still ride the art.
+
+   Built as a STRING and wired by delegation, where it used to be
+   a DOM node carrying five closures. With all eight shelves on
+   one page that is four hundred cards at once, and four hundred
+   nodes' worth of listeners is the difference between a page that
+   paints and a page that stutters. */
+function cardHtml(d, i){
+  const t = shelfOf(d.tab);
+  const art = d.cover
+    ? '<img class="vt-bg" src="' + esc(d.cover) + '" alt="" aria-hidden="true" loading="lazy" decoding="async">' +
+      '<img class="vt-fg" src="' + esc(d.cover) + '" alt="" loading="lazy" decoding="async">'
+    : '<span class="vt-card__none" style="color:' + t.tint + '">' + sig(t.sigil, 52) + '</span>';
+  const meta = [d.creator, d.len].filter(Boolean).map(esc).join(' · ');
+  const tick = 'M3.6 8.4 6.5 11.3 12.4 5.2', plus = 'M8 3.6v8.8M3.6 8h8.8';
+
+  /* The stagger is capped. The host's step is 26ms per index and
+     its longest list is forty rows; a group here can be a hundred
+     and sixty, and 160 x 26ms is a four-second wait for the last
+     card in a genre. Twelve steps reads as an arrival either way. */
+  return '<button type="button" class="vt-card ' + U().rvlClass() + '"' + U().rvlStyle(Math.min(i, 11)) +
+      ' data-act="open" data-shelf="' + esc(d.shelf) + '" data-id="' + esc(d.id) + '">' +
+    '<span class="vt-card__art">' + art +
+      '<span class="vt-card__star' + (d.fav ? ' is-on' : '') + '" role="button" tabindex="0" data-act="star"' +
+        ' aria-label="' + (d.fav ? 'Remove from favourites' : 'Add to favourites') + '">' + (d.fav ? '★' : '☆') + '</span>' +
+      (d.rating ? '<span class="vt-card__score">' + d.rating.toFixed(1) + '</span>' : '') +
+      '<span class="vt-card__acts">' +
+        '<span class="vt-mini' + (d.queued ? ' is-on' : '') + '" role="button" tabindex="0" data-act="queue"' +
+          ' aria-label="' + (d.queued ? 'Take out of Tonight' : 'Add to Tonight') + '">' +
+          '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<path d="' + (d.queued ? tick : plus) + '"/></svg></span>' +
+        '<span class="vt-mini" role="button" tabindex="0" data-act="info" aria-label="Details">' +
+          '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true">' +
+          '<circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><circle cx="8" cy="4.9" r=".75" fill="currentColor" stroke="none"/></svg></span>' +
+      '</span>' +
+    '</span>' +
+    '<span class="vt-card__foot">' +
+      '<span class="vt-card__title">' + esc(d.title) + '</span>' +
+      (meta ? '<span class="vt-card__meta">' + meta + '</span>' : '') +
+      (d.desc ? '<span class="vt-card__desc">' + esc(d.desc) + '</span>' : '') +
+      '<span class="vt-card__do" role="button" tabindex="0" data-act="open">' +
+        '<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.6 13 8l-9 5.4Z"/></svg>' +
+        t.verb + '</span>' +
+    '</span>' +
+  '</button>';
 }
 
-function paintPick(){
-  const stage = document.getElementById('discStage');
-  if(!stage) return;
-  stage.innerHTML = '';
-  if(!discovery.pick){
-    const pool = discoveryPool().length;
-    stage.appendChild(el('p','disc-empty', pool
-      ? 'Press Discover for a random pick.'
-      : 'Nothing matches those filters yet — try a lower rating.'));
+/* ══ §THE LEDGER ═══════════════════════════════════════════
+   Four panels under the hero: what you can add, what the
+   collection amounts to, how you have been scoring things, and
+   what is queued for tonight. Between them they are what the
+   Home, Discover and Stats routes each used to be a whole page
+   for. */
+function paintLedger(){
+  const all = allCards();
+  const counts = Vault.counts();
+  const shelves = Object.keys(counts).filter(k => counts[k] > 0).length;
+  const starred = all.filter(d => d.fav).length;
+  const queued  = all.filter(d => d.queued);
+
+  const scored = all.filter(d => d.rating > 0);
+  const buckets = [5,4,3,2,1].map(n => ({ n: n, c: scored.filter(d => Math.round(d.rating) === n).length }));
+  const top = Math.max(1, ...buckets.map(b => b.c));
+
+  const read = (v, l) => '<div class="vt-read"><b>' + v + '</b><span>' + l + '</span></div>';
+
+  $('vtLedger').innerHTML =
+    '<div class="vt-panel">' +
+      '<div class="vt-panel__head"><h2 class="asc-label">Add anything</h2>' +
+        '<span class="vt-count" id="vtState"></span></div>' +
+      '<div class="vt-omni"><input id="vtOmni" type="url" inputmode="url" autocomplete="off" ' +
+        'spellcheck="false" placeholder="Paste a link…" aria-label="Paste a link to add anything"></div>' +
+      '<p class="vt-hint">A link fills in its own title, channel and cover wherever they can be read.</p>' +
+      '<div class="vt-panel__acts">' +
+        '<button type="button" class="asc-btn asc-btn--primary asc-btn--sm" data-act="add">Add by hand</button>' +
+        '<button type="button" class="asc-btn asc-btn--sm" data-act="surprise">Surprise me</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vt-panel">' +
+      '<div class="vt-panel__head"><h2 class="asc-label">The collection</h2></div>' +
+      '<div class="vt-reads">' +
+        read(all.length, 'Items') + read(shelves, 'Shelves') +
+        read(starred, 'Starred') + read(queued.length, 'Tonight') +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vt-panel">' +
+      '<div class="vt-panel__head"><h2 class="asc-label">Rating scale</h2>' +
+        '<span class="vt-count">' + (scored.length ? scored.length + ' scored' : 'nothing scored') + '</span></div>' +
+      '<div class="vt-scale">' +
+        buckets.map(b =>
+          '<div class="vt-scale__row">' +
+            '<span class="vt-scale__stars">' + '★'.repeat(b.n) + '</span>' +
+            '<span class="vt-scale__track"><i class="vt-scale__fill" style="--w:' +
+              Math.round(b.c / top * 100) + '%"></i></span>' +
+            '<span class="vt-scale__n">' + b.c + '</span>' +
+          '</div>').join('') +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vt-panel">' +
+      '<div class="vt-panel__head"><h2 class="asc-label">Tonight</h2>' +
+        '<span class="vt-count">' + (queued.length || '') + '</span></div>' +
+      (queued.length
+        ? '<ul class="vt-queue">' + queued.slice(0, 5).map(d =>
+            '<li><button type="button" data-act="open" data-shelf="' + esc(d.shelf) + '" data-id="' +
+            esc(d.id) + '">' + esc(d.title) + '</button></li>').join('') + '</ul>' +
+          (queued.length > 5 ? '<p class="vt-hint">and ' + (queued.length - 5) + ' more.</p>' : '') +
+          '<div class="vt-panel__acts"><button type="button" class="asc-btn asc-btn--sm" ' +
+            'data-act="clearqueue">Clear the queue</button></div>'
+        : '<p class="vt-hint">Nothing queued. The ＋ at the corner of any card puts it here.</p>') +
+    '</div>';
+
+  const omni = $('vtOmni');
+  omni.addEventListener('keydown', e => {
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    const v = omni.value.trim();
+    if(!v) return;
+    omni.value = '';
+    openComposer({ url:v });
+  });
+  omni.addEventListener('paste', () => setTimeout(() => {
+    const v = omni.value.trim();
+    if(!/^https?:\/\//i.test(v)) return;
+    omni.value = '';
+    openComposer({ url:v });
+  }, 0));
+  if(lastState) setStorageState(lastState);
+}
+
+/* ══ §THE FAVOURITES STRIP ═════════════════════════════════
+   Where the reference photo puts "currently watching": a short
+   horizontal run of covers above the library proper. It holds
+   the starred things instead — the row you come back for, above
+   the room you browse.
+
+   A scroller and not a grid, on purpose. Its job is to be a
+   glance; the moment it wraps to three rows it has become a
+   second library and the real one below it stops being the
+   destination. */
+function paintStrip(){
+  const favs = allCards().filter(d => d.fav);
+  $('vtStrip').innerHTML =
+    '<div class="vt-strip__head">' +
+      '<h2 class="asc-plate asc-plate--sm">Favorites</h2>' +
+      '<span class="asc-group__count">' + (favs.length || 'none yet') + '</span>' +
+      (favs.length > 1
+        ? '<button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="favonly" ' +
+          'style="margin-left:auto">See them in the library →</button>' : '') +
+    '</div>' +
+    (favs.length
+      ? '<div class="vt-strip__rail">' + favs.map((d,i) => cardHtml(d,i)).join('') + '</div>'
+      : '<p class="asc-empty"><strong>Nothing starred yet.</strong>' +
+        'The ☆ at the top-left corner of any card puts it here, whichever shelf it came from.</p>');
+}
+
+/* ══ §THE TOOLBAR ══════════════════════════════════════════
+   Built once and repainted only when the DATA changes. Rebuilding
+   it on a keystroke would destroy the search field the keystroke
+   came from, and the caret with it. */
+function paintBar(){
+  const counts = Vault.counts();
+  const countOf = t => t.reads.reduce((n, sh) => n + (counts[sh] || 0), 0);
+  const total = Object.keys(counts).reduce((n, k) => n + counts[k], 0);
+  /* A shelf with nothing on it is not offered as a filter — it
+     would be a name that leads to an empty room. It reappears on
+     its own the moment something is filed there.
+
+     Unless it is the filter you are ON: a deep link to #reading
+     would otherwise show an empty library with nothing in the bar
+     marked as selected, which reads as a broken page rather than
+     as an empty shelf. */
+  const live = SHELVES.filter(t => countOf(t) > 0 || t.key === view.filter);
+
+  const chip = (key, label, n, sigil, tint) =>
+    '<button type="button" class="asc-kind' + (view.filter === key ? ' is-on' : '') + '" ' +
+      'data-act="filter" data-key="' + key + '"' + (tint ? ' style="--asc-tint:' + tint + '"' : '') +
+      ' aria-pressed="' + (view.filter === key) + '">' +
+      sig(sigil, 13) + label + ' <i>' + n + '</i></button>';
+
+  /* The four controls share a NO-WRAP row of their own. In a
+     wrapping flex container an item wraps before it shrinks, so a
+     320px search box plus three controls broke onto two lines at
+     768 and 1024 and the sticky bar grew to 216px. Held in a
+     nowrap row the search shrinks instead, and the bar is two
+     rows at every width above a phone. */
+  $('vtBar').innerHTML =
+    '<div class="vt-barrow">' +
+      '<div class="asc-search">' +
+        '<input id="vtQ" type="search" value="' + U().attr(view.q) + '" ' +
+          'placeholder="Search the library" aria-label="Search the library">' +
+      '</div>' +
+      '<button type="button" class="vt-only' + (view.favOnly ? ' is-on' : '') + '" data-act="favonly" ' +
+        'aria-pressed="' + view.favOnly + '">' + (view.favOnly ? '★' : '☆') + ' Starred</button>' +
+      '<select class="vt-sort" id="vtGroup" aria-label="Group the library by">' +
+        opt('category','Group: genre') + opt('shelf','Group: shelf') + opt('none','Group: nothing') +
+      '</select>' +
+      '<select class="vt-sort" id="vtSort" aria-label="Sort within each group">' +
+        opt2('shelf','Sort: as filed') + opt2('new','Sort: newest') + opt2('az','Sort: A–Z') +
+        opt2('rating','Sort: rating') + opt2('opened','Sort: last opened') +
+      '</select>' +
+    '</div>' +
+    '<div class="vt-filters">' +
+      chip('all', 'Everything', total, 'sg-all', null) +
+      live.map(t => chip(t.key, t.label, countOf(t), t.sigil, t.tint)).join('') +
+    '</div>';
+
+  function opt(v, l){ return '<option value="' + v + '"' + (view.group === v ? ' selected' : '') + '>' + l + '</option>'; }
+  function opt2(v, l){ return '<option value="' + v + '"' + (view.sort === v ? ' selected' : '') + '>' + l + '</option>'; }
+
+  /* Debounced, because every keystroke rebuilds every group under
+     it and four hundred cards is enough for that to be felt. */
+  let qTimer = 0;
+  $('vtQ').addEventListener('input', e => {
+    const v = e.target.value;
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { view.q = v; paintGroups(); }, 140);
+  });
+  $('vtGroup').addEventListener('change', e => { view.group = e.target.value; paintGroups(); });
+  $('vtSort').addEventListener('change', e => { view.sort = e.target.value; paintGroups(); });
+}
+
+/* ══ §THE GROUPS ═══════════════════════════════════════════ */
+function paintGroups(){
+  const items = pool();
+  const groups = groupsOf(items).filter(g => g.items.length);
+
+  $('vtTally').textContent = items.length
+    ? items.length + (items.length === 1 ? ' item' : ' items') +
+      (view.group === 'none' ? '' : ' · ' + groups.length +
+        (groups.length === 1 ? ' group' : ' groups'))
+    : '';
+
+  if(!items.length){
+    $('vtGroups').innerHTML = '<p class="asc-empty"><strong>Nothing here.</strong>' +
+      (view.q || view.favOnly
+        ? 'Nothing on this filter matches. Clear the search, or turn Starred off.'
+        : 'Paste a link at the top of the page, or fill the form in by hand — a title is enough to start with.') +
+      '</p>';
+    paintLibFoot();
     return;
   }
-  const d = toCard(discovery.pick);
-  const holder = el('div','disc-card');
-  holder.appendChild(card(d, { shelf:discovery.pick._shelf }));
-  stage.appendChild(holder);
 
-  const meta = el('p','disc-meta',
-    `from ${esc(SHELF_NAME[discovery.pick._shelf] || discovery.pick._shelf)}${d.tags[0] ? ' · ' + esc(d.tags[0]) : ''}`);
-  stage.appendChild(meta);
+  $('vtGroups').innerHTML = groups.map((g, gi) => {
+    const shutNow = shut.has(g.key);
+    const cards = sortItems(g.items).map((d, i) => cardHtml(d, i)).join('');
+    return '<section class="asc-group' + (shutNow ? ' is-shut' : '') + '"' +
+        (g.tint ? ' style="--asc-tint:' + g.tint + '"' : '') + '>' +
+      '<div class="vt-ghead">' +
+        '<button type="button" class="asc-group__head" data-act="fold" data-key="' + U().attr(g.key) + '" ' +
+          'aria-expanded="' + !shutNow + '">' +
+          '<span class="asc-group__name">' + esc(g.name) + '</span>' +
+          '<span class="asc-group__count">' + g.items.length + '</span>' +
+          '<span class="asc-group__fold" aria-hidden="true">▾</span>' +
+        '</button>' +
+        (g.shelf ? '<button type="button" class="vt-add" data-act="addhere" ' +
+          'data-shelf="' + esc(g.shelf) + '" data-cat="' + U().attr(g.key === 'Uncategorised' || view.group !== 'category' ? '' : g.key) + '" ' +
+          'aria-label="Add to ' + U().attr(g.name) + '" title="Add to ' + U().attr(g.name) + '">+</button>' : '') +
+      '</div>' +
+      '<div class="asc-group__rule"></div>' +
+      '<div class="asc-group__body"><div class="vt-grid">' + cards + '</div></div>' +
+    '</section>';
+  }).join('');
 
-  const again = el('button','disc-again','Try another');
-  again.onclick = () => { rollDiscovery(); paintPick(); };
-  stage.appendChild(again);
+  paintLibFoot();
 }
 
-/* ── Favorites ─────────────────────────────────────────────
-   Every starred item on every shelf, grouped into one row per shelf. The
-   old page gated this behind filter chips — one chip click to see one
-   shelf. Stacked rows show all of them at once, which is the same reason
-   the galleries stack rather than filter. */
-function renderFavorites(){
-  const groups = Vault.SHELVES
-    .map(s => [s, Vault.list(s).filter(v => v.favorite).map(v => toCard({ ...v, _shelf:s }))])
-    .filter(([, list]) => list.length);
+/* Starting a new category has to be possible from the page
+   itself. Without this the only way to create one is to guess
+   that the composer's Category box accepts text it has never
+   seen. A merged filter offers one button per shelf, because
+   "new category" has to know which shelf it is starting on. */
+function paintLibFoot(){
+  const shelves = view.filter === 'all' ? [] : readsOf(view.filter);
+  $('vtLibFoot').innerHTML = shelves.map(sh =>
+    '<button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" data-act="addhere" ' +
+      'data-shelf="' + esc(sh) + '" data-cat="">+ New category' +
+      (shelves.length > 1 ? ' in ' + esc(SHELF_NAME[sh] || sh) : ' on this shelf') +
+    '</button>').join('');
+}
 
-  if(!groups.length){
-    const d = el('div','stub');
-    d.innerHTML = `<div style="color:var(--gilt);opacity:.4">${sig('sg-fav',34)}</div>
-      <p class="mono mt-5" style="color:var(--ink-faint)">No favourites yet</p>
-      <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
-        Tap the star at the top-left of any card to add one.</p>`;
-    body.appendChild(d);
-    return;
+/* Everything the data can change. Called after a save, a delete,
+   a seed and a cloud pull. */
+function paintAll(){
+  paintLedger(); paintStrip(); paintBar(); paintGroups();
+}
+
+/* ══ §THE DETAIL SHEET ═════════════════════════════════════
+   It used to be a panel that unfurled inside the grid, which
+   meant computing which card ended the visual row and inserting
+   after it. The host module already owns a sheet that traps
+   Escape, locks the body and gives focus back where it found it. */
+function openDetail(shelf, id){
+  const r = recordOf(shelf, id);
+  if(!r) return U().toast('That item is no longer on the shelf');
+  const d = toCard(r, shelf, TAB_OF_SHELF[shelf] || SHELVES[0].key);
+  const t = shelfOf(d.tab);
+
+  const line = (l, v) => v ? '<div class="asc-line"><span class="asc-label">' + l + '</span><p>' + v + '</p></div>' : '';
+  const when = ts => ts ? new Date(ts).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) : '';
+
+  U().openSheet(
+    '<button type="button" class="asc-back" data-act="sheet-close">' +
+      '<span aria-hidden="true">&#8592;</span> Back</button>' +
+    '<div class="asc-sheet__top"><div>' +
+      '<h2 class="asc-plate">' + esc(d.title) + '</h2>' +
+      '<p class="asc-label asc-label--tint">' + esc(t.label) + ' · ' + esc(d.cat) + '</p>' +
+    '</div></div>' +
+    (d.cover ? '<img class="vt-detail__fig" src="' + esc(d.cover) + '" alt="" loading="lazy">' : '') +
+    '<div class="asc-sheet__acts">' +
+      (d.url ? '<button type="button" class="asc-btn asc-btn--primary" data-act="open" ' +
+        'data-shelf="' + esc(shelf) + '" data-id="' + esc(id) + '" data-autofocus>' + t.verb + ' &#8594;</button>' : '') +
+      '<button type="button" class="asc-btn" data-act="star" data-shelf="' + esc(shelf) + '" data-id="' + esc(id) + '">' +
+        (d.fav ? '★ Starred' : '☆ Star it') + '</button>' +
+      '<button type="button" class="asc-btn" data-act="queue" data-shelf="' + esc(shelf) + '" data-id="' + esc(id) + '">' +
+        (d.queued ? '✓ In Tonight' : '＋ Tonight') + '</button>' +
+      '<button type="button" class="asc-btn" data-act="edit" data-shelf="' + esc(shelf) + '" data-id="' + esc(id) + '">Edit</button>' +
+    '</div>' +
+    (d.desc ? '<div class="asc-sheet__block"><h3 class="asc-label">About</h3>' +
+      '<p class="asc-body">' + U().escLines(d.desc) + '</p></div>' : '') +
+    '<div class="asc-sheet__block"><h3 class="asc-label">Details</h3><div class="asc-lines">' +
+      line('Shelf', esc(SHELF_NAME[shelf] || shelf)) +
+      line('Category', esc(d.cat)) +
+      line('Creator', esc(d.creator)) +
+      line('Length', esc(d.len)) +
+      line('Rating', d.rating ? '★'.repeat(Math.round(d.rating)) + ' <span class="asc-small">' + d.rating.toFixed(1) + '</span>' : '') +
+      line('Opened', d.opens ? d.opens + (d.opens === 1 ? ' time' : ' times') +
+        (d.opened ? ', last on ' + when(d.opened) : '') : '') +
+      line('Added', when(d.made)) +
+      line('Link', d.url ? '<a class="asc-linkout" href="' + esc(d.url) + '" target="_blank" rel="noopener">' +
+        esc(d.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)) + '</a>' : '') +
+    '</div></div>' +
+    '<div class="asc-sheet__acts">' +
+      '<button type="button" class="asc-btn asc-btn--danger asc-btn--sm" data-act="del" ' +
+        'data-shelf="' + esc(shelf) + '" data-id="' + esc(id) + '">Delete this item</button>' +
+    '</div>',
+  {});
+}
+
+/* ══ §ACTIONS ══════════════════════════════════════════════
+   One delegated handler for the whole page. Every clickable thing
+   in every painted region carries data-act, so nothing has to be
+   re-bound when a region is repainted — which is the only reason
+   four hundred cards can be rebuilt on a keystroke at all. */
+/* Which record a clicked thing means. The star, the Tonight
+   toggle and the verb button are all INSIDE the card and carry no
+   ids of their own — the card carries them once, for all four.
+   Anything that stands alone (the Tonight list, the sheet's own
+   buttons) carries its own pair and is answered directly. */
+function ref(el){
+  const n = el.dataset.shelf ? el : el.closest('[data-shelf][data-id]');
+  return n ? { shelf: n.dataset.shelf, id: n.dataset.id } : null;
+}
+
+const ACTS = {
+  add(){ openComposer({}); },
+
+  filter(el){
+    view.filter = el.dataset.key;
+    try {
+      history.replaceState(null, '',
+        view.filter === 'all' ? location.pathname + location.search : '#' + view.filter);
+    } catch(e){}
+    paintBar(); paintGroups();
+    /* Changing the filter is NAVIGATION, so it re-arms the reveal
+       and brings the library's own heading into view. A repaint
+       does neither — see onApplied. */
+    U().introArrive();
+    document.querySelector('.vt-lib').scrollIntoView({ behavior:'smooth', block:'start' });
+  },
+
+  favonly(){ view.favOnly = !view.favOnly; paintBar(); paintGroups();
+    if(view.favOnly) document.querySelector('.vt-lib').scrollIntoView({ behavior:'smooth', block:'start' }); },
+
+  fold(el){
+    const k = el.dataset.key;
+    if(shut.has(k)) shut.delete(k); else shut.add(k);
+    const sec = el.closest('.asc-group');
+    sec.classList.toggle('is-shut', shut.has(k));
+    el.setAttribute('aria-expanded', String(!shut.has(k)));
+  },
+
+  addhere(el){ openComposer({ shelf: el.dataset.shelf, category: el.dataset.cat || '' }); },
+
+  open(el){
+    const k = ref(el); if(!k) return;
+    const { shelf, id } = k;
+    const r = recordOf(shelf, id);
+    if(!r) return U().toast('That item is no longer on the shelf');
+    if(!r.url) return U().toast('No link on this item');
+    /* Stamped before navigating — this is what "last opened"
+       reads, and what the Sort: last opened order is built on. */
+    Vault.touch(shelf, id);
+    window.open(r.url, '_blank', 'noopener');
+  },
+
+  star(el){
+    const k = ref(el); if(!k) return;
+    const { shelf, id } = k;
+    const r = recordOf(shelf, id);
+    if(!r) return U().toast('That item is no longer on the shelf');
+    const on = !r.favorite;
+    Vault.update(shelf, id, { favorite: on });
+    /* Patched in place rather than repainted: a full repaint here
+       would throw away the reader's scroll position for a single
+       character of glyph. */
+    document.querySelectorAll('.vt-card[data-shelf="' + cssq(shelf) + '"][data-id="' + cssq(id) + '"] .vt-card__star')
+      .forEach(s => {
+        s.classList.toggle('is-on', on);
+        s.textContent = on ? '★' : '☆';
+        s.setAttribute('aria-label', on ? 'Remove from favourites' : 'Add to favourites');
+      });
+    if(el.classList.contains('asc-btn')) el.textContent = on ? '★ Starred' : '☆ Star it';
+    paintLedger(); paintStrip();
+    if(view.favOnly) paintGroups();
+  },
+
+  queue(el){
+    const k = ref(el); if(!k) return;
+    const { shelf, id } = k;
+    const r = recordOf(shelf, id);
+    if(!r) return U().toast('That item is no longer on the shelf');
+    const on = !r.queued;
+    Vault.update(shelf, id, { queued: on });
+    document.querySelectorAll('.vt-card[data-shelf="' + cssq(shelf) + '"][data-id="' + cssq(id) + '"] .vt-mini[data-act="queue"]')
+      .forEach(m => {
+        m.classList.toggle('is-on', on);
+        m.setAttribute('aria-label', on ? 'Take out of Tonight' : 'Add to Tonight');
+        m.querySelector('path').setAttribute('d', on ? 'M3.6 8.4 6.5 11.3 12.4 5.2' : 'M8 3.6v8.8M3.6 8h8.8');
+      });
+    if(el.classList.contains('asc-btn')) el.textContent = on ? '✓ In Tonight' : '＋ Tonight';
+    paintLedger();
+  },
+
+  info(el){
+    const k = ref(el); if(!k) return;
+    openDetail(k.shelf, k.id);
+  },
+
+  edit(el){
+    const k = ref(el); if(!k) return;
+    const r = recordOf(k.shelf, k.id);
+    if(!r) return U().toast('That item is no longer on the shelf');
+    U().closeSheet();
+    openComposer({ shelf: k.shelf, item: r });
+  },
+
+  del(el){
+    const k = ref(el); if(!k) return;
+    const shelf = k.shelf, r = recordOf(shelf, k.id);
+    if(!r) return U().toast('That item is no longer on the shelf');
+    if(!confirm('Delete “' + (r.title || 'this item') + '” from ' + (SHELF_NAME[shelf] || shelf) +
+      '?\n\nThis cannot be undone.')) return;
+    Vault.remove(shelf, r.id);
+    U().closeSheet();
+    U().toast('Deleted');
+    paintAll();
+  },
+
+  clearqueue(){
+    const q = allCards().filter(d => d.queued);
+    if(!q.length) return;
+    if(!confirm('Take all ' + q.length + ' out of Tonight?')) return;
+    q.forEach(d => Vault.update(d.shelf, d.id, { queued:false }));
+    paintAll();
+  },
+
+  /* What the Discovery route was, in one button. It used to be a
+     page with two selects and a stage; what it actually did was
+     hand you one thing you had forgotten about. */
+  surprise(){
+    const all = allCards();
+    if(!all.length) return U().toast('Nothing on the shelves yet');
+    const d = all[Math.floor(Math.random() * all.length)];
+    openDetail(d.shelf, d.id);
   }
-
-  const total = groups.reduce((n, [, l]) => n + l.length, 0);
-  const chips = el('div','flex gap-2 overflow-x-auto pb-2 mb-10');
-  chips.style.scrollbarWidth = 'none';
-  groups.forEach(([s, list], i) => {
-    const b = el('button','chip', `${esc(SHELF_NAME[s] || s)} · ${list.length}`);
-    b.onclick = () => document.getElementById('fav-'+i)?.scrollIntoView({ behavior:'smooth', block:'start' });
-    beam(b, { tint:shelfOf(s).tint, seed:i+1 });
-    chips.appendChild(b);
-  });
-  body.appendChild(chips);
-
-  groups.forEach(([s, list], i) => {
-    const sec = section(SHELF_NAME[s] || s, list.length, 'Open shelf', list, { shelf:s });
-    sec.classList.add('catblock');
-    sec.id = 'fav-'+i; sec.style.scrollMarginTop = '90px';
-    /* go() resolves a retired shelf key to the tab that now shows it. */
-    sec.querySelector('.more')?.addEventListener('click', () => go(s));
-    body.appendChild(sec);
-  });
-  body.dataset.favTotal = total;
-}
-
-/* Only Stats reaches this now — every other tab is a real shelf you can put
-   something on. Stats is a view over the shelves rather than a place items
-   live, so it has nothing to add TO. */
-function renderStub(){
-  const s = shelfOf(active);
-  const d = el('div','stub');
-  d.innerHTML = `<div style="color:${s.tint};opacity:.4">${sig(s.sigil,34)}</div>
-    <p class="mono mt-5" style="color:var(--ink-faint)">Not built yet</p>
-    <p class="mt-3 mx-auto max-w-[380px]" style="color:var(--ink-dim);font-size:13px">
-      ${esc(s.label)} reads across the other shelves rather than holding
-      anything of its own.</p>`;
-  body.appendChild(d);
-}
-
-function render(){
-  closeDetail(); clearBeams(); body.innerHTML = '';
-  if(active==='home') renderHome();
-  else if(active==='discover') renderDiscover();
-  else if(active==='favorites') renderFavorites();
-  else if(readsOf(active).length) renderGallery(shelfOf(active));
-  else renderStub();
-}
-
-/* ── chrome condense + scroll gauge ────────────────────── */
-/* NB: `chrome` is a pre-existing global in Chromium — declaring const chrome
-   here throws "already been declared" and kills the whole script. */
-const chromeBar = document.getElementById('chrome'), gauge = document.getElementById('gauge');
-
-/* One rAF-throttled pass drives the curtain, the chrome condense and the gauge.
-   Everything visual is expressed in CSS off --p; this only writes the number. */
-let queued = false;
-/* The hero's own parallax is vault-hero.js's rAF, not this one — the old
-   curtain (a fixed hero with the sheet sliding over it) is gone. What is
-   left here is the chrome bar's condense and the scroll gauge. */
-function onScroll(){
-  queued = false;
-  chromeBar.classList.toggle('stuck', scrollY > 30);
-  const max = document.documentElement.scrollHeight - innerHeight;
-  gauge.style.transform = `scaleX(${max > 0 ? scrollY/max : 0})`;
-}
-addEventListener('scroll', () => {
-  if(!queued){ queued = true; requestAnimationFrame(onScroll); }
-}, { passive:true });
-addEventListener('resize', onScroll);
-onScroll();
-
-/* The clock and the scroll cue are the hero's now — see vault-hero.js. */
-
-/* deep links: #podcasts must work on back/forward and on paste-into-address-bar */
-addEventListener('hashchange', () => {
-  const k = tabKey(location.hash.slice(1));
-  if(k && k !== active && SHELVES.some(s => s.key === k)) go(k);
-});
-
-addEventListener('keydown', e => {
-  /* Escape closes the sheet from anywhere, including from inside a field —
-     it is the one key that has to work while typing. */
-  if(e.key === 'Escape' && cmp.open) return closeComposer(true);
-  /* TEXTAREA and SELECT were missing here, so typing a "3" into the notes
-     box would have jumped the page to another shelf. */
-  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
-  if(cmp.open) return;
-  if(e.key === 'Escape') return closeDetail();
-  if(e.key === 'n' || e.key === 'N'){ e.preventDefault(); return openComposer({}); }
-  const n = parseInt(e.key,10);
-  if(n>=1 && n<=9 && SHELVES[n-1]) go(SHELVES[n-1].key);
-});
-
-/* ══ §COMPOSER ═══════════════════════════════════════════
-   Everything that writes an item goes through here. Before this the page
-   was read-only in practice: the chrome's "Paste a link…" box had no
-   listener, the detail panel's Edit button had no listener, and there was
-   no delete at all — so the only items in the Vault were the ones the
-   migration put there.
-
-   One form covers add and edit, because correcting an item and creating one
-   want the same nine fields, and two forms would drift. */
-const cmp = {
-  el: document.getElementById('cmp'),
-  scrim: document.getElementById('cmpScrim'),
-  form: document.getElementById('cmpForm'),
-  msg: document.getElementById('cmpMsg'),
-  url: document.getElementById('cmpUrl'),
-  title: document.getElementById('cmpTitleIn'),
-  shelf: document.getElementById('cmpShelf'),
-  cat: document.getElementById('cmpCat'),
-  catList: document.getElementById('cmpCatList'),
-  creator: document.getElementById('cmpCreator'),
-  len: document.getElementById('cmpLen'),
-  cover: document.getElementById('cmpCover'),
-  desc: document.getElementById('cmpDesc'),
-  stars: document.getElementById('cmpStars'),
-  fav: document.getElementById('cmpFav'),
-  queue: document.getElementById('cmpQueue'),
-  del: document.getElementById('cmpDel'),
-  prev: document.getElementById('cmpPrev'),
-  prevImg: document.getElementById('cmpPrevImg'),
-  prevTitle: document.getElementById('cmpPrevTitle'),
-  prevSub: document.getElementById('cmpPrevSub'),
-  heading: document.getElementById('cmpTitle'),
-  /* editing: {shelf, id} or null. rating: 0-5. touched: fields the reader
-     has typed in, which auto-fill must never overwrite. */
-  editing: null, rating: 0, touched: new Set(), lastFocus: null, open: false
 };
 
-/* A small centred note. flash() needs a card to attach to, and half of what
-   the composer has to say happens with no card on screen. */
-function note(msg, bad){
-  document.querySelectorAll('.vnote').forEach(n => n.remove());
-  const t = el('div','vnote', esc(msg));
-  Object.assign(t.style, {
-    position:'fixed', left:'50%', bottom:'26px', transform:'translateX(-50%)',
-    zIndex:'95', maxWidth:'min(420px,92vw)', textAlign:'center',
-    padding:'11px 20px', borderRadius:'99px',
-    background: bad ? 'rgba(224,136,136,.95)' : 'rgba(184,133,63,.96)',
-    color:'#1A1005', fontFamily:"'Martian Mono',monospace", fontSize:'10px',
-    letterSpacing:'.11em', textTransform:'uppercase',
-    boxShadow:'0 12px 34px -12px rgba(6,4,2,.9)'
-  });
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2600);
-}
+/* An id is generated (`v_…`) and a shelf key is a bare word, so
+   neither can currently need quoting — but a selector built from
+   data is a selector built from data, and CSS.escape costs
+   nothing. */
+function cssq(s){ return window.CSS && CSS.escape ? CSS.escape(s) : String(s); }
 
-/* ── auto-fill ────────────────────────────────────────────
-   Only ever fills a field the reader has left alone, and only from the
-   site's OWN oEmbed endpoint — no third-party metadata service, which would
-   mean every link pasted here being reported to a stranger. When there is no
-   endpoint, the host name and the URL slug still beat an empty form. */
+function fire(e){
+  const hit = e.target.closest('[data-act]');
+  if(!hit) return;
+  const fn = ACTS[hit.dataset.act];
+  if(!fn) return;
+  /* The card is itself a [data-act="open"] and the star sits
+     inside it; closest() finds the star first, which is what makes
+     the inner controls win without a stopPropagation on each. */
+  e.preventDefault();
+  e.stopPropagation();
+  fn(hit, e);
+}
+/* A span with role="button" does not fire click on Enter the way
+   a real button does, so the two spans on every card are bound
+   through here as well. */
+function keyFire(e){
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  if(!e.target.closest('[role="button"][data-act]')) return;
+  fire(e);
+}
+/* Bound to the two painted regions, NOT to the document. topbar.js,
+   trash.js and shrink-banner.js all inject chrome of their own into
+   this page, and a document-wide handler that calls preventDefault
+   on anything carrying a data-act is a trap laid for whichever of
+   them adopts the attribute next. */
+[$('vtRoot'), $('ascSheet')].forEach(n => {
+  n.addEventListener('click', fire);
+  n.addEventListener('keydown', keyFire);
+});
+
+/* ══ §KEYBOARD ═════════════════════════════════════════════ */
+addEventListener('keydown', e => {
+  /* Escape closes the composer from anywhere, including from
+     inside a field — it is the one key that has to work while
+     typing. The host module owns Escape for its own sheet. */
+  if(e.key === 'Escape' && cmp.open) return closeComposer(true);
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if(cmp.open || U().sheetOpen()) return;
+  if(e.key === 'n' || e.key === 'N'){ e.preventDefault(); return openComposer({}); }
+  if(e.key === '/'){ e.preventDefault(); const q = $('vtQ'); if(q) q.focus(); return; }
+  /* 1 is Everything; 2-9 are the filters, in the order they are
+     drawn — so the number under a name stays the number under it
+     even when an empty shelf appears. */
+  const n = parseInt(e.key, 10);
+  if(n >= 1 && n <= 9){
+    const chips = [...document.querySelectorAll('.vt-filters .asc-kind')];
+    if(chips[n-1]) chips[n-1].click();
+  }
+});
+
+/* Deep links. #podcasts still works, and so do the retired
+   #creepypasta, #trueHorror, #immersive and the four old view
+   routes, all of which now resolve to the whole library. */
+function fromHash(){
+  const raw = location.hash.slice(1);
+  if(!raw) return;
+  const k = tabKey(raw);
+  if(k === 'all'){ view.filter = 'all'; return raw === 'favorites' ? 'favorites' : null; }
+  if(SHELVES.some(s => s.key === k)) view.filter = k;
+  return null;
+}
+addEventListener('hashchange', () => {
+  const was = view.filter;
+  const want = fromHash();
+  if(view.filter !== was){ paintBar(); paintGroups(); }
+  /* topbar.js's launcher links to #favorites, and on this page that
+     is not a filter — it is a place to scroll to. */
+  if(want === 'favorites') $('vtStrip').scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+/* ══ §COMPOSER ═════════════════════════════════════════════
+   Everything that writes an item goes through here. One form
+   covers add and edit, because correcting an item and creating
+   one want the same nine fields.
+
+   The element ids are unchanged from the old page on purpose:
+   AthDraft scopes a draft by them, so an entry half-typed before
+   this rebuild is still recoverable after it. */
+const cmp = {
+  el: $('cmp'), scrim: $('cmpScrim'), form: $('cmpForm'), msg: $('cmpMsg'),
+  url: $('cmpUrl'), title: $('cmpTitleIn'), shelf: $('cmpShelf'),
+  cat: $('cmpCat'), catList: $('cmpCatList'), creator: $('cmpCreator'),
+  len: $('cmpLen'), cover: $('cmpCover'), desc: $('cmpDesc'),
+  stars: $('cmpStars'), fav: $('cmpFav'), queue: $('cmpQueue'), del: $('cmpDel'),
+  prev: $('cmpPrev'), prevImg: $('cmpPrevImg'), prevTitle: $('cmpPrevTitle'),
+  prevSub: $('cmpPrevSub'), heading: $('cmpTitle'),
+  /* editing: {shelf, id} or null. rating: 0-5. touched: fields the
+     reader has typed in, which auto-fill must never overwrite. */
+  editing: null, rating: 0, touched: new Set(), lastFocus: null, open: false, dupeWarned: false
+};
+
+/* ── auto-fill ─────────────────────────────────────────────
+   Only ever fills a field the reader has left alone, and only
+   from the site's OWN oEmbed endpoint — no third-party metadata
+   service, which would mean every link pasted here being reported
+   to a stranger. With no endpoint, the host name and a
+   Title-Cased URL slug still beat an empty form. */
 const OEMBED = {
-  'youtube.com':   u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
-  'youtu.be':      u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
-  'vimeo.com':     u => 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(u),
+  'youtube.com':      u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
+  'youtu.be':         u => 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u),
+  'vimeo.com':        u => 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(u),
   'open.spotify.com': u => 'https://open.spotify.com/oembed?url=' + encodeURIComponent(u),
-  'soundcloud.com':u => 'https://soundcloud.com/oembed?format=json&url=' + encodeURIComponent(u)
+  'soundcloud.com':   u => 'https://soundcloud.com/oembed?format=json&url=' + encodeURIComponent(u)
 };
 
 function ytId(u){
   try{
-    const url = new URL(u), h = url.hostname.replace(/^www\./,'');
+    const url = new URL(u), h = url.hostname.replace(/^www\./, '');
     if(h === 'youtu.be') return url.pathname.slice(1).split('/')[0] || '';
     if(!/youtube\.com$/.test(h)) return '';
     if(url.searchParams.get('v')) return url.searchParams.get('v');
@@ -1824,8 +1042,8 @@ function titleFromSlug(u){
   try{
     const seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
     if(!seg || /^[0-9a-f]{8,}$/i.test(seg)) return '';
-    return decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i,'')
-      .replace(/[-_+]+/g,' ').replace(/\s+/g,' ').trim()
+    return decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i, '')
+      .replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim()
       .replace(/\b\w/g, c => c.toUpperCase());
   }catch(e){ return '' }
 }
@@ -1843,14 +1061,15 @@ async function autofill(raw){
   if(!/^https?:\/\//i.test(u)) return;
   const seq = ++autofillSeq;
 
-  // Instant, offline, always right: the host is the creator until something
-  // better arrives, and a YouTube thumbnail is derivable from the id alone.
+  /* Instant, offline, always right: the host is the creator until
+     something better arrives, and a YouTube thumbnail is derivable
+     from the id alone. */
   let host = '';
-  try{ host = new URL(u).hostname.replace(/^www\./,'') }catch(e){}
+  try{ host = new URL(u).hostname.replace(/^www\./, '') }catch(e){}
   fillIfUntouched('creator', host);
   fillIfUntouched('title', titleFromSlug(u));
   const vid = ytId(u);
-  if(vid) fillIfUntouched('cover', `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
+  if(vid) fillIfUntouched('cover', 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg');
   paintPreview();
 
   const endpoint = OEMBED[host];
@@ -1873,8 +1092,8 @@ function paintPreview(){
   if(!cover && !title){ cmp.prev.hidden = true; return; }
   cmp.prev.hidden = false;
   cmp.prevTitle.textContent = title || 'Untitled';
-  const bits = [cmp.creator.value.trim(), cmp.len.value.trim(), cmp.cat.value.trim()].filter(Boolean);
-  cmp.prevSub.textContent = bits.join(' · ');
+  cmp.prevSub.textContent = [cmp.creator.value.trim(), cmp.len.value.trim(), cmp.cat.value.trim()]
+    .filter(Boolean).join(' · ');
   if(cover){
     cmp.prevImg.hidden = false;
     if(cmp.prevImg.getAttribute('src') !== cover) cmp.prevImg.src = cover;
@@ -1883,34 +1102,35 @@ function paintPreview(){
 /* A cover that 404s must look wrong here rather than after saving. */
 cmp.prevImg.addEventListener('error', () => {
   if(!cmp.cover.value.trim()) return;
-  say('That cover link did not load. It will still save — the card falls back to the shelf sigil.', 'warn');
+  say('That cover link did not load. It will still save — the card falls back to the shelf mark.', 'warn');
 });
 
 function say(text, kind){
   cmp.msg.textContent = text || '';
-  cmp.msg.className = 'cmp-msg' + (text ? ' on ' + (kind || 'warn') : '');
+  cmp.msg.className = 'vt-msg' + (text ? ' is-on is-' + (kind || 'warn') : '');
 }
 
 function paintStars(){
-  cmp.stars.querySelectorAll('.cmp-star').forEach(b =>
-    b.classList.toggle('on', Number(b.dataset.n) <= cmp.rating));
+  cmp.stars.querySelectorAll('.vt-star').forEach(b =>
+    b.classList.toggle('is-on', Number(b.dataset.n) <= cmp.rating));
 }
 function paintToggles(){
-  cmp.fav.textContent = cmp.fav.classList.contains('on') ? '★ Favourite' : '☆ Favourite';
-  cmp.queue.textContent = cmp.queue.classList.contains('on') ? '✓ Tonight' : '＋ Tonight';
+  cmp.fav.textContent = cmp.fav.classList.contains('is-on') ? '★ Favourite' : '☆ Favourite';
+  cmp.queue.textContent = cmp.queue.classList.contains('is-on') ? '✓ Tonight' : '＋ Tonight';
 }
 
-/* Shelves the composer can file into: the real data shelves only. Home,
-   Discover, Favorites and Stats are views over those, not places. */
+/* Shelves the composer can file into: all ten real ones, always,
+   including the four that are empty. A shelf you cannot file to
+   is a shelf that can never stop being empty. */
 function fillShelfSelect(selected){
   cmp.shelf.innerHTML = Vault.SHELVES
-    .map(s => `<option value="${s}">${esc(shelfOf(s).label)}</option>`).join('');
-  cmp.shelf.value = Vault.SHELVES.includes(selected) ? selected : Vault.SHELVES[0];
+    .map(s => '<option value="' + s + '">' + esc(SHELF_NAME[s] || s) + '</option>').join('');
+  cmp.shelf.value = Vault.SHELVES.indexOf(selected) >= 0 ? selected : Vault.SHELVES[0];
 }
 function fillCatList(){
   const own = Vault.categories(cmp.shelf.value);
-  const rest = Vault.allCategories().filter(c => !own.includes(c));
-  cmp.catList.innerHTML = own.concat(rest).map(c => `<option value="${esc(c)}">`).join('');
+  const rest = Vault.allCategories().filter(c => own.indexOf(c) < 0);
+  cmp.catList.innerHTML = own.concat(rest).map(c => '<option value="' + U().attr(c) + '">').join('');
 }
 
 function openComposer(opts){
@@ -1918,10 +1138,16 @@ function openComposer(opts){
   const item = opts.item || null;
   cmp.editing = item ? { shelf: opts.shelf, id: item.id } : null;
   cmp.touched.clear();
+  cmp.dupeWarned = false;
   say('');
 
   cmp.heading.textContent = item ? 'Edit item' : 'Add to the Studio';
-  fillShelfSelect(item ? opts.shelf : (Vault.SHELVES.includes(active) ? active : opts.shelf));
+  /* A new item lands on the shelf you are looking at when that is
+     a single-shelf filter, and on the first shelf of a merged one.
+     From Everything there is nothing to infer, so it starts at the
+     top of the list. */
+  const guess = opts.shelf || (view.filter !== 'all' ? readsOf(view.filter)[0] : '');
+  fillShelfSelect(item ? opts.shelf : guess);
   fillCatList();
 
   cmp.url.value     = item ? (item.url || '') : (opts.url || '');
@@ -1932,43 +1158,44 @@ function openComposer(opts){
   cmp.cover.value   = item ? (item.cover || '') : '';
   cmp.desc.value    = item ? (item.description || '') : '';
   cmp.rating        = item ? (Number(item.rating) || 0) : 0;
-  cmp.fav.classList.toggle('on', !!(item && item.favorite));
-  cmp.queue.classList.toggle('on', !!(item && item.queued));
+  cmp.fav.classList.toggle('is-on', !!(item && item.favorite));
+  cmp.queue.classList.toggle('is-on', !!(item && item.queued));
   paintStars(); paintToggles(); paintPreview();
   cmp.del.hidden = !item;
 
   cmp.lastFocus = document.activeElement;
   cmp.el.hidden = false; cmp.scrim.hidden = false;
-  requestAnimationFrame(() => { cmp.el.classList.add('on'); cmp.scrim.classList.add('on'); });
+  requestAnimationFrame(() => { cmp.el.classList.add('is-on'); cmp.scrim.classList.add('is-on'); });
   cmp.open = true;
-  // Editing starts at the title, adding starts at the link — that is the
-  // field each case actually wants first.
+  /* Editing starts at the title, adding starts at the link — that
+     is the field each case actually wants first. */
   setTimeout(() => { (item ? cmp.title : cmp.url).focus(); }, 90);
   if(!item && opts.url) autofill(opts.url);
   bindComposerDraft(item);
 }
 
-/* ── unsaved-form protection ──────────────────────────────
-   Everything typed here lived only in the DOM until Save was pressed:
-   the input listener at the bottom of this file only repaints the
-   preview. A refresh, or a phone discarding a backgrounded tab, took the
-   whole entry with it. AthDraft writes every keystroke to the REAL
-   localStorage through a hidden iframe — local-store-idb.js's writes are
-   not durable at unload — under `athdraft:`, which sync.js cannot see.
+/* ── unsaved-form protection ───────────────────────────────
+   Everything typed here lives only in the DOM until Save is
+   pressed. A refresh, or a phone discarding a backgrounded tab,
+   would take the whole entry with it. AthDraft writes every
+   keystroke to the REAL localStorage through a hidden iframe —
+   local-store-idb.js's writes are not durable at unload — under
+   `athdraft:`, which sync.js cannot see.
 
-   Scoped by the record being edited rather than by a fingerprint of the
-   form: this composer is reopened on the same item over and over, and the
-   id is the stabler key. A new entry shares one draft across every
-   attempt at it, which is the behaviour you want when you get halfway
-   through adding something and get interrupted. */
+   Scoped by the record being edited rather than by a fingerprint
+   of the form: this composer is reopened on the same item over and
+   over, and the id is the stabler key. A new entry shares one
+   draft across every attempt at it, which is the behaviour you
+   want when you get halfway through adding something and get
+   interrupted. */
 let cmpDraft = null;
 function bindComposerDraft(item){
   cmpDraft = null;
   if(!window.AthDraft) return;
-  const form = document.getElementById('cmpForm');
+  const form = $('cmpForm');
   if(!form) return;
-  form.querySelectorAll('input,textarea,select').forEach(el => {
-    if(el.id && el.id.indexOf('cmp') === 0) el.setAttribute('data-f', el.id.slice(3));
+  form.querySelectorAll('input,textarea,select').forEach(node => {
+    if(node.id && node.id.indexOf('cmp') === 0) node.setAttribute('data-f', node.id.slice(3));
   });
   const scope = 'composer:vault:' + (item ? cmp.editing.shelf + ':' + item.id : 'new');
   cmpDraft = AthDraft.bind(scope, form, {
@@ -1979,17 +1206,17 @@ function bindComposerDraft(item){
   });
 }
 
-/* `discard` true means a DECISION to be done with this entry — the ✕,
-   Escape, the scrim, a real save, a delete. A refresh is not a decision,
-   and its draft has to survive. */
+/* `discard` true means a DECISION to be done with this entry —
+   the close button, Escape, the scrim, a real save, a delete. A
+   refresh is not a decision, and its draft has to survive. */
 function closeComposer(discard){
   if(!cmp.open) return;
   if(cmpDraft){ if(discard) cmpDraft.clear(); else cmpDraft.save(); }
   cmpDraft = null;
   cmp.open = false;
-  cmp.el.classList.remove('on'); cmp.scrim.classList.remove('on');
+  cmp.el.classList.remove('is-on'); cmp.scrim.classList.remove('is-on');
   setTimeout(() => { cmp.el.hidden = true; cmp.scrim.hidden = true; }, 320);
-  if(cmp.lastFocus && cmp.lastFocus.focus) { try{ cmp.lastFocus.focus() }catch(e){} }
+  if(cmp.lastFocus && cmp.lastFocus.focus){ try{ cmp.lastFocus.focus() }catch(e){} }
 }
 
 function readComposer(){
@@ -2002,15 +1229,15 @@ function readComposer(){
     cover: cmp.cover.value.trim(),
     description: cmp.desc.value.trim(),
     rating: cmp.rating,
-    favorite: cmp.fav.classList.contains('on'),
-    queued: cmp.queue.classList.contains('on')
+    favorite: cmp.fav.classList.contains('is-on'),
+    queued: cmp.queue.classList.contains('is-on')
   };
 }
 
-/* Returns true when it saved. `keepOpen` is Save & add another, which keeps
-   the shelf and the category — the case it exists for is emptying a browser
-   tab group onto one shelf, where re-picking the shelf nine times is the
-   entire friction. */
+/* `keepOpen` is Save & add another, which keeps the shelf and the
+   category — the case it exists for is emptying a browser tab
+   group onto one shelf, where re-picking the shelf nine times is
+   the entire friction. */
 function saveComposer(keepOpen){
   const f = readComposer(), shelf = cmp.shelf.value;
   if(!f.title && !f.url){
@@ -2020,22 +1247,23 @@ function saveComposer(keepOpen){
   if(!f.title) f.title = titleFromSlug(f.url) || f.url;
 
   if(cmp.editing){
-    // A shelf change is a move, not a field edit — the shelf is part of the
-    // storage key rather than a property of the record.
+    /* A shelf change is a MOVE, not a field edit — the shelf is
+       part of the storage key rather than a property of the
+       record. Vault.move carries the id and createdAt across. */
     if(shelf !== cmp.editing.shelf) Vault.move(cmp.editing.shelf, cmp.editing.id, shelf);
     Vault.update(shelf, cmp.editing.id, f);
-    note('Saved');
+    U().toast('Saved');
   } else {
     const dupe = f.url ? Vault.findByUrl(f.url) : null;
     if(dupe){
-      say('That link is already on ' + shelfOf(dupe.shelf).label +
+      say('That link is already on ' + (SHELF_NAME[dupe.shelf] || dupe.shelf) +
           ' as “' + dupe.item.title + '”. Saving again will make a second copy.', 'warn');
-      // Only blocks once: pressing Save a second time is a deliberate answer
-      // to the question, not an accident.
+      /* Only blocks once: pressing Save a second time is a
+         deliberate answer to the question, not an accident. */
       if(!cmp.dupeWarned){ cmp.dupeWarned = true; return false; }
     }
     Vault.add(shelf, f);
-    note('Added to ' + shelfOf(shelf).label);
+    U().toast('Added to ' + (SHELF_NAME[shelf] || shelf));
   }
   cmp.dupeWarned = false;
 
@@ -2043,7 +1271,8 @@ function saveComposer(keepOpen){
     const keptShelf = shelf, keptCat = f.category;
     cmp.editing = null; cmp.touched.clear(); say('');
     ['url','title','creator','len','cover','desc'].forEach(k => { cmp[k].value = ''; });
-    cmp.rating = 0; cmp.fav.classList.remove('on'); cmp.queue.classList.remove('on');
+    cmp.rating = 0;
+    cmp.fav.classList.remove('is-on'); cmp.queue.classList.remove('is-on');
     paintStars(); paintToggles(); paintPreview();
     cmp.heading.textContent = 'Add to the Studio';
     cmp.del.hidden = true;
@@ -2052,24 +1281,22 @@ function saveComposer(keepOpen){
   } else {
     closeComposer(true);   // saved for real: the draft has done its job
   }
-  paintHero(shelfOf(active));
-  render();
+  paintAll();
   return true;
 }
 
 function deleteComposer(){
   if(!cmp.editing) return;
-  const it = Vault.list(cmp.editing.shelf).find(x => x.id === cmp.editing.id);
-  if(!confirm('Delete “' + (it ? it.title : 'this item') + '” from ' +
-      shelfOf(cmp.editing.shelf).label + '?\n\nThis cannot be undone.')) return;
+  const r = recordOf(cmp.editing.shelf, cmp.editing.id);
+  if(!confirm('Delete “' + (r ? r.title : 'this item') + '” from ' +
+    (SHELF_NAME[cmp.editing.shelf] || cmp.editing.shelf) + '?\n\nThis cannot be undone.')) return;
   Vault.remove(cmp.editing.shelf, cmp.editing.id);
   closeComposer(true);
-  note('Deleted');
-  paintHero(shelfOf(active));
-  render();
+  U().toast('Deleted');
+  paintAll();
 }
 
-/* ── composer wiring ─────────────────────────────────── */
+/* ── composer wiring ─────────────────────────────────────── */
 ['url','title','cat','creator','len','cover','desc'].forEach(k => {
   cmp[k].addEventListener('input', () => {
     cmp.touched.add(k);
@@ -2077,8 +1304,8 @@ function deleteComposer(){
     if(k === 'url') say('');
   });
 });
-/* Paste is the main way a link arrives. Read it after the browser has put it
-   in the box, then go looking for its title. */
+/* Paste is the main way a link arrives. Read it after the browser
+   has put it in the box, then go looking for its title. */
 cmp.url.addEventListener('paste', () => setTimeout(() => {
   cmp.touched.delete('title'); cmp.touched.delete('creator'); cmp.touched.delete('cover');
   autofill(cmp.url.value);
@@ -2086,19 +1313,19 @@ cmp.url.addEventListener('paste', () => setTimeout(() => {
 cmp.url.addEventListener('change', () => autofill(cmp.url.value));
 cmp.shelf.addEventListener('change', fillCatList);
 cmp.stars.addEventListener('click', e => {
-  const b = e.target.closest('.cmp-star'); if(!b) return;
+  const b = e.target.closest('.vt-star'); if(!b) return;
   const n = Number(b.dataset.n);
   cmp.rating = (cmp.rating === n) ? n - 1 : n;   // click the current star to step down
   paintStars();
 });
-document.getElementById('cmpStarsClear').onclick = () => { cmp.rating = 0; paintStars(); };
-cmp.fav.onclick   = () => { cmp.fav.classList.toggle('on'); paintToggles(); };
-cmp.queue.onclick = () => { cmp.queue.classList.toggle('on'); paintToggles(); };
-document.getElementById('cmpSave').onclick  = () => saveComposer(false);
-document.getElementById('cmpAgain').onclick = () => saveComposer(true);
+$('cmpStarsClear').onclick = () => { cmp.rating = 0; paintStars(); };
+cmp.fav.onclick   = () => { cmp.fav.classList.toggle('is-on'); paintToggles(); };
+cmp.queue.onclick = () => { cmp.queue.classList.toggle('is-on'); paintToggles(); };
+$('cmpSave').onclick  = () => saveComposer(false);
+$('cmpAgain').onclick = () => saveComposer(true);
 cmp.del.onclick = deleteComposer;
-document.getElementById('cmpX').onclick = () => closeComposer(true);
-cmp.scrim.onclick = closeComposer;
+$('cmpX').onclick = () => closeComposer(true);
+cmp.scrim.onclick = () => closeComposer(true);
 /* Enter saves from any single-line field; the notes box keeps its newlines. */
 cmp.form.addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.tagName !== 'TEXTAREA'){ e.preventDefault(); saveComposer(false); }
@@ -2113,94 +1340,74 @@ cmp.el.addEventListener('keydown', e => {
   if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
   else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
 });
+$('addFab').onclick = () => openComposer({});
 
-document.getElementById('addFab').onclick = () => openComposer({});
-
-/* The chrome's paste bar, which until now was decoration. */
-const omni = document.querySelector('.omni');
-omni.addEventListener('keydown', e => {
-  if(e.key !== 'Enter') return;
-  e.preventDefault();
-  const v = omni.value.trim();
-  if(!v) return;
-  omni.value = '';
-  openComposer({ url: v });
-});
-omni.addEventListener('paste', () => setTimeout(() => {
-  const v = omni.value.trim();
-  if(!/^https?:\/\//i.test(v)) return;
-  omni.value = '';
-  openComposer({ url: v });
-}, 0));
-
-/* ── boot ──────────────────────────────────────────────────
+/* ══ §BOOT ═════════════════════════════════════════════════
    Two gates, both required:
-     · DOMContentLoaded — sync.js, topbar.js and vault-data.js are deferred
-       and only finish executing right before it fires.
-     · LocalStoreIDB.ready() — the shim seeds a Map synchronously but
-       overlays the real IndexedDB contents asynchronously, and IndexedDB
-       wins. Rendering before it resolves shows stale data, then flickers. */
-function boot(){
-// Snapshot BEFORE anything else this session does, and pinned: this is
-// the copy that answers "what did this device hold when I opened it",
-// which is the only question worth asking after a bad sync. boot() also
-// installs the shrink watch, so a pull that deletes a collection leaves
-// a pinned copy of the state as it was a moment earlier.
-// Lives under the registry's prefix for 'vault', outside every synced
-// prefix — see snapshots.js.
-if (window.Snapshots) { try { window.Snapshots.forApp('vault').boot(); } catch (e) { try { console.error('[snapshots]', e); } catch (e2) {} } }
-  /* tabKey() resolves the retired shelf hashes too, so #creepypasta,
-     #trueHorror and #immersive still land somewhere real. */
-  const fromHash = tabKey(location.hash.slice(1));
-  if(fromHash && SHELVES.some(s => s.key === fromHash)) active = fromHash;
-  const s0 = shelfOf(active);
-  document.documentElement.style.setProperty('--shelf', s0.tint);
-  strip.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.key === active));
+     · DOMContentLoaded — sync.js, topbar.js and vault-data.js are
+       deferred and only finish executing right before it fires.
+     · LocalStoreIDB.ready() — the shim seeds a Map synchronously
+       but overlays the real IndexedDB contents asynchronously, and
+       IndexedDB wins. Rendering before it resolves shows stale
+       data, then flickers. */
+let lastState = '';
+function setStorageState(mode){
+  lastState = mode;
+  const n = $('vtState');
+  if(n) n.textContent = mode === 'synced' ? 'synced' : '';
+}
 
-  /* The hero, the ribbon and the ground go in ONCE, here, before the
-     first render() — outside #body and outside .sheet, so no repaint can
-     reach the <video>. */
-  if(window.VaultHero){
-    window.VaultHero.mount({
-      before: '#sheet',
-      shelves: SHELVES,
-      onShelf: go,
-      badge: { lead:'Add', main:'Anything', onClick: () => openComposer({}) },
-    });
+function boot(){
+  /* Snapshot BEFORE anything else this session does, and pinned:
+     this is the copy that answers "what did this device hold when
+     I opened it", which is the only question worth asking after a
+     bad sync. boot() also installs the shrink watch, so a pull
+     that deletes a collection leaves a pinned copy of the state as
+     it was a moment earlier. Lives under the registry's prefix for
+     'vault', outside every synced prefix — see snapshots.js. */
+  if(window.Snapshots){
+    try { window.Snapshots.forApp('vault').boot(); }
+    catch(e){ try { console.error('[snapshots]', e); } catch(e2){} }
   }
 
-  paintHero(s0);
-  render();
-  /* The hero is 100svh; its height is only correct once the first render
-     has settled the page's own scroll height. */
-  requestAnimationFrame(() => window.VaultHero && window.VaultHero.measure());
+  U().bindSheet();
+  const want = fromHash();
+  U().introArrive();
+  paintAll();
+  if(want === 'favorites'){
+    requestAnimationFrame(() => $('vtStrip').scrollIntoView({ behavior:'smooth', block:'start' }));
+  }
 
-  /* Its own Supabase row. Nothing here reads or writes 'enthub:',
-     'entdash:', 'entread:' or 'media:', so the existing Entertainment
-     dashboard is untouched by anything that happens on this page. */
+  /* Its own Supabase row, unchanged. Nothing here reads or writes
+     any other prefix, so no other dashboard page is touched by
+     anything that happens here. */
   const remoteRef = { applied:false };
   if(typeof window.initCloudSync === 'function'){
     window.initCloudSync({
       appKey:'vault', syncedPrefixes:['vault:'],
-      /* handoff: protects a write whose push never confirmed from the next
-         visit's opening pull. See sync.js §HANDOFF. */
+      /* handoff: protects a write whose push never confirmed from
+         the next visit's opening pull. See sync.js §HANDOFF. */
       handoff: true,
-      /* A repaint, not a navigation: paintHero refreshes the readouts and
-         render() redraws the cards, but neither scrolls and neither
-         re-arms the hero's intro — setScene only replays the reveal when
-         the SHELF changed. */
-      onApplied(){ remoteRef.applied = true; paintHero(shelfOf(active)); render(); }
+      onApplied(){
+        remoteRef.applied = true;
+        /* A REPAINT, not a navigation. It does not scroll, and it
+           does not call introArrive() — rvlStyle() hands the
+           re-created cards a NEGATIVE --t so an entrance that was
+           halfway through resumes rather than replaying. And it
+           does not run at all while a field is focused or a sheet
+           is open: the cloud does not get to rebuild the DOM under
+           someone who is typing. */
+        if(!U().safeToRepaint()) return;
+        paintAll();
+      }
     });
     setStorageState('synced');
   }
 
-  /* Additive: seeds only shelves that are empty, merging by canonical URL.
-     Never deletes, so anything removed here stays removed. */
-  Vault.maybeSeedAfterSyncAttempt(remoteRef, () => { paintHero(shelfOf(active)); render(); });
-}
-
-function setStorageState(mode){
-  if(window.VaultHero) window.VaultHero.setState(mode);
+  /* Additive: seeds only shelves that are EMPTY, merging by
+     canonical URL. It never deletes, so anything removed here
+     stays removed. */
+  Vault.maybeSeedAfterSyncAttempt(remoteRef, () => paintAll());
 }
 
 document.addEventListener('DOMContentLoaded', () => {

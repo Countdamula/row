@@ -1,0 +1,912 @@
+/* =============================================================
+   vault-theme.css — THE ENTERTAINMENT STUDIO's own layer.
+
+   This page wears The Asclepion's skin, and it wears it by
+   SHARING the stylesheet rather than copying it. vault.html links
+   asclepion-theme.css FIRST and this file SECOND; everything here
+   is either a component the host does not have, or a surgical
+   override of one it does. Nothing here restates a token that
+   already exists over there — there is no :root block below, on
+   purpose. Two studios sharing one stylesheet cannot drift apart;
+   two copies of one stylesheet always do.
+
+   WHAT THIS FILE REPLACED
+   ─────────────────────────────────────────────────────────────
+   659 lines of inline <style> in vault.html plus vault-hero.css
+   (595 lines). The old page had its own palette, its own four
+   fonts, Tailwind from a CDN, a 5.2MB video hero, an SVG ribbon
+   divider, a fixed three-plane parallax ground and a rotating
+   border-beam effect on every tile and chip. None of that is The
+   Asclepion, so none of it survived. The photo, the ring, the
+   grain and the breathing ground all come from the host sheet
+   now, unchanged.
+
+   WHAT SURVIVED, DELIBERATELY
+   ─────────────────────────────────────────────────────────────
+   THE CARD. Art on top, then a panel carrying the title, who made
+   it, two lines of description, and one full-width outlined button
+   with the shelf's verb. The star, the score, the Tonight toggle
+   and the details toggle all still ride the art. Its structure is
+   untouched; only its colours, its faces and its corner radius
+   moved into the host's system.
+
+   The one geometry change is the radius: 16px became
+   --asc-radius-lg. The host is explicit that surfaces are square
+   and radius belongs to controls, and a 16px pill of a card in a
+   room with no other rounded thing in it reads as a visitor.
+   ============================================================= */
+
+
+/* =============================================================
+   §HERO — three overrides, and no more.
+
+   The frame is the same 736x1308 portrait as hero-library.webp,
+   so every number in the host's hero ports unchanged. Only the
+   crop and the ring's anchor move, because the statue stands
+   left-of-centre in this frame and the host's ring would sit on
+   its face.
+   ============================================================= */
+
+/* The room's light is top-left (the sconce) and the statue fills
+   the left third. 42% pulls the candles and the staircase into
+   frame and keeps the headline's corner dark. */
+.asc-hero__fig { object-position: 46% 42%; }
+
+/* Off the statue, onto the empty warm air over the staircase —
+   which is where the frame's own light already is. */
+.asc-hero__ring { left: 63%; top: 40%; }
+
+/* Three words of wordmark rather than two, at .42em of tracking,
+   is wider than "The Asclepion" and starts to crowd the frame's
+   right edge on a laptop. */
+.asc-hero__mark { letter-spacing: .3em; margin-right: -.3em; }
+
+
+/* =============================================================
+   §LEDGER — the band under the hero.
+
+   Four panels: what you can add, what the collection amounts to,
+   how you have been scoring things, and what is queued for
+   tonight. It is the reference photo's dashboard row, read
+   through the host's rules — so the panels are separated by
+   value and space, not by boxes.
+   ============================================================= */
+
+.vt-ledger {
+  padding: var(--asc-6) 0 var(--asc-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--asc-2);
+}
+.vt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--asc-2);
+  padding: var(--asc-3) var(--asc-4) var(--asc-4) var(--asc-3);
+  border-radius: var(--asc-radius);
+  transition: background var(--asc-quick) var(--asc-ease);
+}
+.vt-panel:hover { background: var(--asc-raise); }
+.vt-panel__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--asc-2);
+}
+.vt-panel__head .asc-label { flex: 1 1 auto; }
+
+/* --- the paste bar ---------------------------------------- */
+/* An underline, not a box — the host's own search field, wearing
+   a different placeholder. */
+.vt-omni { position: relative; }
+.vt-omni input {
+  width: 100%;
+  /* A HARD 16px FLOOR. The root size is fluid and bottoms out at
+     15px; under 16 iOS Safari zooms the page in on focus and never
+     zooms back out. Every field on this page obeys this. */
+  font-size: max(16px, 1rem);
+  font-family: var(--asc-body);
+  color: var(--asc-text);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--asc-hair);
+  border-radius: 0;
+  padding: .5rem .2rem;
+  min-height: 44px;
+  transition: border-color var(--asc-quick) var(--asc-ease);
+}
+.vt-omni input::placeholder { color: var(--asc-text-3); }
+.vt-omni input:hover { border-bottom-color: var(--asc-hair-2); }
+.vt-omni input:focus { outline: 0; border-bottom-color: var(--asc-gold); }
+.vt-omni input:focus-visible { outline: 0; }
+
+.vt-panel__acts { display: flex; flex-wrap: wrap; gap: var(--asc-1); margin-top: var(--asc-1); }
+
+/* --- readouts ---------------------------------------------- */
+.vt-reads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--asc-3) var(--asc-4);
+}
+.vt-read { display: flex; flex-direction: column; gap: .1rem; }
+.vt-read b {
+  font-family: var(--asc-display);
+  font-size: 1.55rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--asc-text);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.vt-read span {
+  font-family: var(--asc-body);
+  font-size: .69rem;
+  font-weight: 500;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--asc-text-3);
+}
+
+/* --- the rating scale -------------------------------------- */
+/* The reference photo's five-line legend, made live: the bar is
+   this score's share of everything you have scored. */
+.vt-scale { display: flex; flex-direction: column; gap: .38rem; }
+.vt-scale__row {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr 2rem;
+  align-items: center;
+  gap: var(--asc-2);
+}
+.vt-scale__stars {
+  font-size: .68rem;
+  letter-spacing: .04em;
+  color: var(--asc-gold);
+  white-space: nowrap;
+}
+.vt-scale__track {
+  height: 2px;
+  background: var(--asc-lift);
+  overflow: hidden;
+}
+.vt-scale__fill {
+  display: block;
+  height: 100%;
+  width: var(--w, 0%);
+  background: var(--asc-gold);
+  opacity: .7;
+}
+.vt-scale__n {
+  font-size: .72rem;
+  color: var(--asc-text-3);
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* --- tonight ----------------------------------------------- */
+.vt-queue { display: flex; flex-direction: column; gap: .1rem; margin: 0; padding: 0; list-style: none; }
+.vt-queue li { display: flex; min-width: 0; }
+.vt-queue button {
+  appearance: none; -webkit-appearance: none;
+  background: transparent; border: 0; padding: .3rem 0;
+  font: inherit; text-align: left; cursor: pointer;
+  color: var(--asc-text-2);
+  font-size: .88rem;
+  line-height: 1.45;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%;
+  transition: color var(--asc-quick) var(--asc-ease);
+}
+.vt-queue button:hover { color: var(--asc-lamp); }
+
+
+/* =============================================================
+   §FAVORITES — the strip.
+
+   The reference photo puts "currently watching" here, as a short
+   horizontal run of covers above the library proper. This is that
+   shelf, holding the starred things instead: the row you actually
+   come back for, above the room you browse.
+
+   A scroller and not a grid, on purpose. Its job is to be a
+   glance — the moment it wraps to three rows it has become a
+   second library and the real one below it stops being the
+   destination.
+   ============================================================= */
+
+.vt-strip { padding: var(--asc-2) 0 var(--asc-6); }
+.vt-strip__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--asc-3);
+  margin-bottom: var(--asc-3);
+}
+.vt-strip__rail {
+  display: flex;
+  gap: var(--asc-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  /* Without this the rail opens 72px along. The snapport starts at
+     the scrollport edge, the first card starts one gutter in, and
+     the browser scrolls the gutter away to snap them together —
+     so the strip looked misaligned with every heading above it.
+     scroll-padding moves the snapport instead of the content. */
+  scroll-padding-left: var(--asc-gutter);
+  /* Bleeds to the window edges so a card can leave the frame
+     rather than stopping short of it, then pads its content back
+     to the gutter so the first card lines up with everything
+     else on the page. */
+  margin: 0 calc(-1 * var(--asc-gutter));
+  padding: var(--asc-1) var(--asc-gutter) var(--asc-4);
+  scrollbar-width: thin;
+  scrollbar-color: var(--asc-hair) transparent;
+}
+.vt-strip__rail::-webkit-scrollbar { height: 6px; }
+.vt-strip__rail::-webkit-scrollbar-thumb { background: var(--asc-hair); border-radius: 99px; }
+.vt-strip__rail::-webkit-scrollbar-track { background: transparent; }
+.vt-strip__rail > .vt-card { flex: 0 0 15rem; scroll-snap-align: start; }
+
+
+/* =============================================================
+   §LIBRARY — one gallery, filtered and grouped.
+
+   Podcasts, Horror, Spicy, Watching and Music were five hash
+   routes with five identical renderers. They are one list now,
+   and the five names are a filter across the top of it — so
+   seeing only the music is one tap and no page load, and seeing
+   all of it at once is the default rather than impossible.
+   ============================================================= */
+
+.vt-lib { padding-bottom: var(--asc-7); }
+
+/* The host's bar fades out at 62% of its own height, because what
+   passes under it over there is text on the ground colour. Here it
+   is cover art at full brightness, and a 62% fade over a lit
+   thumbnail is a bar you can read straight through. Opaque to 88%,
+   and a deeper blur under it. */
+.asc-bar {
+  background: linear-gradient(to bottom,
+    var(--asc-ground) 0%, var(--asc-ground) 88%, rgba(10,7,5,0) 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* The search and the three controls, on a row that does not wrap.
+   In a wrapping flex container an item wraps BEFORE it shrinks, so
+   a 20rem search field and three controls broke onto two lines
+   between 720 and 1100 and the sticky bar grew to 216px. Held
+   here they shrink instead. */
+.vt-barrow {
+  display: flex;
+  align-items: center;
+  gap: var(--asc-2);
+  flex: 1 1 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.vt-barrow .asc-search { flex: 0 1 20rem; }
+.vt-barrow .vt-only { margin-left: auto; }
+
+/* The filter row rides inside the host's toolbar, which is
+   already parked below topbar.js's launcher. */
+.vt-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--asc-1);
+  min-width: 0;
+}
+/* .asc-kind is the host's own picker button. The only thing added
+   here is the sigil, and the tint it carries when it is the one
+   that is on. */
+.vt-filters .asc-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 40px;
+}
+.vt-filters .asc-kind svg { width: 13px; height: 13px; opacity: .5; transition: opacity var(--asc-quick) var(--asc-ease); }
+.vt-filters .asc-kind:hover svg { opacity: .85; }
+.vt-filters .asc-kind.is-on svg { opacity: 1; color: var(--asc-tint); }
+.vt-filters .asc-kind i {
+  font-style: normal;
+  font-size: .72rem;
+  color: var(--asc-text-3);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.vt-filters .asc-kind.is-on i { color: var(--asc-tint); }
+
+/* The star toggle in the bar. A control, so it takes a radius. */
+.vt-only {
+  appearance: none; -webkit-appearance: none;
+  background: transparent; border: 0;
+  border-radius: var(--asc-radius);
+  min-height: 44px; padding: .45rem .7rem;
+  cursor: pointer;
+  color: var(--asc-text-3);
+  font-family: var(--asc-body); font-size: .8rem; letter-spacing: .04em;
+  display: inline-flex; align-items: center; gap: .4rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition: background var(--asc-quick) var(--asc-ease),
+              color var(--asc-quick) var(--asc-ease);
+}
+.vt-only:hover { background: var(--asc-raise); color: var(--asc-text); }
+.vt-only.is-on { background: var(--asc-lift); color: var(--asc-gold); }
+
+/* A short select, matching the host's controls. */
+.vt-sort {
+  appearance: none; -webkit-appearance: none;
+  min-height: 44px;
+  padding: .45rem 1.9rem .45rem .7rem;
+  border: 1px solid transparent;
+  border-radius: var(--asc-radius);
+  background-color: var(--asc-raise);
+  color: var(--asc-text-2);
+  font-family: var(--asc-body);
+  font-size: max(16px, .8rem);
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--asc-text-3) 50%),
+    linear-gradient(135deg, var(--asc-text-3) 50%, transparent 50%);
+  background-position: right 1.05rem center, right .75rem center;
+  background-size: .3rem .3rem, .3rem .3rem;
+  background-repeat: no-repeat;
+  transition: border-color var(--asc-quick) var(--asc-ease);
+}
+.vt-sort:hover { border-color: var(--asc-hair); }
+.vt-sort:focus { outline: 0; border-color: var(--asc-gold); }
+.vt-sort option { background: var(--asc-float); color: var(--asc-text); }
+
+.vt-count {
+  color: var(--asc-text-3);
+  font-size: .82rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* --- a group of cards --------------------------------------- */
+/* .asc-group / __head / __name / __count / __fold / __rule are
+   all the host's. The grid under them is the only new part. */
+.vt-grid {
+  display: grid;
+  gap: var(--asc-4) var(--asc-3);
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  /* stretch, not start: a card carrying a description is taller
+     than one without, and .vt-card__do's margin-top:auto is what
+     puts the slack above the button so a row of them still lines
+     up. */
+  align-items: stretch;
+  padding: var(--asc-2) 0 0;
+}
+
+/* The "+" that files straight into the group you are looking at. */
+.vt-add {
+  appearance: none; -webkit-appearance: none;
+  margin-left: auto;
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border: 0; border-radius: var(--asc-radius);
+  background: transparent;
+  color: var(--asc-text-3);
+  font-size: 1rem; line-height: 1;
+  cursor: pointer;
+  transition: background var(--asc-quick) var(--asc-ease),
+              color var(--asc-quick) var(--asc-ease);
+}
+.vt-add:hover { background: var(--asc-lift); color: var(--asc-lamp); }
+
+/* The "+" cannot live INSIDE .asc-group__head — that element is the
+   fold button, and a button inside a button is not valid HTML. So
+   the two sit side by side and the head keeps all the width it had. */
+.vt-ghead { display: flex; align-items: center; gap: var(--asc-1); }
+.vt-ghead .asc-group__head { flex: 1 1 auto; min-width: 0; }
+
+.vt-libhead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--asc-3);
+  flex-wrap: wrap;
+  padding: var(--asc-5) 0 var(--asc-1);
+}
+
+.vt-libfoot { display: flex; flex-wrap: wrap; gap: var(--asc-1); margin-top: var(--asc-5); }
+
+/* The filters always take their own line under the search row —
+   eight names plus their counts never share a row with a search
+   field and two selects, at any width worth designing for. */
+.vt-filters { flex: 1 0 100%; }
+
+
+/* =============================================================
+   §CARD — kept, as it was, in the new light.
+
+   The one thing on this page that did not change shape. The
+   markup is identical to the one the Studio has always had; what
+   moved is the palette (now the host's tokens), the faces (Bodoni
+   Moda and Inter, where there were four), and the radius.
+   ============================================================= */
+
+.vt-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--asc-radius-lg);
+  overflow: hidden;
+  appearance: none; -webkit-appearance: none;
+  border: 1px solid var(--asc-hair);
+  background: var(--asc-panel);
+  box-shadow: 0 1px 2px rgba(0,0,0,.6), 0 14px 34px -18px rgba(0,0,0,.8);
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  transition: transform var(--asc-calm) var(--asc-ease-out),
+              border-color var(--asc-quick) var(--asc-ease),
+              box-shadow var(--asc-quick) var(--asc-ease),
+              opacity var(--asc-quick) var(--asc-ease);
+}
+.vt-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--asc-hair-2);
+  box-shadow: 0 2px 4px rgba(0,0,0,.7), 0 22px 48px -20px rgba(0,0,0,.9),
+              var(--asc-shine);
+}
+.vt-card:active { transform: translateY(-1px); }
+
+/* BACKWARDS, not both. The host's reveal is written for table rows,
+   which do not move on hover, so it fills FORWARDS and holds
+   `transform: none` for the life of the element. On a card that
+   lifts, a held transform from a finished animation outranks the
+   hover rule and the lift never happens again. Backwards applies
+   the from-state during the delay and then hands the element back
+   to its own styles, which is all the entrance ever needed. */
+.vt-card.asc-rvl.is-intro { animation-fill-mode: backwards; }
+
+/* 5:4 rather than 16:9: most covers here are YouTube thumbnails,
+   and a taller frame gives the blurred-fill below room to work. */
+.vt-card__art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  background: var(--asc-deep);
+  flex: none;
+}
+/* Two copies of the same image: one blurred and cropped to fill
+   the frame, one contained on top of it. Nothing is ever cut off,
+   and a 16:9 thumbnail in a 5:4 box gets a bed instead of two
+   black bars. */
+.vt-card__art .vt-bg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover;
+  filter: blur(26px) saturate(.7) brightness(.42);
+  transform: scale(1.25);
+}
+.vt-card__art .vt-fg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain;
+  transition: transform var(--asc-slow) var(--asc-ease-out);
+}
+.vt-card:hover .vt-card__art .vt-fg { transform: scale(1.04); }
+/* The house colour treatment: a multiply tint, then a foot
+   gradient into the panel below. */
+.vt-card__art::before {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: #2a1c12; opacity: .22; mix-blend-mode: multiply;
+}
+.vt-card__art::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(to top,
+    rgba(5,3,2,.78) 0%, rgba(5,3,2,.14) 34%, transparent 62%);
+}
+.vt-card__none {
+  position: absolute; inset: 0; z-index: 1;
+  display: grid; place-items: center;
+  opacity: .22;
+}
+
+.vt-card__star {
+  position: absolute; left: 10px; top: 10px; z-index: 5;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px; line-height: 1;
+  color: rgba(var(--asc-marble-rgb), .5);
+  background: rgba(5,3,2,.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(var(--asc-marble-rgb), .12);
+  cursor: pointer;
+  transition: color var(--asc-quick) var(--asc-ease),
+              transform var(--asc-quick) var(--asc-ease-out),
+              background var(--asc-quick) var(--asc-ease);
+}
+.vt-card:hover .vt-card__star { background: rgba(5,3,2,.72); color: rgba(var(--asc-marble-rgb), .8); }
+.vt-card__star:hover { transform: scale(1.12); color: var(--asc-lamp); }
+.vt-card__star.is-on {
+  color: var(--asc-lamp);
+  text-shadow: 0 0 10px rgba(var(--asc-lamp-rgb), .6);
+  background: rgba(5,3,2,.72);
+}
+
+.vt-card__score {
+  position: absolute; right: 10px; top: 10px; z-index: 5;
+  font-family: var(--asc-body);
+  font-size: .66rem; font-weight: 500; letter-spacing: .1em;
+  font-variant-numeric: lining-nums tabular-nums;
+  padding: 4px 8px; border-radius: 99px;
+  color: var(--asc-text);
+  background: rgba(5,3,2,.6);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(var(--asc-marble-rgb), .13);
+}
+
+/* The two secondary actions ride the art, bottom-right, so the
+   panel's button can run edge to edge. */
+.vt-card__acts {
+  position: absolute; right: 10px; bottom: 10px; z-index: 5;
+  display: flex; align-items: center; gap: 7px;
+  opacity: 0;
+  transition: opacity var(--asc-quick) var(--asc-ease);
+}
+.vt-card:hover .vt-card__acts,
+.vt-card:focus-within .vt-card__acts { opacity: 1; }
+@media (hover: none), (max-width: 719px) { .vt-card__acts { opacity: 1; } }
+.vt-mini {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: var(--asc-text);
+  background: rgba(5,3,2,.66);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(var(--asc-marble-rgb), .16);
+  cursor: pointer;
+  transition: transform var(--asc-quick) var(--asc-ease-out),
+              background var(--asc-quick) var(--asc-ease),
+              color var(--asc-quick) var(--asc-ease);
+}
+.vt-mini:hover { transform: scale(1.1); background: rgba(20,14,9,.92); color: var(--asc-lamp); }
+.vt-mini.is-on { background: var(--asc-gold); border-color: var(--asc-lamp); color: var(--asc-on-gold); }
+
+/* --- the panel ---------------------------------------------- */
+.vt-card__foot {
+  position: relative; z-index: 4;
+  display: flex; flex-direction: column; gap: .3rem;
+  padding: var(--asc-3);
+  background: var(--asc-panel);
+  flex: 1 1 auto;
+}
+.vt-card__title {
+  font-family: var(--asc-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.24;
+  letter-spacing: .01em;
+  color: var(--asc-text);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.vt-card__meta {
+  font-family: var(--asc-body);
+  font-size: .62rem; font-weight: 500;
+  letter-spacing: .17em; text-transform: uppercase;
+  color: var(--asc-text-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vt-card__desc {
+  font-size: .78rem; line-height: 1.55;
+  color: var(--asc-text-2);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+/* margin-top:auto is what makes every button in a row line up
+   even when the titles above them wrap to different heights. */
+.vt-card__do {
+  margin-top: auto;
+  padding: .6rem .9rem;
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 40px;
+  border-radius: var(--asc-radius);
+  cursor: pointer;
+  font-family: var(--asc-body);
+  font-size: .66rem; font-weight: 500;
+  letter-spacing: .17em; text-transform: uppercase;
+  color: var(--asc-text-2);
+  border: 1px solid var(--asc-hair);
+  background: transparent;
+  transition: background var(--asc-quick) var(--asc-ease),
+              color var(--asc-quick) var(--asc-ease),
+              border-color var(--asc-quick) var(--asc-ease);
+}
+.vt-card__do:hover {
+  background: var(--asc-gold);
+  border-color: var(--asc-gold);
+  color: var(--asc-on-gold);
+}
+
+
+/* =============================================================
+   §DETAIL — inside the host's sheet.
+
+   It used to be a panel that unfurled inside the grid, which meant
+   computing which card ended the visual row and inserting after
+   it. The host already owns a sheet that traps Escape, locks the
+   body and gives focus back where it found it; a detail view is
+   exactly what that surface is for.
+   ============================================================= */
+
+.vt-detail__fig {
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  object-fit: cover;
+  border-radius: var(--asc-radius-lg);
+  background: var(--asc-deep);
+  margin-bottom: var(--asc-4);
+}
+.vt-tags { display: flex; flex-wrap: wrap; gap: var(--asc-1); }
+
+
+/* =============================================================
+   §COMPOSER — add and edit, one form.
+
+   A second sheet, not the host's: it can be opened FROM the
+   detail sheet, it carries a keystroke draft, and it traps Tab.
+   Two surfaces sharing one host element would fight over all
+   three.
+
+   It rises from the bottom on every width. On a phone a centred
+   dialog with nine fields fights the keyboard for the same 300px;
+   on a laptop the same sheet is simply a calm place to type.
+   ============================================================= */
+
+.vt-cmpbg {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(7,5,5,.72);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--asc-quick) var(--asc-ease);
+}
+.vt-cmpbg.is-on { opacity: 1; pointer-events: auto; }
+
+/* `display` beats the UA's [hidden], every time. Four things on
+   this page are shown and hidden by the attribute and all four
+   carry a display of their own, so all four need saying twice:
+   the composer and its scrim (which merely slid off-screen while
+   staying focusable), its cover preview (an empty black rectangle
+   on a fresh form) and its Delete button (offering to delete an
+   item that does not exist yet). */
+.vt-cmp[hidden], .vt-cmpbg[hidden], .vt-prev[hidden], .asc-btn[hidden] { display: none; }
+
+.vt-cmp {
+  position: fixed; z-index: 81;
+  left: 50%; bottom: 0;
+  width: min(46rem, 100%);
+  max-height: min(88vh, 54rem);
+  display: flex; flex-direction: column;
+  border-radius: var(--asc-radius-lg) var(--asc-radius-lg) 0 0;
+  overflow: hidden;
+  background: var(--asc-float);
+  box-shadow: 0 -30px 80px rgba(0,0,0,.66), var(--asc-shine);
+  transform: translate(-50%, 100%);
+  transition: transform var(--asc-calm) var(--asc-ease-out);
+}
+.vt-cmp.is-on { transform: translate(-50%, 0); }
+
+.vt-cmp__top {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; gap: var(--asc-3);
+  padding: var(--asc-4) var(--asc-4) var(--asc-3);
+}
+.vt-cmp__body {
+  flex: 1 1 auto;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 var(--asc-4) var(--asc-4);
+  display: grid; gap: var(--asc-3);
+  grid-template-columns: 1fr 1fr;
+}
+.vt-cmp__body::-webkit-scrollbar { width: 6px; }
+.vt-cmp__body::-webkit-scrollbar-thumb { background: var(--asc-hair); border-radius: 99px; }
+.vt-f { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.vt-f--wide { grid-column: 1 / -1; }
+.vt-hint { font-size: .78rem; line-height: 1.5; color: var(--asc-text-3); margin: 0; }
+
+/* Rating as five real buttons — a number input for a 0-5 scale is
+   a worse version of the thing it replaces. */
+.vt-stars { display: flex; gap: .25rem; align-items: center; }
+.vt-star {
+  appearance: none; -webkit-appearance: none;
+  width: 34px; height: 34px;
+  border-radius: var(--asc-radius);
+  display: grid; place-items: center;
+  background: var(--asc-raise);
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--asc-text-3);
+  font-size: .95rem; line-height: 1;
+  transition: color var(--asc-quick) var(--asc-ease),
+              border-color var(--asc-quick) var(--asc-ease);
+}
+.vt-star:hover { color: var(--asc-gold); }
+.vt-star.is-on { color: var(--asc-lamp); border-color: rgba(var(--asc-lamp-rgb), .3); }
+
+/* A live cover preview: pasting a broken image URL should be
+   obvious here, not after saving. */
+.vt-prev {
+  grid-column: 1 / -1;
+  display: flex; gap: var(--asc-3); align-items: center;
+  padding: var(--asc-2);
+  border-radius: var(--asc-radius);
+  background: var(--asc-raise);
+}
+.vt-prev img {
+  width: 7rem; height: 3.94rem;
+  object-fit: cover;
+  border-radius: var(--asc-radius);
+  background: var(--asc-deep);
+  flex: 0 0 auto;
+}
+.vt-prev__meta { min-width: 0; font-size: .8rem; color: var(--asc-text-2); line-height: 1.5; }
+.vt-prev__meta b {
+  display: block;
+  color: var(--asc-text);
+  font-family: var(--asc-display); font-style: italic; font-weight: 500;
+  font-size: 1rem; margin-bottom: .1rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.vt-togs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--asc-1); }
+.vt-msg {
+  grid-column: 1 / -1;
+  font-size: .82rem; line-height: 1.55;
+  padding: var(--asc-2) var(--asc-3);
+  border-radius: var(--asc-radius);
+  display: none;
+}
+.vt-msg.is-on { display: block; }
+.vt-msg.is-warn { color: var(--asc-lamp); background: rgba(var(--asc-gold-rgb), .1); }
+.vt-msg.is-bad { color: var(--asc-bad); background: rgba(212,121,106,.1); }
+
+.vt-cmp__foot {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: var(--asc-2); flex-wrap: wrap;
+  padding: var(--asc-3) var(--asc-4);
+  /* Clears the iPhone home indicator. */
+  padding-bottom: calc(var(--asc-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--asc-lift);
+}
+.vt-cmp__foot .vt-del { margin-left: auto; }
+
+
+/* =============================================================
+   §ADDITIONS TO THE HOST'S CONTROL SET
+
+   New modifiers on existing host classes, which is the right way
+   to extend a shared stylesheet. Neither exists in
+   asclepion-theme.css.
+   ============================================================= */
+
+.asc-btn--danger { color: var(--asc-bad); }
+.asc-btn--danger:hover { background: rgba(212,121,106,.1); }
+
+/* A toggle that reads as pressed. Used for Favourite and Tonight
+   in the composer. */
+.asc-btn.is-on {
+  background: var(--asc-gold);
+  color: var(--asc-on-gold);
+  font-weight: 600;
+  box-shadow: var(--asc-shine);
+}
+
+
+/* =============================================================
+   §THE ADD BUTTON
+
+   Always there, on every width. The paste bar lives in the ledger
+   at the top of the page, and an add path you have to scroll back
+   up to reach is not an add path.
+   ============================================================= */
+
+.vt-fab {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  border: 0;
+  background: var(--asc-gold);
+  color: var(--asc-on-gold);
+  box-shadow: 0 14px 34px -12px rgba(0,0,0,.9), var(--asc-shine);
+  transition: transform var(--asc-quick) var(--asc-ease-out),
+              background var(--asc-quick) var(--asc-ease);
+}
+.vt-fab:hover { transform: translateY(-2px); background: var(--asc-lamp); }
+.vt-fab:active { transform: translateY(0); }
+
+
+/* =============================================================
+   §TABLET AND UNDER — the filter run scrolls rather than wraps.
+
+   1023, not 719: six filters need about 760px and a tablet has
+   about 690 inside the gutter, so "Music" dropped to a line of
+   its own and the sticky bar grew by a whole row. One row that
+   scrolls sideways instead. The bar already bleeds to the window
+   edges, so the run has somewhere to go.
+
+   Above this it wraps, which is the right behaviour on a desktop:
+   there is room, and a hidden scroll region with no affordance is
+   worse than a slightly taller bar.
+   ============================================================= */
+
+@media (max-width: 1023px) {
+  .vt-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    margin: 0 calc(-1 * var(--asc-gutter));
+    padding: 0 var(--asc-gutter);
+  }
+  .vt-filters::-webkit-scrollbar { display: none; }
+  .vt-filters .asc-kind { flex: 0 0 auto; }
+}
+
+
+/* =============================================================
+   §PHONE — 719, never 720, matching asclepion-ui.js's own query.
+   ============================================================= */
+
+@media (max-width: 719px) {
+  .vt-ledger { padding-top: var(--asc-5); gap: 0; }
+  .vt-panel { padding-left: 0; padding-right: 0; }
+  .vt-panel:hover { background: transparent; }
+
+  .vt-strip__rail > .vt-card { flex: 0 0 11.5rem; }
+
+  /* Two to a row at 390px, which is what the covers want. */
+  .vt-grid { grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: var(--asc-3) var(--asc-2); }
+  .vt-card__foot { padding: var(--asc-2); gap: .25rem; }
+  .vt-card__title { font-size: .92rem; }
+  /* A button that is the card's primary action needs a real tap
+     target, and 40px is not one. */
+  .vt-card__do { min-height: 44px; }
+  .vt-mini, .vt-card__star { width: 36px; height: 36px; }
+
+  .asc-bar { padding-top: var(--asc-2); padding-bottom: var(--asc-2); }
+
+  /* Four controls will not share 350px. Here the row DOES wrap:
+     the search takes a line of its own and the star and the two
+     selects share the next one. */
+  .vt-barrow { flex-wrap: wrap; gap: var(--asc-1); }
+  .vt-barrow .asc-search { flex: 1 1 100%; }
+  .vt-barrow .vt-only { margin-left: 0; padding: .45rem .5rem; }
+  .vt-sort { flex: 1 1 0; min-width: 0; padding-left: .5rem; padding-right: 1.6rem; }
+
+  .vt-libhead { padding-top: var(--asc-4); }
+
+  .vt-cmp { width: 100%; max-height: calc(100vh - 76px); }
+  .vt-cmp__body { grid-template-columns: 1fr; }
+  .vt-cmp__foot .asc-btn { flex: 1 1 auto; justify-content: center; }
+  .vt-cmp__foot .vt-del { flex: 0 0 100%; margin-left: 0; order: 9; }
+
+  .vt-reads { gap: var(--asc-2) var(--asc-3); }
+}
+
+/* Coarse pointers get the hit area whatever the width — a tablet
+   is not a phone and still has no hover. */
+@media (pointer: coarse) {
+  .vt-add { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The host's blanket rule already flattens every transition on
+     the page with !important. What it cannot reach is the sheet's
+     slide, so the two here are named explicitly. */
+  .vt-cmp, .vt-cmpbg { transition: none; }
+}
+
+@media print {
+  .vt-fab, .asc-bar, .vt-cmp, .vt-cmpbg, .asc-hero { display: none !important; }
+}

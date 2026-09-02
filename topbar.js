@@ -249,23 +249,27 @@
       label: 'Entertainment Studio',
       items: [
         { href: 'vault.html', icon: '✦', label: 'Entertainment Studio', id: 'topbarVault', children: [
-          { hash: 'home', label: 'Home' },
-          { hash: 'discover', label: 'Discovery Engine' },
+          // 2026-09-02: these are FILTERS on one page now, not routes to
+          // twelve. Home, Discovery Engine and Statistics were removed as
+          // places — what each of them did lives on the one page, in the
+          // ledger band under the hero. Reading, Anime and Games are gone
+          // from this list because their shelves are empty; the filter
+          // reappears on its own the moment something is filed there, and
+          // the composer can still file to all ten shelves by name.
+          //
+          // Every hash below and every one removed from it still resolves,
+          // via vault.html's own TAB_ALIAS — the old ones land on the whole
+          // library rather than on nothing.
           { hash: 'favorites', label: 'Favorites' },
           { hash: 'podcasts', label: 'Podcasts' },
-          // Two tabs, not four: Creepypasta + True Stories became one
-          // Horror page, and Spicy + Immersive became one. NOTHING MERGED
-          // IN STORAGE — all four vault:media:* keys still exist and still
-          // hold what they held; only the tab strip changed. The retired
-          // hashes still resolve, via vault.html's own TAB_ALIAS.
+          // Two filters, not four: Creepypasta + True Stories read as one
+          // Horror shelf, and Spicy + Immersive as one. NOTHING MERGED IN
+          // STORAGE — all four vault:media:* keys still exist and still
+          // hold what they held.
           { hash: 'horror', label: 'Horror Stories' },
           { hash: 'spicy', label: 'Spicy · Immersive' },
           { hash: 'watch', label: 'Watching' },
           { hash: 'playlists', label: 'Music & Playlists' },
-          { hash: 'reading', label: 'Reading Corner' },
-          { hash: 'anime', label: 'Anime' },
-          { hash: 'games', label: 'Games' },
-          { hash: 'stats', label: 'Statistics' },
         ] },
       ],
     },
