@@ -249,27 +249,31 @@
       label: 'Entertainment Studio',
       items: [
         { href: 'vault.html', icon: '✦', label: 'Entertainment Studio', id: 'topbarVault', children: [
-          // 2026-09-02: these are FILTERS on one page now, not routes to
-          // twelve. Home, Discovery Engine and Statistics were removed as
-          // places — what each of them did lives on the one page, in the
-          // ledger band under the hero. Reading, Anime and Games are gone
-          // from this list because their shelves are empty; the filter
-          // reappears on its own the moment something is filed there, and
-          // the composer can still file to all ten shelves by name.
+          // 2026-09-03: rebuilt as HOUSE DAMULA. These are VIEWS in one
+          // document — a hash route repaints, it does not load a page —
+          // so the list below is navigation rather than eight page loads.
           //
-          // Every hash below and every one removed from it still resolves,
-          // via vault.html's own TAB_ALIAS — the old ones land on the whole
-          // library rather than on nothing.
-          { hash: 'favorites', label: 'Favorites' },
-          { hash: 'podcasts', label: 'Podcasts' },
-          // Two filters, not four: Creepypasta + True Stories read as one
-          // Horror shelf, and Spicy + Immersive as one. NOTHING MERGED IN
-          // STORAGE — all four vault:media:* keys still exist and still
-          // hold what they held.
-          { hash: 'horror', label: 'Horror Stories' },
-          { hash: 'spicy', label: 'Spicy · Immersive' },
-          { hash: 'watch', label: 'Watching' },
-          { hash: 'playlists', label: 'Music & Playlists' },
+          // The shelves are still filters over one archive: Creepypasta +
+          // True Stories read as one Horror shelf, and Spicy + Immersive
+          // as one. NOTHING IS MERGED IN STORAGE — all ten vault:media:*
+          // keys exist and hold what they held. Reading and Anime are
+          // hidden from the interface only, and the composer can still
+          // file to all ten shelves by name.
+          //
+          // Every hash this page has ever answered to still resolves, via
+          // vault-app.js's own parseHash + TAB_ALIAS: the bare legacy
+          // hashes (#podcasts, #creepypasta, #favorites, #stats …) land on
+          // the archive rather than on nothing.
+          { hash: '/archive', label: 'The Archive' },
+          { hash: '/archive/watch', label: 'Watching' },
+          { hash: '/archive/podcasts', label: 'Podcasts' },
+          { hash: '/archive/horror', label: 'Horror Stories' },
+          { hash: '/archive/spicy', label: 'Spicy · Immersive' },
+          { hash: '/archive/playlists', label: 'Music & Playlists' },
+          { hash: '/archive/games', label: 'Games' },
+          { hash: '/collections', label: 'Collections' },
+          // The Journal was removed on 2026-09-03. `#/journal` falls
+          // through to the house, so an old bookmark still lands.
         ] },
       ],
     },

@@ -237,7 +237,7 @@
     },
     {
       id: 'vault',
-      label: 'The Vault',
+      label: 'House Damula',
       pages: ['vault.html'],
       rows: { vault: ['vault:'] },
       snapshots: {
