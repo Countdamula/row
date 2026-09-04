@@ -1,107 +1,244 @@
 <!DOCTYPE html>
-<html lang="en" class="asc-root">
+<html lang="en" class="hd-root">
 <head>
-<!-- local-store-idb.js MUST be first and MUST NOT be deferred: it swaps
-     localStorage for an IndexedDB-backed shim before anything reads it. -->
+<!-- FIRST, AND NEVER DEFERRED. local-store-idb.js replaces
+     window.localStorage wholesale before any other script runs, so
+     promptarium-data.js keeps using plain localStorage unchanged.
+     Every boot path is then gated on LocalStoreIDB.ready(). -->
 <script src="local-store-idb.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="theme-color" content="#0E0B09">
+<meta name="theme-color" content="#0b0907">
 <meta name="robots" content="noindex, nofollow">
 <title>Prompt Studio</title>
 
 <!-- =====================================================================
-     THE SAME ROOM AS THE ASCLEPION.
+     THE SAME HOUSE AS THE ENTERTAINMENT STUDIO.
 
-     This page wears the Self-Care Studio's skin, and it wears it by
-     SHARING the stylesheet rather than copying it. asclepion-theme.css
-     is linked here and its .asc-* classes are used verbatim, so the two
-     studios cannot drift apart the way two copies of a stylesheet always
-     do. Everything in promptarium-theme.css is something The Asclepion
-     has no equivalent for: this page's own hero photograph, the tab
-     switch, the launch tiles, the chain chips.
+     This page wears HOUSE DAMULA — vault.html's skin — and it wears it
+     by SHARING the stylesheet rather than copying it. vault-theme.css is
+     linked here and its .hd-* classes are used verbatim; everything in
+     promptarium-theme.css is something the vault has no equivalent for:
+     this page's own hero crop, the short hero a detail route wears, the
+     six-column library table, the prompt surface, the chain chips.
 
-     The palette needed no adjustment to move here. Both heroes are
-     736x1308 frames of the same dark baroque room, and the new one's
-     measured luminance bands (#070405 / #1c140f / #453429 / #bbc4bf)
-     land within a hair of the tokens sampled off the old one.
+     Two studios on one stylesheet cannot drift. The consequence worth
+     remembering is the other half of that sentence: AN EDIT TO
+     vault-theme.css NOW CHANGES TWO PAGES.
 
-     Bodoni Moda for the names of things, Inter for everything else. The
-     6..96 optical-size axis is the whole reason it is Bodoni: opsz keeps
-     the hairlines fine at 8rem and still visible at 1rem. LINKED, never
-     @import-ed - an @import cannot start downloading until the
-     stylesheet has arrived and parsed, which puts the two requests in
-     series behind the largest text on the page.
+     WHAT THIS REPLACED. Until now the page wore The Asclepion, by
+     linking asclepion-theme.css. That link is gone and The Asclepion
+     owns its sheet alone again. Specifically dead: Bodoni Moda, the
+     .asc-hero block, the sticky .asc-bar with its tab switch and search
+     field, the .asc-pop drop panels, and the whole .asc-* table
+     vocabulary — all re-homed as pm-* in this page's own layer.
+
+     WHAT DID NOT CHANGE: anything about the data. Same prm: prefix,
+     same 'promptarium' appKey, same second cdx: mount, same §CODEX
+     GATE, same routes. This is a presentation layer and nothing else.
+
+     CORMORANT GARAMOND carries every title: it is the face in
+     brand_assets/brand_guidelines/banner & title_text.jpg. INTER
+     carries every letterspaced small cap. LINKED, never @import-ed —
+     an @import cannot start downloading until the stylesheet has
+     arrived and parsed, which puts the two requests in series behind
+     the largest text on the page.
      ===================================================================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;1,6..96,400;1,6..96,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="asclepion-theme.css?v=6">
-<link rel="stylesheet" href="promptarium-theme.css?v=2">
-<link rel="preload" as="image" href="images_by_admin/promptarium/hero-hall.webp">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vault-theme.css?v=4">
+<link rel="stylesheet" href="promptarium-theme.css?v=3">
+<!-- Every view opens on this. Preloaded, because it is the largest
+     paint on all of them. -->
+<link rel="preload" as="image" href="images_by_admin/promptarium/hero-hall.webp" fetchpriority="high">
 </head>
-<body class="asc">
+<body class="hd">
 
-<!-- =====================================================================
-     §HERO - static markup, and that is not a style preference.
+<a class="hd-skip" href="#pmView">Skip to the library</a>
 
-     Every view on this page is a string dumped into innerHTML. A hero
-     built by a renderer would be destroyed and rebuilt on every cloud
-     pull, taking its entrance animation with it. Written straight into
-     the document it is outside the render host by construction, cannot
-     be re-created at all, and paints from the first byte.
+<!-- ══ THE TOP BAR ═══════════════════════════════════════════
+     A FLOATING PILL, CENTRED, with the wordmark in the middle of
+     the links rather than off to one side. It sits ON the hero's
+     photograph, which every view opens with, and takes a frosted
+     ground of its own only once you have scrolled off it.
 
-     The wordmark sits top-RIGHT because topbar.js's launcher owns the
-     literal top-left corner of every page in this dashboard.
-     ===================================================================== -->
-<header class="asc-hero" id="pmHero">
-  <img class="asc-hero__fig" src="images_by_admin/promptarium/hero-hall.webp"
-       alt="" width="736" height="1308" fetchpriority="high" decoding="async">
-  <div class="asc-hero__ring" aria-hidden="true"></div>
-  <p class="asc-hero__mark">Prompt Studio</p>
+     THE TAB SWITCH LIVES HERE NOW. Prompts, Tools and Kept were
+     buttons in a sticky toolbar; they are three PLACES with three
+     hashes, and a place in this house is a word in the pill.
 
-  <div class="asc-hero__in">
-    <h1 class="asc-hero__head">
-      <span><b style="--d:120ms">The words you</b></span>
-      <span><b style="--d:240ms">keep coming</b></span>
-      <span><b style="--d:360ms"><em>back to.</em></b></span>
-    </h1>
-    <p class="asc-hero__note">
-      <strong>Prompts and tools, filed by what you are trying to do &mdash; not by which model you are about to open.</strong>
-      Search, or just look.
-    </p>
+     The monogram and the wordmark are STATIC MARKUP; only the
+     links are painted. A cloud pull that re-created the chrome
+     could not replay the page's entrance, and the brand is the one
+     thing that must never flicker. -->
+<header class="hd-top" id="hdTop">
+  <nav class="hd-pill" aria-label="Primary">
+    <span class="hd-pill__side" id="hdNavL"></span>
+
+    <a class="hd-brand" href="#/" aria-label="Prompt Studio — the prompts">
+      <span class="hd-mono" aria-hidden="true">
+        <svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="1.15"
+             stroke-linecap="round" stroke-linejoin="round">
+          <!-- A P and an S, INTERLOCKED — the same hand as the vault's
+               H and D, which share one stem. These two cannot share a
+               stem, because an S has none; what they share instead is
+               the P's bowl edge, which the S's upper curve starts
+               against. Drawn at 34px, the gap between two letters set
+               apart reads as two marks rather than one, which is why
+               the S is pulled back to touch. The inner stroke at .42
+               gives the bowl its thick/thin contrast at this size. -->
+          <path d="M6.5 3.5v27"/>
+          <path d="M6.5 3.5h6.6a6.8 7.1 0 0 1 0 14.2H6.5"/>
+          <path d="M6.5 7.5h6.1a3.5 3.6 0 0 1 0 7.2H6.5" opacity=".42"/>
+          <path d="M32.2 8.4a6.6 6.6 0 0 0-5-2.1c-3.2 0-5.3 1.8-5.3 4.2 0 5.5 10.8 3.1 10.8 9.4 0 2.9-2.6 4.9-6 4.9a7.6 7.6 0 0 1-5.7-2.5"/>
+        </svg>
+      </span>
+      <span class="hd-word">Prompt Studio</span>
+    </a>
+
+    <span class="hd-pill__side" id="hdNavR"></span>
+  </nav>
+
+  <div class="hd-topacts">
+    <button type="button" class="hd-iconbtn" id="hdSearchBtn" data-act="find"
+      aria-label="Search the library">
+      <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+        stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="8.6" cy="8.6" r="5.6"></circle><path d="m12.8 12.8 4.2 4.2"></path></svg>
+    </button>
+    <button type="button" class="hd-burger" id="hdBurger" data-act="menu"
+      aria-label="Open the menu" aria-expanded="false">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
   </div>
 </header>
 
-<!-- §STORAGE HEALTH and §UNDO - static markup outside #pmApp, so no view
-     repaint can take them away while the condition they report is still
-     true. -->
-<div class="pm-notice" id="pmHealth" role="alert" hidden></div>
-<div class="pm-notice" id="pmUndo" role="status" hidden></div>
+<!-- ══ THE MARKS ═════════════════════════════════════════════
+     One drawn vocabulary — circles, arcs and lines at 1.1 stroke —
+     in the same register as the vault's shelf sigils, and
+     deliberately NOT emoji: emoji in this room would undo the whole
+     typographic argument, and they render as tofu in headless
+     Chrome besides.
 
-<!-- The bar is a direct child of the shell, not wrapped in a div of its
-     own height: position:sticky is constrained by the parent's box, and
-     a toolbar inside a wrapper exactly as tall as itself cannot move and
-     quietly stops sticking.
+     Keyed by category id, and DRAWN ONCE. They used to be inlined
+     per row, which on a four-hundred-row table is four hundred
+     copies of the same path; they are referenced by <use> now.
+     Both libraries share the ids they have in common, so "writing"
+     is the same nib on a prompt and on a tool. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<!-- a nib, and the stroke it has just made -->
+<g id="pm-writing"><path d="M4.4 19.6l1-3.4L15 6.6a1.8 1.8 0 0 1 2.5 2.5L7.8 18.6z"/><path d="M13.4 8.2l2.4 2.4"/></g>
+<!-- a ring, and a second one turning inside it -->
+<g id="pm-thinking"><circle cx="12" cy="12" r="8.4"/><path d="M8.2 14.8a4.8 4.8 0 0 1 7.6-5.8"/></g>
+<!-- a circle, and the line of sight leaving it -->
+<g id="pm-research"><circle cx="10.4" cy="10.4" r="6.2"/><path d="M15 15l5 5"/></g>
+<!-- ripples rising from a still point — The Asclepion's own breath -->
+<g id="pm-selfcare"><circle cx="12" cy="16.4" r="2"/><path d="M6.6 12.6a7.6 7.6 0 0 1 10.8 0"/><path d="M3.4 8.8a12.1 12.1 0 0 1 17.2 0"/></g>
+<!-- three rules, the last one short: a plan is never finished -->
+<g id="pm-planning"><path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h9"/></g>
+<!-- a line, struck -->
+<g id="pm-editing"><path d="M4.4 12h15.2"/><path d="M9 7.8l6 8.4"/></g>
+<!-- two arcs opening from one spine -->
+<g id="pm-learning"><path d="M12 6.8v11.8"/><path d="M12 6.8C10 5.4 7.2 5 4.6 5.4v11.8c2.6-.4 5.4 0 7.4 1.4"/><path d="M12 6.8c2-1.4 4.8-1.8 7.4-1.4v11.8c-2.6-.4-5.4 0-7.4 1.4"/></g>
+<!-- a ring with one point on its orbit -->
+<g id="pm-ai"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="3.6" r="1.3" fill="currentColor" stroke="none"/></g>
+<!-- the mark you make when a thing is done -->
+<g id="pm-productivity"><path d="M4.8 12.6l4.6 4.6L19.2 7.4"/></g>
+<!-- a ring, playing -->
+<g id="pm-media"><circle cx="12" cy="12" r="8.4"/><path d="M10.2 8.6L16 12l-5.8 3.4z"/></g>
+<!-- two rings, and what they make where they meet -->
+<g id="pm-design"><circle cx="9.4" cy="9.6" r="5.4"/><circle cx="14.6" cy="14.4" r="5.4"/></g>
+<!-- a waveform -->
+<g id="pm-audio"><path d="M3.6 12h1.8M8.2 7.8v8.4M12 4.8v14.4M15.8 8.8v6.4M19.8 10.8v2.4"/></g>
+<!-- a camera, turned -->
+<g id="pm-video"><path d="M4.2 7.6h10v8.8h-10z"/><path d="M14.2 12l5.6-3v6z"/></g>
+<!-- a crosshair -->
+<g id="pm-utilities"><path d="M12 3.6v16.8M3.6 12h16.8"/><circle cx="12" cy="12" r="2.6"/></g>
+<!-- the null case: a ring, and nothing said about it -->
+<g id="pm-other"><circle cx="12" cy="12" r="7.6"/></g>
+<!-- The house ornament: a four-point star on a hairline. The one
+     drawn flourish in either studio, and it marks exactly one
+     thing — the middle of the footer. Drawn on the vault's own
+     16-unit grid, unlike the marks above, which are 24. -->
+<g id="sg-orn"><path d="M8 1.6 9.1 6.9 14.4 8 9.1 9.1 8 14.4 6.9 9.1 1.6 8 6.9 6.9Z"/></g>
+</defs></svg>
 
-     #pmPopHost carries no CSS on purpose. .asc-pop is position:absolute
-     with no offsets, so it resolves to its STATIC position - right under
-     the bar, where the host sits in flow - while being out of flow, so
-     opening a filter panel never pushes the table down. -->
-<main id="pmApp" class="asc-shell">
-  <div class="asc-bar" id="pmBar"></div>
-  <div id="pmPopHost"></div>
+<!-- The render host. The HERO IS INSIDE IT, which is the one place
+     this page reverses an earlier decision: the hero used to be
+     static markup precisely so a cloud pull could not destroy its
+     entrance. The vault solved that problem rather than avoiding
+     it — a repaint re-measures the hero for the parallax, it never
+     runs while a field is focused or a sheet is open, and
+     AscUI.rvlStyle() hands the re-created nodes a NEGATIVE --t so
+     an entrance mid-flight resumes instead of replaying. Painting
+     the hero is what lets each route's hero say its own name.
+
+     .hd-main's negative top margin is load-bearing: the pill is
+     sticky, so without it the bar takes 90px of FLOW and every
+     page opens on a black band above the photograph. -->
+<main class="hd-main" id="pmApp" tabindex="-1">
   <section id="pmView" aria-live="polite"></section>
 </main>
 
+<footer class="hd-foot" id="pmFoot">
+  <p class="hd-foot__left">
+    <span>&copy; Prompt Studio MMXXV</span>
+    <span class="hd-foot__bar" aria-hidden="true"></span>
+    <span>Filed by what you are trying to do</span>
+  </p>
+  <span class="hd-foot__orn" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linejoin="round"><use href="#sg-orn"></use></svg>
+  </span>
+  <nav class="hd-foot__right" aria-label="The studio">
+    <button type="button" data-go="#/settings">Your data</button>
+    <a href="#/settings">Settings</a>
+  </nav>
+</footer>
+
+<!-- ══ SEARCH ════════════════════════════════════════════════
+     A glyph in the pill rather than a field. The references show a
+     glyph, and a permanent input in a 90px editorial bar reads as
+     an admin panel. It opens over the page, searches both
+     libraries live, and Enter hands the query to whichever library
+     you are in — where it becomes a token you can see and clear,
+     so a filtered library can never be mistaken for an empty one. -->
+<div class="hd-find" id="hdFind" role="dialog" aria-modal="true" aria-label="Search the library" hidden>
+  <div class="hd-find__box">
+    <div class="hd-find__field">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+        stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="8.6" cy="8.6" r="5.6"></circle><path d="m12.8 12.8 4.2 4.2"></path></svg>
+      <input id="hdFindIn" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Search prompts and tools" aria-label="Search prompts and tools">
+      <button type="button" class="hd-find__x" data-act="find-close">Esc</button>
+    </div>
+    <div class="hd-find__out" id="hdFindOut" role="listbox" aria-label="Results"></div>
+  </div>
+</div>
+
+<!-- §STORAGE HEALTH and §UNDO — static markup outside #pmApp, so no
+     view repaint can take them away while the condition they report
+     is still true. FIXED to the bottom-left, because .hd-main's
+     negative margin means anything static above it would sit under
+     the hero and never be seen. -->
+<div class="pm-notice" id="pmHealth" role="alert" hidden></div>
+<div class="pm-notice" id="pmUndo" role="status" hidden></div>
+
 <!-- The sheet and the toast carry The Asclepion's own ids, because
-     asclepion-ui.js addresses them by id - #ascSheetBg / #ascSheet /
-     #ascToast. Reusing the module means reusing its DOM contract. -->
+     asclepion-ui.js addresses them by id — #ascSheetBg / #ascSheet /
+     #ascToast. Reusing the module means reusing its DOM contract.
+     The vault does exactly the same. -->
 <div class="asc-sheetbg" id="ascSheetBg"><div class="asc-sheet" id="ascSheet" role="dialog" aria-modal="true"></div></div>
 <div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
+
+<button class="hd-fab" id="addFab" aria-label="Add a prompt">
+  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+    stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2"></path></svg>
+</button>
 
 <!-- Loaded here, and NOT deferred. The inline script below registers
      cloud sync at parse time, and a deferred script would not have run
@@ -130,15 +267,15 @@
 <script src="trash.js?v=1"></script>
 <script src="shrink-banner.js?v=1"></script>
 <script src="promptarium-backup.js?v=1"></script>
-<!-- The Asclepion's generic machinery, shared rather than copied: escaping,
-     the drawn marks, the resumable entrance clock, the sheet, the toast.
-     Its own header says it best - "Nothing in here knows about the data
-     layer." The only page-specific thing it exports is the six self-care
-     glyphs, which this page never asks for. -->
+<!-- Generic machinery, shared rather than copied: escaping, the drawn
+     marks, the resumable entrance clock, the sheet, the toast. Its own
+     header says it best — "Nothing in here knows about the data layer."
+     It carries no styles either, which is why vault-theme.css has to
+     define every .asc-* class it emits. The vault loads it too. -->
 <script src="asclepion-ui.js?v=3"></script>
 <script src="promptarium-data.js?v=2"></script>
 <script src="topbar.js?v=6" defer></script>
-</body>
+
 
 <script>
 (function () {
@@ -239,17 +376,25 @@
   // ============================================================
   // §STATE
   //
-  // What a library shows. `q` and `pop` are deliberately NOT persisted:
-  // a search term is about this minute, and restoring one on the next
-  // visit would make the page look empty for no reason; an open drop
-  // panel is about this click.
+  // What a library shows. `q` is deliberately NOT persisted: a search
+  // term is about this minute, and restoring one on the next visit would
+  // make the page look empty for no reason.
+  //
+  // `pop` went with the drop panels — see §CHROME. The two filters are
+  // native <select>s now and hold their own open state.
   //
   // `shut` is the list of folded category groups, keyed by tab so the
   // two libraries fold independently.
   // ============================================================
   var TABS = ['prompts', 'tools', 'kept'];
   var ui = { tab: 'prompts', q: '', cat: 'all', favOnly: false,
-             group: 'category', pop: null, shut: [] };
+             group: 'category', shut: [] };
+
+  /* The scroll handler, assigned once by wireChrome(). It lives up here
+     because render() has to call it: a repaint replaces the hero node,
+     and the handler would otherwise go on measuring an element that is
+     no longer in the document. */
+  var readScroll = null;
 
   function loadUi() {
     var s = D().getUiState();
@@ -533,87 +678,71 @@
   // whether you meet it on the home page, inside a search, or as step
   // three of a workflow.
   //
-  // Nothing here draws a border. Separation is value and space — see the
-  // note at the top of asclepion-theme.css.
+  // Nothing here draws a rule between rows for decoration. Separation is
+  // a gold hairline and space — see §THE LIBRARY TABLE in
+  // promptarium-theme.css.
   // ============================================================
   function U() { return window.AscUI; }
   function hueOf(kind, id) { return D().catById(kind, id).hue; }
   function catLabel(kind, id) { return D().catById(kind, id).label; }
 
   /* THE MARKS. One drawn vocabulary — circles, arcs and lines at 1.1
-     stroke — in the same register as The Asclepion's six, and deliberately
-     NOT emoji: emoji in this room would undo the whole typographic
-     argument, and they render as tofu in headless Chrome besides.
+     stroke — in the same register as the vault's shelf sigils, and
+     deliberately NOT emoji: emoji in this room would undo the whole
+     typographic argument, and they render as tofu in headless Chrome
+     besides.
 
-     Keyed by category id. Both libraries share the ids they have in
-     common, so "writing" is the same nib on a prompt and on a tool. */
-  var PM_MARKS = {
-    /* a nib, and the stroke it has just made */
-    writing:      '<path d="M4.4 19.6l1-3.4L15 6.6a1.8 1.8 0 0 1 2.5 2.5L7.8 18.6z"/><path d="M13.4 8.2l2.4 2.4"/>',
-    /* a ring, and a second one turning inside it */
-    thinking:     '<circle cx="12" cy="12" r="8.4"/><path d="M8.2 14.8a4.8 4.8 0 0 1 7.6-5.8"/>',
-    /* a circle, and the line of sight leaving it */
-    research:     '<circle cx="10.4" cy="10.4" r="6.2"/><path d="M15 15l5 5"/>',
-    /* ripples rising from a still point — The Asclepion's own breath */
-    selfcare:     '<circle cx="12" cy="16.4" r="2"/><path d="M6.6 12.6a7.6 7.6 0 0 1 10.8 0"/><path d="M3.4 8.8a12.1 12.1 0 0 1 17.2 0"/>',
-    /* three rules, the last one short: a plan is never finished */
-    planning:     '<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h9"/>',
-    /* a line, struck */
-    editing:      '<path d="M4.4 12h15.2"/><path d="M9 7.8l6 8.4"/>',
-    /* two arcs opening from one spine */
-    learning:     '<path d="M12 6.8v11.8"/><path d="M12 6.8C10 5.4 7.2 5 4.6 5.4v11.8c2.6-.4 5.4 0 7.4 1.4"/><path d="M12 6.8c2-1.4 4.8-1.8 7.4-1.4v11.8c-2.6-.4-5.4 0-7.4 1.4"/>',
-    /* a ring with one point on its orbit */
-    ai:           '<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="3.6" r="1.3" fill="currentColor" stroke="none"/>',
-    /* the mark you make when a thing is done */
-    productivity: '<path d="M4.8 12.6l4.6 4.6L19.2 7.4"/>',
-    /* a ring, playing */
-    media:        '<circle cx="12" cy="12" r="8.4"/><path d="M10.2 8.6L16 12l-5.8 3.4z"/>',
-    /* two rings, and what they make where they meet */
-    design:       '<circle cx="9.4" cy="9.6" r="5.4"/><circle cx="14.6" cy="14.4" r="5.4"/>',
-    /* a waveform */
-    audio:        '<path d="M3.6 12h1.8M8.2 7.8v8.4M12 4.8v14.4M15.8 8.8v6.4M19.8 10.8v2.4"/>',
-    /* a camera, turned */
-    video:        '<path d="M4.2 7.6h10v8.8h-10z"/><path d="M14.2 12l5.6-3v6z"/>',
-    /* a crosshair */
-    utilities:    '<path d="M12 3.6v16.8M3.6 12h16.8"/><circle cx="12" cy="12" r="2.6"/>',
-    /* the null case: a ring, and nothing said about it */
-    other:        '<circle cx="12" cy="12" r="7.6"/>'
+     THE PATHS THEMSELVES LIVE IN THE DOCUMENT, once, in the <defs>
+     block at the top of the body; this returns a <use> of one. They
+     used to be inlined per row, which across a four-hundred-row table
+     is four hundred copies of the same geometry in the markup.
+
+     KEYED BY CATEGORY ID, and the list of ids is checked rather than
+     assumed: a <use> pointing at an id that is not in the document
+     renders as NOTHING AT ALL, which is a blank gutter rather than a
+     visible error. An unknown category falls back to the null mark,
+     exactly as the old lookup did. */
+  var PM_MARK_IDS = {
+    writing: 1, thinking: 1, research: 1, selfcare: 1, planning: 1,
+    editing: 1, learning: 1, ai: 1, productivity: 1, media: 1,
+    design: 1, audio: 1, video: 1, utilities: 1, other: 1
   };
   function pmMark(cat) {
-    var d = PM_MARKS[cat] || PM_MARKS.other;
+    var id = PM_MARK_IDS[cat] ? cat : 'other';
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1" ' +
-      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<use href="#pm-' + id + '"></use></svg>';
   }
 
-  /* The favourite. The Asclepion's own heart glyph, on The Asclepion's own
-     class, but carrying THIS page's data-fav attribute so the delegated
-     handler already in §WIRING keeps working unchanged.
+  /* Kept. The drawn heart, on this page's own control class.
 
-     The old page reserved amber strictly for this control, so that "I
-     reach for this one constantly" read instantly against otherwise cool
-     chrome. In a gold room there is no such contrast to spend, and the
-     heart takes candlelight like everything else that is on. */
+     THE VAULT USES A STAR HERE and this does not, which is the one
+     glyph the two studios do not share. "Kept" is a place in this
+     page's nav — it has a tab of its own — and a star at the end of
+     every row would be naming something else. The BOX is identical:
+     .pm-heart is .hd-chip's geometry, states and hover, so the control
+     reads as the same control in both houses. */
   function heartBtn(id, on, name) {
-    return '<button type="button" class="asc-heart' + (on ? ' is-on' : '') + '"' +
+    return '<button type="button" class="pm-heart' + (on ? ' is-on' : '') + '"' +
       ' data-fav="' + esc(id) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
       ' aria-label="' + esc((on ? 'Remove ' : 'Keep ') + name) + '">' +
       U().mark('heart') + '</button>';
   }
 
-  /* THE CHEVRON THAT OPENS A PROMPT UNDER ITS OWN ROW. It borrows
-     .asc-linkout from the row's other icon button, because that class
-     already resets the browser's chrome — a bare <button> in this table
-     renders as a white slab.
+  /* THE CHEVRON THAT OPENS A PROMPT UNDER ITS OWN ROW. .pm-ico, the
+     same box as the ⋯ beside it, because that class already resets the
+     browser's chrome — a bare <button> in this table renders as a
+     white slab.
      aria-controls ties the disclosure to the thing it discloses, so a
      screen reader hears them as one control and not two siblings. */
   function peekBtn(uid, open, pid, name) {
-    return '<button type="button" class="asc-linkout pm-peek__t" data-peek="' + esc(uid) + '"' +
+    return '<button type="button" class="pm-ico pm-peek__t" data-peek="' + esc(uid) + '"' +
       ' data-peek-name="' + esc(name) + '"' +
       ' aria-expanded="' + (open ? 'true' : 'false') + '" aria-controls="' + esc(pid) + '"' +
       ' aria-label="' + esc((open ? 'Hide' : 'Show') + ' the text of ' + name) + '">&#9662;</button>';
   }
 
-  /* A SIBLING of the row, never a child. .asc-row is itself a six-column
+  /* A SIBLING of the row, never a child. .pm-row is itself a six-column
      grid, and a different, named-area one on a phone, so a panel inside
      it would have to be placed in BOTH — and would sit inside the row's
      own hover surface while it was at it.
@@ -621,7 +750,7 @@
      own page uses, so a prompt reads identically wherever you open it. */
   function peekPanel(p, open, pid) {
     return '<div class="pm-peek" id="' + esc(pid) + '"' + (open ? '' : ' hidden') + ' role="row"' +
-      ' style="--asc-tint:' + hueOf('prompt', p.category) + '">' +
+      ' style="--pm-tint:' + hueOf('prompt', p.category) + '">' +
       '<div class="pm-prompt-text pm-peek__body" role="cell" tabindex="0">' +
         markVars(p.text || 'This prompt has no text yet.') +
       '</div>' +
@@ -630,8 +759,8 @@
 
   function sectionHead(label, note) {
     return '<div class="pm-sec__head">' +
-      '<h2 class="asc-label">' + esc(label) + '</h2>' +
-      (note ? '<span class="asc-small pm-sec__note">' + esc(note) + '</span>' : '') +
+      '<h2 class="hd-eyebrow">' + esc(label) + '</h2>' +
+      (note ? '<span class="pm-sec__note">' + esc(note) + '</span>' : '') +
     '</div>';
   }
 
@@ -656,12 +785,12 @@
   function grouped() { return ui.tab !== 'kept' && GROUPINGS[ui.group].group; }
 
   function colsRow(kind) {
-    return '<div class="asc-cols" role="row">' +
+    return '<div class="pm-thead" role="row">' +
       COLS[kind === 'tool' ? 'tool' : 'prompt'][grouped() ? 'grouped' : 'flat'].map(function (c) {
         return '<span class="asc-label" role="columnheader">' + esc(c) + '</span>';
       }).join('') +
-      '<span class="asc-label" role="columnheader"><span class="asc-sr">Actions</span></span>' +
-      '<span class="asc-label" role="columnheader"><span class="asc-sr">Kept</span></span>' +
+      '<span class="asc-label" role="columnheader"><span class="hd-sr">Actions</span></span>' +
+      '<span class="asc-label" role="columnheader"><span class="hd-sr">Kept</span></span>' +
     '</div>';
   }
 
@@ -676,31 +805,31 @@
   function promptRow(p, i) {
     var last = p.lastUsedAt ? D().fmtAgo(p.lastUsedAt) : '';
     var open = isPeeking(p.uid), pid = peekId(p.uid);
-    return '<div class="asc-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
-      ' role="row" style="--asc-tint:' + hueOf('prompt', p.category) + '">' +
-      '<button type="button" class="asc-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
-        '<span class="asc-row__mark" aria-hidden="true">' + pmMark(p.category) + '</span>' +
-        '<span class="asc-row__text">' +
-          '<span class="asc-row__title">' + esc(p.title) + '</span>' +
-          (noteFor(p) ? '<span class="asc-row__desc">' + esc(noteFor(p)) + '</span>' : '') +
+    return '<div class="pm-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' role="row" style="--pm-tint:' + hueOf('prompt', p.category) + '">' +
+      '<button type="button" class="pm-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
+        '<span class="pm-row__mark" aria-hidden="true">' + pmMark(p.category) + '</span>' +
+        '<span class="pm-row__text">' +
+          '<span class="pm-row__title">' + esc(p.title) + '</span>' +
+          (noteFor(p) ? '<span class="pm-row__desc">' + esc(noteFor(p)) + '</span>' : '') +
         '</span>' +
       '</button>' +
-      '<div class="asc-row__meta">' +
-        '<span class="asc-cell asc-cell--num" role="cell">' +
+      '<div class="pm-row__meta">' +
+        '<span class="pm-cell pm-cell--num" role="cell">' +
           (grouped() ? esc(p.useCount ? U().plural(p.useCount, 'time') : '') 
                      : esc(catLabel('prompt', p.category))) +
           (p.fiction ? ' &#10086;' : '') + '</span>' +
-        '<span class="asc-cell asc-cell--quiet" role="cell">' + esc(D().compatLabel(p.compat)) + '</span>' +
-        '<span class="asc-cell ' + (last ? 'asc-cell--quiet' : 'asc-cell--never') + '" role="cell">' +
+        '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(D().compatLabel(p.compat)) + '</span>' +
+        '<span class="pm-cell ' + (last ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
           esc(last) + '</span>' +
       '</div>' +
-      '<span class="asc-row__do" role="cell">' +
-        '<button type="button" class="asc-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
+      '<span class="pm-row__do" role="cell">' +
+        '<button type="button" class="pm-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
         peekBtn(p.uid, open, pid, p.title) +
-        '<button type="button" class="asc-linkout" data-menu="' + esc(p.uid) + '"' +
+        '<button type="button" class="pm-ico" data-menu="' + esc(p.uid) + '"' +
           ' aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
       '</span>' +
-      '<span class="asc-row__heart" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
+      '<span class="pm-row__kept" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
     '</div>' +
     peekPanel(p, open, pid);
   }
@@ -708,30 +837,30 @@
   function toolRow(t, i) {
     var host = D().hostOf(t.url);
     var last = t.lastOpenedAt ? D().fmtAgo(t.lastOpenedAt) : '';
-    return '<div class="asc-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
-      ' role="row" style="--asc-tint:' + hueOf('tool', t.category) + '">' +
-      '<a class="asc-row__name" role="cell" href="' + esc(t.url || '#') + '" target="_blank"' +
+    return '<div class="pm-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' role="row" style="--pm-tint:' + hueOf('tool', t.category) + '">' +
+      '<a class="pm-row__name" role="cell" href="' + esc(t.url || '#') + '" target="_blank"' +
         ' rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
-        '<span class="asc-row__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
-        '<span class="asc-row__text">' +
-          '<span class="asc-row__title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
-          (t.useFor ? '<span class="asc-row__desc">' + esc(t.useFor) + '</span>' : '') +
+        '<span class="pm-row__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
+        '<span class="pm-row__text">' +
+          '<span class="pm-row__title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
+          (t.useFor ? '<span class="pm-row__desc">' + esc(t.useFor) + '</span>' : '') +
         '</span>' +
       '</a>' +
-      '<div class="asc-row__meta">' +
-        '<span class="asc-cell asc-cell--num" role="cell">' +
+      '<div class="pm-row__meta">' +
+        '<span class="pm-cell pm-cell--num" role="cell">' +
           (grouped() ? esc(t.useCount ? U().plural(t.useCount, 'time') : '')
                      : esc(catLabel('tool', t.category))) + '</span>' +
-        '<span class="asc-cell asc-cell--quiet" role="cell">' + esc(host) + '</span>' +
-        '<span class="asc-cell ' + (last ? 'asc-cell--quiet' : 'asc-cell--never') + '" role="cell">' +
+        '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(host) + '</span>' +
+        '<span class="pm-cell ' + (last ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
           esc(last) + '</span>' +
       '</div>' +
-      '<span class="asc-row__do" role="cell">' +
-        '<button type="button" class="asc-start" data-tool="' + esc(t.id) + '">Details</button>' +
-        '<button type="button" class="asc-linkout" data-toolmenu="' + esc(t.id) + '"' +
+      '<span class="pm-row__do" role="cell">' +
+        '<button type="button" class="pm-start" data-tool="' + esc(t.id) + '">Details</button>' +
+        '<button type="button" class="pm-ico" data-toolmenu="' + esc(t.id) + '"' +
           ' aria-label="More actions for ' + esc(t.name) + '">&#8943;</button>' +
       '</span>' +
-      '<span class="asc-row__heart" role="cell">' + heartBtn(t.id, t.favorite, t.name) + '</span>' +
+      '<span class="pm-row__kept" role="cell">' + heartBtn(t.id, t.favorite, t.name) + '</span>' +
     '</div>';
   }
 
@@ -745,23 +874,23 @@
     var n = 0;
 
     if (!grouped()) {
-      out += '<div class="asc-group__body">' +
+      out += '<div class="pm-group__body">' +
         sortRecords(records).map(function (r) { return draw(r, n++); }).join('') + '</div>';
       return out;
     }
 
     groupByCategory(kind, records).forEach(function (b) {
       var shut = ui.shut.indexOf(ui.tab + ':' + b.key) !== -1;
-      out += '<section class="asc-group' + (shut ? ' is-shut' : '') +
-        '" style="--asc-tint:' + b.hue + '">' +
-        '<button type="button" class="asc-group__head" data-fold="' + esc(b.key) + '"' +
+      out += '<section class="pm-group' + (shut ? ' is-shut' : '') +
+        '" style="--pm-tint:' + b.hue + '">' +
+        '<button type="button" class="pm-group__head" data-fold="' + esc(b.key) + '"' +
           ' aria-expanded="' + (shut ? 'false' : 'true') + '">' +
-          '<span class="asc-group__name">' + esc(b.label) + '</span>' +
-          '<span class="asc-group__count">' + esc(U().spell(b.rows.length)) + '</span>' +
-          '<span class="asc-group__fold" aria-hidden="true">&#9662;</span>' +
+          '<span class="pm-group__name">' + esc(b.label) + '</span>' +
+          '<span class="pm-group__count">' + esc(U().spell(b.rows.length)) + '</span>' +
+          '<span class="pm-group__fold" aria-hidden="true">&#9662;</span>' +
         '</button>' +
-        '<div class="asc-group__rule" aria-hidden="true"></div>' +
-        '<div class="asc-group__body">' +
+        '<div class="pm-group__rule" aria-hidden="true"></div>' +
+        '<div class="pm-group__body">' +
           b.rows.map(function (r) { return draw(r, n++); }).join('') +
         '</div>' +
       '</section>';
@@ -795,7 +924,7 @@
      to eight tiles, one click, no scrolling. Everything below it is for
      the other days. */
   function quickTile(t) {
-    return '<a class="pm-quick" style="--asc-tint:' + hueOf('tool', t.category) + '"' +
+    return '<a class="pm-quick" style="--pm-tint:' + hueOf('tool', t.category) + '"' +
       ' href="' + esc(t.url || '#') + '" target="_blank" rel="noopener noreferrer"' +
       ' data-launch="' + esc(t.id) + '">' +
       '<span class="pm-quick__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
@@ -828,63 +957,45 @@
   }
   function collectionCard(col) {
     return '<div class="pm-col" role="button" tabindex="0" data-collection="' + esc(col.id) + '"' +
-      ' style="--asc-tint:' + (col.kind === 'tool' ? '#c99a63' : '#d6d2cb') + '">' +
-      '<h3 class="asc-plate asc-plate--sm">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h3>' +
+      ' style="--pm-tint:' + (col.kind === 'tool' ? '#c99a63' : '#d6d2cb') + '">' +
+      '<h3 class="hd-plate">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h3>' +
       chainHtml(col) +
     '</div>';
   }
 
   /* A bold lead sentence, a recovery sentence, and one thing to press. */
   function emptyState(title, body, acts) {
-    return '<div class="asc-empty"><strong>' + esc(title) + '</strong>' + esc(body) +
+    return '<div class="hd-empty"><strong>' + esc(title) + '</strong>' + esc(body) +
       (acts ? '<div class="asc-sheet__acts">' + acts + '</div>' : '') +
     '</div>';
   }
   // ============================================================
-  // §HERO and §BAR
+  // §CHROME — the pill, the hero, the utility line, the search.
   //
-  // The hero is static markup in the document and is never rendered.
-  // All that survives of the old head controller is the one class that
-  // shrinks it on a detail route.
+  // ALL OF IT IS HOUSE DAMULA'S, and most of it is vault-app.js's
+  // verbatim. What used to be here — a static hero and a sticky
+  // toolbar carrying the tab switch, a search field, a Sort button
+  // and a Filter button, each opening a drop panel — is gone. Its
+  // four jobs went four different ways:
   //
-  // Gone with the re-skin: the video stage, the four parallax rates, the
-  // meta column and the marquee ticker. The Asclepion has none of them,
-  // and the ticker in particular said exactly what the filter panel a
-  // hundred pixels below it already said.
+  //   the tabs      -> the pill, because Prompts / Tools / Kept are
+  //                    three PLACES with three hashes, and a place
+  //                    in this house is a word in the pill
+  //   the search    -> a glyph opening the full-screen .hd-find,
+  //                    which hands its query to the library as a
+  //                    token you can see and clear
+  //   sort + filter -> two native <select>s in the utility line
+  //   "New prompt"  -> the floating +, and the `n` key
   //
-  // The bar lives OUTSIDE the view host, and that is load-bearing: the
-  // search field is in the bar, and a renderer that replaced it on every
-  // keystroke would take the caret with it. Its controls are built once
-  // per mode; only their state repaints.
+  // THAT DELETED renderPop(), popPanel(), opt(), closePop() and
+  // ui.pop outright — including the offset-measuring workaround
+  // .asc-pop needed because it is position:absolute with no
+  // offsets and so landed most of a screen from its own button.
+  // A <select> opens where it is asked to.
   // ============================================================
 
-  /* A prompt you are trying to READ should not sit under a screenful of
-     atmosphere, so a detail route wears the same photograph as a band. */
-  function renderHero(compact) {
-    var h = $('pmHero');
-    if (h) h.classList.toggle('asc-hero--compact', !!compact);
-  }
-
-  /* The page's primary navigation. It used to live in the hero; the hero
-     in this room carries nothing but the display line, so it moves to the
-     head of the sticky bar, where every other control already is. */
   function hashForTab(tab) {
     return tab === 'tools' ? '#/tools' : tab === 'kept' ? '#/kept' : '#/';
-  }
-  function tabsHTML() {
-    return '<div class="pm-tabs" role="tablist" aria-label="Library">' +
-      tabHTML('prompts', 'Prompts') + tabHTML('tools', 'Tools') +
-      /* A PLACE, not a filter. "Kept only" still lives in Filter, where
-         it narrows one library; this is the other half of the same
-         answer — the things worth coming back to, from both libraries,
-         without first having to decide which one they were in. */
-      tabHTML('kept', 'Kept') +
-    '</div>';
-  }
-  function tabHTML(id, label) {
-    var on = ui.tab === id;
-    return '<button type="button" class="pm-tab' + (on ? ' is-on' : '') + '" role="tab"' +
-      ' aria-selected="' + on + '" data-tab="' + id + '">' + label + '</button>';
   }
 
   /* Four ways to shape one table, and three of them ARE the sections this
@@ -893,92 +1004,20 @@
      quarter of the scrolling. "Category" is the browse order, and the only
      one that groups. */
   var GROUPINGS = {
-    category: { label: 'category',          group: true },
-    used:     { label: 'most used',         group: false },
-    recent:   { label: 'recently updated',  group: false },
-    az:       { label: 'name',              group: false }
+    category: { label: 'Category',          group: true },
+    used:     { label: 'Most used',         group: false },
+    recent:   { label: 'Recently updated',  group: false },
+    az:       { label: 'Name',              group: false }
   };
 
-  function filterCount() { return (ui.cat !== 'all' ? 1 : 0) + (ui.favOnly ? 1 : 0); }
-
-  /* WHAT THE SORT BUTTON SHOULD SAY IT IS DOING. sortRecords() already
-     falls through to byName for anything that is not "used" or
-     "recent", so a Kept list carrying ui.group === 'category' is in
-     fact in name order — and a button reading "Sort by category" over
-     it would be describing a grouping that is not on the page. */
+  /* WHAT THE SORT CONTROL SHOULD SAY IT IS DOING. sortRecords() already
+     falls through to byName for anything that is not "used" or "recent",
+     so a Kept list carrying ui.group === 'category' is in fact in name
+     order — and a control reading "Category" over it would be naming a
+     grouping that is not on the page. */
   function sortKey() {
     return (ui.tab === 'kept' && GROUPINGS[ui.group].group) ? 'az' : ui.group;
   }
-
-  var barMode = null;
-  function buildBarControls(mode) {
-    var isTools = mode === 'tools';
-    var isKept = mode === 'kept';
-    $('pmBar').innerHTML =
-      tabsHTML() +
-      '<div class="asc-search">' +
-        '<input type="search" id="pmQ" placeholder="Search" autocomplete="off" spellcheck="false"' +
-          ' aria-label="' + (isKept ? 'Search what you have kept' : isTools ? 'Search tools' : 'Search prompts') + '"' +
-          ' value="' + esc(ui.q) + '">' +
-      '</div>' +
-      '<button type="button" class="asc-btn" data-pop="group" aria-expanded="false">' +
-        'Sort by ' + esc(GROUPINGS[sortKey()].label) +
-        '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>' +
-      /* THE KEPT TAB CARRIES NEITHER. Filter offers one library's
-         categories and a "Kept only" toggle, and this view is already
-         both libraries and already kept only — the panel would be
-         asking a question the tab has answered. And there is nothing to
-         add TO a list of things you kept: you keep them from the
-         library, with the heart. */
-      (isKept ? '' :
-        '<button type="button" class="asc-btn" data-pop="filter" aria-expanded="false">' +
-          'Filter' + (filterCount() ? ' &middot; ' + filterCount() : '') +
-          '<span class="asc-btn__caret" aria-hidden="true">&#9662;</span></button>') +
-      '<span class="asc-bar__spacer"></span>' +
-      (isKept ? '' :
-        '<button type="button" class="asc-btn asc-btn--primary" data-new="' + mode + '">' +
-          (isTools ? 'Add tool' : 'New prompt') + '</button>');
-    barMode = mode;
-  }
-
-  /* The two drop panels. Rebuilt from state every time rather than toggled,
-     because the filter panel's contents depend on which library is open and
-     on what the OTHER filters have already narrowed it to. */
-  function popPanel() {
-    if (!ui.pop) return '';
-    var out = '<div class="asc-pop" id="pmPop">';
-    if (ui.pop === 'group') {
-      out += Object.keys(GROUPINGS).filter(function (k) {
-        // "category" is a grouping, and the Kept tab does not group.
-        return !(ui.tab === 'kept' && GROUPINGS[k].group);
-      }).map(function (k) {
-        return opt(k === sortKey(), cap(GROUPINGS[k].label), 'data-setgroup="' + k + '"');
-      }).join('');
-    } else {
-      var kind = ui.tab === 'tools' ? 'tool' : 'prompt';
-      var counts = catCounts(kind);
-      out += '<div class="asc-pop__group"><p class="asc-label asc-pop__head">Category</p>' +
-        opt(ui.cat === 'all', 'All', 'data-fcat="all"',
-            Object.keys(counts).reduce(function (n, k) { return n + counts[k]; }, 0)) +
-        D().catList(kind).filter(function (c) { return counts[c.id] || ui.cat === c.id; })
-          .map(function (c) {
-            return opt(ui.cat === c.id, c.label, 'data-fcat="' + esc(c.id) + '"', counts[c.id] || 0);
-          }).join('') +
-      '</div>';
-      out += '<div class="asc-pop__group">' +
-        opt(ui.favOnly, 'Kept only', 'data-ffav="1"') +
-        (filterCount() ? opt(false, 'Clear all filters', 'data-fclear="1"') : '') +
-      '</div>';
-    }
-    return out + '</div>';
-  }
-  function opt(on, label, extra, count) {
-    return '<button type="button" class="asc-opt' + (on ? ' is-on' : '') + '" ' + extra +
-      ' aria-pressed="' + (on ? 'true' : 'false') + '">' +
-      '<span class="asc-opt__tick" aria-hidden="true">&#10003;</span>' + esc(label) +
-      (count == null ? '' : '<span class="pm-opt__n">' + count + '</span>') + '</button>';
-  }
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   /* Counts describe what choosing a category WOULD give, so they honour the
      search term and the Kept toggle but not the category already chosen. */
@@ -994,83 +1033,333 @@
     return counts;
   }
 
-  /* A PANEL OPENS UNDER ITS OWN BUTTON. The Asclepion can leave .asc-pop
-     at its static position because its bar starts at the gutter and so
-     does the panel; this bar carries a tab switch and a search field
-     first, so the Filter button sits most of a screen to the right and a
-     panel at the gutter would be pointing at nothing.
+  // ── §THE PILL ──────────────────────────────────────────────
+  // Four links, painted as two halves either side of the wordmark
+  // by the same ceil(n/2) split the vault uses. The brand itself
+  // is static markup and is never re-created: a cloud pull that
+  // rebuilt it could not replay the entrance, and the one thing
+  // on the page that must never flicker is the name of it.
+  var NAV = [
+    { href: '#/',         label: 'Prompts',  tab: 'prompts' },
+    { href: '#/tools',    label: 'Tools',    tab: 'tools' },
+    { href: '#/kept',     label: 'Kept',     tab: 'kept' },
+    { href: '#/settings', label: 'Settings', tab: 'settings' }
+  ];
 
-     The host still has no `position`, so the panel resolves vertically to
-     where the host sits in flow — directly under the bar — and only the
-     horizontal offset has to be measured. It is clamped so a panel opened
-     by a button near the right edge does not run off it. */
-  function renderPop() {
-    var host = $('pmPopHost');
-    if (host) host.innerHTML = popPanel();
-    var bar = $('pmBar');
-    if (!bar) return;
-    bar.querySelectorAll('[data-pop]').forEach(function (b) {
-      var on = b.dataset.pop === ui.pop;
-      b.setAttribute('aria-expanded', on ? 'true' : 'false');
-      if (!on) return;
-      var pop = $('pmPop');
-      if (!pop) return;
-      var x = b.getBoundingClientRect().left - host.getBoundingClientRect().left;
-      var room = document.documentElement.clientWidth - b.getBoundingClientRect().left - 16;
-      if (room < pop.offsetWidth) x -= (pop.offsetWidth - room);
-      pop.style.left = Math.max(0, Math.round(x)) + 'px';
-    });
+  /* A detail route lights its PARENT — #/p/… lights Prompts, #/t/…
+     lights Tools — because ui.tab has already been set from the hash by
+     the time this runs. Settings is its own tab id for exactly the same
+     reason: without one, the Settings page would light Prompts. */
+  function paintNav() {
+    var link = function (n) {
+      var on = route === n.tab;
+      return '<a href="' + n.href + '"' + (on ? ' class="is-on" aria-current="page"' : '') + '>' +
+        esc(n.label) + '</a>';
+    };
+    var half = Math.ceil(NAV.length / 2);
+    var l = $('hdNavL'), r = $('hdNavR');
+    if (l) l.innerHTML = NAV.slice(0, half).map(link).join('');
+    if (r) r.innerHTML = NAV.slice(half).map(link).join('');
   }
-  function closePop() { if (ui.pop) { ui.pop = null; renderPop(); } }
 
-  function renderBar(mode) {
-    var bar = $('pmBar');
-    // barMode is cleared with the bar so a hidden toolbar never keeps a
-    // stale aria-selected on the tab switch behind it.
-    if (!mode) { bar.hidden = true; barMode = null; closePop(); return; }
-    bar.hidden = false;
-    // Rebuilt on a mode change, and on a state change that the button
-    // labels show. Never on a keystroke: the caret is in there.
-    buildBarControls(mode);
-    renderPop();
+  // ── §THE HERO ──────────────────────────────────────────────
+  // ONE component, on every view, full-bleed, with the pill
+  // floating on it. Its anatomy is the vault's, which was read
+  // frame by frame off a reference film:
+  //
+  //     ┌───────────────────────────────────────────────┐
+  //     │              ( floating pill nav )            │
+  //     │  HEADLINE                        ┌──────────┐ │
+  //     │                                  │ the card │ │
+  //     │  the copy                        ( chips )    │
+  //     └───────────────────────────────────────────────┘
+  //
+  // FULL-BLEED, AND NO BOUNDARIES. The plate runs to all four
+  // edges of the display, so there is no edge to see; only the
+  // bottom fades, into the band beneath.
+  //
+  // THE ONE DEPARTURE: `short`. Every vault view is a room you are
+  // browsing and gets the full screen. Half the routes here are a
+  // single prompt you are trying to READ, and a prompt should not
+  // sit under 82vh of atmosphere. Same photograph, same parallax,
+  // a quarter of the height.
+  function pageHero(o) {
+    var feat = o.short ? null : (o.card === undefined ? featuredCard() : o.card);
+    return '<header class="hd-phero' + (o.short ? ' hd-phero--short' : '') + '" data-parallax>' +
+      '<div class="hd-phero__art" aria-hidden="true">' +
+        '<img class="hd-phero__img" src="images_by_admin/promptarium/hero-hall.webp" alt="" ' +
+          'width="736" height="1308" fetchpriority="high" decoding="async">' +
+        '<span class="hd-phero__glow"></span>' +
+        '<span class="hd-phero__veil"></span>' +
+      '</div>' +
+
+      '<div class="hd-phero__in">' +
+        '<div class="hd-phero__say">' +
+          (o.back ? '<button type="button" class="hd-phero__back" data-back="1">' +
+            esc(o.back) + '</button>' : '') +
+          (o.eyebrow ? '<p class="hd-phero__e">' + esc(o.eyebrow) + '</p>' : '') +
+          '<h1 class="hd-phero__t">' + esc(o.title) + '</h1>' +
+        '</div>' +
+
+        (feat ? heroCard(feat) : '') +
+        (o.caption ? '<p class="hd-phero__c">' + esc(o.caption) + '</p>' : '') +
+        (o.short ? '' :
+          // A full-viewport hero hides the whole page, so it has to
+          // say there is one. The chips are the real way in; this is
+          // the acknowledgement that the picture is not the end.
+          '<span class="hd-phero__scroll" aria-hidden="true"><i></i>Scroll</span>' + heroChips()) +
+      '</div>' +
+      '<span class="hd-phero__rule" aria-hidden="true"></span>' +
+    '</header>';
+  }
+
+  /* THE FLOATING CARD is the thing you reach for most — the
+     most-copied prompt, or on the Tools route the most-opened tool.
+     The vault fills this slot with cover art so that every page opens
+     on something real out of the collection rather than on
+     decoration; a prompt has no cover, so it gets its category's
+     drawn mark on the tint and the card's geometry is unchanged.
+
+     Deterministic: ties break on the name, so the hero does not
+     reshuffle itself between two repaints. */
+  function featuredCard() {
+    if (ui.tab === 'tools') {
+      var t = D().Tools.list().slice().sort(function (a, b) {
+        return (b.useCount || 0) - (a.useCount || 0) ||
+               (b.lastOpenedAt || 0) - (a.lastOpenedAt || 0) || byName(a, b);
+      })[0];
+      return t ? { kind: 'tool', id: t.id, name: t.name, cat: t.category,
+                   eyebrow: 'Most opened', verb: 'Open it &#8599;' } : null;
+    }
+    var p = pvAll().slice().sort(function (a, b) {
+      return (b.useCount || 0) - (a.useCount || 0) ||
+             (b.lastUsedAt || 0) - (a.lastUsedAt || 0) || byName(a, b);
+    })[0];
+    return p ? { kind: 'prompt', id: p.uid, name: p.title, cat: p.category,
+                 eyebrow: 'Most copied', verb: 'Copy it &#8594;' } : null;
+  }
+
+  function heroCard(d) {
+    var kind = d.kind === 'tool' ? 'tool' : 'prompt';
+    return '<button type="button" class="hd-hcard" style="--pm-tint:' + hueOf(kind, d.cat) + '" ' +
+        (d.kind === 'tool' ? 'data-tool="' + esc(d.id) + '"' : 'data-open="' + esc(d.id) + '"') + '>' +
+      '<span class="hd-hcard__art">' +
+        '<span class="hd-hcard__none">' + pmMark(d.cat) + '</span>' +
+      '</span>' +
+      '<span class="hd-hcard__in">' +
+        '<span class="hd-hcard__e">' + esc(d.eyebrow) + '</span>' +
+        '<span class="hd-hcard__t">' + esc(d.name) + '</span>' +
+        '<span class="hd-hcard__go">' + d.verb + '</span>' +
+      '</span>' +
+    '</button>';
+  }
+
+  /* THE CHIPS are the categories with something in them, biggest
+     first. The vault's are its shelves, and they do the one thing a
+     full-viewport hero owes the reader: a way into the library that
+     does not require scrolling past the picture first.
+
+     Six, capped, because .hd-chips is sized to break 3/3 — a seventh
+     leaves a hole under the first row. */
+  function heroChips() {
+    var kind = ui.tab === 'tools' ? 'tool' : 'prompt';
+    var counts = catCounts(kind);
+    var cats = D().catList(kind).filter(function (c) { return counts[c.id]; })
+      .sort(function (a, b) { return counts[b.id] - counts[a.id] || a.label.localeCompare(b.label); })
+      .slice(0, 6);
+    if (!cats.length) return '';
+    return '<nav class="hd-chips" aria-label="Categories">' +
+      cats.map(function (c) {
+        return '<button type="button" class="hd-chip2" data-cat="' + esc(c.id) + '"' +
+          ' style="--pm-tint:' + c.hue + '">' +
+          '<span class="pm-chip__mark" aria-hidden="true">' + pmMark(c.id) + '</span>' +
+          esc(c.label) + '<i>' + counts[c.id] + '</i></button>';
+      }).join('') +
+    '</nav>';
+  }
+
+  /* THE THREE HEROES. A route says its own name: "Prompts" over a
+     page of tools would be a heading describing the building rather
+     than the room. */
+  var HEROES = {
+    prompts: { eyebrow: 'A private prompt library', title: 'Prompts',
+               caption: 'The words you keep coming back to.' },
+    tools:   { eyebrow: 'In the studio', title: 'Tools',
+               caption: 'The sites you actually open, and what you run against them.' },
+    kept:    { eyebrow: 'From both libraries', title: 'Kept',
+               caption: 'The ones worth coming back to, without first deciding which half they were in.' }
+  };
+
+  // ── §THE UTILITY LINE ──────────────────────────────────────
+  // Everything the old toolbar did, at the weight of a caption.
+  // A FILTERED LIBRARY MUST NEVER BE ABLE TO LOOK LIKE AN EMPTY
+  // ONE, so the query is a token you can see and clear rather than
+  // a field somewhere off the top of the page.
+  function utilLine(kind, n) {
+    var isKept = ui.tab === 'kept';
+    var counts = isKept ? null : catCounts(kind);
+    /* The Kept view counts BOTH libraries, so it cannot borrow either
+       one's noun. "12 prompts" over a list that is half tools is a
+       number that lies about what it counted. */
+    var noun = isKept ? 'item' : (kind === 'tool' ? 'tool' : 'prompt');
+    var opt = function (v, label, cur, count) {
+      return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' +
+        esc(label) + (count == null ? '' : ' (' + count + ')') + '</option>';
+    };
+
+    return '<div class="hd-util">' +
+      '<span class="hd-util__n">' + esc(plural(n, noun)) + '</span>' +
+      (ui.q.trim()
+        ? '<button type="button" class="hd-token" data-clearq="1">&ldquo;' + esc(ui.q.trim()) +
+          '&rdquo; <i aria-hidden="true">&times;</i></button>'
+        : '') +
+      '<span class="hd-util__sp"></span>' +
+
+      /* The Kept tab carries neither of the filters. It is already both
+         libraries and already kept-only, so a Kept toggle would be
+         answering a question the tab has answered — and a category list
+         across two vocabularies that share ids would mean two different
+         things under one word. */
+      (isKept ? '' :
+        '<button type="button" class="hd-util__b' + (ui.favOnly ? ' is-on' : '') + '"' +
+          ' data-ffav="1" aria-pressed="' + ui.favOnly + '">' +
+          U().mark('heart') + ' Kept</button>') +
+
+      (isKept ? '' :
+        '<label class="hd-util__sel"><span class="hd-sr">Category</span>' +
+          '<select data-fcat="1">' +
+            opt('all', 'All categories', ui.cat) +
+            D().catList(kind).filter(function (c) { return counts[c.id] || ui.cat === c.id; })
+              .map(function (c) { return opt(c.id, c.label, ui.cat, counts[c.id] || 0); }).join('') +
+          '</select></label>') +
+
+      '<label class="hd-util__sel"><span class="hd-sr">Sort</span>' +
+        '<select data-setgroup="1">' +
+          Object.keys(GROUPINGS).filter(function (k) {
+            // "Category" is a grouping, and the Kept tab does not group.
+            return !(isKept && GROUPINGS[k].group);
+          }).map(function (k) { return opt(k, GROUPINGS[k].label, sortKey()); }).join('') +
+        '</select></label>' +
+
+      '<button type="button" class="hd-util__b" data-surprise="1">Surprise me</button>' +
+    '</div>';
+  }
+
+  // ── §SEARCH ────────────────────────────────────────────────
+  // A glyph in the pill, and an overlay over the page. It searches
+  // BOTH libraries whichever half you are in, because "where did I
+  // put that" is not a question you can only ask about the room you
+  // are standing in. Enter hands the query to the library.
+  var findTimer = 0;
+
+  function openFind() {
+    var box = $('hdFind');
+    box.hidden = false;
+    requestAnimationFrame(function () { box.classList.add('is-on'); });
+    document.body.classList.add('asc-locked');
+    $('hdFindIn').value = ui.q;
+    $('hdFindIn').focus();
+    paintFind(ui.q);
+  }
+  function closeFind() {
+    var box = $('hdFind');
+    box.classList.remove('is-on');
+    document.body.classList.remove('asc-locked');
+    setTimeout(function () { box.hidden = true; }, 220);
+  }
+  function paintFind(q) {
+    q = String(q || '').trim().toLowerCase();
+    var out = $('hdFindOut');
+    if (!q) {
+      out.innerHTML = '<p class="hd-find__hint">Names, notes, categories and the prompt text itself. ' +
+        'Press Enter to take the query back to the library.</p>';
+      return;
+    }
+    var hits = pvAll().filter(function (p) { return matchPrompt(p, q); })
+      .map(function (p) {
+        return { href: '#/p/' + encodeURIComponent(p.uid), name: p.title, id: p.category,
+                 cat: catLabel('prompt', p.category), hue: hueOf('prompt', p.category),
+                 kind: 'Prompt' };
+      })
+      .concat(D().Tools.list().filter(function (t) { return matchTool(t, q); })
+        .map(function (t) {
+          return { href: '#/t/' + encodeURIComponent(t.id), name: t.name, id: t.category,
+                   cat: catLabel('tool', t.category), hue: hueOf('tool', t.category),
+                   kind: 'Tool' };
+        }));
+
+    out.innerHTML = hits.length
+      ? '<p class="hd-find__n">' + esc(plural(hits.length, 'result')) + '</p>' +
+        hits.slice(0, 8).map(function (h) {
+          return '<a class="hd-find__row" href="' + esc(h.href) + '" data-act="find-go"' +
+            ' style="--pm-tint:' + h.hue + '">' +
+            '<span class="pm-find__mark" aria-hidden="true">' + pmMark(h.id) + '</span>' +
+            '<span><b>' + esc(h.name) + '</b><i>' + esc(h.kind) + ' &middot; ' + esc(h.cat) + '</i></span></a>';
+        }).join('') +
+        (hits.length > 8 ? '<p class="hd-find__hint">Press Enter for all ' + hits.length + '.</p>' : '')
+      : '<p class="hd-find__hint">Nothing matches &ldquo;' + esc(q) + '&rdquo;.</p>';
   }
 
   // ============================================================
   // §VIEWS
+  //
+  // EVERY VIEW IS HERO + ONE BAND. That is HOUSE DAMULA's shape and
+  // it is the whole reason a view is a string built in one place
+  // rather than a hero pinned in the document with content poured
+  // under it: a route that opens on its own name has to be able to
+  // say its own name.
+  //
+  // The band is always .hd-night. The vault kept a ground map so
+  // that re-grounding a route stays a one-word change, and both
+  // studios still resolve every colour through --hd-bg / --hd-fg
+  // rather than naming one — which is what made the vault's three
+  // palette changes in a day cost one token block each.
   // ============================================================
+
+  /* One band, so no view can accidentally grow a second ground. */
+  function band(inner, extra) {
+    return '<section class="hd-band hd-night' + (extra ? ' ' + extra : '') + '">' + inner + '</section>';
+  }
+
   function viewPromptsHome() {
     var host = $('pmView');
     var all = pvAll();
+    var hero = pageHero(HEROES.prompts);
 
     if (!all.length) {
-      host.innerHTML = emptyState(
+      host.innerHTML = hero + band(emptyState(
         'No prompts yet.',
         'Add the ones you already paste from somewhere else. A prompt needs a name, the text, and one word for what it is for.',
-        '<button type="button" class="asc-btn asc-btn--primary" data-new="prompts">New prompt</button>');
+        '<button type="button" class="asc-btn asc-btn--primary" data-new="prompts">New prompt</button>'));
       return;
     }
 
     // The collapse rule: a query is not browsing. The moment a search term
     // or a filter is active the page is one result list, with no sections
     // above it and no groups inside it.
+    //
+    // The count and the query no longer need a heading of their own —
+    // the utility line carries both, and the query is a token you can
+    // press to clear, so a filtered library can never be mistaken for
+    // an empty one.
     if (isFiltering()) {
       var hits = filteredPrompts();
-      host.innerHTML = hits.length
-        ? sectionHead(plural(hits.length, 'prompt'), describeFilter()) +
-          '<div class="asc-table" role="table" aria-label="Prompts">' +
+      host.innerHTML = hero + band(utilLine('prompt', hits.length) + (hits.length
+        ? '<div class="pm-table" role="table" aria-label="Prompts">' +
             colsRow('prompt') +
-            '<div class="asc-group__body">' +
+            '<div class="pm-group__body">' +
               sortRecords(hits).map(function (p, i) { return promptRow(p, i); }).join('') +
             '</div>' +
           '</div>'
         : emptyState('Nothing matches that.',
             'No prompt matches ' + describeFilter() + '. Try fewer words, or clear the filter and start from the whole library.',
-            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>');
+            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>')));
       return;
     }
 
     var cols = D().collectionsOfKind('prompt');
-    var html = '<section class="pm-sec">' +
+    var html = utilLine('prompt', all.length) +
+      '<section class="pm-sec">' +
       sectionHead('Collections', cols.length ? 'A workflow, in order' : '') +
       (cols.length
         ? '<div class="pm-cols">' + cols.map(collectionCard).join('') + '</div>' +
@@ -1082,11 +1371,11 @@
 
     /* And then the library itself. Frequently used, Recent and All used to
        be three stacked sections here; they were one list in three orders,
-       and they are the Sort control in the bar now. */
-    html += '<div class="asc-table" role="table" aria-label="Prompts">' +
+       and they are the Sort control in the utility line now. */
+    html += '<div class="pm-table" role="table" aria-label="Prompts">' +
       tableHTML('prompt', all) + '</div>';
 
-    host.innerHTML = html;
+    host.innerHTML = hero + band(html);
   }
 
   function describeFilter() {
@@ -1101,33 +1390,33 @@
     var host = $('pmView');
     var d = D();
     var all = d.Tools.list();
+    var hero = pageHero(HEROES.tools);
 
     if (!all.length) {
-      host.innerHTML = emptyState(
+      host.innerHTML = hero + band(emptyState(
         'No tools yet.',
         'Add the sites you open every day. Or start from the ones already in your rotation and edit from there.',
         '<button type="button" class="asc-btn asc-btn--primary" data-new="tools">Add a tool</button>' +
-        '<button type="button" class="asc-btn" data-starter="1">Add my usual tools</button>');
+        '<button type="button" class="asc-btn" data-starter="1">Add my usual tools</button>'));
       return;
     }
 
     if (isFiltering()) {
       var hits = filteredTools();
-      host.innerHTML = hits.length
-        ? sectionHead(plural(hits.length, 'tool'), describeFilter()) +
-          '<div class="asc-table" role="table" aria-label="Tools">' +
+      host.innerHTML = hero + band(utilLine('tool', hits.length) + (hits.length
+        ? '<div class="pm-table" role="table" aria-label="Tools">' +
             colsRow('tool') +
-            '<div class="asc-group__body">' +
+            '<div class="pm-group__body">' +
               sortRecords(hits).map(function (t, i) { return toolRow(t, i); }).join('') +
             '</div>' +
           '</div>'
         : emptyState('Nothing matches that.',
             'No tool matches ' + describeFilter() + '. Try fewer words, or clear the filter and start from the whole library.',
-            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>');
+            '<button type="button" class="asc-btn asc-btn--primary" data-clearfilters="1">Clear the filter</button>')));
       return;
     }
 
-    var html = '';
+    var html = utilLine('tool', all.length);
 
     var quick = all.filter(function (t) { return t.quick && t.url; }).sort(d.byOrder).slice(0, 8);
     if (quick.length) {
@@ -1146,10 +1435,10 @@
           '<button type="button" class="asc-btn asc-btn--sm" data-newcol="tool">New stack</button></p>') +
     '</section>';
 
-    html += '<div class="asc-table" role="table" aria-label="Tools">' +
+    html += '<div class="pm-table" role="table" aria-label="Tools">' +
       tableHTML('tool', all) + '</div>';
 
-    host.innerHTML = html;
+    host.innerHTML = hero + band(html);
   }
 
   /* WHAT YOU KEPT, from both libraries at once.
@@ -1169,19 +1458,23 @@
     var q = ui.q.trim().toLowerCase();
     var prompts = pvAll().filter(function (p) { return p.favorite && matchPrompt(p, q); });
     var tools = D().Tools.list().filter(function (t) { return t.favorite && matchTool(t, q); });
+    var hero = pageHero(HEROES.kept);
 
     if (!prompts.length && !tools.length) {
-      host.innerHTML = q
+      host.innerHTML = hero + band(q
         ? emptyState('Nothing kept matches that.',
             'Nothing you have kept matches "' + ui.q.trim() + '". Clear the search to see the whole shelf.',
             '<button type="button" class="asc-btn asc-btn--primary" data-clearq="1">Clear the search</button>')
         : emptyState('Nothing kept yet.',
             'Tap the heart at the end of any prompt or tool and it lands here. This is the shelf for the ones you come back to, from both libraries at once.',
-            '<button type="button" class="asc-btn asc-btn--primary" data-go="#/">Go to the prompts</button>');
+            '<button type="button" class="asc-btn asc-btn--primary" data-go="#/">Go to the prompts</button>'));
       return;
     }
 
-    var html = '';
+    /* The count is BOTH halves. On every other view the utility line
+       counts one library, because there is only one; here the number
+       over the page has to mean the page. */
+    var html = utilLine('prompt', prompts.length + tools.length);
     /* An empty half is left out rather than printed as a heading over
        nothing: a section that says "no tools" is still a section. */
     if (prompts.length) {
@@ -1189,9 +1482,9 @@
         // No 'Kept' note: the lit tab three lines above already says it,
         // and a label that repeats its own heading is doing nothing.
         sectionHead(plural(prompts.length, 'prompt')) +
-        '<div class="asc-table" role="table" aria-label="Prompts you have kept">' +
+        '<div class="pm-table" role="table" aria-label="Prompts you have kept">' +
           colsRow('prompt') +
-          '<div class="asc-group__body">' +
+          '<div class="pm-group__body">' +
             sortRecords(prompts).map(function (p, i) { return promptRow(p, i); }).join('') +
           '</div>' +
         '</div>' +
@@ -1200,15 +1493,15 @@
     if (tools.length) {
       html += '<section class="pm-sec">' +
         sectionHead(plural(tools.length, 'tool')) +
-        '<div class="asc-table" role="table" aria-label="Tools you have kept">' +
+        '<div class="pm-table" role="table" aria-label="Tools you have kept">' +
           colsRow('tool') +
-          '<div class="asc-group__body">' +
+          '<div class="pm-group__body">' +
             sortRecords(tools).map(function (t, i) { return toolRow(t, i); }).join('') +
           '</div>' +
         '</div>' +
       '</section>';
     }
-    host.innerHTML = html;
+    host.innerHTML = hero + band(html);
   }
 
   // ============================================================
@@ -1222,22 +1515,40 @@
     });
   }
 
+  /* THE SHORT HERO, and the one place this studio departs from the
+     vault on purpose. Every vault view opens on a full screen of
+     photograph because every vault view is a room you are browsing; a
+     prompt you are trying to READ should not sit under 82vh of
+     atmosphere. Same picture, same parallax, a quarter of the height —
+     and the way back lives in it, because topbar.js's launcher owns the
+     top-left corner of every page in this dashboard and a back control
+     pinned there would render underneath it. */
+  function detailHero(eyebrow, title) {
+    return pageHero({
+      short: true, eyebrow: eyebrow, title: title,
+      back: ui.tab === 'tools' ? 'Tools' : ui.tab === 'kept' ? 'Kept' : 'Prompts'
+    });
+  }
+
   function viewPrompt(uid) {
     var host = $('pmView');
     var p = pvGet(uid);
     if (!p) {
-      host.innerHTML = emptyState('That prompt is gone',
-        'It was deleted, or it lives in the fiction library and has not loaded on this device yet.',
-        '<button type="button" class="asc-btn" data-go="#/">Back to prompts</button>');
+      host.innerHTML = detailHero('Not found', 'That prompt is gone') +
+        band(emptyState('That prompt is gone',
+          'It was deleted, or it lives in the fiction library and has not loaded on this device yet.',
+          '<button type="button" class="asc-btn" data-go="#/">Back to prompts</button>'));
       return;
     }
     var hue = hueOf('prompt', p.category);
     var vars = D().detectVariables(p.text);
     var reason = p.fiction && !p.editable ? gateReason() : '';
 
-    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + hue + '">' +
-      '<h1 class="asc-plate asc-plate--lg">' + esc(p.title) + '</h1>' +
-      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' +
+    /* The name is the HERO's headline, not a heading inside the band.
+       A detail page that opens on a photograph and then says what it is
+       a page OF, four lines lower, is two titles. */
+    var html = '<div class="pm-detail" style="--pm-tint:' + hue + '">' +
+      '<p class="pm-detail__meta"><span class="pm-dot"></span>' +
         esc(catLabel('prompt', p.category)) +
         (p.compat ? ' <span class="pm-sep">&middot;</span> ' + esc(D().compatLabel(p.compat)) : '') +
         (p.useCount ? ' <span class="pm-sep">&middot;</span> copied ' + p.useCount + (p.useCount === 1 ? ' time' : ' times') : '') +
@@ -1257,7 +1568,7 @@
     if (vars.length) {
       html += '<div class="asc-sheet__block"><h2 class="asc-label">Variables</h2>' +
         '<div class="pm-vars">' + vars.map(function (v) {
-          return '<label class="asc-field" style="margin:0">' +
+          return '<label class="pm-field" style="margin:0">' +
             '<span class="asc-label">' + esc(v) + '</span>' +
             '<input class="asc-input" type="text" data-var="' + esc(v) + '" placeholder="' + esc(v.toLowerCase()) + '">' +
           '</label>';
@@ -1266,7 +1577,7 @@
     }
 
     html += '<div class="asc-sheet__block"><h2 class="asc-label">Notes</h2>' +
-      '<textarea class="asc-textarea" id="pmNotes" style="min-height:110px;font-family:var(--asc-body);font-size:16px"' +
+      '<textarea class="asc-textarea" id="pmNotes" style="min-height:110px;font-family:var(--hd-ui);font-size:16px"' +
         (p.editable ? '' : ' readonly') +
         ' placeholder="What this is for, what it gets wrong, what to change next time.">' + esc(noteFor(p)) + '</textarea>' +
       '<span class="asc-small">Saved when you click away.</span></div>';
@@ -1275,7 +1586,7 @@
     if (inCols.length) {
       html += '<div class="asc-sheet__block"><h2 class="asc-label">In collections</h2><div class="pm-list">' +
         inCols.map(function (c) {
-          return '<div class="pm-list__row" style="--asc-tint:#d6d2cb"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
+          return '<div class="pm-list__row" style="--pm-tint:#d6d2cb"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
             '<span class="pm-list__dot"></span><span class="pm-list__name">' + esc(c.title) + '</span>' +
             '<span class="pm-spacer" style="flex:1"></span><span class="pm-list__open">Open</span></div></div>';
         }).join('') + '</div></div>';
@@ -1284,7 +1595,9 @@
     if (p.editable) {
       html += '<div class="asc-sheet__acts"><button type="button" class="asc-btn asc-btn--danger asc-btn--sm" data-delete="' + esc(p.uid) + '">Delete this prompt</button></div>';
     }
-    host.innerHTML = html + '</div>';
+    host.innerHTML =
+      detailHero(p.fiction ? 'Fiction library' : catLabel('prompt', p.category), p.title) +
+      band(html + '</div>', 'hd-band--detail');
   }
   /* The same heart as the table's, with its name beside it. Labelled
      because a detail view has room for the word and no row of siblings to
@@ -1300,16 +1613,16 @@
     var d = D();
     var t = d.Tools.get(id);
     if (!t) {
-      host.innerHTML = emptyState('That tool is gone', 'It was deleted from the library.',
-        '<button type="button" class="asc-btn" data-go="#/tools">Back to tools</button>');
+      host.innerHTML = detailHero('Not found', 'That tool is gone') +
+        band(emptyState('That tool is gone', 'It was deleted from the library.',
+          '<button type="button" class="asc-btn" data-go="#/tools">Back to tools</button>'));
       return;
     }
     var hue = hueOf('tool', t.category);
     var host2 = d.hostOf(t.url);
 
-    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + hue + '">' +
-      '<h1 class="asc-plate asc-plate--lg">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</h1>' +
-      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' + esc(catLabel('tool', t.category)) +
+    var html = '<div class="pm-detail" style="--pm-tint:' + hue + '">' +
+      '<p class="pm-detail__meta"><span class="pm-dot"></span>' + esc(catLabel('tool', t.category)) +
         (host2 ? ' <span class="pm-sep">&middot;</span> ' + esc(host2) : '') +
         (t.useCount ? ' <span class="pm-sep">&middot;</span> opened ' + t.useCount + (t.useCount === 1 ? ' time' : ' times') : '') +
       '</p>' +
@@ -1320,10 +1633,10 @@
       '</div>';
 
     if (t.useFor) {
-      html += '<div class="asc-sheet__block"><h2 class="asc-label">What you use it for</h2><p style="margin:0;color:var(--asc-text-2)">' + esc(t.useFor) + '</p></div>';
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">What you use it for</h2><p style="margin:0;color:var(--hd-fg-2)">' + esc(t.useFor) + '</p></div>';
     }
     if (t.accountNote) {
-      html += '<div class="asc-sheet__block"><h2 class="asc-label">Account</h2><p style="margin:0;color:var(--asc-text-2)">' + esc(t.accountNote) + '</p></div>';
+      html += '<div class="asc-sheet__block"><h2 class="asc-label">Account</h2><p style="margin:0;color:var(--hd-fg-2)">' + esc(t.accountNote) + '</p></div>';
     }
 
     /* The join between the two halves of this page: the tool tells you
@@ -1331,23 +1644,24 @@
     html += '<div class="asc-sheet__block"><h2 class="asc-label">Related prompts</h2>';
     var linked = t.relatedPrompts.map(pvGet).filter(Boolean);
     html += linked.length
-      ? '<div class="asc-table" role="table">' + linked.map(function (p, i) { return promptRow(p, i); }).join('') + '</div>'
+      ? '<div class="pm-table" role="table">' + linked.map(function (p, i) { return promptRow(p, i); }).join('') + '</div>'
       : '<p class="asc-body">Nothing linked yet. Link the prompts you run against ' + esc(t.name) + ' so they are one click away when you open it.</p>';
-    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:14px">' +
       '<button type="button" class="asc-btn asc-btn--sm" data-linkprompts="' + esc(t.id) + '">Link prompts</button></div></div>';
 
     var inStacks = d.collectionsHolding('tool', t.id);
     if (inStacks.length) {
       html += '<div class="asc-sheet__block"><h2 class="asc-label">In stacks</h2><div class="pm-list">' +
         inStacks.map(function (c) {
-          return '<div class="pm-list__row" style="--asc-tint:#c99a63"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
+          return '<div class="pm-list__row" style="--pm-tint:#c99a63"><div class="pm-list__main" role="button" tabindex="0" data-collection="' + esc(c.id) + '">' +
             '<span class="pm-list__dot"></span><span class="pm-list__name">' + esc(c.title) + '</span>' +
             '<span class="pm-spacer" style="flex:1"></span><span class="pm-list__open">Open</span></div></div>';
         }).join('') + '</div></div>';
     }
 
     html += '<div class="asc-sheet__acts"><button type="button" class="asc-btn asc-btn--danger asc-btn--sm" data-deletetool="' + esc(t.id) + '">Delete this tool</button></div>';
-    host.innerHTML = html + '</div>';
+    host.innerHTML = detailHero(host2 || catLabel('tool', t.category), t.name) +
+      band(html + '</div>', 'hd-band--detail');
   }
 
   function viewCollection(id) {
@@ -1355,18 +1669,18 @@
     var d = D();
     var col = d.Collections.get(id);
     if (!col) {
-      host.innerHTML = emptyState('That collection is gone', 'It was deleted.',
-        '<button type="button" class="asc-btn" data-go="#/">Back</button>');
+      host.innerHTML = detailHero('Not found', 'That collection is gone') +
+        band(emptyState('That collection is gone', 'It was deleted.',
+          '<button type="button" class="asc-btn" data-go="#/">Back</button>'));
       return;
     }
     var isTool = col.kind === 'tool';
     var members = memberRecords(col);
 
-    var html = backLine() + '<div class="pm-detail" style="--asc-tint:' + (isTool ? "#c99a63" : "#d6d2cb") + '">' +
-      '<h1 class="asc-plate asc-plate--lg">' + (col.icon ? esc(col.icon) + ' ' : '') + esc(col.title) + '</h1>' +
-      '<p class="asc-small pm-detail__meta"><span class="pm-dot"></span>' + (isTool ? 'Tool stack' : 'Prompt collection') +
+    var html = '<div class="pm-detail" style="--pm-tint:' + (isTool ? "#c99a63" : "#d6d2cb") + '">' +
+      '<p class="pm-detail__meta"><span class="pm-dot"></span>' + (isTool ? 'Tool stack' : 'Prompt collection') +
         ' <span class="pm-sep">&middot;</span> ' + plural(col.itemIds.length, isTool ? 'tool' : 'prompt') + '</p>' +
-      (col.summary ? '<p style="color:var(--asc-text-2);margin:0 0 var(--asc-5);max-width:60ch">' + esc(col.summary) + '</p>' : '');
+      (col.summary ? '<p style="color:var(--hd-fg-2);margin:0 0 34px;max-width:60ch">' + esc(col.summary) + '</p>' : '');
 
     if (!members.length) {
       html += '<p class="asc-body">No steps yet. Add the ' + (isTool ? 'tools' : 'prompts') + ' this workflow runs, in the order you run them.</p>';
@@ -1377,12 +1691,12 @@
         if (!m) {
           html += '<div class="pm-list__row" data-step="' + esc(itemId) + '"><div class="pm-list__main" style="cursor:default">' +
             '<span class="pm-list__n">' + (i + 1) + '</span>' +
-            '<span class="pm-list__name" style="color:var(--asc-text-3)">Missing &mdash; deleted, or the fiction library has not loaded</span>' +
+            '<span class="pm-list__name" style="color:var(--hd-fg-3)">Missing &mdash; deleted, or the fiction library has not loaded</span>' +
             '</div><div class="pm-list__acts"><button type="button" class="asc-btn asc-btn--sm" data-unstep="' + esc(itemId) + '" aria-label="Remove step">&times;</button></div></div>';
           return;
         }
         var hue = isTool ? hueOf('tool', m.category) : hueOf('prompt', m.category);
-        html += '<div class="pm-list__row" style="--asc-tint:' + hue + '" data-step="' + esc(itemId) + '">' +
+        html += '<div class="pm-list__row" style="--pm-tint:' + hue + '" data-step="' + esc(itemId) + '">' +
           (isTool
             ? '<a class="pm-list__main" href="' + esc(m.url || '#') + '" target="_blank" rel="noopener noreferrer" data-launch="' + esc(m.id) + '">'
             : '<div class="pm-list__main" role="button" tabindex="0" data-open="' + esc(m.uid) + '">') +
@@ -1406,7 +1720,8 @@
       '<button type="button" class="asc-btn asc-btn--danger" data-deletecol="' + esc(col.id) + '">Delete</button>' +
     '</div>';
 
-    host.innerHTML = html + '</div>';
+    host.innerHTML = detailHero(isTool ? 'A tool stack' : 'A prompt collection', col.title) +
+      band(html + '</div>', 'hd-band--detail');
     mountStepSort(col.id);
   }
 
@@ -1431,39 +1746,38 @@
   function viewSettings() {
     var d = D(), b = B();
     var reason = gateReason();
-    var html = backLine() + '<div class="pm-detail">' +
-      '<h1 class="asc-plate asc-plate--lg">Settings</h1>' +
+    var html = '<div class="pm-detail">' +
 
       '<div class="asc-sheet__block"><h2 class="asc-label">Fiction library</h2>' +
-      '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
+      '<p style="margin:0 0 14px;color:var(--hd-fg-2);max-width:62ch">' +
         'Fiction prompts live in the same cloud record as your manuscripts, so this page reads and writes them ' +
         'directly rather than keeping a copy. They only become editable once that record has arrived on this device.' +
       '</p>' +
-      '<p style="margin:0 0 var(--asc-3);max-width:62ch;color:' + (reason ? 'var(--asc-gold)' : 'var(--asc-good)') + '">' +
+      '<p style="margin:0 0 14px;max-width:62ch;color:' + (reason ? 'var(--hd-acc)' : 'var(--hd-acc-lit)') + '">' +
         (reason ? esc(reason) : 'Loaded and editable. ' + plural(cdxKeyCount(), 'record') + ' present.') + '</p>' +
       '<label class="pm-check"><input type="checkbox" id="pmShowFiction"' + (d.getSettings().showFiction ? ' checked' : '') + '>' +
         'Show fiction prompts in the library</label>' +
       (reason && gate.mounted && !gate.unlocked
-        ? '<button type="button" class="asc-btn asc-btn--sm" id="pmUnlock" style="margin-top:var(--asc-2)">My fiction library really is empty &mdash; let me write to it</button>'
+        ? '<button type="button" class="asc-btn asc-btn--sm" id="pmUnlock" style="margin-top:8px">My fiction library really is empty &mdash; let me write to it</button>'
         : '') +
       '</div>';
 
     var undo = b && b.pendingUndo();
     if (undo) {
       html += '<div class="asc-sheet__block"><h2 class="asc-label">The rebuild</h2>' +
-        '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
+        '<p style="margin:0 0 14px;color:var(--hd-fg-2);max-width:62ch">' +
         'The old model-based prompt library was removed when this page was rebuilt. A snapshot was taken first.</p>' +
         '<button type="button" class="asc-btn" data-restore="' + esc(undo.snapId) + '">Restore the old library</button></div>';
     }
 
     html += '<div class="asc-sheet__block"><h2 class="asc-label">Local snapshots</h2>' +
-      '<p style="margin:0 0 var(--asc-3);color:var(--asc-text-2);max-width:62ch">' +
+      '<p style="margin:0 0 14px;color:var(--hd-fg-2);max-width:62ch">' +
       'Copies of this page\'s data kept on this device only. They are never synced and never sent anywhere, ' +
       'which is exactly why they survive a bad sync.</p>';
     var snaps = b ? b.list() : [];
     html += snaps.length
       ? '<div class="pm-list">' + snaps.map(function (s) {
-          return '<div class="pm-list__row" style="--asc-tint:#938b7c"><div class="pm-list__main" style="cursor:default">' +
+          return '<div class="pm-list__row" style="--pm-tint:#938b7c"><div class="pm-list__main" style="cursor:default">' +
             '<span class="pm-list__dot"></span>' +
             '<span class="pm-list__name">' + esc(d.fmtDate(s.at)) + ', ' + esc(new Date(s.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })) + '</span>' +
             '<span class="pm-list__n">' + esc(s.counts.length ? s.counts.join(', ') : 'empty') + '</span>' +
@@ -1471,16 +1785,17 @@
             '<button type="button" class="asc-btn asc-btn--sm" data-restore="' + esc(s.id) + '">Restore</button></div></div>';
         }).join('') + '</div>'
       : '<p class="asc-body">No snapshots yet. One is taken every time you edit something.</p>';
-    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+    html += '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:14px">' +
       '<button type="button" class="asc-btn asc-btn--sm" id="pmSnapNow">Take a snapshot now</button></div></div>';
 
     html += '<div class="asc-sheet__block"><h2 class="asc-label">Library</h2><p class="asc-body">' +
       plural(d.Prompts.list().length, 'prompt') + ' &middot; ' + plural(d.Tools.list().length, 'tool') +
       ' &middot; ' + plural(d.Collections.list().length, 'collection') + '</p>' +
-      '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:var(--asc-3)">' +
+      '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:14px">' +
       '<button type="button" class="asc-btn asc-btn--sm" data-starter="1">Add my usual tools</button></div></div>';
 
-    $('pmView').innerHTML = html + '</div>';
+    $('pmView').innerHTML = detailHero('Prompt Studio', 'Settings') +
+      band(html + '</div>', 'hd-band--detail');
   }
 
   // ============================================================
@@ -1491,16 +1806,21 @@
   }
   function go(hash) { location.hash = hash; }
 
+  /* WHICH PILL LINK IS LIT, and deliberately not ui.tab.
+
+     ui.tab is which LIBRARY you are looking at, and it is persisted to
+     prm:uiState. Settings is a place in the nav but it is not a
+     library, so writing 'settings' into ui.tab would persist a value
+     loadUi() then refuses (TABS has three members) and would leave the
+     Kept/Prompts switch meaning nothing on the way back. The pill needs
+     its own answer, and this is it. */
+  var route = 'prompts';
+
   function render() {
     var p = parts();
-    /* Named routes only. "Anything that is not the two homes" used to be
-       the test, which gave an unrecognised hash the compact hero of a
-       detail view AND the full toolbar of a home — a page that looked
-       like neither of the two things it might be. */
-    var isDetail = ['p', 't', 'c', 'settings'].indexOf(p[0]) !== -1;
 
     // The tab follows the route, so a deep link into a tool lands with the
-    // Tools tab lit rather than lying about where you are. A collection is
+    // Tools half open rather than lying about where you are. A collection is
     // the only route that cannot be read off the hash — its own kind says
     // which half of the page it belongs to.
     if (p[0] === 'kept') ui.tab = 'kept';
@@ -1512,20 +1832,29 @@
     // Settings belongs to neither half, so it leaves the tab alone. Every
     // other route — including an unrecognised one, which falls through to
     // the prompts home — is the prompts side, and saying so here is what
-    // stops the switch reading "Tools" over a page of prompts.
+    // stops the pill reading "Tools" over a page of prompts.
     else if (p[0] !== 'settings') ui.tab = 'prompts';
 
-    renderHero(isDetail);
-    closePop();
+    /* A DETAIL ROUTE LIGHTS ITS PARENT. #/p/… lights Prompts, #/t/…
+       lights Tools, and a collection lights whichever half its kind put
+       ui.tab in one line above. */
+    route = p[0] === 'settings' ? 'settings' : ui.tab;
+    paintNav();
 
-    if (!p.length)                     { renderBar('prompts'); runSafely(viewPromptsHome, 'prompts home'); }
-    else if (p[0] === 'tools')           { renderBar('tools');   runSafely(viewToolsHome, 'tools home'); }
-    else if (p[0] === 'kept')            { renderBar('kept');    runSafely(viewKept, 'kept'); }
-    else if (p[0] === 'p' && p[1])       { renderBar(null); runSafely(function () { viewPrompt(decodeURIComponent(p[1])); }, 'prompt'); }
-    else if (p[0] === 't' && p[1])       { renderBar(null); runSafely(function () { viewTool(decodeURIComponent(p[1])); }, 'tool'); }
-    else if (p[0] === 'c' && p[1])       { renderBar(null); runSafely(function () { viewCollection(decodeURIComponent(p[1])); }, 'collection'); }
-    else if (p[0] === 'settings')        { renderBar(null); runSafely(viewSettings, 'settings'); }
-    else                                 { renderBar('prompts'); runSafely(viewPromptsHome, 'prompts home'); }
+    if (!p.length)                       { runSafely(viewPromptsHome, 'prompts home'); }
+    else if (p[0] === 'tools')           { runSafely(viewToolsHome, 'tools home'); }
+    else if (p[0] === 'kept')            { runSafely(viewKept, 'kept'); }
+    else if (p[0] === 'p' && p[1])       { runSafely(function () { viewPrompt(decodeURIComponent(p[1])); }, 'prompt'); }
+    else if (p[0] === 't' && p[1])       { runSafely(function () { viewTool(decodeURIComponent(p[1])); }, 'tool'); }
+    else if (p[0] === 'c' && p[1])       { runSafely(function () { viewCollection(decodeURIComponent(p[1])); }, 'collection'); }
+    else if (p[0] === 'settings')        { runSafely(viewSettings, 'settings'); }
+    else                                 { runSafely(viewPromptsHome, 'prompts home'); }
+
+    /* The hero node was just replaced, so the scroll handler is holding a
+       reference to an element no longer in the document. Re-find and
+       re-measure it — the scroll event that would otherwise do it is not
+       guaranteed to fire. */
+    if (readScroll) readScroll(true);
   }
 
   /* A repaint is not a navigation. Cloud sync, coming back online and the
@@ -1537,8 +1866,11 @@
     var y = window.scrollY;
     var active = document.activeElement;
     // Never repaint out from under a field being typed into: the caret,
-    // the buffer and any IME composition would go with it.
-    if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName) && active.id !== 'pmQ') return;
+    // the buffer and any IME composition would go with it. The search
+    // field lives in the overlay now, so there is no exception to make.
+    if (active && /^(INPUT|TEXTAREA)$/.test(active.tagName)) return;
+    // And never out from under an open search or an open sheet.
+    if (!$('hdFind').hidden || $('ascSheetBg').classList.contains('is-on')) return;
     render();
     window.scrollTo(0, y);
   }
@@ -1561,7 +1893,7 @@
     var bg = $('ascSheetBg'), box = $('ascSheet');
     lastFocus = document.activeElement;
     box.innerHTML =
-      (cfg.title ? '<h2 class="asc-plate pm-sheet__title">' + esc(cfg.title) + '</h2>' : '') +
+      (cfg.title ? '<h2 class="hd-plate pm-sheet__title">' + esc(cfg.title) + '</h2>' : '') +
       cfg.body +
       (cfg.hideActions ? '' :
         '<div class="asc-sheet__acts">' +
@@ -1589,17 +1921,17 @@
   }
 
   function fieldText(label, name, value, ph, hint) {
-    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+    return '<label class="pm-field"><span class="asc-label">' + esc(label) + '</span>' +
       '<input class="asc-input" type="text" data-f="' + name + '" value="' + esc(value || '') + '" placeholder="' + esc(ph || '') + '">' +
       (hint ? '<span class="asc-small">' + esc(hint) + '</span>' : '') + '</label>';
   }
   function fieldArea(label, name, value, ph, hint) {
-    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+    return '<label class="pm-field"><span class="asc-label">' + esc(label) + '</span>' +
       '<textarea class="asc-textarea" data-f="' + name + '" placeholder="' + esc(ph || '') + '">' + esc(value || '') + '</textarea>' +
       (hint ? '<span class="asc-small">' + esc(hint) + '</span>' : '') + '</label>';
   }
   function fieldSelect(label, name, value, options) {
-    return '<label class="asc-field"><span class="asc-label">' + esc(label) + '</span>' +
+    return '<label class="pm-field"><span class="asc-label">' + esc(label) + '</span>' +
       '<select class="asc-select" data-f="' + name + '">' +
         options.map(function (o) {
           return '<option value="' + esc(o.id) + '"' + (o.id === value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
@@ -1635,7 +1967,7 @@
         fieldText('Name', 'title', p ? p.title : '', 'Scene improvement') +
         fieldArea('Prompt', 'text', p ? p.text : '', 'Paste the prompt. Wrap anything you swap out each time in double braces, like {{SCENE}}.',
           'Double-braced words become fillable fields when you open the prompt.') +
-        '<div class="asc-fields2">' +
+        '<div class="pm-fields2">' +
           fieldSelect('For', 'category', p ? p.category : 'writing', d.PROMPT_CATEGORIES) +
           fieldSelect('Works with', 'compat', p ? p.compat : '', d.COMPAT) +
         '</div>' +
@@ -1673,7 +2005,7 @@
       title: t ? 'Edit tool' : 'Add a tool',
       saveLabel: t ? 'Save changes' : 'Add tool',
       body:
-        '<div class="asc-fields2">' +
+        '<div class="pm-fields2">' +
           fieldText('Name', 'name', t ? t.name : '', 'Claude') +
           fieldText('Icon', 'icon', t ? t.icon : '', '◈', 'One character or emoji. Optional.') +
         '</div>' +
@@ -1712,7 +2044,7 @@
       title: col ? 'Edit collection' : (k === 'tool' ? 'New stack' : 'New collection'),
       saveLabel: col ? 'Save changes' : 'Create',
       body:
-        '<div class="asc-fields2">' +
+        '<div class="pm-fields2">' +
           fieldText('Name', 'title', col ? col.title : '', k === 'tool' ? 'Writing stack' : 'Novel chapter workflow') +
           fieldText('Icon', 'icon', col ? col.icon : '', '', 'Optional.') +
         '</div>' +
@@ -1738,7 +2070,7 @@
     var rows = cfg.items.map(function (it) {
       return '<label class="pm-check" style="padding:0 6px"><input type="checkbox" value="' + esc(it.id) + '"' +
         (cfg.selected.indexOf(it.id) >= 0 ? ' checked' : '') + '>' +
-        '<span>' + esc(it.label) + (it.note ? ' <span style="color:var(--asc-text-3);font-size:12px">' + esc(it.note) + '</span>' : '') + '</span></label>';
+        '<span>' + esc(it.label) + (it.note ? ' <span style="color:var(--hd-fg-3);font-size:12px">' + esc(it.note) + '</span>' : '') + '</span></label>';
     }).join('');
     openModal({
       title: cfg.title,
@@ -1966,8 +2298,7 @@
     });
   }
   function clearFilters() {
-    ui.q = ""; ui.cat = "all"; ui.favOnly = false; ui.pop = null;
-    var q = $('pmQ'); if (q) q.value = '';
+    ui.q = ''; ui.cat = 'all'; ui.favOnly = false;
     saveUi(); render();
   }
 
@@ -1977,57 +2308,41 @@
   function wire() {
     var app = $('pmApp');
 
-    on(app, '[data-tab]', 'click', function () {
-      var tab = this.dataset.tab;
-      if (ui.tab === tab) return;
-      ui.tab = tab;
-      // The corpus changed, so the query and the pill are about the wrong
-      // library now. Carrying them over would show an empty page.
-      ui.q = ''; ui.cat = 'all';
-      saveUi();
-      go(hashForTab(tab));
+    /* THE TWO CONTROLS THAT REPLACED THE DROP PANELS. A <select> reports
+       a keyboard choice as `change` and never as a click, so both are
+       bound on change — which is also why they can be native controls at
+       all, and why renderPop()'s offset-measuring is gone. */
+    on(app, '[data-setgroup]', 'change', function () {
+      ui.group = this.value; saveUi(); render();
     });
-
-    /* THE TWO DROP PANELS. Opening one closes the other, and a second
-       click on the same button closes it — the aria-expanded state the
-       button already carries is the state, so there is nothing else to
-       keep in sync. */
-    on(app, '[data-pop]', 'click', function (e) {
-      e.stopPropagation();
-      ui.pop = (ui.pop === this.dataset.pop) ? null : this.dataset.pop;
-      renderPop();
-    });
-    on(app, '[data-setgroup]', 'click', function () {
-      ui.group = this.dataset.setgroup; ui.pop = null; saveUi(); render();
-    });
-    on(app, '[data-fcat]', 'click', function () {
-      ui.cat = this.dataset.fcat; saveUi(); render();
+    on(app, '[data-fcat]', 'change', function () {
+      ui.cat = this.value; saveUi(); render();
     });
     on(app, '[data-ffav]', 'click', function () { ui.favOnly = !ui.favOnly; saveUi(); render(); });
     on(app, '[data-fclear]', 'click', clearFilters);
     /* Only the search. clearFilters() would also clear ui.favOnly, and
        the Kept tab is the one view that does not own that flag. */
-    on(app, '[data-clearq]', 'click', function () {
-      ui.q = '';
-      var q = $('pmQ'); if (q) q.value = '';
-      render();
-    });
-    /* Anywhere else closes it. Bound on the document rather than the app,
-       because "anywhere" includes the hero. */
-    document.addEventListener('click', function (e) {
-      if (!ui.pop) return;
-      if (e.target.closest && (e.target.closest('.asc-pop') || e.target.closest('[data-pop]'))) return;
-      closePop();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && ui.pop) { e.preventDefault(); closePop(); }
+    on(app, '[data-clearq]', 'click', function () { ui.q = ''; render(); });
+
+    /* A CHIP IN THE HERO NARROWS THE LIBRARY. It is the one thing a
+       full-viewport hero owes the reader: a way in that does not require
+       scrolling past the picture first. Pressing the chip you are
+       already on clears it again, so the hero is never a dead end. */
+    on(app, '[data-cat]', 'click', function () {
+      var c = this.dataset.cat;
+      ui.cat = (ui.cat === c) ? 'all' : c;
+      saveUi(); render();
+      window.scrollTo({ top: 0, behavior: 'auto' });
     });
 
-    /* Typing repaints the results only. render() rebuilds the bar, and
-       the caret lives in there. */
-    on(app, '#pmQ', 'input', function () { ui.q = this.value; runSafely(renderCurrentList, 'search'); });
-    on(app, '#pmQ', 'keydown', function (e) {
-      if (e.key === 'Escape') { ui.q = ''; this.value = ''; render(); }
+    /* Surprise me. It opens something you already have rather than
+       suggesting something you do not — the point of a library you
+       cannot see all of at once. */
+    on(app, '[data-surprise]', 'click', function () {
+      var pool = ui.tab === 'tools' ? D().Tools.list() : pvAll();
+      if (!pool.length) { toast('Nothing to pick from yet'); return; }
+      var pick = pool[Math.floor(Math.random() * pool.length)];
+      go(ui.tab === 'tools' ? '#/t/' + pick.id : '#/p/' + pick.uid);
     });
 
     on(app, '[data-fold]', 'click', function () {
@@ -2122,24 +2437,147 @@
       if (e.key === 'Escape' && $("ascSheetBg").classList.contains("is-on")) closeModal();
     });
 
+    wireChrome();
   }
 
-  /* The way back, in the top-left of anything that has taken over the
-     screen — which is where a back control has lived since the first
-     phone. It is rendered by the detail views rather than pinned over the
-     page, because topbar.js's launcher already owns that corner. */
-  function backLine() {
-    return '<button type="button" class="asc-back" data-back="1">' +
-      U().mark('back') + 'Back</button>';
+  // ============================================================
+  // §CHROME WIRING — the pill, the search, the keys, the scroll.
+  //
+  // These hosts are OUTSIDE #pmApp and outside every repaint, so
+  // they are bound once here and never again. They are named, never
+  // `document`: topbar.js, trash.js, save-state.js and
+  // shrink-banner.js all inject chrome of their own into this page,
+  // and a document-wide handler that preventDefaults anything with
+  // a data-act on it is a trap laid for whichever of them adopts
+  // the attribute next.
+  // ============================================================
+  function wireChrome() {
+    var top = $('hdTop'), find = $('hdFind'), foot = $('pmFoot');
+
+    on(top, '[data-act="find"]', 'click', function () { openFind(); });
+    on(find, '[data-act="find-close"]', 'click', function () { closeFind(); });
+    /* A result is a real link, so it navigates on its own; all this has
+       to do is get the overlay out of the way first. */
+    on(find, '[data-act="find-go"]', 'click', function () { closeFind(); });
+    on(foot, '[data-go]', 'click', function () { go(this.dataset.go); });
+
+    /* THE PILL BECOMES A MENU below 900px. The links do not fit beside
+       the wordmark and must not shrink into illegibility, so they drop
+       under it and the pill grows into a card. */
+    on(top, '[data-act="menu"]', 'click', function () {
+      var open = document.body.classList.toggle('hd-menu-on');
+      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    var findTimerLocal = 0;
+    $('hdFindIn').addEventListener('input', function (e) {
+      var v = e.target.value;
+      clearTimeout(findTimerLocal);
+      findTimerLocal = setTimeout(function () { paintFind(v); }, 130);
+    });
+    $('hdFindIn').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      /* Enter hands the query to the LIBRARY, where it becomes a token
+         you can see and clear. A search that only ever lived in an
+         overlay would leave you looking at a filtered page with no way
+         to tell it apart from an empty one. */
+      ui.q = e.target.value;
+      closeFind();
+      var p = parts();
+      if (['p', 't', 'c', 'settings'].indexOf(p[0]) !== -1) go(hashForTab(ui.tab));
+      else render();
+    });
+
+    $('addFab').onclick = function () {
+      if (ui.tab === 'tools') openToolEditor(null); else openPromptEditor(null);
+    };
+
+    addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('hdFind').hidden) { e.preventDefault(); return closeFind(); }
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+      if ($('ascSheetBg').classList.contains('is-on')) return;
+      if (e.key === '/') { e.preventDefault(); return openFind(); }
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        return ui.tab === 'tools' ? openToolEditor(null) : openPromptEditor(null);
+      }
+    });
+
+    // ══ SCROLL: THE PILL, AND THE PARALLAX ═══════════════════
+    // ONE handler for both, in one rAF. Two listeners reading the
+    // same scroll position on the same frame is two layout reads
+    // where one would do.
+    //
+    // NOT `animation-timeline: scroll()`. Scroll-driven CSS
+    // animations only reached iOS in Safari 26, and this has to
+    // work on Damian's phone today.
+    //
+    // The hero is the first element of #pmView and #pmView starts
+    // at y=0, so the hero's top is the document's top and its
+    // height is all the geometry this needs. Measured once per
+    // paint, not per frame.
+    var stuck = null, ticking = false, heroEl = null, heroH = 0;
+
+    readScroll = function (remeasure) {
+      if (remeasure) {
+        heroEl = $('pmView').querySelector('[data-parallax]');
+        heroH = heroEl ? heroEl.offsetHeight : 0;
+      }
+      ticking = false;
+      var y = window.scrollY || document.documentElement.scrollTop || 0;
+
+      var want = y > 24;
+      if (want !== stuck) { stuck = want; $('hdTop').classList.toggle('is-stuck', want); }
+
+      if (!heroEl || !heroH) return;
+      // Past the hero there is nothing to move, so this costs one
+      // comparison per frame for the rest of the page. The `> heroH`
+      // case still runs ONCE, to park the properties at their end
+      // values rather than leaving them mid-travel.
+      if (y > heroH + 40) {
+        if (heroEl.dataset.parked !== '1') {
+          heroEl.dataset.parked = '1';
+          heroEl.style.setProperty('--hd-par', '0px');
+          heroEl.style.setProperty('--hd-lift', '0px');
+          heroEl.style.setProperty('--hd-fade', '0');
+        }
+        return;
+      }
+      heroEl.dataset.parked = '0';
+      if (U().reducedMotion()) return;   // a still photograph, and nothing writes
+
+      var pr = y / heroH;
+      // The picture lags the page; the words leave before it does,
+      // which is what reads as depth rather than as a stuck image.
+      heroEl.style.setProperty('--hd-par', (y * 0.34).toFixed(1) + 'px');
+      heroEl.style.setProperty('--hd-lift', (y * -0.06).toFixed(1) + 'px');
+      heroEl.style.setProperty('--hd-fade', Math.max(0, 1 - pr / 0.62).toFixed(3));
+    };
+
+    addEventListener('scroll', function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { readScroll(false); });
+    }, { passive: true });
+    addEventListener('resize', function () { readScroll(true); }, { passive: true });
   }
 
   /* Typing repaints only the results, not the whole route: render() would
      rebuild the bar's controls in some cases, and the caret lives in
      there. */
+  /* Repaints the current library WITHOUT navigating. Folding a group is
+     not a route change, so it must not scroll — and because a view now
+     paints its own hero, it also has to hand the scroll handler the new
+     node. See [[rerender_must_not_scroll]]: a repaint that bounced the
+     page to the top is exactly the bug the sync layer already had. */
   function renderCurrentList() {
+    var y = window.scrollY;
     if (ui.tab === 'kept') viewKept();
     else if (ui.tab === 'tools') viewToolsHome();
     else viewPromptsHome();
+    if (readScroll) readScroll(true);
+    window.scrollTo(0, y);
   }
 
   function confirmDeleteCollection(id) {
@@ -2197,11 +2635,14 @@
     el.innerHTML = msg || '';
     syncNoticeSpacing();
   }
-  /* The band's own top padding exists to clear topbar's launcher. When a
-     notice is already doing that, the padding is just a hole. */
+  /* THE TWO NOTICES STACK. They are pinned to the same corner, so
+     without this the second is drawn exactly on top of the first and
+     whichever lost the race is invisible. Measured rather than assumed:
+     either one can be one line or five, depending on the message. */
   function syncNoticeSpacing() {
-    var any = !$('pmHealth').hidden || !$('pmUndo').hidden;
-    document.body.classList.toggle('pm-has-notice', any);
+    var health = $('pmHealth'), undo = $('pmUndo');
+    var lift = health.hidden ? 0 : health.offsetHeight + 10;
+    undo.style.setProperty('--pm-notice-lift', lift + 'px');
   }
   function checkStorageBackend() {
     var b = null;
@@ -2252,10 +2693,20 @@
   // §BOOT
   // ============================================================
   window.addEventListener('hashchange', function () {
+    // A navigation RE-ARMS the entrance; a repaint does not. That is the
+    // whole distinction the reveal clock exists to draw — see
+    // introAttrs() in asclepion-ui.js, which hands a re-created element
+    // a negative --t so a cloud pull resumes the animation instead of
+    // replaying it.
+    U().introArrive();
+    // The phone menu is open over the page it just navigated away from.
+    document.body.classList.remove('hd-menu-on');
+    var b = $('hdBurger'); if (b) b.setAttribute('aria-expanded', 'false');
     runSafely(render, 'hashchange');
     // Scroll-to-top belongs to navigation, and ONLY to navigation. See
     // refreshCurrentView(), which deliberately does the opposite.
     window.scrollTo(0, 0);
+    if (readScroll) readScroll(true);
   });
   window.addEventListener('online', function () { refreshCurrentView(); });
   window.addEventListener('offline', function () { refreshCurrentView(); });
@@ -2294,6 +2745,7 @@
 
     loadUi();
     wire();
+    U().introArrive();
     checkStorageBackend();
 
     /* The snapshot store starts BEFORE cloud sync. The opening pull can
