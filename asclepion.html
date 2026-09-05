@@ -77,7 +77,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vault-theme.css?v=6">
-<link rel="stylesheet" href="asclepion-theme.css?v=7">
+<link rel="stylesheet" href="asclepion-theme.css?v=8">
 <!-- The page opens on this. Preloaded, because it is the largest paint
      on it. A custom photograph set in Settings is swapped in by script
      once the store is ready; this is the one that ships. -->
@@ -280,13 +280,33 @@
 <!-- THE PRACTICE OVERLAY. One host for three runners; which one is
      inside it is decided at open time. A practice is a MODE the page
      enters, not a place you navigate to. -->
-<div class="sc-run" id="ascRun" role="dialog" aria-modal="true" aria-label="Practice">
-  <!-- Close only, and at the RIGHT end: topbar.js's launcher is fixed
-       over the top-left corner of every page in the dashboard. The
-       practice's name belongs under it anyway — what you are doing is
-       content, not chrome. -->
+<!-- hd-night IS LOAD-BEARING, not decoration. vault-theme.css defines
+     --hd-bg / --hd-fg / --hd-fg-2 / --hd-line ONLY on .hd-night and
+     .hd-sepia — body.hd sets a literal --hd-black and defines none of
+     them. This div hangs off body, so every one of those tokens was
+     out of scope here and `background: var(--hd-bg)` was invalid at
+     computed-value time: the overlay fell back to TRANSPARENT and the
+     hero, the nav pill and the whole table showed straight through a
+     practice. The ground class is how the rest of the page brings the
+     set into scope (see the hd-band hd-night bands below). -->
+<div class="sc-run hd-night" id="ascRun" role="dialog" aria-modal="true" aria-label="Practice">
+  <!-- ONE EXIT, AND IT IS ALWAYS HERE. Everything else you can press
+       during a practice — Begin, Next, Skip, Finish — is written into
+       #ascRunBody and rebuilt on every phase, so the buttons change
+       under you and none of them says stop. This one is outside the
+       body, so no runner can take it away.
+
+       It says END SESSION rather than Back because that is what it
+       does, and it is a BUTTON rather than the sheet's quiet .asc-back
+       link because this is the control you have to find mid-breath
+       with your eyes half shut.
+
+       Still at the RIGHT end. topbar.js's launcher is hidden while a
+       practice runs (see body.sc-running in asclepion-theme.css), so
+       the corner is free — but .sc-run__where is centred directly
+       beneath this and the position is the one already learned. -->
   <div class="sc-run__top">
-    <button type="button" class="asc-back" data-act="run-close"><span aria-hidden="true">&#8592;</span> Back</button>
+    <button type="button" class="sc-run__end" data-act="run-close">End session</button>
   </div>
   <!-- Outside the body, because the body is rebuilt on every phase. -->
   <p class="asc-label sc-run__where" id="ascRunWhere"></p>
@@ -2571,6 +2591,12 @@
     runEl.style.setProperty('--sc-tint', hueOf(groupId));
     runEl.classList.add('is-on');
     document.body.classList.add('asc-locked');
+    /* ITS OWN CLASS, not asc-locked. asc-locked is set by the sheet and
+       by the editors too and only means "the page behind must not
+       scroll"; this one means A PRACTICE IS RUNNING, and it is what
+       hides topbar.js's launcher. Hiding the launcher for a sheet would
+       be wrong. */
+    document.body.classList.add('sc-running');
     runOpen = true;
     if (!runPushed) { try { history.pushState({ asc: 'run' }, '', '#practice'); runPushed = true; } catch (e) {} }
   }
@@ -2585,6 +2611,7 @@
     runEl.classList.remove('is-on');
     runBody.innerHTML = '';
     document.body.classList.remove('asc-locked');
+    document.body.classList.remove('sc-running');
     if (runPushed && !fromPop) { runPushed = false; try { history.back(); } catch (e) {} }
     else { runPushed = false; }
     // The log changed while the overlay was up: Last done is stale.

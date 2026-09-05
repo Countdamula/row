@@ -765,24 +765,89 @@
    runner is inside it is decided at open time.
 
    They push a #practice history entry so the browser's own Back
-   closes them, and Back is a VISIBLE control top-left as well:
-   this could already be dismissed four ways and every one of them
-   was invisible. */
+   closes them, and End session is a VISIBLE control as well: this
+   could already be dismissed four ways and every one of them was
+   invisible.
+
+   A PRACTICE COVERS EVERYTHING, and it took TWO fixes to, because
+   two separate things were wrong at once and each one alone would
+   still have left the page showing through.
+
+   1. IT WAS TRANSPARENT. `background: var(--hd-bg)` was invalid at
+      computed-value time — see the note on the declaration below —
+      so it painted no ground at all and the hero photograph, the
+      headline and the whole table read straight through a session.
+
+   2. IT WAS OUT-STACKED. At z-index 300 it lost to the floating nav
+      pill (.hd-top, 900 — which runs a backdrop-filter, so it did
+      not merely sit over the practice, it SMEARED it), the notice
+      card (860), the add button (850) and the rails trash.js,
+      save-state.js and shrink-banner.js inject (840).
+
+   1200 clears all of them and still sits under the search overlay
+   (1400), the sheet (1500) and the toast (2000). None of those three
+   can collide with a running practice: startActivity() closes the
+   sheet before it opens this, and the / and n hotkeys are guarded by
+   runOpen. The toast staying ABOVE is deliberate — a confirmation
+   should still be readable.
+
+   Raising one plane is the fix rather than hiding each piece of
+   chrome, because three of those rails are injected by scripts this
+   page does not own: an opaque plane above them covers whatever they
+   inject, now and later.
+
+   TESTING THIS NEEDS A PAINT ASSERTION, not a hit test.
+   document.elementFromPoint() returned the overlay for every one of
+   those elements while it was completely transparent — it answers
+   what catches the CLICK, and the overlay always did. Assert the
+   computed backgroundColor's alpha, or screenshot a clip of the
+   hero and check it compressed down to a flat colour. */
 .sc-run {
-  position: fixed; inset: 0; z-index: 300;
+  position: fixed; inset: 0; z-index: 1200;
   display: none;
   flex-direction: column;
-  background: var(--hd-bg);
+  /* THE FALLBACK IS THE POINT. --hd-bg is defined only on .hd-night /
+     .hd-sepia, never on body.hd — and this div hangs off body, so a
+     bare var(--hd-bg) was INVALID here and the background fell back to
+     transparent. The element carries .hd-night now, which is the real
+     fix; --hd-black is a :root primitive and is here so that removing
+     that class can never quietly turn the overlay back into glass. */
+  background: var(--hd-bg, var(--hd-black));
 }
 .sc-run.is-on { display: flex; animation: sc-fade .42s var(--hd-ease) both; }
 @keyframes sc-fade { from { opacity: 0; } to { opacity: 1; } }
 
-/* topbar.js's launcher is fixed over the top-left corner of every
-   page in the dashboard, so Back cannot sit there. */
+/* THE ONE THING TOPBAR.JS'S LAUNCHER CANNOT BE OUT-STACKED FROM.
+   It is fixed at z-index 2600 on every page in the dashboard, above
+   anything this page could raise, so for the length of a practice it
+   is hidden outright — scoped to body.sc-running, which only openRun()
+   sets and only closeRun() clears. Nothing is stranded by that: End
+   session, Esc and the browser's own Back all still leave. */
+body.sc-running .tb-launcher { display: none; }
+
 .sc-run__top {
   display: flex; align-items: center; justify-content: flex-end;
   padding: 16px clamp(20px, 7vw, 140px);
 }
+/* END SESSION. Quiet by default and lit only on hover or keyboard
+   focus, for the same reason Skip is not the primary button below:
+   this should never be the brightest thing on a screen you are trying
+   to breathe with. But it is a real target — 44px of it — because it
+   is the control you have to find mid-practice without looking. */
+.sc-run__end {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 20px;
+  border: 1px solid var(--hd-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hd-fg-2);
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--hd-fast), border-color var(--hd-fast);
+}
+.sc-run__end:hover { color: var(--hd-gold); border-color: var(--hd-gold-mute); }
+.sc-run__end:focus-visible { color: var(--hd-gold); border-color: var(--hd-gold); }
+.sc-run__end:active { color: var(--hd-gold-lit); }
 .sc-run__where {
   text-align: center; color: var(--hd-acc);
   padding: 0 clamp(20px, 7vw, 140px);
