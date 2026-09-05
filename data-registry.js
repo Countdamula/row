@@ -232,6 +232,11 @@
         { key: 'prm:collections', label: 'collections' },
         { key: 'prm:workflows',   label: 'workflows' },
         { key: 'prm:tools',       label: 'tools' },
+        /* Groups became user data on 2026-09-04. Counted here so a
+           snapshot carries them: without this line, restoring after a
+           bad sync would bring the prompts back and leave every one of
+           them pointing at a group that no longer exists. */
+        { key: 'prm:groups',      label: 'groups' },
         { key: 'cdx:prompts',     label: 'fiction prompts' }
       ]
     },

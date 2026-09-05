@@ -82,6 +82,11 @@
     prompts:     'prm:prompts',
     tools:       'prm:tools',
     collections: 'prm:collections',
+    /* GROUPS ARE DATA NOW — added 2026-09-04. They were a hard-coded
+       array of eight until then, and only a group ID was ever stored on
+       a record, which is the whole reason this needed no migration: the
+       seed below uses the same eight ids the constants used. */
+    groups:      'prm:groups',
     fictionMeta: 'prm:fictionMeta',
     uiState:     'prm:uiState',
     settings:    'prm:settings',
@@ -216,14 +221,26 @@
   //
   // Every value clears 3:1 on --asc-ground (#0a0705).
   // ============================================================
+  /* RE-SPREAD 2026-09-04, when the tint became a filled PILL.
+     Until then a group's hue was a hairline, a drawn mark and a rule —
+     devices where marble, the window and window stone being three near
+     values did not matter, because none of them was ever asked to be
+     told apart from the others at a glance.
+     A pill is. Four of the eight sat within a few points of each other
+     in the greys, so Writing, Thinking and Research read as one colour
+     in a column of capsules. These are the same measured hues; they are
+     just chosen now for maximum SEPARATION rather than for a pleasing
+     run, which is what a filled swatch needs.
+     Every value still clears 3:1 on the ground, and all eighteen remain
+     available to any group from the swatch grid. */
   var PROMPT_CATEGORIES = [
     { id: 'writing',   label: 'Writing',   hue: '#d6d2cb' },   /* marble          */
-    { id: 'thinking',  label: 'Thinking',  hue: '#bbc4bf' },   /* the window      */
-    { id: 'research',  label: 'Research',  hue: '#a8b0ad' },   /* window stone    */
+    { id: 'thinking',  label: 'Thinking',  hue: '#8fa39b' },   /* verdigris       */
+    { id: 'research',  label: 'Research',  hue: '#9aa3b0' },   /* slate           */
     { id: 'selfcare',  label: 'Self-Care', hue: '#e0a765' },   /* the sconce      */
     { id: 'planning',  label: 'Planning',  hue: '#c99a63' },   /* gilding         */
-    { id: 'editing',   label: 'Editing',   hue: '#c08a55' },   /* the candle      */
-    { id: 'learning',  label: 'Learning',  hue: '#a9764c' },   /* old copper      */
+    { id: 'editing',   label: 'Editing',   hue: '#b8796a' },   /* ember           */
+    { id: 'learning',  label: 'Learning',  hue: '#a98b9a' },   /* dusk            */
     { id: 'other',     label: 'Other',     hue: '#938b7c' }    /* cool stone      */
   ];
 
@@ -250,11 +267,218 @@
     { id: 'either',  label: 'Either' }
   ];
 
-  function catList(kind) { return kind === 'tool' ? TOOL_CATEGORIES : PROMPT_CATEGORIES; }
+  /* THE PALETTE A NEW GROUP CAN BE GIVEN. Eighteen values, and not one
+     of them is a chosen colour: they are the things actually in the
+     photograph the two studios share, sampled band by band. A group
+     picks from these rather than from a free colour wheel, because every
+     one of them clears 3:1 on the ground and a free picker is how a
+     group ends up invisible. */
+  var GROUP_HUES = [
+    { hue: '#d6d2cb', name: 'Marble' },       { hue: '#bbc4bf', name: 'Window' },
+    { hue: '#a8b0ad', name: 'Window stone' }, { hue: '#c3c6c6', name: 'Daylight' },
+    { hue: '#e0a765', name: 'Sconce' },       { hue: '#c99a63', name: 'Gilding' },
+    { hue: '#c08a55', name: 'Candle' },       { hue: '#a9764c', name: 'Old copper' },
+    { hue: '#8f6a48', name: 'Deep bronze' },  { hue: '#938b7c', name: 'Cool stone' },
+    { hue: '#6b6259', name: 'Ground' },       { hue: '#b8796a', name: 'Ember' },
+    { hue: '#a98b9a', name: 'Dusk' },         { hue: '#8fa39b', name: 'Verdigris' },
+    { hue: '#c7b4a0', name: 'Parchment' },    { hue: '#9aa3b0', name: 'Slate' },
+    { hue: '#b0a48c', name: 'Linen' },        { hue: '#7f8a86', name: 'Shadow stone' }
+  ];
+
+  /* The id every unresolved group falls back to. It is protected: it
+     cannot be deleted and it is re-seeded if it goes missing, because
+     something has to catch a record whose group was deleted on another
+     device this one has not heard from yet. */
+  var FALLBACK_GROUP = 'other';
+
+  function slugId(label, taken) {
+    var base = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '').replace(/-+$/, '').slice(0, 32) || 'group';
+    var id = base, n = 2;
+    while (taken && taken.indexOf(id) !== -1) id = base + '-' + (n++);
+    return id;
+  }
+
+  function groupModel(d) {
+    d = d || {};
+    return {
+      id: d.id || slugId(d.label),
+      label: stripControl(d.label == null ? 'Untitled group' : String(d.label)).slice(0, 40) || 'Untitled group',
+      hue: /^#[0-9a-fA-F]{6}$/.test(d.hue) ? d.hue : GROUP_HUES[0].hue,
+      order: d.order == null ? 0 : (Number(d.order) || 0),
+      createdAt: d.createdAt || nowISO(),
+      updatedAt: d.updatedAt || ''
+    };
+  }
+
+  var Groups = makeCollection(KEYS.groups, groupModel);
+
+  /* CACHED ON THE RAW STRING, and that is load-bearing rather than a
+     micro-optimisation. catById() is called once per row per paint and
+     this library is four hundred rows: with no cache that is four
+     hundred JSON.parse calls on every keystroke.
+
+     Keying the cache on the raw localStorage string rather than on a
+     dirty flag is what makes it correct under EVERY writer — this file,
+     a cloud pull applying straight through sync.js's localStorage patch,
+     or another tab — because the string IS the source of truth and a
+     dirty flag set in here would never hear about the other two. */
+  var gRaw = null, gVal = null;
+
+  function seedGroupList(parsed) {
+    var out = Array.isArray(parsed) ? parsed.map(groupModel) : [];
+    if (!out.length) {
+      out = PROMPT_CATEGORIES.map(function (c, i) {
+        return groupModel({ id: c.id, label: c.label, hue: c.hue, order: i });
+      });
+    }
+    var hasFallback = false;
+    for (var i = 0; i < out.length; i++) if (out[i].id === FALLBACK_GROUP) hasFallback = true;
+    if (!hasFallback) {
+      out.push(groupModel({ id: FALLBACK_GROUP, label: 'Other', hue: '#938b7c', order: 9999 }));
+    }
+    return out.sort(byOrder);
+  }
+
+  function promptGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    if (raw !== null && raw === gRaw && gVal) return gVal;
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    gVal = seedGroupList(parsed);
+    gRaw = raw;
+    return gVal;
+  }
+
+  /* Writes the seed out the first time anything asks, so the Settings
+     panel and the editor's select edit something real rather than a list
+     that exists only in memory. Called once from boot. */
+  function ensureGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    var seeded = seedGroupList(parsed);
+    if (!Array.isArray(parsed) || parsed.length !== seeded.length) {
+      storeSet(KEYS.groups, seeded);
+      gRaw = null;
+    }
+    return promptGroups();
+  }
+
+  function addGroup(label, hue) {
+    var all = promptGroups();
+    var taken = all.map(function (g) { return g.id; });
+    var max = 0;
+    all.forEach(function (g) { if ((g.order || 0) > max) max = g.order || 0; });
+    var rec = groupModel({ id: slugId(label, taken), label: label, hue: hue, order: max + 1 });
+    storeSet(KEYS.groups, all.concat([rec]));
+    gRaw = null;
+    return rec;
+  }
+
+  function updateGroup(id, patch) {
+    var all = promptGroups().slice(), idx = -1, i;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) { idx = i; break; }
+    if (idx < 0) return null;
+    var merged = {};
+    for (var k in all[idx]) merged[k] = all[idx][k];
+    for (var k2 in patch) merged[k2] = patch[k2];
+    merged.id = id;                 // an id is never edited: records point at it
+    merged.updatedAt = nowISO();
+    all[idx] = groupModel(merged);
+    storeSet(KEYS.groups, all);
+    gRaw = null;
+    return all[idx];
+  }
+
+  function reorderGroups(ids) {
+    var all = promptGroups(), by = {}, out = [];
+    all.forEach(function (g) { by[g.id] = g; });
+    (ids || []).forEach(function (id) {
+      if (!by[id]) return;
+      var g = by[id];
+      out.push(groupModel({ id: g.id, label: g.label, hue: g.hue, order: out.length,
+                            createdAt: g.createdAt, updatedAt: g.updatedAt }));
+      delete by[id];
+    });
+    /* Anything the caller did not name keeps its place at the end rather
+       than being dropped. A reorder is not a delete, and a drag handler
+       that misses a row must not be able to destroy it. */
+    Object.keys(by).forEach(function (id) {
+      var g = by[id];
+      out.push(groupModel({ id: g.id, label: g.label, hue: g.hue, order: out.length,
+                            createdAt: g.createdAt, updatedAt: g.updatedAt }));
+    });
+    storeSet(KEYS.groups, out);
+    gRaw = null;
+    return out;
+  }
+
+  /* DELETING A GROUP RE-FILES EVERYTHING IN IT FIRST, and BOTH halves of
+     the library have to be swept: an ordinary prompt stores its group on
+     the record, and a FICTION prompt stores it in the prm:fictionMeta
+     sidecar, because the Codex's own record has no field for it. Missing
+     the sidecar would leave every fiction prompt in the group pointing at
+     something that no longer exists.
+
+     Note what this does NOT do: it never touches a cdx: key. The sidecar
+     is ours, under prm:. See §CODEX GATE in promptarium.html. */
+  function removeGroup(id, moveTo) {
+    if (id === FALLBACK_GROUP) return { ok: false, reason: 'protected' };
+    var all = promptGroups(), found = false, destOk = false, i;
+    for (i = 0; i < all.length; i++) {
+      if (all[i].id === id) found = true;
+      if (all[i].id === moveTo) destOk = true;
+    }
+    if (!found) return { ok: false, reason: 'missing' };
+    var dest = (destOk && moveTo !== id) ? moveTo : FALLBACK_GROUP;
+
+    var moved = 0;
+    Prompts.list().forEach(function (r) {
+      if (r.category === id) { Prompts.update(r.id, { category: dest }); moved++; }
+    });
+    var meta = fictionMetaAll(), touched = false;
+    Object.keys(meta).forEach(function (pid) {
+      if (meta[pid] && meta[pid].category === id) {
+        meta[pid] = fictionMetaModel({ category: dest, updatedAt: nowISO() });
+        touched = true; moved++;
+      }
+    });
+    if (touched) storeSet(KEYS.fictionMeta, meta);
+
+    storeSet(KEYS.groups, all.filter(function (g) { return g.id !== id; }));
+    gRaw = null;
+    return { ok: true, moved: moved, dest: dest };
+  }
+
+  /* How many prompts each group holds, both halves of the library
+     counted. The Settings panel and the group header bar both ask, and
+     a delete confirmation that under-reports is worse than none. */
+  function groupCounts() {
+    var counts = {};
+    Prompts.list().forEach(function (r) { counts[r.category] = (counts[r.category] || 0) + 1; });
+    var meta = fictionMetaAll();
+    Object.keys(meta).forEach(function (pid) {
+      var c = meta[pid] && meta[pid].category;
+      if (c) counts[c] = (counts[c] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function catList(kind) { return kind === 'tool' ? TOOL_CATEGORIES : promptGroups(); }
+  /* THE FALLBACK IS EXPLICIT NOW. It used to return all[all.length - 1]
+     and rely on Other being last — true of a frozen constant, and false
+     the moment a group can be reordered or added after it. Look up the
+     id, then the fallback BY NAME, then whatever is last, so a record
+     pointing at a group deleted on another device renders as Other
+     rather than as a blank pill. */
   function catById(kind, id) {
-    var all = catList(kind);
-    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
-    return all[all.length - 1];   // 'other'
+    var all = catList(kind), i;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    for (i = 0; i < all.length; i++) if (all[i].id === FALLBACK_GROUP) return all[i];
+    return all[all.length - 1] || { id: FALLBACK_GROUP, label: 'Other', hue: '#938b7c' };
   }
   function compatLabel(id) {
     if (!id) return '';
@@ -631,6 +855,11 @@
     TOOL_CATEGORIES: TOOL_CATEGORIES,
     COMPAT: COMPAT,
     catList: catList, catById: catById, compatLabel: compatLabel,
+
+    GROUP_HUES: GROUP_HUES, FALLBACK_GROUP: FALLBACK_GROUP,
+    Groups: Groups, promptGroups: promptGroups, ensureGroups: ensureGroups,
+    addGroup: addGroup, updateGroup: updateGroup, reorderGroups: reorderGroups,
+    removeGroup: removeGroup, groupCounts: groupCounts,
 
     promptModel: promptModel, toolModel: toolModel, collectionModel: collectionModel,
     Prompts: Prompts, Tools: Tools, Collections: Collections,

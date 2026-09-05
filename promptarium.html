@@ -51,7 +51,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vault-theme.css?v=4">
-<link rel="stylesheet" href="promptarium-theme.css?v=3">
+<link rel="stylesheet" href="promptarium-theme.css?v=4">
 <!-- Every view opens on this. Preloaded, because it is the largest
      paint on all of them. -->
 <link rel="preload" as="image" href="images_by_admin/promptarium/hero-hall.webp" fetchpriority="high">
@@ -388,7 +388,7 @@
   // ============================================================
   var TABS = ['prompts', 'tools', 'kept'];
   var ui = { tab: 'prompts', q: '', cat: 'all', favOnly: false,
-             group: 'category', shut: [] };
+             group: 'category', shut: [], promptsShut: [] };
 
   /* The scroll handler, assigned once by wireChrome(). It lives up here
      because render() has to call it: a repaint replaces the hero node,
@@ -402,11 +402,16 @@
     if (typeof s.cat === 'string') ui.cat = s.cat;
     if (s.group && GROUPINGS[s.group]) ui.group = s.group;
     if (Array.isArray(s.shut)) ui.shut = s.shut.slice();
+    if (Array.isArray(s.promptsShut)) ui.promptsShut = s.promptsShut.slice();
     ui.favOnly = !!s.favOnly;
   }
   function saveUi() {
     D().setUiState({ tab: ui.tab, cat: ui.cat, favOnly: ui.favOnly,
-                     group: ui.group, shut: ui.shut });
+                     group: ui.group, shut: ui.shut,
+                     /* Uids, and nothing but uids. prm:uiState syncs, so
+                        this list reaches the phone — which is the point,
+                        and also the reason not to let anything else in. */
+                     promptsShut: ui.promptsShut });
   }
 
   /* WHICH PROMPTS ARE OPEN IN THE LIST, and deliberately NOT in `ui` —
@@ -416,19 +421,35 @@
      It is a variable rather than just a class on the DOM because a cloud
      pull calls render() at a moment nobody chose, and a prompt you are
      halfway through reading has to survive that repaint. */
-  var openPeek = [];
-  function isPeeking(uid) { return openPeek.indexOf(uid) !== -1; }
+  /* A PROMPT'S TEXT IS SHOWN BY DEFAULT, as of 2026-09-04. It used to be
+     hidden until you pressed the chevron, and the list underneath showed
+     the NOTE instead — which meant finding a prompt by its wording took a
+     click per prompt. The library is the prompts; showing them is the job.
+
+     SO THE STATE INVERTED. `openPeek` was a list of what was open and
+     lived only in memory, on the argument that reading is not a
+     preference. `ui.promptsShut` is a list of what is CLOSED and it is
+     persisted to prm:uiState beside ui.shut, which has always worked
+     exactly this way for group folds — because deciding a particular
+     prompt is too long to sit open IS a preference, and having to decide
+     it again on every visit is not.
+
+     Long prompts are handled in CSS, by height, not here by counting
+     characters: a character count cuts in a different place at every
+     font size, and this page's type is fluid. See .pm-peek__body. */
+  function isShut(uid) { return ui.promptsShut.indexOf(uid) !== -1; }
   /* A uid carries a colon (`prm:pp_x`). Legal in an id, awkward in every
      selector that might later be pointed at one, so it is spent here. */
   function peekId(uid) { return 'pmPeek-' + String(uid).replace(/[^A-Za-z0-9_-]/g, '-'); }
 
   /* FLIPPED IN PLACE, not repainted. Every row carries an entrance
-     stagger, so re-rendering the list to open one prompt would make the
+     stagger, so re-rendering the list to close one prompt would make the
      whole library flicker through its reveal again. The repaint is the
      fallback for the case where the row has gone. */
   function togglePeek(uid) {
-    var i = openPeek.indexOf(uid), open = i === -1;
-    if (open) openPeek.push(uid); else openPeek.splice(i, 1);
+    var i = ui.promptsShut.indexOf(uid), open = i !== -1;   // it was shut, so this OPENS it
+    if (open) ui.promptsShut.splice(i, 1); else ui.promptsShut.push(uid);
+    saveUi();
     var panel = document.getElementById(peekId(uid));
     var btn = document.querySelector('[data-peek="' + uid + '"]');
     if (!panel || !btn) { renderCurrentList(); return; }
@@ -436,6 +457,58 @@
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     btn.setAttribute('aria-label',
       (open ? 'Hide' : 'Show') + ' the text of ' + (btn.getAttribute('data-peek-name') || 'this prompt'));
+    // It had no layout while it was hidden, so it could not be measured
+    // at the last paint. Measure it now that it has one.
+    if (open) markClamped(panel.parentNode);
+  }
+
+  /* WHICH PROMPTS ARE ACTUALLY LONG. The clamp itself is CSS — a
+     max-height of ten lines on .pm-peek__body — because whether a prompt
+     is long is a question about rendered height at the current font
+     size, and this page's type is fluid. What CSS cannot do is notice
+     that the text overflowed, so the "Show all" is revealed from here.
+
+     READ EVERY HEIGHT FIRST, THEN WRITE EVERY CLASS. Interleaving them
+     is a forced reflow per prompt, and this library is four hundred
+     prompts; batched, the whole pass costs one layout. That is the
+     difference between a paint you notice and one you do not.
+
+     A hidden panel has no layout at all (scrollHeight 0), so a prompt
+     whose text is collapsed is skipped rather than measured as short —
+     it gets measured when it opens. */
+  function markClamped(root) {
+    var host = root || $('pmView');
+    if (!host) return;
+    var panels = host.querySelectorAll('.pm-peek:not([hidden])');
+    if (!panels.length) return;
+    var reads = [];
+    panels.forEach(function (panel) {
+      var body = panel.querySelector('.pm-peek__body');
+      // is-full removes the max-height, so a released prompt would
+      // always measure as "not overflowing" and lose its own control.
+      if (!body || panel.classList.contains('is-full')) return;
+      reads.push([panel, body.scrollHeight - body.clientHeight > 2]);
+    });
+    reads.forEach(function (r) { r[0].classList.toggle('is-long', r[1]); });
+  }
+
+  /* THE CLAMP RELEASE, and deliberately NOT persisted — unlike the
+     collapse above. "This prompt is long and I want it out of my way
+     every time" is a preference; "show me the rest of this one, now" is
+     about this minute, which is what the old note about openPeek was
+     right about. It is a class on the panel and nothing else. */
+  function toggleFull(uid) {
+    var panel = document.getElementById(peekId(uid));
+    if (!panel) return;
+    var on = panel.classList.toggle('is-full');
+    var btn = panel.querySelector('[data-full]');
+    if (btn) {
+      btn.textContent = on ? 'Show less' : 'Show all';
+      btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    }
+    // Folding it back up: re-measure this one, so a prompt that is only
+    // just over ten lines keeps its control instead of losing it.
+    if (!on) markClamped(panel.parentNode);
   }
 
   // ============================================================
@@ -754,7 +827,42 @@
       '<div class="pm-prompt-text pm-peek__body" role="cell" tabindex="0">' +
         markVars(p.text || 'This prompt has no text yet.') +
       '</div>' +
+      /* THE CLAMP RELEASE, always in the markup and never gated on a
+         character count: whether a prompt is "long" is a question about
+         rendered height at the current font size, and CSS is the only
+         thing that knows the answer. .pm-peek__more is revealed by the
+         clamp itself, so on a short prompt it simply never shows. */
+      '<div class="pm-peek__more" role="cell">' +
+        '<button type="button" class="pm-more" data-full="' + esc(p.uid) + '"' +
+          ' aria-expanded="false">Show all</button>' +
+      '</div>' +
     '</div>';
+  }
+
+  /* ── §THE GROUP PILL ────────────────────────────────────────
+     Read frame by frame off the "List 2" / "Case 1" buttons in
+     Downloads/original-9f68406c143b928315bc24ad1ae397a1.mp4: a fully
+     rounded capsule, a vertical gradient in its own hue, near-black
+     text, and a soft glow of the same hue under it.
+
+     ONE BUILDER, THREE PLACES — the row's Group cell, the group header
+     bar, and a prompt's own page. All three read --pm-tint, so
+     recolouring a group is one write and every surface follows; that is
+     the same lever that let the vault re-ground itself three times in a
+     day for one token block.
+
+     It is a BUTTON on a row (pressing it filters the library to that
+     group) and a plain span in the header bar, where the bar itself is
+     already the control. A button inside a button is not valid HTML and
+     the browser's repair of it is not something to rely on. */
+  function groupPill(kind, catId, asButton) {
+    var c = D().catById(kind, catId);
+    var inner = '<span class="pm-pill__dot" aria-hidden="true"></span>' + esc(c.label);
+    if (!asButton) {
+      return '<span class="pm-pill" style="--pm-tint:' + c.hue + '">' + inner + '</span>';
+    }
+    return '<button type="button" class="pm-pill pm-pill--btn" style="--pm-tint:' + c.hue + '"' +
+      ' data-cat="' + esc(c.id) + '" title="Show only ' + esc(c.label) + '">' + inner + '</button>';
   }
 
   function sectionHead(label, note) {
@@ -766,15 +874,19 @@
 
   // --- the table ------------------------------------------------
   //
-  // TWO COLUMN SETS, because a column that repeats the heading above it
-  // is a column doing nothing. Grouped by category, every group already
-  // says its own name, so the second column spends itself on the count
-  // instead; ungrouped there is no heading, so it carries the category.
+  // ONE COLUMN SET NOW. There used to be two — grouped by category the
+  // second column showed a count, because a column that repeats the
+  // heading above it is a column doing nothing.
+  //
+  // That rule lost to a better one on 2026-09-04: Damian asked for the
+  // group to travel WITH the prompt, as a pill, wherever he meets it. A
+  // pill that disappears exactly when you are browsing by group is a
+  // pill you cannot rely on, and half the point of it is that you can
+  // press it to filter. So Group is unconditional, and the count moved
+  // in beside the date, which is what freed the column.
   var COLS = {
-    prompt: { grouped:  ['Prompt', 'Copied', 'Model', 'Last used'],
-              flat:     ['Prompt', 'Category', 'Model', 'Last used'] },
-    tool:   { grouped:  ['Tool', 'Opened', 'Site', 'Last opened'],
-              flat:     ['Tool', 'Category', 'Site', 'Last opened'] }
+    prompt: ['Prompt', 'Group', 'Model', 'Used'],
+    tool:   ['Tool', 'Group', 'Site', 'Opened']
   };
   /* The Kept tab never groups: its two libraries ARE its sections, and
      category grouping across both would stack headings that mean
@@ -786,7 +898,7 @@
 
   function colsRow(kind) {
     return '<div class="pm-thead" role="row">' +
-      COLS[kind === 'tool' ? 'tool' : 'prompt'][grouped() ? 'grouped' : 'flat'].map(function (c) {
+      COLS[kind === 'tool' ? 'tool' : 'prompt'].map(function (c) {
         return '<span class="asc-label" role="columnheader">' + esc(c) + '</span>';
       }).join('') +
       '<span class="asc-label" role="columnheader"><span class="hd-sr">Actions</span></span>' +
@@ -802,65 +914,88 @@
      heart are its SIBLINGS, never inside it: a button inside a button is
      not valid HTML and the browser's repair of it is not something to
      rely on. */
+  /* ONE PROMPT IS ONE BLOCK. The row and its text used to be two
+     siblings separated from the next prompt by a hairline, which was
+     right while the text was hidden and a row was one line tall. Now
+     that every prompt carries its text, a row is a paragraph tall, and a
+     hairline between paragraphs does not say where one prompt ends.
+
+     So the two are wrapped in .pm-item — still SIBLINGS inside it, never
+     nested, because .pm-row is a six-column grid and .pm-peek would have
+     to be placed in that grid (and again in the phone's named-area one)
+     if it were a child. The wrapper carries the border, the tint edge
+     and the hover; the grid inside it is untouched.
+
+     THE SECOND COLUMN IS THE GROUP PILL, always — see COLS. The use
+     count moved in beside the date, which is what freed the column. */
   function promptRow(p, i) {
     var last = p.lastUsedAt ? D().fmtAgo(p.lastUsedAt) : '';
-    var open = isPeeking(p.uid), pid = peekId(p.uid);
-    return '<div class="pm-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
-      ' role="row" style="--pm-tint:' + hueOf('prompt', p.category) + '">' +
-      '<button type="button" class="pm-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
-        '<span class="pm-row__mark" aria-hidden="true">' + pmMark(p.category) + '</span>' +
-        '<span class="pm-row__text">' +
-          '<span class="pm-row__title">' + esc(p.title) + '</span>' +
-          (noteFor(p) ? '<span class="pm-row__desc">' + esc(noteFor(p)) + '</span>' : '') +
+    var open = !isShut(p.uid), pid = peekId(p.uid);
+    var used = [p.useCount ? p.useCount + '\u00d7' : '', last].filter(Boolean).join(' \u00b7 ');
+    return '<div class="pm-item ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' style="--pm-tint:' + hueOf('prompt', p.category) + '">' +
+      '<div class="pm-row" role="row">' +
+        '<button type="button" class="pm-row__name" role="cell" data-open="' + esc(p.uid) + '">' +
+          '<span class="pm-row__mark" aria-hidden="true">' + pmMark(p.category) + '</span>' +
+          '<span class="pm-row__text">' +
+            '<span class="pm-row__title">' + esc(p.title) + '</span>' +
+            (noteFor(p) ? '<span class="pm-row__desc">' + esc(noteFor(p)) + '</span>' : '') +
+          '</span>' +
+        '</button>' +
+        '<div class="pm-row__meta">' +
+          '<span class="pm-cell pm-cell--pill" role="cell">' +
+            groupPill('prompt', p.category, true) +
+            (p.fiction ? '<span class="pm-fic" title="In the fiction library">&#10086;</span>' : '') +
+          '</span>' +
+          '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(D().compatLabel(p.compat)) + '</span>' +
+          '<span class="pm-cell ' + (used ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
+            esc(used) + '</span>' +
+        '</div>' +
+        '<span class="pm-row__do" role="cell">' +
+          '<button type="button" class="pm-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
+          peekBtn(p.uid, open, pid, p.title) +
+          '<button type="button" class="pm-ico" data-menu="' + esc(p.uid) + '"' +
+            ' aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
         '</span>' +
-      '</button>' +
-      '<div class="pm-row__meta">' +
-        '<span class="pm-cell pm-cell--num" role="cell">' +
-          (grouped() ? esc(p.useCount ? U().plural(p.useCount, 'time') : '') 
-                     : esc(catLabel('prompt', p.category))) +
-          (p.fiction ? ' &#10086;' : '') + '</span>' +
-        '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(D().compatLabel(p.compat)) + '</span>' +
-        '<span class="pm-cell ' + (last ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
-          esc(last) + '</span>' +
+        '<span class="pm-row__kept" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
       '</div>' +
-      '<span class="pm-row__do" role="cell">' +
-        '<button type="button" class="pm-start" data-copy="' + esc(p.uid) + '">Copy</button>' +
-        peekBtn(p.uid, open, pid, p.title) +
-        '<button type="button" class="pm-ico" data-menu="' + esc(p.uid) + '"' +
-          ' aria-label="More actions for ' + esc(p.title) + '">&#8943;</button>' +
-      '</span>' +
-      '<span class="pm-row__kept" role="cell">' + heartBtn(p.uid, p.favorite, p.title) + '</span>' +
-    '</div>' +
-    peekPanel(p, open, pid);
+      peekPanel(p, open, pid) +
+    '</div>';
   }
 
+  /* The tool row takes the same wrapper and the same pill, so the two
+     tables read as one system — but a tool has no text panel, so
+     .pm-item holds a row and nothing else. Tool categories are still the
+     frozen constant: only the PROMPT groups are editable, which is what
+     was asked for. */
   function toolRow(t, i) {
     var host = D().hostOf(t.url);
     var last = t.lastOpenedAt ? D().fmtAgo(t.lastOpenedAt) : '';
-    return '<div class="pm-row ' + U().rvlClass() + '"' + U().rvlStyle(i) +
-      ' role="row" style="--pm-tint:' + hueOf('tool', t.category) + '">' +
-      '<a class="pm-row__name" role="cell" href="' + esc(t.url || '#') + '" target="_blank"' +
-        ' rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
-        '<span class="pm-row__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
-        '<span class="pm-row__text">' +
-          '<span class="pm-row__title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
-          (t.useFor ? '<span class="pm-row__desc">' + esc(t.useFor) + '</span>' : '') +
+    var used = [t.useCount ? t.useCount + '\u00d7' : '', last].filter(Boolean).join(' \u00b7 ');
+    return '<div class="pm-item pm-item--flat ' + U().rvlClass() + '"' + U().rvlStyle(i) +
+      ' style="--pm-tint:' + hueOf('tool', t.category) + '">' +
+      '<div class="pm-row" role="row">' +
+        '<a class="pm-row__name" role="cell" href="' + esc(t.url || '#') + '" target="_blank"' +
+          ' rel="noopener noreferrer" data-launch="' + esc(t.id) + '">' +
+          '<span class="pm-row__mark" aria-hidden="true">' + pmMark(t.category) + '</span>' +
+          '<span class="pm-row__text">' +
+            '<span class="pm-row__title">' + (t.icon ? esc(t.icon) + ' ' : '') + esc(t.name) + '</span>' +
+            (t.useFor ? '<span class="pm-row__desc">' + esc(t.useFor) + '</span>' : '') +
+          '</span>' +
+        '</a>' +
+        '<div class="pm-row__meta">' +
+          '<span class="pm-cell pm-cell--pill" role="cell">' + groupPill('tool', t.category, false) + '</span>' +
+          '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(host) + '</span>' +
+          '<span class="pm-cell ' + (used ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
+            esc(used) + '</span>' +
+        '</div>' +
+        '<span class="pm-row__do" role="cell">' +
+          '<button type="button" class="pm-start" data-tool="' + esc(t.id) + '">Details</button>' +
+          '<button type="button" class="pm-ico" data-toolmenu="' + esc(t.id) + '"' +
+            ' aria-label="More actions for ' + esc(t.name) + '">&#8943;</button>' +
         '</span>' +
-      '</a>' +
-      '<div class="pm-row__meta">' +
-        '<span class="pm-cell pm-cell--num" role="cell">' +
-          (grouped() ? esc(t.useCount ? U().plural(t.useCount, 'time') : '')
-                     : esc(catLabel('tool', t.category))) + '</span>' +
-        '<span class="pm-cell pm-cell--quiet" role="cell">' + esc(host) + '</span>' +
-        '<span class="pm-cell ' + (last ? 'pm-cell--quiet' : 'pm-cell--never') + '" role="cell">' +
-          esc(last) + '</span>' +
+        '<span class="pm-row__kept" role="cell">' + heartBtn(t.id, t.favorite, t.name) + '</span>' +
       '</div>' +
-      '<span class="pm-row__do" role="cell">' +
-        '<button type="button" class="pm-start" data-tool="' + esc(t.id) + '">Details</button>' +
-        '<button type="button" class="pm-ico" data-toolmenu="' + esc(t.id) + '"' +
-          ' aria-label="More actions for ' + esc(t.name) + '">&#8943;</button>' +
-      '</span>' +
-      '<span class="pm-row__kept" role="cell">' + heartBtn(t.id, t.favorite, t.name) + '</span>' +
     '</div>';
   }
 
@@ -879,17 +1014,38 @@
       return out;
     }
 
+    /* THE GROUP BAR, read off the grouping rows in the reference film:
+       a chevron, the word, the PILL, the count, and what share of the
+       library this group is. The share is the part worth having —
+       "twelve prompts" means nothing until you know whether that is most
+       of the library or a corner of it.
+
+       On the prompts side it also carries a ⋯: renaming, recolouring and
+       deleting a group belong where you are looking AT the group, not
+       three clicks away in Settings. It is a SIBLING of the fold button,
+       never inside it — a button inside a button is not valid HTML and
+       the browser's repair of it is not something to rely on. */
+    var total = records.length || 1;
     groupByCategory(kind, records).forEach(function (b) {
       var shut = ui.shut.indexOf(ui.tab + ':' + b.key) !== -1;
+      var share = Math.round((b.rows.length / total) * 100);
       out += '<section class="pm-group' + (shut ? ' is-shut' : '') +
         '" style="--pm-tint:' + b.hue + '">' +
-        '<button type="button" class="pm-group__head" data-fold="' + esc(b.key) + '"' +
-          ' aria-expanded="' + (shut ? 'false' : 'true') + '">' +
-          '<span class="pm-group__name">' + esc(b.label) + '</span>' +
-          '<span class="pm-group__count">' + esc(U().spell(b.rows.length)) + '</span>' +
-          '<span class="pm-group__fold" aria-hidden="true">&#9662;</span>' +
-        '</button>' +
-        '<div class="pm-group__rule" aria-hidden="true"></div>' +
+        '<div class="pm-group__bar">' +
+          '<button type="button" class="pm-group__head" data-fold="' + esc(b.key) + '"' +
+            ' aria-expanded="' + (shut ? 'false' : 'true') + '">' +
+            '<span class="pm-group__fold" aria-hidden="true">&#9662;</span>' +
+            '<span class="pm-group__label">' + (kind === 'tool' ? 'Category' : 'Group') + '</span>' +
+            groupPill(kind, b.key, false) +
+            '<span class="pm-group__count">' +
+              esc(U().plural(b.rows.length, kind === 'tool' ? 'tool' : 'prompt')) + '</span>' +
+            '<span class="pm-group__share" aria-hidden="true"><i style="--w:' + share + '%"></i></span>' +
+            '<span class="pm-group__pct">' + share + '%</span>' +
+          '</button>' +
+          (kind === 'tool' ? '' :
+            '<button type="button" class="pm-ico pm-group__edit" data-groupmenu="' + esc(b.key) + '"' +
+              ' aria-label="Edit the group ' + esc(b.label) + '">&#8943;</button>') +
+        '</div>' +
         '<div class="pm-group__body">' +
           b.rows.map(function (r) { return draw(r, n++); }).join('') +
         '</div>' +
@@ -1762,6 +1918,39 @@
         : '') +
       '</div>';
 
+    /* THE GROUPS PANEL. The group bar's ⋯ handles one group at a time,
+       where you are already looking at it; this is the whole vocabulary
+       in one place, which is where you go to reorder it — and the order
+       here is the order the library groups in. */
+    var groups = d.catList('prompt'), counts = d.groupCounts();
+    html += '<div class="asc-sheet__block"><h2 class="asc-label">Groups</h2>' +
+      '<p style="margin:0 0 14px;color:var(--hd-fg-2);max-width:62ch">' +
+      'How the prompt library is filed. Drag to reorder \u2014 this is the order groups appear ' +
+      'in down the page. Deleting one always asks where its prompts should go.</p>' +
+      '<div class="pm-list" id="pmGroups">' +
+      groups.map(function (g) {
+        var n = counts[g.id] || 0;
+        var last = g.id === d.FALLBACK_GROUP;
+        return '<div class="pm-list__row" style="--pm-tint:' + g.hue + '" data-group="' + esc(g.id) + '">' +
+          '<div class="pm-list__main" style="cursor:default">' +
+            '<span class="pm-list__n" title="Drag to reorder">\u2261</span>' +
+            groupPill('prompt', g.id, false) +
+            '<span class="pm-spacer" style="flex:1"></span>' +
+            '<span class="pm-list__open">' + esc(U().plural(n, 'prompt')) + '</span>' +
+          '</div>' +
+          '<div class="pm-list__acts">' +
+            '<button type="button" class="asc-btn asc-btn--sm" data-groupedit="' + esc(g.id) + '">Edit</button>' +
+            (last
+              /* Other is the fallback every unresolved group lands on, so
+                 it cannot be deleted. Saying why beats a button that
+                 refuses when pressed. */
+              ? '<span class="asc-small" style="padding:0 8px" title="Every prompt whose group is gone lands here">Fallback</span>'
+              : '<button type="button" class="asc-btn asc-btn--sm asc-btn--danger" data-groupdel="' + esc(g.id) + '">Delete</button>') +
+          '</div></div>';
+      }).join('') + '</div>' +
+      '<div class="asc-sheet__acts" style="justify-content:flex-start;margin-top:14px">' +
+      '<button type="button" class="asc-btn asc-btn--sm" data-groupnew="1">\uff0b Add a group</button></div></div>';
+
     var undo = b && b.pendingUndo();
     if (undo) {
       html += '<div class="asc-sheet__block"><h2 class="asc-label">The rebuild</h2>' +
@@ -1796,6 +1985,26 @@
 
     $('pmView').innerHTML = detailHero('Prompt Studio', 'Settings') +
       band(html + '</div>', 'hd-band--detail');
+    mountGroupSort();
+  }
+
+  /* Drag to reorder, on the same Sortable the collection steps use. The
+     handle is the grip, not the row, so the Edit and Delete buttons stay
+     pressable. reorderGroups() keeps anything the drag did not name — a
+     handler that misses a row must not be able to destroy it. */
+  function mountGroupSort() {
+    var el = $('pmGroups');
+    if (!el || typeof window.Sortable === 'undefined') return;
+    window.Sortable.create(el, {
+      animation: 150, handle: '.pm-list__n', draggable: '.pm-list__row',
+      onEnd: function () {
+        var ids = Array.prototype.map.call(el.querySelectorAll('[data-group]'),
+          function (n) { return n.dataset.group; });
+        D().reorderGroups(ids);
+        toast('Group order saved');
+        refreshCurrentView();
+      }
+    });
   }
 
   // ============================================================
@@ -1855,6 +2064,7 @@
        re-measure it — the scroll event that would otherwise do it is not
        guaranteed to fire. */
     if (readScroll) readScroll(true);
+    markClamped();
   }
 
   /* A repaint is not a navigation. Cloud sync, coming back online and the
@@ -1968,14 +2178,47 @@
         fieldArea('Prompt', 'text', p ? p.text : '', 'Paste the prompt. Wrap anything you swap out each time in double braces, like {{SCENE}}.',
           'Double-braced words become fillable fields when you open the prompt.') +
         '<div class="pm-fields2">' +
-          fieldSelect('For', 'category', p ? p.category : 'writing', d.PROMPT_CATEGORIES) +
+          /* d.catList('prompt'), not the frozen PROMPT_CATEGORIES: the
+             list is editable now and a select built from the constants
+             would silently omit every group Damian has added. The last
+             option is a way OUT of the select and into the group editor,
+             so filing a prompt somewhere new does not mean abandoning
+             the form you are in. */
+          fieldSelect('Group', 'category', p ? p.category : d.catList('prompt')[0].id,
+            d.catList('prompt').concat([{ id: '__new', label: '\uff0b New group\u2026' }])) +
           fieldSelect('Works with', 'compat', p ? p.compat : '', d.COMPAT) +
         '</div>' +
         fieldText('Tags', 'tags', p ? p.tags.join(', ') : '', 'scene, revision', 'Comma separated. Optional.') +
         fieldCheck('Kept', 'favorite', p ? p.favorite : false),
+      onMount: function (root) {
+        /* '＋ New group…' is not a value, it is a door. Caught on change
+           so the group exists by the time the form is saved, and the
+           select is put back on the real group afterwards rather than
+           left showing the door. */
+        var sel = root.querySelector('[data-f="category"]');
+        if (!sel) return;
+        sel.__prev = sel.value;
+        sel.addEventListener('change', function () {
+          if (sel.value !== '__new') { sel.__prev = sel.value; return; }
+          var name = window.prompt('Name the new group');
+          var back = sel.__prev;
+          if (name && name.trim()) {
+            var made = D().addGroup(name.trim(), D().GROUP_HUES[0].hue);
+            var opt = document.createElement('option');
+            opt.value = made.id; opt.textContent = made.label;
+            sel.insertBefore(opt, sel.lastElementChild);
+            back = made.id;
+            toast('Added ' + made.label);
+          }
+          sel.value = back;
+          sel.__prev = back;
+        });
+      },
       onSave: function (root) {
         var f = readFields(root);
         if (!String(f.title).trim() && !String(f.text).trim()) { toast('Give it a name or some text', true); return false; }
+        // Belt and braces: the door is never a destination.
+        if (f.category === '__new') f.category = D().FALLBACK_GROUP;
         var patch = {
           title: String(f.title).trim() || 'Untitled prompt',
           text: f.text,
@@ -1995,6 +2238,140 @@
         return true;
       }
     });
+  }
+
+  // ============================================================
+  // §GROUPS — add, rename, recolour, reorder, delete.
+  //
+  // Groups were a hard-coded array of eight until 2026-09-04. They are
+  // data now (prm:groups), and everything below is the surface for it.
+  //
+  // THE ID IS NEVER EDITED. Every prompt stores a group by id, and the
+  // fiction sidecar stores one too; letting a rename change the id would
+  // orphan the whole group in one keystroke. updateGroup() enforces
+  // that, and this file never tries.
+  // ============================================================
+
+  /* The swatch grid. Eighteen hues measured off the hero photograph, not
+     a colour wheel: every one of them clears 3:1 on the ground, and a
+     free picker is how a group ends up invisible on its own page. */
+  function hueField(selected) {
+    return '<div class="pm-field"><span class="asc-label">Colour</span>' +
+      '<div class="pm-swatches" role="radiogroup" aria-label="Group colour">' +
+        D().GROUP_HUES.map(function (h) {
+          var on = h.hue.toLowerCase() === String(selected || '').toLowerCase();
+          return '<button type="button" class="pm-swatch' + (on ? ' is-on' : '') + '"' +
+            ' style="--pm-tint:' + h.hue + '" data-hue="' + esc(h.hue) + '"' +
+            ' role="radio" aria-checked="' + (on ? 'true' : 'false') + '"' +
+            ' title="' + esc(h.name) + '"><span class="hd-sr">' + esc(h.name) + '</span></button>';
+        }).join('') +
+      '</div></div>';
+  }
+
+  /* One handler for the whole grid, bound on the sheet each time it
+     opens. It writes to a hidden field rather than to a closure, so
+     readFields() picks the colour up with everything else and the save
+     path stays one shape. */
+  function mountHueGrid(root) {
+    var grid = root.querySelector('.pm-swatches');
+    if (!grid) return;
+    grid.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-hue]');
+      if (!b) return;
+      grid.querySelectorAll('.pm-swatch').forEach(function (x) {
+        x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false');
+      });
+      b.classList.add('is-on'); b.setAttribute('aria-checked', 'true');
+      var f = root.querySelector('[data-f="hue"]');
+      if (f) f.value = b.dataset.hue;
+    });
+  }
+
+  function openGroupEditor(id) {
+    var d = D();
+    var g = id ? d.catById('prompt', id) : null;
+    if (id && (!g || g.id !== id)) { toast('That group is gone', true); return; }
+    var hue = g ? g.hue : d.GROUP_HUES[0].hue;
+    openModal({
+      title: g ? 'Edit group' : 'New group',
+      saveLabel: g ? 'Save changes' : 'Add group',
+      body:
+        fieldText('Name', 'label', g ? g.label : '', 'Product briefs') +
+        hueField(hue) +
+        '<input type="hidden" data-f="hue" value="' + esc(hue) + '">' +
+        (g ? '<p class="asc-small">' +
+              esc(U().plural(d.groupCounts()[g.id] || 0, 'prompt')) + ' in this group.</p>' : ''),
+      onMount: mountHueGrid,
+      onSave: function (root) {
+        var f = readFields(root);
+        var label = String(f.label || '').trim();
+        if (!label) { toast('Give the group a name', true); return false; }
+        if (g) d.updateGroup(g.id, { label: label, hue: f.hue });
+        else {
+          var made = d.addGroup(label, f.hue);
+          toast('Added ' + made.label);
+        }
+        return true;
+      }
+    });
+  }
+
+  /* DELETING A GROUP ASKS WHERE ITS PROMPTS GO. Nothing is ever silently
+     un-filed: the dialogue says how many there are and offers every other
+     group, defaulting to Other. A group with nothing in it still asks —
+     one dialogue is easier to trust than two paths. */
+  function confirmDeleteGroup(id) {
+    var d = D();
+    var g = d.catById('prompt', id);
+    if (!g || g.id !== id) { toast('That group is gone', true); return; }
+    if (id === d.FALLBACK_GROUP) {
+      toast('Other cannot be deleted — it is where everything else lands', true);
+      return;
+    }
+    var n = d.groupCounts()[id] || 0;
+    var others = d.catList('prompt').filter(function (c) { return c.id !== id; });
+    openModal({
+      title: 'Delete ' + g.label + '?',
+      saveLabel: 'Delete the group',
+      body: '<p class="asc-body">' +
+          (n ? 'This group holds ' + esc(U().plural(n, 'prompt')) +
+               '. They are not deleted \u2014 choose where they go.'
+             : 'This group is empty, so nothing moves.') + '</p>' +
+        (n ? fieldSelect('Move them to', 'moveTo', d.FALLBACK_GROUP, others) : ''),
+      onSave: function (root) {
+        var f = readFields(root);
+        var res = d.removeGroup(id, n ? f.moveTo : d.FALLBACK_GROUP);
+        if (!res.ok) { toast('That group could not be deleted', true); return false; }
+        toast(res.moved
+          ? 'Deleted \u2014 ' + U().plural(res.moved, 'prompt') + ' moved to ' + d.catById('prompt', res.dest).label
+          : 'Deleted');
+        return true;
+      }
+    });
+  }
+
+  function openGroupMenu(id) {
+    var g = D().catById('prompt', id);
+    if (!g) return;
+    openModal({
+      title: g.label,
+      hideActions: true,
+      body: '<p class="asc-small">' +
+          esc(U().plural(D().groupCounts()[id] || 0, 'prompt')) + ' in this group.</p>' +
+        menuHtml([
+          { act: 'g-edit', label: 'Rename or recolour' },
+          { act: 'g-only', label: 'Show only this group' },
+          { act: 'g-new', label: 'Add a new group' },
+          { act: 'g-del', label: 'Delete this group', danger: id !== D().FALLBACK_GROUP }
+        ])
+    });
+    var box = $('ascSheet');
+    box.querySelector('[data-act="g-edit"]').onclick = function () { closeModal(); openGroupEditor(id); };
+    box.querySelector('[data-act="g-new"]').onclick = function () { closeModal(); openGroupEditor(null); };
+    box.querySelector('[data-act="g-only"]').onclick = function () {
+      closeModal(); ui.cat = id; saveUi(); render();
+    };
+    box.querySelector('[data-act="g-del"]').onclick = function () { closeModal(); confirmDeleteGroup(id); };
   }
 
   function openToolEditor(id) {
@@ -2364,6 +2741,11 @@
     on(app, '[data-newcol]', 'click', function () { openCollectionEditor(null, this.dataset.newcol); });
     on(app, '[data-copy]', 'click', function (e) { e.stopPropagation(); doCopy(this.dataset.copy, this); });
     on(app, '[data-peek]', 'click', function (e) { e.stopPropagation(); togglePeek(this.dataset.peek); });
+    on(app, '[data-full]', 'click', function (e) { e.stopPropagation(); toggleFull(this.dataset.full); });
+    on(app, '[data-groupmenu]', 'click', function (e) { e.stopPropagation(); openGroupMenu(this.dataset.groupmenu); });
+    on(app, '[data-groupedit]', 'click', function () { openGroupEditor(this.dataset.groupedit); });
+    on(app, '[data-groupdel]', 'click', function () { confirmDeleteGroup(this.dataset.groupdel); });
+    on(app, '[data-groupnew]', 'click', function () { openGroupEditor(null); });
     on(app, '[data-fav]', 'click', function (e) { e.stopPropagation(); toggleFav(this.dataset.fav); });
     on(app, '[data-menu]', 'click', function (e) { e.stopPropagation(); openPromptMenu(this.dataset.menu); });
     on(app, '[data-toolmenu]', 'click', function (e) { e.stopPropagation(); openToolMenu(this.dataset.toolmenu); });
@@ -2561,6 +2943,14 @@
       requestAnimationFrame(function () { readScroll(false); });
     }, { passive: true });
     addEventListener('resize', function () { readScroll(true); }, { passive: true });
+    /* A width change re-wraps every prompt, so what was nine lines can
+       become eleven. Debounced, because a drag fires this continuously
+       and each pass is a layout read over the whole library. */
+    var clampTimer = 0;
+    addEventListener('resize', function () {
+      clearTimeout(clampTimer);
+      clampTimer = setTimeout(function () { markClamped(); }, 180);
+    }, { passive: true });
   }
 
   /* Typing repaints only the results, not the whole route: render() would
@@ -2577,6 +2967,7 @@
     else if (ui.tab === 'tools') viewToolsHome();
     else viewPromptsHome();
     if (readScroll) readScroll(true);
+    markClamped();
     window.scrollTo(0, y);
   }
 
@@ -2746,6 +3137,14 @@
     loadUi();
     wire();
     U().introArrive();
+    /* Writes the eight defaults out the first time this device runs the
+       new build, so Settings and the editor's select are editing
+       something real rather than a list that exists only in memory. It
+       runs AFTER LocalStoreIDB.ready() with everything else in boot, and
+       BEFORE cloud sync mounts — a seed pushed on top of a row that
+       already has groups would be the wrong way round, and seedGroupList
+       only fills in when there is nothing there. */
+    D().ensureGroups();
     checkStorageBackend();
 
     /* The snapshot store starts BEFORE cloud sync. The opening pull can

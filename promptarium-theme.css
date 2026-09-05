@@ -311,8 +311,12 @@
 /* The fold. It has to be findable at the far end of a 1700px row, so
    it is a box rather than a bare glyph — and it turns the way
    .pm-peek__t does one level down: upright open, rotated shut. */
+/* NO margin-left: auto. It had one while it was the LAST thing in the
+   old group heading, pushing itself to the far right; it is the first
+   thing in the bar now, and the auto margin shoved the whole bar —
+   label, pill and count — into the middle of the table. */
 .pm-group__fold {
-  margin-left: auto; flex: none;
+  flex: none;
   display: grid; place-items: center;
   width: 26px; height: 26px;
   border: 1px solid var(--hd-line-2);
@@ -335,24 +339,41 @@
    there is no tile, so the gold rule is what says where one entry
    ends — the same reasoning that gave .hd-way a border when both
    grounds went dark. */
+/* ═══ §ONE PROMPT IS ONE BLOCK ═════════════════════════════
+   Until 2026-09-04 a prompt was a row and a hidden panel, separated
+   from the next prompt by a hairline. That was right while the panel
+   was shut and a row was one line tall.
+
+   Now every prompt shows its text, so a "row" is a paragraph tall —
+   and a hairline between paragraphs does not say where one prompt
+   ends and the next begins. Damian asked for them to be easy to tell
+   apart, and this is the answer: the row and its text share ONE
+   bordered surface, blocks are separated by space rather than by a
+   line, and the group's hue is a permanent edge down the left rather
+   than a mark that only appears on hover.
+
+   The row and the panel are still SIBLINGS inside it. .pm-row is a
+   six-column grid and .pm-peek would have to be placed in that grid
+   — and again in the phone's named-area one — if it were a child. */
+.pm-item {
+  position: relative;
+  margin-bottom: 8px;
+  background: var(--hd-bg-2);
+  border: 1px solid var(--hd-line-2);
+  border-left: 2px solid var(--pm-tint);
+  transition: border-color var(--hd-fast), background var(--hd-fast);
+}
+.pm-item:hover { background: var(--hd-bg-3); border-color: var(--hd-line); }
+.pm-item:focus-within { border-color: var(--hd-line); }
+/* A tool has no text panel, so its block is a single row and wants
+   less air around it than a prompt does. */
+.pm-item--flat { margin-bottom: 4px; }
+
 .pm-row {
   position: relative;
-  padding: 10px var(--pm-row-pad);
-  border-bottom: 1px solid var(--hd-line-2);
+  padding: 12px var(--pm-row-pad);
   color: inherit;
-  transition: background var(--hd-fast);
 }
-.pm-row:hover { background: var(--hd-bg-2); }
-/* The tint, as a mark in the gutter rather than a fill. It arrives
-   with the pointer, so a resting table stays as quiet as the
-   vault's does. */
-.pm-row::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: -1px; width: 2px;
-  background: var(--pm-tint);
-  transform: scaleY(0); transform-origin: center;
-  transition: transform var(--hd-fast);
-}
-.pm-row:hover::before { transform: scaleY(1); }
 
 /* The three data cells are wrapped in one element so a phone can
    lay them out as a single meta line. On a desktop that wrapper
@@ -465,6 +486,149 @@
 .pm-heart-wide.is-on { color: var(--hd-acc-lit); border-color: var(--hd-acc); }
 .pm-heart-wide.is-on svg { fill: currentColor; }
 
+/* ═══ §THE GROUP PILL ══════════════════════════════════════
+   Read frame by frame off the "List 2" / "Case 1" buttons in
+   Downloads/original-9f68406c143b928315bc24ad1ae397a1.mp4.
+
+   Its anatomy, in the order it matters:
+
+     · fully rounded, so it reads as a token and not as a button
+     · a VERTICAL GRADIENT in the group's own hue — lighter at the
+       top, which is what makes it look lit rather than filled
+     · NEAR-BLACK TEXT on it. That is the whole reason the pill can
+       be saturated at all: the eighteen hues are pale stone and
+       candlelight, and light text on them would be invisible while
+       dark text on them is the strongest contrast on the page
+     · a soft glow of the same hue underneath
+
+   One component, three places — the row's Group cell, the group
+   bar, and a prompt's own page — and all three read --pm-tint, so
+   recolouring a group is one write and every surface follows. */
+.pm-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  /* A WIDER GRADIENT THAN THE REFERENCE'S, on purpose. The film's pills
+     are vivid orange and lavender, where a narrow ramp is plenty; these
+     eighteen hues are pale stone and candlelight measured off the hero,
+     and the same narrow ramp on them reads as a flat grey lozenge. The
+     range is opened up and the top highlight strengthened so the capsule
+     still looks LIT rather than filled — which is the thing that makes
+     the reference's pills read as objects. */
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--pm-tint) 100%, white 34%) 0%,
+    var(--pm-tint) 46%,
+    color-mix(in srgb, var(--pm-tint) 100%, black 26%) 100%);
+  box-shadow: 0 3px 12px -3px color-mix(in srgb, var(--pm-tint) 62%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, .42),
+              inset 0 -1px 0 rgba(0, 0, 0, .18);
+  color: #17120a;
+  font-family: var(--hd-ui);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis;
+  transition: transform var(--hd-fast), box-shadow var(--hd-fast);
+}
+/* A browser without color-mix() gets a flat pill in the same hue
+   rather than a transparent one. Everything above still applies;
+   only the gradient and the glow are lost. */
+@supports not (background: color-mix(in srgb, red 50%, white)) {
+  .pm-pill { background: var(--pm-tint); box-shadow: none; }
+}
+.pm-pill__dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(23, 18, 10, .45);
+  flex: none;
+}
+/* On a row the pill is a control: pressing it filters the library to
+   that group. In the group bar it is a label, because the bar around
+   it is already the control. */
+.pm-pill--btn { cursor: pointer; }
+.pm-pill--btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--pm-tint) 70%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, .34);
+}
+.pm-pill--btn:active { transform: translateY(0); }
+.pm-cell--pill {
+  display: flex; align-items: center; gap: 8px;
+  overflow: visible;            /* the glow must not be clipped */
+  white-space: normal;
+}
+
+/* ═══ §THE GROUP BAR ═══════════════════════════════════════
+   The reference film's own grouping row: a chevron, the word, the
+   pill, the count, and what SHARE of the library this group is.
+   The share is the part worth having — "twelve prompts" means
+   nothing until you know whether that is most of the library or a
+   corner of it. */
+.pm-group__bar {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 8px;
+  background: var(--hd-bg-2);
+  border: 1px solid var(--hd-line-2);
+  border-left: 2px solid var(--pm-tint);
+}
+.pm-group__head {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px var(--pm-row-pad);
+  transition: background var(--hd-fast);
+}
+.pm-group__head:hover { background: var(--hd-bg-3); }
+.pm-group__label {
+  font-size: 9.5px; font-weight: 500; letter-spacing: .24em;
+  text-transform: uppercase; color: var(--hd-fg-3);
+  flex: none;
+}
+.pm-group__count {
+  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--hd-fg-2); flex: none;
+}
+/* The proportion, drawn rather than only stated. It is capped and
+   pushed to the right so a long group name cannot shove it off. */
+.pm-group__share {
+  flex: 0 1 120px; height: 1px; margin-left: auto;
+  background: var(--hd-line); position: relative;
+}
+.pm-group__share i {
+  position: absolute; inset: 0 auto 0 0; width: var(--w);
+  background: var(--pm-tint);
+}
+.pm-group__pct {
+  font-size: 9.5px; letter-spacing: .18em; color: var(--hd-fg-3);
+  flex: none; min-width: 3.4em; text-align: right;
+}
+.pm-group__edit { flex: none; margin-right: 8px; }
+.pm-group__bar:hover .pm-group__edit { border-color: var(--hd-line-2); }
+
+/* ═══ §THE SWATCH GRID ═════════════════════════════════════
+   Eighteen hues measured off the hero photograph. Not a colour
+   wheel: every one of these clears 3:1 on the ground, and a free
+   picker is how a group ends up invisible on its own page. */
+.pm-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pm-swatch {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--pm-tint);
+  border: 2px solid transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3);
+  transition: transform var(--hd-fast), border-color var(--hd-fast);
+}
+.pm-swatch:hover { transform: scale(1.12); }
+/* THE SELECTED RING IS OUTSIDE THE SWATCH, not its border. A border in
+   --hd-ink-n is invisible on marble and parchment, which are themselves
+   near-white — the two hues most likely to be picked first. An offset
+   gold ring reads on all eighteen because it is never the swatch's own
+   colour. */
+.pm-swatch.is-on {
+  border-color: transparent;
+  outline: 2px solid var(--hd-acc-lit);
+  outline-offset: 3px;
+  transform: scale(1.08);
+}
+
 /* ═══ §THE PEEK PANEL ══════════════════════════════════════
    The chevron opens a prompt's TEXT under its own row.
 
@@ -477,15 +641,52 @@
    disturbs nothing. */
 .pm-peek {
   display: block;
-  padding: 0 var(--pm-row-pad) 16px calc(var(--pm-row-pad) + 28px);
-  border-bottom: 1px solid var(--hd-line-2);
-  border-left: 2px solid var(--pm-tint);
-  background: var(--hd-bg-2);
+  padding: 0 var(--pm-row-pad) 14px calc(var(--pm-row-pad) + 28px);
 }
 /* `display` beats the UA's [hidden]. Said twice, or the panel is
    permanently open on every prompt in the library. */
 .pm-peek[hidden] { display: none; }
-.pm-peek__body { max-height: 22rem; overflow: auto; margin-top: 14px; }
+
+/* THE CLAMP. Ten lines at the prompt surface's own leading, which is
+   where a prompt stops being something you glance at and starts being
+   something you scroll.
+
+   WHY IT IS A MAX-HEIGHT AND NOT A LINE COUNT IN JS: whether a prompt
+   is "long" is a question about rendered height at the current font
+   size, and this page's type is fluid. A character count cuts in a
+   different place at every width. JS only ever MEASURES the result
+   (markClamped(), one batched read per paint) to decide whether the
+   release is worth showing — it never decides the geometry. */
+.pm-peek__body {
+  position: relative;
+  max-height: 17.2em;            /* 10 x the 1.72 line-height below */
+  overflow: hidden;
+  margin-top: 12px;
+}
+.pm-peek.is-full .pm-peek__body { max-height: none; }
+/* The fade only exists while there is something under it. */
+.pm-peek.is-long:not(.is-full) .pm-peek__body::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4.6em;
+  background: linear-gradient(180deg, transparent 0%, var(--hd-bg-2) 88%);
+  pointer-events: none;
+}
+.pm-item:hover .pm-peek.is-long:not(.is-full) .pm-peek__body::after {
+  background: linear-gradient(180deg, transparent 0%, var(--hd-bg-3) 88%);
+}
+/* display beats the UA's [hidden] and it beats a missing class too:
+   said here so a short prompt never grows a Show all it does not
+   need. markClamped() adds .is-long only where the text overflows. */
+.pm-peek__more { display: none; }
+.pm-peek.is-long .pm-peek__more { display: block; margin-top: 8px; }
+.pm-more {
+  padding: 5px 12px;
+  border: 1px solid var(--hd-line-2);
+  border-radius: 999px;
+  font-size: 9.5px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--hd-fg-2);
+  transition: color var(--hd-fast), border-color var(--hd-fast);
+}
+.pm-more:hover { color: var(--hd-acc-lit); border-color: var(--hd-acc); }
 /* The chevron turns the way .pm-group__fold does — upright open,
    rotated shut. The same glyph one level down must not mean the
    opposite thing. */
@@ -507,6 +708,12 @@
   border: 1px solid var(--hd-line-2);
   border-left: 2px solid var(--pm-tint);
   max-width: 92ch;
+}
+/* In the library the prompt is already inside .pm-item, which carries
+   the border and the tint edge. Repeating them would draw a box inside
+   a box, so here the text is only text. */
+.pm-peek .pm-prompt-text {
+  padding: 0; background: none; border: 0; max-width: 86ch;
 }
 /* A slot you are meant to fill in, marked where it sits rather
    than listed somewhere else. */
@@ -679,8 +886,11 @@
 
 @media (max-width: 899px) {
   /* THE ROW BECOMES A CARD. Six columns at 900px is six slivers,
-     and a table nobody can read is worse than a list. */
+     and a table nobody can read is worse than a list. The block was
+     already a card, so all that changes is what is inside it. */
   .pm-thead { display: none; }
+  .pm-group__label, .pm-group__share, .pm-group__pct { display: none; }
+  .pm-group__head { gap: 10px; }
   .pm-row {
     grid-template-columns: minmax(0, 1fr) 2.6rem;
     grid-template-areas: 'name kept' 'meta kept' 'do do';
@@ -711,6 +921,12 @@
     content: '·'; margin-right: 10px; color: var(--hd-fg-3);
   }
   .pm-row__meta .pm-cell:empty { display: none; }
+  /* The pill is a fact about the prompt, so it stays on the meta line
+     with the others rather than being dropped — it is the one Damian
+     asked to travel WITH the prompt. The CSS separator must not be
+     drawn against it, though: a dot beside a capsule reads as damage. */
+  .pm-row__meta .pm-cell--pill { display: flex; }
+  .pm-row__meta .pm-cell--pill + .pm-cell::before { content: none; }
   .pm-peek { padding-left: calc(var(--pm-row-pad) + 28px); }
 }
 
