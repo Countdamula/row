@@ -250,10 +250,14 @@
         watch: ['vault:'], events: ['vault:save']
       },
       // One key per shelf: vault-data.js builds them as 'vault:media:' + shelf.
+      // Plus the article INDEX, which is one key; each article's body is a
+      // key of its own ('vault:article:<id>') and is covered by the prefix
+      // above rather than counted here — there is one per article and
+      // listing them would say nothing the index does not.
       counted: ['podcasts', 'creepypasta', 'trueHorror', 'spicy', 'immersive',
                 'watch', 'playlists', 'reading', 'anime', 'games'].map(function (s) {
         return { key: 'vault:media:' + s, label: s };
-      })
+      }).concat([{ key: 'vault:articles', label: 'articles' }])
     },
     {
       id: 'businessos',

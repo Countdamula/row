@@ -3,15 +3,16 @@
 //
 //   window.HDGame
 //
-// One record, in full: a split hero, a rail of videos, and a
-// panel of columns where the notes, guides, tips and quotes live.
+// One record, in full: a split hero, a rail of videos, and the
+// articles written about it.
 //
 // IT IS ITS OWN FILE ON PURPOSE. This is the one template Damian
 // asked to be able to change, and a template you edit should not
 // be buried in the middle of a router. Everything about how a
 // game LOOKS is here; everything about how the archive looks is
-// in vault-views.js; nothing about how either is stored is in
-// either.
+// in vault-views.js; the articles are vault-article.js's, because
+// they are a template of their own; nothing about how any of it
+// is stored is in any of them.
 //
 // EVERY FIELD BELOW IS OPTIONAL AND ADDITIVE.
 // `Vault.update` merges, so the 408 records that predate this
@@ -22,15 +23,15 @@
 //   hero        a big image URL, when a cover is too small
 //   railTitle   the rail's own heading
 //   videos      [ { id, url, title } ]
-//   columns     [ { id, title, entries: [ { id, text, source, at } ] } ]
-//   entries     [ { id, title, date, body, at } ]     the journal
 //
-// COLUMNS ARE NOT FIXED. The reference draws Personal Notes,
-// Favourite Quote and Memories; those are only the DEFAULTS, and
-// they are computed on read rather than written, so a game that
-// has never been edited stores nothing at all. Rename them, add
-// Guides or Builds or Boss Order, delete what you do not use.
-// The fourth column is the journal and is the one that stays.
+// WHAT USED TO BE HERE. Below the rail sat four columns —
+// Personal notes, Favourite quote, Memories, and a journal cell.
+// They were small-note surfaces, and there was nowhere in this
+// studio to write anything long. On 2026-09-04 they were replaced
+// by the ARTICLE FEED, and `columns` / `entries` / `notes` are
+// read exactly once more: HDArticle.migrateGame turns every note
+// and entry into an article the first time a game page is opened.
+// The fields themselves are left in storage, untouched.
 // =============================================================
 
 (function (global) {
@@ -47,39 +48,21 @@
   };
 
   // ── §THE RECORD, NORMALISED ────────────────────────────────
-  // Defaults are computed, never written. A game you have not
-  // touched stores no columns; the three the reference shows are
-  // simply what an empty panel looks like. `notes` already exists
-  // on every record in this app, so where one is set it becomes
-  // the first note rather than being stranded.
-  function defaultColumns(r) {
-    return [
-      { id: 'c_notes', title: 'Personal notes',
-        entries: r.notes ? [{ id: 'e_notes', text: r.notes, at: r.updatedAt || r.createdAt || 0 }] : [] },
-      { id: 'c_quote', title: 'Favourite quote', entries: [] },
-      { id: 'c_mem', title: 'Memories', entries: [] }
-    ];
-  }
-
+  // Defaults are computed, never written, so a game you have not
+  // touched stores nothing at all beyond what the composer gave it.
   function gameOf(r) {
     return {
       status: r.status || 'In the collection',
       playtime: r.playtime || '',
       hero: r.hero || '',
       railTitle: r.railTitle || 'Moments',
-      videos: Array.isArray(r.videos) ? r.videos : [],
-      columns: Array.isArray(r.columns) && r.columns.length ? r.columns : defaultColumns(r),
-      entries: Array.isArray(r.entries) ? r.entries : []
+      videos: Array.isArray(r.videos) ? r.videos : []
     };
   }
 
-  // Writing a column or a video for the first time MATERIALISES
-  // the computed defaults — otherwise adding one memory would
-  // silently drop the note that was showing beside it.
   function save(id, patch) {
     global.Vault.update('games', id, patch);
   }
-  function saveColumns(r, cols) { save(r.id, { columns: cols }); }
 
   // ── §VIDEO ─────────────────────────────────────────────────
   // The reference puts a strip of stills here. Damian asked for
@@ -126,62 +109,6 @@
       '<button type="button" class="hd-vid__edit" data-act="edit-video" data-vid="' + attr(v.id) + '"' +
         ' aria-label="Edit this video">Edit</button>' +
     '</article>';
-  }
-
-  // ── §A COLUMN ──────────────────────────────────────────────
-  // A quote wants an attribution and a note does not, so an entry
-  // carries an optional `source` and shows it only when it is
-  // there. One shape, two readings — rather than two shapes that
-  // drift.
-  function columnHtml(c, ci) {
-    return '<section class="hd-cell">' +
-      '<div class="hd-cell__head">' +
-        '<h3 class="hd-eyebrow">' + esc(c.title) + '</h3>' +
-        '<button type="button" class="hd-cell__ren" data-act="rename-col" data-col="' + attr(c.id) + '"' +
-          ' aria-label="Rename or remove ' + attr(c.title) + '">Edit</button>' +
-      '</div>' +
-      '<div class="hd-cell__body">' +
-        (c.entries.length
-          ? c.entries.map(function (e) {
-              return '<button type="button" class="hd-note-item" data-act="edit-entry"' +
-                ' data-col="' + attr(c.id) + '" data-eid="' + attr(e.id) + '">' +
-                '<span class="hd-note-item__t">' + U().escLines(e.text || '') + '</span>' +
-                (e.source ? '<span class="hd-note-item__s">— ' + esc(e.source) + '</span>' : '') +
-                '</button>';
-            }).join('')
-          : '<p class="hd-cell__none">Nothing here yet.</p>') +
-      '</div>' +
-      '<button type="button" class="hd-cell__add" data-act="add-entry" data-col="' + attr(c.id) + '"' +
-        ' aria-label="Add to ' + attr(c.title) + '">+</button>' +
-    '</section>';
-  }
-
-  function journalCell(g) {
-    var list = g.entries.slice().sort(function (a, b) {
-      return String(b.date || '').localeCompare(String(a.date || '')) || (b.at || 0) - (a.at || 0);
-    });
-    return '<section class="hd-cell hd-cell--journal">' +
-      '<div class="hd-cell__head"><h3 class="hd-eyebrow">Journal entries</h3></div>' +
-      '<div class="hd-cell__body">' +
-        (list.length
-          ? '<ul class="hd-jlist">' + list.slice(0, 5).map(function (e) {
-              return '<li><button type="button" data-act="edit-journal" data-eid="' + attr(e.id) + '">' +
-                '<b>' + esc(e.title || 'Untitled') + '</b>' +
-                '<i>' + esc(H().prettyDate(e.date)) + '</i></button></li>';
-            }).join('') + '</ul>'
-          : '<p class="hd-cell__none">No entries yet. A long guide belongs here — an entry has a body.</p>') +
-      '</div>' +
-      // It linked to #/journal until that page was removed. The
-      // entries did not go anywhere, so neither did the link — it
-      // opens the full set in a sheet instead of navigating.
-      (list.length > 5
-        ? '<div class="hd-cell__foot">' +
-            '<button type="button" class="hd-link hd-link--quiet" data-act="all-entries">' +
-            H().arrow('All ' + list.length + ' entries') + '</button>' +
-          '</div>'
-        : '') +
-      '<button type="button" class="hd-cell__add" data-act="add-journal" aria-label="Add a journal entry">+</button>' +
-    '</section>';
   }
 
   // ── §THE PAGE ──────────────────────────────────────────────
@@ -240,10 +167,6 @@
               ? '<button type="button" class="hd-link" data-act="open" data-shelf="games" data-id="' +
                 attr(d.id) + '" data-url="' + attr(d.url) + '">' + H().arrow('Open the link') + '</button>'
               : '') +
-            (g.entries.length
-              ? '<button type="button" class="hd-link hd-link--quiet" data-act="all-entries">' +
-                H().arrow('Read the entries') + '</button>'
-              : '') +
           '</div>' +
         '</div>' +
       '</section>' +
@@ -267,14 +190,13 @@
           'Nothing loads a player until you press it.</p>') +
       '</section>' +
 
-      '<section class="hd-cells">' +
-        g.columns.map(columnHtml).join('') +
-        journalCell(g) +
-      '</section>' +
+      // Everything below the rail. It is vault-article.js's, not
+      // this file's — a feed of rows and the page each one opens
+      // are a template of their own, and they are the same two
+      // things on every game.
+      global.HDArticle.feed(r.id) +
 
       '<div class="hd-game__foot">' +
-        '<button type="button" class="hd-link hd-link--quiet" data-act="add-col">' +
-          H().arrow('Add a column — guides, tips, builds, anything') + '</button>' +
         '<button type="button" class="hd-link hd-link--quiet" data-act="edit-record">' +
           'Edit the record</button>' +
       '</div>' +
@@ -348,7 +270,7 @@
           onSave: function (v) {
             if (!v.url.trim()) return U().toast('A video needs a link');
             var list = g.videos.concat([{ id: uid('v'), url: v.url.trim(), title: v.title.trim() }]);
-            save(r.id, { videos: list, columns: g.columns });
+            save(r.id, { videos: list });
           }
         });
       });
@@ -405,178 +327,6 @@
     'rail-prev': function () { railBy(-1); },
     'rail-next': function () { railBy(1); },
 
-    'add-col': function () {
-      edited(function (r, g) {
-        App().form({
-          title: 'A new column',
-          fields: [{ key: 'title', label: 'Heading', value: '',
-            placeholder: 'Guides · Tips · Builds · Boss order' }],
-          onSave: function (v) {
-            if (!v.title.trim()) return U().toast('Give the column a heading');
-            saveColumns(r, g.columns.concat([{ id: uid('c'), title: v.title.trim(), entries: [] }]));
-          }
-        });
-      });
-    },
-    'rename-col': function (el) {
-      var cid = el.dataset.col;
-      edited(function (r, g) {
-        var c = g.columns.filter(function (x) { return x.id === cid; })[0];
-        if (!c) return;
-        App().form({
-          title: 'This column',
-          fields: [{ key: 'title', label: 'Heading', value: c.title }],
-          onSave: function (v) {
-            saveColumns(r, g.columns.map(function (x) {
-              return x.id === cid ? Object.assign({}, x, { title: v.title.trim() || x.title }) : x;
-            }));
-          },
-          onDelete: function () {
-            saveColumns(r, g.columns.filter(function (x) { return x.id !== cid; }));
-          },
-          deleteLabel: 'Remove this column' +
-            (c.entries.length ? ' and its ' + c.entries.length + ' notes' : '')
-        });
-      });
-    },
-    'add-entry': function (el) {
-      var cid = el.dataset.col;
-      edited(function (r, g) {
-        App().form({
-          title: 'Add a note',
-          fields: [
-            { key: 'text', label: 'Note', type: 'textarea', value: '' },
-            { key: 'source', label: 'Attribution', value: '', placeholder: 'Optional — who said it' }
-          ],
-          onSave: function (v) {
-            if (!v.text.trim()) return U().toast('Nothing to save');
-            saveColumns(r, g.columns.map(function (x) {
-              return x.id === cid
-                ? Object.assign({}, x, { entries: x.entries.concat([
-                    { id: uid('e'), text: v.text.trim(), source: v.source.trim(), at: Date.now() }]) })
-                : x;
-            }));
-          }
-        });
-      });
-    },
-    'edit-entry': function (el) {
-      var cid = el.dataset.col, eid = el.dataset.eid;
-      edited(function (r, g) {
-        var c = g.columns.filter(function (x) { return x.id === cid; })[0];
-        var e = c && c.entries.filter(function (x) { return x.id === eid; })[0];
-        if (!e) return;
-        App().form({
-          title: 'This note',
-          fields: [
-            { key: 'text', label: 'Note', type: 'textarea', value: e.text || '' },
-            { key: 'source', label: 'Attribution', value: e.source || '' }
-          ],
-          onSave: function (v) {
-            saveColumns(r, g.columns.map(function (x) {
-              return x.id !== cid ? x : Object.assign({}, x, {
-                entries: x.entries.map(function (y) {
-                  return y.id === eid
-                    ? Object.assign({}, y, { text: v.text.trim(), source: v.source.trim() })
-                    : y;
-                })
-              });
-            }));
-          },
-          onDelete: function () {
-            saveColumns(r, g.columns.map(function (x) {
-              return x.id !== cid ? x : Object.assign({}, x, {
-                entries: x.entries.filter(function (y) { return y.id !== eid; })
-              });
-            }));
-          },
-          deleteLabel: 'Delete this note'
-        });
-      });
-    },
-
-    'add-journal': function () {
-      edited(function (r, g) {
-        App().form({
-          title: 'A journal entry',
-          fields: [
-            { key: 'title', label: 'Title', value: '' },
-            { key: 'date', label: 'Date', type: 'date', value: today() },
-            { key: 'body', label: 'Entry', type: 'textarea', value: '', tall: true,
-              hint: 'A long guide belongs here. It opens in full from the journal.' }
-          ],
-          onSave: function (v) {
-            if (!v.title.trim() && !v.body.trim()) return U().toast('Nothing to save');
-            save(r.id, {
-              entries: g.entries.concat([{
-                id: uid('j'), title: v.title.trim() || 'Untitled',
-                date: v.date || today(), body: v.body.trim(), at: Date.now()
-              }]),
-              columns: g.columns
-            });
-          }
-        });
-      });
-    },
-    'edit-journal': function (el) {
-      var eid = el.dataset.eid;
-      edited(function (r, g) {
-        var e = g.entries.filter(function (x) { return x.id === eid; })[0];
-        if (!e) return;
-        App().form({
-          title: 'This entry',
-          fields: [
-            { key: 'title', label: 'Title', value: e.title || '' },
-            { key: 'date', label: 'Date', type: 'date', value: e.date || today() },
-            { key: 'body', label: 'Entry', type: 'textarea', value: e.body || '', tall: true }
-          ],
-          onSave: function (v) {
-            save(r.id, { entries: g.entries.map(function (x) {
-              return x.id === eid
-                ? Object.assign({}, x, { title: v.title.trim() || 'Untitled', date: v.date, body: v.body.trim() })
-                : x;
-            }) });
-          },
-          onDelete: function () {
-            save(r.id, { entries: g.entries.filter(function (x) { return x.id !== eid; }) });
-          },
-          deleteLabel: 'Delete this entry'
-        });
-      });
-    },
-
-    // What replaced the Journal page. Every entry on THIS game, in
-    // date order, read in a sheet — the cross-game feed is gone,
-    // the writing is not.
-    'all-entries': function () {
-      edited(function (r, g) {
-        var list = g.entries.slice().sort(function (a, b) {
-          return String(b.date || '').localeCompare(String(a.date || '')) || (b.at || 0) - (a.at || 0);
-        });
-        U().openSheet(
-          '<button type="button" class="asc-back" data-act="sheet-close">' +
-            '<span aria-hidden="true">←</span> Back</button>' +
-          '<h2 class="hd-plate">' + esc(r.title) + '</h2>' +
-          '<p class="asc-label">' + list.length +
-            (list.length === 1 ? ' entry' : ' entries') + '</p>' +
-          (list.length
-            ? '<div class="hd-entries">' + list.map(function (e) {
-                return '<article class="hd-entry">' +
-                  '<h3>' + esc(e.title || 'Untitled') + '</h3>' +
-                  '<p class="asc-label">' + esc(H().prettyDate(e.date)) + '</p>' +
-                  (e.body ? '<p class="asc-body">' + U().escLines(e.body) + '</p>' : '') +
-                  '<button type="button" class="hd-link hd-link--quiet" data-act="edit-journal" ' +
-                    'data-eid="' + attr(e.id) + '">Edit this entry</button>' +
-                '</article>';
-              }).join('') + '</div>'
-            : '<p class="asc-body hd-dim">Nothing written yet.</p>') +
-          '<div class="asc-sheet__acts">' +
-            '<button type="button" class="asc-btn asc-btn--sm" data-act="add-journal">' +
-              'Add an entry</button>' +
-          '</div>', {});
-      });
-    },
-
     // ── ADDING A GAME ────────────────────────────────────────
     // The generic composer asks for the nine fields every shelf
     // shares, and they are the wrong nine here. Everything else in
@@ -615,8 +365,8 @@
           });
           save(r.id, { status: v.status.trim() || 'In the collection', playtime: v.playtime.trim() });
           // Straight to the page. The form deliberately does not ask
-          // for videos, notes or a journal — those want the room the
-          // page gives them, not six more rows in a sheet.
+          // for videos or articles — those want the room the page
+          // gives them, not six more rows in a sheet.
           location.hash = '#/game/' + encodeURIComponent(r.id);
         }
       });
@@ -625,11 +375,6 @@
     noop: function () {}
   };
 
-  function today() {
-    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-  }
-
   function railBy(dir) {
     var el = document.getElementById('hdRail');
     if (!el) return;
@@ -637,7 +382,7 @@
   }
 
   global.HDGame = {
-    view: view, ACTS: ACTS, gameOf: gameOf, defaultColumns: defaultColumns,
-    videoThumb: videoThumb, embedUrl: embedUrl, today: today
+    view: view, ACTS: ACTS, gameOf: gameOf,
+    videoThumb: videoThumb, embedUrl: embedUrl
   };
 })(window);

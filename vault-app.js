@@ -25,6 +25,7 @@
   var U = function () { return global.AscUI; };
   var H = function () { return global.HD; };
   var G = function () { return global.HDGame; };
+  var A = function () { return global.HDArticle; };
   var esc = function (s) { return U().esc(s); };
   var attr = function (s) { return U().attr(s); };
   var $ = function (id) { return document.getElementById(id); };
@@ -35,7 +36,7 @@
   // Supabase, and which shelf a laptop was last left on is not
   // something a phone should be told about.
   var state = {
-    route: 'home', shelf: 'all', collection: '', gameId: '',
+    route: 'home', shelf: 'all', collection: '', gameId: '', articleId: '',
     q: '', favOnly: false, sort: 'shelf'
   };
 
@@ -61,8 +62,18 @@
   // view begins on a full-bleed photograph.
   var GROUND = {
     home: 'night', archive: 'night', collections: 'night',
-    collection: 'night', about: 'night', game: 'night'
+    collection: 'night', about: 'night', game: 'night', article: 'night'
   };
+
+  // THE ONE ROUTE WITH NO HERO. Every other view opens on the same
+  // full-viewport photograph, which is why the pill bar is
+  // transparent until you have scrolled off it. An article opens
+  // on the ground and on a formatting bar — the reference for it
+  // has no hero, and a screen of scrolling before the first word
+  // would be the wrong thing on a page you write in. So the bar
+  // takes its frosted ground immediately here, and .hd-art puts
+  // back the 90px that .hd-main's negative margin takes away.
+  var HEROLESS = { article: 1 };
 
   // ── §ROUTING ───────────────────────────────────────────────
   // Legacy hashes have no slash and are answered first, so every
@@ -89,6 +100,7 @@
         return { route: 'archive', shelf: sk };
       case 'games': return { route: 'archive', shelf: 'games' };
       case 'game': return { route: 'game', gameId: decodeURIComponent(p[1] || '') };
+      case 'article': return { route: 'article', articleId: decodeURIComponent(p[1] || '') };
       case 'collections': return { route: 'collections' };
       case 'collection': return { route: 'collection', collection: decodeURIComponent(p[1] || '') };
       case 'about': return { route: 'about' };
@@ -102,6 +114,7 @@
     state.shelf = r.shelf || 'all';
     state.collection = r.collection || '';
     state.gameId = r.gameId || '';
+    state.articleId = r.articleId || '';
   }
 
   // ── §PAINT ─────────────────────────────────────────────────
@@ -117,13 +130,22 @@
       case 'collections': return H().viewCollections();
       case 'about': return H().viewAbout();
       case 'game': return G().view(state.gameId);
+      case 'article': return A().view(state.articleId);
       default: return H().viewHome();
     }
   }
 
   function repaint() {
+    // Anything half-typed in an article is written down BEFORE the
+    // DOM it lives in is thrown away. Nothing else on this page can
+    // lose work to a repaint; a contenteditable can.
+    A().commitPending();
     $('vtRoot').innerHTML = html();
     paintChrome();
+    // The view is a string. This is everything the string cannot
+    // do: the editor's caret, its draft, the toolbar's state, and
+    // the one-time conversion of a game's old columns.
+    A().afterPaint(state);
     // The hero node was just replaced, so the scroll handler is
     // holding a reference to a element that is no longer in the
     // document. Re-find and re-measure it.
@@ -136,12 +158,26 @@
     // Scroll-to-top belongs to NAVIGATION and to nothing else.
     global.scrollTo({ top: 0, behavior: 'auto' });
     if (HDApp.__readScroll) HDApp.__readScroll();
+    // Moving focus to the region is how a hash route stays usable
+    // from a keyboard — except on a page that has already put the
+    // cursor somewhere on purpose. A new article opens with the
+    // caret in its title, and taking it back out is worse than
+    // never having placed it.
+    if (document.activeElement && document.activeElement.isContentEditable) return;
     $('vtRoot').focus({ preventScroll: true });
   }
 
   function paintChrome() {
     var ground = GROUND[state.route] || 'night';
     document.documentElement.setAttribute('data-ground', ground);
+
+    // On a heroless route the bar has body text passing under it
+    // from the first pixel, so it is stuck from the first pixel.
+    // The scroll handler owns `is-stuck` everywhere else and will
+    // not fight this: it only writes when its own idea of the flag
+    // changes, and readScroll() runs after every paint.
+    document.body.classList.toggle('hd-heroless', !!HEROLESS[state.route]);
+    if (HEROLESS[state.route]) $('hdTop').classList.add('is-stuck');
 
     // The pill puts the wordmark in the MIDDLE of the links, so
     // the nav is painted as two halves either side of it. The
@@ -291,8 +327,10 @@
   // WHAT "ADD" MEANS DEPENDS ON WHERE YOU ARE STANDING.
   // On the Games shelf a game is not a link, so the + , the n key
   // and the tile all open the game form rather than the nine-field
-  // composer. Everywhere else nothing has changed.
+  // composer. Standing INSIDE an article, the thing you want
+  // another of is an article. Everywhere else nothing has changed.
   function addHere() {
+    if (state.route === 'article') return A().ACTS['new-article']();
     if (state.shelf === 'games' || state.route === 'game') return G().ACTS['add-game']();
     openComposer({});
   }
@@ -397,6 +435,10 @@
       if (!confirm('Delete “' + (r.title || 'this item') + '” from ' +
         (H().SHELF_NAME[k.shelf] || k.shelf) + '?\n\nThis cannot be undone.')) return;
       global.Vault.remove(k.shelf, r.id);
+      // An article is two keys of its own, kept outside the record.
+      // Deleting the game has to take them, or the bodies stay
+      // invisible and sync for ever.
+      if (k.shelf === 'games') A().removeForGame(r.id);
       U().closeSheet();
       U().toast('Deleted');
       if (state.route === 'game' && state.gameId === k.id) location.hash = '#/archive/games';
@@ -499,7 +541,10 @@
         'synced between them through your own database row. Pasting a link asks the site you ' +
         'linked to for its own title and cover, and nothing else — there is no third-party ' +
         'metadata service, and no analytics.\n\nA video loads its player only when you press ' +
-        'play, so opening a page costs YouTube nothing and tells it nothing.</p>' +
+        'play, so opening a page costs YouTube nothing and tells it nothing.\n\nAn image ' +
+        'pasted into an article is shrunk on your own device and then put in your own ' +
+        'storage bucket, so what travels between your devices is a link rather than the ' +
+        'picture itself. Nothing else is uploaded anywhere.</p>' +
         '<div class="asc-sheet__acts">' +
           '<button type="button" class="asc-btn asc-btn--sm" data-act="export">Export your data</button>' +
         '</div>', {});
@@ -565,7 +610,7 @@
   function fire(e) {
     var hit = e.target.closest('[data-act]');
     if (!hit) return;
-    var fn = ACTS[hit.dataset.act] || G().ACTS[hit.dataset.act];
+    var fn = ACTS[hit.dataset.act] || G().ACTS[hit.dataset.act] || A().ACTS[hit.dataset.act];
     if (!fn) return;
     // A link that also carries data-act ("Open its page", the
     // journal's "Open the game") must still navigate, so an
@@ -617,9 +662,13 @@
     }, true);
 
     addEventListener('hashchange', function () {
-      var was = state.route + '|' + state.shelf + '|' + state.collection + '|' + state.gameId;
+      var key = function () {
+        return state.route + '|' + state.shelf + '|' + state.collection + '|' +
+          state.gameId + '|' + state.articleId;
+      };
+      var was = key();
       applyHash();
-      if (was === state.route + '|' + state.shelf + '|' + state.collection + '|' + state.gameId) return;
+      if (was === key()) return;
       document.body.classList.remove('hd-menu-on');
       $('hdBurger').setAttribute('aria-expanded', 'false');
       navigate();
@@ -663,7 +712,11 @@
       ticking = false;
       var y = global.scrollY || document.documentElement.scrollTop || 0;
 
-      var want = y > 24;
+      // A heroless route has nothing for the bar to float on, so it
+      // is stuck at rest. Without this clause the scroll handler
+      // would take back what paintChrome just set the moment
+      // anything asked it to read.
+      var want = y > 24 || document.body.classList.contains('hd-heroless');
       if (want !== stuck) {
         stuck = want;
         $('hdTop').classList.toggle('is-stuck', want);
@@ -995,6 +1048,7 @@
       (H().SHELF_NAME[cmp.editing.shelf] || cmp.editing.shelf) + '?\n\nThis cannot be undone.')) return;
     var wasGame = cmp.editing.shelf === 'games', wasId = cmp.editing.id;
     global.Vault.remove(cmp.editing.shelf, cmp.editing.id);
+    if (wasGame) A().removeForGame(wasId);   // see ACTS.del — two keys, kept outside the record
     closeComposer(true);
     U().toast('Deleted');
     if (state.route === 'game' && wasGame && state.gameId === wasId) location.hash = '#/archive/games';
@@ -1080,6 +1134,9 @@
     wireComposer();
     U().bindSheet();
     bind();
+    // The editor's own listeners, delegated on #vtRoot once — so a
+    // repaint never has to re-bind a contenteditable.
+    A().bind();
 
     applyHash();
     U().introArrive();
