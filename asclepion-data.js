@@ -113,6 +113,15 @@
     energy:       'asc:energy',
     // Activities written by hand. The "Mine" group.
     custom:       'asc:custom',
+    // THE GROUPS ARE DATA NOW. Until 2026-09-05 a practice's group WAS
+    // the collection it lived in, which is exactly why the six could
+    // not be renamed, recoloured, reordered or added to. The group is
+    // a field on the record (`groupId`) and this key holds the list.
+    // Seeded from the same six ids, so nothing migrates.
+    groups:       'asc:groups',
+    // The page's own words, and the photograph behind them. On the
+    // library row rather than the log row: set once, changed rarely.
+    house:        'asc:house',
     uiState:      'asc:uiState',
     settings:     'asc:settings',
     seededAt:     'asc:seededAt',
@@ -200,6 +209,266 @@
   }
 
   // ============================================================
+  // §GROUPS — the filing system, and it is DATA
+  //
+  // Until 2026-09-05 a practice's group was WHICH COLLECTION IT
+  // LIVED IN: everything in asc:breath was Breath, everything in
+  // asc:custom was Mine. That is why the six could not be renamed,
+  // recoloured, reordered or added to — the group was a fact about
+  // storage rather than a fact about the practice.
+  //
+  // KIND AND GROUP COME APART HERE, and that is the whole idea.
+  //   kind  — what the record IS. Decides which editor opens and
+  //           what Start session does. Still never edited after
+  //           creation: changing it would mean moving the record
+  //           between collections under a new id and orphaning
+  //           every session logged against it.
+  //   group — where it is FILED. Editable on anything, any time.
+  // So a breathing technique can live in a group called "Before
+  // bed" next to a walk and a hypnosis track.
+  //
+  // NOTHING MIGRATES. The seed uses the same six ids the hard-coded
+  // GROUPS array used, and a record with no groupId falls back to
+  // its collection's historic group, so an untouched library files
+  // itself exactly where it did yesterday.
+  // ============================================================
+
+  // THE PALETTE A GROUP CAN BE GIVEN. Eighteen values, and not one
+  // of them is a chosen colour: they are the things actually in the
+  // candlelit room this studio's hero photograph shows, sampled
+  // band by band. A group picks from these rather than from a free
+  // colour wheel, because every one clears 3:1 on the ground and a
+  // free picker is how a group ends up invisible.
+  var GROUP_HUES = [
+    { hue: '#d6d2cb', name: 'Marble' },       { hue: '#bbc4bf', name: 'Window' },
+    { hue: '#a8b0ad', name: 'Window stone' }, { hue: '#c3c6c6', name: 'Daylight' },
+    { hue: '#e0a765', name: 'Sconce' },       { hue: '#c99a63', name: 'Gilding' },
+    { hue: '#c08a55', name: 'Candle' },       { hue: '#a9764c', name: 'Old copper' },
+    { hue: '#8f6a48', name: 'Deep bronze' },  { hue: '#938b7c', name: 'Cool stone' },
+    { hue: '#6b6259', name: 'Ground' },       { hue: '#b8796a', name: 'Ember' },
+    { hue: '#a98b9a', name: 'Dusk' },         { hue: '#8fa39b', name: 'Verdigris' },
+    { hue: '#c7b4a0', name: 'Parchment' },    { hue: '#9aa3b0', name: 'Slate' },
+    { hue: '#b0a48c', name: 'Linen' },        { hue: '#7f8a86', name: 'Shadow stone' }
+  ];
+
+  // The id every unresolved group falls back to. `mine` is this
+  // studio's own catch-all — it is already where a hand-written
+  // activity lands — and it is protected: it cannot be deleted and
+  // it is re-seeded if it goes missing, because something has to
+  // catch a practice whose group was deleted on another device this
+  // one has not heard from yet.
+  var FALLBACK_GROUP = 'mine';
+
+  // THE SIX THIS STUDIO HAS ALWAYS HAD, in their original order and
+  // under their original ids. This is a SEED, not a constant: it is
+  // written to asc:groups once and never consulted again.
+  var GROUP_SEED = [
+    { id: 'breath', label: 'Breath',     hue: '#bbc4bf' },
+    { id: 'eft',    label: 'Tapping',    hue: '#c08a55' },
+    { id: 'medit',  label: 'Meditation', hue: '#a98b9a' },
+    { id: 'yoga',   label: 'Movement',   hue: '#8fa39b' },
+    { id: 'energy', label: 'Energy',     hue: '#e0a765' },
+    { id: 'mine',   label: 'Mine',       hue: '#938b7c' }
+  ];
+
+  // WHERE A RECORD WITH NO groupId GOES. Keyed by kind, which is the
+  // collection it came out of. Read by every model below and by
+  // activities(), so a library written before this existed files
+  // itself exactly where it always did.
+  var GROUP_FOR_KIND = {
+    breath: 'breath', eft: 'eft', meditation: 'medit',
+    yoga: 'yoga', energy: 'energy', custom: 'mine'
+  };
+
+  function stripControl(s) {
+    return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  }
+  function byOrder(a, b) { return (a.order || 0) - (b.order || 0); }
+
+  function slugId(label, taken) {
+    var base = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '').replace(/-+$/, '').slice(0, 32) || 'group';
+    var id = base, n = 2;
+    while (taken && taken.indexOf(id) !== -1) id = base + '-' + (n++);
+    return id;
+  }
+
+  function groupModel(d) {
+    d = d || {};
+    return {
+      id: str(d.id, 60) || slugId(d.label),
+      label: stripControl(d.label == null ? 'Untitled group' : d.label).slice(0, 40) || 'Untitled group',
+      hue: /^#[0-9a-fA-F]{6}$/.test(d.hue) ? d.hue : GROUP_HUES[0].hue,
+      order: d.order == null ? 0 : Math.round(num(d.order, 0)),
+      createdAt: Math.round(num(d.createdAt, Date.now())),
+      updatedAt: d.updatedAt == null ? 0 : Math.round(num(d.updatedAt, 0))
+    };
+  }
+
+  function seedGroupList(parsed) {
+    var out = arr(parsed).map(groupModel), i, hasFallback = false;
+    if (!out.length) {
+      out = GROUP_SEED.map(function (g, n) {
+        return groupModel({ id: g.id, label: g.label, hue: g.hue, order: n });
+      });
+    }
+    for (i = 0; i < out.length; i++) if (out[i].id === FALLBACK_GROUP) hasFallback = true;
+    if (!hasFallback) {
+      out.push(groupModel({ id: FALLBACK_GROUP, label: 'Mine', hue: '#938b7c', order: 9999 }));
+    }
+    return out.sort(byOrder);
+  }
+
+  // CACHED ON THE RAW STRING, and that is load-bearing rather than a
+  // micro-optimisation. groupById() is called once per row per paint
+  // over ~150 rows: with no cache that is 150 JSON.parse calls on
+  // every keystroke of the search box.
+  //
+  // Keying the cache on the raw localStorage string rather than on a
+  // dirty flag is what makes it correct under EVERY writer — this
+  // file, a cloud pull applying straight through sync.js's
+  // localStorage patch, or another tab — because the string IS the
+  // source of truth and a dirty flag set in here would never hear
+  // about the other two.
+  var gRaw = null, gVal = null;
+
+  function groups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    if (raw !== null && raw === gRaw && gVal) return gVal;
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    gVal = seedGroupList(parsed);
+    gRaw = raw;
+    return gVal;
+  }
+
+  // Writes the seed out the first time anything asks, so the Settings
+  // panel and every editor's select edit something real rather than a
+  // list that exists only in memory. Called once from boot.
+  function ensureGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    var seeded = seedGroupList(parsed);
+    if (!Array.isArray(parsed) || parsed.length !== seeded.length) {
+      storeSet(KEYS.groups, seeded);
+      gRaw = null;
+    }
+    return groups();
+  }
+
+  // THE FALLBACK IS EXPLICIT. Look up the id, then the catch-all BY
+  // ID, then whatever is last — so a practice pointing at a group
+  // deleted on another device renders as Mine rather than as a blank
+  // pill. Never `all[all.length - 1]` alone: that relies on the
+  // catch-all being last, which is true of a frozen constant and
+  // false the moment a group can be reordered.
+  function groupById(id) {
+    var all = groups(), i;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    for (i = 0; i < all.length; i++) if (all[i].id === FALLBACK_GROUP) return all[i];
+    return all[all.length - 1] || { id: FALLBACK_GROUP, label: 'Mine', hue: '#938b7c', order: 0 };
+  }
+
+  // What a model stores. An id is kept VERBATIM whenever the caller
+  // supplied one, including one that names no group here yet:
+  // resolving it to the catch-all at write time would quietly re-file
+  // every record whose group has not arrived from another device.
+  // Resolution for DISPLAY happens in groupById(); this only fills
+  // in the blank.
+  function groupIdFor(v, kind) {
+    return str(v, 60) || GROUP_FOR_KIND[kind] || FALLBACK_GROUP;
+  }
+
+  function addGroup(label, hue) {
+    var all = groups(), max = 0;
+    var taken = all.map(function (g) { return g.id; });
+    all.forEach(function (g) { if ((g.order || 0) > max) max = g.order || 0; });
+    var rec = groupModel({ id: slugId(label, taken), label: label, hue: hue, order: max + 1 });
+    storeSet(KEYS.groups, all.concat([rec]));
+    gRaw = null;
+    return rec;
+  }
+
+  function updateGroup(id, patch) {
+    var all = groups().slice(), idx = -1, i, k;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) { idx = i; break; }
+    if (idx < 0) return null;
+    var merged = {};
+    for (k in all[idx]) merged[k] = all[idx][k];
+    for (k in (patch || {})) merged[k] = patch[k];
+    merged.id = id;                  // an id is never edited: records point at it
+    merged.updatedAt = Date.now();
+    all[idx] = groupModel(merged);
+    storeSet(KEYS.groups, all);
+    gRaw = null;
+    return all[idx];
+  }
+
+  function reorderGroups(ids) {
+    var all = groups(), by = {}, out = [];
+    all.forEach(function (g) { by[g.id] = g; });
+    function push(g) {
+      out.push(groupModel({ id: g.id, label: g.label, hue: g.hue, order: out.length,
+                            createdAt: g.createdAt, updatedAt: g.updatedAt }));
+    }
+    arr(ids).forEach(function (id) { if (by[id]) { push(by[id]); delete by[id]; } });
+    // Anything the caller did not name keeps its place at the end
+    // rather than being dropped. A reorder is not a delete, and a drag
+    // handler that misses a row must not be able to destroy it.
+    Object.keys(by).forEach(function (id) { push(by[id]); });
+    storeSet(KEYS.groups, out);
+    gRaw = null;
+    return out;
+  }
+
+  // DELETING A GROUP RE-FILES EVERYTHING IN IT FIRST, across all six
+  // collections and every media shelf — a practice's group is a field
+  // on the record now, so every collection has to be swept, not only
+  // the one that shares the group's name. Nothing is ever silently
+  // un-filed.
+  function removeGroup(id, moveTo) {
+    if (id === FALLBACK_GROUP) return { ok: false, reason: 'protected' };
+    var all = groups(), found = false, destOk = false, i;
+    for (i = 0; i < all.length; i++) {
+      if (all[i].id === id) found = true;
+      if (all[i].id === moveTo) destOk = true;
+    }
+    if (!found) return { ok: false, reason: 'missing' };
+    var dest = (destOk && moveTo !== id) ? moveTo : FALLBACK_GROUP;
+
+    var moved = 0;
+    eachCollection(function (coll, kind) {
+      coll.list().forEach(function (r) {
+        if (groupIdFor(r.groupId, kind) === id) {
+          coll.update(r.id, { groupId: dest });
+          moved++;
+        }
+      });
+    });
+
+    storeSet(KEYS.groups, all.filter(function (g) { return g.id !== id; }));
+    gRaw = null;
+    return { ok: true, moved: moved, dest: dest };
+  }
+
+  // How many practices each group holds. The group bar, the Settings
+  // panel and the delete confirmation all ask, and a confirmation
+  // that under-reports what it is about to move is worse than none.
+  function groupCounts() {
+    var counts = {};
+    eachCollection(function (coll, kind) {
+      coll.list().forEach(function (r) {
+        var g = groupIdFor(r.groupId, kind);
+        counts[g] = (counts[g] || 0) + 1;
+      });
+    });
+    return counts;
+  }
+
+  // ============================================================
   // MODELS
   // ============================================================
 
@@ -249,6 +518,9 @@
       why:      str(b.why, 1200),
       cues:     strList(b.cues, 240, 12),
       goal:     oneOf(b.goal, BREATH_GOALS, 'Calm'),
+      // WHERE IT IS FILED, which is no longer the same question as
+      // which collection it lives in. See §GROUPS.
+      groupId:  groupIdFor(b.groupId, 'breath'),
       rounds:   arr(b.rounds).slice(0, 12).map(roundModel),
       favorite: b.favorite === true,
       order:    Math.round(num(b.order, 0)),
@@ -292,6 +564,7 @@
       id:       str(t.id, 60) || uid('eft'),
       name:     str(t.name, 80),
       blurb:    str(t.blurb, 400),
+      groupId:  groupIdFor(t.groupId, 'eft'),
       setup:    strList(t.setup, 400, 5),
       round1:   arr(t.round1).slice(0, 12).map(tapLineModel),
       round2:   arr(t.round2).slice(0, 12).map(tapLineModel),
@@ -315,6 +588,7 @@
       title:    str(c.title, 160),
       summary:  str(c.summary, 600),
       steps:    strList(c.steps, 700, 16),
+      groupId:  groupIdFor(c.groupId, 'custom'),
       forWhen:  str(c.forWhen, 60),
       minutes:  clamp(Math.round(num(c.minutes, 0)), 0, 240),
       url:      str(c.url, 900),
@@ -337,6 +611,7 @@
       url:         str(m.url, 900),
       cover:       str(m.cover, 900),
       description: str(m.description, 1200),
+      groupId:     groupIdFor(m.groupId, 'meditation'),
       minutes:     clamp(Math.round(num(m.minutes, 0)), 0, 600),
       forWhen:     str(m.forWhen, 200),
       favorite:    m.favorite === true,
@@ -356,6 +631,7 @@
       id:          str(y.id, 60) || uid('yog'),
       title:       str(y.title, 200),
       category:    oneOf(y.category, YOGA_CATEGORIES, 'mobility'),
+      groupId:     groupIdFor(y.groupId, 'yoga'),
       feelings:    strList(y.feelings, 30, 8),
       minutes:     clamp(Math.round(num(y.minutes, 0)), 0, 300),
       url:         str(y.url, 900),
@@ -375,7 +651,12 @@
     e = e || {};
     return {
       id:       str(e.id, 60) || uid('eng'),
+      // `group` here is the energy TAXONOMY (grounding / cleansing /
+      // ...), which predates §GROUPS and is a different thing: it is
+      // what the practice does, not where it is filed. Hence groupId
+      // beside it rather than instead of it.
       group:    oneOf(e.group, ENERGY_GROUPS, 'grounding'),
+      groupId:  groupIdFor(e.groupId, 'energy'),
       title:    str(e.title, 160),
       summary:  str(e.summary, 600),
       steps:    strList(e.steps, 700, 16),
@@ -433,6 +714,25 @@
     Media[shelf] = makeCollection(mediaKey(shelf), mediaModel, 'med');
   });
   function mediaShelf(shelf) { return Media[shelf] || null; }
+
+  // EVERY COLLECTION THAT HOLDS A PRACTICE, in one place. §GROUPS
+  // needs to sweep all of them — a group is a field on the record
+  // now, so "delete the Breath group" can move a hypnosis track and
+  // a walk as easily as a breathing technique. The five media
+  // shelves are five separate collections and each has to be named,
+  // because they are five separate localStorage keys.
+  //
+  // The kind handed to the callback is the SESSION kind, which is
+  // what GROUP_FOR_KIND is keyed by.
+  function eachCollection(fn) {
+    fn(Breath, 'breath');
+    fn(Eft, 'eft');
+    fn(Yoga, 'yoga');
+    fn(Energy, 'energy');
+    fn(Custom, 'custom');
+    MEDIA_SHELVES.forEach(function (shelf) { fn(Media[shelf], 'meditation'); });
+  }
+
   function mediaAll() {
     var out = [];
     MEDIA_SHELVES.forEach(function (shelf) {
@@ -583,9 +883,16 @@
    * @returns {Array<{id,kind,group,shelf,title,forWhen,minutes,url,
    *                  favorite,lastDoneISO,timesDone,rec}>}
    */
+  /* THE GROUP IS READ OFF THE RECORD NOW, not off the collection the
+     record came out of. Every push() below still names its historic
+     group, and that name is now only the FALLBACK — used when a record
+     predates §GROUPS and carries no groupId of its own. Move a
+     breathing technique into a group called "Before bed" and it comes
+     back here filed under that. */
   function activities() {
     var idx = sessionIndex(), out = [];
-    function push(kind, group, rec, title, forWhen, minutes, extra) {
+    function push(kind, fallbackGroup, rec, title, forWhen, minutes, extra) {
+      var group = str(rec.groupId, 60) || fallbackGroup;
       var e = idx[kind + ':' + rec.id];
       out.push(Object.assign({
         id: rec.id, kind: kind, group: group, shelf: '',
@@ -649,6 +956,88 @@
         { summary: c.summary });
     });
     return out;
+  }
+
+  // ============================================================
+  // §HOUSE — the page's own words, and the photograph behind them
+  //
+  // Everything the studio says about itself used to be typed into
+  // the markup: the hero's eyebrow, its headline, the line under it,
+  // the footer. None of it could be changed without editing a file.
+  // It is a record now, on the library row (set once, changed
+  // rarely — the log row is for what gets written every day).
+  //
+  // THE DEFAULTS ARE THE WORDS THAT WERE IN THE MARKUP, so a first
+  // load after this ships looks exactly like the load before it.
+  // An empty field falls back to the default rather than rendering
+  // blank: a hero with no headline is not a customisation, it is a
+  // broken page.
+  // ============================================================
+
+  var HERO_DEFAULT = 'images_by_admin/asclepion/hero-library.webp';
+
+  var HOUSE_DEFAULTS = {
+    eyebrow: 'The Asclepion',
+    title: 'Something you can do now.',
+    caption: 'Breath, tapping, meditation, movement, energy — and whatever you add yourself. Nothing here keeps score.',
+    footLine: 'Nothing here keeps score',
+    heroUrl: HERO_DEFAULT,
+    // THE "FOR WHEN" VOCABULARY. It used to be derived — a sweep of
+    // whatever strings the library happened to contain — which meant
+    // it could not be curated, only accumulated, and a typo became a
+    // filter option. It is a list now, seeded from the library the
+    // first time it is asked for so the first render is unchanged.
+    whenList: []
+  };
+
+  function houseModel(h) {
+    h = h || {};
+    function pick(k, max) {
+      var v = stripControl(h[k]);
+      return v ? v.slice(0, max) : HOUSE_DEFAULTS[k];
+    }
+    return {
+      eyebrow: pick('eyebrow', 60),
+      title: pick('title', 120),
+      caption: pick('caption', 300),
+      footLine: pick('footLine', 80),
+      // A URL is NOT stripped of its case or trimmed to a word: it is
+      // either a path in this repo or something PhotoStore handed
+      // back. Empty means "the one that ships".
+      heroUrl: str(h.heroUrl, 900) || HERO_DEFAULT,
+      whenList: strList(h.whenList, 60, 40)
+    };
+  }
+
+  function getHouse() {
+    var rec = houseModel(storeGet(KEYS.house));
+    // Seed the vocabulary from the library rather than shipping a
+    // guess at it. Done on READ and not written back, so a genuinely
+    // emptied list stays empty the moment the user saves one.
+    if (!rec.whenList.length) rec.whenList = derivedWhenValues();
+    return rec;
+  }
+
+  function setHouse(patch) {
+    var next = houseModel(Object.assign({}, getHouse(), patch || {}));
+    storeSet(KEYS.house, next);
+    return next;
+  }
+
+  // What the library actually says, deduplicated and ordered by how
+  // often it says it. This is the old whenValues() from the page,
+  // moved down here because the house record seeds from it.
+  function derivedWhenValues() {
+    var seen = {}, out = [];
+    activities().forEach(function (a) {
+      var v = String(a.forWhen || '').trim();
+      if (!v) return;
+      if (seen[v] == null) { seen[v] = 0; out.push(v); }
+      seen[v] += 1;
+    });
+    return out.sort(function (a, b) {
+      return seen[b] - seen[a] || a.localeCompare(b);
+    }).slice(0, 40);
   }
 
   // ============================================================
@@ -965,7 +1354,34 @@
   // ============================================================
   global.Asc = {
     KEYS: KEYS,
+    // GROUPS is the RETIRED hard-coded six. Kept exported only so a
+    // stale bookmark of a script cannot throw; nothing in the page
+    // reads it any more. groups() is the live list.
     GROUPS: GROUPS,
+
+    // --- §GROUPS: the filing system, as data ------------------
+    GROUP_HUES: GROUP_HUES,
+    GROUP_SEED: GROUP_SEED,
+    GROUP_FOR_KIND: GROUP_FOR_KIND,
+    FALLBACK_GROUP: FALLBACK_GROUP,
+    groups: groups,
+    ensureGroups: ensureGroups,
+    groupById: groupById,
+    groupIdFor: groupIdFor,
+    addGroup: addGroup,
+    updateGroup: updateGroup,
+    reorderGroups: reorderGroups,
+    removeGroup: removeGroup,
+    groupCounts: groupCounts,
+    eachCollection: eachCollection,
+
+    // --- §HOUSE: the page's own words ------------------------
+    HOUSE_DEFAULTS: HOUSE_DEFAULTS,
+    HERO_DEFAULT: HERO_DEFAULT,
+    getHouse: getHouse,
+    setHouse: setHouse,
+    whenValues: derivedWhenValues,
+
     MEDIA_SHELVES: MEDIA_SHELVES,
     SHELF_LABELS: SHELF_LABELS,
     PHASE_KINDS: PHASE_KINDS,

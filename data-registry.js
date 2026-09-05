@@ -153,6 +153,11 @@
         { key: 'asc:yoga',        label: 'movement' },
         { key: 'asc:energy',      label: 'energy practices' },
         { key: 'asc:custom',      label: 'your own activities' },
+        // THE GROUPS ARE DATA (2026-09-05) and have to be counted.
+        // Without this a snapshot restores every practice and leaves
+        // them pointing at groups that no longer exist — the whole
+        // library would render as Mine.
+        { key: 'asc:groups',      label: 'groups' },
         { key: 'asclog:sessions', label: 'sessions' }
       ]
     },
