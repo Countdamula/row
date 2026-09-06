@@ -104,7 +104,13 @@
     schedMigrated: 'pal:scheduleMigrated',
     // The training week itself was replaced, not edited — see §PROGRAM RESET.
     programReset: 'pal:programReset',
-    programsAt:    'pal:programsInstalledAt'
+    programsAt:    'pal:programsInstalledAt',
+    // How routines are FILED, and what the studio calls itself. Both
+    // sit under the existing `pal:` prefix, and initCloudSync is
+    // called with syncedPrefixes: ['pal:'] rather than a key list, so
+    // they ride the existing row with no sync change at all.
+    groups:    'pal:groups',
+    house:     'pal:house'
   };
 
   // ============================================================
@@ -231,6 +237,289 @@
     return LEVELS[0];
   }
 
+  // ============================================================
+  // §GROUPS — how routines are FILED, and it is DATA
+  //
+  // A routine's shelf used to be its `type`, and `type` is a frozen
+  // ten: Push, Pull, Legs, Upper, Lower, Full Body, Cardio,
+  // Mobility, Custom, Rest. You could not add "Deload", rename
+  // "Custom" to "Garage days", or put the two Saturday sessions
+  // next to each other, because the filing system was a constant in
+  // this file.
+  //
+  // TYPE AND GROUP COME APART HERE, and that is the whole idea.
+  //   type  — what the session IS. laneOf() reads it, and the lane
+  //           drives rest defaults, estimatedDuration() and the four
+  //           colours the week is drawn in. It stays frozen, because
+  //           every logged session carries a copy of it and a lane
+  //           that changed meaning would rewrite history.
+  //   group — where the routine is FILED. Editable on anything, any
+  //           time: rename it, recolour it, reorder it, add one,
+  //           delete one.
+  // So "Wednesday Recovery" can be typed Mobility and filed under
+  // "Days that don't feel like training", next to a walk.
+  //
+  // NOTHING MIGRATES. The seed uses ten ids derived from the ten
+  // type keys, and a routine with no groupId falls back to
+  // GROUP_FOR_TYPE[type] — not to the catch-all — so a library
+  // written before this existed files itself exactly where it did
+  // yesterday. That fallback IS the upgrade path; get it wrong and
+  // every routine on the phone lands in Custom on first load and
+  // reads as though the filing had been thrown away.
+  // ============================================================
+
+  // THE PALETTE A GROUP CAN BE GIVEN. Eighteen values, and not one
+  // of them is a chosen colour: they are sampled band by band out of
+  // this studio's own hero photograph — the baroque staircase, its
+  // candles, its marble figure, its painted ceiling and the cold
+  // daylight coming through the window behind it. A group picks from
+  // these rather than from a free colour wheel, because every one of
+  // them clears 3:1 on the ground and a free picker is how a group
+  // ends up invisible.
+  var GROUP_HUES = [
+    { hue: '#d8cdb8', name: 'Marble' },      { hue: '#c6b9a2', name: 'Figure' },
+    { hue: '#e3ae6b', name: 'Candle' },      { hue: '#d09a55', name: 'Lantern' },
+    { hue: '#c08a4a', name: 'Gilding' },     { hue: '#a8763f', name: 'Old brass' },
+    { hue: '#8d6338', name: 'Deep bronze' }, { hue: '#b8795f', name: 'Ember' },
+    { hue: '#a2604d', name: 'Terracotta' },  { hue: '#7d5a46', name: 'Walnut' },
+    { hue: '#b7bcbe', name: 'Daylight' },    { hue: '#9aa5a8', name: 'Cold window' },
+    { hue: '#7f9089', name: 'Ceiling green' },{ hue: '#94a08f', name: 'Verdigris' },
+    { hue: '#a9a091', name: 'Cool stone' },  { hue: '#8b8172', name: 'Balustrade' },
+    { hue: '#6f6558', name: 'Ground' },      { hue: '#b09a86', name: 'Plaster' }
+  ];
+
+  // The id every unresolved group falls back to. `custom` is this
+  // studio's own catch-all — it is already where a hand-built
+  // routine lands — and it is protected: it cannot be deleted and it
+  // is re-seeded if it goes missing, because something has to catch
+  // a routine whose group was deleted on another device this one has
+  // not heard from yet.
+  var FALLBACK_GROUP = 'custom';
+
+  // THE TEN THIS STUDIO HAS ALWAYS HAD, in their original order and
+  // under ids derived from the type keys. This is a SEED, not a
+  // constant: it is written to pal:groups once and never consulted
+  // again.
+  var GROUP_SEED = [
+    { id: 'push',      label: 'Push',      hue: '#e3ae6b' },
+    { id: 'pull',      label: 'Pull',      hue: '#9aa5a8' },
+    { id: 'legs',      label: 'Legs',      hue: '#7f9089' },
+    { id: 'upper',     label: 'Upper',     hue: '#d09a55' },
+    { id: 'lower',     label: 'Lower',     hue: '#94a08f' },
+    { id: 'full-body', label: 'Full Body', hue: '#c6b9a2' },
+    { id: 'cardio',    label: 'Cardio',    hue: '#a2604d' },
+    { id: 'mobility',  label: 'Mobility',  hue: '#b7bcbe' },
+    { id: 'custom',    label: 'Custom',    hue: '#a9a091' },
+    { id: 'rest',      label: 'Rest',      hue: '#6f6558' }
+  ];
+
+  // WHERE A ROUTINE WITH NO groupId GOES. Keyed by the type it
+  // already carries, which is what filed it before this existed.
+  // Read by templateModel() and by everything that groups the
+  // library, so a routine written yesterday files itself today
+  // exactly where it always did.
+  var GROUP_FOR_TYPE = {
+    'Push': 'push', 'Pull': 'pull', 'Legs': 'legs', 'Upper': 'upper',
+    'Lower': 'lower', 'Full Body': 'full-body', 'Cardio': 'cardio',
+    'Mobility': 'mobility', 'Custom': 'custom', 'Rest': 'rest'
+  };
+
+  function arrOf(v) { return Array.isArray(v) ? v : []; }
+  function stripControl(s) {
+    return String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  }
+  function byOrder(a, b) { return (a.order || 0) - (b.order || 0); }
+
+  function slugId(label, taken) {
+    var base = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '').replace(/-+$/, '').slice(0, 32) || 'group';
+    var id = base, n = 2;
+    while (taken && taken.indexOf(id) !== -1) id = base + '-' + (n++);
+    return id;
+  }
+
+  function groupModel(d) {
+    d = d || {};
+    return {
+      id: str(d.id, 60) || slugId(d.label),
+      label: stripControl(d.label == null ? 'Untitled group' : d.label).slice(0, 40) || 'Untitled group',
+      hue: /^#[0-9a-fA-F]{6}$/.test(d.hue) ? d.hue : GROUP_HUES[0].hue,
+      order: d.order == null ? 0 : Math.round(num(d.order, 0)),
+      createdAt: Math.round(num(d.createdAt, Date.now())),
+      updatedAt: d.updatedAt == null ? 0 : Math.round(num(d.updatedAt, 0))
+    };
+  }
+
+  function seedGroupList(parsed) {
+    var out = arrOf(parsed).map(groupModel), i, hasFallback = false;
+    if (!out.length) {
+      out = GROUP_SEED.map(function (g, n) {
+        return groupModel({ id: g.id, label: g.label, hue: g.hue, order: n });
+      });
+    }
+    for (i = 0; i < out.length; i++) if (out[i].id === FALLBACK_GROUP) hasFallback = true;
+    if (!hasFallback) {
+      out.push(groupModel({ id: FALLBACK_GROUP, label: 'Custom', hue: '#a9a091', order: 9999 }));
+    }
+    return out.sort(byOrder);
+  }
+
+  // CACHED ON THE RAW STRING, and that is load-bearing rather than a
+  // micro-optimisation. groupById() is called once per card and once
+  // per schedule row on every paint: with no cache that is a
+  // JSON.parse per routine on every keystroke of a filter.
+  //
+  // Keying the cache on the raw localStorage string rather than on a
+  // dirty flag is what makes it correct under EVERY writer — this
+  // file, a cloud pull applying straight through sync.js's
+  // localStorage patch, or another tab — because the string IS the
+  // source of truth and a dirty flag set in here would never hear
+  // about the other two.
+  var gRaw = null, gVal = null;
+
+  function groups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    if (raw !== null && raw === gRaw && gVal) return gVal;
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    gVal = seedGroupList(parsed);
+    gRaw = raw;
+    return gVal;
+  }
+
+  // Writes the seed out the first time anything asks, so the Settings
+  // panel and the routine editor's select edit something real rather
+  // than a list that exists only in memory. Called once from boot,
+  // AFTER the cloud has had its say — same rule as seeding.
+  function ensureGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    var seeded = seedGroupList(parsed);
+    if (!Array.isArray(parsed) || parsed.length !== seeded.length) {
+      storeSet(KEYS.groups, seeded);
+      gRaw = null;
+    }
+    return groups();
+  }
+
+  // THE FALLBACK IS EXPLICIT. Look up the id, then the catch-all BY
+  // ID, then whatever is last — so a routine pointing at a group
+  // deleted on another device renders as Custom rather than as a
+  // blank pill. Never `all[all.length - 1]` alone: that relies on the
+  // catch-all being last, which is true of a frozen constant and
+  // false the moment a group can be reordered.
+  function groupById(id) {
+    var all = groups(), i;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    for (i = 0; i < all.length; i++) if (all[i].id === FALLBACK_GROUP) return all[i];
+    return all[all.length - 1] || { id: FALLBACK_GROUP, label: 'Custom', hue: '#a9a091', order: 0 };
+  }
+
+  // What a model stores. An id is kept VERBATIM whenever the caller
+  // supplied one, including one that names no group here yet:
+  // resolving it to the catch-all at write time would quietly re-file
+  // every routine whose group has not arrived from another device.
+  // Resolution for DISPLAY happens in groupById(); this only fills in
+  // the blank, and it fills it from the TYPE.
+  function groupIdFor(v, type) {
+    return str(v, 60) || GROUP_FOR_TYPE[type] || FALLBACK_GROUP;
+  }
+
+  // WHAT GROUP A ROUTINE IS IN. Every reader asks this and none of
+  // them touches t.groupId, because makeCollection's list() and get()
+  // return the RAW stored objects — no model runs on read. A routine
+  // saved before groups existed therefore carries no groupId at all
+  // until something next writes it, and reading the field directly
+  // would file it nowhere. Resolving from the TYPE here is what makes
+  // the upgrade invisible.
+  function templateGroup(t) {
+    return groupIdFor(t && t.groupId, t && t.type);
+  }
+
+  function addGroup(label, hue) {
+    var all = groups(), max = 0;
+    var taken = all.map(function (g) { return g.id; });
+    all.forEach(function (g) { if ((g.order || 0) > max) max = g.order || 0; });
+    var rec = groupModel({ id: slugId(label, taken), label: label, hue: hue, order: max + 1 });
+    storeSet(KEYS.groups, all.concat([rec]));
+    gRaw = null;
+    return rec;
+  }
+
+  function updateGroup(id, patch) {
+    var all = groups().slice(), idx = -1, i, k;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) { idx = i; break; }
+    if (idx < 0) return null;
+    var merged = {};
+    for (k in all[idx]) merged[k] = all[idx][k];
+    for (k in (patch || {})) merged[k] = patch[k];
+    merged.id = id;                  // an id is never edited: routines point at it
+    merged.updatedAt = Date.now();
+    all[idx] = groupModel(merged);
+    storeSet(KEYS.groups, all);
+    gRaw = null;
+    return all[idx];
+  }
+
+  function reorderGroups(ids) {
+    var all = groups(), by = {}, out = [];
+    all.forEach(function (g) { by[g.id] = g; });
+    function push(g) {
+      out.push(groupModel({ id: g.id, label: g.label, hue: g.hue, order: out.length,
+                            createdAt: g.createdAt, updatedAt: g.updatedAt }));
+    }
+    arrOf(ids).forEach(function (id) { if (by[id]) { push(by[id]); delete by[id]; } });
+    // Anything the caller did not name keeps its place at the end
+    // rather than being dropped. A reorder is not a delete, and a
+    // drag handler that misses a row must not be able to destroy it.
+    Object.keys(by).forEach(function (id) { push(by[id]); });
+    storeSet(KEYS.groups, out);
+    gRaw = null;
+    return out;
+  }
+
+  // DELETING A GROUP RE-FILES EVERYTHING IN IT FIRST. Nothing is ever
+  // silently un-filed. Only routines carry a group — exercises are
+  // filed by MUSCLE, which is a different axis and deliberately not
+  // this one — so Templates is the whole sweep.
+  function removeGroup(id, moveTo) {
+    if (id === FALLBACK_GROUP) return { ok: false, reason: 'protected' };
+    var all = groups(), found = false, destOk = false, i;
+    for (i = 0; i < all.length; i++) {
+      if (all[i].id === id) found = true;
+      if (all[i].id === moveTo) destOk = true;
+    }
+    if (!found) return { ok: false, reason: 'missing' };
+    var dest = (destOk && moveTo !== id) ? moveTo : FALLBACK_GROUP;
+
+    var moved = 0;
+    Templates.list().forEach(function (t) {
+      if (templateGroup(t) === id) {
+        Templates.update(t.id, { groupId: dest });
+        moved++;
+      }
+    });
+
+    storeSet(KEYS.groups, all.filter(function (g) { return g.id !== id; }));
+    gRaw = null;
+    return { ok: true, moved: moved, dest: dest };
+  }
+
+  // How many routines each group holds. The group bar, the Settings
+  // panel and the delete confirmation all ask, and a confirmation
+  // that under-reports what it is about to move is worse than none.
+  function groupCounts() {
+    var counts = {};
+    Templates.list().forEach(function (t) {
+      var g = templateGroup(t);
+      counts[g] = (counts[g] || 0) + 1;
+    });
+    return counts;
+  }
+
   // Not every prescription is a number of reps. Jump rope is five minutes,
   // a wall sit is forty-five seconds, an L-sit is "as long as you can", and
   // a split squat is ten PER LEG. Storing all of those as repMin/repMax and
@@ -336,6 +625,16 @@
       id: d.id || uid('ptpl'),
       name: str(d.name, 120),
       type: TYPE_KEYS.indexOf(d.type) !== -1 ? d.type : 'Custom',
+      // WHERE IT IS FILED — see §GROUPS. Kept verbatim when the caller
+      // supplied one, even an id no group here answers to yet; blank
+      // falls back to the routine's TYPE, which is what filed it
+      // before groups existed.
+      groupId: groupIdFor(d.groupId, TYPE_KEYS.indexOf(d.type) !== -1 ? d.type : 'Custom'),
+      // ONE photograph for the card, and nothing is ever drawn over
+      // it. Separate from the exercise media[] this routine's card
+      // used to aggregate: that was a strip of thumbnails, this is
+      // the card. Empty means the card has no image area at all.
+      cover: str(d.cover, 900),
       days: days,
       level: LEVEL_KEYS.indexOf(d.level) !== -1 ? d.level : '',
       items: (Array.isArray(d.items) ? d.items : []).map(templateItemModel).slice(0, 60),
@@ -2054,12 +2353,206 @@
   }
 
   // ============================================================
+  // §HOUSE — the studio's own words, and the photograph behind them
+  //
+  // Everything this page says about itself used to be typed into the
+  // markup: the hero copy for each of the five scenes, the heading
+  // over every band, the seven weekday names, and what HIGH, MID and
+  // LOW are called. None of it could be changed without editing a
+  // file.
+  //
+  // It is a record now, on the one row this studio already has.
+  // Written once and changed rarely, which is why it sits beside the
+  // library rather than beside the session log.
+  //
+  // THE DEFAULTS ARE THE STRINGS THAT WERE IN THE MARKUP, so the
+  // first load after this ships looks exactly like the load before
+  // it, and pal:house is not written at all until something is
+  // actually edited. An emptied field falls back to its default
+  // rather than rendering blank: a hero with no headline is not a
+  // customisation, it is a broken page.
+  //
+  // WHAT IS DELIBERATELY NOT HERE. The three LEVEL KEYS (high / mid /
+  // low), the ten TYPE keys and the twelve MUSCLES are not words, they
+  // are identifiers: every routine and every logged session carries a
+  // copy of them, and a renamed key would rewrite history rather than
+  // relabel it. What those three levels are CALLED is a label, and
+  // labels are editable. The keys are not.
+  // ============================================================
+
+  var HERO_DEFAULT = 'images_by_admin/palaestra/hero-house.jpg';
+
+  var HOUSE_DEFAULTS = {
+    heroUrl: HERO_DEFAULT,
+    footLine: 'Three real options, not one and two excuses',
+    // One scene per route, keyed by hash. The headline was three
+    // separate lines in the old video hero because the words were
+    // revealed one at a time; the house sets it as one string and
+    // lets the measure break it.
+    scenes: {
+      '/': {
+        eyebrow: 'The plan',
+        title: 'Which version today?',
+        caption: 'HIGH, MID or LOW — three real options, not one and two excuses. Rest days are part of the plan too: taking one keeps the streak, skipping a session breaks it.'
+      },
+      '/templates': {
+        eyebrow: 'Routines',
+        title: 'Decide once, lift many times',
+        caption: 'A routine is a decision you already made, so the tired version of you does not have to make it again.'
+      },
+      '/exercises': {
+        eyebrow: 'The library',
+        title: 'Master the few',
+        caption: 'A short list of movements you do well beats a long list you do once. This is that list.'
+      },
+      '/history': {
+        eyebrow: 'Everything so far',
+        title: 'You have already done this',
+        caption: 'Every session you finished is still here, and so is every weight you have beaten.'
+      },
+      '/data': {
+        eyebrow: 'Kept safe',
+        title: 'Nothing here is lost',
+        caption: 'Snapshots of every routine and every session, held on this device outside everything the cloud can reach. Taken whether or not you ever open this page.'
+      },
+      // The logger's own short hero. Its TITLE is the session's name
+      // and is never stored here — only the words around it are.
+      'log': {
+        eyebrow: 'In session',
+        title: 'Workout',
+        caption: 'One set at a time. The clock keeps itself.'
+      }
+    },
+    // The heading over each band. Keyed by view, not by route, because
+    // the schedule view carries two.
+    bands: {
+      schedule:  'The week',
+      workouts:  'Workouts',
+      exercises: 'Exercise library',
+      history:   'History',
+      data:      'Safety net'
+    },
+    // Seven, in order, Monday first. The ORDER is not editable — a
+    // week is a week — but what a day is called is a label like any
+    // other, and a short form is derived from it rather than stored,
+    // so renaming Monday to "Gym day" cannot leave "Mon" behind.
+    days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    // What the three efforts are CALLED. The keys stay high/mid/low.
+    levels: {
+      high: { label: 'HIGH', title: 'Progress Day' },
+      mid:  { label: 'MID',  title: 'Maintenance' },
+      low:  { label: 'LOW',  title: 'Consistency' }
+    }
+  };
+
+  function houseText(v, fallback, max) {
+    var s = stripControl(v);
+    return s ? s.slice(0, max) : fallback;
+  }
+
+  function houseModel(h) {
+    h = h || {};
+    var scenes = {}, bands = {}, levels = {}, k;
+    var inScenes = h.scenes && typeof h.scenes === 'object' ? h.scenes : {};
+    for (k in HOUSE_DEFAULTS.scenes) {
+      var dflt = HOUSE_DEFAULTS.scenes[k];
+      var got = inScenes[k] && typeof inScenes[k] === 'object' ? inScenes[k] : {};
+      scenes[k] = {
+        eyebrow: houseText(got.eyebrow, dflt.eyebrow, 60),
+        title:   houseText(got.title,   dflt.title,   120),
+        caption: houseText(got.caption, dflt.caption, 400)
+      };
+    }
+    var inBands = h.bands && typeof h.bands === 'object' ? h.bands : {};
+    for (k in HOUSE_DEFAULTS.bands) {
+      bands[k] = houseText(inBands[k], HOUSE_DEFAULTS.bands[k], 60);
+    }
+    var inLevels = h.levels && typeof h.levels === 'object' ? h.levels : {};
+    for (k in HOUSE_DEFAULTS.levels) {
+      var ld = HOUSE_DEFAULTS.levels[k];
+      var lg = inLevels[k] && typeof inLevels[k] === 'object' ? inLevels[k] : {};
+      levels[k] = {
+        label: houseText(lg.label, ld.label, 20),
+        title: houseText(lg.title, ld.title, 40)
+      };
+    }
+    var inDays = arrOf(h.days);
+    var days = HOUSE_DEFAULTS.days.map(function (d, i) {
+      return houseText(inDays[i], d, 24);
+    });
+    return {
+      // A URL is NOT stripped of its case or trimmed to a word: it is
+      // either a path in this repo or something PhotoStore handed
+      // back. Empty means "the one that ships".
+      heroUrl: str(h.heroUrl, 900) || HERO_DEFAULT,
+      footLine: houseText(h.footLine, HOUSE_DEFAULTS.footLine, 80),
+      scenes: scenes,
+      bands: bands,
+      days: days,
+      levels: levels
+    };
+  }
+
+  function getHouse() { return houseModel(storeGet(KEYS.house)); }
+
+  function setHouse(patch) {
+    var cur = getHouse(), next = {}, k;
+    for (k in cur) next[k] = cur[k];
+    for (k in (patch || {})) next[k] = patch[k];
+    var rec = houseModel(next);
+    storeSet(KEYS.house, rec);
+    return rec;
+  }
+
+  // The scene for a route, with the schedule's as the fallback — a
+  // hash this page does not answer resolves to `/` in the router, so
+  // its hero has to resolve there too.
+  function scene(hash) {
+    var h = getHouse();
+    return h.scenes[hash] || h.scenes['/'];
+  }
+
+  // The seven day records with the house's labels applied, and a
+  // short form DERIVED rather than stored. WEEKDAYS itself is left
+  // untouched: weekdayKey() and DAY_KEYS are identifiers.
+  function weekdays() {
+    var labels = getHouse().days;
+    return WEEKDAYS.map(function (w, i) {
+      var label = labels[i] || w.label;
+      return { key: w.key, label: label, short: label.slice(0, 3) };
+    });
+  }
+
+  // levelInfo() with the house's labels applied. Everything else on a
+  // level — its minutes, its blurb, when to pick it — is guidance
+  // this studio wrote and is not a name, so it stays in LEVELS.
+  function levelLabel(key) {
+    var base = levelInfo(key), h = getHouse().levels[key];
+    if (!h) return base;
+    return {
+      key: base.key, label: h.label, title: h.title, mins: base.mins,
+      blurb: base.blurb, when: base.when, dot: base.dot
+    };
+  }
+
+  // ============================================================
   global.Pal = {
     KEYS: KEYS,
     // constants
     TYPES: TYPES, TYPE_KEYS: TYPE_KEYS, laneOf: laneOf,
     MUSCLES: MUSCLES, EQUIPMENT: EQUIPMENT, WEEKDAYS: WEEKDAYS, DAY_KEYS: DAY_KEYS,
     LEVELS: LEVELS, LEVEL_KEYS: LEVEL_KEYS, levelInfo: levelInfo, UNITS: UNITS,
+    // groups — the filing system, and it is data
+    GROUP_HUES: GROUP_HUES, GROUP_SEED: GROUP_SEED, FALLBACK_GROUP: FALLBACK_GROUP,
+    GROUP_FOR_TYPE: GROUP_FOR_TYPE,
+    groups: groups, ensureGroups: ensureGroups, groupById: groupById,
+    groupIdFor: groupIdFor, templateGroup: templateGroup,
+    addGroup: addGroup, updateGroup: updateGroup,
+    reorderGroups: reorderGroups, removeGroup: removeGroup, groupCounts: groupCounts,
+    // the house — the studio's own words
+    HOUSE_DEFAULTS: HOUSE_DEFAULTS, HERO_DEFAULT: HERO_DEFAULT,
+    getHouse: getHouse, setHouse: setHouse, scene: scene,
+    weekdays: weekdays, levelLabel: levelLabel,
     MONTHS: MONTHS, REST_PRESETS: REST_PRESETS, MEASURE_FIELDS: MEASURE_FIELDS,
     // dates
     localISO: localISO, today: today, addDays: addDays, mondayOf: mondayOf,

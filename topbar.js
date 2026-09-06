@@ -328,15 +328,15 @@
       key: 'palaestra',
       label: 'Fitness Studio',
       items: [
+        // FOUR ROUTES, and these are all of them. It listed nine until
+        // 2026-09-05, five of which (/steps, /body, /calendar, /volume,
+        // /settings) were removed in the four-route cut of 2026-08-25.
+        // They fall through to / in the router, so the menu was never
+        // broken — only lying about where it went.
         { href: 'palaestra.html', icon: '⟠', label: 'Fitness Studio', id: 'topbarPalaestra', children: [
-          { hash: '/', label: 'Today' },
-          { hash: '/steps', label: 'Steps' },
-          { hash: '/body', label: 'Body Progress' },
-          { hash: '/calendar', label: 'Weekly Schedule' },
-          { hash: '/volume', label: 'Training Volume' },
+          { hash: '/', label: 'Schedule' },
           { hash: '/templates', label: 'Workouts' },
-          { hash: '/exercises', label: 'Exercise Library' },
-          { hash: '/settings', label: 'Settings & safety net' },
+          { hash: '/exercises', label: 'Exercises' },
           { hash: '/history', label: 'History' },
         ] },
         { href: 'palaestra-workout.html', icon: '⏱', label: 'Workout Logger', id: 'topbarPalaestraWorkout' },

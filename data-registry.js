@@ -125,7 +125,14 @@
         { key: 'pal:sessions',  label: 'workouts' },
         { key: 'pal:body',      label: 'measurements' },
         { key: 'pal:notes',     label: 'notes' },
-        { key: 'pal:goals',     label: 'goals' }
+        { key: 'pal:goals',     label: 'goals' },
+        // How routines are FILED, as of 2026-09-05. Without it a
+        // snapshot restores the routines and leaves them pointing at
+        // groups that no longer exist. `pal:house` is deliberately NOT
+        // here: recovery.html reports a missing counted key as a fault,
+        // and the house record legitimately does not exist until
+        // something on the page is actually edited.
+        { key: 'pal:groups',    label: 'groups' }
       ]
     },
     {
