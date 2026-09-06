@@ -1077,6 +1077,13 @@
       focusIndex: clamp(Math.round(num(raw.focusIndex, 0)), 0, 59),
       restEndsAt: raw.restEndsAt == null ? null : num(raw.restEndsAt, 0),
       restSec: clamp(Math.round(num(raw.restSec, 0)), 0, 900),
+      // WHICH BLOCK IS RESTING. The logger draws a timer at the foot of
+      // every superset block, and the fixed bar at the bottom of the
+      // window shows the same rest — two views of ONE clock, never two
+      // clocks. This is the id of the block's FIRST ENTRY, not blocksOf's
+      // `block` number: that number is a run marker, and a session whose
+      // blocks are not consecutive can hand out the same one twice.
+      restFor: str(raw.restFor, 80),
       runningSince: raw.runningSince == null ? null : num(raw.runningSince, 0)
     };
   }
@@ -1092,6 +1099,13 @@
       focusIndex: clamp(Math.round(num(raw.focusIndex, 0)), 0, 59),
       restEndsAt: raw.restEndsAt == null ? null : num(raw.restEndsAt, 0),
       restSec: clamp(Math.round(num(raw.restSec, 0)), 0, 900),
+      // WHICH BLOCK IS RESTING. The logger draws a timer at the foot of
+      // every superset block, and the fixed bar at the bottom of the
+      // window shows the same rest — two views of ONE clock, never two
+      // clocks. This is the id of the block's FIRST ENTRY, not blocksOf's
+      // `block` number: that number is a run marker, and a session whose
+      // blocks are not consecutive can hand out the same one twice.
+      restFor: str(raw.restFor, 80),
       runningSince: raw.runningSince == null ? null : num(raw.runningSince, 0)
     };
   }
@@ -2314,6 +2328,76 @@
     return span + UNIT_SUFFIX[unit] + (o.perSide ? '/leg' : '');
   }
 
+  // ============================================================
+  // THE REP BUTTONS
+  //
+  // What numbers to offer for one set, so logging reps is a tap
+  // rather than a typed number. Two sources, in this order:
+  //
+  //   the ROUTINE — `targetReps`, written by repRange() above, so its
+  //   shape is known: '8–12', '10', '45–60 sec', '15 min', '10/leg',
+  //   'Max';
+  //   and LAST TIME — what was actually lifted for this set index,
+  //   which is the strongest signal there is about the next one.
+  //
+  // A hold measured in seconds and a Max set have no rep range to
+  // derive anything from. Those fall back to a plain ladder rather
+  // than to numbers dressed up as if they meant something.
+  // ============================================================
+  var REP_LADDER = [5, 8, 10, 12, 15, 20];
+  var REP_CHOICE_MAX = 6;
+  function repChoices(entry, prevSet) {
+    var target = entry && entry.targetReps ? String(entry.targetReps) : '';
+    // The same reader estimatedDuration's setSec() uses: a leading
+    // integer, an optional range, an optional unit. The separator is an
+    // EN DASH because that is what repRange() writes — a hyphen here
+    // matches nothing at all.
+    var m = /^(\d+)(?:–(\d+))?\s*(min|sec)?\b/.exec(target);
+    var out = [], i, n;
+    if (m && !m[3]) {
+      var lo = parseInt(m[1], 10);
+      var hi = m[2] ? parseInt(m[2], 10) : 0;
+      if (!hi || hi === lo) {
+        // One number: it, with two either side. Never below 1.
+        for (i = -2; i <= 2; i++) if (lo + i >= 1) out.push(lo + i);
+      } else if (hi - lo + 1 <= REP_CHOICE_MAX) {
+        for (n = lo; n <= hi; n++) out.push(n);
+      } else {
+        // Wider than the strip holds. Step it, and keep BOTH ends —
+        // the top of the range is the one you are working towards.
+        var step = (hi - lo) / (REP_CHOICE_MAX - 1);
+        for (i = 0; i < REP_CHOICE_MAX; i++) out.push(Math.round(lo + step * i));
+      }
+    }
+    if (!out.length) out = REP_LADDER.slice();
+
+    var uniq = [], seen = {};
+    out.sort(function (a, b) { return a - b; });
+    for (i = 0; i < out.length; i++) {
+      n = out[i];
+      if (n < 1 || n > 1000 || seen[n]) continue;
+      seen[n] = 1; uniq.push(n);
+    }
+    uniq = uniq.slice(0, REP_CHOICE_MAX);
+
+    // Last time goes IN rather than on the end — and if the strip is
+    // already full, it displaces whichever number is furthest from it,
+    // because that is the one least likely to be tapped.
+    var prev = prevSet ? Math.round(num(prevSet.reps, 0)) : 0;
+    if (prev >= 1 && prev <= 1000 && uniq.indexOf(prev) === -1) {
+      if (uniq.length >= REP_CHOICE_MAX) {
+        var worst = 0;
+        for (i = 1; i < uniq.length; i++) {
+          if (Math.abs(uniq[i] - prev) > Math.abs(uniq[worst] - prev)) worst = i;
+        }
+        uniq.splice(worst, 1);
+      }
+      uniq.push(prev);
+      uniq.sort(function (a, b) { return a - b; });
+    }
+    return uniq;
+  }
+
   // '4 × 5–8'. The multiplication sign is U+00D7, not the letter x.
   function setsAndReps(o) {
     if (!o) return '';
@@ -2603,6 +2687,7 @@
     autosave: autosave, onChange: onChange, uid: uid,
     fmtInt: fmtInt, fmtWeight: fmtWeight, fmtClock: fmtClock,
     repRange: repRange, setsAndReps: setsAndReps, fmtRest: fmtRest,
+    repChoices: repChoices, REP_LADDER: REP_LADDER,
     fmtDuration: fmtDuration, escapeHtml: escapeHtml, clamp: clamp, num: num
   };
 })(window);

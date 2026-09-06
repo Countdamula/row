@@ -1326,6 +1326,94 @@ button.pal-xcard:focus-visible { outline: 2px solid var(--pal-bronze); outline-o
 }
 .pal-setrow.is-logged .pal-setdone { animation: pal-logged .5s var(--pal-ease); }
 
+/* --- the rep buttons ---
+   A strip under each set row. .pal-sets is a one-column grid, so this
+   is simply the next row of it — the 5-column template that keeps the
+   weights lined up is untouched.
+
+   Indented to start under the WEIGHT column rather than under the set
+   number, so the numbers read as belonging to the row above and not as
+   a list of their own. */
+.pal-repchips {
+  display: grid;
+  /* THE SAME TEMPLATE AS .pal-setrow, on purpose. A flat indent lands
+     under WEIGHT, and buttons that write into the reps field have no
+     business sitting under the weight one. Repeating the template means
+     they cannot drift apart either. */
+  grid-template-columns: 34px 1fr 1fr 68px 44px;
+  gap: 6px;
+  margin: -2px 0 2px;
+  padding-bottom: 2px;
+}
+.pal-repchips__row {
+  grid-column: 3 / -1;
+  display: flex; gap: 5px; align-items: center; min-width: 0;
+}
+.pal-repchip {
+  appearance: none; cursor: pointer;
+  flex: none; min-width: 40px; min-height: 32px; padding: 4px 9px;
+  background: var(--pal-well);
+  border: 1px solid var(--pal-hair-2);
+  border-radius: var(--pal-radius);
+  color: var(--pal-sand-2);
+  font-family: var(--pal-mono); font-size: 13px;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+  transition: background .14s var(--pal-ease), color .14s var(--pal-ease),
+              border-color .14s var(--pal-ease);
+}
+.pal-repchip:hover { color: var(--pal-sand); border-color: var(--pal-sand-2); }
+.pal-repchip:active { transform: scale(.96); }
+.pal-repchip:focus-visible {
+  outline: 2px solid var(--pal-bronze-2); outline-offset: 2px;
+}
+/* The pressed one is what is IN THE FIELD, not what was logged — the
+   strip is an indicator as well as a control. */
+.pal-repchip[aria-pressed='true'] {
+  background: rgba(199,154,82,.16);
+  border-color: var(--pal-bronze);
+  color: var(--pal-bronze-2);
+}
+.pal-setrow[data-done='true'] + .pal-repchips { opacity: .5; }
+
+/* --- the block timer ---
+   At the foot of a superset block, inside it. NOT fixed: the fixed one
+   already exists at the bottom of the window, and this is deliberately
+   the one that scrolls with the block it belongs to. */
+.pal-blocktimer {
+  display: flex; align-items: center; gap: var(--pal-3); flex-wrap: wrap;
+  margin: var(--pal-3) 0 0;
+  padding: var(--pal-3) var(--pal-4);
+  background: var(--pal-well);
+  border-top: 1px solid var(--pal-hair-2);
+}
+/* The big countdown is sized for a bar across the whole window. In here
+   it is one element among several. */
+.pal-blocktimer .pal-rest__clock { font-size: 22px; min-width: 3.4ch; }
+.pal-blocktimer:not(.is-live) .pal-rest__clock { color: var(--pal-ash); }
+.pal-blocktimer[data-over='true'] .pal-rest__clock { color: var(--pal-patina); }
+.pal-blocktimer[data-over='true'] .pal-rest__fill { background: var(--pal-patina); }
+.pal-blocktimer__label {
+  font-family: var(--pal-mono); font-size: 9.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--pal-ash);
+}
+.pal-blocktimer .pal-rest__track { flex: 1 1 90px; }
+/* A timer that is not running has no progress to show, and the track is
+   flex: 1 1 90px — so idle it was holding open a strip of nothing
+   between the clock and the buttons. */
+.pal-blocktimer:not(.is-live) .pal-rest__track { display: none; }
+.pal-blocktimer:not(.is-live) [data-role='idle'] { margin-left: 4px; }
+.pal-blocktimer .pal-rest__fill { transform: scaleX(var(--pct, 0)); }
+.pal-blocktimer__btns { display: flex; gap: 5px; align-items: center; }
+/* One state or the other, never both: presets while idle, +30 and Skip
+   while it is running. Toggled by ONE class write per transition, which
+   is what keeps a 2Hz paint cheap. */
+.pal-blocktimer:not(.is-live) [data-role='live'] { display: none; }
+.pal-blocktimer.is-live [data-role='idle'] { display: none; }
+.pal-blocktimer .pal-chip { min-height: 32px; padding: 5px 10px; font-size: 10px; }
+.pal-blocktimer .pal-chip[data-own='true'] {
+  border-color: var(--pal-bronze); color: var(--pal-bronze-2);
+}
+
 /* --- rest timer ---
    Fixed, not sticky. Sticky only holds while its own container is in
    view, and this bar lives at the bottom of a long page — mid-workout
@@ -1538,7 +1626,20 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
   font-family: var(--pal-body); font-size: 13px; min-height: 56px;
   transition: background .14s var(--pal-ease);
 }
+/* In external mode a row is an <a>, not a <button> — see
+   palaestra-music.js's header. Everything else about it is identical. */
+.pal-track { text-decoration: none; }
+a.pal-track:visited { color: var(--pal-sand); }
 .pal-track:hover { background: rgba(236,229,214,.05); }
+/* Which app the tap is about to hand you to. The same shelf holds
+   YouTube links and Spotify ones. */
+.pal-track__src {
+  display: inline-block; margin-left: 8px;
+  font-family: var(--pal-mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--pal-ash);
+  border: 1px solid var(--pal-hair-2); border-radius: 999px;
+  padding: 1px 7px; vertical-align: 1px;
+}
 .pal-track[aria-current='true'] { background: rgba(199,154,82,.14); }
 .pal-track__cover {
   flex: none; width: 44px; height: 44px; border-radius: 2px;
@@ -2063,6 +2164,22 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    ============================================================= */
 @media (max-width: 719px) {
   .pal-setrow, .pal-sethead { grid-template-columns: 26px 1fr 1fr 56px 44px; }
+  /* One scrolling line, never two, and starting under the narrower set
+     number column. */
+  .pal-repchips { grid-template-columns: 26px 1fr 1fr 56px 44px; }
+  /* Wider here than on a desk: from the WEIGHT column rather than the
+     reps one, because a 390px screen leaves the reps column about
+     170px and a strip of six numbers has to scroll somewhere. */
+  .pal-repchips__row {
+    grid-column: 2 / -1;
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .pal-repchips__row::-webkit-scrollbar { display: none; }
+  .pal-blocktimer { padding: var(--pal-3); gap: var(--pal-2); }
+  .pal-blocktimer__btns { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .pal-blocktimer__btns::-webkit-scrollbar { display: none; }
   .pal-rest__clock { font-size: 31px; }
   /* Seven cells across a phone leave ~48px each — only the day fits. */
 
@@ -2168,6 +2285,13 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
    ============================================================= */
 @media (hover: none) and (pointer: coarse) {
   .pal-btn--sm, .pal-chip, .pal-musicbtn, .pal-quickbtn { min-height: 44px; min-width: 44px; }
+  /* A rep button is tapped between sets with one hand, so it obeys the
+     44px rule like everything else here. Three sets of it is real
+     height — which is why the strip SCROLLS rather than wraps below:
+     a wrapped strip makes the row tall enough to bury the set you are
+     looking at, the same reason .pal-restpresets scrolls. */
+  .pal-repchip { min-height: 44px; min-width: 44px; }
+  .pal-blocktimer .pal-chip { min-height: 44px; min-width: 44px; font-size: 11px; }
   /* Target size belongs to the POINTER, not to a width: a 768px iPad is
      not a small window. Both axes — several controls have passed on height
      and failed on width before. */
@@ -2196,6 +2320,7 @@ body.pal.is-resting .pal-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0
 
 @media print {
   body.pal { background: #fff; color: #000; }
-  body.pal::before, .pal-fab, .pal-music, .pal-routes, .pal-rest { display: none !important; }
+  body.pal::before, .pal-fab, .pal-music, .pal-routes, .pal-rest,
+  .pal-repchips, .pal-blocktimer { display: none !important; }
   .pal-card { box-shadow: none; border-color: #ccc; }
 }

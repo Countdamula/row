@@ -116,7 +116,11 @@
       'flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none;',
       'max-width:min(360px,calc(100vw - 32px))}',
     '@media (max-width:719px){#' + RAIL_ID + '{left:12px;right:12px;',
-      'bottom:calc(88px + env(safe-area-inset-bottom,0px));max-width:none}}',
+      // 88px was a guess about somebody else's page. A page with a fixed
+      // bar at the foot of the screen knows how tall it is and what is
+      // stacked above it, so it can say so in --pal-rail-bottom; every
+      // page that does not is unchanged, because the fallback IS the 88.
+      'bottom:calc(var(--pal-rail-bottom, 88px) + env(safe-area-inset-bottom,0px));max-width:none}}',
 
     '.ss-chip{pointer-events:auto;order:99;display:inline-flex;align-items:center;gap:7px;',
       'border:0;border-radius:999px;cursor:pointer;padding:6px 11px 6px 9px;',

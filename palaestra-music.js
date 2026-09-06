@@ -30,6 +30,22 @@
 // Any element carrying data-pal-music="<scope>" is handled by one
 // delegated listener, so re-rendered rows never need re-binding.
 //
+// PLAYBACK HAS TWO MODES, and init() picks one.
+//
+//   'embed'    — the dock plays the track itself, in a YouTube IFrame
+//                API player or a Spotify embed. What Main and Future
+//                Self have always done, and the default.
+//   'external' — the dock is a CHOOSER. There is no player at all: no
+//                stage, no transport, no volume. A row is an <a> to the
+//                record's own url, opened in a new tab, which is what
+//                hands a youtu.be or open.spotify.com link to the
+//                YouTube or Spotify app.
+//
+// The Fitness Studio runs 'external'. Mid-set you want the track in the
+// app you actually listen in, not a 180px iframe over the set you are
+// logging. Whether the tap lands in the app or in the browser is the
+// phone's decision — a universal link is all a web page can offer.
+//
 // A button that also carries data-pal-music-toggle is a GLOBAL opener
 // rather than a row's own — the music button beside quick-add on both
 // pages. It closes the dock if the dock is already open, and it tracks
@@ -85,6 +101,8 @@
   var pinnedInScope = '';
   var ytPlayer = null, ytLoading = false;
   var volume = 70;
+  var playback = 'embed';               // 'embed' | 'external'; see the header
+  function isExternal() { return playback === 'external'; }
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -160,6 +178,9 @@
   // ------------------------------------------------------------
   // SOURCES
   // ------------------------------------------------------------
+  var SOURCE_LABEL = {
+    youtube: 'YouTube', spotify: 'Spotify', soundcloud: 'SoundCloud', other: 'Open'
+  };
   function sourceOf(url) {
     var u = String(url || '');
     if (/youtube\.com|youtu\.be/.test(u)) return 'youtube';
@@ -228,6 +249,11 @@
       '<div class="pal-music__shelves" id="palMusicShelves"></div>' +
       '<div class="pal-music__chips" id="palMusicChips"></div>' +
       '<div class="pal-music__list" id="palMusicList"></div>' +
+      // THE PLAYER IS NOT BUILT AT ALL in external mode — not built and
+      // hidden. Every id below is looked up by getElementById, so an
+      // element that exists but is invisible is an element the rest of
+      // this file will happily drive.
+      (isExternal() ? '' :
       '<div class="pal-music__player">' +
         '<div class="pal-music__now">' +
           '<div class="pal-track__cover" id="palMusicCover">♪</div>' +
@@ -244,18 +270,23 @@
           '<button class="pal-music__ctrl" id="palMusicNext" aria-label="Next track">⏭</button>' +
         '</div>' +
         '<input class="pal-music__vol" id="palMusicVol" type="range" min="0" max="100" value="70" aria-label="Volume">' +
-      '</div>';
+      '</div>');
     document.body.appendChild(dock);
 
     $('palMusicClose').addEventListener('click', close);
-    $('palMusicPrev').addEventListener('click', function () { step(-1); });
-    $('palMusicNext').addEventListener('click', function () { step(1); });
-    $('palMusicPlay').addEventListener('click', toggle);
-    $('palMusicVol').addEventListener('input', function () {
-      volume = parseInt(this.value, 10) || 0;
-      writeState({ volume: volume });
-      if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
-    });
+    // Only the player has these, and in external mode there is no
+    // player — addEventListener on null throws before the dock has ever
+    // been opened, which would take the whole page down at boot.
+    if (!isExternal()) {
+      $('palMusicPrev').addEventListener('click', function () { step(-1); });
+      $('palMusicNext').addEventListener('click', function () { step(1); });
+      $('palMusicPlay').addEventListener('click', toggle);
+      $('palMusicVol').addEventListener('input', function () {
+        volume = parseInt(this.value, 10) || 0;
+        writeState({ volume: volume });
+        if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
+      });
+    }
     $('palMusicShelves').addEventListener('click', function (e) {
       var chip = e.target.closest('[data-shelf]');
       if (!chip) return;
@@ -282,9 +313,18 @@
       var pin = e.target.closest('[data-pin]');
       if (pin) {
         e.stopPropagation();
+        // preventDefault as well now: in external mode the star sits
+        // inside an <a>, and stopping the bubble does not stop the
+        // navigation. Pinning a track must never open it.
+        e.preventDefault();
         pinTrack(pin.getAttribute('data-pin'));
         return;
       }
+      // In external mode the row IS a link. Let the browser follow it —
+      // a real navigation from a real tap is what a universal link
+      // needs, and window.open() from script is what popup blockers
+      // are for.
+      if (isExternal()) return;
       var row = e.target.closest('[data-play]');
       if (!row) return;
       queue = visible();
@@ -345,21 +385,38 @@
       return;
     }
     var current = index >= 0 && queue[index] ? queue[index].id : '';
+    // A track pinned to this exercise goes to the TOP in external mode.
+    // The embed dock starts it playing instead; opening a tab off the
+    // back of a tap on a music BUTTON is not what that tap asked for,
+    // so here it is put where a thumb lands rather than followed.
+    if (isExternal() && pinnedInScope) {
+      rows = rows.slice().sort(function (a, b) {
+        return (b.id === pinnedInScope ? 1 : 0) - (a.id === pinnedInScope ? 1 : 0);
+      });
+    }
     list.innerHTML = rows.map(function (it) {
       var pinned = pinnedInScope && pinnedInScope === it.id;
+      var ext = isExternal();
       return '' +
-        '<button class="pal-track" data-play="' + esc(it.id) + '" aria-current="' + (current === it.id ? 'true' : 'false') + '">' +
+        (ext
+          ? '<a class="pal-track" href="' + esc(it.url) + '" target="_blank" rel="noopener"' +
+            ' data-src="' + esc(sourceOf(it.url)) + '">'
+          : '<button class="pal-track" data-play="' + esc(it.id) + '" aria-current="' + (current === it.id ? 'true' : 'false') + '">') +
           '<span class="pal-track__cover">' + (it.cover ? '<img src="' + esc(it.cover) + '" alt="">' : '♪') + '</span>' +
           '<span class="pal-track__main">' +
             '<span class="pal-track__title">' + esc(it.title || 'Untitled') + '</span>' +
-            '<span class="pal-track__sub">' + esc(it.creator || it.category || '') + '</span>' +
+            '<span class="pal-track__sub">' + esc(it.creator || it.category || '') +
+              // Which app you are about to be in. Worth a word: the same
+              // shelf holds YouTube links and Spotify ones.
+              (ext ? '<span class="pal-track__src">' + esc(SOURCE_LABEL[sourceOf(it.url)] || 'Open') + '</span>' : '') +
+            '</span>' +
           '</span>' +
           (scope
             ? '<span class="pal-track__pin" role="button" tabindex="-1" data-pin="' + esc(it.id) + '" data-pinned="' +
               (pinned ? 'true' : 'false') + '" title="' + (pinned ? 'Unpin from this exercise' : 'Pin to this exercise') + '">' +
               (pinned ? '★' : '☆') + '</span>'
             : '') +
-        '</button>';
+        (ext ? '</a>' : '</button>');
     }).join('');
   }
 
@@ -471,7 +528,7 @@
 
     load();
     volume = typeof st.volume === 'number' ? st.volume : 70;
-    $('palMusicVol').value = volume;
+    if (!isExternal()) $('palMusicVol').value = volume;
 
     scope = opts.scope || '';
     pinnedInScope = opts.trackId || '';
@@ -494,8 +551,10 @@
     syncToggles();
 
     // A pinned track starts straight away — the whole point of pinning
-    // it to a lift is not having to go looking for it mid-set.
-    if (opts.trackId && opts.play !== false) {
+    // it to a lift is not having to go looking for it mid-set. In
+    // external mode renderList() has already floated it to the top
+    // instead; see there for why it is not opened.
+    if (!isExternal() && opts.trackId && opts.play !== false) {
       var it = byId(opts.trackId);
       if (it) {
         queue = visible();
@@ -510,8 +569,10 @@
     dock.classList.remove('is-open');
     dock.setAttribute('aria-hidden', 'true');
     syncToggles();
-    // Playback deliberately continues. Closing the dock during a set is
-    // how you get the screen back, not how you stop the music.
+    // In embed mode playback deliberately continues: closing the dock
+    // during a set is how you get the screen back, not how you stop the
+    // music. In external mode there is nothing here to stop — whatever
+    // is playing is playing in another app.
   }
   function isOpen() { return !!(dock && dock.classList.contains('is-open')); }
 
@@ -540,13 +601,19 @@
   }
 
   /**
-   * init({ shelves, defaultShelf })
+   * init({ shelves, defaultShelf, playback })
    *
    * `shelves` is a list of Vault shelf keys. Omit it and the dock is
    * exactly what it has always been: Playlists only, no shelf row.
+   *
+   * `playback` is 'embed' (the default, and what Main and Future Self
+   * use) or 'external'. See the header. It is read in build(), so it
+   * must be set before the dock is constructed — which is why it is
+   * assigned first thing here.
    */
   function init(cfg) {
     cfg = cfg || {};
+    playback = cfg.playback === 'external' ? 'external' : 'embed';
     if (Array.isArray(cfg.shelves) && cfg.shelves.length) {
       shelves = cfg.shelves
         .map(function (k) {
@@ -588,6 +655,7 @@
     button: button, reload: load, sourceOf: sourceOf,
     trackById: byId, count: function () { return items.length; },
     SHELVES: ALL_SHELVES,
-    shelf: function () { return shelf; }
+    shelf: function () { return shelf; },
+    playback: function () { return playback; }
   };
 })(window);

@@ -46,22 +46,22 @@
      same order. See palaestra.html's head for what that means and
      what it costs. -->
 <link rel="stylesheet" href="vault-theme.css?v=6">
-<link rel="stylesheet" href="palaestra-theme.css?v=6">
+<link rel="stylesheet" href="palaestra-theme.css?v=7">
 <link rel="preload" as="image" href="images_by_admin/palaestra/hero-house.jpg" fetchpriority="high">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js?v=3"></script>
 <script src="photo-store.js"></script>
-<script src="palaestra-data.js?v=7"></script>
+<script src="palaestra-data.js?v=8"></script>
 <script src="data-registry.js?v=4"></script>
 <script src="snapshots.js?v=1"></script>
 <script src="data-export.js?v=1"></script>
-<script src="save-state.js?v=1"></script>
+<script src="save-state.js?v=2"></script>
 <script src="trash.js?v=1"></script>
 <script src="shrink-banner.js?v=1"></script>
 <script src="palaestra-backup.js?v=4"></script>
 <script src="palaestra-ui.js?v=4"></script>
-<script src="palaestra-music.js?v=4"></script>
+<script src="palaestra-music.js?v=5"></script>
 <script src="topbar.js?v=7" defer></script>
 
 <style>
@@ -76,7 +76,13 @@
    now only the controls — and it stays compact and sticky, because
    between sets you need Finish and the clock, not a headline. */
 .pal-whead {
-  position: sticky; top: 0; z-index: 50;
+  /* BELOW THE FLOATING NAV, not under it. .hd-top is sticky at top:0 and
+     z-index 900; this bar was sticky at top:0 too, so the pill sat on
+     top of it and covered the middle of the row — at 1440 that was half
+     of Discard. --hd-top is the height the house publishes for exactly
+     this. (On a phone this whole rule is replaced below: the bar goes to
+     the bottom, in reach of a thumb.) */
+  position: sticky; top: var(--hd-top, 90px); z-index: 50;
   background: color-mix(in srgb, var(--pal-stone) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -134,6 +140,10 @@
   /* The control bar is what is docked here, not the route bar. One
      number again: the rest bar, the buttons and the shell's padding all
      measure from it instead of each carrying its own copy. */
+  /* A FALLBACK, not the answer. measureDock() overwrites this with the
+     bar's real height on every render — 113px at 390, because the row
+     wraps. It stays here so the first paint has a number, and so the
+     layout is never left with none if the measure cannot run. */
   body.pal { --pal-dock-h: 62px; }
   body.pal .pal-fab {
     bottom: calc(var(--pal-dock-h) + 20px + env(safe-area-inset-bottom, 0px));
@@ -377,6 +387,36 @@
     tick = setInterval(paintClocks, 500);
     paintClocks();
   }
+  // ============================================================
+  // §WHERE THE FLOOR IS
+  //
+  // On a phone the control bar is FIXED to the bottom of the screen,
+  // and the rest bar, both buttons, the toast and save-state.js's SAVED
+  // chip all stack above it. The stylesheet guessed 62px for its
+  // height. At 390 the row wraps — clock, Finish, Discard — and it is
+  // 113, so every one of those was laid out on top of it: the chip half
+  // under the elapsed clock, both buttons over the bar's top edge.
+  //
+  // So it is measured. --pal-dock-h is the bar; --pal-rail-bottom is
+  // the bar plus the buttons that sit on it, which is the first line
+  // genuinely clear of the whole stack.
+  //
+  // Cleared above 719px, where the bar is sticky at the TOP and the
+  // floor is simply the floor — an inline style would otherwise beat
+  // the phone-only rule at every width.
+  var RAIL_CLEARANCE = 84;      // 20 gap + 54 button + 10 gap
+  function measureDock() {
+    var phone = window.matchMedia('(max-width: 719px)').matches;
+    var h = headEl ? Math.round(headEl.getBoundingClientRect().height) : 0;
+    if (!phone || !h) {
+      document.body.style.removeProperty('--pal-dock-h');
+      document.body.style.removeProperty('--pal-rail-bottom');
+      return;
+    }
+    document.body.style.setProperty('--pal-dock-h', h + 'px');
+    document.body.style.setProperty('--pal-rail-bottom', (h + RAIL_CLEARANCE) + 'px');
+  }
+
   function paintClocks() {
     if (!session) return;
     // getLiveRaw, not getLive: the validating version parses every
@@ -412,35 +452,80 @@
       var b = e.target.closest('[data-rest]');
       if (!b) return;
       var n = parseInt(b.getAttribute('data-rest'), 10) || 0;
-      if (n === 0) P.setLive({ restEndsAt: null, restSec: 0 });
+      // Skip clears the OWNER as well. Leaving restFor set would leave a
+      // block's strip lit with no clock behind it.
+      if (n === 0) P.setLive({ restEndsAt: null, restSec: 0, restFor: '' });
       else P.setLive({ restEndsAt: Date.now() + n * 1000, restSec: n });
       paintClocks();
     });
   }
 
-  function startRest(seconds) {
+  function startRest(seconds, forId) {
     if (readOnly || !seconds) return;
-    P.setLive({ restEndsAt: Date.now() + seconds * 1000, restSec: seconds });
+    P.setLive({
+      restEndsAt: Date.now() + seconds * 1000,
+      restSec: seconds,
+      // Empty for a standalone exercise: nothing inline owns it, and the
+      // fixed bar is the only view of it.
+      restFor: forId || ''
+    });
     paintClocks();
   }
 
   function paintRest(live) {
-    var bar = document.getElementById('palRest');
-    if (!bar) return;
-    if (readOnly || !live || !live.restEndsAt) {
-      bar.hidden = true;
-      document.body.classList.remove('is-resting');
-      return;
+    var resting = !readOnly && live && live.restEndsAt;
+    var left = 0, pct = 0, over = false;
+    if (resting) {
+      left = Math.round((live.restEndsAt - Date.now()) / 1000);
+      over = left <= 0;
+      pct = live.restSec > 0 ? Math.max(0, Math.min(1, left / live.restSec)) : 0;
     }
-    bar.hidden = false;
-    document.body.classList.add('is-resting');
-    var left = Math.round((live.restEndsAt - Date.now()) / 1000);
-    var over = left <= 0;
-    bar.setAttribute('data-over', over ? 'true' : 'false');
-    document.getElementById('palRestClock').textContent =
-      over ? '+' + P.fmtClock(-left) : P.fmtClock(left);
-    var pct = live.restSec > 0 ? Math.max(0, Math.min(1, left / live.restSec)) : 0;
-    document.getElementById('palRestFill').style.setProperty('--pct', over ? 1 : pct);
+    var bar = document.getElementById('palRest');
+    if (bar) {
+      if (!resting) {
+        bar.hidden = true;
+        document.body.classList.remove('is-resting');
+      } else {
+        bar.hidden = false;
+        document.body.classList.add('is-resting');
+        bar.setAttribute('data-over', over ? 'true' : 'false');
+        document.getElementById('palRestClock').textContent =
+          over ? '+' + P.fmtClock(-left) : P.fmtClock(left);
+        document.getElementById('palRestFill').style.setProperty('--pct', over ? 1 : pct);
+      }
+    }
+    paintBlockTimers(resting ? live.restFor : '', left, pct, over);
+  }
+
+  // THE INLINE STRIPS. This runs twice a second, forever, alongside the
+  // session clock — so it writes textContent and one custom property on
+  // ONE element and nothing else. No innerHTML, no re-render, and no
+  // work at all for a strip that neither owns the clock now nor owned
+  // it a tick ago.
+  var blockTimerEls = [];
+  function collectBlockTimers() {
+    blockTimerEls = Array.prototype.slice.call(logEl.querySelectorAll('.pal-blocktimer'));
+  }
+  function paintBlockTimers(owner, left, pct, over) {
+    for (var i = 0; i < blockTimerEls.length; i++) {
+      var el = blockTimerEls[i];
+      var mine = !!owner && el.getAttribute('data-block') === owner;
+      if (!mine) {
+        // Only on the transition back to idle, not every tick.
+        if (el.classList.contains('is-live')) {
+          el.classList.remove('is-live');
+          el.removeAttribute('data-over');
+          el.querySelector('[data-role="clock"]').textContent = el.getAttribute('data-idle') || '';
+          el.querySelector('[data-role="fill"]').style.setProperty('--pct', 0);
+        }
+        continue;
+      }
+      el.classList.add('is-live');
+      el.setAttribute('data-over', over ? 'true' : 'false');
+      el.querySelector('[data-role="clock"]').textContent =
+        over ? '+' + P.fmtClock(-left) : P.fmtClock(left);
+      el.querySelector('[data-role="fill"]').style.setProperty('--pct', over ? 1 : pct);
+    }
   }
 
   // ============================================================
@@ -463,6 +548,11 @@
         '</div>') +
       notesHtml();
     if (!readOnly) mountSessionMedia();
+    // The nodes paintBlockTimers writes to are re-created by every
+    // render; a stale list is a list of detached elements ticking away
+    // in memory where nobody can see them.
+    collectBlockTimers();
+    paintClocks();
   }
 
   // ============================================================
@@ -489,8 +579,68 @@
             P.blockRest(g.entries) + 's after the pair</span>' +
         '</header>' +
         g.entries.map(function (e, i) { return entryHtml(e, g, i); }).join('') +
+        blockTimerHtml(g) +
       '</section>';
     }).join('');
+  }
+
+  // ============================================================
+  // §THE BLOCK TIMER
+  //
+  // The rest a superset owes is stated in the block's header and taken
+  // at the block's foot, so the timer for it belongs at the block's
+  // foot — where you are already looking when the round ends, rather
+  // than at the bottom edge of the window.
+  //
+  // IT IS NOT A SECOND CLOCK. It reads and writes the same pal:live
+  // rest the fixed bar reads, and `restFor` names the block that owns
+  // it. Two views of one rest: start a rest in another block and this
+  // one simply stops being the owner, which is the right answer,
+  // because you are resting once.
+  //
+  // Standalone exercises are deliberately left out. They keep their
+  // "Rest 90s" button and the fixed bar; a timer under every single
+  // exercise is chrome under everything.
+  // ============================================================
+  function blockTimerHtml(g) {
+    var own = P.blockRest(g.entries);
+    // The block's own rest leads, then the presets, minus a duplicate.
+    var secs = [own].concat(P.REST_PRESETS.filter(function (x) { return x !== own; })).slice(0, 5);
+    return '<footer class="pal-blocktimer" data-block="' + esc(g.entries[0].id) + '"' +
+      ' data-idle="' + esc(P.fmtClock(own)) + '">' +
+      '<span class="pal-blocktimer__label">Rest</span>' +
+      '<span class="pal-rest__clock" data-role="clock">' + esc(P.fmtClock(own)) + '</span>' +
+      '<div class="pal-rest__track"><div class="pal-rest__fill" data-role="fill"></div></div>' +
+      '<div class="pal-blocktimer__btns" data-role="idle">' +
+        secs.map(function (x, i) {
+          return '<button type="button" class="pal-chip" data-act="block-rest" data-secs="' + x + '"' +
+            (i === 0 ? ' data-own="true"' : '') + '>' + x + 's</button>';
+        }).join('') +
+      '</div>' +
+      '<div class="pal-blocktimer__btns" data-role="live">' +
+        '<button type="button" class="pal-chip" data-act="block-rest" data-secs="+30">+30s</button>' +
+        '<button type="button" class="pal-chip" data-act="block-rest" data-secs="0">Skip</button>' +
+      '</div>' +
+    '</footer>';
+  }
+
+  // Which drawn block an entry sits in, named by that block's FIRST
+  // entry id — the same id blockTimerHtml stamps on the footer.
+  //
+  // It goes through P.blocksOf rather than blockOf() so it can never
+  // disagree with what was actually rendered: blockOf() groups by block
+  // NUMBER across the whole session, blocksOf() groups by consecutive
+  // run, and a session whose blocks are not consecutive would otherwise
+  // light up a timer belonging to a different pair.
+  function blockKeyOf(entryId) {
+    var groups = P.blocksOf(session ? session.entries : []);
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].entries.length < 2) continue;
+      for (var j = 0; j < groups[i].entries.length; j++) {
+        if (groups[i].entries[j].id === entryId) return groups[i].entries[0].id;
+      }
+    }
+    return '';
   }
 
   function entryHtml(e, group, at) {
@@ -561,7 +711,57 @@
         ' value="' + (st.rpe || '') + '" placeholder="RPE" aria-label="RPE, set ' + (n + 1) + '">' +
       '<button class="pal-setdone" data-act="set-done" aria-pressed="' + (st.done ? 'true' : 'false') +
         '" aria-label="Complete set ' + (n + 1) + '">✓</button>' +
+    '</div>' +
+    repChipsHtml(e, st, n, ph);
+  }
+
+  // ============================================================
+  // §THE REP BUTTONS
+  //
+  // Reps are the one number touched on every set of every workout, and
+  // typing them on a phone between sets is the worst moment to be
+  // typing anything.
+  //
+  // The chips FILL THE FIELD. They do not log the set. The tick still
+  // does that, it still reads whatever is in the fields at the moment
+  // it is pressed, and so a tapped number reaches the record by exactly
+  // the path a typed one does — there is one way a set gets logged, and
+  // this did not add a second.
+  //
+  // Which numbers appear is P.repChoices()'s answer, derived from the
+  // routine's own rep range and from what was lifted last time. So it
+  // is already customizable: the range is edited in the routine editor,
+  // and nothing new had to be stored to make these buttons yours.
+  // ============================================================
+  function repChipsHtml(e, st, n, ph) {
+    var choices = P.repChoices(e, ph);
+    if (!choices.length) return '';
+    return '<div class="pal-repchips" data-set="' + esc(st.id) + '" data-entry="' + esc(e.id) + '"' +
+      ' role="group" aria-label="Reps for set ' + (n + 1) + '">' +
+      // The strip repeats the set row's grid so the buttons land under
+      // the REPS field they write into; this inner row is what actually
+      // sits in that column.
+      '<div class="pal-repchips__row">' +
+        choices.map(function (r) {
+          return '<button type="button" class="pal-repchip" data-act="rep" data-reps="' + r + '"' +
+            ' aria-pressed="' + (st.reps === r ? 'true' : 'false') + '"' +
+            ' aria-label="' + r + ' reps, set ' + (n + 1) + '">' + r + '</button>';
+        }).join('') +
+      '</div>' +
     '</div>';
+  }
+
+  // The strip is an indicator as well as a control: typing 13 into the
+  // field has to un-press the 12. Attributes only — never a re-render,
+  // for the reason stated over the EDITS section below.
+  function paintRepChips(setId, reps) {
+    var strip = logEl.querySelector('.pal-repchips[data-set="' + setId + '"]');
+    if (!strip) return;
+    var btns = strip.querySelectorAll('[data-reps]');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].setAttribute('aria-pressed',
+        parseInt(btns[i].getAttribute('data-reps'), 10) === reps ? 'true' : 'false');
+    }
   }
 
   function notesHtml() {
@@ -625,6 +825,7 @@
     var v = parseFloat(input.value);
     st[f] = isFinite(v) ? v : 0;
     saveEntries();
+    if (f === 'reps') paintRepChips(row.getAttribute('data-set'), st.reps);
   }
 
   function toggleSet(btn) {
@@ -685,14 +886,14 @@
   }
   function afterSet(e, round) {
     var group = blockOf(e);
-    if (!group) { startRest(e.restSec); return; }
+    if (!group) { startRest(e.restSec, ''); return; }
     var next = null;
     for (var i = 0; i < group.length && !next; i++) {
       if (group[i].id === e.id) continue;
       var st = group[i].sets[round];
       if (st && !st.done) next = group[i];
     }
-    if (!next) { startRest(P.blockRest(group)); return; }
+    if (!next) { startRest(P.blockRest(group), blockKeyOf(e.id)); return; }
     // Scrolled to, never focused: focusing a number field mid-set opens
     // the phone keyboard over the thing it just scrolled to.
     U.toast('Straight into ' + next.name + ' — no rest yet');
@@ -931,9 +1132,45 @@
     },
     'entry-notes': function (btn) { sheetEntryNotes(btn.getAttribute('data-entry')); },
     'rest-now': function (btn) {
-      var e = findEntry(btn.getAttribute('data-entry'));
+      var id = btn.getAttribute('data-entry');
+      var e = findEntry(id);
       var g = blockOf(e);
-      startRest(g ? P.blockRest(g) : (e ? e.restSec : 90));
+      startRest(g ? P.blockRest(g) : (e ? e.restSec : 90), g ? blockKeyOf(id) : '');
+    },
+    'rep': function (btn) {
+      var strip = btn.closest('.pal-repchips');
+      if (!strip) return;
+      var row = logEl.querySelector('.pal-setrow[data-set="' + strip.getAttribute('data-set') + '"]');
+      var inp = row && row.querySelector('[data-f="reps"]');
+      if (!inp) return;
+      // Fill the field and go through the one writer. Nothing is logged
+      // here — the tick does that, as it always has.
+      inp.value = btn.getAttribute('data-reps');
+      onFieldChange(inp);
+    },
+    'block-rest': function (btn) {
+      var host = btn.closest('.pal-blocktimer');
+      if (!host) return;
+      var raw = btn.getAttribute('data-secs');
+      if (raw === '0') {
+        P.setLive({ restEndsAt: null, restSec: 0, restFor: '' });
+        paintClocks();
+        return;
+      }
+      if (raw === '+30') {
+        var live = P.getLiveRaw();
+        if (!live || !live.restEndsAt) return;
+        // From NOW when the rest has already run over: pressing +30 at
+        // twenty seconds past means you want thirty more seconds, not
+        // ten. restSec grows with it so the draining bar stays honest.
+        P.setLive({
+          restEndsAt: Math.max(Date.now(), live.restEndsAt) + 30000,
+          restSec: (live.restSec || 0) + 30
+        });
+        paintClocks();
+        return;
+      }
+      startRest(parseInt(raw, 10) || 0, host.getAttribute('data-block'));
     },
     'add-exercise': sheetAddExercise
   };
@@ -967,6 +1204,17 @@
 
     renderRest();
     render();
+    measureDock();
+    // A rotation changes the bar's height by a whole row. Passive, and
+    // debounced through rAF, because this reads layout.
+    var dockTick = false;
+    var remeasure = function () {
+      if (dockTick) return;
+      dockTick = true;
+      requestAnimationFrame(function () { dockTick = false; measureDock(); });
+    };
+    window.addEventListener('resize', remeasure, { passive: true });
+    window.addEventListener('orientationchange', remeasure, { passive: true });
 
     logEl.addEventListener('click', function (e) {
       var el = e.target.closest('[data-act]');
@@ -1027,7 +1275,19 @@
     window.addEventListener('pal:save', function (e) {
       if (e && e.detail && e.detail.ok === false) U.toast('Could not save that set — storage refused the write', true);
     });
-    window.PalMusic.init({ defaultShelf: 'playlists' });
+    window.PalMusic.init({
+      // The WHOLE Entertainment Studio, not just Playlists — the same
+      // ten shelves Main passes. The dock reads `vault:media:*` and
+      // never writes it, so this opens no second sync mount.
+      shelves: ['playlists', 'podcasts', 'watch', 'immersive', 'creepypasta',
+                'trueHorror', 'spicy', 'reading', 'anime', 'games'],
+      defaultShelf: 'playlists',
+      // NO PLAYER HERE. A tap opens the record's own url in a new tab,
+      // which is what hands a YouTube or Spotify link to the app.
+      // Mid-set you want the track where you actually listen, not in
+      // an iframe over the set you are logging.
+      playback: 'external'
+    });
 
     // A phone locking and coming back is the normal case here, not the
     // exception: catch up both clocks the moment the tab is visible.
