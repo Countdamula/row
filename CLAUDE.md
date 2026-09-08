@@ -246,7 +246,7 @@ page's CSS is self-contained in its own `<style>` block):
    | `aitech` | `aitech.html` (new) | everything prefixed `aitech:` (`aitech:models`, `aitech:prompts`, `aitech:hero`, `aitech:seeded`) |
    | `nutrition` | `nutrition.html` (rebuilt) | everything prefixed `nutrition:` — `nutrition:stores`, `nutrition:groceryItems`, `nutrition:recipes`, `nutrition:recipeIngredients`, `nutrition:seeded`, `nutrition:stepsMigratedV1`, plus the new Dream-Board-style board engine's `nutrition:tabs`/`nutrition:widgets`/`nutrition:boardSeeded`/`nutrition:active_tab` (see changelog) |
    | `learning` | `learning.html` (new) | everything prefixed `learning:` (`learning:topics`, `learning:resources`, `learning:hero`, `learning:seeded`) |
-   | `athenaeum` | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` (new — see changelog) | everything prefixed `ath:` — `ath:subjects`, `ath:topics`, `ath:concepts`, `ath:connections`, `ath:contradictions`, `ath:resources`, `ath:curricula`, `ath:modules`, `ath:lessons`, `ath:assignments`, `ath:inbox`, `ath:lenses`, `ath:reviews`, `ath:sessions`, `ath:experiments`, `ath:box`, plus the singletons `ath:focus`, `ath:hero`, `ath:today`, `ath:uiState`, `ath:settings`, `ath:seededAt`. All three pages mount the SAME single `initCloudSync({appKey:'athenaeum', syncedPrefixes:['ath:']})` — one row, one prefix, no second mount anywhere. Deliberately a different prefix and a different appKey from `learning.html`'s `learning:`/`learning`, `learning-dashboard.html`'s `lhub:`/`learninghub` and `knowledge-hub.html`'s `kh:`/`knowledgehub`, so the four learning-adjacent pages can never collide |
+   | `athenaeum` | **ORPHANED 2026-09-08.** The row still exists and is EMPTY: nothing mounts `ath:` any more, the local keys are retired per device behind a snapshot by `resource-retire.js`, and the last state of the row is committed at `data/retired/athenaeum-2026-09-08.json`. Same treatment as every other orphaned row in this table, except that this one was deliberately emptied at Damian's request rather than merely abandoned. Historically: `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` | everything prefixed `ath:` — `ath:subjects`, `ath:topics`, `ath:concepts`, `ath:connections`, `ath:contradictions`, `ath:resources`, `ath:curricula`, `ath:modules`, `ath:lessons`, `ath:assignments`, `ath:inbox`, `ath:lenses`, `ath:reviews`, `ath:sessions`, `ath:experiments`, `ath:box`, plus the singletons `ath:focus`, `ath:hero`, `ath:today`, `ath:uiState`, `ath:settings`, `ath:seededAt`. All three pages mount the SAME single `initCloudSync({appKey:'athenaeum', syncedPrefixes:['ath:']})` — one row, one prefix, no second mount anywhere. Deliberately a different prefix and a different appKey from `learning.html`'s `learning:`/`learning`, `learning-dashboard.html`'s `lhub:`/`learninghub` and `knowledge-hub.html`'s `kh:`/`knowledgehub`, so the four learning-adjacent pages can never collide |
    | `tasksnotes` | `tasksnotes.html` (new) | everything prefixed `tasksnotes:` (`tasksnotes:links`, `tasksnotes:notes`, `tasksnotes:tasks`, `tasksnotes:hero`, `tasksnotes:seeded`, `tasksnotes:migratedFromBusinessHub`) |
    | `mainpillar` | `mainpillar.html` | everything prefixed `mainpillar:` — `mainpillar:hunter` (XP/rank), `mainpillar:habits`, `mainpillar:habitlog:<date>`, `mainpillar:whoop:<date>`, `mainpillar:tasks`, `mainpillar:projects`, `mainpillar:journal:<date>`, `mainpillar:wins`, `mainpillar:brief:<scope>:<periodKey>`, `mainpillar:goals`, `mainpillar:goalLog:<goalId>`, `mainpillar:favorites`, `mainpillar:active_tab`, `mainpillar:hunterName` |
    | ~~`system`~~ | ~~`system.html`~~ | **Orphaned as of the Top Goals/Your System/Three Core Systems/Identity Shifting merge into `index.html` (see changelog)** — `system.html` is deleted; everything that used to sync under this row's own `key='system'` now rides along inside the `goals` row instead (`system:*` was added to that row's own `syncedPrefixes`, above), same "one row's own key scheme absorbs another's" consolidation this app has used before (e.g. Anxiety folding into Self-Care). The `key='system'` Supabase row itself was left alone, not cleaned up, same treatment as `health`/`projects`/`study`/every other orphaned row in this table |
@@ -294,7 +294,7 @@ using `sync.js`.
 
 | Page | Nav pill (topbar.js) | Files |
 |---|---|---|
-| The Athenaeum | ⌘ `The Athenaeum` nav folder → `athenaeum.html` (**the second group in the sidebar, directly beneath Promptarium** — an explicit placement request) | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` + `athenaeum-data.js` (new — see changelog). A learning dashboard whose whole architecture is one rule: **Field → Curricula → Modules → Lessons**, a field being permanent and a curriculum temporary, so concepts/research/connections/contradictions hang off the FIELD and survive the curriculum that produced them. Eleven permanent fields, seeded with the user's own names and descriptions. Owns `ath:*` / appKey `athenaeum`, one sync mount, never touches another page's prefix. **A parallel build, not a replacement**: `learning.html`, `learning-dashboard.html` and `knowledge-hub.html` are untouched, share nothing with it, and are still listed in their own folders — confirmed as an explicit choice with the user before any code was written. The main page is a light editorial sheet (cold greige ground, laid-paper surface, Italiana/Newsreader/Inter, near-zero radii); the Subject Hub inverts the same palette into a dark working surface. Both grounds are DRAWN in CSS — layered radial gradients plus engraved orrery rings — never a stock photograph, so no page depends on an asset that can disappear |
+| The Athenaeum | **RETIRED 2026-09-08 — this entire row is stale; flagged rather than rewritten, per §6. All five documents and `athenaeum-data.js` were deleted and Resource Studio (`resource.html`) replaced them; see the "Resource Studio replaced The Athenaeum" changelog entry for what is actually live. The rest of this cell is historical.** ⌘ `The Athenaeum` nav folder → `athenaeum.html` (**the second group in the sidebar, directly beneath Promptarium** — an explicit placement request) | `athenaeum.html` + `athenaeum-subject.html` + `athenaeum-curriculum.html` + `athenaeum-data.js` (new — see changelog). A learning dashboard whose whole architecture is one rule: **Field → Curricula → Modules → Lessons**, a field being permanent and a curriculum temporary, so concepts/research/connections/contradictions hang off the FIELD and survive the curriculum that produced them. Eleven permanent fields, seeded with the user's own names and descriptions. Owns `ath:*` / appKey `athenaeum`, one sync mount, never touches another page's prefix. **A parallel build, not a replacement**: `learning.html`, `learning-dashboard.html` and `knowledge-hub.html` are untouched, share nothing with it, and are still listed in their own folders — confirmed as an explicit choice with the user before any code was written. The main page is a light editorial sheet (cold greige ground, laid-paper surface, Italiana/Newsreader/Inter, near-zero radii); the Subject Hub inverts the same palette into a dark working surface. Both grounds are DRAWN in CSS — layered radial gradients plus engraved orrery rings — never a stock photograph, so no page depends on an asset that can disappear |
 | Promptarium | ⚗️ `Promptarium` nav folder → `promptarium.html` (**the first group in the sidebar**) | `promptarium.html` + `promptarium-data.js` (new — a prompt operating system: one collection page per AI model (ChatGPT / Claude / Gemini / Gemini NotebookLM / Suno AI / n8n / Perplexity), a searchable library with eight filters and five sorts, star ratings feeding a Favorites & Pinned page, a user-owned second tag axis ("purpose tags"), multi-step Prompt Chains whose steps carry copyable sub-prompts and generatable run-checklist notes, and a Quick Capture inbox on a `q` hotkey. Owns `prm:*` / appKey `promptarium`. **It also mounts a SECOND `initCloudSync` for appKey `codex` / prefix `cdx:`, so its Fiction collection IS The Codex's AI Prompt Database — the same records, not a copy.** See the shared-database rules below. The page is **full-bleed** — no content max-width anywhere; `--pm-gutter` is the only horizontal inset and the hero ticker bleeds back out through it. Each model page carries a Substack-shaped **article** (`prm:collectionArticles`) above the prompt list and a rich **notes database** (`prm:collectionNotes`) below it, both `contenteditable` and both accepting pasted HTML and inline images — see the rich-editor rules below. The hero is a tall (82vh), left-aligned editorial block — a hairline display serif word-mark in tracked capitals over a looping muted background video mounted in the **static body markup** (`#pmStage`), never inside a renderer, plus a house rAF `--p` parallax) |
 | KDP Dashboard | ❖ `KDP Dashboard` nav folder → `kdp.html` (**placed beneath The Chrysalis**) | `kdp.html` (**The Velvet Grimoire** — Command Center · Trilogies · Prompt Library · Templates · Settings) + `kdp-foundations.html` (Week 1, all seven step pages) + `kdp-draft.html` (Weeks 2 **and** 3 — one engine, two entry points, filtered to ch 1–28 / 29–40) + `kdp-continuity.html` (Week 4, six passes) + `kdp-publish.html` (Week 5, Amazon KDP) over five shared sidecars: `kdp-data.js`, `kdp-nav.js`, `kdp-theme.css`, and the extracted cinematic layer `kdp-velvet.css` + `kdp-velvet.js`. A production system for romantasy trilogies on one rule: **Week 1 runs ONCE PER TRILOGY; Weeks 2–5 repeat PER BOOK.** A book is always **40 chapters in three acts (10 / 20 / 10)**, and `createTrilogy()` seeds all of it in one pass — 3 books, 9 acts, 120 chapters, 12 worldbuilding sections, 4 character sheets, 3 style documents, 1 dossier — so a chapter number is never typed by hand. Every chapter carries **four indexes** (I Original · II Improvement plan · III Rewritten · IV Final ★) and **only Index IV counts toward the word total**. `KdpData.nextAction()` is the single resolver behind both the Command Center's Continue button and the icon rail, so the two can never disagree about what comes next. Owns `kdp:` + `kdpms:` (two rows, split by weight — see §4) and `kdparc:` (unsynced). Aesthetic is **Recto / Verso** (the interface is a two-page spread with a real fold, reference on the verso, work on the recto, generatable notes as actual marginalia) rendered in **The Athenaeum's palette** — ground `#0A0C0F`, ink `#F2EFE8`, verdigris = current, brass = final, warm red = in revision, plus rose-gold for the hero wordmark alone. **Three scenes wear the treatment**, each its own clip, metal and ground: the Command Center is the castle in rose-gold, both trilogy routes are the palace in blossom pink, and the book/chapter pages are the garden library in brass. Every one pairs a full-screen hero with a pinned scroll sequence (five weeks / three books / three acts) — except the chapter page, which keeps a compact header because it is an instrument, and adds **Composition Mode**: a distraction-free writing surface over the castle clip that shares the page own saver, so Index IV can never be counted twice. The Library, Settings and the other three week pages keep the ordinary compact hero. `kdp-styletile.html` is the three-direction comparison the look was chosen from — it is scaffolding, linked from nothing, and safe to delete |
 | Home | 🏠 `HOME` → `home.html` (leads the nav row — see changelog) | `home.html` + `home-data.js` (rebuilt into one continuous scrollable page — see changelog) |
@@ -16288,3 +16288,220 @@ Supabase blocked at the request handler and at fetch/XHR/sendBeacon/WebSocket:
 checks, 14 editor checks at phone widths, 25 wipe checks plus the mutation
 control, 9 viewports, contrast sampled off rendered pixels, and all 25 pages
 booted.
+
+## Resource Studio replaced The Athenaeum (2026-09-08)
+
+Five documents and 9,700 lines came out; one document and six routes went in.
+
+### Why it is a different app rather than a sixth Athenaeum document
+
+The Athenaeum was built on one structural rule — *Field → Curricula → Modules
+→ Lessons*, where a field is permanent and a curriculum is temporary. That is
+a study **plan**. What Damian actually wanted was the other half: a place to
+keep the things he learns **from**, each opening as a full page with an
+overview, notes, a description, a transcript, a Q&A and its topics. Neither
+shape fits inside the other, so the old one was retired rather than extended.
+
+The evidence that it should go rather than be migrated was in the row. The
+live `athenaeum` row held **11 KB**: eleven subjects (mostly the seed), one
+curriculum, two resources, one chapter. Offered migrate / start-empty /
+start-empty-and-delete, Damian chose delete — the same call, for the same
+reason, as the Prompt Studio wipe.
+
+### The routes
+
+    #/                      the landing
+    #/videos[/<filter>]     the wall      #/video/<id>[/<tab>]
+    #/books[/<filter>]      the shelf     #/book/<id>[/<tab>]
+    #/articles[/<topic>]    the feed      #/article/<id>[/<tab>]
+    #/collections           the topics    #/collection/<id>
+    #/about
+
+**The tab is in the hash too.** `#/book/<id>/notes`. Three things follow and
+all three are the point: the back button walks the tabs, a panel can be linked
+to, and a cloud repaint cannot move you off the panel you are typing in.
+`res:uiState` remembers the last tab per item, so returning to a book you were
+annotating opens on the notes.
+
+### Two rows, and the prefix check that chose them
+
+    resource      -> res:    the library. Records and indexes. Small.
+    resourcetext  -> rtx:    the writing. Article bodies, transcripts,
+                             chapter text, notes. Heavy.
+
+`sync.js` uploads a row's ENTIRE data column on every push, so a library and
+the prose inside it do not belong on one row: typing a sentence would re-push
+the whole shelf. Precedent: `kdp:`/`kdpms:`, `lar:`/`larlog:`, `asc:`/`asclog:`.
+
+**`rtx:` and not `restxt:`, and the reason is worth keeping.** `sync.js`
+matches `k.indexOf(p) === 0`. `restxt:…` does not in fact begin with `res:` —
+the fourth character is `t`, not a colon — so it would have been safe. It was
+rejected anyway, because it *reads* as though it might match, and a prefix you
+have to squint at is a prefix that will one day be wrong. Same check, same
+discipline, as `prmbak:` against `prm:`.
+
+A heavy sub-record gets its own key rather than nesting: chapters carry an
+index in `res:chapters` and their prose in `rtx:body:chapter:<id>`, because a
+parent array is re-serialised in full on every edit. Exactly why
+`ath:chapters` was split out of `ath:resources`.
+
+### It wears HOUSE DAMULA by sharing it
+
+`vault-theme.css` is linked **untouched** — it now serves six pages — and
+`resource-theme.css` is a layer over it on `promptarium-theme.css`'s contract:
+only what the house has no shape for, and it names no semantic colours. What
+it adds: the home hero's composition, the three doors, a portrait cover shelf
+(the vault browses 16:10 stills and has no shape for a book), the video wall,
+the article sidebar, and the item page with its seven panels.
+
+The one added flourish is **the shelf edge** — a gold hairline under every
+page head, under every cover, and under the active tab. A library is a room
+made of shelf edges. Getting it under the cover rather than at the bottom of
+the card needed `order` on the card's `::after`: **a pseudo-element is a flex
+item**, so it can be placed rather than left where the source puts it.
+
+**The three item routes have no hero**, on `vault.html`'s article-page
+precedent: every other view opens on a screen of photograph because every
+other view is a room you are browsing, and an item page is a page you write
+in. It also removed a real redundancy — with a hero the title appeared three
+times before the first control.
+
+The hero photograph is `images_by_admin/resource/hero-hall.jpg`, a gallery
+corridor of busts, 675x1200. That is an aspect of .5625 against the vault's
+736x1308 = .5627, which is why the entire hero geometry ported with no
+re-tuning at all: the 1.12 pre-scale, the 5% translate, the veil stops, the
+parallax rates. Only the crop moved (`50% 54%`, because this plate's subject
+is its floor), and the brightness — the shared sheet cuts its plate to `.62`
+for a lit hall, and the same cut takes a corridor at night to black.
+
+### Embeds survive as a reference, not as markup
+
+`<iframe>`, `<video>` and `<source>` stay on the sanitiser's DROP list for
+ever — they are the tags a stored string must never be able to reintroduce.
+`extractEmbeds()` runs on the RAW paste, before the sanitiser, lifts their
+URLs into `res:assets`, and leaves a `<figure data-rs-embed="<id>">` standing
+where they were. `data-rs-embed` is the one attribute this sanitiser writes
+itself and the only one it allows (`/^as_[a-z0-9_]+$/i`, so a forged one is
+stripped). `renderBody()` hydrates those figures into click-to-load cards.
+
+So a pasted article keeps its video, its pictures and its links; the
+Attachments strip lists all of them; and nothing loads from a third party
+until it is clicked. The video page's own player is the same rule: the still
+comes from `i.ytimg.com`, and the `youtube-nocookie` iframe is created by
+`resource-app.js` and nowhere else, only on a click.
+
+**Tables joined the keep list**, which the vault's copy does not have. A
+pasted paper is mostly table, and unwrapping one destroys the content rather
+than simplifying it.
+
+### The retirement, and the guard that has to be able to refuse
+
+`resource-retire.js` runs once per device. Four properties, none optional:
+
+1. **A snapshot first**, into `bak:athretire:snapshot`, and the delete does
+   not happen if it did not write. `bak:` is local-only BY CONSTRUCTION — no
+   synced prefix in this repo begins with it — and
+   `DataRegistry.assertLocalOnly` throws rather than returning false if that
+   stops being true. Deliberately NOT `bak:ath:`, which is The Athenaeum's own
+   rolling snapshot store: a copy that has to survive must not share a bucket
+   with one that prunes itself.
+2. **An explicit key list**, read off `athenaeum-data.js`'s own KEYS map. No
+   prefix sweep, no `localStorage.clear()`.
+3. **A fresh-install branch** — a device that never held the old library
+   stamps the flag and deletes nothing.
+4. **The flag is LOCAL, not synced.** This has to run once on every device
+   that holds the keys, and a synced flag would let the first device tell all
+   the others they were already done.
+
+**The Supabase row was emptied by hand, from a script, after the push.** Page
+code that can empty a row only has to fire once, wrongly, on a device that is
+offline at the time, and it sits in the deploy for ever. The script refuses
+unless `data/retired/athenaeum-2026-09-08.json` is present on `origin/main`
+AND every key in the live row matches it byte for byte.
+
+`athenaeum-drafts.js` stays: `vault.html` loads it and `resource.html` loads
+it. It was named for the app it was built in; it belongs to no app now.
+
+`resource-retire.js` is TEMPORARY and should come out of `resource.html` and
+out of the repo once it has run on every device.
+
+### Four bugs the build hit, all the same bug
+
+Every one was **an item that would not shrink below its content**, and every
+one pushed the whole document sideways rather than clipping:
+
+- `.rs-chap__t` — a flex item's default `min-width` is `auto`. An ellipsised
+  nowrap title reported its full 532px inside a 350px phone. `min-width: 0`
+  is necessary and not sufficient: `flex-basis` also has to leave `auto`, or
+  the item still asks for its content width.
+- `.rs-chaps` and eight sibling lists — **a grid item's automatic minimum
+  size is its content too.** A one-column `display: grid` list sizes its
+  implicit track to max-content. Every one of them now names
+  `grid-template-columns: minmax(0, 1fr)`.
+- `.hd-feed__say` inside the article feed — the shared sheet's, so corrected
+  in this layer rather than by editing a file six pages link.
+- `.hd-about__two` at `minmax(300px, 1fr)`, which cannot fit 320px.
+
+**And the measurement was lying before any of them were found.**
+`documentElement.scrollWidth` over-reports here because `vault-theme.css` sets
+`body { overflow-x: hidden }` — and for the same reason "does this element
+have a scrollable ancestor?" answers yes for every element on the page, which
+made a filter that was supposed to find culprits return an empty list with
+total confidence. The honest test is `window.scrollTo(9999, 0)` and reading
+`scrollX` back. Clean at 320/375/390/430/768/844/1024/1280/1440.
+
+### And three test bugs that passed for the wrong reason
+
+All three are the same shape as the stale-probe lesson, and all three were
+caught only by printing the value rather than trusting the assertion:
+
+- **The suite shared one storage profile.** `browser.newPage()` shares
+  localStorage and IndexedDB per origin, so the first page stamped the
+  retirement flag via its fresh-install branch — correctly — and every later
+  page inherited it. The retirement tests were measuring the harness. Each
+  page gets `browser.createBrowserContext()` now.
+- **`fresh()` took an `opts.seed` and passed the module default anyway**, so
+  the retirement ran against a page that never held an `ath:` key and the
+  fresh-install branch passed for the wrong reason.
+- **The control for the guard patched `Storage.prototype.setItem`** — but
+  `local-store-idb.js` replaces `window.localStorage` with a plain object that
+  is not a `Storage` instance, so the patch never applied, the snapshot
+  succeeded, and a control that proved nothing went green. It patches the live
+  object now, after the shim installs and before the 3s grace fires, and the
+  delete genuinely refuses.
+
+61 assertions pass, including that control.
+
+### Registration
+
+`topbar.js` — the ring item, the drawer group (six routes as children),
+`NAV_DETAIL_PARENTS` now empty and correctly so, and `TRACK_PREFIX`
+`'resource.html': 'res:'` (the library and not `rtx:`, because opening an item
+writes the tab it was left on to `res:uiState` — so reading counts as a
+session, not only writing).
+
+`data-registry.js` — two rows, both prefixes under one snapshot store (a half
+snapshot is worse than none: it looks like a restore point and is not), and
+every `counted` key checked against a real name in `resource-data.js`'s KEYS
+map by a test rather than by eye. A counted key that does not exist reads as a
+permanent 0 and silently disables shrink detection.
+
+**The bump.** `topbar.js` v7→v8 and `data-registry.js` v4→v5 across nineteen
+pages, plus `main-nav.js`, `today-data.js`, `palaestra-data.js` and
+`asclepion-data.js`. `weeklyreview.html` was already serving a stale
+`today-data.js?v=2` while the other two were on v1 — normalised on the way
+past. `vault-theme.css` is not edited and stays at v6 on all six pages.
+
+### What is deliberately not there
+
+**No seeded library.** Twelve starter topics, the landing copy and the page
+intros are seeded; the shelf is not. A taxonomy is something you edit, a
+reading list is something you would have to empty. A starter library of eight
+real books with notes and topics attached is available on demand from About,
+which is the honest place for someone else's book picks.
+
+**No author on the reference's book card, but one here.** The reference
+recording is a portfolio page and its cards run cover → title → format pills →
+note → status → link. A shelf without authors is a shelf you cannot search by
+the only other thing you remember, so `.rs-book__by` is there — kept quiet
+enough that the card's rhythm is unchanged.
