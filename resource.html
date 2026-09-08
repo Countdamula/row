@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" class="hd-root">
+<head>
+<!-- FIRST, AND NEVER DEFERRED. local-store-idb.js replaces
+     window.localStorage wholesale before any other script runs, so
+     resource-data.js keeps using plain localStorage unchanged.
+     Every boot path is then gated on LocalStoreIDB.ready(). -->
+<script src="local-store-idb.js"></script>
+<!-- The protection layers. Not deferred: the registry must exist
+     before any boot() asks Snapshots.forApp() for a store, and the
+     engine asserts a store's prefix against the registry before it
+     will build one. -->
+<script src="data-registry.js?v=5"></script>
+<script src="snapshots.js?v=1"></script>
+<!-- Per-keystroke form drafts, written to the REAL localStorage so a
+     refresh cannot take unsaved writing with it. Named for the app it
+     was built in; it belongs to no app now. -->
+<script src="athenaeum-drafts.js?v=1"></script>
+<script src="data-export.js?v=1"></script>
+<script src="save-state.js?v=2"></script>
+<script src="trash.js?v=1"></script>
+<script src="shrink-banner.js?v=1"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0b0907">
+<meta name="robots" content="noindex, nofollow">
+<title>Resource Studio</title>
+
+<!-- =============================================================
+     HOUSE DAMULA — the Resource Studio.
+
+     It replaced THE ATHENAEUM on 2026-09-08. The Athenaeum was
+     built on Field -> Curricula -> Modules -> Lessons, which is a
+     study plan; what Damian wanted was a place to keep the things
+     he learns FROM. Five documents and 9,700 lines came out; this
+     one document and six routes went in. The old row held 11 KB —
+     eleven mostly-seeded subjects, one curriculum, two resources —
+     and Damian chose to delete it rather than carry it across. The
+     copy that makes that reversible is committed at
+     data/retired/athenaeum-2026-09-08.json, and every device
+     retires its own keys once, behind a snapshot, in
+     resource-retire.js.
+
+     ONE DOCUMENT, NINE ROUTES
+
+       #/                      the landing
+       #/videos[/<filter>]     the wall        #/video/<id>[/<tab>]
+       #/books[/<filter>]      the shelf       #/book/<id>[/<tab>]
+       #/articles[/<topic>]    the feed        #/article/<id>[/<tab>]
+       #/collections           the topics      #/collection/<id>
+       #/about
+
+     The lesson `vault.html` states in its own header holds here:
+     twelve DOCUMENTS were the problem, six VIEWS are not. A hash
+     route inside one document repaints instantly and shares one
+     boot, one composer and one set of listeners.
+
+     THE TAB IS IN THE HASH TOO — #/book/<id>/notes — so the back
+     button walks the tabs, a panel can be linked to, and a cloud
+     repaint cannot move you off the one you are typing in.
+
+     TWO ROWS
+     ─────────────────────────────────────────────────────────
+       resource      -> res:    the library. Records and indexes.
+       resourcetext  -> rtx:    the writing. Article bodies,
+                                transcripts, chapters, notes.
+
+     sync.js uploads a row's ENTIRE data column on every push, so a
+     library and the prose inside it do not belong on one row:
+     typing a sentence would re-push the whole shelf. `rtx:` rather
+     than a `restxt:` sibling because 'restxt:' READS as though it
+     might match 'res:' — and a prefix you have to squint at is a
+     prefix that will one day be wrong.
+
+         A PREFIX MAY BE ADDED TO A ROW. IT MAY NEVER BE REMOVED.
+
+     ONE GROUND, ONE COMPONENT
+     ─────────────────────────────────────────────────────────
+     Every band is the neutral warm black #0b0907. No component
+     below the token block in either stylesheet names a colour;
+     they name --hd-bg. Re-grounding the whole studio is one word.
+     ============================================================= -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Two faces, shared with the Entertainment Studio and the Prompt
+     Studio. CORMORANT GARAMOND carries every title; INTER carries
+     every letterspaced small cap. The tracking does the rest. -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- SHARED WITH FOUR OTHER PAGES — vault, promptarium, asclepion,
+     palaestra and palaestra-workout all link this same file. An
+     edit there changes six pages, and every one of their ?v=
+     numbers has to move with it. A browser caches by URL, not by
+     which page asked for it. NOTHING in this build edits it: every
+     shape this studio needs and the house has no equivalent for is
+     in resource-theme.css instead. -->
+<link rel="stylesheet" href="vault-theme.css?v=6">
+<link rel="stylesheet" href="resource-theme.css?v=1">
+<!-- Every route opens on this. Preloaded, because it is the largest
+     paint on all of them. -->
+<link rel="preload" as="image" href="images_by_admin/resource/hero-hall.jpg" fetchpriority="high">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js?v=3"></script>
+<!-- The data layer. Not deferred: resource-retire.js and the views
+     both read it, and the boot path is gated on DOMContentLoaded
+     anyway. -->
+<script src="resource-data.js?v=1"></script>
+<!-- Generic machinery: escaping, the sheet, the toast, the reveal
+     clock. It knows nothing about any data layer and nothing about
+     this skin. -->
+<script src="asclepion-ui.js?v=3"></script>
+<!-- An image pasted into an article or chosen as a cover is
+     compressed and then handed to YOUR OWN storage bucket, so a
+     ~100-byte URL replaces the base64 in the synced key. With no
+     bucket it silently does nothing and the data URL simply stays. -->
+<script src="photo-store.js?v=1" defer></script>
+<!-- The sanitiser and the writing surfaces. Must load BEFORE the
+     views, which call ResRich.toolbarHtml() while building a
+     string. -->
+<script src="resource-rich.js?v=1" defer></script>
+<script src="resource-views.js?v=1" defer></script>
+<script src="resource-item.js?v=1" defer></script>
+<!-- TEMPORARY. The Athenaeum's retirement, once per device, behind
+     a snapshot it refuses to run without. It comes out of this page
+     and out of the repo once it has run everywhere. -->
+<script src="resource-retire.js?v=1" defer></script>
+<script src="resource-app.js?v=1" defer></script>
+<script src="topbar.js?v=8" defer></script>
+</head>
+<body class="hd">
+
+<a class="hd-skip" href="#rsRoot">Skip to the library</a>
+
+<!-- ══ THE TOP BAR ═══════════════════════════════════════════
+     The house's floating pill, unchanged: the wordmark in the
+     MIDDLE of the links rather than off to one side. The landing
+     reference puts its wordmark hard left; Damian asked for this
+     page to be identical to the Entertainment Studio and the
+     Prompt Studio, and the pill is the most recognisable thing
+     either of them has.
+
+     The monogram and the wordmark are STATIC MARKUP; only the
+     links are painted. A cloud pull that re-created the chrome
+     could not replay the page's entrance, and the brand is the one
+     thing that must never flicker. -->
+<header class="hd-top" id="hdTop">
+  <nav class="hd-pill" aria-label="Primary">
+    <span class="hd-pill__side" id="hdNavL"></span>
+
+    <a class="hd-brand" href="#/" aria-label="Resource Studio — home">
+      <span class="hd-mono" aria-hidden="true">
+        <svg viewBox="0 0 40 34" fill="none" stroke="currentColor" stroke-width="1.15"
+             stroke-linecap="round" stroke-linejoin="round">
+          <!-- An H and a D sharing one stem, as everywhere else in
+               the house. The bowl is two arcs rather than one so it
+               keeps its thick/thin contrast at 34px. -->
+          <path d="M4 3.5v27M17.5 3.5v27M4 17h13.5"/>
+          <path d="M17.5 3.5h5.6a12 13.5 0 0 1 0 27h-5.6"/>
+          <path d="M17.5 8.2h4.9a8.6 10.3 0 0 1 0 20.6h-4.9" opacity=".42"/>
+        </svg>
+      </span>
+      <span class="hd-word">Resource Studio</span>
+    </a>
+
+    <span class="hd-pill__side" id="hdNavR"></span>
+  </nav>
+
+  <div class="hd-topacts">
+    <button type="button" class="hd-iconbtn" id="hdSearchBtn" data-act="find"
+      aria-label="Search the library">
+      <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+        stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="8.6" cy="8.6" r="5.6"></circle><path d="m12.8 12.8 4.2 4.2"></path></svg>
+    </button>
+    <button type="button" class="hd-burger" id="hdBurger" data-act="menu"
+      aria-label="Open the menu" aria-expanded="false">
+      <span aria-hidden="true"></span><span aria-hidden="true"></span>
+    </button>
+  </div>
+</header>
+
+<!-- The sigils. Drawn once, referenced by <use>: a card falls back
+     to its kind's mark when it has no cover, the doors carry one
+     each, and the format pills carry a small one. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<!-- The house ornament: a four-point star on a hairline. It sits
+     under the headline and in the middle of the footer, and it is
+     the one drawn flourish in the whole design. -->
+<g id="sg-orn"><path d="M8 1.6 9.1 6.9 14.4 8 9.1 9.1 8 14.4 6.9 9.1 1.6 8 6.9 6.9Z"/></g>
+<g id="sg-book"><path d="M8 4.3S6.1 2.9 2.2 3.3v9C6.1 11.9 8 13.3 8 13.3s1.9-1.4 5.8-1v-9C9.9 2.9 8 4.3 8 4.3Z"/><path d="M8 4.3v9"/></g>
+<g id="sg-play"><circle cx="8" cy="8" r="6.3"/><path d="M6.5 5.4 10.7 8l-4.2 2.6Z"/></g>
+<g id="sg-doc"><path d="M4 2.4h5l3 3v8.2H4Z"/><path d="M9 2.4v3h3"/><path d="M5.9 8.4h4.2M5.9 10.6h4.2"/></g>
+<g id="sg-tag"><path d="M2.6 7.4V2.6h4.8l6 6-4.8 4.8Z"/><circle cx="5.2" cy="5.2" r=".9"/></g>
+<g id="sg-quill"><path d="M13.4 2.6c-6 .8-8.9 4-9.4 8.4 2.9-4 5.6-5.2 8-5.4-2.4 1.5-4.7 3.3-6 6.4"/><path d="M2.6 13.4 5 11"/></g>
+<g id="sg-spark"><path d="M6 1.6 7.15 5.05 10.6 6.2 7.15 7.35 6 10.8 4.85 7.35 1.4 6.2l3.45-1.15Z"/><path d="M11.6 8.6l.66 1.94 1.94.66-1.94.66-.66 1.94-.66-1.94-1.94-.66 1.94-.66Z"/></g>
+<g id="sg-wave"><path d="M1.8 8v0M4.4 5.6v4.8M7 2.9v10.2M9.6 4.9v6.2M12.2 6.6v2.8M14.6 8v0"/></g>
+<g id="sg-slab"><rect x="3.4" y="2.6" width="9.2" height="10.8" rx="1"/><path d="M5.6 5.4h4.8M5.6 8h4.8"/></g>
+<g id="sg-frame"><rect x="2.4" y="3.4" width="11.2" height="9.2" rx="1"/><circle cx="5.9" cy="6.6" r="1"/><path d="m2.9 11.4 3.3-3 2.4 2.1 2.2-1.8 2.7 2.4"/></g>
+<g id="sg-link"><path d="M6.9 9.1a2.9 2.9 0 0 0 4.3.3l1.7-1.7a2.9 2.9 0 0 0-4.1-4.1l-1 1"/><path d="M9.1 6.9a2.9 2.9 0 0 0-4.3-.3L3.1 8.3a2.9 2.9 0 0 0 4.1 4.1l1-1"/></g>
+</defs></svg>
+
+<main class="hd-main" id="rsRoot" tabindex="-1"></main>
+
+<footer class="hd-foot" id="hdFoot">
+  <p class="hd-foot__left">
+    <span>&copy; Resource Studio MMXXV</span>
+    <span class="hd-foot__bar" aria-hidden="true"></span>
+    <span>Kept whole, not linked to</span>
+  </p>
+  <span class="hd-foot__orn" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linejoin="round"><use href="#sg-orn"></use></svg>
+  </span>
+  <nav class="hd-foot__right" aria-label="The studio">
+    <button type="button" data-act="export">Your data</button>
+    <a href="#/about">About</a>
+  </nav>
+</footer>
+
+<!-- ══ SEARCH ════════════════════════════════════════════════
+     A glyph in the bar rather than a field: a permanent input in a
+     90px editorial bar reads as an admin panel. It opens over the
+     page and searches books, videos, articles and topics at once. -->
+<div class="hd-find" id="hdFind" role="dialog" aria-modal="true" aria-label="Search the library" hidden>
+  <div class="hd-find__box">
+    <div class="hd-find__field">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+        stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+        <circle cx="8.6" cy="8.6" r="5.6"></circle><path d="m12.8 12.8 4.2 4.2"></path></svg>
+      <input id="hdFindIn" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Search the library" aria-label="Search the library">
+      <button type="button" class="hd-find__x" data-act="find-close">Esc</button>
+    </div>
+    <div class="hd-find__out" id="hdFindOut" role="listbox" aria-label="Results"></div>
+  </div>
+</div>
+
+<!-- asclepion-ui.js's own ids. Reusing the module means reusing its
+     DOM contract. The sheet carries the paste-a-whole-transcript
+     flow. -->
+<div class="asc-sheetbg" id="ascSheetBg" role="dialog" aria-modal="true" aria-label="Detail">
+  <div class="asc-sheet" id="ascSheet"></div>
+</div>
+<div class="asc-toast" id="ascToast" role="status" aria-live="polite"></div>
+
+<!-- ══ THE COMPOSER ══════════════════════════════════════════
+     ONE form, four kinds, add and edit. Correcting a record and
+     creating one want the same fields, and two forms would drift.
+     The FIELDS are painted per kind by resource-app.js — a book
+     has formats and an ISBN, a video has a channel and a length,
+     and a single static form carrying the union of all four would
+     be mostly disabled inputs.
+
+     Its own panel rather than the host sheet: it opens FROM a
+     page that may already have the sheet open, it carries a
+     keystroke draft, and it traps Tab. Two surfaces sharing one
+     host element would fight over all three. -->
+<div class="vt-cmpbg" id="cmpScrim" hidden></div>
+<section class="vt-cmp" id="cmp" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" hidden>
+  <div class="vt-cmp__top">
+    <h2 class="hd-plate" id="cmpTitle">Add</h2>
+    <button type="button" class="asc-btn asc-btn--quiet asc-btn--sm" id="cmpX"
+      style="margin-left:auto">Close</button>
+  </div>
+
+  <form class="vt-cmp__body" id="cmpForm"></form>
+
+  <div class="vt-cmp__foot">
+    <button class="asc-btn asc-btn--primary" id="cmpSave" type="button">Save</button>
+    <button class="asc-btn asc-btn--quiet" id="cmpAgain" type="button">Save &amp; add another</button>
+    <button class="asc-btn asc-btn--danger asc-btn--sm vt-del" id="cmpDel" type="button" hidden>Delete</button>
+  </div>
+</section>
+
+<button class="hd-fab" id="addFab" aria-label="Add something to the library">
+  <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+    stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 3.4v9.2M3.4 8h9.2"></path></svg>
+</button>
+
+</body>
+</html>
