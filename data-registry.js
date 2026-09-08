@@ -189,22 +189,43 @@
       ]
     },
     {
-      id: 'athenaeum',
-      label: 'The Athenaeum',
-      pages: ['athenaeum.html', 'athenaeum-subject.html', 'athenaeum-curriculum.html',
-              'athenaeum-resources.html', 'athenaeum-resource.html'],
-      rows: { athenaeum: ['ath:'] },
+      // Resource Studio replaced The Athenaeum on 2026-09-08. The old
+      // entry named five pages, the row `athenaeum` and the prefix
+      // `ath:`; all five documents were deleted, the keys are retired
+      // per device by resource-retire.js behind a local snapshot, and
+      // the last state of the row is committed at
+      // data/retired/athenaeum-2026-09-08.json. The row itself is left
+      // in place, emptied once by hand — nothing mounts `ath:` any
+      // more, so nothing can push over it either way.
+      id: 'resource',
+      label: 'Resource Studio',
+      pages: ['resource.html'],
+      // TWO ROWS, and the same reasoning as The Velvet Grimoire's:
+      // sync.js pushes a row's whole data column on every write, so the
+      // prose is split out and typing a sentence does not re-upload the
+      // library. `rtx:` rather than a `restxt:` sibling because
+      // 'restxt:' READS as though it might match 'res:' under
+      // k.indexOf(p) === 0, and a prefix you have to squint at is a
+      // prefix that will one day be wrong.
+      rows: { resource: ['res:'], resourcetext: ['rtx:'] },
       snapshots: {
-        prefix: 'bak:ath:', global: 'AthBackup',
-        watch: ['ath:'], events: ['ath:save']
+        prefix: 'bak:res:', global: 'ResBackup',
+        // Both prefixes, because a half snapshot is worse than none:
+        // the library without its notes looks like a restore point and
+        // is not one.
+        watch: ['res:', 'rtx:'], events: ['res:save', 'rtx:save']
       },
+      // Verified against the real key names in resource-data.js's KEYS
+      // map. A counted key that does not exist reads as a permanent 0,
+      // which silently disables shrink detection for that collection —
+      // the protection would look present and do nothing.
       counted: [
-        { key: 'ath:subjects',  label: 'fields' },
-        { key: 'ath:curricula', label: 'curricula' },
-        { key: 'ath:modules',   label: 'modules' },
-        { key: 'ath:lessons',   label: 'lessons' },
-        { key: 'ath:resources', label: 'resources' },
-        { key: 'ath:concepts',  label: 'concepts' }
+        { key: 'res:books',    label: 'books' },
+        { key: 'res:videos',   label: 'videos' },
+        { key: 'res:articles', label: 'articles' },
+        { key: 'res:topics',   label: 'topics' },
+        { key: 'res:chapters', label: 'transcript chapters' },
+        { key: 'res:qa',       label: 'questions' }
       ]
     },
     {

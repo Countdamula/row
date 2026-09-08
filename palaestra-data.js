@@ -1740,7 +1740,7 @@
   // On a fresh device the local store is empty until the first pull
   // lands. Seeding immediately would write starter rows locally, sync
   // would push them, and the push would overwrite the real 'palaestra'
-  // row. Same guard, same reason, as athenaeum-data.js's and
+  // row. Same guard, same reason, as resource-data.js's and
   // chrysalis-data.js's own.
   //
   // Exercises only — no templates, no schedule, no invented history. A

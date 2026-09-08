@@ -520,7 +520,7 @@
       phase: 'day', title: 'Learning',
       note: 'One lesson, one paper, one chapter. Optional on a Low day by design.',
       mins: { high: 45, mid: 25, low: 0 },
-      linkHref: 'athenaeum.html', linkLabel: 'The Athenaeum'
+      linkHref: 'resource.html', linkLabel: 'Resource Studio'
     },
     {
       phase: 'day', title: 'Self-care break',

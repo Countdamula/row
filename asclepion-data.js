@@ -42,7 +42,7 @@
 // absent from the model is silently dropped the next time that
 // record is touched. Add fields to the MODEL, never only at a
 // call site. This is the house convention (palaestra-data.js,
-// athenaeum-data.js) and it is what keeps records from rotting.
+// resource-data.js) and it is what keeps records from rotting.
 // =============================================================
 
 (function (global) {

@@ -55,7 +55,7 @@
   const RING_ITEMS = [
     { href: 'index.html',        label: 'Main',                 icon: 'target' },
     { href: 'promptarium.html',  label: 'Prompt Studio',        icon: 'flask' },
-    { href: 'athenaeum.html',    label: 'The Athenaeum',        icon: 'book' },
+    { href: 'resource.html',     label: 'Resource Studio',      icon: 'book' },
     { href: 'kdp.html',          label: 'The Velvet Grimoire',  icon: 'feather' },
     { href: '',                  label: 'All Pages',            icon: 'grid', drawer: true },
     { href: 'vault.html',        label: 'Entertainment Studio', icon: 'film' },
@@ -127,49 +127,40 @@
       ],
     },
     {
-      // The Athenaeum — athenaeum.html + athenaeum-subject.html +
-      // athenaeum-curriculum.html + athenaeum-data.js. Placed directly
-      // beneath Promptarium per an explicit request.
+      // Resource Studio — resource.html, one document. It REPLACED The
+      // Athenaeum on 2026-09-08, and this entry replaced its five.
       //
-      // A learning dashboard built on one structural rule:
-      //   FIELD → CURRICULA → MODULES → LESSONS
-      // A field is permanent, a curriculum is temporary, and everything
-      // worth keeping (concepts, connections, contradictions, research)
-      // belongs to the FIELD so it survives the curriculum that taught it.
+      // The Athenaeum was a study planner: FIELD → CURRICULA → MODULES →
+      // LESSONS. What Damian actually wanted was the other half of that
+      // — a place to keep the things he learns FROM, each opening as a
+      // full page with an overview, notes, a description, a transcript,
+      // a Q&A and its topics. That is a different shape, so it is a
+      // different app rather than a sixth Athenaeum document.
       //
-      // Built as a PARALLEL build alongside learning.html ('learning:'),
-      // learning-dashboard.html ('lhub:') and knowledge-hub.html ('kh:').
-      // learning.html and knowledge-hub.html were deleted in the 2026-08-21
-      // tidy-up; learning-dashboard.html survives on disk but has no nav
-      // entry. The Athenaeum shares no data and no code with any of them, so
-      // nothing here changed when they went.
+      // The old 'ath:' keys are retired per device by
+      // resource-retire.js, behind a local snapshot it refuses to run
+      // without, and the last state of the Supabase row is committed at
+      // data/retired/athenaeum-2026-09-08.json.
       //
-      // Owns 'ath:*' and its own Supabase row (appKey 'athenaeum'). Both
-      // were unused before this build. It mounts exactly ONE initCloudSync
-      // and never reads or writes another page's prefix.
+      // Owns TWO rows: 'resource' -> res: (the library) and
+      // 'resourcetext' -> rtx: (the writing). Split because sync.js
+      // pushes a row's whole data column on every write, and typing a
+      // sentence should not re-push the shelf.
       //
-      // Three pages, one namespace: the hub and curriculum pages take a
-      // ?id= query param so their hash stays free for in-page tabs. Sub-pages listed here are the main page's
-      // own hash routes.
-      key: 'athenaeum',
-      label: 'The Athenaeum',
+      // The children are the page's own hash routes; a detail page is a
+      // route too (#/book/<id>), so there is nothing to alias in
+      // NAV_DETAIL_PARENTS.
+      key: 'resource',
+      label: 'Resource Studio',
       items: [
-        { href: 'athenaeum.html', icon: '⌘', label: 'The Athenaeum', id: 'topbarAthenaeum', children: [
-          { hash: '/', label: 'The Reading Room' },
-          { hash: '/fields', label: 'All Fields' },
-          { hash: '/retention', label: 'Retention Center' },
-          { hash: '/calendar', label: 'Learning Calendar' },
-          { hash: '/experiments', label: 'Experiment Lab' },
-          { hash: '/box', label: 'The Box' },
-          { hash: '/inbox', label: 'Learning Inbox — every field' },
-          { hash: '/knowledge', label: 'Knowledge Base — every field' },
-          { hash: '/connections', label: 'Cross-Field Connections' },
+        { href: 'resource.html', icon: '⌘', label: 'Resource Studio', id: 'topbarResource', children: [
+          { hash: '/', label: 'Home' },
+          { hash: '/videos', label: 'YouTube Videos' },
+          { hash: '/books', label: 'Books' },
+          { hash: '/articles', label: 'Articles' },
+          { hash: '/collections', label: 'Collections' },
+          { hash: '/about', label: 'About' },
         ] },
-        // The Resource Library moved out of athenaeum.html's #/resources
-        // route onto its own page when it gained editing, filtering and
-        // per-resource detail pages. The old hash still works — it
-        // redirects here — but the nav points at the real page.
-        { href: 'athenaeum-resources.html', icon: '▤', label: 'Resource Library', id: 'topbarAthenaeumLibrary' },
       ],
     },
     {
@@ -1225,14 +1216,11 @@ body.topbar-modal-open {
   // leaving the whole sidebar looking inactive.
 
   const NAV_DETAIL_PARENTS = {
-    'athenaeum-subject.html': 'athenaeum.html',
-    'athenaeum-curriculum.html': 'athenaeum.html',
-    // Singular: one resource. The plural athenaeum-resources.html is a real
-    // nav item of its own and must NOT be aliased here, or it would
-    // highlight The Athenaeum instead of itself.
-    'athenaeum-resource.html': 'athenaeum-resources.html'
-    // The Asclepion needs no entry here at all any more: it is one
-    // document, so there is no detail page to point back at a parent.
+    // Empty, and correctly so. The five Athenaeum documents that used to
+    // be aliased here went with The Athenaeum on 2026-09-08; Resource
+    // Studio is one document whose detail pages are hash routes, so it
+    // has nothing to point back at a parent. The Asclepion is the same.
+    // Kept as a table because the next multi-document app will need it.
   };
 
   function highlightActivePill() {
@@ -1740,11 +1728,12 @@ body.topbar-modal-open {
     'larder.html': 'lar',               // lar: and larlog: both
     'vault.html': 'vault:',
     'promptarium.html': 'prm:',
-    'athenaeum.html': 'ath:',
-    'athenaeum-subject.html': 'ath:',
-    'athenaeum-curriculum.html': 'ath:',
-    'athenaeum-resources.html': 'ath:',
-    'athenaeum-resource.html': 'ath:',
+    // 'res:' and not 'rtx:'. The fingerprint takes one prefix, and the
+    // library is the right one to watch: opening an item writes the tab
+    // it was left on to res:uiState, so reading counts as a session and
+    // not only writing does. (The five 'ath:' entries went with The
+    // Athenaeum on 2026-09-08.)
+    'resource.html': 'res:',
     'kdp.html': 'kdp',
     'kdp-foundations.html': 'kdp',
     'kdp-draft.html': 'kdp',

@@ -137,18 +137,15 @@
       ]
     },
     {
-      id: 'learning', name: 'Learning', sub: 'The Athenaeum — fields, curricula, retention',
-      href: 'athenaeum.html', icon: 'book', group: 'knowledge',
+      id: 'learning', name: 'Learning', sub: 'Resource Studio — books, videos, articles, topics',
+      href: 'resource.html', icon: 'book', group: 'knowledge',
       routes: [
-        { hash: '/', label: 'The Reading Room' },
-        { hash: '/fields', label: 'All Fields' },
-        { hash: '/retention', label: 'Retention Center' },
-        { hash: '/calendar', label: 'Learning Calendar' },
-        { hash: '/experiments', label: 'Experiment Lab' },
-        { hash: '/box', label: 'The Box' },
-        { hash: '/inbox', label: 'Learning Inbox' },
-        { hash: '/knowledge', label: 'Knowledge Base' },
-        { hash: '/connections', label: 'Cross-Field Connections' }
+        { hash: '/', label: 'Home' },
+        { hash: '/videos', label: 'YouTube Videos' },
+        { hash: '/books', label: 'Books' },
+        { hash: '/articles', label: 'Articles' },
+        { hash: '/collections', label: 'Collections' },
+        { hash: '/about', label: 'About' }
       ]
     },
     {
@@ -172,8 +169,11 @@
       ]
     },
     {
-      id: 'library', name: 'Resource Library', sub: 'Everything worth reading again, by medium',
-      href: 'athenaeum-resources.html', icon: 'shelf', group: 'knowledge', routes: []
+      // The Resource Library was athenaeum-resources.html, a second
+      // document. Resource Studio's shelf is a route inside the one
+      // page it replaced all five with, so this points at the route.
+      id: 'library', name: 'The Shelf', sub: 'Everything worth reading again, by medium',
+      href: 'resource.html#/books', icon: 'shelf', group: 'knowledge', routes: []
     },
     {
       id: 'review', name: 'Weekly Review', sub: 'What the week actually came to',
