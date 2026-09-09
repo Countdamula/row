@@ -112,19 +112,17 @@
       ]
     },
     {
-      id: 'nutrition', name: 'Nutrition', sub: 'The Larder — meals, macros, recipes, the grocery list',
+      // Rebuilt 2026-09-08 as two things: a recipe book and a
+      // grocery list. Every other route was removed from the page,
+      // and a hash listed here that the page does not answer is a
+      // link to a blank screen.
+      id: 'nutrition', name: 'Nutrition', sub: 'The Larder — the recipe book and the grocery list',
       href: 'larder.html', icon: 'utensils', group: 'life',
       routes: [
-        { hash: '/', label: 'Today' },
-        { hash: '/meals', label: 'Meals' },
-        { hash: '/foods', label: 'Foods' },
-        { hash: '/recipes', label: 'Recipes' },
-        { hash: '/plan', label: 'Meal Plan' },
+        { hash: '/', label: 'Recipes' },
         { hash: '/grocery', label: 'Grocery List' },
-        { hash: '/progress', label: 'Progress' },
         { hash: '/kept', label: 'Kept' },
-        { hash: '/targets', label: 'Nutrition goals' },
-        { hash: '/supplements', label: 'Supplements' }
+        { hash: '/settings', label: 'Settings' }
       ]
     },
     {

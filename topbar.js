@@ -376,14 +376,15 @@
       key: 'life',
       label: 'Life & Wellness',
       items: [
+        // Rebuilt 2026-09-08 as a recipe book and a grocery list.
+        // Today / Meals / Foods / Meal Plan / Progress are gone from
+        // the page, and a hash in this menu that the page does not
+        // answer is a link to a blank screen.
         { href: 'larder.html', icon: '🍽️', label: 'Nutrition Studio', id: 'topbarLarder', children: [
-          { hash: '/', label: 'Today' },
-          { hash: '/meals', label: 'Meals' },
-          { hash: '/foods', label: 'Foods' },
-          { hash: '/recipes', label: 'Recipes' },
-          { hash: '/plan', label: 'Meal Plan' },
+          { hash: '/', label: 'Recipes' },
           { hash: '/grocery', label: 'Grocery List' },
-          { hash: '/progress', label: 'Progress' },
+          { hash: '/kept', label: 'Kept' },
+          { hash: '/settings', label: 'Settings' },
         ] },
       ],
     },

@@ -301,7 +301,7 @@ using `sync.js`.
 | Main | 🎯 `MAIN` → `index.html` | `index.html` (rebuilt as a command center — see changelog; briefly deleted, then restored — see the changelog entry near the bottom of this file) |
 | Media | 🎬 `MEDIA` → `entertainment.html` | `entertainment.html` (rebuilt as a 4-gallery tracker — see changelog) |
 | Entertainment | 🎬 `Entertainment` nav folder → `entertainment-dash.html` | `entertainment-dash.html` + `entertainment-dash-data.js` (Reading Corner/Anime/Games + the cross-category Home/Discovery Engine/Favorites/Statistics logic) + `entertainment-hub-data.js` (Podcasts/Stories-split/Entertainment/Playlists — kept from the old five-page folder, not deleted, since `fitnessstudio.html`'s music panel still reads it). Replaces both the old five-page Entertainment folder (`ent-favorites.html`/`ent-podcasts.html`/`ent-stories.html`/`ent-playlists.html`/`ent-entertainment.html`, all deleted) and the short-lived Media/`mediaverse.html` hub (deleted outright, `mediaverse-data.js` gone too) — see changelog |
-| Nutrition | 🍽️ `NUTRITION` → `nutrition.html` | `nutrition.html` + `nutrition-data.js` (rebuilt around Dream Board's engine/aesthetic — see changelog) |
+| Nutrition | **STALE TWICE OVER — this entire row describes the Dream-Board version and is flagged rather than rewritten, per §6.** `nutrition.html` became **The Larder** (`larder.html`) on 2026-08-26, and The Larder was cut back to a **Recipe Book and a Grocery List** on 2026-09-08; `nutrition.html` is a three-line redirect stub and `nutrition-data.js` no longer exists. The row key is still `nutrition` on purpose. See the "The Nutrition Studio is a recipe book and a grocery list" changelog entry for what is actually live. 🍽️ `Nutrition Studio` → `larder.html` | `larder.html` + `larder-theme.css` + `larder-data.js` + `larder-sync.js` + `larder-backup.js` |
 | Dream Board | ✨ `DREAM BOARD` → `dreamboard.html` | `dreamboard.html` + `dreamboard-data.js` (new — see changelog) |
 | AI & Tech | 🤖 `AI & TECH` → `aitech.html` | `aitech.html` + `aitech-data.js` (new — see changelog) |
 | Learning & Knowledge Hub | 📚 `LEARNING` → `learning.html` | `learning.html` + `learning-data.js` (new — see changelog) |
@@ -16505,3 +16505,141 @@ recording is a portfolio page and its cards run cover → title → format pills
 note → status → link. A shelf without authors is a shelf you cannot search by
 the only other thing you remember, so `.rs-book__by` is there — kept quiet
 enough that the card's rhythm is unchanged.
+
+## The Nutrition Studio is a recipe book and a grocery list (2026-09-08)
+
+Damian asked for The Larder to be **two things only** — a Recipe Book and a
+Grocery List — re-skinned to be identical to the Entertainment Studio and
+Prompt Studio, on a hero photograph of his choosing. `larder.html` went from
+thirteen routes to four.
+
+### What went, and what it cost
+
+Today, Meals, Foods, Meal Plan, Progress, Nutrition goals, Supplements and
+Notes are gone from the interface **and their records are deleted** —
+Damian's explicit choice, taken over keeping them, after being told it
+propagates to every device. `larder-data.js` §THE WIPE removes eight keys:
+`lar:foods` `lar:meals` `lar:plan` `lar:targets` `lar:supplements`
+`lar:notes` `larlog:log` `larlog:days`.
+
+**The recovery path was built before the destructive one**, which is the
+lesson this page already paid for once when a "Clear ticked" button destroyed
+a real grocery list. The wipe:
+
+- **refuses to run without a snapshot.** The only exception is a device where
+  `snapshot()` returns null — nothing worth copying, therefore nothing to lose.
+- **runs from `onPulled`, never at boot.** `pushNow()` sends `collect()` as the
+  row's entire `data` column, so a wipe that beat the opening select would
+  erase whatever else was in the row and push the erasure as truth.
+- **is stamped** (`lar:schema` = `recipebook-1`) so it is one-shot.
+- **offers a 30-day undo**, via `larder-backup.js`'s `markWipe` /
+  `pendingUndo` / `clearUndo` — the shape `promptarium-backup.js` established.
+
+**NO PREFIX WAS REMOVED.** `larlog:` and `nutrition:` stay in
+`larder-sync.js`'s ROWS table forever. A prefix list is a delete list for the
+whole account; this deletes keys.
+
+Two ordering hazards closed on the way: `migratePalDays()` copies `pal:days`
+into `larlog:days`, so it is skipped once `wipeDone()`; and `seedNow()` used to
+write foods, supplements and targets on a fresh device, which would have been
+seed → wipe → seed again. It now seeds nothing and says so.
+
+### The shape
+
+Routes are `#/` (the book), `#/r/<id>`, `#/grocery`, `#/kept`, `#/settings`.
+**`#/recipes` and `#/recipes/<id>` are kept alive as aliases** — they are in
+`topbar.js`, `main-nav.js`, `nutrition.html`'s stub and a year of notes, and
+two lines in the router keeps every one of them working.
+
+The library takes its structure from a marketplace reference: a filter rail
+(category / total time / tag / kept — simplified from the reference's nine
+controls, because this is one person's recipe book), a featured strip, and a
+card grid with a sort. A recipe takes its structure from an editorial cookbook
+spread: a kicker rule (`DINNER` / `RECIPE 01`), a "makes" chip, the intro, then
+`INGREDIENTS` between hairlines **in monospace** — an ingredient list is a
+column of quantities and the figures only line up in a fixed pitch.
+
+### The method, which is the part with no precedent
+
+Damian asked for the instructions to run down the page the way Notion does,
+with a photograph at any step. Steps are edited **in place**, on the page:
+
+- **A single hairline threads the whole method**, and every numeral sits on it
+  with the ground painted behind, so the line passes *behind* the figure. One
+  continuous line is the difference between "numbered paragraphs" and "one
+  process you are partway through". This is the case where numbering is true
+  rather than decorative — a method genuinely is a sequence.
+- **The step editor is a textarea drawn as prose**, capped at 68ch, 16px and
+  never less, saving on a **1200ms debounce per step** (one timer per step,
+  never a shared one) and flushing on `focusout` and `pagehide`.
+- **`focusout`, not `blur`** — `blur` does not bubble, so a delegated handler
+  never hears it. Found by a test.
+- Reorder is SortableJS by the **grip only**, and a drag that misses a step
+  cannot delete it.
+
+### The photo bug this rebuild exists to fix
+
+`recipeStepModel` has carried an `imageUrl` field since 2026-08-26 and nothing
+ever wrote it — but `openRecipeSheet()` serialised steps through a textarea as
+**plain strings**, so `recipeStepModel` reset the image to null and one
+Edit-and-Save silently wiped every photograph on the recipe.
+
+**The steps field was removed from the sheet entirely.** That fixes it by
+construction rather than by care: the sheet cannot destroy what it never reads.
+`imageUrl` became `images[]` (max 4, old field still read), and a step gained
+an `id` because reorder, add-photo and delete all address a step and an index
+is wrong the moment a drag lands.
+
+Photos follow the house pipeline — read → compress → **save locally** → upload
+→ swap in the URL. A local `data:` URL is drawn with a warm border so "not
+shared yet" is visible, and `retryLocalUploads()` sweeps them on every recipe
+view. **This matters because `lar:recipes` is a synced key and `pushNow()`
+re-uploads the whole row on every save**, so base64 left sitting in a step
+would be re-uploaded in full on every subsequent edit of any recipe.
+
+### Registration, and what it cost
+
+`topbar.js` v8→v9 and `data-registry.js` v5→v6 **across all 19 pages** —
+the drawer listed seven Larder routes, five of which no longer exist, and a
+hash the page does not answer is a link to a blank screen. `main-nav.js`
+carries the same list and needed the same surgery.
+
+`data-registry.js`'s `counted` was **pruned**, not just extended: a counted key
+that does not exist reads as a permanent 0, and a collection whose count is
+always 0 can never be seen to shrink — so shrink detection for it would look
+present and do nothing. `lar:groups` was added for the opposite reason: without
+it a restore brings the recipes back pointing at categories that no longer
+exist.
+
+**`vault-theme.css` was NOT edited.** It serves six documents at `?v=6`;
+everything new went into `larder-theme.css`, a layer only this page links, so
+adding a seventh studio to the house cost zero bumps on the other six.
+
+Deleted: `larder-ui.js` (replaced by the shared `asclepion-ui.js`),
+`larder-hero.js` (the hero is painted per route now), `larder-seed.js`
+(nothing left to seed). `palaestra-data.js` and `main-sync.js` are no longer
+loaded — they were here for `pal:levels`, which belonged to Today, so this page
+no longer mounts a row it does not own.
+
+### Four traps worth keeping
+
+- **`AscUI.rvlStyle()` already emits a `style` attribute.** Pasting a second
+  `style="--lar-tint:…"` on the same tag is silently lossy — the browser keeps
+  the first — so every card's category hue was discarded and the coloured spine
+  rendered at 0px. `rvlAttrs(i, extra)` folds both into one attribute.
+- **`groceryByStore()` returns `rows`, not `items`.** Reading the wrong key
+  threw inside the renderer, and `runSafely` turned a whole screen into an
+  error card.
+- **A probe selector that still matches *something* lies.** `[data-group]`
+  reported sixteen categories because `topbar.js` injects `.tb-group[data-group]`
+  for its own drawer. Scope to `#larGroups`.
+- **A 404's console line carries no URL**, so console text cannot tell
+  `favicon.ico` from a real miss. Track `response.status() >= 400` by URL.
+
+### Verifying it
+
+`unit.js` (76 assertions — the data layer in a `vm` with a fake localStorage,
+which is where a mistake costs records) and `probe.mjs` (102 assertions through
+a real browser). Both block `supabase.co` **twice**: request interception, and
+`window.fetch` overridden in `evaluateOnNewDocument`, because interception has a
+hole at unload that once emptied a live row.

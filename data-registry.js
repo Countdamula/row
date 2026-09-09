@@ -179,13 +179,33 @@
         // `nutrition:` is the retired prefix that still holds real records.
         watch: ['lar:', 'larlog:', 'nutrition:'], events: ['lar:save', 'larlog:save']
       },
+      /* PRUNED 2026-09-08, when the Nutrition Studio became a Recipe
+         Book and a Grocery List. lar:foods, lar:meals, larlog:log and
+         larlog:days are deleted by larder-data.js §THE WIPE and no
+         longer exist on a rebuilt device.
+
+         Leaving them listed would NOT have been harmless: a counted
+         key that does not exist reads as a permanent 0, and a
+         collection whose count is always 0 can never be seen to
+         SHRINK — so shrink detection for it would look present and do
+         nothing. That is precisely the mistake `routine:steps` made.
+
+         `lar:groups` is counted because recipe categories became user
+         data on the same day. Without this line, restoring a snapshot
+         after a bad sync would bring the recipes back and leave every
+         one of them pointing at a category that no longer exists —
+         the same reason prm:groups is counted over in Prompt Studio.
+
+         The WATCH list above is deliberately NOT pruned: larlog: and
+         nutrition: stay, because a device that has not run the
+         rebuild yet still holds real records under both and a
+         snapshot that skipped them would be a half copy. */
       counted: [
-        { key: 'lar:foods',   label: 'foods' },
-        { key: 'lar:meals',   label: 'saved meals' },
-        { key: 'lar:recipes', label: 'recipes' },
-        { key: 'lar:groceryItems', label: 'grocery items' },
-        { key: 'larlog:log',       label: 'logged days' },
-        { key: 'larlog:days',      label: 'day records' }
+        { key: 'lar:recipes',           label: 'recipes' },
+        { key: 'lar:recipeIngredients', label: 'ingredients' },
+        { key: 'lar:groups',            label: 'categories' },
+        { key: 'lar:groceryItems',      label: 'grocery items' },
+        { key: 'lar:stores',            label: 'shops' }
       ]
     },
     {

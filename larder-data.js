@@ -73,9 +73,17 @@
     notes:             'lar:notes',
     plan:              'lar:plan',
     targets:           'lar:targets',
+    // Recipe categories are USER DATA, not a constant — added
+    // 2026-09-08 with the Recipe Book, on the same model as Prompt
+    // Studio's prm:groups. A record only ever stores a group id, so
+    // renaming or recolouring one costs no migration.
+    groups:            'lar:groups',
+    uiState:           'lar:uiState',
     seededAt:          'lar:seededAt',
     migratedNutrition: 'lar:migratedNutrition',
     migratedPalDays:   'lar:migratedPalDays',
+    migratedGroups:    'lar:groupsMigratedV1',
+    schema:            'lar:schema',
 
     // --- log (larlog:) ---
     log:               'larlog:log',
@@ -119,6 +127,24 @@
       String(d.getDate()).padStart(2, '0');
   }
   function isISO(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function nowISO() { return new Date().toISOString(); }
+  // A label typed into a field can carry a newline or a control
+  // character pasted out of somewhere else. Both survive JSON and
+  // neither renders, so a group could end up looking blank.
+  // A charCode loop, NOT a regex, and the same shape as Prompt
+  // Studio's, and for the same reason: written as a character
+  // class this needs literal control characters in the source,
+  // where any tool that touches the file can silently eat them
+  // (or turn the file binary, which is how this one was found).
+  function stripControl(s) {
+    var out = '', st = String(s == null ? '' : s), i, c;
+    for (i = 0; i < st.length; i++) {
+      c = st.charCodeAt(i);
+      if (c > 31 && c !== 127 && c !== 8232 && c !== 8233) out += st.charAt(i);
+    }
+    return out;
+  }
+  function byOrder(a, b) { return (a.order || 0) - (b.order || 0); }
 
   // ------------------------------------------------------------
   // VOCABULARY
@@ -148,6 +174,232 @@
   var MACROS = ['kcal', 'protein', 'carbs', 'fat', 'fibre'];
 
   var SUPPLEMENT_SLOTS = ['morning', 'with-food', 'evening'];
+
+  // ============================================================
+  // §GROUPS — recipe categories, as DATA
+  //
+  // Ported from Prompt Studio's prm:groups (promptarium-data.js
+  // §GROUPS) rather than re-invented, because the hard parts here
+  // are not the CRUD: they are the raw-string cache, the explicit
+  // fallback chain, and the rule that a reorder can never drop a
+  // group. All three are copied deliberately.
+  //
+  // A recipe stores a group ID and nothing else, which is what
+  // makes renaming, recolouring and reordering cost no migration.
+  // ============================================================
+
+  /* The seed. Eight, because a personal recipe book that opens with
+     twenty empty categories is a filing system you have to serve
+     rather than one that serves you. They are ordinary kitchen
+     words: this list is a shelf, not a taxonomy. */
+  var RECIPE_CATEGORIES = [
+    { id: 'breakfast', label: 'Breakfast', hue: '#e0a765' },
+    { id: 'lunch',     label: 'Lunch',     hue: '#8fa39b' },
+    { id: 'dinner',    label: 'Dinner',    hue: '#a9764c' },
+    { id: 'sides',     label: 'Sides',     hue: '#b0a48c' },
+    { id: 'baking',    label: 'Baking',    hue: '#c7b4a0' },
+    { id: 'drinks',    label: 'Drinks',    hue: '#9aa3b0' },
+    { id: 'sauces',    label: 'Sauces',    hue: '#b8796a' },
+    { id: 'other',     label: 'Other',     hue: '#938b7c' }
+  ];
+
+  /* THE PALETTE A NEW GROUP CAN BE GIVEN — the same eighteen the
+     other two studios use. Not a colour wheel: every one was
+     sampled out of the hero photograph the house shares, and every
+     one clears 3:1 on the ground. A free picker is how a group ends
+     up invisible.
+
+     The eight defaults above are spread ACROSS this list for
+     separation rather than chosen for a pleasing run. Prompt Studio
+     learned that the expensive way: four near-identical greys are
+     fine as a hairline and read as one colour the moment the same
+     token becomes a filled capsule. */
+  var GROUP_HUES = [
+    { hue: '#d6d2cb', name: 'Marble' },       { hue: '#bbc4bf', name: 'Window' },
+    { hue: '#a8b0ad', name: 'Window stone' }, { hue: '#c3c6c6', name: 'Daylight' },
+    { hue: '#e0a765', name: 'Sconce' },       { hue: '#c99a63', name: 'Gilding' },
+    { hue: '#c08a55', name: 'Candle' },       { hue: '#a9764c', name: 'Old copper' },
+    { hue: '#8f6a48', name: 'Deep bronze' },  { hue: '#938b7c', name: 'Cool stone' },
+    { hue: '#6b6259', name: 'Ground' },       { hue: '#b8796a', name: 'Ember' },
+    { hue: '#a98b9a', name: 'Dusk' },         { hue: '#8fa39b', name: 'Verdigris' },
+    { hue: '#c7b4a0', name: 'Parchment' },    { hue: '#9aa3b0', name: 'Slate' },
+    { hue: '#b0a48c', name: 'Linen' },        { hue: '#7f8a86', name: 'Shadow stone' }
+  ];
+
+  /* Protected: it cannot be deleted, and it is re-seeded if it goes
+     missing. Something has to catch a recipe whose group was
+     deleted on a device this one has not heard from yet. */
+  var FALLBACK_GROUP = 'other';
+
+  function slugId(label, taken) {
+    var base = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '').replace(/-+$/, '').slice(0, 32) || 'group';
+    var id = base, n = 2;
+    while (taken && taken.indexOf(id) !== -1) id = base + '-' + (n++);
+    return id;
+  }
+
+  function groupModel(d) {
+    d = d || {};
+    return {
+      id: d.id || slugId(d.label),
+      label: stripControl(d.label == null ? 'Untitled group' : String(d.label)).slice(0, 40) || 'Untitled group',
+      hue: /^#[0-9a-fA-F]{6}$/.test(d.hue) ? d.hue : GROUP_HUES[0].hue,
+      order: d.order == null ? 0 : (Number(d.order) || 0),
+      createdAt: d.createdAt || nowISO(),
+      updatedAt: d.updatedAt || ''
+    };
+  }
+
+  /* CACHED ON THE RAW STRING, and that is load-bearing rather than a
+     micro-optimisation: catById() runs once per card per paint.
+     Keying the cache on the raw localStorage string rather than on a
+     dirty flag is what makes it correct under EVERY writer — this
+     file, a cloud pull applying straight through sync.js's
+     localStorage patch, or another tab. The string IS the source of
+     truth; a dirty flag set in here would never hear about the
+     other two. */
+  var gRaw = null, gVal = null;
+
+  function seedGroupList(parsed) {
+    var out = Array.isArray(parsed) ? parsed.map(groupModel) : [];
+    if (!out.length) {
+      out = RECIPE_CATEGORIES.map(function (c, i) {
+        return groupModel({ id: c.id, label: c.label, hue: c.hue, order: i });
+      });
+    }
+    var hasFallback = false;
+    for (var i = 0; i < out.length; i++) if (out[i].id === FALLBACK_GROUP) hasFallback = true;
+    if (!hasFallback) {
+      out.push(groupModel({ id: FALLBACK_GROUP, label: 'Other', hue: '#938b7c', order: 9999 }));
+    }
+    return out.sort(byOrder);
+  }
+
+  function recipeGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    if (raw !== null && raw === gRaw && gVal) return gVal;
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    gVal = seedGroupList(parsed);
+    gRaw = raw;
+    return gVal;
+  }
+
+  /* Writes the seed out the first time anything asks, so Settings and
+     the editor's select are editing something real rather than a list
+     that exists only in memory. Runs after LocalStoreIDB.ready() and
+     BEFORE cloud sync mounts — a seed pushed on top of a row that
+     already has groups would be the wrong way round. */
+  function ensureGroups() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEYS.groups); } catch (e) {}
+    var parsed = null;
+    try { parsed = raw == null ? null : JSON.parse(raw); } catch (e) {}
+    var seeded = seedGroupList(parsed);
+    if (!Array.isArray(parsed) || parsed.length !== seeded.length) {
+      storeSet(KEYS.groups, seeded);
+      gRaw = null;
+    }
+    return recipeGroups();
+  }
+
+  function addGroup(label, hue) {
+    var all = recipeGroups();
+    var taken = all.map(function (g) { return g.id; });
+    var max = 0;
+    all.forEach(function (g) { if ((g.order || 0) > max) max = g.order || 0; });
+    var rec = groupModel({ id: slugId(label, taken), label: label, hue: hue, order: max + 1 });
+    storeSet(KEYS.groups, all.concat([rec]));
+    gRaw = null;
+    return rec;
+  }
+
+  function updateGroup(id, patch) {
+    var all = recipeGroups().slice(), idx = -1, i, k, k2;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) { idx = i; break; }
+    if (idx < 0) return null;
+    var merged = {};
+    for (k in all[idx]) merged[k] = all[idx][k];
+    for (k2 in patch) merged[k2] = patch[k2];
+    merged.id = id;                 // an id is never edited: recipes point at it
+    merged.updatedAt = nowISO();
+    all[idx] = groupModel(merged);
+    storeSet(KEYS.groups, all);
+    gRaw = null;
+    return all[idx];
+  }
+
+  function reorderGroups(ids) {
+    var all = recipeGroups(), by = {}, out = [];
+    all.forEach(function (g) { by[g.id] = g; });
+    function push(g) {
+      out.push(groupModel({ id: g.id, label: g.label, hue: g.hue, order: out.length,
+                            createdAt: g.createdAt, updatedAt: g.updatedAt }));
+    }
+    (ids || []).forEach(function (id) {
+      if (!by[id]) return;
+      push(by[id]);
+      delete by[id];
+    });
+    /* Anything the caller did not name keeps its place at the end
+       rather than being dropped. A reorder is not a delete, and a drag
+       handler that misses a row must not be able to destroy one. */
+    Object.keys(by).forEach(function (id) { push(by[id]); });
+    storeSet(KEYS.groups, out);
+    gRaw = null;
+    return out;
+  }
+
+  /* DELETING A GROUP RE-FILES ITS RECIPES FIRST. A recipe left
+     pointing at a group that no longer exists renders as Other by
+     luck rather than by decision, and on the next device it might
+     not. There is only one library here, so unlike Prompt Studio
+     there is no sidecar to sweep as well. */
+  function removeGroup(id, moveTo) {
+    if (id === FALLBACK_GROUP) return { ok: false, reason: 'protected' };
+    var all = recipeGroups(), found = false, destOk = false, i;
+    for (i = 0; i < all.length; i++) {
+      if (all[i].id === id) found = true;
+      if (all[i].id === moveTo) destOk = true;
+    }
+    if (!found) return { ok: false, reason: 'missing' };
+    var dest = (destOk && moveTo !== id) ? moveTo : FALLBACK_GROUP;
+
+    var moved = 0;
+    Recipes.list().forEach(function (r) {
+      if (r.groupId === id) { Recipes.update(r.id, { groupId: dest }); moved++; }
+    });
+    storeSet(KEYS.groups, all.filter(function (g) { return g.id !== id; }));
+    gRaw = null;
+    return { ok: true, moved: moved, dest: dest };
+  }
+
+  /* How many recipes each group holds. Settings and the rail both
+     ask, and a delete confirmation that under-reports is worse than
+     no confirmation at all. */
+  function groupCounts() {
+    var counts = {};
+    Recipes.list().forEach(function (r) {
+      counts[r.groupId] = (counts[r.groupId] || 0) + 1;
+    });
+    return counts;
+  }
+
+  function catList() { return recipeGroups(); }
+  /* THE FALLBACK IS EXPLICIT. Returning all[all.length - 1] and
+     relying on Other being last is true of a frozen constant and
+     false the moment a group can be reordered or added after it.
+     Look up the id, then the fallback BY NAME, then whatever is
+     last — so a recipe pointing at a group deleted on another device
+     renders as Other rather than as a blank pill. */
+  function catById(id) {
+    var all = catList(), i;
+    for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    for (i = 0; i < all.length; i++) if (all[i].id === FALLBACK_GROUP) return all[i];
+    return all[all.length - 1] || { id: FALLBACK_GROUP, label: 'Other', hue: '#938b7c' };
+  }
 
   // ------------------------------------------------------------
   // MODELS
@@ -245,10 +497,37 @@
    * Macros here are PER SERVING, which is what makes Log Serving
    * a single tap.
    */
+  /**
+   * A STEP IS A BLOCK, not a line.
+   *
+   * It carries an `id` because everything the method editor does —
+   * reorder, add a photo, delete — addresses one step, and an index
+   * is wrong the moment a drag lands. Bare strings are still
+   * accepted and upgraded, because that is what the old textarea
+   * editor wrote.
+   *
+   * `images` replaced the single `imageUrl` on 2026-09-08. The old
+   * field is still READ so nothing written before then is lost; it
+   * is simply never written again.
+   *
+   * FOUR IMAGES, AND THEY ARE URLS. A base64 data URL would survive
+   * this model, and that is precisely the danger: lar:recipes sits
+   * on a synced row, and pushNow() re-uploads the row's ENTIRE data
+   * column on every debounced save. Photos go through
+   * PhotoStore.upload() and what lands here is a ~100-byte link.
+   * See §PHOTOS in larder.html.
+   */
   function recipeStepModel(s) {
-    if (typeof s === 'string') return { text: str(s, 2000), imageUrl: null };
+    if (typeof s === 'string') return { id: uid('step'), text: str(s, 2000), images: [] };
     s = s || {};
-    return { text: str(s.text, 2000), imageUrl: s.imageUrl || null };
+    var imgs = arr(s.images).map(function (u) { return str(u, 2000); })
+      .filter(function (u) { return !!u; });
+    if (!imgs.length && s.imageUrl) imgs = [str(s.imageUrl, 2000)];
+    return {
+      id: s.id || uid('step'),
+      text: str(s.text, 2000),
+      images: imgs.slice(0, 4)
+    };
   }
   function recipeModel(d) {
     d = d || {};
@@ -260,6 +539,10 @@
       prepTimeMin: clamp(Math.round(num(d.prepTimeMin, 0)), 0, 6000),
       cookTimeMin: clamp(Math.round(num(d.cookTimeMin, 0)), 0, 6000),
       tags: strList(d.tags, 24, 12),
+      // The category. A group ID and nothing else — see §GROUPS.
+      // catById() resolves an unknown or deleted one to Other rather
+      // than letting a recipe fall out of every filter.
+      groupId: catById(d.groupId).id,
       steps: arr(d.steps).slice(0, 60).map(recipeStepModel),
       notes: str(d.notes, 4000),
       // Per serving. Zero means "not stated", which the UI shows
@@ -271,7 +554,11 @@
       fibre: clamp(num(d.fibre, 0), 0, 10000),
       mealId: d.mealId || null,
       isFavorite: d.isFavorite === true,
-      imageUrl: d.imageUrl || null,
+      // The cover. Declared since the 2026-08-26 rebuild and never
+      // written until the Recipe Book; it is the card's photograph
+      // and the facing page of the recipe. Capped, and a URL for the
+      // same reason a step's images are — see recipeStepModel.
+      imageUrl: str(d.imageUrl, 2000) || null,
       createdAt: isISO(d.createdAt) ? d.createdAt : today(),
       order: d.order != null ? num(d.order, 0) : Date.now()
     };
@@ -389,6 +676,11 @@
   var Foods             = makeCollection(KEYS.foods, foodModel);
   var Meals             = makeCollection(KEYS.meals, mealModel);
   var Recipes           = makeCollection(KEYS.recipes, recipeModel);
+  // The category list. Declared here with the others so there is one
+  // place that says what a collection in this app is; §GROUPS above
+  // reads it through recipeGroups(), never directly, because the
+  // cache is what makes catById() affordable per card per paint.
+  var Groups            = makeCollection(KEYS.groups, groupModel);
   var RecipeIngredients = makeCollection(KEYS.recipeIngredients, recipeIngredientModel);
   var Stores            = makeCollection(KEYS.stores, storeModel);
   var GroceryItems      = makeCollection(KEYS.groceryItems, groceryItemModel);
@@ -1027,11 +1319,131 @@
    *
    * @returns {{nutrition:boolean, palDays:boolean, changed:boolean}}
    */
+  /**
+   * §MIGRATION — a recipe's tags become its group.
+   *
+   * Before the Recipe Book a recipe was filed by a free `tags`
+   * array and the Recipes screen filtered on a hard-coded list of
+   * seven. Four of those seven are now real groups, so the filing
+   * that already existed is carried over instead of dropping every
+   * recipe into Other and asking Damian to re-file by hand.
+   *
+   * The tag is KEPT as well as read. Tags did not stop being useful
+   * when categories arrived — "quick" and "high-protein" are still
+   * tags, and they are still how the rail's tag filter works. This
+   * migration only decides a starting group.
+   *
+   * Stamped, and idempotent: it only ever touches a recipe that is
+   * still sitting on the fallback group.
+   */
+  var TAG_TO_GROUP = {
+    breakfast: 'breakfast', lunch: 'lunch', dinner: 'dinner',
+    snack: 'sides', dessert: 'baking', drink: 'drinks', sauce: 'sauces'
+  };
+  function migrateRecipeGroups() {
+    if (storeGet(KEYS.migratedGroups)) return false;
+    var known = {}, moved = 0;
+    recipeGroups().forEach(function (g) { known[g.id] = true; });
+    Recipes.list().forEach(function (r) {
+      if (r.groupId && r.groupId !== FALLBACK_GROUP) return;
+      var hit = '';
+      arr(r.tags).forEach(function (t) {
+        if (hit) return;
+        var want = TAG_TO_GROUP[String(t).toLowerCase()];
+        if (want && known[want]) hit = want;
+      });
+      if (hit) { Recipes.update(r.id, { groupId: hit }); moved++; }
+    });
+    storeSet(KEYS.migratedGroups, { at: nowISO(), moved: moved });
+    return moved > 0;
+  }
+
+  /**
+   * §THE WIPE — the Nutrition Studio becomes a Recipe Book and a
+   * Grocery List, and the rest goes.
+   *
+   * Damian asked for these removed rather than hidden, on
+   * 2026-09-08. What goes is everything the page no longer has a
+   * screen for: the food table, saved meals, the meal plan, the
+   * targets, the supplements, the notes, and the whole eating log.
+   *
+   * WHAT IS NOT TOUCHED, and why:
+   *   lar:recipes / lar:recipeIngredients   the Recipe Book
+   *   lar:groceryItems / lar:stores         the Grocery List
+   *   lar:groups                            the new categories
+   *   nutrition:*                           orphaned but intact,
+   *                                         and not ours to delete
+   *
+   * THIS DELETES KEYS, NEVER A PREFIX. `larlog:` stays in
+   * larder-sync.js's ROWS table forever — read that file's header.
+   * A prefix list is a delete list for the whole account, and
+   * removing one is a far bigger instruction than removing a key.
+   *
+   * It is called ONCE, from onPulled, and never at boot: pushNow()
+   * sends collect() as the row's entire data column, so a wipe that
+   * beat the opening select would erase whatever else lives in the
+   * row and then push the erasure as truth.
+   *
+   * `force` exists for the one honest case — nothing worth
+   * snapshotting, therefore nothing to lose. See runWipeOnce() in
+   * larder.html, which refuses to proceed on any other footing.
+   */
+  var WIPE_KEYS = [
+    KEYS.foods, KEYS.meals, KEYS.plan, KEYS.targets,
+    KEYS.supplements, KEYS.notes,
+    KEYS.log, KEYS.days
+  ];
+  var SCHEMA_NOW = 'recipebook-1';
+
+  function wipeLegacy(opts) {
+    opts = opts || {};
+    if (storeGet(KEYS.schema) === SCHEMA_NOW) return { ran: false, removed: [] };
+    if (!opts.force && !opts.snapshotted) return { ran: false, removed: [], reason: 'no-snapshot' };
+    var removed = [];
+    WIPE_KEYS.forEach(function (k) {
+      if (localStorage.getItem(k) == null) return;
+      storeRemove(k);
+      removed.push(k);
+    });
+    storeSet(KEYS.schema, SCHEMA_NOW);
+    return { ran: true, removed: removed };
+  }
+  /* What the wipe WOULD take, for the confirmation to name. A count
+     of records, not of keys: "removes 730 day records" is a sentence
+     someone can make a decision about; "removes 8 keys" is not. */
+  function legacyCounts() {
+    var out = [], n;
+    function count(key, label) {
+      var v = storeGet(key);
+      if (v == null) return;
+      n = Array.isArray(v) ? v.length : (typeof v === 'object' ? Object.keys(v).length : 1);
+      if (n) out.push({ key: key, label: label, n: n });
+    }
+    count(KEYS.foods, 'foods');
+    count(KEYS.meals, 'saved meals');
+    count(KEYS.plan, 'planned days');
+    count(KEYS.supplements, 'supplements');
+    count(KEYS.notes, 'notes');
+    count(KEYS.log, 'logged entries');
+    count(KEYS.days, 'day records');
+    count(KEYS.targets, 'nutrition goals');
+    return out;
+  }
+  function wipeDone() { return storeGet(KEYS.schema) === SCHEMA_NOW; }
+
   function runMigrations() {
-    var a = false, b = false;
+    var a = false, b = false, c = false;
+    // Still first, and still unconditional: a device that has not
+    // opened this page since 2026-08-26 holds its recipes and its
+    // grocery list under nutrition:* and nothing else will move them.
     try { a = migrateNutritionKeys(); } catch (e) { a = false; }
-    try { b = migratePalDays(); } catch (e) { b = false; }
-    return { nutrition: a, palDays: b, changed: !!(a || b) };
+    // SKIPPED once the wipe has run. This one copies pal:days macro
+    // history INTO larlog:days, which §THE WIPE deletes — so after
+    // the rebuild it is a migration whose only effect would be to
+    // re-create the key that was just removed.
+    if (!wipeDone()) { try { b = migratePalDays(); } catch (e) { b = false; } }
+    try { c = migrateRecipeGroups(); } catch (e) { c = false; }
+    return { nutrition: a, palDays: b, groups: c, changed: !!(a || b || c) };
   }
 
   // ============================================================
@@ -1047,21 +1459,82 @@
   // three sample recipes on top of a library that already has
   // the reader's own.
   // ============================================================
+  // ============================================================
+  // §PHOTOS — the read-and-shrink half of the pipeline.
+  //
+  // Its other half is photo-store.js, which uploads and hands back
+  // a URL. These two are the repo's established pair; this is the
+  // seventh copy of them and that duplication is the convention
+  // here, not an oversight (palaestra-data.js:2223, codex-data.js:99,
+  // finance-data.js:76, businessos-data.js:121, and so on).
+  //
+  // The Larder used to borrow them off window.Pal, because
+  // palaestra-data.js was loaded for pal:levels. The effort level
+  // belonged to the Today screen, Today is gone, and loading a whole
+  // other studio's data layer to reach two canvas helpers is not a
+  // dependency worth keeping.
+  //
+  // NEITHER OF THESE EVER REJECTS. A photo that will not decode
+  // resolves as the original string, and a file that will not read
+  // resolves as ''. A dropped image must not be able to take a save
+  // down with it.
+  // ============================================================
+  function compressImageDataUrl(dataUrl, maxDim, quality) {
+    maxDim = maxDim || 1200; quality = quality || 0.82;
+    return new Promise(function (resolve) {
+      try {
+        var img = new Image();
+        img.onload = function () {
+          var w = img.width, h = img.height;
+          var scale = Math.min(1, maxDim / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var c = document.createElement('canvas');
+          c.width = cw; c.height = ch;
+          var ctx = c.getContext('2d');
+          if (!ctx) { resolve(dataUrl); return; }
+          ctx.drawImage(img, 0, 0, cw, ch);
+          try { resolve(c.toDataURL('image/jpeg', quality)); }
+          catch (e) { resolve(dataUrl); }
+        };
+        img.onerror = function () { resolve(dataUrl); };
+        img.src = dataUrl;
+      } catch (e) { resolve(dataUrl); }
+    });
+  }
+  function readFileAsDataUrl(file) {
+    return new Promise(function (resolve) {
+      try {
+        var r = new FileReader();
+        r.onload = function () { resolve(String(r.result)); };
+        r.onerror = function () { resolve(''); };
+        r.readAsDataURL(file);
+      } catch (e) { resolve(''); }
+    });
+  }
+
   function isSeeded() { return !!storeGet(KEYS.seededAt); }
 
+  /**
+   * THERE IS NOTHING LEFT TO SEED, and this function survives
+   * saying so rather than being deleted.
+   *
+   * It used to write a food table, a supplement list and a set of
+   * nutrition targets on a device's first run. All three are gone
+   * (see §THE WIPE), and a seeder that re-creates the very keys the
+   * wipe removes is not a leftover — it is a loop: seed, wipe, and
+   * on a fresh device seed again.
+   *
+   * The categories ARE seeded, but by ensureGroups(), which runs
+   * before cloud sync mounts rather than after the pull. A category
+   * list has to exist before the first render; a food table did not.
+   *
+   * The stamp is still written so isSeeded() keeps meaning "this
+   * device has been through first-run", which the empty states read.
+   */
   function seedNow() {
-    var S = global.LarSeed;
-    if (!S) return false;
     if (isSeeded()) return false;
-
-    if (!Foods.list().length && arr(S.foods).length) Foods.replaceAll(S.foods);
-    if (!Supplements.list().length && arr(S.supplements).length) {
-      Supplements.replaceAll(S.supplements);
-    }
-    if (!storeGet(KEYS.targets)) setTargets(S.targets || {});
-
     storeSet(KEYS.seededAt, today());
-    return true;
+    return false;
   }
 
   /**
@@ -1148,8 +1621,23 @@
     totalsFor: totalsFor, slotTotals: slotTotals, slotEntries: slotEntries,
     slotsFilled: slotsFilled, groupCount: groupCount,
 
+    // --- §GROUPS: recipe categories, as data ---
+    RECIPE_CATEGORIES: RECIPE_CATEGORIES, GROUP_HUES: GROUP_HUES,
+    FALLBACK_GROUP: FALLBACK_GROUP,
+    Groups: Groups, recipeGroups: recipeGroups, ensureGroups: ensureGroups,
+    addGroup: addGroup, updateGroup: updateGroup, reorderGroups: reorderGroups,
+    removeGroup: removeGroup, groupCounts: groupCounts,
+    catList: catList, catById: catById, slugId: slugId,
+
+    // --- §THE WIPE ---
+    wipeLegacy: wipeLegacy, legacyCounts: legacyCounts, wipeDone: wipeDone,
+
+    // --- photos: the house pipeline, so views do not each grow one ---
+    compressImageDataUrl: compressImageDataUrl, readFileAsDataUrl: readFileAsDataUrl,
+
     migrateNutritionKeys: migrateNutritionKeys,
     migratePalDays: migratePalDays,
+    migrateRecipeGroups: migrateRecipeGroups,
     runMigrations: runMigrations,
     isSeeded: isSeeded, seedNow: seedNow,
     seedAfterSyncAttempt: seedAfterSyncAttempt,

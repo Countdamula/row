@@ -194,7 +194,16 @@
   function mount(opts) {
     opts = opts || {};
     var names = Object.keys(ROWS);
-    // `pal:` is mounted separately by the page, for pal:levels.
+    /* `pal:` used to be mounted separately by this page, through
+       MainSync, for the one shared key pal:levels. That belonged to
+       the Today screen, and Today went with the 2026-09-08 rebuild —
+       so The Larder no longer mounts a row it does not own.
+
+       THE ASSERTION STAYS ANYWAY, and is not a leftover: it is now
+       checking that nothing in ROWS ever grows a prefix that would
+       collide with the Fitness Studio's row. `pal:` and `lar:` are a
+       near-miss of exactly the kind assertSafe exists to catch, and
+       the cost of keeping the check is nothing. */
     assertDisjoint(names, ['pal:']);
 
     var state = { rows: names.slice(), pulled: false, pulledRows: {} };
