@@ -854,12 +854,40 @@
    width only. */
 .lar-grocery { max-width: 760px; }
 
-.lar-add {
-  display: flex; flex-wrap: wrap; gap: 10px;
-  margin-bottom: clamp(22px, 2.6vw, 34px);
+/* ONE LINE IN. The field, the shops it can go to, and underneath,
+   the parse of what is typed — so Enter is never a guess. */
+.lar-add { margin-bottom: clamp(22px, 2.6vw, 34px); min-width: 0; }
+.lar-add__row { display: flex; gap: 10px; }
+.lar-add__row .asc-input { flex: 1 1 auto; min-width: 0; }
+.lar-add__row .asc-btn { flex: none; }
+
+.lar-shopchips {
+  display: flex; gap: 6px;
+  margin-top: 12px; padding-bottom: 2px;
+  overflow-x: auto; scrollbar-width: none;
 }
-.lar-add .asc-input, .lar-add .asc-select { flex: 1 1 160px; min-width: 0; }
-.lar-add .asc-input--qty { flex: 0 1 92px; }
+.lar-shopchips::-webkit-scrollbar { display: none; }
+.lar-shopchip { flex: none; display: inline-flex; align-items: center; gap: 7px; }
+.lar-shopchip[style]::before,
+.lar-parse__shop[style]::before {
+  content: ''; flex: none;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--lar-tint);
+}
+.lar-shopchip:focus-visible { outline: 1px solid var(--hd-acc); outline-offset: 2px; }
+.lar-shopchip:active { transform: scale(.97); }
+
+.lar-add__preview {
+  margin: 10px 0 0; min-height: 1.5em;
+  font-size: 12.5px; line-height: 1.5;
+  color: var(--hd-fg-3);
+}
+.lar-add__preview b { font-weight: 400; font-family: var(--lar-mono); color: var(--hd-fg-2); }
+.lar-parse__q { font-family: var(--lar-mono); color: var(--hd-acc); }
+.lar-parse__n { color: var(--hd-fg); }
+.lar-parse__sep { margin: 0 8px; color: var(--hd-fg-3); }
+.lar-parse__shop { display: inline-flex; align-items: center; gap: 6px; color: var(--hd-fg-2); white-space: nowrap; }
+.lar-parse__warn { color: var(--hd-gold-lit); }
 
 .lar-shelf { margin-bottom: clamp(22px, 2.6vw, 36px); }
 .lar-shelf__t {
@@ -931,6 +959,127 @@
 .lar-item:hover .lar-item__x, .lar-item:focus-within .lar-item__x { opacity: 1; }
 .lar-item__x:hover { color: var(--hd-fg); }
 @media (pointer: coarse) { .lar-item__x { opacity: 1; } }
+
+/* The name is the way into the item's editor. */
+button.lar-item__n {
+  display: block; text-align: left;
+  padding: 4px 0; cursor: pointer;
+}
+.lar-item__nt { display: block; }
+button.lar-item__n:hover .lar-item__nt { color: var(--hd-acc-lit); }
+button.lar-item__n:focus-visible { outline: 1px solid var(--hd-acc); outline-offset: 3px; }
+
+/* THE PHOTOGRAPH. Small enough to keep this a list, big enough to
+   recognise the thing on a shelf. Empty, it is a dashed place for
+   one; a gold edge means "saved here, not uploaded yet", the same
+   signal the recipe method uses. */
+.lar-thumb {
+  flex: none; position: relative;
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  overflow: hidden;
+  background: var(--hd-black);
+  border: 1px solid var(--hd-line-2);
+  color: var(--hd-fg-3);
+}
+.lar-thumb img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform var(--hd-fast);
+}
+.lar-thumb svg { width: 18px; height: 18px; transition: transform var(--hd-fast); }
+.lar-thumb.is-empty { background: transparent; border-style: dashed; border-color: var(--hd-line); }
+.lar-thumb.is-local { border-color: var(--hd-gold-deep); }
+.lar-thumb:hover { border-color: var(--hd-acc); color: var(--hd-acc); }
+.lar-thumb:hover img { transform: scale(1.06); }
+.lar-thumb:active img, .lar-thumb:active svg { transform: scale(.94); }
+.lar-thumb:focus-visible { outline: 1px solid var(--hd-acc); outline-offset: 2px; }
+
+/* THE AMOUNT, editable where it sits. */
+.lar-qty {
+  flex: none;
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--hd-line-2);
+}
+.lar-qty__b {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  color: var(--hd-fg-3);
+}
+.lar-qty__b svg { width: 13px; height: 13px; transition: transform var(--hd-fast); }
+.lar-qty__b:hover { color: var(--hd-acc-lit); }
+.lar-qty__b:active svg { transform: scale(.78); }
+.lar-qty__b:focus-visible { outline: 1px solid var(--hd-acc); outline-offset: -1px; }
+.lar-qty__n {
+  width: 4.4ch; min-width: 0;
+  padding: 5px 0;
+  background: transparent; border: 0; border-radius: 0;
+  font-family: var(--lar-mono); font-size: 13px;
+  text-align: center; color: var(--hd-acc);
+  outline: none;
+}
+.lar-qty__n:focus { background: rgba(199, 154, 82, .12); color: var(--hd-acc-lit); }
+.lar-qty__u {
+  padding-right: 3px;
+  font-family: var(--lar-mono); font-size: 11px;
+  color: var(--hd-fg-3);
+}
+.lar-qty__u:empty { display: none; }
+
+/* A shelf's own add line: quiet, on the list's own rule. */
+.lar-shelfadd {
+  display: flex; align-items: center; gap: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--hd-line-2);
+}
+.lar-shelfadd__m {
+  flex: none; width: 22px;
+  display: grid; place-items: center;
+  color: var(--hd-fg-3);
+}
+.lar-shelfadd__m svg { width: 13px; height: 13px; }
+.lar-shelfadd__in {
+  flex: 1 1 auto; min-width: 0;
+  padding: 8px 0;
+  background: transparent; border: 0; border-radius: 0;
+  font: inherit; font-size: 14px;
+  color: var(--hd-fg);
+  outline: none;
+}
+.lar-shelfadd__in::placeholder { color: var(--hd-fg-3); }
+.lar-shelfadd:focus-within { border-bottom-color: var(--hd-acc); }
+.lar-shelfadd:focus-within .lar-shelfadd__m { color: var(--hd-acc); }
+
+/* The item editor. Lives in the sheet, which hangs off the body, so
+   every token carries a fallback. */
+.lar-gedit { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.lar-gedit__img {
+  flex: none; width: 88px; height: 88px;
+  display: grid; place-items: center;
+  object-fit: cover;
+  background: var(--hd-black, #0b0907);
+  border: 1px solid var(--hd-line-2, rgba(199, 154, 82, .14));
+  color: var(--hd-fg-3, rgba(236, 226, 208, .45));
+}
+.lar-gedit__img--none { background: transparent; border-style: dashed; }
+.lar-gedit__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.lar-gedit__pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+
+/* A phone: the stepper drops under the name, so a 360px row never
+   has to fit five things across. */
+@media (max-width: 480px) {
+  .lar-item {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    column-gap: 12px; row-gap: 6px;
+  }
+  .lar-tick  { grid-column: 1; grid-row: 1 / span 2; }
+  .lar-thumb { grid-column: 2; grid-row: 1 / span 2; width: 58px; height: 58px; }
+  .lar-item__n { grid-column: 3; grid-row: 1; }
+  .lar-item__x { grid-column: 4; grid-row: 1; }
+  .lar-qty { grid-column: 3 / span 2; grid-row: 2; justify-self: start; }
+  .lar-add__row .asc-btn { padding-left: 16px; padding-right: 16px; }
+}
 
 /* ═══ §LISTS — settings, and the groups panel ══════════════ */
 .lar-list { display: block; }
@@ -1069,7 +1218,6 @@
   .lar-card__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lar-kicker > * { font-size: 8.5px; letter-spacing: .18em; }
   .lar-step__n { font-size: 16px; }
-  .lar-add .asc-input--qty { flex: 0 1 74px; }
   /* The FAB and the data rail both live at the bottom on a phone. */
   .lar-method { padding-bottom: 24px; }
 }
@@ -1090,11 +1238,26 @@
   .lar-fchip { padding: 10px 13px; }
   .lar-tick { width: 26px; height: 26px; }
   .lar-item { padding: 15px 0; }
+  /* The grocery list's new controls. */
+  .lar-add__in,
+  .lar-shelfadd__in,
+  .lar-qty__n,
+  .lar-gedit__pair .asc-input { font-size: max(16px, 1rem); }
+  .lar-qty__b { width: 44px; height: 44px; }
+  .lar-qty__n { width: 5ch; }
+  .lar-thumb { width: 56px; height: 56px; }
+  .lar-item__x { width: 44px; height: 44px; }
+  button.lar-item__n { min-height: 44px; }
+  .lar-shopchips .lar-fchip { padding: 12px 14px; }
+  .lar-shelfadd__in { padding: 12px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .lar-card__go svg,
   .lar-shelf__fold,
   .lar-hue,
-  .lar-rail__toggle svg { transition: none; }
+  .lar-rail__toggle svg,
+  .lar-thumb img,
+  .lar-thumb svg,
+  .lar-qty__b svg { transition: none; }
 }

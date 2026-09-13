@@ -116,6 +116,20 @@
   function clamp(n, lo, hi) { return Math.min(hi, Math.max(lo, n)); }
   function oneOf(v, list, d) { return list.indexOf(v) !== -1 ? v : d; }
   function arr(v) { return Array.isArray(v) ? v : []; }
+  // A PHOTOGRAPH FIELD. A hosted link is ~100 bytes and is capped like
+  // any string. A data: URL is the LOCAL copy §PHOTOS saves before it
+  // uploads, and it is tens of kilobytes. Capping that at 2000
+  // characters — which str() did until 2026-09-13 — cut every fresh
+  // photo to a broken fragment AND stopped the upload ever swapping it
+  // out, because the swap matches the stored value against the full
+  // URL. Too big to keep whole means dropped, never truncated: half an
+  // image is not an image.
+  var DATA_PHOTO_CAP = 2000000;
+  function photoUrl(v) {
+    var s = v == null ? '' : String(v);
+    if (s.indexOf('data:image/') === 0) return s.length <= DATA_PHOTO_CAP ? s : '';
+    return s.slice(0, 2000);
+  }
   function strList(v, max, cap) {
     return arr(v).slice(0, cap || 40).map(function (s) { return str(s, max || 80); })
       .filter(function (s) { return !!s; });
@@ -520,9 +534,9 @@
   function recipeStepModel(s) {
     if (typeof s === 'string') return { id: uid('step'), text: str(s, 2000), images: [] };
     s = s || {};
-    var imgs = arr(s.images).map(function (u) { return str(u, 2000); })
+    var imgs = arr(s.images).map(photoUrl)
       .filter(function (u) { return !!u; });
-    if (!imgs.length && s.imageUrl) imgs = [str(s.imageUrl, 2000)];
+    if (!imgs.length && photoUrl(s.imageUrl)) imgs = [photoUrl(s.imageUrl)];
     return {
       id: s.id || uid('step'),
       text: str(s.text, 2000),
@@ -558,7 +572,7 @@
       // written until the Recipe Book; it is the card's photograph
       // and the facing page of the recipe. Capped, and a URL for the
       // same reason a step's images are — see recipeStepModel.
-      imageUrl: str(d.imageUrl, 2000) || null,
+      imageUrl: photoUrl(d.imageUrl) || null,
       createdAt: isISO(d.createdAt) ? d.createdAt : today(),
       order: d.order != null ? num(d.order, 0) : Date.now()
     };
@@ -603,6 +617,12 @@
       // stays answerable a week later.
       fromMealId: d.fromMealId || null,
       fromRecipeId: d.fromRecipeId || null,
+      // What it looks like on the shelf. A URL, capped, for the same
+      // reason a recipe step's images are — see recipeStepModel. It
+      // MUST be declared here: update() re-runs this model as a
+      // whitelist, so an undeclared photo would be stripped by the
+      // very next tick or amount change.
+      imageUrl: photoUrl(d.imageUrl) || null,
       addedAt: isISO(d.addedAt) ? d.addedAt : today(),
       order: d.order != null ? num(d.order, 0) : Date.now()
     };
@@ -783,6 +803,154 @@
     var next = all.filter(function (i) { return !i.checked; });
     if (next.length !== all.length) storeSet(KEYS.groceryItems, next);
     return all.length - next.length;
+  }
+
+  // ============================================================
+  // §QUICK ADD — one typed line into one grocery item
+  //
+  //   "2 kg chicken thighs @costco"  -> 2 · kg · chicken thighs · Costco
+  //   "milk x2"  "500g mince"  "½ pumpkin"  "1 1/2 l stock @market"
+  //
+  // Pure, so it is tested in a vm without a page. The amount is only
+  // taken when whitespace separates it from the name — "7up" is a
+  // drink, not seven of something called "up".
+  // ============================================================
+  var GROCERY_UNITS = [
+    'grams', 'gram', 'g', 'kg', 'mg', 'ml', 'litres', 'litre', 'liters', 'liter', 'l',
+    'lbs', 'lb', 'oz', 'packs', 'pack', 'bags', 'bag', 'boxes', 'box', 'cans', 'can',
+    'tins', 'tin', 'jars', 'jar', 'bottles', 'bottle', 'bunches', 'bunch', 'dozen',
+    'loaves', 'loaf', 'cartons', 'carton', 'punnets', 'punnet', 'tubs', 'tub'
+  ];
+  // Amounts in these units move in fifties; stepping 500 g by one is
+  // a button nobody would press twice.
+  var FINE_UNITS = { g: 1, gram: 1, grams: 1, mg: 1, ml: 1 };
+  var VULGAR = { '½': 0.5, '⅓': 1 / 3, '⅔': 2 / 3, '¼': 0.25, '¾': 0.75, '⅛': 0.125 };
+  var NUM_SRC = '(\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+\\s*[½⅓⅔¼¾⅛]|[½⅓⅔¼¾⅛]|\\d*[.,]?\\d+)';
+  var UNIT_SRC = '(' + GROCERY_UNITS.join('|') + ')';
+  var LEAD_RE = new RegExp('^(?:[x×]\\s*)?' + NUM_SRC + '(?:\\s*[x×](?=\\s))?(?:\\s*' + UNIT_SRC + '\\.?(?=\\s))?\\s+(.+)$', 'i');
+  var TAIL_X_RE = new RegExp('^(.+?)\\s+[x×]\\s*' + NUM_SRC + '$', 'i');
+  var TAIL_NX_RE = new RegExp('^(.+?)\\s+' + NUM_SRC + '\\s*[x×]$', 'i');
+  var TAIL_UNIT_RE = new RegExp('^(.+?)\\s+' + NUM_SRC + '\\s*' + UNIT_SRC + '\\.?$', 'i');
+
+  function round2(n) { return Math.round(n * 100) / 100; }
+
+  /** "1 1/2" -> 1.5, "½" -> 0.5, "1,5" -> 1.5. NaN when it is not an amount. */
+  function parseQty(s) {
+    s = String(s == null ? '' : s).trim();
+    var m;
+    if (!s) return NaN;
+    if (VULGAR[s] != null) return round2(VULGAR[s]);
+    if ((m = /^(\d+)\s*([½⅓⅔¼¾⅛])$/.exec(s))) return round2(Number(m[1]) + VULGAR[m[2]]);
+    if ((m = /^(\d+)\s+(\d+)\/(\d+)$/.exec(s))) return Number(m[3]) ? round2(Number(m[1]) + m[2] / m[3]) : NaN;
+    if ((m = /^(\d+)\/(\d+)$/.exec(s))) return Number(m[2]) ? round2(m[1] / m[2]) : NaN;
+    if (/^\d*[.,]?\d+$/.test(s)) return round2(Number(s.replace(',', '.')));
+    return NaN;
+  }
+
+  function shopKey(s) {
+    var raw = String(s || '').toLowerCase();
+    return raw.replace(/[^a-z0-9]+/g, '') || raw.replace(/\s+/g, '');
+  }
+  /** "@costco" -> the Costco store. Exact, then prefix, then contained. */
+  function matchStore(token, stores) {
+    var t = shopKey(token);
+    if (!t) return null;
+    var list = arr(stores).slice().sort(function (a, b) { return a.order - b.order; });
+    var i;
+    for (i = 0; i < list.length; i++) if (shopKey(list[i].name) === t) return list[i];
+    for (i = 0; i < list.length; i++) if (shopKey(list[i].name).indexOf(t) === 0) return list[i];
+    if (t.length >= 3) {
+      for (i = 0; i < list.length; i++) if (shopKey(list[i].name).indexOf(t) !== -1) return list[i];
+    }
+    return null;
+  }
+
+  /**
+   * One line of text -> { name, quantity, unit, amountGiven, storeId,
+   * storeToken, storeMatched }. `defaultStoreId` is where the item goes
+   * when the line names no shop, or names one that does not exist.
+   */
+  function parseGroceryLine(text, stores, defaultStoreId) {
+    var s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+    var out = {
+      name: '', quantity: 1, unit: '', amountGiven: false,
+      storeId: defaultStoreId || null, storeToken: '', storeMatched: false
+    };
+    var at = /(^|\s)@(\S*)/.exec(s);
+    if (at) {
+      out.storeToken = at[2];
+      s = (s.slice(0, at.index) + ' ' + s.slice(at.index + at[0].length)).replace(/\s+/g, ' ').trim();
+      var hit = at[2] ? matchStore(at[2], stores) : null;
+      if (hit) { out.storeId = hit.id; out.storeMatched = true; }
+    }
+    var m, q;
+    if ((m = LEAD_RE.exec(s)) && !isNaN(q = parseQty(m[1]))) {
+      out.quantity = q; out.unit = (m[2] || '').toLowerCase(); out.name = m[3];
+      out.amountGiven = true;
+    } else if ((m = TAIL_UNIT_RE.exec(s)) && !isNaN(q = parseQty(m[2]))) {
+      out.name = m[1]; out.quantity = q; out.unit = m[3].toLowerCase(); out.amountGiven = true;
+    } else if (((m = TAIL_X_RE.exec(s)) || (m = TAIL_NX_RE.exec(s))) && !isNaN(q = parseQty(m[2]))) {
+      out.name = m[1]; out.quantity = q; out.amountGiven = true;
+    } else {
+      out.name = s;
+    }
+    out.name = str(out.name.trim(), 80);
+    out.unit = str(out.unit, 20);
+    return out;
+  }
+
+  /**
+   * THE ONE FUNNEL for putting something on the list.
+   *
+   *   · already on the list (unticked)  -> nothing written, `already`
+   *   · ticked off earlier              -> un-ticked, `revived` — the
+   *     same record comes back with its photograph, rather than a
+   *     photo-less duplicate being added beside it
+   *   · otherwise                       -> added
+   *
+   * It never removes anything. A revive only overwrites the amount
+   * when the new line actually stated one, and the shop only when it
+   * named one.
+   */
+  function addOrReviveGrocery(rec) {
+    rec = rec || {};
+    var name = str(rec.name, 80).trim();
+    if (!name) return { item: null, revived: false, already: false };
+    var key = name.toLowerCase();
+    var all = GroceryItems.list();
+    var same = function (i) { return String(i.name || '').trim().toLowerCase() === key; };
+    var live = all.filter(function (i) { return !i.checked && same(i); })[0];
+    if (live) return { item: live, revived: false, already: true };
+    var ticked = all.filter(function (i) { return i.checked && same(i); })[0];
+    if (ticked) {
+      var patch = { checked: false };
+      if (rec.amountGiven !== false) {
+        if (rec.quantity != null) patch.quantity = rec.quantity;
+        if (rec.unit != null) patch.unit = rec.unit;
+      }
+      // `storeNamed: false` means the shop is only the add bar's
+      // default — not a reason to move something already filed.
+      if (rec.storeId && rec.storeNamed !== false) patch.storeId = rec.storeId;
+      return { item: GroceryItems.update(ticked.id, patch), revived: true, already: false };
+    }
+    var fresh = Object.assign({}, rec, { name: name });
+    if (fresh.quantity == null || !isFinite(Number(fresh.quantity))) fresh.quantity = 1;
+    delete fresh.amountGiven;
+    delete fresh.storeNamed;
+    return { item: GroceryItems.add(fresh), revived: false, already: false };
+  }
+
+  /** How far one press of − or + moves this item. */
+  function groceryStep(it) {
+    return FINE_UNITS[String((it && it.unit) || '').toLowerCase()] ? 50 : 1;
+  }
+  /** One press of − (dir < 0) or +. Stops at zero; zero never deletes. */
+  function stepGroceryQty(id, dir) {
+    var it = GroceryItems.get(id);
+    if (!it) return null;
+    var q = Number(it.quantity) || 0;
+    var next = round2(Math.max(0, dir < 0 ? q - groceryStep(it) : q + groceryStep(it)));
+    return GroceryItems.update(id, { quantity: next });
   }
 
   /**
@@ -1609,6 +1777,9 @@
     groceryByStore: groceryByStore, resetGroceryList: resetGroceryList,
     deleteCheckedGrocery: deleteCheckedGrocery,
     restoreGroceryFrom: restoreGroceryFrom, groceryInSnapshots: groceryInSnapshots,
+    GROCERY_UNITS: GROCERY_UNITS, parseQty: parseQty, matchStore: matchStore,
+    parseGroceryLine: parseGroceryLine, addOrReviveGrocery: addOrReviveGrocery,
+    groceryStep: groceryStep, stepGroceryQty: stepGroceryQty,
 
     TARGET_DEFAULTS: TARGET_DEFAULTS, getTargets: getTargets, setTargets: setTargets,
 

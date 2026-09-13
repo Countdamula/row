@@ -16643,3 +16643,67 @@ which is where a mistake costs records) and `probe.mjs` (102 assertions through
 a real browser). Both block `supabase.co` **twice**: request interception, and
 `window.fetch` overridden in `evaluateOnNewDocument`, because interception has a
 hole at unload that once emptied a live row.
+
+## The grocery list gets photos, one-line add, and amounts you can change (2026-09-13)
+
+Damian asked for three things on the Nutrition Studio's Grocery List (`larder.html#/grocery`):
+a photo on every item, an easier way to add one, and an amount he can change without
+leaving the page. `larder-data.js` and `larder-theme.css` went v3 to v4, and `index.html`'s
+read-only `larder-data.js` went v1 to v4 (it had been left at v1, which was a stale URL).
+
+**Photos.** `groceryItemModel` gained `imageUrl`. It HAS to be in the model: `update()`
+re-runs the model as a whitelist, so an undeclared photo is stripped by the next tick.
+Each row has a 52px thumbnail button (56px on touch). Tap it to pick a photo. The page
+compresses it to 480px, saves it locally, uploads it through `PhotoStore`, and swaps in the
+hosted URL. A gold edge means saved here but not uploaded yet, and
+`retryLocalGroceryUploads()` retries every time the list is shown. The name button opens an
+item editor sheet (name, amount, unit, shop, notes, replace or remove photo).
+
+**THE 2000-CHARACTER PHOTO BUG, found while building this and older than it.** `str(v, 2000)`
+capped every photo field, including the recipe cover and step images. The §PHOTOS pipeline
+saves a ~60KB `data:` URL first, so every fresh photo was cut to a broken fragment. The upload
+swap compares the stored value against the full URL, so it never matched and the fragment
+stayed forever. `photoUrl()` now keeps a `data:image/` URL whole up to 2,000,000 characters
+(dropped, never truncated, above that) and still caps hosted links at 2000. Photos already cut
+before this fix cannot be recovered; the bytes were never stored.
+
+**One-line add.** `Lar.parseGroceryLine(text, stores, defaultStoreId)` reads
+`2 kg chicken thighs @costco`, `milk x2`, `500g mince`, `1 1/2 l stock @market`. It takes an
+amount only when whitespace separates it from the name (so "7up" stays a drink) and a unit
+only from `GROCERY_UNITS`. `@shop` matches exact, then prefix, then contained, ignoring spaces.
+Under the field, a live preview shows the parse. Shop chips set where a line without `@shop`
+goes, remembered in the UI state as `groShop`. Every shelf also has its own "Add to <shop>"
+line. Both keep focus after Enter, so several items go in a row. A pasted multi-line list
+adds one item per line (a single-line input would flatten it).
+
+**Add or revive, never duplicate.** `Lar.addOrReviveGrocery(rec)` is the one funnel, and
+the recipe page's "Add to the list" goes through it too. Same name as an unticked item:
+nothing written. Same name as a TICKED item: that record is un-ticked and comes back with its
+photo. The amount is overwritten only if the line stated one (`amountGiven`), and the shop
+only if the line named one (`storeNamed`). The add bar's chip is a default for new items, not
+a reason to move something already filed. It never removes anything.
+
+**Amounts in place.** Each row has − / number / unit / +. `Lar.stepGroceryQty(id, dir)`
+moves by 50 for g/ml/mg and by 1 otherwise, stops at 0, and zero never deletes. The buttons
+update THAT input only; a full repaint per tap would replay the list's entrance. The number
+is typeable: `1.5`, `1/2`, and `250 g` (which sets the unit too); nonsense puts the stored
+value back. `repaintAndRefocus(sel)` exists because `refreshCurrentView()` rightly refuses to
+repaint under a focused field, which also meant the old add form never repainted on Enter.
+
+On a 480px or narrower screen the stepper drops under the name (the row becomes a two-row
+grid). Every new field is at least 16px and every new control at least 44px under
+`pointer: coarse`.
+
+### Verifying it
+
+- `unit-grocery.js`: 82 assertions in a `vm`, including the 60KB-photo cases.
+- `unit.js`: the original 76, still passing.
+- `probe-grocery.mjs`: 78 through a real browser. It covers one-line add, chips, the
+  shelf add line, the stepper keeping the same node, typed amounts, a real file-chooser
+  photo that decodes, tick / revive / reset keeping the photo, the editor, and paste. It
+  also checks four widths for overflow, 16px fields and 44px targets.
+- `probe.mjs`: the original 102, still passing.
+- `smoke2.mjs`: loads both pages that link a changed file.
+
+The browser suites block `supabase.co` at the network AND in the page — `fetch`,
+`sendBeacon`, XHR, and now `WebSocket` as well.

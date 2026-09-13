@@ -67,7 +67,7 @@
      you ever edit it, every one of those needs its ?v= bumped in
      the same commit. This page deliberately does not edit it. -->
 <link rel="stylesheet" href="vault-theme.css?v=6">
-<link rel="stylesheet" href="larder-theme.css?v=3">
+<link rel="stylesheet" href="larder-theme.css?v=4">
 <link rel="preload" as="image" href="images_by_admin/larder/hero-lantern.webp" fetchpriority="high">
 </head>
 <body class="hd">
@@ -160,6 +160,7 @@
 <g id="lar-serves"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6v16.8"/><path d="M3.6 12h16.8"/></g>
 <g id="lar-flame"><path d="M12 21c3.6 0 6-2.4 6-5.6 0-4.4-4.6-6.2-3.6-11.4-3 1.4-5 4.2-5 7 0 1.4-.8 2.2-1.6 2.2-.9 0-1.4-.7-1.4-1.8-1 1.3-1.4 2.8-1.4 4 0 3.2 2.4 5.6 7 5.6z"/></g>
 <g id="lar-plus"><path d="M12 5.4v13.2M5.4 12h13.2"/></g>
+<g id="lar-minus"><path d="M5.4 12h13.2"/></g>
 <g id="lar-cam"><path d="M3.6 8.4h3.6l1.4-2.2h6.8l1.4 2.2h3.6v10.2H3.6z"/><circle cx="12" cy="13.4" r="3.4"/></g>
 <g id="lar-trash"><path d="M4.8 6.8h14.4"/><path d="M9.4 6.8V4.6h5.2v2.2"/><path d="M6.6 6.8l.9 12.6h9l.9-12.6"/></g>
 <g id="lar-grip"><path d="M9 7h.01M15 7h.01M9 12h.01M15 12h.01M9 17h.01M15 17h.01" stroke-width="2.2"/></g>
@@ -293,7 +294,7 @@
      about the data layer." It carries no styles either, which is
      why vault-theme.css defines every .asc-* class it emits. -->
 <script src="asclepion-ui.js?v=3"></script>
-<script src="larder-data.js?v=3"></script>
+<script src="larder-data.js?v=4"></script>
 <script src="larder-sync.js?v=2"></script>
 <script src="topbar.js?v=9" defer></script>
 
@@ -427,7 +428,8 @@
   // ============================================================
   var ui = {
     cat: 'all', time: '', tag: '', favOnly: false, sort: 'recent',
-    shut: {}, railOpen: false
+    shut: {}, railOpen: false,
+    groShop: ''   // the shop the grocery add bar sends things to
   };
   var q = '';              // the live query — memory only
   var route = 'recipes';   // NOT in ui: settings is a place, not a filter
@@ -444,12 +446,13 @@
     if (typeof v.sort === 'string' && SORTS[v.sort]) ui.sort = v.sort;
     ui.favOnly = v.favOnly === true;
     if (v.shut && typeof v.shut === 'object') ui.shut = v.shut;
+    if (typeof v.groShop === 'string') ui.groShop = v.groShop;
   }
   function saveUi() {
     try {
       localStorage.setItem(L().KEYS.uiState, JSON.stringify({
         cat: ui.cat, time: ui.time, tag: ui.tag, sort: ui.sort,
-        favOnly: ui.favOnly, shut: ui.shut
+        favOnly: ui.favOnly, shut: ui.shut, groShop: ui.groShop
       }));
     } catch (e) {}
   }
@@ -1363,23 +1366,24 @@
     var remaining = L().groceryRemaining();
     var ticked = L().groceryCheckedCount();
     var groups = L().groceryByStore();
-    var stores = L().Stores.list();
+    var stores = sortedStores();
+    var shop = currentGroShop();
 
+    // ONE LINE: "2 kg chicken thighs @costco". The preview under it is
+    // the parse, live, so what Enter will do is never a guess. The
+    // chips choose where a line WITHOUT an @shop goes, and stay chosen
+    // — that is what makes five things in a row to one shop quick.
     var out = '';
-    out += '<form class="lar-add" id="larGroceryForm">' +
-      '<input class="asc-input" id="larGroName" placeholder="Add something" ' +
-        'autocomplete="off" aria-label="What to add">' +
-      '<input class="asc-input asc-input--qty" id="larGroQty" type="number" min="0" step="any" ' +
-        'value="1" aria-label="How many">' +
-      (stores.length
-        ? '<select class="asc-select" id="larGroStore" aria-label="Which shop">' +
-            '<option value="">Anywhere</option>' +
-            stores.map(function (s) {
-              return '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>';
-            }).join('') +
-          '</select>'
-        : '') +
-      '<button class="asc-btn asc-btn--primary" type="submit">Add</button>' +
+    out += '<form class="lar-add" id="larGroceryForm" autocomplete="off">' +
+      '<div class="lar-add__row">' +
+        '<input class="asc-input lar-add__in" id="larGroName" ' +
+          'placeholder="' + (stores.length ? '2 kg chicken thighs @' + esc(shopKeyword(stores[0])) : '2 kg chicken thighs') + '" ' +
+          'autocomplete="off" autocapitalize="sentences" enterkeyhint="done" ' +
+          'aria-label="Add to the list" aria-describedby="larGroPreview">' +
+        '<button class="asc-btn asc-btn--primary" type="submit">Add</button>' +
+      '</div>' +
+      (stores.length ? shopChips(stores, shop) : '') +
+      '<p class="lar-add__preview" id="larGroPreview" aria-live="polite">' + groPreview('', shop) + '</p>' +
     '</form>';
 
     if (ticked) {
@@ -1418,14 +1422,25 @@
           out += '<div class="lar-item ' + U().rvlClass() + '"' + U().rvlStyle(i) + '>' +
             '<button type="button" class="lar-tick" data-gotick="' + esc(it.id) + '" ' +
               'aria-label="Tick off ' + esc(it.name) + '">' + mark('lar-check') + '</button>' +
-            '<span class="lar-item__n">' + esc(it.name) +
+            thumbHtml(it) +
+            '<button type="button" class="lar-item__n" data-goedit="' + esc(it.id) + '" ' +
+              'aria-label="Edit ' + esc(it.name) + '">' +
+              '<span class="lar-item__nt">' + esc(it.name) + '</span>' +
               (groceryOrigin(it) ? '<span class="lar-item__from">' + esc(groceryOrigin(it)) + '</span>' : '') +
-            '</span>' +
-            '<span class="lar-item__q">' + esc(qtyLabel(it)) + '</span>' +
+            '</button>' +
+            qtyHtml(it) +
             '<button type="button" class="lar-item__x" data-godel="' + esc(it.id) + '" ' +
               'aria-label="Delete ' + esc(it.name) + '">&times;</button>' +
           '</div>';
         });
+        // Several in a row, straight onto THIS shelf. Parsed like the
+        // bar, with this shop as the default; it keeps focus after each.
+        out += '<form class="lar-shelfadd" data-shop="' + esc(g.id || '') + '" autocomplete="off">' +
+            '<span class="lar-shelfadd__m">' + mark('lar-plus') + '</span>' +
+            '<input class="lar-shelfadd__in" placeholder="Add to ' + esc(g.name) + '" ' +
+              'autocomplete="off" autocapitalize="sentences" enterkeyhint="done" ' +
+              'aria-label="Add to ' + esc(g.name) + '">' +
+          '</form>';
         out += '</div></section>';
       });
     }
@@ -1454,24 +1469,284 @@
     }
     return '';
   }
-  /* The ONE funnel for "ingredients to the list", kept exactly as it
-     was: de-duped case-insensitively against the UNCHECKED items
-     only, so something you ticked off this morning can be added
-     again this afternoon. */
+  /* "Ingredients to the list". Goes through Lar.addOrReviveGrocery,
+     the one funnel: an item already on the list (unticked) is left
+     alone, and one ticked off earlier comes BACK — the same record,
+     photograph and all — rather than a bare duplicate beside it. */
   function addNamesToGrocery(rows, meta) {
-    var have = {};
-    L().groceryRemaining().forEach(function (it) { have[it.name.toLowerCase()] = true; });
     var n = 0;
     rows.forEach(function (row) {
-      var name = String(row.name || '').trim();
-      if (!name || have[name.toLowerCase()]) return;
-      var rec = { name: name, quantity: row.quantity, unit: row.unit, storeId: row.storeId || null };
+      var rec = { name: String(row.name || '').trim(), quantity: row.quantity,
+                  unit: row.unit, storeId: row.storeId || null };
       if (meta) for (var k in meta) rec[k] = meta[k];
-      L().GroceryItems.add(rec);
-      have[name.toLowerCase()] = true;
-      n++;
+      var r = L().addOrReviveGrocery(rec);
+      if (r.item && !r.already) n++;
     });
     return n;
+  }
+
+  function sortedStores() {
+    return L().Stores.list().slice().sort(function (a, b) { return a.order - b.order; });
+  }
+  /* The remembered shop, if it still exists. A deleted shop falls
+     back to Anywhere rather than to an id nothing can display. */
+  function currentGroShop() {
+    return ui.groShop && L().Stores.get(ui.groShop) ? ui.groShop : null;
+  }
+  function shopKeyword(s) {
+    return String(s.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '') || 'shop';
+  }
+  function fmtQty(n) {
+    var v = Number(n);
+    return isFinite(v) ? String(Math.round(v * 100) / 100) : '';
+  }
+
+  function shopChips(stores, cur) {
+    return '<div class="lar-shopchips" role="group" aria-label="Which shop new items go to">' +
+      [{ id: '', name: 'Anywhere', color: '' }].concat(stores).map(function (s) {
+        var on = (s.id || '') === (cur || '');
+        return '<button type="button" class="lar-fchip lar-shopchip' + (on ? ' is-on' : '') + '" ' +
+          'data-groshop="' + esc(s.id) + '" aria-pressed="' + on + '"' +
+          (s.color ? ' style="--lar-tint:' + esc(s.color) + '"' : '') + '>' + esc(s.name) + '</button>';
+      }).join('') +
+    '</div>';
+  }
+
+  /* What Enter is about to do, as the parse sees it. */
+  function groPreview(text, defId) {
+    var p = L().parseGroceryLine(text, L().Stores.list(), defId);
+    var shop = p.storeId ? L().Stores.get(p.storeId) : null;
+    var dest = '<span class="lar-parse__shop"' +
+      (shop ? ' style="--lar-tint:' + esc(shop.color) + '"' : '') + '>' +
+      esc(shop ? shop.name : 'Anywhere') + '</span>';
+    if (!String(text || '').trim()) {
+      return 'Adding to ' + dest + '. Type the amount and the item on one line' +
+        (L().Stores.list().length ? ', and end with <b>@shop</b> to send one elsewhere.' : '.');
+    }
+    var bits = [
+      '<span class="lar-parse__q">' + esc((fmtQty(p.quantity) + ' ' + p.unit).trim()) + '</span>',
+      '<span class="lar-parse__n">' + esc(p.name || '…') + '</span>',
+      dest
+    ];
+    return bits.join('<span class="lar-parse__sep" aria-hidden="true">&middot;</span>') +
+      (p.storeToken && !p.storeMatched
+        ? ' <span class="lar-parse__warn">No shop matches &ldquo;@' + esc(p.storeToken) + '&rdquo;.</span>'
+        : '');
+  }
+
+  /* Lines of text onto the list. Counts come back so one toast can
+     say what happened to all of them. */
+  function addGroceryLines(lines, defId, fromShelf) {
+    var res = { added: 0, revived: 0, already: 0, last: null };
+    lines.forEach(function (line) {
+      var p = L().parseGroceryLine(line, L().Stores.list(), defId);
+      if (!p.name) return;
+      // A shelf's own add line names its shop as surely as @shop does;
+      // the bar's chip is only a default for things not yet filed.
+      var r = L().addOrReviveGrocery({
+        name: p.name, quantity: p.quantity, unit: p.unit,
+        amountGiven: p.amountGiven, storeId: p.storeId,
+        storeNamed: p.storeMatched || !!fromShelf
+      });
+      if (!r.item) return;
+      if (r.already) res.already++; else if (r.revived) res.revived++; else res.added++;
+      res.last = r.item;
+    });
+    return res;
+  }
+  function announceAdd(r) {
+    var n = r.added + r.revived;
+    if (!n && r.already) {
+      toast(r.already === 1 && r.last ? r.last.name + ' is already on the list'
+                                       : U().plural(r.already, 'item') + ' already on the list');
+      return;
+    }
+    if (!n) return;
+    if (n === 1 && !r.already) {
+      if (r.revived) { toast(r.last.name + ' is back on the list'); return; }
+      var s = r.last.storeId ? L().Stores.get(r.last.storeId) : null;
+      toast('Added to ' + (s ? s.name : 'Anywhere'));
+      return;
+    }
+    var parts = [];
+    if (r.added) parts.push(r.added + ' added');
+    if (r.revived) parts.push(r.revived + ' back on the list');
+    if (r.already) parts.push(r.already + ' already there');
+    toast(parts.join(', '));
+  }
+
+  /* A repaint that GIVES FOCUS BACK. refreshCurrentView() rightly
+     refuses to rebuild the DOM under a focused field — which is also
+     why adding with Enter used to leave the list unrepainted. Here
+     the field is ours and empty, so: blur, paint, restore the scroll,
+     and put the caret back where it was. */
+  function repaintAndRefocus(sel) {
+    if (U().sheetOpen()) return;
+    var a = document.activeElement;
+    if (a && a.blur) a.blur();
+    var y = window.scrollY;
+    runSafely(render, 'refresh');
+    window.scrollTo(0, y);
+    var el = sel ? $('larApp').querySelector(sel) : null;
+    if (el) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+  }
+
+  // — the row's two new pieces —
+  function thumbHtml(it) {
+    var u = it.imageUrl || '';
+    return '<button type="button" class="lar-thumb' + (u ? '' : ' is-empty') +
+        (u.indexOf('data:') === 0 ? ' is-local' : '') + '" data-gophoto="' + esc(it.id) + '" ' +
+        'aria-label="' + (u ? 'Change the photo of ' : 'Add a photo of ') + esc(it.name) + '">' +
+      (u ? '<img src="' + esc(u) + '" alt="" loading="lazy" decoding="async">' : mark('lar-cam')) +
+    '</button>';
+  }
+  function qtyHtml(it) {
+    return '<div class="lar-qty" role="group" aria-label="Amount of ' + esc(it.name) + '">' +
+      '<button type="button" class="lar-qty__b" data-goqty="' + esc(it.id) + '" data-dir="-1" ' +
+        'aria-label="Less ' + esc(it.name) + '">' + mark('lar-minus') + '</button>' +
+      '<input class="lar-qty__n" data-goqtyin="' + esc(it.id) + '" value="' + esc(fmtQty(it.quantity)) + '" ' +
+        'inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Amount of ' + esc(it.name) + '">' +
+      '<span class="lar-qty__u">' + esc(it.unit || '') + '</span>' +
+      '<button type="button" class="lar-qty__b" data-goqty="' + esc(it.id) + '" data-dir="1" ' +
+        'aria-label="More ' + esc(it.name) + '">' + mark('lar-plus') + '</button>' +
+    '</div>';
+  }
+  /* A typed amount. "1.5", "1/2", and "500 g" (which sets the unit
+     too). Anything else puts the stored value back. */
+  function commitQtyField(el) {
+    var id = el.dataset.goqtyin, it = L().GroceryItems.get(id);
+    if (!it) return;
+    var raw = String(el.value || '').trim();
+    var q = L().parseQty(raw), unit = null;
+    if (isNaN(q)) {
+      var m = /^(.*?\d[½⅓⅔¼¾⅛]?|[½⅓⅔¼¾⅛])\s*([a-zA-Z]+)\.?$/.exec(raw);
+      if (m && L().GROCERY_UNITS.indexOf(m[2].toLowerCase()) !== -1) {
+        q = L().parseQty(m[1]); unit = m[2].toLowerCase();
+      }
+    }
+    if (isNaN(q) || q < 0) {
+      el.value = fmtQty(it.quantity);
+      toast('Amounts are numbers, like 2, 1.5 or 1/2');
+      return;
+    }
+    var patch = { quantity: q };
+    if (unit !== null) patch.unit = unit;
+    var saved = L().GroceryItems.update(id, patch);
+    el.value = fmtQty(saved.quantity);
+    if (unit !== null) {
+      var u = el.parentNode.querySelector('.lar-qty__u');
+      if (u) u.textContent = saved.unit;
+    }
+  }
+
+  // — a grocery item's photograph —
+  // The §PHOTOS pipeline, one image on the record. It paints the ONE
+  // thumbnail in place rather than repainting the list, so it works
+  // whether or not a field has focus or a sheet is open.
+  var groUploading = {};
+  function paintThumb(id) {
+    var it = L().GroceryItems.get(id);
+    var el = $('larApp').querySelector('[data-gophoto="' + id + '"]');
+    if (it && el) el.outerHTML = thumbHtml(it);
+  }
+  function setGroceryPhoto(id, file) {
+    if (!file) return;
+    L().readFileAsDataUrl(file).then(function (dataUrl) {
+      if (!dataUrl) { toast('That file could not be read'); return; }
+      return L().compressImageDataUrl(dataUrl, 480, 0.8).then(function (small) {
+        if (!L().GroceryItems.update(id, { imageUrl: small })) return;
+        paintThumb(id);
+        uploadGroceryPhoto(id, small);
+      });
+    });
+  }
+  function uploadGroceryPhoto(id, localUrl) {
+    if (!window.PhotoStore || !window.PhotoStore.upload) return;
+    if (groUploading[id] === localUrl) return;   // already on its way
+    groUploading[id] = localUrl;
+    window.PhotoStore.upload(localUrl, function (hosted) {
+      var it = L().GroceryItems.get(id);
+      if (!hosted || !it || it.imageUrl !== localUrl) return;
+      L().GroceryItems.update(id, { imageUrl: hosted });
+      paintThumb(id);
+    }).then(function () { if (groUploading[id] === localUrl) delete groUploading[id]; });
+  }
+  /* Every photo still held locally gets another go — ticked items
+     too, since they come back at the next Reset. */
+  function retryLocalGroceryUploads() {
+    L().GroceryItems.list().forEach(function (it) {
+      if (it.imageUrl && it.imageUrl.indexOf('data:') === 0) uploadGroceryPhoto(it.id, it.imageUrl);
+    });
+  }
+
+  function openGroceryEditor(id) {
+    var it = L().GroceryItems.get(id);
+    if (!it) return;
+    var stores = sortedStores();
+    var html =
+      '<h2 class="hd-title" style="font-size:24px;margin:0 0 20px">' + esc(it.name) + '</h2>' +
+      '<div class="lar-gedit">' +
+        (it.imageUrl
+          ? '<img class="lar-gedit__img" src="' + esc(it.imageUrl) + '" alt="">'
+          : '<span class="lar-gedit__img lar-gedit__img--none">' + mark('lar-cam', 26) + '</span>') +
+        '<div class="lar-gedit__acts">' +
+          '<button type="button" class="asc-btn" data-gephoto="1">' + (it.imageUrl ? 'Replace photo' : 'Add a photo') + '</button>' +
+          (it.imageUrl ? '<button type="button" class="asc-btn asc-btn--quiet" data-germ="1">Remove photo</button>' : '') +
+        '</div>' +
+      '</div>' +
+      fieldRow('Name', input('name', it.name)) +
+      '<div class="lar-gedit__pair">' +
+        fieldRow('Amount', input('quantity', fmtQty(it.quantity), { placeholder: '1' })
+          .replace('<input ', '<input inputmode="decimal" ')) +
+        fieldRow('Unit', input('unit', it.unit, { placeholder: 'kg, pack, bottle' })) +
+      '</div>' +
+      (stores.length
+        ? fieldRow('Shop', '<select class="asc-select" data-f="storeId"><option value="">Anywhere</option>' +
+            stores.map(function (s) {
+              return '<option value="' + esc(s.id) + '"' + (s.id === it.storeId ? ' selected' : '') + '>' +
+                esc(s.name) + '</option>';
+            }).join('') + '</select>')
+        : '') +
+      fieldRow('Notes', textarea('notes', it.notes, { placeholder: 'The brand, the size, the aisle it lives in' })) +
+      '<div class="asc-sheet__acts">' +
+        '<button type="button" class="asc-btn asc-btn--quiet" data-act="sheet-close">Cancel</button>' +
+        '<button type="button" class="asc-btn asc-btn--primary" data-save="1">Save changes</button>' +
+      '</div>';
+    U().openSheet(html);
+    var sh = U().sheetEl();
+    function apply() {
+      var f = readFields(sh);
+      var name = String(f.name || '').trim();
+      if (!name) { toast('It needs a name'); return false; }
+      var patch = { name: name, unit: String(f.unit || '').trim(), notes: f.notes || '' };
+      var q = L().parseQty(f.quantity);
+      if (!isNaN(q)) patch.quantity = q;
+      if (f.storeId !== undefined) patch.storeId = f.storeId || null;
+      L().GroceryItems.update(id, patch);
+      return true;
+    }
+    sh.querySelector('[data-save]').addEventListener('click', function () {
+      if (!apply()) return;
+      U().closeSheet();
+      toast('Saved');
+      refreshCurrentView();
+    });
+    // The picker has to open inside this click to count as the user's
+    // own gesture, so the sheet saves and closes first.
+    sh.querySelector('[data-gephoto]').addEventListener('click', function () {
+      if (!apply()) return;
+      U().closeSheet();
+      refreshCurrentView();
+      pickFile(function (f) { setGroceryPhoto(id, f); });
+    });
+    var rm = sh.querySelector('[data-germ]');
+    if (rm) rm.addEventListener('click', function () {
+      if (!apply()) return;
+      L().GroceryItems.update(id, { imageUrl: null });
+      U().closeSheet();
+      toast('Photo removed');
+      refreshCurrentView();
+    });
   }
 
   // ============================================================
@@ -1947,7 +2222,7 @@
     paintNav();
 
     if (res.view === 'recipe') { viewRecipe(res.id); retryLocalUploads(res.id); }
-    else if (res.view === 'grocery') viewGrocery();
+    else if (res.view === 'grocery') { viewGrocery(); retryLocalGroceryUploads(); }
     else if (res.view === 'kept') viewKept();
     else if (res.view === 'settings') viewSettings();
     else viewLibrary();
@@ -2040,7 +2315,9 @@
       var rows = L().RecipeIngredients.list()
         .filter(function (x) { return x.recipeId === r.id; })
         .map(function (x) {
-          return { name: x.name, quantity: Number(x.amount) || 1, unit: x.unit };
+          // "1/2" and "½" are amounts too; Number() called them 1.
+          var q = L().parseQty(x.amount);
+          return { name: x.name, quantity: isNaN(q) ? 1 : q, unit: x.unit };
         });
       var n = addNamesToGrocery(rows, { fromRecipeId: r.id });
       toast(n ? U().plural(n, 'thing') + ' added to the list'
@@ -2117,20 +2394,84 @@
       L().Stores.remove(s.id);
       refreshCurrentView();
     });
+    // The add bar and every shelf's add line. Both keep focus, so the
+    // next item can be typed straight away.
     $('larApp').addEventListener('submit', function (e) {
-      if (!e.target || e.target.id !== 'larGroceryForm') return;
+      var form = e.target;
+      if (!form) return;
+      var field, defShop, sel;
+      if (form.id === 'larGroceryForm') {
+        field = $('larGroName'); defShop = currentGroShop(); sel = '#larGroName';
+      } else if (form.classList && form.classList.contains('lar-shelfadd')) {
+        field = form.querySelector('input'); defShop = form.dataset.shop || null;
+        sel = '.lar-shelfadd[data-shop="' + (form.dataset.shop || '') + '"] .lar-shelfadd__in';
+      } else return;
       e.preventDefault();
-      var name = ($('larGroName').value || '').trim();
-      if (!name) return;
-      L().GroceryItems.add({
-        name: name,
-        quantity: Number($('larGroQty').value) || 1,
-        storeId: ($('larGroStore') || {}).value || null
-      });
-      refreshCurrentView();
-      var f = $('larGroName');
-      if (f) f.focus();
+      if (!field || !String(field.value || '').trim()) return;
+      var r = addGroceryLines([field.value], defShop, sel !== '#larGroName');
+      field.value = '';
+      announceAdd(r);
+      repaintAndRefocus(sel);
     });
+    on(app, '#larGroName', 'input', function () {
+      var p = $('larGroPreview');
+      if (p) p.innerHTML = groPreview(this.value, currentGroShop());
+    });
+    // A pasted list — one item per line. A single-line field would
+    // otherwise flatten the newlines and make one long item of it.
+    on(app, '#larGroName, .lar-shelfadd__in', 'paste', function (e) {
+      var cd = e.clipboardData || window.clipboardData;
+      var text = cd ? String(cd.getData('text') || '') : '';
+      if (!/\r?\n/.test(text.trim())) return;
+      e.preventDefault();
+      var form = this.closest('form');
+      var isShelf = form && form.classList.contains('lar-shelfadd');
+      var r = addGroceryLines(text.split(/\r?\n/), isShelf ? (form.dataset.shop || null) : currentGroShop(), isShelf);
+      this.value = '';
+      announceAdd(r);
+      repaintAndRefocus(isShelf
+        ? '.lar-shelfadd[data-shop="' + (form.dataset.shop || '') + '"] .lar-shelfadd__in'
+        : '#larGroName');
+    });
+    on(app, '[data-groshop]', 'click', function () {
+      ui.groShop = this.dataset.groshop || '';
+      saveUi();
+      Array.prototype.forEach.call(app.querySelectorAll('[data-groshop]'), function (b) {
+        var onNow = (b.dataset.groshop || '') === ui.groShop;
+        b.classList.toggle('is-on', onNow);
+        b.setAttribute('aria-pressed', String(onNow));
+      });
+      var f = $('larGroName'), p = $('larGroPreview');
+      if (p) p.innerHTML = groPreview(f ? f.value : '', currentGroShop());
+      if (f) { try { f.focus({ preventScroll: true }); } catch (err) { f.focus(); } }
+    });
+    // − and +. Updates THIS field and nothing else: a full repaint per
+    // press would replay the list's entrance on every tap.
+    on(app, '[data-goqty]', 'click', function () {
+      var it = L().stepGroceryQty(this.dataset.goqty, Number(this.dataset.dir));
+      if (!it) return;
+      var box = this.closest('.lar-qty');
+      var n = box && box.querySelector('[data-goqtyin]');
+      if (n) n.value = fmtQty(it.quantity);
+    });
+    on(app, '[data-goqtyin]', 'change', function () { commitQtyField(this); });
+    on(app, '[data-goqtyin]', 'focusin', function () {
+      var el = this;
+      setTimeout(function () { try { el.select(); } catch (e) {} }, 0);
+    });
+    on(app, '[data-goqtyin]', 'keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+      else if (e.key === 'Escape') {
+        var it = L().GroceryItems.get(this.dataset.goqtyin);
+        if (it) this.value = fmtQty(it.quantity);
+        this.blur();
+      }
+    });
+    on(app, '[data-gophoto]', 'click', function () {
+      var id = this.dataset.gophoto;
+      pickFile(function (f) { setGroceryPhoto(id, f); });
+    });
+    on(app, '[data-goedit]', 'click', function () { openGroceryEditor(this.dataset.goedit); });
 
     // — settings —
     on(app, '[data-newgroup]', 'click', function () { openGroupEditor(null); });
