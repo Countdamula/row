@@ -586,10 +586,26 @@
   // that hole since the rebuild.
   function cardGroup(items, o) {
     o = o || {};
+    // PROMINENCE PICKS THE BIG TILES; THE READER ORDERS THE REST.
+    //
+    // This used to be `rest = ranked.slice(7)`, and that one word
+    // was a bug with no symptom: byProminence's comparator is
+    // TOTAL — it ends in a title compare — so re-ranking the pool
+    // discarded the order poolFor had just sorted it into, for
+    // the grid tail as well as for the mosaic. The Sort control
+    // in the utility line has therefore had no visible effect on
+    // the archive since the rebuild.
+    //
+    // The seven come out by identity rather than by index, so the
+    // tail keeps the order it was given.
     var ranked = byProminence(items);
     var big = items.length >= MOSAIC.length;
     var mos = big ? ranked.slice(0, MOSAIC.length) : [];
-    var rest = big ? ranked.slice(MOSAIC.length) : ranked;
+    var taken = {};
+    mos.forEach(function (d) { taken[d.shelf + '|' + d.id] = 1; });
+    var rest = big
+      ? items.filter(function (d) { return !taken[d.shelf + '|' + d.id]; })
+      : items.slice();
 
     return '<section class="hd-group' + (o.cls ? ' ' + o.cls : '') + '">' +
       (o.label ? groupHead(o.label, items.length) : '') +
