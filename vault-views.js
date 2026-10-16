@@ -20,10 +20,14 @@
 // So card() takes a SHAPE, not a palette. There is no second card
 // component and there must never be one.
 //
-// EVERY VIEW OPENS ON pageHero(), including the home page, which
-// had a second hero of its own until 2026-09-03. Full-bleed,
-// edge to edge, with the floating pill nav over it. See
+// EVERY VIEW OPENS ON pageHero(). Full-bleed, edge to edge, with
+// the floating pill nav over it. See
 // Downloads/cb92e312e4b74cf8d1acc513866185e1.mp4.
+//
+// There is no home page any more: #/ IS THE ARCHIVE. The credo
+// band and the four shelf tiles that used to stand in front of
+// the library now open the About page — see §THE HOUSE PAGE WAS
+// REMOVED.
 // =============================================================
 
 (function (global) {
@@ -516,18 +520,27 @@
       '</span></a>';
   }
 
-  function viewHome() {
+  // THE HOUSE PAGE WAS REMOVED — #/ IS THE ARCHIVE NOW.
+  //
+  // It was a credo paragraph, an editable set of keywords and four
+  // tiles into four shelves, and it sat in front of the library
+  // every single time the page was opened. The library is what
+  // this page is FOR, and it was one tap behind a cover.
+  //
+  // What was worth keeping is the HOUSE'S OWN WORDS, and they are
+  // not gone: the credo band below, markup unchanged, now opens
+  // the About page — which is the page that edits them, and which
+  // was already the house talking about itself. `vault:house` is
+  // untouched, still read, still written by the same form.
+  //
+  // wayTile() survives with it. Only viewHome() is gone.
+
+  function credoBand() {
     var counts = global.Vault.counts();
     var house = HOUSE();
     var ways = ['watch', 'podcasts', 'playlists', 'games'].map(shelfOf);
 
-    return pageHero({
-        eyebrow: 'Currently in the archive',
-        title: house.headline,
-        caption: house.blurb
-      }) +
-
-      '<section class="hd-band hd-night hd-credo">' +
+    return '<section class="hd-band hd-night hd-credo">' +
         '<div class="hd-credo__say">' +
           eyebrow('A private entertainment collection') +
           '<h2 class="hd-display hd-display--mid">' + esc(house.credo) + '</h2>' +
@@ -547,12 +560,17 @@
               }).join('') +
             '</span>' +
           '</div>' +
-          '<button type="button" class="hd-link hd-link--quiet" data-act="edit-house">' +
-            'Edit this page’s words</button>' +
+        // The inline "Edit this page's words" link that used to
+        // close this block is GONE. It belonged to a standalone
+        // home page; here the band sits a screen above About's
+        // own "This page's words" panel, which offers the same
+        // action and explains it. Two identical buttons four
+        // hundred pixels apart is one too many.
         '</div>' +
         '<div class="hd-ways">' + ways.map(function (t) { return wayTile(t, counts); }).join('') + '</div>' +
       '</section>';
   }
+
 
   // ── §A GROUP, AS A HEADING ─────────────────────────────────
   // The archive's own caption voice, one step under the utility
@@ -953,9 +971,17 @@
     var house = HOUSE();
     var read = function (v, l) { return '<div class="hd-read"><b>' + v + '</b><span>' + l + '</span></div>'; };
 
+    // The hero carries the editable HEADLINE now, and the blurb
+    // under it, so all four of `vault:house`'s fields are visible
+    // on the one page that edits them. It was the home hero's
+    // title until #/ became the Archive.
     return pageHero({
-        eyebrow: 'House Damula', title: 'The House', caption: house.credo
+        eyebrow: 'House Damula', title: house.headline, caption: house.blurb
       }) +
+      // Moved here from the house page. Words first, then figures:
+      // .hd-credo's own padding is tighter than a standard band,
+      // so the two stacked do not double a 110px gutter.
+      credoBand() +
       '<section class="hd-band hd-night hd-archive hd-about">' +
       '<div class="hd-reads">' +
         read(all.length, 'Entries') + read(shelves, 'Shelves') +
@@ -988,7 +1014,7 @@
       '</div>' +
       '<div class="hd-panel">' +
         '<h2 class="hd-eyebrow">This page’s words</h2>' +
-        '<p class="hd-note">The headline, the credo and the keywords on the home page are yours. ' +
+        '<p class="hd-note">The headline, the credo and the keywords on this page are yours. ' +
         'Nothing here is hard-coded.</p>' +
         '<button type="button" class="hd-link" data-act="edit-house">' + arrow('Edit them') + '</button>' +
       '</div>' +
@@ -1093,7 +1119,7 @@
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
     favLists: favLists, favCount: favCount,
-    viewHome: viewHome, viewArchive: viewArchive, viewCollections: viewCollections,
+    credoBand: credoBand, viewArchive: viewArchive, viewCollections: viewCollections,
     viewFavourites: viewFavourites, viewAbout: viewAbout
   };
 })(window);

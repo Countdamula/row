@@ -36,7 +36,7 @@
   // Supabase, and which shelf a laptop was last left on is not
   // something a phone should be told about.
   var state = {
-    route: 'home', shelf: 'all', collection: '', gameId: '', articleId: '',
+    route: 'archive', shelf: 'all', collection: '', gameId: '', articleId: '',
     // NO favOnly. The utility line's Starred toggle is a link
     // to #/favourites now, and favLists() passes favOnly in a
     // derived state object of its own. A flag that is always
@@ -48,7 +48,10 @@
   // the mosaic tile that advertised it and every link into it. The
   // ENTRIES are untouched; the game page's fourth column still
   // holds them. `#/journal` now falls through parseHash's default
-  // to the house, so an old bookmark still lands somewhere real.
+  // to the ARCHIVE, so an old bookmark still lands somewhere real.
+  //
+  // Archive's `match` needs no 'home': #/ sets route 'archive'
+  // too, so this item lights up on the landing page by itself.
   var NAV = [
     { href: '#/archive', label: 'Archive', match: ['archive', 'collection'] },
     { href: '#/favourites', label: 'Favourites', match: ['favourites'] },
@@ -66,7 +69,7 @@
   // The bar's own colour is driven by SCROLL, not by this: every
   // view begins on a full-bleed photograph.
   var GROUND = {
-    home: 'night', archive: 'night', favourites: 'night', collections: 'night',
+    archive: 'night', favourites: 'night', collections: 'night',
     collection: 'night', about: 'night', game: 'night', article: 'night'
   };
 
@@ -86,7 +89,11 @@
   // real rather than on an empty view.
   function parseHash() {
     var raw = String(location.hash || '').replace(/^#/, '');
-    if (!raw || raw === '/') return { route: 'home' };
+    // #/ IS THE ARCHIVE. The house page — a credo and four
+    // tiles — was deleted on this build and its words moved to
+    // #/about. The library is what this page is for, and it
+    // was one tap behind a cover page.
+    if (!raw || raw === '/') return { route: 'archive', shelf: 'all' };
 
     if (raw.charAt(0) !== '/') {
       // THE ONE LEGACY BARE HASH THAT HAS A REAL PAGE AGAIN.
@@ -119,7 +126,7 @@
       case 'collections': return { route: 'collections' };
       case 'collection': return { route: 'collection', collection: decodeURIComponent(p[1] || '') };
       case 'about': return { route: 'about' };
-      default: return { route: 'home' };
+      default: return { route: 'archive', shelf: 'all' };
     }
   }
 
@@ -147,7 +154,11 @@
       case 'about': return H().viewAbout();
       case 'game': return G().view(state.gameId);
       case 'article': return A().view(state.articleId);
-      default: return H().viewHome();
+      // The same view as 'archive' above, on purpose rather than
+      // by accident: parseHash answers an unknown hash with the
+      // archive, so #/journal and every other retired bookmark
+      // arrives here.
+      default: return H().viewArchive(state);
     }
   }
 
@@ -518,7 +529,7 @@
         else localStorage.setItem('vault:featured', JSON.stringify({ shelf: k.shelf, id: k.id }));
       } catch (e) { return U().toast('Could not save that'); }
       el.textContent = isOn ? '◇ Feature this' : '◆ Featured';
-      U().toast(isOn ? 'No longer featured' : 'Featured on the home page');
+      U().toast(isOn ? 'No longer featured' : 'Featured in the hero');
     },
 
     edit: function (el) {
@@ -595,7 +606,7 @@
         fields: [
           { key: 'headline', label: 'Hero headline', value: h.headline },
           { key: 'credo', label: 'Credo', value: h.credo,
-            hint: 'The two lines on the ivory band. A line break splits it.' },
+            hint: 'The two lines on the About page. A line break splits it.' },
           { key: 'blurb', label: 'Paragraph', type: 'textarea', value: h.blurb },
           { key: 'words', label: 'Keywords', value: h.words.map(function (r) { return r.join(', '); }).join(' / '),
             hint: 'Commas separate the words, a slash starts a new line.' }
