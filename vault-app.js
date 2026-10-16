@@ -37,7 +37,11 @@
   // something a phone should be told about.
   var state = {
     route: 'home', shelf: 'all', collection: '', gameId: '', articleId: '',
-    q: '', favOnly: false, sort: 'shelf'
+    // NO favOnly. The utility line's Starred toggle is a link
+    // to #/favourites now, and favLists() passes favOnly in a
+    // derived state object of its own. A flag that is always
+    // false is a lie about the page.
+    q: '', sort: 'shelf'
   };
 
   // Journal was removed on 2026-09-03 — the route, this nav item,
@@ -47,6 +51,7 @@
   // to the house, so an old bookmark still lands somewhere real.
   var NAV = [
     { href: '#/archive', label: 'Archive', match: ['archive', 'collection'] },
+    { href: '#/favourites', label: 'Favourites', match: ['favourites'] },
     { href: '#/collections', label: 'Collections', match: ['collections'] },
     { href: '#/archive/games', label: 'Games', match: ['game'] },
     { href: '#/about', label: 'About', match: ['about'] }
@@ -61,7 +66,7 @@
   // The bar's own colour is driven by SCROLL, not by this: every
   // view begins on a full-bleed photograph.
   var GROUND = {
-    home: 'night', archive: 'night', collections: 'night',
+    home: 'night', archive: 'night', favourites: 'night', collections: 'night',
     collection: 'night', about: 'night', game: 'night', article: 'night'
   };
 
@@ -84,6 +89,12 @@
     if (!raw || raw === '/') return { route: 'home' };
 
     if (raw.charAt(0) !== '/') {
+      // THE ONE LEGACY BARE HASH THAT HAS A REAL PAGE AGAIN.
+      // `#favorites` was a view here two rebuilds ago and has
+      // been answered with the plain Archive ever since, through
+      // TAB_ALIAS. It means something again, so it is caught
+      // before tabKey is consulted.
+      if (raw === 'favorites' || raw === 'favourites') return { route: 'favourites' };
       var k = H().tabKey(raw);
       if (k === 'all') return { route: 'archive', shelf: 'all' };
       if (H().LIVE().some(function (s) { return s.key === k; })) {
@@ -101,6 +112,10 @@
       case 'games': return { route: 'archive', shelf: 'games' };
       case 'game': return { route: 'game', gameId: decodeURIComponent(p[1] || '') };
       case 'article': return { route: 'article', articleId: decodeURIComponent(p[1] || '') };
+      // BOTH SPELLINGS. The stored field is `favorite` and the
+      // interface says "favourite"; a hash that answers to only
+      // one of them is one somebody will eventually get wrong.
+      case 'favourites': case 'favorites': return { route: 'favourites' };
       case 'collections': return { route: 'collections' };
       case 'collection': return { route: 'collection', collection: decodeURIComponent(p[1] || '') };
       case 'about': return { route: 'about' };
@@ -127,6 +142,7 @@
     switch (state.route) {
       case 'archive': return H().viewArchive(state);
       case 'collection': return H().viewArchive(state);
+      case 'favourites': return H().viewFavourites(state);
       case 'collections': return H().viewCollections();
       case 'about': return H().viewAbout();
       case 'game': return G().view(state.gameId);
@@ -248,7 +264,11 @@
       return '<a href="' + n.href + '"' + (on ? ' class="is-on" aria-current="page"' : '') + '>' +
         esc(n.label) + '</a>';
     };
-    var half = Math.ceil(NAV.length / 2);
+    // The wordmark sits in the MIDDLE of the links, so an odd
+    // count has to put the extra one on the RIGHT or the brand
+    // drifts left of centre. floor() is the same 2/2 it has
+    // always been for four, and 2/3 for five.
+    var half = Math.floor(NAV.length / 2);
     $('hdNavL').innerHTML = NAV.slice(0, half).map(link).join('');
     $('hdNavR').innerHTML = NAV.slice(half).map(link).join('');
 
@@ -458,6 +478,11 @@
       if (state.route === 'archive' || state.route === 'collection') {
         return keepPlace(k.id, paintLists);
       }
+      // On Favourites, unstarring takes the item OFF the page
+      // entirely — and the hero's count and the utility line's
+      // count both go stale with it, so this one is the whole
+      // view. repaint() does not scroll, so keepPlace still holds.
+      if (state.route === 'favourites') return keepPlace(k.id, repaint);
       // The Starred reading in .hd-reads is the only thing on the
       // About page that a star changes.
       if (state.route === 'about') repaint();
@@ -527,7 +552,6 @@
       else repaint();
     },
 
-    favonly: function () { state.favOnly = !state.favOnly; repaint(); },
     'clear-q': function () { state.q = ''; repaint(); },
     sort: function (el) { state.sort = el.value; repaint(); },
 

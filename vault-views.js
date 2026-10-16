@@ -73,9 +73,13 @@
   // left are storage shelves that stopped being tabs when Horror
   // and Spicy merged; the rest are view routes two rebuilds have
   // now removed. A bookmark to any of them lands somewhere real.
+  //
+  // `favorites` is NOT in here any more. It is a real view again
+  // as of this build, and parseHash answers both spellings of it
+  // before tabKey is ever consulted.
   var TAB_ALIAS = {
     creepypasta: 'horror', trueHorror: 'horror', immersive: 'spicy',
-    home: 'all', discover: 'all', stats: 'all', favorites: 'all',
+    home: 'all', discover: 'all', stats: 'all',
     reading: 'all', anime: 'all'
   };
 
@@ -660,7 +664,78 @@
   // place; the hero, the tabs and the utility line — which is
   // where the focused sort <select> lives — are never touched.
   function lists(state) {
-    return archiveLists(state);
+    return state.route === 'favourites' ? favLists(state) : archiveLists(state);
+  }
+
+  // =============================================================
+  // §FAVOURITES — #/favourites
+  // =============================================================
+  // Every starred thing in the house, on one page, cut the way a
+  // starred thing is actually used: one video to watch tonight,
+  // or a playlist to put on. NOT by shelf — the shelf tabs are
+  // one tap away and this page exists precisely to ignore them.
+  //
+  // The cut is classifyKind(), derived from the link, with the
+  // record's own `kind` overriding it for the handful it reads
+  // wrong. See §SINGLE OR COLLECTION.
+  //
+  // TWO SPELLINGS OF ONE WORD, on purpose and consistently: the
+  // stored field is `favorite`, the chrome says Favourites, and a
+  // list head says Starred. Both hashes resolve.
+  function favCount() {
+    return allCards().filter(function (d) { return d.fav; }).length;
+  }
+
+  function favLists(state) {
+    // favOnly is what poolFor does for this page. It is the
+    // reason that filter still exists after the utility line's
+    // "Starred" toggle became a link — see poolFor().
+    var items = poolFor({
+      shelf: 'all', collection: '', favOnly: true,
+      q: state.q, sort: state.sort
+    });
+    if (!items.length) {
+      return state.q
+        ? '<p class="hd-empty"><strong>Nothing starred matches.</strong>' +
+          'Clear the search to see everything you have starred.</p>'
+        : '<p class="hd-empty"><strong>Nothing starred yet.</strong>' +
+          'The ☆ on any card puts it here, and keeps it at the top of its own shelf.</p>';
+    }
+    var one = [], many = [];
+    items.forEach(function (d) {
+      (classifyKind(d) === 'collection' ? many : one).push(d);
+    });
+    // Same rule as the archive: a head only when there are two
+    // lists to tell apart.
+    var split = one.length > 0 && many.length > 0;
+    return (one.length
+        ? cardGroup(one, { cls: 'hd-group--one', label: split ? 'Single videos' : null })
+        : '') +
+      (many.length
+        ? cardGroup(many, { cls: 'hd-group--sets',
+            label: split ? 'Playlists & collections' : null })
+        : '');
+  }
+
+  function viewFavourites(state) {
+    // The TOTAL, not the filtered count, in both places — so the
+    // hero cannot contradict itself while a search is running.
+    // The search token in the utility line is what explains why
+    // the lists are shorter than the number.
+    var n = favCount();
+    return pageHero({
+        eyebrow: 'Starred',
+        title: 'Favourites',
+        caption: n
+          ? n + (n === 1 ? ' entry' : ' entries') + ' you marked to come back to.'
+          : 'Nothing starred yet. The ☆ on any card puts it here.'
+      }) +
+      // hd-archive is REQUIRED: it is what scopes the phone's
+      // one-card-per-row rules. See §ONE BIG CARD PER ROW.
+      '<section class="hd-band hd-night hd-archive">' +
+        utility(state, n) +
+        '<div class="hd-lists" id="hdLists">' + favLists(state) + '</div>' +
+      '</section>';
   }
 
   // =============================================================
@@ -746,9 +821,9 @@
   var MOSAIC = ['feature', 'tall', 'wide', 'row', 'row', 'row', 'row'];
 
   function emptyArchive(state) {
-    if (state.q || state.favOnly) {
+    if (state.q) {
       return '<p class="hd-empty"><strong>Nothing matches.</strong>' +
-        'Clear the search, or turn Starred off.</p>';
+        'Clear the search to see this shelf again.</p>';
     }
     // An empty state that gives advice you cannot take from the
     // page you are on is not an empty state, it is a dead end. On
@@ -777,9 +852,17 @@
           '” <i aria-hidden="true">×</i></button>'
         : '') +
       '<span class="hd-util__sp"></span>' +
-      '<button type="button" class="hd-util__b' + (state.favOnly ? ' is-on' : '') + '" ' +
-        'data-act="favonly" aria-pressed="' + state.favOnly + '">' +
-        (state.favOnly ? '★' : '☆') + ' Starred</button>' +
+      // A LINK NOW, NOT A FILTER. "☆ Starred" used to hide the
+      // unstarred items; with the split it would produce a page
+      // headed "Starred", with no second list, and a count that
+      // disagrees with the tab above it — a contradiction rather
+      // than a filter. What it was for is a better page now.
+      //
+      // .hd-util__b is styled on the class, so an <a> takes it
+      // unchanged, and fire() already lets anchors navigate.
+      (state.route === 'favourites'
+        ? '<span class="hd-util__b is-on">★ Favourites</span>'
+        : '<a class="hd-util__b" href="#/favourites">★ Favourites</a>') +
       '<label class="hd-util__sel"><span class="hd-sr">Sort</span>' +
         '<select data-act="sort" id="hdSort">' +
           opt('shelf', 'As filed', state.sort) + opt('new', 'Newest', state.sort) +
@@ -971,6 +1054,11 @@
         });
       });
     }
+    // NOT DEAD CODE. Nothing in the interface sets favOnly since
+    // the utility line's "Starred" toggle became a link to the
+    // Favourites page — favLists() is the caller, and it passes a
+    // derived state object rather than growing a second pool.
+    // Deleting this turns the Favourites page into the Archive.
     if (state.favOnly) out = out.filter(function (d) { return d.fav; });
     var q = String(state.q || '').trim().toLowerCase();
     if (q) {
@@ -1004,7 +1092,8 @@
     classifyKind: classifyKind,
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
+    favLists: favLists, favCount: favCount,
     viewHome: viewHome, viewArchive: viewArchive, viewCollections: viewCollections,
-    viewAbout: viewAbout
+    viewFavourites: viewFavourites, viewAbout: viewAbout
   };
 })(window);

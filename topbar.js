@@ -253,9 +253,12 @@
           //
           // Every hash this page has ever answered to still resolves, via
           // vault-app.js's own parseHash + TAB_ALIAS: the bare legacy
-          // hashes (#podcasts, #creepypasta, #favorites, #stats …) land on
-          // the archive rather than on nothing.
+          // hashes (#podcasts, #creepypasta, #stats …) land on the
+          // archive rather than on nothing. #favorites is the one
+          // exception as of this build: it is a real page again and
+          // lands on its own view, in either spelling.
           { hash: '/archive', label: 'The Archive' },
+          { hash: '/favourites', label: 'Favourites' },
           { hash: '/archive/watch', label: 'Watching' },
           { hash: '/archive/podcasts', label: 'Podcasts' },
           { hash: '/archive/horror', label: 'Horror Stories' },
