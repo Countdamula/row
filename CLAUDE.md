@@ -16707,3 +16707,137 @@ grid). Every new field is at least 16px and every new control at least 44px unde
 
 The browser suites block `supabase.co` at the network AND in the page — `fetch`,
 `sendBeacon`, XHR, and now `WebSocket` as well.
+
+## The Entertainment Studio: Archive first, bigger cards, starred lists, Favourites (2026-10-15)
+
+Damian asked for five things on the Entertainment Studio (`vault.html`, House Damula):
+make the Archive the main page, make the cards easier to see on a phone, split every
+category into starred and not-starred, add a page that collects every favourite, and get
+it onto the phone. `vault-theme.css` went v6 to v7 (**seven pages link it**),
+`vault-views.js` v2 to v3, `vault-app.js` v3 to v4, `topbar.js` v9 to v10 (**nineteen
+pages link it**). No change to `sync.js`, to the `app_state` key scheme, or to
+`data-registry.js`.
+
+**`#/` is the Archive.** The landing page was a credo paragraph, an editable set of
+keywords and four tiles into four shelves — a cover standing in front of the library
+every time the page opened. `viewHome()` is deleted. `parseHash`'s empty case and its
+`default`, and `html()`'s `default`, all answer with the Archive, so `#/journal` and every
+other retired bookmark still lands on something real. The credo band survives as
+`credoBand()` with its markup unchanged and now opens **`#/about`**, whose hero carries the
+editable headline and blurb — so all four `vault:house` fields are visible on the one page
+that edits them. The band's inline "Edit this page's words" link went: it sat a screen
+above About's own panel offering the same action.
+
+**One big card per phone row.** The grid ran two 150px columns and the mosaic's three
+overlaid shapes printed their titles *on* their artwork, which is why Damian could not tell
+what he was about to tap. Under 719px every shape now presents as the `grid` shape — art on
+top at 16/10, words underneath on the ground, 19.5px titles at three lines, 38px chips.
+Collapsed in CSS, not in `card()`: the renderer still emits one shape per mosaic slot, so
+nothing has to know the viewport and turning the phone needs no repaint.
+
+**EVERY PHONE RULE IS SCOPED TO `.hd-archive`, AND SCOPING IT IS NOT FREE.** That class is
+on every band this studio paints and on none of the other six pages, which is what stops
+the collapse reaching them. But the rule being replaced,
+`.hd-grid { repeat(auto-fill, minmax(150px, 1fr)) }`, was **unscoped and those pages were
+relying on it** — scoping it alone dropped them to the base `minmax(214px, 1fr)`, which
+fits exactly one column at 390px. The unscoped line is kept alongside the scoped one and
+commented as load-bearing. Five of the six pages were silently halved for the length of one
+commit; the regression test is the only reason it was noticed.
+
+**Two lists per category.** A star was write-only: you could set one and the page looked
+identical on every shelf and in every collection. Now the starred items are their own list
+at the top with their own mosaic and grid continuation, and everything else is beneath.
+`cardGroup()` is `viewArchive`'s old tail lifted out; `archiveLists()` is the partition.
+**The mosaic is for seven and now says so** — feature(5x2) + tall(3x2) + wide(4) + four
+row(4) is the one combination that tiles twelve columns with no hole, and one starred item
+drawn as a `feature` is a five-column tile with a seven-column gap beside it. Under seven, a
+group is the grid alone, which also fixes every collection of one to six items. A head
+appears only when both lists exist.
+
+**A star moves the card.** `ACTS.star` still patches the glyph in place first — that is the
+whole job on the detail sheet, the hero card and the game page — then calls
+`keepPlace(id, paintLists)`. `paintLists()` re-renders only `#hdLists`, which is strictly
+less work than the page already does on a keystroke. `topAnchor()` picks the first card at
+or below the top edge **that is not the one clicked**: the clicked card has just travelled to
+the top of the page, and following it would take the reader with it. Not gated on
+`safeToRepaint()` — that guard is for the cloud, not for the reader's own press.
+
+**`#/favourites`.** Every starred thing in the house, cut into **Single videos** and
+**Playlists & collections**. `classifyKind()` derives the cut from the link: a video wins
+over the playlist it came from (`watch?v=X&list=Y` is one video), the three paths `ytId()`
+reads as a video id are singles, Music/Podcasts/Games are settled by the shelf, Spotify
+album/playlist/show/artist vs track/episode, soundcloud `/sets/`. A new `kind` field
+(`auto` | `single` | `collection`, set from a composer select) overrides it. **No
+migration, deliberately** — absent means auto, and stamping `kind` onto 408 records would
+be 408 `updatedAt` bumps and a full-row push for nothing. `readComposer`'s
+`/^(single|collection)$/` **is** the whitelist, because `Vault.update` is a bare
+`Object.assign` with none.
+
+The utility line's "☆ Starred" toggle became a link to that page. With the split in it was
+contradictory, not redundant: it produced a page headed "Starred", with no second list, and
+a count disagreeing with the tab above it. `ACTS.favonly` and `state.favOnly` are gone;
+**`poolFor`'s `favOnly` filter stays** and is commented as not-dead-code, because
+`favLists()` is its caller and deleting it turns Favourites back into the Archive.
+
+Two spellings of one word, on purpose: the stored field is `favorite`, the chrome says
+Favourites, a list head says Starred. Both hashes resolve, in both forms.
+
+A fifth nav item is not free. `paintChrome` split the pill with `ceil()`, so five gave 3/2
+and pushed the wordmark off centre; `floor()` puts the extra one on the right. And the pill
+was within a pixel of its own `max-width` at 900px — one pixel above the burger breakpoint,
+where there is no menu to fall back on — so the `<=1279px` block widens it.
+
+**THE SORT CONTROL HAS NEVER WORKED, and does now.** `viewArchive` read the pool through
+`poolFor()`, which ends in `sortItems(out, state.sort)`, and then did
+`ranked = byProminence(items)` and rendered `ranked` for the grid tail as well as the
+mosaic. `byProminence`'s comparator is total, so the reader's sort was discarded entirely.
+Prominence still picks the seven big tiles; the tail keeps the order it was given, and the
+seven come out by `shelf|id` rather than by slice index. Its own commit, so it can be
+reverted without taking the split with it.
+
+### Verifying it
+
+Eight commits on `hd-archive-first`, each verified before the next.
+
+- `kind-test.js`: `classifyKind` in a `vm` with no browser — a 32-case table, then the whole
+  shipped SEED read-only. 408 records split 140 single / 268 collection, and every horror
+  and ASMR "collection" confirmed to be a real `/playlist?` URL rather than a misread.
+- `t-phone.mjs`: at 390x844, **zero cards whose body starts above where its art ends** —
+  the direct assertion that no title is printed over a photograph — every card 335px wide,
+  every body `position: static`, chips 38x38.
+- `t-split.mjs`: on horror, games and the Chill collection, every card in Starred is
+  starred and none in the other is, each head's count equals its own card count, and the
+  two sum to the utility line's total.
+- `t-star.mjs`: the card moves between lists, the count goes 15 to 16, and the anchor card
+  drifts 0.0px / 0.4px — on the phone that meant scrolling 379px to absorb the re-cut.
+  **It unstars the item again and asserts the page returns to its starting shape**, so the
+  script is safe to point anywhere.
+- `t-fav.mjs`: 194 starred split 139/55, each group verified **pure by re-running the live
+  classifier over its own cards** rather than against a hard-coded list; all four hash
+  spellings land; the nav holds one row at 1440, 1280, 1024, 960 and 900.
+- `t-home.mjs`: `#/` has no `.hd-credo` and no `.hd-way` and `HD.viewHome` is undefined;
+  `#/about` has exactly one of each and one edit button; six retired hashes all land on a
+  real view with real cards.
+- `t-sweep.mjs`: seven routes x seven widths including landscape phone — no horizontal
+  overflow, no console errors, no unexpected failed requests.
+- `t-shared.mjs`: **the regression test that earned its place.** Its first version counted
+  rendered cards on the other six pages, found zero on all six — nothing seeds them in a
+  fresh profile — and printed "OK". A probe that matches nothing reports a confident pass.
+  Rewritten to measure *the rule*: inject a `.hd-grid` of known children into each page and
+  read back the computed columns, with the expected count taken from a **measured baseline
+  against `vault-theme.css` as it stands on `main`**, not from an assumption. That is what
+  caught the scoping regression above, and it is also what proved larder's single column is
+  its own `larder-theme.css` (loaded later, unscoped, `minmax(248px,1fr)`) and not damage.
+
+The harness (`rowtest.mjs`) blocks Supabase in four layers, and the one that matters is
+blocking the **supabase-js CDN script**: `sync.js` line 25 is
+`if (!appKey || !window.supabase) return;` and the `pagehide` listener is registered at
+line 445, *after* it — so with no `window.supabase` no unload handler is ever registered and
+there is no keepalive flush to race. It never stubs `window.supabase`; the stub is what
+armed the leak that emptied the palaestra row. `assertNoSync()` aborts the run if the
+library is present.
+
+One harness bug worth recording: `page.waitForFunction` threw on the navigation's destroyed
+execution context, its rejection was swallowed by a `.catch(() => {})`, and the probe then
+ran 450ms after load — before `maybeSeedAfterSyncAttempt`'s 1200ms timer — and reported zero
+cards on a page that had 167. **A wait that gives up has to say so.**
