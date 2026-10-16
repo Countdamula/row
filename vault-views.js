@@ -550,6 +550,103 @@
       '</section>';
   }
 
+  // ── §A GROUP, AS A HEADING ─────────────────────────────────
+  // The archive's own caption voice, one step under the utility
+  // line: .hd-eyebrow for the name, .hd-util__n for the count.
+  //
+  // .hd-util__n sets a COLOUR and nothing else — it takes its
+  // 10.5px and its tracking from .hd-util, which is not its
+  // parent here — so .hd-ghead carries the caption type itself.
+  //
+  // Not .hd-plate (the display face, and the sheet's voice), and
+  // not .hd-orn, which marks the end of a page's title block and
+  // exactly one thing. Spending it on four list heads a page is
+  // how an ornament stops meaning anything.
+  function groupHead(label, n) {
+    return '<div class="hd-ghead">' +
+      '<h2 class="hd-eyebrow">' + esc(label) + '</h2>' +
+      '<span class="hd-util__n">' + n + (n === 1 ? ' entry' : ' entries') + '</span>' +
+    '</div>';
+  }
+
+  // ── §A GROUP OF CARDS ──────────────────────────────────────
+  // One list: the mosaic of prominent tiles, then the plain grid
+  // continuation. This was viewArchive's whole tail until the
+  // split; it is lifted out so the archive can show TWO of them —
+  // starred above, the rest below — without a second card
+  // component, a second mosaic or a second sort.
+  //
+  // THE MOSAIC IS FOR SEVEN. feature(5x2) + tall(3x2) + wide(4) +
+  // four row(4) is the one combination that tiles twelve columns
+  // with no hole in it, and the split makes short lists the
+  // common case rather than the edge: one starred item drawn as a
+  // `feature` is a five-column tile with a seven-column hole
+  // beside it. Under seven, a group is the grid alone — which
+  // also quietly fixes every four-item collection, which has had
+  // that hole since the rebuild.
+  function cardGroup(items, o) {
+    o = o || {};
+    var ranked = byProminence(items);
+    var big = items.length >= MOSAIC.length;
+    var mos = big ? ranked.slice(0, MOSAIC.length) : [];
+    var rest = big ? ranked.slice(MOSAIC.length) : ranked;
+
+    return '<section class="hd-group' + (o.cls ? ' ' + o.cls : '') + '">' +
+      (o.label ? groupHead(o.label, items.length) : '') +
+      (mos.length || o.lead
+        ? '<div class="hd-mosaic">' + (o.lead || '') +
+            mos.map(function (d, i) { return card(d, i, MOSAIC[i]); }).join('') +
+          '</div>'
+        : '') +
+      (rest.length
+        ? '<div class="hd-grid">' +
+            rest.map(function (d, i) { return card(d, i, 'grid'); }).join('') +
+          '</div>'
+        : '') +
+    '</section>';
+  }
+
+  // ── §THE TWO LISTS ─────────────────────────────────────────
+  // Starred always on top, in its own mosaic, with its own grid
+  // under it; everything else beneath, the same way. A star was
+  // write-only before this: you could set one and the page looked
+  // identical, on every shelf and in every collection.
+  //
+  // The heads appear only when BOTH lists exist. "Everything
+  // else" over the only list on the page is a heading that
+  // describes nothing, and the utility line already prints the
+  // count.
+  function archiveLists(state) {
+    var items = poolFor(state);
+    if (!items.length) return emptyArchive(state);
+
+    var star = items.filter(function (d) { return d.fav; });
+    var rest = items.filter(function (d) { return !d.fav; });
+    var split = star.length > 0 && rest.length > 0;
+    // A GAME IS NOT A LINK, so the Games shelf keeps its own way
+    // in — and it sits in the list a new game would join, which
+    // is the unstarred one unless there is nothing else there.
+    var lead = state.shelf === 'games' ? addGameTile() : '';
+
+    return (star.length
+        // "Starred" earns its head even alone: it is a true
+        // statement about the list. "Everything else" alone is not.
+        ? cardGroup(star, { cls: 'hd-group--star', label: 'Starred',
+            lead: rest.length ? '' : lead })
+        : '') +
+      (rest.length
+        ? cardGroup(rest, { label: split ? 'Everything else' : null, lead: lead })
+        : '');
+  }
+
+  // The ONLY region a star is allowed to repaint. vault-app.js
+  // re-renders exactly this into #hdLists and keeps the reader's
+  // place; the hero, the tabs and the utility line — which is
+  // where the focused sort <select> lives — are never touched.
+  function lists(state) {
+    return archiveLists(state);
+  }
+
   // =============================================================
   // §THE ARCHIVE — #/archive, #/archive/<shelf>, #/collection/<x>
   // =============================================================
@@ -575,13 +672,6 @@
             : { eyebrow: 'In the archive', title: shelfOf(state.shelf).label,
                 caption: SHELF_CAPTION[state.shelf] || 'What we preserve shapes what remains.' }
         );
-    var ranked = byProminence(items);
-    // Seven, not six: the seventh slot was the Journal tile until
-    // the Journal was removed on 2026-09-03, and a mosaic with a
-    // hole in the corner is worse than one more thing to look at.
-    var mos = ranked.slice(0, 7);
-    var rest = ranked.slice(7);
-
     // Tabs are links, not chips: a tab is a place, and the
     // reference draws it as text with a rule under it.
     var counts = global.Vault.counts();
@@ -605,23 +695,10 @@
       '<section class="hd-band hd-night hd-archive">' +
       tabs +
       utility(state, items.length) +
-
-      (items.length
-        ? '<div class="hd-mosaic">' +
-            // A GAME IS NOT A LINK, so the Games shelf gets its own
-            // way in and it sits where a game would sit. Everywhere
-            // else, adding is the composer in the corner; here it is
-            // a form that asks for a status and a playtime and then
-            // hands you the page.
-            (state.shelf === 'games' ? addGameTile() : '') +
-            mos.map(function (d, i) { return card(d, i, MOSAIC[i]); }).join('') +
-          '</div>' +
-          (rest.length
-            ? '<div class="hd-grid">' +
-                rest.map(function (d, i) { return card(d, i, 'grid'); }).join('') +
-              '</div>'
-            : '')
-        : emptyArchive(state)) +
+      // One wrapper with one id, because a star has to be able to
+      // re-cut both lists without the hero, the tabs or the sort
+      // control being thrown away under the reader.
+      '<div class="hd-lists" id="hdLists">' + archiveLists(state) + '</div>' +
     '</section>';
   }
 
@@ -905,6 +982,7 @@
     toCard: toCard, allCards: allCards, recordOf: recordOf, poolFor: poolFor,
     byProminence: byProminence, sortItems: sortItems,
     sig: sig, orn: orn, eyebrow: eyebrow, arrow: arrow, card: card,
+    groupHead: groupHead, cardGroup: cardGroup, archiveLists: archiveLists, lists: lists,
     heroCard: heroCard, heroChips: heroChips, addGameTile: addGameTile,
     ytId: ytId, bigArt: bigArt, artImg: artImg, shownUrl: shownUrl, yearOf: yearOf,
     classifyKind: classifyKind,
