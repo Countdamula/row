@@ -298,6 +298,12 @@
         '<p class="asc-body">' + U().escLines(d.desc) + '</p></div>' : '') +
       '<div class="asc-sheet__block"><h3 class="asc-label">Details</h3><div class="asc-lines">' +
         line('Shelf', esc(H().SHELF_NAME[shelf] || shelf)) +
+        // Always the ANSWER, never the stored 'auto' — what the
+        // Favourites page will actually do with this item is the
+        // only useful thing to print here. The composer is where
+        // you argue with it.
+        line('Kind', H().classifyKind(d) === 'collection'
+          ? 'Playlist or collection' : 'Single video') +
         line('Collection', esc(d.cat)) +
         line('Creator', esc(d.creator)) +
         line('Length', esc(d.len)) +
@@ -774,7 +780,7 @@
   // after it.
   var cmp = {
     el: null, scrim: null, form: null, msg: null, url: null, title: null, shelf: null,
-    cat: null, catList: null, creator: null, len: null, cover: null, desc: null,
+    kind: null, cat: null, catList: null, creator: null, len: null, cover: null, desc: null,
     stars: null, fav: null, queue: null, del: null, prev: null, prevImg: null,
     prevTitle: null, prevSub: null, heading: null,
     editing: null, rating: 0, touched: null, lastFocus: null, open: false, dupeWarned: false
@@ -783,7 +789,7 @@
   function grabComposer() {
     cmp.el = $('cmp'); cmp.scrim = $('cmpScrim'); cmp.form = $('cmpForm'); cmp.msg = $('cmpMsg');
     cmp.url = $('cmpUrl'); cmp.title = $('cmpTitleIn'); cmp.shelf = $('cmpShelf');
-    cmp.cat = $('cmpCat'); cmp.catList = $('cmpCatList'); cmp.creator = $('cmpCreator');
+    cmp.kind = $('cmpKind'); cmp.cat = $('cmpCat'); cmp.catList = $('cmpCatList'); cmp.creator = $('cmpCreator');
     cmp.len = $('cmpLen'); cmp.cover = $('cmpCover'); cmp.desc = $('cmpDesc');
     cmp.stars = $('cmpStars'); cmp.fav = $('cmpFav'); cmp.queue = $('cmpQueue'); cmp.del = $('cmpDel');
     cmp.prev = $('cmpPrev'); cmp.prevImg = $('cmpPrevImg'); cmp.prevTitle = $('cmpPrevTitle');
@@ -912,6 +918,7 @@
 
     cmp.url.value = item ? (item.url || '') : (opts.url || '');
     cmp.title.value = item ? (item.title || '') : '';
+    cmp.kind.value = (item && item.kind) || 'auto';
     cmp.cat.value = item ? (item.category || '') : (opts.category || '');
     cmp.creator.value = item ? (item.creator || '') : '';
     cmp.len.value = item ? (item.lengthText || '') : '';
@@ -977,6 +984,10 @@
     return {
       url: cmp.url.value.trim(),
       title: cmp.title.value.trim(),
+      // The regex IS the whitelist. Vault.update() is a bare
+      // Object.assign with no field check of its own, so anything
+      // this returns is what lands in storage and in Supabase.
+      kind: /^(single|collection)$/.test(cmp.kind.value) ? cmp.kind.value : 'auto',
       category: cmp.cat.value.trim(),
       creator: cmp.creator.value.trim(),
       lengthText: cmp.len.value.trim(),
@@ -1024,6 +1035,10 @@
     cmp.dupeWarned = false;
 
     if (keepOpen) {
+      // Shelf, collection and KIND survive a "save and add
+      // another" — a batch of playlists is a batch of playlists,
+      // and the three of them together are where the next item is
+      // being filed rather than what it is.
       var keptShelf = shelf, keptCat = f.category;
       cmp.editing = null; cmp.touched.clear(); say('');
       ['url', 'title', 'creator', 'len', 'cover', 'desc'].forEach(function (k) { cmp[k].value = ''; });

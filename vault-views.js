@@ -128,7 +128,11 @@
       fav: v.favorite === true, queued: v.queued === true,
       cat: v.category || 'Uncategorised', desc: v.description || '',
       opened: v.lastOpenedAt || 0, opens: v.openCount || 0, made: v.createdAt || 0,
-      hero: v.hero || ''
+      hero: v.hero || '',
+      // 'auto' — and ABSENT, which is all four hundred and eight
+      // records that came in with the seed — means classifyKind()
+      // reads it off the shelf and the link instead.
+      kind: v.kind || 'auto'
     };
   }
 
@@ -182,6 +186,66 @@
     var id = ytId(d.url);
     if (id) return { src: 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg', alt: d.cover || '' };
     return { src: d.cover, alt: '' };
+  }
+
+  // ── §SINGLE OR COLLECTION ──────────────────────────────────
+  // What the Favourites page cuts on. Derived from the LINK,
+  // because that is where the truth already is and nobody is
+  // going to label four hundred items by hand.
+  //
+  // But a link is not always honest: `watch?v=X&list=Y` is ONE
+  // VIDEO that happens to have been opened out of a playlist, and
+  // tapping it plays that video. So the video wins over the
+  // playlist it came from, and the record carries a manual
+  // override for the handful this still reads wrong.
+  //
+  // Returns 'single' or 'collection'. Never 'auto' — that is a
+  // STORED value, not an answer.
+  function classifyKind(d) {
+    var own = d.kind || 'auto';
+    if (own === 'single' || own === 'collection') return own;
+
+    // A shelf can settle it before the link is read. Music and
+    // Podcasts are shelves of records and series rather than of
+    // single things, and a game is a world. `shelf` is the storage
+    // key and `tab` the merged name; both are asked, so this
+    // answers for a card built either way.
+    var sh = d.shelf || '', tab = d.tab || '';
+    if (/^(playlists|podcasts|games)$/.test(sh) || /^(playlists|podcasts|games)$/.test(tab)) {
+      return 'collection';
+    }
+
+    var u = String(d.url || '');
+    if (!u) return 'single';
+    var host, path, qs;
+    try {
+      var url = new URL(u);
+      host = url.hostname.replace(/^www\./, '').toLowerCase();
+      path = url.pathname.toLowerCase();
+      qs = url.searchParams;
+    } catch (e) { return 'single'; }
+
+    if (/^(youtube\.com|m\.youtube\.com|music\.youtube\.com|youtu\.be)$/.test(host)) {
+      if (host === 'youtu.be') return 'single';
+      // The same three single-video paths ytId() already reads, so
+      // a link that HAS a derivable video id is never called a set.
+      if (/^\/(shorts|embed|live)\//.test(path)) return 'single';
+      if (qs.get('v')) return 'single';
+      if (/^\/playlist/.test(path) || qs.get('list')) return 'collection';
+      // A channel, an @handle, /c/, /user/ — a body of work.
+      return 'collection';
+    }
+    if (/^(open\.spotify\.com|spotify\.com)$/.test(host)) {
+      if (/^\/(album|playlist|show|artist|collection)\//.test(path)) return 'collection';
+      if (/^\/(track|episode)\//.test(path)) return 'single';
+      return 'collection';
+    }
+    if (/^(m\.)?soundcloud\.com$/.test(host)) {
+      return /\/sets\//.test(path) ? 'collection' : 'single';
+    }
+
+    // Everything else is one thing until it says otherwise.
+    return 'single';
   }
 
   function artImg(d, cls, eager) {
@@ -843,6 +907,7 @@
     sig: sig, orn: orn, eyebrow: eyebrow, arrow: arrow, card: card,
     heroCard: heroCard, heroChips: heroChips, addGameTile: addGameTile,
     ytId: ytId, bigArt: bigArt, artImg: artImg, shownUrl: shownUrl, yearOf: yearOf,
+    classifyKind: classifyKind,
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
     viewHome: viewHome, viewArchive: viewArchive, viewCollections: viewCollections,
