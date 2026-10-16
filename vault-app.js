@@ -167,6 +167,62 @@
     $('vtRoot').focus({ preventScroll: true });
   }
 
+  // ── §REPAINTING JUST THE LISTS ─────────────────────────────
+  // Starring something MOVES it between the two lists, which
+  // means a star is no longer a glyph change — it is a change to
+  // which list an item belongs to, and the page lies about its
+  // own organising principle until something redraws.
+  //
+  // This is the smallest thing that can: the hero (a
+  // full-viewport photograph), the tabs and the utility line —
+  // which is where the focused sort <select> lives — all stay
+  // exactly as they are. It is strictly LESS work than this page
+  // already does on a keystroke: ACTS.sort and clear-q both call
+  // the full repaint(), which additionally rebuilds the hero,
+  // re-runs afterPaint() and re-measures the parallax.
+  function paintLists() {
+    var host = $('hdLists');
+    if (!host) return repaint();
+    host.innerHTML = H().lists(state);
+  }
+
+  // THE ANCHOR IS A NODE THAT IS NOT MOVING.
+  //
+  // Re-cutting both lists changes the height of everything above
+  // the viewport, so the browser's scroll offset now points
+  // somewhere else. Anchoring on the card that was CLICKED would
+  // be worse than doing nothing: it has just travelled to the top
+  // of the page, and following it would take the reader with it.
+  //
+  // So the anchor is the first card at or just below the top edge
+  // that is NOT the clicked one. Its offset before, its offset
+  // after, and the difference scrolled by.
+  function topAnchor(skipId) {
+    var n = document.querySelectorAll('#hdLists .hd-card [data-act="star"]');
+    for (var i = 0; i < n.length; i++) {
+      if (n[i].dataset.id === skipId) continue;
+      var c = n[i].closest('.hd-card');
+      if (!c) continue;
+      var t = c.getBoundingClientRect().top;
+      if (t > -4) return { shelf: n[i].dataset.shelf, id: n[i].dataset.id, top: t };
+    }
+    return null;
+  }
+
+  function keepPlace(skipId, paint) {
+    var a = topAnchor(skipId);
+    paint();
+    if (!a) return;
+    var n = document.querySelector('#hdLists .hd-card [data-act="star"][data-shelf="' +
+      cssq(a.shelf) + '"][data-id="' + cssq(a.id) + '"]');
+    var c = n && n.closest('.hd-card');
+    if (!c) return;
+    // Measured AFTER the paint, so a card that changed shape —
+    // and therefore height — is still corrected for.
+    var now = c.getBoundingClientRect().top;
+    if (Math.abs(now - a.top) > 1) global.scrollBy(0, now - a.top);
+  }
+
   function paintChrome() {
     var ground = GROUND[state.route] || 'night';
     document.documentElement.setAttribute('data-ground', ground);
@@ -374,9 +430,11 @@
       if (!r) return U().toast('That item is no longer on the shelf');
       var on = !r.favorite;
       global.Vault.update(k.shelf, k.id, { favorite: on });
-      // Patched in place rather than repainted: a full repaint
-      // here throws away the reader's scroll position for one
-      // character of glyph.
+
+      // The glyph, patched in place, FIRST and always. It is
+      // still the whole of the job on every surface that is not a
+      // split list — the detail sheet, the hero card, the game
+      // page — and it is what makes the press feel instant.
       document.querySelectorAll('[data-act="star"][data-shelf="' + cssq(k.shelf) +
         '"][data-id="' + cssq(k.id) + '"]').forEach(function (s) {
         s.classList.toggle('is-on', on);
@@ -384,7 +442,25 @@
         if (s.classList.contains('asc-btn')) s.textContent = on ? '★ Starred' : '☆ Star it';
         else s.textContent = on ? '★' : '☆';
       });
-      if (state.favOnly) repaint();
+
+      // And then, where a star is also a MOVE, the move. The old
+      // comment here said a repaint "throws away the reader's
+      // scroll position for one character of glyph", and it was
+      // right about that — but it is not one character of glyph
+      // any more, so the answer is to keep the place rather than
+      // to skip the paint. keepPlace() is how.
+      //
+      // Not gated on safeToRepaint(): that guard exists so the
+      // CLOUD cannot rebuild the DOM under someone who is typing.
+      // This is the reader's own press, and the sort <select>
+      // lives outside #hdLists anyway. ACTS.del and clearqueue
+      // both repaint unconditionally for the same reason.
+      if (state.route === 'archive' || state.route === 'collection') {
+        return keepPlace(k.id, paintLists);
+      }
+      // The Starred reading in .hd-reads is the only thing on the
+      // About page that a star changes.
+      if (state.route === 'about') repaint();
     },
 
     queue: function (el) {
