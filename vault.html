@@ -107,7 +107,7 @@
      with it. A browser caches by URL, not by which page asked for it, so
      leaving the number alone after editing the file is how a phone keeps
      serving the old stylesheet to both studios indefinitely. -->
-<link rel="stylesheet" href="vault-theme.css?v=7">
+<link rel="stylesheet" href="vault-theme.css?v=8">
 <!-- Every page opens on this. Preloaded, because it is the largest
      paint on all of them. -->
 <link rel="preload" as="image" href="images_by_admin/vault/hero-house.jpg" fetchpriority="high">
@@ -116,8 +116,13 @@
 <script src="sync.js?v=3"></script>
 <!-- 330KB of seeded records. Deferred so it cannot block the hero,
      which is this page's largest paint; boot() waits for
-     DOMContentLoaded anyway. -->
-<script src="vault-data.js" defer></script>
+     DOMContentLoaded anyway.
+
+     VERSIONED, and it has to stay that way. This file carries the
+     one-time category merge; a phone holding an unversioned cached
+     copy would pull the migrated data but never run the migration,
+     and would keep re-seeding the old category names. -->
+<script src="vault-data.js?v=1" defer></script>
 <!-- Generic machinery: escaping, the sheet, the toast, the reveal
      clock. It knows nothing about any data layer, and nothing
      about this skin — asclepion-theme.css is NOT linked here. -->
@@ -132,16 +137,20 @@
      it is the one template meant to be edited; the app is the
      only file that listens, writes or knows what a hash means.
      Deferred, in order; boot() waits for DOMContentLoaded. -->
-<script src="vault-views.js?v=3" defer></script>
-<script src="vault-game.js?v=3" defer></script>
+<script src="vault-views.js?v=4" defer></script>
+<script src="vault-game.js?v=4" defer></script>
+<!-- The Capture page, the link classifier and the bulk importer.
+     It owns the oEmbed provider table, which the composer's own
+     autofill calls into, so it must load BEFORE vault-app.js. -->
+<script src="vault-capture.js?v=1" defer></script>
 <!-- The articles: the feed below a game's video rail, and the page
      each of its rows opens. Its own file for the same reason the
      game page is — it is the other template meant to be edited —
      and it must load BEFORE vault-app.js, which binds its
      listeners and merges its actions at boot. -->
 <script src="vault-article.js?v=1" defer></script>
-<script src="vault-app.js?v=4" defer></script>
-<script src="topbar.js?v=10" defer></script>
+<script src="vault-app.js?v=5" defer></script>
+<script src="topbar.js?v=11" defer></script>
 </head>
 <body class="hd">
 
@@ -299,8 +308,12 @@
       <input class="asc-input" id="cmpTitleIn" type="text" autocomplete="off" placeholder="What is it called?">
     </div>
 
+    <!-- THE CATEGORY, under the id the shelf picker used to have.
+         The id is load-bearing — AthDraft scopes every draft by it,
+         so renaming it throws away half-typed work. The storage
+         shelf is derived from whatever is chosen here. -->
     <div class="vt-f">
-      <label class="asc-label" for="cmpShelf">Shelf</label>
+      <label class="asc-label" for="cmpShelf">Category</label>
       <select class="asc-select" id="cmpShelf"></select>
     </div>
 
@@ -314,10 +327,13 @@
       <p class="vt-hint">Only the Favourites page reads this. Leave it alone unless it guessed wrong.</p>
     </div>
 
-    <div class="vt-f">
-      <label class="asc-label" for="cmpCat">Collection</label>
+    <!-- Only on screen while "＋ New category…" is selected above.
+         Hidden two ways on purpose: display beats the UA's [hidden]
+         and this page has been caught by that four times. -->
+    <div class="vt-f" hidden style="display:none">
+      <label class="asc-label" for="cmpCat">Name the new category</label>
       <input class="asc-input" id="cmpCat" type="text" autocomplete="off" list="cmpCatList"
-        placeholder="Type or pick one">
+        placeholder="What should it be called?">
       <datalist id="cmpCatList"></datalist>
     </div>
 

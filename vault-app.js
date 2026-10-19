@@ -26,6 +26,7 @@
   var H = function () { return global.HD; };
   var G = function () { return global.HDGame; };
   var A = function () { return global.HDArticle; };
+  var C = function () { return global.HDCapture; };
   var esc = function (s) { return U().esc(s); };
   var attr = function (s) { return U().attr(s); };
   var $ = function (id) { return document.getElementById(id); };
@@ -36,7 +37,13 @@
   // Supabase, and which shelf a laptop was last left on is not
   // something a phone should be told about.
   var state = {
-    route: 'archive', shelf: 'all', collection: '', gameId: '', articleId: '',
+    // `group` is a CATEGORY GROUP, not a storage shelf. The two were
+    // the same thing until 2026-10-18; see vault-views.js §GROUPS.
+    route: 'archive', group: 'all', collection: '', gameId: '', articleId: '',
+    // The Favourites page's own filter. Not in the hash: it is a
+    // way of reading one page, not a different page, and it
+    // survives a star because repaint() rebuilds from state.
+    favGroup: 'all',
     // NO favOnly. The utility line's Starred toggle is a link
     // to #/favourites now, and favLists() passes favOnly in a
     // derived state object of its own. A flag that is always
@@ -54,9 +61,10 @@
   // too, so this item lights up on the landing page by itself.
   var NAV = [
     { href: '#/archive', label: 'Archive', match: ['archive', 'collection'] },
+    { href: '#/capture', label: 'Capture', match: ['capture'] },
     { href: '#/favourites', label: 'Favourites', match: ['favourites'] },
     { href: '#/collections', label: 'Collections', match: ['collections'] },
-    { href: '#/archive/games', label: 'Games', match: ['game'] },
+    { href: '#/archive/gaming', label: 'Games', match: ['game'] },
     { href: '#/about', label: 'About', match: ['about'] }
   ];
 
@@ -81,7 +89,7 @@
   // would be the wrong thing on a page you write in. So the bar
   // takes its frosted ground immediately here, and .hd-art puts
   // back the 90px that .hd-main's negative margin takes away.
-  var HEROLESS = { article: 1 };
+  var HEROLESS = { article: 1, capture: 1 };
 
   // ── §ROUTING ───────────────────────────────────────────────
   // Legacy hashes have no slash and are answered first, so every
@@ -93,7 +101,7 @@
     // tiles — was deleted on this build and its words moved to
     // #/about. The library is what this page is for, and it
     // was one tap behind a cover page.
-    if (!raw || raw === '/') return { route: 'archive', shelf: 'all' };
+    if (!raw || raw === '/') return { route: 'archive', group: 'all' };
 
     if (raw.charAt(0) !== '/') {
       // THE ONE LEGACY BARE HASH THAT HAS A REAL PAGE AGAIN.
@@ -103,11 +111,11 @@
       // before tabKey is consulted.
       if (raw === 'favorites' || raw === 'favourites') return { route: 'favourites' };
       var k = H().tabKey(raw);
-      if (k === 'all') return { route: 'archive', shelf: 'all' };
+      if (k === 'all') return { route: 'archive', group: 'all' };
       if (H().LIVE().some(function (s) { return s.key === k; })) {
-        return { route: 'archive', shelf: k };
+        return { route: 'archive', group: k };
       }
-      return { route: 'archive', shelf: 'all' };
+      return { route: 'archive', group: 'all' };
     }
 
     var p = raw.split('/').filter(Boolean);
@@ -115,25 +123,30 @@
       case 'archive':
         var sk = p[1] ? H().tabKey(p[1]) : 'all';
         if (sk !== 'all' && !H().LIVE().some(function (s) { return s.key === sk; })) sk = 'all';
-        return { route: 'archive', shelf: sk };
-      case 'games': return { route: 'archive', shelf: 'games' };
+        return { route: 'archive', group: sk };
+      case 'games': return { route: 'archive', group: 'gaming' };
       case 'game': return { route: 'game', gameId: decodeURIComponent(p[1] || '') };
       case 'article': return { route: 'article', articleId: decodeURIComponent(p[1] || '') };
       // BOTH SPELLINGS. The stored field is `favorite` and the
       // interface says "favourite"; a hash that answers to only
       // one of them is one somebody will eventually get wrong.
       case 'favourites': case 'favorites': return { route: 'favourites' };
+      case 'capture': return { route: 'capture' };
       case 'collections': return { route: 'collections' };
-      case 'collection': return { route: 'collection', collection: decodeURIComponent(p[1] || '') };
+      // catName() carries a bookmark to a collection that was merged
+      // away on to its successor. Without it the page renders
+      // perfectly and is empty, which reads as lost data.
+      case 'collection':
+        return { route: 'collection', collection: H().catName(decodeURIComponent(p[1] || '')) };
       case 'about': return { route: 'about' };
-      default: return { route: 'archive', shelf: 'all' };
+      default: return { route: 'archive', group: 'all' };
     }
   }
 
   function applyHash() {
     var r = parseHash();
     state.route = r.route;
-    state.shelf = r.shelf || 'all';
+    state.group = r.group || 'all';
     state.collection = r.collection || '';
     state.gameId = r.gameId || '';
     state.articleId = r.articleId || '';
@@ -150,6 +163,7 @@
       case 'archive': return H().viewArchive(state);
       case 'collection': return H().viewArchive(state);
       case 'favourites': return H().viewFavourites(state);
+      case 'capture': return C().viewCapture();
       case 'collections': return H().viewCollections();
       case 'about': return H().viewAbout();
       case 'game': return G().view(state.gameId);
@@ -267,11 +281,11 @@
     // brand itself is static markup and is never re-created.
     var link = function (n) {
       var on = n.match.indexOf(state.route) >= 0 ||
-        (n.href === '#/archive/games' && state.route === 'archive' && state.shelf === 'games');
-      // Archive is the parent of every shelf but Games, which has
+        (n.href === '#/archive/gaming' && state.route === 'archive' && state.group === 'gaming');
+      // Archive is the parent of every tab but Gaming, which has
       // its own name in the bar. Without this the two light up
       // together and neither means anything.
-      if (n.href === '#/archive' && state.route === 'archive' && state.shelf === 'games') on = false;
+      if (n.href === '#/archive' && state.route === 'archive' && state.group === 'gaming') on = false;
       return '<a href="' + n.href + '"' + (on ? ' class="is-on" aria-current="page"' : '') + '>' +
         esc(n.label) + '</a>';
     };
@@ -347,7 +361,7 @@
   function openDetail(shelf, id) {
     var r = H().recordOf(shelf, id);
     if (!r) return U().toast('That item is no longer on the shelf');
-    var d = H().toCard(r, shelf, H().TAB_OF_SHELF[shelf] || 'watch');
+    var d = H().toCard(r, shelf, H().groupKeyOfCat(r.category));
     var t = H().shelfOf(d.tab);
     var pin = H().store('vault:featured', null) || {};
     var isFeat = pin.shelf === shelf && pin.id === id;
@@ -424,7 +438,7 @@
   // another of is an article. Everywhere else nothing has changed.
   function addHere() {
     if (state.route === 'article') return A().ACTS['new-article']();
-    if (state.shelf === 'games' || state.route === 'game') return G().ACTS['add-game']();
+    if (state.group === 'gaming' || state.route === 'game') return G().ACTS['add-game']();
     openComposer({});
   }
 
@@ -565,6 +579,10 @@
 
     'clear-q': function () { state.q = ''; repaint(); },
     sort: function (el) { state.sort = el.value; repaint(); },
+    favgroup: function (el) {
+      state.favGroup = el.dataset.group || 'all';
+      repaint();
+    },
 
     surprise: function () {
       var all = H().allCards();
@@ -727,7 +745,8 @@
   function fire(e) {
     var hit = e.target.closest('[data-act]');
     if (!hit) return;
-    var fn = ACTS[hit.dataset.act] || G().ACTS[hit.dataset.act] || A().ACTS[hit.dataset.act];
+    var fn = ACTS[hit.dataset.act] || G().ACTS[hit.dataset.act] ||
+      A().ACTS[hit.dataset.act] || C().ACTS[hit.dataset.act];
     if (!fn) return;
     // A link that also carries data-act ("Open its page", the
     // journal's "Open the game") must still navigate, so an
@@ -746,6 +765,8 @@
     // `change` for the one <select> on the page — a select does
     // not report a keyboard choice as a click.
     $('vtRoot').addEventListener('change', function (e) {
+      var pick = e.target.closest('[data-act="recat"], [data-act="bulk-cat"]');
+      if (pick) return C().ACTS[pick.dataset.act](pick);
       var hit = e.target.closest('[data-act="sort"]');
       if (hit) ACTS.sort(hit);
     });
@@ -780,7 +801,7 @@
 
     addEventListener('hashchange', function () {
       var key = function () {
-        return state.route + '|' + state.shelf + '|' + state.collection + '|' +
+        return state.route + '|' + state.group + '|' + state.collection + '|' +
           state.gameId + '|' + state.articleId;
       };
       var was = key();
@@ -913,23 +934,11 @@
   // service, which would mean every link pasted here being
   // reported to a stranger. With no endpoint, the host name and a
   // Title-Cased URL slug still beat an empty form.
-  var OEMBED = {
-    'youtube.com': function (u) { return 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u); },
-    'youtu.be': function (u) { return 'https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(u); },
-    'vimeo.com': function (u) { return 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(u); },
-    'open.spotify.com': function (u) { return 'https://open.spotify.com/oembed?url=' + encodeURIComponent(u); },
-    'soundcloud.com': function (u) { return 'https://soundcloud.com/oembed?format=json&url=' + encodeURIComponent(u); }
-  };
-
-  function titleFromSlug(u) {
-    try {
-      var seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
-      if (!seg || /^[0-9a-f]{8,}$/i.test(seg)) return '';
-      return decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i, '')
-        .replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim()
-        .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-    } catch (e) { return ''; }
-  }
+  // THE PROVIDER TABLE LIVES IN vault-capture.js, and so does the
+  // slug fallback. Two copies meant a provider added for the
+  // Capture page silently missing from the composer, so there is
+  // one of each and both paths call it.
+  var titleFromSlug = function (u) { return C().titleFromSlug(u); };
 
   function fillIfUntouched(field, value) {
     if (!value) return;
@@ -944,26 +953,17 @@
     if (!/^https?:\/\//i.test(u)) return;
     var seq = ++autofillSeq;
 
-    var host = '';
-    try { host = new URL(u).hostname.replace(/^www\./, ''); } catch (e) {}
-    fillIfUntouched('creator', host);
-    fillIfUntouched('title', titleFromSlug(u));
-    var vid = H().ytId(u);
-    if (vid) fillIfUntouched('cover', 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg');
-    paintPreview();
-
-    var endpoint = OEMBED[host];
-    if (!endpoint) return;
-    fetch(endpoint(u), { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || seq !== autofillSeq) return;
-        fillIfUntouched('title', j.title);
-        fillIfUntouched('creator', j.author_name);
-        if (j.thumbnail_url && !cmp.touched.has('cover')) cmp.cover.value = j.thumbnail_url;
-        paintPreview();
-      })
-      .catch(function () { /* offline, blocked, or the endpoint moved — the form still works */ });
+    // fetchMeta ALWAYS resolves: a blocked, offline or private link
+    // still answers with the hostname and a Title-Cased slug, so
+    // there is no failure branch to write here and the form is
+    // never left empty.
+    C().fetchMeta(u).then(function (meta) {
+      if (seq !== autofillSeq) return;
+      fillIfUntouched('title', meta.title);
+      fillIfUntouched('creator', meta.creator);
+      if (meta.cover && !cmp.touched.has('cover')) cmp.cover.value = meta.cover;
+      paintPreview();
+    });
   }
 
   function paintPreview() {
@@ -994,43 +994,79 @@
     cmp.queue.textContent = cmp.queue.classList.contains('is-on') ? '✓ Tonight' : '＋ Tonight';
   }
 
-  // All ten shelves, always, including the ones hidden from the
-  // interface. A shelf you cannot file to is a shelf that can
-  // never stop being empty — and hiding Reading from the tabs is
-  // not the same as making it unreachable.
+  // THE CATEGORY IS THE CHOICE. #cmpShelf keeps its id — AthDraft
+  // scopes every draft by these ids, so renaming one throws away
+  // half-typed work — but it holds a category now, and the storage
+  // shelf is derived from it by homeShelf().
+  //
+  // '__new' reveals #cmpCat, which used to be the free-text
+  // "Collection" field and is now the only way to make a category
+  // that does not exist yet. A fixed set you cannot add to is a set
+  // that will be wrong within a month.
+  var NEW_CAT = '__new';
+
   function fillShelfSelect(selected) {
-    cmp.shelf.innerHTML = global.Vault.SHELVES.map(function (s) {
-      return '<option value="' + s + '">' + esc(H().SHELF_NAME[s] || s) + '</option>';
-    }).join('');
-    cmp.shelf.value = global.Vault.SHELVES.indexOf(selected) >= 0 ? selected : global.Vault.SHELVES[0];
+    var cats = H().allCats();
+    cmp.shelf.innerHTML = cats.map(function (c) {
+      return '<option value="' + attr(c) + '">' + esc(c) + '</option>';
+    }).join('') + '<option value="' + NEW_CAT + '">＋ New category…</option>';
+    cmp.shelf.value = cats.indexOf(selected) >= 0 ? selected : cats[0];
+    paintNewCat(true);
   }
+
+  // The text field only exists while "New category…" is selected.
+  // Saying display twice: the UA's [hidden] loses to a display of
+  // its own, which this page has been bitten by four times.
+  function paintNewCat(quiet) {
+    var on = cmp.shelf.value === NEW_CAT;
+    var field = cmp.cat.closest('.vt-f') || cmp.cat;
+    field.hidden = !on;
+    field.style.display = on ? '' : 'none';
+    if (on && !quiet) cmp.cat.focus();
+  }
+
+  // The datalist still suggests, for the handful of cases where
+  // Damian is typing a name close to one that already exists.
   function fillCatList() {
-    var own = global.Vault.categories(cmp.shelf.value);
-    var rest = global.Vault.allCategories().filter(function (c) { return own.indexOf(c) < 0; });
-    cmp.catList.innerHTML = own.concat(rest).map(function (c) {
+    cmp.catList.innerHTML = H().allCats().map(function (c) {
       return '<option value="' + attr(c) + '">';
     }).join('');
+  }
+
+  // What the form says the category is, whichever control answered.
+  function composerCategory() {
+    return cmp.shelf.value === NEW_CAT ? cmp.cat.value.trim() : cmp.shelf.value;
   }
 
   function openComposer(opts) {
     opts = opts || {};
     var item = opts.item || null;
-    cmp.editing = item ? { shelf: opts.shelf, id: item.id } : null;
+    // `cat` rides along so saveComposer can tell a category CHANGE
+    // from a save that left it alone, which is what decides whether
+    // the record moves shelf.
+    cmp.editing = item
+      ? { shelf: opts.shelf, id: item.id, cat: H().catName(item.category || '') }
+      : null;
     cmp.touched.clear();
     cmp.dupeWarned = false;
     say('');
 
     cmp.heading.textContent = item ? 'Edit this entry' : 'Add to the archive';
-    var guess = opts.shelf ||
-      (state.route === 'game' ? 'games' : '') ||
-      (state.shelf !== 'all' ? H().readsOf(state.shelf)[0] : '');
-    fillShelfSelect(item ? opts.shelf : guess);
+    // Where you are standing is the guess. readsOf() answers with
+    // categories now, so the first category of the current tab is
+    // the sensible default — and HOME_SHELF turns that into the
+    // storage shelf on save.
+    var guess = opts.category ||
+      (state.group !== 'all' ? H().readsOf(state.group)[0] : '');
     fillCatList();
+    fillShelfSelect(item ? H().catName(item.category || '') : guess);
 
     cmp.url.value = item ? (item.url || '') : (opts.url || '');
     cmp.title.value = item ? (item.title || '') : '';
     cmp.kind.value = (item && item.kind) || 'auto';
-    cmp.cat.value = item ? (item.category || '') : (opts.category || '');
+    // #cmpCat only ever carries a category that does not exist yet;
+    // an existing one is already selected in #cmpShelf above.
+    cmp.cat.value = '';
     cmp.creator.value = item ? (item.creator || '') : '';
     cmp.len.value = item ? (item.lengthText || '') : '';
     cmp.cover.value = item ? (item.cover || '') : '';
@@ -1099,7 +1135,7 @@
       // Object.assign with no field check of its own, so anything
       // this returns is what lands in storage and in Supabase.
       kind: /^(single|collection)$/.test(cmp.kind.value) ? cmp.kind.value : 'auto',
-      category: cmp.cat.value.trim(),
+      category: composerCategory(),
       creator: cmp.creator.value.trim(),
       lengthText: cmp.len.value.trim(),
       cover: cmp.cover.value.trim(),
@@ -1111,12 +1147,27 @@
   }
 
   function saveComposer(keepOpen) {
-    var f = readComposer(), shelf = cmp.shelf.value;
+    var f = readComposer();
     if (!f.title && !f.url) {
       say('Give it a title or a link — everything else is optional.', 'bad');
       cmp.title.focus();
       return false;
     }
+    if (!f.category) {
+      say('Give the new category a name, or pick one from the list.', 'bad');
+      cmp.cat.focus();
+      return false;
+    }
+    // THE SHELF IS DERIVED, and only a category CHANGE moves it.
+    // Leaving the category alone keeps the record exactly where it
+    // is, so a shelf Damian chose by hand survives an edit to the
+    // title. Games never moves: a game record is a different shape
+    // and homeShelf() never answers with that shelf.
+    var shelf;
+    if (!cmp.editing) shelf = H().homeShelf(f.category);
+    else if (cmp.editing.shelf === 'games') shelf = 'games';
+    else if (f.category !== cmp.editing.cat) shelf = H().homeShelf(f.category);
+    else shelf = cmp.editing.shelf;
     if (!f.title) f.title = titleFromSlug(f.url) || f.url;
     // A cover that can be derived is better than no cover, and
     // the mosaic is built out of covers. Derived only — still no
@@ -1158,7 +1209,7 @@
       paintStars(); paintToggles(); paintPreview();
       cmp.heading.textContent = 'Add to the archive';
       cmp.del.hidden = true;
-      fillShelfSelect(keptShelf); cmp.cat.value = keptCat; fillCatList();
+      fillCatList(); fillShelfSelect(keptCat);
       cmp.url.focus();
     } else {
       closeComposer(true);   // saved for real: the draft has done its job
@@ -1196,7 +1247,7 @@
       }, 0);
     });
     cmp.url.addEventListener('change', function () { autofill(cmp.url.value); });
-    cmp.shelf.addEventListener('change', fillCatList);
+    cmp.shelf.addEventListener('change', function () { paintNewCat(); paintPreview(); });
     cmp.stars.addEventListener('click', function (e) {
       var b = e.target.closest('.vt-star');
       if (!b) return;
@@ -1263,6 +1314,7 @@
     // The editor's own listeners, delegated on #vtRoot once — so a
     // repaint never has to re-bind a contenteditable.
     A().bind();
+    C().bind();
 
     applyHash();
     U().introArrive();
@@ -1290,15 +1342,37 @@
           // the DOM under someone who is typing.
           if (!U().safeToRepaint()) return;
           if (cmp.open || !$('hdFind').hidden) return;
+          // Same courtesy for the Capture page: a pull that
+          // re-creates #vtRoot would take a pasted list with it.
+          if (C().busyTyping()) return;
           repaint();
         }
       });
     }
 
-    // Additive: seeds only shelves that are EMPTY, merging by
-    // canonical URL. It never deletes, so anything removed here
-    // stays removed.
-    global.Vault.maybeSeedAfterSyncAttempt(remoteRef, function () { repaint(); });
+    // ONE GATE, TWO JOBS, IN THIS ORDER.
+    //
+    // The category merge runs BEFORE the seeder, and both run
+    // after the pull has had its beat. Migrating ahead of the
+    // pull would rewrite a stale local copy and push it over
+    // good remote data.
+    //
+    // The pass is LOCAL-flagged, so every device runs it once —
+    // see vault-data.js §THE CATEGORY MERGE for why a synced
+    // flag would strand records on the phone.
+    var afterPull = function () {
+      var r = global.Vault.migrateCategoriesV1();
+      if (r && r.moved) {
+        repaint();
+        U().toast('Re-filed ' + r.moved + (r.moved === 1 ? ' entry' : ' entries') +
+          ' into the new categories');
+      }
+      // Additive: seeds only shelves that are EMPTY, merging by
+      // canonical URL. It never deletes, so anything removed here
+      // stays removed.
+      global.Vault.maybeSeedAfterSyncAttempt(remoteRef, function () { repaint(); });
+    };
+    if (remoteRef.applied) afterPull(); else setTimeout(afterPull, 1200);
   }
 
   global.HDApp = {

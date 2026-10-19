@@ -811,6 +811,30 @@ body.asc-locked { overflow: hidden; }
 .hd-tab:hover { color: var(--hd-fg); }
 .hd-tab.is-on { color: var(--hd-acc); }
 .hd-tab.is-on::after, .hd-tab:hover::after { transform: scaleX(1); }
+/* The archive's tabs are links, because a shelf is a place. The
+   Favourites strip is BUTTONS, because filtering that page is not
+   going anywhere — so the class has to carry a button back to
+   looking like text. */
+button.hd-tab {
+  background: none; border: 0; margin: 0; font-family: inherit; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+.hd-tab:focus-visible { outline: 1px solid var(--hd-acc); outline-offset: 3px; }
+
+/* The second level, for Music only. Quieter than the row above it
+   so the two read as parent and child rather than as two
+   competing strips. */
+.hd-tabs--sub {
+  gap: clamp(13px, 1.6vw, 30px);
+  margin-top: calc(clamp(14px, 1.6vw, 22px) * -0.4);
+  padding-left: 1px;
+}
+.hd-tabs--sub .hd-tab {
+  font-size: 10.5px; letter-spacing: .14em; text-transform: none;
+  color: var(--hd-fg-3);
+}
+.hd-tabs--sub .hd-tab:hover { color: var(--hd-fg-2); }
+.hd-tabs--sub .hd-tab.is-on { color: var(--hd-acc); }
 
 /* ═══ §THE UTILITY LINE ════════════════════════════════════
    Everything the old toolbar did, at the weight of a caption. */
@@ -859,6 +883,17 @@ body.asc-locked { overflow: hidden; }
      row      4 x 1      journal tile 4 x 1
    Row 1 is 5+3+4. Row 2 is the two tall spans plus one row card.
    Row 3 is 4+4+4. */
+/* DEAD AS OF 2026-10-18, and verified so: cardGroup() emits one
+   .hd-grid of uniform 16:9 tiles, and
+     git grep 'hd-mosaic\|hd-card--feature\|--tall\|--wide\|--row'
+   over every .js and .html in this repo returns nothing. No
+   document that links this sheet draws any of it.
+
+   Left in place rather than deleted because this block and its two
+   responsive counterparts are ~90 lines across three media
+   queries, and removing them is a tidy-up with its own small risk
+   that has nothing to do with the change that orphaned them. It
+   matches no selector, so it costs nothing at runtime. */
 .hd-mosaic {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -884,6 +919,12 @@ body.asc-locked { overflow: hidden; }
   grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
   gap: clamp(14px, 1.4vw, 24px);
 }
+/* The reference sits four across on a wide screen with a 24px
+   gutter. auto-fill at 214px gives five or six on a large display,
+   which makes the thumbnails too small to read; 260px holds it to
+   four up to about 1500px and five beyond. Scoped, so the other
+   six documents keep the density they were built for. */
+.hd-archive .hd-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
 /* ═══ §THE TWO LISTS ═══════════════════════════════════════
    Starred, then everything else — each with its own mosaic and
@@ -1046,6 +1087,25 @@ body.asc-locked { overflow: hidden; }
 
 /* — the grid shape: the ordinary card, and most of the page — */
 .hd-card--grid .hd-card__art { aspect-ratio: 16 / 10; }
+/* 16:9 for the Entertainment Studio only. The line above is NOT
+   redundant and must not be folded into this one: Larder and
+   Resource Studio draw their own .hd-card--grid off this sheet and
+   have always had the 16:10. Narrowing a shared rule deletes it
+   for everyone who was relying on the wide version — which is how
+   five pages lost their phone grid on 2026-10-15. */
+.hd-archive .hd-card--grid .hd-card__art { aspect-ratio: 16 / 9; }
+
+/* The duration, over the bottom-left of the artwork, as the
+   reference draws it. Only where the record actually carries one —
+   it is a free-text field and most of the library has none. */
+.hd-card__len {
+  position: absolute; left: 7px; bottom: 7px;
+  padding: 2px 6px; border-radius: 3px;
+  background: rgba(8, 6, 5, .82);
+  font-size: 10.5px; letter-spacing: .04em; line-height: 1.5;
+  color: #f0ece4;
+  pointer-events: none;
+}
 .hd-card--grid .hd-card__body { padding: 14px 15px 17px; }
 .hd-card--grid .hd-card__title { font-size: 17.5px; }
 .hd-card--grid .hd-arrow { display: none; }
@@ -1924,6 +1984,137 @@ body.asc-locked { overflow: hidden; }
 .vt-togs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 9px; }
 .vt-togs .asc-btn.is-on { border-color: var(--hd-gold); color: var(--hd-gold-lit); }
 
+/* ═══ §THE CAPTURE PAGE ════════════════════════════════════
+   One field and one button, on a page with no hero: a
+   photograph above them would put the field below the fold on a
+   phone, and this page exists to be used from a phone.
+
+   Every selector here is .vt-cap / .vt-bulk, which is the
+   Entertainment Studio's own namespace. Nothing in this block
+   reaches the other six documents that link this sheet. */
+.vt-cap {
+  /* .hd-main carries margin-top: calc(var(--hd-top) * -1) so a hero
+     starts at y=0 under the floating bar. This page has no hero, so
+     it has to pay that height back itself — at 390px the bar is 68px
+     tall and a plain 42px of padding put the heading UNDERNEATH it.
+     Measured, not guessed: --hd-top is 90px here and 68px on a phone. */
+  padding-top: calc(var(--hd-top) + clamp(28px, 4vw, 56px));
+  padding-bottom: clamp(42px, 7vw, 92px);
+  /* One screen, nothing to scroll: the band ends exactly at the fold
+     and the footer sits just below it, instead of floating in the
+     middle of an empty page. svh, never vh or dvh — vh is iOS's
+     LARGE viewport and dvh re-lays-out on every URL-bar transition. */
+  min-height: 100svh;
+}
+/* .hd-band already pays the --hd-gut side padding, and .vt-cap
+   only overrides the block half of that shorthand, so this is a
+   measure inside the gutter rather than a second one. */
+.vt-cap__in { width: min(760px, 100%); margin-inline: auto; }
+.vt-cap__lede { margin: 14px 0 0; max-width: 56ch; }
+.vt-cap__lede b { color: var(--hd-acc); font-weight: 400; }
+
+.vt-cap__form {
+  display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch;
+  margin-top: clamp(22px, 3vw, 34px);
+}
+/* In a wrapping flex row an item breaks to a new line before it
+   shrinks. nowrap plus min-width:0 makes the field give way
+   instead, which is what keeps the button beside it at every
+   width down to 320px. */
+.vt-cap__in1 { flex: 1 1 auto; min-width: 0; font-size: 16px; }
+.vt-cap__go { flex: 0 0 auto; }
+
+.vt-cap__msg { min-height: 1.4em; margin: 10px 0 0; font-size: 12.5px; color: var(--hd-fg-3); }
+.vt-cap__msg.is-good { color: var(--hd-acc); }
+.vt-cap__msg.is-warn { color: #e0b878; }
+.vt-cap__msg.is-bad { color: #e6b4aa; }
+
+.vt-cap__done { margin-top: clamp(28px, 4vw, 44px); }
+.vt-cap__list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 1px;
+  background: var(--hd-line-2); border-block: 1px solid var(--hd-line-2); }
+.vt-cap__row {
+  display: grid; grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 12px; align-items: center;
+  padding: 10px 2px; background: var(--hd-bg);
+}
+.vt-cap__art { width: 62px; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+.vt-cap__art img { width: 100%; height: 100%; object-fit: cover; }
+.vt-cap__none { display: grid; place-items: center; width: 100%; height: 100%;
+  color: var(--hd-fg-3); opacity: .5; }
+/* min-width:0 on the grid ITEM, not just the text: a grid item's
+   min-width is auto, so a long YouTube title would widen the
+   column rather than ellipsing inside it. */
+.vt-cap__say { min-width: 0; display: grid; gap: 2px; }
+.vt-cap__say b {
+  font-weight: 400; font-size: 14px; color: var(--hd-fg);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vt-cap__say i {
+  font-style: normal; font-size: 11px; color: var(--hd-fg-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vt-cap__sel { max-width: 210px; font-size: 12px; padding-block: 7px; }
+.vt-cap__hint { margin: 10px 0 0; font-size: 11.5px; color: var(--hd-fg-3); }
+
+/* ── Bulk import ── */
+.vt-bulk { margin-top: clamp(32px, 5vw, 52px); border-top: 1px solid var(--hd-line); }
+.vt-bulk__sum {
+  padding: 16px 0 0; cursor: pointer; list-style: none;
+  font-family: var(--hd-display); font-size: 19px; color: var(--hd-fg-2);
+  transition: color var(--hd-fast);
+}
+.vt-bulk__sum::-webkit-details-marker { display: none; }
+.vt-bulk__sum::before { content: '＋ '; color: var(--hd-acc); }
+.vt-bulk[open] .vt-bulk__sum::before { content: '– '; }
+.vt-bulk__sum:hover, .vt-bulk__sum:focus-visible { color: var(--hd-acc); }
+.vt-bulk__body { padding-top: 14px; }
+.vt-bulk__lede { margin: 0 0 12px; font-size: 13px; }
+.vt-bulk__acts { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 12px; }
+.vt-bulk__note { font-size: 12px; color: var(--hd-fg-3); }
+.vt-bulk__note.is-good { color: var(--hd-acc); }
+.vt-bulk__note.is-warn { color: #e0b878; }
+.vt-bulk__note.is-bad { color: #e6b4aa; }
+
+.vt-bulk__list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 1px;
+  background: var(--hd-line-2); border-block: 1px solid var(--hd-line-2);
+  max-height: 46vh; overflow-y: auto; }
+.vt-bulk__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px;
+  align-items: center; padding: 9px 2px; background: var(--hd-bg);
+}
+.vt-bulk__row.is-dupe { opacity: .5; }
+.vt-bulk__t { min-width: 0; display: grid; gap: 2px; font-size: 13.5px; }
+.vt-bulk__t i {
+  font-style: normal; font-size: 11px; color: var(--hd-fg-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vt-bulk__dupe {
+  margin-left: 8px; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--hd-acc); font-weight: 400;
+}
+.vt-bulk__skip { font-size: 11px; color: var(--hd-fg-3); }
+.vt-bulk__sel { max-width: 210px; font-size: 12px; padding-block: 7px; }
+.vt-bulk__warn {
+  margin: 16px 0 0; padding: 11px 14px; font-size: 12px; line-height: 1.6;
+  color: var(--hd-fg-2);
+  background: rgba(199, 154, 82, .07); border-left: 2px solid var(--hd-line);
+}
+.vt-bulk__warn b { color: var(--hd-acc); font-weight: 400; }
+
+@media (max-width: 719px) {
+  /* 16px is the floor: anything smaller and iOS Safari zooms the
+     page in on focus and never zooms back out. */
+  .vt-cap__in1, .vt-cap__sel, .vt-bulk__sel, #capBulkIn { font-size: 16px; }
+  /* A tab is a tap target on a phone, so it gets the height even
+     though its type stays small. */
+  .hd-tabs .hd-tab { padding-block: 10px 12px; }
+  .vt-cap__row { grid-template-columns: 52px minmax(0, 1fr); row-gap: 8px; }
+  .vt-cap__art { width: 52px; }
+  .vt-cap__sel { grid-column: 1 / -1; max-width: none; }
+  .vt-bulk__row { grid-template-columns: minmax(0, 1fr); row-gap: 7px; }
+  .vt-bulk__sel { max-width: none; }
+}
+
 /* ═══ §THE REVEAL ══════════════════════════════════════════
    Cards arrive. The clock lives in asclepion-ui.js, in a closure,
    so a cloud pull that re-creates every element hands the new
@@ -1983,12 +2174,16 @@ html[data-ground="sepia"] .tb-launcher-mark {
    stay where they are; the gutter is empty there in every view. */
 .trsh-wrap, #saveStateRail, #dataRail { z-index: 840 !important; }
 
-/* The Games shelf way in. It borrows .hd-vid--add’s dashed
-   outline from the game page’s own video rail rather than
-   inventing a second "add" vocabulary, and it sits as the first
-   cell of the mosaic — where a game would sit. */
+/* The Gaming way in. It borrows .hd-vid--add’s dashed outline
+   from the game page’s own video rail rather than inventing a
+   second "add" vocabulary, and it sits as the first cell of the
+   grid — where a game would sit.
+
+   NO grid-column span. It had `span 4` for the twelve-column
+   mosaic; in the uniform grid that stretched it across four
+   thumbnails. One cell, one tile, same as everything beside it. */
 .hd-addgame {
-  grid-column: span 4;
+  min-height: 100%;
   display: flex; flex-direction: column; justify-content: center;
   gap: 8px; padding: clamp(16px, 1.5vw, 28px);
   border: 1px dashed var(--hd-line);
@@ -2009,7 +2204,7 @@ html[data-ground="sepia"] .tb-launcher-mark {
   background: var(--hd-bg-3);
 }
 .hd-addgame:hover .hd-addgame__mark { opacity: 1; }
-.hd-empty + .hd-mosaic { margin-top: 4px; }
+.hd-empty + .hd-grid { margin-top: 4px; }
 
 /* ═══ §RESPONSIVE ══════════════════════════════════════════ */
 @media (max-width: 1279px) {

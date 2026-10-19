@@ -37,41 +37,133 @@
   var esc = function (s) { return U().esc(s); };
   var attr = function (s) { return U().attr(s); };
 
-  // ── §SHELVES ───────────────────────────────────────────────
-  // A TAB is not the same thing as a shelf. `reads` is the list of
-  // real storage shelves a name shows, and it is usually one — but
-  // Horror shows creepypasta + trueHorror and Spicy shows spicy +
-  // immersive, because each pair is one subject and was never
-  // worth two names.
+  // ── §GROUPS ────────────────────────────────────────────────
+  // ONE TAXONOMY. Until 2026-10-18 this page had two: ten storage
+  // shelves grouped into six tabs, and nineteen free-text
+  // categories, describing the same four hundred records along
+  // different axes. "True Crime" was a category on the podcasts
+  // shelf; "Compilations" was a category on the trueHorror shelf.
+  // Browsing meant knowing which axis a thing had been filed on.
   //
-  // `hidden` takes a shelf out of the INTERFACE and nothing else.
-  // Its storage key still exists, still holds what it held, and
-  // the composer can still file to it by name. Reading and Anime
-  // are hidden because Damian asked for them later; putting them
-  // back is deleting two words.
+  // Now the CATEGORY is the taxonomy and the shelf is plumbing.
+  // `reads` is the list of categories a tab shows — usually one,
+  // but Music shows all five of the music categories, because
+  // Damian asked for one Music tab and five would be a wall.
   //
-  // `noun` is what the home hero calls this shelf when it is the
+  // Nothing is `hidden` any more. A tab is derived from what the
+  // data actually holds, so a record cannot sit in the store with
+  // no way to reach it, which is what happened to the reading and
+  // anime shelves under the old table.
+  //
+  // `noun` is what a hero calls this group when it is the
   // featured thing — "FEATURED FILM" in the reference.
-  var SHELVES = [
-    { key: 'watch', label: 'Watching', noun: 'Featured film', sigil: 'sg-play',
-      tint: '#e0a765', verb: 'Watch', reads: ['watch'] },
+  var GROUPS = [
+    { key: 'stories', label: 'Stories', noun: 'Featured tale', sigil: 'sg-eye',
+      tint: '#a9764c', verb: 'Watch', reads: ['Stories'] },
     { key: 'podcasts', label: 'Podcasts', noun: 'Featured series', sigil: 'sg-wave',
-      tint: '#c3c6c6', verb: 'Listen', reads: ['podcasts'] },
-    { key: 'horror', label: 'Horror', noun: 'Featured tale', sigil: 'sg-eye',
-      tint: '#a9764c', verb: 'Watch', reads: ['creepypasta', 'trueHorror'] },
-    { key: 'spicy', label: 'Spicy', noun: 'Featured', sigil: 'sg-flame',
-      tint: '#b8796a', verb: 'Listen', reads: ['spicy', 'immersive'] },
-    { key: 'playlists', label: 'Music', noun: 'Featured record', sigil: 'sg-moon',
-      tint: '#c99a63', verb: 'Play', reads: ['playlists'] },
-    { key: 'games', label: 'Games', noun: 'Current obsession', sigil: 'sg-pad',
-      tint: '#8fa39b', verb: 'Play', reads: ['games'] },
-    { key: 'reading', label: 'Reading', noun: 'Featured book', sigil: 'sg-book',
-      tint: '#d6d2cb', verb: 'Read', reads: ['reading'], hidden: true },
-    { key: 'anime', label: 'Anime', noun: 'Featured series', sigil: 'sg-spark',
-      tint: '#a98b9a', verb: 'Watch', reads: ['anime'], hidden: true }
+      tint: '#c3c6c6', verb: 'Listen', reads: ['Podcasts'] },
+    { key: 'asmr', label: 'ASMR & Immersive', noun: 'Featured', sigil: 'sg-flame',
+      tint: '#b8796a', verb: 'Listen', reads: ['ASMR & Immersive Experience'] },
+    { key: 'music', label: 'Music', noun: 'Featured record', sigil: 'sg-moon',
+      tint: '#c99a63', verb: 'Play',
+      reads: ['Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance',
+              'EDM / Electronic', 'Fantasy'] },
+    { key: 'gaming', label: 'Gaming', noun: 'Current obsession', sigil: 'sg-pad',
+      tint: '#8fa39b', verb: 'Play', reads: ['Gaming'] },
+    { key: 'scary', label: 'Scary Videos', noun: 'Featured', sigil: 'sg-orn',
+      tint: '#b0705f', verb: 'Watch', reads: ['Scary Videos'] },
+    { key: 'vlogs', label: 'Vlog-Like', noun: 'Featured', sigil: 'sg-play',
+      tint: '#e0a765', verb: 'Watch', reads: ['Vlog-Like'] },
+    { key: 'episodes', label: 'Favorite Videos & Episodes', noun: 'Featured',
+      sigil: 'sg-spark', tint: '#d6d2cb', verb: 'Watch',
+      reads: ['Favorite Videos & Episodes'] }
   ];
 
-  var LIVE = function () { return SHELVES.filter(function (s) { return !s.hidden; }); };
+  // Which group owns a category. Built once, because it is asked
+  // on every one of four hundred cards.
+  var GROUP_OF_CAT = {};
+  GROUPS.forEach(function (g) {
+    g.reads.forEach(function (c) { GROUP_OF_CAT[c] = g.key; });
+  });
+
+  // Every category actually present that no group claims. Nothing
+  // declares these; they are whatever turns up in the data — a
+  // category typed by hand, or a record on a shelf that used to be
+  // hidden. They get their own tab rather than being folded into
+  // someone else's, because a record no tab can reach is the only
+  // way this page could lose something.
+  function strayCats() {
+    var seen = {};
+    global.Vault.SHELVES.forEach(function (sh) {
+      global.Vault.list(sh).forEach(function (v) {
+        var c = catName(v.category || 'Uncategorised');
+        if (!GROUP_OF_CAT[c]) seen[c] = 1;
+      });
+    });
+    return Object.keys(seen).sort();
+  }
+
+  // The tab strip: the eight declared groups, plus Unfiled only
+  // when there is something in it.
+  var UNFILED = { key: 'unfiled', label: 'Unfiled', noun: 'Featured', sigil: 'sg-all',
+    tint: '#a8a29b', verb: 'Open', reads: [], stray: true };
+
+  var LIVE = function () {
+    var stray = strayCats();
+    if (!stray.length) return GROUPS;
+    return GROUPS.concat([Object.assign({}, UNFILED, { reads: stray })]);
+  };
+
+  // WHICH STORAGE SHELF A NEW RECORD GOES ON.
+  //
+  // The category is the taxonomy; the shelf is still the localStorage
+  // key, so something has to choose one. Existing records keep
+  // whatever shelf they are already on — this only answers for new
+  // ones, from the composer and from the Capture page.
+  //
+  // Games is deliberately absent: a game is not a link and never
+  // arrives through either of those paths.
+  var HOME_SHELF = {
+    'Stories': 'creepypasta',
+    'Podcasts': 'podcasts',
+    'ASMR & Immersive Experience': 'immersive',
+    'Chill': 'playlists',
+    'Binaural Beats': 'playlists',
+    'Dark / Gothic / Horror / Romance': 'playlists',
+    'EDM / Electronic': 'playlists',
+    'Fantasy': 'playlists',
+    'Gaming': 'watch',
+    'Scary Videos': 'watch',
+    'Vlog-Like': 'watch',
+    'Favorite Videos & Episodes': 'watch'
+  };
+  var homeShelf = function (c) { return HOME_SHELF[catName(c)] || 'watch'; };
+
+  // Every category the composer and the Capture page offer: the
+  // twelve declared, plus anything already in the data that is not
+  // one of them, so an existing name is never silently unofferable.
+  function allCats() {
+    var seen = {}, out = CAT_ORDER.slice();
+    CAT_ORDER.forEach(function (c) { seen[c] = 1; });
+    strayCats().forEach(function (c) { if (!seen[c]) { seen[c] = 1; out.push(c); } });
+    return out;
+  }
+
+  // Counts are per CATEGORY now, not per storage shelf: a group is
+  // a set of categories and the two no longer line up.
+  function catCounts() {
+    var n = {};
+    global.Vault.SHELVES.forEach(function (sh) {
+      global.Vault.list(sh).forEach(function (v) {
+        var c = catName(v.category || 'Uncategorised');
+        n[c] = (n[c] || 0) + 1;
+      });
+    });
+    return n;
+  }
+  function countOfGroup(g, n) {
+    return g.reads.reduce(function (a, c) { return a + (n[c] || 0); }, 0);
+  }
 
   // Every hash this page has ever answered to. The three on the
   // left are storage shelves that stopped being tabs when Horror
@@ -82,10 +174,32 @@
   // as of this build, and parseHash answers both spellings of it
   // before tabKey is ever consulted.
   var TAB_ALIAS = {
-    creepypasta: 'horror', trueHorror: 'horror', immersive: 'spicy',
-    home: 'all', discover: 'all', stats: 'all',
-    reading: 'all', anime: 'all'
+    // The tabs the shelf era had.
+    horror: 'stories', spicy: 'asmr', playlists: 'music', games: 'gaming',
+    // Storage shelves, which were briefly hashes of their own.
+    creepypasta: 'stories', trueHorror: 'stories', immersive: 'asmr',
+    // 'watch' held four categories that are now four separate tabs,
+    // so it has no single successor and answers with the whole archive.
+    watch: 'all', reading: 'all', anime: 'all',
+    // View routes two rebuilds have removed.
+    home: 'all', discover: 'all', stats: 'all'
   };
+
+  // Bookmarks to a collection that was merged away on 2026-10-18.
+  // poolFor matches the category string exactly, so without this an
+  // old link lands on a real page showing nothing at all. It also
+  // covers a record the migration has not reached yet — a second
+  // device still on the old names reads correctly here.
+  var CAT_ALIAS = {
+    'Creepypasta': 'Stories', 'Compilations': 'Stories', 'True Crime': 'Stories',
+    'Learning': 'Podcasts', 'Photography / Videography': 'Podcasts',
+    'Business': 'Podcasts', 'Writing': 'Podcasts',
+    'ASMR': 'ASMR & Immersive Experience',
+    'Immersive Experience': 'ASMR & Immersive Experience',
+    'Favorite Videos': 'Favorite Videos & Episodes',
+    'Other': 'Favorite Videos & Episodes'
+  };
+  var catName = function (c) { return CAT_ALIAS[c] || c; };
 
   var SHELF_NAME = {
     podcasts: 'Podcasts', creepypasta: 'Creepypasta', trueHorror: 'True stories',
@@ -97,26 +211,24 @@
   // chose rather than alphabetically. Anything not named here
   // ranks last and sorts alphabetically among its own kind.
   var CAT_ORDER = [
-    'Learning', 'Photography / Videography', 'True Crime', 'Business', 'Writing',
-    'Creepypasta', 'Compilations',
-    'Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance', 'EDM / Electronic', 'Fantasy',
-    'Gaming', 'Scary Videos', 'Vlog-Like', 'Favorite Videos', 'Other',
-    'Immersive Experience', 'ASMR'
+    'Stories', 'Podcasts', 'ASMR & Immersive Experience',
+    'Chill', 'Binaural Beats', 'Dark / Gothic / Horror / Romance',
+    'EDM / Electronic', 'Fantasy',
+    'Gaming', 'Scary Videos', 'Vlog-Like', 'Favorite Videos & Episodes'
   ];
   function catRank(k) { var i = CAT_ORDER.indexOf(k); return i < 0 ? 99 : i; }
 
   var tabKey = function (k) { return TAB_ALIAS[k] || k; };
+  // Still called shelfOf at every call site: it answers the same
+  // question ("which tab does this card belong to") and renaming it
+  // across four files would be churn, not clarity.
   var shelfOf = function (k) {
-    return SHELVES.filter(function (s) { return s.key === tabKey(k); })[0] || SHELVES[0];
+    var want = tabKey(k);
+    return LIVE().filter(function (g) { return g.key === want; })[0] || GROUPS[0];
   };
   var readsOf = function (t) { return (typeof t === 'string' ? shelfOf(t) : t).reads || []; };
-
-  // Which tab owns a storage shelf. Built once, because it is
-  // asked on every one of four hundred cards.
-  var TAB_OF_SHELF = {};
-  SHELVES.forEach(function (t) {
-    t.reads.forEach(function (sh) { TAB_OF_SHELF[sh] = t.key; });
-  });
+  // Which group a record belongs to, from its category alone.
+  var groupKeyOfCat = function (c) { return GROUP_OF_CAT[catName(c)] || 'unfiled'; };
 
   function sig(id, sz) {
     return '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 16 16" fill="none" ' +
@@ -134,7 +246,7 @@
       cover: v.cover || '', len: v.lengthText || '',
       rating: Number(v.rating) || 0,
       fav: v.favorite === true, queued: v.queued === true,
-      cat: v.category || 'Uncategorised', desc: v.description || '',
+      cat: catName(v.category || 'Uncategorised'), desc: v.description || '',
       opened: v.lastOpenedAt || 0, opens: v.openCount || 0, made: v.createdAt || 0,
       hero: v.hero || '',
       // 'auto' — and ABSENT, which is all four hundred and eight
@@ -151,9 +263,13 @@
   // matches what is on screen.
   function allCards() {
     var out = [];
-    LIVE().forEach(function (t) {
-      t.reads.forEach(function (sh) {
-        global.Vault.list(sh).forEach(function (v) { out.push(toCard(v, sh, t.key)); });
+    // EVERY storage shelf, including the two that used to be hidden.
+    // A shelf is plumbing now — the CATEGORY decides which tab a
+    // record shows under — so nothing can sit in the store
+    // unreachable the way reading and anime did.
+    global.Vault.SHELVES.forEach(function (sh) {
+      global.Vault.list(sh).forEach(function (v) {
+        out.push(toCard(v, sh, groupKeyOfCat(v.category)));
       });
     });
     return out;
@@ -218,10 +334,12 @@
     // single things, and a game is a world. `shelf` is the storage
     // key and `tab` the merged name; both are asked, so this
     // answers for a card built either way.
+    // The storage shelf still settles games — a game is a world, and
+    // 'games' is a shelf rather than a category. Music and Podcasts
+    // are settled by the GROUP now, because that is where those
+    // records live since the categories replaced the shelves.
     var sh = d.shelf || '', tab = d.tab || '';
-    if (/^(playlists|podcasts|games)$/.test(sh) || /^(playlists|podcasts|games)$/.test(tab)) {
-      return 'collection';
-    }
+    if (sh === 'games' || /^(music|podcasts)$/.test(tab)) return 'collection';
 
     var u = String(d.url || '');
     if (!u) return 'single';
@@ -382,12 +500,11 @@
   // library that does not require scrolling past the picture
   // first.
   function heroChips() {
-    var counts = global.Vault.counts();
-    return '<nav class="hd-chips" aria-label="Shelves">' +
+    var counts = catCounts();
+    return '<nav class="hd-chips" aria-label="Categories">' +
       LIVE().map(function (t) {
-        var n = t.reads.reduce(function (a, sh) { return a + (counts[sh] || 0); }, 0);
         return '<a class="hd-chip2" href="#/archive/' + t.key + '">' +
-          sig(t.sigil, 11) + esc(t.label) + '<i>' + n + '</i></a>';
+          sig(t.sigil, 11) + esc(t.label) + '<i>' + countOfGroup(t, counts) + '</i></a>';
       }).join('') +
     '</nav>';
   }
@@ -417,11 +534,18 @@
   // page that stutters.
   function card(d, i, shape) {
     var t = shelfOf(d.tab);
-    var big = shape === 'feature' || shape === 'tall' || shape === 'wide';
-    var art = (big ? artImg(d, 'hd-card__img', false) : '') ||
-      (!big && d.cover
-        ? '<img class="hd-card__img" src="' + attr(d.cover) + '" alt="" loading="lazy" decoding="async">'
-        : '');
+    // THE COVER, NOT THE BIG ART. This asked for maxresdefault for
+    // one build and it was wrong twice over. A uniform tile is
+    // ~290px wide, so the 480x360 hqdefault every record already
+    // carries is not being upscaled at all — maxres was only ever
+    // needed by the old five-column feature tile. And when a video
+    // has no maxres, YouTube does not always 404: it sometimes
+    // serves a grey "no thumbnail" placeholder with a 200, which
+    // the error-handler fallback cannot see, so the card showed a
+    // grey rectangle in place of artwork it already had.
+    var art = d.cover
+      ? '<img class="hd-card__img" src="' + attr(d.cover) + '" alt="" loading="lazy" decoding="async">'
+      : '';
     if (!art) {
       art = '<span class="hd-card__none" style="color:' + t.tint + '">' + sig(t.sigil, 42) + '</span>';
     }
@@ -437,7 +561,9 @@
         U().rvlStyle(Math.min(i, 11)) + '>' +
       '<button type="button" class="hd-card__hit" data-act="open" data-shelf="' + attr(d.shelf) +
         '" data-id="' + attr(d.id) + '" data-url="' + attr(d.url) + '">' +
-        '<span class="hd-card__art">' + art + '</span>' +
+        '<span class="hd-card__art">' + art +
+          (d.len ? '<span class="hd-card__len">' + esc(d.len) + '</span>' : '') +
+        '</span>' +
         '<span class="hd-card__body">' +
           '<span class="hd-card__title">' + esc(d.title) + '</span>' +
           '<span class="hd-card__meta">' + esc(meta) + '</span>' +
@@ -479,6 +605,9 @@
   // cover (a mosaic slot filled by a sigil is a hole), then
   // recently opened. Deterministic, so the Archive does not
   // reshuffle itself under you between two repaints.
+  // Still used, but only by the Collections index, to pick the two
+  // covers that stand for a category. It stopped choosing tile
+  // SIZES when the mosaic was retired.
   function byProminence(list) {
     return list.slice().sort(function (a, b) {
       return (b.rating - a.rating) ||
@@ -536,9 +665,9 @@
   // wayTile() survives with it. Only viewHome() is gone.
 
   function credoBand() {
-    var counts = global.Vault.counts();
+    var counts = catCounts();
     var house = HOUSE();
-    var ways = ['watch', 'podcasts', 'playlists', 'games'].map(shelfOf);
+    var ways = ['stories', 'podcasts', 'music', 'gaming'].map(shelfOf);
 
     return '<section class="hd-band hd-night hd-credo">' +
         '<div class="hd-credo__say">' +
@@ -592,53 +721,39 @@
   }
 
   // ── §A GROUP OF CARDS ──────────────────────────────────────
-  // One list: the mosaic of prominent tiles, then the plain grid
-  // continuation. This was viewArchive's whole tail until the
-  // split; it is lifted out so the archive can show TWO of them —
-  // starred above, the rest below — without a second card
-  // component, a second mosaic or a second sort.
+  // One list, one grid, one card. This was viewArchive's whole
+  // tail until the starred split; it is lifted out so the archive
+  // can show TWO of them — starred above, the rest below —
+  // without a second card component or a second sort.
   //
-  // THE MOSAIC IS FOR SEVEN. feature(5x2) + tall(3x2) + wide(4) +
-  // four row(4) is the one combination that tiles twelve columns
-  // with no hole in it, and the split makes short lists the
-  // common case rather than the edge: one starred item drawn as a
-  // `feature` is a five-column tile with a seven-column hole
-  // beside it. Under seven, a group is the grid alone — which
-  // also quietly fixes every four-item collection, which has had
-  // that hole since the rebuild.
+  // 2026-10-18: THE MOSAIC IS GONE. It cut the first seven items
+  // into feature/tall/wide/row tiles with the titles laid over the
+  // artwork, and it had two problems that were really one. The
+  // small one: it only tiled cleanly at exactly seven or more, so
+  // every short list had a hole in it. The real one: Damian's
+  // reference is a uniform grid of 16:9 thumbnails with the title
+  // underneath, which is how every video library he actually uses
+  // draws one, and a page that varies tile size is a page making a
+  // claim about importance that it has no way to know.
+  //
+  // What that deletes: MOSAIC, the four extra shapes, and
+  // byProminence's role here. The reader's sort is now the only
+  // thing deciding order, which is also the first time the Sort
+  // control has been the only answer.
   function cardGroup(items, o) {
     o = o || {};
-    // PROMINENCE PICKS THE BIG TILES; THE READER ORDERS THE REST.
-    //
-    // This used to be `rest = ranked.slice(7)`, and that one word
-    // was a bug with no symptom: byProminence's comparator is
-    // TOTAL — it ends in a title compare — so re-ranking the pool
-    // discarded the order poolFor had just sorted it into, for
-    // the grid tail as well as for the mosaic. The Sort control
-    // in the utility line has therefore had no visible effect on
-    // the archive since the rebuild.
-    //
-    // The seven come out by identity rather than by index, so the
-    // tail keeps the order it was given.
-    var ranked = byProminence(items);
-    var big = items.length >= MOSAIC.length;
-    var mos = big ? ranked.slice(0, MOSAIC.length) : [];
-    var taken = {};
-    mos.forEach(function (d) { taken[d.shelf + '|' + d.id] = 1; });
-    var rest = big
-      ? items.filter(function (d) { return !taken[d.shelf + '|' + d.id]; })
-      : items.slice();
-
+    // ONE SHAPE. The mosaic cut the first seven items into four
+    // different tiles with their titles laid over the artwork; the
+    // reference Damian asked for is a uniform grid of 16:9
+    // thumbnails with the title underneath, the way every video
+    // library he actually uses draws one. So prominence no longer
+    // decides anything about size, the reader's sort is the only
+    // order, and the add-a-game tile just takes the first cell.
     return '<section class="hd-group' + (o.cls ? ' ' + o.cls : '') + '">' +
       (o.label ? groupHead(o.label, items.length) : '') +
-      (mos.length || o.lead
-        ? '<div class="hd-mosaic">' + (o.lead || '') +
-            mos.map(function (d, i) { return card(d, i, MOSAIC[i]); }).join('') +
-          '</div>'
-        : '') +
-      (rest.length
-        ? '<div class="hd-grid">' +
-            rest.map(function (d, i) { return card(d, i, 'grid'); }).join('') +
+      (items.length || o.lead
+        ? '<div class="hd-grid">' + (o.lead || '') +
+            items.map(function (d, i) { return card(d, i, 'grid'); }).join('') +
           '</div>'
         : '') +
     '</section>';
@@ -664,7 +779,7 @@
     // A GAME IS NOT A LINK, so the Games shelf keeps its own way
     // in — and it sits in the list a new game would join, which
     // is the unstarred one unless there is nothing else there.
-    var lead = state.shelf === 'games' ? addGameTile() : '';
+    var lead = state.group === 'gaming' ? addGameTile() : '';
 
     return (star.length
         // "Starred" earns its head even alone: it is a true
@@ -704,20 +819,78 @@
     return allCards().filter(function (d) { return d.fav; }).length;
   }
 
+  // THE CHIPS ARE THE TABS. Damian asked for two things here — a
+  // tab strip by media type, and the favourites of each category
+  // on top for quick access — and drawn as two controls they would
+  // filter the same list from two different rows. So it is one
+  // strip, carrying the counts, sitting above everything else.
+  //
+  // A group with nothing starred in it is left out: a chip reading
+  // 0 is not quick access, it is furniture. The one being filtered
+  // by stays even when it empties, or the control the reader just
+  // used would vanish under them.
+  function favChips(state) {
+    var on = state.favGroup || 'all';
+    var starred = allCards().filter(function (d) { return d.fav; });
+    var n = {};
+    starred.forEach(function (d) { n[d.cat] = (n[d.cat] || 0) + 1; });
+
+    var chip = function (key, label, count) {
+      return '<button type="button" class="hd-tab' + (on === key ? ' is-on' : '') + '"' +
+        ' data-act="favgroup" data-group="' + attr(key) + '"' +
+        (on === key ? ' aria-current="true"' : '') + '>' +
+        esc(label) + '<i>' + count + '</i></button>';
+    };
+
+    var groups = LIVE().filter(function (g) {
+      return countOfGroup(g, n) > 0 || on === g.key;
+    });
+
+    // The second level, for Music only, and only while Music is
+    // what is being looked at.
+    var music = shelfOf('music');
+    var inMusic = on === 'music' ||
+      (on.indexOf('cat:') === 0 && music.reads.indexOf(catName(on.slice(4))) >= 0);
+    var sub = '';
+    if (inMusic) {
+      var kinds = music.reads.filter(function (c) {
+        return (n[c] || 0) > 0 || on === 'cat:' + c;
+      });
+      if (kinds.length > 1) {
+        sub = '<nav class="hd-tabs hd-tabs--sub" aria-label="Kinds of music">' +
+          chip('music', 'All music', countOfGroup(music, n)) +
+          kinds.map(function (c) { return chip('cat:' + c, c, n[c] || 0); }).join('') +
+        '</nav>';
+      }
+    }
+
+    return '<nav class="hd-tabs" aria-label="Favourites by category">' +
+      chip('all', 'All Favourites', starred.length) +
+      groups.map(function (g) { return chip(g.key, g.label, countOfGroup(g, n)); }).join('') +
+    '</nav>' + sub;
+  }
+
   function favLists(state) {
     // favOnly is what poolFor does for this page. It is the
     // reason that filter still exists after the utility line's
     // "Starred" toggle became a link — see poolFor().
     var items = poolFor({
-      shelf: 'all', collection: '', favOnly: true,
+      group: state.favGroup || 'all', collection: '', favOnly: true,
       q: state.q, sort: state.sort
     });
     if (!items.length) {
-      return state.q
-        ? '<p class="hd-empty"><strong>Nothing starred matches.</strong>' +
-          'Clear the search to see everything you have starred.</p>'
-        : '<p class="hd-empty"><strong>Nothing starred yet.</strong>' +
-          'The ☆ on any card puts it here, and keeps it at the top of its own shelf.</p>';
+      if (state.q) {
+        return '<p class="hd-empty"><strong>Nothing starred matches.</strong>' +
+          'Clear the search to see everything you have starred.</p>';
+      }
+      // Three different reasons for an empty page, and advice you
+      // cannot take from the page you are on is a dead end.
+      if ((state.favGroup || 'all') !== 'all') {
+        return '<p class="hd-empty"><strong>Nothing starred here yet.</strong>' +
+          'Pick All Favourites above to see the rest.</p>';
+      }
+      return '<p class="hd-empty"><strong>Nothing starred yet.</strong>' +
+        'The ☆ on any card puts it here, and keeps it at the top of its own list.</p>';
     }
     var one = [], many = [];
     items.forEach(function (d) {
@@ -751,6 +924,7 @@
       // hd-archive is REQUIRED: it is what scopes the phone's
       // one-card-per-row rules. See §ONE BIG CARD PER ROW.
       '<section class="hd-band hd-night hd-archive">' +
+        favChips(state) +
         utility(state, n) +
         '<div class="hd-lists" id="hdLists">' + favLists(state) + '</div>' +
       '</section>';
@@ -775,29 +949,30 @@
           // A shelf is a destination, so it says its own name.
           // "The Archive" over a page of nothing but games is a
           // heading that describes the building rather than the room.
-          state.shelf === 'all'
+          state.group === 'all'
             ? { eyebrow: 'A private entertainment collection', title: 'The Archive',
                 caption: 'What we preserve shapes what remains.' }
-            : { eyebrow: 'In the archive', title: shelfOf(state.shelf).label,
-                caption: SHELF_CAPTION[state.shelf] || 'What we preserve shapes what remains.' }
+            : { eyebrow: 'In the archive', title: shelfOf(state.group).label,
+                caption: SHELF_CAPTION[state.group] || 'What we preserve shapes what remains.' }
         );
     // Tabs are links, not chips: a tab is a place, and the
     // reference draws it as text with a rule under it.
-    var counts = global.Vault.counts();
-    var countOf = function (t) {
-      return t.reads.reduce(function (a, sh) { return a + (counts[sh] || 0); }, 0);
-    };
-    var total = LIVE().reduce(function (a, t) { return a + countOf(t); }, 0);
+    var counts = catCounts();
+    var live = LIVE();
+    var countOf = function (t) { return countOfGroup(t, counts); };
+    // Counting the GROUPS rather than the records, so a stray
+    // category is in the All total exactly once.
+    var total = live.reduce(function (a, t) { return a + countOf(t); }, 0);
     var tab = function (key, label, n) {
-      return '<a class="hd-tab' + (state.shelf === key ? ' is-on' : '') + '" href="#/archive' +
-        (key === 'all' ? '' : '/' + key) + '"' + (state.shelf === key ? ' aria-current="page"' : '') +
+      return '<a class="hd-tab' + (state.group === key ? ' is-on' : '') + '" href="#/archive' +
+        (key === 'all' ? '' : '/' + key) + '"' + (state.group === key ? ' aria-current="page"' : '') +
         '>' + esc(label) + '<i>' + n + '</i></a>';
     };
 
     var tabs = state.collection ? '' :
-      '<nav class="hd-tabs" aria-label="Shelves">' +
+      '<nav class="hd-tabs" aria-label="Categories">' +
         tab('all', 'All', total) +
-        LIVE().map(function (t) { return tab(t.key, t.label, countOf(t)); }).join('') +
+        live.map(function (t) { return tab(t.key, t.label, countOf(t)); }).join('') +
       '</nav>';
 
     return hero +
@@ -821,22 +996,19 @@
     '</button>';
   }
 
-  // The mosaic's shapes, in the order image 2 draws them. The
-  // spans themselves live in the stylesheet, keyed off these
-  // classes, so re-cutting the grid is a CSS change and not a
-  // rewrite of this file.
-  // One line per shelf, so a filtered archive reads as a room
+  // One line per category, so a filtered archive reads as a room
   // rather than as the same page with fewer things on it.
   var SHELF_CAPTION = {
-    watch: 'Everything worth sitting down for.',
+    stories: 'The ones that are better after dark.',
     podcasts: 'Voices to keep the room company.',
-    horror: 'The stories that are better after dark.',
-    spicy: 'Kept quietly, and on purpose.',
-    playlists: 'Rooms made of sound.',
-    games: 'Worlds with a door you can close behind you.'
+    asmr: 'Kept quietly, and on purpose.',
+    music: 'Rooms made of sound.',
+    gaming: 'Worlds with a door you can close behind you.',
+    scary: 'Watched once, remembered longer.',
+    vlogs: 'Somebody else\'s ordinary day.',
+    episodes: 'The ones worth going back to.',
+    unfiled: 'Filed under a name no tab claims yet.'
   };
-
-  var MOSAIC = ['feature', 'tall', 'wide', 'row', 'row', 'row', 'row'];
 
   function emptyArchive(state) {
     if (state.q) {
@@ -846,11 +1018,11 @@
     // An empty state that gives advice you cannot take from the
     // page you are on is not an empty state, it is a dead end. On
     // Games the advice IS the button.
-    if (state.shelf === 'games') {
+    if (state.group === 'gaming') {
       return '<p class="hd-empty"><strong>No games yet.</strong>' +
         'A game is not a link — it gets a page of its own, with videos, guides and ' +
         'a journal. Start one.</p>' +
-        '<div class="hd-mosaic">' + addGameTile() + '</div>';
+        '<div class="hd-grid">' + addGameTile() + '</div>';
     }
     return '<p class="hd-empty"><strong>This shelf is empty.</strong>' +
       'Paste a link, or fill the form in by hand — a title is enough to start with.</p>';
@@ -1059,7 +1231,7 @@
     var pin = store('vault:featured', null);
     if (pin && pin.shelf && pin.id) {
       var r = recordOf(pin.shelf, pin.id);
-      if (r) return toCard(r, pin.shelf, TAB_OF_SHELF[pin.shelf] || SHELVES[0].key);
+      if (r) return toCard(r, pin.shelf, groupKeyOfCat(r.category));
     }
     var withArt = allCards().filter(function (d) { return d.cover; });
     return byProminence(withArt)[0] || null;
@@ -1069,16 +1241,28 @@
   // §THE POOL
   // =============================================================
   function poolFor(state) {
-    var out = [];
+    // ONE pool, filtered — not a pool assembled per tab. A group is
+    // a set of CATEGORIES now, and a single category can hold records
+    // sitting on several different storage shelves, so walking a tab's
+    // shelves would both miss records and show them twice.
+    var out = allCards();
     if (state.collection) {
-      out = allCards().filter(function (d) { return d.cat === state.collection; });
-    } else {
-      var tabs = state.shelf === 'all' ? LIVE() : [shelfOf(state.shelf)];
-      tabs.forEach(function (t) {
-        t.reads.forEach(function (sh) {
-          global.Vault.list(sh).forEach(function (v) { out.push(toCard(v, sh, t.key)); });
-        });
-      });
+      var want = catName(state.collection);
+      out = out.filter(function (d) { return d.cat === want; });
+    } else if (state.group && state.group !== 'all') {
+      // 'cat:<name>' narrows to ONE category rather than a whole
+      // group. Only Music needs it — its five categories are a
+      // genuine second level, and the other seven groups are one
+      // category each, so a sub-row there would be the same list
+      // twice.
+      if (state.group.indexOf('cat:') === 0) {
+        var one = catName(state.group.slice(4));
+        out = out.filter(function (d) { return d.cat === one; });
+      } else {
+        var set = {};
+        shelfOf(state.group).reads.forEach(function (c) { set[c] = 1; });
+        out = out.filter(function (d) { return set[d.cat]; });
+      }
     }
     // NOT DEAD CODE. Nothing in the interface sets favOnly since
     // the utility line's "Starred" toggle became a link to the
@@ -1106,9 +1290,13 @@
   }
 
   global.HD = {
-    SHELVES: SHELVES, LIVE: LIVE, TAB_ALIAS: TAB_ALIAS, SHELF_NAME: SHELF_NAME,
-    CAT_ORDER: CAT_ORDER, catRank: catRank, MOSAIC: MOSAIC,
-    tabKey: tabKey, shelfOf: shelfOf, readsOf: readsOf, TAB_OF_SHELF: TAB_OF_SHELF,
+    GROUPS: GROUPS, LIVE: LIVE, TAB_ALIAS: TAB_ALIAS, SHELF_NAME: SHELF_NAME,
+    CAT_ALIAS: CAT_ALIAS, catName: catName, GROUP_OF_CAT: GROUP_OF_CAT,
+    HOME_SHELF: HOME_SHELF, homeShelf: homeShelf, allCats: allCats,
+    groupKeyOfCat: groupKeyOfCat, catCounts: catCounts, countOfGroup: countOfGroup,
+    strayCats: strayCats,
+    CAT_ORDER: CAT_ORDER, catRank: catRank,
+    tabKey: tabKey, shelfOf: shelfOf, readsOf: readsOf,
     toCard: toCard, allCards: allCards, recordOf: recordOf, poolFor: poolFor,
     byProminence: byProminence, sortItems: sortItems,
     sig: sig, orn: orn, eyebrow: eyebrow, arrow: arrow, card: card,
@@ -1118,7 +1306,7 @@
     classifyKind: classifyKind,
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
-    favLists: favLists, favCount: favCount,
+    favLists: favLists, favCount: favCount, favChips: favChips,
     credoBand: credoBand, viewArchive: viewArchive, viewCollections: viewCollections,
     viewFavourites: viewFavourites, viewAbout: viewAbout
   };

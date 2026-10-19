@@ -244,12 +244,16 @@
           // document — a hash route repaints, it does not load a page —
           // so the list below is navigation rather than eight page loads.
           //
-          // The shelves are still filters over one archive: Creepypasta +
-          // True Stories read as one Horror shelf, and Spicy + Immersive
-          // as one. NOTHING IS MERGED IN STORAGE — all ten vault:media:*
-          // keys exist and hold what they held. Reading and Anime are
-          // hidden from the interface only, and the composer can still
-          // file to all ten shelves by name.
+          // 2026-10-18: THE TABS ARE CATEGORIES NOW, not shelves. The
+          // page used to carry two taxonomies — ten storage shelves
+          // grouped into six tabs, and nineteen free-text categories —
+          // describing the same records along different axes. The
+          // categories won; the shelves became plumbing.
+          //
+          // NOTHING IS MERGED IN STORAGE — all ten vault:media:* keys
+          // still exist and hold what they held. Only the `category`
+          // string on each record was rewritten, and a tab is now a set
+          // of category names.
           //
           // Every hash this page has ever answered to still resolves, via
           // vault-app.js's own parseHash + TAB_ALIAS: the bare legacy
@@ -258,13 +262,16 @@
           // exception as of this build: it is a real page again and
           // lands on its own view, in either spelling.
           { hash: '/archive', label: 'The Archive' },
+          { hash: '/capture', label: 'Capture' },
           { hash: '/favourites', label: 'Favourites' },
-          { hash: '/archive/watch', label: 'Watching' },
+          { hash: '/archive/stories', label: 'Stories' },
           { hash: '/archive/podcasts', label: 'Podcasts' },
-          { hash: '/archive/horror', label: 'Horror Stories' },
-          { hash: '/archive/spicy', label: 'Spicy · Immersive' },
-          { hash: '/archive/playlists', label: 'Music & Playlists' },
-          { hash: '/archive/games', label: 'Games' },
+          { hash: '/archive/asmr', label: 'ASMR & Immersive' },
+          { hash: '/archive/music', label: 'Music' },
+          { hash: '/archive/gaming', label: 'Gaming' },
+          { hash: '/archive/scary', label: 'Scary Videos' },
+          { hash: '/archive/vlogs', label: 'Vlog-Like' },
+          { hash: '/archive/episodes', label: 'Favorite Videos & Episodes' },
           { hash: '/collections', label: 'Collections' },
           // The Journal was removed on 2026-09-03. `#/journal` falls
           // through to the house, so an old bookmark still lands.

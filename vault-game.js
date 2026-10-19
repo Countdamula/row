@@ -119,10 +119,10 @@
         '<header class="hd-head"><div class="hd-head__l">' +
           '<h1 class="hd-title">Not here</h1>' + H().orn('hd-orn--left') +
           '<p class="hd-sub">That game is no longer on the shelf.</p>' +
-          '<a class="hd-link" href="#/archive/games">' + H().arrow('Back to Games') + '</a>' +
+          '<a class="hd-link" href="#/archive/gaming">' + H().arrow('Back to Games') + '</a>' +
         '</div></header></section>';
     }
-    var d = H().toCard(r, 'games', 'games');
+    var d = H().toCard(r, 'games', 'gaming');
     var g = gameOf(r);
     var last = d.opened
       ? new Date(d.opened).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
@@ -336,7 +336,7 @@
     // you on the page rather than back in a grid — because the
     // videos, the guides and the notes are the reason it has one.
     //
-    // Reachable three ways on the Games shelf: the tile in the
+    // Reachable three ways on the Gaming tab: the tile in the
     // mosaic, the empty state, and the + / `n` that would
     // otherwise open the composer.
     'add-game': function () {
