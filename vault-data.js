@@ -9154,9 +9154,11 @@
   // ============================================================
   // SEEDING — additive only, and it never deletes.
   //
-  // A shelf is seeded only when it is EMPTY. Anything already there wins,
-  // so a re-run can't clobber edits, and an item deleted deliberately in
-  // the Vault does not come back on the next load.
+  // The LIBRARY is seeded once, only when every shelf is EMPTY and no
+  // device has seeded before — see seedNow(). This comment used to say
+  // "a shelf is seeded only when it is EMPTY" while the code re-added
+  // missing originals on every load, which is why deleted cards came
+  // back until 2026-10-23.
   //
   // Merge is by canonical URL rather than id, matching the migration: the
   // same link stored with a different tracking parameter is one item.
@@ -9350,7 +9352,25 @@
     return added.length;
   }
 
+  // ONE TIME, ON AN EMPTY LIBRARY — and only then.
+  //
+  // Until 2026-10-23 this ran on EVERY load and seedShelf() added back
+  // any original record whose link was missing from its shelf. The
+  // header above promised "only when EMPTY"; the code never checked.
+  // So every deleted card came back on the next refresh — and was
+  // pushed to Supabase, so the phone got it back too — and a record
+  // moved to another shelf by a category change grew a second copy
+  // on its old shelf, with the same id.
+  //
+  // Now: never if `vault:seededAt` exists (it is under the synced
+  // prefix, so one device having seeded counts for every device), and
+  // never if any shelf holds anything. A brand-new empty device still
+  // gets the starter library; nothing is re-added after that.
   function seedNow() {
+    if (storeGet('vault:seededAt')) return 0;
+    for (var i = 0; i < SHELVES.length; i++) {
+      if (list(SHELVES[i]).length) return 0;
+    }
     var total = 0;
     Object.keys(SEED).forEach(function (s) { total += seedShelf(s); });
     if (total) storeSet('vault:seededAt', Date.now());
