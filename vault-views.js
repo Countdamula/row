@@ -941,6 +941,21 @@
   function libLists(state) {
     var items = libPool(state);
     if (!items.length) return emptyArchive(state);
+    // ALL MUSIC is cut into its five kinds, one heading each, the
+    // way Favorites and Live Streams are cut. A single kind (the
+    // sub-row's `cat:<name>`) is one grid, and so is any tab where
+    // only one kind turned up — a heading over the only list on
+    // the page describes nothing.
+    if (state.group === 'music') {
+      var kinds = shelfOf('music').reads.filter(function (c) {
+        return items.some(function (d) { return d.cat === c; });
+      });
+      if (kinds.length > 1) {
+        return kinds.map(function (c) {
+          return cardGroup(items.filter(function (d) { return d.cat === c; }), { label: c });
+        }).join('');
+      }
+    }
     return cardGroup(items, { lead: state.group === 'gaming' ? addGameTile() : '' });
   }
   // What a star, a live switch or a data change re-cuts in place.
@@ -954,14 +969,40 @@
     var lib = poolFor({ group: 'all', section: 'lib', q: '', sort: 'shelf' });
     var n = {};
     lib.forEach(function (d) { n[d.tab] = (n[d.tab] || 0) + 1; });
-    var tab = function (key, label, c) {
-      var on = state.group === key;
+    // Music stays lit while one of its kinds is picked in the row
+    // under it — the sub-row is a narrowing of Music, not a
+    // different place.
+    var music = shelfOf('music');
+    var inMusic = state.group === 'music' || (state.group.indexOf('cat:') === 0 &&
+      music.reads.indexOf(catName(state.group.slice(4))) >= 0);
+    var tab = function (key, label, c, on) {
+      if (on === undefined) on = state.group === key;
       return '<button type="button" class="hd-tab' + (on ? ' is-on' : '') + '" data-act="libtab"' +
         ' data-group="' + attr(key) + '"' + (on ? ' aria-current="true"' : '') + '>' +
         esc(label) + '<i>' + c + '</i></button>';
     };
-    return tab('all', 'All', lib.length) +
-      LIB().map(function (g) { return tab(g.key, g.label, n[g.key] || 0); }).join('');
+    var main = '<nav class="hd-tabs" aria-label="Library categories">' +
+      tab('all', 'All', lib.length) +
+      LIB().map(function (g) {
+        return tab(g.key, g.label, n[g.key] || 0, g.key === 'music' ? inMusic : undefined);
+      }).join('') +
+    '</nav>';
+    if (!inMusic) return main;
+
+    // THE SECOND LEVEL — the five music categories that were already
+    // in the data. A kind with nothing in the library is left out
+    // (its records are all starred or live, up in their own
+    // sections), unless it is the one being looked at.
+    var perCat = {};
+    lib.forEach(function (d) { perCat[d.cat] = (perCat[d.cat] || 0) + 1; });
+    var kinds = music.reads.filter(function (c) {
+      return perCat[c] || state.group === 'cat:' + c;
+    });
+    return main +
+      '<nav class="hd-tabs hd-tabs--sub" aria-label="Kinds of music">' +
+        tab('music', 'All music', n.music || 0) +
+        kinds.map(function (c) { return tab('cat:' + c, c, perCat[c] || 0); }).join('') +
+      '</nav>';
   }
 
   // Everything paintLists() needs, in one pass.
@@ -991,7 +1032,9 @@
             '<h2 class="hd-db__t" id="hdLibT">Media Library</h2>' +
           '</div>' +
           '<div class="hd-db__body">' +
-            '<nav class="hd-tabs" id="hdLibTabs" aria-label="Library categories">' + p.tabs + '</nav>' +
+            // A wrapper, not the nav itself: it holds the Music
+            // sub-row too, and paintLists() rewrites the lot.
+            '<div class="hd-libtabs" id="hdLibTabs">' + p.tabs + '</div>' +
             utility(state, p.lib.n) +
             '<div class="hd-lists" id="hdLists">' + p.lib.html + '</div>' +
           '</div>' +

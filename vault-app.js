@@ -175,6 +175,7 @@
     // do: the editor's caret, its draft, the toolbar's state, and
     // the one-time conversion of a game's old columns.
     A().afterPaint(state);
+    revealTabs();
     // The hero node was just replaced, so the scroll handler is
     // holding a reference to a element that is no longer in the
     // document. Re-find and re-measure it.
@@ -240,6 +241,23 @@
     put('hdLibTabs', p.tabs);
     put('hdLibN', words(p.lib.n));
     host.innerHTML = p.lib.html;
+    revealTabs();
+  }
+
+  // On a phone each tab row is one line that scrolls SIDEWAYS, and
+  // a fresh row starts at its left edge — so Music, sixth along,
+  // was lit and off-screen, and so was a music kind in the row
+  // under it. This slides each row (never the page) to its lit tab.
+  function revealTabs() {
+    var wrap = $('hdLibTabs');
+    if (!wrap) return;
+    wrap.querySelectorAll('.hd-tabs').forEach(function (row) {
+      if (row.scrollWidth <= row.clientWidth) return;
+      var on = row.querySelector('.is-on');
+      if (!on) return;
+      var dx = on.getBoundingClientRect().left - row.getBoundingClientRect().left;
+      row.scrollLeft += dx - 24;
+    });
   }
 
   // THE ANCHOR IS A NODE THAT IS NOT MOVING.
@@ -1106,7 +1124,10 @@
     // the sensible default — and HOME_SHELF turns that into the
     // storage shelf on save.
     var guess = opts.category ||
-      (state.group !== 'all' ? H().readsOf(state.group)[0] : '');
+      // A Music sub-tab is ONE category already, and readsOf() does
+      // not know 'cat:' keys — it would answer with Stories.
+      (state.group.indexOf('cat:') === 0 ? H().catName(state.group.slice(4))
+        : state.group !== 'all' ? H().readsOf(state.group)[0] : '');
     fillCatList();
     fillShelfSelect(item ? H().catName(item.category || '') : guess);
 
