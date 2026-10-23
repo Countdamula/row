@@ -575,7 +575,7 @@
         b.setAttribute('aria-pressed', String(on));
         b.textContent = on ? '● Live stream' : '○ Live stream';
       });
-      U().toast(on ? 'Marked as a live stream' : 'No longer a live stream');
+      U().toast(on ? 'Moved to Live Streams' : 'Moved back out of Live Streams');
       if (state.route === 'main') keepPlace(k.id, paintLists);
     },
 

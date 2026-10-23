@@ -797,8 +797,8 @@
   // EVERY RECORD IS IN EXACTLY ONE OF THE THREE. Damian chose
   // "only in its own section", so sectionOf() is the whole rule and
   // the three pools are cut from it — nothing is filtered twice and
-  // nothing can fall between them. Favorites wins over Live: a
-  // starred stream is a favourite first.
+  // nothing can fall between them. LIVE wins over Favorites: a
+  // starred stream is a stream first (see sectionOf for why).
   //
   // "Favorite Videos & Episodes" is not a library tab any more; it
   // is a heading inside Favorites, ALL of it, starred or not —
@@ -810,9 +810,17 @@
   // Every hash that reached them still lands here — see parseHash.
   var FAV_CAT = 'Favorite Videos & Episodes';
 
+  // LIVE WINS. Until 2026-10-23 (same day) Favorites came first, and
+  // that made the Live switch look broken: about two hundred records
+  // are starred or Favorite Videos & Episodes, so switching Live on
+  // for any of them saved the flag and left the card exactly where
+  // it was — and Capture files an unrecognised link under Favorite
+  // Videos & Episodes, so a freshly captured stream vanished into
+  // Favorites too. A stream belongs with the streams, starred or not;
+  // the star still shows on its card.
   function sectionOf(d) {
-    if (d.fav || d.cat === FAV_CAT) return 'fav';
     if (d.live) return 'live';
+    if (d.fav || d.cat === FAV_CAT) return 'fav';
     return 'lib';
   }
 

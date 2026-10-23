@@ -252,6 +252,9 @@
   // and a stale one on tomorrow's visit would be clutter.
   var justCaptured = [];
   var busy = false;
+  // The Capture page's own 'this is a live stream' switch. Kept for
+  // the page session, so a run of streams is one press, not one each.
+  var capLiveOn = false;
 
   function catOptions(selected) {
     return H().allCats().map(function (c) {
@@ -307,6 +310,12 @@
           '<input class="asc-input vt-cap__in1" id="capUrl" type="url" inputmode="url" ' +
             'spellcheck="false" placeholder="https://…" aria-label="Link to capture">' +
           '<button class="asc-btn asc-btn--primary vt-cap__go" type="submit" id="capGo">Capture</button>' +
+          // SAYING it is live beats guessing. YouTube's own title for a
+          // stream rarely carries the red dot or '24/7', so the guess
+          // alone missed most of them.
+          '<button type="button" class="asc-btn asc-btn--sm vt-cap__live' + (capLiveOn ? ' is-on' : '') + '"' +
+            ' id="capLive" data-act="cap-live-all" aria-pressed="' + capLiveOn + '">' +
+            (capLiveOn ? '● Live stream' : '○ Live stream') + '</button>' +
         '</form>' +
         '<p class="vt-cap__msg" id="capMsg" role="status" aria-live="polite"></p>' +
 
@@ -371,8 +380,20 @@
     var dupe = V().findByUrl(url);
     if (dupe) {
       busy = false;
+      // Capturing a stream you ALREADY have is how most streams get
+      // marked — many were starred long before Live existed. Saying
+      // 'already here' and doing nothing is what read as broken.
+      if ((capLiveOn || V().isLiveSignal(url, dupe.item.title)) && dupe.item.live !== true) {
+        V().update(dupe.shelf, dupe.item.id, { live: true });
+        say('capMsg', '“' + dupe.item.title + '” was already here — it is in Live Streams now.', 'good');
+        U().toast('Moved to Live Streams');
+        var b0 = $('capUrl');
+        if (b0) { b0.value = ''; b0.focus(); }
+        return;
+      }
       say('capMsg', '“' + dupe.item.title + '” is already here, under ' +
-        (H().catName(dupe.item.category) || 'no category') + '.', 'warn');
+        (H().catName(dupe.item.category) || 'no category') +
+        (dupe.item.live ? ', in Live Streams' : '') + '.', 'warn');
       var box = $('capUrl');
       if (box) { box.select(); }
       return;
@@ -382,17 +403,18 @@
       var p = plan(url, meta);
       var rec = V().add(p.shelf, {
         url: p.url, title: p.title, creator: p.creator, cover: p.cover,
-        category: p.category, kind: p.kind, live: p.live
+        category: p.category, kind: p.kind, live: capLiveOn || p.live
       });
       justCaptured.unshift({
         id: rec.id, shelf: p.shelf, title: p.title, creator: p.creator,
-        cover: p.cover, category: p.category, why: p.why, live: p.live
+        cover: p.cover, category: p.category, why: p.why, live: capLiveOn || p.live
       });
       if (justCaptured.length > 8) justCaptured.length = 8;
       busy = false;
       var box = $('capUrl');
       if (box) { box.value = ''; box.focus(); }
-      say('capMsg', 'Filed under ' + p.category + ' — ' + p.why + '.', p.sure ? 'good' : 'warn');
+      say('capMsg', 'Filed under ' + p.category + ' — ' + p.why + '.' +
+        (rec.live ? ' It is in Live Streams.' : ''), p.sure || rec.live ? 'good' : 'warn');
       repaintCaptured();
     });
   }
@@ -610,8 +632,14 @@
       if (!row) return;
       row.live = !row.live;
       V().update(row.shelf, row.id, { live: row.live });
-      U().toast(row.live ? 'Marked as a live stream' : 'No longer a live stream');
+      U().toast(row.live ? 'Moved to Live Streams' : 'Moved back out of Live Streams');
       repaintCaptured();
+    },
+    'cap-live-all': function (el) {
+      capLiveOn = !capLiveOn;
+      el.classList.toggle('is-on', capLiveOn);
+      el.setAttribute('aria-pressed', String(capLiveOn));
+      el.textContent = capLiveOn ? '● Live stream' : '○ Live stream';
     },
     'bulk-cat': function (el) {
       var r = bulkRows[Number(el.dataset.row)];

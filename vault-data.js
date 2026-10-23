@@ -9293,6 +9293,12 @@
     if (/🔴/.test(t)) return true;          // 🔴
     if (/\b24\s*\/\s*7\b/.test(t)) return true;
     if (/\blive\s?stream\b/i.test(t)) return true;
+    // What YouTube actually titles a stream: "lofi hip hop radio 📚
+    // - beats to relax/study to". The bare word "radio" stays OUT —
+    // The Nosleep Radio is a playlist — but "live radio" and a lofi
+    // radio are streams.
+    if (/\blive radio\b/i.test(t)) return true;
+    if (/\blo-?fi\b.*\bradio\b/i.test(t)) return true;
     return false;
   }
 
