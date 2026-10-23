@@ -245,7 +245,7 @@
       url: v.url || '', title: v.title || 'Untitled', creator: v.creator || '',
       cover: v.cover || '', len: v.lengthText || '',
       rating: Number(v.rating) || 0,
-      fav: v.favorite === true, queued: v.queued === true,
+      fav: v.favorite === true, queued: v.queued === true, live: v.live === true,
       cat: catName(v.category || 'Uncategorised'), desc: v.description || '',
       opened: v.lastOpenedAt || 0, opens: v.openCount || 0, made: v.createdAt || 0,
       hero: v.hero || '',
@@ -396,6 +396,22 @@
     }
   }
 
+  // The card's version of the same thing: the host in full, and
+  // the rest squeezed to its two ends — "open.spotify.com" then a
+  // dim "pla…3748b4" — because the host is what you recognise and
+  // the tail is what tells two links from one host apart.
+  function urlParts(u) {
+    if (!u) return null;
+    try {
+      var url = new URL(u);
+      var rest = (url.pathname + url.search).replace(/^\/+/, '');
+      if (rest.length > 14) rest = rest.slice(0, 3) + '…' + rest.slice(-6);
+      return { host: url.hostname.replace(/^www\./, ''), rest: rest ? '/' + rest : '' };
+    } catch (e) {
+      return { host: String(u).replace(/^https?:\/\/(www\.)?/, '').slice(0, 30), rest: '' };
+    }
+  }
+
   var yearOf = function (d) { return d.made ? new Date(d.made).getFullYear() : ''; };
 
   // ── §ORNAMENT ──────────────────────────────────────────────
@@ -517,64 +533,67 @@
   }
 
   // ── §THE CARD ──────────────────────────────────────────────
-  // ONE component, five shapes, two grounds.
-  //
-  //   feature / tall / wide   art fills the tile, text sits ON it
-  //   row                     art left, text right, on the ground
-  //   grid                    art on top, text under, on the ground
-  //
-  // The overlaid three are always light-on-photo whatever band
-  // they sit in — that is a property of being on a photograph,
-  // not of the section. `row` and `grid` inherit --hd-fg from the
-  // band, which is the whole ground-flip.
+  // ONE component, one shape.
   //
   // Built as a STRING and wired by delegation. Four hundred cards
   // at once is four hundred nodes' worth of listeners otherwise,
   // and that is the difference between a page that paints and a
   // page that stutters.
-  function card(d, i, shape) {
+  // 2026-10-23: THE CARD IS A DATABASE CARD NOW, after
+  // Pictures/Screenshots/Screenshot 2026-10-23 072643.png — the
+  // Obsidian gallery view Damian reads his media in. Cover on top,
+  // then the properties stacked one per line: the group's mark and
+  // the title, the description, the category as a tinted pill, the
+  // length, the link (host plus a squeezed tail), the rating as a
+  // pill of stars. Any property the record does not carry is left
+  // out rather than drawn empty.
+  //
+  // Same hit button, same three chips, same data-act / data-shelf /
+  // data-id on every one of them, so not one handler in
+  // vault-app.js had to change. `shape` is still accepted and
+  // ignored: there is one shape now.
+  //
+  // .hd-card--vt, NOT .hd-card--grid. The Larder and the Resource
+  // Studio draw .hd-card--grid off the same shared stylesheet, so
+  // this look lives on a modifier only this studio emits.
+  function card(d, i) {
     var t = shelfOf(d.tab);
-    // THE COVER, NOT THE BIG ART. This asked for maxresdefault for
-    // one build and it was wrong twice over. A uniform tile is
-    // ~290px wide, so the 480x360 hqdefault every record already
-    // carries is not being upscaled at all — maxres was only ever
-    // needed by the old five-column feature tile. And when a video
-    // has no maxres, YouTube does not always 404: it sometimes
-    // serves a grey "no thumbnail" placeholder with a 200, which
-    // the error-handler fallback cannot see, so the card showed a
-    // grey rectangle in place of artwork it already had.
+    // THE COVER, NOT THE BIG ART: a ~300px tile never upscales the
+    // 480x360 hqdefault, and maxresdefault sometimes answers a
+    // missing video with a grey placeholder and a 200.
     var art = d.cover
       ? '<img class="hd-card__img" src="' + attr(d.cover) + '" alt="" loading="lazy" decoding="async">'
-      : '';
-    if (!art) {
-      art = '<span class="hd-card__none" style="color:' + t.tint + '">' + sig(t.sigil, 42) + '</span>';
-    }
+      : '<span class="hd-card__none" style="color:' + t.tint + '">' + sig(t.sigil, 42) + '</span>';
 
-    var meta = [t.label, yearOf(d)].filter(Boolean).join(' · ');
-    var sub = [d.creator, d.len].filter(Boolean).map(esc).join(' · ');
+    // The description line, and when there is none the creator
+    // takes its place rather than leaving a gap under the title.
+    var say = d.desc || d.creator;
+    var facts = [d.desc ? d.creator : '', d.len].filter(Boolean);
+    var u = urlParts(d.url);
+    var stars = Math.max(0, Math.min(5, Math.round(d.rating)));
     var tick = 'M3.6 8.4 6.5 11.3 12.4 5.2', plus = 'M8 3.6v8.8M3.6 8h8.8';
 
-    // The stagger is capped. A group here can be a hundred and
-    // sixty cards, and 160 x 26ms is a four-second wait for the
-    // last one. Twelve steps reads as an arrival either way.
-    return '<article class="hd-card hd-card--' + shape + ' ' + U().rvlClass() + '"' +
+    // The stagger is capped: 160 x 26ms is a four-second wait.
+    return '<article class="hd-card hd-card--vt ' + U().rvlClass() + '"' +
         U().rvlStyle(Math.min(i, 11)) + '>' +
       '<button type="button" class="hd-card__hit" data-act="open" data-shelf="' + attr(d.shelf) +
         '" data-id="' + attr(d.id) + '" data-url="' + attr(d.url) + '">' +
         '<span class="hd-card__art">' + art +
-          (d.len ? '<span class="hd-card__len">' + esc(d.len) + '</span>' : '') +
+          (d.live ? '<span class="hd-card__live"><i aria-hidden="true"></i>Live</span>' : '') +
         '</span>' +
         '<span class="hd-card__body">' +
-          '<span class="hd-card__title">' + esc(d.title) + '</span>' +
-          '<span class="hd-card__meta">' + esc(meta) + '</span>' +
-          (sub ? '<span class="hd-card__sub">' + sub + '</span>' : '') +
-          (d.url ? '<span class="hd-card__url">' + esc(shownUrl(d.url)) + '</span>' : '') +
-          (d.rating
-            ? '<span class="hd-card__rate" role="img" aria-label="Rated ' + d.rating + ' of 5">' +
-              '<i style="--w:' + (d.rating / 5 * 100) + '%"></i><b>' +
-              Math.round(d.rating / 5 * 100) + '%</b></span>'
+          '<span class="hd-card__head">' +
+            '<span class="hd-card__ico" style="color:' + t.tint + '">' + sig(t.sigil, 15) + '</span>' +
+            '<span class="hd-card__title">' + esc(d.title) + '</span>' +
+          '</span>' +
+          (say ? '<span class="hd-card__desc">' + esc(say) + '</span>' : '') +
+          '<span class="hd-card__pill" style="--tint:' + t.tint + '">' + esc(d.cat) + '</span>' +
+          facts.map(function (f) { return '<span class="hd-card__fact">' + esc(f) + '</span>'; }).join('') +
+          (u ? '<span class="hd-card__url">' + esc(u.host) + '<i>' + esc(u.rest) + '</i></span>' : '') +
+          (stars
+            ? '<span class="hd-card__stars" role="img" aria-label="Rated ' + stars + ' of 5">' +
+              '★'.repeat(stars) + '</span>'
             : '') +
-          arrow('') +
         '</span>' +
       '</button>' +
       '<span class="hd-card__acts">' +
@@ -759,231 +778,225 @@
     '</section>';
   }
 
-  // ── §THE TWO LISTS ─────────────────────────────────────────
-  // Starred always on top, in its own mosaic, with its own grid
-  // under it; everything else beneath, the same way. A star was
-  // write-only before this: you could set one and the page looked
-  // identical, on every shelf and in every collection.
+  // =============================================================
+  // §THE MAIN PAGE — #/
+  // =============================================================
+  // 2026-10-23: THREE PAGES — Main, Capture, About. The Archive,
+  // Favourites, Collections and Games were four destinations
+  // showing one library four ways; they are now one page, built
+  // after Damian's Notion reference
+  // (Downloads/2cdc851a678393f51580474a42d2d80d.jpg):
   //
-  // The heads appear only when BOTH lists exist. "Everything
-  // else" over the only list on the page is a heading that
-  // describes nothing, and the utility line already prints the
-  // count.
-  function archiveLists(state) {
-    var items = poolFor(state);
+  //     the hero                    unchanged, as on every view
+  //     the dashboard callout       a link to every game
+  //     Favorites                   collapsible, by category
+  //     Live Streams                collapsible, by category
+  //     Media Library               the old Archive: tabs, search,
+  //                                 sort, Surprise me
+  //
+  // EVERY RECORD IS IN EXACTLY ONE OF THE THREE. Damian chose
+  // "only in its own section", so sectionOf() is the whole rule and
+  // the three pools are cut from it — nothing is filtered twice and
+  // nothing can fall between them. Favorites wins over Live: a
+  // starred stream is a favourite first.
+  //
+  // "Favorite Videos & Episodes" is not a library tab any more; it
+  // is a heading inside Favorites, ALL of it, starred or not —
+  // otherwise its unstarred records would have had no place on the
+  // page at all. The category itself is untouched and still offered
+  // by the composer and Capture.
+  //
+  // Collections, the Favourites page and their helpers are deleted.
+  // Every hash that reached them still lands here — see parseHash.
+  var FAV_CAT = 'Favorite Videos & Episodes';
+
+  function sectionOf(d) {
+    if (d.fav || d.cat === FAV_CAT) return 'fav';
+    if (d.live) return 'live';
+    return 'lib';
+  }
+
+  // The library's tabs: every group but the one that moved into
+  // Favorites wholesale.
+  var LIB = function () {
+    return LIVE().filter(function (g) { return g.key !== 'episodes'; });
+  };
+
+  // ── §A SECTION, CUT BY CATEGORY ────────────────────────────
+  // The groups in their own order, one heading each. Music is the
+  // one group of several categories, and it is split into them —
+  // "Music · Chill" — because "separated by categories" is what was
+  // asked, and five kinds of music under one head is a wall.
+  function byCategory(items) {
+    var out = '';
+    LIVE().forEach(function (g) {
+      var mine = items.filter(function (d) { return d.tab === g.key; });
+      if (!mine.length) return;
+      if (g.reads.length > 1) {
+        g.reads.forEach(function (c) {
+          var one = mine.filter(function (d) { return d.cat === c; });
+          if (one.length) out += cardGroup(one, { label: g.label + ' · ' + c });
+        });
+      } else {
+        out += cardGroup(mine, { label: g.label });
+      }
+    });
+    return out;
+  }
+
+  // ── §COLLAPSIBLE ───────────────────────────────────────────
+  // A native <details>, so the keyboard, the screen reader and the
+  // disclosure state all come for free. Whether it is open is
+  // remembered PER DEVICE, under `vaultlocal:` — outside the synced
+  // 'vault:' prefix, because a section folded on the laptop is not
+  // something the phone should be told about.
+  function dbOpen(id) {
+    try { return localStorage.getItem('vaultlocal:open:' + id) !== '0'; }
+    catch (e) { return true; }
+  }
+
+  var entries = function (n) { return n + (n === 1 ? ' entry' : ' entries'); };
+
+  function dbHead(o) {
+    return '<span class="hd-db__mark" aria-hidden="true">' + sig(o.sigil, 15) + '</span>' +
+      '<h2 class="hd-db__t">' + esc(o.title) + '</h2>' +
+      '<span class="hd-db__n" id="' + o.id + 'N">' + entries(o.n) + '</span>';
+  }
+
+  function dbSection(o) {
+    return '<details class="hd-db" id="' + o.id + '" data-db="' + o.id + '"' +
+        (dbOpen(o.id) ? ' open' : '') + '>' +
+      '<summary class="hd-db__head">' + dbHead(o) +
+        '<span class="hd-db__chev" aria-hidden="true"></span></summary>' +
+      '<div class="hd-db__body" id="' + o.id + 'Body">' + o.body + '</div>' +
+    '</details>';
+  }
+
+  // ── §THE POOLS ─────────────────────────────────────────────
+  // Search narrows all three, so a match in Favorites is found in
+  // Favorites rather than reported missing from the library.
+  function favPool(state) {
+    return poolFor({ group: 'all', section: 'fav', q: state.q, sort: state.sort });
+  }
+  function livePool(state) {
+    return poolFor({ group: 'all', section: 'live', q: state.q, sort: state.sort });
+  }
+  function libPool(state) {
+    return poolFor({ group: state.group, section: 'lib', q: state.q, sort: state.sort });
+  }
+
+  function favBody(state) {
+    var items = favPool(state);
+    if (items.length) return byCategory(items);
+    return state.q
+      ? '<p class="hd-empty"><strong>No favourite matches “' + esc(state.q) + '”.</strong></p>'
+      : '<p class="hd-empty"><strong>Nothing here yet.</strong>' +
+        'The ☆ on any card moves it up here.</p>';
+  }
+  function liveBody(state) {
+    var items = livePool(state);
+    if (items.length) return byCategory(items);
+    return state.q
+      ? '<p class="hd-empty"><strong>No live stream matches “' + esc(state.q) + '”.</strong></p>'
+      : '<p class="hd-empty"><strong>No live streams yet.</strong>' +
+        'Open a card’s details and switch Live on, or capture a link that is streaming.</p>';
+  }
+
+  // ── §THE DASHBOARD CALLOUT ─────────────────────────────────
+  // The one piece of the reference's top half Damian kept, holding
+  // the thing he asked for: every game, one tap from the top of the
+  // page. A game is a PLACE in this app, so each is a link to its
+  // own page rather than a card.
+  function dashCallout() {
+    var games = global.Vault.list('games').slice().sort(function (a, b) {
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+    return '<aside class="hd-dash" aria-labelledby="hdDashT">' +
+      '<div class="hd-dash__head">' +
+        '<span class="hd-dash__mark" aria-hidden="true">' + sig('sg-pad', 15) + '</span>' +
+        '<h2 class="hd-dash__t" id="hdDashT">Dashboard</h2>' +
+        '<span class="hd-db__n">' + games.length + (games.length === 1 ? ' game' : ' games') + '</span>' +
+      '</div>' +
+      '<ul class="hd-dash__list">' +
+        games.map(function (g) {
+          return '<li><a class="hd-dash__game" href="#/game/' + encodeURIComponent(g.id) + '">' +
+            '<span class="hd-dash__art">' +
+              (g.cover ? '<img src="' + attr(g.cover) + '" alt="" loading="lazy" decoding="async">'
+                       : sig('sg-pad', 14)) +
+            '</span>' +
+            '<span class="hd-dash__name">' + esc(g.title || 'Untitled game') + '</span>' +
+          '</a></li>';
+        }).join('') +
+        '<li><button type="button" class="hd-dash__game hd-dash__add" data-act="add-game">' +
+          '<span class="hd-dash__art" aria-hidden="true">＋</span>' +
+          '<span class="hd-dash__name">Add a game</span></button></li>' +
+      '</ul>' +
+    '</aside>';
+  }
+
+  // ── §THE LIBRARY ───────────────────────────────────────────
+  // The old Archive, minus what the two sections above now hold.
+  // No Starred / Everything-else split any more: nothing starred is
+  // in here to split off.
+  function libLists(state) {
+    var items = libPool(state);
     if (!items.length) return emptyArchive(state);
-
-    var star = items.filter(function (d) { return d.fav; });
-    var rest = items.filter(function (d) { return !d.fav; });
-    var split = star.length > 0 && rest.length > 0;
-    // A GAME IS NOT A LINK, so the Games shelf keeps its own way
-    // in — and it sits in the list a new game would join, which
-    // is the unstarred one unless there is nothing else there.
-    var lead = state.group === 'gaming' ? addGameTile() : '';
-
-    return (star.length
-        // "Starred" earns its head even alone: it is a true
-        // statement about the list. "Everything else" alone is not.
-        ? cardGroup(star, { cls: 'hd-group--star', label: 'Starred',
-            lead: rest.length ? '' : lead })
-        : '') +
-      (rest.length
-        ? cardGroup(rest, { label: split ? 'Everything else' : null, lead: lead })
-        : '');
+    return cardGroup(items, { lead: state.group === 'gaming' ? addGameTile() : '' });
   }
+  // What a star, a live switch or a data change re-cuts in place.
+  // vault-app.js writes these into their hosts and leaves the hero,
+  // the callout and the sort <select> exactly where they were.
+  function lists(state) { return libLists(state); }
 
-  // The ONLY region a star is allowed to repaint. vault-app.js
-  // re-renders exactly this into #hdLists and keeps the reader's
-  // place; the hero, the tabs and the utility line — which is
-  // where the focused sort <select> lives — are never touched.
-  function lists(state) {
-    return state.route === 'favourites' ? favLists(state) : archiveLists(state);
-  }
-
-  // =============================================================
-  // §FAVOURITES — #/favourites
-  // =============================================================
-  // Every starred thing in the house, on one page, cut the way a
-  // starred thing is actually used: one video to watch tonight,
-  // or a playlist to put on. NOT by shelf — the shelf tabs are
-  // one tap away and this page exists precisely to ignore them.
-  //
-  // The cut is classifyKind(), derived from the link, with the
-  // record's own `kind` overriding it for the handful it reads
-  // wrong. See §SINGLE OR COLLECTION.
-  //
-  // TWO SPELLINGS OF ONE WORD, on purpose and consistently: the
-  // stored field is `favorite`, the chrome says Favourites, and a
-  // list head says Starred. Both hashes resolve.
-  function favCount() {
-    return allCards().filter(function (d) { return d.fav; }).length;
-  }
-
-  // THE CHIPS ARE THE TABS. Damian asked for two things here — a
-  // tab strip by media type, and the favourites of each category
-  // on top for quick access — and drawn as two controls they would
-  // filter the same list from two different rows. So it is one
-  // strip, carrying the counts, sitting above everything else.
-  //
-  // A group with nothing starred in it is left out: a chip reading
-  // 0 is not quick access, it is furniture. The one being filtered
-  // by stays even when it empties, or the control the reader just
-  // used would vanish under them.
-  function favChips(state) {
-    var on = state.favGroup || 'all';
-    var starred = allCards().filter(function (d) { return d.fav; });
+  // Buttons, not links: switching tab on a long page must not send
+  // the reader back to the top, which a hash change would.
+  function libTabs(state) {
+    var lib = poolFor({ group: 'all', section: 'lib', q: '', sort: 'shelf' });
     var n = {};
-    starred.forEach(function (d) { n[d.cat] = (n[d.cat] || 0) + 1; });
-
-    var chip = function (key, label, count) {
-      return '<button type="button" class="hd-tab' + (on === key ? ' is-on' : '') + '"' +
-        ' data-act="favgroup" data-group="' + attr(key) + '"' +
-        (on === key ? ' aria-current="true"' : '') + '>' +
-        esc(label) + '<i>' + count + '</i></button>';
+    lib.forEach(function (d) { n[d.tab] = (n[d.tab] || 0) + 1; });
+    var tab = function (key, label, c) {
+      var on = state.group === key;
+      return '<button type="button" class="hd-tab' + (on ? ' is-on' : '') + '" data-act="libtab"' +
+        ' data-group="' + attr(key) + '"' + (on ? ' aria-current="true"' : '') + '>' +
+        esc(label) + '<i>' + c + '</i></button>';
     };
-
-    var groups = LIVE().filter(function (g) {
-      return countOfGroup(g, n) > 0 || on === g.key;
-    });
-
-    // The second level, for Music only, and only while Music is
-    // what is being looked at.
-    var music = shelfOf('music');
-    var inMusic = on === 'music' ||
-      (on.indexOf('cat:') === 0 && music.reads.indexOf(catName(on.slice(4))) >= 0);
-    var sub = '';
-    if (inMusic) {
-      var kinds = music.reads.filter(function (c) {
-        return (n[c] || 0) > 0 || on === 'cat:' + c;
-      });
-      if (kinds.length > 1) {
-        sub = '<nav class="hd-tabs hd-tabs--sub" aria-label="Kinds of music">' +
-          chip('music', 'All music', countOfGroup(music, n)) +
-          kinds.map(function (c) { return chip('cat:' + c, c, n[c] || 0); }).join('') +
-        '</nav>';
-      }
-    }
-
-    return '<nav class="hd-tabs" aria-label="Favourites by category">' +
-      chip('all', 'All Favourites', starred.length) +
-      groups.map(function (g) { return chip(g.key, g.label, countOfGroup(g, n)); }).join('') +
-    '</nav>' + sub;
+    return tab('all', 'All', lib.length) +
+      LIB().map(function (g) { return tab(g.key, g.label, n[g.key] || 0); }).join('');
   }
 
-  function favLists(state) {
-    // favOnly is what poolFor does for this page. It is the
-    // reason that filter still exists after the utility line's
-    // "Starred" toggle became a link — see poolFor().
-    var items = poolFor({
-      group: state.favGroup || 'all', collection: '', favOnly: true,
-      q: state.q, sort: state.sort
-    });
-    if (!items.length) {
-      if (state.q) {
-        return '<p class="hd-empty"><strong>Nothing starred matches.</strong>' +
-          'Clear the search to see everything you have starred.</p>';
-      }
-      // Three different reasons for an empty page, and advice you
-      // cannot take from the page you are on is a dead end.
-      if ((state.favGroup || 'all') !== 'all') {
-        return '<p class="hd-empty"><strong>Nothing starred here yet.</strong>' +
-          'Pick All Favourites above to see the rest.</p>';
-      }
-      return '<p class="hd-empty"><strong>Nothing starred yet.</strong>' +
-        'The ☆ on any card puts it here, and keeps it at the top of its own list.</p>';
-    }
-    var one = [], many = [];
-    items.forEach(function (d) {
-      (classifyKind(d) === 'collection' ? many : one).push(d);
-    });
-    // Same rule as the archive: a head only when there are two
-    // lists to tell apart.
-    var split = one.length > 0 && many.length > 0;
-    return (one.length
-        ? cardGroup(one, { cls: 'hd-group--one', label: split ? 'Single videos' : null })
-        : '') +
-      (many.length
-        ? cardGroup(many, { cls: 'hd-group--sets',
-            label: split ? 'Playlists & collections' : null })
-        : '');
+  // Everything paintLists() needs, in one pass.
+  function mainParts(state) {
+    var fav = favPool(state), live = livePool(state), lib = libPool(state);
+    return {
+      fav: { n: fav.length, html: fav.length ? byCategory(fav) : favBody(state) },
+      live: { n: live.length, html: live.length ? byCategory(live) : liveBody(state) },
+      lib: { n: lib.length, html: lib.length ? libLists(state) : emptyArchive(state) },
+      tabs: libTabs(state)
+    };
   }
 
-  function viewFavourites(state) {
-    // The TOTAL, not the filtered count, in both places — so the
-    // hero cannot contradict itself while a search is running.
-    // The search token in the utility line is what explains why
-    // the lists are shorter than the number.
-    var n = favCount();
-    return pageHero({
-        eyebrow: 'Starred',
-        title: 'Favourites',
-        caption: n
-          ? n + (n === 1 ? ' entry' : ' entries') + ' you marked to come back to.'
-          : 'Nothing starred yet. The ☆ on any card puts it here.'
-      }) +
-      // hd-archive is REQUIRED: it is what scopes the phone's
-      // one-card-per-row rules. See §ONE BIG CARD PER ROW.
-      '<section class="hd-band hd-night hd-archive">' +
-        favChips(state) +
-        utility(state, n) +
-        '<div class="hd-lists" id="hdLists">' + favLists(state) + '</div>' +
+  function viewMain(state) {
+    var p = mainParts(state);
+    return pageHero({ eyebrow: 'A private entertainment collection', title: 'The Archive',
+        caption: 'What we preserve shapes what remains.' }) +
+      // hd-archive is REQUIRED: it scopes the phone's one-card-per-
+      // row rules, and only this studio puts it on a band.
+      '<section class="hd-band hd-night hd-archive hd-mainp">' +
+        dashCallout() +
+        dbSection({ id: 'hdFav', title: 'Favorites', sigil: 'sg-spark', n: p.fav.n, body: p.fav.html }) +
+        dbSection({ id: 'hdLive', title: 'Live Streams', sigil: 'sg-wave', n: p.live.n, body: p.live.html }) +
+        '<section class="hd-db hd-db--lib" id="hdLib" aria-labelledby="hdLibT">' +
+          '<div class="hd-db__head hd-db__head--still">' +
+            '<span class="hd-db__mark" aria-hidden="true">' + sig('sg-all', 15) + '</span>' +
+            '<h2 class="hd-db__t" id="hdLibT">Media Library</h2>' +
+          '</div>' +
+          '<div class="hd-db__body">' +
+            '<nav class="hd-tabs" id="hdLibTabs" aria-label="Library categories">' + p.tabs + '</nav>' +
+            utility(state, p.lib.n) +
+            '<div class="hd-lists" id="hdLists">' + p.lib.html + '</div>' +
+          '</div>' +
+        '</section>' +
       '</section>';
-  }
-
-  // =============================================================
-  // §THE ARCHIVE — #/archive, #/archive/<shelf>, #/collection/<x>
-  // =============================================================
-  // Ivory. This is where all the media sits, and it is one page:
-  // the mosaic is the TOP of the archive, not a replacement for
-  // it, and every remaining item continues underneath in a plain
-  // grid. Four hundred things still all fit on one page.
-  function viewArchive(state) {
-    var items = poolFor(state);
-    var hero = state.collection
-      ? pageHero({
-          eyebrow: 'A collection', title: state.collection,
-          caption: items.length + (items.length === 1 ? ' entry' : ' entries') + ' kept together.',
-          back: { href: '#/collections', label: 'All collections' }
-        })
-      : pageHero(
-          // A shelf is a destination, so it says its own name.
-          // "The Archive" over a page of nothing but games is a
-          // heading that describes the building rather than the room.
-          state.group === 'all'
-            ? { eyebrow: 'A private entertainment collection', title: 'The Archive',
-                caption: 'What we preserve shapes what remains.' }
-            : { eyebrow: 'In the archive', title: shelfOf(state.group).label,
-                caption: SHELF_CAPTION[state.group] || 'What we preserve shapes what remains.' }
-        );
-    // Tabs are links, not chips: a tab is a place, and the
-    // reference draws it as text with a rule under it.
-    var counts = catCounts();
-    var live = LIVE();
-    var countOf = function (t) { return countOfGroup(t, counts); };
-    // Counting the GROUPS rather than the records, so a stray
-    // category is in the All total exactly once.
-    var total = live.reduce(function (a, t) { return a + countOf(t); }, 0);
-    var tab = function (key, label, n) {
-      return '<a class="hd-tab' + (state.group === key ? ' is-on' : '') + '" href="#/archive' +
-        (key === 'all' ? '' : '/' + key) + '"' + (state.group === key ? ' aria-current="page"' : '') +
-        '>' + esc(label) + '<i>' + n + '</i></a>';
-    };
-
-    var tabs = state.collection ? '' :
-      '<nav class="hd-tabs" aria-label="Categories">' +
-        tab('all', 'All', total) +
-        live.map(function (t) { return tab(t.key, t.label, countOf(t)); }).join('') +
-      '</nav>';
-
-    return hero +
-      '<section class="hd-band hd-night hd-archive">' +
-      tabs +
-      utility(state, items.length) +
-      // One wrapper with one id, because a star has to be able to
-      // re-cut both lists without the hero, the tabs or the sort
-      // control being thrown away under the reader.
-      '<div class="hd-lists" id="hdLists">' + archiveLists(state) + '</div>' +
-    '</section>';
   }
 
   // Borrows .hd-vid--add's dashed outline from the game page's own
@@ -996,24 +1009,10 @@
     '</button>';
   }
 
-  // One line per category, so a filtered archive reads as a room
-  // rather than as the same page with fewer things on it.
-  var SHELF_CAPTION = {
-    stories: 'The ones that are better after dark.',
-    podcasts: 'Voices to keep the room company.',
-    asmr: 'Kept quietly, and on purpose.',
-    music: 'Rooms made of sound.',
-    gaming: 'Worlds with a door you can close behind you.',
-    scary: 'Watched once, remembered longer.',
-    vlogs: 'Somebody else\'s ordinary day.',
-    episodes: 'The ones worth going back to.',
-    unfiled: 'Filed under a name no tab claims yet.'
-  };
-
   function emptyArchive(state) {
     if (state.q) {
-      return '<p class="hd-empty"><strong>Nothing matches.</strong>' +
-        'Clear the search to see this shelf again.</p>';
+      return '<p class="hd-empty"><strong>Nothing in the library matches.</strong>' +
+        'Clear the search to see it all again.</p>';
     }
     // An empty state that gives advice you cannot take from the
     // page you are on is not an empty state, it is a dead end. On
@@ -1024,35 +1023,28 @@
         'a journal. Start one.</p>' +
         '<div class="hd-grid">' + addGameTile() + '</div>';
     }
-    return '<p class="hd-empty"><strong>This shelf is empty.</strong>' +
-      'Paste a link, or fill the form in by hand — a title is enough to start with.</p>';
+    return '<p class="hd-empty"><strong>Nothing on this tab.</strong>' +
+      'Anything starred or live sits in its own section above. Paste a link, or fill ' +
+      'the form in by hand — a title is enough to start with.</p>';
   }
 
   // The utility line. Everything the old toolbar did, at the
   // weight of a caption: a filtered library must never be able to
   // look like an empty one, so the query is a token you can see.
+  //
+  // The "★ Favourites" link is gone: Favorites is two screens up
+  // the same page now, not a page of its own.
   function utility(state, n) {
     var opt = function (v, l, cur) {
       return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + l + '</option>';
     };
     return '<div class="hd-util">' +
-      '<span class="hd-util__n">' + n + (n === 1 ? ' entry' : ' entries') + '</span>' +
+      '<span class="hd-util__n" id="hdLibN">' + entries(n) + '</span>' +
       (state.q
         ? '<button type="button" class="hd-token" data-act="clear-q">“' + esc(state.q) +
           '” <i aria-hidden="true">×</i></button>'
         : '') +
       '<span class="hd-util__sp"></span>' +
-      // A LINK NOW, NOT A FILTER. "☆ Starred" used to hide the
-      // unstarred items; with the split it would produce a page
-      // headed "Starred", with no second list, and a count that
-      // disagrees with the tab above it — a contradiction rather
-      // than a filter. What it was for is a better page now.
-      //
-      // .hd-util__b is styled on the class, so an <a> takes it
-      // unchanged, and fire() already lets anchors navigate.
-      (state.route === 'favourites'
-        ? '<span class="hd-util__b is-on">★ Favourites</span>'
-        : '<a class="hd-util__b" href="#/favourites">★ Favourites</a>') +
       '<label class="hd-util__sel"><span class="hd-sr">Sort</span>' +
         '<select data-act="sort" id="hdSort">' +
           opt('shelf', 'As filed', state.sort) + opt('new', 'Newest', state.sort) +
@@ -1061,46 +1053,6 @@
         '</select></label>' +
       '<button type="button" class="hd-util__b" data-act="surprise">Surprise me</button>' +
     '</div>';
-  }
-
-  // =============================================================
-  // §COLLECTIONS — #/collections
-  // =============================================================
-  function viewCollections() {
-    var map = {};
-    allCards().forEach(function (d) {
-      if (!map[d.cat]) map[d.cat] = [];
-      map[d.cat].push(d);
-    });
-    var cats = Object.keys(map).sort(function (a, b) {
-      return catRank(a) - catRank(b) || a.localeCompare(b);
-    });
-
-    return pageHero({
-        eyebrow: 'The archive, cut',
-        title: 'Collections',
-        caption: cats.length + ' ways of returning to the same room.'
-      }) +
-      '<section class="hd-band hd-night hd-archive">' +
-      (cats.length
-        ? '<div class="hd-cols">' + cats.map(function (c, i) {
-            var top = byProminence(map[c].filter(function (d) { return d.cover; })).slice(0, 2);
-            return '<a class="hd-col ' + U().rvlClass() + '"' + U().rvlStyle(Math.min(i, 11)) +
-              ' href="#/collection/' + encodeURIComponent(c) + '">' +
-              '<span class="hd-col__art" aria-hidden="true">' +
-                (top.length
-                  ? top.map(function (d) {
-                      return '<img src="' + attr(d.cover) + '" alt="" loading="lazy" decoding="async">';
-                    }).join('')
-                  : '<span class="hd-col__none"></span>') +
-              '</span>' +
-              '<span class="hd-col__in"><b>' + esc(c) + '</b>' +
-                '<i>' + map[c].length + (map[c].length === 1 ? ' entry' : ' entries') + '</i></span>' +
-              arrow('') + '</a>';
-          }).join('') + '</div>'
-        : '<p class="hd-empty"><strong>No collections yet.</strong>' +
-          'Give something a collection name in the composer and it starts one.</p>') +
-    '</section>';
   }
 
   // =============================================================
@@ -1264,12 +1216,10 @@
         out = out.filter(function (d) { return set[d.cat]; });
       }
     }
-    // NOT DEAD CODE. Nothing in the interface sets favOnly since
-    // the utility line's "Starred" toggle became a link to the
-    // Favourites page — favLists() is the caller, and it passes a
-    // derived state object rather than growing a second pool.
-    // Deleting this turns the Favourites page into the Archive.
-    if (state.favOnly) out = out.filter(function (d) { return d.fav; });
+    // Which of the main page's three sections. See sectionOf().
+    // (This replaced favOnly, which the Favourites page used and
+    // which died with it on 2026-10-23.)
+    if (state.section) out = out.filter(function (d) { return sectionOf(d) === state.section; });
     var q = String(state.q || '').trim().toLowerCase();
     if (q) {
       out = out.filter(function (d) {
@@ -1300,14 +1250,14 @@
     toCard: toCard, allCards: allCards, recordOf: recordOf, poolFor: poolFor,
     byProminence: byProminence, sortItems: sortItems,
     sig: sig, orn: orn, eyebrow: eyebrow, arrow: arrow, card: card,
-    groupHead: groupHead, cardGroup: cardGroup, archiveLists: archiveLists, lists: lists,
+    groupHead: groupHead, cardGroup: cardGroup, libLists: libLists, lists: lists,
     heroCard: heroCard, heroChips: heroChips, addGameTile: addGameTile,
     ytId: ytId, bigArt: bigArt, artImg: artImg, shownUrl: shownUrl, yearOf: yearOf,
     classifyKind: classifyKind,
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
-    favLists: favLists, favCount: favCount, favChips: favChips,
-    credoBand: credoBand, viewArchive: viewArchive, viewCollections: viewCollections,
-    viewFavourites: viewFavourites, viewAbout: viewAbout
+    credoBand: credoBand, viewAbout: viewAbout,
+    FAV_CAT: FAV_CAT, sectionOf: sectionOf, LIB: LIB, urlParts: urlParts,
+    viewMain: viewMain, mainParts: mainParts, libTabs: libTabs, dashCallout: dashCallout
   };
 })(window);

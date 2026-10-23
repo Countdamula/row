@@ -39,15 +39,14 @@
   var state = {
     // `group` is a CATEGORY GROUP, not a storage shelf. The two were
     // the same thing until 2026-10-18; see vault-views.js §GROUPS.
-    route: 'archive', group: 'all', collection: '', gameId: '', articleId: '',
-    // The Favourites page's own filter. Not in the hash: it is a
-    // way of reading one page, not a different page, and it
-    // survives a star because repaint() rebuilds from state.
-    favGroup: 'all',
-    // NO favOnly. The utility line's Starred toggle is a link
-    // to #/favourites now, and favLists() passes favOnly in a
-    // derived state object of its own. A flag that is always
-    // false is a lie about the page.
+    // `group` is the MEDIA LIBRARY's tab on the main page. It is
+    // set by a button now, not by a hash, so changing tab never
+    // scrolls the reader back past Favorites and Live Streams.
+    route: 'main', group: 'all', collection: '', gameId: '', articleId: '',
+    // Which section of the main page an old bookmark meant —
+    // #/favourites lands on Favorites, #/archive/music on the
+    // library. Spent by navigate() once and cleared.
+    jump: '',
     q: '', sort: 'shelf'
   };
 
@@ -55,16 +54,14 @@
   // the mosaic tile that advertised it and every link into it. The
   // ENTRIES are untouched; the game page's fourth column still
   // holds them. `#/journal` now falls through parseHash's default
-  // to the ARCHIVE, so an old bookmark still lands somewhere real.
+  // to MAIN, so an old bookmark still lands somewhere real.
   //
-  // Archive's `match` needs no 'home': #/ sets route 'archive'
-  // too, so this item lights up on the landing page by itself.
+  // 2026-10-23: THREE PAGES. Favourites, Collections and Games
+  // were folded into Main; a game's own page (and an article) is
+  // reached from Main's dashboard callout, so Main lights up there.
   var NAV = [
-    { href: '#/archive', label: 'Archive', match: ['archive', 'collection'] },
+    { href: '#/', label: 'Main', match: ['main', 'game', 'article'] },
     { href: '#/capture', label: 'Capture', match: ['capture'] },
-    { href: '#/favourites', label: 'Favourites', match: ['favourites'] },
-    { href: '#/collections', label: 'Collections', match: ['collections'] },
-    { href: '#/archive/gaming', label: 'Games', match: ['game'] },
     { href: '#/about', label: 'About', match: ['about'] }
   ];
 
@@ -77,8 +74,7 @@
   // The bar's own colour is driven by SCROLL, not by this: every
   // view begins on a full-bleed photograph.
   var GROUND = {
-    archive: 'night', favourites: 'night', collections: 'night',
-    collection: 'night', about: 'night', game: 'night', article: 'night'
+    main: 'night', capture: 'night', about: 'night', game: 'night', article: 'night'
   };
 
   // THE ONE ROUTE WITH NO HERO. Every other view opens on the same
@@ -97,59 +93,55 @@
   // real rather than on an empty view.
   function parseHash() {
     var raw = String(location.hash || '').replace(/^#/, '');
-    // #/ IS THE ARCHIVE. The house page — a credo and four
-    // tiles — was deleted on this build and its words moved to
-    // #/about. The library is what this page is for, and it
-    // was one tap behind a cover page.
-    if (!raw || raw === '/') return { route: 'archive', group: 'all' };
+    // #/ IS THE MAIN PAGE.
+    if (!raw || raw === '/') return { route: 'main', group: 'all' };
+
+    // A library tab, by any name it has ever had. 'episodes' is
+    // not a library tab any more — all of it lives in Favorites —
+    // so a bookmark to it lands there instead.
+    var toTab = function (k) {
+      k = H().tabKey(k || 'all');
+      if (k === 'episodes') return { route: 'main', group: 'all', jump: 'hdFav' };
+      if (k !== 'all' && !H().LIB().some(function (s) { return s.key === k; })) k = 'all';
+      return { route: 'main', group: k, jump: 'hdLib' };
+    };
 
     if (raw.charAt(0) !== '/') {
-      // THE ONE LEGACY BARE HASH THAT HAS A REAL PAGE AGAIN.
-      // `#favorites` was a view here two rebuilds ago and has
-      // been answered with the plain Archive ever since, through
-      // TAB_ALIAS. It means something again, so it is caught
-      // before tabKey is consulted.
-      if (raw === 'favorites' || raw === 'favourites') return { route: 'favourites' };
-      var k = H().tabKey(raw);
-      if (k === 'all') return { route: 'archive', group: 'all' };
-      if (H().LIVE().some(function (s) { return s.key === k; })) {
-        return { route: 'archive', group: k };
-      }
-      return { route: 'archive', group: 'all' };
+      if (raw === 'favorites' || raw === 'favourites') return { route: 'main', group: 'all', jump: 'hdFav' };
+      return toTab(raw);
     }
 
     var p = raw.split('/').filter(Boolean);
     switch (p[0]) {
-      case 'archive':
-        var sk = p[1] ? H().tabKey(p[1]) : 'all';
-        if (sk !== 'all' && !H().LIVE().some(function (s) { return s.key === sk; })) sk = 'all';
-        return { route: 'archive', group: sk };
-      case 'games': return { route: 'archive', group: 'gaming' };
+      case 'main': return { route: 'main', group: 'all' };
+      case 'archive': return toTab(p[1]);
+      case 'games': return toTab('gaming');
       case 'game': return { route: 'game', gameId: decodeURIComponent(p[1] || '') };
       case 'article': return { route: 'article', articleId: decodeURIComponent(p[1] || '') };
-      // BOTH SPELLINGS. The stored field is `favorite` and the
-      // interface says "favourite"; a hash that answers to only
-      // one of them is one somebody will eventually get wrong.
-      case 'favourites': case 'favorites': return { route: 'favourites' };
+      // Both spellings, and both now mean a SECTION of Main.
+      case 'favourites': case 'favorites': case 'live':
+        return { route: 'main', group: 'all', jump: p[0] === 'live' ? 'hdLive' : 'hdFav' };
       case 'capture': return { route: 'capture' };
-      case 'collections': return { route: 'collections' };
-      // catName() carries a bookmark to a collection that was merged
-      // away on to its successor. Without it the page renders
-      // perfectly and is empty, which reads as lost data.
+      // Collections were a cut of the library by category; a
+      // bookmark to one opens the library on the tab that holds it.
+      case 'collections': return toTab('all');
       case 'collection':
-        return { route: 'collection', collection: H().catName(decodeURIComponent(p[1] || '')) };
+        return toTab(H().groupKeyOfCat(decodeURIComponent(p[1] || '')));
       case 'about': return { route: 'about' };
-      default: return { route: 'archive', group: 'all' };
+      default: return { route: 'main', group: 'all' };
     }
   }
 
   function applyHash() {
     var r = parseHash();
     state.route = r.route;
-    state.group = r.group || 'all';
-    state.collection = r.collection || '';
+    // Leaving Main and coming back keeps the library on the tab it
+    // was on; only a hash that NAMES a tab changes it.
+    if (r.jump === 'hdLib') state.group = r.group || 'all';
+    state.collection = '';
     state.gameId = r.gameId || '';
     state.articleId = r.articleId || '';
+    state.jump = r.jump || '';
   }
 
   // ── §PAINT ─────────────────────────────────────────────────
@@ -160,19 +152,15 @@
   // place you had scrolled to.
   function html() {
     switch (state.route) {
-      case 'archive': return H().viewArchive(state);
-      case 'collection': return H().viewArchive(state);
-      case 'favourites': return H().viewFavourites(state);
+      case 'main': return H().viewMain(state);
       case 'capture': return C().viewCapture();
-      case 'collections': return H().viewCollections();
       case 'about': return H().viewAbout();
       case 'game': return G().view(state.gameId);
       case 'article': return A().view(state.articleId);
-      // The same view as 'archive' above, on purpose rather than
-      // by accident: parseHash answers an unknown hash with the
-      // archive, so #/journal and every other retired bookmark
-      // arrives here.
-      default: return H().viewArchive(state);
+      // The same view as 'main' above, on purpose rather than by
+      // accident: parseHash answers an unknown hash with Main, so
+      // #/journal and every other retired bookmark arrives here.
+      default: return H().viewMain(state);
     }
   }
 
@@ -198,6 +186,18 @@
     repaint();
     // Scroll-to-top belongs to NAVIGATION and to nothing else.
     global.scrollTo({ top: 0, behavior: 'auto' });
+    // An old bookmark to Favourites or to a library tab lands ON
+    // that section of Main, opened, rather than a hero's height
+    // above it. Spent once.
+    if (state.jump) {
+      var to = $(state.jump);
+      state.jump = '';
+      if (to) {
+        if (to.tagName === 'DETAILS') to.open = true;
+        var y = to.getBoundingClientRect().top + global.scrollY - 96;
+        global.scrollTo({ top: Math.max(0, y), behavior: 'auto' });
+      }
+    }
     if (HDApp.__readScroll) HDApp.__readScroll();
     // Moving focus to the region is how a hash route stays usable
     // from a keyboard — except on a page that has already put the
@@ -221,10 +221,25 @@
   // already does on a keystroke: ACTS.sort and clear-q both call
   // the full repaint(), which additionally rebuilds the hero,
   // re-runs afterPaint() and re-measures the parallax.
+  //
+  // 2026-10-23: on Main a star or a Live switch moves a card
+  // between SECTIONS, so this re-cuts all three — Favorites, Live
+  // Streams and the library — plus the counts and the tab strip.
+  // The hero, the callout, the open/closed state of each section
+  // and the focused sort <select> are all left alone.
   function paintLists() {
     var host = $('hdLists');
-    if (!host) return repaint();
-    host.innerHTML = H().lists(state);
+    if (state.route !== 'main' || !host) return repaint();
+    var p = H().mainParts(state);
+    var put = function (id, html) { var n = $(id); if (n) n.innerHTML = html; };
+    var words = function (n) { return n + (n === 1 ? ' entry' : ' entries'); };
+    put('hdFavBody', p.fav.html);
+    put('hdFavN', words(p.fav.n));
+    put('hdLiveBody', p.live.html);
+    put('hdLiveN', words(p.live.n));
+    put('hdLibTabs', p.tabs);
+    put('hdLibN', words(p.lib.n));
+    host.innerHTML = p.lib.html;
   }
 
   // THE ANCHOR IS A NODE THAT IS NOT MOVING.
@@ -239,7 +254,7 @@
   // that is NOT the clicked one. Its offset before, its offset
   // after, and the difference scrolled by.
   function topAnchor(skipId) {
-    var n = document.querySelectorAll('#hdLists .hd-card [data-act="star"]');
+    var n = document.querySelectorAll('#vtRoot .hd-card [data-act="star"]');
     for (var i = 0; i < n.length; i++) {
       if (n[i].dataset.id === skipId) continue;
       var c = n[i].closest('.hd-card');
@@ -254,7 +269,7 @@
     var a = topAnchor(skipId);
     paint();
     if (!a) return;
-    var n = document.querySelector('#hdLists .hd-card [data-act="star"][data-shelf="' +
+    var n = document.querySelector('#vtRoot .hd-card [data-act="star"][data-shelf="' +
       cssq(a.shelf) + '"][data-id="' + cssq(a.id) + '"]');
     var c = n && n.closest('.hd-card');
     if (!c) return;
@@ -280,12 +295,7 @@
     // the nav is painted as two halves either side of it. The
     // brand itself is static markup and is never re-created.
     var link = function (n) {
-      var on = n.match.indexOf(state.route) >= 0 ||
-        (n.href === '#/archive/gaming' && state.route === 'archive' && state.group === 'gaming');
-      // Archive is the parent of every tab but Gaming, which has
-      // its own name in the bar. Without this the two light up
-      // together and neither means anything.
-      if (n.href === '#/archive' && state.route === 'archive' && state.group === 'gaming') on = false;
+      var on = n.match.indexOf(state.route) >= 0;
       return '<a href="' + n.href + '"' + (on ? ' class="is-on" aria-current="page"' : '') + '>' +
         esc(n.label) + '</a>';
     };
@@ -390,6 +400,9 @@
           '" data-id="' + attr(id) + '">' + (d.fav ? '★ Starred' : '☆ Star it') + '</button>' +
         '<button type="button" class="asc-btn" data-act="queue" data-shelf="' + attr(shelf) +
           '" data-id="' + attr(id) + '">' + (d.queued ? '✓ In Tonight' : '＋ Tonight') + '</button>' +
+        '<button type="button" class="asc-btn" data-act="live" data-shelf="' + attr(shelf) +
+          '" data-id="' + attr(id) + '" aria-pressed="' + d.live + '">' +
+          (d.live ? '● Live stream' : '○ Live stream') + '</button>' +
         '<button type="button" class="asc-btn" data-act="feature" data-shelf="' + attr(shelf) +
           '" data-id="' + attr(id) + '">' + (isFeat ? '◆ Featured' : '◇ Feature this') + '</button>' +
         '<button type="button" class="asc-btn" data-act="edit" data-shelf="' + attr(shelf) +
@@ -500,14 +513,9 @@
       // This is the reader's own press, and the sort <select>
       // lives outside #hdLists anyway. ACTS.del and clearqueue
       // both repaint unconditionally for the same reason.
-      if (state.route === 'archive' || state.route === 'collection') {
-        return keepPlace(k.id, paintLists);
-      }
-      // On Favourites, unstarring takes the item OFF the page
-      // entirely — and the hero's count and the utility line's
-      // count both go stale with it, so this one is the whole
-      // view. repaint() does not scroll, so keepPlace still holds.
-      if (state.route === 'favourites') return keepPlace(k.id, repaint);
+      // On Main a star MOVES the card into Favorites or back out of
+      // it, so all three sections are re-cut in place.
+      if (state.route === 'main') return keepPlace(k.id, paintLists);
       // The Starred reading in .hd-reads is the only thing on the
       // About page that a star changes.
       if (state.route === 'about') repaint();
@@ -531,6 +539,34 @@
       });
       paintChrome();
       if (state.route === 'about') repaint();
+    },
+
+    // LIVE STREAM, on or off. The same shape as star: patch every
+    // control for this record in place, then move the card. An
+    // explicit false is stored rather than the key deleted, so the
+    // one-time pre-tick (Vault.markLiveV1) never switches it back.
+    live: function (el) {
+      var k = ref(el);
+      if (!k) return;
+      var r = H().recordOf(k.shelf, k.id);
+      if (!r) return U().toast('That item is no longer on the shelf');
+      var on = r.live !== true;
+      global.Vault.update(k.shelf, k.id, { live: on });
+      document.querySelectorAll('[data-act="live"][data-shelf="' + cssq(k.shelf) +
+        '"][data-id="' + cssq(k.id) + '"]').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(on));
+        b.textContent = on ? '● Live stream' : '○ Live stream';
+      });
+      U().toast(on ? 'Marked as a live stream' : 'No longer a live stream');
+      if (state.route === 'main') keepPlace(k.id, paintLists);
+    },
+
+    // The library's tab strip. A button rather than a hash link, so
+    // a tab change re-cuts the library where it stands instead of
+    // scrolling the reader back to the hero.
+    libtab: function (el) {
+      state.group = el.dataset.group || 'all';
+      paintLists();
     },
 
     feature: function (el) {
@@ -573,16 +609,12 @@
       if (k.shelf === 'games') A().removeForGame(r.id);
       U().closeSheet();
       U().toast('Deleted');
-      if (state.route === 'game' && state.gameId === k.id) location.hash = '#/archive/games';
+      if (state.route === 'game' && state.gameId === k.id) location.hash = '#/';
       else repaint();
     },
 
     'clear-q': function () { state.q = ''; repaint(); },
     sort: function (el) { state.sort = el.value; repaint(); },
-    favgroup: function (el) {
-      state.favGroup = el.dataset.group || 'all';
-      repaint();
-    },
 
     surprise: function () {
       var all = H().allCards();
@@ -771,6 +803,17 @@
       if (hit) ACTS.sort(hit);
     });
 
+    // The two collapsible sections on Main remember whether they
+    // were open, per device. `toggle` does not bubble, so it is
+    // caught in the capture phase — and it also fires when a
+    // repaint builds a section already closed, which is harmless:
+    // it writes back the value that was just read.
+    $('vtRoot').addEventListener('toggle', function (e) {
+      var d = e.target;
+      if (!d || !d.dataset || !d.dataset.db) return;
+      try { localStorage.setItem('vaultlocal:open:' + d.dataset.db, d.open ? '1' : '0'); } catch (err) {}
+    }, true);
+
     $('hdFindIn').addEventListener('input', function (e) {
       var v = e.target.value;
       clearTimeout(findTimer);
@@ -781,7 +824,7 @@
       e.preventDefault();
       state.q = e.target.value;
       closeFind();
-      if (state.route !== 'archive' && state.route !== 'collection') location.hash = '#/archive';
+      if (state.route !== 'main') location.hash = '#/';
       else repaint();
     });
 
@@ -802,7 +845,7 @@
     addEventListener('hashchange', function () {
       var key = function () {
         return state.route + '|' + state.group + '|' + state.collection + '|' +
-          state.gameId + '|' + state.articleId;
+          state.gameId + '|' + state.articleId + '|' + state.jump;
       };
       var was = key();
       applyHash();
@@ -913,7 +956,7 @@
   var cmp = {
     el: null, scrim: null, form: null, msg: null, url: null, title: null, shelf: null,
     kind: null, cat: null, catList: null, creator: null, len: null, cover: null, desc: null,
-    stars: null, fav: null, queue: null, del: null, prev: null, prevImg: null,
+    stars: null, fav: null, queue: null, live: null, del: null, prev: null, prevImg: null,
     prevTitle: null, prevSub: null, heading: null,
     editing: null, rating: 0, touched: null, lastFocus: null, open: false, dupeWarned: false
   };
@@ -923,7 +966,7 @@
     cmp.url = $('cmpUrl'); cmp.title = $('cmpTitleIn'); cmp.shelf = $('cmpShelf');
     cmp.kind = $('cmpKind'); cmp.cat = $('cmpCat'); cmp.catList = $('cmpCatList'); cmp.creator = $('cmpCreator');
     cmp.len = $('cmpLen'); cmp.cover = $('cmpCover'); cmp.desc = $('cmpDesc');
-    cmp.stars = $('cmpStars'); cmp.fav = $('cmpFav'); cmp.queue = $('cmpQueue'); cmp.del = $('cmpDel');
+    cmp.stars = $('cmpStars'); cmp.fav = $('cmpFav'); cmp.queue = $('cmpQueue'); cmp.live = $('cmpLive'); cmp.del = $('cmpDel');
     cmp.prev = $('cmpPrev'); cmp.prevImg = $('cmpPrevImg'); cmp.prevTitle = $('cmpPrevTitle');
     cmp.prevSub = $('cmpPrevSub'); cmp.heading = $('cmpTitle');
     cmp.touched = new Set();
@@ -961,6 +1004,9 @@
       if (seq !== autofillSeq) return;
       fillIfUntouched('title', meta.title);
       fillIfUntouched('creator', meta.creator);
+      if (!cmp.liveTouched && global.Vault.isLiveSignal(u, cmp.title.value || meta.title)) {
+        cmp.live.classList.add('is-on'); paintToggles();
+      }
       if (meta.cover && !cmp.touched.has('cover')) cmp.cover.value = meta.cover;
       paintPreview();
     });
@@ -992,6 +1038,9 @@
   function paintToggles() {
     cmp.fav.textContent = cmp.fav.classList.contains('is-on') ? '★ Favourite' : '☆ Favourite';
     cmp.queue.textContent = cmp.queue.classList.contains('is-on') ? '✓ Tonight' : '＋ Tonight';
+    var lv = cmp.live.classList.contains('is-on');
+    cmp.live.textContent = lv ? '● Live stream' : '○ Live stream';
+    cmp.live.setAttribute('aria-pressed', String(lv));
   }
 
   // THE CATEGORY IS THE CHOICE. #cmpShelf keeps its id — AthDraft
@@ -1074,6 +1123,10 @@
     cmp.rating = item ? (Number(item.rating) || 0) : 0;
     cmp.fav.classList.toggle('is-on', !!(item && item.favorite));
     cmp.queue.classList.toggle('is-on', !!(item && item.queued));
+    // A NEW entry guesses from its link once the URL is in — see
+    // autofill(). An existing one shows exactly what is stored.
+    cmp.live.classList.toggle('is-on', !!(item && item.live));
+    cmp.liveTouched = !!item;
     paintStars(); paintToggles(); paintPreview();
     cmp.del.hidden = !item;
 
@@ -1142,7 +1195,8 @@
       description: cmp.desc.value.trim(),
       rating: cmp.rating,
       favorite: cmp.fav.classList.contains('is-on'),
-      queued: cmp.queue.classList.contains('is-on')
+      queued: cmp.queue.classList.contains('is-on'),
+      live: cmp.live.classList.contains('is-on')
     };
   }
 
@@ -1206,6 +1260,7 @@
       ['url', 'title', 'creator', 'len', 'cover', 'desc'].forEach(function (k) { cmp[k].value = ''; });
       cmp.rating = 0;
       cmp.fav.classList.remove('is-on'); cmp.queue.classList.remove('is-on');
+      cmp.live.classList.remove('is-on'); cmp.liveTouched = false;
       paintStars(); paintToggles(); paintPreview();
       cmp.heading.textContent = 'Add to the archive';
       cmp.del.hidden = true;
@@ -1228,7 +1283,7 @@
     if (wasGame) A().removeForGame(wasId);   // see ACTS.del — two keys, kept outside the record
     closeComposer(true);
     U().toast('Deleted');
-    if (state.route === 'game' && wasGame && state.gameId === wasId) location.hash = '#/archive/games';
+    if (state.route === 'game' && wasGame && state.gameId === wasId) location.hash = '#/';
     else repaint();
   }
 
@@ -1262,6 +1317,9 @@
     $('cmpStarsClear').onclick = function () { cmp.rating = 0; paintStars(); };
     cmp.fav.onclick = function () { cmp.fav.classList.toggle('is-on'); paintToggles(); };
     cmp.queue.onclick = function () { cmp.queue.classList.toggle('is-on'); paintToggles(); };
+    cmp.live.onclick = function () {
+      cmp.live.classList.toggle('is-on'); cmp.liveTouched = true; paintToggles();
+    };
     $('cmpSave').onclick = function () { saveComposer(false); };
     $('cmpAgain').onclick = function () { saveComposer(true); };
     cmp.del.onclick = deleteComposer;
@@ -1367,10 +1425,20 @@
         U().toast('Re-filed ' + r.moved + (r.moved === 1 ? ' entry' : ' entries') +
           ' into the new categories');
       }
+      // The one-time Live Streams pre-tick: adds `live: true` to
+      // records that have never had the field and whose link or
+      // title says they stream. Local-flagged like the merge above.
+      var lv = global.Vault.markLiveV1 && global.Vault.markLiveV1();
+      if (lv && lv.marked) repaint();
       // Additive: seeds only shelves that are EMPTY, merging by
       // canonical URL. It never deletes, so anything removed here
       // stays removed.
-      global.Vault.maybeSeedAfterSyncAttempt(remoteRef, function () { repaint(); });
+      global.Vault.maybeSeedAfterSyncAttempt(remoteRef, function () {
+        // A fresh device's records arrive HERE, after the pre-tick
+        // above found an empty library and left itself unflagged.
+        if (global.Vault.markLiveV1) global.Vault.markLiveV1();
+        repaint();
+      });
     };
     if (remoteRef.applied) afterPull(); else setTimeout(afterPull, 1200);
   }

@@ -261,9 +261,13 @@
           // archive rather than on nothing. #favorites is the one
           // exception as of this build: it is a real page again and
           // lands on its own view, in either spelling.
-          { hash: '/archive', label: 'The Archive' },
-          { hash: '/capture', label: 'Capture' },
-          { hash: '/favourites', label: 'Favourites' },
+          //
+          // 2026-10-23: THREE PAGES — Main, Capture, About. Favourites,
+          // Live Streams and each library tab are SECTIONS of Main
+          // now; these hashes land on Main and scroll to the section.
+          { hash: '/', label: 'Main' },
+          { hash: '/favourites', label: 'Favorites' },
+          { hash: '/live', label: 'Live Streams' },
           { hash: '/archive/stories', label: 'Stories' },
           { hash: '/archive/podcasts', label: 'Podcasts' },
           { hash: '/archive/asmr', label: 'ASMR & Immersive' },
@@ -271,8 +275,8 @@
           { hash: '/archive/gaming', label: 'Gaming' },
           { hash: '/archive/scary', label: 'Scary Videos' },
           { hash: '/archive/vlogs', label: 'Vlog-Like' },
-          { hash: '/archive/episodes', label: 'Favorite Videos & Episodes' },
-          { hash: '/collections', label: 'Collections' },
+          { hash: '/capture', label: 'Capture' },
+          { hash: '/about', label: 'About' },
           // The Journal was removed on 2026-09-03. `#/journal` falls
           // through to the house, so an old bookmark still lands.
         ] },

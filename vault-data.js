@@ -9275,6 +9275,61 @@
   // the pre-merge names and it costs nothing in the cloud.
   function categoriesBackup() { return storeGet(CAT_MIG_BAK); }
 
+  // ═══ §LIVE STREAMS ══════════════════════════════════════════
+  // `live` is a FLAG, not a category, as of 2026-10-23: a lofi
+  // radio is still Chill and a horror radio is still Stories, and
+  // the Live Streams section on the main page groups by exactly
+  // those categories. So it is one boolean on the record, set by
+  // hand in the composer and the detail sheet.
+  //
+  // This is the GUESS, used twice: by Capture on a new link, and
+  // once over the existing library below. It is deliberately
+  // narrow. "Alesso Live at EDC" is a recorded set, not a stream,
+  // so the bare word "live" is not a signal; a /live/ path, the
+  // red dot YouTube puts on streams, and "24/7" are.
+  function isLiveSignal(url, title) {
+    var u = String(url || ''), t = String(title || '');
+    if (/youtube\.com\/live\//i.test(u)) return true;
+    if (/🔴/.test(t)) return true;          // 🔴
+    if (/\b24\s*\/\s*7\b/.test(t)) return true;
+    if (/\blive\s?stream\b/i.test(t)) return true;
+    return false;
+  }
+
+  // The one-time pre-tick. Same discipline as the category merge:
+  // the done-flag is OUTSIDE the 'vault:' prefix so every device
+  // runs it once (a synced flag would strand the phone's
+  // not-yet-pushed records), and it only ever ADDS `live: true` to
+  // a record that has NEVER had the field. An explicit false —
+  // Damian switching a wrong guess off — is never overridden, on
+  // this device or any other.
+  var LIVE_FLAG = 'vaultlive:v1';
+
+  function markLiveV1() {
+    if (storeGet(LIVE_FLAG)) return null;
+    var before = 0, marked = 0;
+    SHELVES.forEach(function (shelf) {
+      var arr = list(shelf);
+      before += arr.length;
+      var hit = false;
+      var next = arr.map(function (x) {
+        if (x.live !== undefined || !isLiveSignal(x.url, x.title)) return x;
+        hit = true; marked++;
+        return Object.assign({}, x, { live: true });
+      });
+      if (hit && next.length === arr.length) replaceAll(shelf, next);
+    });
+    var now = 0;
+    SHELVES.forEach(function (shelf) { now += list(shelf).length; });
+    if (now !== before) return { error: 'count changed', before: before, after: now };
+    // An EMPTY library has nothing to look at yet — a fresh device
+    // before its first pull or seed. Flagging it done would mean the
+    // records that arrive a second later are never looked at.
+    if (!before) return null;
+    storeSet(LIVE_FLAG, { at: Date.now(), marked: marked });
+    return { marked: marked };
+  }
+
   function seedShelf(shelf) {
     var incoming = SEED[shelf] || [];
     if (!incoming.length) return 0;
@@ -9331,6 +9386,8 @@
     canonUrl: canonUrl,
     migrateCategoriesV1: migrateCategoriesV1,
     categoriesBackup: categoriesBackup,
+    isLiveSignal: isLiveSignal,
+    markLiveV1: markLiveV1,
     seedNow: seedNow,
     maybeSeedAfterSyncAttempt: maybeSeedAfterSyncAttempt,
   };

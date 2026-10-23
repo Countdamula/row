@@ -218,10 +218,14 @@
     var kind = H().classifyKind({
       url: url, kind: 'auto', shelf: shelf, tab: H().groupKeyOfCat(s.category)
     });
+    var title = meta.title || titleFromSlug(url) || url;
     return {
       url: url, shelf: shelf, category: s.category, why: s.why, sure: s.sure,
-      title: meta.title || titleFromSlug(url) || url,
-      creator: meta.creator || '', cover: meta.cover || '', kind: kind
+      title: title,
+      creator: meta.creator || '', cover: meta.cover || '', kind: kind,
+      // A guess, like the category — and like the category it can
+      // be corrected on the row it lands in. See V().isLiveSignal.
+      live: V().isLiveSignal(url, title)
     };
   }
 
@@ -267,8 +271,13 @@
         '<b>' + esc(r.title) + '</b>' +
         '<i>' + esc([r.creator, r.why].filter(Boolean).join(' · ')) + '</i>' +
       '</span>' +
-      '<select class="asc-select vt-cap__sel" data-act="recat" data-cap="' + i + '" ' +
-        'aria-label="Category for ' + attr(r.title) + '">' + catOptions(r.category) + '</select>' +
+      '<span class="vt-cap__ctl">' +
+        '<select class="asc-select vt-cap__sel" data-act="recat" data-cap="' + i + '" ' +
+          'aria-label="Category for ' + attr(r.title) + '">' + catOptions(r.category) + '</select>' +
+        '<button type="button" class="asc-btn asc-btn--sm vt-cap__live' + (r.live ? ' is-on' : '') + '"' +
+          ' data-act="cap-live" data-cap="' + i + '" aria-pressed="' + (r.live ? 'true' : 'false') + '">' +
+          (r.live ? '● Live' : '○ Live') + '</button>' +
+      '</span>' +
     '</li>';
   }
 
@@ -373,11 +382,11 @@
       var p = plan(url, meta);
       var rec = V().add(p.shelf, {
         url: p.url, title: p.title, creator: p.creator, cover: p.cover,
-        category: p.category, kind: p.kind
+        category: p.category, kind: p.kind, live: p.live
       });
       justCaptured.unshift({
         id: rec.id, shelf: p.shelf, title: p.title, creator: p.creator,
-        cover: p.cover, category: p.category, why: p.why
+        cover: p.cover, category: p.category, why: p.why, live: p.live
       });
       if (justCaptured.length > 8) justCaptured.length = 8;
       busy = false;
@@ -525,6 +534,7 @@
         bulkRows[i].cover = p.cover;
         bulkRows[i].category = p.category;
         bulkRows[i].kind = p.kind;
+        bulkRows[i].live = p.live;
         bulkRows[i].sure = p.sure;
       });
     }).then(function () {
@@ -564,7 +574,7 @@
           id: 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
           title: r.title || r.url, url: r.url, cover: r.cover || '', creator: r.creator || '',
           description: '', category: r.category, lengthText: '', notes: '',
-          rating: 0, favorite: false, queued: false, kind: r.kind || 'auto',
+          rating: 0, favorite: false, queued: false, kind: r.kind || 'auto', live: r.live === true,
           openCount: 0, lastOpenedAt: null, source: '', importedFrom: '', legacyId: '',
           createdAt: Date.now(), updatedAt: Date.now(), order: all.length
         });
@@ -592,6 +602,17 @@
     'bulk-read': function () { readBulk(); },
     'bulk-save': function () { saveBulk(); },
     recat: function (el) { recat(el); },
+    // The live guess, corrected on the row it landed in. Same rule
+    // as recat(): update in place, never HDApp.repaint() — this page
+    // IS #vtRoot's contents.
+    'cap-live': function (el) {
+      var row = justCaptured[Number(el.dataset.cap)];
+      if (!row) return;
+      row.live = !row.live;
+      V().update(row.shelf, row.id, { live: row.live });
+      U().toast(row.live ? 'Marked as a live stream' : 'No longer a live stream');
+      repaintCaptured();
+    },
     'bulk-cat': function (el) {
       var r = bulkRows[Number(el.dataset.row)];
       if (r) r.category = el.value;
