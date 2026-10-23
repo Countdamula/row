@@ -794,11 +794,13 @@
   //     Media Library               the old Archive: tabs, search,
   //                                 sort, Surprise me
   //
-  // EVERY RECORD IS IN EXACTLY ONE OF THE THREE. Damian chose
-  // "only in its own section", so sectionOf() is the whole rule and
-  // the three pools are cut from it — nothing is filtered twice and
-  // nothing can fall between them. LIVE wins over Favorites: a
-  // starred stream is a stream first (see sectionOf for why).
+  // WHICH SECTIONS A RECORD SHOWS IN — inSection() is the whole rule.
+  // Until later on 2026-10-23 every record was in exactly one; then
+  // Damian asked for his favourites in the Media Library as well, so
+  // a starred record that is not live and not Favorite Videos &
+  // Episodes now shows TWICE: in Favorites and in the library. A live
+  // record is still only in Live Streams (see sectionOf for why Live
+  // wins), and nothing can fall between the three.
   //
   // "Favorite Videos & Episodes" is not a library tab any more; it
   // is a heading inside Favorites, ALL of it, starred or not —
@@ -822,6 +824,18 @@
     if (d.live) return 'live';
     if (d.fav || d.cat === FAV_CAT) return 'fav';
     return 'lib';
+  }
+
+  // The membership test the three pools actually use. sectionOf()
+  // still answers "where does this record mainly belong"; this
+  // answers "is it in this section", and for a starred record the
+  // library says yes as well as Favorites.
+  function inSection(d, section) {
+    if (section === 'live') return d.live;
+    if (d.live) return false;
+    if (section === 'fav') return d.fav || d.cat === FAV_CAT;
+    if (section === 'lib') return d.cat !== FAV_CAT;
+    return false;
   }
 
   // The library's tabs: every group but the one that moved into
@@ -899,11 +913,13 @@
     return state.q
       ? '<p class="hd-empty"><strong>No favourite matches “' + esc(state.q) + '”.</strong></p>'
       : '<p class="hd-empty"><strong>Nothing here yet.</strong>' +
-        'The ☆ on any card moves it up here.</p>';
+        'The ☆ on any card adds it here.</p>';
   }
   function liveBody(state) {
     var items = livePool(state);
-    if (items.length) return byCategory(items);
+    // ONE GRID, no category headings — Damian's call. Favorites
+    // keeps its headings; Live Streams is short enough to scan whole.
+    if (items.length) return cardGroup(items);
     return state.q
       ? '<p class="hd-empty"><strong>No live stream matches “' + esc(state.q) + '”.</strong></p>'
       : '<p class="hd-empty"><strong>No live streams yet.</strong>' +
@@ -1018,7 +1034,7 @@
     var fav = favPool(state), live = livePool(state), lib = libPool(state);
     return {
       fav: { n: fav.length, html: fav.length ? byCategory(fav) : favBody(state) },
-      live: { n: live.length, html: live.length ? byCategory(live) : liveBody(state) },
+      live: { n: live.length, html: live.length ? cardGroup(live) : liveBody(state) },
       lib: { n: lib.length, html: lib.length ? libLists(state) : emptyArchive(state) },
       tabs: libTabs(state)
     };
@@ -1075,7 +1091,7 @@
         '<div class="hd-grid">' + addGameTile() + '</div>';
     }
     return '<p class="hd-empty"><strong>Nothing on this tab.</strong>' +
-      'Anything starred or live sits in its own section above. Paste a link, or fill ' +
+      'Live streams sit in their own section above. Paste a link, or fill ' +
       'the form in by hand — a title is enough to start with.</p>';
   }
 
@@ -1270,7 +1286,7 @@
     // Which of the main page's three sections. See sectionOf().
     // (This replaced favOnly, which the Favourites page used and
     // which died with it on 2026-10-23.)
-    if (state.section) out = out.filter(function (d) { return sectionOf(d) === state.section; });
+    if (state.section) out = out.filter(function (d) { return inSection(d, state.section); });
     var q = String(state.q || '').trim().toLowerCase();
     if (q) {
       out = out.filter(function (d) {
@@ -1308,7 +1324,7 @@
     prettyDate: prettyDate, pageHero: pageHero,
     store: store, HOUSE: HOUSE, HOUSE_DEFAULT: HOUSE_DEFAULT, featuredCard: featuredCard,
     credoBand: credoBand, viewAbout: viewAbout,
-    FAV_CAT: FAV_CAT, sectionOf: sectionOf, LIB: LIB, urlParts: urlParts,
+    FAV_CAT: FAV_CAT, sectionOf: sectionOf, inSection: inSection, LIB: LIB, urlParts: urlParts,
     viewMain: viewMain, mainParts: mainParts, libTabs: libTabs, dashCallout: dashCallout
   };
 })(window);
