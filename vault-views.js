@@ -849,7 +849,10 @@
   // one group of several categories, and it is split into them —
   // "Music · Chill" — because "separated by categories" is what was
   // asked, and five kinds of music under one head is a wall.
-  function byCategory(items) {
+  //
+  // Used by Favorites only (Live Streams is one flat grid), and every
+  // group FOLDS — see foldGroup().
+  function byCategory(items, state) {
     var out = '';
     LIVE().forEach(function (g) {
       var mine = items.filter(function (d) { return d.tab === g.key; });
@@ -857,13 +860,43 @@
       if (g.reads.length > 1) {
         g.reads.forEach(function (c) {
           var one = mine.filter(function (d) { return d.cat === c; });
-          if (one.length) out += cardGroup(one, { label: g.label + ' · ' + c });
+          if (one.length) out += foldGroup(one, g.label + ' · ' + c, state);
         });
       } else {
-        out += cardGroup(mine, { label: g.label });
+        out += foldGroup(mine, g.label, state);
       }
     });
     return out;
+  }
+
+  // ── §A GROUP THAT FOLDS ────────────────────────────────────
+  // Favorites holds ~190 cards under a dozen heads, and Damian asked
+  // to get to one group fast. So each group is a <details>, FOLDED by
+  // default: Favorites opens as a short index of heads with counts.
+  // Open/closed is remembered per device under `vaultlocal:open:fav:`
+  // — outside the synced prefix — and only an explicit '1' is open.
+  //
+  // A running search opens every group, or a match could sit inside a
+  // folded one and look like nothing matched. Those are marked
+  // data-forced so vault-app.js does not remember them as opened.
+  function foldGroup(items, label, state) {
+    var key = 'fav:' + label;
+    var forced = !!(state && String(state.q || '').trim());
+    var open = forced;
+    if (!forced) {
+      try { open = localStorage.getItem('vaultlocal:open:' + key) === '1'; } catch (e) {}
+    }
+    return '<details class="hd-group hd-fold" data-fold="' + attr(key) + '"' +
+        (forced ? ' data-forced="1"' : '') + (open ? ' open' : '') + '>' +
+      '<summary class="hd-ghead hd-fold__head">' +
+        '<h3 class="hd-eyebrow">' + esc(label) + '</h3>' +
+        '<span class="hd-util__n">' + entries(items.length) + '</span>' +
+        '<span class="hd-fold__chev" aria-hidden="true"></span>' +
+      '</summary>' +
+      '<div class="hd-grid">' +
+        items.map(function (d, i) { return card(d, i); }).join('') +
+      '</div>' +
+    '</details>';
   }
 
   // ── §COLLAPSIBLE ───────────────────────────────────────────
@@ -909,7 +942,7 @@
 
   function favBody(state) {
     var items = favPool(state);
-    if (items.length) return byCategory(items);
+    if (items.length) return byCategory(items, state);
     return state.q
       ? '<p class="hd-empty"><strong>No favourite matches “' + esc(state.q) + '”.</strong></p>'
       : '<p class="hd-empty"><strong>Nothing here yet.</strong>' +
@@ -1033,7 +1066,7 @@
   function mainParts(state) {
     var fav = favPool(state), live = livePool(state), lib = libPool(state);
     return {
-      fav: { n: fav.length, html: fav.length ? byCategory(fav) : favBody(state) },
+      fav: { n: fav.length, html: fav.length ? byCategory(fav, state) : favBody(state) },
       live: { n: live.length, html: live.length ? cardGroup(live) : liveBody(state) },
       lib: { n: lib.length, html: lib.length ? libLists(state) : emptyArchive(state) },
       tabs: libTabs(state)

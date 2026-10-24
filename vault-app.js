@@ -828,8 +828,12 @@
     // it writes back the value that was just read.
     $('vtRoot').addEventListener('toggle', function (e) {
       var d = e.target;
-      if (!d || !d.dataset || !d.dataset.db) return;
-      try { localStorage.setItem('vaultlocal:open:' + d.dataset.db, d.open ? '1' : '0'); } catch (err) {}
+      if (!d || !d.dataset) return;
+      // A Favorites category group (vault-views.js foldGroup). One a
+      // running search forced open is not remembered as opened.
+      var k = d.dataset.db || (d.dataset.fold && !d.dataset.forced ? d.dataset.fold : '');
+      if (!k) return;
+      try { localStorage.setItem('vaultlocal:open:' + k, d.open ? '1' : '0'); } catch (err) {}
     }, true);
 
     $('hdFindIn').addEventListener('input', function (e) {
